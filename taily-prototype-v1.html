@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taily — Clickable Prototype v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+
+  :root {
+    /* Brand */
+    --ink:        #1C1B18;
+    --accent:     #A17C4E; /* camel / brass */
+    --accent-ink: #7C5D34;
+    --secondary:  #5E6B60; /* muted sage */
+
+    /* Neutrals — warm ramp */
+    --n-50:  #F7F4EF;
+    --n-100: #EFEAE2;
+    --n-200: #E2DBD0;
+    --n-300: #C9C1B4;
+    --n-400: #ABA294;
+    --n-500: #857C6F;
+    --n-600: #5F584E;
+    --n-700: #443F38;
+    --n-800: #2C2925;
+    --n-900: #1C1B18;
+    --white: #FFFFFF;
+
+    /* Semantic — muted */
+    --success: #4F7A5B;
+    --warning: #B7852F;
+    --error:   #B0553F;
+    --info:    #4A6B82;
+    --success-bg: #E9F0EA;
+    --warning-bg: #F6EEDD;
+    --error-bg:   #F4E4DF;
+    --info-bg:    #E4EAEF;
+
+    /* Radius */
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 16px;
+    --r-xl: 24px;
+    --r-full: 999px;
+
+    /* Elevation */
+    --e1: 0 1px 2px rgba(28,27,24,.06), 0 1px 3px rgba(28,27,24,.05);
+    --e2: 0 2px 6px rgba(28,27,24,.06), 0 6px 16px rgba(28,27,24,.07);
+    --e3: 0 10px 28px rgba(28,27,24,.11);
+    --e4: 0 20px 52px rgba(28,27,24,.16);
+
+    /* Type families */
+    --serif: "Cormorant Garamond", Georgia, serif;
+    --sans: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
+  }
+
+  body {
+    background: #2C2925;
+    background-image: radial-gradient(ellipse 90% 70% at 50% 0%, #443F38 0%, #2C2925 70%);
+    font-family: var(--sans);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .stage { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; gap: 18px; }
+  .stage-caption { font-size: 12.5px; color: var(--n-400); letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+
+  /* ============ Device frame ============ */
+  .device {
+    width: 390px; height: 812px; max-height: calc(100vh - 100px); min-height: 640px;
+    background: var(--n-50); border-radius: 48px; overflow: hidden;
+    position: relative; display: flex; flex-direction: column;
+    box-shadow: 0 0 0 11px #14130f, 0 0 0 13px #4a453c, var(--e4), 0 40px 90px rgba(0,0,0,.5);
+  }
+  .statusbar { flex: none; height: 44px; display: flex; justify-content: space-between; align-items: center; padding: 6px 26px 0; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; background: var(--n-50); z-index: 5; }
+  .statusbar .icons { display: flex; gap: 6px; align-items: center; color: var(--ink); }
+  .notch { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 118px; height: 26px; background: #14130f; border-radius: var(--r-full); z-index: 6; }
+
+  .viewport { flex: 1; position: relative; overflow: hidden; }
+
+  /* ============ Screens & transitions ============ */
+  .screen {
+    position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--n-50);
+    opacity: 0; pointer-events: none; transform: translateX(28px); z-index: 1;
+    transition: opacity .3s ease, transform .3s cubic-bezier(.3,.7,.3,1);
+  }
+  .screen.active { opacity: 1; pointer-events: auto; transform: none; z-index: 2; }
+  .screen.from-left { transform: translateX(-28px); }
+
+  .scroll { flex: 1; overflow-y: auto; padding: 16px 20px 28px; scrollbar-width: none; }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  .screen-head { flex: none; padding: 10px 20px 2px; display: flex; align-items: center; gap: 12px; }
+  .back {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--n-300); background: var(--white);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink);
+    flex: none; transition: all .18s;
+  }
+  .back:hover { border-color: var(--ink); background: var(--n-50); }
+  .screen-title { font-family: var(--serif); font-weight: 500; font-size: 27px; line-height: 1.15; }
+  .step-label { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
+
+  /* ============ Type helpers ============ */
+  .eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--n-500); font-weight: 600; }
+  .label-caps { font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--n-500); }
+  .caption { font-size: 13px; font-weight: 500; color: var(--n-500); line-height: 1.4; letter-spacing: .02em; }
+
+  /* ============ Buttons ============ */
+  .btn { font-family: var(--sans); font-weight: 600; font-size: 15px; border-radius: var(--r-full); cursor: pointer; transition: all .18s; border: none; }
+  .btn-primary { color: var(--n-50); background: var(--ink); padding: 14px 22px; box-shadow: var(--e1); }
+  .btn-primary:hover { background: #000; box-shadow: var(--e2); }
+  .btn-primary:disabled { color: var(--n-400); background: var(--n-200); cursor: not-allowed; box-shadow: none; }
+  .btn-secondary { color: var(--ink); background: var(--white); border: 1px solid var(--n-300); padding: 12px 21px; }
+  .btn-secondary:hover { border-color: var(--ink); background: var(--n-50); }
+  .btn-ghost { color: var(--accent-ink); background: transparent; padding: 12px; }
+  .btn-ghost:hover { background: var(--n-100); }
+  .btn-block { display: block; width: 100%; }
+
+  /* ============ Chips ============ */
+  .chip {
+    font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--ink);
+    background: var(--white); border: 1px solid var(--n-300); padding: 8px 13px;
+    border-radius: var(--r-full); cursor: pointer; font-variant-numeric: tabular-nums; transition: all .18s;
+  }
+  .chip:hover { border-color: var(--ink); background: var(--n-50); }
+  .chip.selected { color: var(--n-50); background: var(--ink); border-color: var(--ink); }
+
+  /* ============ Badges ============ */
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: var(--r-full); white-space: nowrap; }
+  .badge-home { color: var(--accent-ink); background: #F3ECE0; }
+  .badge-shop { color: var(--n-700); background: var(--n-100); }
+  .badge-success { color: var(--success); background: var(--success-bg); font-size: 12.5px; }
+  .badge-neutral { color: var(--n-700); background: var(--n-100); font-size: 12.5px; }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .rating { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .rating .star { color: var(--accent); }
+  .rating .count { color: var(--n-500); font-weight: 500; }
+
+  /* ============ Cards ============ */
+  .card { background: var(--white); border-radius: var(--r-lg); box-shadow: var(--e2); }
+  .card-flat { background: var(--white); border: 1px solid var(--n-200); border-radius: var(--r-lg); box-shadow: var(--e1); }
+
+  .gicon {
+    width: 46px; height: 46px; border-radius: var(--r-md); background: var(--n-100);
+    display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+  }
+  .avatar {
+    width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--n-200), var(--n-300));
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); font-size: 20px; color: var(--n-700); font-weight: 600;
+  }
+
+  /* Garment shortcut tiles (Home) */
+  .tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tile {
+    position: relative; background: var(--white); border: 1px solid var(--n-200); border-radius: var(--r-lg);
+    aspect-ratio: 1 / 1; padding: 8px; text-align: center; cursor: pointer; box-shadow: var(--e1); transition: all .18s;
+    font-family: var(--sans); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .tile:hover { border-color: var(--n-400); box-shadow: var(--e2); transform: translateY(-1px); }
+  .tile.selected { border-color: var(--ink); box-shadow: var(--e2); }
+  .tile-badge {
+    position: absolute; top: -7px; right: 17px; min-width: 22px; height: 22px; padding: 0 6px;
+    border-radius: var(--r-full); background: var(--ink); color: var(--n-50);
+    font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+    display: flex; align-items: center; justify-content: center; box-shadow: var(--e2);
+    animation: pop-in .18s ease both;
+  }
+  .tile-minus {
+    position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; padding: 0;
+    border-radius: var(--r-full); background: var(--white); color: var(--ink); border: 1px solid var(--n-300);
+    font-size: 15px; font-weight: 700; line-height: 1; font-family: var(--sans);
+    display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--e1);
+    animation: pop-in .18s ease both; transition: all .18s;
+  }
+  .tile-minus:hover { border-color: var(--ink); background: var(--n-50); }
+
+  /* Sage service pills (tailor cards) */
+  .pill-sage {
+    display: inline-flex; align-items: center; font-size: 11px; font-weight: 600;
+    color: var(--n-50); background: var(--secondary); padding: 4px 9px; border-radius: var(--r-md);
+    white-space: nowrap;
+  }
+
+  /* Dropdown pills — appointment time & visit type (input styling per design system) */
+  .appt-select {
+    font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--ink);
+    background-color: var(--white); border: 1px solid var(--n-300); border-radius: var(--r-md);
+    padding: 11px 32px 11px 15px; appearance: none; -webkit-appearance: none; cursor: pointer;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%231C1B18"><path d="m7 10 5 5 5-5H7z"/></svg>');
+    background-repeat: no-repeat; background-position: right 10px center; background-size: 16px;
+    box-shadow: var(--e1); transition: all .18s; max-width: 100%;
+  }
+  .appt-select:hover { border-color: var(--ink); background-color: var(--n-50); }
+  .appt-select.compact { font-size: 13px; padding: 8px 27px 8px 13px; background-size: 14px; background-position: right 9px center; flex: none; box-shadow: none; }
+  .review-box {
+    background: var(--n-100); border-radius: var(--r-md); padding: 11px 13px; margin-top: 11px;
+    font-size: 13px; line-height: 1.45;
+  }
+
+  /* Inline dropdowns (Job Builder line items) */
+  .inline-select {
+    font-family: var(--sans); font-weight: 600; color: var(--ink); border: none; background-color: transparent;
+    appearance: none; -webkit-appearance: none; cursor: pointer; padding: 0 16px 0 0; max-width: 100%;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%235F584E" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+    background-repeat: no-repeat; background-position: right center; background-size: 11px;
+  }
+  .inline-select:hover { color: var(--accent-ink); }
+
+  /* Filter pills (View Tailors) */
+  .filter-select {
+    font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); flex: none;
+    border: 1px solid var(--n-300); background-color: var(--white); border-radius: var(--r-full);
+    padding: 8px 27px 8px 13px; appearance: none; -webkit-appearance: none; cursor: pointer;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%231C1B18" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+    background-repeat: no-repeat; background-position: right 11px center; background-size: 10px; transition: all .18s;
+  }
+  .filter-select:hover { border-color: var(--ink); }
+  .filter-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 14px; scrollbar-width: none; }
+  .filter-row::-webkit-scrollbar { display: none; }
+
+  /* Feature tags on tailor cards */
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--n-600); background: var(--n-100); padding: 4px 10px; border-radius: var(--r-full); white-space: nowrap; }
+  .tag-promoted { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--n-600); background: var(--n-100); padding: 3px 8px; border-radius: var(--r-sm); }
+
+  .price-row.line { border-bottom: 1px solid var(--n-100); padding: 11px 0; }
+  .success-check {
+    width: 64px; height: 64px; border-radius: 50%; background: var(--success); color: #fff;
+    display: flex; align-items: center; justify-content: center; margin: 30px auto 20px; box-shadow: var(--e2);
+    animation: pop-in .35s ease both;
+  }
+  .tile .t-ico { display: flex; justify-content: center; color: var(--n-700); }
+  .tile .t-name { font-size: 12px; font-weight: 600; margin-top: 8px; color: var(--ink); line-height: 1.25; }
+
+  /* Garment line item (Job Builder) */
+  .line-item { background: var(--white); border-radius: var(--r-lg); box-shadow: var(--e2); padding: 14px 16px; display: flex; align-items: center; gap: 13px; }
+  .line-item .li-name { font-weight: 600; font-size: 15.5px; }
+  .line-item .li-sub { font-size: 13px; color: var(--n-500); margin-top: 2px; }
+  .icon-btn { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--accent-ink); background: transparent; border: none; padding: 8px 10px; border-radius: var(--r-md); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all .18s; }
+  .icon-btn:hover { background: var(--n-100); }
+
+  .add-garment {
+    width: 100%; font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--accent-ink);
+    background: transparent; border: 1.5px dashed var(--n-300); border-radius: var(--r-lg);
+    padding: 15px; cursor: pointer; transition: all .18s;
+  }
+  .add-garment:hover { border-color: var(--accent); background: var(--n-100); }
+
+  /* CTA footer */
+  .cta-bar { flex: none; padding: 12px 20px 14px; background: var(--n-50); border-top: 1px solid var(--n-200); }
+
+  /* ============ Tab bar ============ */
+  .tabbar { flex: none; background: var(--white); border-top: 1px solid var(--n-200); display: flex; justify-content: space-around; padding: 10px 8px 22px; }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--n-400); cursor: pointer; background: none; border: none; font-family: var(--sans); font-size: 11px; font-weight: 500; padding: 0 14px; transition: color .18s; }
+  .tab.active { color: var(--ink); font-weight: 700; }
+
+  /* ============ Toast & modal ============ */
+  .toast {
+    position: absolute; left: 50%; bottom: 104px; transform: translateX(-50%) translateY(10px);
+    background: var(--n-900); color: var(--n-50); padding: 11px 19px; border-radius: var(--r-full);
+    font-size: 13.5px; font-weight: 600; opacity: 0; transition: all .25s; pointer-events: none;
+    box-shadow: var(--e3); z-index: 50; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%); }
+
+  .price-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 14.5px; padding: 7px 0; }
+  .price-row .muted { color: var(--n-500); }
+  .price-row.total { font-weight: 700; font-size: 16.5px; border-top: 1px solid var(--n-200); margin-top: 6px; padding-top: 13px; }
+
+  @keyframes taily-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+  @keyframes pop-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .pop-in { animation: pop-in .3s ease both; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="device">
+    <div class="notch"></div>
+    <div class="statusbar">
+      <span>9:41</span>
+      <span class="icons">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+        <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="0.5" y="0.5" width="20" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="15" height="8" rx="1.6" fill="currentColor"/><path d="M22.5 4v4c1-.3 1.5-1 1.5-2s-.5-1.7-1.5-2z" fill="currentColor" opacity=".4"/></svg>
+      </span>
+    </div>
+
+    <div class="viewport">
+      <!-- ============ 1 · HOME ============ -->
+      <div class="screen active" id="screen-home">
+        <div class="scroll">
+          <h1 style="font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1.1; margin: 14px 0 7px;">Let&rsquo;s Get Tailored</h1>
+          <div style="display: flex; align-items: center; gap: 5px; font-size: 14px; font-weight: 700; margin-bottom: 20px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            New York, NY
+          </div>
+
+          <div class="tile-grid" id="tile-grid"></div>
+          <div id="tile-hint" style="display: none; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <span class="caption">Tap again to add another of the same garment.</span>
+            <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 13px;" onclick="clearTiles()">Clear</button>
+          </div>
+
+          <button class="btn btn-primary btn-block" style="margin-top: 18px;" id="start-booking-btn" onclick="startBooking()">Start Booking</button>
+
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin: 30px 0 12px;">
+            <div class="label-caps">Upcoming Appointments</div>
+            <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 13.5px;" onclick="go('tracking'); setTab('bookings');">View All</button>
+          </div>
+          <div id="home-upcoming" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+      </div>
+
+      <!-- ============ 2 · GARMENT & JOB BUILDER ============ -->
+      <div class="screen" id="screen-builder">
+        <div class="screen-head">
+          <button class="back" onclick="go('home', 'back'); setTab('home');" aria-label="Back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div>
+            <div class="step-label">Step 1 of 3</div>
+            <div class="screen-title">Appointment Details</div>
+          </div>
+        </div>
+        <div class="scroll">
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px;">
+            <select class="appt-select" id="appt-when" onchange="setAppt('when', this.value)"></select>
+            <select class="appt-select" id="appt-where" onchange="setAppt('where', this.value)"></select>
+          </div>
+          <div class="label-caps" style="margin: 0 0 10px;">Your Garments</div>
+          <div id="garment-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+          <button class="add-garment" style="margin-top: 10px;" id="add-garment-btn" onclick="addDefaultGarment()">+ Add Another Garment</button>
+        </div>
+        <div class="cta-bar">
+          <button class="btn btn-primary btn-block" id="builder-continue" onclick="toTailors()">Continue</button>
+        </div>
+      </div>
+
+      <!-- ============ 3 · VIEW TAILORS ============ -->
+      <div class="screen" id="screen-tailors">
+        <div class="screen-head">
+          <button class="back" onclick="go('builder', 'back')" aria-label="Back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div>
+            <div class="step-label">Step 2 of 3</div>
+            <div class="screen-title">Nearby tailors</div>
+          </div>
+        </div>
+        <div class="scroll">
+          <div class="caption" id="tailors-context" style="margin-bottom: 12px;"></div>
+          <div class="filter-row">
+            <select class="appt-select compact" id="f-appt-when" onchange="setAppt('when', this.value)"></select>
+            <select class="appt-select compact" id="f-appt-where" onchange="setAppt('where', this.value)"></select>
+            <select class="filter-select" id="f-rating" onchange="renderTailors()">
+              <option value="0">Rating</option>
+              <option value="4.5">4.5+</option>
+              <option value="4.8">4.8+</option>
+            </select>
+            <select class="filter-select" id="f-dist" onchange="renderTailors()">
+              <option value="99">Distance</option>
+              <option value="1">Under 1 mi</option>
+              <option value="2">Under 2 mi</option>
+            </select>
+            <select class="filter-select" id="f-spec" onchange="renderTailors()">
+              <option value="all">Specialty</option>
+              <option value="Suiting">Suiting</option>
+              <option value="Dresses">Dresses</option>
+              <option value="Shirts">Shirts</option>
+              <option value="Alterations">Alterations</option>
+            </select>
+          </div>
+          <div id="tailor-list" style="display: flex; flex-direction: column; gap: 16px;"></div>
+        </div>
+      </div>
+
+      <!-- ============ 3b · TAILOR DETAILS ============ -->
+      <div class="screen" id="screen-details">
+        <div class="screen-head">
+          <button class="back" onclick="go('tailors', 'back')" aria-label="Back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div>
+            <div class="step-label">Step 2 of 3</div>
+            <div class="screen-title">Tailor Details</div>
+          </div>
+        </div>
+        <div class="scroll" id="details-body" style="padding: 12px 0 28px;"></div>
+      </div>
+
+      <!-- ============ 4 · CONFIRM BOOKING ============ -->
+      <div class="screen" id="screen-confirm">
+        <div class="screen-head">
+          <button class="back" onclick="go(confirmBackTarget(), 'back')" aria-label="Back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div>
+            <div class="step-label">Step 3 of 3</div>
+            <div class="screen-title">Confirm booking</div>
+          </div>
+        </div>
+        <div class="scroll" id="confirm-body"></div>
+        <div class="cta-bar">
+          <button class="btn btn-primary btn-block" id="confirm-cta" onclick="confirmBooking()">Confirm Booking</button>
+          <div style="text-align: center; font-size: 12px; color: var(--n-500); margin-top: 9px;">You won't be charged until your appointment.</div>
+        </div>
+      </div>
+
+      <!-- ============ 4b · BOOKING CONFIRMED ============ -->
+      <div class="screen" id="screen-success">
+        <div class="scroll" id="success-body"></div>
+        <div class="cta-bar" style="display: flex; flex-direction: column; gap: 10px;">
+          <button class="btn btn-primary btn-block" onclick="toast('Calendar sync coming soon')">Add to Calendar</button>
+          <button class="btn btn-secondary btn-block" onclick="renderTracking(); go('tracking'); setTab('bookings');">View Booking</button>
+        </div>
+      </div>
+
+      <!-- ============ 5 · TRACKING ============ -->
+      <div class="screen" id="screen-tracking">
+        <div class="screen-head" style="padding-bottom: 6px;">
+          <div>
+            <div class="eyebrow">Bookings</div>
+            <div class="screen-title">Appointments</div>
+          </div>
+        </div>
+        <div class="scroll">
+          <div class="label-caps" style="margin: 4px 0 12px;">Upcoming</div>
+          <div id="upcoming-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+          <div class="label-caps" style="margin: 28px 0 12px;">Past</div>
+          <div id="past-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabbar" id="tabbar">
+      <button class="tab active" id="tab-home" onclick="tabTo('home')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>
+        <span>Home</span>
+      </button>
+      <button class="tab" id="tab-bookings" onclick="tabTo('tracking')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path></svg>
+        <span>Bookings</span>
+      </button>
+      <button class="tab" id="tab-profile" onclick="toast('Profile coming soon')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"></path></svg>
+        <span>Profile</span>
+      </button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+  <div class="stage-caption">Taily · Booking flow prototype · v1</div>
+</div>
+
+<script>
+/* ============================================================
+   Taily prototype — plain-JS state + screen switching
+   ============================================================ */
+
+/* Stylized, colorful garment icons — fills from the design-system palette, ink sketch outline */
+const GARMENT_TYPES = {
+  'Suit Jacket': { plural: 'Suit Jackets', paths:
+    '<path d="M9 3 5.5 5.5 4 21h5.5l2.5-6 2.5 6H20L18.5 5.5 15 3l-3 5.5L9 3Z" fill="var(--n-700)"/>' +
+    '<path d="m12 8.5-1.7 4 1.7 1.5 1.7-1.5-1.7-4Z" fill="var(--n-50)"/>' +
+    '<circle cx="12" cy="16.4" r=".9" fill="var(--accent)" stroke="none"/>' },
+  'Suit Pant': { plural: 'Suit Pants', paths:
+    '<path d="M7.5 3h9L18 21h-4.5L12 11.5 10.5 21H6L7.5 3Z" fill="var(--n-400)"/>' +
+    '<path d="M7.2 6.5h9.6" stroke="var(--n-50)"/>' +
+    '<path d="M9 9.5v9M15 9.5v9" stroke="var(--n-50)" opacity=".55"/>' },
+  'Bridal Dress': { plural: 'Bridal Dresses', paths:
+    '<path d="M9.5 3h5L13.5 8c3.5 2.5 5 13 5 13h-13s1.5-10.5 5-13L9.5 3Z" fill="var(--white)"/>' +
+    '<rect x="8.9" y="10.4" width="6.2" height="1.5" rx=".75" fill="var(--accent)" stroke="none"/>' +
+    '<path d="M10 14.5c-.4 2.2-.7 4.2-1 6M14 14.5c.4 2.2.7 4.2 1 6" stroke="var(--n-300)"/>' },
+  'Jacket': { plural: 'Jackets', paths:
+    '<path d="M9 3h6l3.5 2.5L17 9.5l-1.5-1V21h-7V8.5L7 9.5 5.5 5.5 9 3Z" fill="var(--accent)"/>' +
+    '<path d="M12 4.5V21" stroke="var(--n-50)"/>' +
+    '<path d="M9 3c.6 1.4 5.4 1.4 6 0" fill="none"/>' },
+  'Shirt / Blouse': { plural: 'Shirts / Blouses', paths:
+    '<path d="M9 3 4 5.5 5.5 9.5 8 8.5V21h8V8.5l2.5 1L20 5.5 15 3l-3 3-3-3Z" fill="var(--info-bg)"/>' +
+    '<path d="m9 3 3 3 3-3" fill="none"/>' +
+    '<circle cx="12" cy="10.5" r=".55" fill="var(--info)" stroke="none"/><circle cx="12" cy="13.5" r=".55" fill="var(--info)" stroke="none"/><circle cx="12" cy="16.5" r=".55" fill="var(--info)" stroke="none"/>' },
+  'Dress / Jumpsuit': { plural: 'Dresses / Jumpsuits', paths:
+    '<path d="M9 3h6l-1 6 3.5 12h-11L10 9 9 3Z" fill="var(--secondary)"/>' +
+    '<path d="M9 3c.5 1.5 5.5 1.5 6 0" fill="none"/>' +
+    '<rect x="9.3" y="8.3" width="5.4" height="1.3" rx=".65" fill="var(--accent)" stroke="none"/>' },
+  'Pants / Jeans': { plural: 'Pants / Jeans', paths:
+    '<path d="M7.5 3h9V6L18 21h-4.5L12 12l-1.5 9H6L7.5 6V3Z" fill="var(--info)"/>' +
+    '<path d="M7.5 6h9" stroke="var(--n-50)"/>' +
+    '<path d="m8.3 8 1.4 1.5M15.7 8l-1.4 1.5" stroke="var(--n-50)" opacity=".8"/>' },
+  'Skirt': { plural: 'Skirts', paths:
+    '<path d="M8 4h8v3l3.5 13h-15L8 7V4Z" fill="var(--error)"/>' +
+    '<path d="M8 7h8" stroke="var(--n-50)"/>' +
+    '<path d="m10.5 10 .5 9M13.5 10l-.5 9" stroke="var(--n-50)" opacity=".55"/>' },
+  'Accessories': { plural: 'Accessories', paths:
+    '<path d="M12 7c0-1 .7-1.5 1.3-2A2.2 2.2 0 1 0 9.8 3.3" fill="none"/>' +
+    '<path d="M12 7 3.5 14.5a1 1 0 0 0 .7 1.7h15.6a1 1 0 0 0 .7-1.7L12 7Z" fill="var(--warning-bg)"/>' +
+    '<path d="M5.5 14.2h13" stroke="var(--warning)" opacity=".7"/>' },
+};
+
+const gIcon = (type, s = 24) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="var(--n-800)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" width="${s}" height="${s}">${GARMENT_TYPES[type].paths}</svg>`;
+
+const JOB_TYPES = {
+  'Hem / Shorten Length': { price: 25, desc: 'Shorten your {g} to your preferred length.' },
+  'Taper / Slim Fit':     { price: 35, desc: 'Slim your {g} for a closer fit.' },
+  'Resize':               { price: 55, desc: 'Take your {g} in or out for a better fit.' },
+  'Repair':               { price: 40, desc: 'Fix tears, seams, buttons, or zippers on your {g}.' },
+  'Alterations':          { price: 45, desc: 'General adjustments so your {g} fit perfectly.' },
+};
+
+const SERVICE_FEE = 15;
+
+const TAILORS = [
+  { id: 'marco', name: 'Marco Tailor', initials: 'MT', promoted: true,
+    spec: 'Bespoke suiting', specCat: 'Suiting', hood: 'Upper East Side',
+    home: true, store: true, visitLine: '$150 Home visit · In-store',
+    rating: 4.8, reviews: 124, from: 140, dist: 0.8,
+    tags: ['House calls', 'Rush service'],
+    pills: ['Bespoke Suiting', 'Rush Service Available', '$150 Home Visit', 'Shirting Specialist'],
+    pillsShort: ['$150 Home Visit', 'Rush Service'],
+    review: { quote: 'I had my wedding suit made here and it came out perfect!', who: 'Scott C, 2 weeks ago' },
+    address: '1025 Broadway, New York, NY 10018',
+    desc: 'Third-generation master tailor specializing in bespoke suiting and precision alterations. Marco trained on Savile Row and has dressed Upper East Side clients for over 20 years.',
+    pricing: [['Hem Trousers', '$25'], ['Suit Alteration', '$80'], ['Shirt Tailoring', '$45'], ['Full Bespoke Suit', 'from $800'], ['Wedding Dress Alteration', '$150']],
+    availDate: 'Thu, Jul 9', daySlots: ['9:30 AM', '11:00 AM', '2:00 PM', '4:30 PM'] },
+  { id: 'elena', name: "Elena's Atelier", initials: 'EA', promoted: false,
+    spec: 'Wedding dresses', specCat: 'Dresses', hood: 'Midtown West',
+    home: false, store: true, visitLine: 'In-store only',
+    rating: 4.9, reviews: 89, from: 180, dist: 1.2,
+    tags: ['Same-day alterations'],
+    pills: ['Wedding Dresses', 'Same-Day Alterations', 'In-Store Only', 'Eveningwear'],
+    pillsShort: ['In-Store Only', 'Same-Day Fixes'],
+    review: { quote: 'They saved my dress the morning of the wedding. Forever grateful.', who: 'Dana M, 1 month ago' },
+    address: '350 W 51st St, New York, NY 10019',
+    desc: 'Bridal and eveningwear specialist. Elena and her team handle everything from delicate lace repair to full gown restructuring, with same-day service for emergencies.',
+    pricing: [['Wedding Dress Alteration', '$150'], ['Gown Hem', '$60'], ['Bustle Add', '$75'], ['Corset Adjustment', '$90']],
+    availDate: 'Thu, Jul 9', daySlots: ['11:00 AM', '1:00 PM', '3:30 PM'] },
+  { id: 'stitch', name: 'StitchCraft Studio', initials: 'SS', promoted: false,
+    spec: 'Alterations & repairs', specCat: 'Alterations', hood: 'SoHo',
+    home: true, store: false, visitLine: '$100 Home visit · Drop-off',
+    rating: 4.5, reviews: 210, from: 100, dist: 0.5,
+    tags: ['House calls'],
+    pills: ['Alterations & Repairs', '$100 Home Visit', 'Pickup & Drop-off', 'Quick Turnaround'],
+    pillsShort: ['$100 Home Visit', 'Home Pickup'],
+    review: { quote: 'Hemmed three pairs of jeans in two days. Easy and affordable.', who: 'Priya R, 3 weeks ago' },
+    address: '98 Prince St, New York, NY 10012',
+    desc: 'Fast, reliable everyday alterations and repairs. StitchCraft handles hems, zippers, and resizing with pickup and drop-off across downtown Manhattan.',
+    pricing: [['Hem Trousers', '$20'], ['Zipper Replacement', '$35'], ['Resize Waist', '$40'], ['Patch & Repair', '$30']],
+    availDate: 'Fri, Jul 10', daySlots: ['10:00 AM', '1:00 PM', '3:00 PM'] },
+  { id: 'park', name: 'Park Avenue Tailoring', initials: 'PA', promoted: false,
+    spec: 'Custom shirts', specCat: 'Shirts', hood: 'Brooklyn Heights',
+    home: false, store: true, visitLine: 'In-store only',
+    rating: 4.7, reviews: 156, from: 210, dist: 2.1,
+    tags: ['Made-to-measure'],
+    pills: ['Custom Shirts', 'Made-to-Measure', 'In-Store Only', 'Fine Alterations'],
+    pillsShort: ['In-Store Only', 'Made-to-Measure'],
+    review: { quote: 'The only place I trust with my shirts. Impeccable collars.', who: 'James L, 2 months ago' },
+    address: '142 Montague St, Brooklyn, NY 11201',
+    desc: 'Custom shirtmaking and fine alterations. Every shirt is cut to a personal pattern; alterations get the same made-to-measure attention.',
+    pricing: [['Custom Shirt', 'from $210'], ['Shirt Tailoring', '$45'], ['Collar Replacement', '$55'], ['Sleeve Adjustment', '$35']],
+    availDate: 'Fri, Jul 10', daySlots: ['12:00 PM', '2:30 PM', '4:00 PM'] },
+];
+
+/* ---------- App state ---------- */
+let garments = [];                    // { type, job, qty }
+let selection = null;                 // { tailor, time }
+let lastBooking = null;               // rendered on the success screen
+
+/* Preferred appointment (Appointment Details card + tailors filter row) */
+const APPT_TIMES = ['7:00 PM Tonight', '9:00 AM Tomorrow', '2:00 PM Tomorrow', 'This Weekend', 'Anytime'];
+const APPT_PLACES = ['Home Visit', 'Store Visit'];
+let appt = { when: '7:00 PM Tonight', where: 'Home Visit' };
+
+function syncApptSelects() {
+  [['appt-when', APPT_TIMES, appt.when], ['f-appt-when', APPT_TIMES, appt.when],
+   ['appt-where', APPT_PLACES, appt.where], ['f-appt-where', APPT_PLACES, appt.where]]
+  .forEach(([id, opts, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`).join('');
+  });
+}
+
+function setAppt(key, val) {
+  appt[key] = val;
+  syncApptSelects();
+  if (currentScreen === 'tailors') renderTailors();
+}
+
+let upcoming = [
+  { name: "Elena's Atelier", initials: 'EA', where: 'shop', place: '350 W 51st St, Midtown West',
+    when: 'Wed, Jul 8 · 5:30 PM', status: 'Confirmed', items: '1 gown · Alterations' },
+];
+let past = [
+  { name: 'Marco Tailor', initials: 'MT', where: 'home', place: 'Upper East Side',
+    when: 'Sat, Jun 20', status: 'Delivered', items: '2 suit pants · Hem' },
+  { name: 'StitchCraft Studio', initials: 'SS', where: 'shop', place: '98 Prince St, SoHo',
+    when: 'Thu, May 28', status: 'Delivered', items: '1 jacket · Repair' },
+];
+
+/* ---------- Navigation ---------- */
+let currentScreen = 'home';
+
+function go(id, dir) {
+  if (id === currentScreen) return;
+  const from = document.getElementById('screen-' + currentScreen);
+  const to = document.getElementById('screen-' + id);
+  from.classList.remove('active');
+  from.classList.toggle('from-left', dir !== 'back');
+  to.classList.toggle('from-left', dir === 'back');
+  void to.offsetWidth; // flush so the entrance transition plays
+  to.classList.add('active');
+  to.classList.remove('from-left');
+  const sc = to.querySelector('.scroll'); if (sc) sc.scrollTop = 0;
+  currentScreen = id;
+}
+
+function setTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  const el = document.getElementById('tab-' + tab);
+  if (el) el.classList.add('active');
+}
+
+function tabTo(screen) {
+  if (screen === 'tracking') { renderTracking(); go('tracking'); setTab('bookings'); }
+  else { go('home', 'back'); setTab('home'); }
+}
+
+/* ---------- Toast ---------- */
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+/* ---------- Home → Builder ---------- */
+let homeSelection = {}; // type → qty, built by tapping garment tiles
+
+function bumpTile(type) {
+  homeSelection[type] = (homeSelection[type] || 0) + 1;
+  renderTiles();
+}
+
+function decTile(type) {
+  if (!homeSelection[type]) return;
+  homeSelection[type] -= 1;
+  if (homeSelection[type] === 0) delete homeSelection[type];
+  renderTiles();
+}
+
+function clearTiles() {
+  homeSelection = {};
+  renderTiles();
+}
+
+function renderTiles() {
+  const total = Object.values(homeSelection).reduce((s, n) => s + n, 0);
+  document.getElementById('tile-grid').innerHTML = Object.keys(GARMENT_TYPES).map(type => {
+    const qty = homeSelection[type] || 0;
+    return `<button class="tile ${qty > 0 ? 'selected' : ''}" data-type="${type}" onclick="bumpTile('${type}')">
+        <div class="t-ico">${gIcon(type, 30)}</div>
+        <div class="t-name">${type}</div>
+        ${qty > 0 ? `<span class="tile-badge">${qty}</span><span class="tile-minus" role="button" aria-label="Remove one ${type}" onclick="event.stopPropagation(); decTile('${type}')">−</span>` : ''}
+      </button>`;
+  }).join('');
+  document.getElementById('tile-hint').style.display = total > 0 ? 'flex' : 'none';
+  document.getElementById('start-booking-btn').textContent =
+    total > 0 ? `Start Booking · ${total} item${total === 1 ? '' : 's'}` : 'Start Booking';
+}
+
+const DEFAULT_JOB = 'Hem / Shorten Length';
+
+function startBooking() {
+  // Seed the builder from the Home selection (default job — editable inline there)
+  Object.entries(homeSelection).forEach(([type, qty]) => {
+    const existing = garments.find(g => g.type === type && g.job === DEFAULT_JOB);
+    if (existing) existing.qty += qty;
+    else garments.push({ type, job: DEFAULT_JOB, qty });
+  });
+  homeSelection = {};
+  renderTiles();
+  if (garments.length === 0) garments.push({ type: 'Suit Pant', job: DEFAULT_JOB, qty: 1 });
+  renderBuilder();
+  go('builder');
+  setTab('home');
+}
+
+/* ---------- Builder (inline dropdowns per line item) ---------- */
+function renderBuilder() {
+  const list = document.getElementById('garment-list');
+  if (garments.length === 0) {
+    list.innerHTML = `<div class="card-flat" style="padding: 26px 20px; text-align: center;">
+        <div style="font-family: var(--serif); font-size: 20px; font-weight: 500;">Nothing here yet</div>
+        <div style="font-size: 13.5px; color: var(--n-500); margin-top: 6px; line-height: 1.5;">Add a garment below to get started.</div>
+      </div>`;
+  } else {
+    list.innerHTML = garments.map((g, i) => {
+      const gt = GARMENT_TYPES[g.type];
+      const gname = (g.qty > 1 ? gt.plural : g.type);
+      const desc = JOB_TYPES[g.job].desc.replace('{g}', (g.qty > 1 ? gt.plural : g.type).toLowerCase());
+      return `
+      <div class="line-item pop-in" style="align-items: center;">
+        <div class="gicon" style="flex: none;">${gIcon(g.type, 24)}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <select class="inline-select" style="font-size: 15.5px;" onchange="updateGarment(${i}, 'qty', this.value)" aria-label="Quantity">
+              ${[1,2,3,4,5,6,7,8,9].map(n => `<option value="${n}" ${g.qty === n ? 'selected' : ''}>${n}</option>`).join('')}
+            </select>
+            <select class="inline-select" style="font-size: 15.5px;" onchange="updateGarment(${i}, 'type', this.value)" aria-label="Garment type">
+              ${Object.keys(GARMENT_TYPES).map(t => `<option value="${t}" ${g.type === t ? 'selected' : ''}>${g.qty > 1 ? GARMENT_TYPES[t].plural : t}</option>`).join('')}
+            </select>
+          </div>
+          <select class="inline-select" style="font-size: 13.5px; color: var(--accent-ink); margin-top: 3px;" onchange="updateGarment(${i}, 'job', this.value)" aria-label="Job type">
+            ${Object.keys(JOB_TYPES).map(j => `<option value="${j}" ${g.job === j ? 'selected' : ''}>${j} · $${JOB_TYPES[j].price}</option>`).join('')}
+          </select>
+          <div class="li-sub" style="margin-top: 3px;">${desc}</div>
+        </div>
+        <button class="icon-btn" style="color: var(--n-500); padding: 6px 8px; font-size: 16px;" onclick="removeGarment(${i})" aria-label="Remove ${gname}">✕</button>
+      </div>`;
+    }).join('');
+  }
+  const btn = document.getElementById('builder-continue');
+  const count = garments.reduce((s, g) => s + g.qty, 0);
+  btn.disabled = garments.length === 0;
+  btn.textContent = garments.length === 0 ? 'Continue' : `Continue · ${count} item${count === 1 ? '' : 's'}`;
+}
+
+function updateGarment(i, key, val) {
+  garments[i][key] = key === 'qty' ? parseInt(val, 10) : val;
+  renderBuilder();
+}
+
+function addDefaultGarment() {
+  garments.push({ type: 'Suit Pant', job: DEFAULT_JOB, qty: 1 });
+  renderBuilder();
+}
+
+function removeGarment(i) {
+  garments.splice(i, 1);
+  renderBuilder();
+}
+
+/* ---------- Tailors ---------- */
+function toTailors() {
+  renderTailors();
+  go('tailors');
+}
+
+function resetFilters() {
+  ['f-rating', 'f-dist', 'f-spec'].forEach(id => document.getElementById(id).selectedIndex = 0);
+  renderTailors();
+}
+
+function renderTailors() {
+  const count = garments.reduce((s, g) => s + g.qty, 0);
+  document.getElementById('tailors-context').textContent =
+    `Quotes for your ${count} item${count === 1 ? '' : 's'} — tap a time to book, or a card for details.`;
+
+  const minRating = parseFloat(document.getElementById('f-rating').value);
+  const maxDist = parseFloat(document.getElementById('f-dist').value);
+  const spec = document.getElementById('f-spec').value;
+
+  const list = TAILORS
+    .filter(t => appt.where === 'Home Visit' ? t.home : t.store)
+    .filter(t => t.rating >= minRating && t.dist <= maxDist)
+    .filter(t => spec === 'all' || t.specCat === spec)
+    .sort((a, b) => (b.promoted - a.promoted) || (b.rating - a.rating));
+
+  const el = document.getElementById('tailor-list');
+  if (list.length === 0) {
+    el.innerHTML = `<div class="card-flat" style="padding: 36px 24px; text-align: center;">
+        <div style="font-family: var(--serif); font-size: 21px; font-weight: 500;">No tailors in range yet</div>
+        <div style="font-size: 13.5px; color: var(--n-500); margin: 8px 0 18px; line-height: 1.5;">Widen your filters to see more availability.</div>
+        <button class="btn btn-primary" style="padding: 11px 20px; font-size: 14px;" onclick="resetFilters()">Adjust filters</button>
+      </div>`;
+    return;
+  }
+
+  const stars = r => Array.from({ length: 5 }, (_, i) =>
+    `<span style="color: ${i < Math.floor(r) ? 'var(--accent)' : 'var(--n-300)'}; font-size: 14px;">★</span>`).join('');
+
+  el.innerHTML = list.map(t => `
+    <div class="card pop-in" style="padding: 16px; cursor: pointer;" onclick="openDetails('${t.id}')">
+      <div style="display: flex; gap: 14px;">
+        <div style="flex: none; width: 74px; text-align: center;">
+          <div style="width: 74px; height: 74px; border-radius: var(--r-md); background: linear-gradient(135deg, var(--n-100), var(--n-200)); border: 1px solid var(--n-200); display: flex; align-items: center; justify-content: center; font-family: var(--serif); font-size: 24px; color: var(--n-400); font-weight: 600;">${t.initials}</div>
+          <div style="font-weight: 700; font-size: 15px; margin-top: 9px; font-variant-numeric: tabular-nums;">$${t.from}</div>
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
+            <span style="font-weight: 600; font-size: 17px; line-height: 1.2;">${t.name}</span>
+            <span class="caption" style="display: inline-flex; align-items: center; gap: 2px; font-size: 12px; flex: none;">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              ${t.dist} mi
+            </span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+            <span style="letter-spacing: 1px;">${stars(t.rating)}</span>
+            <span style="font-weight: 700; font-size: 13.5px;">${t.rating}</span>
+            <span class="caption">(${t.reviews} reviews)</span>
+          </div>
+          <div class="review-box" style="margin-top: 9px;">
+            &ldquo;${t.review.quote}&rdquo;
+            <div class="caption" style="margin-top: 5px;">${t.review.who}</div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+            ${t.daySlots.slice(0, 2).map((time, i) =>
+              `<button class="chip ${i === 0 ? 'selected' : ''}" onclick="event.stopPropagation(); pickSlot('${t.id}', '${time}')">${time}</button>`).join('')}
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: nowrap; margin-top: 9px;">
+            ${t.pillsShort.map(p => `<span class="pill-sage">${p}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+/* ---------- Tailor Details ---------- */
+function openDetails(tailorId) {
+  const t = TAILORS.find(x => x.id === tailorId);
+  document.getElementById('details-body').innerHTML = `
+    <div style="height: 185px; background: linear-gradient(135deg, var(--n-100), var(--n-200)); display: flex; align-items: center; justify-content: center; position: relative;">
+      <span style="font-family: var(--serif); font-size: 44px; color: var(--n-400); font-weight: 600;">${t.initials}</span>
+      <span class="caption" style="position: absolute; left: 12px; bottom: 8px; font-size: 11px;">Gallery</span>
+      <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px;">
+        ${[0,1,2,3].map(i => `<span style="width: 6px; height: 6px; border-radius: 50%; background: ${i === 0 ? 'var(--n-600)' : 'var(--n-300)'};"></span>`).join('')}
+      </div>
+    </div>
+    <div style="padding: 18px 20px 0;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span style="font-family: var(--sans); font-weight: 600; font-size: 22px;">${t.name}</span>
+        ${t.promoted ? '<span class="tag-promoted">Promoted</span>' : ''}
+      </div>
+      <div style="margin-top: 6px;"><span class="rating"><span class="star">★</span> ${t.rating} <span class="count">(${t.reviews} reviews)</span></span></div>
+      <div class="caption" style="margin-top: 5px;">${t.address}</div>
+      <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+        <span class="badge ${t.home ? 'badge-home' : 'badge-shop'}">${t.home ? '🏠 Home visit' : '🏬 In-store'}</span>
+        <span class="tag">${t.specCat}</span>
+        ${t.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+      </div>
+
+      <div class="label-caps" style="margin: 24px 0 8px;">Description</div>
+      <p style="font-size: 14.5px; line-height: 1.55; color: var(--n-700); margin: 0;">${t.desc}</p>
+
+      <div class="label-caps" style="margin: 24px 0 4px;">Pricing</div>
+      ${t.pricing.map(([svc, price]) => `
+        <div class="price-row line"><span>${svc}</span><span style="font-weight: 700; font-variant-numeric: tabular-nums;">${price}</span></div>`).join('')}
+
+      <div class="label-caps" style="margin: 24px 0 8px;">Location</div>
+      <div class="caption">${t.address}</div>
+      <div style="height: 110px; background: var(--n-100); border: 1px solid var(--n-200); border-radius: var(--r-md); margin-top: 10px; display: flex; align-items: center; justify-content: center; color: var(--n-400); position: relative;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span class="caption" style="position: absolute; left: 10px; bottom: 6px; font-size: 11px;">Map</span>
+      </div>
+
+      <div style="display: flex; align-items: baseline; gap: 7px; margin: 24px 0 10px;">
+        <span style="font-weight: 600; font-size: 16px;">Availability for</span>
+        <span style="font-weight: 700; font-size: 16px; text-decoration: underline; text-underline-offset: 3px;">${t.availDate}</span>
+      </div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        ${t.daySlots.map(time => `<button class="chip" onclick="pickSlot('${t.id}', '${time}')">${time}</button>`).join('')}
+      </div>
+    </div>`;
+  go('details');
+}
+
+/* ---------- Confirm ---------- */
+function pickSlot(tailorId, time) {
+  const tailor = TAILORS.find(t => t.id === tailorId);
+  selection = { tailor, time, origin: currentScreen };
+  renderConfirm();
+  go('confirm');
+}
+
+function confirmBackTarget() {
+  return selection && selection.origin === 'details' ? 'details' : 'tailors';
+}
+
+function bookingLines() {
+  const rows = garments.map(g => ({
+    label: `${g.type} ${g.job}`,
+    qty: g.qty,
+    amount: JOB_TYPES[g.job].price * g.qty,
+  }));
+  const subtotal = rows.reduce((s, r) => s + r.amount, 0);
+  return { rows, subtotal, fee: SERVICE_FEE, total: subtotal + SERVICE_FEE };
+}
+
+function tailorSummaryCard(t, time) {
+  return `
+    <div class="card" style="padding: 20px;">
+      <div style="display: flex; gap: 13px; align-items: center;">
+        <div class="avatar" style="background: var(--ink); color: var(--n-50); font-family: var(--sans); font-weight: 700; font-size: 17px;">${t.initials}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-weight: 600; font-size: 17.5px;">${t.name}</div>
+          <div style="font-size: 13px; color: var(--n-500); margin-top: 3px;">${t.spec} · ${t.hood}</div>
+        </div>
+        <span class="rating"><span class="star">★</span> ${t.rating} <span class="count">(${t.reviews})</span></span>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap;">
+        <span class="badge ${t.home ? 'badge-home' : 'badge-shop'}" style="background: ${t.home ? '#F3ECE0' : 'var(--n-100)'}; border: 1px solid var(--n-200);">${t.home ? '🏠 Home visit' : '🏬 In-store'}</span>
+        <span class="chip selected" style="cursor: default; font-size: 13px; padding: 6px 13px; display: inline-flex; align-items: center; gap: 6px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
+          ${t.availDate}, ${time}
+        </span>
+      </div>
+    </div>`;
+}
+
+function renderConfirm() {
+  const { tailor, time } = selection;
+  const { total } = bookingLines();
+  document.getElementById('confirm-body').innerHTML = `
+    ${tailorSummaryCard(tailor, time)}
+    <div class="label-caps" style="margin: 22px 0 10px;">Your Garments</div>
+    <div class="card" style="padding: 6px 18px 8px;">
+      ${garments.map(g => `
+        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">
+          <button class="icon-btn" style="padding: 7px; flex: none;" onclick="go('builder', 'back')" aria-label="Edit ${g.type} job">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+          <div class="gicon" style="width: 38px; height: 38px; flex: none;">${gIcon(g.type, 19)}</div>
+          <div style="flex: 1;">
+            <div style="font-weight: 600; font-size: 14.5px;">${g.type}</div>
+            <div style="font-size: 12.5px; color: var(--n-500);">${g.job} ×${g.qty}</div>
+          </div>
+          <div style="font-weight: 700; font-size: 14.5px; font-variant-numeric: tabular-nums;">$${JOB_TYPES[g.job].price * g.qty}</div>
+        </div>`).join('')}
+      <div class="price-row" style="padding-top: 12px;"><span class="muted">Service fee</span><span style="font-variant-numeric: tabular-nums;">$${SERVICE_FEE}</span></div>
+    </div>`;
+  document.getElementById('confirm-cta').textContent = `Confirm Booking · $${total}`;
+}
+
+/* ---------- Booking Confirmed ---------- */
+function confirmBooking() {
+  const { tailor, time } = selection;
+  const { rows, subtotal, fee, total } = bookingLines();
+  const count = garments.reduce((s, g) => s + g.qty, 0);
+  const confNum = '#TLY-2026-' + String(Math.floor(1000 + Math.random() * 9000));
+
+  lastBooking = { tailor, time, rows, subtotal, fee, total, confNum, garments: garments.map(g => ({ ...g })) };
+
+  upcoming.unshift({
+    name: tailor.name,
+    initials: tailor.initials,
+    where: tailor.home ? 'home' : 'shop',
+    place: tailor.home ? 'Your address · 88 Leonard St' : `${tailor.address.split(',')[0]}, ${tailor.hood}`,
+    when: `${tailor.availDate} · ${time}`,
+    status: 'Confirmed',
+    items: `${count} item${count === 1 ? '' : 's'} · $${total}`,
+    justBooked: true,
+  });
+
+  garments = [];
+  selection = null;
+  renderHomeUpcoming();
+  renderSuccess();
+  go('success');
+}
+
+function renderSuccess() {
+  const b = lastBooking;
+  document.getElementById('success-body').innerHTML = `
+    <div class="success-check">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <h1 style="font-family: var(--serif); font-weight: 500; font-size: 33px; text-align: center; margin: 0 0 7px;">Booking Confirmed!</h1>
+    <div class="caption" style="text-align: center; margin-bottom: 22px;">Confirmation Number: ${b.confNum}</div>
+    ${tailorSummaryCard(b.tailor, b.time)}
+    <div class="label-caps" style="margin: 24px 0 6px;">Order Summary</div>
+    ${b.rows.map(r => `
+      <div class="price-row line"><span>${r.label} <span style="color: var(--n-500); font-weight: 500;">×${r.qty}</span></span><span style="font-weight: 700; font-variant-numeric: tabular-nums;">$${r.amount}</span></div>`).join('')}
+    <div style="margin-top: 12px;">
+      <div class="price-row"><span class="muted">Subtotal</span><span style="font-variant-numeric: tabular-nums;">$${b.subtotal.toFixed(2)}</span></div>
+      <div class="price-row"><span class="muted">Service fee</span><span style="font-variant-numeric: tabular-nums;">$${b.fee.toFixed(2)}</span></div>
+      <div class="price-row total"><span>Total</span><span style="font-variant-numeric: tabular-nums;">$${b.total.toFixed(2)}</span></div>
+    </div>`;
+}
+
+/* ---------- Tracking ---------- */
+function apptCard(a, isPast) {
+  return `
+    <div class="card ${a.justBooked ? 'pop-in' : ''}" style="padding: 18px 20px; ${a.justBooked ? 'outline: 1.5px solid var(--accent); outline-offset: -1.5px;' : ''}">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+        <div style="display: flex; gap: 13px; align-items: center;">
+          <div class="avatar" style="width: 44px; height: 44px; font-size: 17px;">${a.initials}</div>
+          <div>
+            <div style="font-weight: 600; font-size: 16.5px;">${a.name}</div>
+            <div style="font-size: 13.5px; color: var(--n-600); margin-top: 3px; font-variant-numeric: tabular-nums;">${a.when}</div>
+          </div>
+        </div>
+        <span class="badge ${isPast ? 'badge-neutral' : 'badge-success'}"><span class="dot"></span> ${a.status}</span>
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+        <span class="badge ${a.where === 'home' ? 'badge-home' : 'badge-shop'}">${a.where === 'home' ? '🏠' : '🏬'} ${a.place}</span>
+        <span class="caption" style="align-self: center;">${a.items}</span>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 16px;">
+        ${isPast
+          ? `<button class="btn btn-secondary" style="flex: 1; font-size: 14px; padding: 11px;" onclick="startBooking()">Rebook</button>
+             <button class="btn btn-secondary" style="flex: 1; font-size: 14px; padding: 11px;" onclick="toast('Reviews coming soon')">Leave Review</button>`
+          : `<button class="btn btn-secondary" style="flex: 1; font-size: 14px; padding: 11px;" onclick="toast('Messaging coming soon')">Message</button>
+             <button class="btn btn-secondary" style="flex: 1; font-size: 14px; padding: 11px;" onclick="toast('Rescheduling coming soon')">Reschedule</button>`}
+      </div>
+    </div>`;
+}
+
+function renderTracking() {
+  document.getElementById('upcoming-list').innerHTML = upcoming.map(a => apptCard(a, false)).join('');
+  document.getElementById('past-list').innerHTML = past.map(a => apptCard(a, true)).join('');
+  upcoming.forEach(a => delete a.justBooked); // highlight only on first render after booking
+}
+
+/* ---------- Home upcoming preview ---------- */
+function renderHomeUpcoming() {
+  document.getElementById('home-upcoming').innerHTML = upcoming.slice(0, 2).map(a => `
+    <div class="card" style="padding: 16px 18px; cursor: pointer;" onclick="renderTracking(); go('tracking'); setTab('bookings');">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div class="avatar" style="width: 42px; height: 42px; font-size: 16px;">${a.initials}</div>
+          <div>
+            <div style="font-weight: 600; font-size: 15.5px;">${a.name}</div>
+            <div style="font-size: 13px; color: var(--n-600); margin-top: 2px; font-variant-numeric: tabular-nums;">${a.when}</div>
+          </div>
+        </div>
+        <span class="badge badge-success"><span class="dot"></span> ${a.status}</span>
+      </div>
+      <div style="margin-top: 10px;"><span class="badge ${a.where === 'home' ? 'badge-home' : 'badge-shop'}">${a.where === 'home' ? '🏠' : '🏬'} ${a.place}</span></div>
+    </div>`).join('');
+}
+
+/* ---------- Init ---------- */
+renderTiles();
+syncApptSelects();
+renderBuilder();
+renderTracking();
+renderHomeUpcoming();
+</script>
+</body>
+</html>

@@ -160,8 +160,8 @@
   .tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .tile {
     position: relative; background: var(--white); border: 1px solid var(--n-200); border-radius: var(--r-lg);
-    aspect-ratio: 1 / 1; padding: 8px; text-align: center; cursor: pointer; box-shadow: var(--e1); transition: all .18s;
-    font-family: var(--sans); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    aspect-ratio: 1 / 1; padding: 9px 6px 9px; text-align: center; cursor: pointer; box-shadow: var(--e1); transition: all .18s;
+    font-family: var(--sans); display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   }
   .tile:hover { border-color: var(--n-400); box-shadow: var(--e2); transform: translateY(-1px); }
   .tile.selected { border-color: var(--ink); box-shadow: var(--e2); }
@@ -235,8 +235,9 @@
     display: flex; align-items: center; justify-content: center; margin: 30px auto 20px; box-shadow: var(--e2);
     animation: pop-in .35s ease both;
   }
-  .tile .t-ico { display: flex; justify-content: center; color: var(--n-700); }
-  .tile .t-name { font-size: 12px; font-weight: 600; margin-top: 8px; color: var(--ink); line-height: 1.25; }
+  .tile .t-ico { flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; color: var(--n-700); }
+  .tile .t-ico img { max-width: 100%; max-height: 100%; }
+  .tile .t-name { flex: none; font-size: 12px; font-weight: 600; margin-top: 4px; color: var(--ink); line-height: 1.25; }
 
   /* Garment line item (Job Builder) */
   .line-item { background: var(--white); border-radius: var(--r-lg); box-shadow: var(--e2); padding: 14px 16px; display: flex; align-items: center; gap: 13px; }
@@ -651,7 +652,7 @@ function renderTiles() {
   document.getElementById('tile-grid').innerHTML = Object.keys(GARMENT_TYPES).map(type => {
     const qty = homeSelection[type] || 0;
     return `<button class="tile ${qty > 0 ? 'selected' : ''}" data-type="${type}" onclick="bumpTile('${type}')">
-        <div class="t-ico">${gIcon(type, 48)}</div>
+        <div class="t-ico">${gIcon(type, 72)}</div>
         <div class="t-name">${type}</div>
         ${qty > 0 ? `<span class="tile-badge">${qty}</span><span class="tile-minus" role="button" aria-label="Remove one ${type}" onclick="event.stopPropagation(); decTile('${type}')">−</span>` : ''}
       </button>`;

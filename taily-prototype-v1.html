@@ -240,11 +240,19 @@
   .tile .t-name { flex: none; font-size: 12px; font-weight: 600; margin-top: 4px; color: var(--ink); line-height: 1.25; }
 
   /* Garment line item (Job Builder) */
-  .line-item { background: var(--white); border-radius: var(--r-lg); box-shadow: var(--e2); padding: 14px 16px; display: flex; align-items: center; gap: 13px; }
+  .line-item { position: relative; background: var(--white); border-radius: var(--r-lg); box-shadow: var(--e2); padding: 14px 12px 14px 14px; display: flex; align-items: center; gap: 11px; }
+  .line-item .li-remove { position: absolute; top: 9px; right: 7px; }
   .line-item .li-name { font-weight: 600; font-size: 15.5px; }
   .line-item .li-sub { font-size: 13px; color: var(--n-500); margin-top: 2px; }
   .icon-btn { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--accent-ink); background: transparent; border: none; padding: 8px 10px; border-radius: var(--r-md); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all .18s; }
   .icon-btn:hover { background: var(--n-100); }
+
+  .add-service {
+    font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--accent-ink);
+    background: transparent; border: 1.5px solid var(--accent-ink); border-radius: var(--r-full);
+    padding: 6px 13px; margin-top: 9px; cursor: pointer; transition: all .18s;
+  }
+  .add-service:hover { background: #F3ECE0; }
 
   .add-garment {
     width: 100%; font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--accent-ink);
@@ -296,7 +304,7 @@
       <!-- ============ 1 · HOME ============ -->
       <div class="screen active" id="screen-home">
         <div class="scroll">
-          <h1 style="font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1.1; margin: 14px 0 7px;">Let&rsquo;s Get Tailored</h1>
+          <h1 style="font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1.1; margin: 14px 0 7px;">What Are We Tailoring Today?</h1>
           <div style="display: flex; align-items: center; gap: 5px; font-size: 14px; font-weight: 700; margin-bottom: 20px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
             New York, NY
@@ -691,10 +699,9 @@ function renderBuilder() {
     list.innerHTML = garments.map((g, i) => {
       const gt = GARMENT_TYPES[g.type];
       const gname = (g.qty > 1 ? gt.plural : g.type);
-      const desc = JOB_TYPES[g.job].desc.replace('{g}', (g.qty > 1 ? gt.plural : g.type).toLowerCase());
       return `
       <div class="line-item pop-in" style="align-items: center;">
-        <div class="gicon" style="flex: none;">${gIcon(g.type, 41)}</div>
+        <div class="gicon" style="flex: none; width: 66px; height: 66px; border-radius: var(--r-lg);">${gIcon(g.type, 56)}</div>
         <div style="flex: 1; min-width: 0;">
           <div style="display: flex; align-items: center; gap: 4px;">
             <select class="inline-select" style="font-size: 15.5px;" onchange="updateGarment(${i}, 'qty', this.value)" aria-label="Quantity">
@@ -707,20 +714,42 @@ function renderBuilder() {
           <select class="inline-select" style="font-size: 13.5px; color: var(--accent-ink); margin-top: 3px;" onchange="updateGarment(${i}, 'job', this.value)" aria-label="Job type">
             ${Object.keys(JOB_TYPES).map(j => `<option value="${j}" ${g.job === j ? 'selected' : ''}>${j} · $${JOB_TYPES[j].price}</option>`).join('')}
           </select>
-          <div class="li-sub" style="margin-top: 3px;">${desc}</div>
+          <div>
+            <button class="add-service" onclick="addService(${i})">+ Additional Service</button>
+          </div>
         </div>
-        <button class="icon-btn" style="color: var(--n-500); padding: 6px 8px; font-size: 16px;" onclick="removeGarment(${i})" aria-label="Remove ${gname}">✕</button>
+        <button class="icon-btn li-remove" style="color: var(--n-500); padding: 5px 7px; font-size: 15px;" onclick="removeGarment(${i})" aria-label="Remove ${gname}">✕</button>
       </div>`;
     }).join('');
   }
+  fitInlineSelects(list);
   const btn = document.getElementById('builder-continue');
   const count = garments.reduce((s, g) => s + g.qty, 0);
   btn.disabled = garments.length === 0;
   btn.textContent = garments.length === 0 ? 'Continue' : `Continue · ${count} item${count === 1 ? '' : 's'}`;
 }
 
+/* Size each inline dropdown to its selected option (selects otherwise size to their longest option and get clipped) */
+const _measureCtx = document.createElement('canvas').getContext('2d');
+function fitInlineSelects(root) {
+  root.querySelectorAll('.inline-select').forEach(sel => {
+    const cs = getComputedStyle(sel);
+    _measureCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const text = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+    sel.style.width = Math.ceil(_measureCtx.measureText(text).width + 22) + 'px';
+  });
+}
+
 function updateGarment(i, key, val) {
   garments[i][key] = key === 'qty' ? parseInt(val, 10) : val;
+  renderBuilder();
+}
+
+function addService(i) {
+  // Add another service line for the same garment
+  const src = garments[i];
+  const nextJob = Object.keys(JOB_TYPES).find(j => j !== src.job) || src.job;
+  garments.splice(i + 1, 0, { type: src.type, job: nextJob, qty: 1 });
   renderBuilder();
 }
 

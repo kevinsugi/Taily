@@ -248,11 +248,12 @@
   .icon-btn:hover { background: var(--n-100); }
 
   .add-service {
-    font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--accent-ink);
-    background: transparent; border: 1.5px solid var(--accent-ink); border-radius: var(--r-full);
-    padding: 6px 13px; margin-top: 9px; cursor: pointer; transition: all .18s;
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--accent-ink);
+    background: transparent; border: none; border-radius: var(--r-md);
+    padding: 2px 4px 2px 0; margin-top: 4px; cursor: pointer; transition: all .18s;
   }
-  .add-service:hover { background: #F3ECE0; }
+  .add-service:hover { color: var(--ink); }
 
   .add-garment {
     width: 100%; font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--accent-ink);
@@ -501,11 +502,12 @@ const gIcon = (type, s = 24) =>
   `<img src="${GARMENT_ICONS[type]}" width="${s}" height="${s}" alt="${type}" style="object-fit: contain; display: block;">`;
 
 const JOB_TYPES = {
-  'Hem / Shorten Length': { price: 25, desc: 'Shorten your {g} to your preferred length.' },
-  'Taper / Slim Fit':     { price: 35, desc: 'Slim your {g} for a closer fit.' },
-  'Resize':               { price: 55, desc: 'Take your {g} in or out for a better fit.' },
-  'Repair':               { price: 40, desc: 'Fix tears, seams, buttons, or zippers on your {g}.' },
-  'Alterations':          { price: 45, desc: 'General adjustments so your {g} fit perfectly.' },
+  'Hem / Adjust Length':    { price: 25, desc: 'Adjust your {g} to your preferred length.' },
+  'Sleeve / Adjust Length': { price: 30, desc: 'Adjust your sleeves to your preferred length.' },
+  'Taper / Slim Fit':       { price: 35, desc: 'Slim your {g} for a closer fit.' },
+  'Resize':                 { price: 55, desc: 'Take your {g} in or out for a better fit.' },
+  'Repair':                 { price: 40, desc: 'Fix tears, seams, buttons, or zippers on your {g}.' },
+  'Alterations':            { price: 45, desc: 'General adjustments so your {g} fit perfectly.' },
 };
 
 const SERVICE_FEE = 15;
@@ -670,18 +672,18 @@ function renderTiles() {
     total > 0 ? `Start Booking · ${total} item${total === 1 ? '' : 's'}` : 'Start Booking';
 }
 
-const DEFAULT_JOB = 'Hem / Shorten Length';
+const DEFAULT_JOB = 'Hem / Adjust Length';
 
 function startBooking() {
   // Seed the builder from the Home selection (default job — editable inline there)
   Object.entries(homeSelection).forEach(([type, qty]) => {
-    const existing = garments.find(g => g.type === type && g.job === DEFAULT_JOB);
+    const existing = garments.find(g => g.type === type && g.jobs.length === 1 && g.jobs[0] === DEFAULT_JOB);
     if (existing) existing.qty += qty;
-    else garments.push({ type, job: DEFAULT_JOB, qty });
+    else garments.push({ type, jobs: [DEFAULT_JOB], qty });
   });
   homeSelection = {};
   renderTiles();
-  if (garments.length === 0) garments.push({ type: 'Suit Pant', job: DEFAULT_JOB, qty: 1 });
+  if (garments.length === 0) garments.push({ type: 'Suit Pant', jobs: [DEFAULT_JOB], qty: 1 });
   renderBuilder();
   go('builder');
   setTab('home');
@@ -711,11 +713,17 @@ function renderBuilder() {
               ${Object.keys(GARMENT_TYPES).map(t => `<option value="${t}" ${g.type === t ? 'selected' : ''}>${g.qty > 1 ? GARMENT_TYPES[t].plural : t}</option>`).join('')}
             </select>
           </div>
-          <select class="inline-select" style="font-size: 13.5px; color: var(--accent-ink); margin-top: 3px;" onchange="updateGarment(${i}, 'job', this.value)" aria-label="Job type">
-            ${Object.keys(JOB_TYPES).map(j => `<option value="${j}" ${g.job === j ? 'selected' : ''}>${j} · $${JOB_TYPES[j].price}</option>`).join('')}
-          </select>
+          ${g.jobs.map((job, si) => `
+          <div style="margin-top: 3px;">
+            <select class="inline-select" style="font-size: 13.5px; color: var(--accent-ink);" onchange="updateService(${i}, ${si}, this.value)" aria-label="Service ${si + 1}">
+              ${Object.keys(JOB_TYPES).map(j => `<option value="${j}" ${job === j ? 'selected' : ''}>${j}</option>`).join('')}
+            </select>
+          </div>`).join('')}
           <div>
-            <button class="add-service" onclick="addService(${i})">+ Additional Service</button>
+            <button class="add-service" onclick="addService(${i})">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8.5v7M8.5 12h7"/></svg>
+              Additional Service
+            </button>
           </div>
         </div>
         <button class="icon-btn li-remove" style="color: var(--n-500); padding: 5px 7px; font-size: 15px;" onclick="removeGarment(${i})" aria-label="Remove ${gname}">✕</button>
@@ -746,15 +754,21 @@ function updateGarment(i, key, val) {
 }
 
 function addService(i) {
-  // Add another service line for the same garment
-  const src = garments[i];
-  const nextJob = Object.keys(JOB_TYPES).find(j => j !== src.job) || src.job;
-  garments.splice(i + 1, 0, { type: src.type, job: nextJob, qty: 1 });
+  // Stack another service row inside the same garment card (per Figma: Multiple Services variant)
+  const g = garments[i];
+  const nextJob = Object.keys(JOB_TYPES).find(j => !g.jobs.includes(j));
+  if (!nextJob) { toast('All services already added'); return; }
+  g.jobs.push(nextJob);
+  renderBuilder();
+}
+
+function updateService(i, si, val) {
+  garments[i].jobs[si] = val;
   renderBuilder();
 }
 
 function addDefaultGarment() {
-  garments.push({ type: 'Suit Pant', job: DEFAULT_JOB, qty: 1 });
+  garments.push({ type: 'Suit Pant', jobs: [DEFAULT_JOB], qty: 1 });
   renderBuilder();
 }
 
@@ -901,9 +915,9 @@ function confirmBackTarget() {
 
 function bookingLines() {
   const rows = garments.map(g => ({
-    label: `${g.type} ${g.job}`,
+    label: `${g.type} — ${g.jobs.join(', ')}`,
     qty: g.qty,
-    amount: JOB_TYPES[g.job].price * g.qty,
+    amount: g.jobs.reduce((s, j) => s + JOB_TYPES[j].price, 0) * g.qty,
   }));
   const subtotal = rows.reduce((s, r) => s + r.amount, 0);
   return { rows, subtotal, fee: SERVICE_FEE, total: subtotal + SERVICE_FEE };
@@ -945,9 +959,9 @@ function renderConfirm() {
           <div class="gicon" style="width: 38px; height: 38px; flex: none;">${gIcon(g.type, 31)}</div>
           <div style="flex: 1;">
             <div style="font-weight: 600; font-size: 14.5px;">${g.type}</div>
-            <div style="font-size: 12.5px; color: var(--n-500);">${g.job} ×${g.qty}</div>
+            <div style="font-size: 12.5px; color: var(--n-500);">${g.jobs.join(' · ')} ×${g.qty}</div>
           </div>
-          <div style="font-weight: 700; font-size: 14.5px; font-variant-numeric: tabular-nums;">$${JOB_TYPES[g.job].price * g.qty}</div>
+          <div style="font-weight: 700; font-size: 14.5px; font-variant-numeric: tabular-nums;">$${g.jobs.reduce((s, j) => s + JOB_TYPES[j].price, 0) * g.qty}</div>
         </div>`).join('')}
       <div class="price-row" style="padding-top: 12px;"><span class="muted">Service fee</span><span style="font-variant-numeric: tabular-nums;">$${SERVICE_FEE}</span></div>
     </div>`;

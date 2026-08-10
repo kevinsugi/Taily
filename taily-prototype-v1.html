@@ -42,8 +42,8 @@
     --info-bg:    #E4EAEF;
 
     /* Radius */
-    --r-sm: 6px;
-    --r-md: 10px;
+    --r-sm: 8px;
+    --r-md: 12px;
     --r-lg: 16px;
     --r-xl: 24px;
     --r-full: 999px;
@@ -67,18 +67,18 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  .stage { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; gap: 18px; }
-  .stage-caption { font-size: 12.5px; color: var(--n-400); letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+  .stage { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; gap: 20px; }
+  .stage-caption { font-size: 12px; color: var(--n-400); letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
 
   /* ============ Device frame ============ */
   .device {
     width: 390px; height: 812px; max-height: calc(100vh - 100px); min-height: 640px;
-    background: var(--n-50); border-radius: 48px; overflow: hidden;
+    background: var(--n-50); border-radius: 24px; overflow: hidden;
     position: relative; display: flex; flex-direction: column;
     box-shadow: 0 0 0 11px #14130f, 0 0 0 13px #4a453c, var(--e4), 0 40px 90px rgba(0,0,0,.5);
   }
-  .statusbar { flex: none; height: 44px; display: flex; justify-content: space-between; align-items: center; padding: 6px 26px 0; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; background: var(--n-50); z-index: 5; }
-  .statusbar .icons { display: flex; gap: 6px; align-items: center; color: var(--ink); }
+  .statusbar { flex: none; height: 44px; display: flex; justify-content: space-between; align-items: center; padding: 8px 28px 0; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; background: var(--n-50); z-index: 5; }
+  .statusbar .icons { display: flex; gap: 8px; align-items: center; color: var(--ink); }
   .notch { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 118px; height: 26px; background: #14130f; border-radius: var(--r-full); z-index: 6; }
 
   .viewport { flex: 1; position: relative; overflow: hidden; }
@@ -95,27 +95,27 @@
   .scroll { flex: 1; overflow-y: auto; padding: 16px 20px 28px; scrollbar-width: none; }
   .scroll::-webkit-scrollbar { display: none; }
 
-  .screen-head { flex: none; padding: 10px 20px 2px; display: flex; align-items: center; gap: 12px; }
+  .screen-head { flex: none; padding: 12px 20px 4px; display: flex; align-items: center; gap: 12px; }
   .back {
     width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--n-300); background: var(--white);
     display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--ink);
     flex: none; transition: all .18s;
   }
   .back:hover { border-color: var(--ink); background: var(--n-50); }
-  .screen-title { font-family: var(--serif); font-weight: 500; font-size: 27px; line-height: 1.15; }
-  .step-label { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
+  .screen-title { font-family: var(--serif); font-weight: 500; font-size: 28px; line-height: 1.15; }
+  .step-label { font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
 
   /* ============ Type helpers ============ */
-  .eyebrow { font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--n-500); font-weight: 600; }
+  .eyebrow { font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--n-500); font-weight: 600; }
   .label-caps { font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--n-500); }
-  .caption { font-size: 13px; font-weight: 500; color: var(--n-500); line-height: 1.4; letter-spacing: .02em; }
+  .caption { font-size: 12px; font-weight: 500; color: var(--n-500); line-height: 1.4; letter-spacing: .02em; }
 
   /* ============ Buttons ============ */
-  .btn { font-family: var(--sans); font-weight: 600; font-size: 15px; border-radius: var(--r-full); cursor: pointer; transition: all .18s; border: none; }
-  .btn-primary { color: var(--n-50); background: var(--ink); padding: 14px 22px; box-shadow: var(--e1); }
+  .btn { font-family: var(--sans); font-weight: 600; font-size: 16px; border-radius: var(--r-full); cursor: pointer; transition: all .18s; border: none; }
+  .btn-primary { color: var(--n-50); background: var(--ink); padding: 16px 24px; box-shadow: var(--e1); }
   .btn-primary:hover { background: #000; box-shadow: var(--e2); }
   .btn-primary:disabled { color: var(--n-400); background: var(--n-200); cursor: not-allowed; box-shadow: none; }
-  .btn-secondary { color: var(--ink); background: var(--white); border: 1px solid var(--n-300); padding: 12px 21px; }
+  .btn-secondary { color: var(--ink); background: var(--white); border: 1px solid var(--n-300); padding: 12px 20px; }
   .btn-secondary:hover { border-color: var(--ink); background: var(--n-50); }
   .btn-ghost { color: var(--accent-ink); background: transparent; padding: 12px; }
   .btn-ghost:hover { background: var(--n-100); }
@@ -123,22 +123,22 @@
 
   /* ============ Chips ============ */
   .chip {
-    font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--ink);
-    background: var(--white); border: 1px solid var(--n-300); padding: 8px 13px;
+    font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--ink);
+    background: var(--white); border: 1px solid var(--n-300); padding: 8px 12px;
     border-radius: var(--r-full); cursor: pointer; font-variant-numeric: tabular-nums; transition: all .18s;
   }
   .chip:hover { border-color: var(--ink); background: var(--n-50); }
   .chip.selected { color: var(--n-50); background: var(--ink); border-color: var(--ink); }
 
   /* ============ Badges ============ */
-  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: var(--r-full); white-space: nowrap; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: var(--r-full); white-space: nowrap; }
   .badge-home { color: var(--accent-ink); background: #F3ECE0; }
   .badge-shop { color: var(--n-700); background: var(--n-100); }
-  .badge-success { color: var(--success); background: var(--success-bg); font-size: 12.5px; }
-  .badge-neutral { color: var(--n-700); background: var(--n-100); font-size: 12.5px; }
+  .badge-success { color: var(--success); background: var(--success-bg); font-size: 12px; }
+  .badge-neutral { color: var(--n-700); background: var(--n-100); font-size: 12px; }
   .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
-  .rating { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .rating { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; white-space: nowrap; }
   .rating .star { color: var(--accent); }
   .rating .count { color: var(--n-500); font-weight: 500; }
 
@@ -157,16 +157,16 @@
   }
 
   /* Garment shortcut tiles (Home) */
-  .tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .tile {
     position: relative; background: var(--white); border: 1px solid var(--n-200); border-radius: var(--r-lg);
-    aspect-ratio: 1 / 1; padding: 6px 6px 8px; text-align: center; cursor: pointer; box-shadow: var(--e1); transition: all .18s;
+    aspect-ratio: 1 / 1; padding: 8px 8px 8px; text-align: center; cursor: pointer; box-shadow: var(--e1); transition: all .18s;
     font-family: var(--sans); display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   }
   .tile:hover { border-color: var(--n-400); box-shadow: var(--e2); transform: translateY(-1px); }
   .tile.selected { border-color: var(--ink); box-shadow: var(--e2); }
   .tile-badge {
-    position: absolute; top: -7px; right: 17px; min-width: 22px; height: 22px; padding: 0 6px;
+    position: absolute; top: -7px; right: 17px; min-width: 22px; height: 22px; padding: 0 8px;
     border-radius: var(--r-full); background: var(--ink); color: var(--n-50);
     font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
     display: flex; align-items: center; justify-content: center; box-shadow: var(--e2);
@@ -175,7 +175,7 @@
   .tile-minus {
     position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; padding: 0;
     border-radius: var(--r-full); background: var(--white); color: var(--ink); border: 1px solid var(--n-300);
-    font-size: 15px; font-weight: 700; line-height: 1; font-family: var(--sans);
+    font-size: 16px; font-weight: 700; line-height: 1; font-family: var(--sans);
     display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--e1);
     animation: pop-in .18s ease both; transition: all .18s;
   }
@@ -185,30 +185,30 @@
   .photo-strip { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 0 0; padding-right: 16px; }
   .photo-strip::-webkit-scrollbar { display: none; }
   .photo-ph { flex: none; width: 120px; height: 150px; border-radius: var(--r-md); background: #D9D9D9; }
-  .slot-strip { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 10px -16px 0 0; padding-right: 16px; }
+  .slot-strip { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 12px -16px 0 0; padding-right: 16px; }
   .slot-strip::-webkit-scrollbar { display: none; }
 
   /* Sage service pills (tailor cards) */
   .pill-sage {
-    display: inline-flex; align-items: center; font-size: 11px; font-weight: 600;
-    color: var(--n-50); background: var(--secondary); padding: 4px 9px; border-radius: var(--r-md);
+    display: inline-flex; align-items: center; font-size: 12px; font-weight: 600;
+    color: var(--n-50); background: var(--secondary); padding: 4px 8px; border-radius: var(--r-md);
     white-space: nowrap;
   }
 
   /* Dropdown pills — appointment time & visit type (input styling per design system) */
   .appt-select {
-    font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--ink);
+    font-family: var(--sans); font-size: 16px; font-weight: 600; color: var(--ink);
     background-color: var(--white); border: 1px solid var(--n-300); border-radius: var(--r-md);
-    padding: 11px 32px 11px 15px; appearance: none; -webkit-appearance: none; cursor: pointer;
+    padding: 12px 28px 12px 12px; appearance: none; -webkit-appearance: none; cursor: pointer;
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%231C1B18"><path d="m7 10 5 5 5-5H7z"/></svg>');
     background-repeat: no-repeat; background-position: right 10px center; background-size: 16px;
     box-shadow: var(--e1); transition: all .18s; max-width: 100%;
   }
   .appt-select:hover { border-color: var(--ink); background-color: var(--n-50); }
-  .appt-select.compact { font-size: 13px; padding: 8px 27px 8px 13px; background-size: 14px; background-position: right 9px center; flex: none; box-shadow: none; }
+  .appt-select.compact { font-size: 12px; padding: 8px 28px 8px 12px; background-size: 14px; background-position: right 9px center; flex: none; box-shadow: none; }
   .review-box {
-    background: var(--n-100); border-radius: var(--r-md); padding: 11px 13px; margin-top: 11px;
-    font-size: 13px; line-height: 1.45;
+    background: var(--n-100); border-radius: var(--r-md); padding: 12px 12px; margin-top: 11px;
+    font-size: 12px; line-height: 1.45;
   }
 
   /* Inline dropdowns (Job Builder line items) */
@@ -222,9 +222,9 @@
 
   /* Filter pills (View Tailors) */
   .filter-select {
-    font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); flex: none;
+    font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--ink); flex: none;
     border: 1px solid var(--n-300); background-color: var(--white); border-radius: var(--r-full);
-    padding: 8px 27px 8px 13px; appearance: none; -webkit-appearance: none; cursor: pointer;
+    padding: 8px 28px 8px 12px; appearance: none; -webkit-appearance: none; cursor: pointer;
     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%231C1B18" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
     background-repeat: no-repeat; background-position: right 11px center; background-size: 10px; transition: all .18s;
   }
@@ -233,13 +233,13 @@
   .filter-row::-webkit-scrollbar { display: none; }
 
   /* Feature tags on tailor cards */
-  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--n-600); background: var(--n-100); padding: 4px 10px; border-radius: var(--r-full); white-space: nowrap; }
-  .tag-promoted { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--n-600); background: var(--n-100); padding: 3px 8px; border-radius: var(--r-sm); }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--n-600); background: var(--n-100); padding: 4px 12px; border-radius: var(--r-full); white-space: nowrap; }
+  .tag-promoted { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--n-600); background: var(--n-100); padding: 4px 8px; border-radius: var(--r-sm); }
 
-  .price-row.line { border-bottom: 1px solid var(--n-100); padding: 11px 0; }
+  .price-row.line { border-bottom: 1px solid var(--n-100); padding: 12px 0; }
   .success-check {
     width: 64px; height: 64px; border-radius: 50%; background: var(--success); color: #fff;
-    display: flex; align-items: center; justify-content: center; margin: 30px auto 20px; box-shadow: var(--e2);
+    display: flex; align-items: center; justify-content: center; margin: 32px auto 20px; box-shadow: var(--e2);
     animation: pop-in .35s ease both;
   }
   .tile .t-ico { flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; color: var(--n-700); }
@@ -247,48 +247,48 @@
   .tile .t-name { flex: none; font-size: 12px; font-weight: 600; margin-top: 4px; color: var(--ink); line-height: 1.25; }
 
   /* Garment line item (Job Builder) */
-  .line-item { position: relative; background: var(--white); border-radius: var(--r-lg); box-shadow: var(--e2); padding: 14px 12px 14px 14px; display: flex; align-items: center; gap: 11px; }
+  .line-item { position: relative; background: var(--white); border-radius: var(--r-lg); box-shadow: var(--e2); padding: 16px 12px 16px 16px; display: flex; align-items: center; gap: 12px; }
   .line-item .li-remove { position: absolute; top: 9px; right: 7px; }
-  .line-item .li-name { font-weight: 600; font-size: 15.5px; }
-  .line-item .li-sub { font-size: 13px; color: var(--n-500); margin-top: 2px; }
-  .icon-btn { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--accent-ink); background: transparent; border: none; padding: 8px 10px; border-radius: var(--r-md); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all .18s; }
+  .line-item .li-name { font-weight: 600; font-size: 16px; }
+  .line-item .li-sub { font-size: 12px; color: var(--n-500); margin-top: 2px; }
+  .icon-btn { font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--accent-ink); background: transparent; border: none; padding: 8px 12px; border-radius: var(--r-md); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all .18s; }
   .icon-btn:hover { background: var(--n-100); }
 
   .add-service {
     display: inline-flex; align-items: center; gap: 4px;
-    font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--accent-ink);
+    font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--accent-ink);
     background: transparent; border: none; border-radius: var(--r-md);
-    padding: 2px 4px 2px 0; margin-top: 4px; cursor: pointer; transition: all .18s;
+    padding: 4px 4px 4px 0; margin-top: 4px; cursor: pointer; transition: all .18s;
   }
   .add-service:hover { color: var(--ink); }
 
   .add-garment {
-    width: 100%; font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--accent-ink);
+    width: 100%; font-family: var(--sans); font-size: 16px; font-weight: 600; color: var(--accent-ink);
     background: transparent; border: 1.5px dashed var(--n-300); border-radius: var(--r-lg);
-    padding: 15px; cursor: pointer; transition: all .18s;
+    padding: 16px; cursor: pointer; transition: all .18s;
   }
   .add-garment:hover { border-color: var(--accent); background: var(--n-100); }
 
   /* CTA footer */
-  .cta-bar { flex: none; padding: 12px 20px 14px; background: var(--n-50); border-top: 1px solid var(--n-200); }
+  .cta-bar { flex: none; padding: 12px 20px 16px; background: var(--n-50); border-top: 1px solid var(--n-200); }
 
   /* ============ Tab bar ============ */
-  .tabbar { flex: none; background: var(--white); border-top: 1px solid var(--n-200); display: flex; justify-content: space-around; padding: 10px 8px 22px; }
-  .tab { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--n-400); cursor: pointer; background: none; border: none; font-family: var(--sans); font-size: 11px; font-weight: 500; padding: 0 14px; transition: color .18s; }
+  .tabbar { flex: none; background: var(--white); border-top: 1px solid var(--n-200); display: flex; justify-content: space-around; padding: 12px 8px 24px; }
+  .tab { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--n-400); cursor: pointer; background: none; border: none; font-family: var(--sans); font-size: 12px; font-weight: 500; padding: 0 16px; transition: color .18s; }
   .tab.active { color: var(--ink); font-weight: 700; }
 
   /* ============ Toast & modal ============ */
   .toast {
     position: absolute; left: 50%; bottom: 104px; transform: translateX(-50%) translateY(10px);
-    background: var(--n-900); color: var(--n-50); padding: 11px 19px; border-radius: var(--r-full);
-    font-size: 13.5px; font-weight: 600; opacity: 0; transition: all .25s; pointer-events: none;
+    background: var(--n-900); color: var(--n-50); padding: 12px 20px; border-radius: var(--r-full);
+    font-size: 12px; font-weight: 600; opacity: 0; transition: all .25s; pointer-events: none;
     box-shadow: var(--e3); z-index: 50; white-space: nowrap;
   }
   .toast.show { opacity: 1; transform: translateX(-50%); }
 
-  .price-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 14.5px; padding: 7px 0; }
+  .price-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 16px; padding: 8px 0; }
   .price-row .muted { color: var(--n-500); }
-  .price-row.total { font-weight: 700; font-size: 16.5px; border-top: 1px solid var(--n-200); margin-top: 6px; padding-top: 13px; }
+  .price-row.total { font-weight: 700; font-size: 16px; border-top: 1px solid var(--n-200); margin-top: 6px; padding-top: 13px; }
 
   @keyframes taily-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
   @keyframes pop-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
@@ -312,8 +312,8 @@
       <!-- ============ 1 · HOME ============ -->
       <div class="screen active" id="screen-home">
         <div class="scroll">
-          <h1 style="font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1.1; margin: 14px 0 7px;">What Are We Tailoring Today?</h1>
-          <div style="display: flex; align-items: center; gap: 5px; font-size: 14px; font-weight: 700; margin-bottom: 20px;">
+          <h1 style="font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1.1; margin: 16px 0 8px;">What Are We Tailoring Today?</h1>
+          <div style="display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; margin-bottom: 20px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
             New York, NY
           </div>
@@ -321,14 +321,14 @@
           <div class="tile-grid" id="tile-grid"></div>
           <div id="tile-hint" style="display: none; justify-content: space-between; align-items: center; margin-top: 10px;">
             <span class="caption">Tap again to add another of the same garment.</span>
-            <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 13px;" onclick="clearTiles()">Clear</button>
+            <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 12px;" onclick="clearTiles()">Clear</button>
           </div>
 
           <button class="btn btn-primary btn-block" style="margin-top: 18px;" id="start-booking-btn" onclick="startBooking()">Start Booking</button>
 
-          <div style="display: flex; justify-content: space-between; align-items: baseline; margin: 30px 0 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin: 32px 0 12px;">
             <div class="label-caps">Upcoming Appointments</div>
-            <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 13.5px;" onclick="go('tracking'); setTab('bookings');">View All</button>
+            <button class="btn btn-ghost" style="padding: 4px 8px; font-size: 12px;" onclick="go('tracking'); setTab('bookings');">View All</button>
           </div>
           <div id="home-upcoming" style="display: flex; flex-direction: column; gap: 12px;"></div>
         </div>
@@ -346,12 +346,12 @@
           </div>
         </div>
         <div class="scroll">
-          <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px;">
+          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
             <select class="appt-select" id="appt-when" onchange="setAppt('when', this.value)"></select>
             <select class="appt-select" id="appt-where" onchange="setAppt('where', this.value)"></select>
           </div>
-          <div class="label-caps" style="margin: 0 0 10px;">Your Garments</div>
-          <div id="garment-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+          <div class="label-caps" style="margin: 0 0 12px;">Your Garments</div>
+          <div id="garment-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
           <button class="add-garment" style="margin-top: 10px;" id="add-garment-btn" onclick="addDefaultGarment()">+ Add Another Garment</button>
         </div>
         <div class="cta-bar">
@@ -432,7 +432,7 @@
       <!-- ============ 4b · BOOKING CONFIRMED ============ -->
       <div class="screen" id="screen-success">
         <div class="scroll" id="success-body"></div>
-        <div class="cta-bar" style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="cta-bar" style="display: flex; flex-direction: column; gap: 12px;">
           <button class="btn btn-primary btn-block" onclick="toast('Calendar sync coming soon')">Add to Calendar</button>
           <button class="btn btn-secondary btn-block" onclick="renderTracking(); go('tracking'); setTab('bookings');">View Booking</button>
         </div>
@@ -597,7 +597,8 @@ function setAppt(key, val) {
 
 let upcoming = [
   { name: "Elena's Atelier", initials: 'EA', where: 'shop', place: '350 W 51st St, Midtown West',
-    when: 'Wed, Jul 8 · 5:30 PM', status: 'Confirmed', items: '1 gown · Alterations' },
+    when: 'Wed, Jul 8 · 5:30 PM', status: 'Confirmed', items: '1 gown · Alterations',
+    visit: 'Store Visit', count: 1, itemLines: ['1 Bridal Gown - Alterations'] },
 ];
 let past = [
   { name: 'Marco Tailor', initials: 'MT', where: 'home', place: 'Upper East Side',
@@ -700,9 +701,9 @@ function startBooking() {
 function renderBuilder() {
   const list = document.getElementById('garment-list');
   if (garments.length === 0) {
-    list.innerHTML = `<div class="card-flat" style="padding: 26px 20px; text-align: center;">
+    list.innerHTML = `<div class="card-flat" style="padding: 28px 20px; text-align: center;">
         <div style="font-family: var(--serif); font-size: 20px; font-weight: 500;">Nothing here yet</div>
-        <div style="font-size: 13.5px; color: var(--n-500); margin-top: 6px; line-height: 1.5;">Add a garment below to get started.</div>
+        <div style="font-size: 12px; color: var(--n-500); margin-top: 6px; line-height: 1.5;">Add a garment below to get started.</div>
       </div>`;
   } else {
     list.innerHTML = garments.map((g, i) => {
@@ -710,19 +711,24 @@ function renderBuilder() {
       const gname = (g.qty > 1 ? gt.plural : g.type);
       return `
       <div class="line-item pop-in" style="align-items: center;">
-        <div class="gicon" style="flex: none; width: 66px; height: 66px; border-radius: var(--r-lg);">${gIcon(g.type, 56)}</div>
+        <div style="flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+          ${gIcon(g.type, 60)}
+          <div style="font-weight: 500; font-size: 16px; font-variant-numeric: tabular-nums;">$${g.jobs.reduce((s, j) => s + JOB_TYPES[j].price, 0) * g.qty}</div>
+        </div>
         <div style="flex: 1; min-width: 0;">
           <div style="display: flex; align-items: center; gap: 4px;">
-            <select class="inline-select" style="font-size: 15.5px;" onchange="updateGarment(${i}, 'qty', this.value)" aria-label="Quantity">
+            <select class="inline-select" style="font-size: 16px;" onchange="updateGarment(${i}, 'qty', this.value)" aria-label="Quantity">
               ${[1,2,3,4,5,6,7,8,9].map(n => `<option value="${n}" ${g.qty === n ? 'selected' : ''}>${n}</option>`).join('')}
             </select>
-            <select class="inline-select" style="font-size: 15.5px;" onchange="updateGarment(${i}, 'type', this.value)" aria-label="Garment type">
+            <select class="inline-select" style="font-size: 16px;" onchange="updateGarment(${i}, 'type', this.value)" aria-label="Garment type">
               ${Object.keys(GARMENT_TYPES).map(t => `<option value="${t}" ${g.type === t ? 'selected' : ''}>${g.qty > 1 ? GARMENT_TYPES[t].plural : t}</option>`).join('')}
             </select>
+            <span style="flex: 1;"></span>
+            <button class="icon-btn" style="color: var(--n-500); padding: 4px 8px; font-size: 16px; flex: none;" onclick="removeGarment(${i})" aria-label="Remove ${gname}">✕</button>
           </div>
           ${g.jobs.map((job, si) => `
           <div style="margin-top: 3px;">
-            <select class="inline-select" style="font-size: 13.5px; color: var(--accent-ink);" onchange="updateService(${i}, ${si}, this.value)" aria-label="Service ${si + 1}">
+            <select class="inline-select" style="font-size: 12px; color: var(--accent-ink);" onchange="updateService(${i}, ${si}, this.value)" aria-label="Service ${si + 1}">
               ${Object.keys(JOB_TYPES).map(j => `<option value="${j}" ${job === j ? 'selected' : ''}>${j}</option>`).join('')}
             </select>
           </div>`).join('')}
@@ -733,7 +739,6 @@ function renderBuilder() {
             </button>
           </div>
         </div>
-        <button class="icon-btn li-remove" style="color: var(--n-500); padding: 5px 7px; font-size: 15px;" onclick="removeGarment(${i})" aria-label="Remove ${gname}">✕</button>
       </div>`;
     }).join('');
   }
@@ -813,15 +818,15 @@ function renderTailors() {
   const el = document.getElementById('tailor-list');
   if (list.length === 0) {
     el.innerHTML = `<div class="card-flat" style="padding: 36px 24px; text-align: center;">
-        <div style="font-family: var(--serif); font-size: 21px; font-weight: 500;">No tailors in range yet</div>
-        <div style="font-size: 13.5px; color: var(--n-500); margin: 8px 0 18px; line-height: 1.5;">Widen your filters to see more availability.</div>
-        <button class="btn btn-primary" style="padding: 11px 20px; font-size: 14px;" onclick="resetFilters()">Adjust filters</button>
+        <div style="font-family: var(--serif); font-size: 20px; font-weight: 500;">No tailors in range yet</div>
+        <div style="font-size: 12px; color: var(--n-500); margin: 8px 0 20px; line-height: 1.5;">Widen your filters to see more availability.</div>
+        <button class="btn btn-primary" style="padding: 12px 20px; font-size: 12px;" onclick="resetFilters()">Adjust filters</button>
       </div>`;
     return;
   }
 
   const stars = r => Array.from({ length: 5 }, (_, i) =>
-    `<span style="color: ${i < Math.floor(r) ? 'var(--accent)' : 'var(--n-300)'}; font-size: 14px;">★</span>`).join('');
+    `<span style="color: ${i < Math.floor(r) ? 'var(--accent)' : 'var(--n-300)'}; font-size: 12px;">★</span>`).join('');
 
   el.innerHTML = list.map(t => `
     <div class="card pop-in" style="padding: 16px; cursor: pointer;" onclick="openDetails('${t.id}')">
@@ -829,16 +834,16 @@ function renderTailors() {
         ${[0,1,2].map(() => `<div class="photo-ph"></div>`).join('')}
       </div>
       <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px;">
-        <span style="font-weight: 700; font-size: 17px; line-height: 1.2;">${t.name}</span>
-        <span style="font-weight: 700; font-size: 15px; flex: none; font-variant-numeric: tabular-nums;">$${t.from}+</span>
+        <span style="font-weight: 700; font-size: 16px; line-height: 1.2;">${t.name}</span>
+        <span style="font-weight: 700; font-size: 16px; flex: none; font-variant-numeric: tabular-nums;">$${t.from}+</span>
       </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 6px;">
-        <span style="display: inline-flex; align-items: center; gap: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px;">
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
           <span style="letter-spacing: 1px;">${stars(t.rating)}</span>
-          <span style="font-weight: 700; font-size: 13.5px;">${t.rating}</span>
+          <span style="font-weight: 700; font-size: 12px;">${t.rating}</span>
           <span class="caption">(${t.reviews} reviews)</span>
         </span>
-        <span class="caption" style="display: inline-flex; align-items: center; gap: 2px; font-size: 12px; flex: none;">
+        <span class="caption" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; flex: none;">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
           ${t.dist} mi
         </span>
@@ -851,7 +856,7 @@ function renderTailors() {
         ${t.daySlots.map((time, i) =>
           `<button class="chip ${i === 0 ? 'selected' : ''}" style="flex: none;" onclick="event.stopPropagation(); pickSlot('${t.id}', '${time}')">${time}</button>`).join('')}
       </div>
-      <div style="display: flex; gap: 6px; flex-wrap: nowrap; margin-top: 9px;">
+      <div style="display: flex; gap: 8px; flex-wrap: nowrap; margin-top: 9px;">
         ${t.pillsShort.map(p => `<span class="pill-sage">${p}</span>`).join('')}
       </div>
     </div>`).join('');
@@ -863,14 +868,14 @@ function openDetails(tailorId) {
   document.getElementById('details-body').innerHTML = `
     <div style="height: 185px; background: linear-gradient(135deg, var(--n-100), var(--n-200)); display: flex; align-items: center; justify-content: center; position: relative;">
       <span style="font-family: var(--serif); font-size: 44px; color: var(--n-400); font-weight: 600;">${t.initials}</span>
-      <span class="caption" style="position: absolute; left: 12px; bottom: 8px; font-size: 11px;">Gallery</span>
-      <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px;">
+      <span class="caption" style="position: absolute; left: 12px; bottom: 8px; font-size: 12px;">Gallery</span>
+      <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px;">
         ${[0,1,2,3].map(i => `<span style="width: 6px; height: 6px; border-radius: 50%; background: ${i === 0 ? 'var(--n-600)' : 'var(--n-300)'};"></span>`).join('')}
       </div>
     </div>
-    <div style="padding: 18px 20px 0;">
+    <div style="padding: 20px 20px 0;">
       <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <span style="font-family: var(--sans); font-weight: 600; font-size: 22px;">${t.name}</span>
+        <span style="font-family: var(--sans); font-weight: 600; font-size: 20px;">${t.name}</span>
         ${t.promoted ? '<span class="tag-promoted">Promoted</span>' : ''}
       </div>
       <div style="margin-top: 6px;"><span class="rating"><span class="star">★</span> ${t.rating} <span class="count">(${t.reviews} reviews)</span></span></div>
@@ -882,7 +887,7 @@ function openDetails(tailorId) {
       </div>
 
       <div class="label-caps" style="margin: 24px 0 8px;">Description</div>
-      <p style="font-size: 14.5px; line-height: 1.55; color: var(--n-700); margin: 0;">${t.desc}</p>
+      <p style="font-size: 16px; line-height: 1.55; color: var(--n-700); margin: 0;">${t.desc}</p>
 
       <div class="label-caps" style="margin: 24px 0 4px;">Pricing</div>
       ${t.pricing.map(([svc, price]) => `
@@ -892,10 +897,10 @@ function openDetails(tailorId) {
       <div class="caption">${t.address}</div>
       <div style="height: 110px; background: var(--n-100); border: 1px solid var(--n-200); border-radius: var(--r-md); margin-top: 10px; display: flex; align-items: center; justify-content: center; color: var(--n-400); position: relative;">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-        <span class="caption" style="position: absolute; left: 10px; bottom: 6px; font-size: 11px;">Map</span>
+        <span class="caption" style="position: absolute; left: 10px; bottom: 6px; font-size: 12px;">Map</span>
       </div>
 
-      <div style="display: flex; align-items: baseline; gap: 7px; margin: 24px 0 10px;">
+      <div style="display: flex; align-items: baseline; gap: 8px; margin: 24px 0 12px;">
         <span style="font-weight: 600; font-size: 16px;">Availability for</span>
         <span style="font-weight: 700; font-size: 16px; text-decoration: underline; text-underline-offset: 3px;">${t.availDate}</span>
       </div>
@@ -931,17 +936,17 @@ function bookingLines() {
 function tailorSummaryCard(t, time) {
   return `
     <div class="card" style="padding: 20px;">
-      <div style="display: flex; gap: 13px; align-items: center;">
-        <div class="avatar" style="background: var(--ink); color: var(--n-50); font-family: var(--sans); font-weight: 700; font-size: 17px;">${t.initials}</div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div class="avatar" style="background: var(--ink); color: var(--n-50); font-family: var(--sans); font-weight: 700; font-size: 16px;">${t.initials}</div>
         <div style="flex: 1; min-width: 0;">
-          <div style="font-weight: 600; font-size: 17.5px;">${t.name}</div>
-          <div style="font-size: 13px; color: var(--n-500); margin-top: 3px;">${t.spec} · ${t.hood}</div>
+          <div style="font-weight: 600; font-size: 16px;">${t.name}</div>
+          <div style="font-size: 12px; color: var(--n-500); margin-top: 3px;">${t.spec} · ${t.hood}</div>
         </div>
         <span class="rating"><span class="star">★</span> ${t.rating} <span class="count">(${t.reviews})</span></span>
       </div>
       <div style="display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap;">
         <span class="badge ${t.home ? 'badge-home' : 'badge-shop'}" style="background: ${t.home ? '#F3ECE0' : 'var(--n-100)'}; border: 1px solid var(--n-200);">${t.home ? '🏠 Home visit' : '🏬 In-store'}</span>
-        <span class="chip selected" style="cursor: default; font-size: 13px; padding: 6px 13px; display: inline-flex; align-items: center; gap: 6px;">
+        <span class="chip selected" style="cursor: default; font-size: 12px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 8px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
           ${t.availDate}, ${time}
         </span>
@@ -954,19 +959,19 @@ function renderConfirm() {
   const { total } = bookingLines();
   document.getElementById('confirm-body').innerHTML = `
     ${tailorSummaryCard(tailor, time)}
-    <div class="label-caps" style="margin: 22px 0 10px;">Your Garments</div>
-    <div class="card" style="padding: 6px 18px 8px;">
+    <div class="label-caps" style="margin: 24px 0 12px;">Your Garments</div>
+    <div class="card" style="padding: 8px 20px 8px;">
       ${garments.map(g => `
-        <div style="display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">
-          <button class="icon-btn" style="padding: 7px; flex: none;" onclick="go('builder', 'back')" aria-label="Edit ${g.type} job">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">
+          <button class="icon-btn" style="padding: 8px; flex: none;" onclick="go('builder', 'back')" aria-label="Edit ${g.type} job">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>
           <div class="gicon" style="width: 38px; height: 38px; flex: none;">${gIcon(g.type, 31)}</div>
           <div style="flex: 1;">
-            <div style="font-weight: 600; font-size: 14.5px;">${g.type}</div>
-            <div style="font-size: 12.5px; color: var(--n-500);">${g.jobs.join(' · ')} ×${g.qty}</div>
+            <div style="font-weight: 600; font-size: 16px;">${g.type}</div>
+            <div style="font-size: 12px; color: var(--n-500);">${g.jobs.join(' · ')} ×${g.qty}</div>
           </div>
-          <div style="font-weight: 700; font-size: 14.5px; font-variant-numeric: tabular-nums;">$${g.jobs.reduce((s, j) => s + JOB_TYPES[j].price, 0) * g.qty}</div>
+          <div style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${g.jobs.reduce((s, j) => s + JOB_TYPES[j].price, 0) * g.qty}</div>
         </div>`).join('')}
       <div class="price-row" style="padding-top: 12px;"><span class="muted">Service fee</span><span style="font-variant-numeric: tabular-nums;">$${SERVICE_FEE}</span></div>
     </div>`;
@@ -990,6 +995,9 @@ function confirmBooking() {
     when: `${tailor.availDate} · ${time}`,
     status: 'Confirmed',
     items: `${count} item${count === 1 ? '' : 's'} · $${total}`,
+    visit: tailor.home ? 'Home Visit' : 'Store Visit',
+    count,
+    itemLines: garments.map(g => `${g.qty} ${g.type} - ${g.jobs.map(j => j.split(' / ')[0]).join(', ')}`),
     justBooked: true,
   });
 
@@ -1006,10 +1014,10 @@ function renderSuccess() {
     <div class="success-check">
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
     </div>
-    <h1 style="font-family: var(--serif); font-weight: 500; font-size: 33px; text-align: center; margin: 0 0 7px;">Booking Confirmed!</h1>
+    <h1 style="font-family: var(--serif); font-weight: 500; font-size: 32px; text-align: center; margin: 0 0 8px;">Booking Confirmed!</h1>
     <div class="caption" style="text-align: center; margin-bottom: 22px;">Confirmation Number: ${b.confNum}</div>
     ${tailorSummaryCard(b.tailor, b.time)}
-    <div class="label-caps" style="margin: 24px 0 6px;">Order Summary</div>
+    <div class="label-caps" style="margin: 24px 0 8px;">Order Summary</div>
     ${b.rows.map(r => `
       <div class="price-row line"><span>${r.label} <span style="color: var(--n-500); font-weight: 500;">×${r.qty}</span></span><span style="font-weight: 700; font-variant-numeric: tabular-nums;">$${r.amount}</span></div>`).join('')}
     <div style="margin-top: 12px;">
@@ -1021,28 +1029,49 @@ function renderSuccess() {
 
 /* ---------- Tracking ---------- */
 function apptCard(a, isPast) {
+  if (!isPast) {
+    // Upcoming card — per Figma: avatar + name/date/address, itemized order summary, actions
+    return `
+    <div class="card ${a.justBooked ? 'pop-in' : ''}" style="padding: 20px 20px; ${a.justBooked ? 'outline: 1.5px solid var(--accent); outline-offset: -1.5px;' : ''}">
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${a.initials}</div>
+        <div style="min-width: 0;">
+          <div style="font-weight: 600; font-size: 16px;">${a.name}</div>
+          <div style="font-size: 12px; color: var(--n-600); margin-top: 4px; font-variant-numeric: tabular-nums;">${a.when}</div>
+          <div style="font-size: 12px; color: var(--n-600); margin-top: 2px;">${a.place}</div>
+        </div>
+      </div>
+      <div style="margin-top: 12px;">
+        <div style="font-size: 12px; font-weight: 700; color: var(--n-500);">${a.count} Item${a.count === 1 ? '' : 's'} Total - ${a.visit}:</div>
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+          ${(a.itemLines || []).map(l => `<div style="font-size: 12px; font-weight: 500; color: var(--n-500);">${l}</div>`).join('')}
+        </div>
+      </div>
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="toast('Messaging coming soon')">Message</button>
+        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="toast('Rescheduling coming soon')">Reschedule</button>
+      </div>
+    </div>`;
+  }
   return `
-    <div class="card ${a.justBooked ? 'pop-in' : ''}" style="padding: 18px 20px; ${a.justBooked ? 'outline: 1.5px solid var(--accent); outline-offset: -1.5px;' : ''}">
+    <div class="card" style="padding: 20px 20px;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
-        <div style="display: flex; gap: 13px; align-items: center;">
-          <div class="avatar" style="width: 44px; height: 44px; font-size: 17px;">${a.initials}</div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${a.initials}</div>
           <div>
-            <div style="font-weight: 600; font-size: 16.5px;">${a.name}</div>
-            <div style="font-size: 13.5px; color: var(--n-600); margin-top: 3px; font-variant-numeric: tabular-nums;">${a.when}</div>
+            <div style="font-weight: 600; font-size: 16px;">${a.name}</div>
+            <div style="font-size: 12px; color: var(--n-600); margin-top: 3px; font-variant-numeric: tabular-nums;">${a.when}</div>
           </div>
         </div>
-        <span class="badge ${isPast ? 'badge-neutral' : 'badge-success'}"><span class="dot"></span> ${a.status}</span>
+        <span class="badge badge-neutral"><span class="dot"></span> ${a.status}</span>
       </div>
       <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
         <span class="badge ${a.where === 'home' ? 'badge-home' : 'badge-shop'}">${a.where === 'home' ? '🏠' : '🏬'} ${a.place}</span>
         <span class="caption" style="align-self: center;">${a.items}</span>
       </div>
-      <div style="display: flex; gap: 10px; margin-top: 16px;">
-        ${isPast
-          ? `<button class="btn btn-secondary" style="flex: 1; font-size: 14px; padding: 11px;" onclick="startBooking()">Rebook</button>
-             <button class="btn btn-secondary" style="flex: 1; font-size: 14px; padding: 11px;" onclick="toast('Reviews coming soon')">Leave Review</button>`
-          : `<button class="btn btn-secondary" style="flex: 1; font-size: 14px; padding: 11px;" onclick="toast('Messaging coming soon')">Message</button>
-             <button class="btn btn-secondary" style="flex: 1; font-size: 14px; padding: 11px;" onclick="toast('Rescheduling coming soon')">Reschedule</button>`}
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="startBooking()">Rebook</button>
+        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="toast('Reviews coming soon')">Leave Review</button>
       </div>
     </div>`;
 }
@@ -1055,20 +1084,8 @@ function renderTracking() {
 
 /* ---------- Home upcoming preview ---------- */
 function renderHomeUpcoming() {
-  document.getElementById('home-upcoming').innerHTML = upcoming.slice(0, 2).map(a => `
-    <div class="card" style="padding: 16px 18px; cursor: pointer;" onclick="renderTracking(); go('tracking'); setTab('bookings');">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <div class="avatar" style="width: 42px; height: 42px; font-size: 16px;">${a.initials}</div>
-          <div>
-            <div style="font-weight: 600; font-size: 15.5px;">${a.name}</div>
-            <div style="font-size: 13px; color: var(--n-600); margin-top: 2px; font-variant-numeric: tabular-nums;">${a.when}</div>
-          </div>
-        </div>
-        <span class="badge badge-success"><span class="dot"></span> ${a.status}</span>
-      </div>
-      <div style="margin-top: 10px;"><span class="badge ${a.where === 'home' ? 'badge-home' : 'badge-shop'}">${a.where === 'home' ? '🏠' : '🏬'} ${a.place}</span></div>
-    </div>`).join('');
+  // Home preview uses the same upcoming appointment card as Bookings (per Figma)
+  document.getElementById('home-upcoming').innerHTML = upcoming.slice(0, 2).map(a => apptCard(a, false)).join('');
 }
 
 /* ---------- Init ---------- */

@@ -182,7 +182,7 @@
   .tile-minus:hover { border-color: var(--ink); background: var(--n-50); }
 
   /* Tailor card photo gallery & time slot strips (horizontal scroll, clipped at card edge) */
-  .photo-strip { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px 0 0; padding-right: 16px; }
+  .photo-strip { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
   .photo-strip::-webkit-scrollbar { display: none; }
   .photo-ph { flex: none; width: 120px; height: 150px; border-radius: var(--r-md); background: #D9D9D9; }
   .slot-strip { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 12px -16px 0 0; padding-right: 16px; }
@@ -903,7 +903,6 @@ function openDetails(tailorId) {
       <div style="margin-top: 6px;"><span class="rating"><span class="star">★</span> ${t.rating} <span class="count">(${t.reviews} reviews)</span></span></div>
       <div class="caption" style="margin-top: 5px;">${t.address}</div>
       <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-        <span class="badge ${t.home ? 'badge-home' : 'badge-shop'}">${t.home ? '🏠 Home visit' : '🏬 In-store'}</span>
         <span class="tag">${t.specCat}</span>
         ${t.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
       </div>
@@ -931,15 +930,16 @@ function openDetails(tailorId) {
       </div>
 
       <div style="display: flex; align-items: center; gap: 16px; margin: 28px 0 12px;">
-        <span style="font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1;">${t.rating}</span>
-        <div style="flex: 1;">
-          <div style="letter-spacing: 1px; font-size: 16px;"><span style="color: var(--accent);">${'★'.repeat(Math.floor(t.rating))}</span><span style="color: var(--n-300);">${'★'.repeat(5 - Math.floor(t.rating))}</span></div>
-          <div class="caption" style="margin-top: 2px;">${t.reviews} reviews</div>
-        </div>
         <select class="appt-select compact" onchange="renderDetailReviews('${t.id}', this.value)" aria-label="Sort reviews">
           <option value="recent">Most Recent</option>
           <option value="rating">Highest Rated</option>
         </select>
+        <span style="flex: 1;"></span>
+        <span style="font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1;">${t.rating}</span>
+        <div>
+          <div style="letter-spacing: 1px; font-size: 16px;"><span style="color: var(--accent);">${'★'.repeat(Math.floor(t.rating))}</span><span style="color: var(--n-300);">${'★'.repeat(5 - Math.floor(t.rating))}</span></div>
+          <div class="caption" style="margin-top: 2px;">${t.reviews} reviews</div>
+        </div>
       </div>
       <div id="detail-reviews" style="display: flex; flex-direction: column; gap: 12px;"></div>
       <button class="btn btn-secondary btn-block" style="margin-top: 12px;" onclick="toast('All reviews coming soon')">View More</button>

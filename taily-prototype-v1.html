@@ -531,7 +531,12 @@ const TAILORS = [
     address: '1025 Broadway, New York, NY 10018',
     desc: 'Third-generation master tailor specializing in bespoke suiting and precision alterations. Marco trained on Savile Row and has dressed Upper East Side clients for over 20 years.',
     pricing: [['Hem Trousers', '$25'], ['Suit Alteration', '$80'], ['Shirt Tailoring', '$45'], ['Full Bespoke Suit', 'from $800'], ['Wedding Dress Alteration', '$150']],
-    availDate: 'Thu, Jul 9', daySlots: ['9:30 AM', '11:00 AM', '2:00 PM', '4:30 PM'] },
+    availDate: 'Thu, Jul 9', daySlots: ['9:30 AM', '11:00 AM', '2:00 PM', '4:30 PM'],
+    reviewsList: [
+      ['SC', 'Scott C', '2 weeks ago', 5, 'I had my wedding suit made here and it came out perfect!'],
+      ['DM', 'Dana M', '1 month ago', 5, 'Marco reshaped a vintage blazer I thought was beyond saving. Meticulous work.'],
+      ['JL', 'James L', '2 months ago', 4, 'Great fit in the end, though the turnaround ran a few days longer than quoted.'],
+    ] },
   { id: 'elena', name: "Elena's Atelier", initials: 'EA', promoted: false,
     spec: 'Wedding dresses', specCat: 'Dresses', hood: 'Midtown West',
     home: false, store: true, visitLine: 'In-store only',
@@ -543,7 +548,12 @@ const TAILORS = [
     address: '350 W 51st St, New York, NY 10019',
     desc: 'Bridal and eveningwear specialist. Elena and her team handle everything from delicate lace repair to full gown restructuring, with same-day service for emergencies.',
     pricing: [['Wedding Dress Alteration', '$150'], ['Gown Hem', '$60'], ['Bustle Add', '$75'], ['Corset Adjustment', '$90']],
-    availDate: 'Thu, Jul 9', daySlots: ['11:00 AM', '1:00 PM', '3:30 PM'] },
+    availDate: 'Thu, Jul 9', daySlots: ['11:00 AM', '1:00 PM', '3:30 PM'],
+    reviewsList: [
+      ['DM', 'Dana M', '1 month ago', 5, 'They saved my dress the morning of the wedding. Forever grateful.'],
+      ['PK', 'Priya K', '2 months ago', 5, 'Lace repair you truly cannot see. Remarkable hands.'],
+      ['AL', 'Anna L', '3 months ago', 4, 'Beautiful bustle work, though pickup ran a little behind schedule.'],
+    ] },
   { id: 'stitch', name: 'StitchCraft Studio', initials: 'SS', promoted: false,
     spec: 'Alterations & repairs', specCat: 'Alterations', hood: 'SoHo',
     home: true, store: false, visitLine: '$100 Home visit · Drop-off',
@@ -555,7 +565,12 @@ const TAILORS = [
     address: '98 Prince St, New York, NY 10012',
     desc: 'Fast, reliable everyday alterations and repairs. StitchCraft handles hems, zippers, and resizing with pickup and drop-off across downtown Manhattan.',
     pricing: [['Hem Trousers', '$20'], ['Zipper Replacement', '$35'], ['Resize Waist', '$40'], ['Patch & Repair', '$30']],
-    availDate: 'Fri, Jul 10', daySlots: ['10:00 AM', '1:00 PM', '3:00 PM'] },
+    availDate: 'Fri, Jul 10', daySlots: ['10:00 AM', '1:00 PM', '3:00 PM'],
+    reviewsList: [
+      ['PR', 'Priya R', '3 weeks ago', 5, 'Hemmed three pairs of jeans in two days. Easy and affordable.'],
+      ['TW', 'Tom W', '1 month ago', 4, 'Quick zipper replacement at a fair price.'],
+      ['KB', 'Kira B', '2 months ago', 4, 'Solid everyday alterations and great communication.'],
+    ] },
   { id: 'park', name: 'Park Avenue Tailoring', initials: 'PA', promoted: false,
     spec: 'Custom shirts', specCat: 'Shirts', hood: 'Brooklyn Heights',
     home: false, store: true, visitLine: 'In-store only',
@@ -567,7 +582,12 @@ const TAILORS = [
     address: '142 Montague St, Brooklyn, NY 11201',
     desc: 'Custom shirtmaking and fine alterations. Every shirt is cut to a personal pattern; alterations get the same made-to-measure attention.',
     pricing: [['Custom Shirt', 'from $210'], ['Shirt Tailoring', '$45'], ['Collar Replacement', '$55'], ['Sleeve Adjustment', '$35']],
-    availDate: 'Fri, Jul 10', daySlots: ['12:00 PM', '2:30 PM', '4:00 PM'] },
+    availDate: 'Fri, Jul 10', daySlots: ['12:00 PM', '2:30 PM', '4:00 PM'],
+    reviewsList: [
+      ['JL', 'James L', '2 months ago', 5, 'The only place I trust with my shirts. Impeccable collars.'],
+      ['HG', 'Henry G', '3 months ago', 5, 'Made-to-measure done exactly right the first time.'],
+      ['SM', 'Sofia M', '4 months ago', 4, 'Lovely craftsmanship — just book ahead, they fill up.'],
+    ] },
 ];
 
 /* ---------- App state ---------- */
@@ -601,10 +621,12 @@ let upcoming = [
     visit: 'Store Visit', count: 1, itemLines: ['1 Bridal Gown - Alterations'] },
 ];
 let past = [
-  { name: 'Marco Tailor', initials: 'MT', where: 'home', place: 'Upper East Side',
-    when: 'Sat, Jun 20', status: 'Delivered', items: '2 suit pants · Hem' },
+  { name: 'Marco Tailor', initials: 'MT', where: 'home', place: 'Upper East Side · Home Visit',
+    when: 'Sat, Jun 20', status: 'Delivered', items: '2 suit pants · Hem',
+    count: 2, itemLines: ['2 Suit Pants - Hem'] },
   { name: 'StitchCraft Studio', initials: 'SS', where: 'shop', place: '98 Prince St, SoHo',
-    when: 'Thu, May 28', status: 'Delivered', items: '1 jacket · Repair' },
+    when: 'Thu, May 28', status: 'Delivered', items: '1 jacket · Repair',
+    count: 1, itemLines: ['1 Jacket - Repair'] },
 ];
 
 /* ---------- Navigation ---------- */
@@ -889,9 +911,9 @@ function openDetails(tailorId) {
       <div class="label-caps" style="margin: 24px 0 8px;">Description</div>
       <p style="font-size: 16px; line-height: 1.55; color: var(--n-700); margin: 0;">${t.desc}</p>
 
-      <div class="label-caps" style="margin: 24px 0 4px;">Pricing</div>
+      <div class="label-caps" style="margin: 24px 0 4px;">Pricing For Your Items</div>
       ${t.pricing.map(([svc, price]) => `
-        <div class="price-row line"><span>${svc}</span><span style="font-weight: 700; font-variant-numeric: tabular-nums;">${price}</span></div>`).join('')}
+        <div class="price-row line"><span>${svc}</span><span style="font-weight: 700; font-variant-numeric: tabular-nums;">${price.replace(/^from /, '')}+</span></div>`).join('')}
 
       <div class="label-caps" style="margin: 24px 0 8px;">Location</div>
       <div class="caption">${t.address}</div>
@@ -907,8 +929,39 @@ function openDetails(tailorId) {
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
         ${t.daySlots.map(time => `<button class="chip" onclick="pickSlot('${t.id}', '${time}')">${time}</button>`).join('')}
       </div>
+
+      <div style="display: flex; align-items: center; gap: 16px; margin: 28px 0 12px;">
+        <span style="font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1;">${t.rating}</span>
+        <div style="flex: 1;">
+          <div style="letter-spacing: 1px; font-size: 16px;"><span style="color: var(--accent);">${'★'.repeat(Math.floor(t.rating))}</span><span style="color: var(--n-300);">${'★'.repeat(5 - Math.floor(t.rating))}</span></div>
+          <div class="caption" style="margin-top: 2px;">${t.reviews} reviews</div>
+        </div>
+        <select class="appt-select compact" onchange="renderDetailReviews('${t.id}', this.value)" aria-label="Sort reviews">
+          <option value="recent">Most Recent</option>
+          <option value="rating">Highest Rated</option>
+        </select>
+      </div>
+      <div id="detail-reviews" style="display: flex; flex-direction: column; gap: 12px;"></div>
+      <button class="btn btn-secondary btn-block" style="margin-top: 12px;" onclick="toast('All reviews coming soon')">View More</button>
     </div>`;
+  renderDetailReviews(tailorId, 'recent');
   go('details');
+}
+
+function renderDetailReviews(tailorId, mode) {
+  const t = TAILORS.find(x => x.id === tailorId);
+  const list = [...t.reviewsList];
+  if (mode === 'rating') list.sort((a, b) => b[3] - a[3]);
+  document.getElementById('detail-reviews').innerHTML = list.map(([init, name, date, rating, quote]) => `
+    <div class="card" style="padding: 16px;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--n-200); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--n-700); flex: none;">${init}</div>
+        <div style="font-weight: 600; font-size: 16px; flex: 1;">${name}</div>
+        <div class="caption" style="font-size: 12px;">${date}</div>
+      </div>
+      <div style="font-size: 12px; margin-top: 8px;"><span style="color: var(--accent);">${'★'.repeat(rating)}</span><span style="color: var(--n-300);">${'★'.repeat(5 - rating)}</span></div>
+      <div style="font-size: 16px; color: var(--n-700); line-height: 1.5; margin-top: 8px;">${quote}</div>
+    </div>`).join('');
 }
 
 /* ---------- Confirm ---------- */
@@ -1042,9 +1095,9 @@ function apptCard(a, isPast) {
         </div>
       </div>
       <div style="margin-top: 12px;">
-        <div style="font-size: 12px; font-weight: 700; color: var(--n-500);">${a.count} Item${a.count === 1 ? '' : 's'} Total - ${a.visit}:</div>
+        <div style="font-size: 12px; font-weight: 700; color: var(--n-500);">${a.count} Item${a.count === 1 ? '' : 's'} Total:</div>
         <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
-          ${(a.itemLines || []).map(l => `<div style="font-size: 12px; font-weight: 500; color: var(--n-500);">${l}</div>`).join('')}
+          ${(a.itemLines || []).map(l => `<div style="font-size: 12px; font-weight: 500; color: var(--n-500);">•&nbsp; ${l}</div>`).join('')}
         </div>
       </div>
       <div style="display: flex; gap: 12px; margin-top: 16px;">
@@ -1053,21 +1106,22 @@ function apptCard(a, isPast) {
       </div>
     </div>`;
   }
+  // Past card — same component style as upcoming, different actions (per Figma)
   return `
     <div class="card" style="padding: 20px 20px;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${a.initials}</div>
-          <div>
-            <div style="font-weight: 600; font-size: 16px;">${a.name}</div>
-            <div style="font-size: 12px; color: var(--n-600); margin-top: 3px; font-variant-numeric: tabular-nums;">${a.when}</div>
-          </div>
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${a.initials}</div>
+        <div style="min-width: 0;">
+          <div style="font-weight: 600; font-size: 16px;">${a.name}</div>
+          <div style="font-size: 12px; color: var(--n-600); margin-top: 4px; font-variant-numeric: tabular-nums;">${a.when}</div>
+          <div style="font-size: 12px; color: var(--n-600); margin-top: 2px;">${a.place}</div>
         </div>
-        <span class="badge badge-neutral"><span class="dot"></span> ${a.status}</span>
       </div>
-      <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-        <span class="badge ${a.where === 'home' ? 'badge-home' : 'badge-shop'}">${a.where === 'home' ? '🏠' : '🏬'} ${a.place}</span>
-        <span class="caption" style="align-self: center;">${a.items}</span>
+      <div style="margin-top: 12px;">
+        <div style="font-size: 12px; font-weight: 700; color: var(--n-500);">${a.count} Item${a.count === 1 ? '' : 's'} Total:</div>
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+          ${(a.itemLines || []).map(l => `<div style="font-size: 12px; font-weight: 500; color: var(--n-500);">•&nbsp; ${l}</div>`).join('')}
+        </div>
       </div>
       <div style="display: flex; gap: 12px; margin-top: 16px;">
         <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="startBooking()">Rebook</button>

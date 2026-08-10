@@ -425,7 +425,7 @@
         <div class="scroll" id="confirm-body"></div>
         <div class="cta-bar">
           <button class="btn btn-primary btn-block" id="confirm-cta" onclick="confirmBooking()">Confirm Booking</button>
-          <div style="text-align: center; font-size: 12px; color: var(--n-500); margin-top: 9px;">You won't be charged until your appointment.</div>
+          <div style="text-align: center; font-size: 12px; font-weight: 600; color: var(--n-500); margin-top: 8px; line-height: 1.45;">Final pricing is confirmed with the tailor at your appointment. Only the service fee is due upon confirmation.</div>
         </div>
       </div>
 
@@ -517,7 +517,7 @@ const JOB_TYPES = {
   'Alterations':            { price: 45, desc: 'General adjustments so your {g} fit perfectly.' },
 };
 
-const SERVICE_FEE = 15;
+const SERVICE_FEE_RATE = 0.10;
 
 const TAILORS = [
   { id: 'marco', name: 'Marco Tailor', initials: 'MT', promoted: true,
@@ -728,11 +728,21 @@ function renderBuilder() {
         <div style="font-size: 12px; color: var(--n-500); margin-top: 6px; line-height: 1.5;">Add a garment below to get started.</div>
       </div>`;
   } else {
-    list.innerHTML = garments.map((g, i) => {
-      const gt = GARMENT_TYPES[g.type];
-      const gname = (g.qty > 1 ? gt.plural : g.type);
-      return `
-      <div class="line-item pop-in" style="align-items: center;">
+    list.innerHTML = garments.map((g, i) => `
+      <div class="line-item pop-in" style="align-items: center;">${garmentCardBody(g, i)}</div>`).join('');
+  }
+  fitInlineSelects(list);
+  const btn = document.getElementById('builder-continue');
+  const count = garments.reduce((s, g) => s + g.qty, 0);
+  btn.disabled = garments.length === 0;
+  btn.textContent = garments.length === 0 ? 'Continue' : `Continue · ${count} item${count === 1 ? '' : 's'}`;
+}
+
+/* Shared garment card body — used by Job Builder and Confirm (WithPrice component) */
+function garmentCardBody(g, i) {
+  const gt = GARMENT_TYPES[g.type];
+  const gname = (g.qty > 1 ? gt.plural : g.type);
+  return `
         <div style="flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px;">
           ${gIcon(g.type, 60)}
           <div style="font-weight: 500; font-size: 16px; font-variant-numeric: tabular-nums;">$${g.jobs.reduce((s, j) => s + JOB_TYPES[j].price, 0) * g.qty}</div>
@@ -760,15 +770,12 @@ function renderBuilder() {
               Additional Service
             </button>
           </div>
-        </div>
-      </div>`;
-    }).join('');
-  }
-  fitInlineSelects(list);
-  const btn = document.getElementById('builder-continue');
-  const count = garments.reduce((s, g) => s + g.qty, 0);
-  btn.disabled = garments.length === 0;
-  btn.textContent = garments.length === 0 ? 'Continue' : `Continue · ${count} item${count === 1 ? '' : 's'}`;
+        </div>`;
+}
+
+function refreshGarmentViews() {
+  renderBuilder();
+  if (currentScreen === 'confirm' && selection) renderConfirm();
 }
 
 /* Size each inline dropdown to its selected option (selects otherwise size to their longest option and get clipped) */
@@ -784,7 +791,7 @@ function fitInlineSelects(root) {
 
 function updateGarment(i, key, val) {
   garments[i][key] = key === 'qty' ? parseInt(val, 10) : val;
-  renderBuilder();
+  refreshGarmentViews();
 }
 
 function addService(i) {
@@ -793,12 +800,12 @@ function addService(i) {
   const nextJob = Object.keys(JOB_TYPES).find(j => !g.jobs.includes(j));
   if (!nextJob) { toast('All services already added'); return; }
   g.jobs.push(nextJob);
-  renderBuilder();
+  refreshGarmentViews();
 }
 
 function updateService(i, si, val) {
   garments[i].jobs[si] = val;
-  renderBuilder();
+  refreshGarmentViews();
 }
 
 function addDefaultGarment() {
@@ -808,7 +815,7 @@ function addDefaultGarment() {
 
 function removeGarment(i) {
   garments.splice(i, 1);
-  renderBuilder();
+  refreshGarmentViews();
 }
 
 /* ---------- Tailors ---------- */
@@ -983,7 +990,8 @@ function bookingLines() {
     amount: g.jobs.reduce((s, j) => s + JOB_TYPES[j].price, 0) * g.qty,
   }));
   const subtotal = rows.reduce((s, r) => s + r.amount, 0);
-  return { rows, subtotal, fee: SERVICE_FEE, total: subtotal + SERVICE_FEE };
+  const fee = Math.round(subtotal * SERVICE_FEE_RATE * 100) / 100;
+  return { rows, subtotal, fee, total: subtotal + fee };
 }
 
 function tailorSummaryCard(t, time) {
@@ -1009,26 +1017,25 @@ function tailorSummaryCard(t, time) {
 
 function renderConfirm() {
   const { tailor, time } = selection;
-  const { total } = bookingLines();
-  document.getElementById('confirm-body').innerHTML = `
+  const { fee, total } = bookingLines();
+  const body = document.getElementById('confirm-body');
+  body.innerHTML = `
     ${tailorSummaryCard(tailor, time)}
     <div class="label-caps" style="margin: 24px 0 12px;">Your Garments</div>
-    <div class="card" style="padding: 8px 20px 8px;">
-      ${garments.map(g => `
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">
-          <button class="icon-btn" style="padding: 8px; flex: none;" onclick="go('builder', 'back')" aria-label="Edit ${g.type} job">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </button>
-          <div class="gicon" style="width: 38px; height: 38px; flex: none;">${gIcon(g.type, 31)}</div>
-          <div style="flex: 1;">
-            <div style="font-weight: 600; font-size: 16px;">${g.type}</div>
-            <div style="font-size: 12px; color: var(--n-500);">${g.jobs.join(' · ')} ×${g.qty}</div>
-          </div>
-          <div style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${g.jobs.reduce((s, j) => s + JOB_TYPES[j].price, 0) * g.qty}</div>
-        </div>`).join('')}
-      <div class="price-row" style="padding-top: 12px;"><span class="muted">Service fee</span><span style="font-variant-numeric: tabular-nums;">$${SERVICE_FEE}</span></div>
+    <div class="card" style="padding: 4px 16px 4px;">
+      ${garments.map((g, i) => `
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">${garmentCardBody(g, i)}</div>`).join('')}
+      <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">
+        <span style="font-weight: 500; font-size: 16px; font-variant-numeric: tabular-nums;">$${fee.toFixed(2)}</span>
+        <span style="font-weight: 600; font-size: 16px; color: var(--n-500);">Service fee (10%)</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0;">
+        <span style="font-weight: 500; font-size: 16px; font-variant-numeric: tabular-nums;">$${total.toFixed(2)}</span>
+        <span style="font-weight: 600; font-size: 16px; color: var(--n-500);">Total</span>
+      </div>
     </div>`;
-  document.getElementById('confirm-cta').textContent = `Confirm Booking · $${total}`;
+  fitInlineSelects(body);
+  document.getElementById('confirm-cta').textContent = 'Confirm Booking';
 }
 
 /* ---------- Booking Confirmed ---------- */
@@ -1047,7 +1054,7 @@ function confirmBooking() {
     place: tailor.home ? 'Your address · 88 Leonard St' : `${tailor.address.split(',')[0]}, ${tailor.hood}`,
     when: `${tailor.availDate} · ${time}`,
     status: 'Confirmed',
-    items: `${count} item${count === 1 ? '' : 's'} · $${total}`,
+    items: `${count} item${count === 1 ? '' : 's'} · $${total.toFixed(2)}`,
     visit: tailor.home ? 'Home Visit' : 'Store Visit',
     count,
     itemLines: garments.map(g => `${g.qty} ${g.type} - ${g.jobs.map(j => j.split(' / ')[0]).join(', ')}`),

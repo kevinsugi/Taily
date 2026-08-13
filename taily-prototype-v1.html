@@ -1177,8 +1177,11 @@ function apptCard(a, isPast, idx) {
     <div class="card ${a.justBooked ? 'pop-in' : ''}" style="padding: 20px 20px; cursor: pointer; ${a.justBooked ? 'outline: 1.5px solid var(--accent); outline-offset: -1.5px;' : ''}" onclick="openApptDetail('upcoming', ${idx})">
       <div style="display: flex; gap: 12px; align-items: center;">
         <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${a.initials}</div>
-        <div style="min-width: 0;">
-          <div style="font-weight: 600; font-size: 16px;">${a.name}</div>
+        <div style="min-width: 0; flex: 1;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="font-weight: 600; font-size: 16px; flex: 1;">${a.name}</div>
+            ${statusPill(a.status || 'confirmed')}
+          </div>
           <div style="font-size: 12px; color: var(--n-600); margin-top: 4px; font-variant-numeric: tabular-nums;">${a.when}</div>
           <div style="font-size: 12px; color: var(--n-600); margin-top: 4px;">${a.place}</div>
         </div>
@@ -1200,8 +1203,11 @@ function apptCard(a, isPast, idx) {
     <div class="card" style="padding: 20px 20px; cursor: pointer;" onclick="openApptDetail('past', ${idx})">
       <div style="display: flex; gap: 12px; align-items: center;">
         <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${a.initials}</div>
-        <div style="min-width: 0;">
-          <div style="font-weight: 600; font-size: 16px;">${a.name}</div>
+        <div style="min-width: 0; flex: 1;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="font-weight: 600; font-size: 16px; flex: 1;">${a.name}</div>
+            ${statusPill('completed')}
+          </div>
           <div style="font-size: 12px; color: var(--n-600); margin-top: 4px; font-variant-numeric: tabular-nums;">${a.when}</div>
           <div style="font-size: 12px; color: var(--n-600); margin-top: 4px;">${a.place}</div>
         </div>

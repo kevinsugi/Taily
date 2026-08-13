@@ -290,6 +290,28 @@
   .price-row .muted { color: var(--n-500); }
   .price-row.total { font-weight: 700; font-size: 16px; border-top: 1px solid var(--n-200); margin-top: 6px; padding-top: 13px; }
 
+  /* Status pills (V2 lifecycle) */
+  .status-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: var(--r-full); width: fit-content; }
+  .status-pill .sdot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .st-requested { color: var(--warning); background: var(--warning-bg); }
+  .st-confirmed { color: var(--success); background: var(--success-bg); }
+  .st-ready { color: var(--accent-ink); background: #F3ECE0; }
+  .st-completed { color: var(--n-600); background: var(--n-100); }
+  .st-declined { color: var(--error); background: var(--error-bg); }
+
+  /* Wheel picker sheet (Option D) */
+  .sheet-backdrop { position: absolute; inset: 0; background: rgba(28,27,24,.4); z-index: 60; display: none; }
+  .sheet-backdrop.open { display: block; }
+  .time-sheet { position: absolute; left: 0; right: 0; bottom: 0; background: var(--n-50); border-radius: 24px 24px 0 0; padding: 8px 20px 20px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .wheel-wrap { position: relative; width: 100%; }
+  .wheel-band { position: absolute; left: 0; right: 0; top: 80px; height: 40px; background: var(--n-100); border-radius: var(--r-md); pointer-events: none; }
+  .wheel-cols { display: flex; width: 100%; }
+  .wheel-col { flex: 1; height: 200px; overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: none; position: relative; }
+  .wheel-col::-webkit-scrollbar { display: none; }
+  .wheel-col .pad { height: 80px; flex: none; }
+  .wheel-row { height: 40px; display: flex; align-items: center; justify-content: center; scroll-snap-align: center; font-size: 12px; font-weight: 500; color: var(--n-400); white-space: nowrap; }
+  .wheel-row.sel { font-size: 16px; font-weight: 700; color: var(--ink); }
+
   @keyframes taily-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
   @keyframes pop-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   .pop-in { animation: pop-in .3s ease both; }
@@ -347,12 +369,13 @@
         </div>
         <div class="scroll">
           <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
-            <select class="appt-select compact" id="appt-when" onchange="setAppt('when', this.value)"></select>
+            <button class="appt-select compact" id="appt-when" onclick="openTimeSheet()"></button>
             <select class="appt-select compact" id="appt-where" onchange="setAppt('where', this.value)"></select>
           </div>
           <div class="label-caps" style="margin: 0 0 12px;">Your Garments</div>
           <div id="garment-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
           <button class="add-garment" style="margin-top: 10px;" id="add-garment-btn" onclick="addDefaultGarment()">+ Add Another Garment</button>
+          <button class="add-garment" style="margin-top: 10px;" onclick="toast('Photo upload coming soon')">+ Add Photos</button>
         </div>
         <div class="cta-bar">
           <button class="btn btn-primary btn-block" id="builder-continue" onclick="toTailors()">Continue</button>
@@ -373,7 +396,7 @@
         <div class="scroll">
           <div class="caption" id="tailors-context" style="margin-bottom: 12px;"></div>
           <div class="filter-row">
-            <select class="appt-select compact" id="f-appt-when" onchange="setAppt('when', this.value)"></select>
+            <button class="appt-select compact" id="f-appt-when" onclick="openTimeSheet()"></button>
             <select class="appt-select compact" id="f-appt-where" onchange="setAppt('where', this.value)"></select>
             <select class="filter-select" id="f-rating" onchange="renderTailors()">
               <option value="0">Rating</option>
@@ -429,13 +452,30 @@
         </div>
       </div>
 
-      <!-- ============ 4b · BOOKING CONFIRMED ============ -->
+      <!-- ============ 4b · APPOINTMENT REQUESTED (V2 Status Hero) ============ -->
       <div class="screen" id="screen-success">
         <div class="scroll" id="success-body"></div>
-        <div class="cta-bar" style="display: flex; flex-direction: column; gap: 12px;">
-          <button class="btn btn-primary btn-block" onclick="toast('Calendar sync coming soon')">Add to Calendar</button>
-          <button class="btn btn-secondary btn-block" onclick="renderTracking(); go('tracking'); setTab('bookings');">View Booking</button>
+      </div>
+
+      <!-- ============ 6 · APPOINTMENT DETAIL (V2, 4 states) ============ -->
+      <div class="screen" id="screen-apptdetail">
+        <div class="screen-head">
+          <button class="back" onclick="renderTracking(); go('tracking', 'back'); setTab('bookings');" aria-label="Back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="screen-title">Appointment</div>
         </div>
+        <div class="scroll" id="apptdetail-body"></div>
+      </div>
+
+      <!-- ============ 7 · NEW TIME PROPOSED (V2) ============ -->
+      <div class="screen" id="screen-proposed">
+        <div class="scroll" id="proposed-body"></div>
+      </div>
+
+      <!-- ============ 8 · REQUEST DECLINED / RECOVERY (V2) ============ -->
+      <div class="screen" id="screen-recovery">
+        <div class="scroll" id="recovery-body"></div>
       </div>
 
       <!-- ============ 5 · TRACKING ============ -->
@@ -451,6 +491,21 @@
           <div id="upcoming-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
           <div class="label-caps" style="margin: 28px 0 12px;">Past</div>
           <div id="past-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+      </div>
+      <div class="sheet-backdrop" id="time-sheet" onclick="if (event.target === this) closeTimeSheet()">
+        <div class="time-sheet">
+          <div style="width: 40px; height: 4px; border-radius: 999px; background: var(--n-300);"></div>
+          <div style="display: flex; align-items: center; width: 100%;">
+            <button class="icon-btn" style="color: var(--n-500); padding: 4px 8px;" onclick="closeTimeSheet()">✕</button>
+            <div style="flex: 1; text-align: center; font-weight: 700; font-size: 16px;">Date &amp; Time</div>
+            <button class="icon-btn" style="color: var(--accent-ink); padding: 4px 8px; font-weight: 700;" onclick="confirmTimeSheet()">✓</button>
+          </div>
+          <div class="wheel-wrap">
+            <div class="wheel-band"></div>
+            <div class="wheel-cols" id="wheel-cols"></div>
+          </div>
+          <button class="btn btn-primary btn-block" id="time-sheet-cta" onclick="confirmTimeSheet()">Set Time</button>
         </div>
       </div>
     </div>
@@ -601,8 +656,11 @@ const APPT_PLACES = ['Home Visit', 'Store Visit'];
 let appt = { when: '7:00 PM Tonight', where: 'Home Visit' };
 
 function syncApptSelects() {
-  [['appt-when', APPT_TIMES, appt.when], ['f-appt-when', APPT_TIMES, appt.when],
-   ['appt-where', APPT_PLACES, appt.where], ['f-appt-where', APPT_PLACES, appt.where]]
+  [['appt-when', appt.when], ['f-appt-when', appt.when]].forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  });
+  [['appt-where', APPT_PLACES, appt.where], ['f-appt-where', APPT_PLACES, appt.where]]
   .forEach(([id, opts, val]) => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = opts.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`).join('');
@@ -616,9 +674,10 @@ function setAppt(key, val) {
 }
 
 let upcoming = [
-  { name: "Elena's Atelier", initials: 'EA', where: 'shop', place: '350 W 51st St, Midtown West',
-    when: 'Wed, Jul 8 · 5:30 PM', status: 'Confirmed', items: '1 gown · Alterations',
-    visit: 'Store Visit', count: 1, itemLines: ['1 Bridal Gown - Alterations'] },
+  { name: "Elena's Atelier", initials: 'EA', tailorId: 'elena', where: 'shop', place: '350 W 51st St, Midtown West',
+    when: 'Wed, Jul 8 · 5:30 PM', status: 'confirmed', items: '1 gown · Alterations',
+    visit: 'Store Visit', count: 1, itemLines: ['1 Bridal Gown - Alterations'],
+    totals: { subtotal: 150, fee: 15, total: 165 } },
 ];
 let past = [
   { name: 'Marco Tailor', initials: 'MT', where: 'home', place: 'Upper East Side · Home Visit',
@@ -937,14 +996,6 @@ function openDetails(tailorId) {
         <span class="caption" style="position: absolute; left: 10px; bottom: 6px; font-size: 12px;">Map</span>
       </div>
 
-      <div style="display: flex; align-items: baseline; gap: 8px; margin: 24px 0 12px;">
-        <span style="font-weight: 600; font-size: 16px;">Availability for</span>
-        <span style="font-weight: 700; font-size: 16px; text-decoration: underline; text-underline-offset: 3px;">${t.availDate}</span>
-      </div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        ${t.daySlots.map(time => `<button class="chip" onclick="pickSlot('${t.id}', '${time}')">${time}</button>`).join('')}
-      </div>
-
       <div style="display: flex; align-items: center; gap: 16px; margin: 28px 0 12px;">
         <select class="appt-select compact" onchange="renderDetailReviews('${t.id}', this.value)" aria-label="Sort reviews">
           <option value="recent">Most Recent</option>
@@ -1059,10 +1110,12 @@ function confirmBooking() {
   upcoming.unshift({
     name: tailor.name,
     initials: tailor.initials,
+    tailorId: tailor.id,
+    status: 'requested',
+    totals: { subtotal, fee, total },
     where: tailor.home ? 'home' : 'shop',
     place: tailor.home ? 'Your address · 88 Leonard St' : `${tailor.address.split(',')[0]}, ${tailor.hood}`,
     when: `${tailor.availDate} · ${time}`,
-    status: 'Confirmed',
     items: `${count} item${count === 1 ? '' : 's'} · $${total.toFixed(2)}`,
     visit: tailor.home ? 'Home Visit' : 'Store Visit',
     count,
@@ -1080,28 +1133,48 @@ function confirmBooking() {
 function renderSuccess() {
   const b = lastBooking;
   document.getElementById('success-body').innerHTML = `
-    <div class="success-check">
-      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-    </div>
-    <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; text-align: center; margin: 0 0 8px;">Booking Confirmed!</h1>
-    <div class="caption" style="text-align: center; margin-bottom: 22px;">Confirmation Number: ${b.confNum}</div>
-    ${tailorSummaryCard(b.tailor, b.time)}
-    <div class="label-caps" style="margin: 24px 0 8px;">Order Summary</div>
-    ${b.rows.map(r => `
-      <div class="price-row line"><span>${r.label} <span style="color: var(--n-500); font-weight: 500;">×${r.qty}</span></span><span style="font-weight: 700; font-variant-numeric: tabular-nums;">$${r.amount}</span></div>`).join('')}
-    <div style="margin-top: 12px;">
-      <div class="price-row"><span class="muted">Subtotal</span><span style="font-variant-numeric: tabular-nums;">$${b.subtotal.toFixed(2)}</span></div>
-      <div class="price-row"><span class="muted">Service fee</span><span style="font-variant-numeric: tabular-nums;">$${b.fee.toFixed(2)}</span></div>
-      <div class="price-row total"><span>Total</span><span style="font-variant-numeric: tabular-nums;">$${b.total.toFixed(2)}</span></div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 16px;">
+      ${statusPill('requested')}
+      <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; text-align: center; margin: 0;">Request sent.</h1>
+      <div style="font-size: 12px; font-weight: 500; color: var(--n-500); text-align: center; line-height: 1.5;">${b.tailor.name} usually confirms within 2 hours — we&rsquo;ll let you know the moment they do.</div>
+      <div class="card" style="padding: 16px; width: 100%;">
+        <div class="label-caps">What Happens Next</div>
+        ${[['1', `${b.tailor.name} reviews your garments and services`, true], ['2', 'They confirm your time — or propose another', false], ['3', `You meet ${b.time ? b.tailor.availDate + ' at ' + b.time : ''}`, false]].map(([n, t, done]) => `
+        <div style="display: flex; gap: 12px; align-items: center; margin-top: 12px;">
+          <div style="width: 24px; height: 24px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; ${done ? 'background: var(--ink); color: var(--n-50);' : 'background: var(--n-100); color: var(--n-500);'}">${n}</div>
+          <div style="font-size: 12px; font-weight: 500; color: var(--n-700);">${t}</div>
+        </div>`).join('')}
+      </div>
+      <div class="card" style="padding: 16px; width: 100%;">
+        <div class="label-caps">Deposit</div>
+        <div style="display: flex; align-items: center; margin-top: 8px;">
+          <div style="flex: 1; font-size: 12px; font-weight: 500; color: var(--n-700);">$${b.fee.toFixed(2)} applied to your $${b.total.toFixed(2)} total</div>
+          <div style="font-size: 12px; font-weight: 600; color: var(--success);">Refundable</div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="go('home', 'back'); setTab('home');">Done</button>
+      <button class="btn btn-ghost" style="font-size: 12px;" onclick="cancelRequest(0)">Cancel request — deposit refunded</button>
     </div>`;
 }
 
+function statusPill(status) {
+  const MAP = { requested: 'Requested', confirmed: 'Confirmed', ready: 'Ready for Pickup', completed: 'Completed', declined: 'Declined' };
+  return `<span class="status-pill st-${status}"><span class="sdot"></span> ${MAP[status]}</span>`;
+}
+
+function cancelRequest(i) {
+  const a = upcoming[i];
+  if (a) { upcoming.splice(i, 1); renderHomeUpcoming(); renderTracking(); }
+  toast(`Request cancelled — $${a && a.totals ? a.totals.fee.toFixed(2) : '16.50'} deposit refunded`);
+  go('home', 'back'); setTab('home');
+}
+
 /* ---------- Tracking ---------- */
-function apptCard(a, isPast) {
+function apptCard(a, isPast, idx) {
   if (!isPast) {
     // Upcoming card — per Figma: avatar + name/date/address, itemized order summary, actions
     return `
-    <div class="card ${a.justBooked ? 'pop-in' : ''}" style="padding: 20px 20px; ${a.justBooked ? 'outline: 1.5px solid var(--accent); outline-offset: -1.5px;' : ''}">
+    <div class="card ${a.justBooked ? 'pop-in' : ''}" style="padding: 20px 20px; cursor: pointer; ${a.justBooked ? 'outline: 1.5px solid var(--accent); outline-offset: -1.5px;' : ''}" onclick="openApptDetail('upcoming', ${idx})">
       <div style="display: flex; gap: 12px; align-items: center;">
         <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${a.initials}</div>
         <div style="min-width: 0;">
@@ -1117,14 +1190,14 @@ function apptCard(a, isPast) {
         </div>
       </div>
       <div style="display: flex; gap: 12px; margin-top: 16px;">
-        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="toast('Messaging coming soon')">Message</button>
-        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="toast('Rescheduling coming soon')">Reschedule</button>
+        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="event.stopPropagation(); toast('Messaging coming soon')">Message</button>
+        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="event.stopPropagation(); toast('Rescheduling coming soon')">Reschedule</button>
       </div>
     </div>`;
   }
   // Past card — same component style as upcoming, different actions (per Figma)
   return `
-    <div class="card" style="padding: 20px 20px;">
+    <div class="card" style="padding: 20px 20px; cursor: pointer;" onclick="openApptDetail('past', ${idx})">
       <div style="display: flex; gap: 12px; align-items: center;">
         <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${a.initials}</div>
         <div style="min-width: 0;">
@@ -1140,22 +1213,229 @@ function apptCard(a, isPast) {
         </div>
       </div>
       <div style="display: flex; gap: 12px; margin-top: 16px;">
-        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="startBooking()">Rebook</button>
-        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="toast('Reviews coming soon')">Leave Review</button>
+        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="event.stopPropagation(); startBooking()">Rebook</button>
+        <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="event.stopPropagation(); toast('Reviews coming soon')">Leave Review</button>
       </div>
     </div>`;
 }
 
 function renderTracking() {
-  document.getElementById('upcoming-list').innerHTML = upcoming.map(a => apptCard(a, false)).join('');
-  document.getElementById('past-list').innerHTML = past.map(a => apptCard(a, true)).join('');
+  document.getElementById('upcoming-list').innerHTML = upcoming.map((a, i) => apptCard(a, false, i)).join('');
+  document.getElementById('past-list').innerHTML = past.map((a, i) => apptCard(a, true, i)).join('');
   upcoming.forEach(a => delete a.justBooked); // highlight only on first render after booking
 }
 
 /* ---------- Home upcoming preview ---------- */
 function renderHomeUpcoming() {
   // Home preview uses the same upcoming appointment card as Bookings (per Figma)
-  document.getElementById('home-upcoming').innerHTML = upcoming.slice(0, 2).map(a => apptCard(a, false)).join('');
+  document.getElementById('home-upcoming').innerHTML = upcoming.slice(0, 2).map((a, i) => apptCard(a, false, i)).join('');
+}
+
+
+/* ---------- V2 Appointment Detail (4 states) ---------- */
+let currentAppt = null; // { list: 'upcoming'|'past', i }
+
+function openApptDetail(list, i) {
+  currentAppt = { list, i };
+  renderApptDetail();
+  go('apptdetail');
+}
+
+function apptEntry() {
+  return currentAppt.list === 'past' ? past[currentAppt.i] : upcoming[currentAppt.i];
+}
+
+function advanceStatus() {
+  const a = apptEntry();
+  const order = ['requested', 'confirmed', 'ready', 'completed'];
+  const next = order[Math.min(order.indexOf(a.status || 'completed') + 1, order.length - 1)];
+  a.status = next;
+  renderApptDetail();
+  renderTracking(); renderHomeUpcoming();
+}
+
+function renderApptDetail() {
+  const a = apptEntry();
+  const status = currentAppt.list === 'past' ? 'completed' : (a.status || 'confirmed');
+  const t = TAILORS.find(x => x.id === a.tailorId);
+  const totals = a.totals || { subtotal: 150, fee: 15, total: 165 };
+  const HERO = {
+    requested: [`Waiting on ${a.name}.`, 'Usually replies within 2 hours · expires in 1h 24m'],
+    confirmed: [`You&rsquo;re booked for ${a.when}`, `${a.name} · ${a.visit || ''} · ${a.place}`],
+    ready: ['Your garments are ready.', `$${totals.subtotal.toFixed(2)} due at pickup ($${totals.total.toFixed(2)} − $${totals.fee.toFixed(2)} deposit)`],
+    completed: ['All done.', `How was ${a.name}&rsquo;s work? Leave a review to help others.`],
+  };
+  const [heroLine, heroSub] = HERO[status];
+  const payCard = `
+      <div class="card" style="padding: 16px;">
+        <div class="label-caps">Payment</div>
+        ${[['Estimated total', '$' + totals.total.toFixed(2), false], ['Deposit paid', '−$' + totals.fee.toFixed(2), false], ['Due at pickup', '$' + totals.subtotal.toFixed(2), true]].map(([l, r, bold]) => `
+        <div style="display: flex; align-items: center; padding: 4px 0; margin-top: 4px;">
+          <div style="flex: 1; font-size: 12px; font-weight: ${bold ? '700' : '500'}; color: ${bold ? 'var(--ink)' : 'var(--n-500)'};">${l}</div>
+          <div style="font-size: ${bold ? '16px' : '12px'}; font-weight: ${bold ? '700' : '500'}; font-variant-numeric: tabular-nums;">${r}</div>
+        </div>`).join('')}
+      </div>`;
+  const blocks = {
+    requested: `
+      <div class="card" style="padding: 16px;">
+        <div class="label-caps">Your Request</div>
+        <div style="font-size: 12px; font-weight: 500; color: var(--n-700); margin-top: 8px; line-height: 1.5;">${(a.itemLines || []).map(l => '•&nbsp; ' + l).join('<br>')}</div>
+      </div>
+      ${payCard}
+      <button class="btn btn-ghost" style="font-size: 12px; width: 100%;" onclick="cancelRequest(${currentAppt.i})">Cancel request — deposit refunded</button>`,
+    confirmed: `
+      <div class="card" style="padding: 16px;">
+        <div class="label-caps">What To Bring</div>
+        <div style="font-size: 12px; font-weight: 500; color: var(--n-700); margin-top: 8px; line-height: 1.5;">Your garments, pressed if possible, and the shoes you plan to wear with them — hems are pinned to your true height.</div>
+      </div>
+      ${payCard}`,
+    ready: payCard,
+    completed: `
+      <div class="card" style="padding: 16px;">
+        <div class="label-caps">Your Review</div>
+        <div style="font-size: 12px; font-weight: 500; color: var(--n-700); margin: 8px 0 12px;">Rate the fit, the finish, and the experience.</div>
+        <div style="font-size: 16px; letter-spacing: 4px; color: var(--n-300);">★★★★★</div>
+      </div>`,
+  };
+  const actions = status === 'completed'
+    ? `<button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="event.stopPropagation(); startBooking()">Rebook</button>
+       <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="event.stopPropagation(); toast('Reviews coming soon')">Leave Review</button>`
+    : `<button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="event.stopPropagation(); toast('Messaging coming soon')">Message</button>
+       <button class="btn btn-secondary" style="flex: 1; font-size: 12px; padding: 12px;" onclick="event.stopPropagation(); toast('Rescheduling coming soon')">Reschedule</button>`;
+  const demo = {
+    requested: `<button class="btn btn-ghost" style="font-size: 12px; padding: 4px 8px;" onclick="advanceStatus()">Confirm</button>
+                <button class="btn btn-ghost" style="font-size: 12px; padding: 4px 8px;" onclick="renderProposed(); go('proposed');">Propose times</button>
+                <button class="btn btn-ghost" style="font-size: 12px; padding: 4px 8px;" onclick="renderRecovery(); go('recovery');">Decline</button>`,
+    confirmed: `<button class="btn btn-ghost" style="font-size: 12px; padding: 4px 8px;" onclick="advanceStatus()">Mark ready</button>`,
+    ready: `<button class="btn btn-ghost" style="font-size: 12px; padding: 4px 8px;" onclick="advanceStatus()">Complete</button>`,
+    completed: '',
+  };
+  document.getElementById('apptdetail-body').innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 12px; padding-top: 8px;">
+      ${statusPill(status)}
+      <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; line-height: 1.2; margin: 0;">${heroLine}</h1>
+      <div style="font-size: 12px; font-weight: 500; color: var(--n-500); line-height: 1.5;">${heroSub}</div>
+      ${blocks[status]}
+      <div style="display: flex; gap: 12px;">${actions}</div>
+      ${demo[status] ? `<div style="border: 1.5px dashed var(--n-300); border-radius: var(--r-md); padding: 8px 12px;">
+        <div class="label-caps" style="font-size: 12px;">Prototype demo — tailor actions</div>
+        <div style="display: flex; gap: 4px; margin-top: 4px;">${demo[status]}</div>
+      </div>` : ''}
+    </div>`;
+}
+
+/* ---------- V2 New Time Proposed ---------- */
+function renderProposed() {
+  const a = apptEntry();
+  const t = TAILORS.find(x => x.id === a.tailorId) || TAILORS[0];
+  const alts = t.daySlots.slice(1, 3).map(s => `${t.availDate} · ${s}`).concat(['Sat, Jul 11 · 9:30 AM']);
+  document.getElementById('proposed-body').innerHTML = `
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 24px;">
+      ${statusPill('requested')}
+      <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; text-align: center; margin: 0; line-height: 1.2;">${a.name} suggested<br>new times</h1>
+      <div style="font-size: 12px; font-weight: 500; color: var(--n-500); text-align: center; line-height: 1.5;">Your original time won&rsquo;t work for them. Choose an alternate — your deposit moves with it.</div>
+      ${alts.map((label, i) => `
+      <button class="chip ${i === 0 ? 'selected' : ''}" style="width: 100%; padding: 12px; font-size: 16px;" onclick="acceptProposed('${label}')">${label}</button>`).join('')}
+      <button class="btn btn-primary btn-block" onclick="acceptProposed('${alts[0]}')">Accept ${alts[0]}</button>
+      <button class="btn btn-ghost" style="font-size: 12px;" onclick="cancelRequest(${currentAppt.i})">Cancel request — deposit refunded</button>
+    </div>`;
+}
+
+function acceptProposed(when) {
+  const a = apptEntry();
+  a.when = when;
+  a.status = 'confirmed';
+  renderTracking(); renderHomeUpcoming();
+  renderApptDetail();
+  go('apptdetail', 'back');
+  toast('New time accepted');
+}
+
+/* ---------- V2 Request Declined / Recovery ---------- */
+function renderRecovery() {
+  const a = apptEntry();
+  const fee = (a.totals ? a.totals.fee : 15).toFixed(2);
+  const others = TAILORS.filter(x => x.id !== a.tailorId).slice(0, 3);
+  document.getElementById('recovery-body').innerHTML = `
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 24px;">
+      ${statusPill('declined')}
+      <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; text-align: center; margin: 0; line-height: 1.2;">Let&rsquo;s get you<br>rebooked.</h1>
+      <div style="font-size: 12px; font-weight: 500; color: var(--n-500); text-align: center; line-height: 1.5;">${a.name} can&rsquo;t take this job right now. Your $${fee} deposit carries to whoever you pick next.</div>
+      <div class="label-caps" style="width: 100%;">Ready For Your Job This Week</div>
+      ${others.map(t => `
+      <div class="card" style="padding: 16px; width: 100%;">
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-weight: 600; font-size: 16px;">${t.name}</div>
+            <div style="font-size: 12px; font-weight: 500; color: var(--n-500); margin-top: 4px;">★ ${t.rating} · matches your services</div>
+          </div>
+          <button class="btn btn-primary" style="font-size: 12px; padding: 8px 12px;" onclick="rebookWith('${t.id}')">Book ${t.daySlots[0]}</button>
+        </div>
+      </div>`).join('')}
+      <button class="btn btn-ghost" style="font-size: 12px;" onclick="cancelRequest(${currentAppt.i})">Get a refund instead</button>
+    </div>`;
+}
+
+function rebookWith(tailorId) {
+  const a = apptEntry();
+  const t = TAILORS.find(x => x.id === tailorId);
+  a.name = t.name; a.initials = t.initials; a.tailorId = t.id;
+  a.when = `${t.availDate} · ${t.daySlots[0]}`;
+  a.where = t.home ? 'home' : 'shop';
+  a.place = t.home ? 'Your address · 88 Leonard St' : `${t.address.split(',')[0]}, ${t.hood}`;
+  a.status = 'requested';
+  renderTracking(); renderHomeUpcoming();
+  renderApptDetail();
+  go('apptdetail', 'back');
+  toast(`Request sent to ${t.name} — deposit applied`);
+}
+
+/* ---------- Wheel picker sheet (Option D) ---------- */
+const WHEEL = {
+  cols: [
+    { key: 'date', flex: 2.4, rows: ['Tue 7 Jul', 'Wed 8 Jul', 'Thu 9 Jul', 'Fri 10 Jul', 'Sat 11 Jul'], sel: 2 },
+    { key: 'hour', flex: 1, rows: ['7', '8', '9', '10', '11'], sel: 2 },
+    { key: 'min', flex: 1, rows: ['00', '15', '30', '45'], sel: 2 },
+    { key: 'ampm', flex: 1, rows: ['AM', 'PM'], sel: 0 },
+  ],
+};
+
+function openTimeSheet() {
+  const wrap = document.getElementById('wheel-cols');
+  wrap.innerHTML = WHEEL.cols.map((col, ci) => `
+    <div class="wheel-col" style="flex: ${col.flex};" data-ci="${ci}" onscroll="wheelScrolled(this)">
+      <div class="pad"></div>
+      ${col.rows.map((r, ri) => `<div class="wheel-row ${ri === col.sel ? 'sel' : ''}">${r}</div>`).join('')}
+      <div class="pad"></div>
+    </div>`).join('');
+  document.getElementById('time-sheet').classList.add('open');
+  // set initial scroll positions
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.wheel-col').forEach((el, ci) => { el.scrollTop = WHEEL.cols[ci].sel * 40; });
+  });
+}
+
+let wheelTimers = {};
+function wheelScrolled(el) {
+  const ci = parseInt(el.dataset.ci, 10);
+  clearTimeout(wheelTimers[ci]);
+  wheelTimers[ci] = setTimeout(() => {
+    const idx = Math.max(0, Math.min(WHEEL.cols[ci].rows.length - 1, Math.round(el.scrollTop / 40)));
+    WHEEL.cols[ci].sel = idx;
+    el.querySelectorAll('.wheel-row').forEach((r, ri) => r.classList.toggle('sel', ri === idx));
+  }, 80);
+}
+
+function closeTimeSheet() {
+  document.getElementById('time-sheet').classList.remove('open');
+}
+
+function confirmTimeSheet() {
+  const [d, h, m, ap] = WHEEL.cols.map(c => c.rows[c.sel]);
+  appt.when = `${d} · ${h}:${m} ${ap}`;
+  syncApptSelects();
+  if (currentScreen === 'tailors') renderTailors();
+  closeTimeSheet();
 }
 
 /* ---------- Init ---------- */

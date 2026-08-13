@@ -148,12 +148,12 @@
 
   .gicon {
     width: 46px; height: 46px; border-radius: var(--r-md); background: var(--n-100);
-    display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0;
   }
   .avatar {
     width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--n-200), var(--n-300));
     flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-    font-family: var(--serif); font-size: 20px; color: var(--n-700); font-weight: 600;
+    font-family: var(--serif); font-size: 28px; color: var(--n-700); font-weight: 600;
   }
 
   /* Garment shortcut tiles (Home) */
@@ -312,7 +312,7 @@
       <!-- ============ 1 · HOME ============ -->
       <div class="screen active" id="screen-home">
         <div class="scroll">
-          <h1 style="font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1.1; margin: 16px 0 8px;">What Are We Tailoring Today?</h1>
+          <h1 style="font-family: var(--serif); font-weight: 600; font-size: 28px; line-height: 1.1; margin: 16px 0 8px;">What Are We Tailoring Today?</h1>
           <div style="display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; margin-bottom: 20px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
             New York, NY
@@ -724,7 +724,7 @@ function renderBuilder() {
   const list = document.getElementById('garment-list');
   if (garments.length === 0) {
     list.innerHTML = `<div class="card-flat" style="padding: 28px 20px; text-align: center;">
-        <div style="font-family: var(--serif); font-size: 20px; font-weight: 500;">Nothing here yet</div>
+        <div style="font-family: var(--serif); font-size: 28px; font-weight: 500;">Nothing here yet</div>
         <div style="font-size: 12px; color: var(--n-500); margin-top: 6px; line-height: 1.5;">Add a garment below to get started.</div>
       </div>`;
   } else {
@@ -847,7 +847,7 @@ function renderTailors() {
   const el = document.getElementById('tailor-list');
   if (list.length === 0) {
     el.innerHTML = `<div class="card-flat" style="padding: 36px 24px; text-align: center;">
-        <div style="font-family: var(--serif); font-size: 20px; font-weight: 500;">No tailors in range yet</div>
+        <div style="font-family: var(--serif); font-size: 28px; font-weight: 500;">No tailors in range yet</div>
         <div style="font-size: 12px; color: var(--n-500); margin: 8px 0 20px; line-height: 1.5;">Widen your filters to see more availability.</div>
         <button class="btn btn-primary" style="padding: 12px 20px; font-size: 12px;" onclick="resetFilters()">Adjust filters</button>
       </div>`;
@@ -896,7 +896,7 @@ function openDetails(tailorId) {
   const t = TAILORS.find(x => x.id === tailorId);
   document.getElementById('details-body').innerHTML = `
     <div style="height: 185px; background: linear-gradient(135deg, var(--n-100), var(--n-200)); display: flex; align-items: center; justify-content: center; position: relative;">
-      <span style="font-family: var(--serif); font-size: 44px; color: var(--n-400); font-weight: 600;">${t.initials}</span>
+      <span style="font-family: var(--serif); font-size: 28px; color: var(--n-400); font-weight: 600;">${t.initials}</span>
       <span class="caption" style="position: absolute; left: 12px; bottom: 8px; font-size: 12px;">Gallery</span>
       <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px;">
         ${[0,1,2,3].map(i => `<span style="width: 6px; height: 6px; border-radius: 50%; background: ${i === 0 ? 'var(--n-600)' : 'var(--n-300)'};"></span>`).join('')}
@@ -904,7 +904,7 @@ function openDetails(tailorId) {
     </div>
     <div style="padding: 20px 20px 0;">
       <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-        <span style="font-family: var(--sans); font-weight: 600; font-size: 20px;">${t.name}</span>
+        <span style="font-family: var(--sans); font-weight: 600; font-size: 28px;">${t.name}</span>
         ${t.promoted ? '<span class="tag-promoted">Promoted</span>' : ''}
       </div>
       <div style="margin-top: 6px;"><span class="rating"><span class="star">★</span> ${t.rating} <span class="count">(${t.reviews} reviews)</span></span></div>
@@ -942,7 +942,7 @@ function openDetails(tailorId) {
           <option value="rating">Highest Rated</option>
         </select>
         <span style="flex: 1;"></span>
-        <span style="font-family: var(--serif); font-weight: 600; font-size: 36px; line-height: 1;">${t.rating}</span>
+        <span style="font-family: var(--serif); font-weight: 600; font-size: 28px; line-height: 1;">${t.rating}</span>
         <div>
           <div style="letter-spacing: 1px; font-size: 16px;"><span style="color: var(--accent);">${'★'.repeat(Math.floor(t.rating))}</span><span style="color: var(--n-300);">${'★'.repeat(5 - Math.floor(t.rating))}</span></div>
           <div class="caption" style="margin-top: 2px;">${t.reviews} reviews</div>
@@ -1074,7 +1074,7 @@ function renderSuccess() {
     <div class="success-check">
       <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
     </div>
-    <h1 style="font-family: var(--serif); font-weight: 500; font-size: 32px; text-align: center; margin: 0 0 8px;">Booking Confirmed!</h1>
+    <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; text-align: center; margin: 0 0 8px;">Booking Confirmed!</h1>
     <div class="caption" style="text-align: center; margin-bottom: 22px;">Confirmation Number: ${b.confNum}</div>
     ${tailorSummaryCard(b.tailor, b.time)}
     <div class="label-caps" style="margin: 24px 0 8px;">Order Summary</div>

@@ -184,14 +184,14 @@
   /* Tailor card photo gallery & time slot strips (horizontal scroll, clipped at card edge) */
   .photo-strip { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
   .photo-strip::-webkit-scrollbar { display: none; }
-  .photo-ph { flex: none; width: 120px; height: 150px; border-radius: var(--r-md); background: #D9D9D9; }
+  .photo-ph { flex: none; width: 120px; height: 150px; border-radius: var(--r-sm); background: #D9D9D9; }
   .slot-strip { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 12px -16px 0 0; padding-right: 16px; }
   .slot-strip::-webkit-scrollbar { display: none; }
 
   /* Sage service pills (tailor cards) */
   .pill-sage {
     display: inline-flex; align-items: center; font-size: 12px; font-weight: 600;
-    color: var(--n-50); background: var(--secondary); padding: 4px 8px; border-radius: var(--r-md);
+    color: var(--n-50); background: var(--secondary); padding: 4px 8px; border-radius: var(--r-sm);
     white-space: nowrap;
   }
 
@@ -207,7 +207,7 @@
   .appt-select:hover { border-color: var(--ink); background-color: var(--n-50); }
   .appt-select.compact { font-size: 12px; padding: 8px 28px 8px 12px; background-size: 14px; background-position: right 9px center; flex: none; box-shadow: none; }
   .review-box {
-    background: var(--n-100); border-radius: var(--r-md); padding: 12px 12px; margin-top: 11px;
+    background: var(--n-100); border-radius: var(--r-sm); padding: 12px 12px; margin-top: 11px;
     font-size: 12px; line-height: 1.45;
   }
 
@@ -258,7 +258,7 @@
     display: inline-flex; align-items: center; gap: 4px;
     font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--accent-ink);
     background: transparent; border: none; border-radius: var(--r-md);
-    padding: 4px 4px 4px 0; margin-top: 4px; cursor: pointer; transition: all .18s;
+    padding: 4px 0; margin-top: 4px; cursor: pointer; transition: all .18s;
   }
   .add-service:hover { color: var(--ink); }
 
@@ -692,7 +692,7 @@ function renderTiles() {
   document.getElementById('tile-grid').innerHTML = Object.keys(GARMENT_TYPES).map(type => {
     const qty = homeSelection[type] || 0;
     return `<button class="tile ${qty > 0 ? 'selected' : ''}" data-type="${type}" onclick="bumpTile('${type}')">
-        <div class="t-ico">${gIcon(type, 86)}</div>
+        <div class="t-ico">${gIcon(type, 72)}</div>
         <div class="t-name">${type}</div>
         ${qty > 0 ? `<span class="tile-badge">${qty}</span><span class="tile-minus" role="button" aria-label="Remove one ${type}" onclick="event.stopPropagation(); decTile('${type}')">−</span>` : ''}
       </button>`;
@@ -729,7 +729,7 @@ function renderBuilder() {
       </div>`;
   } else {
     list.innerHTML = garments.map((g, i) => `
-      <div class="line-item pop-in" style="align-items: center;">${garmentCardBody(g, i)}</div>`).join('');
+      <div class="line-item pop-in" style="align-items: center;">${garmentCardBody(g, i, false)}${garmentCardRemove(g, i)}</div>`).join('');
   }
   fitInlineSelects(list);
   const btn = document.getElementById('builder-continue');
@@ -739,16 +739,20 @@ function renderBuilder() {
 }
 
 /* Shared garment card body — used by Job Builder and Confirm (WithPrice component) */
-function garmentCardBody(g, i) {
+function garmentCardBody(g, i, withPrice) {
   const gt = GARMENT_TYPES[g.type];
   const gname = (g.qty > 1 ? gt.plural : g.type);
-  return `
-        <div style="flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px;">
-          ${gIcon(g.type, 60)}
+  const removeBtn = `<button class="icon-btn" style="color: var(--n-500); padding: 4px 8px; font-size: 16px; flex: none;" onclick="removeGarment(${i})" aria-label="Remove ${gname}">✕</button>`;
+  const left = withPrice
+    ? `<div style="flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+          ${gIcon(g.type, 66)}
           <div style="font-weight: 500; font-size: 16px; font-variant-numeric: tabular-nums;">$${g.jobs.reduce((s, j) => s + JOB_TYPES[j].price, 0) * g.qty}</div>
-        </div>
-        <div style="flex: 1; min-width: 0;">
-          <div style="display: flex; align-items: center; gap: 4px;">
+        </div>`
+    : `<div class="gicon" style="flex: none; width: 66px; height: 66px; border-radius: var(--r-lg); overflow: hidden;">${gIcon(g.type, 84)}</div>`;
+  return `
+        ${left}
+        <div style="flex: 1; min-width: 0; ${withPrice ? 'padding-right: 8px;' : ''}">
+          <div style="display: flex; align-items: center; gap: 8px;">
             <select class="inline-select" style="font-size: 16px;" onchange="updateGarment(${i}, 'qty', this.value)" aria-label="Quantity">
               ${[1,2,3,4,5,6,7,8,9].map(n => `<option value="${n}" ${g.qty === n ? 'selected' : ''}>${n}</option>`).join('')}
             </select>
@@ -756,10 +760,10 @@ function garmentCardBody(g, i) {
               ${Object.keys(GARMENT_TYPES).map(t => `<option value="${t}" ${g.type === t ? 'selected' : ''}>${g.qty > 1 ? GARMENT_TYPES[t].plural : t}</option>`).join('')}
             </select>
             <span style="flex: 1;"></span>
-            <button class="icon-btn" style="color: var(--n-500); padding: 4px 8px; font-size: 16px; flex: none;" onclick="removeGarment(${i})" aria-label="Remove ${gname}">✕</button>
+            ${withPrice ? removeBtn : ''}
           </div>
           ${g.jobs.map((job, si) => `
-          <div style="margin-top: 3px;">
+          <div style="margin-top: 4px;">
             <select class="inline-select" style="font-size: 12px; color: var(--accent-ink);" onchange="updateService(${i}, ${si}, this.value)" aria-label="Service ${si + 1}">
               ${Object.keys(JOB_TYPES).map(j => `<option value="${j}" ${job === j ? 'selected' : ''}>${j}</option>`).join('')}
             </select>
@@ -771,6 +775,11 @@ function garmentCardBody(g, i) {
             </button>
           </div>
         </div>`;
+}
+
+function garmentCardRemove(g, i) {
+  const gname = (g.qty > 1 ? GARMENT_TYPES[g.type].plural : g.type);
+  return `<button class="icon-btn li-remove" style="color: var(--n-500); padding: 4px 8px; font-size: 16px;" onclick="removeGarment(${i})" aria-label="Remove ${gname}">✕</button>`;
 }
 
 function refreshGarmentViews() {
@@ -877,7 +886,7 @@ function renderTailors() {
           ${t.dist} mi
         </span>
       </div>
-      <div class="review-box" style="margin-top: 9px;">
+      <div class="review-box" style="margin-top: 8px;">
         &ldquo;${t.review.quote}&rdquo;
         <div class="caption" style="margin-top: 5px;">${t.review.who}</div>
       </div>
@@ -1001,13 +1010,13 @@ function tailorSummaryCard(t, time) {
         <div class="avatar" style="background: var(--ink); color: var(--n-50); font-family: var(--sans); font-weight: 700; font-size: 16px;">${t.initials}</div>
         <div style="flex: 1; min-width: 0;">
           <div style="font-weight: 600; font-size: 16px;">${t.name}</div>
-          <div style="font-size: 12px; color: var(--n-500); margin-top: 3px;">${t.spec} · ${t.hood}</div>
+          <div style="font-size: 12px; color: var(--n-500); margin-top: 4px;">${t.spec} · ${t.hood}</div>
+          <div style="margin-top: 4px;"><span class="rating" style="font-size: 12px;"><span class="star">★</span> ${t.rating} <span class="count">(${t.reviews})</span></span></div>
         </div>
-        <span class="rating"><span class="star">★</span> ${t.rating} <span class="count">(${t.reviews})</span></span>
       </div>
-      <div style="display: flex; gap: 8px; margin-top: 15px; flex-wrap: wrap;">
+      <div style="display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
         <span class="badge ${t.home ? 'badge-home' : 'badge-shop'}" style="background: ${t.home ? '#F3ECE0' : 'var(--n-100)'}; border: 1px solid var(--n-200);">${t.home ? '🏠 Home visit' : '🏬 In-store'}</span>
-        <span class="chip selected" style="cursor: default; font-size: 12px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 8px;">
+        <span class="chip selected" style="cursor: default; font-size: 12px; padding: 4px 12px; display: inline-flex; align-items: center; gap: 8px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
           ${t.availDate}, ${time}
         </span>
@@ -1022,9 +1031,9 @@ function renderConfirm() {
   body.innerHTML = `
     ${tailorSummaryCard(tailor, time)}
     <div class="label-caps" style="margin: 24px 0 12px;">Your Garments</div>
-    <div class="card" style="padding: 4px 16px 4px;">
+    <div class="card" style="padding: 8px 20px;">
       ${garments.map((g, i) => `
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">${garmentCardBody(g, i)}</div>`).join('')}
+        <div style="display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--n-100);">${garmentCardBody(g, i, true)}</div>`).join('')}
       <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">
         <span style="font-weight: 500; font-size: 16px; font-variant-numeric: tabular-nums;">$${fee.toFixed(2)}</span>
         <span style="font-weight: 600; font-size: 16px; color: var(--n-500);">Service fee (10%)</span>
@@ -1098,12 +1107,12 @@ function apptCard(a, isPast) {
         <div style="min-width: 0;">
           <div style="font-weight: 600; font-size: 16px;">${a.name}</div>
           <div style="font-size: 12px; color: var(--n-600); margin-top: 4px; font-variant-numeric: tabular-nums;">${a.when}</div>
-          <div style="font-size: 12px; color: var(--n-600); margin-top: 2px;">${a.place}</div>
+          <div style="font-size: 12px; color: var(--n-600); margin-top: 4px;">${a.place}</div>
         </div>
       </div>
       <div style="margin-top: 12px;">
         <div style="font-size: 12px; font-weight: 700; color: var(--n-500);">${a.count} Item${a.count === 1 ? '' : 's'} Total:</div>
-        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; padding-left: 8px;">
           ${(a.itemLines || []).map(l => `<div style="font-size: 12px; font-weight: 500; color: var(--n-500);">•&nbsp; ${l}</div>`).join('')}
         </div>
       </div>
@@ -1121,12 +1130,12 @@ function apptCard(a, isPast) {
         <div style="min-width: 0;">
           <div style="font-weight: 600; font-size: 16px;">${a.name}</div>
           <div style="font-size: 12px; color: var(--n-600); margin-top: 4px; font-variant-numeric: tabular-nums;">${a.when}</div>
-          <div style="font-size: 12px; color: var(--n-600); margin-top: 2px;">${a.place}</div>
+          <div style="font-size: 12px; color: var(--n-600); margin-top: 4px;">${a.place}</div>
         </div>
       </div>
       <div style="margin-top: 12px;">
         <div style="font-size: 12px; font-weight: 700; color: var(--n-500);">${a.count} Item${a.count === 1 ? '' : 's'} Total:</div>
-        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; padding-left: 8px;">
           ${(a.itemLines || []).map(l => `<div style="font-size: 12px; font-weight: 500; color: var(--n-500);">•&nbsp; ${l}</div>`).join('')}
         </div>
       </div>

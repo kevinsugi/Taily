@@ -198,10 +198,10 @@
   /* Dropdown pills — appointment time & visit type (input styling per design system) */
   .appt-select {
     font-family: var(--sans); font-size: 16px; font-weight: 600; color: var(--ink);
-    background-color: var(--white); border: 1px solid var(--n-300); border-radius: var(--r-md);
+    background-color: var(--white); border: 1px solid var(--n-300); border-radius: var(--r-sm);
     padding: 12px 28px 12px 12px; appearance: none; -webkit-appearance: none; cursor: pointer;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%231C1B18"><path d="m7 10 5 5 5-5H7z"/></svg>');
-    background-repeat: no-repeat; background-position: right 10px center; background-size: 16px;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%231C1B18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+    background-repeat: no-repeat; background-position: right 10px center; background-size: 14px;
     box-shadow: var(--e1); transition: all .18s; max-width: 100%;
   }
   .appt-select:hover { border-color: var(--ink); background-color: var(--n-50); }
@@ -347,8 +347,8 @@
         </div>
         <div class="scroll">
           <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
-            <select class="appt-select" id="appt-when" onchange="setAppt('when', this.value)"></select>
-            <select class="appt-select" id="appt-where" onchange="setAppt('where', this.value)"></select>
+            <select class="appt-select compact" id="appt-when" onchange="setAppt('when', this.value)"></select>
+            <select class="appt-select compact" id="appt-where" onchange="setAppt('where', this.value)"></select>
           </div>
           <div class="label-caps" style="margin: 0 0 12px;">Your Garments</div>
           <div id="garment-list" style="display: flex; flex-direction: column; gap: 12px;"></div>

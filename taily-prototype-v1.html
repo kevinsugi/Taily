@@ -272,6 +272,18 @@
   /* CTA footer */
   .cta-bar { flex: none; padding: 12px 20px 16px; background: var(--n-50); border-top: 1px solid var(--n-200); }
 
+  /* Contact + deposit forms */
+  .form-field { background: var(--white); border: 1px solid var(--n-300); border-radius: var(--r-sm); padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .form-field label { font-size: 12px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--n-500); }
+  .form-field input { border: 0; outline: none; background: transparent; font-family: var(--sans); font-size: 16px; color: var(--ink); padding: 0; width: 100%; }
+  .form-field input::placeholder { color: var(--n-500); }
+  .check-row { display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
+  .check-box { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--n-300); background: var(--white); flex: none; display: flex; align-items: center; justify-content: center; color: var(--n-50); font-size: 12px; line-height: 1; }
+  .check-row.on .check-box { background: var(--ink); border-color: var(--ink); }
+  .pay-methods { display: flex; gap: 8px; }
+  .pay-method { flex: 1; padding: 12px 8px; border-radius: var(--r-sm); background: var(--white); border: 1px solid var(--n-300); font-family: var(--sans); font-size: 16px; font-weight: 400; text-align: center; cursor: pointer; color: var(--ink); }
+  .pay-method.selected { border: 2px solid var(--ink); font-weight: 600; padding: 11px 7px; }
+
   /* ============ Tab bar ============ */
   .tabbar { flex: none; background: var(--white); border-top: 1px solid var(--n-200); display: flex; justify-content: space-around; padding: 12px 8px 24px; }
   .tab { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--n-400); cursor: pointer; background: none; border: none; font-family: var(--sans); font-size: 12px; font-weight: 500; padding: 0 16px; transition: color .18s; }
@@ -363,7 +375,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
           <div>
-            <div class="step-label">Step 1 of 3</div>
+            <div class="step-label">Step 1 of 4</div>
             <div class="screen-title">Appointment Details</div>
           </div>
         </div>
@@ -389,7 +401,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
           <div>
-            <div class="step-label">Step 2 of 3</div>
+            <div class="step-label">Step 2 of 4</div>
             <div class="screen-title">Nearby tailors</div>
           </div>
         </div>
@@ -427,7 +439,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
           <div>
-            <div class="step-label">Step 2 of 3</div>
+            <div class="step-label">Step 2 of 4</div>
             <div class="screen-title">Tailor Details</div>
           </div>
         </div>
@@ -441,14 +453,49 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
           <div>
-            <div class="step-label">Step 3 of 3</div>
+            <div class="step-label">Step 3 of 4</div>
             <div class="screen-title">Confirm booking</div>
           </div>
         </div>
         <div class="scroll" id="confirm-body"></div>
         <div class="cta-bar">
-          <button class="btn btn-primary btn-block" id="confirm-cta" onclick="confirmBooking()">Confirm Booking</button>
-          <div style="text-align: center; font-size: 12px; font-weight: 600; color: var(--n-500); margin-top: 8px; line-height: 1.45;">Final pricing is confirmed with the tailor at your appointment. Only the service fee is due upon confirmation.</div>
+          <button class="btn btn-primary btn-block" id="confirm-cta" onclick="goContact()">Continue</button>
+          <div style="text-align: center; font-size: 12px; font-weight: 600; color: var(--n-500); margin-top: 8px; line-height: 1.45;">Final pricing is confirmed with the tailor at your appointment. Only the deposit is due today.</div>
+        </div>
+      </div>
+
+      <!-- ============ 4c · CONTACT + ADDRESS CAPTURE ============ -->
+      <div class="screen" id="screen-contact">
+        <div class="screen-head">
+          <button class="back" onclick="go('confirm', 'back')" aria-label="Back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div>
+            <div class="step-label">Step 3 of 4</div>
+            <div class="screen-title">Your details</div>
+          </div>
+        </div>
+        <div class="scroll" id="contact-body"></div>
+        <div class="cta-bar">
+          <button class="btn btn-primary btn-block" onclick="goPayment()">Continue to Payment</button>
+        </div>
+      </div>
+
+      <!-- ============ 4d · DEPOSIT PAYMENT ============ -->
+      <div class="screen" id="screen-payment">
+        <div class="screen-head">
+          <button class="back" onclick="go('contact', 'back')" aria-label="Back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div>
+            <div class="step-label">Step 4 of 4</div>
+            <div class="screen-title">Deposit</div>
+          </div>
+        </div>
+        <div class="scroll" id="payment-body"></div>
+        <div class="cta-bar">
+          <button class="btn btn-primary btn-block" id="payment-cta" onclick="payDeposit()">Pay Deposit &amp; Request</button>
+          <div style="text-align: center; font-size: 12px; font-weight: 600; color: var(--n-500); margin-top: 8px; line-height: 1.45;" id="payment-fineprint">You&rsquo;ll only be charged if the tailor accepts. Cancel free anytime before then.</div>
         </div>
       </div>
 
@@ -1095,7 +1142,109 @@ function renderConfirm() {
       </div>
     </div>`;
   fitInlineSelects(body);
-  document.getElementById('confirm-cta').textContent = 'Confirm Booking';
+  document.getElementById('confirm-cta').textContent = 'Continue';
+}
+
+/* ---------- Contact + Address Capture ---------- */
+let contact = { phone: '(212) 555-0148', email: 'kevin@example.com', updates: true, street: '88 Leonard St', unit: '4B', zip: '10013' };
+let payMethod = 'card';
+
+function goContact() {
+  renderContact();
+  go('contact');
+}
+
+function renderContact() {
+  const { tailor } = selection;
+  document.getElementById('contact-body').innerHTML = `
+    <div style="font-size: 16px; color: var(--n-500); line-height: 1.5; margin-bottom: 24px;">No account needed &mdash; we use these to send updates about this request. Magic sign-in links come later.</div>
+    <div class="label-caps" style="margin-bottom: 12px;">Contact</div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="form-field"><label>Phone</label><input id="c-phone" type="tel" value="${contact.phone}" placeholder="(555) 000-0000"></div>
+      <div class="form-field"><label>Email</label><input id="c-email" type="email" value="${contact.email}" placeholder="you@example.com"></div>
+      <div class="check-row ${contact.updates ? 'on' : ''}" id="c-updates" onclick="toggleUpdates()" style="margin-top: 4px;">
+        <div class="check-box">${contact.updates ? '✓' : ''}</div>
+        <div style="font-size: 16px;">Text me status updates</div>
+      </div>
+    </div>
+    ${tailor.home ? `
+    <div class="label-caps" style="margin: 24px 0 12px;">Home Visit Address</div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="form-field"><label>Street address</label><input id="c-street" value="${contact.street}" placeholder="Street address"></div>
+      <div style="display: flex; gap: 8px;">
+        <div class="form-field" style="flex: 1;"><label>Apt / Unit</label><input id="c-unit" value="${contact.unit}" placeholder="Optional"></div>
+        <div class="form-field" style="flex: 1;"><label>ZIP</label><input id="c-zip" value="${contact.zip}" placeholder="ZIP"></div>
+      </div>
+      <div style="font-size: 12px; font-weight: 500; color: var(--n-500); line-height: 1.5;">Your address is shared with your tailor only after they confirm.</div>
+    </div>` : ''}`;
+}
+
+function toggleUpdates() {
+  contact.updates = !contact.updates;
+  const row = document.getElementById('c-updates');
+  row.classList.toggle('on', contact.updates);
+  row.querySelector('.check-box').textContent = contact.updates ? '✓' : '';
+}
+
+function readContactInputs() {
+  const v = id => { const el = document.getElementById(id); return el ? el.value : null; };
+  contact.phone = v('c-phone') || contact.phone;
+  contact.email = v('c-email') || contact.email;
+  if (v('c-street') !== null) contact.street = v('c-street');
+  if (v('c-unit') !== null) contact.unit = v('c-unit');
+  if (v('c-zip') !== null) contact.zip = v('c-zip');
+}
+
+/* ---------- Deposit Payment ---------- */
+function goPayment() {
+  readContactInputs();
+  renderPayment();
+  go('payment');
+}
+
+function selectPayMethod(m) {
+  payMethod = m;
+  renderPayment();
+}
+
+function renderPayment() {
+  const { tailor } = selection;
+  const { fee, total } = bookingLines();
+  document.getElementById('payment-body').innerHTML = `
+    <div style="font-size: 16px; color: var(--n-500); line-height: 1.5; margin-bottom: 24px;">A small deposit secures your request. The rest is settled after your fitting.</div>
+    <div class="card" style="padding: 16px;">
+      <div style="display: flex; justify-content: space-between; font-size: 16px;"><span style="color: var(--n-500);">Order total</span><span style="font-variant-numeric: tabular-nums;">$${total.toFixed(2)}</span></div>
+      <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: 600; margin-top: 8px;"><span>Due today (10% deposit)</span><span style="font-variant-numeric: tabular-nums;">$${fee.toFixed(2)}</span></div>
+      <div style="font-size: 12px; font-weight: 500; color: var(--n-500); line-height: 1.5; margin-top: 8px;">Fully refundable if ${tailor.name.split(' ')[0]} declines or you cancel before confirmation.</div>
+    </div>
+    <div class="label-caps" style="margin: 24px 0 12px;">Payment Method</div>
+    <div class="pay-methods">
+      <button class="pay-method ${payMethod === 'card' ? 'selected' : ''}" onclick="selectPayMethod('card')">Card</button>
+      <button class="pay-method ${payMethod === 'apple' ? 'selected' : ''}" onclick="selectPayMethod('apple')">Apple&nbsp;Pay</button>
+      <button class="pay-method ${payMethod === 'google' ? 'selected' : ''}" onclick="selectPayMethod('google')">Google&nbsp;Pay</button>
+    </div>
+    ${payMethod === 'card' ? `
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
+      <div class="form-field"><label>Card number</label><input value="4242 4242 4242 4242" inputmode="numeric" placeholder="1234 5678 9012 3456"></div>
+      <div style="display: flex; gap: 8px;">
+        <div class="form-field" style="flex: 1;"><label>Expiry</label><input value="08 / 28" placeholder="MM / YY"></div>
+        <div class="form-field" style="flex: 1;"><label>CVC</label><input value="•••" placeholder="CVC"></div>
+      </div>
+    </div>` : `
+    <div class="card" style="margin-top: 12px; padding: 16px; text-align: center;">
+      <div style="background: var(--ink); color: var(--n-50); border-radius: var(--r-sm); padding: 12px; font-size: 16px; font-weight: 600;">${payMethod === 'apple' ? 'Apple' : 'Google'}&nbsp;Pay &mdash; $${fee.toFixed(2)}</div>
+      <div style="font-size: 12px; font-weight: 500; color: var(--n-500); margin-top: 8px;">You&rsquo;ll confirm with ${payMethod === 'apple' ? 'Face ID' : 'your device'} at request time.</div>
+    </div>`}
+    <div style="display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; font-weight: 500; color: var(--n-500);">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+      Payments are encrypted and processed securely.
+    </div>`;
+  document.getElementById('payment-cta').textContent = `Pay $${fee.toFixed(2)} Deposit & Request`;
+  document.getElementById('payment-fineprint').innerHTML = `You&rsquo;ll only be charged if ${tailor.name.split(' ')[0]} accepts. Cancel free anytime before then.`;
+}
+
+function payDeposit() {
+  confirmBooking();
 }
 
 /* ---------- Booking Confirmed ---------- */
@@ -1114,7 +1263,7 @@ function confirmBooking() {
     status: 'requested',
     totals: { subtotal, fee, total },
     where: tailor.home ? 'home' : 'shop',
-    place: tailor.home ? 'Your address · 88 Leonard St' : `${tailor.address.split(',')[0]}, ${tailor.hood}`,
+    place: tailor.home ? `Your address · ${contact.street}${contact.unit ? ' ' + contact.unit : ''}` : `${tailor.address.split(',')[0]}, ${tailor.hood}`,
     when: `${tailor.availDate} · ${time}`,
     items: `${count} item${count === 1 ? '' : 's'} · $${total.toFixed(2)}`,
     visit: tailor.home ? 'Home Visit' : 'Store Visit',

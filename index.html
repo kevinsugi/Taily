@@ -70,13 +70,26 @@
   .stage { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; gap: 20px; }
   .stage-caption { font-size: 13px; color: var(--n-400); letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
 
-  /* ============ Device frame ============ */
+  /* ============ App shell (mobile-first web app) ============ */
   .device {
-    width: 390px; height: 812px; max-height: calc(100vh - 100px); min-height: 640px;
-    background: var(--n-50); border-radius: 24px; overflow: hidden;
+    width: 100%; max-width: 420px; height: 100dvh; min-height: 640px;
+    background: var(--n-50); overflow: hidden;
     position: relative; display: flex; flex-direction: column;
-    box-shadow: 0 0 0 11px #14130f, 0 0 0 13px #4a453c, var(--e4), 0 40px 90px rgba(0,0,0,.5);
   }
+  @media (min-width: 480px) {
+    .device { height: calc(100dvh - 48px); border-radius: 16px; box-shadow: var(--e4), 0 24px 60px rgba(20, 19, 15, .18); }
+  }
+  .topnav {
+    flex: none; display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 20px 12px; background: var(--n-50); border-bottom: 1px solid var(--n-200); z-index: 5;
+  }
+  .topnav .brand { font-family: var(--serif); font-size: 22px; font-weight: 600; color: var(--ink); letter-spacing: .01em; }
+  .topnav nav { display: flex; gap: 16px; align-items: baseline; }
+  .nav-link {
+    background: none; border: none; cursor: pointer; padding: 0;
+    font-family: var(--sans); font-size: 13px; font-weight: 500; color: var(--n-500); transition: color .18s;
+  }
+  .nav-link.active { color: var(--ink); font-weight: 700; }
   .statusbar { flex: none; height: 44px; display: flex; justify-content: space-between; align-items: center; padding: 8px 28px 0; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; background: var(--n-50); z-index: 5; }
   .statusbar .icons { display: flex; gap: 8px; align-items: center; color: var(--ink); }
   .notch { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 118px; height: 26px; background: #14130f; border-radius: var(--r-full); z-index: 6; }
@@ -378,18 +391,18 @@
 
 <div class="stage">
   <div class="device">
-    <div class="notch"></div>
-    <div class="statusbar">
-      <span>9:41</span>
-      <span class="icons">
-        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
-        <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="0.5" y="0.5" width="20" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="15" height="8" rx="1.6" fill="currentColor"/><path d="M22.5 4v4c1-.3 1.5-1 1.5-2s-.5-1.7-1.5-2z" fill="currentColor" opacity=".4"/></svg>
-      </span>
+    <div class="topnav">
+      <span class="brand">Taily</span>
+      <nav>
+        <button class="nav-link active" id="tab-home" onclick="tabTo('home')">Home</button>
+        <button class="nav-link" id="tab-bookings" onclick="tabTo('tracking')">Bookings</button>
+        <button class="nav-link" id="tab-profile" onclick="toast('Profile coming soon')">Profile</button>
+      </nav>
     </div>
 
     <div class="viewport">
       <!-- ============ 1 · HOME ============ -->
-      <div class="screen" id="screen-home">
+      <div class="screen active" id="screen-home">
         <div class="scroll">
           <h1 style="font-family: var(--serif); font-weight: 600; font-size: 28px; line-height: 1.1; margin: 16px 0 8px;">What Are We Tailoring Today?</h1>
           <div style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; margin-bottom: 20px;">
@@ -592,7 +605,7 @@
         </div>
       </div>
       <!-- ============ 0a · ONBOARDING · WELCOME ============ -->
-      <div class="screen active" id="screen-welcome">
+      <div class="screen" id="screen-welcome">
         <div class="ob-hero">
           <div style="font-family: var(--serif); font-weight: 600; font-size: 28px; letter-spacing: .02em;">Taily</div>
           <h1 class="ob-title">Every garment,<br>tailored to you.</h1>
@@ -734,24 +747,9 @@
       </div>
     </div>
 
-    <div class="tabbar" id="tabbar" style="display: none;">
-      <button class="tab active" id="tab-home" onclick="tabTo('home')">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V21h14V9.5"></path></svg>
-        <span>Home</span>
-      </button>
-      <button class="tab" id="tab-bookings" onclick="tabTo('tracking')">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"></rect><path d="M8 3v4M16 3v4M4 10h16"></path></svg>
-        <span>Bookings</span>
-      </button>
-      <button class="tab" id="tab-profile" onclick="toast('Profile coming soon')">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"></path></svg>
-        <span>Profile</span>
-      </button>
-    </div>
-
     <div class="toast" id="toast"></div>
   </div>
-  <div class="stage-caption">Taily · MVP prototype · v2 &nbsp;·&nbsp; <button onclick="restartOnboarding()" style="background: none; border: none; color: var(--accent); font: inherit; cursor: pointer; text-transform: inherit; letter-spacing: inherit; padding: 0;">Restart onboarding</button></div>
+  <div class="stage-caption">Taily &middot; Booking &middot; v3</div>
 </div>
 
 <script>
@@ -914,7 +912,7 @@ let past = [
 ];
 
 /* ---------- Navigation ---------- */
-let currentScreen = 'welcome';
+let currentScreen = 'home';
 
 function go(id, dir) {
   if (id === currentScreen) return;
@@ -931,7 +929,7 @@ function go(id, dir) {
 }
 
 function setTab(tab) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(t => t.classList.remove('active'));
   const el = document.getElementById('tab-' + tab);
   if (el) el.classList.add('active');
 }
@@ -1007,14 +1005,12 @@ function finishOnboarding(allowPush) {
   Object.keys(notifPrefs.push).forEach(k => { if (k !== 'promos') notifPrefs.push[k] = allowPush; });
   onboarded = true;
   contact.phone = obPhone;
-  document.getElementById('tabbar').style.display = '';
   go('home');
   setTab('home');
   if (allowPush) toast('Notifications on — we’ll ping you when tailors reply');
 }
 
 function restartOnboarding() {
-  document.getElementById('tabbar').style.display = 'none';
   onboarded = false;
   go('welcome', 'back');
 }

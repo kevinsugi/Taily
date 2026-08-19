@@ -404,7 +404,7 @@
       <!-- ============ 1 · HOME ============ -->
       <div class="screen active" id="screen-home">
         <div class="scroll">
-          <h1 style="font-family: var(--serif); font-weight: 600; font-size: 28px; line-height: 1.1; margin: 16px 0 8px;">What Are We Tailoring Today?</h1>
+          <h1 style="font-family: var(--serif); font-weight: 600; font-size: 28px; line-height: 1.1; margin: 16px 0 8px;">What Are We Tailoring?</h1>
           <div style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; margin-bottom: 20px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
             <span id="home-loc">New York, NY</span>
@@ -598,7 +598,7 @@
           </div>
         </div>
         <div class="scroll">
-          <div class="label-caps" style="margin: 4px 0 12px;">Upcoming</div>
+          <div class="label-caps" style="margin: 4px 0 12px;">Current</div>
           <div id="upcoming-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
           <div class="label-caps" style="margin: 28px 0 12px;">Past</div>
           <div id="past-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
@@ -897,18 +897,26 @@ function setAppt(key, val) {
 }
 
 let upcoming = [
-  { name: "Elena's Atelier", initials: 'EA', tailorId: 'elena', where: 'shop', place: '350 W 51st St, Midtown West',
-    when: 'Wed 8 Jul · 5:30 PM', status: 'confirmed', items: '1 gown · Alterations',
-    visit: 'Store Visit', count: 1, itemLines: ['1 Bridal Gown - Alterations'],
-    totals: { subtotal: 150, visitFee: 0, total: 150, deposit: 15 } },
+  { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '1025 Broadway, Midtown West',
+    when: 'Wed, Jul 8 \u00b7 5:30 PM', status: 'confirmed', items: '2 items \u00b7 Alterations',
+    visit: 'Store Visit', count: 2,
+    itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
+    bring: ['Your garments', 'The shoes you plan to wear with them.'],
+    totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
+  { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
+    when: 'Wed, Jul 8 \u00b7 5:30 PM', status: 'ready', items: '2 items \u00b7 Alterations',
+    visit: 'Home Visit', count: 2,
+    itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
+    bring: ['The shoes you plan to wear with your garments.'],
+    totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
 ];
 let past = [
-  { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'home', place: 'Upper East Side · Home Visit',
-    when: 'Sat 20 Jun', status: 'Delivered', items: '2 suit pants · Hem',
-    count: 2, itemLines: ['2 Suit Pants - Hem'] },
-  { name: 'StitchCraft Studio', initials: 'SS', tailorId: 'stitch', where: 'shop', place: '98 Prince St, SoHo',
-    when: 'Thu 28 May', status: 'Delivered', items: '1 jacket · Repair',
-    count: 1, itemLines: ['1 Jacket - Repair'] },
+  { name: 'Elena Tailor', initials: 'EA', tailorId: 'elena', where: 'shop', place: '15 West Broadway',
+    when: 'Wed, Jul 8 \u00b7 5:30 PM', status: 'Delivered', items: '1 jean \u00b7 Length',
+    visit: 'Store Visit', count: 1, itemLines: ['1 Jean - Length'] },
+  { name: 'Grace Tailor', initials: 'GT', tailorId: 'stitch', where: 'shop', place: '15 West Broadway',
+    when: 'Wed, Jul 8 \u00b7 5:30 PM', status: 'Delivered', items: '1 shirt \u00b7 Length',
+    visit: 'Store Visit', count: 1, itemLines: ['1 Shirt - Length'] },
 ];
 
 /* ---------- Navigation ---------- */
@@ -1730,11 +1738,18 @@ function apptCard(a, isPast, idx) {
         </div>
       </div>
       <div style="margin-top: 12px;">
-        <div style="font-size: 13px; font-weight: 700; color: var(--n-500);">${a.count} Item${a.count === 1 ? '' : 's'} Total:</div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--n-500);">${a.count} Item${a.count === 1 ? '' : 's'} Total - ${a.visit || 'Store Visit'}:</div>
         <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; padding-left: 8px;">
           ${(a.itemLines || []).map(l => `<div style="font-size: 13px; font-weight: 500; color: var(--n-500);">•&nbsp; ${l}</div>`).join('')}
         </div>
       </div>
+      ${a.bring && a.bring.length ? `
+      <div style="margin-top: 12px;">
+        <div style="font-size: 13px; font-weight: 700; color: var(--n-500);">What to Bring:</div>
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; padding-left: 8px;">
+          ${a.bring.map(l => `<div style="font-size: 13px; font-weight: 500; color: var(--n-500);">•&nbsp; ${l}</div>`).join('')}
+        </div>
+      </div>` : ''}
       <div style="display: flex; gap: 12px; margin-top: 16px;">
         <button class="btn btn-secondary" style="flex: 1; font-size: 13px; padding: 12px;" onclick="event.stopPropagation(); toast('Messaging coming soon')">Message</button>
         <button class="btn btn-secondary" style="flex: 1; font-size: 13px; padding: 12px;" onclick="event.stopPropagation(); openApptDetail('upcoming', ${idx}); openReschedule();">Reschedule</button>
@@ -1755,7 +1770,7 @@ function apptCard(a, isPast, idx) {
         </div>
       </div>
       <div style="margin-top: 12px;">
-        <div style="font-size: 13px; font-weight: 700; color: var(--n-500);">${a.count} Item${a.count === 1 ? '' : 's'} Total:</div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--n-500);">${a.count} Item${a.count === 1 ? '' : 's'} Total - ${a.visit || 'Store Visit'}:</div>
         <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; padding-left: 8px;">
           ${(a.itemLines || []).map(l => `<div style="font-size: 13px; font-weight: 500; color: var(--n-500);">•&nbsp; ${l}</div>`).join('')}
         </div>

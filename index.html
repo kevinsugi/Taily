@@ -2169,7 +2169,12 @@ function renderModified() {
   const a = apptEntry();
   const t = TAILORS.find(x => x.id === a.tailorId) || TAILORS[0];
   const first = a.name.split(' ')[0];
-  const rows = [
+  const src = a.modifiedJob && a.modifiedJob.garments;
+  const rows = src ? src.map(g => ({
+    qty: g.qty, type: g.type, job: g.jobs[0],
+    price: (g.price || Math.round(JOB_TYPES[g.jobs[0]].price)),
+    comment: g.comment ? `\u201c${g.comment}\u201d - ${first} 9/1/26` : null,
+  })) : [
     { qty: 1, type: 'Suit Jacket', job: 'Hem / Adjust Length', price: 120, comment: null },
     { qty: 1, type: 'Suit Jacket', job: 'Sleeve / Adjust Length From Shoulder', price: 160,
       comment: `\u201cThe sleeve must be shortened from the shoulder, there is not enough fabric at the bottom.\u201d - ${first} 9/1/26` },
@@ -2611,20 +2616,35 @@ function openTailorJob(i) {
 
 function tJobGarmentRow(j, g, gi, editable) {
   const price = g.price || Math.round(JOB_TYPES[g.jobs[0]].price);
+  const priceBlock = g._editingPrice
+    ? `<span style="display: inline-flex; align-items: center; font-weight: 700; font-size: 16px;">$<input id="t-price-input-${gi}" type="number" value="${price}" min="0"
+         style="width: 56px; border: none; border-bottom: 2px solid var(--accent); outline: none; background: transparent; font: inherit; color: var(--ink); text-align: center; -moz-appearance: textfield;"
+         onkeydown="if (event.key === 'Enter') commitJobPrice(${gi}, this.value)"
+         onblur="commitJobPrice(${gi}, this.value)"></span>`
+    : `<div style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${price}</div>`;
+  const commentBlock = g._editingComment
+    ? `<textarea id="t-comment-input-${gi}" rows="3" placeholder="Add a note for the customer&hellip;"
+         style="width: 100%; margin-top: 8px; border: 1px solid var(--n-300); border-radius: 12px; padding: 10px 12px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: var(--white); outline: none; resize: none; box-sizing: border-box;"
+         onkeydown="if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); commitJobComment(${gi}, this.value); }"
+         onblur="commitJobComment(${gi}, this.value)">${g.comment || ''}</textarea>`
+    : (g.comment
+      ? `<div style="background: var(--n-100); border-radius: 12px; padding: 10px 12px; margin-top: 8px; ${editable ? 'cursor: pointer;' : ''}" ${editable ? `onclick="startJobComment(${gi})"` : ''}>
+           <div style="font-size: 13px; font-weight: 500; line-height: 1.5;">&ldquo;${g.comment}&rdquo;${editable ? ' <span style="color: var(--accent-ink);">&nbsp;&#9998;</span>' : ''}</div>
+         </div>`
+      : (editable ? `<button class="btn btn-ghost" style="font-size: 13px; padding: 4px 0; color: var(--accent-ink);" onclick="startJobComment(${gi})">&oplus; Add Comment</button>` : ''));
   return `
     <div style="padding: 14px 0; border-bottom: 1px solid var(--n-100);">
       <div style="display: flex; align-items: flex-start; gap: 12px;">
         <div style="flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px;">
           ${gIcon(g.type, 56)}
-          <div style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;" id="t-price-${gi}">$${price}</div>
-          ${editable ? `<button class="btn btn-ghost" style="font-size: 12px; padding: 0; color: var(--accent-ink);" onclick="editJobPrice(${gi})">✎ Edit</button>` : ''}
+          ${priceBlock}
+          ${editable && !g._editingPrice ? `<button class="btn btn-ghost" style="font-size: 12px; padding: 0; color: var(--accent-ink);" onclick="startJobPrice(${gi})">&#9998; Edit</button>` : ''}
         </div>
         <div style="flex: 1; min-width: 0; padding-top: 4px;">
           <div style="font-weight: 700; font-size: 16px;">${g.qty} &nbsp;${g.type}</div>
           <div style="font-size: 13px; font-weight: 600; color: var(--accent-ink); margin-top: 4px;">${g.jobs[0]}</div>
           ${g.photos ? `<div class="photo-tiles" style="margin-top: 8px;">${Array.from({ length: g.photos }).map(() => '<div class="p-tile"></div>').join('')}</div>` : ''}
-          ${editable ? `<button class="btn btn-ghost" style="font-size: 13px; padding: 4px 0; color: var(--accent-ink);" onclick="addJobComment(${gi})">⊕ Add Comment</button>` : ''}
-          ${g.comment ? `<div style="background: var(--n-100); border-radius: 12px; padding: 10px 12px; margin-top: 8px;"><div style="font-size: 13px; font-weight: 500; line-height: 1.5;">“${g.comment}”</div></div>` : ''}
+          ${commentBlock}
         </div>
       </div>
     </div>`;
@@ -2720,24 +2740,50 @@ function syncUserViews() {
   renderTracking(); renderHomeUpcoming();
 }
 
-function editJobPrice(gi) {
-  const j = tailorJobs[currentJob];
-  const g = j.garments[gi];
-  const cur = g.price || Math.round(JOB_TYPES[g.jobs[0]].price);
-  const next = cur === 80 ? 160 : cur + 40;
-  g.price = next;
-  g.edited = true;
-  if (cur === 80) { g.jobs = ['Sleeve / Adjust Length From Shoulder']; }
+function startJobPrice(gi) {
+  const g = tailorJobs[currentJob].garments[gi];
+  g._editingPrice = true;
   renderTailorJob();
-  toast('Price updated — submit changes to notify the customer');
+  requestAnimationFrame(() => {
+    const el = document.getElementById('t-price-input-' + gi);
+    if (el) { el.focus(); el.select(); }
+  });
 }
 
-function addJobComment(gi) {
-  const j = tailorJobs[currentJob];
-  const g = j.garments[gi];
-  g.comment = g.comment || `The sleeve must be shortened from the shoulder, there is not enough fabric at the bottom.” - Marco 9/1/26`.replace('” - Marco 9/1/26', '') ;
-  g.comment = 'The sleeve must be shortened from the shoulder, there is not enough fabric at the bottom.';
-  g.edited = true;
+function commitJobPrice(gi, val) {
+  const g = tailorJobs[currentJob].garments[gi];
+  if (!g._editingPrice) return; // blur after Enter already committed
+  g._editingPrice = false;
+  const next = parseInt(val, 10);
+  const cur = g.price || Math.round(JOB_TYPES[g.jobs[0]].price);
+  if (!isNaN(next) && next >= 0 && next !== cur) {
+    g.price = next;
+    g.edited = true;
+    toast('Price updated — submit changes to notify the customer');
+  }
+  renderTailorJob();
+}
+
+function startJobComment(gi) {
+  const g = tailorJobs[currentJob].garments[gi];
+  g._editingComment = true;
+  renderTailorJob();
+  requestAnimationFrame(() => {
+    const el = document.getElementById('t-comment-input-' + gi);
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  });
+}
+
+function commitJobComment(gi, val) {
+  const g = tailorJobs[currentJob].garments[gi];
+  if (!g._editingComment) return;
+  g._editingComment = false;
+  const text = (val || '').trim();
+  if (text !== (g.comment || '')) {
+    g.comment = text || null;
+    if (text) g.edited = true;
+    if (text) toast('Comment added — submit changes to notify the customer');
+  }
   renderTailorJob();
 }
 
@@ -2753,7 +2799,7 @@ function acceptRequest() {
 function submitChanges() {
   const j = tailorJobs[currentJob];
   const m = jobMirror();
-  if (m) { m.modified = true; syncUserViews(); }
+  if (m) { m.modified = true; m.modifiedJob = j; syncUserViews(); }
   toast('Changes sent — waiting on customer approval');
   j.status = 'proposed';
   j.note = 'Changes sent';

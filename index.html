@@ -121,6 +121,11 @@
   /* ============ Type helpers ============ */
   .eyebrow { font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--n-500); font-weight: 600; }
   .label-caps { font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--n-500); }
+  .step-label { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
+  .appt-fields { display: flex; gap: 10px; margin-bottom: 18px; }
+  .appt-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+  .appt-field > label { font-size: 12px; font-weight: 600; color: var(--n-500); }
+  .appt-field .appt-select { width: 100%; font-size: 13px; padding: 10px 24px 10px 10px; background-position: right 8px center; white-space: nowrap; }
   .caption { font-size: 13px; font-weight: 500; color: var(--n-500); line-height: 1.4; letter-spacing: .02em; }
 
   /* ============ Buttons ============ */
@@ -433,18 +438,19 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
           <div>
-            <div class="prog"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+            <div class="step-label">Step 1 of 3</div>
             <div class="screen-title">Appointment Details</div>
           </div>
         </div>
         <div class="scroll">
-          <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 18px;">
-            <button class="appt-select compact" id="appt-when" onclick="openTimeSheet()"></button>
-            <select class="appt-select compact" id="appt-where" onchange="setAppt('where', this.value)"></select>
+          <div class="appt-fields">
+            <div class="appt-field"><label>Requested time:</label><button class="appt-select compact" id="appt-when" onclick="openTimeSheet()"></button></div>
+            <div class="appt-field"><label>Need by:</label><select class="appt-select compact" id="appt-needby" onchange="setAppt('needBy', this.value)"></select></div>
+            <div class="appt-field"><label>Visit type:</label><select class="appt-select compact" id="appt-where" onchange="setAppt('where', this.value)"></select></div>
           </div>
           <div class="label-caps" style="margin: 0 0 12px;">Your Garments</div>
           <div id="garment-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
-          <button class="add-garment" style="margin-top: 10px;" id="add-garment-btn" onclick="addDefaultGarment()">+ Add Another Garment</button>
+          <button class="add-garment" style="margin-top: 10px;" id="add-garment-btn" onclick="addDefaultGarment()">+ Additional Garment</button>
           <div style="display: flex; align-items: flex-start; gap: 8px; margin-top: 14px;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex: none; margin-top: 1px;"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
             <span class="caption" style="font-size: 13px;">Add photos to each garment — jobs with photos get confirmed about 2&times; faster.</span>
@@ -462,33 +468,20 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
           <div>
-            <div class="prog"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+            <div class="step-label">Step 2 of 3</div>
             <div class="screen-title">Nearby tailors</div>
           </div>
         </div>
         <div class="scroll">
           <div class="caption" id="tailors-context" style="margin-bottom: 12px;"></div>
-          <div class="filter-row">
-            <button class="appt-select compact" id="f-appt-when" onclick="openTimeSheet()"></button>
-            <select class="appt-select compact" id="f-appt-where" onchange="setAppt('where', this.value)"></select>
-            <select class="filter-select" id="f-rating" onchange="renderTailors()">
-              <option value="0">Rating</option>
-              <option value="4.5">4.5+</option>
-              <option value="4.8">4.8+</option>
-            </select>
-            <select class="filter-select" id="f-dist" onchange="renderTailors()">
-              <option value="99">Distance</option>
-              <option value="1">Under 1 mi</option>
-              <option value="2">Under 2 mi</option>
-            </select>
-            <select class="filter-select" id="f-spec" onchange="renderTailors()">
-              <option value="all">Specialty</option>
-              <option value="Suiting">Suiting</option>
-              <option value="Dresses">Dresses</option>
-              <option value="Shirts">Shirts</option>
-              <option value="Alterations">Alterations</option>
-            </select>
+          <div class="appt-fields">
+            <div class="appt-field"><label>Requested time:</label><button class="appt-select compact" id="f-appt-when" onclick="openTimeSheet()"></button></div>
+            <div class="appt-field"><label>Need by:</label><select class="appt-select compact" id="f-appt-needby" onchange="setAppt('needBy', this.value)"></select></div>
+            <div class="appt-field"><label>Visit type:</label><select class="appt-select compact" id="f-appt-where" onchange="setAppt('where', this.value)"></select></div>
           </div>
+          <select id="f-rating" style="display: none;"><option value="0" selected>Rating</option></select>
+          <select id="f-dist" style="display: none;"><option value="99" selected>Distance</option></select>
+          <select id="f-spec" style="display: none;"><option value="all" selected>Specialty</option></select>
           <div id="tailor-list" style="display: flex; flex-direction: column; gap: 16px;"></div>
         </div>
       </div>
@@ -787,37 +780,54 @@ const gIcon = (type, s = 24) =>
 
 /* Baseline service prices — each tailor applies their own multiplier; all shown as "$N+" minimums */
 const JOB_TYPES = {
-  'Hem / Adjust Length':    { price: 25, desc: 'Adjust your {g} to your preferred length.' },
-  'Sleeve / Adjust Length': { price: 30, desc: 'Adjust your sleeves to your preferred length.' },
-  'Taper / Slim Fit':       { price: 35, desc: 'Slim your {g} for a closer fit.' },
-  'Resize':                 { price: 55, desc: 'Take your {g} in or out for a better fit.' },
-  'Repair':                 { price: 40, desc: 'Fix tears, seams, buttons, or zippers on your {g}.' },
-  'Alterations':            { price: 45, desc: 'General adjustments so your {g} fit perfectly.' },
+  'Hem / Adjust Length': { price: 120 },
+  'Sleeve / Adjust Length': { price: 80 },
+  'Taper / Slim Fit': { price: 90 },
+  'Resize': { price: 110 },
+  'Repair': { price: 60 },
+  'Alterations': { price: 100 },
 };
 
 const DEPOSIT_RATE = 0.10; // deposit = 10% of estimated minimum, credited toward the total
 
 const TAILORS = [
   { id: 'marco', name: 'Marco Tailor', initials: 'MT', promoted: true,
-    spec: 'Bespoke suiting', specCat: 'Suiting', hood: 'Upper East Side',
-    home: true, store: true, mult: 1.2, homeFee: 150, turnaround: '3–5 days',
+    spec: 'Bespoke suiting', specCat: 'Suiting', hood: 'Midtown West',
+    home: true, store: true, mult: 1.0, homeFee: 150, turnaround: '3–5 days',
     avail: 'Tue–Sat · mornings & afternoons',
     rating: 4.8, reviews: 124, dist: 0.8,
     tags: ['House calls', 'Rush service'],
-    pillsShort: ['Rush Service', 'Bespoke Suiting'],
+    pillsShort: ['Suiting Specialist', '10+ Years in Business'],
     review: { quote: 'I had my wedding suit made here and it came out perfect!', who: 'Scott C, 2 weeks ago' },
     address: '1025 Broadway, New York, NY 10018',
     desc: 'Third-generation master tailor specializing in bespoke suiting and precision alterations. Marco trained on Savile Row and has dressed Upper East Side clients for over 20 years.',
     pricing: [['Hem Trousers', '$30'], ['Suit Alteration', '$80'], ['Shirt Tailoring', '$45'], ['Full Bespoke Suit', '$800'], ['Wedding Dress Alteration', '$150']],
-    availDate: 'Thu 9 Jul', daySlots: ['9:30 AM', '11:00 AM', '2:00 PM', '4:30 PM'],
+    availDate: 'Thu 9 Jul', daySlots: ['9:30 AM', '11:00 AM', '12:30 PM', '2:00 PM'],
     reviewsList: [
       ['SC', 'Scott C', '2 weeks ago', 5, 'I had my wedding suit made here and it came out perfect!'],
       ['DM', 'Dana M', '1 month ago', 5, 'Marco reshaped a vintage blazer I thought was beyond saving. Meticulous work.'],
       ['JL', 'James L', '2 months ago', 4, 'Great fit in the end, though the turnaround ran a few days longer than quoted.'],
     ] },
+  { id: 'jordan', name: 'Jordan Tailor', initials: 'JT', promoted: false,
+    spec: 'Suiting & alterations', specCat: 'Suiting', hood: 'Upper East Side',
+    home: true, store: true, mult: 0.9, homeFee: 100, turnaround: '3\u20135 days',
+    avail: 'Mon\u2013Sat \u00b7 mornings',
+    rating: 4.8, reviews: 124, dist: 1.4,
+    tags: ['Quick turnaround'],
+    pillsShort: ['Quick Turnaround'],
+    review: { quote: 'I had my wedding suit made here and it came out perfect!', who: 'Scott C, 2 weeks ago' },
+    address: '220 E 60th Street, New York, NY 10022',
+    desc: 'Precise, friendly suiting and everyday alterations with quick turnarounds on the Upper East Side.',
+    pricing: [['Hem Trousers', '$95'], ['Suit Alteration', '$70'], ['Shirt Tailoring', '$40']],
+    availDate: 'Thu 9 Jul', daySlots: ['9:30 AM', '11:00 AM', '12:30 PM', '2:00 PM'],
+    reviewsList: [
+      ['SC', 'Scott C', '2 weeks ago', 5, 'I had my wedding suit made here and it came out perfect!'],
+      ['MB', 'Maya B', '1 month ago', 5, 'Quick, precise, and fairly priced.'],
+      ['TR', 'Tom R', '2 months ago', 4, 'Solid work on two jackets, slight delay at pickup.'],
+    ] },
   { id: 'elena', name: "Elena's Atelier", initials: 'EA', promoted: false,
     spec: 'Wedding dresses', specCat: 'Dresses', hood: 'Midtown West',
-    home: false, store: true, mult: 1.5, homeFee: null, turnaround: 'Same day – 2 days',
+    home: false, store: false, mult: 1.5, homeFee: null, turnaround: 'Same day – 2 days',
     avail: 'Wed–Sun · same-day for emergencies',
     rating: 4.9, reviews: 89, dist: 1.2,
     tags: ['Same-day alterations'],
@@ -849,23 +859,6 @@ const TAILORS = [
       ['TW', 'Tom W', '1 month ago', 4, 'Quick zipper replacement at a fair price.'],
       ['KB', 'Kira B', '2 months ago', 4, 'Solid everyday alterations and great communication.'],
     ] },
-  { id: 'park', name: 'Park Avenue Tailoring', initials: 'PA', promoted: false,
-    spec: 'Custom shirts', specCat: 'Shirts', hood: 'Brooklyn Heights',
-    home: false, store: true, mult: 1.35, homeFee: null, turnaround: '4–7 days',
-    avail: 'Tue–Sat · afternoons',
-    rating: 4.7, reviews: 156, dist: 2.1,
-    tags: ['Made-to-measure'],
-    pillsShort: ['In-Store Only', 'Made-to-Measure'],
-    review: { quote: 'The only place I trust with my shirts. Impeccable collars.', who: 'James L, 2 months ago' },
-    address: '142 Montague St, Brooklyn, NY 11201',
-    desc: 'Custom shirtmaking and fine alterations. Every shirt is cut to a personal pattern; alterations get the same made-to-measure attention.',
-    pricing: [['Custom Shirt', '$210'], ['Shirt Tailoring', '$45'], ['Collar Replacement', '$55'], ['Sleeve Adjustment', '$35']],
-    availDate: 'Fri 10 Jul', daySlots: ['12:00 PM', '2:30 PM', '4:00 PM'],
-    reviewsList: [
-      ['JL', 'James L', '2 months ago', 5, 'The only place I trust with my shirts. Impeccable collars.'],
-      ['HG', 'Henry G', '3 months ago', 5, 'Made-to-measure done exactly right the first time.'],
-      ['SM', 'Sofia M', '4 months ago', 4, 'Lovely craftsmanship — just book ahead, they fill up.'],
-    ] },
 ];
 
 /* ---------- App state ---------- */
@@ -876,14 +869,16 @@ let userLoc = 'New York, NY';
 
 /* Requested appointment — the time the USER asks for; the tailor confirms it or proposes another */
 const APPT_PLACES = ['Home Visit', 'Store Visit'];
-let appt = { when: 'Thu 9 Jul · 9:30 AM', where: 'Home Visit' };
+let appt = { when: '7:00 PM Tonight', needBy: 'Thurs, Sept 1', where: 'Store Visit' };
+const NEED_BY_OPTS = ['Thurs, Sept 1', 'Fri, Sept 2', 'Next week', 'Flexible'];
 
 function syncApptSelects() {
   [['appt-when', appt.when], ['f-appt-when', appt.when]].forEach(([id, val]) => {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
   });
-  [['appt-where', APPT_PLACES, appt.where], ['f-appt-where', APPT_PLACES, appt.where]]
+  [['appt-where', APPT_PLACES, appt.where], ['f-appt-where', APPT_PLACES, appt.where],
+   ['appt-needby', NEED_BY_OPTS, appt.needBy], ['f-appt-needby', NEED_BY_OPTS, appt.needBy]]
   .forEach(([id, opts, val]) => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = opts.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`).join('');
@@ -1266,7 +1261,7 @@ function switchToStore() {
 function renderTailors() {
   const count = garments.reduce((s, g) => s + g.qty, 0);
   document.getElementById('tailors-context').innerHTML =
-    `Estimated minimums for your ${count} item${count === 1 ? '' : 's'} &middot; requesting <strong>${appt.when}</strong>`;
+    `Recommended tailors for your job & quotes for your ${count} item${count === 1 ? '' : 's'}.<br>Tap a time to book, or a card for details.`;
 
   const minRating = parseFloat(document.getElementById('f-rating').value);
   const maxDist = parseFloat(document.getElementById('f-dist').value);
@@ -1297,41 +1292,39 @@ function renderTailors() {
 
   el.innerHTML = list.map(t => {
     const est = bookingLines(t);
-    const pills = (appt.where === 'Home Visit' && t.homeFee ? [`$${t.homeFee} Home Visit`] : []).concat(t.pillsShort);
     return `
     <div class="card pop-in" style="padding: 16px; cursor: pointer;" onclick="openDetails('${t.id}')">
+      ${t.promoted ? `<div style="margin-bottom: 10px;"><span class="tag-promoted">Promoted</span></div>` : ''}
       <div class="photo-strip">
         ${[0,1,2].map(() => `<div class="photo-ph"></div>`).join('')}
       </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 10px;">
         <span style="font-weight: 700; font-size: 16px; line-height: 1.2;">${t.name}</span>
+        <span style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; flex: none;">$${est.subtotal}+</span>
+      </div>
+      <div class="caption" style="font-size: 13px; margin-top: 2px;">${t.address.split(',')[0]}, NY</div>
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px;">
+        <span style="display: inline-flex; align-items: center; gap: 8px;">
+          <span style="letter-spacing: 1px;">${Array.from({ length: 5 }, (_, k) =>
+            `<span style="color: ${k < Math.floor(t.rating) ? 'var(--accent)' : 'var(--n-300)'}; font-size: 13px;">\u2605</span>`).join('')}</span>
+          <span style="font-weight: 700; font-size: 13px;">${t.rating}</span>
+          <span class="caption">(${t.reviews} reviews)</span>
+        </span>
         <span class="caption" style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; flex: none;">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
           ${t.dist} mi
         </span>
       </div>
-      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px;">
-        <span style="display: inline-flex; align-items: center; gap: 8px;">
-          <span style="letter-spacing: 1px;">${stars(t.rating)}</span>
-          <span style="font-weight: 700; font-size: 13px;">${t.rating}</span>
-          <span class="caption">(${t.reviews})</span>
-        </span>
-        <span style="flex: none; display: inline-flex; align-items: baseline; gap: 6px;">
-          <span style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${est.total}+</span>
-          <span class="caption" style="font-size: 12px;">${est.visitFee ? 'est. incl. visit' : 'est. for your items'}</span>
-        </span>
+      <div style="background: var(--success-bg); border-radius: 12px; padding: 12px 14px; margin-top: 10px;">
+        <div style="font-size: 13px; font-weight: 500; line-height: 1.45;">\u201c${t.review.quote}\u201d</div>
+        <div class="caption" style="font-size: 12px; margin-top: 4px;">${t.review.who}</div>
       </div>
-      <div class="caption" style="margin-top: 6px; display: flex; align-items: center; gap: 6px;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-        Est. turnaround ${t.turnaround}
-      </div>
-      <div class="label-caps" style="font-size: 12px; margin-top: 12px;">Available &mdash; ${t.availDate}</div>
-      <div class="slot-strip">
-        ${t.daySlots.map(s =>
-          `<button class="chip" style="flex: none;" onclick="event.stopPropagation(); pickSlot('${t.id}', '${s}')">${s}</button>`).join('')}
+      <div class="slot-strip" style="margin-top: 10px;">
+        ${t.daySlots.map((sl, k) =>
+          `<button class="chip${k === 0 ? ' selected' : ''}" style="flex: none;" onclick="event.stopPropagation(); pickSlot('${t.id}', '${sl}')">${sl}</button>`).join('')}
       </div>
       <div style="display: flex; gap: 8px; flex-wrap: nowrap; margin-top: 12px; overflow-x: auto;">
-        ${pills.map(p => `<span class="pill-sage">${p}</span>`).join('')}
+        ${t.pillsShort.map(p => `<span class="pill-sage">${p}</span>`).join('')}
       </div>
     </div>`; }).join('');
 }

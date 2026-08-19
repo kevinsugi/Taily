@@ -588,6 +588,11 @@
         <div class="scroll" id="recovery-body"></div>
       </div>
 
+      <!-- ============ 05AA · MODIFIED REQUEST ============ -->
+      <div class="screen" id="screen-modified">
+        <div class="scroll" id="modified-body"></div>
+      </div>
+
       <!-- ============ 5 · TRACKING ============ -->
       <div class="screen" id="screen-tracking">
         <div class="screen-head" style="padding-bottom: 6px;">
@@ -941,12 +946,14 @@ let upcoming = [
     when: 'Wed, Jul 8 \u00b7 5:30 PM', status: 'confirmed', items: '2 items \u00b7 Alterations',
     visit: 'Store Visit', count: 2,
     itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
+    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
     when: 'Wed, Jul 8 \u00b7 5:30 PM', status: 'ready', items: '2 items \u00b7 Alterations',
     visit: 'Home Visit', count: 2,
     itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
+    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['The shoes you plan to wear with your garments.'],
     totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
 ];
@@ -1696,6 +1703,7 @@ function confirmBooking() {
     visit: isHome ? 'Home Visit' : 'Store Visit',
     count,
     itemLines: garments.map(g => `${g.qty} ${g.type} - ${g.jobs.map(j => j.replace(' / ', ' - ')).join(', ')}`),
+    garments: garments.map(g => ({ ...g })),
     bring: isHome ? ['The shoes you plan to wear with your garments.'] : ['Your garments', 'The shoes you plan to wear with them.'],
     justBooked: true,
   });
@@ -1933,13 +1941,34 @@ function renderApptDetail() {
     confirmed: `
       <div class="card" style="padding: 16px;">
         <div class="label-caps">What To Bring</div>
-        <div style="font-size: 13px; font-weight: 500; color: var(--n-700); margin-top: 8px; line-height: 1.5;">Your garments, pressed if possible, and the shoes you plan to wear with them — hems are pinned to your true height.</div>
+        <div style="font-size: 13px; font-weight: 500; color: var(--n-700); margin-top: 8px; line-height: 1.6;">${(a.bring || ['Your garments', 'The shoes you plan to wear with them.']).map(l => '\u2022&nbsp; ' + l).join('<br>')}</div>
       </div>
-      ${payCard}
+      <div class="card" style="padding: 8px 20px;">
+        <div class="label-caps" style="padding: 10px 0 2px;">Order Summary</div>
+        ${a.garments ? a.garments.map((g, gi) => `
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--n-100);">${garmentCardBody(g, gi, true)}</div>`).join('') : (a.itemLines || []).map(l => `<div class="caption" style="padding: 4px 0;">\u2022&nbsp; ${l}</div>`).join('')}
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">
+          <span style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${Math.round(totals.deposit)}</span>
+          <span style="font-weight: 600; font-size: 16px; color: var(--n-500);">10% Deposit - Paid 7/7/26</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0;">
+          <span style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${Math.round(balance)}</span>
+          <span style="font-weight: 600; font-size: 16px; color: var(--n-500);">Balance - Due at Appointment</span>
+        </div>
+      </div>
       <button class="btn btn-ghost" style="font-size: 13px; width: 100%;" onclick="cancelRequest(${currentAppt.i})">Cancel appointment</button>`,
     ready: payCard,
     completed: reviewBlock,
   };
+  const firstName = a.name.split(' ')[0];
+  if (status === 'confirmed') {
+    var actionsBlock = `
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button class="btn btn-primary btn-block" onclick="toast('Added to your calendar')">Add to Calendar</button>
+        <button class="btn btn-secondary btn-block" onclick="toast('Messaging coming soon')">Message ${firstName}</button>
+        <button class="btn btn-secondary btn-block" onclick="openReschedule()">Reschedule</button>
+      </div>`;
+  }
   const actions = status === 'completed'
     ? `<button class="btn btn-secondary" style="flex: 1; font-size: 13px; padding: 12px;" onclick="event.stopPropagation(); startBooking()">Rebook</button>
        <button class="btn btn-secondary" style="flex: 1; font-size: 13px; padding: 12px;" onclick="event.stopPropagation(); openReview()">${a.myReview ? 'Edit Review' : 'Leave Review'}</button>`
@@ -1948,6 +1977,7 @@ function renderApptDetail() {
   const demo = {
     requested: `<button class="btn btn-ghost" style="font-size: 13px; padding: 4px 8px;" onclick="advanceStatus()">Confirm</button>
                 <button class="btn btn-ghost" style="font-size: 13px; padding: 4px 8px;" onclick="renderProposed(); go('proposed');">Propose times</button>
+                <button class="btn btn-ghost" style="font-size: 13px; padding: 4px 8px;" onclick="renderModified(); go('modified');">Edit order</button>
                 <button class="btn btn-ghost" style="font-size: 13px; padding: 4px 8px;" onclick="renderRecovery(); go('recovery');">Decline</button>
                 <button class="btn btn-ghost" style="font-size: 13px; padding: 4px 8px;" onclick="renderExpired(); go('recovery');">Expire</button>`,
     confirmed: `<button class="btn btn-ghost" style="font-size: 13px; padding: 4px 8px;" onclick="advanceStatus()">Mark ready</button>`,
@@ -1960,7 +1990,7 @@ function renderApptDetail() {
       <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; line-height: 1.2; margin: 0;">${heroLine}</h1>
       <div style="font-size: 13px; font-weight: 500; color: var(--n-500); line-height: 1.5;">${heroSub}</div>
       ${blocks[status]}
-      <div style="display: flex; gap: 12px;">${actions}</div>
+      ${status === 'confirmed' ? actionsBlock : `<div style="display: flex; gap: 12px;">${actions}</div>`}
       ${demo[status] ? `<div style="border: 1.5px dashed var(--n-300); border-radius: var(--r-md); padding: 8px 12px;">
         <div class="label-caps" style="font-size: 12px;">Prototype demo — tailor actions</div>
         <div style="display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap;">${demo[status]}</div>
@@ -1971,17 +2001,17 @@ function renderApptDetail() {
 /* ---------- New Time Proposed ---------- */
 function renderProposed() {
   const a = apptEntry();
-  const t = TAILORS.find(x => x.id === a.tailorId) || TAILORS[0];
-  const alts = t.daySlots.slice(1, 3).map(s => `${t.availDate} · ${s}`).concat(['Sat 11 Jul · 9:30 AM']);
+  const first = a.name.split(' ')[0];
+  const alts = ['Fri, Jul 10 \u00b7 11:00 AM', 'Fri, Jul 10 \u00b7 2:00 PM', 'Sat, Jul 11 \u00b7 9:30 AM'];
   document.getElementById('proposed-body').innerHTML = `
     <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 24px;">
       ${statusPill('requested')}
-      <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; text-align: center; margin: 0; line-height: 1.2;">${a.name} suggested<br>new times</h1>
-      <div style="font-size: 13px; font-weight: 500; color: var(--n-500); text-align: center; line-height: 1.5;">${a.when} won&rsquo;t work for them. Pick an alternate — your deposit is only charged once you accept.</div>
-      ${alts.map((label, i) => `
-      <button class="chip ${i === 0 ? 'selected' : ''}" style="width: 100%; padding: 12px; font-size: 16px;" onclick="acceptProposed('${label}')">${label}</button>`).join('')}
-      <button class="btn btn-primary btn-block" onclick="acceptProposed('${alts[0]}')">Accept ${alts[0]}</button>
-      <button class="btn btn-ghost" style="font-size: 13px;" onclick="cancelRequest(${currentAppt.i})">Cancel request — nothing charged</button>
+      <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; text-align: center; margin: 0; line-height: 1.2;">${a.name} suggested new times.</h1>
+      <div style="font-size: 13px; font-weight: 500; color: var(--n-500); text-align: center; line-height: 1.5;">${a.when.replace(/^\w+, /, '')} won&rsquo;t work for ${first === a.name.split(' ')[0] ? 'him' : 'them'}. Choose an alternate time slot, your deposit moves with it.</div>
+      ${alts.map((label, i2) => `
+      <button class="chip ${i2 === 0 ? 'selected' : ''}" style="width: 100%; padding: 14px; font-size: 16px;" onclick="acceptProposed('${label}')">${label}</button>`).join('')}
+      <button class="btn btn-secondary btn-block" onclick="openReschedule()">Propose New Time</button>
+      <button class="btn btn-ghost" style="font-size: 13px;" onclick="cancelRequest(${currentAppt.i})">Cancel request &mdash; deposit refunded</button>
     </div>`;
 }
 
@@ -2021,10 +2051,18 @@ function recoveryBody(title, sub) {
 function renderRecovery() {
   const a = apptEntry();
   a.status = 'declined';
-  document.getElementById('recovery-body').innerHTML = recoveryBody(
-    `${statusPill('declined')}
-     <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; text-align: center; margin: 0; line-height: 1.2;">Let&rsquo;s get you<br>rebooked.</h1>`,
-    `<div style="font-size: 13px; font-weight: 500; color: var(--n-500); text-align: center; line-height: 1.5;">${a.name} can&rsquo;t take this job right now. Your card was never charged — send the same request to someone else in one tap.</div>`);
+  const dep = a.totals ? a.totals.deposit : 20;
+  document.getElementById('recovery-body').innerHTML = `
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 24px;">
+      ${statusPill('declined')}
+      <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; text-align: center; margin: 0; line-height: 1.2;">Let&rsquo;s get you rebooked.</h1>
+      <div style="background: var(--n-100); border-radius: 12px; padding: 12px 16px; width: 100%; text-align: center;">
+        <div style="font-size: 13px; font-weight: 500; line-height: 1.5;">\u201cSorry, but I\u2019m fully booked through July.\u201d</div>
+      </div>
+      <div style="font-size: 13px; font-weight: 500; color: var(--n-500); text-align: center; line-height: 1.5;">Your $${dep.toFixed(2)} deposit carries to whoever you pick next.</div>
+      <button class="btn btn-primary btn-block" onclick="toTailors()">View More Tailors</button>
+      <button class="btn btn-ghost" style="font-size: 13px;" onclick="cancelRequest(${currentAppt.i})">Get a refund instead</button>
+    </div>`;
   renderTracking(); renderHomeUpcoming();
 }
 
@@ -2050,6 +2088,72 @@ function rebookWith(tailorId) {
   renderApptDetail();
   go('apptdetail', 'back');
   toast(`Request sent to ${t.name} — same time, same details`);
+}
+
+/* ---------- Modified Request (tailor edited the order) ---------- */
+function renderModified() {
+  const a = apptEntry();
+  const t = TAILORS.find(x => x.id === a.tailorId) || TAILORS[0];
+  const first = a.name.split(' ')[0];
+  const rows = [
+    { qty: 1, type: 'Suit Jacket', job: 'Hem / Adjust Length', price: 120, comment: null },
+    { qty: 1, type: 'Suit Jacket', job: 'Sleeve / Adjust Length From Shoulder', price: 160,
+      comment: `\u201cThe sleeve must be shortened from the shoulder, there is not enough fabric at the bottom.\u201d - ${first} 9/1/26` },
+  ];
+  const newSubtotal = rows.reduce((s2, r) => s2 + r.price * r.qty, 0);
+  const fee = Math.round(newSubtotal * DEPOSIT_RATE);
+  const deposit = a.totals ? a.totals.deposit : 20;
+  const due = newSubtotal - Math.round(deposit);
+  document.getElementById('modified-body').innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 12px; padding-top: 8px;">
+      ${statusPill('requested')}
+      <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; line-height: 1.2; margin: 0;">${first} edited your order.</h1>
+      <div style="font-size: 13px; font-weight: 500; color: var(--n-500);">Please review his comments below.</div>
+      ${tailorSummaryCard(t, a.when)}
+      <div class="card" style="padding: 8px 20px;">
+        <div class="label-caps" style="padding: 10px 0 2px;">Order Summary</div>
+        ${rows.map(r => `
+        <div style="padding: 14px 0; border-bottom: 1px solid var(--n-100);">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+              ${gIcon(r.type, 56)}
+              <div style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${r.price}</div>
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 700; font-size: 16px;">${r.qty} &nbsp;${r.type}</div>
+              <div style="font-size: 13px; font-weight: 600; color: var(--accent-ink); margin-top: 4px;">${r.job.replace(' / ', ' / ')}</div>
+            </div>
+          </div>
+          ${r.comment ? `
+          <div style="background: var(--n-100); border-radius: 12px; padding: 12px 14px; margin-top: 10px;">
+            <div style="font-size: 13px; font-weight: 500; line-height: 1.5;">${r.comment}</div>
+          </div>` : ''}
+        </div>`).join('')}
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">
+          <span style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${fee}</span>
+          <span style="font-weight: 600; font-size: 16px; color: var(--n-500);">Service Fee</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0;">
+          <span style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${due}</span>
+          <span style="font-weight: 600; font-size: 16px; color: var(--n-500);">Subtotal - Due at Pickup</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button class="btn btn-primary btn-block" onclick="acceptModified(${newSubtotal})">Accept Changes</button>
+        <button class="btn btn-secondary btn-block" onclick="toast('Messaging coming soon')">Message ${first}</button>
+        <button class="btn btn-secondary btn-block" style="color: var(--error); border-color: var(--error);" onclick="cancelRequest(${currentAppt.i})">Decline</button>
+      </div>
+    </div>`;
+}
+
+function acceptModified(newSubtotal) {
+  const a = apptEntry();
+  if (a.totals) { a.totals.subtotal = newSubtotal; a.totals.total = newSubtotal; }
+  a.itemLines = ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length From Shoulder'];
+  a.status = 'confirmed';
+  renderTracking(); renderHomeUpcoming(); renderApptDetail();
+  go('apptdetail', 'back');
+  toast('Changes accepted \u2014 appointment confirmed');
 }
 
 /* ---------- Reviews ---------- */
@@ -2152,9 +2256,16 @@ function openTimeSheet() {
   requestAnimationFrame(() => {
     document.querySelectorAll('.wheel-col').forEach((el, ci) => { el.scrollTop = WHEEL.cols[ci].sel * 40; });
   });
+  updateWheelCta();
 }
 
 let wheelTimers = {};
+function updateWheelCta() {
+  const [d, h, m, ap] = WHEEL.cols.map(c => c.rows[c.sel]);
+  const el = document.getElementById('time-sheet-cta');
+  if (el) el.textContent = `Set Time \u00b7 ${d} at ${h}:${m} ${ap}`;
+}
+
 function wheelScrolled(el) {
   const ci = parseInt(el.dataset.ci, 10);
   clearTimeout(wheelTimers[ci]);
@@ -2162,6 +2273,7 @@ function wheelScrolled(el) {
     const idx = Math.max(0, Math.min(WHEEL.cols[ci].rows.length - 1, Math.round(el.scrollTop / 40)));
     WHEEL.cols[ci].sel = idx;
     el.querySelectorAll('.wheel-row').forEach((r, ri) => r.classList.toggle('sel', ri === idx));
+    updateWheelCta();
   }, 80);
 }
 

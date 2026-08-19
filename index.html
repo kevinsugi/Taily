@@ -404,10 +404,15 @@
   <div class="device">
     <div class="topnav">
       <span class="brand">Taily</span>
-      <nav>
+      <nav id="nav-user">
         <button class="nav-link active" id="tab-home" onclick="tabTo('home')">Home</button>
         <button class="nav-link" id="tab-bookings" onclick="tabTo('tracking')">Bookings</button>
         <button class="nav-link" id="tab-profile" onclick="toast('Profile coming soon')">Profile</button>
+      </nav>
+      <nav id="nav-tailor" style="display: none;">
+        <button class="nav-link active" id="tab-t-home" onclick="tTab('t-home')">Home</button>
+        <button class="nav-link" id="tab-t-calendar" onclick="tTab('t-calendar')">Calendar</button>
+        <button class="nav-link" id="tab-t-services" onclick="tTab('t-services')">Shop</button>
       </nav>
     </div>
 
@@ -593,6 +598,57 @@
         <div class="scroll" id="modified-body"></div>
       </div>
 
+      <!-- ============ TAILOR · HOME ============ -->
+      <div class="screen" id="screen-t-home">
+        <div class="scroll" id="t-home-body" style="padding-top: 16px;"></div>
+      </div>
+
+      <!-- ============ TAILOR · CALENDAR ============ -->
+      <div class="screen" id="screen-t-calendar">
+        <div class="scroll" id="t-calendar-body" style="padding-top: 16px;"></div>
+      </div>
+
+      <!-- ============ TAILOR · SHOP: SERVICES ============ -->
+      <div class="screen" id="screen-t-services">
+        <div class="scroll" id="t-services-body" style="padding-top: 16px;"></div>
+        <div class="cta-bar">
+          <button class="btn btn-primary btn-block" id="t-services-cta" onclick="renderTailorPrices(); go('t-prices');">Save services</button>
+        </div>
+      </div>
+
+      <!-- ============ TAILOR · SHOP: PRICE LIST ============ -->
+      <div class="screen" id="screen-t-prices">
+        <div class="screen-head">
+          <button class="back" onclick="go('t-services', 'back')" aria-label="Back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div><div class="screen-title">Price list</div></div>
+        </div>
+        <div class="scroll" id="t-prices-body"></div>
+        <div class="cta-bar">
+          <button class="btn btn-primary btn-block" onclick="renderTailorAvail(); go('t-avail');">Save price list</button>
+        </div>
+      </div>
+
+      <!-- ============ TAILOR · SHOP: AVAILABILITY ============ -->
+      <div class="screen" id="screen-t-avail">
+        <div class="screen-head">
+          <button class="back" onclick="go('t-prices', 'back')" aria-label="Back">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div><div class="screen-title">When do you work?</div></div>
+        </div>
+        <div class="scroll" id="t-avail-body"></div>
+        <div class="cta-bar">
+          <button class="btn btn-primary btn-block" onclick="toast('Shop setup saved'); tTab('t-home');">Save availability</button>
+        </div>
+      </div>
+
+      <!-- ============ TAILOR · JOB DETAIL (all states) ============ -->
+      <div class="screen" id="screen-t-job">
+        <div class="scroll" id="t-job-body" style="padding-top: 16px;"></div>
+      </div>
+
       <!-- ============ 5 · TRACKING ============ -->
       <div class="screen" id="screen-tracking">
         <div class="screen-head" style="padding-bottom: 6px;">
@@ -763,6 +819,16 @@
         </div>
       </div>
 
+      <div class="sheet-backdrop" id="suggest-sheet" onclick="if (event.target === this) closeSuggestSheet()">
+        <div class="action-sheet">
+          <div style="width: 40px; height: 4px; border-radius: 999px; background: var(--n-300); align-self: center;"></div>
+          <div style="font-weight: 700; font-size: 16px;">Suggest a new time</div>
+          <div class="caption" id="suggest-sub">Pick up to 3 slots, the customer confirms one.</div>
+          <div id="suggest-slots" style="display: flex; flex-direction: column; gap: 8px;"></div>
+          <button class="btn btn-primary btn-block" id="suggest-cta" onclick="sendSuggestedTimes()">Send</button>
+        </div>
+      </div>
+
       <div class="sheet-backdrop" id="cancel-sheet" onclick="if (event.target === this) closeCancelSheet()">
         <div class="action-sheet">
           <div style="width: 40px; height: 4px; border-radius: 999px; background: var(--n-300); align-self: center;"></div>
@@ -792,7 +858,7 @@
 
     <div class="toast" id="toast"></div>
   </div>
-  <div class="stage-caption">Taily &middot; Booking &middot; v3</div>
+  <div class="stage-caption">Taily &middot; Booking &middot; v3 &nbsp;&middot;&nbsp; <button id="persona-btn" onclick="switchPersona()" style="background: none; border: none; color: var(--accent); font: inherit; cursor: pointer; text-transform: inherit; letter-spacing: inherit; padding: 0;">View as Tailor</button></div>
 </div>
 
 <script>
@@ -1708,6 +1774,14 @@ function confirmBooking() {
     justBooked: true,
   });
 
+  const entry = upcoming[0];
+  tailorJobs.unshift({
+    customer: { name: 'Kevin T.', initials: 'KT', address: isHome ? contact.street : tailor.address.split(',')[0] },
+    visit: entry.visit, when: entry.when, status: 'requested', expires: '1h 58m',
+    garments: entry.garments.map(g => ({ ...g, price: Math.round(g.jobs.reduce((s2, jj) => s2 + JOB_TYPES[jj].price, 0) * tailor.mult) * g.qty })),
+    totals: entry.totals, mirror: entry,
+  });
+
   garments = [];
   selection = null;
   renderHomeUpcoming();
@@ -2299,6 +2373,449 @@ function confirmTimeSheet() {
   if (currentScreen === 'tailors') renderTailors();
   if (currentScreen === 'confirm' && selection) { selection.time = label; renderConfirm(); }
   closeTimeSheet();
+}
+
+/* ============================================================
+   Tailor persona — same appointment objects, tailor's views
+   ============================================================ */
+let persona = 'user';
+let currentJob = null;
+
+let tailorJobs = [
+  { customer: { name: 'Sarah Chen', initials: 'SC', address: '350 W 51st St' }, visit: 'Store Visit',
+    when: 'Thu, Jul 9 · 9:30 AM', status: 'requested', expires: '1h 24m',
+    garments: [
+      { type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2, price: 120 },
+      { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2, price: 80 },
+    ],
+    totals: { subtotal: 200, total: 200, deposit: 20 } },
+  { customer: { name: 'Leo Von', initials: 'LV', address: '15 West Broadway' }, visit: 'Home Visit',
+    when: 'Thu, Jul 9 · 9:30 AM', status: 'proposed', note: 'home visit · bring pins & tape',
+    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 2, photos: 0, price: 120 }],
+    totals: { subtotal: 240, total: 240, deposit: 24 } },
+  { customer: { name: 'Jake Jones', initials: 'JJ', address: 'Store Visit' }, visit: 'Store Visit',
+    when: 'Thu, Jul 9 · 9:30 AM', status: 'ready', note: 'New times proposed',
+    garments: [{ type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0, price: 30 }],
+    totals: { subtotal: 30, total: 30, deposit: 3 } },
+];
+
+const T_PILL = {
+  requested: ['st-requested', 'New Request'],
+  proposed: ['st-requested', 'Awaiting Customer'],
+  confirmed: ['st-confirmed', 'Confirmed'],
+  ready: ['st-ready', 'Ready for Pickup'],
+  completed: ['st-completed', 'Completed'],
+  declined: ['st-declined', 'Declined'],
+  cancelled: ['st-declined', 'Cancelled'],
+};
+function tPill(status) {
+  const [cls, label] = T_PILL[status] || T_PILL.confirmed;
+  return `<span class="status-pill ${cls}"><span class="sdot"></span> ${label}</span>`;
+}
+
+function switchPersona() {
+  persona = persona === 'user' ? 'tailor' : 'user';
+  document.getElementById('nav-user').style.display = persona === 'user' ? '' : 'none';
+  document.getElementById('nav-tailor').style.display = persona === 'tailor' ? '' : 'none';
+  document.getElementById('persona-btn').textContent = persona === 'user' ? 'View as Tailor' : 'View as Customer';
+  if (persona === 'tailor') { renderTailorHome(); go('t-home'); setTab('t-home'); }
+  else { renderHomeUpcoming(); renderTracking(); go('home', 'back'); setTab('home'); }
+}
+
+function tTab(screen) {
+  if (screen === 't-home') renderTailorHome();
+  if (screen === 't-calendar') renderTailorCalendar();
+  if (screen === 't-services') renderTailorServices();
+  go(screen);
+  setTab(screen);
+}
+
+function jobPrice(j) {
+  return j.garments.reduce((s2, g) => s2 + (g.price || Math.round(JOB_TYPES[g.jobs[0]].price)) * g.qty, 0);
+}
+function jobSummaryLine(j) {
+  const n = j.garments.reduce((s2, g) => s2 + g.qty, 0);
+  return `${n} item${n === 1 ? '' : 's'} · $${jobPrice(j).toFixed(2)}+ est.`;
+}
+
+function tailorCustomerCard(j) {
+  return `
+    <div class="card" style="padding: 16px 20px;">
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${j.customer.initials}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-weight: 700; font-size: 16px;">${j.customer.name}</div>
+          <div class="caption" style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            ${j.customer.address} - ${j.visit}
+          </div>
+          <div class="caption" style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
+            ${j.when}
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---------- Tailor home ---------- */
+function renderTailorHome() {
+  const newReqs = tailorJobs.filter(j => j.status === 'requested');
+  const inProgress = tailorJobs.filter(j => ['proposed', 'confirmed', 'ready'].includes(j.status));
+  document.getElementById('t-home-body').innerHTML = `
+    <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; margin: 0;">New requests.</h1>
+    <div class="caption" style="margin-top: 4px;">Thu, Jul 9 · ${newReqs.length} waiting for you</div>
+    <div class="label-caps" style="margin: 20px 0 12px;">New Requests</div>
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      ${newReqs.map(j => { const i = tailorJobs.indexOf(j); return `
+      <div class="card" style="padding: 20px; cursor: pointer; outline: 1.5px solid var(--accent); outline-offset: -1.5px;" onclick="openTailorJob(${i})">
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${j.customer.initials}</div>
+          <div style="min-width: 0; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="font-weight: 600; font-size: 16px; flex: 1;">${j.customer.name}</div>
+              ${tPill('requested')}
+            </div>
+            <div class="caption" style="margin-top: 4px;">◉&nbsp; ${j.customer.address} - ${j.visit}</div>
+            <div class="caption" style="margin-top: 2px;">▤&nbsp; ${j.when}</div>
+          </div>
+        </div>
+        <div style="font-size: 13px; font-weight: 700; color: var(--n-500); margin-top: 12px;">${jobSummaryLine(j)}</div>
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; padding-left: 8px;">
+          ${j.garments.map(g => `<div style="font-size: 13px; font-weight: 500; color: var(--n-500);">•&nbsp; ${g.qty} ${g.type} - ${g.jobs[0]} &nbsp;· $${g.price || Math.round(JOB_TYPES[g.jobs[0]].price)}</div>`).join('')}
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top: 14px; padding: 12px;" onclick="event.stopPropagation(); openTailorJob(${i})">Review</button>
+        <div style="text-align: center; font-size: 13px; font-weight: 600; color: var(--accent-ink); margin-top: 10px;">Expires in ${j.expires || '1h 24m'}</div>
+      </div>`; }).join('') || '<div class="caption">No new requests right now.</div>'}
+    </div>
+    <div class="label-caps" style="margin: 24px 0 12px;">In Progress</div>
+    <div style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px;">
+      ${inProgress.map(j => { const i = tailorJobs.indexOf(j); return `
+      <div class="card" style="padding: 16px 20px; cursor: pointer;" onclick="openTailorJob(${i})">
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div class="avatar" style="width: 44px; height: 44px; font-size: 16px;">${j.customer.initials}</div>
+          <div style="min-width: 0; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="font-weight: 600; font-size: 16px; flex: 1;">${j.customer.name}</div>
+              ${tPill(j.status)}
+            </div>
+            <div class="caption" style="margin-top: 4px;">◉&nbsp; ${j.customer.address}${j.customer.address.includes('Visit') ? '' : ' - ' + j.visit}</div>
+            <div class="caption" style="margin-top: 2px;">▤&nbsp; ${j.when}</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 10px;">
+          <span style="font-weight: 700; font-size: 13px;">$${jobPrice(j).toFixed(2)}+ est.</span>
+          ${j.note ? `<span class="caption" style="font-size: 12px;">${j.note}</span>` : ''}
+        </div>
+      </div>`; }).join('') || '<div class="caption">Nothing in progress.</div>'}
+    </div>`;
+}
+
+/* ---------- Tailor calendar ---------- */
+function renderTailorCalendar() {
+  const appts = tailorJobs.filter(j => ['proposed', 'confirmed', 'ready'].includes(j.status));
+  const groups = [['Thursday, Jul 9', appts], ['Friday, Jul 10', appts.slice(0, 1)]];
+  document.getElementById('t-calendar-body').innerHTML = `
+    <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; margin: 0;">Calendar.</h1>
+    <div class="caption" style="margin-top: 4px;">This week · ${groups.reduce((s2, [, l]) => s2 + l.length, 0)} appointments</div>
+    ${groups.map(([day, list]) => `
+    <div class="label-caps" style="margin: 20px 0 12px;">${day}</div>
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      ${list.map(j => { const i = tailorJobs.indexOf(j); return `
+      <div class="card" style="padding: 16px 20px; cursor: pointer;" onclick="openTailorJob(${i})">
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div class="avatar" style="width: 40px; height: 40px; font-size: 13px;">${j.customer.initials}</div>
+          <div style="min-width: 0; flex: 1;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="font-weight: 600; font-size: 16px; flex: 1;">${j.customer.name}</div>
+              ${tPill(j.status)}
+            </div>
+            <div class="caption" style="margin-top: 4px;">◉&nbsp; ${j.customer.address} - ${j.visit}</div>
+            <div class="caption" style="margin-top: 2px;">▤&nbsp; ${j.when}</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; margin-top: 10px;">
+          <span style="font-weight: 700; font-size: 13px; flex: 1;">$${jobPrice(j).toFixed(2)}+ est.</span>
+          <span class="caption" style="font-size: 12px;">${j.status === 'proposed' ? 'awaiting customer' : 'confirmed'}</span>
+        </div>
+      </div>`; }).join('') || '<div class="caption">Nothing scheduled.</div>'}
+    </div>`).join('')}`;
+}
+
+/* ---------- Tailor shop setup ---------- */
+let tServices = new Set(['Suit Jacket', 'Suit Pant', 'Shirt / Blouse']);
+const T_PRICES = {
+  'Suit Jacket': [['Hem / Adjust length', '$120+', '3–5 days'], ['Sleeve / Adjust length', '$80+', '3–5 days']],
+  'Suit Pant': [['Hem / Adjust length', '$60+', '2–4 days'], ['Taper legs', '$45+', '3–5 days']],
+  'Shirt / Blouse': [['Hem', '$30+', '2–3 days']],
+};
+const T_AVAIL = [['Monday', true, '9:00 AM', '6:00 PM'], ['Tuesday', true, '9:00 AM', '6:00 PM'], ['Wednesday', true, '9:00 AM', '6:00 PM'], ['Thursday', true, '9:00 AM', '6:00 PM'], ['Friday', true, '9:00 AM', '6:00 PM'], ['Saturday', true, '10:00 AM', '4:00 PM'], ['Sunday', false, '', '']];
+
+function renderTailorServices() {
+  document.getElementById('t-services-body').innerHTML = `
+    <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; margin: 0 0 4px;">What do you tailor?</h1>
+    <div class="caption" style="margin-bottom: 16px;">Customers only see the services you offer.</div>
+    <div class="tile-grid">
+      ${Object.keys(GARMENT_TYPES).map(t => `
+      <button class="tile ${tServices.has(t) ? 'selected' : ''}" onclick="toggleTService('${t.replace(/'/g, "\\'")}')">
+        <div class="t-ico">${gIcon(t, 56)}</div>
+        <div style="font-size: 13px; font-weight: 700; line-height: 1.2;">${t}</div>
+      </button>`).join('')}
+    </div>`;
+  document.getElementById('t-services-cta').textContent = `Save services · ${tServices.size} selected`;
+}
+function toggleTService(t) {
+  tServices.has(t) ? tServices.delete(t) : tServices.add(t);
+  renderTailorServices();
+}
+
+function renderTailorPrices() {
+  document.getElementById('t-prices-body').innerHTML = `
+    <div class="caption" style="margin-bottom: 16px;">Started from your services — tap any price to adjust.</div>
+    <div class="card" style="padding: 8px 20px 16px;">
+      ${[...tServices].map(svc => `
+      <div class="label-caps" style="margin: 16px 0 4px;">${svc}</div>
+      ${(T_PRICES[svc] || [['Alterations', '$50+', '3–5 days']]).map(([job, price, days]) => `
+      <div class="price-row line">
+        <span>
+          <span style="display: block; font-weight: 600;">${job}</span>
+          <span class="caption" style="font-size: 12px;">${days}</span>
+        </span>
+        <span style="font-weight: 700; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center; gap: 8px;">${price} <span style="color: var(--accent-ink);">✎</span></span>
+      </div>`).join('')}`).join('')}
+    </div>`;
+}
+
+function renderTailorAvail() {
+  document.getElementById('t-avail-body').innerHTML = `
+    <div class="caption" style="margin-bottom: 16px;">Customers can only book inside these hours.</div>
+    <div class="card" style="padding: 8px 20px;">
+      ${T_AVAIL.map(([day, on, from, to]) => `
+      <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--n-100);">
+        <span style="width: 44px; height: 26px; border-radius: 999px; flex: none; position: relative; background: ${on ? 'var(--secondary)' : 'var(--n-300)'};">
+          <span style="position: absolute; top: 3px; ${on ? 'right: 3px;' : 'left: 3px;'} width: 20px; height: 20px; border-radius: 50%; background: var(--white);"></span>
+        </span>
+        <span style="flex: 1; font-weight: 600; font-size: 16px; color: ${on ? 'var(--ink)' : 'var(--n-400)'};">${day}</span>
+        ${on ? `<span class="chip" style="font-size: 13px; pointer-events: none;">${from}</span><span class="caption">–</span><span class="chip" style="font-size: 13px; pointer-events: none;">${to}</span>` : '<span class="caption">Closed</span>'}
+      </div>`).join('')}
+    </div>`;
+}
+
+/* ---------- Tailor job detail (all lifecycle states) ---------- */
+function openTailorJob(i) {
+  currentJob = i;
+  renderTailorJob();
+  go('t-job');
+  setTab('t-home');
+}
+
+function tJobGarmentRow(j, g, gi, editable) {
+  const price = g.price || Math.round(JOB_TYPES[g.jobs[0]].price);
+  return `
+    <div style="padding: 14px 0; border-bottom: 1px solid var(--n-100);">
+      <div style="display: flex; align-items: flex-start; gap: 12px;">
+        <div style="flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px;">
+          ${gIcon(g.type, 56)}
+          <div style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;" id="t-price-${gi}">$${price}</div>
+          ${editable ? `<button class="btn btn-ghost" style="font-size: 12px; padding: 0; color: var(--accent-ink);" onclick="editJobPrice(${gi})">✎ Edit</button>` : ''}
+        </div>
+        <div style="flex: 1; min-width: 0; padding-top: 4px;">
+          <div style="font-weight: 700; font-size: 16px;">${g.qty} &nbsp;${g.type}</div>
+          <div style="font-size: 13px; font-weight: 600; color: var(--accent-ink); margin-top: 4px;">${g.jobs[0]}</div>
+          ${g.photos ? `<div class="photo-tiles" style="margin-top: 8px;">${Array.from({ length: g.photos }).map(() => '<div class="p-tile"></div>').join('')}</div>` : ''}
+          ${editable ? `<button class="btn btn-ghost" style="font-size: 13px; padding: 4px 0; color: var(--accent-ink);" onclick="addJobComment(${gi})">⊕ Add Comment</button>` : ''}
+          ${g.comment ? `<div style="background: var(--n-100); border-radius: 12px; padding: 10px 12px; margin-top: 8px;"><div style="font-size: 13px; font-weight: 500; line-height: 1.5;">“${g.comment}”</div></div>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderTailorJob() {
+  const j = tailorJobs[currentJob];
+  const first = j.customer.name.split(' ')[0];
+  const price = jobPrice(j);
+  const fee = Math.round(price * DEPOSIT_RATE);
+  const due = price - fee;
+  const edited = j.garments.some(g => g.edited || g.comment);
+  const count = j.garments.reduce((s2, g) => s2 + g.qty, 0);
+
+  const HERO = {
+    requested: [edited ? `${first}’s order — with your edits.` : `New request from ${first}.`,
+      `${count} item${count === 1 ? '' : 's'} for ${j.when.replace(' · ', ' at ')}.<br>This request expires at 11:00 AM.`, 'requested'],
+    proposed: ['New times sent.', `We sent your options to ${first}. We’ll let you know the moment ${first === 'Sarah' ? 'she' : 'they'} pick${first === 'Sarah' ? 's' : ''} one.`, 'proposed'],
+    confirmed: [`You’re booked for ${j.when.replace(' · ', ' at ')}`, `${j.customer.name} · ${j.visit} · ${j.customer.address}`, 'confirmed'],
+    ready: ['Marked ready.', `${first} has been notified — $${due.toFixed(2)} due at pickup.`, 'ready'],
+    completed: ['All done.', `Paid in full · Thu, Jul 9. This job is closed.`, 'completed'],
+    declined: ['Request declined.', `${first} has been notified — your Thu 9:30 AM slot stays open.`, 'declined'],
+    cancelled: ['This job was cancelled.', `Your Thu 9:30 AM slot has reopened on your calendar.`, 'cancelled'],
+  };
+  const [hero, sub, pillKey] = HERO[j.status] || HERO.confirmed;
+
+  const feeRow = {
+    requested: ['$' + fee, 'Service Fee'],
+    proposed: ['$' + fee, 'Service Fee'],
+    confirmed: ['$' + fee, 'Service Fee - Paid'],
+    ready: ['$' + fee, 'Service Fee - Paid'],
+    completed: ['$' + fee, 'Service Fee - Paid'],
+    declined: ['$' + fee, 'Deposit refunded to ' + first],
+    cancelled: ['$' + fee, 'Deposit refunded to ' + first],
+  }[j.status];
+  const dueRow = {
+    requested: ['$' + due, 'Subtotal - Due at Pickup'],
+    proposed: ['$' + due, 'Subtotal - Due at Pickup'],
+    confirmed: ['$' + due, 'Subtotal - Due at Pickup'],
+    ready: ['$' + due, 'Due at Pickup'],
+    completed: ['$' + due, 'Paid in Full'],
+    declined: null,
+    cancelled: null,
+  }[j.status];
+
+  const btn = (label, cls, fn, style) => `<button class="btn ${cls} btn-block" ${style ? `style="${style}"` : ''} onclick="${fn}">${label}</button>`;
+  const msg = btn('Message ' + first, 'btn-secondary', `toast('Messaging coming soon')`);
+  const back = btn('Back to requests', 'btn-secondary', `tTab('t-home')`);
+  const ACTIONS = {
+    requested: [
+      edited ? btn('Submit Changes', 'btn-primary', `submitChanges()`) : btn('Accept request', 'btn-primary', `acceptRequest()`),
+      msg,
+      btn('Suggest Another Time', 'btn-secondary', `openSuggestSheet()`),
+      btn('Decline', 'btn-secondary', `declineRequest()`, 'color: var(--error); border-color: var(--error);'),
+    ],
+    proposed: [back, msg],
+    confirmed: [btn('Mark ready', 'btn-primary', `markReady()`), msg, back],
+    ready: [btn('Mark completed', 'btn-primary', `markCompleted()`), msg, back],
+    completed: [back, msg],
+    declined: [back],
+    cancelled: [back],
+  }[j.status];
+
+  document.getElementById('t-job-body').innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      ${tPill(pillKey)}
+      <h1 style="font-family: var(--serif); font-weight: 500; font-size: 28px; line-height: 1.2; margin: 0;">${hero}</h1>
+      <div style="font-size: 13px; font-weight: 500; color: var(--n-500); line-height: 1.5;">${sub}</div>
+      ${tailorCustomerCard(j)}
+      <div class="card" style="padding: 8px 20px;">
+        <div class="label-caps" style="padding: 10px 0 2px;">Order Summary</div>
+        ${j.garments.map((g, gi) => tJobGarmentRow(j, g, gi, j.status === 'requested')).join('')}
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; ${dueRow ? 'border-bottom: 1px solid var(--n-100);' : ''}">
+          <span style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">${feeRow[0]}</span>
+          <span style="font-weight: 600; font-size: 16px; color: var(--n-500);">${feeRow[1]}</span>
+        </div>
+        ${dueRow ? `
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0;">
+          <span style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">${dueRow[0]}</span>
+          <span style="font-weight: 600; font-size: 16px; color: var(--n-500);">${dueRow[1]}</span>
+        </div>` : ''}
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 24px;">${ACTIONS.join('')}</div>
+    </div>`;
+}
+
+/* ---------- Tailor actions → shared state machine ---------- */
+function jobMirror() {
+  const j = tailorJobs[currentJob];
+  return j.mirror || null;  // linked user-side appointment entry
+}
+function syncUserViews() {
+  renderTracking(); renderHomeUpcoming();
+}
+
+function editJobPrice(gi) {
+  const j = tailorJobs[currentJob];
+  const g = j.garments[gi];
+  const cur = g.price || Math.round(JOB_TYPES[g.jobs[0]].price);
+  const next = cur === 80 ? 160 : cur + 40;
+  g.price = next;
+  g.edited = true;
+  if (cur === 80) { g.jobs = ['Sleeve / Adjust Length From Shoulder']; }
+  renderTailorJob();
+  toast('Price updated — submit changes to notify the customer');
+}
+
+function addJobComment(gi) {
+  const j = tailorJobs[currentJob];
+  const g = j.garments[gi];
+  g.comment = g.comment || `The sleeve must be shortened from the shoulder, there is not enough fabric at the bottom.” - Marco 9/1/26`.replace('” - Marco 9/1/26', '') ;
+  g.comment = 'The sleeve must be shortened from the shoulder, there is not enough fabric at the bottom.';
+  g.edited = true;
+  renderTailorJob();
+}
+
+function acceptRequest() {
+  const j = tailorJobs[currentJob];
+  j.status = 'confirmed';
+  const m = jobMirror();
+  if (m) { m.status = 'confirmed'; syncUserViews(); }
+  renderTailorJob();
+  toast(`Accepted — ${j.customer.name.split(' ')[0]}’s deposit is charged`);
+}
+
+function submitChanges() {
+  const j = tailorJobs[currentJob];
+  const m = jobMirror();
+  if (m) { m.modified = true; syncUserViews(); }
+  toast('Changes sent — waiting on customer approval');
+  j.status = 'proposed';
+  j.note = 'Changes sent';
+  renderTailorJob();
+}
+
+function declineRequest() {
+  const j = tailorJobs[currentJob];
+  j.status = 'declined';
+  const m = jobMirror();
+  if (m) { m.status = 'declined'; syncUserViews(); }
+  renderTailorJob();
+}
+
+function markReady() {
+  const j = tailorJobs[currentJob];
+  j.status = 'ready';
+  const m = jobMirror();
+  if (m) { m.status = 'ready'; syncUserViews(); }
+  renderTailorJob();
+}
+
+function markCompleted() {
+  const j = tailorJobs[currentJob];
+  j.status = 'completed';
+  const m = jobMirror();
+  if (m) {
+    m.status = 'completed';
+    const idx = upcoming.indexOf(m);
+    if (idx > -1) { upcoming.splice(idx, 1); past.unshift(m); }
+    syncUserViews();
+  }
+  renderTailorJob();
+}
+
+/* ---------- Suggest time sheet ---------- */
+let suggestSlots = ['Fri, Jul 10 · 11:00 AM'];
+function openSuggestSheet() {
+  const j = tailorJobs[currentJob];
+  const first = j.customer.name.split(' ')[0];
+  document.getElementById('suggest-sub').textContent = `Pick up to 3 slots, ${first} confirms one.`;
+  document.getElementById('suggest-cta').textContent = `Send to ${first}`;
+  renderSuggestSlots();
+  document.getElementById('suggest-sheet').classList.add('open');
+}
+function renderSuggestSlots() {
+  const pool = ['Fri, Jul 10 · 2:00 PM', 'Sat, Jul 11 · 9:30 AM', 'Sat, Jul 11 · 2:00 PM'];
+  document.getElementById('suggest-slots').innerHTML =
+    suggestSlots.map(sl => `<button class="chip selected" style="width: 100%; padding: 14px; font-size: 16px;">${sl}</button>`).join('') +
+    (suggestSlots.length < 3 ? `<button class="chip" style="width: 100%; padding: 14px; font-size: 16px; border-style: dashed; color: var(--accent-ink);" onclick="suggestSlots.push(['Fri, Jul 10 · 2:00 PM', 'Sat, Jul 11 · 9:30 AM'][suggestSlots.length - 1] || 'Sat, Jul 11 · 2:00 PM'); renderSuggestSlots();">+ Propose New Time</button>`.repeat(Math.min(2, 3 - suggestSlots.length)) : '');
+}
+function closeSuggestSheet() {
+  document.getElementById('suggest-sheet').classList.remove('open');
+  suggestSlots = ['Fri, Jul 10 · 11:00 AM'];
+}
+function sendSuggestedTimes() {
+  const j = tailorJobs[currentJob];
+  j.status = 'proposed';
+  const m = jobMirror();
+  if (m) { m.proposedTimes = [...suggestSlots]; syncUserViews(); }
+  closeSuggestSheet();
+  renderTailorJob();
 }
 
 /* ---------- Init ---------- */

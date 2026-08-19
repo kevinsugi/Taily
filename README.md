@@ -27,10 +27,18 @@ Confirm (10% deposit) → Payment sheet (Apple Pay / Google Pay / card) →
 Request Sent → lifecycle: Confirmed / New Time Proposed / Order Edited /
 Declined / Ready / Completed / Review.
 
-The appointment object is a single state machine
-(`requested → confirmed → ready → completed`, with `declined` / `expired`
-branches); every screen renders from it. Dashed "Prototype demo" panels
-simulate the tailor's side until the Tailor - Main Flow ships.
+## Product flow (Tailor - Main Flow)
+
+Switch personas with **View as Tailor** under the app. Tailor side: Home
+(new requests + in progress) / Calendar / Shop (services → price list →
+availability setup), job detail with accept / suggest times / edit order /
+decline / mark ready / mark completed.
+
+Both personas render the **same appointment objects** — one state machine
+(`requested → confirmed → ready → completed`, with `declined` / `cancelled`
+branches). Book as the customer, switch to the tailor, accept the request,
+switch back: the booking is Confirmed. Dashed "Prototype demo" panels remain
+as shortcuts for single-persona demos.
 
 ## Conventions
 

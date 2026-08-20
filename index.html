@@ -122,10 +122,10 @@
   .eyebrow { font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: var(--n-500); font-weight: 600; }
   .label-caps { font-size: 13px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--n-500); }
   .step-label { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
-  .appt-fields { display: flex; gap: 10px; margin-bottom: 18px; }
-  .appt-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+  .appt-fields { display: flex; gap: 10px; margin-bottom: 18px; overflow-x: auto; scrollbar-width: none; }
+  .appt-field { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; min-width: 0; }
   .appt-field > label { font-size: 12px; font-weight: 600; color: var(--n-500); }
-  .appt-field .appt-select { width: 100%; font-size: 13px; padding: 10px 24px 10px 10px; background-position: right 8px center; white-space: nowrap; }
+  .appt-field .appt-select { width: auto; font-size: 13px; padding: 10px 26px 10px 10px; background-position: right 8px center; background-size: 11px; white-space: nowrap; text-align: left; }
   .caption { font-size: 13px; font-weight: 500; color: var(--n-500); line-height: 1.4; letter-spacing: .02em; }
 
   /* ============ Buttons ============ */
@@ -456,7 +456,7 @@
         <div class="scroll">
           <div class="appt-fields">
             <div class="appt-field"><label>Requested time:</label><button class="appt-select compact" id="appt-when" onclick="openTimeSheet()"></button></div>
-            <div class="appt-field"><label>Need by:</label><select class="appt-select compact" id="appt-needby" onchange="setAppt('needBy', this.value)"></select></div>
+            <div class="appt-field"><label>Need by:</label><button class="appt-select compact" id="appt-needby" onclick="openNeedBySheet()"></button></div>
             <div class="appt-field"><label>Visit type:</label><select class="appt-select compact" id="appt-where" onchange="setAppt('where', this.value)"></select></div>
           </div>
           <div class="label-caps" style="margin: 0 0 12px;">Your Garments</div>
@@ -487,7 +487,7 @@
           <div class="caption" id="tailors-context" style="margin-bottom: 12px;"></div>
           <div class="appt-fields">
             <div class="appt-field"><label>Requested time:</label><button class="appt-select compact" id="f-appt-when" onclick="openTimeSheet()"></button></div>
-            <div class="appt-field"><label>Need by:</label><select class="appt-select compact" id="f-appt-needby" onchange="setAppt('needBy', this.value)"></select></div>
+            <div class="appt-field"><label>Need by:</label><button class="appt-select compact" id="f-appt-needby" onclick="openNeedBySheet()"></button></div>
             <div class="appt-field"><label>Visit type:</label><select class="appt-select compact" id="f-appt-where" onchange="setAppt('where', this.value)"></select></div>
           </div>
           <select id="f-rating" style="display: none;"><option value="0" selected>Rating</option></select>
@@ -989,12 +989,12 @@ let appt = { when: '7:00 PM Tonight', needBy: 'Thurs, Sept 1', where: 'Store Vis
 const NEED_BY_OPTS = ['Thurs, Sept 1', 'Fri, Sept 2', 'Next week', 'Flexible'];
 
 function syncApptSelects() {
-  [['appt-when', appt.when], ['f-appt-when', appt.when]].forEach(([id, val]) => {
+  [['appt-when', appt.when], ['f-appt-when', appt.when],
+   ['appt-needby', appt.needBy], ['f-appt-needby', appt.needBy]].forEach(([id, val]) => {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
   });
-  [['appt-where', APPT_PLACES, appt.where], ['f-appt-where', APPT_PLACES, appt.where],
-   ['appt-needby', NEED_BY_OPTS, appt.needBy], ['f-appt-needby', NEED_BY_OPTS, appt.needBy]]
+  [['appt-where', APPT_PLACES, appt.where], ['f-appt-where', APPT_PLACES, appt.where]]
   .forEach(([id, opts, val]) => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = opts.map(o => `<option value="${o}" ${o === val ? 'selected' : ''}>${o}</option>`).join('');
@@ -1225,7 +1225,7 @@ function renderBuilder() {
       </div>`;
   } else {
     list.innerHTML = garments.map((g, i) => `
-      <div class="line-item pop-in" style="align-items: center;">${garmentCardBody(g, i, false)}${garmentCardRemove(g, i)}</div>`).join('');
+      <div class="line-item pop-in" style="align-items: flex-start;">${garmentCardBody(g, i, false)}${garmentCardRemove(g, i)}</div>`).join('');
   }
   fitInlineSelects(list);
   const btn = document.getElementById('builder-continue');
@@ -1246,7 +1246,7 @@ function garmentCardBody(g, i, withPrice) {
           ${gIcon(g.type, 66)}
           <div style="font-weight: 500; font-size: 16px; font-variant-numeric: tabular-nums;">$${est}+</div>
         </div>`
-    : `<div class="gicon" style="flex: none; width: 66px; height: 66px; border-radius: var(--r-lg); overflow: hidden;">${gIcon(g.type, 84)}</div>`;
+    : `<div style="flex: none; width: 66px; height: 66px;">${gIcon(g.type, 66)}</div>`;
   const photosRow = `<div class="photo-tiles">
           ${Array.from({ length: g.photos || 0 }).map((_, pi) => `<div class="p-tile"><button class="px" onclick="removePhoto(${i}, ${pi})" aria-label="Remove photo">✕</button></div>`).join('')}
           ${(g.photos || 0) < 3 ? `<button class="p-add" onclick="addPhoto(${i})" aria-label="Add photo of ${gname}">
@@ -1569,7 +1569,7 @@ function renderConfirm() {
     <div class="label-caps" style="margin: 24px 0 12px;">Order Summary</div>
     <div class="card" style="padding: 8px 20px;">
       ${garments.map((g, i) => `
-        <div style="display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--n-100);">${garmentCardBody(g, i, true)}</div>`).join('')}
+        <div style="display: flex; align-items: flex-start; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--n-100);">${garmentCardBody(g, i, true)}</div>`).join('')}
       ${visitFee ? `
       <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">
         <span style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${visitFee}</span>
@@ -2020,7 +2020,7 @@ function renderApptDetail() {
       <div class="card" style="padding: 8px 20px;">
         <div class="label-caps" style="padding: 10px 0 2px;">Order Summary</div>
         ${a.garments ? a.garments.map((g, gi) => `
-        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--n-100);">${garmentCardBody(g, gi, true)}</div>`).join('') : (a.itemLines || []).map(l => `<div class="caption" style="padding: 4px 0;">\u2022&nbsp; ${l}</div>`).join('')}
+        <div style="display: flex; align-items: flex-start; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--n-100);">${garmentCardBody(g, gi, true)}</div>`).join('') : (a.itemLines || []).map(l => `<div class="caption" style="padding: 4px 0;">\u2022&nbsp; ${l}</div>`).join('')}
         <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--n-100);">
           <span style="font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums;">$${Math.round(totals.deposit)}</span>
           <span style="font-weight: 600; font-size: 16px; color: var(--n-500);">10% Deposit - Paid 7/7/26</span>
@@ -2302,7 +2302,12 @@ function submitReview() {
 }
 
 /* ---------- Reschedule (re-request a new time) ---------- */
-let timeSheetMode = 'appt'; // 'appt' | 'resched'
+let timeSheetMode = 'appt'; // 'appt' | 'resched' | 'needby'
+
+function openNeedBySheet() {
+  timeSheetMode = 'needby';
+  openTimeSheet();
+}
 
 function openReschedule() {
   timeSheetMode = 'resched';
@@ -2321,7 +2326,7 @@ const WHEEL = {
 };
 
 function openTimeSheet() {
-  if (timeSheetMode !== 'resched') timeSheetMode = 'appt';
+  if (timeSheetMode !== 'resched' && timeSheetMode !== 'needby') timeSheetMode = 'appt';
   const wrap = document.getElementById('wheel-cols');
   wrap.innerHTML = WHEEL.cols.map((col, ci) => `
     <div class="wheel-col" style="flex: ${col.flex};" data-ci="${ci}" onscroll="wheelScrolled(this)">
@@ -2371,6 +2376,13 @@ function confirmTimeSheet() {
     renderTracking(); renderHomeUpcoming(); renderApptDetail();
     closeTimeSheet();
     toast(`New time requested — ${a.name} will confirm`);
+    return;
+  }
+  if (timeSheetMode === 'needby') {
+    appt.needBy = d;
+    syncApptSelects();
+    if (currentScreen === 'tailors') renderTailors();
+    closeTimeSheet();
     return;
   }
   appt.when = label;

@@ -1,1 +1,270 @@
-/* Phase 2 — reset, stage, typography base. */
+/* ============================================================
+   Taily v4 — reset, stage, type.
+   Every size, colour, space and radius comes from css/tokens.css.
+   No literal hex anywhere in this file.
+
+   Line-heights are the px values Figma actually renders. Figma's
+   lineHeight is AUTO on nearly every node, which resolves to the
+   font's own metrics and is then rounded to whole px:
+     Hanken Grotesk   10→13  12→16  16→21  32→42   (≈1.31)
+     Cormorant Gara.  28→34  32→39                  (≈1.21)
+   These are measured from the frames, not guessed.
+   ============================================================ */
+
+/* ---------- reset ---------- */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background: var(--neutral-50);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+img, svg { display: block; max-width: 100%; }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Nothing in the designs is underlined — links carry their own styling. */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Screen-reader-only, for the route announcer. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- stage ---------- */
+/* The phone sits on a tinted desktop backdrop; on a real phone the
+   viewport is the stage, so the backdrop never shows. */
+.stage {
+  width: 390px;
+  min-height: 100vh;
+  margin-inline: auto;
+  position: relative;
+}
+
+@media (min-width: 391px) {
+  body { background: var(--neutral-100); }
+}
+
+/* Frames in Figma grow taller than 844 — let the page scroll rather
+   than clipping the screen. */
+.screen {
+  width: 390px;
+  min-height: 844px;
+  position: relative;
+  background: var(--neutral-50);
+  overflow: hidden;
+}
+
+/* ---------- chrome ----------
+   Sizes and offsets verified in Phase 0 across all 14 nav screens.
+   Both are 1:1 with the Figma instances (V2/Status Bar 122:114, Top Nav 197:437). */
+
+/* Status bar — Figma: white, space-between, padding-top 12, padding-inline 28. */
+.status-bar {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 390px;
+  height: 44px;
+  z-index: 2;
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-12);
+  padding-inline: var(--space-28);
+}
+
+.status-bar__time {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* 46x12 exported vector; currentColor keeps the fill on the ink token. */
+.status-bar__icons {
+  width: 46px;
+  height: 12px;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+/* Installed as a PWA the OS draws its own status bar. */
+@media (display-mode: standalone) {
+  .status-bar { display: none; }
+}
+
+/* Top nav — Figma: white, space-between, padding-inline 20, hairline bottom border. */
+.top-nav {
+  position: absolute;
+  inset: 44px auto auto 0;
+  width: 390px;
+  height: 56px;
+  z-index: 2;
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: var(--space-20);
+  /* inset shadow, not border-bottom: a real border would shrink the
+     content box to 55px and throw vertical centring off by 0.5px.
+     Figma's stroke does not consume layout. */
+  box-shadow: inset 0 -1px 0 var(--bottom-border);
+}
+
+.top-nav__wordmark {
+  font-family: var(--font-serif);
+  font-size: var(--size-28);
+  line-height: 34px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.top-nav__links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-20);
+}
+
+/* Inactive links are plain text; the active one is a column with the
+   2px accent "stitch" beneath it, so it sits slightly higher. That is
+   how Figma builds it — do not equalise them. */
+.top-nav__link {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--neutral-600);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.top-nav__link.is-active {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.top-nav__stitch {
+  width: 35px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent-base);
+}
+
+/* ---------- body ---------- */
+/* 128 top offset and 20 side padding measured in Phase 0. */
+.body {
+  padding-top: 128px;
+  padding-inline: var(--space-20);
+  padding-bottom: var(--space-32);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- type ----------
+   Nothing outside this block sets font-size. Hierarchy comes from
+   weight and colour, not from inventing sizes. */
+
+/* Page titles are Cormorant Medium in Figma (13 nodes across 11 screens,
+   e.g. "Appointment Details"). SemiBold at 28 is the Taily wordmark, which
+   .top-nav__wordmark handles; use .t-title.w-600 for the other 5 SemiBold
+   titles. One outlier, "What Are We Tailoring?" on 01 Home, carries an
+   explicit 110% line-height (30.8px) instead of the AUTO 34px. */
+.t-title {
+  font-family: var(--font-serif);
+  font-size: var(--size-28);
+  line-height: 34px;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.t-body {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.t-small {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+/* 12px SemiBold uppercase, +1px tracking — Figma: "TODAY, 4:12 PM", "DELIVER TO". */
+.t-caps {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.t-micro {
+  font-family: var(--font-sans);
+  font-size: var(--size-10);
+  line-height: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+/* Weight modifiers — the only sanctioned way to shift emphasis. */
+.w-400 { font-weight: 400; }
+.w-500 { font-weight: 500; }
+.w-600 { font-weight: 600; }
+.w-700 { font-weight: 700; }
+
+/* ---------- colour utilities ---------- */
+.c-ink { color: var(--ink); }
+.c-white { color: var(--white); }
+.c-700 { color: var(--neutral-700); }
+.c-600 { color: var(--neutral-600); }
+.c-500 { color: var(--neutral-500); }
+.c-400 { color: var(--neutral-400); }
+.c-300 { color: var(--neutral-300); }
+.c-accent { color: var(--accent-base); }
+.c-accent-ink { color: var(--accent-ink); }
+.c-sage { color: var(--sage); }
+.c-success { color: var(--success); }
+.c-warning { color: var(--warning); }
+.c-error { color: var(--error); }
+.c-info { color: var(--info); }

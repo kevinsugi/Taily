@@ -1,1 +1,98 @@
-/* Generated in Phase 2 — colors, spacing, radius, type. Do not hand-edit outside Phase 2. */
+/* ============================================================
+   GENERATED FROM FIGMA VARIABLES — do not hand-edit.
+
+   Source: Figma spK8ZHnsPlWEuD8zRmf5sY, local variable collections
+   (Taily / Colors, Taily / Spacing, Taily / Radius, Taily / Type,
+   plus the unnamed "Variable collection").
+   48 variables, all single-mode ("Mode 1").
+
+   To regenerate: read the local variables in Figma and re-emit.
+   Every value below is copied verbatim — nothing rounded, nothing invented.
+   ============================================================ */
+
+:root {
+  /* ---------- Colors · Taily / Colors ---------- */
+  --ink: #1C1B18;
+  --white: #FFFFFF;
+
+  --neutral-50: #F7F4EF;
+  --neutral-100: #EFEAE2;
+  --neutral-200: #E2DBD0;
+  --neutral-300: #C9C1B4;
+  --neutral-400: #ABA294;
+  --neutral-500: #857C6F;
+  --neutral-600: #5F584E;
+  --neutral-700: #443F38;
+
+  --accent-base: #A17C4E;
+  --accent-ink: #7C5D34;
+  --accent-bg: #F3ECE0;
+
+  --sage: #5E6B60;               /* Figma: secondary/sage */
+
+  --success: #4F7A5B;            /* Figma: semantic/success */
+  --success-bg: #E9F0EA;
+  --warning: #B7852F;
+  --warning-bg: #F6EEDD;
+  --error: #B0553F;
+  --error-bg: #F4E4DF;
+  --info: #47698C;
+  --info-bg: #E6EDF3;
+
+  --media-placeholder: #D9D9D9;  /* Figma: media/placeholder */
+
+  /* ---------- Spacing · Taily / Spacing ---------- */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-28: 28px;
+  --space-32: 32px;
+  --space-40: 40px;
+
+  /* ---------- Radius · Taily / Radius ---------- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+
+  /* ---------- Type sizes · Taily / Type ---------- */
+  --size-10: 10px;
+  --size-12: 12px;
+  --size-16: 16px;
+  --size-22: 22px;
+  --size-28: 28px;
+  --size-32: 32px;
+  --size-36: 36px;
+
+  /* ---------- Families · Taily / Type ----------
+     family/sans  = "Hanken Grotesk"
+     family/serif = "Cormorant Garamond"
+     Fallback stacks are added here (Figma stores only the family name). */
+  --font-sans: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Cormorant Garamond', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+
+  /* ---------- Unsorted Figma variables ----------
+     These exist in the file and are emitted for completeness, but they do
+     not look like intentional design tokens. Do not use them in screens
+     without checking with Kevin first — see the note at the bottom.        */
+  --bottom-border: #E9E5DE;      /* unnamed "Variable collection", ALL_SCOPES */
+  --component: #8A38F5;          /* Taily / Colors, ALL_SCOPES — Figma's default new-variable purple */
+}
+
+/* ============================================================
+   Values that DO NOT exist in Figma — deliberately not invented.
+
+   Referenced by the designs but with no matching variable:
+     radius 20px  — the CTA component's corner radius. radius/* only has
+                    8 / 12 / 16 / 24 / 999, so there is no token for it.
+     space 48px   — 08 Journey Complete, .body padding-top.
+     space 128px  — the content top offset on all 14 screens.
+
+   Type sizes present in Figma: 10 / 12 / 16 / 22 / 28 / 32 / 36.
+   There is no size/13, size/14, size/18, size/20, size/24 — Phase 0 snapped
+   the stray 13 / 18 / 34 values onto this scale rather than adding tokens.
+   ============================================================ */

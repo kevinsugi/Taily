@@ -33,6 +33,24 @@ Components added in Phase 0, on the Components page:
 - `Time Chip` `501:1039` — `State=Default | Selected`, 94×45, r12. Used by 07A / 07B.
 - `Select Time` `502:1035` — label + chevron trigger, 129×37, r8. Used by 07A / 07B.
 
+## Type API (css/base.css)
+
+Nothing outside `base.css` sets `font-size`. Compose with a type class + a weight modifier + a colour utility.
+
+| class | Figma |
+|---|---|
+| `.t-title` | Cormorant **Medium** 28 / 34px — page titles. `.w-600` for the SemiBold ones. |
+| `.t-body` | Hanken 16 / 21px, Regular |
+| `.t-small` | Hanken 12 / 16px, Medium |
+| `.t-caps` | Hanken 12 / 16px SemiBold, uppercase, +1px tracking |
+| `.t-micro` | Hanken 10 / 13px SemiBold |
+
+Weights: `.w-400 .w-500 .w-600 .w-700`. Colours: `.c-ink .c-700 .c-600 .c-500 .c-400 .c-300 .c-white .c-accent .c-accent-ink .c-sage .c-success .c-warning .c-error .c-info`.
+
+Line-heights are the px Figma actually renders — `lineHeight` is AUTO on nearly every node, resolving to ≈1.31 for Hanken and ≈1.21 for Cormorant, rounded to whole px. Do not write `normal`.
+
+Chrome lives in `js/components.js`: `statusBar(time)`, `topNav(active)`, `chrome(active, time)`.
+
 ## Known Figma inconsistencies — do not silently fix
 
 - **Top Nav `Active` state**: `04c` / `04d` use `Active=Bookings`, but all nine "body" screens (03, 05, M1, 06, 06a, 07, 07a, 07b, 08) use `Active=Home` even though they are post-booking. Build what Figma shows; raise it rather than correcting it.

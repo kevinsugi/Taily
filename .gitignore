@@ -1,3 +1,14 @@
 # scratch/verification artifacts
 *.png
 icons.json
+
+# v4 scaffold
+node_modules
+diff/
+.env
+
+# ref/ holds Figma ground-truth exports — keep these despite *.png above
+!ref/*.png
+
+# stray design-app lock files
+*.idlk

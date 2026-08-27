@@ -1,0 +1,27 @@
+{
+  "name": "taily-v4-prototype",
+  "version": "1.0.0",
+  "description": "Taily v4 prototype — plain HTML/CSS/JS rebuilt from Figma. No build step.",
+  "scripts": {
+    "refs": "node scripts/export-refs.mjs",
+    "diff": "node scripts/diff.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kevinsugi/Taily.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/kevinsugi/Taily/issues"
+  },
+  "homepage": "https://github.com/kevinsugi/Taily#readme",
+  "devDependencies": {
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.62.1",
+    "pngjs": "^7.0.0"
+  },
+  "private": true
+}

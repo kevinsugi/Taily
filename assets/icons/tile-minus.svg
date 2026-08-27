@@ -1,0 +1,18 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="tile-minus" filter="url(#filter0_d_0_4)">
+<path d="M3 13C3 6.92487 7.92487 2 14 2V2C20.0751 2 25 6.92487 25 13V13C25 19.0751 20.0751 24 14 24V24C7.92487 24 3 19.0751 3 13V13Z" fill="white"/>
+<path d="M14 2.5C19.799 2.5 24.5 7.20101 24.5 13C24.5 18.799 19.799 23.5 14 23.5C8.20101 23.5 3.5 18.799 3.5 13C3.5 7.20101 8.20101 2.5 14 2.5Z" stroke="#C9C1B4"/>
+<line id="Line 1" y1="-0.75" x2="8" y2="-0.75" transform="matrix(-1 0 0 1 18 13)" stroke="black" stroke-width="1.5"/>
+</g>
+<defs>
+<filter id="filter0_d_0_4" x="0" y="0" width="28" height="28" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="1"/>
+<feGaussianBlur stdDeviation="1.5"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0.1 0 0 0 0 0.09 0 0 0 0 0.07 0 0 0 0.1 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_0_4"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_0_4" result="shape"/>
+</filter>
+</defs>
+</svg>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Taily — component gallery</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+
+<style>
+  /* Gallery chrome only. */
+  .gal { display: flex; flex-direction: column; gap: var(--space-12); padding-bottom: var(--space-40); }
+  .gal > h2 {
+    font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--neutral-500); margin: var(--space-24) 0 0;
+  }
+  .gal .vname {
+    font-family: var(--font-sans); font-size: var(--size-10); line-height: 13px;
+    font-weight: 600; color: var(--neutral-400); margin-top: var(--space-4);
+  }
+  .gal .row { display: flex; gap: var(--space-8); flex-wrap: wrap; align-items: flex-start; }
+  .gal .sheet-demo { position: relative; height: 430px; overflow: hidden; border-radius: var(--radius-md); outline: 1px solid var(--neutral-200); }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="screen">
+    <div id="chrome"></div>
+    <div class="body gal" id="gal"></div>
+  </div>
+</div>
+
+<script type="module">
+  import * as C from './js/components.js';
+  document.getElementById('chrome').innerHTML = C.chrome('home');
+
+  const s = [];
+  const h2 = (t) => s.push(`<h2>${t}</h2>`);
+  const v  = (name) => s.push(`<p class="vname">${name}</p>`);
+
+  h2('CTA — 229:5030');
+  v('Property 1=Default');       s.push(C.cta('Start Booking'));
+  v('Property 1=Secondary');     s.push(C.cta('Message Marco', { variant: 'secondary' }));
+
+  h2('CTA_Small — 302:1656');
+  s.push(`<div class="row" style="width:100%">${C.ctaSmall('Message')}${C.ctaSmall('Reschedule')}</div>`);
+
+  h2('Status Pill — 312:826 (all 9)');
+  s.push(`<div class="row">${['requested','confirmed','ready','completed','declined','cancelled','new-request','awaiting-customer','tailoring'].map((k) => C.statusPill(k)).join('')}</div>`);
+
+  h2('Time Chip — 501:1039');
+  v('State=Selected · State=Default');
+  s.push(`<div class="row">${C.timeChip('9–11 AM', { selected: true })}${C.timeChip('12–2 PM')}${C.timeChip('4–6 PM')}</div>`);
+
+  h2('Select Time — 502:1035');
+  s.push(`<div class="row">${C.selectTime()}</div>`);
+
+  h2('Filter Pill — 91:399');
+  v('Shape=Default · Shape=Open');
+  s.push(`<div class="row">${C.filterPill('Desc.', 'Label')}${C.filterPill('Desc.', 'Label', { open: true, options: ['Option 1','Option 2','Option 3'] })}</div>`);
+
+  h2('Garment Tile — 252:1235');
+  v('State=Default ×2 · State=Selected');
+  s.push(`<div class="tile-grid">${C.garmentTile('Suit Jacket')}${C.garmentTile('Suit Pant')}${C.garmentTile('Formal Dress', { qty: 1 })}</div>`);
+
+  h2('Progress Bar — 473:7627');
+  ['confirmed','tailoring','ready','complete'].forEach((st) => { v(`Property 1=${st}`); s.push(C.progressBar(st)); });
+
+  h2('Appointment Card — 67:293');
+  v('Status=Confirmed');
+  s.push(C.apptCard({ status: 'confirmed', items: ['1 Suit Jacket - Sleeve, Length','1 Suit Jacket - Sleeve, Length','1 Suit Jacket - Sleeve, Length'], prepare: ['Your garments','The shoes you plan to wear with them.'], actions: ['Message','Reschedule'] }));
+  v('Status=Tailoring');
+  s.push(C.apptCard({ status: 'tailoring', month: 'SEP', day: '2', meta: 'Est. Ready Date: Sep 2, 2026', items: ['1 Suit Jacket - Sleeve, Length','1 Suit Jacket - Sleeve, Length','1 Suit Jacket - Sleeve, Length'], prepare: [], actions: ['Message'] }));
+  v('Status=Ready');
+  s.push(C.apptCard({ status: 'ready', month: 'SEP', day: '2', meta: 'Completed: Sep 2, 2026', items: ['1 Suit Jacket - Sleeve, Length','1 Suit Jacket - Sleeve, Length','1 Suit Jacket - Sleeve, Length'], actions: ['Schedule Pickup / Delivery'] }));
+  v('Status=Completed');
+  s.push(C.apptCard({ status: 'completed', month: 'SEP', day: '2', meta: 'Picked up: Sep 2, 2PM', items: ['1 Suit Jacket - Sleeve, Length','1 Suit Jacket - Sleeve, Length','1 Suit Jacket - Sleeve, Length'], actions: ['Leave Review'] }));
+
+  h2('Status Hero — 207:2087');
+  v('Property 1=Requested');
+  s.push(C.statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-certified tailor near you. We’ll notify you the moment one accepts.' }));
+  v('Property 1=NewTimes');
+  s.push(C.statusHero({ variant: 'new-times', title: 'Marco suggested new times.', body: 'Thu 9:30 AM won’t work for him. Choose an alternate time slot, your deposit moves with it.' }));
+  v('Property 1=Declined');
+  s.push(C.statusHero({ variant: 'declined', title: 'Let’s get you rebooked.', body: '“Sorry, but I’m fully booked through July.”' }));
+  v('Property 1=Confirmed');
+  s.push(C.statusHero({ variant: 'confirmed', title: 'You’re booked for', titleLine2: 'Thu, Jul 9 at 9:30 AM', body: 'Marco Tailor · Store Visit · 1025 Broadway, Midtown West' }));
+  v('Property 1=Tailoring');
+  s.push(C.statusHero({ variant: 'tailoring', title: 'Marco is tailoring your items.', rowLabel: 'Est. Delivery Date:', rowValue: 'July 15, 2026' }));
+  v('Property 1=Ready');
+  s.push(C.statusHero({ variant: 'ready', title: 'Your items are ready.', body: 'Marco finished ahead of schedule. Choose how you’d like them back, the balance is settled upon receipt.' }));
+
+  h2('Tailor Summary Card — 67:196');
+  s.push(C.summaryCard({ initials: 'MT', name: 'Marco Tailor', rows: ['◉  15 West Broadway - Store Visit', '▤  Thu, Jul 9 · 9:30 AM', '▤  Need By: Thurs, Sep 1'] }));
+
+  h2('User - Garment Card — 57:197');
+  v('Property 1=Default');
+  s.push(C.garmentCard({ variant: 'Default' }));
+  v('Property 1=WithPhoto');
+  s.push(C.garmentCard({ variant: 'WithPhoto', price: '$55', photos: 2 }));
+  v('Property 1=ViewOnly');
+  s.push(C.garmentCard({ variant: 'ViewOnly', price: '$55', services: ['Hem / Adjust Length','Sleeve / Adjust Length'], photos: 2 }));
+  v('Property 1=PostAppt');
+  s.push(C.garmentCard({ variant: 'PostAppt', price: '$55', services: ['Sleeve / Adjust Length'], beforePhotos: 4, pinnedPhotos: 4 }));
+
+  h2('Chat Bubble — T2 457:831');
+  v('Side=Them · Side=Me');
+  s.push(C.bubble('Hi Kevin — see you Thursday at 9:30. Please have both jackets ready.', 'them'));
+  s.push(C.bubble('Will do! The buzzer is 4B — call if it acts up.', 'me'));
+
+  h2('Timeline — 06 body');
+  s.push(C.timeline([
+    { state: 'done', title: 'Appointment completed', sub: 'Thu, Jul 9 · 9:30 AM' },
+    { state: 'done', title: 'Final order approved', sub: '$280 confirmed · Jul 9' },
+    { state: 'current', title: 'Tailoring in progress', sub: 'Est. ready Thu, Jul 16' },
+    { state: 'todo', title: 'Ready — choose pickup or delivery' },
+    { state: 'todo', title: 'Back with you' },
+  ]));
+
+  h2('Delivery Window — 07a/07b');
+  s.push(C.deliveryWindow('Thursday, July 16', [ { label: '9–11 AM', selected: true }, { label: '12–2 PM' }, { label: '4–6 PM' } ]));
+
+  h2('Info card + rows — 03/07b/08');
+  s.push(C.infoCard([C.metaRow('◉','88 Leonard St, 4B — Home Visit'), C.metaRow('▤','Thu, Jul 9 · 9:30 AM'), C.metaRow('✂','2 items · $200.00+ est. · $20 deposit held')].join('')));
+  s.push(C.infoCard([C.infoRow('Balance due','$180'), C.infoRow('Delivery','$30'), C.infoRow('Charged on delivery','$210', { total: true })].join('')));
+  s.push(C.infoCard([C.infoRow('Final order','$280',{small:true}), C.infoRow('Deposit credited','−$20',{small:true}), C.infoRow('Delivery','$10',{small:true}), C.infoRow('Total paid','$270',{ total: true })].join(''), { heading: 'RECEIPT · #TLY-2026-4417' }));
+
+  h2('Fee Row — 04c/04d/05/06a');
+  s.push(C.feeRow('$20','10% Deposit - Paid 7/7/26'));
+  s.push(C.feeRow('$180','Est. Balance - Confirmed at Appointment'));
+
+  h2('Payment method rows — 04a');
+  s.push(C.methodRow('Apple Pay','apple'));
+  s.push(C.methodRow('Google Pay','google'));
+  s.push(C.methodRow('Credit Card','card'));
+
+  h2('Sheet chassis — 02a/04a/04b');
+  s.push(`<div class="sheet-demo">${C.sheet(
+    C.wheel([
+      { width: 170, rows: ['Tue 7 Jul','Wed 8 Jul','Thu 9 Jul','Fri 10 Jul','Sat 11 Jul'] },
+      { width: 50,  rows: ['7','8','9','10','11'] },
+      { width: 50,  rows: ['00','15','30','45','—'] },
+      { width: 80,  rows: ['','AM','AM','PM',''] },
+    ]) + C.cta('Set Time · Thu, Jul 9 at 9:30 AM'),
+    { header: 'Date & Time' }
+  )}</div>`);
+
+  document.getElementById('gal').innerHTML = s.join('\n');
+</script>
+</body>
+</html>

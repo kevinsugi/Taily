@@ -71,3 +71,318 @@ export function topNav(active = 'home') {
 export function chrome(active = 'home', time = '9:41') {
   return statusBar(time) + '\n' + topNav(active);
 }
+
+/* ============================================================
+   Atoms — Figma masters: CTA 229:5030, Status Pill 312:826,
+   Time Chip 501:1039, Select Time 502:1035, Filter Pill 91:399,
+   Garment Tile 252:1235.
+   ============================================================ */
+
+import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, CHEVRON_RIGHT, ICON_CARD } from './icons.js';
+import { GARMENT_ICONS } from './data.js';
+
+/** CTA — variant: 'default' | 'secondary'. */
+export function cta(label, { variant = 'default', attrs = '' } = {}) {
+  const cls = variant === 'secondary' ? 'cta cta--secondary' : 'cta';
+  return `<button type="button" class="${cls}" ${attrs}>${label}</button>`;
+}
+
+/**
+ * Status Pill — all 9 Figma variants. `status` is the state-machine id
+ * or the Figma variant name; label defaults to the Figma variant label.
+ */
+const PILL_VARIANTS = {
+  'requested':             { cls: 'pill--requested',         icon: 'requested',   label: 'Requested' },
+  'confirmed':             { cls: 'pill--confirmed',         icon: 'confirmed',   label: 'Confirmed' },
+  'ready':                 { cls: 'pill--ready',             icon: 'ready',       label: 'Ready' },
+  'completed':             { cls: 'pill--completed',         icon: 'completed',   label: 'Completed' },
+  'declined':              { cls: 'pill--declined',          icon: 'declined',    label: 'Declined' },
+  'cancelled':             { cls: 'pill--cancelled',         icon: 'declined',    label: 'Cancelled' },
+  'new-request':           { cls: 'pill--new-request',       icon: 'new_request', label: 'New Request' },
+  'awaiting-customer':     { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Awaiting Customer' },
+  'tailoring':             { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'Tailoring' },
+};
+
+export function statusPill(status, label) {
+  const key = String(status).toLowerCase().replace(/\s+/g, '-').replace('tailoring-in-progress', 'tailoring');
+  const v = PILL_VARIANTS[key];
+  if (!v) throw new Error(`statusPill: unknown status "${status}"`);
+  return `<span class="pill ${v.cls}">${PILL_ICONS[v.icon]}<span>${label ?? v.label}</span></span>`;
+}
+
+/** Time Chip — Figma State=Default | Selected. */
+export function timeChip(label, { selected = false, attrs = '' } = {}) {
+  return `<button type="button" class="chip${selected ? ' chip--selected' : ''}" ${attrs}>${label}</button>`;
+}
+
+/** Select Time trigger — label + chevron. */
+export function selectTime(label = 'Select Time', { attrs = '' } = {}) {
+  return `<button type="button" class="select-time" ${attrs}>${label}${CHEVRON_DOWN}</button>`;
+}
+
+/** Filter Pill — Figma Shape=Default | Open. */
+export function filterPill(caption, value, { open = false, options = [], attrs = '' } = {}) {
+  const dropdown = open
+    ? `<div class="filter-pill__dropdown">${options.map((o, i) =>
+        `<button type="button" class="filter-pill__option${i === 0 ? ' is-selected' : ''}">${o}</button>`).join('')}</div>`
+    : '';
+  return `<div class="filter-pill${open ? ' filter-pill--open' : ''}" ${attrs}>
+  <span class="filter-pill__label">${caption}</span>
+  <button type="button" class="filter-pill__box">${value}${CHEVRON_DOWN}</button>
+  ${dropdown}
+</div>`;
+}
+
+/** Garment Tile — Figma State=Default | Selected (qty badge + minus). */
+export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
+  const selected = qty > 0;
+  const art = GARMENT_ICONS[type]
+    ? `<img class="garment-tile__art" src="${GARMENT_ICONS[type]}" alt="">`
+    : `<span class="garment-tile__art"></span>`;
+  const badge = selected
+    ? `<span class="garment-tile__qty"><span class="garment-tile__badge">${qty}</span>${TILE_MINUS}</span>`
+    : '';
+  return `<button type="button" class="garment-tile${selected ? ' garment-tile--selected' : ''}" ${attrs}>
+  ${art}
+  <span class="garment-tile__label">${type}</span>
+  ${badge}
+</button>`;
+}
+
+/* ============================================================
+   Cards — Figma masters: Appointment Card 67:293, Status Hero
+   207:2087, Tailor Summary Card 67:196, User - Garment Card 57:197,
+   CTA_Small 302:1656, Progress Bar 473:7627.
+   ============================================================ */
+
+/** CTA_Small — outline action inside cards. */
+export function ctaSmall(label, { attrs = '' } = {}) {
+  return `<button type="button" class="cta-small" ${attrs}>${label}</button>`;
+}
+
+/** Progress Bar — stage: 'confirmed' | 'tailoring' | 'ready' | 'complete'. */
+export function progressBar(stage = 'confirmed') {
+  return `<div class="progress progress--${stage}" role="img" aria-label="Order progress: ${stage}">
+  <span class="progress__seg"></span><span class="progress__seg"></span><span class="progress__seg"></span><span class="progress__seg"></span>
+</div>`;
+}
+
+/** Bold title + bulleted 12px list (order summary / please prepare). */
+export function cardList(title, items) {
+  return `<div class="card-list">
+  <span class="card-list__title">${title}</span>
+  <div class="card-list__items">${items.map((i) => `<span>•&nbsp;&nbsp;${i}</span>`).join('')}</div>
+</div>`;
+}
+
+/**
+ * Appointment Card — Figma Status=Confirmed|Tailoring|Ready|Completed.
+ * `a` mirrors a state.js appointment entry; extras fill the gaps.
+ */
+export function apptCard(a) {
+  const {
+    status = 'confirmed', month = 'AUG', day = '29', name = 'Marco Tailor',
+    meta = 'Appt Date: Aug 29, 7PM', items = [], prepare = [], actions = [],
+  } = a;
+  const stage = status === 'completed' ? 'complete' : status;
+  const lists = [];
+  if (items.length) lists.push(cardList(`${items.length} Items Total:`, items));
+  if (prepare.length && (status === 'confirmed' || status === 'tailoring')) lists.push(cardList('Please Prepare:', prepare));
+  const actionRow = actions.length
+    ? `<div class="appt-card__actions">${actions.map((l) => ctaSmall(l)).join('')}</div>`
+    : '';
+  return `<article class="appt-card${status === 'completed' ? ' appt-card--completed' : ''}">
+  <div class="appt-card__top">
+    <div class="appt-card__date"><span class="appt-card__month">${month}</span><span class="appt-card__day">${day}</span></div>
+    <div class="appt-card__info">
+      <div class="appt-card__meta-row"><span class="appt-card__name">${name}</span></div>
+      <div class="appt-card__meta-row">
+        <span class="appt-card__meta">${meta}</span>
+        ${statusPill(status)}
+      </div>
+    </div>
+  </div>
+  ${progressBar(stage)}
+  ${lists.join('\n  ')}
+  ${actionRow}
+</article>`;
+}
+
+/**
+ * Status Hero — Figma Property 1 variants. `variant` is the kebab name:
+ * requested | new-times | declined | confirmed | tailoring | ready.
+ */
+export function statusHero({ variant = 'requested', pill, title, titleLine2, body, rowLabel, rowValue } = {}) {
+  const PILL_FOR = {
+    'requested': 'requested', 'new-times': 'requested', 'declined': 'declined',
+    'confirmed': 'confirmed', 'tailoring': 'confirmed', 'ready': 'ready',
+  };
+  const parts = [statusPill(pill ?? PILL_FOR[variant])];
+  if (title) parts.push(`<h2 class="status-hero__title">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h2>`);
+  if (body) parts.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
+  if (rowLabel) parts.push(`<div class="status-hero__row"><span>${rowLabel}</span><span>${rowValue ?? ''}</span></div>`);
+  return `<div class="status-hero">${parts.join('\n  ')}</div>`;
+}
+
+/** Tailor Summary Card — avatar + info rows (glyph-prefixed). */
+export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [] } = {}) {
+  return `<article class="summary-card">
+  <div class="summary-card__who">
+    <span class="avatar">${initials}</span>
+    <div class="summary-card__info">
+      <span class="summary-card__name">${name}</span>
+      ${rows.map((r) => `<span class="summary-card__row">${r}</span>`).join('\n      ')}
+    </div>
+  </div>
+</article>`;
+}
+
+/** 44px photo tile — kind: 'add' | 'photo' (photo gets a cancel badge when removable). */
+export function photoTile(kind = 'add', { removable = false } = {}) {
+  if (kind === 'add') return `<span class="photo-tile photo-tile--add">${ICON_CAMERA}</span>`;
+  const cancel = removable ? `<span class="photo-tile__cancel">${ICON_CANCEL}</span>` : '';
+  return `<span class="photo-tile photo-tile--photo">${cancel}</span>`;
+}
+
+/**
+ * User - Garment Card — Figma Property 1 = Default | WithPhoto |
+ * ViewOnly | PostAppt. Editable variants get chevrons, the add-service
+ * button, editable photo tiles and the ✕ remove control.
+ */
+export function garmentCard({
+  variant = 'Default', type = 'Suit Jacket', qty = 1, price = null,
+  services = ['Hem / Adjust Length'], photos = 0, beforePhotos = 0, pinnedPhotos = 0,
+} = {}) {
+  const editable = variant === 'Default' || variant === 'WithPhoto';
+  const art = GARMENT_ICONS[type] ? `<img class="garment-card__art" src="${GARMENT_ICONS[type]}" alt="${type}">` : '';
+  const chip = `<div class="garment-card__chip">${art}${price != null ? `<span class="garment-card__price">${price}</span>` : ''}</div>`;
+
+  let rows;
+  if (editable) {
+    rows = `<div class="garment-card__row">
+      <span>${qty}</span>${CHEVRON_10}
+      <span>${type}</span>${CHEVRON_10}
+    </div>
+    ${services.map((s) => `<div class="garment-card__service">${s}<span class="icon-10--accent" style="display:inline-flex">${CHEVRON_10}</span></div>`).join('')}
+    <button type="button" class="garment-card__add">Additional Service</button>`;
+  } else {
+    rows = `<div class="garment-card__row garment-card__row--tight">
+      <span>${qty}</span><span>${type}</span>
+    </div>
+    ${services.map((s) => `<div class="garment-card__service">${s}</div>`).join('')}`;
+  }
+
+  let tiles = '';
+  if (editable) {
+    const shot = Array.from({ length: photos }, () => photoTile('photo', { removable: true })).join('');
+    tiles = `<div class="photo-tiles">${shot}${photoTile('add')}</div>`;
+  } else if (variant === 'ViewOnly' && photos > 0) {
+    tiles = `<div class="photo-tiles">${Array.from({ length: photos }, () => photoTile('photo')).join('')}</div>`;
+  } else if (variant === 'PostAppt') {
+    const group = (label, n) => `<div class="photo-group">
+      <span class="photo-tiles__label">${label}</span>
+      <div class="photo-tiles">${Array.from({ length: n }, () => photoTile('photo')).join('')}</div>
+    </div>`;
+    tiles = `<div class="photo-row">${group('Before:', beforePhotos)}${group('Pinned:', pinnedPhotos)}</div>`;
+  }
+
+  const close = editable ? `<button type="button" class="garment-card__close" aria-label="Remove garment">✕</button>` : '';
+
+  return `<article class="garment-card${editable ? '' : ' garment-card--view'}">
+  ${chip}
+  <div class="garment-card__content">
+    ${rows}
+    ${tiles}
+  </div>
+  ${close}
+</article>`;
+}
+
+/* ============================================================
+   Local structures — sheet chassis, wheel picker, payment rows,
+   chat bubbles (T2 / Chat Bubble 457:831), timeline steps,
+   delivery windows, info/receipt cards, meta rows, fee rows.
+   ============================================================ */
+
+/** Sheet chassis. `open` = null renders static (gallery/diff). */
+export function sheet(contentHtml, { open = null, header = null, grabber = true } = {}) {
+  const hostAttr = open === null ? '' : ` data-open="${open}"`;
+  const head = header
+    ? `<div class="sheet__header"><span class="sheet__cancel">✕</span><span>${header}</span><span class="sheet__confirm">✓</span></div>`
+    : '';
+  return `<div class="sheet-host"${hostAttr}>
+  <div class="sheet-scrim"></div>
+  <div class="sheet" role="dialog" aria-modal="true">
+    ${grabber ? '<div class="sheet__grabber-row"><span class="sheet__grabber"></span></div>' : ''}
+    ${head}
+    ${contentHtml}
+  </div>
+</div>`;
+}
+
+/** Wheel picker — columns: [{ width, rows: [5 strings] }], middle row selected. */
+export function wheel(columns) {
+  const cols = columns.map(({ width, rows }) => `<div class="wheel__col" style="width:${width}px">${
+    rows.map((r, i) => {
+      const cls = i === 2 ? 'wheel__row wheel__row--selected' : (i === 0 || i === 4) ? 'wheel__row wheel__row--edge' : 'wheel__row';
+      return `<span class="${cls}" style="width:100%">${r}</span>`;
+    }).join('')
+  }</div>`).join('');
+  return `<div class="wheel"><div class="wheel__band"></div>${cols}</div>`;
+}
+
+/** Payment method row — icon: 'apple' | 'google' | 'card'. */
+export function methodRow(label, icon) {
+  const lead = icon === 'apple' ? `<span class="pay-badge">Pay</span>`
+    : icon === 'google' ? `<span class="pay-badge pay-badge--google">G Pay</span>`
+    : ICON_CARD;
+  return `<button type="button" class="method-row">${lead}<span class="method-row__label">${label}</span>${CHEVRON_RIGHT}</button>`;
+}
+
+/** Chat bubble — side: 'them' | 'me'. */
+export function bubble(text, side = 'them') {
+  return `<div class="bubble-row${side === 'me' ? ' bubble-row--me' : ''}">
+  <div class="bubble${side === 'me' ? ' bubble--me' : ''}">${text}</div>
+</div>`;
+}
+
+/** Timeline of steps — steps: [{ state:'done'|'current'|'todo', title, sub }]. */
+export function timeline(steps) {
+  const rows = steps.map(({ state, title, sub }) => {
+    const glyph = state === 'done' ? '✓' : state === 'current' ? '●' : '';
+    return `<div class="step step--${state}">
+    <span class="step__dot">${glyph}</span>
+    <span class="step__labels"><span class="step__title">${title}</span>${sub ? `<span class="step__sub">${sub}</span>` : ''}</span>
+  </div>`;
+  }).join('');
+  return `<div class="timeline">${rows}</div>`;
+}
+
+/** Delivery window — day label + time chips. */
+export function deliveryWindow(day, chips) {
+  return `<div class="delivery-window">
+  <span class="delivery-window__day">${day}</span>
+  <div class="delivery-window__chips">${chips.map((c) => timeChip(c.label, { selected: !!c.selected })).join('')}</div>
+</div>`;
+}
+
+/** White r16 p16 card of rows (07b summary, 08 receipt, 03 request). */
+export function infoCard(rowsHtml, { heading = '' } = {}) {
+  return `<div class="info-card">${heading ? `<span class="info-card__heading">${heading}</span>` : ''}${rowsHtml}</div>`;
+}
+
+/** Money row — size: '16' | '12'; total rows go ink/semibold. */
+export function infoRow(label, value, { small = false, total = false } = {}) {
+  const cls = ['info-row', small ? 'info-row--small' : '', total ? 'info-row--total' : ''].filter(Boolean).join(' ');
+  return `<div class="${cls}"><span>${label}</span><span>${value}</span></div>`;
+}
+
+/** Glyph-prefixed meta row (◉ ▤ ✂). */
+export function metaRow(glyph, text) {
+  return `<div class="meta-row"><span class="meta-row__glyph">${glyph}</span><span>${text}</span></div>`;
+}
+
+/** Fee/deposit row (04c/04d/05/06a). */
+export function feeRow(price, desc) {
+  return `<div class="fee-row"><span class="fee-row__price">${price}</span><span class="fee-row__desc">${desc}</span></div>`;
+}

@@ -12,3 +12,7 @@ diff/
 
 # stray design-app lock files
 *.idlk
+
+# any env file, wherever it is named
+*.env
+.env

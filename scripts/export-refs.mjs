@@ -8,7 +8,7 @@
    FIGMA_TOKEN=figd_xxx  (.env is gitignored).
    ============================================================ */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,13 +17,42 @@ const REF_DIR = resolve(ROOT, 'ref');
 const SCALE = 2;
 
 /* ---------- token ---------- */
+
+/**
+ * Decode an env file regardless of encoding.
+ * PowerShell's `>` and Out-File default to UTF-16LE on Windows, which reads
+ * as mojibake if you assume UTF-8 — so honour the BOM.
+ */
+function decodeEnvFile(path) {
+  const buf = readFileSync(path);
+  if (buf[0] === 0xff && buf[1] === 0xfe) return buf.subarray(2).toString('utf16le');
+  if (buf[0] === 0xfe && buf[1] === 0xff) {
+    const swapped = Buffer.from(buf.subarray(2));
+    swapped.swap16();
+    return swapped.toString('utf16le');
+  }
+  if (buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) return buf.subarray(3).toString('utf8');
+  return buf.toString('utf8');
+}
+
+/** Any *.env at the repo root, .env first. All are gitignored. */
+function envCandidates() {
+  const files = readdirSync(ROOT).filter((f) => f === '.env' || f.toLowerCase().endsWith('.env'));
+  return files.sort((a, b) => (a === '.env' ? -1 : b === '.env' ? 1 : a.localeCompare(b)));
+}
+
 function readToken() {
   if (process.env.FIGMA_TOKEN) return process.env.FIGMA_TOKEN.trim();
-  const envFile = resolve(ROOT, '.env');
-  if (existsSync(envFile)) {
-    for (const line of readFileSync(envFile, 'utf8').split(/\r?\n/)) {
-      const m = line.match(/^\s*FIGMA_TOKEN\s*=\s*(.+?)\s*$/);
-      if (m) return m[1].replace(/^["']|["']$/g, '');
+
+  for (const name of envCandidates()) {
+    const text = decodeEnvFile(resolve(ROOT, name));
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.replace(/^﻿/, '').trim();
+      if (!line || line.startsWith('#')) continue;
+      const m = line.match(/^FIGMA_TOKEN\s*=\s*(.+?)$/i);
+      if (m) return m[1].replace(/^["']|["']$/g, '').trim();
+      // a file holding nothing but the bare token
+      if (/^figd_[A-Za-z0-9_-]+$/.test(line)) return line;
     }
   }
   return null;

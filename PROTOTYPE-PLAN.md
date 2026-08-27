@@ -28,7 +28,7 @@ Screens on `User - Main Flow 2` (all 390w):
 | 01 | Home | 277:2653 | original (children padded 20, Status Bar + Top Nav absolute) |
 | 02 | Appointment Details | 277:2676 | original |
 | 02A | Date & Time Sheet | 277:2916 | sheet |
-| — | Bookings | 277:2804 | original |
+| 09 | Bookings | 277:2804 | original |
 | 04A | Payment Method Sheet | 277:2887 | sheet |
 | 04B | Add Card Sheet | 277:2967 | sheet |
 | 04C | Appointment Confirmed | 277:2844 | original |
@@ -114,9 +114,10 @@ colors, hardcoded spacing, and detached components.
 
 Build `css/components.css` + `js/components.js` one component at a time, **one CSS class per
 Figma variant**, from the `Components` page: V2/Status Bar, Top Nav (Active=Home/Bookings/
-Profile), CTA (Default/Secondary, h53), Status Pill (8 variants), Garment Tile (108.67×110 —
+Profile), CTA (Default/Secondary, h54), Status Pill (8 variants), Garment Tile (108.67×110 —
 CSS grid `repeat(3, 1fr)` gap 12 on a 350 track gives exactly that), User – Garment Card,
-Appointment Card (Upcoming/Past), Status Hero, Tailor Summary Card / Active Job Card, Filter
+Appointment Card (Upcoming/Past), Status Hero, Tailor Summary Card / Active Job Card, Time Chip
+(Default/Selected, 501:1039), Select Time (502:1035), Filter
 Pill, Sheet (scrim ink@0.4 + white panel r24 top + 36×4 grabber), Wheel Picker rows, plus
 whatever the audit in 0.2 turns up on the new screens (message bubbles, pickup-window rows,
 delivery option rows, progress steps).
@@ -138,8 +139,8 @@ Per frame, always the same loop — make it a slash command (`.claude/commands/s
 5. Fix until ≤ 1% (font anti-aliasing is the noise floor), then commit
    `feat(screen): <id> <name>`.
 
-Order: 01 → 02 → 02A → Bookings → 04A Payment → 04B Add Card → 04A Confirmed → 04B Complete
-(all original-structure, reuse most v3 logic) → then the new flow 03 → 05 → M1 → 06 → 06 Review
+Order: 01 → 02 → 02A → 09 Bookings → 04A Payment → 04B Add Card → 04C Confirmed → 04D Complete
+(all original-structure, reuse most v3 logic) → then the new flow 03 → 05 → M1 → 06 → 06A Review
 → 07 → 07A → 07B → 08. Wire each screen into `state.js` as you go so the click-through works
 at every commit.
 
@@ -175,7 +176,7 @@ Pages (`kevinsugi.github.io/taily`).
 ```
 # Taily v4 prototype
 Source of truth for visuals: Figma spK8ZHnsPlWEuD8zRmf5sY, page "User - Main Flow 2" (277:2636).
-Screens: 01 Home 277:2653 · 02 Appt Details 277:2676 · 02A Date&Time 277:2916 · Bookings 277:2804 ·
+Screens: 01 Home 277:2653 · 02 Appt Details 277:2676 · 02A Date&Time 277:2916 · 09 Bookings 277:2804 ·
 04A Payment Sheet 277:2887 · 04B Add Card 277:2967 · 04C Confirmed 277:2844 · 04D Complete 308:3578 ·
 03 Finding Tailor 281:1237 · 05 Reminder 308:4108 · M1 Message 282:1239 · 06 Order Status 282:1283 ·
 06A Review&Approve 308:3171 · 07 Items Ready 283:1287 · 07A Pickup 283:1328 · 07B Delivery 283:1372 ·

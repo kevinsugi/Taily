@@ -7,7 +7,7 @@ the whole block. Run one phase per conversation, `/clear` between, commit when t
 Conventions used throughout:
 - Figma file `spK8ZHnsPlWEuD8zRmf5sY`, page **User - Main Flow 2** `277:2636`, **Components** `183:2293`, **Flow 2** `263:6366`.
 - Screen IDs (use these as file names and diff keys):
-  `01-home 277:2653 · 02-appointment-details 277:2676 · 02a-date-time-sheet 277:2916 · bookings 277:2804 · 04a-payment-sheet 277:2887 · 04b-add-card-sheet 277:2967 · 04c-appointment-confirmed 277:2844 · 04d-appointment-complete 308:3578 · 03-finding-tailor 281:1237 · 05-appointment-reminder 308:4108 · m1-message-tailor 282:1239 · 06-order-status 282:1283 · 06a-review-approve 308:3171 · 07-items-ready 283:1287 · 07a-pickup-window 283:1328 · 07b-delivery-options 283:1372 · 08-journey-complete 283:1419`
+  `01-home 277:2653 · 02-appointment-details 277:2676 · 02a-date-time-sheet 277:2916 · 09-bookings 277:2804 · 04a-payment-sheet 277:2887 · 04b-add-card-sheet 277:2967 · 04c-appointment-confirmed 277:2844 · 04d-appointment-complete 308:3578 · 03-finding-tailor 281:1237 · 05-appointment-reminder 308:4108 · m1-message-tailor 282:1239 · 06-order-status 282:1283 · 06a-review-approve 308:3171 · 07-items-ready 283:1287 · 07a-pickup-window 283:1328 · 07b-delivery-options 283:1372 · 08-journey-complete 283:1419`
 - Phase 0 can run here in Cowork (Figma tools are connected) or in Claude Code once the Figma MCP is added.
 
 ---
@@ -78,7 +78,7 @@ for visuals; the current index.html (v3) is the source of truth for behaviour. T
    Read v3 carefully before porting: extract data.js and state.js as-is, then `node --check` each file. Do not port any v3 CSS or markup — the visuals are being rebuilt from Figma.
 4. scripts/export-refs.mjs: reads FIGMA_TOKEN from env, calls GET https://api.figma.com/v1/images/spK8ZHnsPlWEuD8zRmf5sY?ids=<comma ids>&format=png&scale=2,
    downloads each PNG to ref/<screen-id>.png using this map:
-     01-home 277:2653, 02-appointment-details 277:2676, 02a-date-time-sheet 277:2916, bookings 277:2804,
+     01-home 277:2653, 02-appointment-details 277:2676, 02a-date-time-sheet 277:2916, 09-bookings 277:2804,
      04a-payment-sheet 277:2887, 04b-add-card-sheet 277:2967, 04c-appointment-confirmed 277:2844,
      04d-appointment-complete 308:3578, 03-finding-tailor 281:1237, 05-appointment-reminder 308:4108,
      m1-message-tailor 282:1239, 06-order-status 282:1283, 06a-review-approve 308:3171, 07-items-ready 283:1287,
@@ -196,12 +196,12 @@ Use the `/screen <id>` command for each screen; batch 3–5 per session. Two bat
 
 ```
 Read CLAUDE.md. Implement these screens in order using /screen for each: 01-home, 02-appointment-details, 02a-date-time-sheet,
-bookings. Then, in a second pass if context allows: 04a-payment-sheet, 04b-add-card-sheet, 04c-appointment-confirmed,
+09-bookings. Then, in a second pass if context allows: 04a-payment-sheet, 04b-add-card-sheet, 04c-appointment-confirmed,
 04d-appointment-complete.
 Rules for this batch:
 - Sheets (02a, 04a, 04b) render on top of their parent screen (02 for the date sheet, 04c-flow for payment/card): the
   screenshot for diffing is the parent screen + scrim + sheet, exactly as the Figma frame shows.
-- Wire behaviour to js/state.js as you go: garment tile selection → 02; Continue → 02a; Bookings nav → bookings; payment
+- Wire behaviour to js/state.js as you go: garment tile selection → 02; Continue → 02a; Bookings nav → 09-bookings; payment
   method choice → add card. Use the v3 handlers in taily-prototype-v3.html as reference for logic only — never copy its markup or CSS.
 - After each screen: npm run diff -- <id>, paste the mismatch %, and commit. Stop and show me the diff image if any screen
   sits above 1% after three iterations.

@@ -140,12 +140,12 @@ a {
   box-shadow: inset 0 -1px 0 var(--bottom-border);
 }
 
-.top-nav__wordmark {
-  font-family: var(--font-serif);
-  font-size: var(--size-28);
-  line-height: 34px;
-  font-weight: 600;
+/* The script-wordmark logo (replaced the Cormorant text wordmark). */
+.top-nav__logo {
+  width: 74px;
+  height: 34px;
   color: var(--ink);
+  flex-shrink: 0;
 }
 
 .top-nav__links {
@@ -196,9 +196,8 @@ a {
    weight and colour, not from inventing sizes. */
 
 /* Page titles are Cormorant Medium in Figma (13 nodes across 11 screens,
-   e.g. "Appointment Details"). SemiBold at 28 is the Taily wordmark, which
-   .top-nav__wordmark handles; use .t-title.w-600 for the other 5 SemiBold
-   titles. One outlier, "What Are We Tailoring?" on 01 Home, carries an
+   e.g. "Appointment Details"); use .t-title.w-600 for the 5 SemiBold ones.
+   (The nav wordmark is now the script logo, .top-nav__logo.) One outlier, "What Are We Tailoring?" on 01 Home, carries an
    explicit 110% line-height (30.8px) instead of the AUTO 34px. */
 .t-title {
   font-family: var(--font-serif);

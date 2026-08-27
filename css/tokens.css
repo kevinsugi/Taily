@@ -4,7 +4,7 @@
    Source: Figma spK8ZHnsPlWEuD8zRmf5sY, local variable collections
    (Taily / Colors, Taily / Spacing, Taily / Radius, Taily / Type,
    plus the unnamed "Variable collection").
-   48 variables, all single-mode ("Mode 1").
+   49 variables, all single-mode ("Mode 1").
 
    To regenerate: read the local variables in Figma and re-emit.
    Every value below is copied verbatim — nothing rounded, nothing invented.
@@ -56,6 +56,7 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+  --radius-20: 20px;
   --radius-xl: 24px;
   --radius-full: 999px;
 
@@ -63,7 +64,7 @@
   --size-10: 10px;
   --size-12: 12px;
   --size-16: 16px;
-  --size-22: 22px;
+  --size-24: 24px;
   --size-28: 28px;
   --size-32: 32px;
   --size-36: 36px;
@@ -87,12 +88,10 @@
    Values that DO NOT exist in Figma — deliberately not invented.
 
    Referenced by the designs but with no matching variable:
-     radius 20px  — the CTA component's corner radius. radius/* only has
-                    8 / 12 / 16 / 24 / 999, so there is no token for it.
      space 48px   — 08 Journey Complete, .body padding-top.
      space 128px  — the content top offset on all 14 screens.
 
-   Type sizes present in Figma: 10 / 12 / 16 / 22 / 28 / 32 / 36.
-   There is no size/13, size/14, size/18, size/20, size/24 — Phase 0 snapped
-   the stray 13 / 18 / 34 values onto this scale rather than adding tokens.
+   Type sizes present in Figma: 10 / 12 / 16 / 24 / 28 / 32 / 36.
+   There is no size/13, size/14, size/18, size/20 — the stray 13 / 18 / 22 / 34
+   values were snapped onto this scale rather than adding tokens.
    ============================================================ */

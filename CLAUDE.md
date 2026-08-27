@@ -7,7 +7,7 @@ Screens (id → node): see `scripts/screens.json`. Behaviour source of truth: `j
 
 - Match Figma exactly: px, weights, colors, line-heights from `get_design_context`. Never round, "improve", or re-space.
 - Colors, spacing, radius, type sizes ONLY through `css/tokens.css` variables. No literal hex/px for those outside `tokens.css`.
-- Type comes from the Figma type scale — `size/10, 12, 16, 22, 28, 32, 36`, every text node bound to it. 12 / 16 / 28 carry most of the UI; hierarchy via **weight + color**, never by inventing a size. Families: `family/serif` = Cormorant Garamond (headings), `family/sans` = Hanken Grotesk (everything else).
+- Type comes from the Figma type scale — `size/10, 12, 16, 24, 28, 32, 36`, every text node bound to it. 12 / 16 / 28 carry most of the UI; hierarchy via **weight + color**, never by inventing a size. Families: `family/serif` = Cormorant Garamond (headings), `family/sans` = Hanken Grotesk (everything else).
 - Components live in `css/components.css` + `js/components.js`, one class per Figma variant. Add a variant there before using it in a screen. Never fork a component inside a screen.
 - Screens: 390 wide, background `var(--neutral-50)`; `.status-bar` absolute 0/0 h44; `.top-nav` absolute 0/44 h56; `.body` padding-top **128**, sides **20**.
 - If Figma looks wrong or inconsistent, STOP and report it; do not fix it silently.

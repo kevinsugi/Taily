@@ -406,8 +406,7 @@ export function metaRow(glyph, text) {
   return `<div class="meta-row"><span class="meta-row__glyph">${glyph}</span><span>${text}</span></div>`;
 }
 
-/** Fee/deposit row (04c/04d/05/06a). 06a's frame keeps the long desc
- * on one line where 04c wraps the same string — flagged to Kevin. */
-export function feeRow(price, desc, { nowrap = false } = {}) {
-  return `<div class="fee-row"><span class="fee-row__price">${price}</span><span class="fee-row__desc${nowrap ? ' fee-row__desc--nowrap' : ''}">${desc}</span></div>`;
+/** Fee/deposit row (04c/04d/05/06a). Long descriptions wrap. */
+export function feeRow(price, desc) {
+  return `<div class="fee-row"><span class="fee-row__price">${price}</span><span class="fee-row__desc">${desc}</span></div>`;
 }

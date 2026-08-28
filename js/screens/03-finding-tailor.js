@@ -12,7 +12,12 @@ import { state, tailorAccepts } from '../state.js';
 function renderScreen() {
   return `${chrome('home')}
 <div class="body" data-s="03-finding-tailor">
-  <div class="map-card"><img src="assets/map.png" alt="Map showing your tailor search area"></div>
+  <!-- Placeholder per Kevin: this becomes a live Google Map centred on
+       the user's location. The frame's raster is deliberately not used. -->
+  <div class="map-card map-card--placeholder" data-act="map">
+    <span class="map-card__pin">◉</span>
+    <span class="t-small c-500">Map preview — connects to Google Maps</span>
+  </div>
   ${statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-certified tailor near you. We’ll notify you the moment one accepts.' })}
   ${infoCard([
     metaRow('◉', '88 Leonard St, 4B — Home Visit'),
@@ -28,7 +33,7 @@ function wire(root) {
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelector('[data-act="cancel"]')?.addEventListener('click', () => go('01-home'));
   // demo affordance: tapping the map simulates the tailor accepting
-  root.querySelector('.map-card')?.addEventListener('click', () => { tailorAccepts(); go('04c-appointment-confirmed'); });
+  root.querySelector('[data-act="map"]')?.addEventListener('click', () => { tailorAccepts(); go('04c-appointment-confirmed'); });
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {
     e.preventDefault();
     go(el.dataset.nav === 'bookings' ? '09-bookings' : '01-home');

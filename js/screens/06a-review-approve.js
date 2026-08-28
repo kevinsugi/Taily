@@ -19,8 +19,8 @@ function renderScreen() {
   <div class="garments-card">
     ${garmentCard({ variant: 'PostAppt', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], beforePhotos: 4, pinnedPhotos: 4 })}
     ${garmentCard({ variant: 'PostAppt', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], beforePhotos: 4, pinnedPhotos: 4 })}
-    ${feeRow('$20', '10% Deposit - Paid 7/7/26')}
-    ${feeRow('$180', 'Est. Balance - Confirmed at Appointment', { nowrap: true })}
+    ${feeRow('- $20', '10% Deposit - Paid 7/7/26')}
+    ${feeRow('$180', 'Due at Pickup / Delivery')}
   </div>
   <div class="cta-bar">
     ${cta('Approve Final Order', { attrs: 'data-act="approve"' })}

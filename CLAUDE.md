@@ -55,6 +55,10 @@ Chrome lives in `js/components.js`: `statusBar(time)`, `topNav(active)`, `chrome
 
 `css/components.css` + `js/components.js` (27 render fns) + `components.html` gallery. One class per Figma variant. Icons are exact Figma vectors in `js/icons.js` (generated from `assets/icons/`, currentColor). Figma strokes are INSIDE — bordered hug-height components use `box-shadow: inset 0 0 0 1px …`, never `border`, or they grow 2px. Key fns: `cta, ctaSmall, statusPill (9), timeChip, selectTime, filterPill, garmentTile, apptCard, statusHero (6), summaryCard, garmentCard (4), progressBar (4), bubble, timeline, deliveryWindow, infoCard/infoRow/metaRow/feeRow, methodRow, sheet, wheel`. Motion: press scale + sheet drawer per the animate skill; `prefers-reduced-motion` handled.
 
+## Deliberate deviations from the frames (Kevin-directed)
+
+- **03's map is a placeholder** (`.map-card--placeholder`, media-placeholder fill + note) — it will become a live Google Map centred on the user's location. The frame shows a map raster, so `npm run diff -- 03-finding-tailor` reads ~1.3% and is expected to exceed the 1% gate until the real map lands.
+
 ## Known Figma inconsistencies — do not silently fix
 
 - **Top Nav `Active` state**: `04c` / `04d` use `Active=Bookings`, but all nine "body" screens (03, 05, M1, 06, 06a, 07, 07a, 07b, 08) use `Active=Home` even though they are post-booking. Build what Figma shows; raise it rather than correcting it.

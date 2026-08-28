@@ -134,6 +134,20 @@
   overflow: hidden;
 }
 .map-card img { width: 100%; height: 100%; object-fit: fill; }
+.map-card--placeholder {
+  background: var(--media-placeholder);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+}
+.map-card__pin {
+  font-family: var(--font-sans);
+  font-size: var(--size-24);
+  line-height: 31px;
+  color: var(--neutral-600);
+}
 .cancel-line {
   width: 100%;
   text-align: center;

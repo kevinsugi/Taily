@@ -10,7 +10,7 @@ import { state } from './state.js';
    boot() — a static import here would run the screen module before this
    module body (imports hoist), hitting the `screens` map in its TDZ.
    The list grows as Phase 4 lands each screen. */
-const SCREEN_MODULES = ['01-home', '02-appointment-details'];
+const SCREEN_MODULES = ['01-home', '02-appointment-details', '02a-date-time-sheet'];
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */
 const screens = new Map();
@@ -59,6 +59,7 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   el.innerHTML = entry.view(state);
   el.dataset.screen = id;
   entry.wire?.(el);
+  window.__tailyNavigated = true;   // first render sets it AFTER wire ran
 
   if (opts.replace && history.length) history[history.length - 1] = id;
   else if (currentScreen() !== id) history.push(id);

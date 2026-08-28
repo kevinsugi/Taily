@@ -742,6 +742,10 @@
   background: var(--neutral-50);
 }
 .sheet__grabber-row { display: flex; justify-content: center; width: 100%; }
+
+/* 02a's picker sheet: pad 8/20/20 and a 40x4 grabber (04a/04b: 12/20/32, 36x4) */
+.sheet--picker { padding: var(--space-8) var(--space-20) var(--space-20); }
+.sheet--picker .sheet__grabber { width: 40px; }
 .sheet__grabber {
   width: 36px;
   height: 4px;

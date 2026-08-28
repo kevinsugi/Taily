@@ -328,14 +328,14 @@ export function garmentCard({
    ============================================================ */
 
 /** Sheet chassis. `open` = null renders static (gallery/diff). */
-export function sheet(contentHtml, { open = null, header = null, grabber = true } = {}) {
+export function sheet(contentHtml, { open = null, header = null, grabber = true, variant = '' } = {}) {
   const hostAttr = open === null ? '' : ` data-open="${open}"`;
   const head = header
-    ? `<div class="sheet__header"><span class="sheet__cancel">✕</span><span>${header}</span><span class="sheet__confirm">✓</span></div>`
+    ? `<div class="sheet__header"><button type="button" class="sheet__cancel" data-act="sheet-cancel">✕</button><span>${header}</span><button type="button" class="sheet__confirm" data-act="sheet-confirm">✓</button></div>`
     : '';
   return `<div class="sheet-host"${hostAttr}>
-  <div class="sheet-scrim"></div>
-  <div class="sheet" role="dialog" aria-modal="true">
+  <div class="sheet-scrim" data-act="sheet-cancel"></div>
+  <div class="sheet${variant ? ' sheet--' + variant : ''}" role="dialog" aria-modal="true">
     ${grabber ? '<div class="sheet__grabber-row"><span class="sheet__grabber"></span></div>' : ''}
     ${head}
     ${contentHtml}

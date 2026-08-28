@@ -82,8 +82,8 @@ import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MI
 import { GARMENT_ICONS } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
-export function cta(label, { variant = 'default', attrs = '' } = {}) {
-  const cls = variant === 'secondary' ? 'cta cta--secondary' : 'cta';
+export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
+  const cls = ['cta', variant === 'secondary' ? 'cta--secondary' : '', disabled ? 'cta--disabled' : ''].filter(Boolean).join(' ');
   return `<button type="button" class="${cls}" ${attrs}>${label}</button>`;
 }
 
@@ -227,21 +227,22 @@ export function apptCard(a) {
  * Status Hero — Figma Property 1 variants. `variant` is the kebab name:
  * requested | new-times | declined | confirmed | tailoring | ready.
  */
-export function statusHero({ variant = 'requested', pill, title, titleLine2, body, rowLabel, rowValue } = {}) {
+export function statusHero({ variant = 'requested', pill, title, titleLine2, body, rowLabel, rowValue, titleWeight } = {}) {
   const PILL_FOR = {
     'requested': 'requested', 'new-times': 'requested', 'declined': 'declined',
     'confirmed': 'confirmed', 'tailoring': 'confirmed', 'ready': 'ready',
   };
-  const parts = [statusPill(pill ?? PILL_FOR[variant])];
-  if (title) parts.push(`<h2 class="status-hero__title">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h2>`);
+  const parts = [];
+  if (pill !== false) parts.push(statusPill(pill ?? PILL_FOR[variant]));
+  if (title) parts.push(`<h2 class="status-hero__title${titleWeight === 600 ? ' w-600' : ''}">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h2>`);
   if (body) parts.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
   if (rowLabel) parts.push(`<div class="status-hero__row"><span>${rowLabel}</span><span>${rowValue ?? ''}</span></div>`);
   return `<div class="status-hero">${parts.join('\n  ')}</div>`;
 }
 
 /** Tailor Summary Card — avatar + info rows (glyph-prefixed). */
-export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [] } = {}) {
-  return `<article class="summary-card">
+export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [], fixed = false } = {}) {
+  return `<article class="summary-card${fixed ? ' summary-card--fixed' : ''}">
   <div class="summary-card__who">
     <span class="avatar">${initials}</span>
     <div class="summary-card__info">

@@ -47,8 +47,9 @@
   box-shadow: inset 0 1px 0 var(--neutral-200);   /* top hairline, inside */
 }
 .cta-bar__note { text-align: center; }
-/* half-pixel baseline shim — Figma rasterises this block 0.5px lower */
-.cta-bar > * { transform: translateY(0.5px); }
+/* half-pixel baseline shim — Figma rasterises 02's CTA-bar block 0.5px
+   lower; measured per screen (04c/04d want none). */
+[data-s="02-appointment-details"] .cta-bar > * { transform: translateY(0.5px); }
 
 /* 02A - Date & Time sheet — fills the screen; sheet anchors bottom. */
 .screen-sheet { position: absolute; inset: 0; }
@@ -56,3 +57,65 @@
 /* 09 - Bookings — sections at gap 12; frame is 1220 tall. */
 .screen[data-screen="09-bookings"] { min-height: 1212px; }
 [data-s="09-bookings"] { gap: var(--space-12); }
+
+/* 04A - Payment Method Sheet */
+.sheet__sub { width: 100%; }
+.sheet__cancel-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--neutral-500);
+}
+
+/* 04B - Add Card Sheet */
+.card-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  height: 54px;
+  padding-inline: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+  color: var(--neutral-500);
+}
+.card-field .method-row__icon { width: 22px; height: 22px; }
+.card-field__num { flex: 1 0 0; min-width: 1px; }
+
+/* 04C / 04D - Confirmed & Complete */
+[data-s="04c-appointment-confirmed"],
+[data-s="04d-appointment-complete"] { gap: var(--space-12); }
+.summary { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+.summary--tight { gap: var(--space-4); }
+.summary__title { margin: 0; }
+.garments-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--space-8) var(--space-20);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+.prepare-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-16);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+.cta-bar--plain { box-shadow: none; }
+.prepare-card__list { padding-left: var(--space-8); }
+.prepare-card__list::first-line { }
+
+.screen[data-screen="04c-appointment-confirmed"] { min-height: 1103px; }
+.screen[data-screen="04d-appointment-complete"] { min-height: 850px; }

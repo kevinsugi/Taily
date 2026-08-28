@@ -58,6 +58,17 @@
 
 .cta:active { transform: scale(0.97); }
 
+/* Figma 04b: the Next CTA sits at 55% node opacity (disabled look).
+   Clicks stay live — this is a prototype. */
+.cta--disabled { opacity: 0.55; }
+
+/* Tailor Summary Card as placed on 04c: fixed 111 with centred content */
+.summary-card--fixed {
+  height: 111px;
+  justify-content: center;
+  padding-block: 0;
+}
+
 /* ============================================================
    Status Pill — Figma 312:826. 9 variants. gap4 pl8 pr12 py4 r20.
    Icon + text share one colour; border is that colour at 35%.

@@ -24,7 +24,7 @@ const REF_DIR = resolve(ROOT, 'ref');
 const DIFF_DIR = resolve(ROOT, 'diff');
 const WIDTH = 390;
 const DSF = 2;
-const THRESHOLD = 0.1;      // pixelmatch per-pixel sensitivity
+const THRESHOLD = 0.2;      // per-pixel sensitivity (0.1 flagged pure AA softness vs Figma's rasteriser — raised per Kevin, gate stays 1%)
 const FAIL_OVER = 1.0;      // % mismatch that fails the run
 
 const cfg = JSON.parse(readFileSync(resolve(ROOT, 'scripts/screens.json'), 'utf8'));

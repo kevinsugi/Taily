@@ -47,7 +47,7 @@ for (let y = 0; y < H; y += BAND) {
   const a = new PNG({ width: w, height: h }), b = new PNG({ width: w, height: h });
   PNG.bitblt(ref, a, 0, y, w, h, 0, 0); PNG.bitblt(shot, b, 0, y, w, h, 0, 0);
   const out = new PNG({ width: w, height: h });
-  const n = pixelmatch(a.data, b.data, out.data, w, h, { threshold: 0.1 });
+  const n = pixelmatch(a.data, b.data, out.data, w, h, { threshold: 0.2 });
   rows.push({ y, h, n, pct: n / (w * h) * 100 });
 }
 rows.sort((a, b) => b.n - a.n);

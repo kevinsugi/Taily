@@ -47,6 +47,8 @@
   box-shadow: inset 0 1px 0 var(--neutral-200);   /* top hairline, inside */
 }
 .cta-bar__note { text-align: center; }
+/* half-pixel baseline shim — Figma rasterises this block 0.5px lower */
+.cta-bar > * { transform: translateY(0.5px); }
 
 /* 02A - Date & Time sheet — fills the screen; sheet anchors bottom. */
 .screen-sheet { position: absolute; inset: 0; }

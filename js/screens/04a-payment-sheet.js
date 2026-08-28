@@ -10,7 +10,7 @@ import { state, requestTailor } from '../state.js';
 
 function renderScreen() {
   const content = `<h1 class="t-title c-ink">How would you like to pay?</h1>
-<p class="t-small c-500 sheet__sub">Your card is saved now — the 10% deposit is only charged when a tailor accepts your request.</p>
+<p class="t-small c-500 sheet__sub">Your card is saved now — the deposit is only charged when your tailor confirms.</p>
 ${methodRow('Apple Pay', 'apple')}
 ${methodRow('Google Pay', 'google')}
 ${methodRow('Credit Card', 'card')}

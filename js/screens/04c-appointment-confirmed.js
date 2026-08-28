@@ -24,7 +24,7 @@ function renderScreen(s) {
     </div>
     <div class="prepare-card">
       <p class="t-body w-500 c-500">Please prepare:</p>
-      <p class="t-body c-700 prepare-card__list">▪&nbsp;&nbsp;Your garments<br>▪&nbsp;&nbsp;The shoes you plan to wear with them</p>
+      <ul class="t-body c-700 prepare-list"><li>Your garments</li><li>The shoes you plan to wear with them</li></ul>
     </div>
   </div>
   <div class="cta-bar">

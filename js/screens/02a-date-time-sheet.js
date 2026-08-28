@@ -16,7 +16,7 @@ function renderScreen() {
     { width: 170, rows: ['Tue 7 Jul', 'Wed 8 Jul', 'Thu 9 Jul', 'Fri 10 Jul', 'Sat 11 Jul'] },
     { width: 50, rows: ['7', '8', '9', '10', '11'] },
     { width: 50, rows: ['00', '15', '30', '45', '—'] },
-    { width: 80, rows: ['', 'AM', 'AM', 'PM', ''] },
+    { width: 80, rows: ['', '', 'AM', 'PM', ''] },
   ]) + cta(`Set Time · ${PICK.day} at ${PICK.time}`, { attrs: 'data-act="set-time"' });
 
   return `<div class="screen-sheet" data-s="02a-date-time-sheet">

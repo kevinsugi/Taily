@@ -130,8 +130,8 @@ export const SEED_UPCOMING = [
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
-    when: 'Wed, Jul 8 \u00b7 5:30 PM', status: 'ready', items: '2 items \u00b7 Alterations',
-    visit: 'Home Visit', count: 2,
+    when: 'Sep 2, 2026', status: 'ready', items: '2 items · Alterations',
+    visit: 'Home Visit', count: 2, month: 'SEP', day: '2',
     itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
     garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['The shoes you plan to wear with your garments.'],
@@ -139,9 +139,9 @@ export const SEED_UPCOMING = [
 ];
 export const SEED_PAST = [
   { name: 'Elena Tailor', initials: 'EA', tailorId: 'elena', where: 'shop', place: '15 West Broadway',
-    when: 'Wed, Jul 8 \u00b7 5:30 PM', status: 'Delivered', items: '1 jean \u00b7 Length',
+    when: 'Sep 2, 2PM', status: 'Delivered', items: '1 jean · Length', month: 'SEP', day: '2', displayName: 'Marco Tailor',
     visit: 'Store Visit', count: 1, itemLines: ['1 Jean - Length'] },
   { name: 'Grace Tailor', initials: 'GT', tailorId: 'stitch', where: 'shop', place: '15 West Broadway',
-    when: 'Wed, Jul 8 \u00b7 5:30 PM', status: 'Delivered', items: '1 shirt \u00b7 Length',
-    visit: 'Store Visit', count: 1, itemLines: ['1 Shirt - Length'] },
+    when: 'Sep 2, 2PM', status: 'Delivered', items: '1 shirt · Length', month: 'SEP', day: '2', displayName: 'Marco Tailor',
+    visit: 'Store Visit', count: 1, displayCount: 2, itemLines: ['1 Shirt - Length'] },
 ];

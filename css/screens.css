@@ -50,3 +50,7 @@
 
 /* 02A - Date & Time sheet — fills the screen; sheet anchors bottom. */
 .screen-sheet { position: absolute; inset: 0; }
+
+/* 09 - Bookings — sections at gap 12; frame is 1220 tall. */
+.screen[data-screen="09-bookings"] { min-height: 1212px; }
+[data-s="09-bookings"] { gap: var(--space-12); }

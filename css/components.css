@@ -185,14 +185,17 @@
 
 .filter-pill__label {
   font-family: var(--font-sans);
-  font-size: var(--size-12);
-  line-height: 16px;
+  /* 16px in the frames (the generated design-context fallback said 12
+     — the rendered ref proves 16) */
+  font-size: var(--size-16);
+  line-height: 21px;
   font-weight: 600;
   color: var(--neutral-500);
 }
 
 .filter-pill__box {
   display: inline-flex;
+  width: 100%;              /* fills the pill width in the frames */
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-8) var(--space-12);
@@ -200,10 +203,12 @@
   background: var(--white);
   box-shadow: inset 0 0 0 1px var(--neutral-300);
   font-family: var(--font-sans);
-  font-size: var(--size-12);
-  line-height: 16px;
+  /* value text is 16px in the frames (labels stay 12) */
+  font-size: var(--size-16);
+  line-height: 21px;
   font-weight: 600;
   color: var(--ink);
+  white-space: nowrap;
 }
 
 .filter-pill__box .select-time__chevron {
@@ -590,7 +595,27 @@
   overflow: hidden;
   flex-shrink: 0;
 }
-.garment-card__art { width: 66px; height: 66px; object-fit: contain; }
+.garment-card__artbox {
+  position: relative;
+  width: 66px;
+  height: 66px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.garment-card__art {
+  position: absolute;
+  left: -13.64%;
+  top: -13.64%;
+  width: 127.27%;
+  height: 127.27%;
+  max-width: none;
+}
+.garment-card__art--exact {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
 .garment-card__price {
   font-family: var(--font-sans);
   font-size: var(--size-16);
@@ -640,10 +665,13 @@
   font-weight: 500;
   color: var(--accent-ink);
 }
+/* Figma: 16px icon box with the 13.33px glyph centred — advance 16+4 */
+.garment-card__add .icon-add-circle { width: 13.33px; height: 13.33px; margin: 1.33px; flex-shrink: 0; }
+
 .garment-card__close {
   position: absolute;
   top: 11px;
-  right: var(--space-16);
+  right: 13px;                    /* Figma: ✕ box ends 13 from the edge */
   font-family: var(--font-sans);
   font-size: var(--size-16);
   line-height: 21px;

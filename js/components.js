@@ -78,7 +78,7 @@ export function chrome(active = 'home', time = '9:41') {
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, CHEVRON_RIGHT, ICON_CARD } from './icons.js';
+import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, CHEVRON_RIGHT, ICON_CARD, ICON_ADD_CIRCLE } from './icons.js';
 import { GARMENT_ICONS } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
@@ -126,9 +126,9 @@ export function filterPill(caption, value, { open = false, options = [], attrs =
     ? `<div class="filter-pill__dropdown">${options.map((o, i) =>
         `<button type="button" class="filter-pill__option${i === 0 ? ' is-selected' : ''}">${o}</button>`).join('')}</div>`
     : '';
-  return `<div class="filter-pill${open ? ' filter-pill--open' : ''}" ${attrs}>
+  return `<div class="filter-pill${open ? ' filter-pill--open' : ''}">
   <span class="filter-pill__label">${caption}</span>
-  <button type="button" class="filter-pill__box">${value}${CHEVRON_DOWN}</button>
+  <button type="button" class="filter-pill__box" ${attrs}>${value}${CHEVRON_DOWN}</button>
   ${dropdown}
 </div>`;
 }
@@ -269,7 +269,15 @@ export function garmentCard({
   services = ['Hem / Adjust Length'], photos = 0, beforePhotos = 0, pinnedPhotos = 0,
 } = {}) {
   const editable = variant === 'Default' || variant === 'WithPhoto';
-  const art = GARMENT_ICONS[type] ? `<img class="garment-card__art" src="${GARMENT_ICONS[type]}" alt="${type}">` : '';
+  // Card art: ref-rendered raster when we have one (matches Figma's
+  // 127% zoomed fills pixel-for-pixel); else the v3 WebP zoomed 127.27%
+  // per the master's transform.
+  const CARD_ART = { 'Suit Jacket': 'assets/garments/card-suit-jacket.png' };
+  const art = CARD_ART[type]
+    ? `<span class="garment-card__artbox"><img class="garment-card__art garment-card__art--exact" src="${CARD_ART[type]}" alt="${type}"></span>`
+    : GARMENT_ICONS[type]
+      ? `<span class="garment-card__artbox"><img class="garment-card__art" src="${GARMENT_ICONS[type]}" alt="${type}"></span>`
+      : '';
   const chip = `<div class="garment-card__chip">${art}${price != null ? `<span class="garment-card__price">${price}</span>` : ''}</div>`;
 
   let rows;
@@ -279,7 +287,7 @@ export function garmentCard({
       <span>${type}</span>${CHEVRON_10}
     </div>
     ${services.map((s) => `<div class="garment-card__service">${s}<span class="icon-10--accent" style="display:inline-flex">${CHEVRON_10}</span></div>`).join('')}
-    <button type="button" class="garment-card__add">Additional Service</button>`;
+    <button type="button" class="garment-card__add">${ICON_ADD_CIRCLE}<span>Additional Service</span></button>`;
   } else {
     rows = `<div class="garment-card__row garment-card__row--tight">
       <span>${qty}</span><span>${type}</span>

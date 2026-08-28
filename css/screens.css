@@ -9,3 +9,41 @@
 [data-s="01-home"] { gap: var(--space-16); }
 .home-heading { display: flex; flex-direction: column; gap: var(--space-8); }
 .upcoming-header { display: flex; align-items: center; justify-content: space-between; }
+
+/* 02 - Appointment Details — frame is 931 tall with dead space below
+   the CTA bar; Filters frame is fixed 64 with 52px of content. */
+.screen[data-screen="02-appointment-details"] { min-height: 931px; }
+[data-s="02-appointment-details"] { gap: var(--space-16); }
+/* The pills overflow the 350 track in Figma and clip at the screen
+   edge — don't let flex shrink them. */
+.filters { display: flex; gap: var(--space-8); align-items: flex-start; height: 64px; }
+/* pill widths pinned to the Figma instances (157/138/169) — live text
+   metrics drift a few px and cascade the row positions otherwise */
+.filters > .filter-pill { flex-shrink: 0; height: 100%; }
+.filters > .filter-pill:nth-child(1) { width: 157px; min-width: 157px; }
+.filters > .filter-pill:nth-child(2) { width: 138px; min-width: 138px; }
+.filters > .filter-pill:nth-child(3) { width: 169px; min-width: 169px; }
+.add-garment {
+  width: 100%;
+  /* 14.5 + 1.5 border = Figma's 16 inside-stroke padding (frame is 53) */
+  padding-block: 14.5px;
+  border: 1.5px dashed var(--neutral-300);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+.cta-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding-top: var(--space-12);
+  padding-bottom: var(--space-16);
+  box-shadow: inset 0 1px 0 var(--neutral-200);   /* top hairline, inside */
+}
+.cta-bar__note { text-align: center; }

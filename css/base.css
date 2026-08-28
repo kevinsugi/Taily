@@ -180,7 +180,9 @@ a {
 }
 
 .top-nav__stitch {
-  width: 35px;
+  /* tracks the label width (+3px overhang): Home 35, Bookings ~53 —
+     a fixed 35 was Home-only and broke the Bookings-active variant */
+  width: calc(100% + 3px);
   height: 2px;
   border-radius: 1px;
   background: var(--accent-base);

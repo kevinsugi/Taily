@@ -60,6 +60,8 @@
 
 /* 04A - Payment Method Sheet */
 .sheet__sub { width: 100%; }
+/* 04b's footnote is centred in the frame; 04a's sits left */
+[data-s="04b-add-card-sheet"] .sheet__sub { text-align: center; }
 .sheet__cancel-row {
   display: flex;
   justify-content: center;
@@ -81,13 +83,14 @@
   padding-inline: var(--space-16);
   border-radius: var(--radius-md);
   background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--neutral-200);
   font-family: var(--font-sans);
   font-size: var(--size-16);
   line-height: 21px;
   font-weight: 400;
   color: var(--neutral-500);
 }
-.card-field .method-row__icon { width: 22px; height: 22px; }
+.card-field .method-row__icon { width: 22px; height: 22px; color: var(--neutral-500); }
 .card-field__num { flex: 1 0 0; min-width: 1px; }
 
 /* 04C / 04D - Confirmed & Complete */
@@ -232,6 +235,9 @@
   flex-shrink: 0;
 }
 
+/* pills dropped straight into a body column hug their content */
+.body > .pill { align-self: flex-start; }
+
 /* 06 - Order Status: inner pad 20/20/24, gap 12 */
 [data-s="06-order-status"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
 .hero-sub { width: 100%; }
@@ -261,6 +267,7 @@
   border: 1.5px solid var(--neutral-300);
   flex-shrink: 0;
 }
+.option-row--selected { box-shadow: inset 0 0 0 1px var(--ink); }
 .option-row--selected .option-row__radio { border: 6px solid var(--ink); }
 .option-row__labels { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 0 0; min-width: 1px; }
 .option-row__title {
@@ -308,7 +315,7 @@
 }
 [data-s="08-journey-complete"] > * { width: 100%; }
 [data-s="08-journey-complete"] .pill,
-[data-s="08-journey-complete"] .success-badge { width: auto; }
+[data-s="08-journey-complete"] .success-badge { width: auto; align-self: center; }
 .success-badge {
   width: 88px;
   height: 88px;

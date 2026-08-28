@@ -65,6 +65,7 @@ Chrome lives in `js/components.js`: `statusBar(time)`, `topNav(active)`, `chrome
 - `apple-pay-badge` / `google-pay-badge` on `04a` are plain frames by decision (brand marks), not components.
 - `09-bookings` is a top-level tab, not a step in the booking flow; its number is a filing convention only.
 - `T2 / Chat Bubble` master text is **14px — off the type scale** (kept verbatim in `.bubble`). Photo-tile gradient starts at `#E2DCD1`, one digit off `neutral-200`. The 02a sheet draws a 40×4 grabber where 04a/04b use 36×4. All three await Kevin's call.
+- The Confirmed pill on 01's appointment card draws its ring at **full `--info` strength** where the Status Pill master specifies the text colour at 35% — instance vs master disagree. The 03 meta rows use **text glyphs (◉ ▤ ✂)** whose scissors renders upright in Figma's font but left-facing in Segoe. Both raised, not silently fixed.
 
 ## v3
 

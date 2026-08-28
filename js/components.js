@@ -101,6 +101,11 @@ const PILL_VARIANTS = {
   'new-request':           { cls: 'pill--new-request',       icon: 'new_request', label: 'New Request' },
   'awaiting-customer':     { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Awaiting Customer' },
   'tailoring':             { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'Tailoring' },
+  // v4 chain names (state.js) map onto the same Figma variants
+  'searching':             { cls: 'pill--requested',         icon: 'requested',   label: 'Requested' },
+  'awaiting-approval':     { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Awaiting Approval' },
+  'ready-for-pickup':      { cls: 'pill--ready',             icon: 'ready',       label: 'Ready' },
+  'delivered':             { cls: 'pill--completed',         icon: 'completed',   label: 'Completed' },
 };
 
 export function statusPill(status, label) {
@@ -342,6 +347,29 @@ export function sheet(contentHtml, { open = null, header = null, grabber = true,
     ${contentHtml}
   </div>
 </div>`;
+}
+
+/**
+ * Sheet a11y (v3 parity: sheetShow trapped focus, Escape closed).
+ * Call from a sheet screen's wire() with the dismiss handler.
+ */
+export function wireSheetA11y(root, dismiss) {
+  const panel = root.querySelector('.sheet');
+  if (!panel) return;
+  const FOCUSABLE = 'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])';
+  const items = () => [...panel.querySelectorAll(FOCUSABLE)].filter((e) => !e.disabled && e.offsetParent !== null);
+  items()[0]?.focus();
+  root.ownerDocument.addEventListener('keydown', function onKey(e) {
+    if (!root.isConnected) { root.ownerDocument.removeEventListener('keydown', onKey); return; }
+    if (e.key === 'Escape') { e.preventDefault(); dismiss(); }
+    if (e.key === 'Tab') {
+      const f = items();
+      if (!f.length) return;
+      const i = f.indexOf(root.ownerDocument.activeElement);
+      if (e.shiftKey && (i <= 0)) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && (i === f.length - 1 || i === -1)) { e.preventDefault(); f[0].focus(); }
+    }
+  });
 }
 
 /** Wheel picker — columns: [{ width, rows: [5 strings] }], middle row selected. */

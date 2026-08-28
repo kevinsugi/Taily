@@ -5,7 +5,8 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { sheet, cta } from '../components.js';
+import { sheet, cta, wireSheetA11y } from '../components.js';
+import { requestTailor } from '../state.js';
 import { ICON_CARD } from '../icons.js';
 
 function renderScreen() {
@@ -30,9 +31,10 @@ function wire(root) {
     host.dataset.open = 'false';
     requestAnimationFrame(() => requestAnimationFrame(() => { host.dataset.open = 'true'; }));
   }
-  root.querySelector('[data-act="next"]')?.addEventListener('click', () => go('04c-appointment-confirmed'));
-  root.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) =>
-    el.addEventListener('click', () => { back() || go('04a-payment-sheet'); }));
+  root.querySelector('[data-act="next"]')?.addEventListener('click', () => { requestTailor(); go('03-finding-tailor'); });
+  const dismiss = () => { back() || go('04a-payment-sheet'); };
+  root.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', dismiss));
+  wireSheetA11y(root, dismiss);
 }
 
 register('04b-add-card-sheet', renderScreen, wire);

@@ -6,7 +6,7 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { sheet, wheel, cta } from '../components.js';
+import { sheet, wheel, cta, wireSheetA11y } from '../components.js';
 import { state, setAppt } from '../state.js';
 
 const PICK = { day: 'Thu, Jul 9', time: '9:30 AM' };
@@ -48,6 +48,7 @@ function wire(root) {
   };
 
   root.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', dismiss));
+  wireSheetA11y(root, dismiss);
   const confirm = () => {
     setAppt('when', `${PICK.day} · ${PICK.time}`);
     dismiss();

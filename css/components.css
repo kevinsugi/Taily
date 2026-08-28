@@ -1020,6 +1020,7 @@
   color: var(--ink);
   flex-shrink: 0;
 }
+.fee-row__desc--nowrap { white-space: nowrap; }
 .fee-row__desc {
   font-family: var(--font-sans);
   font-size: var(--size-16);

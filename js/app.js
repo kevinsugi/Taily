@@ -13,6 +13,8 @@ import { state } from './state.js';
 const SCREEN_MODULES = [
   '01-home', '02-appointment-details', '02a-date-time-sheet', '09-bookings',
   '04a-payment-sheet', '04b-add-card-sheet', '04c-appointment-confirmed', '04d-appointment-complete',
+  '03-finding-tailor', '05-appointment-reminder', 'm1-message-tailor', '06-order-status',
+  '06a-review-approve', '07-items-ready', '07a-pickup-window', '07b-delivery-options', '08-journey-complete',
 ];
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */

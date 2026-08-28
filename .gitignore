@@ -1,5 +1,6 @@
-# scratch/verification artifacts
+# scratch/verification artifacts (but assets/ and ref/ PNGs are real files)
 *.png
+!assets/**/*.png
 icons.json
 
 # v4 scaffold

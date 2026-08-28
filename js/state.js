@@ -19,9 +19,18 @@ import {
   SEED_PAST,
 } from './data.js';
 
-/* The happy path. declined / cancelled / expired sit outside it. */
-export const STATUS_ORDER = ['requested', 'confirmed', 'ready', 'completed'];
+/* The happy path — extended for the v4 flow (Kevin-approved):
+     searching -> confirmed -> awaiting-approval -> tailoring
+       -> ready-for-pickup -> delivered
+   v3's names are aliases so seeds, pills and the 4A screens keep
+   working: requested=searching, ready=ready-for-pickup,
+   completed=delivered. declined / cancelled / expired sit outside. */
+export const STATUS_ORDER = ['searching', 'confirmed', 'awaiting-approval', 'tailoring', 'ready-for-pickup', 'delivered'];
+export const STATUS_ALIASES = { requested: 'searching', ready: 'ready-for-pickup', completed: 'delivered' };
 export const TERMINAL_STATUSES = ['declined', 'cancelled', 'expired'];
+
+/** Normalise a v3 alias onto the v4 chain. */
+export const canonicalStatus = (s) => STATUS_ALIASES[s] ?? s;
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
@@ -86,24 +95,73 @@ export function setAppt(key, val) {
  *
  * Ported verbatim from v3, quirk included: a status outside STATUS_ORDER
  * (e.g. the seeded 'Delivered' on past appointments) gives indexOf === -1,
- * so the next status becomes 'requested'. v3 relied on this to restart a
+ * so the next status becomes the chain's start. v3 relied on this to restart a
  * past appointment, so it is preserved rather than "fixed".
  */
 export function advanceStatus() {
   const a = apptEntry();
   if (!a) return null;
-  const prev = a.status || 'completed';
-  const next = STATUS_ORDER[Math.min(STATUS_ORDER.indexOf(prev) + 1, STATUS_ORDER.length - 1)];
+  const prev = a.status || 'delivered';
+  const canon = canonicalStatus(prev);
+  const next = STATUS_ORDER[Math.min(STATUS_ORDER.indexOf(canon) + 1, STATUS_ORDER.length - 1)];
   a.status = next;
   return {
     appointment: a,
     prev,
     next,
-    // v3 charged the deposit exactly on requested -> confirmed
-    depositCharged: prev === 'requested' && next === 'confirmed',
+    // v3 charged the deposit exactly on requested/searching -> confirmed
+    depositCharged: canon === 'searching' && next === 'confirmed',
     deposit: a.totals ? a.totals.deposit : null,
   };
 }
+
+/* ---------- v4 flow transitions (Kevin-approved diagram) ---------- */
+
+/** Send the built request to a tailor: creates the searching appointment. */
+export function requestTailor() {
+  const totals = bookingLines(null);
+  const a = {
+    name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop',
+    place: '1025 Broadway, Midtown West',
+    when: state.appt.when, status: 'searching',
+    visit: state.appt.where, count: state.garments.reduce((s, g) => s + g.qty, 0),
+    month: 'AUG', day: '29',
+    itemLines: state.garments.map((g) => `${g.qty} ${g.type} - ${g.jobs.join(', ')}`),
+    garments: JSON.parse(JSON.stringify(state.garments)),
+    bring: ['Your garments', 'The shoes you plan to wear with them.'],
+    totals,
+  };
+  state.upcoming.unshift(a);
+  state.currentAppt = { list: 'upcoming', index: 0 };
+  return a;
+}
+
+const step = (from, to, extra = {}) => {
+  const a = apptEntry();
+  if (!a) return null;
+  if (from && canonicalStatus(a.status) !== from) return null;
+  a.status = to;
+  Object.assign(a, extra);
+  return a;
+};
+
+/** Tailor accepts the request — deposit charged (v3 semantic). */
+export const tailorAccepts = () => step('searching', 'confirmed');
+/** The appointment happened; tailor drafts the final order. */
+export const completeAppointment = () => step('confirmed', 'awaiting-approval');
+/** User approves the final order. */
+export const approveOrder = () => step('awaiting-approval', 'tailoring');
+/** Garments finished. */
+export const markReady = () => step('tailoring', 'ready-for-pickup');
+/** 07a/07b: how the garments come back. */
+export function chooseFulfilment(method, window) {
+  const a = apptEntry();
+  if (!a) return null;
+  a.fulfilment = { method, window };
+  return a;
+}
+/** Garments back with the customer. */
+export const deliver = () => step('ready-for-pickup', 'delivered');
 
 /** Tailor confirms, or the user accepts a proposed time. */
 export function acceptProposedTime(when) {

@@ -119,3 +119,199 @@
 
 .screen[data-screen="04c-appointment-confirmed"] { min-height: 1103px; }
 .screen[data-screen="04d-appointment-complete"] { min-height: 850px; }
+
+/* ============================================================
+   4B body screens. Each keeps the shared .body (pad-top 128) and
+   adds the frame's own inner padding via per-screen rules.
+   ============================================================ */
+
+/* 03 - Finding Your Tailor: inner pad 12/20/24, gap 8 */
+[data-s="03-finding-tailor"] { padding-top: calc(128px + var(--space-12)); padding-bottom: var(--space-24); gap: var(--space-8); }
+.map-card {
+  width: 100%;
+  height: 262px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.map-card img { width: 100%; height: 100%; object-fit: fill; }
+.cancel-line {
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+/* 05 - Appointment Reminder: inner pad 20/20/24, gap 12 */
+[data-s="05-appointment-reminder"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+.screen[data-screen="05-appointment-reminder"] { min-height: 1105px; }
+.actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+
+/* M1 - Message Tailor: inner pad 20/20/24, gap 12 */
+[data-s="m1-message-tailor"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+.chat-head { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
+.chat-head__back {
+  font-family: var(--font-sans);
+  font-size: var(--size-24);
+  line-height: 31px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.chat-head__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-20);
+  background: var(--neutral-200);
+  color: var(--neutral-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.chat-head__names { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 0 0; min-width: 1px; }
+/* Figma lets the meta line overflow its column rather than wrap */
+.chat-head__names > span { white-space: nowrap; }
+.chat-day { width: 100%; text-align: center; }
+.composer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-16);
+  border-radius: var(--radius-20);
+  background: var(--white);
+}
+.composer__hint {
+  flex: 1 0 0;
+  min-width: 1px;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
+.composer__send {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-20);
+  background: var(--ink);
+  color: var(--neutral-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* 06 - Order Status: inner pad 20/20/24, gap 12 */
+[data-s="06-order-status"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+.hero-sub { width: 100%; }
+
+/* 06a - Review & Approve: inner pad 20/20/24, gap 16 */
+[data-s="06a-review-approve"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-16); }
+.screen[data-screen="06a-review-approve"] { min-height: 911px; }
+.heading { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
+
+/* 07 - Items Ready: inner pad 20/20/24, gap 12 */
+[data-s="07-items-ready"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-16);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  text-align: left;
+}
+.option-row__radio {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-20);
+  background: var(--white);
+  border: 1.5px solid var(--neutral-300);
+  flex-shrink: 0;
+}
+.option-row--selected .option-row__radio { border: 6px solid var(--ink); }
+.option-row__labels { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 0 0; min-width: 1px; }
+.option-row__title {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.option-row__sub {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
+.option-row__price {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+/* 07a / 07b: inner pad 20/20/24, gap 12 */
+[data-s="07a-pickup-window"],
+[data-s="07b-delivery-options"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+.due-card__amount {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.address-card__change { color: var(--accent-ink); }
+
+/* 08 - Journey Complete: inner pad 48/20/24, gap 16, centred column */
+[data-s="08-journey-complete"] {
+  padding-top: calc(128px + 48px);
+  padding-bottom: var(--space-24);
+  gap: var(--space-16);
+  align-items: center;
+}
+[data-s="08-journey-complete"] > * { width: 100%; }
+[data-s="08-journey-complete"] .pill,
+[data-s="08-journey-complete"] .success-badge { width: auto; }
+.success-badge {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-20);
+  background: var(--info-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.success-badge__check {
+  font-family: var(--font-sans);
+  font-size: var(--size-32);
+  line-height: 42px;
+  font-weight: 700;
+  color: var(--success);
+}
+.center { text-align: center; }
+
+/* 4B body frames are 872 tall */
+.screen[data-screen="03-finding-tailor"],
+.screen[data-screen="m1-message-tailor"],
+.screen[data-screen="06-order-status"],
+.screen[data-screen="07-items-ready"],
+.screen[data-screen="07a-pickup-window"],
+.screen[data-screen="07b-delivery-options"],
+.screen[data-screen="08-journey-complete"] { min-height: 872px; }

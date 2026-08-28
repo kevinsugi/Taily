@@ -169,6 +169,11 @@ a {
   gap: var(--space-4);
 }
 
+/* Raster alignment: Chromium sets these labels 1px right of where
+   Figma rasterised them (narrower glyph advances in a right-aligned
+   group). Position shim only — no layout effect. */
+.top-nav__link > span:first-child { transform: translateX(-1px); }
+
 .top-nav__link.is-active {
   font-weight: 700;
   color: var(--ink);
@@ -186,7 +191,7 @@ a {
 .body {
   padding-top: 128px;
   padding-inline: var(--space-20);
-  padding-bottom: var(--space-32);
+  /* No bottom padding: Figma frames end exactly at the last child. */
   display: flex;
   flex-direction: column;
 }
@@ -207,6 +212,10 @@ a {
   letter-spacing: 0;
   margin: 0;
 }
+
+/* The one Figma outlier: "What Are We Tailoring?" (01 Home) carries an
+   explicit 110% line-height instead of AUTO -> 30.8px. */
+.t-title--tight { line-height: 30.8px; }
 
 .t-body {
   font-family: var(--font-sans);
@@ -251,6 +260,15 @@ a {
 .w-500 { font-weight: 500; }
 .w-600 { font-weight: 600; }
 .w-700 { font-weight: 700; }
+
+/* Emoji glyphs: Segoe UI Emoji's advance runs ~5px wider than the
+   metrics Figma rendered with — pin the advance so following text
+   lands where the frames put it. */
+.emoji {
+  display: inline-block;
+  width: 16px;
+  overflow: visible;
+}
 
 /* ---------- colour utilities ---------- */
 .c-ink { color: var(--ink); }

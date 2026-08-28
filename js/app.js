@@ -6,7 +6,13 @@
 
 import { state } from './state.js';
 
-/** screenId -> render(state) => HTML string */
+/* Screens self-register via register(). They are loaded dynamically in
+   boot() — a static import here would run the screen module before this
+   module body (imports hoist), hitting the `screens` map in its TDZ.
+   The list grows as Phase 4 lands each screen. */
+const SCREEN_MODULES = ['01-home'];
+
+/** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */
 const screens = new Map();
 
 /** Screen ids visited, most recent last. */
@@ -15,11 +21,11 @@ const history = [];
 const mount = () => document.getElementById('screen');
 
 /** Register a screen module. Called by js/screens/<id>.js. */
-export function register(id, render) {
+export function register(id, render, wire) {
   if (typeof render !== 'function') {
     throw new TypeError(`register("${id}"): render must be a function`);
   }
-  screens.set(id, render);
+  screens.set(id, { view: render, wire });
 }
 
 export function registered() {
@@ -37,11 +43,11 @@ export function currentScreen() {
  * @param {boolean} [opts.replace]  replace the top of the history stack
  */
 export function render(id, opts = {}) {
-  const view = screens.get(id);
+  const entry = screens.get(id);
   const el = mount();
   if (!el) throw new Error('render(): #screen is missing from index.html');
 
-  if (!view) {
+  if (!entry) {
     // Explicit and visible: a missing screen is a scaffold gap, not a blank page.
     el.innerHTML = `<pre class="screen-missing">No screen registered for "${id}".
 Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
@@ -50,8 +56,9 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
     return false;
   }
 
-  el.innerHTML = view(state);
+  el.innerHTML = entry.view(state);
   el.dataset.screen = id;
+  entry.wire?.(el);
 
   if (opts.replace && history.length) history[history.length - 1] = id;
   else if (currentScreen() !== id) history.push(id);
@@ -78,7 +85,8 @@ function announce(id) {
  * Boot. `?screen=<id>` wins so scripts/diff.mjs can open one screen
  * directly; otherwise fall back to the first registered screen.
  */
-function boot() {
+async function boot() {
+  await Promise.all(SCREEN_MODULES.map((m) => import(`./screens/${m}.js`)));
   const wanted = new URLSearchParams(location.search).get('screen');
   const first = registered()[0];
   const id = wanted || first;

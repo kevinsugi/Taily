@@ -1,1 +1,11 @@
 /* Phase 4+ — per-screen layout only. Never re-style a component here. */
+
+/* ============================================================
+   Per-screen layout only. Components are never restyled here.
+   ============================================================ */
+
+/* 01 - Home — sections stack at 16 (measured); heading is its own
+   8-gap group. */
+[data-s="01-home"] { gap: var(--space-16); }
+.home-heading { display: flex; flex-direction: column; gap: var(--space-8); }
+.upcoming-header { display: flex; align-items: center; justify-content: space-between; }

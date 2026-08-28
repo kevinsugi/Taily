@@ -133,12 +133,26 @@ export function filterPill(caption, value, { open = false, options = [], attrs =
 </div>`;
 }
 
-/** Garment Tile — Figma State=Default | Selected (qty badge + minus). */
+/**
+ * Garment Tile — Figma State=Default | Selected (qty badge + minus).
+ * Tile art uses the Figma-rendered rasters (assets/garments/tile-*.png,
+ * exported @2x from the 01 Home instances): the Figma image fills carry
+ * a ~1.43 crop transform over a low-res source, so no CSS fit of the v3
+ * WebP reproduces their rendering. GARMENT_ICONS stays in use elsewhere.
+ */
+const TILE_ART = {
+  'Suit Jacket': 'suit-jacket', 'Suit Pant': 'suit-pant', 'Formal Dress': 'formal-dress',
+  'Jacket': 'jacket', 'Shirt / Blouse': 'shirt-blouse', 'Dress / Jumpsuit': 'dress-jumpsuit',
+  'Pants / Jeans': 'pants-jeans', 'Skirt': 'skirt', 'Accessories': 'accessories',
+};
+
 export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
   const selected = qty > 0;
-  const art = GARMENT_ICONS[type]
-    ? `<img class="garment-tile__art" src="${GARMENT_ICONS[type]}" alt="">`
-    : `<span class="garment-tile__art"></span>`;
+  const art = TILE_ART[type]
+    ? `<img class="garment-tile__art" src="assets/garments/tile-${TILE_ART[type]}.png" alt="">`
+    : GARMENT_ICONS[type]
+      ? `<img class="garment-tile__art" src="${GARMENT_ICONS[type]}" alt="">`
+      : `<span class="garment-tile__art"></span>`;
   const badge = selected
     ? `<span class="garment-tile__qty"><span class="garment-tile__badge">${qty}</span>${TILE_MINUS}</span>`
     : '';
@@ -183,10 +197,11 @@ export function apptCard(a) {
   const {
     status = 'confirmed', month = 'AUG', day = '29', name = 'Marco Tailor',
     meta = 'Appt Date: Aug 29, 7PM', items = [], prepare = [], actions = [],
+    itemsTitle = null,
   } = a;
   const stage = status === 'completed' ? 'complete' : status;
   const lists = [];
-  if (items.length) lists.push(cardList(`${items.length} Items Total:`, items));
+  if (items.length) lists.push(cardList(itemsTitle ?? `${items.length} Items Total:`, items));
   if (prepare.length && (status === 'confirmed' || status === 'tailoring')) lists.push(cardList('Please Prepare:', prepare));
   const actionRow = actions.length
     ? `<div class="appt-card__actions">${actions.map((l) => ctaSmall(l)).join('')}</div>`

@@ -65,7 +65,9 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 /* ---------- browser ---------- */
 let browser;
 try {
-  browser = await chromium.launch();
+  // Greyscale AA + no hinting renders text close to Figma's rasteriser;
+  // Chromium's default LCD subpixel text ghosts every glyph edge in diffs.
+  browser = await chromium.launch({ args: ['--font-render-hinting=none', '--disable-lcd-text', '--force-color-profile=srgb'] });
 } catch (e) {
   console.error(`Could not launch Chromium: ${e.message}\n\nIf the browser is missing, run:  npx playwright install chromium`);
   server.close();

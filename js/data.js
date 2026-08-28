@@ -117,12 +117,15 @@ export const APPT_PLACES = ['Home Visit', 'Store Visit'];
 export const APPT_DEFAULT = { when: '7:00 PM Tonight', needBy: 'Thurs, Sept 1', where: 'Store Visit' };
 export const NEED_BY_OPTS = ['Thurs, Sept 1', 'Fri, Sept 2', 'Next week', 'Flexible'];
 
-/* Seed appointments. state.js deep-clones these so the app can be reset. */
+/* Seed appointments. state.js deep-clones these so the app can be reset.
+   Display strings (dates, item lines, month/day) are aligned to the v4
+   Figma frames — v3 showed Jul 8 / 2 items here. Statuses, structure and
+   totals are untouched v3 behaviour. */
 export const SEED_UPCOMING = [
   { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '1025 Broadway, Midtown West',
-    when: 'Wed, Jul 8 \u00b7 5:30 PM', status: 'confirmed', items: '2 items \u00b7 Alterations',
-    visit: 'Store Visit', count: 2,
-    itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
+    when: 'Aug 29, 7PM', status: 'confirmed', items: '3 items · Alterations',
+    visit: 'Store Visit', count: 3, month: 'AUG', day: '29',
+    itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
     garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },

@@ -40,6 +40,7 @@ Nothing outside `base.css` sets `font-size`. Compose with a type class + a weigh
 | class | Figma |
 |---|---|
 | `.t-title` | Cormorant **Medium** 28 / 34px — page titles. `.w-600` for the SemiBold ones. |
+| `.t-section` | Cormorant SemiBold 20 / 24px — section headers (Upcoming Appointments) and the 02a sheet title (`.sheet__title`). **20 is off the type scale** — see inconsistencies below. |
 | `.t-body` | Hanken 16 / 21px, Regular |
 | `.t-small` | Hanken 12 / 16px, Medium |
 | `.t-caps` | Hanken 12 / 16px SemiBold, uppercase, +1px tracking |
@@ -66,6 +67,8 @@ Chrome lives in `js/components.js`: `statusBar(time)`, `topNav(active)`, `chrome
 - `09-bookings` is a top-level tab, not a step in the booking flow; its number is a filing convention only.
 - `T2 / Chat Bubble` master text is **14px — off the type scale** (kept verbatim in `.bubble`). Photo-tile gradient starts at `#E2DCD1`, one digit off `neutral-200`. The 02a sheet draws a 40×4 grabber where 04a/04b use 36×4. All three await Kevin's call.
 - The Confirmed pill on 01's appointment card draws its ring at **full `--info` strength** where the Status Pill master specifies the text colour at 35% — instance vs master disagree. The 03 meta rows use **text glyphs (◉ ▤ ✂)** whose scissors renders upright in Figma's font but left-facing in Segoe. Both raised, not silently fixed.
+- The Aug 2026 serif headers — `Upcoming Header` (`532:958` on 01/01a) and the 02a sheet title (`277:2921`) — are **literal 20px, unbound to any size variable** (no `size/20` exists). Built verbatim via `--size-20` in `tokens.css` (marked as not-a-Figma-variable) + `.t-section` / `.sheet__title`. Raised, awaiting Kevin's call.
+- The updated sheet frames (02a/04a/04b) draw the full 02 screen dimmed behind the scrim (was a flat backdrop) — built via `view02()` in `.sheet-backdrop`. 02a's picker sheet (358 tall at y490) and 04b's sheet (286 at y559) overflow the 844 frame by 4px / 1px; reproduced with negative `bottom` offsets, not padding changes.
 
 ## v3
 

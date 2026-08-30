@@ -4,6 +4,7 @@
   "componentsPage": "183:2293",
   "screens": {
     "01-home": "277:2653",
+    "01a-home-selected": "532:940",
     "02-appointment-details": "277:2676",
     "02a-date-time-sheet": "277:2916",
     "03-finding-tailor": "281:1237",

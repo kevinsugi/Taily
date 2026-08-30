@@ -159,7 +159,7 @@ export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
       ? `<img class="garment-tile__art" src="${GARMENT_ICONS[type]}" alt="">`
       : `<span class="garment-tile__art"></span>`;
   const badge = selected
-    ? `<span class="garment-tile__qty"><span class="garment-tile__badge">${qty}</span>${TILE_MINUS}</span>`
+    ? `<span class="garment-tile__qty"><span class="garment-tile__badge">${qty}</span><span class="garment-tile__minus-hit" data-minus role="button" aria-label="Remove one ${type}">${TILE_MINUS}</span></span>`
     : '';
   return `<button type="button" class="garment-tile${selected ? ' garment-tile--selected' : ''}" ${attrs}>
   ${art}
@@ -337,7 +337,7 @@ export function garmentCard({
 export function sheet(contentHtml, { open = null, header = null, grabber = true, variant = '' } = {}) {
   const hostAttr = open === null ? '' : ` data-open="${open}"`;
   const head = header
-    ? `<div class="sheet__header"><button type="button" class="sheet__cancel" data-act="sheet-cancel">✕</button><span>${header}</span><button type="button" class="sheet__confirm" data-act="sheet-confirm">✓</button></div>`
+    ? `<div class="sheet__header"><button type="button" class="sheet__cancel" data-act="sheet-cancel">✕</button><span class="sheet__title">${header}</span><button type="button" class="sheet__confirm" data-act="sheet-confirm">✓</button></div>`
     : '';
   return `<div class="sheet-host"${hostAttr}>
   <div class="sheet-scrim" data-act="sheet-cancel"></div>

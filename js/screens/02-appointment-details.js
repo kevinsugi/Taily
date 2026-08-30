@@ -25,7 +25,9 @@ function priceFor(g) {
   return `$${amount}`;
 }
 
-function renderScreen(s) {
+/* Exported: 02a/04a/04b draw this screen dimmed behind their scrim
+   (the updated frames show it in place of the old flat backdrop). */
+export function view02(s) {
   ensureGarments();
   const { appt, contact } = s;
   const totals = bookingLines(null);
@@ -73,4 +75,4 @@ function wire(root) {
   });
 }
 
-register('02-appointment-details', renderScreen, wire);
+register('02-appointment-details', view02, wire);

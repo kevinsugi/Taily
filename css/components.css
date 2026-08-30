@@ -328,12 +328,12 @@
   overflow: visible;
 }
 
-/* Quantity badge + minus button, absolutely placed per Figma
-   (badge top -7 / minus overlapping the corner). */
+/* Quantity badge + minus button — 01a (532:946): cluster absolute at
+   left 64 / top -9 on the 108.667 tile. */
 .garment-tile__qty {
   position: absolute;
   top: -9px;
-  right: -6px;
+  left: 64px;
   display: flex;
   align-items: flex-start;
 }
@@ -353,6 +353,7 @@
   box-shadow: 0 2px 6px rgba(26, 23, 18, 0.14);
 }
 .garment-tile__minus { width: 22px; height: 22px; flex-shrink: 0; }
+.garment-tile__minus-hit { display: inline-flex; flex-shrink: 0; }
 
 /* ---------- shared motion accessibility ---------- */
 @media (prefers-reduced-motion: reduce) {
@@ -757,9 +758,20 @@
 }
 .sheet__grabber-row { display: flex; justify-content: center; width: 100%; }
 
-/* 02a's picker sheet: pad 8/20/20 and a 40x4 grabber (04a/04b: 12/20/32, 36x4) */
-.sheet--picker { padding: var(--space-8) var(--space-20) var(--space-20); }
+/* 02a's picker sheet: pad 8/20/20 and a 40x4 grabber (04a/04b: 12/20/32, 36x4).
+   The 358-tall frame overflows 02a's 844 bottom by 4px — reproduce the clip. */
+.sheet--picker { padding: var(--space-8) var(--space-20) var(--space-20); bottom: -4px; }
 .sheet--picker .sheet__grabber { width: 40px; }
+/* Picker title went serif in the Aug 2026 frames: Cormorant SemiBold 20/24
+   (277:2921 — literal 20px, off the scale; see tokens.css --size-20). */
+.sheet--picker .sheet__title {
+  font-family: var(--font-serif);
+  font-size: var(--size-20);
+  line-height: 24px;
+  font-weight: 600;
+  text-align: center;
+  flex: 1 0 0;
+}
 .sheet__grabber {
   width: 36px;
   height: 4px;

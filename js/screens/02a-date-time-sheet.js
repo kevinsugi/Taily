@@ -8,6 +8,7 @@
 import { register, render as go, back } from '../app.js';
 import { sheet, wheel, cta, wireSheetA11y } from '../components.js';
 import { state, setAppt } from '../state.js';
+import { view02 } from './02-appointment-details.js';
 
 const PICK = { day: 'Thu, Jul 9', time: '9:30 AM' };
 
@@ -20,6 +21,7 @@ function renderScreen() {
   ]) + cta(`Set Time · ${PICK.day} at ${PICK.time}`, { attrs: 'data-act="set-time"' });
 
   return `<div class="screen-sheet" data-s="02a-date-time-sheet">
+  <div class="sheet-backdrop" aria-hidden="true">${view02(state)}</div>
   ${sheet(content, { header: 'Date &amp; Time', variant: 'picker' })}
 </div>`;
 }

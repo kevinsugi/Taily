@@ -6,8 +6,9 @@
 
 import { register, render as go, back } from '../app.js';
 import { sheet, cta, wireSheetA11y } from '../components.js';
-import { requestTailor } from '../state.js';
+import { state, requestTailor } from '../state.js';
 import { ICON_CARD } from '../icons.js';
+import { view02 } from './02-appointment-details.js';
 
 function renderScreen() {
   const content = `<h1 class="t-title c-ink">Add card</h1>
@@ -21,6 +22,7 @@ ${cta('Next', { disabled: true, attrs: 'data-act="next"' })}
 <p class="t-small c-500 sheet__sub">Saved securely — charged only when your tailor confirms the appointment.</p>`;
 
   return `<div class="screen-sheet" data-s="04b-add-card-sheet">
+  <div class="sheet-backdrop" aria-hidden="true">${view02(state)}</div>
   ${sheet(content)}
 </div>`;
 }

@@ -7,6 +7,7 @@
 import { register, render as go, back } from '../app.js';
 import { sheet, methodRow, wireSheetA11y } from '../components.js';
 import { state, requestTailor } from '../state.js';
+import { view02 } from './02-appointment-details.js';
 
 function renderScreen() {
   const content = `<h1 class="t-title c-ink">How would you like to pay?</h1>
@@ -17,6 +18,7 @@ ${methodRow('Credit Card', 'card')}
 <button type="button" class="sheet__cancel-row" data-act="cancel">Cancel</button>`;
 
   return `<div class="screen-sheet" data-s="04a-payment-sheet">
+  <div class="sheet-backdrop" aria-hidden="true">${view02(state)}</div>
   ${sheet(content)}
 </div>`;
 }

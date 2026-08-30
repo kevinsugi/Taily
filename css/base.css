@@ -219,6 +219,19 @@ a {
    explicit 110% line-height instead of AUTO -> 30.8px. */
 .t-title--tight { line-height: 30.8px; }
 
+/* Serif section header — "Upcoming Header" on 01/01a (532:958):
+   Cormorant SemiBold, literal 20px in Figma (OFF the type scale, no
+   size/20 variable exists — kept verbatim like the 14px chat bubble).
+   AUTO line-height ≈1.21 -> 24px. */
+.t-section {
+  font-family: var(--font-serif);
+  font-size: var(--size-20);
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0;
+}
+
 .t-body {
   font-family: var(--font-sans);
   font-size: var(--size-16);

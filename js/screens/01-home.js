@@ -40,9 +40,10 @@ export function apptActions(a) {
   return map[a.status] ?? [];
 }
 
-function renderScreen(s) {
+export function view01(s) {
   const sel = s.ui?.homeSelection ?? {};
   const a = s.upcoming[0];
+  const anySelected = Object.values(sel).some((q) => q > 0);
 
   const tiles = TILE_ORDER.map((t) =>
     garmentTile(t, { qty: sel[t] ?? 0, attrs: `data-tile="${t}"` })).join('');
@@ -65,21 +66,28 @@ function renderScreen(s) {
     <p class="t-body c-ink"><span class="emoji">📍</span> 88 Leonard St, New York, NY</p>
   </div>
   <div class="tile-grid">${tiles}</div>
+  ${anySelected ? '<p class="t-body c-ink tap-more">Tap to select more items</p>' : ''}
   ${cta('Start Booking', { attrs: 'data-act="start-booking"' })}
   <div class="upcoming-header">
-    <span class="t-body w-600 c-500">Upcoming Appointments</span>
-    <button type="button" class="t-body w-600 c-accent-ink" data-act="view-all">View All</button>
+    <span class="t-section c-500">Upcoming Appointments</span>
+    <button type="button" class="t-section c-accent-ink" data-act="view-all">View All</button>
   </div>
   ${card}
 </div>`;
 }
 
-function wire(root) {
+export function wire01(root) {
   root.querySelectorAll('[data-tile]').forEach((el) => {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (e) => {
       const t = el.dataset.tile;
       const sel = selection();
-      sel[t] = (sel[t] ?? 0) + 1;
+      // v3: the tile adds one; its "−" removes one (unselects at 0).
+      if (e.target.closest('[data-minus]')) {
+        sel[t] = Math.max(0, (sel[t] ?? 0) - 1);
+        if (sel[t] === 0) delete sel[t];
+      } else {
+        sel[t] = (sel[t] ?? 0) + 1;
+      }
       go('01-home', { replace: true });
     });
   });
@@ -102,4 +110,4 @@ function wire(root) {
   });
 }
 
-register('01-home', renderScreen, wire);
+register('01-home', view01, wire01);

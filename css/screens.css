@@ -55,6 +55,10 @@
 
 /* 02A - Date & Time sheet — fills the screen; sheet anchors bottom. */
 .screen-sheet { position: absolute; inset: 0; }
+/* Overlay sheets are position:fixed (set inline, clipped to the visible
+   screen column) — fixed makes the holder a stacking context at z-auto,
+   so it needs its own z to clear the chrome (status bar/nav, z2). */
+.screen-sheet--overlay { z-index: 10; }
 /* The updated sheet frames show 02 dimmed behind the scrim (was a flat
    backdrop). Clipped to the 844 sheet frame; inert under the scrim. */
 .sheet-backdrop { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }

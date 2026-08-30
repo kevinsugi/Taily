@@ -23,8 +23,9 @@ ${methodRow('Credit Card', 'card')}
 export function openPaymentOverlay() {
   sheetOverlay(payContent(), { dataS: '04a-payment-sheet' }, (root, close) => {
     const rows = root.querySelectorAll('.method-row');
-    rows[0]?.addEventListener('click', () => { state.payMethod = 'apple'; requestTailor(); go('03-finding-tailor'); });
-    rows[1]?.addEventListener('click', () => { state.payMethod = 'google'; requestTailor(); go('03-finding-tailor'); });
+    // close() first — it restores the scroll freeze after the slide-out
+    rows[0]?.addEventListener('click', () => { state.payMethod = 'apple'; close(); requestTailor(); go('03-finding-tailor'); });
+    rows[1]?.addEventListener('click', () => { state.payMethod = 'google'; close(); requestTailor(); go('03-finding-tailor'); });
     rows[2]?.addEventListener('click', () => { state.payMethod = 'card'; close(); openAddCardOverlay(); });
     root.querySelector('[data-act="cancel"]')?.addEventListener('click', close);
   });

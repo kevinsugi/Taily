@@ -24,8 +24,9 @@ ${cta('Next', { disabled: true, attrs: 'data-act="next"' })}
 
 /** Open the add-card sheet over the live screen (nothing behind re-renders). */
 export function openAddCardOverlay() {
-  sheetOverlay(cardContent(), { dataS: '04b-add-card-sheet' }, (root) => {
-    root.querySelector('[data-act="next"]')?.addEventListener('click', () => { requestTailor(); go('03-finding-tailor'); });
+  sheetOverlay(cardContent(), { dataS: '04b-add-card-sheet' }, (root, close) => {
+    // close() first — it restores the scroll freeze after the slide-out
+    root.querySelector('[data-act="next"]')?.addEventListener('click', () => { close(); requestTailor(); go('03-finding-tailor'); });
   });
 }
 

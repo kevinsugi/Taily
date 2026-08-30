@@ -358,7 +358,9 @@ export function wireSheetA11y(root, dismiss) {
   if (!panel) return;
   const FOCUSABLE = 'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])';
   const items = () => [...panel.querySelectorAll(FOCUSABLE)].filter((e) => !e.disabled && e.offsetParent !== null);
-  items()[0]?.focus();
+  // preventScroll: focusing the ✕ must not scroll the sheet into view —
+  // on windows shorter than the screen that pans the whole page.
+  items()[0]?.focus({ preventScroll: true });
   root.ownerDocument.addEventListener('keydown', function onKey(e) {
     if (!root.isConnected) { root.ownerDocument.removeEventListener('keydown', onKey); return; }
     if (e.key === 'Escape') { e.preventDefault(); dismiss(); }
@@ -388,7 +390,29 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
   holder.className = 'screen-sheet screen-sheet--overlay';
   if (dataS) holder.dataset.s = dataS;
   holder.innerHTML = sheet(contentHtml, { header, variant, open: false });
+
+  /* Pin the overlay to the VISIBLE part of the screen column
+     (viewport ∩ screen). Absolute inset-0 would anchor the sheet to the
+     bottom of a tall screen — below the fold on short windows — and any
+     scroll-into-view then pans the whole page: the exact motion this
+     overlay exists to avoid. Measured once; scroll is frozen below. */
+  const r = screenEl.getBoundingClientRect();
+  const top = Math.max(r.top, 0);
+  holder.style.position = 'fixed';
+  holder.style.left = `${r.left}px`;
+  holder.style.width = `${r.width}px`;
+  holder.style.top = `${top}px`;
+  holder.style.height = `${Math.min(r.bottom, window.innerHeight) - top}px`;
   screenEl.appendChild(holder);
+
+  /* Freeze the page while the sheet is open; pad for the vanishing
+     scrollbar so the centred stage doesn't shift. */
+  const doc = document.documentElement;
+  const sbw = window.innerWidth - doc.clientWidth;
+  const prev = { overflow: doc.style.overflow, paddingRight: doc.style.paddingRight };
+  doc.style.overflow = 'hidden';
+  if (sbw > 0) doc.style.paddingRight = `${sbw}px`;
+
   const host = holder.querySelector('.sheet-host');
   requestAnimationFrame(() => requestAnimationFrame(() => { host.dataset.open = 'true'; }));
   let closing = false;
@@ -399,7 +423,9 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
     host.dataset.open = 'false';
     setTimeout(() => {
       holder.remove();
-      if (opener?.isConnected) opener.focus();
+      doc.style.overflow = prev.overflow;
+      doc.style.paddingRight = prev.paddingRight;
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
     }, 300);
   };
   holder.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', close));

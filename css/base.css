@@ -79,7 +79,12 @@ a {
   min-height: 844px;
   position: relative;
   background: var(--neutral-50);
+  /* clip, not hidden: hidden leaves a scrollable overflow (02's filter
+     pills overflow to 500), and Chrome's native focus-on-click then
+     scrolls the tapped pill to centre — panning the whole screen 59px.
+     clip makes the frame unscrollable, full stop. */
   overflow: hidden;
+  overflow: clip;
 }
 
 /* ---------- chrome ----------

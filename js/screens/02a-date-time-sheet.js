@@ -21,11 +21,19 @@ function pickerContent() {
   ]) + cta(`Set Time · ${PICK.day} at ${PICK.time}`, { attrs: 'data-act="set-time"' });
 }
 
-/* Live wheel for the overlay — v3's WHEEL lists, seeded so the opened
-   sheet shows exactly the frame's visible window (Tue–Sat / 7–11 / Thu 9
-   Jul · 9:30 AM selected). */
+/* Live wheel for the overlay. Dates are REAL: today (whenever the app
+   is opened) through 30 days out, opened with today selected; time
+   columns keep the frame's 9:30 AM default. The static route render
+   keeps the frame's fictional July dates for the diff harness. */
+const DAYS = Array.from({ length: 31 }, (_, i) => {
+  const d = new Date();
+  d.setDate(d.getDate() + i);
+  const dow = d.toLocaleDateString('en-GB', { weekday: 'short' });
+  const mon = d.toLocaleDateString('en-GB', { month: 'short' });
+  return `${dow} ${d.getDate()} ${mon}`;
+});
 const WHEEL = [
-  { width: 170, sel: 2, rows: ['Tue 7 Jul', 'Wed 8 Jul', 'Thu 9 Jul', 'Fri 10 Jul', 'Sat 11 Jul', 'Sun 12 Jul', 'Mon 13 Jul'] },
+  { width: 170, sel: 0, rows: DAYS },
   { width: 50, sel: 2, rows: ['7', '8', '9', '10', '11', '12', '1', '2', '3', '4', '5', '6'] },
   { width: 50, sel: 2, rows: ['00', '15', '30', '45'] },
   { width: 80, sel: 0, rows: ['AM', 'PM'] },
@@ -37,10 +45,13 @@ function fmtDay(row) {
   return `${dow}, ${mon} ${num}`;
 }
 
-function readPick(root) {
-  const [d, h, m, ap] = [...root.querySelectorAll('.wheel__col--scroll')]
-    .map((col, i) => WHEEL[i].rows[Number(col.dataset.sel)]);
+function pick([d, h, m, ap]) {
   return { day: fmtDay(d), time: `${h}:${m} ${ap}` };
+}
+
+function readPick(root) {
+  return pick([...root.querySelectorAll('.wheel__col--scroll')]
+    .map((col, i) => WHEEL[i].rows[Number(col.dataset.sel)]));
 }
 
 /* Update a filter pill's value in the live DOM — re-rendering 02 under
@@ -57,8 +68,9 @@ function setPillValue(act, value) {
  * confirm stores the day only, as v3 did).
  */
 export function openDateTimeOverlay(mode = 'appt') {
+  const start = pick(WHEEL.map((c) => c.rows[c.sel]));
   const content = wheelScroll(WHEEL)
-    + cta(`Set Time · ${PICK.day} at ${PICK.time}`, { attrs: 'data-act="set-time"' });
+    + cta(`Set Time · ${start.day} at ${start.time}`, { attrs: 'data-act="set-time"' });
   sheetOverlay(content, {
     header: mode === 'needby' ? 'Need By' : 'Date &amp; Time',
     variant: 'picker',

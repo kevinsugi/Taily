@@ -9,8 +9,6 @@
 [data-s="01-home"] { gap: var(--space-16); }
 .home-heading { display: flex; flex-direction: column; gap: var(--space-8); }
 .upcoming-header { display: flex; align-items: center; justify-content: space-between; }
-/* 01a (532:1055): helper line between grid and CTA once a tile is selected. */
-.tap-more { text-align: center; }
 
 /* 02 - Appointment Details — frame is 931 tall with dead space below
    the CTA bar; Filters frame is fixed 64 with 52px of content. */

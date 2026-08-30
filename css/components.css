@@ -658,16 +658,7 @@
   color: var(--ink);
 }
 .garment-card__row--tight { gap: var(--space-12); }
-.garment-card__service {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  font-family: var(--font-sans);
-  font-size: var(--size-16);
-  line-height: 21px;
-  font-weight: 500;
-  color: var(--accent-ink);
-}
+.garment-card__service { display: flex; align-items: center; gap: var(--space-8); }
 .garment-card__add {
   display: inline-flex;
   align-items: center;
@@ -682,6 +673,63 @@
 }
 /* Figma: 16px icon box with the 13.33px glyph centred — advance 16+4 */
 .garment-card__add .icon-add-circle { width: 13.33px; height: 13.33px; margin: 1.33px; flex-shrink: 0; }
+
+/* ---------- Selector — Figma 535:1582 ----------
+   Inline dropdown in garment cards. Quantity/Item triggers SemiBold 16
+   ink, Job Medium 16 accent; 12px chevron at gap 8. Menu absolute below
+   the trigger (top 27) so the footprint never changes: white r12,
+   border n200, pad 6, gap 2, options 14px py9 px12 r8; selected option
+   accent-bg SemiBold accent-ink with a ✓. */
+.selector { position: relative; display: inline-flex; flex-direction: column; }
+.selector__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.selector--job .selector__trigger { font-weight: 500; color: var(--accent-ink); }
+.selector__chevron { width: 12px; height: 12px; flex-shrink: 0; transition: transform 180ms var(--ease-out); }
+.selector--open .selector__chevron { transform: rotate(180deg); }
+.selector__menu {
+  display: none;
+  position: absolute;
+  top: 27px;
+  left: 0;
+  z-index: 5;
+  flex-direction: column;
+  gap: 2px;
+  width: 220px;
+  padding: 6px;
+  background: var(--white);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+.selector--quantity .selector__menu { width: 96px; }
+.selector--open .selector__menu { display: flex; }
+.selector__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  text-align: left;
+}
+.selector__option.is-selected {
+  background: var(--accent-bg);
+  font-weight: 600;
+  color: var(--accent-ink);
+}
 
 .garment-card__close {
   position: absolute;
@@ -914,7 +962,7 @@
   background: var(--white);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--size-14);
   line-height: 18px;
   font-weight: 400;
 }

@@ -1,9 +1,9 @@
 /* ============================================================
    01a - Home_Selected — Figma 532:940.
    01-Home mid-selection: selected tiles carry the ink border, qty
-   badge and minus button; "Tap to select more items" appears between
-   the grid and the CTA. Same view + wiring as 01-home — this module
-   only registers the frame's preset selection (Suit Jacket ×1,
+   badge and minus button, and the page title swaps to "Tap to Add
+   More Items". Same view + wiring as 01-home — this module only
+   registers the frame's preset selection (Suit Jacket ×1,
    Shirt / Blouse ×1) so the diff harness can render it directly.
    ============================================================ */
 

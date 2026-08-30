@@ -62,11 +62,10 @@ export function view01(s) {
   return `${chrome('home')}
 <div class="body" data-s="01-home">
   <div class="home-heading">
-    <h1 class="t-title t-title--tight c-ink">What Are We Tailoring?</h1>
+    <h1 class="t-title t-title--tight c-ink">${anySelected ? 'Tap to Add More Items' : 'What Are We Tailoring?'}</h1>
     <p class="t-body c-ink"><span class="emoji">📍</span> 88 Leonard St, New York, NY</p>
   </div>
   <div class="tile-grid">${tiles}</div>
-  ${anySelected ? '<p class="t-body c-ink tap-more">Tap to select more items</p>' : ''}
   ${cta('Start Booking', { attrs: 'data-act="start-booking"' })}
   <div class="upcoming-header">
     <span class="t-section c-500">Upcoming Appointments</span>

@@ -63,6 +63,10 @@
   /* ---------- Type sizes · Taily / Type ---------- */
   --size-10: 10px;
   --size-12: 12px;
+  /* size/14 became a real Figma variable with the Selector component
+     (535:1582 menu options bind to it) — the 14px chat bubble now
+     binds here too instead of a literal. */
+  --size-14: 14px;
   --size-16: 16px;
   /* NOT a Figma variable — the Aug 2026 serif headers (Upcoming Header
      532:958, Date & Time title 277:2921) carry literal 20px, off the

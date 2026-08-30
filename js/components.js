@@ -79,7 +79,7 @@ export function chrome(active = 'home', time = '9:41') {
    ============================================================ */
 
 import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, CHEVRON_RIGHT, ICON_CARD, ICON_ADD_CIRCLE } from './icons.js';
-import { GARMENT_ICONS } from './data.js';
+import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
 export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
@@ -270,9 +270,25 @@ export function photoTile(kind = 'add', { removable = false } = {}) {
  * ViewOnly | PostAppt. Editable variants get chevrons, the add-service
  * button, editable photo tiles and the ✕ remove control.
  */
+/* ============================================================
+   Selector — Figma 535:1582. Inline dropdown selector used in garment
+   cards. Type = Quantity / Item / Job (Job renders accent Medium; the
+   others SemiBold ink). The menu is absolutely positioned so the
+   trigger footprint is unchanged; open/close toggled by wiring via
+   .selector--open.
+   ============================================================ */
+const SELECTOR_CHEVRON = CHEVRON_DOWN.replace('select-time__chevron', 'selector__chevron');
+
+export function selector(type, value, options = [], { attrs = '', chevron = true } = {}) {
+  const menu = `<div class="selector__menu">${options.map((o) =>
+    `<button type="button" class="selector__option${o === value ? ' is-selected' : ''}" data-option="${o}">${o}${o === value ? '<span>✓</span>' : ''}</button>`).join('')}</div>`;
+  return `<span class="selector selector--${type}"><button type="button" class="selector__trigger" ${attrs}>${value}${chevron ? SELECTOR_CHEVRON : ''}</button>${menu}</span>`;
+}
+
 export function garmentCard({
   variant = 'Default', type = 'Suit Jacket', qty = 1, price = null,
   services = ['Hem / Adjust Length'], photos = 0, beforePhotos = 0, pinnedPhotos = 0,
+  index = null,
 } = {}) {
   const editable = variant === 'Default' || variant === 'WithPhoto';
   // Card art: ref-rendered raster when we have one (matches Figma's
@@ -288,11 +304,12 @@ export function garmentCard({
 
   let rows;
   if (editable) {
+    const gi = index === null ? '' : ` data-gi="${index}"`;
     rows = `<div class="garment-card__row">
-      <span>${qty}</span>${CHEVRON_10}
-      <span>${type}</span>${CHEVRON_10}
+      ${selector('quantity', String(qty), ['1', '2', '3', '4', '5'], { attrs: `data-sel="qty"${gi}` })}
+      ${selector('item', type, Object.keys(GARMENT_TYPES), { attrs: `data-sel="item"${gi}` })}
     </div>
-    ${services.map((s) => `<div class="garment-card__service">${s}<span class="icon-10--accent" style="display:inline-flex">${CHEVRON_10}</span></div>`).join('')}
+    ${services.map((s, j) => `<div class="garment-card__service">${selector('job', s, Object.keys(JOB_TYPES), { attrs: `data-sel="job" data-ji="${j}"${gi}`, chevron: false })}</div>`).join('')}
     <button type="button" class="garment-card__add">${ICON_ADD_CIRCLE}<span>Additional Service</span></button>`;
   } else {
     rows = `<div class="garment-card__row garment-card__row--tight">

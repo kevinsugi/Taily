@@ -31,6 +31,10 @@ export const GARMENT_TYPES = {
 
 /* Baseline service prices — each tailor applies their own multiplier; all shown as "$N+" minimums */
 export const JOB_TYPES = {
+  /* Added Aug 2026: the revised 02 frame seeds both placeholder cards
+     with "Hem / Adjust" (not a v3 key). Priced so the two seeded
+     garments still sum to $200 → the frame's "$20 Deposit (10%)". */
+  'Hem / Adjust': { price: 100 },
   'Hem / Adjust Length': { price: 120 },
   'Sleeve / Adjust Length': { price: 80 },
   'Taper / Slim Fit': { price: 90 },

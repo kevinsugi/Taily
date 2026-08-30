@@ -15,13 +15,14 @@ import { state, addGarment, bookingLines } from '../state.js';
 import { openDateTimeOverlay } from './02a-date-time-sheet.js';
 import { openPaymentOverlay } from './04a-payment-sheet.js';
 
-/* The frame's placeholder garments: two suit jackets (Hem / Sleeve),
-   two photos each, "$55" placeholder price. Seeded only when the user
-   arrives without building a selection on Home. */
+/* The frame's placeholder garments (revised Aug 2026): two identical
+   suit jackets, both "Hem / Adjust", two photos each, "$55" placeholder
+   price. Seeded only when the user arrives without building a
+   selection on Home. */
 function ensureGarments() {
   if (state.garments.length) return;
-  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2, displayPrice: '$55' });
-  addGarment({ type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2, displayPrice: '$55' });
+  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust'], qty: 1, photos: 2, displayPrice: '$55' });
+  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust'], qty: 1, photos: 2, displayPrice: '$55' });
 }
 
 function priceFor(g) {
@@ -44,6 +45,7 @@ export function view02(s) {
     price: priceFor(g),
     services: g.jobs,
     photos: g.photos ?? 0,
+    index: i,
   })).join('\n  ');
 
   return `${chrome('home')}
@@ -65,6 +67,33 @@ export function view02(s) {
 }
 
 function wire(root) {
+  /* Selector dropdowns (535:1582) — one open at a time; clicking an
+     option writes the garment and re-renders; click-away closes. */
+  const closeMenus = () => root.querySelectorAll('.selector--open').forEach((el) => el.classList.remove('selector--open'));
+  root.querySelectorAll('.selector__trigger').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const sel = btn.closest('.selector');
+      const wasOpen = sel.classList.contains('selector--open');
+      closeMenus();
+      if (!wasOpen) sel.classList.add('selector--open');
+    });
+  });
+  root.querySelectorAll('.selector__option').forEach((opt) => {
+    opt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const trigger = opt.closest('.selector').querySelector('.selector__trigger');
+      const g = state.garments[Number(trigger.dataset.gi)];
+      const v = opt.dataset.option;
+      if (!g) return;
+      if (trigger.dataset.sel === 'qty') g.qty = Number(v);
+      if (trigger.dataset.sel === 'item') g.type = v;
+      if (trigger.dataset.sel === 'job') g.jobs[Number(trigger.dataset.ji)] = v;
+      go('02-appointment-details', { replace: true });
+    });
+  });
+  root.addEventListener('click', closeMenus);
+
   root.querySelector('[data-act="time"]')?.addEventListener('click', () => openDateTimeOverlay('appt'));
   root.querySelector('[data-act="needby"]')?.addEventListener('click', () => openDateTimeOverlay('needby'));
   root.querySelector('[data-act="request"]')?.addEventListener('click', () => openPaymentOverlay());

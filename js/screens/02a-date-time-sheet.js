@@ -6,7 +6,7 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { sheet, sheetOverlay, wheel, cta, wireSheetA11y } from '../components.js';
+import { sheet, sheetOverlay, wheel, wheelScroll, wireWheel, cta, wireSheetA11y } from '../components.js';
 import { state, setAppt } from '../state.js';
 import { view02 } from './02-appointment-details.js';
 
@@ -19,6 +19,28 @@ function pickerContent() {
     { width: 50, rows: ['00', '15', '30', '45', '—'] },
     { width: 80, rows: ['', '', 'AM', 'PM', ''] },
   ]) + cta(`Set Time · ${PICK.day} at ${PICK.time}`, { attrs: 'data-act="set-time"' });
+}
+
+/* Live wheel for the overlay — v3's WHEEL lists, seeded so the opened
+   sheet shows exactly the frame's visible window (Tue–Sat / 7–11 / Thu 9
+   Jul · 9:30 AM selected). */
+const WHEEL = [
+  { width: 170, sel: 2, rows: ['Tue 7 Jul', 'Wed 8 Jul', 'Thu 9 Jul', 'Fri 10 Jul', 'Sat 11 Jul', 'Sun 12 Jul', 'Mon 13 Jul'] },
+  { width: 50, sel: 2, rows: ['7', '8', '9', '10', '11', '12', '1', '2', '3', '4', '5', '6'] },
+  { width: 50, sel: 2, rows: ['00', '15', '30', '45'] },
+  { width: 80, sel: 0, rows: ['AM', 'PM'] },
+];
+
+/** 'Thu 9 Jul' -> 'Thu, Jul 9' (wheel rows vs CTA/pill wording in the frame). */
+function fmtDay(row) {
+  const [dow, num, mon] = row.split(' ');
+  return `${dow}, ${mon} ${num}`;
+}
+
+function readPick(root) {
+  const [d, h, m, ap] = [...root.querySelectorAll('.wheel__col--scroll')]
+    .map((col, i) => WHEEL[i].rows[Number(col.dataset.sel)]);
+  return { day: fmtDay(d), time: `${h}:${m} ${ap}` };
 }
 
 /* Update a filter pill's value in the live DOM — re-rendering 02 under
@@ -35,23 +57,32 @@ function setPillValue(act, value) {
  * confirm stores the day only, as v3 did).
  */
 export function openDateTimeOverlay(mode = 'appt') {
-  sheetOverlay(pickerContent(), {
+  const content = wheelScroll(WHEEL)
+    + cta(`Set Time · ${PICK.day} at ${PICK.time}`, { attrs: 'data-act="set-time"' });
+  sheetOverlay(content, {
     header: mode === 'needby' ? 'Need By' : 'Date &amp; Time',
     variant: 'picker',
     dataS: '02a-date-time-sheet',
   }, (root, close) => {
+    const ctaEl = root.querySelector('[data-act="set-time"]');
+    // CTA label follows the wheels as they settle (v3 updateWheelCta)
+    wireWheel(root, () => {
+      const p = readPick(root);
+      ctaEl.textContent = `Set Time · ${p.day} at ${p.time}`;
+    });
     const confirm = () => {
+      const p = readPick(root);
       if (mode === 'needby') {
-        setAppt('needBy', PICK.day);
-        setPillValue('needby', PICK.day);
+        setAppt('needBy', p.day);
+        setPillValue('needby', p.day);
       } else {
-        setAppt('when', `${PICK.day} · ${PICK.time}`);
-        setPillValue('time', `${PICK.day} · ${PICK.time}`);
+        setAppt('when', `${p.day} · ${p.time}`);
+        setPillValue('time', `${p.day} · ${p.time}`);
       }
       close();
     };
     root.querySelector('[data-act="sheet-confirm"]')?.addEventListener('click', confirm);
-    root.querySelector('[data-act="set-time"]')?.addEventListener('click', confirm);
+    ctaEl?.addEventListener('click', confirm);
   });
 }
 

@@ -445,6 +445,50 @@ export function wheel(columns) {
   return `<div class="wheel"><div class="wheel__band"></div>${cols}</div>`;
 }
 
+/**
+ * Scrollable wheel (v3 wheelScrolled parity) — used by the live overlay;
+ * the static wheel() above stays frame-exact for the diff harness.
+ * columns: [{ width, rows: [strings], sel }] — 40px rows, 80px pads so
+ * every row can reach the selection band. Call wireWheel() after mount.
+ */
+export function wheelScroll(columns) {
+  const cols = columns.map(({ width, rows, sel }) => `<div class="wheel__col wheel__col--scroll" style="width:${width}px" data-sel="${sel}">
+    <span class="wheel__pad" aria-hidden="true"></span>
+    ${rows.map((r, i) => {
+      const d = Math.abs(i - sel);
+      const cls = d === 0 ? 'wheel__row wheel__row--selected' : d >= 2 ? 'wheel__row wheel__row--edge' : 'wheel__row';
+      return `<span class="${cls}" style="width:100%">${r}</span>`;
+    }).join('')}
+    <span class="wheel__pad" aria-hidden="true"></span>
+  </div>`).join('');
+  return `<div class="wheel"><div class="wheel__band"></div>${cols}</div>`;
+}
+
+/**
+ * Wire a wheelScroll(): set initial positions, restyle rows as they
+ * settle (v3's 80ms debounce), report changes. Selection is read back
+ * from each column's data-sel.
+ */
+export function wireWheel(root, onChange) {
+  root.querySelectorAll('.wheel__col--scroll').forEach((col) => {
+    const rows = [...col.querySelectorAll('.wheel__row')];
+    col.scrollTop = Number(col.dataset.sel) * 40;
+    let timer;
+    col.addEventListener('scroll', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const idx = Math.max(0, Math.min(rows.length - 1, Math.round(col.scrollTop / 40)));
+        col.dataset.sel = idx;
+        rows.forEach((r, i) => {
+          r.classList.toggle('wheel__row--selected', i === idx);
+          r.classList.toggle('wheel__row--edge', Math.abs(i - idx) >= 2);
+        });
+        onChange?.();
+      }, 80);
+    });
+  });
+}
+
 /** Payment method row — icon: 'apple' | 'google' | 'card'. */
 export function methodRow(label, icon) {
   const lead = icon === 'apple' ? `<span class="pay-badge">Pay</span>`

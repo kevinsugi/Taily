@@ -844,6 +844,19 @@
   color: var(--ink);
 }
 
+/* Scrollable columns (overlay only — the static wheel stays frame-exact).
+   40px rows snap to the centre of the 200px viewport = the selection
+   band; 80px pads let the first/last rows reach it. Scrollbars hidden. */
+.wheel__col--scroll {
+  height: 200px;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+.wheel__col--scroll::-webkit-scrollbar { display: none; }
+.wheel__col--scroll .wheel__row { flex: 0 0 40px; scroll-snap-align: center; }
+.wheel__pad { flex: 0 0 80px; }
+
 /* ============================================================
    Payment method row — 04a. White r12 p16 gap12 + chevron-right.
    Pay badges stay bespoke frames (46x28 r6) per Kevin.

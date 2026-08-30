@@ -6,23 +6,59 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { sheet, wheel, cta, wireSheetA11y } from '../components.js';
+import { sheet, sheetOverlay, wheel, cta, wireSheetA11y } from '../components.js';
 import { state, setAppt } from '../state.js';
 import { view02 } from './02-appointment-details.js';
 
 const PICK = { day: 'Thu, Jul 9', time: '9:30 AM' };
 
-function renderScreen() {
-  const content = wheel([
+function pickerContent() {
+  return wheel([
     { width: 170, rows: ['Tue 7 Jul', 'Wed 8 Jul', 'Thu 9 Jul', 'Fri 10 Jul', 'Sat 11 Jul'] },
     { width: 50, rows: ['7', '8', '9', '10', '11'] },
     { width: 50, rows: ['00', '15', '30', '45', '—'] },
     { width: 80, rows: ['', '', 'AM', 'PM', ''] },
   ]) + cta(`Set Time · ${PICK.day} at ${PICK.time}`, { attrs: 'data-act="set-time"' });
+}
 
+/* Update a filter pill's value in the live DOM — re-rendering 02 under
+   the open sheet would repaint the whole screen (the flash the overlay
+   exists to avoid). The pill box is `${value}${chevron}`. */
+function setPillValue(act, value) {
+  const box = document.querySelector(`#screen [data-act="${act}"]`);
+  if (box?.firstChild?.nodeType === Node.TEXT_NODE) box.firstChild.nodeValue = value;
+}
+
+/**
+ * Open the wheel picker over the live screen (v3 timeSheetMode parity):
+ * mode 'appt' = Requested time, 'needby' = Need By (same wheel retitled;
+ * confirm stores the day only, as v3 did).
+ */
+export function openDateTimeOverlay(mode = 'appt') {
+  sheetOverlay(pickerContent(), {
+    header: mode === 'needby' ? 'Need By' : 'Date &amp; Time',
+    variant: 'picker',
+    dataS: '02a-date-time-sheet',
+  }, (root, close) => {
+    const confirm = () => {
+      if (mode === 'needby') {
+        setAppt('needBy', PICK.day);
+        setPillValue('needby', PICK.day);
+      } else {
+        setAppt('when', `${PICK.day} · ${PICK.time}`);
+        setPillValue('time', `${PICK.day} · ${PICK.time}`);
+      }
+      close();
+    };
+    root.querySelector('[data-act="sheet-confirm"]')?.addEventListener('click', confirm);
+    root.querySelector('[data-act="set-time"]')?.addEventListener('click', confirm);
+  });
+}
+
+function renderScreen() {
   return `<div class="screen-sheet" data-s="02a-date-time-sheet">
   <div class="sheet-backdrop" aria-hidden="true">${view02(state)}</div>
-  ${sheet(content, { header: 'Date &amp; Time', variant: 'picker' })}
+  ${sheet(pickerContent(), { header: 'Date &amp; Time', variant: 'picker' })}
 </div>`;
 }
 

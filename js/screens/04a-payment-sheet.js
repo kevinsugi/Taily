@@ -5,21 +5,35 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { sheet, methodRow, wireSheetA11y } from '../components.js';
+import { sheet, sheetOverlay, methodRow, wireSheetA11y } from '../components.js';
 import { state, requestTailor } from '../state.js';
 import { view02 } from './02-appointment-details.js';
+import { openAddCardOverlay } from './04b-add-card-sheet.js';
 
-function renderScreen() {
-  const content = `<h1 class="t-title c-ink">How would you like to pay?</h1>
+function payContent() {
+  return `<h1 class="t-title c-ink">How would you like to pay?</h1>
 <p class="t-small c-500 sheet__sub">Your card is saved now — the deposit is only charged when your tailor confirms.</p>
 ${methodRow('Apple Pay', 'apple')}
 ${methodRow('Google Pay', 'google')}
 ${methodRow('Credit Card', 'card')}
 <button type="button" class="sheet__cancel-row" data-act="cancel">Cancel</button>`;
+}
 
+/** Open the payment sheet over the live screen (nothing behind re-renders). */
+export function openPaymentOverlay() {
+  sheetOverlay(payContent(), { dataS: '04a-payment-sheet' }, (root, close) => {
+    const rows = root.querySelectorAll('.method-row');
+    rows[0]?.addEventListener('click', () => { state.payMethod = 'apple'; requestTailor(); go('03-finding-tailor'); });
+    rows[1]?.addEventListener('click', () => { state.payMethod = 'google'; requestTailor(); go('03-finding-tailor'); });
+    rows[2]?.addEventListener('click', () => { state.payMethod = 'card'; close(); openAddCardOverlay(); });
+    root.querySelector('[data-act="cancel"]')?.addEventListener('click', close);
+  });
+}
+
+function renderScreen() {
   return `<div class="screen-sheet" data-s="04a-payment-sheet">
   <div class="sheet-backdrop" aria-hidden="true">${view02(state)}</div>
-  ${sheet(content)}
+  ${sheet(payContent())}
 </div>`;
 }
 

@@ -9,6 +9,11 @@ import { register, render as go } from '../app.js';
 import { chrome, filterPill, garmentCard, cta } from '../components.js';
 import { JOB_TYPES } from '../data.js';
 import { state, addGarment, bookingLines } from '../state.js';
+/* Sheets open as in-place overlays (v3 sheetShow parity) — navigating to
+   the 02a/04a routes would rebuild this screen and flash. The routes
+   remain registered for the diff harness. */
+import { openDateTimeOverlay } from './02a-date-time-sheet.js';
+import { openPaymentOverlay } from './04a-payment-sheet.js';
 
 /* The frame's placeholder garments: two suit jackets (Hem / Sleeve),
    two photos each, "$55" placeholder price. Seeded only when the user
@@ -60,8 +65,9 @@ export function view02(s) {
 }
 
 function wire(root) {
-  root.querySelector('[data-act="time"]')?.addEventListener('click', () => go('02a-date-time-sheet'));
-  root.querySelector('[data-act="request"]')?.addEventListener('click', () => go('04a-payment-sheet'));
+  root.querySelector('[data-act="time"]')?.addEventListener('click', () => openDateTimeOverlay('appt'));
+  root.querySelector('[data-act="needby"]')?.addEventListener('click', () => openDateTimeOverlay('needby'));
+  root.querySelector('[data-act="request"]')?.addEventListener('click', () => openPaymentOverlay());
   root.querySelector('[data-act="add-garment"]')?.addEventListener('click', () => {
     addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 });
     go('02-appointment-details', { replace: true });

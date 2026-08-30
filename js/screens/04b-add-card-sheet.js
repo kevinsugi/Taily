@@ -5,13 +5,13 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { sheet, cta, wireSheetA11y } from '../components.js';
+import { sheet, sheetOverlay, cta, wireSheetA11y } from '../components.js';
 import { state, requestTailor } from '../state.js';
 import { ICON_CARD } from '../icons.js';
 import { view02 } from './02-appointment-details.js';
 
-function renderScreen() {
-  const content = `<h1 class="t-title c-ink">Add card</h1>
+function cardContent() {
+  return `<h1 class="t-title c-ink">Add card</h1>
 <div class="card-field">
   ${ICON_CARD}
   <span class="card-field__num">1234 1234 1234 1234</span>
@@ -20,10 +20,19 @@ function renderScreen() {
 </div>
 ${cta('Next', { disabled: true, attrs: 'data-act="next"' })}
 <p class="t-small c-500 sheet__sub">Saved securely — charged only when your tailor confirms the appointment.</p>`;
+}
 
+/** Open the add-card sheet over the live screen (nothing behind re-renders). */
+export function openAddCardOverlay() {
+  sheetOverlay(cardContent(), { dataS: '04b-add-card-sheet' }, (root) => {
+    root.querySelector('[data-act="next"]')?.addEventListener('click', () => { requestTailor(); go('03-finding-tailor'); });
+  });
+}
+
+function renderScreen() {
   return `<div class="screen-sheet" data-s="04b-add-card-sheet">
   <div class="sheet-backdrop" aria-hidden="true">${view02(state)}</div>
-  ${sheet(content)}
+  ${sheet(cardContent())}
 </div>`;
 }
 

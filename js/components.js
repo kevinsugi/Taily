@@ -372,6 +372,42 @@ export function wireSheetA11y(root, dismiss) {
   });
 }
 
+/**
+ * Mount a sheet as an in-place overlay over the CURRENT screen — v3
+ * sheetShow parity: the screen beneath keeps its DOM (nothing re-renders
+ * or moves), the scrim fades in and the sheet slides up from the bottom.
+ * ✕ / scrim clicks, Escape and focus trapping are handled here;
+ * `wireFn(root, close)` binds the sheet's own actions. Returns close().
+ */
+export function sheetOverlay(contentHtml, { header = null, variant = '', dataS = '' } = {}, wireFn) {
+  const screenEl = document.getElementById('screen');
+  // one overlay at a time (a closing one, mid slide-out, doesn't count)
+  if (screenEl.querySelector('.screen-sheet--overlay:not(.is-closing)')) return () => {};
+  const opener = document.activeElement;
+  const holder = document.createElement('div');
+  holder.className = 'screen-sheet screen-sheet--overlay';
+  if (dataS) holder.dataset.s = dataS;
+  holder.innerHTML = sheet(contentHtml, { header, variant, open: false });
+  screenEl.appendChild(holder);
+  const host = holder.querySelector('.sheet-host');
+  requestAnimationFrame(() => requestAnimationFrame(() => { host.dataset.open = 'true'; }));
+  let closing = false;
+  const close = () => {
+    if (closing) return;
+    closing = true;
+    holder.classList.add('is-closing');
+    host.dataset.open = 'false';
+    setTimeout(() => {
+      holder.remove();
+      if (opener?.isConnected) opener.focus();
+    }, 300);
+  };
+  holder.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', close));
+  wireSheetA11y(holder, close);
+  wireFn?.(holder, close);
+  return close;
+}
+
 /** Wheel picker — columns: [{ width, rows: [5 strings] }], middle row selected. */
 export function wheel(columns) {
   const cols = columns.map(({ width, rows }) => `<div class="wheel__col" style="width:${width}px">${

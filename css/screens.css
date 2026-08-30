@@ -19,12 +19,14 @@
 /* The pills overflow the 350 track in Figma and clip at the screen
    edge — don't let flex shrink them. */
 .filters { display: flex; gap: var(--space-8); align-items: flex-start; height: 64px; }
-/* pill widths pinned to the Figma instances (157/138/169) — live text
-   metrics drift a few px and cascade the row positions otherwise */
-.filters > .filter-pill { flex-shrink: 0; height: 100%; }
-.filters > .filter-pill:nth-child(1) { width: 157px; min-width: 157px; }
-.filters > .filter-pill:nth-child(2) { width: 138px; min-width: 138px; }
-.filters > .filter-pill:nth-child(3) { width: 169px; min-width: 169px; }
+/* pill widths FLOORED at the Figma instances (157/138/169) so the
+   static render stays frame-exact, but hugging longer live values
+   (e.g. "Thu, Sept 17 · 6:45 AM" after a wheel pick) instead of
+   clipping them */
+.filters > .filter-pill { flex-shrink: 0; height: 100%; width: max-content; }
+.filters > .filter-pill:nth-child(1) { min-width: 157px; }
+.filters > .filter-pill:nth-child(2) { min-width: 138px; }
+.filters > .filter-pill:nth-child(3) { min-width: 169px; }
 .add-garment {
   width: 100%;
   /* 14.5 + 1.5 border = Figma's 16 inside-stroke padding (frame is 53) */

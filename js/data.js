@@ -146,11 +146,17 @@ export const SEED_UPCOMING = [
     bring: ['The shoes you plan to wear with your garments.'],
     totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
 ];
+/* garments/totals added so the 04d detail view has data to render;
+   itemLines stay the 09 frame's exact card copy. */
 export const SEED_PAST = [
   { name: 'Elena Tailor', initials: 'EA', tailorId: 'elena', where: 'shop', place: '15 West Broadway',
     when: 'Sep 2, 2PM', status: 'Delivered', items: '1 jean · Length', month: 'SEP', day: '2', displayName: 'Marco Tailor',
-    visit: 'Store Visit', count: 1, itemLines: ['1 Jean - Length'] },
+    visit: 'Store Visit', count: 1, itemLines: ['1 Jean - Length'],
+    garments: [{ type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
+    totals: { subtotal: 120, visitFee: 0, total: 120, deposit: 12 } },
   { name: 'Grace Tailor', initials: 'GT', tailorId: 'stitch', where: 'shop', place: '15 West Broadway',
     when: 'Sep 2, 2PM', status: 'Delivered', items: '1 shirt · Length', month: 'SEP', day: '2', displayName: 'Marco Tailor',
-    visit: 'Store Visit', count: 1, displayCount: 2, itemLines: ['1 Shirt - Length'] },
+    visit: 'Store Visit', count: 1, displayCount: 2, itemLines: ['1 Shirt - Length'],
+    garments: [{ type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
+    totals: { subtotal: 120, visitFee: 0, total: 120, deposit: 12 } },
 ];

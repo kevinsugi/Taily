@@ -48,6 +48,18 @@ function renderScreen(s) {
 }
 
 function wire(root) {
+  /* Cards open the appointment's detail (04d); DOM order is upcoming
+     then past, so the index maps straight onto the two lists. Inner
+     buttons (Message / Reschedule / Leave Review) keep their actions. */
+  root.querySelectorAll('.appt-card').forEach((card, i) => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      state.currentAppt = i < state.upcoming.length
+        ? { list: 'upcoming', index: i }
+        : { list: 'past', index: i - state.upcoming.length };
+      go('04d-appointment-complete');
+    });
+  });
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();

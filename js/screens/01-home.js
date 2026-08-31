@@ -115,6 +115,13 @@ export function wire01(root) {
     go('02-appointment-details');
   });
   root.querySelector('[data-act="view-all"]')?.addEventListener('click', () => go('09-bookings'));
+  /* The card itself opens the appointment's detail (04d); its inner
+     buttons (Message / Reschedule) keep their own actions. */
+  root.querySelector('.appt-card')?.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    state.currentAppt = { list: 'upcoming', index: 0 };
+    go('04d-appointment-complete');
+  });
   root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {

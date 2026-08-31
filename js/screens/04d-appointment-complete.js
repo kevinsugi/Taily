@@ -11,8 +11,8 @@ import { JOB_TYPES } from '../data.js';
 
 /* Per-garment price: the appointment's totals.rows when the flow built
    them (bookingLines snapshot), else recomputed from JOB_TYPES — both
-   agree at multiplier 1. */
-function rowPrice(g, rows, i) {
+   agree at multiplier 1. Shared with 04e. */
+export function rowPrice(g, rows, i) {
   if (rows?.[i]?.amount != null) return `$${rows[i].amount}`;
   const amt = Math.round(g.jobs.reduce((s, j) => s + (JOB_TYPES[j]?.price ?? 0), 0)) * g.qty;
   return `$${amt}`;

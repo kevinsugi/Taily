@@ -220,6 +220,10 @@
 /* 04C / 04D - Confirmed & Complete */
 [data-s="04c-appointment-confirmed"],
 [data-s="04d-appointment-complete"] { gap: var(--space-12); }
+/* 04E - Order Summary: the frame carries its own 24 bottom padding and
+   is a short 667 frame — content height, not the 844 floor */
+[data-s="04e-order-summary"] { gap: var(--space-12); padding-bottom: var(--space-24); }
+.screen[data-screen="04e-order-summary"] { min-height: 667px; }
 .summary { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 .summary--tight { gap: var(--space-4); }
 .summary__title { margin: 0; }

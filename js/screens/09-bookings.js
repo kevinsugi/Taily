@@ -7,7 +7,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, apptCard } from '../components.js';
 import { state, openAppt } from '../state.js';
-import { apptMeta, apptActions } from './01-home.js';
+import { apptMeta, apptActions, apptTarget } from './01-home.js';
 
 /** The 09 frames title the lists slightly differently per card. */
 function upcomingCard(a, i) {
@@ -48,18 +48,18 @@ function renderScreen(s) {
 }
 
 function wire(root) {
-  /* Cards open the appointment: ready → pickup options (07), else the
-     detail (04d). DOM order is upcoming then past, so the index maps
-     straight onto the two lists. Inner buttons (Message / Reschedule /
-     Leave Review) keep their actions. */
+  /* Cards open the appointment: ready → pickup options (07),
+     completed → order summary (04e), else the detail (04d). DOM order
+     is upcoming then past, so the index maps straight onto the two
+     lists. Inner buttons (Message / Reschedule / Leave Review) keep
+     their actions. */
   root.querySelectorAll('.appt-card').forEach((card, i) => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('button')) return;
       state.currentAppt = i < state.upcoming.length
         ? { list: 'upcoming', index: i }
         : { list: 'past', index: i - state.upcoming.length };
-      const a = state[state.currentAppt.list][state.currentAppt.index];
-      go(a?.status === 'ready' ? '07-items-ready' : '04d-appointment-complete');
+      go(apptTarget(state[state.currentAppt.list][state.currentAppt.index]));
     });
   });
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {

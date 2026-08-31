@@ -30,6 +30,14 @@ export function apptMeta(a) {
   return map[a.status] ?? a.when;
 }
 
+/** Where a tapped appointment card goes, by status. Shared with 09. */
+export function apptTarget(a) {
+  const s = String(a?.status ?? '').toLowerCase();
+  if (s === 'ready') return '07-items-ready';
+  if (s === 'completed' || s === 'delivered') return '04e-order-summary';
+  return '04d-appointment-complete';
+}
+
 /** Card actions per status (Figma variants). */
 export function apptActions(a) {
   const map = {
@@ -116,13 +124,12 @@ export function wire01(root) {
   });
   root.querySelector('[data-act="view-all"]')?.addEventListener('click', () => go('09-bookings'));
   /* The card itself opens the appointment: ready → pickup options
-     (07), otherwise the detail (04d). Inner buttons (Message /
-     Reschedule) keep their own actions. */
+     (07), completed → order summary (04e), otherwise the detail
+     (04d). Inner buttons (Message / Reschedule) keep their actions. */
   root.querySelector('.appt-card')?.addEventListener('click', (e) => {
     if (e.target.closest('button')) return;
     state.currentAppt = { list: 'upcoming', index: 0 };
-    const a = state.upcoming[0];
-    go(a?.status === 'ready' ? '07-items-ready' : '04d-appointment-complete');
+    go(apptTarget(state.upcoming[0]));
   });
   root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {

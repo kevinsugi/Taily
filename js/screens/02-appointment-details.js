@@ -69,6 +69,32 @@ export function view02(s) {
 }
 
 function wire(root) {
+  /* Filters row: touch/wheel scrolls natively; mouse click-drag scrolls
+     too. A >5px drag suppresses the click so pills don't open sheets
+     mid-drag. */
+  const filters = root.querySelector('.filters');
+  if (filters) {
+    let startX = null; let startScroll = 0; let dragged = false;
+    filters.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      startX = e.clientX;
+      startScroll = filters.scrollLeft;
+      dragged = false;
+    });
+    filters.addEventListener('pointermove', (e) => {
+      if (startX === null) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 5) { dragged = true; filters.setPointerCapture(e.pointerId); }
+      if (dragged) filters.scrollLeft = startScroll - dx;
+    });
+    const endDrag = () => { startX = null; };
+    filters.addEventListener('pointerup', endDrag);
+    filters.addEventListener('pointercancel', endDrag);
+    filters.addEventListener('click', (e) => {
+      if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false; }
+    }, true);
+  }
+
   /* Selector dropdowns (535:1582) — one open at a time; clicking an
      option writes the garment and re-renders; click-away closes. */
   const closeMenus = () => root.querySelectorAll('.selector--open').forEach((el) => el.classList.remove('selector--open'));

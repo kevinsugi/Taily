@@ -15,8 +15,22 @@
 .screen[data-screen="02-appointment-details"] { min-height: 931px; }
 [data-s="02-appointment-details"] { gap: var(--space-16); }
 /* The pills overflow the 350 track in Figma and clip at the screen
-   edge — don't let flex shrink them. */
-.filters { display: flex; gap: var(--space-8); align-items: flex-start; height: 64px; }
+   edge — don't let flex shrink them. The row is its own horizontal
+   scroller (touch/wheel + drag-to-scroll wired in 02): negative
+   margins run the scroll box to the screen edges so scroll-0 renders
+   exactly like the frame's clip; scrollbars hidden. */
+.filters {
+  display: flex;
+  gap: var(--space-8);
+  align-items: flex-start;
+  height: 64px;
+  overflow-x: auto;
+  margin-inline: calc(-1 * var(--space-20));
+  padding-inline: var(--space-20);
+  scrollbar-width: none;
+}
+.filters::-webkit-scrollbar { display: none; }
+.filters > * { flex-shrink: 0; }
 /* pill widths FLOORED at the Figma instances (157/138/169) so the
    static render stays frame-exact, but hugging longer live values
    (e.g. "Thu, Sept 17 · 6:45 AM" after a wheel pick) instead of
@@ -189,6 +203,19 @@
 }
 .card-field .method-row__icon { width: 22px; height: 22px; color: var(--neutral-500); }
 .card-field__num { flex: 1 0 0; min-width: 1px; }
+/* real inputs — placeholders keep the frame's n500 look, entries go ink;
+   MM/YY and CVC pinned to the frame's text widths (53 / 33) */
+.card-field__input {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+}
+.card-field__input::placeholder { color: var(--neutral-500); opacity: 1; }
+.card-field__input:focus { outline: none; }
+.card-field__exp { width: 53px; flex-shrink: 0; }
+.card-field__cvc { width: 33px; flex-shrink: 0; }
 
 /* 04C / 04D - Confirmed & Complete */
 [data-s="04c-appointment-confirmed"],

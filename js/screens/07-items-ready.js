@@ -21,14 +21,21 @@ function optionRow({ id, title, sub, price, selected }) {
 
 function renderScreen(s) {
   const sel = s.ui?.fulfilment ?? 'delivery';
+  /* Dynamic per the appointment currentAppt points at — the Marco seed
+     reproduces the frame's copy verbatim (double space after "for"
+     included, a frame quirk). */
+  const cur = s.currentAppt ?? { list: 'upcoming', index: 0 };
+  const a = s[cur.list]?.[cur.index] ?? s.upcoming[0] ?? {};
+  const first = (a.name ?? 'Marco Tailor').split(' ')[0];
+  const studio = (a.place ?? '1025 Broadway').split(',')[0];
   return `${chrome('home')}
 <div class="body" data-s="07-items-ready">
-  ${statusHero({ pill: false, variant: 'ready', title: 'Your items are ready.', body: 'Marco finished ahead of schedule. Choose how you’d like them back, the balance is settled upon receipt.' })}
-  ${optionRow({ id: 'delivery', title: 'Home delivery', sub: 'Courier service for  88 Leonard St, 4B', price: '$10', selected: sel === 'delivery' })}
-  ${optionRow({ id: 'pickup', title: 'Pickup', sub: 'From Marco’s studio · 1025 Broadway', price: 'Free', selected: sel === 'pickup' })}
+  ${statusHero({ pill: false, variant: 'ready', title: 'Your items are ready.', body: `${first} finished ahead of schedule. Choose how you’d like them back, the balance is settled upon receipt.` })}
+  ${optionRow({ id: 'delivery', title: 'Home delivery', sub: `Courier service for  ${s.contact.street}, ${s.contact.unit}`, price: '$10', selected: sel === 'delivery' })}
+  ${optionRow({ id: 'pickup', title: 'Pickup', sub: `From ${first}’s studio · ${studio}`, price: 'Free', selected: sel === 'pickup' })}
   <div class="actions">
     ${cta('Continue', { attrs: 'data-act="continue"' })}
-    ${cta('Message Marco', { variant: 'secondary', attrs: 'data-act="message"' })}
+    ${cta(`Message ${first}`, { variant: 'secondary', attrs: 'data-act="message"' })}
   </div>
 </div>`;
 }

@@ -347,6 +347,21 @@
   font-weight: 500;
   color: var(--neutral-500);
 }
+/* real input — the placeholder renders exactly like the old hint */
+.composer__input {
+  flex: 1 0 0;
+  min-width: 1px;
+  border: 0;
+  padding: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.composer__input::placeholder { color: var(--neutral-500); opacity: 1; }
+.composer__input:focus { outline: none; }
 .composer__send {
   width: 36px;
   height: 36px;

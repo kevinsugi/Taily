@@ -54,12 +54,20 @@ function wire(root) {
      lists. Inner buttons (Message / Reschedule / Leave Review) keep
      their actions. */
   root.querySelectorAll('.appt-card').forEach((card, i) => {
+    const ref = i < state.upcoming.length
+      ? { list: 'upcoming', index: i }
+      : { list: 'past', index: i - state.upcoming.length };
     card.addEventListener('click', (e) => {
       if (e.target.closest('button')) return;
-      state.currentAppt = i < state.upcoming.length
-        ? { list: 'upcoming', index: i }
-        : { list: 'past', index: i - state.upcoming.length };
-      go(apptTarget(state[state.currentAppt.list][state.currentAppt.index]));
+      state.currentAppt = ref;
+      go(apptTarget(state[ref.list][ref.index]));
+    });
+    card.querySelectorAll('.cta-small').forEach((b) => {
+      if (b.textContent.trim() !== 'Message') return;
+      b.addEventListener('click', () => {
+        state.currentAppt = ref;
+        go('m1-message-tailor');
+      });
     });
   });
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {

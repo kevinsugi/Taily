@@ -131,6 +131,13 @@ export function wire01(root) {
     state.currentAppt = { list: 'upcoming', index: 0 };
     go(apptTarget(state.upcoming[0]));
   });
+  root.querySelectorAll('.appt-card .cta-small').forEach((b) => {
+    if (b.textContent.trim() !== 'Message') return;
+    b.addEventListener('click', () => {
+      state.currentAppt = { list: 'upcoming', index: 0 };
+      go('m1-message-tailor');
+    });
+  });
   root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {

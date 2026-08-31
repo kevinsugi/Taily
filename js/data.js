@@ -137,6 +137,10 @@ export const SEED_UPCOMING = [
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
     garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
+    /* M1's header subline is frame fiction that disagrees with this
+       seed's own when/visit — carried verbatim; other appointments
+       compute theirs. */
+    chatMeta: 'Thu, Jul 9 · 9:30 AM · Home Visit',
     totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
     when: 'Sep 2, 2026', status: 'ready', items: '2 items · Alterations',

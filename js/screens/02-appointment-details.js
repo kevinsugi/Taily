@@ -8,21 +8,23 @@
 import { register, render as go } from '../app.js';
 import { chrome, filterPill, garmentCard, cta } from '../components.js';
 import { JOB_TYPES } from '../data.js';
-import { state, addGarment, bookingLines } from '../state.js';
+import { state, addGarment, removeGarment, bookingLines } from '../state.js';
 /* Sheets open as in-place overlays (v3 sheetShow parity) — navigating to
    the 02a/04a routes would rebuild this screen and flash. The routes
    remain registered for the diff harness. */
 import { openDateTimeOverlay } from './02a-date-time-sheet.js';
+import { openAddressOverlay } from './02b-address-sheet.js';
 import { openPaymentOverlay } from './04a-payment-sheet.js';
 
-/* The frame's placeholder garments (revised Aug 2026): two identical
-   suit jackets, both "Hem / Adjust", two photos each, "$55" placeholder
-   price. Seeded only when the user arrives without building a
-   selection on Home. */
+/* The frame's placeholder garments (re-revised with the Selector
+   rollout): two identical suit jackets, both "Hem / Adjust Length",
+   two photos each, "$55" placeholder price. NB the frame's CTA still
+   reads "$20 Deposit" — stale against its own seeds (2×$120 → $24);
+   we compute honestly. Raised in CLAUDE.md. */
 function ensureGarments() {
   if (state.garments.length) return;
-  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust'], qty: 1, photos: 2, displayPrice: '$55' });
-  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust'], qty: 1, photos: 2, displayPrice: '$55' });
+  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2, displayPrice: '$55' });
+  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2, displayPrice: '$55' });
 }
 
 function priceFor(g) {
@@ -89,6 +91,25 @@ function wire(root) {
       if (trigger.dataset.sel === 'qty') g.qty = Number(v);
       if (trigger.dataset.sel === 'item') g.type = v;
       if (trigger.dataset.sel === 'job') g.jobs[Number(trigger.dataset.ji)] = v;
+      if (trigger.dataset.sel === 'add') g.jobs.push(v);
+      if (trigger.dataset.sel === 'added') g.jobs[Number(trigger.dataset.ji)] = v;
+      go('02-appointment-details', { replace: true });
+    });
+  });
+  /* ✕ on an added-service row drops that service */
+  root.querySelectorAll('[data-remove]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const g = state.garments[Number(btn.dataset.gi)];
+      if (!g) return;
+      g.jobs.splice(Number(btn.dataset.ji), 1);
+      go('02-appointment-details', { replace: true });
+    });
+  });
+  /* ✕ on the card removes the garment */
+  root.querySelectorAll('[data-act="remove-garment"]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      removeGarment(Number(btn.dataset.gi));
       go('02-appointment-details', { replace: true });
     });
   });
@@ -96,6 +117,7 @@ function wire(root) {
 
   root.querySelector('[data-act="time"]')?.addEventListener('click', () => openDateTimeOverlay('appt'));
   root.querySelector('[data-act="needby"]')?.addEventListener('click', () => openDateTimeOverlay('needby'));
+  root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelector('[data-act="request"]')?.addEventListener('click', () => openPaymentOverlay());
   root.querySelector('[data-act="add-garment"]')?.addEventListener('click', () => {
     addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 });

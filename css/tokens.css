@@ -62,6 +62,9 @@
 
   /* ---------- Type sizes · Taily / Type ---------- */
   --size-10: 10px;
+  /* size/11 arrived with the Selector's ADD A SERVICE menu header and
+     the 02B field labels (541:1959, 538:1516) — a Figma variable. */
+  --size-11: 11px;
   --size-12: 12px;
   /* size/14 became a real Figma variable with the Selector component
      (535:1582 menu options bind to it) — the 14px chat bubble now

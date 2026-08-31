@@ -48,6 +48,9 @@ export const state = {
     street: '88 Leonard St',
     unit: '4B',
     zip: '10013',
+    /* 02B address sheet (538:1382) */
+    notes: 'Buzz 4B — entrance is on Leonard St',
+    saveHome: true,
   },
   payMethod: 'card',
   upcoming: clone(SEED_UPCOMING),

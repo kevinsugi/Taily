@@ -8,6 +8,7 @@ import { register, render as go } from '../app.js';
 import { chrome, garmentTile, cta, apptCard } from '../components.js';
 import { GARMENT_TYPES } from '../data.js';
 import { state, addGarment, clearGarments } from '../state.js';
+import { openAddressOverlay } from './02b-address-sheet.js';
 
 const TILE_ORDER = Object.keys(GARMENT_TYPES); // 9 types, Figma order
 
@@ -63,7 +64,7 @@ export function view01(s) {
 <div class="body" data-s="01-home">
   <div class="home-heading">
     <h1 class="t-title t-title--tight c-ink">${anySelected ? 'Tap to Add More Items' : 'What Are We Tailoring?'}</h1>
-    <p class="t-body c-ink"><span class="emoji">📍</span> 88 Leonard St, New York, NY</p>
+    <p class="t-body c-ink home-address" data-act="address" role="button" tabindex="0"><span class="emoji">📍</span> <span data-addr-text>${s.contact.street}, ${s.userLoc}</span></p>
   </div>
   <div class="tile-grid">${tiles}</div>
   ${cta('Start Booking', { attrs: 'data-act="start-booking"' })}
@@ -100,6 +101,7 @@ export function wire01(root) {
     go('02-appointment-details');
   });
   root.querySelector('[data-act="view-all"]')?.addEventListener('click', () => go('09-bookings'));
+  root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();

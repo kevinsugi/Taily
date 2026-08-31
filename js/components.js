@@ -79,7 +79,7 @@ export function chrome(active = 'home', time = '9:41') {
    ============================================================ */
 
 import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, CHEVRON_RIGHT, ICON_CARD, ICON_ADD_CIRCLE } from './icons.js';
-import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES } from './data.js';
+import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
 export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
@@ -285,6 +285,22 @@ export function selector(type, value, options = [], { attrs = '', chevron = true
   return `<span class="selector selector--${type}"><button type="button" class="selector__trigger" ${attrs}>${value}${chevron ? SELECTOR_CHEVRON : ''}</button>${menu}</span>`;
 }
 
+/**
+ * Selector Type=Additional (541:1951/1975/1983). Without `value`: the
+ * "⊕ Additional Service" trigger. With `value`: the added-service row —
+ * accent label + chevron + ✕ remove. Both open the priced ADD A SERVICE
+ * menu (prices from JOB_TYPES).
+ */
+export function additionalSelector({ value = null, attrs = '' } = {}) {
+  const rows = ADD_SERVICES.map((s) =>
+    `<button type="button" class="selector__option" data-option="${s}">${s}<span class="selector__price">+$${JOB_TYPES[s].price}</span></button>`).join('');
+  const menu = `<div class="selector__menu"><span class="selector__menu-header">ADD A SERVICE</span>${rows}</div>`;
+  const trigger = value === null
+    ? `<button type="button" class="selector__trigger selector__trigger--add" ${attrs}>${ICON_ADD_CIRCLE}<span>Additional Service</span></button>`
+    : `<button type="button" class="selector__trigger" ${attrs}>${value}${SELECTOR_CHEVRON}</button><button type="button" class="selector__remove" data-remove ${attrs} aria-label="Remove ${value}">✕</button>`;
+  return `<span class="selector selector--job selector--additional${value !== null ? ' selector--added' : ''}">${trigger}${menu}</span>`;
+}
+
 export function garmentCard({
   variant = 'Default', type = 'Suit Jacket', qty = 1, price = null,
   services = ['Hem / Adjust Length'], photos = 0, beforePhotos = 0, pinnedPhotos = 0,
@@ -305,12 +321,14 @@ export function garmentCard({
   let rows;
   if (editable) {
     const gi = index === null ? '' : ` data-gi="${index}"`;
+    const [primary, ...added] = services;
     rows = `<div class="garment-card__row">
       ${selector('quantity', String(qty), ['1', '2', '3', '4', '5'], { attrs: `data-sel="qty"${gi}` })}
       ${selector('item', type, Object.keys(GARMENT_TYPES), { attrs: `data-sel="item"${gi}` })}
     </div>
-    ${services.map((s, j) => `<div class="garment-card__service">${selector('job', s, Object.keys(JOB_TYPES), { attrs: `data-sel="job" data-ji="${j}"${gi}`, chevron: false })}</div>`).join('')}
-    <button type="button" class="garment-card__add">${ICON_ADD_CIRCLE}<span>Additional Service</span></button>`;
+    <div class="garment-card__service">${selector('job', primary, Object.keys(JOB_TYPES), { attrs: `data-sel="job" data-ji="0"${gi}` })}</div>
+    ${added.map((s, j) => `<div class="garment-card__service">${additionalSelector({ value: s, attrs: `data-sel="added" data-ji="${j + 1}"${gi}` })}</div>`).join('')}
+    ${additionalSelector({ attrs: `data-sel="add"${gi}` })}`;
   } else {
     rows = `<div class="garment-card__row garment-card__row--tight">
       <span>${qty}</span><span>${type}</span>
@@ -332,7 +350,7 @@ export function garmentCard({
     tiles = `<div class="photo-row">${group('Before:', beforePhotos)}${group('Pinned:', pinnedPhotos)}</div>`;
   }
 
-  const close = editable ? `<button type="button" class="garment-card__close" aria-label="Remove garment">✕</button>` : '';
+  const close = editable ? `<button type="button" class="garment-card__close" data-act="remove-garment"${index === null ? '' : ` data-gi="${index}"`} aria-label="Remove garment">✕</button>` : '';
 
   return `<article class="garment-card${editable ? '' : ' garment-card--view'}">
   ${chip}

@@ -31,17 +31,22 @@ export const GARMENT_TYPES = {
 
 /* Baseline service prices — each tailor applies their own multiplier; all shown as "$N+" minimums */
 export const JOB_TYPES = {
-  /* Added Aug 2026: the revised 02 frame seeds both placeholder cards
-     with "Hem / Adjust" (not a v3 key). Priced so the two seeded
-     garments still sum to $200 → the frame's "$20 Deposit (10%)". */
-  'Hem / Adjust': { price: 100 },
   'Hem / Adjust Length': { price: 120 },
   'Sleeve / Adjust Length': { price: 80 },
   'Taper / Slim Fit': { price: 90 },
   'Resize': { price: 110 },
   'Repair': { price: 60 },
   'Alterations': { price: 100 },
+  /* Added Aug 2026 for the Selector Type=Additional menu (541:1975) —
+     short names + prices straight from the frame. NB "Taper +$24"
+     disagrees with 'Taper / Slim Fit' $90; raised, kept per Figma. */
+  'Taper': { price: 24 },
+  'Sleeve': { price: 80 },
+  'Lining': { price: 45 },
 };
+
+/* Selector Type=Additional menu rows (541:1975), in frame order. */
+export const ADD_SERVICES = ['Taper', 'Sleeve', 'Resize', 'Repair', 'Lining'];
 
 export const DEPOSIT_RATE = 0.10; // deposit = 10% of estimated minimum, credited toward the total
 

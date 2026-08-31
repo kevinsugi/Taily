@@ -67,6 +67,92 @@
 .screen[data-screen="09-bookings"] { min-height: 1212px; }
 [data-s="09-bookings"] { gap: var(--space-12); }
 
+/* 02B - Address Sheet (538:1382). Frame scrim is ink@0.6 — heavier
+   than every other sheet's 0.4 (raised, built as drawn). */
+[data-s="02b-address-sheet"] .sheet-scrim,
+[data-s="02b-address-sheet"] .sheet-host[data-open="true"] .sheet-scrim { opacity: 0.6; }
+[data-s="02b-address-sheet"] .sheet-host[data-open="false"] .sheet-scrim { opacity: 0; }
+.addr-head { display: flex; flex-direction: column; gap: var(--space-4); }
+.addr-sub {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  line-height: 18px;
+  font-weight: 400;
+  color: var(--neutral-500);
+}
+.field-group { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.field-row { display: flex; gap: var(--space-12); width: 100%; }
+.field-row .field-group { flex: 1 0 0; min-width: 1px; }
+.field-label {
+  font-family: var(--font-sans);
+  font-size: var(--size-11);
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--neutral-500);
+  white-space: nowrap;
+}
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--neutral-200);
+}
+.field--notes { padding-bottom: 28px; align-items: flex-start; }
+.field__icon { width: 20px; height: 20px; flex-shrink: 0; color: var(--neutral-500); }
+.field__input {
+  flex: 1 0 0;
+  min-width: 1px;
+  border: 0;
+  padding: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.field__input:focus { outline: none; }
+.addr-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ink);
+}
+/* 44×24 ink pill, 20px white knob right (538:1537); off = n300, knob left */
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  flex-shrink: 0;
+  transition: background-color 150ms ease;
+}
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 22px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--white);
+  transition: left 180ms var(--ease-out);
+}
+.toggle--off { background: var(--neutral-300); }
+.toggle--off::after { left: 2px; }
+.addr-note { text-align: center; width: 100%; }
+
 /* 04A - Payment Method Sheet */
 .sheet__sub { width: 100%; }
 /* 04b's footnote is centred in the frame; 04a's sits left */

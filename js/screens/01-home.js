@@ -7,7 +7,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, garmentTile, cta, apptCard } from '../components.js';
 import { GARMENT_TYPES } from '../data.js';
-import { state, addGarment, clearGarments } from '../state.js';
+import { state, addGarment } from '../state.js';
 import { openAddressOverlay } from './02b-address-sheet.js';
 
 const TILE_ORDER = Object.keys(GARMENT_TYPES); // 9 types, Figma order
@@ -92,12 +92,26 @@ export function wire01(root) {
     });
   });
   root.querySelector('[data-act="start-booking"]')?.addEventListener('click', () => {
-    // v3 startBooking: selection -> garments with the default job
+    /* v3 startBooking, but reconciling instead of rebuilding: garments
+       customised on 02 (services, qty, photos) survive the
+       "+ Additional Garment" round-trip. Tile counts are the truth —
+       top up with default-job cards, trim from the last card of a
+       type, drop deselected types. */
     const sel = selection();
-    clearGarments();
-    for (const [type, qty] of Object.entries(sel)) {
-      if (qty > 0) addGarment({ type, jobs: ['Hem / Adjust Length'], qty, photos: 0 });
+    for (const [type, want] of Object.entries(sel)) {
+      if (want <= 0) continue;
+      let have = state.garments.filter((g) => g.type === type).reduce((s, g) => s + g.qty, 0);
+      if (want > have) addGarment({ type, jobs: ['Hem / Adjust Length'], qty: want - have, photos: 0 });
+      for (let i = state.garments.length - 1; i >= 0 && have > want; i--) {
+        const g = state.garments[i];
+        if (g.type !== type) continue;
+        const cut = Math.min(g.qty, have - want);
+        g.qty -= cut;
+        have -= cut;
+        if (!g.qty) state.garments.splice(i, 1);
+      }
     }
+    state.garments = state.garments.filter((g) => (sel[g.type] ?? 0) > 0);
     go('02-appointment-details');
   });
   root.querySelector('[data-act="view-all"]')?.addEventListener('click', () => go('09-bookings'));

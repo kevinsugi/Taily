@@ -106,11 +106,18 @@ function wire(root) {
       go('02-appointment-details', { replace: true });
     });
   });
-  /* ✕ on the card removes the garment */
+  /* ✕ on the card removes the garment; removing the LAST one returns
+     to Home with nothing selected */
   root.querySelectorAll('[data-act="remove-garment"]').forEach((btn) => {
     btn.addEventListener('click', () => {
       removeGarment(Number(btn.dataset.gi));
-      go('02-appointment-details', { replace: true });
+      if (!state.garments.length) {
+        state.ui ??= {};
+        state.ui.homeSelection = {};
+        go('01-home');
+      } else {
+        go('02-appointment-details', { replace: true });
+      }
     });
   });
   root.addEventListener('click', closeMenus);
@@ -120,8 +127,15 @@ function wire(root) {
   root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelector('[data-act="request"]')?.addEventListener('click', () => openPaymentOverlay());
   root.querySelector('[data-act="add-garment"]')?.addEventListener('click', () => {
-    addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 });
-    go('02-appointment-details', { replace: true });
+    /* back to Home to pick more tiles — the tile badges mirror the
+       current garments, and Start Booking reconciles (01-home.js) so
+       card customisations survive the round-trip */
+    state.ui ??= {};
+    state.ui.homeSelection = state.garments.reduce((m, g) => {
+      m[g.type] = (m[g.type] ?? 0) + g.qty;
+      return m;
+    }, {});
+    go('01-home');
   });
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {

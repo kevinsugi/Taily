@@ -982,8 +982,9 @@
   background: var(--white);
   color: var(--ink);
   font-family: var(--font-sans);
-  font-size: var(--size-14);
-  line-height: 18px;
+  /* refine r1: master moved 14 → 16 (Chat Bubble 514:934) */
+  font-size: var(--size-16);
+  line-height: 21px;
   font-weight: 400;
 }
 .bubble--me { background: var(--ink); color: var(--white); }

@@ -6,7 +6,8 @@
 
 /* 01 - Home — sections stack at 16 (measured); heading is its own
    8-gap group. */
-[data-s="01-home"] { gap: var(--space-16); }
+/* refine r1: 40 bottom padding under the appointment card */
+[data-s="01-home"] { gap: var(--space-16); padding-bottom: var(--space-40); }
 .home-heading { display: flex; flex-direction: column; gap: var(--space-8); }
 .upcoming-header { display: flex; align-items: center; justify-content: space-between; }
 
@@ -301,7 +302,9 @@
 .actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 
 /* M1 - Message Tailor: inner pad 20/20/24, gap 12 */
-[data-s="m1-message-tailor"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+/* refine r1: chat pulled up under the nav — offset 128+20 → 104+4 —
+   and the column gap went 12 → 16 */
+[data-s="m1-message-tailor"] { padding-top: calc(104px + var(--space-4)); padding-bottom: var(--space-24); gap: var(--space-16); }
 .chat-head { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
 .chat-head__back {
   font-family: var(--font-sans);
@@ -477,9 +480,10 @@
 }
 .center { text-align: center; }
 
+/* refine r1: the M1 frame grew to 1103 */
+.screen[data-screen="m1-message-tailor"] { min-height: 1103px; }
 /* 4B body frames are 872 tall */
 .screen[data-screen="03-finding-tailor"],
-.screen[data-screen="m1-message-tailor"],
 .screen[data-screen="06-order-status"],
 .screen[data-screen="07-items-ready"],
 .screen[data-screen="07a-pickup-window"],

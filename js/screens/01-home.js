@@ -78,7 +78,6 @@ export function view01(s) {
   ${cta('Start Booking', { attrs: 'data-act="start-booking"' })}
   <div class="upcoming-header">
     <span class="t-section c-500">Upcoming Appointments</span>
-    <button type="button" class="t-section c-accent-ink" data-act="view-all">View All</button>
   </div>
   ${card}
 </div>`;
@@ -122,7 +121,6 @@ export function wire01(root) {
     state.garments = state.garments.filter((g) => (sel[g.type] ?? 0) > 0);
     go('02-appointment-details');
   });
-  root.querySelector('[data-act="view-all"]')?.addEventListener('click', () => go('09-bookings'));
   /* The card itself opens the appointment: ready → pickup options
      (07), completed → order summary (04e), otherwise the detail
      (04d). Inner buttons (Message / Reschedule) keep their actions. */

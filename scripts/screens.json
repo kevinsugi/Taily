@@ -25,8 +25,8 @@
     "m1-message-tailor": "282:1239"
   },
   "baselines": {
-    "01-home": 0.56,
-    "01a-home-selected": 0.59,
+    "01-home": 0.52,
+    "01a-home-selected": 0.56,
     "02-appointment-details": 1,
     "02a-date-time-sheet": 0.55,
     "02b-address-sheet": 0.15,
@@ -44,6 +44,6 @@
     "07b-delivery-options": 0.31,
     "08-journey-complete": 0.2,
     "09-bookings": 0.33,
-    "m1-message-tailor": 0.38
+    "m1-message-tailor": 0.39
   }
 }

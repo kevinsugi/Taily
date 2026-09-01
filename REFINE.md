@@ -10,17 +10,19 @@ One round by Kevin's call: total blast radius is three refs (m1, 01, 01a) across
 independent screen groups, and the four changes are visually disjoint, so per-item
 attribution inside the diff images stays easy.
 
-- [ ] **M1 — message font size → 16** — **C**: lands in `css/components.css`
+- [x] **M1 — message font size → 16** — **C**: lands in `css/components.css`
       (`.bubble`, T2 / Chat Bubble master, currently `--size-14` → `--size-16`).
       Blast: **m1 only** — `bubble()` renders solely in `js/screens/m1-message-tailor.js`
       (+ the `components.html` gallery crop; verify there first, per the C rule).
       Also retires the "bubble 14 off-scale" note lineage in CLAUDE.md.
-- [ ] **M1 — reduce padding between tailor details and header bar** — **S**:
+- [x] **M1 — reduce padding between tailor details and header bar** — **S**:
       per-screen top-offset override in `screens.css` (like 03/06 have). Blast: **m1**.
-- [ ] **01 & 01a — bottom padding** — **S**: scoped `[data-s="01-home"]` rule;
+      (Frame audit also picked up: body gap 12 → 16, frame height 872 → 1103, and an
+      accidental 4px chrome nudge — frame paddingTop 4 — zeroed in Figma, raised below.)
+- [x] **01 & 01a — bottom padding** — **S**: scoped `[data-s="01-home"]` rule;
       `.body` deliberately has no global bottom padding. Blast: **01 + 01a**
       (one view, two refs — both baselines re-accepted).
-- [ ] **01 & 01a — remove "View All"** — **S**: markup removal in `view01()`
+- [x] **01 & 01a — remove "View All"** — **S**: markup removal in `view01()`
       (its → 09 click handler goes with it; click-through never asserted it, so no B).
       Blast: **01 + 01a**.
 

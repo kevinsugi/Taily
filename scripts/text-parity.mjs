@@ -39,9 +39,15 @@ const STALE_DEPOSIT = 'Request Tailor · $20 Deposit (10%)';
 const ALLOW = {
   '02-appointment-details': [STALE_DEPOSIT],
   '02a-date-time-sheet': [STALE_DEPOSIT],
-  '02b-address-sheet': [STALE_DEPOSIT],
+  // Phase R0: 02B's frame still draws the PRE-R0 02 behind its scrim
+  // (Address pill, old header) — the build shows the live view02().
+  '02b-address-sheet': [STALE_DEPOSIT, 'Address:', '88 Leonard St, 4B'],
   '04a-payment-sheet': [STALE_DEPOSIT],
   '04b-add-card-sheet': [STALE_DEPOSIT],
+  // Phase R0: the 09 frame moved the Marco card to JUL 12 while 01's
+  // frame still shows AUG 29 — one seed feeds both cards, so the build
+  // keeps 01's date. Raised in CLAUDE.md.
+  '09-bookings': ['JUL', '12', 'Appt Date: Jul 12, 7PM'],
 };
 
 /* ---------- token (same conventions as export-refs.mjs) ---------- */

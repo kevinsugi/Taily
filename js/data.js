@@ -135,13 +135,18 @@ export const SEED_UPCOMING = [
     when: 'Aug 29, 7PM', status: 'confirmed', items: '3 items · Alterations',
     visit: 'Store Visit', count: 3, month: 'AUG', day: '29',
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
-    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
+    /* Phase R0: the seed carries the POST-appointment modified order
+       (06B fiction — a third Suit Jacket + an added $80 service):
+       booked at $200, confirmed at $360, deposit still 10% of the
+       original $200. 04D/04E render this; 04C/05/06A keep their own
+       pre-modification frame fixtures. */
+    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     /* M1's header subline is frame fiction that disagrees with this
        seed's own when/visit — carried verbatim; other appointments
        compute theirs. */
     chatMeta: 'Thu, Jul 9 · 9:30 AM · Home Visit',
-    totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
+    totals: { subtotal: 360, visitFee: 0, total: 360, deposit: 20 } },
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
     when: 'Sep 2, 2026', status: 'ready', items: '2 items · Alterations',
     visit: 'Home Visit', count: 2, month: 'SEP', day: '2',

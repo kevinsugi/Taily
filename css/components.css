@@ -212,7 +212,10 @@
   padding: var(--space-8) var(--space-12);
   border-radius: var(--radius-sm);
   background: var(--white);
-  box-shadow: inset 0 0 0 1px var(--neutral-300);
+  /* Phase R0: the master now includes its 1px stroke in layout (box is
+     39 tall, text inset 13/9) — a real border, unlike the other
+     inside-stroke components. */
+  border: 1px solid var(--neutral-300);
   font-family: var(--font-sans);
   /* value text is 16px in the frames (labels stay 12) */
   font-size: var(--size-16);
@@ -659,6 +662,22 @@
 }
 .garment-card__row--tight { gap: var(--space-12); }
 .garment-card__service { display: flex; align-items: center; gap: var(--space-8); }
+/* View variants render services as plain text — Medium 16 accent-ink
+   per the master (editable variants style their own selectors).
+   Phase R0: was unstyled and inherited body ink; every summary
+   screen's ref shows accent. */
+.garment-card--view .garment-card__service {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--accent-ink);
+}
+/* Phase R0 (06B): items added/changed at order confirmation */
+.garment-card--view .garment-card__service--info { color: var(--info); }
+.garment-card__price--info { color: var(--info); }
+.garment-card--info .garment-card__row,
+.garment-card--info .photo-tiles__label { color: var(--info); }
 
 /* ---------- Selector — Figma 535:1582 ----------
    Inline dropdown in garment cards. Quantity/Item triggers SemiBold 16
@@ -1065,8 +1084,10 @@
 }
 .info-card__heading {
   font-family: var(--font-sans);
-  font-size: var(--size-12);
-  line-height: 16px;
+  /* Phase R0 (08): heading moved 12 → 16, +1px tracking kept */
+  font-size: var(--size-16);
+  line-height: 21px;
+  letter-spacing: 1px;
   font-weight: 600;
   color: var(--neutral-500);
 }
@@ -1085,7 +1106,8 @@
   color: var(--neutral-500);
 }
 .info-row--small { font-size: var(--size-12); line-height: 16px; }
-.info-row--total { font-weight: 600; color: var(--ink); }
+/* Phase R0: 08's total row is Hanken Bold in the frame */
+.info-row--total { font-weight: 700; color: var(--ink); }
 
 /* glyph-prefixed meta row: ◉ ▤ ✂ at 12 + 16 Medium n500 text */
 .meta-row {
@@ -1126,6 +1148,11 @@
   font-weight: 600;
   color: var(--neutral-500);
 }
+/* Phase R0: rows above the last carry a bottom hairline — inset so the
+   41/62 row heights hold (the stroke is not in Figma's layout). */
+.fee-row--line { box-shadow: inset 0 -1px 0 var(--bottom-border); }
+/* Phase R0 (06B): totals touched by the modified order */
+.fee-row--info .fee-row__price { color: var(--info); }
 
 /* ---------- motion accessibility for this slab ---------- */
 @media (prefers-reduced-motion: reduce) {

@@ -314,3 +314,39 @@ Done when: all tailor screens ≤1%, the two-persona loop passes, commit and mer
 - Screen height differs from ref → a hug/auto-layout gap or padding-bottom mismatch; compare the body's gap and the last child's margin.
 - Colors slightly off → an unbound Figma fill got read as a raw hex; fix in Figma, re-export refs, rebuild.
 - Claude Code "cleaned up" a spacing → point it at CLAUDE.md rule 1 and revert; the rule is px-for-px.
+
+---
+
+## Phase R-tooling — refinement harness (build before the first refinement round)
+
+```
+Read CLAUDE.md and the "Phase R" section of PROTOTYPE-PLAN.md. This session builds the refinement harness only — no
+screen or design changes. Three pieces:
+
+1. Ratchet baselines. Run `npm run diff -- all` and record each screen's current mismatch % into scripts/screens.json as a
+   `baseline` field (keep node ids as they are). Change scripts/diff.mjs so the pass condition per screen is
+   mismatch ≤ baseline + 0.1 (not a flat 1%). Add a `--accept` flag: `npm run diff -- <id> --accept` re-runs that screen
+   and writes its new mismatch as the baseline. Print a table: id, mismatch, baseline, PASS/FAIL, height delta.
+2. `npm run check` (scripts/check.mjs): runs, in order, diff -- all → text parity for ALL 17 screens (Figma text nodes in
+   document order vs rendered innerText; reuse whatever the Phase 5 sweep used, or implement it) → scripts/clickthrough.mjs
+   → grep for literal hex colors and px font-sizes outside css/tokens.css and css/base.css. Prints one summary block and
+   exits 1 on any failure. Must run start-to-finish in under two minutes.
+3. `npm run refs:check` (scripts/refs-check.mjs): for each ref/<id>.png, load the committed version (`git show HEAD:ref/<id>.png`)
+   and the working-tree version, pixelmatch them, and print only screens that visually differ with their % — never compare
+   bytes. Exit 1 if any screen differs, so it can be used as a guard.
+
+Then: `git tag proto-v1`, confirm `git status` shows ref/ clean, run `npm run check` once and paste the output, and update
+CLAUDE.md's workflow line to: "per round: npm run refs → npm run refs:check → code → npm run diff -- <id> --accept for
+intended screens → npm run check → commit". Commit "chore: refinement harness (baselines, check, refs:check)".
+```
+
+## Phase R0 — Intake
+
+```
+Read the "Phase R" section of PROTOTYPE-PLAN.md. I'm going to paste a list of refinements. Create REFINE.md as a checklist,
+classify each item T / C / S / B / N with a one-line reason, note its blast radius (which screens — grep js/screens/ for the
+component render functions where relevant), and group the items into rounds in dependency order (T before C before S where
+they actually depend on each other; unrelated S items can be their own light round). Show me the grouping before writing
+the file. Don't change any code.
+Items: <paste>
+```

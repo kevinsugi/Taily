@@ -305,6 +305,11 @@ export function garmentCard({
   variant = 'Default', type = 'Suit Jacket', qty = 1, price = null,
   services = ['Hem / Adjust Length'], photos = 0, beforePhotos = 0, pinnedPhotos = 0,
   index = null,
+  /* Phase R0 (06B): items added/changed at order confirmation render
+     semantic/info. added=true paints the whole card (new garment);
+     a services entry may be { label, added } for one added service;
+     priceInfo=true paints just the price (a total that changed). */
+  added = false, priceInfo = false,
 } = {}) {
   const editable = variant === 'Default' || variant === 'WithPhoto';
   // Card art: ref-rendered raster when we have one (matches Figma's
@@ -316,7 +321,7 @@ export function garmentCard({
     : GARMENT_ICONS[type]
       ? `<span class="garment-card__artbox"><img class="garment-card__art" src="${GARMENT_ICONS[type]}" alt="${type}"></span>`
       : '';
-  const chip = `<div class="garment-card__chip">${art}${price != null ? `<span class="garment-card__price">${price}</span>` : ''}</div>`;
+  const chip = `<div class="garment-card__chip">${art}${price != null ? `<span class="garment-card__price${(priceInfo || added) ? ' garment-card__price--info' : ''}">${price}</span>` : ''}</div>`;
 
   let rows;
   if (editable) {
@@ -333,7 +338,7 @@ export function garmentCard({
     rows = `<div class="garment-card__row garment-card__row--tight">
       <span>${qty}</span><span>${type}</span>
     </div>
-    ${services.map((s) => `<div class="garment-card__service">${s}</div>`).join('')}`;
+    ${services.map((s) => `<div class="garment-card__service${(s.added || added) ? ' garment-card__service--info' : ''}">${s.label ?? s}</div>`).join('')}`;
   }
 
   let tiles = '';
@@ -352,7 +357,7 @@ export function garmentCard({
 
   const close = editable ? `<button type="button" class="garment-card__close" data-act="remove-garment"${index === null ? '' : ` data-gi="${index}"`} aria-label="Remove garment">✕</button>` : '';
 
-  return `<article class="garment-card${editable ? '' : ' garment-card--view'}">
+  return `<article class="garment-card${editable ? '' : ' garment-card--view'}${added ? ' garment-card--info' : ''}">
   ${chip}
   <div class="garment-card__content">
     ${rows}
@@ -575,7 +580,9 @@ export function metaRow(glyph, text) {
   return `<div class="meta-row"><span class="meta-row__glyph">${glyph}</span><span>${text}</span></div>`;
 }
 
-/** Fee/deposit row (04c/04d/05/06a). Long descriptions wrap. */
-export function feeRow(price, desc) {
-  return `<div class="fee-row"><span class="fee-row__price">${price}</span><span class="fee-row__desc">${desc}</span></div>`;
+/** Fee/deposit row (04c/04d/05/06a/06b). Long descriptions wrap.
+    line: bottom hairline (Phase R0 — every row but the last).
+    info: semantic/info price (06B — totals touched by the modified order). */
+export function feeRow(price, desc, { line = false, info = false } = {}) {
+  return `<div class="fee-row${line ? ' fee-row--line' : ''}${info ? ' fee-row--info' : ''}"><span class="fee-row__price">${price}</span><span class="fee-row__desc">${desc}</span></div>`;
 }

@@ -65,15 +65,12 @@ function wireForm(root, onSave) {
   });
 }
 
-/** Open the address form over the live screen (01's address line or 02's pill). */
+/** Open the address form over the live screen (the 01/02 address line). */
 export function openAddressOverlay() {
   sheetOverlay(formContent(state.contact), { dataS: '02b-address-sheet' }, (root, close) => {
     wireForm(root, () => {
-      /* update the opener's live DOM in place — no re-render flash */
-      const pill = document.querySelector('#screen [data-act="address"].filter-pill__box');
-      if (pill?.firstChild?.nodeType === Node.TEXT_NODE) {
-        pill.firstChild.nodeValue = `${state.contact.street}, ${state.contact.unit}`;
-      }
+      /* update the opener's live DOM in place — no re-render flash
+         (01 and 02 both render the heading address as [data-addr-text]) */
       const homeLine = document.querySelector('#screen [data-addr-text]');
       if (homeLine) homeLine.textContent = `${state.contact.street}, ${state.userLoc}`;
       close();

@@ -1,6 +1,7 @@
 /* ============================================================
    02 - Appointment Details — Figma 277:2676.
-   Title + three filter pills + garment cards + dashed add-garment +
+   Heading+address group (mirrors 01, opens the 02b sheet) + two
+   full-width filter pills + garments group (label 8 over the cards) +
    CTA bar (top hairline, CTA with live deposit, disclaimer).
    Sections stack at gap 16.
    ============================================================ */
@@ -52,15 +53,21 @@ export function view02(s) {
 
   return `${chrome('home')}
 <div class="body" data-s="02-appointment-details">
-  <h1 class="t-title c-ink">Appointment Details</h1>
+  <div class="home-heading">
+    <h1 class="t-title t-title--tight c-ink">Appointment Details</h1>
+    <p class="t-body c-ink home-address" data-act="address" role="button" tabindex="0"><span class="emoji">📍</span> <span data-addr-text>${contact.street}, ${s.userLoc}</span></p>
+  </div>
   <div class="filters">
     ${filterPill('Requested time:', appt.when, { attrs: 'data-act="time"' })}
     ${filterPill('Need by:', appt.needBy, { attrs: 'data-act="needby"' })}
-    ${filterPill('Address:', `${contact.street}, ${contact.unit}`, { attrs: 'data-act="address"' })}
   </div>
-  <p class="t-body w-600 c-ink">Garments:</p>
-  ${cards}
-  <button type="button" class="add-garment" data-act="add-garment">+ Additional Garment</button>
+  <div class="garments">
+    <p class="t-body w-600 c-ink">Garments:</p>
+    <div class="garments__cards">
+      ${cards}
+      <button type="button" class="add-garment" data-act="add-garment">+ Additional Garment</button>
+    </div>
+  </div>
   <div class="cta-bar">
     ${cta(`Request Tailor · $${totals.deposit} Deposit (10%)`, { attrs: 'data-act="request"' })}
     <p class="t-small c-500 cta-bar__note">A Taily-certified tailor near you will accept your request — final pricing is confirmed at your appointment.</p>
@@ -69,32 +76,6 @@ export function view02(s) {
 }
 
 function wire(root) {
-  /* Filters row: touch/wheel scrolls natively; mouse click-drag scrolls
-     too. A >5px drag suppresses the click so pills don't open sheets
-     mid-drag. */
-  const filters = root.querySelector('.filters');
-  if (filters) {
-    let startX = null; let startScroll = 0; let dragged = false;
-    filters.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'mouse') return;
-      startX = e.clientX;
-      startScroll = filters.scrollLeft;
-      dragged = false;
-    });
-    filters.addEventListener('pointermove', (e) => {
-      if (startX === null) return;
-      const dx = e.clientX - startX;
-      if (Math.abs(dx) > 5) { dragged = true; filters.setPointerCapture(e.pointerId); }
-      if (dragged) filters.scrollLeft = startScroll - dx;
-    });
-    const endDrag = () => { startX = null; };
-    filters.addEventListener('pointerup', endDrag);
-    filters.addEventListener('pointercancel', endDrag);
-    filters.addEventListener('click', (e) => {
-      if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false; }
-    }, true);
-  }
-
   /* Selector dropdowns (535:1582) — one open at a time; clicking an
      option writes the garment and re-renders; click-away closes. */
   const closeMenus = () => root.querySelectorAll('.selector--open').forEach((el) => el.classList.remove('selector--open'));

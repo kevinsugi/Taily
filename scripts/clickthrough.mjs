@@ -82,9 +82,11 @@ await assertAt('tailor accepts', '04c-appointment-confirmed', 'confirmed');
 await page.evaluate(() => window.Taily.render('05-appointment-reminder'));
 await assertAt('reminder fires (confirmed)', '05-appointment-reminder', 'confirmed');
 await page.click('[data-act="confirm"]');             // appointment happens
-await assertAt('appointment done', '06-order-status', 'awaiting-approval');
-await page.click('.timeline');
-await assertAt('open final order', '06a-review-approve', 'awaiting-approval');
+// Phase R0: 06 - Order Status was deleted; 04D (Appointment Status)
+// takes its place, and tapping the order opens the modified review (06B).
+await assertAt('appointment done', '04d-appointment-complete', 'awaiting-approval');
+await page.click('[data-act="review"]');
+await assertAt('open final order', '06b-review-approve-modified', 'awaiting-approval');
 await page.click('[data-act="approve"]');
 await assertAt('approve order', '07-items-ready', 'ready-for-pickup');
 await page.click('[data-opt="pickup"]');

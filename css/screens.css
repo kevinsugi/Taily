@@ -15,31 +15,14 @@
    the CTA bar; Filters frame is fixed 64 with 52px of content. */
 .screen[data-screen="02-appointment-details"] { min-height: 931px; }
 [data-s="02-appointment-details"] { gap: var(--space-16); }
-/* The pills overflow the 350 track in Figma and clip at the screen
-   edge — don't let flex shrink them. The row is its own horizontal
-   scroller (touch/wheel + drag-to-scroll wired in 02): negative
-   margins run the scroll box to the screen edges so scroll-0 renders
-   exactly like the frame's clip; scrollbars hidden. */
-.filters {
-  display: flex;
-  gap: var(--space-8);
-  align-items: flex-start;
-  height: 64px;
-  overflow-x: auto;
-  margin-inline: calc(-1 * var(--space-20));
-  padding-inline: var(--space-20);
-  scrollbar-width: none;
-}
-.filters::-webkit-scrollbar { display: none; }
-.filters > * { flex-shrink: 0; }
-/* pill widths FLOORED at the Figma instances (157/138/169) so the
-   static render stays frame-exact, but hugging longer live values
-   (e.g. "Thu, Sept 17 · 6:45 AM" after a wheel pick) instead of
-   clipping them */
-.filters > .filter-pill { flex-shrink: 0; height: 100%; width: max-content; }
-.filters > .filter-pill:nth-child(1) { min-width: 157px; }
-.filters > .filter-pill:nth-child(2) { min-width: 138px; }
-.filters > .filter-pill:nth-child(3) { min-width: 169px; }
+/* Phase R0: two pills split the 350 track 1:1 (171 each, gap 8) —
+   the row no longer scrolls. */
+.filters { display: flex; gap: var(--space-8); align-items: flex-start; }
+.filters > .filter-pill { flex: 1; min-width: 0; }
+/* Garments group — label sits 8 over the card stack; cards + the
+   dashed add-garment keep the 16 rhythm (550:5262). */
+.garments { display: flex; flex-direction: column; gap: var(--space-8); }
+.garments__cards { display: flex; flex-direction: column; gap: var(--space-16); }
 .add-garment {
   width: 100%;
   /* 14.5 + 1.5 border = Figma's 16 inside-stroke padding (frame is 53) */
@@ -225,6 +208,9 @@
    Full 844 frame (resized in Figma from the original short 667 at
    Kevin's direction) — the default .screen floor applies. */
 [data-s="04e-order-summary"] { gap: var(--space-12); padding-bottom: var(--space-24); }
+/* Phase R0: order number + third card grew the frame to 875 (40 dead
+   below the CTA bar). */
+.screen[data-screen="04e-order-summary"] { min-height: 875px; }
 .summary { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 .summary--tight { gap: var(--space-4); }
 .summary__title { margin: 0; }
@@ -256,7 +242,7 @@
 .prepare-list li::marker { font-size: var(--size-12); }
 
 .screen[data-screen="04c-appointment-confirmed"] { min-height: 1103px; }
-.screen[data-screen="04d-appointment-complete"] { min-height: 850px; }
+.screen[data-screen="04d-appointment-complete"] { min-height: 1055px; }
 
 /* ============================================================
    4B body screens. Each keeps the shared .body (pad-top 128) and
@@ -296,9 +282,11 @@
   color: var(--accent-ink);
 }
 
-/* 05 - Appointment Reminder: inner pad 20/20/24, gap 12 */
-[data-s="05-appointment-reminder"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
-.screen[data-screen="05-appointment-reminder"] { min-height: 1105px; }
+/* 05 - Appointment Reminder: inner pad 0/20/24, gap 12.
+   Phase R0: the heading now sits straight at the 128 offset (the extra
+   20 top pad was removed); frame is 1125.67 → 1126. */
+[data-s="05-appointment-reminder"] { padding-bottom: var(--space-24); gap: var(--space-12); }
+.screen[data-screen="05-appointment-reminder"] { min-height: 1126px; }
 .actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 
 /* M1 - Message Tailor: inner pad 20/20/24, gap 12 */
@@ -384,13 +372,15 @@
 /* pills dropped straight into a body column hug their content */
 .body > .pill { align-self: flex-start; }
 
-/* 06 - Order Status: inner pad 20/20/24, gap 12 */
-[data-s="06-order-status"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
-.hero-sub { width: 100%; }
-
-/* 06a - Review & Approve: inner pad 20/20/24, gap 16 */
-[data-s="06a-review-approve"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-16); }
-.screen[data-screen="06a-review-approve"] { min-height: 911px; }
+/* 06a - Review & Approve: inner pad 0/20/24, gap 16.
+   Phase R0: heading pulled up to the bare 128 offset (as on 05);
+   third fee row grew the frame to 932. */
+[data-s="06a-review-approve"] { padding-bottom: var(--space-24); gap: var(--space-16); }
+.screen[data-screen="06a-review-approve"] { min-height: 932px; }
+/* 06b - Review & Approve - Modified (Phase R0): same chassis as 06a;
+   the added service + garment grow the frame to 1108. */
+[data-s="06b-review-approve-modified"] { padding-bottom: var(--space-24); gap: var(--space-16); }
+.screen[data-screen="06b-review-approve-modified"] { min-height: 1108px; }
 .heading { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
 
 /* 07 - Items Ready: inner pad 20/20/24, gap 12 */
@@ -452,39 +442,27 @@
 }
 .address-card__change { color: var(--accent-ink); }
 
-/* 08 - Journey Complete: inner pad 48/20/24, gap 16, centred column */
+/* 08 - Journey Complete: inner pad 20/20/24, gap 16, centred column.
+   Phase R0: the success badge + Completed pill gave way to the order's
+   garment art (three 87px tiles, art zoomed 127.27% like the card
+   chips); copy moved to 16. */
 [data-s="08-journey-complete"] {
-  padding-top: calc(128px + 48px);
+  padding-top: calc(128px + var(--space-20));
   padding-bottom: var(--space-24);
   gap: var(--space-16);
   align-items: center;
 }
 [data-s="08-journey-complete"] > * { width: 100%; }
-[data-s="08-journey-complete"] .pill,
-[data-s="08-journey-complete"] .success-badge { width: auto; align-self: center; }
-.success-badge {
-  width: 88px;
-  height: 88px;
-  border-radius: var(--radius-20);
-  background: var(--info-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.success-badge__check {
-  font-family: var(--font-sans);
-  font-size: var(--size-32);
-  line-height: 42px;
-  font-weight: 700;
-  color: var(--success);
-}
+[data-s="08-journey-complete"] .done-tiles { width: auto; align-self: center; }
+.done-tiles { display: flex; gap: var(--space-8); }
+.done-tile { position: relative; width: 87px; height: 87px; overflow: hidden; }
+.done-tile img { position: absolute; width: 127.27%; height: 127.27%; left: -13.64%; top: -13.64%; max-width: none; }
 .center { text-align: center; }
 
 /* refine r1: the M1 frame grew to 1103 */
 .screen[data-screen="m1-message-tailor"] { min-height: 1103px; }
 /* 4B body frames are 872 tall */
 .screen[data-screen="03-finding-tailor"],
-.screen[data-screen="06-order-status"],
 .screen[data-screen="07-items-ready"],
 .screen[data-screen="07a-pickup-window"],
 .screen[data-screen="07b-delivery-options"],

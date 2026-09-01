@@ -16,7 +16,7 @@ import { rowPrice } from './04d-appointment-complete.js';
 function renderScreen(s) {
   const cur = s.currentAppt ?? { list: 'upcoming', index: 0 };
   const a = s[cur.list]?.[cur.index] ?? s.upcoming[0] ?? {};
-  const t = a.totals ?? { total: 200, deposit: 20 };
+  const t = a.totals ?? { total: 360, deposit: 20 };
   const cards = (a.garments ?? []).map((g, i) => garmentCard({
     variant: 'ViewOnly', type: g.type, qty: g.qty,
     price: rowPrice(g, t.rows, i), services: g.jobs, photos: g.photos ?? 0,
@@ -24,11 +24,15 @@ function renderScreen(s) {
 
   return `${chrome('bookings')}
 <div class="body" data-s="04e-order-summary">
-  ${statusHero({ pill: false, title: 'Order Summary', rowLabel: 'Items Received:', rowValue: 'July 15, 2026' })}
-  <div class="garments-card">
-    ${cards}
-    ${feeRow(`$${t.deposit}`, '10% Deposit - Paid 7/7/26')}
-    ${feeRow(`$${t.total - t.deposit}`, 'Paid 7/12/26')}
+  ${statusHero({ pill: false, title: 'Order Summary', rowLabel: 'Items Received:', rowValue: 'July 17, 2026' })}
+  <div class="summary summary--tight">
+    <p class="t-body w-500 c-500">#TLY-2026-4417</p>
+    <div class="garments-card">
+      ${cards}
+      ${feeRow(`-$${t.deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
+      ${feeRow('$10', 'Delivery - Paid 7/17/26', { line: true })}
+      ${feeRow(`$${t.total - t.deposit + 10}`, 'Total - Paid 7/17/26')}
+    </div>
   </div>
   <div class="cta-bar cta-bar--plain">
     ${cta('View All Appointments', { variant: 'secondary', attrs: 'data-act="bookings"' })}

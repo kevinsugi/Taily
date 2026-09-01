@@ -110,6 +110,9 @@
   s.push(C.garmentCard({ variant: 'ViewOnly', price: '$55', services: ['Hem / Adjust Length','Sleeve / Adjust Length'], photos: 2 }));
   v('Property 1=PostAppt');
   s.push(C.garmentCard({ variant: 'PostAppt', price: '$55', services: ['Sleeve / Adjust Length'], beforePhotos: 4, pinnedPhotos: 4 }));
+  v('Property 1=PostAppt, modified (06B) — added service · added garment');
+  s.push(C.garmentCard({ variant: 'PostAppt', price: '$200', priceInfo: true, services: ['Hem / Adjust Length', { label: 'Sleeve / Adjust Length', added: true }], beforePhotos: 4, pinnedPhotos: 4 }));
+  s.push(C.garmentCard({ variant: 'PostAppt', price: '$80', added: true, services: ['Sleeve / Adjust Length'], beforePhotos: 4, pinnedPhotos: 4 }));
 
   h2('Chat Bubble — T2 457:831');
   v('Side=Them · Side=Me');
@@ -133,9 +136,13 @@
   s.push(C.infoCard([C.infoRow('Balance due','$180'), C.infoRow('Delivery','$30'), C.infoRow('Charged on delivery','$210', { total: true })].join('')));
   s.push(C.infoCard([C.infoRow('Final order','$280',{small:true}), C.infoRow('Deposit credited','−$20',{small:true}), C.infoRow('Delivery','$10',{small:true}), C.infoRow('Total paid','$270',{ total: true })].join(''), { heading: 'RECEIPT · #TLY-2026-4417' }));
 
-  h2('Fee Row — 04c/04d/05/06a');
-  s.push(C.feeRow('$20','10% Deposit - Paid 7/7/26'));
-  s.push(C.feeRow('$180','Est. Balance - Confirmed at Appointment'));
+  h2('Fee Row — 04c/04d/05/06a/06b');
+  s.push(C.feeRow('$200','Subtotal - Confirmed at Appointment',{ line: true }));
+  s.push(C.feeRow('-$20','10% Deposit - Paid 7/7/26',{ line: true }));
+  s.push(C.feeRow('$180','Balance'));
+  v('info (06B modified totals)');
+  s.push(C.feeRow('$360','Subtotal',{ line: true, info: true }));
+  s.push(C.feeRow('$340','Due at Pickup / Delivery',{ info: true }));
 
   h2('Payment method rows — 04a');
   s.push(C.methodRow('Apple Pay','apple'));

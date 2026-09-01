@@ -15,12 +15,13 @@ function renderScreen() {
   <h1 class="t-title w-600 c-ink">Please Confirm Tomorrows Appointment.</h1>
   <div class="summary">
     <h2 class="t-title w-600 c-500 summary__title">Order Summary</h2>
-    ${summaryCard({ fixed: true, initials: 'SC', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Thu, Jul 9 · 9:30 AM', '▤&nbsp;&nbsp;Need By: Thurs, Sep 1'] })}
+    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Thu, Jul 9 · 9:30 AM', '▤&nbsp;&nbsp;Need By: Thurs, Sep 1'] })}
     <div class="garments-card">
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 })}
-      ${feeRow('$20', '10% Deposit - Paid 7/7/26')}
-      ${feeRow('$180', 'Est. Balance - Confirmed at Appointment')}
+      ${feeRow('$200', 'Subtotal - Confirmed at Appointment', { line: true })}
+      ${feeRow('$20', '10% Deposit - Paid 7/7/26', { line: true })}
+      ${feeRow('$180', 'Balance')}
     </div>
     <div class="prepare-card">
       <p class="t-body w-500 c-500">Please prepare:</p>
@@ -37,7 +38,9 @@ function renderScreen() {
 }
 
 function wire(root) {
-  root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => { completeAppointment(); go('06-order-status'); });
+  /* Phase R0: 06 - Order Status was deleted; 04D (Appointment Status)
+     takes its place. */
+  root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => { completeAppointment(); go('04d-appointment-complete'); });
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('m1-message-tailor'));
   root.querySelector('[data-act="reschedule"]')?.addEventListener('click', () => go('02a-date-time-sheet'));
   root.querySelector('[data-act="cancel"]')?.addEventListener('click', () => go('01-home'));

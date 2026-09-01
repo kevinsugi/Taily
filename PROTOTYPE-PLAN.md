@@ -194,3 +194,121 @@ Workflow per screen: get_design_context → implement js/screens/<id>.js → npm
 ≤1% mismatch → commit "feat(screen): <id>". Refs in ref/ are exported @2x; re-export if Figma changed.
 No build step. Plain HTML/CSS/JS, deployable to GitHub Pages as-is.
 ```
+
+---
+
+# Phase R — Refinement rounds (post-v1, minimal regressions)
+
+v1 of the prototype is built and verified: 17 screens ≤1% against `ref/`, text parity, the
+click-through script, and a CLAUDE.md that Claude Code obeys. That harness — not caution — is
+what makes refinement safe. The plan below is about using it deliberately, sized for one
+person refining a prototype (reviewed and trimmed — see "Review notes" at the end).
+
+## Which strategy, and why
+
+| Strategy | Verdict |
+|---|---|
+| All changes at once | **No.** Every ref changes in the same round, so a regression can't be attributed — you can't tell an intended diff from an accident, and you can't bisect. Only acceptable for a pure token change (class T below), which is "all at once" by nature. |
+| Screen by screen only | Safe for screen-local edits, but wrong for shared changes: a CTA tweak applied screen-by-screen gets fixed in 5 screens and forgotten in 12, and components fork — the exact thing CLAUDE.md forbids. |
+| Components first only | Right for shared changes, overkill for local ones — routing a one-screen copy edit through the component layer is ceremony. |
+| **Classify by blast radius, batch by layer** | **Yes.** Sort every refinement into a class (below), then run rounds by layer: tokens → components → screens → behaviour/motion — as a dependency rule, not a strict phase gate (an isolated screen fix never queues behind an unrelated token debate). One round = one deliberate ref re-export. |
+
+## The invariant, and the two rules that keep it
+
+**Invariant: `main`, Figma, and `ref/` never disagree.** Everything below exists to hold that.
+
+1. **Figma before merge.** Anything visual must exist in Figma by the time it lands on `main`,
+   with refs re-exported so they agree. Exploring in code first is allowed — on a branch, as
+   much as you like — because spacing and motion decisions are often better made in the browser
+   than in Figma. But a visual change does not merge until Figma has caught up. Behaviour, motion
+   timing, and a11y live in code only (Figma can't represent them), so they're exempt.
+2. **`ref/` may only change on purpose.** Refs are committed. After every `npm run refs`,
+   `npm run refs:check` (pixel-compares old vs new refs — see R-tooling; never trust raw byte
+   diffs, Figma's PNG encoder isn't byte-stable) must list exactly the screens this round meant
+   to touch. An unexpected ref change means an accidental Figma edit — check Figma version
+   history before writing any code. On the code side, `npm run check` after every round must
+   pass for all 17 screens including the untouched ones, whose refs didn't move and therefore
+   prove no collateral damage.
+
+## R-tooling — two small scripts to build before the first round (one Claude Code session)
+
+1. **Per-screen ratchet baselines** instead of a flat 1%. A flat gate lets screens rot slowly
+   (0.2% → 0.9% over five rounds, each "passing"; 1% of a 390×990 @2x screen is ~30k pixels —
+   a wrong pill color fits under it). Store each screen's current mismatch in
+   `scripts/screens.json` as `baseline`. `diff.mjs` gates on `mismatch ≤ baseline + 0.1`.
+   When a round intentionally changes a screen, `npm run diff -- <id> --accept` writes the new
+   score as its baseline (commit that with the round). Seed baselines from the current scores.
+2. **`npm run check`** — one command, exit 0/1: `diff -- all` against baselines → text parity
+   on ALL screens (cheap; don't be selective) → `clickthrough.mjs` → grep for literal hex / px
+   font sizes outside `tokens.css`/`base.css`. If it isn't one command it won't get run.
+3. **`npm run refs:check`** — decode old (git HEAD) and new `ref/*.png`, pixelmatch each pair,
+   print only the screens that visually differ and by how much. This is the design-side tripwire.
+
+## R0 — Intake and classification (one short session, no changes)
+
+Collect every refinement into `REFINE.md` as a checklist and classify each item:
+
+- **T (token)** — a color, spacing value, radius, or type-scale change. Blast radius: everything.
+- **C (component)** — CTA, cards, pills, nav, sheets, chips. Blast radius: every screen using it.
+- **S (screen-local)** — layout, content, or copy on one screen. Blast radius: that screen.
+- **B (behaviour/motion)** — state machine, transitions, interactions. Blast radius: no pixels
+  (static diffs must NOT change), click-through must.
+- **N (new screen)** — runs the existing `/screen` loop, not this protocol.
+
+Then `git tag proto-v1` and confirm `ref/` is clean in git, so before/after ground truth is
+always recoverable. Keep one round in flight at a time — in Figma too, because restoring a
+named version restores the whole page.
+
+## The round protocol
+
+Heavy rounds (T, C — blast radius is real): branch `refine/<name>`, named Figma version,
+merge `--no-ff`. Light rounds (a batch of S items, or B): work on `main`, `npm run check` before
+every push. A lighter process you follow beats a stricter one you abandon by round four.
+
+1. Figma: apply just this round's edits; save a named version (`refine: <name>`) for heavy rounds.
+   (Or, if you explored in code first: backport to Figma now, before anything merges.)
+2. `npm run refs` → `npm run refs:check` → confirm only the intended screens differ.
+   Commit the refs by themselves: `refs: <name>`.
+3. Code, by class:
+   - **T**: edit `css/tokens.css` only (regenerate from `get_variable_defs`, never hand-edit).
+     If a token's *name* changed, grep for the old name everywhere. Expect every ref to change —
+     this is the one round where "everything changed" is correct.
+   - **C**: edit `css/components.css` + `js/components.js` only. Verify in `components.html`
+     against the Figma component first, then let the screen diffs confirm propagation. Sheets
+     composite over parent screens, so sheet component changes need the three sheet screens'
+     full diffs, not just gallery crops. If a screen you didn't expect fails, that's a fork from
+     v1 to fix, not to work around.
+   - **S**: edit that screen's `js/screens/<id>.js` (+ its `screens.css` section) only. If the
+     fix is tempting to make in `components.css`, it's a C item — reclassify, don't fork.
+     Copy edits are caught by text parity, not pixels — `npm run check` runs both.
+   - **B**: extend `scripts/clickthrough.mjs` with the new expected behaviour FIRST (it fails),
+     then change `js/state.js`/`js/app.js` until it passes. The diff table must be identical
+     before and after.
+4. `npm run diff -- <id> --accept` for each intentionally changed screen; `npm run check` must
+   pass; eyeball `diff/` images for touched screens. Then merge/push and tick the item in REFINE.md.
+5. If a round goes sideways: re-cut from `main` — never stack a fix on a broken round. Figma
+   rolls back via the named version.
+6. If a round changes a rule (new token, new component, changed offset), update CLAUDE.md in
+   the same commit, or the next session regresses it.
+
+## Claude Code prompt skeleton for a round
+
+```
+Read CLAUDE.md. This is refinement round "<name>", class <T|C|S|B>. Scope — ONLY these items
+from REFINE.md: <paste>. Figma is already updated and refs re-exported; `npm run refs:check`
+reported: <paste>. Touch only <the files this class allows>. Run `npm run check` before starting
+(must pass — that's the baseline) and after every change. Untouched screens must stay within
+their baselines. For each screen I intentionally changed, run `npm run diff -- <id> --accept`
+and commit the baseline update with the code. Finish with the check output. If any out-of-scope
+screen regresses, stop and show me the diff image instead of fixing it ad hoc.
+```
+
+## Review notes (why the plan looks like this)
+
+Reviewed as a senior engineer would; four changes made from the first draft. (1) Flat ≤1% gate
+replaced by per-screen ratchet baselines — the flat gate permitted slow rot. (2) The five-step
+manual gate replaced by `npm run check` — checklists in docs don't get run. (3) "Figma first,
+always" relaxed to "Figma before merge" — feel decisions need a browser, and an absolute rule
+would either slow every 2px nudge or get quietly broken. (4) `git diff --stat ref/` replaced by
+a pixel-compare — PNG bytes aren't stable across exports, so byte diffs can cry wolf. Plus
+ceremony trimmed for a solo repo: branches and `--no-ff` only where blast radius justifies them.

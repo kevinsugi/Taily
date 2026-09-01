@@ -1,0 +1,491 @@
+/* Phase 4+ — per-screen layout only. Never re-style a component here. */
+
+/* ============================================================
+   Per-screen layout only. Components are never restyled here.
+   ============================================================ */
+
+/* 01 - Home — sections stack at 16 (measured); heading is its own
+   8-gap group. */
+/* refine r1: 40 bottom padding under the appointment card */
+[data-s="01-home"] { gap: var(--space-16); padding-bottom: var(--space-40); }
+.home-heading { display: flex; flex-direction: column; gap: var(--space-8); }
+.upcoming-header { display: flex; align-items: center; justify-content: space-between; }
+
+/* 02 - Appointment Details — frame is 931 tall with dead space below
+   the CTA bar; Filters frame is fixed 64 with 52px of content. */
+.screen[data-screen="02-appointment-details"] { min-height: 931px; }
+[data-s="02-appointment-details"] { gap: var(--space-16); }
+/* The pills overflow the 350 track in Figma and clip at the screen
+   edge — don't let flex shrink them. The row is its own horizontal
+   scroller (touch/wheel + drag-to-scroll wired in 02): negative
+   margins run the scroll box to the screen edges so scroll-0 renders
+   exactly like the frame's clip; scrollbars hidden. */
+.filters {
+  display: flex;
+  gap: var(--space-8);
+  align-items: flex-start;
+  height: 64px;
+  overflow-x: auto;
+  margin-inline: calc(-1 * var(--space-20));
+  padding-inline: var(--space-20);
+  scrollbar-width: none;
+}
+.filters::-webkit-scrollbar { display: none; }
+.filters > * { flex-shrink: 0; }
+/* pill widths FLOORED at the Figma instances (157/138/169) so the
+   static render stays frame-exact, but hugging longer live values
+   (e.g. "Thu, Sept 17 · 6:45 AM" after a wheel pick) instead of
+   clipping them */
+.filters > .filter-pill { flex-shrink: 0; height: 100%; width: max-content; }
+.filters > .filter-pill:nth-child(1) { min-width: 157px; }
+.filters > .filter-pill:nth-child(2) { min-width: 138px; }
+.filters > .filter-pill:nth-child(3) { min-width: 169px; }
+.add-garment {
+  width: 100%;
+  /* 14.5 + 1.5 border = Figma's 16 inside-stroke padding (frame is 53) */
+  padding-block: 14.5px;
+  border: 1.5px dashed var(--neutral-300);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+.cta-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding-top: var(--space-12);
+  padding-bottom: var(--space-16);
+  box-shadow: inset 0 1px 0 var(--neutral-200);   /* top hairline, inside */
+}
+.cta-bar__note { text-align: center; }
+/* half-pixel baseline shim — Figma rasterises 02's CTA-bar block 0.5px
+   lower; measured per screen (04c/04d want none). */
+[data-s="02-appointment-details"] .cta-bar > * { transform: translateY(0.5px); }
+
+/* 02A - Date & Time sheet — fills the screen; sheet anchors bottom. */
+.screen-sheet { position: absolute; inset: 0; }
+/* Overlay sheets are position:fixed (set inline, clipped to the visible
+   screen column) — fixed makes the holder a stacking context at z-auto,
+   so it needs its own z to clear the chrome (status bar/nav, z2). */
+.screen-sheet--overlay { z-index: 10; }
+/* The updated sheet frames show 02 dimmed behind the scrim (was a flat
+   backdrop). Clipped to the 844 sheet frame; inert under the scrim. */
+.sheet-backdrop { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+
+/* 09 - Bookings — sections at gap 12; frame is 1220 tall. */
+.screen[data-screen="09-bookings"] { min-height: 1212px; }
+[data-s="09-bookings"] { gap: var(--space-12); }
+
+/* 02B - Address Sheet (538:1382). Frame scrim is ink@0.6 — heavier
+   than every other sheet's 0.4 (raised, built as drawn). */
+[data-s="02b-address-sheet"] .sheet-scrim,
+[data-s="02b-address-sheet"] .sheet-host[data-open="true"] .sheet-scrim { opacity: 0.6; }
+[data-s="02b-address-sheet"] .sheet-host[data-open="false"] .sheet-scrim { opacity: 0; }
+.addr-head { display: flex; flex-direction: column; gap: var(--space-4); }
+.addr-sub {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  line-height: 18px;
+  font-weight: 400;
+  color: var(--neutral-500);
+}
+.field-group { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.field-row { display: flex; gap: var(--space-12); width: 100%; }
+.field-row .field-group { flex: 1 0 0; min-width: 1px; }
+.field-label {
+  font-family: var(--font-sans);
+  font-size: var(--size-11);
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--neutral-500);
+  white-space: nowrap;
+}
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--neutral-200);
+}
+.field--notes { padding-bottom: 28px; align-items: flex-start; }
+.field__icon { width: 20px; height: 20px; flex-shrink: 0; color: var(--neutral-500); }
+.field__input {
+  flex: 1 0 0;
+  min-width: 1px;
+  border: 0;
+  padding: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.field__input:focus { outline: none; }
+.addr-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ink);
+}
+/* 44×24 ink pill, 20px white knob right (538:1537); off = n300, knob left */
+.toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  flex-shrink: 0;
+  transition: background-color 150ms ease;
+}
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 22px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--white);
+  transition: left 180ms var(--ease-out);
+}
+.toggle--off { background: var(--neutral-300); }
+.toggle--off::after { left: 2px; }
+.addr-note { text-align: center; width: 100%; }
+
+/* 04A - Payment Method Sheet */
+.sheet__sub { width: 100%; }
+/* 04b's footnote is centred in the frame; 04a's sits left */
+[data-s="04b-add-card-sheet"] .sheet__sub { text-align: center; }
+.sheet__cancel-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--neutral-500);
+}
+
+/* 04B - Add Card Sheet — the 286-tall sheet sits at y559, overflowing
+   the 844 frame by 1px; reproduce the clip. */
+[data-s="04b-add-card-sheet"] .sheet { bottom: -1px; }
+.card-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  height: 54px;
+  padding-inline: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--neutral-200);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+  color: var(--neutral-500);
+}
+.card-field .method-row__icon { width: 22px; height: 22px; color: var(--neutral-500); }
+.card-field__num { flex: 1 0 0; min-width: 1px; }
+/* real inputs — placeholders keep the frame's n500 look, entries go ink;
+   MM/YY and CVC pinned to the frame's text widths (53 / 33) */
+.card-field__input {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+}
+.card-field__input::placeholder { color: var(--neutral-500); opacity: 1; }
+.card-field__input:focus { outline: none; }
+.card-field__exp { width: 53px; flex-shrink: 0; }
+.card-field__cvc { width: 33px; flex-shrink: 0; }
+
+/* 04C / 04D - Confirmed & Complete */
+[data-s="04c-appointment-confirmed"],
+[data-s="04d-appointment-complete"] { gap: var(--space-12); }
+/* 04E - Order Summary: the frame carries its own 24 bottom padding.
+   Full 844 frame (resized in Figma from the original short 667 at
+   Kevin's direction) — the default .screen floor applies. */
+[data-s="04e-order-summary"] { gap: var(--space-12); padding-bottom: var(--space-24); }
+.summary { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+.summary--tight { gap: var(--space-4); }
+.summary__title { margin: 0; }
+.garments-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--space-8) var(--space-20);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+.prepare-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-16);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+.cta-bar--plain { box-shadow: none; }
+/* Figma renders these as text-list markers, not characters — CSS
+   markers keep innerText identical to the frame's text nodes. */
+.prepare-list {
+  margin: 0;
+  padding-left: var(--space-24);
+  list-style-type: square;
+}
+.prepare-list li::marker { font-size: var(--size-12); }
+
+.screen[data-screen="04c-appointment-confirmed"] { min-height: 1103px; }
+.screen[data-screen="04d-appointment-complete"] { min-height: 850px; }
+
+/* ============================================================
+   4B body screens. Each keeps the shared .body (pad-top 128) and
+   adds the frame's own inner padding via per-screen rules.
+   ============================================================ */
+
+/* 03 - Finding Your Tailor: inner pad 12/20/24, gap 8 */
+[data-s="03-finding-tailor"] { padding-top: calc(128px + var(--space-12)); padding-bottom: var(--space-24); gap: var(--space-8); }
+.map-card {
+  width: 100%;
+  height: 262px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.map-card img { width: 100%; height: 100%; object-fit: fill; }
+.map-card--placeholder {
+  background: var(--media-placeholder);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+}
+.map-card__pin {
+  font-family: var(--font-sans);
+  font-size: var(--size-24);
+  line-height: 31px;
+  color: var(--neutral-600);
+}
+.cancel-line {
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+/* 05 - Appointment Reminder: inner pad 20/20/24, gap 12 */
+[data-s="05-appointment-reminder"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+.screen[data-screen="05-appointment-reminder"] { min-height: 1105px; }
+.actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+
+/* M1 - Message Tailor: inner pad 20/20/24, gap 12 */
+/* refine r1: chat pulled up under the nav — offset 128+20 → 104+4 —
+   and the column gap went 12 → 16 */
+[data-s="m1-message-tailor"] { padding-top: calc(104px + var(--space-4)); padding-bottom: var(--space-24); gap: var(--space-16); }
+.chat-head { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
+.chat-head__back {
+  font-family: var(--font-sans);
+  font-size: var(--size-24);
+  line-height: 31px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.chat-head__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-20);
+  background: var(--neutral-200);
+  color: var(--neutral-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.chat-head__names { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 0 0; min-width: 1px; }
+/* Figma lets the meta line overflow its column rather than wrap */
+.chat-head__names > span { white-space: nowrap; }
+.chat-day { width: 100%; text-align: center; }
+.composer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-16);
+  border-radius: var(--radius-20);
+  background: var(--white);
+}
+.composer__hint {
+  flex: 1 0 0;
+  min-width: 1px;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
+/* real input — the placeholder renders exactly like the old hint */
+.composer__input {
+  flex: 1 0 0;
+  min-width: 1px;
+  border: 0;
+  padding: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.composer__input::placeholder { color: var(--neutral-500); opacity: 1; }
+.composer__input:focus { outline: none; }
+.composer__send {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-20);
+  background: var(--ink);
+  color: var(--neutral-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* pills dropped straight into a body column hug their content */
+.body > .pill { align-self: flex-start; }
+
+/* 06 - Order Status: inner pad 20/20/24, gap 12 */
+[data-s="06-order-status"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+.hero-sub { width: 100%; }
+
+/* 06a - Review & Approve: inner pad 20/20/24, gap 16 */
+[data-s="06a-review-approve"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-16); }
+.screen[data-screen="06a-review-approve"] { min-height: 911px; }
+.heading { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
+
+/* 07 - Items Ready: inner pad 20/20/24, gap 12 */
+[data-s="07-items-ready"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-16);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  text-align: left;
+}
+.option-row__radio {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-20);
+  background: var(--white);
+  border: 1.5px solid var(--neutral-300);
+  flex-shrink: 0;
+}
+.option-row--selected { box-shadow: inset 0 0 0 1px var(--ink); }
+.option-row--selected .option-row__radio { border: 6px solid var(--ink); }
+.option-row__labels { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 0 0; min-width: 1px; }
+.option-row__title {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.option-row__sub {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
+.option-row__price {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+/* 07a / 07b: inner pad 20/20/24, gap 12 */
+[data-s="07a-pickup-window"],
+[data-s="07b-delivery-options"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+.due-card__amount {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.address-card__change { color: var(--accent-ink); }
+
+/* 08 - Journey Complete: inner pad 48/20/24, gap 16, centred column */
+[data-s="08-journey-complete"] {
+  padding-top: calc(128px + 48px);
+  padding-bottom: var(--space-24);
+  gap: var(--space-16);
+  align-items: center;
+}
+[data-s="08-journey-complete"] > * { width: 100%; }
+[data-s="08-journey-complete"] .pill,
+[data-s="08-journey-complete"] .success-badge { width: auto; align-self: center; }
+.success-badge {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-20);
+  background: var(--info-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.success-badge__check {
+  font-family: var(--font-sans);
+  font-size: var(--size-32);
+  line-height: 42px;
+  font-weight: 700;
+  color: var(--success);
+}
+.center { text-align: center; }
+
+/* refine r1: the M1 frame grew to 1103 */
+.screen[data-screen="m1-message-tailor"] { min-height: 1103px; }
+/* 4B body frames are 872 tall */
+.screen[data-screen="03-finding-tailor"],
+.screen[data-screen="06-order-status"],
+.screen[data-screen="07-items-ready"],
+.screen[data-screen="07a-pickup-window"],
+.screen[data-screen="07b-delivery-options"],
+.screen[data-screen="08-journey-complete"] { min-height: 872px; }

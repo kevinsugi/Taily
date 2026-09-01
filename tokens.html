@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Taily — token specimen</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+
+<style>
+  /* Specimen chrome only — not part of the design system. */
+  /* padding-inline/bottom only — the shorthand would clobber .body's
+     128px padding-top and slide the first section under the nav. */
+  .spec { padding-bottom: var(--space-40); }
+  .spec > h2:first-of-type { margin-top: 0; }
+  .spec h2 {
+    font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--neutral-500); margin: var(--space-32) 0 var(--space-12);
+  }
+  .swatches { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-8); }
+  .sw { display: flex; align-items: center; gap: var(--space-8); }
+  .sw i {
+    width: 28px; height: 28px; border-radius: var(--radius-sm);
+    border: 1px solid var(--neutral-200); flex-shrink: 0;
+  }
+  .sw code {
+    font-family: var(--font-sans); font-size: var(--size-10); line-height: 13px;
+    color: var(--neutral-600); font-weight: 500;
+  }
+  .ramp { display: flex; flex-direction: column; gap: var(--space-4); }
+  .ramp div { display: flex; align-items: center; gap: var(--space-8); }
+  .ramp b { background: var(--accent-bg); height: 12px; border-radius: 2px; }
+  .radii { display: flex; align-items: flex-end; gap: var(--space-8); }
+  .radii span {
+    width: 44px; height: 44px; background: var(--accent-bg);
+    border: 1px solid var(--accent-base); display: block;
+  }
+  .stack > * + * { margin-top: var(--space-8); }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="screen">
+    <div id="chrome"></div>
+
+    <div class="body spec">
+      <h2>Type</h2>
+      <div class="stack">
+        <p class="t-title">Finding your tailor</p>
+        <p class="t-body">Body 16 Regular — we&rsquo;re matching your job with a Taily-certified tailor near you.</p>
+        <p class="t-body w-500">Body 16 Medium</p>
+        <p class="t-body w-600">Body 16 SemiBold</p>
+        <p class="t-body w-700">Body 16 Bold</p>
+        <p class="t-small">Small 12 Medium — measured and pinned at your appointment.</p>
+        <p class="t-small w-600">Small 12 SemiBold</p>
+        <p class="t-small w-700">Small 12 Bold</p>
+        <p class="t-caps">Today, 4:12 PM</p>
+        <p class="t-micro">AUG</p>
+      </div>
+
+      <h2>Colour</h2>
+      <div class="swatches">
+        <div class="sw"><i style="background: var(--ink)"></i><code>--ink</code></div>
+        <div class="sw"><i style="background: var(--white)"></i><code>--white</code></div>
+        <div class="sw"><i style="background: var(--neutral-50)"></i><code>--neutral-50</code></div>
+        <div class="sw"><i style="background: var(--neutral-100)"></i><code>--neutral-100</code></div>
+        <div class="sw"><i style="background: var(--neutral-200)"></i><code>--neutral-200</code></div>
+        <div class="sw"><i style="background: var(--neutral-300)"></i><code>--neutral-300</code></div>
+        <div class="sw"><i style="background: var(--neutral-400)"></i><code>--neutral-400</code></div>
+        <div class="sw"><i style="background: var(--neutral-500)"></i><code>--neutral-500</code></div>
+        <div class="sw"><i style="background: var(--neutral-600)"></i><code>--neutral-600</code></div>
+        <div class="sw"><i style="background: var(--neutral-700)"></i><code>--neutral-700</code></div>
+        <div class="sw"><i style="background: var(--accent-base)"></i><code>--accent-base</code></div>
+        <div class="sw"><i style="background: var(--accent-ink)"></i><code>--accent-ink</code></div>
+        <div class="sw"><i style="background: var(--accent-bg)"></i><code>--accent-bg</code></div>
+        <div class="sw"><i style="background: var(--sage)"></i><code>--sage</code></div>
+        <div class="sw"><i style="background: var(--success)"></i><code>--success</code></div>
+        <div class="sw"><i style="background: var(--success-bg)"></i><code>--success-bg</code></div>
+        <div class="sw"><i style="background: var(--warning)"></i><code>--warning</code></div>
+        <div class="sw"><i style="background: var(--warning-bg)"></i><code>--warning-bg</code></div>
+        <div class="sw"><i style="background: var(--error)"></i><code>--error</code></div>
+        <div class="sw"><i style="background: var(--error-bg)"></i><code>--error-bg</code></div>
+        <div class="sw"><i style="background: var(--info)"></i><code>--info</code></div>
+        <div class="sw"><i style="background: var(--info-bg)"></i><code>--info-bg</code></div>
+        <div class="sw"><i style="background: var(--media-placeholder)"></i><code>--media-placeholder</code></div>
+        <div class="sw"><i style="background: var(--bottom-border)"></i><code>--bottom-border</code></div>
+      </div>
+
+      <h2>Spacing</h2>
+      <div class="ramp">
+        <div><b style="width: var(--space-4)"></b><code>--space-4</code></div>
+        <div><b style="width: var(--space-8)"></b><code>--space-8</code></div>
+        <div><b style="width: var(--space-12)"></b><code>--space-12</code></div>
+        <div><b style="width: var(--space-16)"></b><code>--space-16</code></div>
+        <div><b style="width: var(--space-20)"></b><code>--space-20</code></div>
+        <div><b style="width: var(--space-24)"></b><code>--space-24</code></div>
+        <div><b style="width: var(--space-28)"></b><code>--space-28</code></div>
+        <div><b style="width: var(--space-32)"></b><code>--space-32</code></div>
+        <div><b style="width: var(--space-40)"></b><code>--space-40</code></div>
+      </div>
+
+      <h2>Radius</h2>
+      <div class="radii">
+        <span style="border-radius: var(--radius-sm)"></span>
+        <span style="border-radius: var(--radius-md)"></span>
+        <span style="border-radius: var(--radius-lg)"></span>
+        <span style="border-radius: var(--radius-xl)"></span>
+        <span style="border-radius: var(--radius-full)"></span>
+      </div>
+
+      <h2>Type scale</h2>
+      <div class="stack">
+        <p style="font-family: var(--font-serif); font-size: var(--size-36); line-height: 44px; font-weight: 600;">36 serif</p>
+        <p style="font-family: var(--font-serif); font-size: var(--size-32); line-height: 39px; font-weight: 500;">32 serif</p>
+        <p style="font-family: var(--font-serif); font-size: var(--size-28); line-height: 34px; font-weight: 600;">28 serif</p>
+        <p style="font-family: var(--font-sans); font-size: var(--size-24); line-height: 31px; font-weight: 400;">24 sans</p>
+        <p style="font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 500;">16 sans</p>
+        <p style="font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px; font-weight: 500;">12 sans</p>
+        <p style="font-family: var(--font-sans); font-size: var(--size-10); line-height: 13px; font-weight: 600;">10 sans</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { chrome } from './js/components.js';
+  document.getElementById('chrome').innerHTML = chrome('home');
+</script>
+</body>
+</html>

@@ -1,0 +1,1136 @@
+/* ============================================================
+   Taily v4 — component classes. One class per Figma variant.
+   All colour / space / radius / type via tokens; text via .t-*.
+
+   Values with NO Figma token (each measured in Figma, listed once):
+     54px CTA height · 14px pill icon · 110px/108.67px garment tile ·
+     22px tile badge+minus · 48px date block · 64px avatar ·
+     66/68px garment art/chip · 44px photo tile (19px cancel badge,
+     13.33px cancel glyph) · 36x4 grabber (02a draws 40x4 — flagged) ·
+     24px step dot · 46x28 pay badge (r6) · 5px progress segment ·
+     16px method chevron · 12/10px chevrons · 18px camera · 2px stitch
+     #E2DCD1  photo-gradient start — one digit off neutral-200, kept
+              verbatim and flagged to Kevin (end stop IS neutral-300)
+     14px/18px  chat bubble font/line — OFF the type scale in the
+              T2/Chat Bubble master, kept verbatim, flagged to Kevin
+     shadows: 0 6px 8px + 0 2px 3px rgba(28,27,24,.07/.06)  (cards)
+              0 6px 16px + 0 2px 6px rgba(28,27,24,.07/.06) (summary)
+              0 4px 12px rgba(28,27,24,.08)  (Filter Pill dropdown)
+              0 4px 2px  rgba(0,0,0,.25)     (Garment Tile selected)
+              0 2px 6px  rgba(26,23,18,.14)  (tile badge)
+     35%    Status Pill ring = text colour at 35% via color-mix
+
+   Motion tokens are code-only (no Figma source) — from the animate
+   skill's curve table, not invented.
+   ============================================================ */
+
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ============================================================
+   CTA — Figma 229:5030. Default | Secondary. h54, r20, 16 SemiBold.
+   ============================================================ */
+.cta {
+  height: 54px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-20);
+  background: var(--ink);
+  color: var(--neutral-50);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  /* press feedback: transform only, retargetable */
+  transition: transform 160ms var(--ease-out);
+}
+
+.cta--secondary {
+  background: var(--white);
+  color: var(--ink);
+  border: 1px solid var(--neutral-300);
+}
+
+.cta:active { transform: scale(0.97); }
+
+/* Figma 04b: the Next CTA sits at 55% node opacity (disabled look).
+   Clicks stay live — this is a prototype. */
+.cta--disabled { opacity: 0.55; }
+
+/* Tailor Summary Card as placed on 04c: fixed 111 with centred content */
+.summary-card--fixed {
+  height: 111px;
+  justify-content: center;
+  padding-block: 0;
+}
+
+/* ============================================================
+   Status Pill — Figma 312:826. 9 variants. gap4 pl8 pr12 py4 r20.
+   Icon + text share one colour; border is that colour at 35%.
+   ============================================================ */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-12) var(--space-4) var(--space-8);
+  border-radius: var(--radius-20);
+  /* Figma strokes are INSIDE — a CSS border would add 2px of height,
+     so every ring on a hug-sized control is an inset shadow instead. */
+  box-shadow: inset 0 0 0 1px transparent;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pill__icon { width: 14px; height: 14px; flex-shrink: 0; }
+
+.pill--requested,
+.pill--new-request {
+  background: var(--warning-bg);
+  color: var(--warning);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 35%, transparent);
+}
+.pill--confirmed {
+  background: var(--info-bg);
+  color: var(--info);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 35%, transparent);
+}
+.pill--ready {
+  background: var(--success-bg);
+  color: var(--success);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success) 35%, transparent);
+}
+.pill--completed {
+  background: var(--ink);
+  color: var(--white);
+}
+.pill--declined,
+.pill--cancelled {
+  background: var(--error-bg);
+  color: var(--error);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--error) 35%, transparent);
+}
+.pill--awaiting-customer {
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--neutral-600) 35%, transparent);
+}
+.pill--tailoring {
+  background: var(--accent-bg);
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-ink) 35%, transparent);
+}
+
+/* ============================================================
+   Time Chip — Figma 501:1039. Default | Selected. p12/16 r12.
+   ============================================================ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--neutral-300);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: transform 140ms var(--ease-out),
+              background-color 150ms ease,
+              box-shadow 150ms ease,
+              color 150ms ease;
+}
+
+.chip--selected {
+  background: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+  color: var(--neutral-50);
+}
+
+.chip:active { transform: scale(0.96); }
+
+/* ============================================================
+   Select Time — Figma 502:1035. p8/12 gap8 r8, label + chevron.
+   ============================================================ */
+.select-time {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--neutral-300);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  transition: transform 140ms var(--ease-out);
+}
+.select-time:active { transform: scale(0.97); }
+.select-time__chevron { width: 12px; height: 12px; flex-shrink: 0; }
+
+/* ============================================================
+   Filter Pill — Figma 91:399. Default | Open.
+   12 SemiBold label (n500) over a bordered pill; Open adds dropdown.
+   ============================================================ */
+.filter-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-4);
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+
+.filter-pill__label {
+  font-family: var(--font-sans);
+  /* 16px in the frames (the generated design-context fallback said 12
+     — the rendered ref proves 16) */
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--neutral-500);
+}
+
+.filter-pill__box {
+  display: inline-flex;
+  width: 100%;              /* fills the pill width in the frames */
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--neutral-300);
+  font-family: var(--font-sans);
+  /* value text is 16px in the frames (labels stay 12) */
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.filter-pill__box .select-time__chevron {
+  transition: transform 180ms var(--ease-out);
+}
+.filter-pill--open .filter-pill__box .select-time__chevron {
+  transform: rotate(180deg);
+}
+
+/* Dropdown enters from its trigger: slight rise + fade, ease-out. */
+.filter-pill__dropdown {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  border: 1px solid var(--neutral-200);
+  box-shadow: 0 4px 12px rgba(28, 27, 24, 0.08);
+  transform-origin: top;
+}
+@supports (transition-behavior: allow-discrete) {
+  .filter-pill__dropdown {
+    transition: transform 180ms var(--ease-out), opacity 180ms var(--ease-out);
+    @starting-style { transform: translateY(-4px) scale(0.97); opacity: 0; }
+  }
+}
+
+.filter-pill__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--neutral-600);
+}
+.filter-pill__option.is-selected {
+  background: var(--neutral-50);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ============================================================
+   Garment Tile — Figma 252:1235. Default | Selected.
+   3-up grid on the 350 track gives the Figma 108.67 width.
+   ============================================================ */
+.tile-grid {
+  display: grid;
+  /* exact Figma tile width — 1fr rounds to 108.656 and shifts columns */
+  grid-template-columns: repeat(3, 108.667px);
+  gap: var(--space-12);
+}
+
+.garment-tile {
+  position: relative;
+  height: 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  border: 1px solid var(--neutral-200);
+  transition: transform 140ms var(--ease-out),
+              border-color 150ms ease,
+              box-shadow 150ms ease;
+}
+.garment-tile:active { transform: scale(0.96); }
+
+.garment-tile__art {
+  /* Art is cropped straight from the ref render (185x148 @2x) and drawn
+     at device parity; the +1px nudge matches where Figma actually
+     rasterised the fill inside the tile. */
+  flex: 0 0 74px;
+  width: 92.5px;
+  height: 74px;
+  object-fit: fill;
+  transform: translateY(1px);
+}
+
+.garment-tile__label {
+  /* half-pixel baseline shim — Figma rasterises these 0.5px lower */
+  transform: translateY(0.5px);
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ink);
+  text-align: center;
+  width: 100%;
+  /* "Dress / Jumpsuit" fits one line in Figma but wraps under Chromium's
+     slightly wider metrics — keep it single-line like the frames */
+  white-space: nowrap;
+}
+
+.garment-tile--selected {
+  border: 2px solid var(--neutral-700);
+  padding: calc(var(--space-8) - 1px);       /* keep content box identical */
+  box-shadow: 0 4px 2px rgba(0, 0, 0, 0.25);
+  overflow: visible;
+}
+
+/* Quantity badge + minus button — 01a (532:946): cluster absolute at
+   left 64 / top -9 on the 108.667 tile. */
+.garment-tile__qty {
+  position: absolute;
+  top: -9px;
+  left: 64px;
+  display: flex;
+  align-items: flex-start;
+}
+.garment-tile__badge {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-20);
+  background: var(--ink);
+  color: var(--neutral-50);
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(26, 23, 18, 0.14);
+}
+.garment-tile__minus { width: 22px; height: 22px; flex-shrink: 0; }
+.garment-tile__minus-hit { display: inline-flex; flex-shrink: 0; }
+
+/* ---------- shared motion accessibility ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .cta, .chip, .select-time, .garment-tile { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
+  .cta:active, .chip:active, .select-time:active, .garment-tile:active { transform: none; }
+  .filter-pill__dropdown { transition: opacity 180ms ease; }
+  .filter-pill__box .select-time__chevron { transition: none; }
+}
+
+/* ============================================================
+   CTA_Small — Figma 302:1656. Small outline action inside cards.
+   py12, r20, 12 SemiBold ink, white bg, n300 border.
+   ============================================================ */
+.cta-small {
+  display: flex;
+  flex: 1 0 0;
+  min-width: 1px;
+  align-items: center;
+  justify-content: center;
+  padding-block: var(--space-12);
+  border-radius: var(--radius-20);
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--neutral-300);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: transform 140ms var(--ease-out);
+}
+.cta-small:active { transform: scale(0.97); }
+
+/* ============================================================
+   Progress Bar — Figma 473:7627. Four flex-1 segments, h5.
+   Confirmed: seg1 info + 1px info border on the track (as drawn).
+   Tailoring: 2 accent-ink. Ready: 3 success. Complete: 4 ink.
+   ============================================================ */
+.progress {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.progress__seg { flex: 1 0 0; min-width: 1px; height: 5px; background: var(--neutral-100); }
+
+.progress--confirmed { box-shadow: inset 0 0 0 1px var(--info); }
+.progress--confirmed .progress__seg:nth-child(1) { background: var(--info); }
+.progress--tailoring .progress__seg:nth-child(-n+2) { background: var(--accent-ink); }
+.progress--ready .progress__seg:nth-child(-n+3) { background: var(--success); }
+.progress--complete .progress__seg { background: var(--ink); }
+
+/* ============================================================
+   Appointment Card — Figma 67:293. Confirmed | Tailoring | Ready |
+   Completed. White p20 r16 gap12 column + soft double shadow.
+   ============================================================ */
+.appt-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-20);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: 0 6px 8px rgba(28, 27, 24, 0.07), 0 2px 3px rgba(28, 27, 24, 0.06);
+}
+.appt-card--completed {
+  box-shadow: 0 6px 16px rgba(28, 27, 24, 0.07), 0 2px 6px rgba(28, 27, 24, 0.06);
+}
+
+.appt-card__top { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
+
+.appt-card__date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-md);
+  background: var(--accent-bg);
+  flex-shrink: 0;
+}
+.appt-card__month {
+  font-family: var(--font-sans);
+  font-size: var(--size-10);
+  line-height: 13px;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+.appt-card__day {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.appt-card__info {
+  display: flex;
+  flex: 1 0 0;
+  min-width: 1px;
+  flex-direction: column;
+  gap: var(--space-4);
+  justify-content: flex-end;
+}
+.appt-card__name {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.appt-card__meta-row { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+.appt-card__meta {
+  flex: 1 0 0;
+  min-width: 1px;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--neutral-600);
+}
+
+/* Bold intro + bulleted 12px list, n500 — the card lists. */
+.card-list { display: flex; flex-direction: column; gap: var(--space-4); color: var(--neutral-500); }
+.card-list__title {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 700;
+}
+.card-list__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-left: var(--space-8);
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+}
+
+.appt-card__actions { display: flex; gap: var(--space-12); width: 100%; }
+
+/* ============================================================
+   Status Hero — Figma 207:2087. Six variants: pill + serif 28
+   headline + 16 Medium support copy. Column gap4, full width.
+   ============================================================ */
+.status-hero { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); width: 100%; }
+.status-hero__title {
+  font-family: var(--font-serif);
+  font-size: var(--size-28);
+  line-height: 34px;
+  font-weight: 500;
+  color: var(--ink);
+  margin: 0;
+}
+/* this file loads after base.css, so restate the weight modifier or
+   .w-600 silently loses the cascade at equal specificity */
+.status-hero__title.w-600 { font-weight: 600; }
+.status-hero__body {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--neutral-500);
+  margin: 0;
+  width: 100%;
+}
+.status-hero__body--dark { color: var(--neutral-600); }
+.status-hero__row {
+  display: flex;
+  gap: var(--space-8);
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--neutral-600);
+}
+
+/* ============================================================
+   Tailor Summary Card — Figma 67:196. White p20 r16 gap16 +
+   64px squircle avatar (r20, ink) and 16px info rows.
+   ============================================================ */
+.summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  width: 100%;
+  padding: var(--space-20);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: 0 6px 16px rgba(28, 27, 24, 0.07), 0 2px 6px rgba(28, 27, 24, 0.06);
+}
+.summary-card__who { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
+.avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-20);
+  background: var(--ink);
+  color: var(--neutral-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.summary-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+}
+.summary-card__name { font-weight: 600; color: var(--ink); }
+.summary-card__row { font-weight: 500; color: var(--neutral-600); white-space: pre; }
+
+/* ============================================================
+   User - Garment Card — Figma 57:197. Default | WithPhoto |
+   ViewOnly | PostAppt. Editable variants are floating cards;
+   view variants are flat rows with an n100 bottom border.
+   ============================================================ */
+.garment-card {
+  position: relative;
+  display: flex;
+  gap: var(--space-12);
+  align-items: flex-start;
+  width: 100%;
+  background: var(--white);
+  padding: var(--space-16) var(--space-12) var(--space-16) var(--space-16);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 6px 8px rgba(28, 27, 24, 0.07), 0 2px 3px rgba(28, 27, 24, 0.06);
+}
+.garment-card--view {
+  padding: var(--space-16) 0;
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 var(--neutral-100);
+}
+/* Figma clips overflowing photo rows on the view variants. */
+.garment-card--view .garment-card__content { overflow: hidden; }
+
+.garment-card__chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: 68px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.garment-card__artbox {
+  position: relative;
+  width: 66px;
+  height: 66px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.garment-card__art {
+  position: absolute;
+  left: -13.64%;
+  top: -13.64%;
+  width: 127.27%;
+  height: 127.27%;
+  max-width: none;
+}
+.garment-card__art--exact {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+.garment-card__price {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.garment-card__content {
+  display: flex;
+  flex: 1 0 0;
+  min-width: 1px;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-right: var(--space-8);
+}
+.garment-card__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.garment-card__row--tight { gap: var(--space-12); }
+.garment-card__service { display: flex; align-items: center; gap: var(--space-8); }
+
+/* ---------- Selector — Figma 535:1582 ----------
+   Inline dropdown in garment cards. Quantity/Item triggers SemiBold 16
+   ink, Job Medium 16 accent; 12px chevron at gap 8. Menu absolute below
+   the trigger (top 27) so the footprint never changes: white r12,
+   border n200, pad 6, gap 2, options 14px py9 px12 r8; selected option
+   accent-bg SemiBold accent-ink with a ✓. */
+.selector { position: relative; display: inline-flex; flex-direction: column; }
+.selector__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.selector--job .selector__trigger { font-weight: 500; color: var(--accent-ink); }
+.selector__chevron { width: 12px; height: 12px; flex-shrink: 0; transition: transform 180ms var(--ease-out); }
+.selector--open .selector__chevron { transform: rotate(180deg); }
+.selector__menu {
+  display: none;
+  position: absolute;
+  top: 27px;
+  left: 0;
+  z-index: 5;
+  flex-direction: column;
+  gap: 2px;
+  width: 220px;
+  padding: 6px;
+  background: var(--white);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+.selector--quantity .selector__menu { width: 96px; }
+.selector--open .selector__menu { display: flex; }
+.selector__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  text-align: left;
+}
+.selector__option.is-selected {
+  background: var(--accent-bg);
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+
+/* Type=Additional (541:1951/1975/1983): "⊕ Additional Service" trigger
+   (gap 4, py 4 — its 32px trigger pushes the menu to top 38); priced
+   ADD A SERVICE menu; added rows get a ✕ remove. */
+.selector__trigger--add { gap: var(--space-4); padding-block: var(--space-4); font-weight: 500; color: var(--accent-ink); }
+/* Figma (541:1989): 24px icon box, 13.33px glyph centred — advance 24+4 */
+.selector__trigger--add .icon-add-circle { width: 13.33px; height: 13.33px; margin: 5.33px; flex-shrink: 0; }
+.selector--additional .selector__menu { top: 38px; }
+.selector--added { flex-direction: row; align-items: center; }
+.selector--added .selector__menu { top: 27px; }
+.selector__menu-header {
+  padding: 6px 12px 4px;
+  font-family: var(--font-sans);
+  font-size: var(--size-11);
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--neutral-500);
+  white-space: nowrap;
+}
+.selector__price {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--neutral-500);
+}
+.selector__remove {
+  padding-left: var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--neutral-500);
+}
+
+.garment-card__close {
+  position: absolute;
+  top: 11px;
+  right: 13px;                    /* Figma: ✕ box ends 13 from the edge */
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--neutral-500);
+}
+.icon-10 { width: 10px; height: 10px; flex-shrink: 0; }
+.icon-10--accent { color: var(--accent-ink); }
+.garment-card__row .icon-10 { color: var(--neutral-600); }
+
+/* 44px photo tiles: dashed add-slot with camera, or gradient photo
+   with a cancel badge. Gradient start #E2DCD1 is one digit off
+   neutral-200 in Figma — kept verbatim, flagged to Kevin. */
+.photo-tiles { display: flex; gap: var(--space-8); align-items: flex-start; }
+.photo-tile {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.photo-tile--add { border: 1.5px dashed var(--neutral-300); color: var(--neutral-600); }
+.photo-tile--add .icon-camera { position: absolute; inset: 11.5px; width: 18px; height: 18px; }
+.photo-tile--photo { background: linear-gradient(135deg, #E2DCD1 0%, var(--neutral-300) 71.43%); }
+.photo-tile__cancel {
+  position: absolute;
+  top: -2px;
+  right: -6px;
+  width: 19px;
+  height: 19px;
+  transform: rotate(45deg);
+}
+.photo-tile__cancel-icon { width: 13.33px; height: 13.33px; }
+.photo-tiles__label {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
+.photo-group { display: flex; flex-direction: column; gap: var(--space-4); }
+.photo-row { display: flex; gap: var(--space-4); align-items: flex-start; }
+
+/* ============================================================
+   Sheet chassis — local structure on 02a / 04a / 04b.
+   Scrim: ink at 0.4 (node opacity, per Phase 0). Panel: neutral-50,
+   r24 top corners. Grabber 36x4 (04a/04b) — 02a draws 40x4, flagged.
+
+   Motion (animate skill): drawer curve, panel translates its own
+   height, scrim fades. Enter 400ms, exit 300ms, same path both ways.
+   ============================================================ */
+.sheet-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  opacity: 0.4;
+  z-index: 3;
+}
+.sheet {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  padding: var(--space-12) var(--space-20) var(--space-32);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--neutral-50);
+}
+.sheet__grabber-row { display: flex; justify-content: center; width: 100%; }
+
+/* 02a's picker sheet: pad 8/20/20 and a 40x4 grabber (04a/04b: 12/20/32, 36x4).
+   The 358-tall frame overflows 02a's 844 bottom by 4px — reproduce the clip. */
+.sheet--picker { padding: var(--space-8) var(--space-20) var(--space-20); bottom: -4px; }
+.sheet--picker .sheet__grabber { width: 40px; }
+/* Picker title went serif in the Aug 2026 frames: Cormorant SemiBold 20/24
+   (277:2921 — literal 20px, off the scale; see tokens.css --size-20). */
+.sheet--picker .sheet__title {
+  font-family: var(--font-serif);
+  font-size: var(--size-20);
+  line-height: 24px;
+  font-weight: 600;
+  text-align: center;
+  flex: 1 0 0;
+}
+.sheet__grabber {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-20);
+  background: var(--neutral-300);
+}
+
+/* Open/close driven by [data-open] on a .sheet-host wrapper. */
+.sheet-host .sheet-scrim,
+.sheet-host .sheet {
+  transition: opacity 300ms var(--ease-drawer), transform 300ms var(--ease-drawer);
+}
+.sheet-host[data-open="true"] .sheet-scrim { opacity: 0.4; }
+.sheet-host[data-open="true"] .sheet { transform: translateY(0); transition-duration: 400ms; }
+.sheet-host[data-open="false"] .sheet-scrim { opacity: 0; pointer-events: none; }
+.sheet-host[data-open="false"] .sheet { transform: translateY(100%); }
+
+/* Sheet header (02a): ✕ · title · ✓ */
+.sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.sheet__cancel { color: var(--neutral-500); }
+.sheet__confirm { color: var(--accent-ink); font-weight: 700; }
+
+/* ============================================================
+   Wheel picker — 02a. 5 rows of 40px per column; a 40px n100
+   selection band (r12) sits behind the middle row.
+   Selected 16 Bold ink · neighbours 12 Medium n400 · edges n300.
+   ============================================================ */
+.wheel {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 200px;
+}
+.wheel__band {
+  position: absolute;
+  top: 80px;
+  left: 0;
+  right: 0;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--neutral-100);
+}
+.wheel__col { position: relative; display: flex; flex-direction: column; }
+.wheel__row {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--neutral-400);
+}
+.wheel__row--edge { color: var(--neutral-300); }
+.wheel__row--selected {
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* Scrollable columns (overlay only — the static wheel stays frame-exact).
+   40px rows snap to the centre of the 200px viewport = the selection
+   band; 80px pads let the first/last rows reach it. Scrollbars hidden. */
+.wheel__col--scroll {
+  height: 200px;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none;
+}
+.wheel__col--scroll::-webkit-scrollbar { display: none; }
+.wheel__col--scroll .wheel__row { flex: 0 0 40px; scroll-snap-align: center; }
+.wheel__pad { flex: 0 0 80px; }
+
+/* ============================================================
+   Payment method row — 04a. White r12 p16 gap12 + chevron-right.
+   Pay badges stay bespoke frames (46x28 r6) per Kevin.
+   ============================================================ */
+.method-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-16);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+  transition: transform 140ms var(--ease-out);
+}
+.method-row:active { transform: scale(0.98); }
+.method-row__label { flex: 1 0 0; min-width: 1px; text-align: left; }
+.method-row__chevron { width: 16px; height: 16px; color: var(--neutral-500); flex-shrink: 0; }
+
+.pay-badge {
+  width: 46px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--white);
+  border: 1px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.pay-badge--google { border-color: var(--neutral-300); }
+.method-row__icon { width: 24px; height: 24px; color: var(--ink); flex-shrink: 0; }
+
+/* ============================================================
+   Chat bubble — Figma T2 / Chat Bubble 457:831 (Them | Me).
+   p12/16 r16; text 14 Regular (OFF-SCALE in the Figma master —
+   kept verbatim, flagged to Kevin). Max width 262 of the 310 row.
+   ============================================================ */
+.bubble-row { display: flex; width: 100%; }
+.bubble-row--me { justify-content: flex-end; }
+.bubble {
+  max-width: 262px;
+  padding: var(--space-12) var(--space-16);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  /* refine r1: master moved 14 → 16 (Chat Bubble 514:934) */
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+}
+.bubble--me { background: var(--ink); color: var(--white); }
+
+/* ============================================================
+   Timeline steps — 06. White r16 p16 card; rows py8 gap12 with a
+   24px dot (done: ink · current: accent-base · todo: n200).
+   ============================================================ */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--space-16);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+.step { display: flex; gap: var(--space-12); padding-block: var(--space-8); align-items: center; }
+.step__dot {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-20);
+  background: var(--neutral-200);
+  color: var(--neutral-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.step--done .step__dot { background: var(--ink); }
+.step--current .step__dot { background: var(--accent-base); }
+.step__labels { display: flex; flex-direction: column; gap: var(--space-4); }
+.step__title {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.step__sub,
+.step--todo .step__title {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
+
+/* ============================================================
+   Delivery window — 07a/07b. 16 Medium n500 day label over a
+   chip row (gap 8).
+   ============================================================ */
+.delivery-window { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+.delivery-window__day {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
+.delivery-window__chips { display: flex; gap: var(--space-8); }
+
+/* ============================================================
+   Summary / receipt card — 03 request-card, 07b summary, 08 receipt,
+   04c/04d/05/06a fee rows. White r16 p16 gap8 column of rows.
+   ============================================================ */
+.info-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-16);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+}
+.info-card__heading {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--neutral-500);
+}
+
+/* space-between money row: 16px (07b) or 12px (08 receipt) */
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
+.info-row--small { font-size: var(--size-12); line-height: 16px; }
+.info-row--total { font-weight: 600; color: var(--ink); }
+
+/* glyph-prefixed meta row: ◉ ▤ ✂ at 12 + 16 Medium n500 text */
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
+.meta-row__glyph { font-size: var(--size-12); line-height: 16px; }
+
+/* Fee row (04c…): price cell (px16) + description */
+.fee-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12) 0 var(--space-8);
+  width: 100%;
+}
+.fee-row__price {
+  /* Figma: a 68px cell with the price centred inside */
+  width: 68px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.fee-row__desc {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--neutral-500);
+}
+
+/* ---------- motion accessibility for this slab ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .sheet-host .sheet { transition: opacity 300ms ease; transform: none; }
+  .sheet-host[data-open="false"] .sheet { opacity: 0; }
+  .method-row:active, .cta-small:active { transform: none; }
+  .method-row, .cta-small { transition: none; }
+}

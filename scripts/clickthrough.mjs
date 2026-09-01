@@ -49,17 +49,32 @@ async function assertAt(desc, expScreen, expStatus) {
   console.log(`${okS && okT ? 'PASS' : 'FAIL'}  ${desc.padEnd(34)} screen=${s}${okS ? '' : ` (want ${expScreen})`}  status=${st}${okT ? '' : ` (want ${expStatus})`}`);
 }
 
+/* Sheets are in-place overlays since the motion round: the route never
+   changes, an overlay with the sheet's data-s mounts over the live
+   screen and unmounts on confirm/cancel. */
+async function assertOverlay(desc, expDataS) {
+  await page.waitForTimeout(500);
+  const s = await page.evaluate(() =>
+    document.querySelector('.screen-sheet--overlay:not(.is-closing)')?.dataset.s ?? '(none)');
+  const ok = s === (expDataS ?? '(none)');
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(34)} overlay=${s}${ok ? '' : ` (want ${expDataS ?? 'none'})`}`);
+}
+
 await assertAt('boot', '01-home', 'confirmed');
 await page.click('[data-tile="Suit Jacket"]');
 await page.click('[data-act="start-booking"]');
 await assertAt('Start Booking', '02-appointment-details', 'confirmed');
 await page.click('[data-act="time"]');
-await assertAt('Requested-time pill', '02a-date-time-sheet');
+await assertAt('Requested-time pill (stays on 02)', '02-appointment-details');
+await assertOverlay('  …time sheet overlays', '02a-date-time-sheet');
 await page.click('[data-act="sheet-confirm"]');
 await page.waitForTimeout(400);
 await assertAt('sheet ✓ returns', '02-appointment-details');
+await assertOverlay('  …overlay gone', null);
 await page.click('[data-act="request"]');
-await assertAt('Request Tailor', '04a-payment-sheet');
+await assertAt('Request Tailor (stays on 02)', '02-appointment-details');
+await assertOverlay('  …payment sheet overlays', '04a-payment-sheet');
 await page.click('.method-row');                      // Apple Pay → request sent
 await assertAt('Pay (request sent)', '03-finding-tailor', 'searching');
 await page.click('[data-act="map"]');                 // demo: tailor accepts

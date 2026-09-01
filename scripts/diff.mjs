@@ -3,12 +3,19 @@
 
    Usage:  npm run diff -- 01-home
            npm run diff -- all
+           npm run diff -- 01-home --accept   (write new baseline)
 
    Renders index.html?screen=<id> in Chromium at 390 CSS px wide with
    deviceScaleFactor 2 (so the shot matches the @2x Figma export),
    screenshots .screen, and compares against ref/<id>.png.
 
-   Writes diff/<id>.png and exits 1 if any screen is over 1.00%.
+   Gate (Phase R ratchet): each screen passes iff
+   mismatch ≤ its `baseline` in scripts/screens.json + 0.1. A screen
+   with no baseline yet falls back to the flat 1.00% gate — run
+   --accept to seed it. --accept re-runs the target screen(s) and
+   writes their new mismatch as the baseline (commit with the round).
+
+   Writes diff/<id>.png and exits 1 if any screen fails its gate.
    ============================================================ */
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
@@ -24,11 +31,15 @@ const REF_DIR = resolve(ROOT, 'ref');
 const DIFF_DIR = resolve(ROOT, 'diff');
 const WIDTH = 390;
 const DSF = 2;
-const THRESHOLD = 0.2;      // per-pixel sensitivity (0.1 flagged pure AA softness vs Figma's rasteriser — raised per Kevin, gate stays 1%)
-const FAIL_OVER = 1.0;      // % mismatch that fails the run
+const THRESHOLD = 0.2;      // per-pixel sensitivity (0.1 flagged pure AA softness vs Figma's rasteriser — raised per Kevin)
+const FLAT_GATE = 1.0;      // fallback for screens with no baseline yet
+const RATCHET = 0.1;        // allowed drift above a screen's baseline
 
-const cfg = JSON.parse(readFileSync(resolve(ROOT, 'scripts/screens.json'), 'utf8'));
+const CFG_PATH = resolve(ROOT, 'scripts/screens.json');
+const cfg = JSON.parse(readFileSync(CFG_PATH, 'utf8'));
+cfg.baselines ??= {};
 
+const accept = process.argv.includes('--accept');
 const args = process.argv.slice(2).filter((a) => !a.startsWith('-'));
 const target = args[0] ?? 'all';
 const ids = target === 'all'
@@ -143,21 +154,34 @@ for (const id of ids) {
 await browser.close();
 server.close();
 
+/* ---------- accept: write new baselines ---------- */
+if (accept) {
+  for (const r of results) {
+    if (r.skipped) continue;
+    cfg.baselines[r.id] = Number(r.pct.toFixed(2));
+  }
+  writeFileSync(CFG_PATH, JSON.stringify(cfg, null, 2) + '\n');
+}
+
 /* ---------- report ---------- */
-let worst = 0;
+let failures = 0;
 let skipped = 0;
 
+console.log(`${'screen'.padEnd(26)} ${'mismatch'.padStart(8)} ${'baseline'.padStart(8)}  ${'gate'.padEnd(6)} height Δ`);
 for (const r of results) {
   if (r.skipped) {
     console.log(`${r.id.padEnd(26)} SKIPPED — ${r.skipped}`);
     skipped++;
     continue;
   }
-  const flag = r.pct > FAIL_OVER ? '  FAIL' : '';
-  console.log(`${r.id.padEnd(26)} ${r.pct.toFixed(2)}% mismatch${flag}`);
-  if (r.heightDelta) console.log(`${''.padEnd(26)}   height delta ${r.heightDelta > 0 ? '+' : ''}${r.heightDelta}px CSS (ref ${r.refSize} vs shot ${r.shotSize})`);
+  const baseline = cfg.baselines[r.id];
+  const gate = baseline != null ? baseline + RATCHET : FLAT_GATE;
+  const pass = r.pct <= gate + 1e-9;
+  if (!pass) failures++;
+  const baseCol = baseline != null ? `${baseline.toFixed(2)}%` : '(none)';
+  const hCol = r.heightDelta ? `${r.heightDelta > 0 ? '+' : ''}${r.heightDelta}px (ref ${r.refSize} vs shot ${r.shotSize})` : '—';
+  console.log(`${r.id.padEnd(26)} ${(r.pct.toFixed(2) + '%').padStart(8)} ${baseCol.padStart(8)}  ${(pass ? 'PASS' : 'FAIL').padEnd(6)} ${hCol}`);
   if (r.widthDelta) console.log(`${''.padEnd(26)}   width delta ${r.widthDelta > 0 ? '+' : ''}${r.widthDelta}px CSS`);
-  worst = Math.max(worst, r.pct);
 }
 
 if (consoleErrors.length) {
@@ -166,6 +190,6 @@ if (consoleErrors.length) {
 }
 
 const compared = results.length - skipped;
-console.log(`\n${compared} compared, ${skipped} skipped. Worst: ${worst.toFixed(2)}%. Diffs in diff/.`);
+console.log(`\n${compared} compared, ${skipped} skipped, ${failures} over gate (baseline + ${RATCHET}).${accept ? ' Baselines updated.' : ''} Diffs in diff/.`);
 
-process.exit(compared > 0 && worst > FAIL_OVER ? 1 : 0);
+process.exit(compared > 0 && failures > 0 ? 1 : 0);

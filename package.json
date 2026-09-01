@@ -4,7 +4,9 @@
   "description": "Taily v4 prototype — plain HTML/CSS/JS rebuilt from Figma. No build step.",
   "scripts": {
     "refs": "node scripts/export-refs.mjs",
-    "diff": "node scripts/diff.mjs"
+    "refs:check": "node scripts/refs-check.mjs",
+    "diff": "node scripts/diff.mjs",
+    "check": "node scripts/check.mjs"
   },
   "repository": {
     "type": "git",

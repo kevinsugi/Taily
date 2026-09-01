@@ -12,7 +12,7 @@ Screens (id → node): see `scripts/screens.json`. Behaviour source of truth: `j
 - Screens: 390 wide, background `var(--neutral-50)`; `.status-bar` absolute 0/0 h44; `.top-nav` absolute 0/44 h56; `.body` padding-top **128**, sides **20**.
 - If Figma looks wrong or inconsistent, STOP and report it; do not fix it silently.
 
-Workflow per screen: `get_design_context` (per top-level child for tall frames) → `js/screens/<id>.js` → `npm run diff -- <id>` → ≤1% → commit `feat(screen): <id>`.
+Workflow per round (Phase R): `npm run refs` → `npm run refs:check` → code → `npm run diff -- <id> --accept` for intended screens → `npm run check` → commit. (New screens still start from `get_design_context` → `js/screens/<id>.js`.) Diff gates are per-screen ratchet baselines in `scripts/screens.json` (pass = baseline + 0.1); `npm run check` = diffs + text parity + click-through + style hygiene in one command. `proto-v1` tags the pre-refinement ground truth.
 
 `ref/` PNGs are Figma exports @2x (`npm run refs`, needs `FIGMA_TOKEN`). Re-export if Figma changed.
 

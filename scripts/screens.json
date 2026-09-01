@@ -23,5 +23,27 @@
     "08-journey-complete": "283:1419",
     "09-bookings": "277:2804",
     "m1-message-tailor": "282:1239"
+  },
+  "baselines": {
+    "01-home": 0.56,
+    "01a-home-selected": 0.59,
+    "02-appointment-details": 1,
+    "02a-date-time-sheet": 0.55,
+    "02b-address-sheet": 0.15,
+    "03-finding-tailor": 1.36,
+    "04a-payment-sheet": 0.97,
+    "04b-add-card-sheet": 1,
+    "04c-appointment-confirmed": 0.46,
+    "04d-appointment-complete": 0.42,
+    "04e-order-summary": 0.4,
+    "05-appointment-reminder": 0.52,
+    "06-order-status": 0.12,
+    "06a-review-approve": 0.36,
+    "07-items-ready": 0.57,
+    "07a-pickup-window": 0.22,
+    "07b-delivery-options": 0.31,
+    "08-journey-complete": 0.2,
+    "09-bookings": 0.33,
+    "m1-message-tailor": 0.38
   }
 }

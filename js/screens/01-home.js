@@ -22,7 +22,8 @@ function selection() {
 /** Meta line per status, as the v4 frames word it. */
 export function apptMeta(a) {
   const map = {
-    confirmed: `Appt Date: ${a.when}`,
+    /* Phase R1: confirmed cards show the bare date (was "Appt Date: …") */
+    confirmed: a.when,
     tailoring: `Est. Ready Date: ${a.when}`,
     ready: `Completed: ${a.when}`,
     completed: `Picked up: ${a.when}`,
@@ -63,7 +64,9 @@ export function view01(s) {
     name: a.name,
     meta: apptMeta(a),
     itemsTitle: `${a.count} Items Total - ${a.visit}:`,
-    items: a.itemLines ?? [],
+    /* Phase R1: the 01 frame lists only two item lines under "3 Items
+       Total" where 09 lists all three — built verbatim; raised. */
+    items: (a.itemLines ?? []).slice(0, 2),
     prepare: a.bring ?? [],
     actions: apptActions(a),
   }) : '';

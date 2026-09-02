@@ -15,7 +15,7 @@ function renderScreen(s) {
   ${statusHero({ pill: false, title: 'Your Appointment is Confirmed.', titleWeight: 600 })}
   <div class="summary">
     <h2 class="t-title c-500 summary__title">Order Summary</h2>
-    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Thu, Jul 9 · 9:30 AM', '▤&nbsp;&nbsp;Need By: Thurs, Sep 1'] })}
+    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 17 · 7:00PM', '▤&nbsp;&nbsp;Need By: Thurs, Jul 17'] })}
     <div class="garments-card">
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 })}

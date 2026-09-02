@@ -25,25 +25,25 @@
     "m1-message-tailor": "282:1239"
   },
   "baselines": {
-    "01-home": 0.57,
-    "01a-home-selected": 0.61,
-    "02-appointment-details": 0.67,
-    "02a-date-time-sheet": 0.23,
-    "02b-address-sheet": 0.69,
+    "01-home": 0.53,
+    "01a-home-selected": 0.56,
+    "02-appointment-details": 0.66,
+    "02a-date-time-sheet": 0.22,
+    "02b-address-sheet": 0.05,
     "03-finding-tailor": 1.36,
     "04a-payment-sheet": 0.64,
     "04b-add-card-sheet": 0.42,
     "04c-appointment-confirmed": 0.35,
-    "04d-appointment-complete": 0.26,
+    "04d-appointment-complete": 0.25,
     "04e-order-summary": 0.26,
     "05-appointment-reminder": 0.37,
     "06a-review-approve": 0.21,
     "07-items-ready": 0.57,
-    "07a-pickup-window": 0.22,
-    "07b-delivery-options": 0.31,
-    "08-journey-complete": 0.12,
+    "07a-pickup-window": 0.23,
+    "07b-delivery-options": 0.22,
+    "08-journey-complete": 0.27,
     "09-bookings": 0.32,
-    "m1-message-tailor": 0.39,
-    "06b-review-approve-modified": 0.22
+    "m1-message-tailor": 0.38,
+    "06b-review-approve-modified": 0.2
   }
 }

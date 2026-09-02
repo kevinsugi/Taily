@@ -40,16 +40,9 @@ const STALE_DEPOSIT = 'Request Tailor · $20 Deposit (10%)';
 // 04D/06A/06B frames still write it spaced ("- $20").
 const SPACED_DEPOSIT = '- $20';
 const ALLOW = {
-  // Phase R0.1 (Kevin): the appointment date is Jul 12 (per the 09
-  // frame); 01/01a's frames still show the stale AUG 29 card.
-  '01-home': ['AUG', '29', 'Appt Date: Aug 29, 7PM'],
-  '01a-home-selected': ['AUG', '29', 'Appt Date: Aug 29, 7PM'],
   '02-appointment-details': [STALE_DEPOSIT],
   '02a-date-time-sheet': [STALE_DEPOSIT],
-  // Phase R0 (Kevin-approved): 02B's frame still draws the PRE-R0 02
-  // behind its scrim (Address pill, old header) — the build shows the
-  // live view02().
-  '02b-address-sheet': [STALE_DEPOSIT, 'Address:', '88 Leonard St, 4B'],
+  '02b-address-sheet': [STALE_DEPOSIT],
   '04a-payment-sheet': [STALE_DEPOSIT],
   '04b-add-card-sheet': [STALE_DEPOSIT],
   '04d-appointment-complete': [SPACED_DEPOSIT],

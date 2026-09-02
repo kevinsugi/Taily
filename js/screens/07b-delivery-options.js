@@ -20,16 +20,16 @@ function renderScreen() {
     <p class="t-body w-600 c-ink">88 Leonard St, 4B — New York, NY 10013</p>
     <button type="button" class="t-small w-600 address-card__change" data-act="change">Change address</button>
   </div>
-  ${deliveryWindow('Thursday, July 16', [{ label: '9–11 AM', selected: true }, { label: '12–2 PM' }, { label: '4–6 PM' }])}
-  ${deliveryWindow('Friday, July 17', [{ label: '9-11 AM' }, { label: '12–2 PM' }, { label: '4–6 PM' }])}
+  ${deliveryWindow('Thursday, July 16', [{ label: '9–11 AM' }, { label: '12–2 PM' }, { label: '4–6 PM' }])}
+  ${deliveryWindow('Friday, July 17', [{ label: '9-11 AM' }, { label: '12–2 PM' }, { label: '4–6 PM', selected: true }])}
   <div class="delivery-window">
     <span class="delivery-window__day">Request Custom Time</span>
     <div class="delivery-window__chips">${selectTime()}</div>
   </div>
   ${infoCard([
-    infoRow('Balance due', '$180'),
-    infoRow('Delivery', '$30'),
-    infoRow('Charged on delivery', '$210', { total: true }),
+    infoRow('Balance due', '$340'),
+    infoRow('Delivery', '$20'),
+    infoRow('Charged on delivery', '$360', { total: true }),
   ].join(''))}
   <div class="actions">
     ${cta('Confirm Delivery · Thu 9-11 AM', { attrs: 'data-act="confirm"' })}

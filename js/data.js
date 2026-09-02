@@ -123,7 +123,9 @@ export const TAILORS = [
 
 /* Requested appointment — the time the USER asks for; the tailor confirms it or proposes another. */
 export const APPT_PLACES = ['Home Visit', 'Store Visit'];
-export const APPT_DEFAULT = { when: '7:00 PM Tonight', needBy: 'Thurs, Sept 1', where: 'Store Visit' };
+/* Phase R1 (Kevin): dates aligned to the Jul 12 fiction across all
+   frames. */
+export const APPT_DEFAULT = { when: 'Jul 12, 7:00 PM', needBy: 'Jul 17, 3:00PM', where: 'Store Visit' };
 export const NEED_BY_OPTS = ['Thurs, Sept 1', 'Fri, Sept 2', 'Next week', 'Flexible'];
 
 /* Seed appointments. state.js deep-clones these so the app can be reset.
@@ -134,7 +136,7 @@ export const SEED_UPCOMING = [
   /* Phase R0.1 (Kevin): appointment date fixed to Jul 12 — the 09
      frame's date; 01's frame still shows AUG 29 (stale, allowed). */
   { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '1025 Broadway, Midtown West',
-    when: 'Jul 12, 7PM', status: 'confirmed', items: '3 items · Alterations',
+    when: 'Sunday Jul 12, 7PM', status: 'confirmed', items: '3 items · Alterations',
     visit: 'Store Visit', count: 3, month: 'JUL', day: '12',
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
     /* Phase R0: the seed carries the POST-appointment modified order
@@ -149,9 +151,12 @@ export const SEED_UPCOMING = [
        compute theirs. */
     chatMeta: 'Thu, Jul 9 · 9:30 AM · Home Visit',
     totals: { subtotal: 360, visitFee: 0, total: 360, deposit: 20 } },
+  /* Phase R1: the 09 frame moved James to "Completed: Jul 1, 3PM" with
+     a JUL 3 date badge — badge and meta disagree in the frame itself;
+     carried verbatim. */
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
-    when: 'Sep 2, 2026', status: 'ready', items: '2 items · Alterations',
-    visit: 'Home Visit', count: 2, month: 'SEP', day: '2',
+    when: 'Jul 1, 3PM', status: 'ready', items: '2 items · Alterations',
+    visit: 'Home Visit', count: 2, month: 'JUL', day: '3',
     itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
     garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['The shoes you plan to wear with your garments.'],

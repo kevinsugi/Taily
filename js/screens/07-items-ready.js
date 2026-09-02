@@ -31,7 +31,7 @@ function renderScreen(s) {
   return `${chrome('home')}
 <div class="body" data-s="07-items-ready">
   ${statusHero({ pill: false, variant: 'ready', title: 'Your items are ready.', body: `${first} finished ahead of schedule. Choose how you’d like them back, the balance is settled upon receipt.` })}
-  ${optionRow({ id: 'delivery', title: 'Home delivery', sub: `Courier service for  ${s.contact.street}, ${s.contact.unit}`, price: '$10', selected: sel === 'delivery' })}
+  ${optionRow({ id: 'delivery', title: 'Home delivery', sub: `Courier service for  ${s.contact.street}, ${s.contact.unit}`, price: '$20', selected: sel === 'delivery' })}
   ${optionRow({ id: 'pickup', title: 'Pickup', sub: `From ${first}’s studio · ${studio}`, price: 'Free', selected: sel === 'pickup' })}
   <div class="actions">
     ${cta('Continue', { attrs: 'data-act="continue"' })}

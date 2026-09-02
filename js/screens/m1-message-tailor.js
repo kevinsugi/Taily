@@ -17,7 +17,7 @@ import { state } from '../state.js';
 
 /* The frame's conversation (282:1239) — Marco's seeded thread. */
 const SEED_THREAD = [
-  { who: 'them', text: 'Hi Kevin — see you Thursday at 9:30. Please have both jackets ready, and the shoes you plan to wear with them.' },
+  { who: 'them', text: 'Hi Kevin — see you Sunday at 7:00PM. Please have both jackets ready, and the shoes you plan to wear with them.' },
   { who: 'me', text: 'Will do! The buzzer is 4B — call if it acts up.' },
   { who: 'them', text: 'Perfect. See you then.' },
 ];

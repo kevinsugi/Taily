@@ -30,8 +30,8 @@ function renderScreen(s) {
     <div class="garments-card">
       ${cards}
       ${feeRow(`-$${t.deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
-      ${feeRow('$10', 'Delivery - Paid 7/17/26', { line: true })}
-      ${feeRow(`$${t.total - t.deposit + 10}`, 'Total - Paid 7/17/26')}
+      ${feeRow('$20', 'Delivery - Paid 7/17/26', { line: true })}
+      ${feeRow(`$${t.total - t.deposit + 20}`, 'Total - Paid 7/17/26')}
     </div>
   </div>
   <div class="cta-bar cta-bar--plain">

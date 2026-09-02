@@ -265,48 +265,102 @@ Done when: diff table unchanged, Pages URL live, README current, commit "feat: i
 
 ---
 
-## Phase 7 — Tailor flow (after the user flow ships)
+## Phase T — Tailor flow (parallel track; supersedes the old Phase 7)
 
-The tailor screens are no longer in the Figma file, so this phase starts in Figma again.
+Read the "Phase T" section of PROTOTYPE-PLAN.md first — it defines the isolation contract these
+prompts rely on. Run T0 here in Cowork or in Claude Code; T2/T3 run in the `../taily-tailor`
+worktree folder; T1 and T4 run in the main Taily folder.
 
-### 7A — Bring the tailor flow back into Figma
+### T0 — Tailor flow in Figma
 
 ```
 Load the figma-use and figma-generate-design skills. In file spK8ZHnsPlWEuD8zRmf5sY, create a page "Tailor - Main Flow 2".
-Source material: (a) the tailor flow chart on page "Flow 2" (263:6366, frame "TAILY · END-TO-END TAILOR FLOW" 263:6457) —
-read every Flow / Screen, Decision and Process label to get the screen list and transitions; (b) the tailor screens in
-taily-prototype-v3.html in this repo (persona "tailor": Home, Home Setup, Calendar, Price List, Services, Availability,
-New Request, Modified Request, Suggest Time sheet, New Time Sent, Request Declined, Job Confirmed, Job Ready, Job Completed,
-Job Cancelled) for content and structure only.
-Rebuild them as 390-wide frames using the SAME conventions as User - Main Flow 2 (root V auto-layout, V2/Status Bar at 0,0,
-Top Nav at 0,44 with the tailor Active variants — add T-Home / T-Calendar / T-Shop variants to Top Nav if they no longer exist,
-body top offset 128, sides 20, tokens bound, CTA/Status Pill/Status Hero instances). Recreate the tailor components on the
-Components page under a "TAILOR — T/ COMPONENTS" section: T/Appointment Request Card (New/Awaiting/Closed), T/Suggest New
-Times Card, T/Status Hero (New/Awaiting/Confirmed/Ready/Completed/Cancelled), T/Job Action Bar (New/Confirmed/Ready),
-T/Setup Checklist Card + Row, T/Price List Row, T/Availability Day Row. Money canon: $20 fee / $180 subtotal / $200 total
-($120 + $80 garments); Sarah = store visit, 350 W 51st St.
-Work one screen at a time, screenshot after each, and stop after the first two (T01 Home, T02 New Request) for my review
-before doing the rest. Then run the Phase 0 audit prompt against the new page.
+Sources: (a) the tailor flow chart on page "Flow 2" — frame "TAILY · END-TO-END TAILOR FLOW" 263:6457 — read every
+Flow/Screen, Decision and Process label for the screen list and transitions; (b) the tailor screens in
+taily-prototype-v3.html in this repo (persona "tailor") for content and structure ONLY — visuals follow the current
+design system, not v3.
+Conventions = identical to "User - Main Flow 2": 390w frames, V2/Status Bar instance at (0,0), Top Nav at (0,44), body
+top offset 128, sides 20, every color/space/radius/type bound to the existing variables. NO new tokens unless a real gap
+appears — if one does, stop and ask me before creating it.
+Components, in this order:
+1. Reuse untouched: CTA, Garment Card, sheets, Time Chip, Status Bar.
+2. Extend shared sets (deliberate, one pass, tell me before doing it): Top Nav → add Active variants T-Home, T-Calendar,
+   T-Shop; Status Pill → add any missing tailor states. Adding variants must not disturb existing instances.
+3. Build new, in a "TAILOR — T/ COMPONENTS" section on the Components page, token-bound: T/Appointment Request Card
+   (New/Awaiting/Closed), T/Status Hero (New/Awaiting/Confirmed/Ready/Completed/Cancelled), T/Job Action Bar
+   (New/Confirmed/Ready), T/Setup Checklist Card + Row, T/Price List Row, T/Availability Day Row, T/Suggest New Times Card.
+Content canon: money = $20 fee / $180 subtotal / $200 total ($120+$80 garments); Sarah = store visit, 350 W 51st St.
+Font gotcha: preload Noto Sans / Noto Sans Symbols / Noto Sans Symbols2 (try/catch) before editing texts with symbols.
+Build one screen at a time and screenshot each; STOP after T01 Home and T02 New Request for my review before the rest.
+When all screens are done, run the Phase 0 audit (see the Phase 0 prompt) against the new page, fix what it finds, save a
+named version "tailor build start", and print the final frame-name → node-id list.
 ```
 
-### 7B — Tailor components and screens in code
+### T1 — Branch, worktree, substrate prep (main Taily folder)
 
 ```
-Read CLAUDE.md. Extend scripts/screens.json with the tailor frames (I will paste the node-id list from Figma) and run npm run refs.
-1. Components: repeat the Phase 3 inventory for the tailor page; add each T/ component to components.css/js + gallery.
-   Top Nav gains the T-Home/T-Calendar/T-Shop Active variants.
-2. Screens: /screen each tailor id in this order: t01-home, t01-home-setup, t01a-calendar, t01b-price-list, t01c-services,
-   t01d-availability, t02-new-request, t02s-suggest-time-sheet, t02a-new-time-sent, t02b-request-declined, t02aa-modified-request,
-   t03-job-confirmed, t04-job-ready, t05-job-completed, t03a-job-cancelled. Batches of 4–5 per session.
-3. Linkage: restore the v3 mirror model — confirmBooking() pushes one entry into the user's upcoming list and the tailor's
-   jobs; tailor actions (accept / suggest time / decline / mark ready / complete / cancel) mutate that entry so the user screens
-   update. Add a "View as Tailor" toggle in the stage caption (outside .screen so diffs are unaffected).
-4. Run the Phase 5 sweep on the tailor screens plus an end-to-end script: user books → tailor accepts → marks ready → user
-   sees 07 Items Ready → tailor completes → user sees 08.
-Done when: all tailor screens ≤1%, the two-persona loop passes, commit and merge "feat: tailor flow".
+Read CLAUDE.md and the "Phase T" section of PROTOTYPE-PLAN.md. Setup session — no tailor screens yet.
+1. `npm run check` must be green on main before anything.
+2. Make screen registration data-driven so adding screens touches zero lines of app.js: each js/screens/*.js module
+   self-registers into a shared registry (js/registry.js); app.js only reads the registry. No visual change — run
+   `npm run check` after; the diff table must be identical. Commit to main: "refactor: data-driven screen registry".
+3. `git branch feat/tailor && git worktree add ../taily-tailor feat/tailor`. Explain to me in two sentences how the two
+   folders relate.
+4. Add a "Tailor branch rules" section to CLAUDE.md (commit on main, then merge main into feat/tailor): the isolation
+   contract — tailor-only files are js/screens/t*.js, js/tailor-components.js, js/tailor-data.js, css/tailor.css,
+   ref/t*.png, tailor-components.html, scripts/clickthrough-tailor.mjs; shared files (tokens/base/components.css,
+   state.js, app.js, registry.js, diff/check scripts, CLAUDE.md) change ONLY via main; screens.json is append-only on
+   the tailor branch; screen ids are t-prefixed; one shared-substrate change in flight at a time.
+5. In the worktree: append the tailor frames to scripts/screens.json (I will paste the node-id list from T0), set
+   FIGMA_TOKEN, `npm run refs` for the t* ids only, commit "refs: tailor baseline exports" on feat/tailor.
 ```
 
----
+### T2 — Tailor components (run in ../taily-tailor)
+
+```
+You are in the taily-tailor worktree on branch feat/tailor. Read CLAUDE.md, especially "Tailor branch rules" — you may
+not modify shared files; if a task needs a shared change, stop and tell me so it can land on main first. Enter plan mode.
+Build css/tailor.css + js/tailor-components.js + tailor-components.html (gallery) for every component on the Figma
+"Tailor - Main Flow 2" page and the TAILOR — T/ COMPONENTS section: one class per Figma variant, tokens only, .t-* type
+classes only. Nav T-Home/T-Calendar/T-Shop are additive classes on the shared .top-nav base, defined in tailor.css.
+Inventory first (get_metadata on the tailor page + components section, list instance names with usage counts), show me,
+then implement. Gallery-compare against Figma screenshots; crop-diff the three most used. Commit "feat: tailor components".
+```
+
+### T3 — Tailor screens + mirror model (run in ../taily-tailor; batches of 4–5)
+
+```
+You are in the taily-tailor worktree on branch feat/tailor. Read CLAUDE.md ("Tailor branch rules"). Before the first
+batch: design the mirror model — one appointment entry shared by both personas; confirmBooking() pushes it into the
+tailor job list; tailor actions (accept / suggest time / decline / mark ready / complete / cancel) mutate it so user
+screens update. This touches state.js/data.js (SHARED): show me the state-diagram diff, and once approved implement it
+as a minimal additive commit ON MAIN (git -C ../Taily, run npm run check there — user flow must stay green), then
+`git merge main` here.
+Then /screen each tailor id in Figma-frozen order: <paste list from T0>, batches of 4–5 per session. Refs are ref/t*.png;
+first `npm run diff -- <id> --accept` seeds each baseline. Wire behaviour into the shared state machine as you go.
+Create scripts/clickthrough-tailor.mjs: the tailor path (setup → accept → ready → complete, plus suggest-time and
+decline branches) and one cross-persona assertion (user books → tailor accepts → user sees confirmed). Commit per screen.
+```
+
+### T4 — Merge (main Taily folder)
+
+```
+Read CLAUDE.md. Merge session. Preconditions: `npm run check` green on main AND in ../taily-tailor (run both, show me).
+Then: git merge --no-ff feat/tailor (expect only a trivial screens.json append conflict — resolve by keeping both lists).
+Extend scripts/check.mjs to run both clickthrough scripts and the full user+tailor screen set. `npm run check` on the
+merged main — all screens within baselines, both clickthroughs green. Update README (two personas, how to switch),
+tag proto-v2, push, confirm GitHub Pages still serves. Then `git worktree remove ../taily-tailor` and delete the branch.
+```
+
+### T5 — Persona gate (main; onboarding comes later as its own mini Phase T)
+
+```
+Read CLAUDE.md. Add a `persona` field to app state (default "user") and a "View as Tailor" / "View as Customer" toggle
+in the stage caption OUTSIDE .screen (pixel diffs must not see it — `npm run check` before and after, identical tables).
+persona decides which home screen and nav render; deep links ?screen=<id> still override for the diff harness. Keep it
+throwaway-simple: onboarding will replace this toggle by setting persona from a role-choice screen; nothing else should
+need to change when it does.
+```
 
 ## Quick reference — when something goes wrong
 

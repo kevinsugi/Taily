@@ -312,3 +312,130 @@ always" relaxed to "Figma before merge" — feel decisions need a browser, and a
 would either slow every 2px nudge or get quietly broken. (4) `git diff --stat ref/` replaced by
 a pixel-compare — PNG bytes aren't stable across exports, so byte diffs can cry wolf. Plus
 ceremony trimmed for a solo repo: branches and `--no-ff` only where blast radius justifies them.
+
+---
+
+# Phase T — Tailor flow (parallel to user-flow refinement)
+
+Goal: build the tailor persona from Figma with the same tokens and modified components, on its
+own branch so the shipped user flow is never at risk — workable simultaneously with user-flow
+refinement rounds — then merge, with a persona gate that shows each audience only its flow once
+onboarding exists. As of Aug 29 the Figma file has no tailor page, so this starts in Figma.
+
+## The isolation contract (what makes "simultaneously" safe)
+
+Two kinds of files, two rules:
+
+- **Tailor-only files — create freely on the tailor branch.** Everything tailor gets its own
+  file: `js/screens/t*.js`, `js/tailor-components.js`, `css/tailor.css`, `js/tailor-data.js`,
+  `ref/t*.png`, `tailor-components.html` (gallery), `scripts/clickthrough-tailor.mjs`. New
+  files can't conflict with user-flow work, so the final merge is nearly automatic.
+- **Shared files — change on `main`, never fork.** `tokens.css`, `base.css`, `components.css`,
+  `state.js`, `app.js`, `diff.mjs`/`check.mjs`, CLAUDE.md. If the tailor work needs a shared
+  change (a Status Pill variant, a state-machine extension, a nav variant), make it a small
+  additive commit, land it on `main` first, and pull `main` into the tailor branch. Both flows
+  then sit on the same substrate and the substrate never diverges. `scripts/screens.json` is
+  the one shared file the tailor branch appends to; its merge conflict is trivial (a JSON list).
+
+One structural prep makes `app.js` conflict-free: make screen registration data-driven
+(each screen module self-registers into a registry object), so adding 15 tailor screens
+touches zero lines of `app.js`.
+
+## T0 — Tailor flow in Figma (design work, ~the biggest chunk)
+
+Create page "Tailor - Main Flow 2" in the Figma file. Sources: the tailor flow chart on
+"Flow 2" (frame 263:6457 — screen list and transitions) and the tailor screens in
+`taily-prototype-v3.html` (content and structure reference only). Same conventions as the user
+page: 390w, V2/Status Bar (0,0), Top Nav (0,44), body top 128, sides 20, every value bound to
+the SAME variables — no new tokens unless a real gap appears, and then the token lands in the
+collection (a shared change).
+
+"Modified components" concretely means three kinds, in this order:
+1. **Reused as-is**: CTA, Garment Card, Status Bar, sheets, Time Chip — instances, untouched.
+2. **Extended shared components**: Top Nav gains Active variants T-Home / T-Calendar / T-Shop;
+   Status Pill gains any missing tailor states. Adding variants to a component set does not
+   disturb existing instances, so user screens are safe — but these edits are "shared substrate":
+   do them deliberately, once, and re-run `npm run refs:check` on the user refs afterward to
+   prove nothing moved.
+3. **New T/ components**: T/Appointment Request Card, T/Status Hero set, T/Job Action Bar,
+   T/Setup Checklist, T/Price List Row, T/Availability Day Row, T/Suggest New Times — built in
+   a "TAILOR — T/ COMPONENTS" section of the Components page, token-bound like everything else.
+
+Then run the Phase 0 audit against the new page, fix, save a named version ("tailor build
+start"), and freeze the frame-name → node-id list.
+
+## T1 — Branch + worktree setup (one short session)
+
+`main` keeps the user flow and its refinement rounds. The tailor work lives on `feat/tailor`,
+checked out as a **git worktree** in a sibling folder:
+
+    git branch feat/tailor
+    git worktree add ../taily-tailor feat/tailor
+
+Now `Documents/Taily` is always `main` (user flow, refinement rounds) and
+`Documents/taily-tailor` is always `feat/tailor` — two folders, two Claude Code sessions, one
+repo underneath. No stash-and-switch, no half-states. Sync habit: after anything lands on
+`main`, run `git merge main` inside the tailor worktree (routine, usually conflict-free thanks
+to the contract). In the same session: land the data-driven screen registry on `main`, add a
+"Tailor branch rules" section to CLAUDE.md (the isolation contract, tailor file names, `t`-id
+naming), and extend `scripts/screens.json` on the tailor branch with the tailor frames + refs.
+
+## T2 — Tailor components (tailor worktree)
+
+`css/tailor.css` + `js/tailor-components.js` + `tailor-components.html` gallery, one class per
+Figma variant, exactly like Phase 3. Nav T-variants are additive classes on the shared
+`.top-nav` base (in `tailor.css`, not `components.css`). Gallery-compare against Figma before
+any screen. Any needed change to a shared component goes to `main` first (contract).
+
+## T3 — Tailor screens (tailor worktree, batches)
+
+The `/screen` loop, unchanged: refs exported to `ref/t*.png`, baselines seeded on first accept,
+batches of 4–5. Suggested order: t01-home, t01-home-setup, t01a-calendar, t01b-price-list,
+t01c-services, t01d-availability, then the job lifecycle t02-new-request, t02s-suggest-time,
+t02a-new-time-sent, t02b-request-declined, t03-job-confirmed, t04-job-ready, t05-job-completed,
+t03a-job-cancelled (final list = whatever T0 froze). Behaviour wired into the SAME state
+machine — which is the point:
+
+**Linkage (the mirror model, restored from v3):** one appointment entry, referenced by both
+personas. `confirmBooking()` on the user side pushes it into the tailor's job list; tailor
+actions (accept / suggest time / decline / mark ready / complete / cancel) mutate that entry so
+the user's screens update. This is a `state.js`/`data.js` change — shared substrate, so design
+it early in T3, land it on `main` as an additive commit (user flow must still pass `npm run
+check` with it in), then build tailor screens against it. `scripts/clickthrough-tailor.mjs`
+covers the tailor path plus one cross-persona assertion (user books → tailor accepts → user
+sees it confirmed).
+
+## T4 — Merge
+
+By merge day the only real diffs are new files plus the appended `screens.json`. In the main
+folder: `npm run check` green on `main`, green in the worktree, then
+`git merge --no-ff feat/tailor`, resolve the trivial JSON append, extend `check.mjs` to run
+both clickthrough scripts and the full (user + tailor) screen set, run `npm run check` on the
+merged result, tag `proto-v2`, push. Then `git worktree remove ../taily-tailor`. From here the
+Phase R rounds cover both flows — tailor screens are just more rows in the baseline table.
+
+## T5 — Persona gate now, onboarding later
+
+Until onboarding exists: a `persona` field in app state (default `user`), a dev toggle in the
+stage caption ("View as Tailor", outside `.screen` so pixel diffs never see it), and deep links
+`?screen=t01-home` keep working for the diff harness. The toggle is the temporary stand-in for
+onboarding — same mechanism, throwaway UI.
+
+When you design onboarding in Figma (welcome → phone → verify → location, plus role choice and
+tailor shop setup — the Flow 2 chart already sketches both), it becomes its own small build
+phase using this same Phase T pattern: new Figma frames → audit → refs → `/screen` loop. Its
+final screen simply sets `persona` and routes to the right home; the dev toggle then demotes to
+a debug feature or gets deleted. Nothing about the merge waits for onboarding — the gate ships
+with a toggle, onboarding replaces the toggle's UI.
+
+## Working simultaneously — the honest caveats
+
+- Two Claude Code sessions (one per folder) are fine; keep each session's scope inside its
+  folder's flow. The failure mode is both sessions editing a shared file — the contract exists
+  to prevent exactly that, and CLAUDE.md's tailor section is what enforces it on the agent side.
+- Figma has no branches on your plan tier's file here — user-flow refinement rounds and tailor
+  design edits share one file. Keep discipline: a refinement round's `refs:check` must still
+  list only its intended screens; tailor page edits can't touch user frames except the
+  deliberate shared-component extensions in T0-2, which get their own refs:check pass.
+- One shared-substrate change in flight at a time (registry, mirror model, nav variants) —
+  land it, sync both sides, then start the next.

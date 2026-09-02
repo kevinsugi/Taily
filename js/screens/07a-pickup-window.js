@@ -15,15 +15,15 @@ function renderScreen() {
     <h1 class="t-title c-ink">Pick a pickup window.</h1>
     <p class="t-body w-500 c-500">Marco’s studio · 1025 Broadway.<br>Payment is settled at handoff.</p>
   </div>
-  ${deliveryWindow('Thursday, July 16', [{ label: '9–11 AM', selected: true }, { label: '12–2 PM' }, { label: '4–6 PM' }])}
-  ${deliveryWindow('Friday, July 17', [{ label: '9-11 AM' }, { label: '12–2 PM' }, { label: '4–6 PM' }])}
+  ${deliveryWindow('Thursday, July 16', [{ label: '9–11 AM' }, { label: '12–2 PM' }, { label: '4–6 PM' }])}
+  ${deliveryWindow('Friday, July 17', [{ label: '9-11 AM' }, { label: '12–2 PM' }, { label: '4–6 PM', selected: true }])}
   <div class="delivery-window">
     <span class="delivery-window__day">Request Custom Time</span>
     <div class="delivery-window__chips">${selectTime()}</div>
   </div>
   <div class="prepare-card">
     <p class="t-body w-500 c-500">Due at pickup</p>
-    <p class="due-card__amount">$180 · Charged to your saved card at pickup.</p>
+    <p class="due-card__amount">$340 · Charged to your saved card at pickup.</p>
   </div>
   <div class="actions">
     ${cta('Confirm Pickup · Thu 9–11 AM', { attrs: 'data-act="confirm"' })}

@@ -242,7 +242,8 @@
 .prepare-list li::marker { font-size: var(--size-12); }
 
 .screen[data-screen="04c-appointment-confirmed"] { min-height: 1103px; }
-.screen[data-screen="04d-appointment-complete"] { min-height: 1055px; }
+/* Phase R1: subtotal row + 20 extra bottom dead space → 1075 */
+.screen[data-screen="04d-appointment-complete"] { min-height: 1075px; }
 
 /* ============================================================
    4B body screens. Each keeps the shared .body (pad-top 128) and
@@ -440,7 +441,9 @@
   font-weight: 700;
   color: var(--ink);
 }
-.address-card__change { color: var(--accent-ink); }
+/* Phase R1: the frame left-aligns the change link under the address —
+   keep the button hugging so its centred text doesn't drift. */
+.address-card__change { color: var(--accent-ink); align-self: flex-start; }
 
 /* 08 - Journey Complete: inner pad 20/20/24, gap 16, centred column.
    Phase R0: the success badge + Completed pill gave way to the order's
@@ -456,6 +459,9 @@
 [data-s="08-journey-complete"] .done-tiles { width: auto; align-self: center; }
 .done-tiles { display: flex; gap: var(--space-8); }
 .done-tile { position: relative; width: 87px; height: 87px; overflow: hidden; }
+/* the frame draws tile 1 at 86 (Figma sloppiness) — match so tiles
+   2/3 land on the same x */
+.done-tile:first-child { width: 86px; }
 .done-tile img { position: absolute; width: 127.27%; height: 127.27%; left: -13.64%; top: -13.64%; max-width: none; }
 .center { text-align: center; }
 
@@ -465,5 +471,6 @@
 .screen[data-screen="03-finding-tailor"],
 .screen[data-screen="07-items-ready"],
 .screen[data-screen="07a-pickup-window"],
-.screen[data-screen="07b-delivery-options"],
-.screen[data-screen="08-journey-complete"] { min-height: 872px; }
+.screen[data-screen="07b-delivery-options"] { min-height: 872px; }
+/* Phase R1: 08 gained the full order summary — frame is 1056.67 */
+.screen[data-screen="08-journey-complete"] { min-height: 1057px; }

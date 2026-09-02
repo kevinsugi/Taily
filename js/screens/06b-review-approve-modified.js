@@ -25,7 +25,7 @@ function renderScreen() {
     ${garmentCard({ variant: 'PostAppt', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], beforePhotos: 4, pinnedPhotos: 4 })}
     ${garmentCard({ variant: 'PostAppt', type: 'Suit Jacket', qty: 1, price: '$80', added: true, services: ['Sleeve / Adjust Length'], beforePhotos: 4, pinnedPhotos: 4 })}
     ${feeRow('$360', 'Subtotal', { line: true, info: true })}
-    ${feeRow('- $20', '10% Deposit - Paid 7/7/26', { line: true, info: true })}
+    ${feeRow('-$20', '10% Deposit - Paid 7/7/26', { line: true, info: true })}
     ${feeRow('$340', 'Due at Pickup / Delivery', { info: true })}
   </div>
   <div class="cta-bar">

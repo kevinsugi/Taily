@@ -41,7 +41,7 @@ function renderScreen(s) {
   ${statusHero({ pill: false, title: `${first} is tailoring your items.`, body: `Measured and pinned at your appointment on Thu, Jul 12. We’ll tell you the moment they’re ready.` })}
   <div class="garments-card" data-act="review">
     ${cards}
-    ${feeRow(`- $${t.deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
+    ${feeRow(`-$${t.deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
     ${feeRow(`$${t.total - t.deposit}`, 'Confirmed at appointment - 7/12/26')}
   </div>
   <div class="cta-bar cta-bar--plain">

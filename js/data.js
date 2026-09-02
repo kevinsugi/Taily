@@ -131,9 +131,11 @@ export const NEED_BY_OPTS = ['Thurs, Sept 1', 'Fri, Sept 2', 'Next week', 'Flexi
    Figma frames — v3 showed Jul 8 / 2 items here. Statuses, structure and
    totals are untouched v3 behaviour. */
 export const SEED_UPCOMING = [
+  /* Phase R0.1 (Kevin): appointment date fixed to Jul 12 — the 09
+     frame's date; 01's frame still shows AUG 29 (stale, allowed). */
   { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '1025 Broadway, Midtown West',
-    when: 'Aug 29, 7PM', status: 'confirmed', items: '3 items · Alterations',
-    visit: 'Store Visit', count: 3, month: 'AUG', day: '29',
+    when: 'Jul 12, 7PM', status: 'confirmed', items: '3 items · Alterations',
+    visit: 'Store Visit', count: 3, month: 'JUL', day: '12',
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
     /* Phase R0: the seed carries the POST-appointment modified order
        (06B fiction — a third Suit Jacket + an added $80 service):

@@ -826,6 +826,7 @@
   scrollbar-width: none;
   /* clip at the card's padding edge, as Figma does */
   margin-right: calc(-1 * var(--space-8));
+  cursor: pointer;
 }
 .photo-row::-webkit-scrollbar { display: none; }
 .photo-row .photo-tiles > * { flex-shrink: 0; }

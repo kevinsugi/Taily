@@ -62,17 +62,37 @@ export function openPhotoViewer(opts) {
   modalOverlay(`<div class="pv-scrim" data-act="modal-dismiss"></div>${panelHtml(opts)}`, { dataS: 'pv3-photo-viewer' }, wirePanel);
 }
 
-/** Wire every Before/Pinned photo row in `root` to open the viewer.
+/** Wire every Before/Pinned photo row in `root`: mouse click-drag
+    scrolls the strip (touch/wheel scroll natively), and a clean click
+    opens the viewer — a >5px drag suppresses the click so the viewer
+    doesn't open mid-scroll (the 02 filters' old drag pattern).
     Pre-appointment ViewOnly tiles are never wired — tapping them does
     nothing (Kevin). */
 export function wirePhotoViewer(root) {
   root.querySelectorAll('.photo-row').forEach((row) => {
+    let startX = null; let startScroll = 0; let dragged = false;
+    row.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      startX = e.clientX;
+      startScroll = row.scrollLeft;
+      dragged = false;
+    });
+    row.addEventListener('pointermove', (e) => {
+      if (startX === null) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 5) { dragged = true; row.setPointerCapture(e.pointerId); }
+      if (dragged) row.scrollLeft = startScroll - dx;
+    });
+    const endDrag = () => { startX = null; };
+    row.addEventListener('pointerup', endDrag);
+    row.addEventListener('pointercancel', endDrag);
     row.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (dragged) { e.preventDefault(); dragged = false; return; }
       const card = row.closest('.garment-card');
       const garment = card?.querySelector('.garment-card__row--tight span:last-child')?.textContent ?? 'Suit Jacket';
       openPhotoViewer({ garment });
-    });
+    }, true);
   });
 }
 

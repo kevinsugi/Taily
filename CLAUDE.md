@@ -84,6 +84,19 @@ Phase R2 additions: `modalOverlay()` + `.modal` classes (R1/RC1 — serif-24 tit
 - The Aug 2026 serif headers — `Upcoming Header` (`532:958` on 01/01a) and the 02a sheet title (`277:2921`) — are **literal 20px, unbound to any size variable** (no `size/20` exists). Built verbatim via `--size-20` in `tokens.css` (marked as not-a-Figma-variable) + `.t-section` / `.sheet__title`. Raised, awaiting Kevin's call.
 - The updated sheet frames (02a/04a/04b) draw the full 02 screen dimmed behind the scrim (was a flat backdrop) — built via `view02()` in `.sheet-backdrop`. 02a's picker sheet (358 tall at y490) and 04b's sheet (286 at y559) overflow the 844 frame by 4px / 1px; reproduced with negative `bottom` offsets, not padding changes.
 
+## Tailor flow (Phase T0 — Figma only, not yet built)
+
+Page **"Tailor - Main Flow 2"** (`445:1491`) was designed by Kevin ahead of the T0 prompt (which is stale — do NOT create the page). Sep 1 2026: audited Phase 0-style and reconciled to the user-flow canon per Kevin's calls. Frozen frame list for T1's `screens.json` append:
+
+`t01-home 455:3560 · t02-appointment-request 455:2170 · t03-request-accepted 449:714 · t03a-decline-request 449:733 · t03b-job-cancelled 449:752 · tm1-message-customer 449:771 · t04-appointment-details 455:2587 · t05-confirm-final-pricing 449:809 · t06-appointment-status 473:6324 · t07-job-ready 449:847 · t08-job-complete 449:866`
+
+- **It is Marco's view of the user flow's one appointment** (seed[0] in `data.js`): customer Sarah Chen, home visit, 88 Leonard St(reet), 4B; appointment **Sun, Jul 12 · 7:00 PM** ("Tonight" on T01/T03B/M1 — the fiction's today is Jul 12); need-by **Fri, Jul 17**. Money mirrors the R1 order: pre-appointment **$200** ($120 Hem + $80 Sleeve) → fee $20 → payout **$180** (T01 request + active card, T02, T03); post-appointment **$360** (added $80 Sleeve on garment 1 + third $80 Suit Jacket, per the 06B fiction) → fee $36 → payout **$324** (T04, T05, T06, T07, T08). T05 mirrors 06B (card 1 shows the added Sleeve + $200 in `semantic/info`); T06 mirrors 04D (cards itemize $120/$80/$80, totals $360-based). T08's id `TLY-2026-4417` = user 08's order number; payout deposited Mon, Jul 20. TM1 is the user M1 thread from Marco's side (sides flipped, "Sarah" for "Kevin", 16px bubbles).
+- The 9 unused **T/ draft components were deleted** (Kevin: "retire drafts"); the TAILOR — T/ COMPONENTS section (`210:647`) keeps the live ones: Tailor - Garment Card, Active Job Card, T2/ rows + Chat Bubble, Selector, User Summary. No suggest-time, shop-setup, or onboarding screens for now (onboarding will own setup).
+- Offset normalized to **128**; all spacing snapped to grid and bound to `space/*`; off-scale text fixed (M1 name/bubbles 16, dividers + "REOPENED SLOT" 12 t-caps, T03B note 16; Active Job Card master name 16 / "Payout" 12).
+- Quirks kept deliberately: **Leo Von** active job ($102, SEP 2 badge, "Pickup: Sept 1, 2PM") is filler outside Marco's order; **T07 is the pickup branch** (07A-style: Sarah picks up Fri Jul 17 · 3:00 PM at Marco's 1025 Broadway) even though user 08 records $20 delivery; T01 shows Sarah as both new request and confirmed active job (same design fiction as user 01's slices).
+- The **user refs were re-exported and `refs:check` passed** after the shared-master touches (Active Job Card sizes — tailor-only; Tailor Summary Card gap bound to space/16 — value-identical; Appt_View hidden Service Row made visible in master, hidden per-instance where unused).
+- Named version "tailor build start" could NOT be saved via API — Kevin saves it manually in Figma.
+
 ## v3
 
 `taily-prototype-v3.html` is the archived v3 prototype and the behaviour reference. `js/data.js` and `js/state.js` are ported from it. Do not port v3 CSS or markup — visuals are rebuilt from Figma.

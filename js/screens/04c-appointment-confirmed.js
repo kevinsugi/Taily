@@ -8,6 +8,7 @@
 import { register, render as go, back } from '../app.js';
 import { chrome, statusHero, summaryCard, garmentCard, feeRow, cta } from '../components.js';
 import { state } from '../state.js';
+import { openReschedulePopup } from './r1-reschedule-popup.js';
 
 function renderScreen(s) {
   return `${chrome('bookings')}
@@ -15,7 +16,7 @@ function renderScreen(s) {
   ${statusHero({ pill: false, title: 'Your Appointment is Confirmed.', titleWeight: 600 })}
   <div class="summary">
     <h2 class="t-title c-500 summary__title">Order Summary</h2>
-    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 17 · 7:00PM', '▤&nbsp;&nbsp;Need By: Thurs, Jul 17'] })}
+    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 17 · 7:00PM', '▤&nbsp;&nbsp;Need By: Friday Jul 17'] })}
     <div class="garments-card">
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 })}
@@ -31,6 +32,7 @@ function renderScreen(s) {
   <div class="cta-bar">
     ${cta('Add to Calendar', { attrs: 'data-act="calendar"' })}
     ${cta('Message Tailor', { variant: 'secondary', attrs: 'data-act="message"' })}
+    ${cta('Reschedule / Cancel', { variant: 'secondary', attrs: 'data-act="reschedule"' })}
     ${cta('View All Appointments', { variant: 'secondary', attrs: 'data-act="bookings"' })}
   </div>
 </div>`;
@@ -38,6 +40,7 @@ function renderScreen(s) {
 
 function wire(root) {
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
+  root.querySelector('[data-act="reschedule"]')?.addEventListener('click', () => openReschedulePopup());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();

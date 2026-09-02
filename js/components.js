@@ -474,6 +474,54 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
   return close;
 }
 
+/**
+ * Centred modal over the live screen (R1 / RC1, Phase R2) — scrim at
+ * ink 45% + a floating card. Same fixed-position / scroll-freeze
+ * chassis as sheetOverlay. Returns close().
+ */
+export function modalOverlay(modalHtml, { dataS = '' } = {}, wireFn) {
+  const screenEl = document.getElementById('screen');
+  if (screenEl.querySelector('.screen-sheet--overlay:not(.is-closing)')) return () => {};
+  const opener = document.activeElement;
+  const holder = document.createElement('div');
+  holder.className = 'screen-sheet screen-sheet--overlay modal-host';
+  if (dataS) holder.dataset.s = dataS;
+  holder.innerHTML = `<div class="modal-scrim" data-act="modal-dismiss"></div>${modalHtml}`;
+
+  const r = screenEl.getBoundingClientRect();
+  const top = Math.max(r.top, 0);
+  holder.style.position = 'fixed';
+  holder.style.left = `${r.left}px`;
+  holder.style.width = `${r.width}px`;
+  holder.style.top = `${top}px`;
+  holder.style.height = `${Math.min(r.bottom, window.innerHeight) - top}px`;
+  screenEl.appendChild(holder);
+
+  const doc = document.documentElement;
+  const sbw = window.innerWidth - doc.clientWidth;
+  const prev = { overflow: doc.style.overflow, paddingRight: doc.style.paddingRight };
+  doc.style.overflow = 'hidden';
+  if (sbw > 0) doc.style.paddingRight = `${sbw}px`;
+
+  requestAnimationFrame(() => requestAnimationFrame(() => { holder.dataset.open = 'true'; }));
+  let closing = false;
+  const close = () => {
+    if (closing) return;
+    closing = true;
+    holder.classList.add('is-closing');
+    holder.dataset.open = 'false';
+    setTimeout(() => {
+      holder.remove();
+      doc.style.overflow = prev.overflow;
+      doc.style.paddingRight = prev.paddingRight;
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    }, 300);
+  };
+  holder.querySelector('[data-act="modal-dismiss"]')?.addEventListener('click', close);
+  wireFn?.(holder, close);
+  return close;
+}
+
 /** Wheel picker — columns: [{ width, rows: [5 strings] }], middle row selected. */
 export function wheel(columns) {
   const cols = columns.map(({ width, rows }) => `<div class="wheel__col" style="width:${width}px">${

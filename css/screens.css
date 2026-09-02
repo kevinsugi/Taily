@@ -208,9 +208,9 @@
    Full 844 frame (resized in Figma from the original short 667 at
    Kevin's direction) — the default .screen floor applies. */
 [data-s="04e-order-summary"] { gap: var(--space-12); padding-bottom: var(--space-24); }
-/* Phase R0: order number + third card grew the frame to 875 (40 dead
-   below the CTA bar). */
-.screen[data-screen="04e-order-summary"] { min-height: 875px; }
+/* Phase R2: PostAppt cards + four fee rows grew the frame to 1016
+   (40 dead below the CTA bar). */
+.screen[data-screen="04e-order-summary"] { min-height: 1016px; }
 .summary { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 .summary--tight { gap: var(--space-4); }
 .summary__title { margin: 0; }
@@ -241,9 +241,10 @@
 }
 .prepare-list li::marker { font-size: var(--size-12); }
 
-.screen[data-screen="04c-appointment-confirmed"] { min-height: 1103px; }
-/* Phase R1: subtotal row + 20 extra bottom dead space → 1075 */
-.screen[data-screen="04d-appointment-complete"] { min-height: 1075px; }
+/* Phase R2: 04C gained the Reschedule / Cancel CTA → 1192 */
+.screen[data-screen="04c-appointment-confirmed"] { min-height: 1192px; }
+/* Phase R2: card 1 itemizes the added service → 1100 */
+.screen[data-screen="04d-appointment-complete"] { min-height: 1100px; }
 
 /* ============================================================
    4B body screens. Each keeps the shared .body (pad-top 128) and
@@ -284,10 +285,10 @@
 }
 
 /* 05 - Appointment Reminder: inner pad 0/20/24, gap 12.
-   Phase R0: the heading now sits straight at the 128 offset (the extra
-   20 top pad was removed); frame is 1125.67 → 1126. */
+   Phase R2: the cancel line moved into the R1 popup — frame is
+   1101.67 → 1102. */
 [data-s="05-appointment-reminder"] { padding-bottom: var(--space-24); gap: var(--space-12); }
-.screen[data-screen="05-appointment-reminder"] { min-height: 1126px; }
+.screen[data-screen="05-appointment-reminder"] { min-height: 1102px; }
 .actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 
 /* M1 - Message Tailor: inner pad 20/20/24, gap 12 */
@@ -472,5 +473,85 @@
 .screen[data-screen="07-items-ready"],
 .screen[data-screen="07a-pickup-window"],
 .screen[data-screen="07b-delivery-options"] { min-height: 872px; }
-/* Phase R1: 08 gained the full order summary — frame is 1056.67 */
-.screen[data-screen="08-journey-complete"] { min-height: 1057px; }
+/* Phase R2: 08's summary went PostAppt with four fee rows — 1198 */
+.screen[data-screen="08-journey-complete"] { min-height: 1198px; }
+
+/* ============================================================
+   Phase R2 screens — R1 / RC1 modal popups, 05X, PV3.
+   ============================================================ */
+/* modal y positions from the frames (558:1899 / 559:3297) */
+[data-s="r1-reschedule-popup"] .modal { top: 248px; }
+[data-s="rc1-request-changes"] .modal { top: 281px; }
+
+/* 05X - Appointment Cancelled (558:3817): 05's chassis, one-line
+   heading, refund card in place of the prepare card, single CTA. */
+[data-s="05x-appointment-cancelled"] { padding-bottom: var(--space-24); gap: var(--space-12); }
+.screen[data-screen="05x-appointment-cancelled"] { min-height: 965px; }
+
+/* PV3 - Photo Viewer (559:2112): 04D dimmed under an ink@95% scrim,
+   filmstrip panel pinned at the 128 offset. Literal 2/10px gaps and
+   the 300px strip are the frame's own off-grid values. */
+/* z3 clears the chrome (status bar / top nav sit at z2) */
+.pv-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 95%, transparent); z-index: 3; }
+.photo-viewer { position: absolute; z-index: 3; left: var(--space-20); right: var(--space-20); top: 128px; }
+.photo-viewer__header { display: flex; justify-content: space-between; align-items: flex-start; }
+.photo-viewer__titles { display: flex; flex-direction: column; gap: 2px; }
+.photo-viewer__title {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--white);
+}
+.photo-viewer__sub {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+  color: var(--neutral-200);
+}
+.photo-viewer__ctl {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-20);
+  background: color-mix(in srgb, var(--white) 16%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-18);
+  font-weight: 600;
+  color: var(--white);
+  flex-shrink: 0;
+}
+.photo-viewer__photos { display: flex; flex-direction: column; gap: var(--space-12); margin-top: var(--space-12); }
+.photo-viewer__legend {
+  display: flex;
+  gap: var(--space-16);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--neutral-500);
+}
+.photo-viewer__legend .is-active { color: var(--white); }
+.photo-viewer__stage {
+  position: relative;
+  width: 100%;
+  height: 440px;
+  border-radius: var(--radius-lg);
+  background: var(--media-placeholder);
+}
+/* frame: arrows at panel y290 = 201 into the 440 stage (~centred) */
+.photo-viewer__arrow { position: absolute; top: 201px; }
+.photo-viewer__arrow--left { left: var(--space-12); }
+.photo-viewer__arrow--right { right: var(--space-12); }
+.photo-viewer__film { display: flex; gap: 10px; }
+.photo-viewer__thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: var(--media-placeholder);
+  flex-shrink: 0;
+}
+.photo-viewer__thumb.is-active { box-shadow: inset 0 0 0 2px var(--white); }

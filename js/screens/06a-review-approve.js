@@ -8,6 +8,8 @@
 import { register, render as go } from '../app.js';
 import { chrome, garmentCard, feeRow, cta } from '../components.js';
 import { approveOrder, markReady } from '../state.js';
+import { openRequestChanges } from './rc1-request-changes.js';
+import { wirePhotoViewer } from './pv3-photo-viewer.js';
 
 function renderScreen() {
   return `${chrome('home')}
@@ -32,8 +34,9 @@ function renderScreen() {
 }
 
 function wire(root) {
+  wirePhotoViewer(root);
   root.querySelector('[data-act="approve"]')?.addEventListener('click', () => { approveOrder(); markReady(); go('07-items-ready'); });
-  root.querySelector('[data-act="changes"]')?.addEventListener('click', () => go('m1-message-tailor'));
+  root.querySelector('[data-act="changes"]')?.addEventListener('click', () => openRequestChanges());
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {
     e.preventDefault();

@@ -10,6 +10,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, garmentCard, feeRow, cta } from '../components.js';
 import { JOB_TYPES } from '../data.js';
+import { wirePhotoViewer } from './pv3-photo-viewer.js';
 
 /* Per-garment price: the appointment's totals.rows when the flow built
    them (bookingLines snapshot), else recomputed from JOB_TYPES — both
@@ -21,11 +22,12 @@ export function rowPrice(g, rows, i) {
 }
 
 /* Dynamic: renders whatever appointment currentAppt points at (the
-   seed data equals the frame fixture — the R0 modified order — so the
+   seed data equals the frame fixture — the modified order — so the
    direct diff load still matches 308:3578 exactly). The pinned date
    and the deposit-paid date stay the frame's fiction — no such dates
-   exist in state yet. */
-function renderScreen(s) {
+   exist in state yet.
+   Exported: PV3 draws this screen (dimmed) as its frame backdrop. */
+export function view04d(s) {
   const cur = s.currentAppt ?? { list: 'upcoming', index: 0 };
   const a = s[cur.list]?.[cur.index] ?? s.upcoming[0] ?? {};
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];
@@ -60,6 +62,7 @@ function wire(root) {
   // the order opens the final-order review — the modified variant,
   // since the seed order carries the R0 modification (06B fixture)
   root.querySelector('[data-act="review"]')?.addEventListener('click', () => go('06b-review-approve-modified'));
+  wirePhotoViewer(root);
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();
@@ -69,4 +72,4 @@ function wire(root) {
   });
 }
 
-register('04d-appointment-complete', renderScreen, wire);
+register('04d-appointment-complete', view04d, wire);

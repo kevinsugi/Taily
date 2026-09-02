@@ -133,30 +133,26 @@ export const NEED_BY_OPTS = ['Thurs, Sept 1', 'Fri, Sept 2', 'Next week', 'Flexi
    Figma frames — v3 showed Jul 8 / 2 items here. Statuses, structure and
    totals are untouched v3 behaviour. */
 export const SEED_UPCOMING = [
-  /* Phase R0.1 (Kevin): appointment date fixed to Jul 12 — the 09
-     frame's date; 01's frame still shows AUG 29 (stale, allowed). */
   { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '1025 Broadway, Midtown West',
     when: 'Sunday Jul 12, 7PM', status: 'confirmed', items: '3 items · Alterations',
     visit: 'Store Visit', count: 3, month: 'JUL', day: '12',
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
-    /* Phase R0: the seed carries the POST-appointment modified order
-       (06B fiction — a third Suit Jacket + an added $80 service):
-       booked at $200, confirmed at $360, deposit still 10% of the
-       original $200. 04D/04E render this; 04C/05/06A keep their own
-       pre-modification frame fixtures. */
-    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
+    /* Phase R0/R2: the seed carries the POST-appointment modified order
+       (06B fiction — an added $80 Sleeve service on garment 1 and a
+       third Suit Jacket): booked at $200, confirmed at $360, deposit
+       still 10% of the original $200. 04D/04E/08 itemize it fully;
+       04C/05/06A keep their own pre-modification frame fixtures, and
+       01 lists only the original two items (pre-appointment view). */
+    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length', 'Sleeve / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     /* M1's header subline is frame fiction that disagrees with this
        seed's own when/visit — carried verbatim; other appointments
        compute theirs. */
     chatMeta: 'Thu, Jul 9 · 9:30 AM · Home Visit',
     totals: { subtotal: 360, visitFee: 0, total: 360, deposit: 20 } },
-  /* Phase R1: the 09 frame moved James to "Completed: Jul 1, 3PM" with
-     a JUL 3 date badge — badge and meta disagree in the frame itself;
-     carried verbatim. */
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
     when: 'Jul 1, 3PM', status: 'ready', items: '2 items · Alterations',
-    visit: 'Home Visit', count: 2, month: 'JUL', day: '3',
+    visit: 'Home Visit', count: 2, month: 'JUL', day: '1',
     itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
     garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['The shoes you plan to wear with your garments.'],

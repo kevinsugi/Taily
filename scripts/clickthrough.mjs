@@ -81,12 +81,30 @@ await page.click('[data-act="map"]');                 // demo: tailor accepts
 await assertAt('tailor accepts', '04c-appointment-confirmed', 'confirmed');
 await page.evaluate(() => window.Taily.render('05-appointment-reminder'));
 await assertAt('reminder fires (confirmed)', '05-appointment-reminder', 'confirmed');
+// Phase R2: Reschedule / Cancel opens the R1 popup; Go Back dismisses
+await page.click('[data-act="reschedule"]');
+await assertOverlay('  …R1 popup overlays', 'r1-reschedule-popup');
+await page.click('[data-act="go-back"]');
+await page.waitForTimeout(400);
+await assertOverlay('  …popup gone', null);
 await page.click('[data-act="confirm"]');             // appointment happens
 // Phase R0: 06 - Order Status was deleted; 04D (Appointment Status)
 // takes its place, and tapping the order opens the modified review (06B).
 await assertAt('appointment done', '04d-appointment-complete', 'awaiting-approval');
+// Phase R2: tapping a Before/Pinned photo opens the PV3 viewer
+await page.click('.photo-row');
+await assertOverlay('  …PV3 viewer overlays', 'pv3-photo-viewer');
+await page.click('[data-act="pv-close"]');
+await page.waitForTimeout(400);
+await assertOverlay('  …viewer gone', null);
 await page.click('[data-act="review"]');
 await assertAt('open final order', '06b-review-approve-modified', 'awaiting-approval');
+// Phase R2: Request Changes opens the RC1 popup; Sounds Good dismisses
+await page.click('[data-act="changes"]');
+await assertOverlay('  …RC1 popup overlays', 'rc1-request-changes');
+await page.click('[data-act="sounds-good"]');
+await page.waitForTimeout(400);
+await assertOverlay('  …popup gone', null);
 await page.click('[data-act="approve"]');
 await assertAt('approve order', '07-items-ready', 'ready-for-pickup');
 await page.click('[data-opt="pickup"]');

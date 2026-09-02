@@ -815,7 +815,20 @@
   color: var(--neutral-500);
 }
 .photo-group { display: flex; flex-direction: column; gap: var(--space-4); }
-.photo-row { display: flex; gap: var(--space-4); align-items: flex-start; }
+/* Phase R2 (Kevin): the Before/Pinned row scrolls horizontally so all
+   photos are reachable; scrollbar hidden. Tiles must not shrink. */
+.photo-row {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* clip at the card's padding edge, as Figma does */
+  margin-right: calc(-1 * var(--space-8));
+}
+.photo-row::-webkit-scrollbar { display: none; }
+.photo-row .photo-tiles > * { flex-shrink: 0; }
 
 /* ============================================================
    Sheet chassis — local structure on 02a / 04a / 04b.
@@ -1154,10 +1167,82 @@
 /* Phase R0 (06B): totals touched by the modified order */
 .fee-row--info .fee-row__price { color: var(--info); }
 
+/* ============================================================
+   Modal — R1 (558:1899) / RC1 (559:3297), Phase R2. 326-wide white
+   card, r24 (not a Figma radius variable), pad 24/20/20, gap 12,
+   0 16 40 black@18% shadow, over an ink@45% scrim.
+   ============================================================ */
+/* z3 clears the chrome (status bar / top nav sit at z2) */
+.modal-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 45%, transparent); z-index: 3; }
+.modal {
+  position: absolute;
+  z-index: 3;
+  left: 32px;
+  width: 326px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-24) var(--space-20) var(--space-20);
+  border-radius: 24px;
+  background: var(--white);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+.modal--center { align-items: center; text-align: center; }
+.modal__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--size-24);
+  line-height: 29px;
+  font-weight: 500;
+  color: var(--ink);
+  width: 100%;
+}
+/* glyph rows: bold coloured mark + 14/18 regular ink copy at the
+   frame's literal 10px gap / 250px text measure */
+.modal__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  line-height: 18px;
+  color: var(--ink);
+}
+.modal__row > span:last-child { width: 250px; }
+.modal__glyph { font-weight: 700; flex-shrink: 0; }
+.modal__badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  background: var(--accent-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-20);
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+.modal__body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  line-height: 18px;
+  color: var(--neutral-500);
+  width: 100%;
+}
+.modal__actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+/* enter/exit: scrim fades, card rises a touch (drawer-family motion) */
+.modal-host .modal-scrim, .modal-host .modal { transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); }
+.modal-host:not([data-open="true"]) .modal-scrim { opacity: 0; }
+.modal-host:not([data-open="true"]) .modal { opacity: 0; transform: translateY(12px); }
+
 /* ---------- motion accessibility for this slab ---------- */
 @media (prefers-reduced-motion: reduce) {
   .sheet-host .sheet { transition: opacity 300ms ease; transform: none; }
   .sheet-host[data-open="false"] .sheet { opacity: 0; }
   .method-row:active, .cta-small:active { transform: none; }
   .method-row, .cta-small { transition: none; }
+  .modal-host .modal { transition: opacity 300ms ease; transform: none; }
 }

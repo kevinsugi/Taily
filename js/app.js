@@ -15,6 +15,7 @@ const SCREEN_MODULES = [
   '04a-payment-sheet', '04b-add-card-sheet', '04c-appointment-confirmed', '04d-appointment-complete', '04e-order-summary',
   '03-finding-tailor', '05-appointment-reminder', 'm1-message-tailor',
   '06a-review-approve', '06b-review-approve-modified', '07-items-ready', '07a-pickup-window', '07b-delivery-options', '08-journey-complete',
+  'r1-reschedule-popup', '05x-appointment-cancelled', 'pv3-photo-viewer', 'rc1-request-changes',
 ];
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */

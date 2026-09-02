@@ -46,8 +46,12 @@ const ALLOW = {
   '04a-payment-sheet': [STALE_DEPOSIT],
   '04b-add-card-sheet': [STALE_DEPOSIT],
   '04d-appointment-complete': [SPACED_DEPOSIT],
+  '04e-order-summary': [SPACED_DEPOSIT],
   '06a-review-approve': [SPACED_DEPOSIT],
   '06b-review-approve-modified': [SPACED_DEPOSIT],
+  '08-journey-complete': [SPACED_DEPOSIT],
+  // PV3's backdrop is 04D, whose frame also writes the spaced deposit
+  'pv3-photo-viewer': [SPACED_DEPOSIT],
 };
 
 /* ---------- token (same conventions as export-refs.mjs) ---------- */

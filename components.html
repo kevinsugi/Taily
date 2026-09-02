@@ -144,6 +144,22 @@
   s.push(C.feeRow('$360','Subtotal',{ line: true, info: true }));
   s.push(C.feeRow('$340','Due at Pickup / Delivery',{ info: true }));
 
+  h2('Modal — R1 558:1899 / RC1 559:3297 (Phase R2)');
+  v('glyph rows · centred badge');
+  s.push(`<div class="row"><div class="modal" style="position:static">
+    <h2 class="modal__title">Before you reschedule</h2>
+    <div class="modal__row"><span class="modal__glyph c-error">✕</span><span>Thursday’s 7:00 PM with Marco is cancelled</span></div>
+    <div class="modal__row"><span class="modal__glyph c-accent-ink">↻</span><span>A new order starts with your items copied over</span></div>
+    <div class="modal__row"><span class="modal__glyph c-success">✓</span><span>Your $20 deposit is refunded.</span></div>
+    <div class="modal__actions">${C.cta('Reschedule / Cancel')}${C.cta('Go Back', { variant: 'secondary' })}</div>
+  </div>
+  <div class="modal modal--center" style="position:static">
+    <span class="modal__badge">✂</span>
+    <h2 class="modal__title">Talk it over with Marco</h2>
+    <p class="modal__body">Please work together with Marco to come to an agreement regarding your items.<br><br>Tailoring prices are non-negotiable.</p>
+    <div class="modal__actions">${C.cta('Sounds Good')}</div>
+  </div></div>`);
+
   h2('Payment method rows — 04a');
   s.push(C.methodRow('Apple Pay','apple'));
   s.push(C.methodRow('Google Pay','google'));

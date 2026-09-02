@@ -71,6 +71,10 @@
      binds here too instead of a literal. */
   --size-14: 14px;
   --size-16: 16px;
+  /* NOT a Figma variable — PV3's ✕ ‹ › glyphs (559:2114/2120/2122)
+     carry literal 18px, off the type scale. Raised; tokenised here so
+     no literal size leaks outside tokens.css. */
+  --size-18: 18px;
   /* NOT a Figma variable — the Aug 2026 serif headers (Upcoming Header
      532:958, Date & Time title 277:2921) carry literal 20px, off the
      type scale. Raised as an inconsistency; tokenised here so no

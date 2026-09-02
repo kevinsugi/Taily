@@ -11,14 +11,16 @@ import { register, render as go } from '../app.js';
 import { chrome, garmentCard, feeRow, cta } from '../components.js';
 import { reset } from '../state.js';
 import { rowPrice } from './04d-appointment-complete.js';
+import { wirePhotoViewer } from './pv3-photo-viewer.js';
 
 function renderScreen(s) {
   const cur = s.currentAppt ?? { list: 'upcoming', index: 0 };
   const a = s[cur.list]?.[cur.index] ?? s.upcoming[0] ?? {};
   const t = a.totals ?? { total: 360, deposit: 20 };
   const cards = (a.garments ?? []).map((g, i) => garmentCard({
-    variant: 'ViewOnly', type: g.type, qty: g.qty,
-    price: rowPrice(g, t.rows, i), services: g.jobs, photos: g.photos ?? 0,
+    variant: 'PostAppt', type: g.type, qty: g.qty,
+    price: rowPrice(g, t.rows, i), services: g.jobs,
+    beforePhotos: 4, pinnedPhotos: 4,
   })).join('\n      ');
 
   return `${chrome('home')}
@@ -34,6 +36,7 @@ function renderScreen(s) {
     <p class="t-body w-500 c-500">#TLY-2026-4417</p>
     <div class="garments-card">
       ${cards}
+      ${feeRow(`$${t.total}`, 'Subtotal - Confirmed 7/12/26', { line: true })}
       ${feeRow(`-$${t.deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
       ${feeRow('$20', 'Delivery - Paid 7/17/26', { line: true })}
       ${feeRow(`$${t.total - t.deposit + 20}`, 'Total - Paid 7/17/26')}
@@ -47,6 +50,7 @@ function renderScreen(s) {
 }
 
 function wire(root) {
+  wirePhotoViewer(root);
   root.querySelector('[data-act="again"]')?.addEventListener('click', () => { reset(); go('01-home'); });
   root.querySelector('[data-act="review"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {

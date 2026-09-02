@@ -32,14 +32,14 @@ function renderScreen() {
     infoRow('Charged on delivery', '$360', { total: true }),
   ].join(''))}
   <div class="actions">
-    ${cta('Confirm Delivery · Thu 9-11 AM', { attrs: 'data-act="confirm"' })}
+    ${cta('Confirm Delivery · Fri 4-6PM', { attrs: 'data-act="confirm"' })}
     ${cta('Select Delivery', { variant: 'secondary', attrs: 'data-act="select"' })}
   </div>
 </div>`;
 }
 
 function wire(root) {
-  const confirm = () => { chooseFulfilment('delivery', 'Thu 9-11 AM'); deliver(); go('08-journey-complete'); };
+  const confirm = () => { chooseFulfilment('delivery', 'Fri 4-6PM'); deliver(); go('08-journey-complete'); };
   root.querySelector('[data-act="confirm"]')?.addEventListener('click', confirm);
   root.querySelector('[data-act="select"]')?.addEventListener('click', confirm);
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {

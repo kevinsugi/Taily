@@ -9,6 +9,7 @@ import { chrome, garmentTile, cta, apptCard } from '../components.js';
 import { GARMENT_TYPES } from '../data.js';
 import { state, addGarment } from '../state.js';
 import { openAddressOverlay } from './02b-address-sheet.js';
+import { openReschedulePopup } from './r1-reschedule-popup.js';
 
 const TILE_ORDER = Object.keys(GARMENT_TYPES); // 9 types, Figma order
 
@@ -133,11 +134,20 @@ export function wire01(root) {
     go(apptTarget(state.upcoming[0]));
   });
   root.querySelectorAll('.appt-card .cta-small').forEach((b) => {
-    if (b.textContent.trim() !== 'Message') return;
-    b.addEventListener('click', () => {
-      state.currentAppt = { list: 'upcoming', index: 0 };
-      go('m1-message-tailor');
-    });
+    const label = b.textContent.trim();
+    if (label === 'Message') {
+      b.addEventListener('click', () => {
+        state.currentAppt = { list: 'upcoming', index: 0 };
+        go('m1-message-tailor');
+      });
+    }
+    /* Phase R3 (Kevin): the card's Reschedule opens the R1 popup */
+    if (label === 'Reschedule') {
+      b.addEventListener('click', () => {
+        state.currentAppt = { list: 'upcoming', index: 0 };
+        openReschedulePopup();
+      });
+    }
   });
   root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {

@@ -8,6 +8,7 @@ import { register, render as go } from '../app.js';
 import { chrome, apptCard } from '../components.js';
 import { state, openAppt } from '../state.js';
 import { apptMeta, apptActions, apptTarget } from './01-home.js';
+import { openReschedulePopup } from './r1-reschedule-popup.js';
 
 /** The 09 frames title the lists slightly differently per card. */
 function upcomingCard(a, i) {
@@ -63,11 +64,20 @@ function wire(root) {
       go(apptTarget(state[ref.list][ref.index]));
     });
     card.querySelectorAll('.cta-small').forEach((b) => {
-      if (b.textContent.trim() !== 'Message') return;
-      b.addEventListener('click', () => {
-        state.currentAppt = ref;
-        go('m1-message-tailor');
-      });
+      const label = b.textContent.trim();
+      if (label === 'Message') {
+        b.addEventListener('click', () => {
+          state.currentAppt = ref;
+          go('m1-message-tailor');
+        });
+      }
+      /* Phase R3 (Kevin, via 01): Reschedule opens the R1 popup */
+      if (label === 'Reschedule') {
+        b.addEventListener('click', () => {
+          state.currentAppt = ref;
+          openReschedulePopup();
+        });
+      }
     });
   });
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {

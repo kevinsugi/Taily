@@ -43,12 +43,21 @@ const ALLOW = {
   '02-appointment-details': [STALE_DEPOSIT],
   '02a-date-time-sheet': [STALE_DEPOSIT],
   '02b-address-sheet': [STALE_DEPOSIT],
+  // Phase R3 (Kevin): 03's request card reads the live order; the
+  // frame's fixture is stale.
+  '03-finding-tailor': ['88 Leonard St, 4B — Home Visit', 'Thu, Jul 9 · 9:30 AM', '2 items · $200.00+ est. · $20 deposit held'],
   '04a-payment-sheet': [STALE_DEPOSIT],
   '04b-add-card-sheet': [STALE_DEPOSIT],
   '04d-appointment-complete': [SPACED_DEPOSIT],
   '04e-order-summary': [SPACED_DEPOSIT],
   '06a-review-approve': [SPACED_DEPOSIT],
   '06b-review-approve-modified': [SPACED_DEPOSIT],
+  // Phase R3 (Kevin): windows default to the FIRST option and the
+  // secondary CTA cross-navigates ("Select Delivery" on 07A, "Select
+  // Pickup" on 07B) — the frames still draw Fri 4-6PM selected and
+  // same-screen labels.
+  '07a-pickup-window': ['Confirm Pickup · Fri 4-6PM', 'Select Pickup'],
+  '07b-delivery-options': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
   '08-journey-complete': [SPACED_DEPOSIT],
   // PV3's backdrop is 04D, whose frame also writes the spaced deposit
   'pv3-photo-viewer': [SPACED_DEPOSIT],

@@ -63,7 +63,10 @@ Phase R2 additions: `modalOverlay()` + `.modal` classes (R1/RC1 — serif-24 tit
 
 ## Deliberate deviations from the frames (Kevin-directed)
 
-- **03's map is a placeholder** (`.map-card--placeholder`, media-placeholder fill + note) — it will become a live Google Map centred on the user's location. The frame shows a map raster, so `npm run diff -- 03-finding-tailor` reads ~1.3% and is expected to exceed the 1% gate until the real map lands.
+- **03's map is a placeholder** (`.map-card--placeholder`, media-placeholder fill + note) — it will become a live Google Map centred on the user's location. The frame shows a map raster, so `npm run diff -- 03-finding-tailor` reads ~1.4% and is expected to exceed the 1% gate until the real map lands.
+- **03's request card reads the live order (Phase R3)** — address/visit, requested time, and `${n} items · $X.00+ est. · $Y deposit held` come from state so they match whatever was booked; the frame's fixture (Thu, Jul 9 · 9:30 AM, Home Visit, 2 items $200/$20) is stale and ALLOW'd in text parity. Cancel request opens the R1 popup.
+- **07A/07B are interactive (Phase R3)** — chips select (shared `state.ui.window`, DEFAULT = the first option), the confirm CTA follows the selection, Request Custom Time opens the 02A wheel (`openDateTimeOverlay('custom', onSet)`), and the secondary CTA cross-navigates (07A "Select Delivery" → 07B, 07B "Select Pickup" → 07A). The frames still draw Fri 4–6 PM selected with same-screen secondary labels — baselines sit at ~2.5% until the frames are updated.
+- **Both 02 pills store "Jul 12, 7:00 PM" format (Phase R3)** — the 02A picker writes `Mon D, H:MM AM` for Requested time AND Need by (v3's day-only needBy is gone).
 
 ## Known Figma inconsistencies — do not silently fix
 

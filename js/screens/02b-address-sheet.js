@@ -70,9 +70,12 @@ export function openAddressOverlay() {
   sheetOverlay(formContent(state.contact), { dataS: '02b-address-sheet' }, (root, close) => {
     wireForm(root, () => {
       /* update the opener's live DOM in place — no re-render flash
-         (01 and 02 both render the heading address as [data-addr-text]) */
+         (01/02 heading address = [data-addr-text]; 07B's DELIVER TO
+         line = [data-addr-full]) */
       const homeLine = document.querySelector('#screen [data-addr-text]');
       if (homeLine) homeLine.textContent = `${state.contact.street}, ${state.userLoc}`;
+      const fullLine = document.querySelector('#screen [data-addr-full]');
+      if (fullLine) fullLine.textContent = `${state.contact.street}, ${state.contact.unit} — New York, NY ${state.contact.zip}`;
       close();
     });
   });

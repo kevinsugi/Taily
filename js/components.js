@@ -604,11 +604,11 @@ export function timeline(steps) {
   return `<div class="timeline">${rows}</div>`;
 }
 
-/** Delivery window — day label + time chips. */
+/** Delivery window — day label + time chips (chips may carry attrs). */
 export function deliveryWindow(day, chips) {
   return `<div class="delivery-window">
   <span class="delivery-window__day">${day}</span>
-  <div class="delivery-window__chips">${chips.map((c) => timeChip(c.label, { selected: !!c.selected })).join('')}</div>
+  <div class="delivery-window__chips">${chips.map((c) => timeChip(c.label, { selected: !!c.selected, attrs: c.attrs ?? '' })).join('')}</div>
 </div>`;
 }
 

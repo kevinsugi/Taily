@@ -39,14 +39,12 @@ const WHEEL = [
   { width: 80, sel: 0, rows: ['AM', 'PM'] },
 ];
 
-/** 'Thu 9 Jul' -> 'Thu, Jul 9' (wheel rows vs CTA/pill wording in the frame). */
-function fmtDay(row) {
-  const [dow, num, mon] = row.split(' ');
-  return `${dow}, ${mon} ${num}`;
-}
-
+/* 'Thu 9 Jul' -> day 'Thu, Jul 9' (sheet CTA wording, per the frame)
+   and md 'Jul 9' (pill wording — Phase R3, Kevin: pills read
+   "Jul 12, 7:00 PM"). */
 function pick([d, h, m, ap]) {
-  return { day: fmtDay(d), time: `${h}:${m} ${ap}` };
+  const [dow, num, mon] = d.split(' ');
+  return { day: `${dow}, ${mon} ${num}`, md: `${mon} ${num}`, time: `${h}:${m} ${ap}` };
 }
 
 function readPick(root) {
@@ -64,10 +62,12 @@ function setPillValue(act, value) {
 
 /**
  * Open the wheel picker over the live screen (v3 timeSheetMode parity):
- * mode 'appt' = Requested time, 'needby' = Need By (same wheel retitled;
- * confirm stores the day only, as v3 did).
+ * mode 'appt' = Requested time, 'needby' = Need By (same wheel
+ * retitled). Phase R3 (Kevin): both pills store "Jul 12, 7:00 PM"
+ * format. mode 'custom' (07A/07B custom windows) skips the pill/state
+ * writes and hands the pick to `onSet`.
  */
-export function openDateTimeOverlay(mode = 'appt') {
+export function openDateTimeOverlay(mode = 'appt', onSet) {
   const start = pick(WHEEL.map((c) => c.rows[c.sel]));
   const content = wheelScroll(WHEEL)
     + cta(`Set Time · ${start.day} at ${start.time}`, { attrs: 'data-act="set-time"' });
@@ -84,12 +84,12 @@ export function openDateTimeOverlay(mode = 'appt') {
     });
     const confirm = () => {
       const p = readPick(root);
-      if (mode === 'needby') {
-        setAppt('needBy', p.day);
-        setPillValue('needby', p.day);
+      if (mode === 'custom') {
+        onSet?.(p);
       } else {
-        setAppt('when', `${p.day} · ${p.time}`);
-        setPillValue('time', `${p.day} · ${p.time}`);
+        const value = `${p.md}, ${p.time}`;
+        setAppt(mode === 'needby' ? 'needBy' : 'when', value);
+        setPillValue(mode === 'needby' ? 'needby' : 'time', value);
       }
       close();
     };
@@ -131,7 +131,7 @@ function wire(root) {
   root.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', dismiss));
   wireSheetA11y(root, dismiss);
   const confirm = () => {
-    setAppt('when', `${PICK.day} · ${PICK.time}`);
+    setAppt('when', 'Jul 9, 9:30 AM');
     dismiss();
   };
   root.querySelector('[data-act="sheet-confirm"]')?.addEventListener('click', confirm);

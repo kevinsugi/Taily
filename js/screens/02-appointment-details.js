@@ -22,7 +22,7 @@ import { openPaymentOverlay } from './04a-payment-sheet.js';
    two photos each, "$55" placeholder price. NB the frame's CTA still
    reads "$20 Deposit" — stale against its own seeds (2×$120 → $24);
    we compute honestly. Raised in CLAUDE.md. */
-function ensureGarments() {
+export function ensureGarments() {
   if (state.garments.length) return;
   addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2, displayPrice: '$55' });
   addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2, displayPrice: '$55' });

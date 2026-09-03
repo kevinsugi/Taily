@@ -526,9 +526,10 @@
 /* this file loads after base.css, so restate the weight modifier or
    .w-600 silently loses the cascade at equal specificity */
 .status-hero__title.w-600 { font-weight: 600; }
-/* Phase R4: 04C's confirmed hero renders semantic/success (restated
-   here so the colour utility survives the cascade, as .w-600 does) */
+/* Colour utilities restated so they survive the cascade (as .w-600
+   does): success = ready hero, error = cancelled hero (Phase R8). */
 .status-hero__title.c-success { color: var(--success); }
+.status-hero__title.c-error { color: var(--error); }
 .status-hero__body {
   font-family: var(--font-sans);
   font-size: var(--size-16);

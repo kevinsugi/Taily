@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, summaryCard, garmentCard, feeRow, cta } from '../components.js';
+import { chrome, statusHero, summaryCard, garmentCard, feeRow, cta } from '../components.js';
 import { openReschedulePopup } from './03.1-reschedule-popup.js';
 import { openConfirmPopup } from './03.2-appointment-confirmed.js';
 
@@ -16,9 +16,8 @@ import { openConfirmPopup } from './03.2-appointment-confirmed.js';
 export function viewReminder() {
   return `${chrome('home')}
 <div class="body" data-s="03-status-reminder">
-  <h1 class="t-title w-600 c-ink">Please Confirm Tomorrow’s Appointment.</h1>
+  ${statusHero({ pill: 'confirmed', title: 'Please Confirm Tomorrow’s Appointment', titleWeight: 600 })}
   <div class="summary">
-    <h2 class="t-title w-600 c-500 summary__title">Order Summary</h2>
     ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17'] })}
     <div class="garments-card">
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}

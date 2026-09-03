@@ -13,9 +13,8 @@ import { openReschedulePopup } from './03.1-reschedule-popup.js';
 function renderScreen(s) {
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-confirmed">
-  ${statusHero({ pill: false, title: 'Your Appointment is Confirmed.', titleWeight: 600, titleColor: 'success' })}
+  ${statusHero({ pill: 'confirmed', title: 'Appointment Confirmed', titleWeight: 600 })}
   <div class="summary">
-    <h2 class="t-title c-500 summary__title">Order Summary</h2>
     ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17'] })}
     <div class="garments-card">
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}

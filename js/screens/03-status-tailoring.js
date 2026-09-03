@@ -1,16 +1,15 @@
 /* ============================================================
-   04D - Appointment Status — Figma 308:3578 (Phase R0: renamed from
-   "Appointment Complete"; replaces the deleted 06 - Order Status).
-   Phase R4: the serif hero gave way to a white status card (the
-   Active Job Card, user side — 570:8929): JUL 17 date badge, name +
-   "Need by" line, Tailoring pill, tailoring progress bar, and the
-   measured-and-pinned note. Below it the garments card (PostAppt
-   Before/Pinned cards + fee rows) and the plain three-CTA bar.
-   Active=Bookings.
+   03 - Order Status / Tailoring — Figma 308:3578.
+   Phase R8: the Active Job Card hero gave way to the family chassis —
+   status pill + serif title ("Tailoring in Progress.") in a gap-4
+   group, a 12-gapped sub line, the Tailor Summary Card (Appt /
+   Need-by rows), then the garments card (PostAppt Before/Pinned
+   cards + fee rows) and the plain three-CTA bar. The pill and sub
+   mirror the ORDER's real status. Active=Bookings.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusPill, progressBar, garmentCard, feeRow, cta, toast } from '../components.js';
+import { chrome, statusHero, summaryCard, garmentCard, feeRow, cta, toast } from '../components.js';
 import { JOB_TYPES } from '../data.js';
 import { apptEntry, canonicalStatus, markReady, deliver } from '../state.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
@@ -42,22 +41,18 @@ export function viewTailoring(s) {
     'awaiting-approval': 'awaiting-approval', tailoring: 'tailoring',
     'ready-for-pickup': 'ready', delivered: 'completed',
   }[canon] ?? 'tailoring';
-  const stage = {
-    'awaiting-approval': 'confirmed', tailoring: 'tailoring',
-    'ready-for-pickup': 'ready', delivered: 'complete',
-  }[canon] ?? 'tailoring';
-  /* UX-007: the note follows the status; the tailoring line stays the
+  /* UX-007: the sub follows the status; the tailoring line stays the
      frame's fixture. */
   const note = {
-    'awaiting-approval': 'Measured and pinned at your appointment on Thu, Jul 12. Review and approve the final order to start tailoring.',
-    tailoring: 'Measured and pinned at your appointment on Thu, Jul 12. We’ll tell you the moment they’re ready.',
+    'awaiting-approval': 'Measured and pinned at your appointment on July 12. Review and approve the final order to start tailoring.',
+    tailoring: 'All details confirmed on July 12. We will let you know as soon as your items are ready.',
     /* Phase R6: once a window is scheduled, the handoff waits on the
        tailor's confirmation */
     'ready-for-pickup': a.fulfilment
       ? `${a.fulfilment.method === 'delivery' ? 'Delivery' : 'Pickup'} scheduled · ${a.fulfilment.window}. ${first} will confirm the handoff.`
       : 'Your items are ready. Tap the order below — or use your appointment card — to choose how you’d like them back.',
     delivered: 'Delivered. Tap the order below to see your receipt.',
-  }[canon] ?? 'Measured and pinned at your appointment on Thu, Jul 12. We’ll tell you the moment they’re ready.';
+  }[canon] ?? 'All details confirmed on July 12. We will let you know as soon as your items are ready.';
   const t = a.totals ?? { total: 360, deposit: 20 };
   const cards = (a.garments ?? []).map((g, i) => garmentCard({
     variant: 'PostAppt', type: g.type, qty: g.qty,
@@ -67,18 +62,9 @@ export function viewTailoring(s) {
 
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-tailoring">
-  <div class="status-card">
-    <div class="status-card__head">
-      <div class="appt-card__date"><span class="appt-card__month">${a.month ?? 'JUL'}</span><span class="appt-card__day">${a.day ?? '12'}</span></div>
-      <div class="status-card__who">
-        <span class="status-card__name">${a.name ?? 'Marco Tailor'}</span>
-        <span class="status-card__need">Need by: ${a.needBy ?? 'Fri, Jul 17'}</span>
-      </div>
-      ${statusPill(pillKey)}
-    </div>
-    ${progressBar(stage)}
-    <p class="status-card__body">${note}</p>
-  </div>
+  ${statusHero({ pill: pillKey, title: 'Tailoring in Progress.', titleWeight: 600 })}
+  <p class="status-hero__body">${note}</p>
+  ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: [`▤&nbsp;&nbsp;Appt: ${a.when ?? 'Sun, Jul 12 · 7:00PM'}`, `▤&nbsp;&nbsp;Need by: ${a.needBy ?? 'Fri, Jul 17'}`] })}
   <div class="garments-card" data-act="review">
     ${cards}
     ${feeRow(`$${t.total}`, 'Subtotal - Confirmed 7/12/26', { line: true })}

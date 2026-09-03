@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, garmentCard, feeRow, cta } from '../components.js';
+import { chrome, statusHero, summaryCard, garmentCard, feeRow, cta } from '../components.js';
 import { rowPrice } from './03-status-tailoring.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
 
@@ -26,16 +26,14 @@ function renderScreen(s) {
 
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-summary">
-  ${statusHero({ pill: false, title: 'Order Summary', rowLabel: 'Items Received:', rowValue: 'July 17, 2026' })}
-  <div class="summary summary--tight">
-    <p class="t-body w-500 c-500">#TLY-2026-4417</p>
-    <div class="garments-card">
-      ${cards}
-      ${feeRow(`$${t.total}`, 'Subtotal - Confirmed 7/12/26', { line: true })}
-      ${feeRow(`-$${t.deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
-      ${feeRow('$20', 'Delivery - Paid 7/17/26', { line: true })}
-      ${feeRow(`$${t.total - t.deposit + 20}`, 'Total - Paid 7/17/26')}
-    </div>
+  ${statusHero({ pill: 'completed', title: 'Order Summary', rowLabel: 'Items Received:', rowValue: 'July 17, 2026' })}
+  ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17'] })}
+  <div class="garments-card">
+    ${cards}
+    ${feeRow(`$${t.total}`, 'Subtotal - Confirmed 7/12/26', { line: true })}
+    ${feeRow(`-$${t.deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
+    ${feeRow('$20', 'Delivery - Paid 7/17/26', { line: true })}
+    ${feeRow(`$${t.total - t.deposit + 20}`, 'Total - Paid 7/17/26')}
   </div>
   <div class="cta-bar cta-bar--plain">
     ${cta('View All Appointments', { variant: 'secondary', attrs: 'data-act="bookings"' })}

@@ -1,25 +1,25 @@
-/* Phase 4+ — per-screen layout only. Never re-style a component here. */
+﻿/* Phase 4+ â€” per-screen layout only. Never re-style a component here. */
 
 /* ============================================================
    Per-screen layout only. Components are never restyled here.
    ============================================================ */
 
-/* 01 - Home — sections stack at 16 (measured); heading is its own
+/* 01 - Home â€” sections stack at 16 (measured); heading is its own
    8-gap group. */
 /* refine r1: 40 bottom padding under the appointment card */
 [data-s="01-home"] { gap: var(--space-16); padding-bottom: var(--space-40); }
 .home-heading { display: flex; flex-direction: column; gap: var(--space-8); }
 .upcoming-header { display: flex; align-items: center; justify-content: space-between; }
 
-/* 02 - Appointment Details — frame is 931 tall with dead space below
+/* 02 - Appointment Details â€” frame is 931 tall with dead space below
    the CTA bar; Filters frame is fixed 64 with 52px of content. */
 .screen[data-screen="02-appointment-details"] { min-height: 931px; }
 [data-s="02-appointment-details"] { gap: var(--space-16); }
-/* Phase R0: two pills split the 350 track 1:1 (171 each, gap 8) —
+/* Phase R0: two pills split the 350 track 1:1 (171 each, gap 8) â€”
    the row no longer scrolls. */
 .filters { display: flex; gap: var(--space-8); align-items: flex-start; }
 .filters > .filter-pill { flex: 1; min-width: 0; }
-/* Garments group — label sits 8 over the card stack; cards + the
+/* Garments group â€” label sits 8 over the card stack; cards + the
    dashed add-garment keep the 16 rhythm (550:5262). */
 .garments { display: flex; flex-direction: column; gap: var(--space-8); }
 .garments__cards { display: flex; flex-direction: column; gap: var(--space-16); }
@@ -47,25 +47,25 @@
   box-shadow: inset 0 1px 0 var(--neutral-200);   /* top hairline, inside */
 }
 .cta-bar__note { text-align: center; }
-/* half-pixel baseline shim — Figma rasterises 02's CTA-bar block 0.5px
+/* half-pixel baseline shim â€” Figma rasterises 02's CTA-bar block 0.5px
    lower; measured per screen (04c/04d want none). */
 [data-s="02-appointment-details"] .cta-bar > * { transform: translateY(0.5px); }
 
-/* 02A - Date & Time sheet — fills the screen; sheet anchors bottom. */
+/* 02A - Date & Time sheet â€” fills the screen; sheet anchors bottom. */
 .screen-sheet { position: absolute; inset: 0; }
 /* Overlay sheets are position:fixed (set inline, clipped to the visible
-   screen column) — fixed makes the holder a stacking context at z-auto,
+   screen column) â€” fixed makes the holder a stacking context at z-auto,
    so it needs its own z to clear the chrome (status bar/nav, z2). */
 .screen-sheet--overlay { z-index: 10; }
 /* The updated sheet frames show 02 dimmed behind the scrim (was a flat
    backdrop). Clipped to the 844 sheet frame; inert under the scrim. */
 .sheet-backdrop { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 
-/* 09 - Bookings — sections at gap 12; frame is 1220 tall. */
+/* 09 - Bookings â€” sections at gap 12; frame is 1220 tall. */
 .screen[data-screen="09-bookings"] { min-height: 1212px; }
 [data-s="09-bookings"] { gap: var(--space-12); }
 
-/* 02B - Address Sheet (538:1382). Frame scrim is ink@0.6 — heavier
+/* 02B - Address Sheet (538:1382). Frame scrim is ink@0.6 â€” heavier
    than every other sheet's 0.4 (raised, built as drawn). */
 [data-s="02.2-address-sheet"] .sheet-scrim,
 [data-s="02.2-address-sheet"] .sheet-host[data-open="true"] .sheet-scrim { opacity: 0.6; }
@@ -126,7 +126,7 @@
   font-weight: 500;
   color: var(--ink);
 }
-/* 44×24 ink pill, 20px white knob right (538:1537); off = n300, knob left */
+/* 44Ã—24 ink pill, 20px white knob right (538:1537); off = n300, knob left */
 .toggle {
   position: relative;
   width: 44px;
@@ -166,7 +166,7 @@
   color: var(--neutral-500);
 }
 
-/* 04B - Add Card Sheet — the 286-tall sheet sits at y559, overflowing
+/* 04B - Add Card Sheet â€” the 286-tall sheet sits at y559, overflowing
    the 844 frame by 1px; reproduce the clip. */
 [data-s="02.4-add-card-sheet"] .sheet { bottom: -1px; }
 .card-field {
@@ -187,7 +187,7 @@
 }
 .card-field .method-row__icon { width: 22px; height: 22px; color: var(--neutral-500); }
 .card-field__num { flex: 1 0 0; min-width: 1px; }
-/* real inputs — placeholders keep the frame's n500 look, entries go ink;
+/* real inputs â€” placeholders keep the frame's n500 look, entries go ink;
    MM/YY and CVC pinned to the frame's text widths (53 / 33) */
 .card-field__input {
   border: 0;
@@ -206,11 +206,11 @@
 [data-s="03-status-tailoring"] { gap: var(--space-12); }
 /* 04E - Order Summary: the frame carries its own 24 bottom padding.
    Full 844 frame (resized in Figma from the original short 667 at
-   Kevin's direction) — the default .screen floor applies. */
+   Kevin's direction) â€” the default .screen floor applies. */
 [data-s="03-status-summary"] { gap: var(--space-12); padding-bottom: var(--space-24); }
 /* Phase R2: PostAppt cards + four fee rows grew the frame to 1016
    (40 dead below the CTA bar). */
-.screen[data-screen="03-status-summary"] { min-height: 1016px; }
+.screen[data-screen="03-status-summary"] { min-height: 1142.5px; }
 .summary { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 .summary--tight { gap: var(--space-4); }
 .summary__title { margin: 0; }
@@ -232,7 +232,7 @@
   background: var(--white);
 }
 .cta-bar--plain { box-shadow: none; }
-/* Figma renders these as text-list markers, not characters — CSS
+/* Figma renders these as text-list markers, not characters â€” CSS
    markers keep innerText identical to the frame's text nodes. */
 .prepare-list {
   margin: 0;
@@ -241,11 +241,11 @@
 }
 .prepare-list li::marker { font-size: var(--size-12); }
 
-/* Phase R2: 04C gained the Reschedule / Cancel CTA → 1192 */
-.screen[data-screen="03-status-confirmed"] { min-height: 1192px; }
+/* Phase R2: 04C gained the Reschedule / Cancel CTA â†’ 1192 */
+.screen[data-screen="03-status-confirmed"] { min-height: 1144px; }
 /* Phase R4: the Active Job Card hero grew the frame to 1173 */
-.screen[data-screen="03-status-tailoring"] { min-height: 1173px; }
-/* 04D hero — Active Job Card, user side (570:8929): white r20 card,
+.screen[data-screen="03-status-tailoring"] { min-height: 1235.5px; }
+/* 04D hero â€” Active Job Card, user side (570:8929): white r20 card,
    date badge + name/need-by + Tailoring pill head, tailoring progress
    bar, measured-and-pinned note. */
 .status-card {
@@ -258,7 +258,7 @@
   background: var(--white);
 }
 .status-card__head { display: flex; align-items: center; gap: var(--space-16); width: 100%; }
-/* the card's badge hugs its text (42) — the appt-card master is 48 */
+/* the card's badge hugs its text (42) â€” the appt-card master is 48 */
 .status-card .appt-card__date { width: auto; }
 .status-card__who { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 0 0; min-width: 1px; }
 .status-card__name {
@@ -289,8 +289,9 @@
    adds the frame's own inner padding via per-screen rules.
    ============================================================ */
 
-/* 03 - Finding Your Tailor: inner pad 12/20/24, gap 8 */
-[data-s="03-status-requested"] { padding-top: calc(128px + var(--space-12)); padding-bottom: var(--space-24); gap: var(--space-8); }
+/* 03 - Finding Your Tailor: gap 8. Phase R8: the hero moved to the
+   top of the body (y0) — the old 12px inner pad is gone. */
+[data-s="03-status-requested"] { padding-bottom: var(--space-24); gap: var(--space-8); }
 .map-card {
   width: 100%;
   height: 262px;
@@ -323,15 +324,15 @@
 }
 
 /* 05 - Appointment Reminder: inner pad 0/20/24, gap 12.
-   Phase R2: the cancel line moved into the R1 popup — frame is
-   1101.67 → 1102. */
+   Phase R2: the cancel line moved into the R1 popup â€” frame is
+   1101.67 â†’ 1102. */
 [data-s="03-status-reminder"] { padding-bottom: var(--space-24); gap: var(--space-12); }
-.screen[data-screen="03-status-reminder"] { min-height: 1102px; }
+.screen[data-screen="03-status-reminder"] { min-height: 1088px; }
 .actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 
 /* M1 - Message Tailor: inner pad 20/20/24, gap 12 */
-/* refine r1: chat pulled up under the nav — offset 128+20 → 104+4 —
-   and the column gap went 12 → 16 */
+/* refine r1: chat pulled up under the nav â€” offset 128+20 â†’ 104+4 â€”
+   and the column gap went 12 â†’ 16 */
 [data-s="10-messages"] { padding-top: calc(104px + var(--space-4)); padding-bottom: var(--space-24); gap: var(--space-16); }
 .chat-head { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
 .chat-head__back {
@@ -378,7 +379,7 @@
   font-weight: 500;
   color: var(--neutral-500);
 }
-/* real input — the placeholder renders exactly like the old hint */
+/* real input â€” the placeholder renders exactly like the old hint */
 .composer__input {
   flex: 1 0 0;
   min-width: 1px;
@@ -435,7 +436,7 @@
   border-radius: var(--radius-lg);
   background: var(--white);
   text-align: left;
-  /* Phase R4: unselected cards carry a 1px n300 ring (inset — the
+  /* Phase R4: unselected cards carry a 1px n300 ring (inset â€” the
      stroke is not in Figma's layout) */
   box-shadow: inset 0 0 0 1px var(--neutral-300);
 }
@@ -485,7 +486,7 @@
   font-weight: 700;
   color: var(--ink);
 }
-/* Phase R1: the frame left-aligns the change link under the address —
+/* Phase R1: the frame left-aligns the change link under the address â€”
    keep the button hugging so its centred text doesn't drift. */
 .address-card__change { color: var(--accent-ink); align-self: flex-start; }
 
@@ -503,7 +504,7 @@
 [data-s="06-journey-complete"] .done-tiles { width: auto; align-self: center; }
 .done-tiles { display: flex; gap: var(--space-8); }
 .done-tile { position: relative; width: 87px; height: 87px; overflow: hidden; }
-/* the frame draws tile 1 at 86 (Figma sloppiness) — match so tiles
+/* the frame draws tile 1 at 86 (Figma sloppiness) â€” match so tiles
    2/3 land on the same x */
 .done-tile:first-child { width: 86px; }
 .done-tile img { position: absolute; width: 127.27%; height: 127.27%; left: -13.64%; top: -13.64%; max-width: none; }
@@ -516,11 +517,11 @@
 .screen[data-screen="05-items-ready"],
 .screen[data-screen="05a-pickup-window"],
 .screen[data-screen="05b-delivery-options"] { min-height: 872px; }
-/* Phase R2: 08's summary went PostAppt with four fee rows — 1198 */
-.screen[data-screen="06-journey-complete"] { min-height: 1198px; }
+/* Phase R2: 08's summary went PostAppt with four fee rows â€” 1198 */
+.screen[data-screen="06-journey-complete"] { min-height: 1173px; }
 
 /* ============================================================
-   Phase R2 screens — R1 / RC1 modal popups, 05X, PV3.
+   Phase R2 screens â€” R1 / RC1 modal popups, 05X, PV3.
    ============================================================ */
 /* modal y positions from the frames (558:1899 / 559:3297 / 570:8752 /
    584:9403 / 584:9567) */
@@ -533,7 +534,7 @@
 /* 05X - Appointment Cancelled (558:3817): 05's chassis, one-line
    heading, refund card in place of the prepare card, single CTA. */
 [data-s="03-status-cancelled"] { padding-bottom: var(--space-24); gap: var(--space-12); }
-.screen[data-screen="03-status-cancelled"] { min-height: 965px; }
+.screen[data-screen="03-status-cancelled"] { min-height: 948.5px; }
 
 /* PV3 - Photo Viewer (559:2112): 04D dimmed under an ink@95% scrim,
    filmstrip panel pinned at the 128 offset. Literal 2/10px gaps and

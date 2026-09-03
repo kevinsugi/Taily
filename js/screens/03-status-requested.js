@@ -24,13 +24,14 @@ function renderScreen(s) {
   const n = s.garments.reduce((sum, g) => sum + g.qty, 0);
   return `${chrome('home')}
 <div class="body" data-s="03-status-requested">
+  ${statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-certified tailor near you. We’ll notify you the moment one accepts.' })}
   <!-- Placeholder per Kevin: this becomes a live Google Map centred on
-       the user's location. The frame's raster is deliberately not used. -->
+       the user's location. The frame's raster is deliberately not used.
+       Phase R8: the frame now leads with the Status Hero, map second. -->
   <div class="map-card map-card--placeholder" data-act="map">
     <span class="map-card__pin">◉</span>
     <span class="t-small c-500">Map preview — connects to Google Maps</span>
   </div>
-  ${statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-certified tailor near you. We’ll notify you the moment one accepts.' })}
   ${infoCard([
     metaRow('◉', `${s.contact.street}, ${s.contact.unit} — ${s.appt.where}`),
     metaRow('▤', s.appt.when),

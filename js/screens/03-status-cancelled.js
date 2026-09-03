@@ -10,7 +10,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, summaryCard, garmentCard, feeRow, cta } from '../components.js';
+import { chrome, statusHero, summaryCard, garmentCard, feeRow, cta } from '../components.js';
 import { rowPrice } from './03-status-tailoring.js';
 
 function renderScreen(s) {
@@ -32,9 +32,8 @@ function renderScreen(s) {
     : ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17'];
   return `${chrome('home')}
 <div class="body" data-s="03-status-cancelled">
-  <h1 class="t-title w-600 c-error">Appointment Cancelled</h1>
+  ${statusHero({ pill: 'declined', title: 'Appointment Cancelled', titleWeight: 600, titleColor: 'error' })}
   <div class="summary">
-    <h2 class="t-title w-600 c-500 summary__title">Order Summary</h2>
     ${summaryCard({ fixed: true, initials: a?.initials ?? 'MT', name: a?.name ?? 'Marco Tailor', rows })}
     <div class="garments-card">
       ${cards}

@@ -48,7 +48,10 @@ const ALLOW = {
   '03-status-requested': ['88 Leonard St, 4B — Home Visit', 'Thu, Jul 9 · 9:30 AM', '2 items · $200.00+ est. · $20 deposit held'],
   '02.3-payment-sheet': [STALE_DEPOSIT],
   '02.4-add-card-sheet': [STALE_DEPOSIT],
-  '03-status-tailoring': [SPACED_DEPOSIT],
+  // Phase R8: the tailor card's Appt row reads the live appointment
+  // ("Appt: Sunday Jul 12, 7PM"); the frame writes the abbreviated
+  // fixture form. Applies to PV3 too — its backdrop is this frame.
+  '03-status-tailoring': [SPACED_DEPOSIT, '▤ Appt: Sun, Jul 12 · 7:00PM'],
   '03-status-summary': [SPACED_DEPOSIT],
   '04-review-approve': [SPACED_DEPOSIT],
   '04-review-approve-modified': [SPACED_DEPOSIT],
@@ -59,8 +62,8 @@ const ALLOW = {
   '05a-pickup-window': ['Confirm Pickup · Fri 4-6PM', 'Select Pickup'],
   '05b-delivery-options': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
   '06-journey-complete': [SPACED_DEPOSIT],
-  // PV3's backdrop is 04D, whose frame also writes the spaced deposit
-  '03.3-photo-viewer': [SPACED_DEPOSIT],
+  // PV3's backdrop is 03/Tailoring — same spaced deposit + Appt fixture
+  '03.3-photo-viewer': [SPACED_DEPOSIT, '▤ Appt: Sun, Jul 12 · 7:00PM'],
   // UX-003: R1's rows quote the actual appointment; the frame keeps
   // the "Thursday's 7:00 PM" fixture.
   '03.1-reschedule-popup': ['Thursday’s 7:00 PM with Marco is cancelled'],

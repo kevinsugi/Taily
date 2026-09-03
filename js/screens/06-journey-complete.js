@@ -34,9 +34,7 @@ export function viewComplete(s) {
   </div>
   <h1 class="t-title c-ink center">All done!</h1>
   <p class="t-body w-500 c-500 center">Your garments are back with you, tailored to fit. Thank you for using Taily.</p>
-  <div class="summary summary--tight">
-    <p class="t-body w-500 c-500">#TLY-2026-4417</p>
-    <div class="garments-card">
+  <div class="garments-card">
       ${cards}
       ${feeRow(`$${t.total}`, 'Subtotal - Confirmed 7/12/26', { line: true })}
       ${feeRow(`-$${t.deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
@@ -44,7 +42,6 @@ export function viewComplete(s) {
         ? feeRow(`$${t.total - t.deposit}`, 'Total - Paid at pickup 7/17/26')
         : feeRow('$20', 'Delivery - Paid 7/17/26', { line: true })
           + feeRow(`$${t.total - t.deposit + 20}`, 'Total - Paid 7/17/26')}
-    </div>
   </div>
   <div class="actions">
     ${cta('Leave a Review', { attrs: 'data-act="review"' })}

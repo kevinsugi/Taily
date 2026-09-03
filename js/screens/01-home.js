@@ -42,14 +42,16 @@ export function apptMeta(a) {
 /** Where a tapped appointment card goes, by status. Shared with 09.
     UX-001: a Requested card returns to 03 (the matching status view) —
     it's also the only place the request can be cancelled. */
+/* Phase R8 (Kevin): the card always opens its RESPECTIVE 03 status
+   variant — Requested, Confirmed, Tailoring (also the ready state's
+   home), or Summary. The ready card's Schedule Pickup / Delivery CTA
+   still leads to 05. */
 export function apptTarget(a) {
   const s = String(a?.status ?? '').toLowerCase();
   if (s === 'requested' || s === 'searching') return '03-status-requested';
-  /* Phase R6: once a window is scheduled, the card opens the status
-     view (04D) — the tailor confirms the handoff there. */
-  if (s === 'ready' || s === 'ready-for-pickup') return a.fulfilment ? '03-status-tailoring' : '05-items-ready';
+  if (s === 'confirmed') return '03-status-confirmed';
   if (s === 'completed' || s === 'delivered') return '03-status-summary';
-  return '03-status-tailoring';
+  return '03-status-tailoring';   // awaiting-approval / tailoring / ready
 }
 
 /** Card actions per status (Figma variants). */

@@ -11,11 +11,13 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, infoCard, infoRow, cta } from '../components.js';
-import { chooseFulfilment, deliver } from '../state.js';
+import { chooseFulfilment } from '../state.js';
 import { winSel, windowLabel, windowsHtml, wireWindows } from './07a-pickup-window.js';
 import { openAddressOverlay } from './02b-address-sheet.js';
+import { openWindowConfirmed } from './07c-window-confirmed.js';
 
-function renderScreen(s) {
+/* Exported: 07C draws this screen (dimmed) as its frame backdrop. */
+export function view07b(s) {
   const sel = winSel(s);
   return `${chrome('home')}
 <div class="body" data-s="07b-delivery-options">
@@ -43,10 +45,12 @@ function renderScreen(s) {
 
 function wire(root) {
   wireWindows(root, '07b-delivery-options');
+  /* Phase R6 (Kevin): confirming opens the Window Confirmed modal —
+     the order stays 'ready' until the TAILOR confirms the handoff. */
   root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => {
-    chooseFulfilment('delivery', windowLabel(winSel()));
-    deliver();
-    go('08-journey-complete');
+    const when = windowLabel(winSel());
+    chooseFulfilment('delivery', when);
+    openWindowConfirmed({ method: 'delivery', when });
   });
   root.querySelector('[data-act="select"]')?.addEventListener('click', () => go('07a-pickup-window'));
   root.querySelector('[data-act="change"]')?.addEventListener('click', () => openAddressOverlay());
@@ -56,4 +60,4 @@ function wire(root) {
   }));
 }
 
-register('07b-delivery-options', renderScreen, wire);
+register('07b-delivery-options', view07b, wire);

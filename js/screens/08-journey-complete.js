@@ -8,12 +8,14 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, garmentCard, feeRow, cta, toast } from '../components.js';
+import { chrome, garmentCard, feeRow, cta } from '../components.js';
 import { reset } from '../state.js';
 import { rowPrice } from './04d-appointment-complete.js';
 import { wirePhotoViewer } from './pv3-photo-viewer.js';
+import { openLeaveReview } from './08c-leave-review.js';
 
-function renderScreen(s) {
+/* Exported: 08C draws this screen (dimmed) as its frame backdrop. */
+export function view08(s) {
   const cur = s.currentAppt ?? { list: 'upcoming', index: 0 };
   const a = s[cur.list]?.[cur.index] ?? s.upcoming[0] ?? {};
   const t = a.totals ?? { total: 360, deposit: 20 };
@@ -54,12 +56,12 @@ function renderScreen(s) {
 function wire(root) {
   wirePhotoViewer(root);
   root.querySelector('[data-act="again"]')?.addEventListener('click', () => { reset(); go('01-home'); });
-  /* UX-004: no review screen exists — say so instead of jumping to Bookings */
-  root.querySelector('[data-act="review"]')?.addEventListener('click', () => toast('Reviews are outside this prototype — thank you!'));
+  /* Phase R6 (Kevin): Leave a Review opens the 08C review sheet */
+  root.querySelector('[data-act="review"]')?.addEventListener('click', () => openLeaveReview());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {
     e.preventDefault();
     go(el.dataset.nav === 'bookings' ? '09-bookings' : '01-home');
   }));
 }
 
-register('08-journey-complete', renderScreen, wire);
+register('08-journey-complete', view08, wire);

@@ -128,8 +128,24 @@ await assertAt('schedule pickup/delivery', '07-items-ready', 'ready-for-pickup')
 await page.click('[data-opt="pickup"]');
 await page.click('[data-act="continue"]');
 await assertAt('continue to pickup', '07a-pickup-window', 'ready-for-pickup');
+// Phase R6: confirming opens 07C; the order stays ready until the
+// TAILOR confirms the handoff (demo: tap the order on 04D) → 08.
 await page.click('[data-act="confirm"]');
-await assertAt('confirm pickup', '08-journey-complete', 'delivered');
+await assertOverlay('  …07C window confirmed', '07c-window-confirmed');
+await page.click('[data-act="window-done"]');
+await page.waitForTimeout(400);
+await assertAt('window scheduled (still ready)', '01-home', 'ready-for-pickup');
+await page.click('.appt-card');
+await assertAt('scheduled card opens status', '04d-appointment-complete', 'ready-for-pickup');
+await page.click('[data-act="review"]');
+await assertAt('tailor confirms handoff', '08-journey-complete', 'delivered');
+// Phase R6: Leave a Review opens the 08C sheet; stars select, confirm closes.
+await page.click('[data-act="review"]');
+await assertOverlay('  …08C review sheet', '08c-leave-review');
+await page.click('[data-star="5"]');
+await page.click('[data-act="confirm-review"]');
+await page.waitForTimeout(400);
+await assertOverlay('  …review sheet gone', null);
 
 // Bookings seeds
 await page.evaluate(() => { window.Taily.state && window.Taily.render('09-bookings'); });

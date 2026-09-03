@@ -12,7 +12,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, statusPill, progressBar, garmentCard, feeRow, cta, toast } from '../components.js';
 import { JOB_TYPES } from '../data.js';
-import { apptEntry, canonicalStatus, markReady } from '../state.js';
+import { apptEntry, canonicalStatus, markReady, deliver } from '../state.js';
 import { wirePhotoViewer } from './pv3-photo-viewer.js';
 
 /* Per-garment price: the appointment's totals.rows when the flow built
@@ -51,7 +51,11 @@ export function view04d(s) {
   const note = {
     'awaiting-approval': 'Measured and pinned at your appointment on Thu, Jul 12. Review and approve the final order to start tailoring.',
     tailoring: 'Measured and pinned at your appointment on Thu, Jul 12. We’ll tell you the moment they’re ready.',
-    'ready-for-pickup': `Your items are ready. Tap the order below — or use your appointment card — to choose how you’d like them back.`,
+    /* Phase R6: once a window is scheduled, the handoff waits on the
+       tailor's confirmation */
+    'ready-for-pickup': a.fulfilment
+      ? `${a.fulfilment.method === 'delivery' ? 'Delivery' : 'Pickup'} scheduled · ${a.fulfilment.window}. ${first} will confirm the handoff.`
+      : 'Your items are ready. Tap the order below — or use your appointment card — to choose how you’d like them back.',
     delivered: 'Delivered. Tap the order below to see your receipt.',
   }[canon] ?? 'Measured and pinned at your appointment on Thu, Jul 12. We’ll tell you the moment they’re ready.';
   const t = a.totals ?? { total: 360, deposit: 20 };
@@ -99,14 +103,20 @@ function wire(root) {
   //   tailoring         → DEMO: simulates the tailor finishing
   //                       (markReady) and re-renders — the status card
   //                       and the 01/09 appointment cards flip to Ready
-  //   ready-for-pickup  → 07 (also reached via the cards' Schedule
-  //                       Pickup / Delivery)
-  //   delivered         → the order summary (04E)
+  //   ready, unscheduled → 07 (choose pickup/delivery)
+  //   ready, scheduled   → DEMO: the TAILOR confirms the handoff
+  //                        (deliver) — 08 opens (Phase R6, Kevin: 08
+  //                        only after the tailor confirms)
+  //   delivered          → the order summary (04E)
   root.querySelector('[data-act="review"]')?.addEventListener('click', () => {
-    const s2 = canonicalStatus(apptEntry()?.status);
+    const cur2 = apptEntry();
+    const s2 = canonicalStatus(cur2?.status);
     if (s2 === 'awaiting-approval') go('06b-review-approve-modified');
     else if (s2 === 'tailoring') { markReady(); go('04d-appointment-complete', { replace: true }); }
-    else if (s2 === 'ready-for-pickup') go('07-items-ready');
+    else if (s2 === 'ready-for-pickup') {
+      if (cur2?.fulfilment) { deliver(); go('08-journey-complete'); }
+      else go('07-items-ready');
+    }
     else if (s2 === 'delivered') go('04e-order-summary');
   });
   wirePhotoViewer(root);

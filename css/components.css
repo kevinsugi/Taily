@@ -1250,6 +1250,120 @@
   width: 100%;
 }
 .modal__actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+/* Window Confirmed / Modal (580:2230, Phase R6): 350-wide centred
+   variant — success check badge, serif-24 success title, centred sub,
+   n50 detail card of label/value rows, full-width Done. Gap 14 is the
+   frame's own off-grid value. */
+.modal--confirm { left: var(--space-20); width: 350px; align-items: center; text-align: center; gap: 14px; }
+.confirm-check {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--success-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.confirm-check__dot {
+  width: 32.48px;
+  height: 32.48px;
+  border-radius: 16.24px;
+  background: var(--success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  font-weight: 700;
+  color: var(--white);
+}
+.modal__sub {
+  margin: 0;
+  width: 300px;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+  color: var(--neutral-500);
+  text-align: center;
+}
+.detail-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+  padding: 14px var(--space-16);   /* frame: py14, off-grid */
+  border-radius: var(--radius-lg);
+  background: var(--neutral-50);
+  text-align: left;
+}
+.detail-row { display: flex; justify-content: space-between; width: 100%; font-family: var(--font-sans); line-height: 21px; }
+.detail-row__label { font-size: var(--size-12); font-weight: 400; color: var(--neutral-500); }
+.detail-row__value { font-size: var(--size-14); font-weight: 600; color: var(--ink); }
+
+/* Leave Review / Sheet (582:2266 family, Phase R6): n50 card, grabber,
+   serif-28 title + sub, 30px star row, bordered input, Confirm CTA. */
+.review-sheet {
+  position: absolute;
+  z-index: 3;
+  left: var(--space-20);
+  width: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-20) var(--space-28);
+  border-radius: var(--radius-lg);
+  background: var(--neutral-50);
+}
+.review-sheet__grabber { width: 36px; height: 4px; border-radius: var(--radius-20); background: var(--neutral-300); align-self: center; }
+.review-sheet__head { display: flex; flex-direction: column; gap: var(--space-4); }
+.review-sheet__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: var(--size-28);
+  line-height: 34px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.review-sheet__sub {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+  color: var(--neutral-500);
+}
+.review-sheet__stars {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.review-sheet__stars button {
+  font-family: var(--font-sans);
+  font-size: var(--size-30);
+  line-height: 39px;
+  font-weight: 600;
+  color: var(--neutral-300);
+}
+.review-sheet__stars button.is-filled { color: var(--warning); }
+.review-sheet__input {
+  width: 100%;
+  min-height: 65px;
+  padding: 14px 14px 30px;   /* frame: 14/14/30, off-grid */
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  background: var(--neutral-50);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+  color: var(--ink);
+  resize: none;
+}
+.review-sheet__input::placeholder { color: var(--neutral-400); }
+.review-sheet__fixture { margin: 0; width: 100%; }
 /* enter/exit: scrim fades, card rises a touch (drawer-family motion) */
 .modal-host .modal-scrim, .modal-host .modal { transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); }
 .modal-host:not([data-open="true"]) .modal-scrim { opacity: 0; }

@@ -80,6 +80,9 @@
      type scale. Raised as an inconsistency; tokenised here so no
      literal size leaks outside tokens.css. */
   --size-20: 20px;
+  /* NOT a Figma variable — 08C's rating stars (584:9422) carry literal
+     30px. Tokenised for the same reason. */
+  --size-30: 30px;
   --size-24: 24px;
   --size-28: 28px;
   --size-32: 32px;

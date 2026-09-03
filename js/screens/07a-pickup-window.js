@@ -11,8 +11,9 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, deliveryWindow, selectTime, cta } from '../components.js';
-import { state, chooseFulfilment, deliver } from '../state.js';
+import { state, chooseFulfilment } from '../state.js';
 import { openDateTimeOverlay } from './02a-date-time-sheet.js';
+import { openWindowConfirmed } from './07c-window-confirmed.js';
 
 export const WINDOWS = [
   { day: 'Thursday, July 16', abbr: 'Thu', chips: ['9–11 AM', '12–2 PM', '4–6 PM'] },
@@ -78,10 +79,12 @@ function renderScreen(s) {
 
 function wire(root) {
   wireWindows(root, '07a-pickup-window');
+  /* Phase R6 (Kevin): confirming opens the Window Confirmed modal —
+     the order stays 'ready' until the TAILOR confirms the handoff. */
   root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => {
-    chooseFulfilment('pickup', windowLabel(winSel()));
-    deliver();
-    go('08-journey-complete');
+    const when = windowLabel(winSel());
+    chooseFulfilment('pickup', when);
+    openWindowConfirmed({ method: 'pickup', when });
   });
   root.querySelector('[data-act="select"]')?.addEventListener('click', () => go('07b-delivery-options'));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {

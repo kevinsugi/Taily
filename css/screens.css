@@ -522,10 +522,13 @@
 /* ============================================================
    Phase R2 screens — R1 / RC1 modal popups, 05X, PV3.
    ============================================================ */
-/* modal y positions from the frames (558:1899 / 559:3297 / 570:8752) */
+/* modal y positions from the frames (558:1899 / 559:3297 / 570:8752 /
+   584:9403 / 584:9567) */
 [data-s="r1-reschedule-popup"] .modal { top: 248px; }
 [data-s="rc1-request-changes"] .modal { top: 281px; }
 [data-s="05c-appointment-confirmed"] .modal { top: 248px; }
+[data-s="07c-window-confirmed"] .modal { top: 232px; }
+[data-s="08c-leave-review"] .review-sheet { top: 291px; }
 
 /* 05X - Appointment Cancelled (558:3817): 05's chassis, one-line
    heading, refund card in place of the prepare card, single CTA. */

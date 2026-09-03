@@ -24,6 +24,8 @@
     "09-bookings": "277:2804",
     "m1-message-tailor": "282:1239",
     "05c-appointment-confirmed": "570:8329",
+    "07c-window-confirmed": "576:9219",
+    "08c-leave-review": "584:9430",
     "r1-reschedule-popup": "558:1867",
     "05x-appointment-cancelled": "558:3817",
     "pv3-photo-viewer": "559:2112",
@@ -54,6 +56,8 @@
     "05x-appointment-cancelled": 0.85,
     "pv3-photo-viewer": 0.01,
     "rc1-request-changes": 0.1,
-    "05c-appointment-confirmed": 0.36
+    "05c-appointment-confirmed": 0.36,
+    "08c-leave-review": 1.31,
+    "07c-window-confirmed": 0.86
   }
 }

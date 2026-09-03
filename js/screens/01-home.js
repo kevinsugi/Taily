@@ -45,7 +45,9 @@ export function apptMeta(a) {
 export function apptTarget(a) {
   const s = String(a?.status ?? '').toLowerCase();
   if (s === 'requested' || s === 'searching') return '03-finding-tailor';
-  if (s === 'ready' || s === 'ready-for-pickup') return '07-items-ready';
+  /* Phase R6: once a window is scheduled, the card opens the status
+     view (04D) — the tailor confirms the handoff there. */
+  if (s === 'ready' || s === 'ready-for-pickup') return a.fulfilment ? '04d-appointment-complete' : '07-items-ready';
   if (s === 'completed' || s === 'delivered') return '04e-order-summary';
   return '04d-appointment-complete';
 }

@@ -17,6 +17,7 @@ const SCREEN_MODULES = [
   '03-finding-tailor', '05-appointment-reminder', 'm1-message-tailor',
   '06a-review-approve', '06b-review-approve-modified', '07-items-ready', '07a-pickup-window', '07b-delivery-options', '08-journey-complete',
   'r1-reschedule-popup', '05x-appointment-cancelled', '05c-appointment-confirmed', 'pv3-photo-viewer', 'rc1-request-changes',
+  '07c-window-confirmed', '08c-leave-review',
 ];
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */

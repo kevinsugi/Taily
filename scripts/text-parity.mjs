@@ -64,6 +64,10 @@ const ALLOW = {
   // UX-003: R1's rows quote the actual appointment; the frame keeps
   // the "Thursday's 7:00 PM" fixture.
   'r1-reschedule-popup': ['Thursday’s 7:00 PM with Marco is cancelled'],
+  // 07C's backdrop is 07B (same R3 chip/CTA divergences); 08C's
+  // backdrop is 08 (spaced deposit in the frame).
+  '07c-window-confirmed': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
+  '08c-leave-review': [SPACED_DEPOSIT],
 };
 
 /* ---------- token (same conventions as export-refs.mjs) ---------- */

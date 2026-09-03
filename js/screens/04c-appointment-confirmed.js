@@ -6,7 +6,7 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { chrome, statusHero, summaryCard, garmentCard, feeRow, cta } from '../components.js';
+import { chrome, statusHero, summaryCard, garmentCard, feeRow, cta, toast } from '../components.js';
 import { state } from '../state.js';
 import { openReschedulePopup } from './r1-reschedule-popup.js';
 
@@ -16,7 +16,7 @@ function renderScreen(s) {
   ${statusHero({ pill: false, title: 'Your Appointment is Confirmed.', titleWeight: 600, titleColor: 'success' })}
   <div class="summary">
     <h2 class="t-title c-500 summary__title">Order Summary</h2>
-    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need By: Friday Jul 17'] })}
+    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17'] })}
     <div class="garments-card">
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 })}
@@ -41,6 +41,9 @@ function renderScreen(s) {
 function wire(root) {
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelector('[data-act="reschedule"]')?.addEventListener('click', () => openReschedulePopup());
+  /* UX-004: Message works like 04D's; Calendar acknowledges */
+  root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('m1-message-tailor'));
+  root.querySelector('[data-act="calendar"]')?.addEventListener('click', () => toast('Added to your calendar'));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();

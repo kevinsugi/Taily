@@ -32,17 +32,19 @@ export function apptMeta(a) {
     /* Phase R1: confirmed cards show the bare date (was "Appt Date: …") */
     confirmed: a.when,
     tailoring: `Est. Ready Date: ${a.when}`,
-    ready: `Completed: ${a.when}`,
+    /* UX-010: a Ready order isn't "Completed" (frame updated too) */
+    ready: `Ready since: ${a.when}`,
     completed: `Picked up: ${a.when}`,
   };
   return map[cardStatus(a)] ?? a.when;
 }
 
 /** Where a tapped appointment card goes, by status. Shared with 09.
-    null = the card is inert (Requested — Phase R5, Kevin). */
+    UX-001: a Requested card returns to 03 (the matching status view) —
+    it's also the only place the request can be cancelled. */
 export function apptTarget(a) {
   const s = String(a?.status ?? '').toLowerCase();
-  if (s === 'requested' || s === 'searching') return null;
+  if (s === 'requested' || s === 'searching') return '03-finding-tailor';
   if (s === 'ready' || s === 'ready-for-pickup') return '07-items-ready';
   if (s === 'completed' || s === 'delivered') return '04e-order-summary';
   return '04d-appointment-complete';
@@ -134,7 +136,7 @@ export function wire01(root) {
     go('02-appointment-details');
   });
   /* The card itself opens the appointment: ready → pickup options
-     (07), completed → order summary (04e), requested → nothing,
+     (07), completed → order summary (04e), requested → back to 03,
      otherwise the detail (04d). Inner buttons keep their actions. */
   root.querySelector('.appt-card')?.addEventListener('click', (e) => {
     if (e.target.closest('button')) return;

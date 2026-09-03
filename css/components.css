@@ -1255,6 +1255,46 @@
 .modal-host:not([data-open="true"]) .modal-scrim { opacity: 0; }
 .modal-host:not([data-open="true"]) .modal { opacity: 0; transform: translateY(12px); }
 
+/* ============================================================
+   Toast (UX-004) — prototype-scope acknowledgment. Ink pill fixed to
+   the viewport bottom; rises + fades.
+   ============================================================ */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-24);
+  transform: translate(-50%, 8px);
+  z-index: 30;
+  max-width: 320px;
+  padding: 10px var(--space-16);   /* 10 is off-grid, like the modal's row gap */
+  border-radius: var(--radius-20);
+  background: var(--ink);
+  color: var(--neutral-50);
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 6px 16px rgba(28, 27, 24, 0.25);
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  pointer-events: none;
+}
+.toast--in { opacity: 1; transform: translate(-50%, 0); }
+
+/* UX-009: expand tap targets on small controls without touching the
+   visuals — invisible hit zones reach ~44px. */
+/* (.garment-card__close / .photo-tile__cancel are already absolutely
+   positioned — ::after hit zones work on them as-is) */
+.photo-viewer__legend button { position: relative; }
+.garment-card__close::after,
+.photo-tile__cancel::after,
+.photo-viewer__legend button::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+
 /* ---------- motion accessibility for this slab ---------- */
 @media (prefers-reduced-motion: reduce) {
   .sheet-host .sheet { transition: opacity 300ms ease; transform: none; }
@@ -1262,4 +1302,5 @@
   .method-row:active, .cta-small:active { transform: none; }
   .method-row, .cta-small { transition: none; }
   .modal-host .modal { transition: opacity 300ms ease; transform: none; }
+  .toast { transition: opacity 200ms ease; transform: translate(-50%, 0); }
 }

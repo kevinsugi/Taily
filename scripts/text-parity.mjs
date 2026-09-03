@@ -61,6 +61,9 @@ const ALLOW = {
   '08-journey-complete': [SPACED_DEPOSIT],
   // PV3's backdrop is 04D, whose frame also writes the spaced deposit
   'pv3-photo-viewer': [SPACED_DEPOSIT],
+  // UX-003: R1's rows quote the actual appointment; the frame keeps
+  // the "Thursday's 7:00 PM" fixture.
+  'r1-reschedule-popup': ['Thursday’s 7:00 PM with Marco is cancelled'],
 };
 
 /* ---------- token (same conventions as export-refs.mjs) ---------- */

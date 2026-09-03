@@ -404,7 +404,9 @@ export function sheet(contentHtml, { open = null, header = null, grabber = true,
  * Call from a sheet screen's wire() with the dismiss handler.
  */
 export function wireSheetA11y(root, dismiss) {
-  const panel = root.querySelector('.sheet');
+  /* UX-006: modals and the photo viewer share the sheet's a11y —
+     Escape closes, Tab stays inside the panel */
+  const panel = root.querySelector('.sheet, .modal, .photo-viewer');
   if (!panel) return;
   const FOCUSABLE = 'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])';
   const items = () => [...panel.querySelectorAll(FOCUSABLE)].filter((e) => !e.disabled && e.offsetParent !== null);
@@ -531,8 +533,28 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
     if (instant) finish(); else setTimeout(finish, 300);
   };
   holder.querySelector('[data-act="modal-dismiss"]')?.addEventListener('click', close);
+  wireSheetA11y(holder, close);   // UX-006: Escape closes, focus stays inside
   wireFn?.(holder, close);
   return close;
+}
+
+/**
+ * Toast (UX-004) — lightweight acknowledgment for actions outside the
+ * prototype's scope (calendar, profile, reviews). Ink pill, bottom of
+ * the viewport, auto-dismisses.
+ */
+export function toast(msg) {
+  document.querySelector('.toast')?.remove();
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.setAttribute('role', 'status');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('toast--in')));
+  setTimeout(() => {
+    el.classList.remove('toast--in');
+    setTimeout(() => el.remove(), 300);
+  }, 2200);
 }
 
 /** Wheel picker — columns: [{ width, rows: [5 strings] }], middle row selected. */

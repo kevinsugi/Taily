@@ -123,12 +123,14 @@ export function advanceStatus() {
 /** Send the built request to a tailor: creates the searching appointment. */
 export function requestTailor() {
   const totals = bookingLines(null);
+  /* badge from the requested time ("Jul 12, 7:00 PM" → JUL / 12) */
+  const m = state.appt.when.match(/^([A-Za-z]+)\s+(\d+)/);
   const a = {
     name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop',
     place: '1025 Broadway, Midtown West',
-    when: state.appt.when, status: 'searching',
+    when: state.appt.when, needBy: state.appt.needBy, status: 'searching',
     visit: state.appt.where, count: state.garments.reduce((s, g) => s + g.qty, 0),
-    month: 'AUG', day: '29',
+    month: (m?.[1] ?? 'JUL').slice(0, 3).toUpperCase(), day: m?.[2] ?? '12',
     itemLines: state.garments.map((g) => `${g.qty} ${g.type} - ${g.jobs.join(', ')}`),
     garments: JSON.parse(JSON.stringify(state.garments)),
     bring: ['Your garments', 'The shoes you plan to wear with them.'],

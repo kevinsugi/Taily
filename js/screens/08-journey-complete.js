@@ -8,7 +8,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, garmentCard, feeRow, cta } from '../components.js';
+import { chrome, garmentCard, feeRow, cta, toast } from '../components.js';
 import { reset } from '../state.js';
 import { rowPrice } from './04d-appointment-complete.js';
 import { wirePhotoViewer } from './pv3-photo-viewer.js';
@@ -38,8 +38,10 @@ function renderScreen(s) {
       ${cards}
       ${feeRow(`$${t.total}`, 'Subtotal - Confirmed 7/12/26', { line: true })}
       ${feeRow(`-$${t.deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
-      ${feeRow('$20', 'Delivery - Paid 7/17/26', { line: true })}
-      ${feeRow(`$${t.total - t.deposit + 20}`, 'Total - Paid 7/17/26')}
+      ${a.fulfilment?.method === 'pickup'
+        ? feeRow(`$${t.total - t.deposit}`, 'Total - Paid at pickup 7/17/26')
+        : feeRow('$20', 'Delivery - Paid 7/17/26', { line: true })
+          + feeRow(`$${t.total - t.deposit + 20}`, 'Total - Paid 7/17/26')}
     </div>
   </div>
   <div class="actions">
@@ -52,7 +54,8 @@ function renderScreen(s) {
 function wire(root) {
   wirePhotoViewer(root);
   root.querySelector('[data-act="again"]')?.addEventListener('click', () => { reset(); go('01-home'); });
-  root.querySelector('[data-act="review"]')?.addEventListener('click', () => go('09-bookings'));
+  /* UX-004: no review screen exists — say so instead of jumping to Bookings */
+  root.querySelector('[data-act="review"]')?.addEventListener('click', () => toast('Reviews are outside this prototype — thank you!'));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {
     e.preventDefault();
     go(el.dataset.nav === 'bookings' ? '09-bookings' : '01-home');

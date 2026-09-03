@@ -5,6 +5,7 @@
    ============================================================ */
 
 import { state } from './state.js';
+import { toast } from './components.js';
 
 /* Screens self-register via register(). They are loaded dynamically in
    boot() — a static import here would run the screen module before this
@@ -122,6 +123,11 @@ function wireDragScroll() {
 async function boot() {
   await Promise.all(SCREEN_MODULES.map((m) => import(`./screens/${m}.js`)));
   wireDragScroll();
+  /* UX-004: Profile has no screen — acknowledge instead of ignoring */
+  document.addEventListener('click', (e) => {
+    const profile = e.target.closest('[data-nav="profile"]');
+    if (profile) { e.preventDefault(); toast('Profile is outside this prototype'); }
+  });
   const wanted = new URLSearchParams(location.search).get('screen');
   const first = registered()[0];
   const id = wanted || first;

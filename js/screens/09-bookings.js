@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, apptCard } from '../components.js';
+import { chrome, apptCard, toast } from '../components.js';
 import { state, openAppt } from '../state.js';
 import { apptMeta, apptActions, apptTarget } from './01-home.js';
 import { openReschedulePopup } from './r1-reschedule-popup.js';
@@ -86,6 +86,10 @@ function wire(root) {
           state.currentAppt = ref;
           go('07-items-ready');
         });
+      }
+      /* UX-004: no review screen exists — acknowledge honestly */
+      if (label === 'Leave Review') {
+        b.addEventListener('click', () => toast('Reviews are outside this prototype — thank you!'));
       }
     });
   });

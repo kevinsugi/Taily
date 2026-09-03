@@ -134,7 +134,7 @@ export const NEED_BY_OPTS = ['Thurs, Sept 1', 'Fri, Sept 2', 'Next week', 'Flexi
    totals are untouched v3 behaviour. */
 export const SEED_UPCOMING = [
   { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '1025 Broadway, Midtown West',
-    when: 'Sunday Jul 12, 7PM', status: 'confirmed', items: '3 items · Alterations',
+    when: 'Sunday Jul 12, 7PM', needBy: 'Fri, Jul 17', status: 'confirmed', items: '3 items · Alterations',
     visit: 'Store Visit', count: 3, month: 'JUL', day: '12',
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
     /* Phase R0/R2: the seed carries the POST-appointment modified order
@@ -151,7 +151,7 @@ export const SEED_UPCOMING = [
     chatMeta: 'Thu, Jul 9 · 9:30 AM · Home Visit',
     totals: { subtotal: 360, visitFee: 0, total: 360, deposit: 20 } },
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
-    when: 'Jul 1, 3PM', status: 'ready', items: '2 items · Alterations',
+    when: 'Jul 1, 3PM', needBy: 'Thurs, Sep 2', status: 'ready', items: '2 items · Alterations',
     visit: 'Home Visit', count: 2, month: 'JUL', day: '1',
     itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
     garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],

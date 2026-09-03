@@ -43,8 +43,9 @@ function renderScreen(s) {
 
 function wire(root) {
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
-  /* Phase R3 (Kevin): cancel request runs through the R1 popup */
-  root.querySelector('[data-act="cancel"]')?.addEventListener('click', () => openReschedulePopup());
+  /* Phase R3 (Kevin): cancel request runs through the R1 popup —
+     cancel-worded (UX-003) */
+  root.querySelector('[data-act="cancel"]')?.addEventListener('click', () => openReschedulePopup('cancel'));
   // demo affordance: tapping the map simulates the tailor accepting
   root.querySelector('[data-act="map"]')?.addEventListener('click', () => { tailorAccepts(); go('04c-appointment-confirmed'); });
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {

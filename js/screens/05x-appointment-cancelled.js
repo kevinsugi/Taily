@@ -1,31 +1,50 @@
 /* ============================================================
    05X - Appointment Cancelled V1 (Summary kept) — Figma 558:3817.
-   05's chassis with a one-line heading, the same order summary
-   (fixture kept per the frame name), a refund card in place of the
-   prepare card, and a single Back to Home CTA. Reached from R1's
-   Reschedule / Cancel confirm. Gap 12, heading at the bare 128.
+   05's chassis with a one-line error-red heading, the cancelled
+   order's summary, a refund card in place of the prepare card, and
+   a single Back to Home CTA. Reached from R1's confirm.
+   UX-003: when R1 stashed the cancelled appointment
+   (state.lastCancelled), the tailor card, garments and money render
+   from it; a direct load (diff harness) renders the frame's $200
+   fixture.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, summaryCard, garmentCard, feeRow, cta } from '../components.js';
+import { rowPrice } from './04d-appointment-complete.js';
 
-function renderScreen() {
+function renderScreen(s) {
+  const a = s.lastCancelled;
+  const t = a?.totals ?? { subtotal: 200, deposit: 20 };
+  const deposit = t.deposit ?? 20;
+  const subtotal = t.subtotal ?? 200;
+  const cards = a
+    ? (a.garments ?? []).map((g, i) => garmentCard({
+        variant: 'ViewOnly', type: g.type, qty: g.qty,
+        price: rowPrice(g, t.rows, i), services: g.jobs, photos: g.photos ?? 0,
+      })).join('\n      ')
+    : [
+        garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 }),
+        garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 }),
+      ].join('\n      ');
+  const rows = a
+    ? ['◉&nbsp;&nbsp;' + `${s.contact.street}, ${s.contact.unit} `, '▤&nbsp;&nbsp;' + (a.when ?? ''), '▤&nbsp;&nbsp;Need by: ' + (a.needBy ?? s.appt.needBy)]
+    : ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17'];
   return `${chrome('home')}
 <div class="body" data-s="05x-appointment-cancelled">
   <h1 class="t-title w-600 c-error">Appointment Cancelled</h1>
   <div class="summary">
     <h2 class="t-title w-600 c-500 summary__title">Order Summary</h2>
-    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 17 · 7:00PM', '▤&nbsp;&nbsp;Need By: Friday Jul 17'] })}
+    ${summaryCard({ fixed: true, initials: a?.initials ?? 'MT', name: a?.name ?? 'Marco Tailor', rows })}
     <div class="garments-card">
-      ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}
-      ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 })}
-      ${feeRow('$200', 'Subtotal - Confirmed at Appointment', { line: true })}
-      ${feeRow('$20', '10% Deposit - Paid 7/7/26', { line: true })}
-      ${feeRow('$180', 'Balance')}
+      ${cards}
+      ${feeRow(`$${subtotal}`, 'Subtotal - Confirmed at Appointment', { line: true })}
+      ${feeRow(`$${deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
+      ${feeRow(`$${subtotal - deposit}`, 'Balance')}
     </div>
     <div class="prepare-card">
       <p class="t-body w-500 c-500">Refund on the way</p>
-      <p class="t-body c-700">Your $20 deposit will be returned to Visa •••• 4242. Please rebook whenever you’re ready.</p>
+      <p class="t-body c-700">Your $${deposit} deposit will be returned to Visa •••• 4242. Please rebook whenever you’re ready.</p>
     </div>
   </div>
   <div class="actions">

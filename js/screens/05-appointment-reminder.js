@@ -16,10 +16,10 @@ import { openConfirmPopup } from './05c-appointment-confirmed.js';
 export function view05() {
   return `${chrome('home')}
 <div class="body" data-s="05-appointment-reminder">
-  <h1 class="t-title w-600 c-ink">Please Confirm Tomorrows Appointment.</h1>
+  <h1 class="t-title w-600 c-ink">Please Confirm Tomorrow’s Appointment.</h1>
   <div class="summary">
     <h2 class="t-title w-600 c-500 summary__title">Order Summary</h2>
-    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need By: Friday Jul 17'] })}
+    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17'] })}
     <div class="garments-card">
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 })}

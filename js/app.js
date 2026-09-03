@@ -12,12 +12,12 @@ import { toast } from './components.js';
    module body (imports hoist), hitting the `screens` map in its TDZ.
    The list grows as Phase 4 lands each screen. */
 const SCREEN_MODULES = [
-  '01-home', '01a-home-selected', '02-appointment-details', '02a-date-time-sheet', '02b-address-sheet', '09-bookings',
-  '04a-payment-sheet', '04b-add-card-sheet', '04c-appointment-confirmed', '04d-appointment-complete', '04e-order-summary',
-  '03-finding-tailor', '05-appointment-reminder', 'm1-message-tailor',
-  '06a-review-approve', '06b-review-approve-modified', '07-items-ready', '07a-pickup-window', '07b-delivery-options', '08-journey-complete',
-  'r1-reschedule-popup', '05x-appointment-cancelled', '05c-appointment-confirmed', 'pv3-photo-viewer', 'rc1-request-changes',
-  '07c-window-confirmed', '08c-leave-review',
+  '01-home', '01a-home-selected', '02-appointment-details', '02.1-date-time-sheet', '02.2-address-sheet', '09-bookings',
+  '02.3-payment-sheet', '02.4-add-card-sheet', '03-status-confirmed', '03-status-tailoring', '03-status-summary',
+  '03-status-requested', '03-status-reminder', '10-messages',
+  '04-review-approve', '04-review-approve-modified', '05-items-ready', '05a-pickup-window', '05b-delivery-options', '06-journey-complete',
+  '03.1-reschedule-popup', '03-status-cancelled', '03.2-appointment-confirmed', '03.3-photo-viewer', '04.1-request-changes',
+  '05.1-window-confirmed', '06.1-leave-review',
 ];
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */

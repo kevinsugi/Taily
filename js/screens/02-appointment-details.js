@@ -13,9 +13,9 @@ import { state, addGarment, removeGarment, bookingLines } from '../state.js';
 /* Sheets open as in-place overlays (v3 sheetShow parity) — navigating to
    the 02a/04a routes would rebuild this screen and flash. The routes
    remain registered for the diff harness. */
-import { openDateTimeOverlay } from './02a-date-time-sheet.js';
-import { openAddressOverlay } from './02b-address-sheet.js';
-import { openPaymentOverlay } from './04a-payment-sheet.js';
+import { openDateTimeOverlay } from './02.1-date-time-sheet.js';
+import { openAddressOverlay } from './02.2-address-sheet.js';
+import { openPaymentOverlay } from './02.3-payment-sheet.js';
 
 /* The frame's placeholder garments (re-revised with the Selector
    rollout): two identical suit jackets, both "Hem / Adjust Length",

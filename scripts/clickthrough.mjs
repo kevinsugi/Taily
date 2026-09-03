@@ -67,46 +67,46 @@ await page.click('[data-act="start-booking"]');
 await assertAt('Start Booking', '02-appointment-details', 'confirmed');
 await page.click('[data-act="time"]');
 await assertAt('Requested-time pill (stays on 02)', '02-appointment-details');
-await assertOverlay('  …time sheet overlays', '02a-date-time-sheet');
+await assertOverlay('  …time sheet overlays', '02.1-date-time-sheet');
 await page.click('[data-act="sheet-confirm"]');
 await page.waitForTimeout(400);
 await assertAt('sheet ✓ returns', '02-appointment-details');
 await assertOverlay('  …overlay gone', null);
 await page.click('[data-act="request"]');
 await assertAt('Request Tailor (stays on 02)', '02-appointment-details');
-await assertOverlay('  …payment sheet overlays', '04a-payment-sheet');
+await assertOverlay('  …payment sheet overlays', '02.3-payment-sheet');
 await page.click('.method-row');                      // Apple Pay → request sent
-await assertAt('Pay (request sent)', '03-finding-tailor', 'searching');
+await assertAt('Pay (request sent)', '03-status-requested', 'searching');
 await page.click('[data-act="map"]');                 // demo: tailor accepts
-await assertAt('tailor accepts', '04c-appointment-confirmed', 'confirmed');
-await page.evaluate(() => window.Taily.render('05-appointment-reminder'));
-await assertAt('reminder fires (confirmed)', '05-appointment-reminder', 'confirmed');
+await assertAt('tailor accepts', '03-status-confirmed', 'confirmed');
+await page.evaluate(() => window.Taily.render('03-status-reminder'));
+await assertAt('reminder fires (confirmed)', '03-status-reminder', 'confirmed');
 // Phase R2: Reschedule / Cancel opens the R1 popup; Go Back dismisses
 await page.click('[data-act="reschedule"]');
-await assertOverlay('  …R1 popup overlays', 'r1-reschedule-popup');
+await assertOverlay('  …R1 popup overlays', '03.1-reschedule-popup');
 await page.click('[data-act="go-back"]');
 await page.waitForTimeout(400);
 await assertOverlay('  …popup gone', null);
 // Phase R4: Confirm Appointment opens the 05C popup; its Confirm makes
 // the appointment happen.
 await page.click('[data-act="confirm"]');
-await assertOverlay('  …05C popup overlays', '05c-appointment-confirmed');
+await assertOverlay('  …05C popup overlays', '03.2-appointment-confirmed');
 await page.click('[data-act="confirm-appt"]');        // appointment happens
 await page.waitForTimeout(400);
 // Phase R0: 06 - Order Status was deleted; 04D (Appointment Status)
 // takes its place, and tapping the order opens the modified review (06B).
-await assertAt('appointment done', '04d-appointment-complete', 'awaiting-approval');
+await assertAt('appointment done', '03-status-tailoring', 'awaiting-approval');
 // Phase R2: tapping a Before/Pinned photo opens the PV3 viewer
 await page.click('.photo-row');
-await assertOverlay('  …PV3 viewer overlays', 'pv3-photo-viewer');
+await assertOverlay('  …PV3 viewer overlays', '03.3-photo-viewer');
 await page.click('[data-act="pv-close"]');
 await page.waitForTimeout(400);
 await assertOverlay('  …viewer gone', null);
 await page.click('[data-act="review"]');
-await assertAt('open final order', '06b-review-approve-modified', 'awaiting-approval');
+await assertAt('open final order', '04-review-approve-modified', 'awaiting-approval');
 // Phase R2: Request Changes opens the RC1 popup; Sounds Good dismisses
 await page.click('[data-act="changes"]');
-await assertOverlay('  …RC1 popup overlays', 'rc1-request-changes');
+await assertOverlay('  …RC1 popup overlays', '04.1-request-changes');
 await page.click('[data-act="sounds-good"]');
 await page.waitForTimeout(400);
 await assertOverlay('  …popup gone', null);
@@ -115,33 +115,33 @@ await assertOverlay('  …popup gone', null);
 // 04D (card flips to Ready) and reaches 07 only via the appointment
 // card's Schedule Pickup / Delivery.
 await page.click('[data-act="approve"]');
-await assertAt('approve order', '04d-appointment-complete', 'tailoring');
+await assertAt('approve order', '03-status-tailoring', 'tailoring');
 await page.click('[data-act="review"]');
-await assertAt('tailor marks ready', '04d-appointment-complete', 'ready-for-pickup');
+await assertAt('tailor marks ready', '03-status-tailoring', 'ready-for-pickup');
 await page.evaluate(() => window.Taily.render('01-home'));
 await page.waitForTimeout(200);
 await page.evaluate(() => {
   [...document.querySelectorAll('.appt-card .cta-small')]
     .find((b) => b.textContent.trim() === 'Schedule Pickup / Delivery')?.click();
 });
-await assertAt('schedule pickup/delivery', '07-items-ready', 'ready-for-pickup');
+await assertAt('schedule pickup/delivery', '05-items-ready', 'ready-for-pickup');
 await page.click('[data-opt="pickup"]');
 await page.click('[data-act="continue"]');
-await assertAt('continue to pickup', '07a-pickup-window', 'ready-for-pickup');
+await assertAt('continue to pickup', '05a-pickup-window', 'ready-for-pickup');
 // Phase R6: confirming opens 07C; the order stays ready until the
 // TAILOR confirms the handoff (demo: tap the order on 04D) → 08.
 await page.click('[data-act="confirm"]');
-await assertOverlay('  …07C window confirmed', '07c-window-confirmed');
+await assertOverlay('  …07C window confirmed', '05.1-window-confirmed');
 await page.click('[data-act="window-done"]');
 await page.waitForTimeout(400);
 await assertAt('window scheduled (still ready)', '01-home', 'ready-for-pickup');
 await page.click('.appt-card');
-await assertAt('scheduled card opens status', '04d-appointment-complete', 'ready-for-pickup');
+await assertAt('scheduled card opens status', '03-status-tailoring', 'ready-for-pickup');
 await page.click('[data-act="review"]');
-await assertAt('tailor confirms handoff', '08-journey-complete', 'delivered');
+await assertAt('tailor confirms handoff', '06-journey-complete', 'delivered');
 // Phase R6: Leave a Review opens the 08C sheet; stars select, confirm closes.
 await page.click('[data-act="review"]');
-await assertOverlay('  …08C review sheet', '08c-leave-review');
+await assertOverlay('  …08C review sheet', '06.1-leave-review');
 await page.click('[data-star="5"]');
 await page.click('[data-act="confirm-review"]');
 await page.waitForTimeout(400);

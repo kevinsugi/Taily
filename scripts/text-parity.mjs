@@ -41,33 +41,33 @@ const STALE_DEPOSIT = 'Request Tailor · $20 Deposit (10%)';
 const SPACED_DEPOSIT = '- $20';
 const ALLOW = {
   '02-appointment-details': [STALE_DEPOSIT],
-  '02a-date-time-sheet': [STALE_DEPOSIT],
-  '02b-address-sheet': [STALE_DEPOSIT],
+  '02.1-date-time-sheet': [STALE_DEPOSIT],
+  '02.2-address-sheet': [STALE_DEPOSIT],
   // Phase R3 (Kevin): 03's request card reads the live order; the
   // frame's fixture is stale.
-  '03-finding-tailor': ['88 Leonard St, 4B — Home Visit', 'Thu, Jul 9 · 9:30 AM', '2 items · $200.00+ est. · $20 deposit held'],
-  '04a-payment-sheet': [STALE_DEPOSIT],
-  '04b-add-card-sheet': [STALE_DEPOSIT],
-  '04d-appointment-complete': [SPACED_DEPOSIT],
-  '04e-order-summary': [SPACED_DEPOSIT],
-  '06a-review-approve': [SPACED_DEPOSIT],
-  '06b-review-approve-modified': [SPACED_DEPOSIT],
+  '03-status-requested': ['88 Leonard St, 4B — Home Visit', 'Thu, Jul 9 · 9:30 AM', '2 items · $200.00+ est. · $20 deposit held'],
+  '02.3-payment-sheet': [STALE_DEPOSIT],
+  '02.4-add-card-sheet': [STALE_DEPOSIT],
+  '03-status-tailoring': [SPACED_DEPOSIT],
+  '03-status-summary': [SPACED_DEPOSIT],
+  '04-review-approve': [SPACED_DEPOSIT],
+  '04-review-approve-modified': [SPACED_DEPOSIT],
   // Phase R3 (Kevin): windows default to the FIRST option and the
   // secondary CTA cross-navigates ("Select Delivery" on 07A, "Select
   // Pickup" on 07B) — the frames still draw Fri 4-6PM selected and
   // same-screen labels.
-  '07a-pickup-window': ['Confirm Pickup · Fri 4-6PM', 'Select Pickup'],
-  '07b-delivery-options': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
-  '08-journey-complete': [SPACED_DEPOSIT],
+  '05a-pickup-window': ['Confirm Pickup · Fri 4-6PM', 'Select Pickup'],
+  '05b-delivery-options': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
+  '06-journey-complete': [SPACED_DEPOSIT],
   // PV3's backdrop is 04D, whose frame also writes the spaced deposit
-  'pv3-photo-viewer': [SPACED_DEPOSIT],
+  '03.3-photo-viewer': [SPACED_DEPOSIT],
   // UX-003: R1's rows quote the actual appointment; the frame keeps
   // the "Thursday's 7:00 PM" fixture.
-  'r1-reschedule-popup': ['Thursday’s 7:00 PM with Marco is cancelled'],
+  '03.1-reschedule-popup': ['Thursday’s 7:00 PM with Marco is cancelled'],
   // 07C's backdrop is 07B (same R3 chip/CTA divergences); 08C's
   // backdrop is 08 (spaced deposit in the frame).
-  '07c-window-confirmed': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
-  '08c-leave-review': [SPACED_DEPOSIT],
+  '05.1-window-confirmed': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
+  '06.1-leave-review': [SPACED_DEPOSIT],
 };
 
 /* ---------- token (same conventions as export-refs.mjs) ---------- */

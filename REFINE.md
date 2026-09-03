@@ -12,7 +12,7 @@ attribution inside the diff images stays easy.
 
 - [x] **M1 — message font size → 16** — **C**: lands in `css/components.css`
       (`.bubble`, T2 / Chat Bubble master, currently `--size-14` → `--size-16`).
-      Blast: **m1 only** — `bubble()` renders solely in `js/screens/m1-message-tailor.js`
+      Blast: **m1 only** — `bubble()` renders solely in `js/screens/10-messages.js`
       (+ the `components.html` gallery crop; verify there first, per the C rule).
       Also retires the "bubble 14 off-scale" note lineage in CLAUDE.md.
 - [x] **M1 — reduce padding between tailor details and header bar** — **S**:

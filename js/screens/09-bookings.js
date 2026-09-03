@@ -8,7 +8,7 @@ import { register, render as go } from '../app.js';
 import { chrome, apptCard, toast } from '../components.js';
 import { state, openAppt } from '../state.js';
 import { apptMeta, apptActions, apptTarget } from './01-home.js';
-import { openReschedulePopup } from './r1-reschedule-popup.js';
+import { openReschedulePopup } from './03.1-reschedule-popup.js';
 
 /** The 09 frames title the lists slightly differently per card. */
 function upcomingCard(a, i) {
@@ -70,7 +70,7 @@ function wire(root) {
       if (label === 'Message') {
         b.addEventListener('click', () => {
           state.currentAppt = ref;
-          go('m1-message-tailor');
+          go('10-messages');
         });
       }
       /* Phase R3 (Kevin, via 01): Reschedule opens the R1 popup */
@@ -84,7 +84,7 @@ function wire(root) {
       if (label === 'Schedule Pickup / Delivery') {
         b.addEventListener('click', () => {
           state.currentAppt = ref;
-          go('07-items-ready');
+          go('05-items-ready');
         });
       }
       /* UX-004: no review screen exists — acknowledge honestly */

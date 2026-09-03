@@ -8,8 +8,8 @@ import { register, render as go } from '../app.js';
 import { chrome, garmentTile, cta, apptCard } from '../components.js';
 import { GARMENT_TYPES } from '../data.js';
 import { state, addGarment } from '../state.js';
-import { openAddressOverlay } from './02b-address-sheet.js';
-import { openReschedulePopup } from './r1-reschedule-popup.js';
+import { openAddressOverlay } from './02.2-address-sheet.js';
+import { openReschedulePopup } from './03.1-reschedule-popup.js';
 
 const TILE_ORDER = Object.keys(GARMENT_TYPES); // 9 types, Figma order
 
@@ -44,12 +44,12 @@ export function apptMeta(a) {
     it's also the only place the request can be cancelled. */
 export function apptTarget(a) {
   const s = String(a?.status ?? '').toLowerCase();
-  if (s === 'requested' || s === 'searching') return '03-finding-tailor';
+  if (s === 'requested' || s === 'searching') return '03-status-requested';
   /* Phase R6: once a window is scheduled, the card opens the status
      view (04D) — the tailor confirms the handoff there. */
-  if (s === 'ready' || s === 'ready-for-pickup') return a.fulfilment ? '04d-appointment-complete' : '07-items-ready';
-  if (s === 'completed' || s === 'delivered') return '04e-order-summary';
-  return '04d-appointment-complete';
+  if (s === 'ready' || s === 'ready-for-pickup') return a.fulfilment ? '03-status-tailoring' : '05-items-ready';
+  if (s === 'completed' || s === 'delivered') return '03-status-summary';
+  return '03-status-tailoring';
 }
 
 /** Card actions per status (Figma variants). */
@@ -152,7 +152,7 @@ export function wire01(root) {
     if (label === 'Message') {
       b.addEventListener('click', () => {
         state.currentAppt = { list: 'upcoming', index: 0 };
-        go('m1-message-tailor');
+        go('10-messages');
       });
     }
     /* Phase R3 (Kevin): the card's Reschedule opens the R1 popup */
@@ -166,7 +166,7 @@ export function wire01(root) {
     if (label === 'Schedule Pickup / Delivery') {
       b.addEventListener('click', () => {
         state.currentAppt = { list: 'upcoming', index: 0 };
-        go('07-items-ready');
+        go('05-items-ready');
       });
     }
   });

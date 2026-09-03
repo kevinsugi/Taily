@@ -67,9 +67,9 @@
 
 /* 02B - Address Sheet (538:1382). Frame scrim is ink@0.6 — heavier
    than every other sheet's 0.4 (raised, built as drawn). */
-[data-s="02b-address-sheet"] .sheet-scrim,
-[data-s="02b-address-sheet"] .sheet-host[data-open="true"] .sheet-scrim { opacity: 0.6; }
-[data-s="02b-address-sheet"] .sheet-host[data-open="false"] .sheet-scrim { opacity: 0; }
+[data-s="02.2-address-sheet"] .sheet-scrim,
+[data-s="02.2-address-sheet"] .sheet-host[data-open="true"] .sheet-scrim { opacity: 0.6; }
+[data-s="02.2-address-sheet"] .sheet-host[data-open="false"] .sheet-scrim { opacity: 0; }
 .addr-head { display: flex; flex-direction: column; gap: var(--space-4); }
 .addr-sub {
   margin: 0;
@@ -154,7 +154,7 @@
 /* 04A - Payment Method Sheet */
 .sheet__sub { width: 100%; }
 /* 04b's footnote is centred in the frame; 04a's sits left */
-[data-s="04b-add-card-sheet"] .sheet__sub { text-align: center; }
+[data-s="02.4-add-card-sheet"] .sheet__sub { text-align: center; }
 .sheet__cancel-row {
   display: flex;
   justify-content: center;
@@ -168,7 +168,7 @@
 
 /* 04B - Add Card Sheet — the 286-tall sheet sits at y559, overflowing
    the 844 frame by 1px; reproduce the clip. */
-[data-s="04b-add-card-sheet"] .sheet { bottom: -1px; }
+[data-s="02.4-add-card-sheet"] .sheet { bottom: -1px; }
 .card-field {
   display: flex;
   align-items: center;
@@ -202,15 +202,15 @@
 .card-field__cvc { width: 33px; flex-shrink: 0; }
 
 /* 04C / 04D - Confirmed & Complete */
-[data-s="04c-appointment-confirmed"],
-[data-s="04d-appointment-complete"] { gap: var(--space-12); }
+[data-s="03-status-confirmed"],
+[data-s="03-status-tailoring"] { gap: var(--space-12); }
 /* 04E - Order Summary: the frame carries its own 24 bottom padding.
    Full 844 frame (resized in Figma from the original short 667 at
    Kevin's direction) — the default .screen floor applies. */
-[data-s="04e-order-summary"] { gap: var(--space-12); padding-bottom: var(--space-24); }
+[data-s="03-status-summary"] { gap: var(--space-12); padding-bottom: var(--space-24); }
 /* Phase R2: PostAppt cards + four fee rows grew the frame to 1016
    (40 dead below the CTA bar). */
-.screen[data-screen="04e-order-summary"] { min-height: 1016px; }
+.screen[data-screen="03-status-summary"] { min-height: 1016px; }
 .summary { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 .summary--tight { gap: var(--space-4); }
 .summary__title { margin: 0; }
@@ -242,9 +242,9 @@
 .prepare-list li::marker { font-size: var(--size-12); }
 
 /* Phase R2: 04C gained the Reschedule / Cancel CTA → 1192 */
-.screen[data-screen="04c-appointment-confirmed"] { min-height: 1192px; }
+.screen[data-screen="03-status-confirmed"] { min-height: 1192px; }
 /* Phase R4: the Active Job Card hero grew the frame to 1173 */
-.screen[data-screen="04d-appointment-complete"] { min-height: 1173px; }
+.screen[data-screen="03-status-tailoring"] { min-height: 1173px; }
 /* 04D hero — Active Job Card, user side (570:8929): white r20 card,
    date badge + name/need-by + Tailoring pill head, tailoring progress
    bar, measured-and-pinned note. */
@@ -290,7 +290,7 @@
    ============================================================ */
 
 /* 03 - Finding Your Tailor: inner pad 12/20/24, gap 8 */
-[data-s="03-finding-tailor"] { padding-top: calc(128px + var(--space-12)); padding-bottom: var(--space-24); gap: var(--space-8); }
+[data-s="03-status-requested"] { padding-top: calc(128px + var(--space-12)); padding-bottom: var(--space-24); gap: var(--space-8); }
 .map-card {
   width: 100%;
   height: 262px;
@@ -325,14 +325,14 @@
 /* 05 - Appointment Reminder: inner pad 0/20/24, gap 12.
    Phase R2: the cancel line moved into the R1 popup — frame is
    1101.67 → 1102. */
-[data-s="05-appointment-reminder"] { padding-bottom: var(--space-24); gap: var(--space-12); }
-.screen[data-screen="05-appointment-reminder"] { min-height: 1102px; }
+[data-s="03-status-reminder"] { padding-bottom: var(--space-24); gap: var(--space-12); }
+.screen[data-screen="03-status-reminder"] { min-height: 1102px; }
 .actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 
 /* M1 - Message Tailor: inner pad 20/20/24, gap 12 */
 /* refine r1: chat pulled up under the nav — offset 128+20 → 104+4 —
    and the column gap went 12 → 16 */
-[data-s="m1-message-tailor"] { padding-top: calc(104px + var(--space-4)); padding-bottom: var(--space-24); gap: var(--space-16); }
+[data-s="10-messages"] { padding-top: calc(104px + var(--space-4)); padding-bottom: var(--space-24); gap: var(--space-16); }
 .chat-head { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
 .chat-head__back {
   font-family: var(--font-sans);
@@ -415,17 +415,17 @@
 /* 06a - Review & Approve: inner pad 0/20/24, gap 16.
    Phase R0: heading pulled up to the bare 128 offset (as on 05);
    third fee row grew the frame to 932. */
-[data-s="06a-review-approve"] { padding-bottom: var(--space-24); gap: var(--space-16); }
-.screen[data-screen="06a-review-approve"] { min-height: 932px; }
+[data-s="04-review-approve"] { padding-bottom: var(--space-24); gap: var(--space-16); }
+.screen[data-screen="04-review-approve"] { min-height: 932px; }
 /* 06b - Review & Approve - Modified (Phase R0): same chassis as 06a;
    the added service + garment grow the frame to 1108. */
-[data-s="06b-review-approve-modified"] { padding-bottom: var(--space-24); gap: var(--space-16); }
-.screen[data-screen="06b-review-approve-modified"] { min-height: 1108px; }
+[data-s="04-review-approve-modified"] { padding-bottom: var(--space-24); gap: var(--space-16); }
+.screen[data-screen="04-review-approve-modified"] { min-height: 1108px; }
 .heading { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
 
 /* 07 - Items Ready: inner pad 20/20/24, gap 12 */
 /* Phase R4: heading pulled up to the bare 128 offset (as on 05/06A) */
-[data-s="07-items-ready"] { padding-bottom: var(--space-24); gap: var(--space-12); }
+[data-s="05-items-ready"] { padding-bottom: var(--space-24); gap: var(--space-12); }
 .option-row {
   display: flex;
   align-items: center;
@@ -475,8 +475,8 @@
 
 /* 07a / 07b: inner pad 20/20/24, gap 12 */
 /* Phase R4: headings pulled up to the bare 128 offset (as on 05/06A) */
-[data-s="07a-pickup-window"],
-[data-s="07b-delivery-options"] { padding-bottom: var(--space-24); gap: var(--space-12); }
+[data-s="05a-pickup-window"],
+[data-s="05b-delivery-options"] { padding-bottom: var(--space-24); gap: var(--space-12); }
 .due-card__amount {
   margin: 0;
   font-family: var(--font-sans);
@@ -493,14 +493,14 @@
    Phase R0: the success badge + Completed pill gave way to the order's
    garment art (three 87px tiles, art zoomed 127.27% like the card
    chips); copy moved to 16. */
-[data-s="08-journey-complete"] {
+[data-s="06-journey-complete"] {
   padding-top: calc(128px + var(--space-20));
   padding-bottom: var(--space-24);
   gap: var(--space-16);
   align-items: center;
 }
-[data-s="08-journey-complete"] > * { width: 100%; }
-[data-s="08-journey-complete"] .done-tiles { width: auto; align-self: center; }
+[data-s="06-journey-complete"] > * { width: 100%; }
+[data-s="06-journey-complete"] .done-tiles { width: auto; align-self: center; }
 .done-tiles { display: flex; gap: var(--space-8); }
 .done-tile { position: relative; width: 87px; height: 87px; overflow: hidden; }
 /* the frame draws tile 1 at 86 (Figma sloppiness) — match so tiles
@@ -510,30 +510,30 @@
 .center { text-align: center; }
 
 /* refine r1: the M1 frame grew to 1103 */
-.screen[data-screen="m1-message-tailor"] { min-height: 1103px; }
+.screen[data-screen="10-messages"] { min-height: 1103px; }
 /* 4B body frames are 872 tall */
-.screen[data-screen="03-finding-tailor"],
-.screen[data-screen="07-items-ready"],
-.screen[data-screen="07a-pickup-window"],
-.screen[data-screen="07b-delivery-options"] { min-height: 872px; }
+.screen[data-screen="03-status-requested"],
+.screen[data-screen="05-items-ready"],
+.screen[data-screen="05a-pickup-window"],
+.screen[data-screen="05b-delivery-options"] { min-height: 872px; }
 /* Phase R2: 08's summary went PostAppt with four fee rows — 1198 */
-.screen[data-screen="08-journey-complete"] { min-height: 1198px; }
+.screen[data-screen="06-journey-complete"] { min-height: 1198px; }
 
 /* ============================================================
    Phase R2 screens — R1 / RC1 modal popups, 05X, PV3.
    ============================================================ */
 /* modal y positions from the frames (558:1899 / 559:3297 / 570:8752 /
    584:9403 / 584:9567) */
-[data-s="r1-reschedule-popup"] .modal { top: 248px; }
-[data-s="rc1-request-changes"] .modal { top: 281px; }
-[data-s="05c-appointment-confirmed"] .modal { top: 248px; }
-[data-s="07c-window-confirmed"] .modal { top: 232px; }
-[data-s="08c-leave-review"] .review-sheet { top: 291px; }
+[data-s="03.1-reschedule-popup"] .modal { top: 248px; }
+[data-s="04.1-request-changes"] .modal { top: 281px; }
+[data-s="03.2-appointment-confirmed"] .modal { top: 248px; }
+[data-s="05.1-window-confirmed"] .modal { top: 232px; }
+[data-s="06.1-leave-review"] .review-sheet { top: 291px; }
 
 /* 05X - Appointment Cancelled (558:3817): 05's chassis, one-line
    heading, refund card in place of the prepare card, single CTA. */
-[data-s="05x-appointment-cancelled"] { padding-bottom: var(--space-24); gap: var(--space-12); }
-.screen[data-screen="05x-appointment-cancelled"] { min-height: 965px; }
+[data-s="03-status-cancelled"] { padding-bottom: var(--space-24); gap: var(--space-12); }
+.screen[data-screen="03-status-cancelled"] { min-height: 965px; }
 
 /* PV3 - Photo Viewer (559:2112): 04D dimmed under an ink@95% scrim,
    filmstrip panel pinned at the 128 offset. Literal 2/10px gaps and

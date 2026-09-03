@@ -1,15 +1,18 @@
 /* ============================================================
    04D - Appointment Status — Figma 308:3578 (Phase R0: renamed from
    "Appointment Complete"; replaces the deleted 06 - Order Status).
-   Tailoring hero (title + 3-line sub, no pill/row), garments card
-   straight under it (no serif title) with PostAppt cards — Before/
-   Pinned photo rows, per 06A — + deposit/confirmed fee rows, plain
-   three-CTA bar. Active=Bookings.
+   Phase R4: the serif hero gave way to a white status card (the
+   Active Job Card, user side — 570:8929): JUL 17 date badge, name +
+   "Need by" line, Tailoring pill, tailoring progress bar, and the
+   measured-and-pinned note. Below it the garments card (PostAppt
+   Before/Pinned cards + fee rows) and the plain three-CTA bar.
+   Active=Bookings.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, garmentCard, feeRow, cta } from '../components.js';
+import { chrome, statusPill, progressBar, garmentCard, feeRow, cta } from '../components.js';
 import { JOB_TYPES } from '../data.js';
+import { apptEntry, canonicalStatus, markReady } from '../state.js';
 import { wirePhotoViewer } from './pv3-photo-viewer.js';
 
 /* Per-garment price: the appointment's totals.rows when the flow built
@@ -40,7 +43,18 @@ export function view04d(s) {
 
   return `${chrome('bookings')}
 <div class="body" data-s="04d-appointment-complete">
-  ${statusHero({ pill: false, title: `${first} is tailoring your items.`, body: `Measured and pinned at your appointment on Thu, Jul 12. We’ll tell you the moment they’re ready.` })}
+  <div class="status-card">
+    <div class="status-card__head">
+      <div class="appt-card__date"><span class="appt-card__month">JUL</span><span class="appt-card__day">17</span></div>
+      <div class="status-card__who">
+        <span class="status-card__name">${a.name ?? 'Marco Tailor'}</span>
+        <span class="status-card__need">Need by: Fri, Jul 17</span>
+      </div>
+      ${statusPill('tailoring', 'Tailoring')}
+    </div>
+    ${progressBar('tailoring')}
+    <p class="status-card__body">Measured and pinned at your appointment on Thu, Jul 12. We’ll tell you the moment they’re ready.</p>
+  </div>
   <div class="garments-card" data-act="review">
     ${cards}
     ${feeRow(`$${t.total}`, 'Subtotal - Confirmed 7/12/26', { line: true })}
@@ -59,9 +73,19 @@ function wire(root) {
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('m1-message-tailor'));
   // demo affordance (ported from the deleted 06's timeline): tapping
-  // the order opens the final-order review — the modified variant,
-  // since the seed order carries the R0 modification (06B fixture)
-  root.querySelector('[data-act="review"]')?.addEventListener('click', () => go('06b-review-approve-modified'));
+  // the order opens the final-order review while awaiting approval
+  // (the modified variant — the seed carries the 06B fixture); once
+  // the order is approved ('tailoring', Phase R4), the same tap
+  // simulates the garments finishing (markReady) and opens 07.
+  root.querySelector('[data-act="review"]')?.addEventListener('click', () => {
+    const a = apptEntry();
+    if (canonicalStatus(a?.status) === 'tailoring') {
+      markReady();
+      go('07-items-ready');
+    } else {
+      go('06b-review-approve-modified');
+    }
+  });
   wirePhotoViewer(root);
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {

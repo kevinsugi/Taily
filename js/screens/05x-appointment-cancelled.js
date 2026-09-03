@@ -12,7 +12,7 @@ import { chrome, summaryCard, garmentCard, feeRow, cta } from '../components.js'
 function renderScreen() {
   return `${chrome('home')}
 <div class="body" data-s="05x-appointment-cancelled">
-  <h1 class="t-title w-600 c-ink">Appointment Cancelled</h1>
+  <h1 class="t-title w-600 c-error">Appointment Cancelled</h1>
   <div class="summary">
     <h2 class="t-title w-600 c-500 summary__title">Order Summary</h2>
     ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 17 · 7:00PM', '▤&nbsp;&nbsp;Need By: Friday Jul 17'] })}

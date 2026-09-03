@@ -11,7 +11,7 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, garmentCard, feeRow, cta } from '../components.js';
-import { approveOrder, markReady } from '../state.js';
+import { approveOrder } from '../state.js';
 import { openRequestChanges } from './rc1-request-changes.js';
 import { wirePhotoViewer } from './pv3-photo-viewer.js';
 
@@ -40,7 +40,9 @@ function renderScreen() {
 
 function wire(root) {
   wirePhotoViewer(root);
-  root.querySelector('[data-act="approve"]')?.addEventListener('click', () => { approveOrder(); markReady(); go('07-items-ready'); });
+  /* Phase R4 (Kevin): approving lands back on 04D with the order in
+     'tailoring' (the home/bookings cards reflect it). */
+  root.querySelector('[data-act="approve"]')?.addEventListener('click', () => { approveOrder(); go('04d-appointment-complete'); });
   root.querySelector('[data-act="changes"]')?.addEventListener('click', () => openRequestChanges());
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {

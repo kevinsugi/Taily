@@ -243,8 +243,46 @@
 
 /* Phase R2: 04C gained the Reschedule / Cancel CTA → 1192 */
 .screen[data-screen="04c-appointment-confirmed"] { min-height: 1192px; }
-/* Phase R2: card 1 itemizes the added service → 1100 */
-.screen[data-screen="04d-appointment-complete"] { min-height: 1100px; }
+/* Phase R4: the Active Job Card hero grew the frame to 1173 */
+.screen[data-screen="04d-appointment-complete"] { min-height: 1173px; }
+/* 04D hero — Active Job Card, user side (570:8929): white r20 card,
+   date badge + name/need-by + Tailoring pill head, tailoring progress
+   bar, measured-and-pinned note. */
+.status-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-16) var(--space-20);
+  border-radius: var(--radius-20);
+  background: var(--white);
+}
+.status-card__head { display: flex; align-items: center; gap: var(--space-16); width: 100%; }
+/* the card's badge hugs its text (42) — the appt-card master is 48 */
+.status-card .appt-card__date { width: auto; }
+.status-card__who { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 0 0; min-width: 1px; }
+.status-card__name {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.status-card__need {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--neutral-600);
+}
+.status-card__body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
 
 /* ============================================================
    4B body screens. Each keeps the shared .body (pad-top 128) and
@@ -386,7 +424,8 @@
 .heading { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
 
 /* 07 - Items Ready: inner pad 20/20/24, gap 12 */
-[data-s="07-items-ready"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+/* Phase R4: heading pulled up to the bare 128 offset (as on 05/06A) */
+[data-s="07-items-ready"] { padding-bottom: var(--space-24); gap: var(--space-12); }
 .option-row {
   display: flex;
   align-items: center;
@@ -396,6 +435,9 @@
   border-radius: var(--radius-lg);
   background: var(--white);
   text-align: left;
+  /* Phase R4: unselected cards carry a 1px n300 ring (inset — the
+     stroke is not in Figma's layout) */
+  box-shadow: inset 0 0 0 1px var(--neutral-300);
 }
 .option-row__radio {
   width: 20px;
@@ -405,7 +447,7 @@
   border: 1.5px solid var(--neutral-300);
   flex-shrink: 0;
 }
-.option-row--selected { box-shadow: inset 0 0 0 1px var(--ink); }
+.option-row--selected { box-shadow: inset 0 0 0 1.5px var(--ink); }
 .option-row--selected .option-row__radio { border: 6px solid var(--ink); }
 .option-row__labels { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 0 0; min-width: 1px; }
 .option-row__title {
@@ -432,8 +474,9 @@
 }
 
 /* 07a / 07b: inner pad 20/20/24, gap 12 */
+/* Phase R4: headings pulled up to the bare 128 offset (as on 05/06A) */
 [data-s="07a-pickup-window"],
-[data-s="07b-delivery-options"] { padding-top: calc(128px + var(--space-20)); padding-bottom: var(--space-24); gap: var(--space-12); }
+[data-s="07b-delivery-options"] { padding-bottom: var(--space-24); gap: var(--space-12); }
 .due-card__amount {
   margin: 0;
   font-family: var(--font-sans);
@@ -479,9 +522,10 @@
 /* ============================================================
    Phase R2 screens — R1 / RC1 modal popups, 05X, PV3.
    ============================================================ */
-/* modal y positions from the frames (558:1899 / 559:3297) */
+/* modal y positions from the frames (558:1899 / 559:3297 / 570:8752) */
 [data-s="r1-reschedule-popup"] .modal { top: 248px; }
 [data-s="rc1-request-changes"] .modal { top: 281px; }
+[data-s="05c-appointment-confirmed"] .modal { top: 248px; }
 
 /* 05X - Appointment Cancelled (558:3817): 05's chassis, one-line
    heading, refund card in place of the prepare card, single CTA. */

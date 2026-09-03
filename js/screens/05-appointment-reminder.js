@@ -8,8 +8,8 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, summaryCard, garmentCard, feeRow, cta } from '../components.js';
-import { completeAppointment } from '../state.js';
 import { openReschedulePopup } from './r1-reschedule-popup.js';
+import { openConfirmPopup } from './05c-appointment-confirmed.js';
 
 /* Exported: R1 / RC1 / 05X draw this screen (dimmed) as their frame
    backdrop. */
@@ -19,7 +19,7 @@ export function view05() {
   <h1 class="t-title w-600 c-ink">Please Confirm Tomorrows Appointment.</h1>
   <div class="summary">
     <h2 class="t-title w-600 c-500 summary__title">Order Summary</h2>
-    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 17 · 7:00PM', '▤&nbsp;&nbsp;Need By: Friday Jul 17'] })}
+    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need By: Friday Jul 17'] })}
     <div class="garments-card">
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}
       ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 })}
@@ -41,9 +41,9 @@ export function view05() {
 }
 
 function wire(root) {
-  /* Phase R0: 06 - Order Status was deleted; 04D (Appointment Status)
-     takes its place. */
-  root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => { completeAppointment(); go('04d-appointment-complete'); });
+  /* Phase R4 (Kevin): Confirm Appointment opens the 05C popup; its
+     Confirm runs completeAppointment() and lands on 04D. */
+  root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => openConfirmPopup());
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('m1-message-tailor'));
   root.querySelector('[data-act="reschedule"]')?.addEventListener('click', () => openReschedulePopup());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {

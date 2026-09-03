@@ -87,7 +87,12 @@ await assertOverlay('  …R1 popup overlays', 'r1-reschedule-popup');
 await page.click('[data-act="go-back"]');
 await page.waitForTimeout(400);
 await assertOverlay('  …popup gone', null);
-await page.click('[data-act="confirm"]');             // appointment happens
+// Phase R4: Confirm Appointment opens the 05C popup; its Confirm makes
+// the appointment happen.
+await page.click('[data-act="confirm"]');
+await assertOverlay('  …05C popup overlays', '05c-appointment-confirmed');
+await page.click('[data-act="confirm-appt"]');        // appointment happens
+await page.waitForTimeout(400);
 // Phase R0: 06 - Order Status was deleted; 04D (Appointment Status)
 // takes its place, and tapping the order opens the modified review (06B).
 await assertAt('appointment done', '04d-appointment-complete', 'awaiting-approval');
@@ -105,8 +110,12 @@ await assertOverlay('  …RC1 popup overlays', 'rc1-request-changes');
 await page.click('[data-act="sounds-good"]');
 await page.waitForTimeout(400);
 await assertOverlay('  …popup gone', null);
+// Phase R4: approving lands back on 04D as 'tailoring'; tapping the
+// order again simulates the garments finishing (markReady) → 07.
 await page.click('[data-act="approve"]');
-await assertAt('approve order', '07-items-ready', 'ready-for-pickup');
+await assertAt('approve order', '04d-appointment-complete', 'tailoring');
+await page.click('[data-act="review"]');
+await assertAt('garments finished', '07-items-ready', 'ready-for-pickup');
 await page.click('[data-opt="pickup"]');
 await page.click('[data-act="continue"]');
 await assertAt('continue to pickup', '07a-pickup-window', 'ready-for-pickup');

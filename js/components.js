@@ -232,14 +232,14 @@ export function apptCard(a) {
  * Status Hero — Figma Property 1 variants. `variant` is the kebab name:
  * requested | new-times | declined | confirmed | tailoring | ready.
  */
-export function statusHero({ variant = 'requested', pill, title, titleLine2, body, rowLabel, rowValue, titleWeight } = {}) {
+export function statusHero({ variant = 'requested', pill, title, titleLine2, body, rowLabel, rowValue, titleWeight, titleColor } = {}) {
   const PILL_FOR = {
     'requested': 'requested', 'new-times': 'requested', 'declined': 'declined',
     'confirmed': 'confirmed', 'tailoring': 'confirmed', 'ready': 'ready',
   };
   const parts = [];
   if (pill !== false) parts.push(statusPill(pill ?? PILL_FOR[variant]));
-  if (title) parts.push(`<h2 class="status-hero__title${titleWeight === 600 ? ' w-600' : ''}">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h2>`);
+  if (title) parts.push(`<h2 class="status-hero__title${titleWeight === 600 ? ' w-600' : ''}${titleColor ? ` c-${titleColor}` : ''}">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h2>`);
   if (body) parts.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
   if (rowLabel) parts.push(`<div class="status-hero__row"><span>${rowLabel}</span><span>${rowValue ?? ''}</span></div>`);
   return `<div class="status-hero">${parts.join('\n  ')}</div>`;
@@ -479,7 +479,7 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
  * ink 45% + a floating card. Same fixed-position / scroll-freeze
  * chassis as sheetOverlay. Returns close().
  */
-export function modalOverlay(modalHtml, { dataS = '' } = {}, wireFn) {
+export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wireFn) {
   const screenEl = document.getElementById('screen');
   if (screenEl.querySelector('.screen-sheet--overlay:not(.is-closing)')) return () => {};
   const opener = document.activeElement;
@@ -510,12 +510,15 @@ export function modalOverlay(modalHtml, { dataS = '' } = {}, wireFn) {
     closing = true;
     holder.classList.add('is-closing');
     holder.dataset.open = 'false';
-    setTimeout(() => {
+    const finish = () => {
       holder.remove();
       doc.style.overflow = prev.overflow;
       doc.style.paddingRight = prev.paddingRight;
       if (opener?.isConnected) opener.focus({ preventScroll: true });
-    }, 300);
+    };
+    /* instant (PV3, Kevin): the panel has no exit animation, so waiting
+       the fade-out window just reads as lag */
+    if (instant) finish(); else setTimeout(finish, 300);
   };
   holder.querySelector('[data-act="modal-dismiss"]')?.addEventListener('click', close);
   wireFn?.(holder, close);

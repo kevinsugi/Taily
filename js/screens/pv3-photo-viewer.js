@@ -59,7 +59,7 @@ function wirePanel(root, close) {
 
 /** Open the viewer over the live screen (post-appointment cards). */
 export function openPhotoViewer(opts) {
-  modalOverlay(`<div class="pv-scrim" data-act="modal-dismiss"></div>${panelHtml(opts)}`, { dataS: 'pv3-photo-viewer' }, wirePanel);
+  modalOverlay(`<div class="pv-scrim" data-act="modal-dismiss"></div>${panelHtml(opts)}`, { dataS: 'pv3-photo-viewer', instant: true }, wirePanel);
 }
 
 /** Wire every Before/Pinned photo row in `root`: mouse click-drag

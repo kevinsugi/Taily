@@ -52,6 +52,12 @@ const ALLOW = {
   '04e-order-summary': [SPACED_DEPOSIT],
   '06a-review-approve': [SPACED_DEPOSIT],
   '06b-review-approve-modified': [SPACED_DEPOSIT],
+  // Phase R4: the popup frames' 05 backdrops still show the pre-R4
+  // tailor-card row (05 itself moved to Jul 12); PV3's 04D backdrop
+  // still shows the old serif hero (04D moved to the Active Job Card).
+  '05c-appointment-confirmed': ['▤ Fri, Jul 17 · 7:00PM'],
+  'r1-reschedule-popup': ['▤ Fri, Jul 17 · 7:00PM'],
+  'rc1-request-changes': ['▤ Fri, Jul 17 · 7:00PM'],
   // Phase R3 (Kevin): windows default to the FIRST option and the
   // secondary CTA cross-navigates ("Select Delivery" on 07A, "Select
   // Pickup" on 07B) — the frames still draw Fri 4-6PM selected and
@@ -60,7 +66,7 @@ const ALLOW = {
   '07b-delivery-options': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
   '08-journey-complete': [SPACED_DEPOSIT],
   // PV3's backdrop is 04D, whose frame also writes the spaced deposit
-  'pv3-photo-viewer': [SPACED_DEPOSIT],
+  'pv3-photo-viewer': [SPACED_DEPOSIT, 'Marco is tailoring your items.'],
 };
 
 /* ---------- token (same conventions as export-refs.mjs) ---------- */

@@ -517,6 +517,9 @@
 /* this file loads after base.css, so restate the weight modifier or
    .w-600 silently loses the cascade at equal specificity */
 .status-hero__title.w-600 { font-weight: 600; }
+/* Phase R4: 04C's confirmed hero renders semantic/success (restated
+   here so the colour utility survives the cascade, as .w-600 does) */
+.status-hero__title.c-success { color: var(--success); }
 .status-hero__body {
   font-family: var(--font-sans);
   font-size: var(--size-16);
@@ -1198,20 +1201,24 @@
   color: var(--ink);
   width: 100%;
 }
-/* glyph rows: bold coloured mark + 14/18 regular ink copy at the
-   frame's literal 10px gap / 250px text measure */
+/* glyph rows: bold coloured 14/18 mark + 16/21 regular ink copy at
+   the frame's literal 10px gap / 250px text measure (Phase R4: row
+   copy moved 14 → 16 on R1/05C) */
 .modal__row {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   width: 100%;
   font-family: var(--font-sans);
-  font-size: var(--size-14);
-  line-height: 18px;
+  font-size: var(--size-16);
+  line-height: 21px;
   color: var(--ink);
 }
-.modal__row > span:last-child { width: 250px; }
-.modal__glyph { font-weight: 700; flex-shrink: 0; }
+.modal__row > :last-child { width: 250px; }
+.modal__glyph { font-weight: 700; flex-shrink: 0; font-size: var(--size-14); line-height: 18px; }
+/* 05C: success-green SemiBold title + a real bulleted prepare list */
+.modal__title--success { font-weight: 600; color: var(--success); }
+.modal__list { margin: 0; padding-left: var(--space-24); }
 .modal__badge {
   width: 48px;
   height: 48px;

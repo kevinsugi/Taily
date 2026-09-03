@@ -60,8 +60,10 @@ function wire(root) {
       : { list: 'past', index: i - state.upcoming.length };
     card.addEventListener('click', (e) => {
       if (e.target.closest('button')) return;
+      const target = apptTarget(state[ref.list][ref.index]);
+      if (!target) return;   // Requested cards are inert (Phase R5)
       state.currentAppt = ref;
-      go(apptTarget(state[ref.list][ref.index]));
+      go(target);
     });
     card.querySelectorAll('.cta-small').forEach((b) => {
       const label = b.textContent.trim();
@@ -76,6 +78,13 @@ function wire(root) {
         b.addEventListener('click', () => {
           state.currentAppt = ref;
           openReschedulePopup();
+        });
+      }
+      /* Phase R5 (Kevin): a Ready card's CTA leads to 07 */
+      if (label === 'Schedule Pickup / Delivery') {
+        b.addEventListener('click', () => {
+          state.currentAppt = ref;
+          go('07-items-ready');
         });
       }
     });

@@ -439,6 +439,15 @@
   background: var(--accent-bg);
   flex-shrink: 0;
 }
+/* Requested cards (Phase R5, 571:9099): the matching note under the bar */
+.appt-card__note {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--neutral-500);
+}
 .appt-card__month {
   font-family: var(--font-sans);
   font-size: var(--size-10);

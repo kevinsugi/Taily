@@ -21,21 +21,29 @@ function selection() {
 }
 
 /** Meta line per status, as the v4 frames word it. */
+/* v4 chain names normalise onto the card variants' v3 keys */
+const CARD_STATUS = { searching: 'requested', 'ready-for-pickup': 'ready', delivered: 'completed' };
+const cardStatus = (a) => CARD_STATUS[String(a?.status ?? '').toLowerCase()] ?? String(a?.status ?? '').toLowerCase();
+
 export function apptMeta(a) {
   const map = {
+    /* Phase R5: the Requested variant writes the prefixed form */
+    requested: `Appt Date: ${a.when}`,
     /* Phase R1: confirmed cards show the bare date (was "Appt Date: …") */
     confirmed: a.when,
     tailoring: `Est. Ready Date: ${a.when}`,
     ready: `Completed: ${a.when}`,
     completed: `Picked up: ${a.when}`,
   };
-  return map[a.status] ?? a.when;
+  return map[cardStatus(a)] ?? a.when;
 }
 
-/** Where a tapped appointment card goes, by status. Shared with 09. */
+/** Where a tapped appointment card goes, by status. Shared with 09.
+    null = the card is inert (Requested — Phase R5, Kevin). */
 export function apptTarget(a) {
   const s = String(a?.status ?? '').toLowerCase();
-  if (s === 'ready') return '07-items-ready';
+  if (s === 'requested' || s === 'searching') return null;
+  if (s === 'ready' || s === 'ready-for-pickup') return '07-items-ready';
   if (s === 'completed' || s === 'delivered') return '04e-order-summary';
   return '04d-appointment-complete';
 }
@@ -48,7 +56,7 @@ export function apptActions(a) {
     ready: ['Schedule Pickup / Delivery'],
     completed: ['Leave Review'],
   };
-  return map[a.status] ?? [];
+  return map[cardStatus(a)] ?? [];
 }
 
 export function view01(s) {
@@ -126,12 +134,14 @@ export function wire01(root) {
     go('02-appointment-details');
   });
   /* The card itself opens the appointment: ready → pickup options
-     (07), completed → order summary (04e), otherwise the detail
-     (04d). Inner buttons (Message / Reschedule) keep their actions. */
+     (07), completed → order summary (04e), requested → nothing,
+     otherwise the detail (04d). Inner buttons keep their actions. */
   root.querySelector('.appt-card')?.addEventListener('click', (e) => {
     if (e.target.closest('button')) return;
+    const target = apptTarget(state.upcoming[0]);
+    if (!target) return;
     state.currentAppt = { list: 'upcoming', index: 0 };
-    go(apptTarget(state.upcoming[0]));
+    go(target);
   });
   root.querySelectorAll('.appt-card .cta-small').forEach((b) => {
     const label = b.textContent.trim();
@@ -146,6 +156,13 @@ export function wire01(root) {
       b.addEventListener('click', () => {
         state.currentAppt = { list: 'upcoming', index: 0 };
         openReschedulePopup();
+      });
+    }
+    /* Phase R5 (Kevin): a Ready card's CTA leads to 07 */
+    if (label === 'Schedule Pickup / Delivery') {
+      b.addEventListener('click', () => {
+        state.currentAppt = { list: 'upcoming', index: 0 };
+        go('07-items-ready');
       });
     }
   });

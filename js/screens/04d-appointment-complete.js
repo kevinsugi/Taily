@@ -34,6 +34,18 @@ export function view04d(s) {
   const cur = s.currentAppt ?? { list: 'upcoming', index: 0 };
   const a = s[cur.list]?.[cur.index] ?? s.upcoming[0] ?? {};
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];
+  /* Phase R5 (Kevin): the status card mirrors the ORDER's real status
+     (see the Status Pill component). 'confirmed' only occurs on a
+     direct harness load — it renders the frame's Tailoring fixture. */
+  const canon = canonicalStatus(a.status ?? 'tailoring');
+  const pillKey = {
+    'awaiting-approval': 'awaiting-approval', tailoring: 'tailoring',
+    'ready-for-pickup': 'ready', delivered: 'completed',
+  }[canon] ?? 'tailoring';
+  const stage = {
+    'awaiting-approval': 'confirmed', tailoring: 'tailoring',
+    'ready-for-pickup': 'ready', delivered: 'complete',
+  }[canon] ?? 'tailoring';
   const t = a.totals ?? { total: 360, deposit: 20 };
   const cards = (a.garments ?? []).map((g, i) => garmentCard({
     variant: 'PostAppt', type: g.type, qty: g.qty,
@@ -50,9 +62,9 @@ export function view04d(s) {
         <span class="status-card__name">${a.name ?? 'Marco Tailor'}</span>
         <span class="status-card__need">Need by: Fri, Jul 17</span>
       </div>
-      ${statusPill('tailoring', 'Tailoring')}
+      ${statusPill(pillKey)}
     </div>
-    ${progressBar('tailoring')}
+    ${progressBar(stage)}
     <p class="status-card__body">Measured and pinned at your appointment on Thu, Jul 12. We’ll tell you the moment they’re ready.</p>
   </div>
   <div class="garments-card" data-act="review">
@@ -72,19 +84,21 @@ export function view04d(s) {
 function wire(root) {
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('m1-message-tailor'));
-  // demo affordance (ported from the deleted 06's timeline): tapping
-  // the order opens the final-order review while awaiting approval
-  // (the modified variant — the seed carries the 06B fixture); once
-  // the order is approved ('tailoring', Phase R4), the same tap
-  // simulates the garments finishing (markReady) and opens 07.
+  // Tapping the order, by status (Phase R5, Kevin — 07 is reachable
+  // ONLY once the tailor marks the order ready):
+  //   awaiting-approval → the final-order review (06B)
+  //   tailoring         → DEMO: simulates the tailor finishing
+  //                       (markReady) and re-renders — the status card
+  //                       and the 01/09 appointment cards flip to Ready
+  //   ready-for-pickup  → 07 (also reached via the cards' Schedule
+  //                       Pickup / Delivery)
+  //   delivered         → the order summary (04E)
   root.querySelector('[data-act="review"]')?.addEventListener('click', () => {
-    const a = apptEntry();
-    if (canonicalStatus(a?.status) === 'tailoring') {
-      markReady();
-      go('07-items-ready');
-    } else {
-      go('06b-review-approve-modified');
-    }
+    const s2 = canonicalStatus(apptEntry()?.status);
+    if (s2 === 'awaiting-approval') go('06b-review-approve-modified');
+    else if (s2 === 'tailoring') { markReady(); go('04d-appointment-complete', { replace: true }); }
+    else if (s2 === 'ready-for-pickup') go('07-items-ready');
+    else if (s2 === 'delivered') go('04e-order-summary');
   });
   wirePhotoViewer(root);
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {

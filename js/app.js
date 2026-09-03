@@ -88,12 +88,40 @@ function announce(id) {
   if (status) status.textContent = `${id} — screen`;
 }
 
+/* Mobile-web feel (Phase R5, Kevin): mouse click-drag pans any screen
+   vertically, like a thumb would (touch/wheel already scroll natively).
+   A >5px drag suppresses the click so buttons don't fire mid-pan.
+   Regions with their own drag behaviour opt out. */
+function wireDragScroll() {
+  let startY = null; let startScroll = 0; let dragged = false;
+  document.addEventListener('pointerdown', (e) => {
+    dragged = false;
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    if (e.target.closest('.photo-row, .wheel__col--scroll, input, textarea')) return;
+    startY = e.clientY;
+    startScroll = window.scrollY;
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (startY === null) return;
+    const dy = e.clientY - startY;
+    if (Math.abs(dy) > 5) dragged = true;
+    if (dragged) window.scrollTo(0, startScroll - dy);
+  });
+  const end = () => { startY = null; };
+  document.addEventListener('pointerup', end);
+  document.addEventListener('pointercancel', end);
+  document.addEventListener('click', (e) => {
+    if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false; }
+  }, true);
+}
+
 /**
  * Boot. `?screen=<id>` wins so scripts/diff.mjs can open one screen
  * directly; otherwise fall back to the first registered screen.
  */
 async function boot() {
   await Promise.all(SCREEN_MODULES.map((m) => import(`./screens/${m}.js`)));
+  wireDragScroll();
   const wanted = new URLSearchParams(location.search).get('screen');
   const first = registered()[0];
   const id = wanted || first;

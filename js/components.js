@@ -204,8 +204,18 @@ export function apptCard(a) {
     meta = 'Appt Date: Aug 29, 7PM', items = [], prepare = [], actions = [],
     itemsTitle = null,
   } = a;
-  const stage = status === 'completed' ? 'complete' : status;
+  const searching = status === 'searching' || status === 'requested';
+  /* Requested (Phase R5, 571:9099) draws the confirmed-style bar;
+     v4 chain names normalise onto the four progress variants */
+  const STAGE = {
+    completed: 'complete', delivered: 'complete',
+    'ready-for-pickup': 'ready',
+    'awaiting-approval': 'confirmed', searching: 'confirmed', requested: 'confirmed',
+  };
+  const stage = STAGE[status] ?? status;
   const lists = [];
+  /* Requested's matching note sits between the bar and the items */
+  if (searching) lists.push('<p class="appt-card__note">We will match you with a tailor within the next 2 hours.</p>');
   if (items.length) lists.push(cardList(itemsTitle ?? `${items.length} Items Total:`, items));
   if (prepare.length && (status === 'confirmed' || status === 'tailoring')) lists.push(cardList('Please Prepare:', prepare));
   const actionRow = actions.length

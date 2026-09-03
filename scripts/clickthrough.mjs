@@ -110,12 +110,21 @@ await assertOverlay('  …RC1 popup overlays', 'rc1-request-changes');
 await page.click('[data-act="sounds-good"]');
 await page.waitForTimeout(400);
 await assertOverlay('  …popup gone', null);
-// Phase R4: approving lands back on 04D as 'tailoring'; tapping the
-// order again simulates the garments finishing (markReady) → 07.
+// Phase R4/R5: approving lands back on 04D as 'tailoring'. Tapping the
+// order simulates the TAILOR finishing (markReady) — the user stays on
+// 04D (card flips to Ready) and reaches 07 only via the appointment
+// card's Schedule Pickup / Delivery.
 await page.click('[data-act="approve"]');
 await assertAt('approve order', '04d-appointment-complete', 'tailoring');
 await page.click('[data-act="review"]');
-await assertAt('garments finished', '07-items-ready', 'ready-for-pickup');
+await assertAt('tailor marks ready', '04d-appointment-complete', 'ready-for-pickup');
+await page.evaluate(() => window.Taily.render('01-home'));
+await page.waitForTimeout(200);
+await page.evaluate(() => {
+  [...document.querySelectorAll('.appt-card .cta-small')]
+    .find((b) => b.textContent.trim() === 'Schedule Pickup / Delivery')?.click();
+});
+await assertAt('schedule pickup/delivery', '07-items-ready', 'ready-for-pickup');
 await page.click('[data-opt="pickup"]');
 await page.click('[data-act="continue"]');
 await assertAt('continue to pickup', '07a-pickup-window', 'ready-for-pickup');

@@ -750,3 +750,20 @@ ALLOWs reference this ledger. One dedicated money sync applies them all when Kev
 | R7-T-02 | P3 | Expired request still advertises a payout | **ACCEPT** | T02 expired: muted row labelled `Payout offered`, header `$240 \| Request Expired` kept |
 | R7-T-03 | P3 | On a three-card draft T05's payout and change line sit below the fold | **ACCEPT** | Header sub `Reviewed with Sarah at the visit · Payout $360` (live) |
 | Note | — | Tailor no-show compensation (a wasted trip earns nothing) | **Kevin** | Policy question, not built |
+
+### Round 7 — fixes after verification (Sep 10 2026)
+- 8 of 8 ACCEPTED items DONE: 03/Reminder "Before you confirm" callout (body size, ink, `!`)
+  directly above Confirm, hidden once locked; 03.2 row `! Your $25 visitation fee is now
+  non-refundable.`; `Additional visitation fee — 5 items now, $50 tier` caption + explanatory
+  note on 04 and 03/Tailoring (receipts keep the short label); 02 fee card
+  `Alterations est. $240 · paid at pickup or delivery`; 03/Cancelled variants drop the Total
+  row; tailor refund lines never mention the customer's fee (grep: zero "visitation" hits in
+  tailor files; the tailor DOM sweep now rejects the phrase); job cards `Payout · pending`
+  while awaiting approval; expired T02 `Payout offered` muted; T05 live sub carries the payout.
+- **Harness:** `npm run check` ALL PASS (429 s): diff 60/60, text parity, click-through 200, tailor click-through 343, sync click-through 936, style hygiene. Commit `bfb91d7`.
+- 7 more baselines accepted `pending-figma` (02, 03/Reminder, 03.2, 03/Cancelled ×3 variants,
+  T03B By You); no new parity ALLOWs.
+- **Re-verification:** **both flows SIGN-OFF on the money model** — tailor (`review-tailor/money-review.md`, 147 assertions) and customer re-verification (`review-user-2/money-review.md`, 161 assertions, 47 shots): callout body-size and ink directly above Confirm and hidden once locked, 03.2 restates the lock, re-tier captioned and explained on 04 / 03-Tailoring with receipts keeping the short label, 02 alterations estimate, no Total on cancelled variants, tailor surfaces never name the fee, every held → charged → locked / refund / keep / receipt path unchanged, no old vocabulary on 35 customer + 19 tailor deep links.
+- **For Kevin:** tailor no-show compensation (a wasted trip earns nothing while Taily keeps the
+  fee) is a policy question the directors raised; the Figma money sync is pending (ledger above);
+  03/Reminder is now 2506 px tall on the fixture (callout + rows) — the sync may want to tighten it.

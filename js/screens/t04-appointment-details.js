@@ -18,7 +18,7 @@ import { register, render as go, back } from '../app.js';
 import { summaryCard, cta, toast } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, wireOrderEditor } from '../tailor-components.js';
-import { current, jobView, draftFor, orderTotals, isFixture, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
+import { current, jobView, draftFor, orderTotals, isFixture, CUSTOMER, CUSTOMER_ROWS, isTerminalJob } from '../tailor-data.js';
 
 function renderScreen(s) {
   const a = current(s);
@@ -44,6 +44,9 @@ function renderScreen(s) {
 }
 
 function wire(root) {
+  /* R5-T-01/02: a closed job reached through history or a deep link is off
+     the calendar — leave the editor instead of drawing it. */
+  { const a0 = current(state); if (window.__tailyNavigated && a0 && isTerminalJob(a0)) { toast('This job is no longer on your calendar'); setTimeout(() => go('t01-home', { replace: true }), 0); return; } }
   wireTailorNav(root);
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t03-request-accepted'));
   root.querySelector('[data-act="continue"]')?.addEventListener('click', () => go('t05-confirm-final-pricing'));

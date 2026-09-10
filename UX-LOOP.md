@@ -531,3 +531,9 @@ proof) · 3 (`67b1949` Figma sync, `a145dbb` 13 fixes) · 4 (`3e94aa0`, 5 fixes)
 - **P3 leftovers (XS each):** R5-U-01 Approve should `replace` + 04 needs a non-awaiting guard;
   R5-T-01/02 T04/T05/T06 should redirect a terminal job on render; the persona toggle can overlap a
   toast.
+
+### Post-loop — P3 leftovers closed (Sep 10 2026, 03:10, Kevin: "Run the P3s")
+- **R5-U-01:** Approve navigates with `replace`; 04 redirects on render when the order is not awaiting approval (terminal → 03/Cancelled, otherwise 03/Tailoring). A stale 04 can no longer re-approve or request changes on a tailoring order.
+- **R5-T-01 / R5-T-02:** T04, T05 and T06 redirect on render for a closed job ("This job is no longer on your calendar" → T01 with `replace`); no editor is drawn for a cancelled job reached through history or a deep link.
+- **Toggle vs toast:** `toast()` flags `html.has-toast` while a toast is up and the persona toggle steps above it (`bottom` = 16 + 40 + 8 px, tokens only).
+- Tailor click-through gained three redirect assertions (replacing the click-based R4-T-03 T06 check). `npm run check` ALL PASS (362 s): 58 diffs at baseline, parity, click-through, tailor, sync 807, style hygiene. No Figma change (all live-only). Remaining for Kevin: the BLOCKED Requested-card Actions slot and the Figma / product decisions listed above.

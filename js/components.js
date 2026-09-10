@@ -624,10 +624,11 @@ export function toast(msg) {
   el.setAttribute('role', 'status');
   el.textContent = msg;
   document.body.appendChild(el);
+  document.documentElement.classList.add('has-toast');   // the persona toggle steps aside
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('toast--in')));
   setTimeout(() => {
     el.classList.remove('toast--in');
-    setTimeout(() => el.remove(), 300);
+    setTimeout(() => { el.remove(); if (!document.querySelector('.toast')) document.documentElement.classList.remove('has-toast'); }, 300);
   }, 2200);
 }
 

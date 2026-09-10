@@ -643,12 +643,14 @@ await assertTrue('R4-T-03: Send on a closed job says it is off the calendar (not
 await assertAt('  …and leaves the editor for T01', 't01-home', 'cancelled');
 await assertTrue('  …T01 replaced the stale editor (back does not return to T05)', () => { window.Taily.back(); return document.getElementById('screen').dataset.screen !== 't05-confirm-final-pricing'; });
 await assertJob('nothing was written to the cancelled job', 'fresh', (a) => a.status === 'cancelled' && !a.revisedAt);
-/* T06 Mark Ready on a closed job */
-await render('t06-appointment-status');
-await page.click('[data-act="ready"]');
-await page.waitForTimeout(300);
-await assertTrue('R4-T-03: Mark Ready on a closed job says it is off the calendar', () => document.querySelector('.toast')?.textContent === 'This job is no longer on your calendar');
-await assertAt('  …and lands on T01', 't01-home', 'cancelled');
+/* R5-T-01/02: T06 / T04 / T05 for a closed job redirect on render (no
+   editor is drawn, so there is no Mark Ready to click) */
+for (const id of ['t06-appointment-status', 't04-appointment-details', 't05-confirm-final-pricing']) {
+  await render(id);
+  await page.waitForTimeout(300);
+  await assertTrue(`R5-T-01/02: ${id} for a closed job says it is off the calendar`, () => document.querySelector('.toast')?.textContent === 'This job is no longer on your calendar');
+  await assertAt('  …and lands on T01 without drawing the screen', 't01-home', 'cancelled');
+}
 
 console.log(errors.length ? `CONSOLE ERRORS:\n  ${errors.join('\n  ')}` : 'no console errors');
 if (errors.length) failures++;

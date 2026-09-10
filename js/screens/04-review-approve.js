@@ -12,7 +12,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, cta, feeRow, orderCards, receiptDates } from '../components.js';
 import { money, SEED_UPCOMING } from '../data.js';
-import { apptEntry, approveOrder, finalOrder, orderModified, isPostAppointment } from '../state.js';
+import { apptEntry, approveOrder, finalOrder, orderModified, isPostAppointment, isTerminal, canonicalStatus } from '../state.js';
 import { openRequestChanges } from './04.1-request-changes.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
 import { currentAppt } from './03-status-confirmed.js';
@@ -53,10 +53,18 @@ export function viewReview(s, screenId, fixture) {
 }
 
 export function wireReview(root) {
+  /* R5-U-01: 04 only makes sense while the order awaits approval. A stale
+     04 reached through history (after approving) redirects to the status
+     view; a terminal entry to 03/Cancelled. Deep links keep the fixture. */
+  const cur = apptEntry();
+  if (window.__tailyNavigated && cur && canonicalStatus(cur.status) !== 'awaiting-approval') {
+    setTimeout(() => go(isTerminal(cur) ? '03-status-cancelled' : '03-status-tailoring', { replace: true }), 0);
+    return;
+  }
   wirePhotoViewer(root);
   /* Phase R4 (Kevin): approving lands back on 04D with the order in
      'tailoring' (the home/bookings cards reflect it). */
-  root.querySelector('[data-act="approve"]')?.addEventListener('click', () => { approveOrder(apptEntry()); go('03-status-tailoring'); });
+  root.querySelector('[data-act="approve"]')?.addEventListener('click', () => { approveOrder(apptEntry()); go('03-status-tailoring', { replace: true }); });
   root.querySelector('[data-act="changes"]')?.addEventListener('click', () => openRequestChanges());
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {

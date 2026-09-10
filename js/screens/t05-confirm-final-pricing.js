@@ -44,6 +44,9 @@ export function viewPricing(s, forced = null) {
 }
 
 export function wire(root) {
+  /* R5-T-01/02: a closed job reached through history or a deep link is off
+     the calendar — leave the editor instead of drawing it. */
+  { const a0 = current(state); if (window.__tailyNavigated && a0 && isTerminalJob(a0)) { toast('This job is no longer on your calendar'); setTimeout(() => go('t01-home', { replace: true }), 0); return; } }
   wireTailorNav(root);
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t04-appointment-details'));
   root.querySelector('[data-act="review"]')?.addEventListener('click', () => back() || go('t04-appointment-details'));

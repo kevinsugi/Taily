@@ -244,6 +244,8 @@
   visibility: hidden;
 }
 html.has-input .stage-caption { visibility: visible; }
+/* R5 P3: step above a toast (toast sits at bottom 24 + ~36 tall) */
+html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) + var(--space-8)); transition: bottom 200ms var(--ease-out); }
 .persona-toggle {
   padding: var(--space-8) var(--space-16);
   background: var(--white);

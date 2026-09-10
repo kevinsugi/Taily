@@ -1,20 +1,21 @@
 /* ============================================================
    07B - Delivery Options — Figma 283:1372.
-   Heading + address card + chip windows + custom time + balance
-   summary + Confirm/Select CTAs. Gap 12.
+   Heading + address card + chip windows + custom time + the
+   due-at-delivery summary + Confirm/Select CTAs. Gap 12.
    Phase R3 (Kevin): chips SELECT (selection shared with 07A via
    state.ui.window, default first option — the frame draws Fri 4–6 PM;
    raised), confirm CTA follows the selection, Request Custom Time
    opens the wheel picker, the secondary CTA cross-navigates to 07A,
    and Change address opens the 02B sheet.
-   UX-LOOP R1-U-02: the balance rows read the live final order.
+   UX-LOOP R1-U-02: the summary rows read the live final order.
    UX-LOOP round 6 (Kevin, UX-008 resolved): dated CTA ("Confirm
    Delivery · Fri, Jul 17 · 4–6 PM") + "Switch to Pickup" — see 05A.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, infoCard, infoRow, cta } from '../components.js';
-import { money } from '../data.js';
+import { money, DELIVERY_FEE } from '../data.js';
+import { finalOrder } from '../state.js';
 import { state, chooseFulfilment } from '../state.js';
 import { winSel, windowDate, windowDated, windowsHtml, wireWindows, amountDue } from './05a-pickup-window.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
@@ -25,6 +26,17 @@ import { currentAppt } from './03-status-confirmed.js';
 export function viewDelivery(s) {
   const sel = winSel(s);
   const due = amountDue(s);
+  /* R7: Alterations / [Additional visitation fee] / Delivery / Due at
+     delivery — the visitation fee was charged on acceptance. Figma
+     sync pending (the frame draws Balance due / Delivery / Charged). */
+  const t = finalOrder(currentAppt(s)).totals ?? {};
+  const added = t.visitFeeAdded ?? 0;
+  const rows = [
+    infoRow('Alterations', money(due - added)),
+    ...(added > 0 ? [infoRow('Additional visitation fee', money(added))] : []),
+    infoRow('Delivery', money(DELIVERY_FEE)),
+    infoRow('Due at delivery', money(due + DELIVERY_FEE), { total: true }),
+  ];
   return `${chrome('home')}
 <div class="body" data-s="05b-delivery-options">
   <div class="heading">
@@ -37,11 +49,7 @@ export function viewDelivery(s) {
     <button type="button" class="t-small w-600 address-card__change" data-act="change">Change address</button>
   </div>
   ${windowsHtml(sel)}
-  ${infoCard([
-    infoRow('Balance due', money(due)),
-    infoRow('Delivery', '$20'),
-    infoRow('Charged on delivery', money(due + 20), { total: true }),
-  ].join(''))}
+  ${infoCard(rows.join(''))}
   <div class="actions">
     ${cta(`Confirm Delivery · ${windowDated(sel)}`, { attrs: 'data-act="confirm"' })}
     ${cta('Switch to Pickup', { variant: 'secondary', attrs: 'data-act="select"' })}

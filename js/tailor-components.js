@@ -12,7 +12,7 @@ import { GARMENT_TYPES, JOB_TYPES, GARMENT_ICONS, money, garmentAmount, fmtWhen,
 import { ICON_ADD_CIRCLE } from './icons.js';
 import { render as go } from './app.js';
 import { state } from './state.js';
-import { primaryJob, setCurrent, jobTarget, isSeed, depositOf, tailorUi } from './tailor-data.js';
+import { primaryJob, setCurrent, jobTarget, isSeed, feeLocked, tailorUi } from './tailor-data.js';
 
 /** statusPill with the round-2 `expired` variant (declined styling,
     "Expired") — falls back to the declined variant until the substrate
@@ -156,10 +156,13 @@ export function removedRows(removed = []) {
  * 'cant-make-it' or 'no-show'. The frame (612:4397) draws "I need to
  * cancel" selected.
  */
+/* Round 7 (Kevin): the visitation fee is Taily's and its amount is never
+   shown to the tailor. A tailor cancel always refunds it; a no-show
+   keeps it with Taily only once Sarah confirmed the visit (feeLocked). */
+export const NO_SHOW_FEE = (a) => (feeLocked(a) ? 'Her visitation fee stays with Taily.' : 'Her visitation fee is refunded.');
 const CONSEQUENCE = {
-  'cant-make-it': (a) => `The job closes, Sarah is notified and her ${money(depositOf(a))} deposit is refunded.`,
-  /* round 6 fee policy: a no-show keeps the deposit with Marco */
-  'no-show': (a) => `The job closes and Sarah is notified. Her ${money(depositOf(a))} deposit stays with you.`,
+  'cant-make-it': () => 'The job closes, Sarah is notified and her visitation fee is refunded.',
+  'no-show': (a) => `The job closes and Sarah is notified. ${NO_SHOW_FEE(a)}`,
 };
 const CONFIRM_LABEL = { 'cant-make-it': 'Cancel Job', 'no-show': 'Mark No-show' };
 /** Is the visit still ahead of us? The seed's Jul 12 is "today". */
@@ -232,12 +235,18 @@ export function orderDropdown(open = false) {
 </button>`;
 }
 
-/** Taily Fee (10%) / Your Payout rows under an order — with the
-    Subtotal row above them when asked (T02, round 6). */
-export function payoutRows({ subtotal, fee, payout }, { subtotal: withSubtotal = false } = {}) {
-  return `${withSubtotal ? `${feeRow(money(subtotal), 'Subtotal', { line: true })}
-      ` : ''}${feeRow(money(fee), 'Taily Fee (10%)', { line: true })}
-      ${feeRow(money(payout), 'Your Payout')}`;
+/** "Your payout $X" under an order (round 7): the one money row the
+    tailor sees — 100% of the alteration prices on the cards above it.
+    No fee, no subtotal, nothing of the customer's. `payout` is a number
+    (jobView / orderMoney) or an already-formatted string. */
+export function payoutRows({ payout }) {
+  return feeRow(typeof payout === 'number' ? money(payout) : payout, 'Your payout');
+}
+
+/** T05's scope-change line before Send: "Payout $200 → $360 (+$160)". */
+export function payoutChangeRow(change) {
+  if (!change) return '';
+  return `<p class="t-payout-change" data-payout-change>${change.text}</p>`;
 }
 
 /**

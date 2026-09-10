@@ -12,11 +12,17 @@
    is the appointment the tailor tapped, which T02…T08 and the chat
    render (falling back to the soonest non-terminal job).
 
-   Money mirrors CLAUDE.md "Tailor flow": booked $200 → fee $20 →
-   payout $180; final $360 → fee $36 → payout $324. Pre-visit screens
-   read the BOOKED order (`a.garments`, or `a.booked` once T05 Send has
-   written the final order back); post-visit screens read the final
-   `a.garments` / `a.totals` the user side shares (R1-T-02/03).
+   Money (round 7, Kevin's money model v2): the tailor accepts a job
+   from Taily for a defined payout = 100% of the alteration prices —
+   booked $200 → payout $200; final $360 → payout $360. There is no
+   commission, and NOTHING on the tailor side reads the customer's
+   total, the visitation fee or delivery (`a.totals` is never printed
+   here). Pre-visit screens read the BOOKED order (`a.garments`, or
+   `a.booked` once T05 Send has written the final order back);
+   post-visit screens read the final `a.garments` the user side shares
+   (R1-T-02/03). The payout Marco accepted is stamped on
+   `a.tailor.acceptedPayout` at Accept and only moves when the scope
+   changes at the visit (T05 shows "Payout $200 → $360" before Send).
 
    Harness deep links (`?screen=<id>` before any navigation) keep the
    frames' fixtures — `isFixture()` — so the diffs never see live state.
@@ -24,7 +30,7 @@
 
 import * as S from './state.js';
 import * as D from './data.js';
-import { state, canonicalStatus, apptTotals } from './state.js';
+import { state, canonicalStatus } from './state.js';
 import { GARMENT_TYPES, SEED_UPCOMING, SEED_FINAL_ORDER, money, garmentAmount, fmtWhen, fmtDay, parseWhen } from './data.js';
 
 export const CUSTOMER = {
@@ -32,7 +38,6 @@ export const CUSTOMER = {
   street: '88 Leonard Street', short: '88 Leonard St, 4B', dist: '1.2 mi',
 };
 
-export const FEE_RATE = 0.10;
 /** Request expiry window (T01 timer): 1H 24M on first render (R1-T-14). */
 export const EXPIRY_MINUTES = 84;
 
@@ -126,15 +131,38 @@ export function payoutDate(a) {
 /** The order number both personas share (R3-T-04): stamped by
     requestTailor; the seed keeps the frames' TLY-2026-4417. */
 export const orderId = (a) => a?.orderId ?? 'TLY-2026-4417';
-/** The deposit Sarah paid on a confirmed booking (10% of what she booked). */
-export const depositOf = (a) => a?.totals?.deposit ?? 20;
 
-/* ---------- round-6 substrate reads (call-time lookups) ----------
-   Fee policy (Kevin, round 6): a no-show or a customer cancel within
-   12 hours of the visit keeps Sarah's deposit with Marco; the substrate
-   stamps `a.depositKept` on both (tailorCancels(a, 'no-show') /
-   cancelAppointment(a)). A no-show always keeps it, whatever the stamp. */
-export const depositKept = (a) => a?.depositKept === true || endedBy(a) === 'no-show';
+/* ---------- round-7 money reads (call-time lookups) ----------
+   The visitation fee is Taily's and the tailor never sees its amount;
+   the only fee fact the tailor side reads is whether Sarah CONFIRMED
+   the visit on her 24-hour prompt (`a.feeLocked`, stamped by the
+   substrate's confirmAppointment): a no-show then keeps the fee with
+   Taily, otherwise it is refunded. A tailor cancel always refunds it. */
+export const feeLocked = (a) => a?.feeLocked === true;
+/** The tailor's payout for a garment list = 100% of the alteration
+    prices (data.js `payout()` once it lands; the same sum until then). */
+export function payoutOf(garments = []) {
+  if (typeof D.payout === 'function') return D.payout(garments);
+  return garments.reduce((s, g) => s + garmentAmount(g), 0);
+}
+/** The payout Marco accepted the job for: stamped on `a.tailor` by T02's
+    Accept; a job confirmed another way (Sarah accepting a proposed
+    time) is worth what she booked. */
+export const acceptedPayoutOf = (a) => a?.tailor?.acceptedPayout ?? payoutOf(bookedGarments(a));
+/** Stamp the accepted payout once (T02 Accept, the seed's fiction). */
+export function stampAcceptedPayout(a) {
+  const t = tailorOf(a);
+  t.acceptedPayout ??= payoutOf(bookedGarments(a));
+  return t.acceptedPayout;
+}
+/** "Payout $200 → $360 (+$160)" — the scope change T05 shows before
+    Send; null when the draft is worth what Marco accepted. */
+export function payoutChange(a, draft, from = acceptedPayoutOf(a)) {
+  const to = payoutOf(draft);
+  if (from === to) return null;
+  const d = to - from;
+  return { from, to, delta: d, text: `Payout ${money(from)} → ${money(to)} (${d > 0 ? '+' : '−'}${money(Math.abs(d))})` };
+}
 /** The tailor's name / initials as the CUSTOMER side prints them
     (round 6: unassigned until a tailor accepts — data.js owns the
     neutral copy; until it lands, the appointment's own fields). */
@@ -220,21 +248,17 @@ export const job = (s = state) => current(s);
 
 /** Per-appointment tailor state (R2-T-01). */
 export function tailorOf(a) {
-  if (!a) return { requestHandled: false, expiresAt: null, draft: null, declineReason: null, justAccepted: false };
-  a.tailor ??= { requestHandled: false, expiresAt: null, draft: null, declineReason: null, justAccepted: false };
+  if (!a) return { requestHandled: false, expiresAt: null, draft: null, declineReason: null, justAccepted: false, acceptedPayout: null };
+  a.tailor ??= { requestHandled: false, expiresAt: null, draft: null, declineReason: null, justAccepted: false, acceptedPayout: null };
   return a.tailor;
 }
 
 const POST_STATUSES = ['awaiting-approval', 'tailoring', 'ready-for-pickup', 'delivered'];
 export const isPost = (c) => POST_STATUSES.includes(c);
 
-/** Subtotal / Taily fee (10%, whole dollars) / payout for a garment list. */
-export function orderTotals(garments = []) {
-  const subtotal = garments.reduce((s, g) => s + garmentAmount(g), 0);
-  const fee = Math.round(subtotal * FEE_RATE);
-  return { subtotal, fee, payout: subtotal - fee };
-}
-export const feeOf = (subtotal) => Math.round(subtotal * FEE_RATE);
+/** The money a tailor screen prints for a garment list: the payout
+    (100% of the alteration prices) — nothing else. */
+export const orderMoney = (garments = []) => ({ payout: payoutOf(garments) });
 
 /** The order as the customer booked it — `a.booked` once T05 Send has
     stashed it, else the live `a.garments` (pre-visit they are the same). */
@@ -242,10 +266,11 @@ export const bookedGarments = (a) => a?.booked ?? a?.garments ?? [];
 
 /* The frames' post-visit fiction (shared with the user side): the added
    Sleeve on garment 1 + a third Suit Jacket = $360. T04/T05 deep links
-   start from it; T06's frame itemizes card 1 at its booked $120 (the
-   CLAUDE.md "cards itemize $120/$80/$80" quirk). */
+   start from it. Round 7: the garment cards ARE the earnings breakdown,
+   so T06's fixture itemises the same $200 / $80 / $80 = $360 (the frame
+   still draws its "$120 / $80 / $80" quirk — Figma money sync pending). */
 export const FIXTURE_FINAL = SEED_FINAL_ORDER.garments;
-export const FIXTURE_T06 = FIXTURE_FINAL.map((g, i) => (i === 0 ? { ...g, jobs: [g.jobs[0]], addedJobs: [] } : { ...g, added: false }));
+export const FIXTURE_T06 = FIXTURE_FINAL.map((g) => ({ ...g, addedJobs: [], added: false }));
 
 /** Where the visit happens — the customer's address for a home visit,
     the tailor's place otherwise. */
@@ -270,12 +295,11 @@ export function jobView(a) {
   const c = canon(a);
   const post = isPost(c);
   const garments = post ? (a?.garments ?? []) : bookedGarments(a);
-  const computed = orderTotals(garments);
-  /* post-visit the appointment's totals are the shared truth (the user
-     side renders the same number); pre-visit they follow the booking */
-  const subtotal = post && a?.totals?.subtotal != null ? a.totals.subtotal : computed.subtotal;
-  const fee = feeOf(subtotal);
-  const payout = subtotal - fee;
+  /* the payout is the sum of the alteration prices on the cards — the
+     final order post-visit, the booking before it. `a.totals` (the
+     customer's alterations / visitation fee / delivery / total) is
+     never read on the tailor side. */
+  const payout = payoutOf(garments);
   const delivery = a?.fulfilment?.method === 'delivery';
   const PILL = {
     searching: ['new-request', 'New Request'],
@@ -298,8 +322,8 @@ export function jobView(a) {
   const time = when.split(' · ')[1] ?? when;
   const visitLabel = a?.visit === 'Store Visit' || a?.where === 'shop' ? 'Store visit' : 'Home visit';
   return {
-    canon: c, post, garments, subtotal, fee, payout, visitLabel,
-    money: { subtotal: money(subtotal), fee: money(fee), payout: money(payout), feeNeg: `−${money(fee)}` },
+    canon: c, post, garments, payout, visitLabel,
+    money: { payout: money(payout) },
     items: garments.reduce((s, g) => s + (g.qty ?? 1), 0),
     itemsLabel: garmentsLabel(garments),
     pill, pillLabel, stage: STAGE[c] ?? 'confirmed',
@@ -396,10 +420,16 @@ export function writeFinalOrder(a, draft) {
     return out;
   });
   a.removed = removed;
-  /* same totals shape the user side writes (rows/subtotal/visitFee/
-     total/deposit — the deposit stays the booking's) and the revisedAt
-     stamp its 03.2 demo checks so it never overwrites this order */
-  a.totals = apptTotals(a.garments, a.totals ?? {});
+  /* the customer's totals are the substrate's to write (round 7:
+     `apptTotals(garments, base)` in data.js — alterations / visitFee
+     re-tiered from the charged fee / delivery / total; nothing here
+     reads them back) plus the revisedAt stamp the 03.2 demo checks so
+     it never overwrites this order */
+  const totals = typeof D.apptTotals === 'function' ? D.apptTotals : S.apptTotals;
+  if (typeof totals === 'function') a.totals = totals(a.garments, a.totals ?? {});
+  else console.warn('apptTotals() is not available yet (substrate pending)');
+  /* the scope changed → the payout Marco accepted moves with it */
+  tailorOf(a).acceptedPayout = payoutOf(a.garments);
   a.revisedAt = fmtDay(a.when, 'Sun, Jul 12');
   T.refreshItems(a);                      // R2-S-01/02: card item counts follow the final order
   return a;

@@ -1,7 +1,7 @@
 /* ============================================================
    T02 - Appointment Request — Figma 455:2170.
-   "$180 | New Request" header, Order Summary (customer card +
-   ViewOnly garment cards + fee rows), Accept / Decline. Active=T-Home.
+   "$200 | New Request" header, Order Summary (customer card +
+   ViewOnly garment cards + the payout row), Accept / Decline. Active=T-Home.
    UX-LOOP R1-T-02: cards, fee, payout, CTA and customer rows come from
    the live booking; the harness deep link keeps the frame's rows.
    Round 2: renders the tapped job (R2-T-01) and passes it to
@@ -12,9 +12,14 @@
    `Withdraw Proposal` (same handler as T01's link) and there is no
    Accept — accepting would book the time Marco just said he can't do.
    Round 6: the customer card's first row adds the visit type and the
-   travel distance ("… · Home visit · 1.2 mi") and the fee rows lead
-   with the Subtotal ($200 / $20 / $180 on the seed) — base frame and
-   its Accepted / Expired siblings alike.
+   travel distance ("… · Home visit · 1.2 mi") — base frame and its
+   Accepted / Expired siblings alike.
+   Round 7 (Kevin's money model v2): no commission. The header, the
+   one money row and the CTA all read the PAYOUT — 100% of the
+   alteration prices on the cards ("$200 | New Request" / "Your payout
+   $200" / "Accept Request · $200"); the Subtotal and Taily Fee rows are
+   gone. Accept stamps `a.tailor.acceptedPayout`, which only moves when
+   the scope changes at the visit.
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
@@ -22,7 +27,7 @@ import { summaryCard, garmentCard, cta, toast } from '../components.js';
 import { money, garmentAmount } from '../data.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, payoutRows } from '../tailor-components.js';
-import { current, jobView, tailorOf, isFixture, isSeed, restartTimer, T, CUSTOMER, REQUEST_ROWS } from '../tailor-data.js';
+import { current, jobView, tailorOf, isFixture, isSeed, restartTimer, stampAcceptedPayout, T, CUSTOMER, REQUEST_ROWS } from '../tailor-data.js';
 
 /** The booked order as ViewOnly cards (shared with T03). */
 export function bookedCards(v) {
@@ -75,7 +80,7 @@ export function viewRequest(s, mode = null) {
     ${summaryCard({ initials: CUSTOMER.initials, name: CUSTOMER.name, rows })}
     <div class="garments-card">
       ${bookedCards(v)}
-      ${payoutRows(v, { subtotal: true })}
+      ${payoutRows(v)}
     </div>
   </div>
   <div class="t-actions">
@@ -97,6 +102,7 @@ export function wire(root) {
     const t = tailorOf(a);
     t.requestHandled = true;
     t.justAccepted = true;                 // T03 renders "Booking Confirmed!" once
+    stampAcceptedPayout(a);                // round 7: the payout Marco accepted the job for
     go('t03-request-accepted', { replace: true });   // R2-T-11: back never re-offers Accept
   });
   root.querySelector('[data-act="decline"]')?.addEventListener('click', () => go('t03a-decline-request'));

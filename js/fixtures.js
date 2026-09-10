@@ -22,9 +22,15 @@ export const seedAppt = (overrides = {}) => ({ ...clone(SEED_UPCOMING[0]), ...ov
 /* ---------- terminal outcomes (R2-U-04/05/07, R2-T-05/06) ---------- */
 export const APPT_EXPIRED = () => seedAppt({ status: 'expired', cancelledBy: 'none', reason: 'expired', wasRequested: true });
 export const APPT_DECLINED = () => seedAppt({ status: 'declined', cancelledBy: 'tailor', reason: 'declined', wasRequested: true });
-export const APPT_TAILOR_CANCELLED = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'cant-make-it', wasRequested: false });
-export const APPT_NO_SHOW = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'no-show', wasRequested: false });
+/* R7: the tailor cancelling refunds the $25 fee; a no-show keeps it
+   only once Sarah confirmed the visit (feeLocked) — the No-Show frame
+   draws the kept case. cancelledAt = the fiction's Jul 12. */
+export const APPT_TAILOR_CANCELLED = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'cant-make-it', wasRequested: false, cancelledAt: 'Sun, Jul 12', refund: 25, feeKept: false });
+export const APPT_NO_SHOW = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'no-show', wasRequested: false, cancelledAt: 'Sun, Jul 12', feeLocked: true, confirmedAt: 'Sat, Jul 11', refund: 0, feeKept: true });
 export const APPT_WITHDRAWN = () => seedAppt({ status: 'cancelled', cancelledBy: 'customer', reason: 'customer', wasRequested: true });
+/** R7: 12 hours before the visit, never confirmed → Taily cancelled it
+    (cancelledBy 'none', reason 'unconfirmed', fee refunded). */
+export const APPT_UNCONFIRMED = () => seedAppt({ status: 'cancelled', cancelledBy: 'none', reason: 'unconfirmed', wasRequested: false, cancelledAt: 'Sun, Jul 12', refund: 25, feeKept: false });
 
 /* ---------- proposed time (R2-U-03 / R2-T-04): the next day, 11 AM ---------- */
 export const PROPOSED_WHEN = 'Jul 13, 11:00 AM';
@@ -51,7 +57,8 @@ export const APPT_READY_WAITING = () => seedAppt({ status: 'ready-for-pickup', r
 export const REMOVED_G2 = { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, amount: 80 };
 export const FINAL_ORDER_REMOVED = () => ({
   garments: [clone(SEED_FINAL_ORDER.garments[0]), clone(SEED_FINAL_ORDER.garments[2])],
-  totals: { subtotal: 280, visitFee: 0, total: 280, deposit: 20 },
+  /* R7: 2 items keep the $25 tier — $280 + $25 = $305 */
+  totals: { alterations: 280, items: 2, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 305, subtotal: 280 },
   removed: [clone(REMOVED_G2)],
 });
 /** The tailor's T05 draft for the same visit (no id on the added jacket). */

@@ -241,7 +241,8 @@ async function openBookingsCard(desc, { pill, meta }) {
 }
 
 /** 01 → 02 → time / need-by wheels → Request Tailor → Apple Pay → 03/Requested.
-    Suit Jacket ($120 Hem) + Pants / Jeans ($120 Hem) = $240 · deposit $24.
+    Suit Jacket ($120 Hem) + Pants / Jeans ($120 Hem) = $240 alterations; 2
+    items → the $25 visitation fee (R7), held until a tailor accepts.
     The need-by is rolled TWO days past the requested time so markReady's
     readyAt (the day before need-by) and need-by give two handoff window
     days (handoffWindows, R2-U-02). */
@@ -271,7 +272,9 @@ async function bookAsCustomer({ deep = false } = {}) {
   if (deep) {
     assertEq('[C] 02 requested-time pill = state.appt.when', await q('text', '[data-act="time"]'), appt.when);
     assertEq('[C] 02 need-by pill = state.appt.needBy', await q('text', '[data-act="needby"]'), appt.needBy);
-    await assertText('[C] 02 CTA quotes the $24 deposit', '[data-act="request"]', 'Request Tailor · $24 Deposit (10%)');
+    await assertText('[C] 02 CTA holds the $25 visitation fee (R7)', '[data-act="request"]', 'Hold $25 Visitation Fee');
+    await assertText('[C] 02 fee card = tier for the live count (R7)', '.fee-card__line', 'Visitation fee $25 · 2 items');
+    assertEq('[C] 02 fee card: no tier note on the $25 tier', await q('count', '.fee-card__note'), 0);
   }
   await page.click('[data-act="request"]');
   await assertOverlay('[C]   …payment sheet', '02.3-payment-sheet');
@@ -281,7 +284,8 @@ async function bookAsCustomer({ deep = false } = {}) {
   log(a?.mine === true && a.status === 'searching' && a.when === appt.when && a.needBy === appt.needBy,
     '[S] shared appointment created (mine, searching, dates)', `when=${a?.when} needBy=${a?.needBy}`);
   assertEq('[S] need-by is two days after the requested time', await fmtDay(a?.needBy), await shiftDay(a?.when, 2));
-  assertEq('[S] booked order = 2 garments · $240 · $24 deposit', `${a?.garments?.length}/${a?.totals?.subtotal}/${a?.totals?.deposit}/${a?.count}`, '2/240/24/2');
+  assertEq('[S] booked order = 2 garments · $240 alterations · $25 fee · $265 (R7)', `${a?.garments?.length}/${a?.totals?.alterations}/${a?.totals?.visitFee}/${a?.totals?.total}/${a?.count}`, '2/240/25/265/2');
+  log(a?.feeHeld === true && !a?.feeChargedOn && !('deposit' in (a?.totals ?? {})), '[S] requestTailor: fee HELD, nothing charged, no deposit field (R7)', `feeHeld=${a?.feeHeld} feeChargedOn=${a?.feeChargedOn}`);
   /* R6 (Kevin): no tailor name before one accepts */
   log(a?.name == null && a?.initials == null && a?.tailorId == null && a?.matching === true, '[S] requestTailor: no tailor yet (name / initials / tailorId null, matching)', `name=${a?.name} matching=${a?.matching}`);
   /* R6: the frame's request card carries no name row — assert the customer sees no tailor name */
@@ -294,7 +298,8 @@ async function bookAsCustomer({ deep = false } = {}) {
     /* R3-U-01: the request card reads the APPOINTMENT, the form is spent */
     const form = await page.evaluate(() => ({ garments: window.Taily.state.garments.length, sel: Object.values(window.Taily.state.ui?.homeSelection ?? {}).filter((q) => q > 0).length }));
     log(form.garments === 0 && form.sel === 0, '[S] requestTailor cleared the form + Home selection', JSON.stringify(form));
-    assertEq('[C] 03/Requested items · estimate · hold row', rows[2], '2 items · $240.00+ est. · $24 deposit held');
+    assertEq('[C] 03/Requested items · estimate · hold row (R7)', rows[2], '2 items · $240.00+ est. · $25 visitation fee held');
+    await assertText('[C] 03/Requested cancel line: nothing has been charged (R7)', '[data-act="cancel"]', 'Cancel request — nothing has been charged');
     await assertText('[C] 03/Requested hero', '.status-hero__title', 'Finding your tailor…');
   }
   return a;
@@ -311,7 +316,7 @@ async function rebookFrom02(desc) {
   await page.click('.method-row');
   await assertAt('[C] Apple Pay → request sent again', '03-status-requested', 'searching', 'user');
   const a = await shared();
-  log(a?.status === 'searching' && a.garments?.length === 2 && a.totals?.subtotal === 240, '[S] new shared request (searching, same $240 order)', `when=${a?.when} subtotal=${a?.totals?.subtotal}`);
+  log(a?.status === 'searching' && a.garments?.length === 2 && a.totals?.alterations === 240 && a.totals?.visitFee === 25, '[S] new shared request (searching, same $240 order, $25 fee)', `when=${a?.when} alterations=${a?.totals?.alterations}`);
   return a;
 }
 
@@ -323,11 +328,11 @@ async function tailorAccepts(a, { deep = false } = {}) {
   await flip();
   await assertAt('[T] View as Tailor', 't01-home', 'searching', 'tailor');
   assertEq('[T] T01 shows exactly one New Request card', await q('count', '.req-card'), 1);
-  await assertText('[T] T01 request payout = $240 − 10 % (not the $180 fixture)', '.req-card__name b', '$216');
+  await assertText('[T] T01 request payout = the full $240 (R7: no commission; not the $200 fixture)', '.req-card__name b', '$240');
   if (hasSeed) {
     /* R2-T-01: the seed's accepted visit is a JOB, not a phantom request */
     const jobs = await q('jobCards');
-    log(jobs.some((j) => j.text.includes('Sarah Chen') && j.pill === 'Confirmed' && j.payout === '$180'), '[T] T01 lists the seed’s Confirmed job beside the request', jobs.map((j) => `${j.pill}/${j.payout}`).join(', '));
+    log(jobs.some((j) => j.text.includes('Sarah Chen') && j.pill === 'Confirmed' && j.payout === '$200'), '[T] T01 lists the seed’s Confirmed job beside the request ($200 payout, R7)', jobs.map((j) => `${j.pill}/${j.payout}`).join(', '));
   } else {
     assertEq('[T] T01 no active Sarah job while searching (filler only)', await q('count', '.job-card'), 1);
   }
@@ -339,13 +344,14 @@ async function tailorAccepts(a, { deep = false } = {}) {
   }
   await page.click('.req-card [data-act="view-details"]');
   await assertAt('[T] View Details → T02', 't02-appointment-request', 'searching');
-  await assertText('[T] T02 header = booked payout', '.t-header .t-title', '$216 | New Request');
+  await assertText('[T] T02 header = booked payout (R7: 100%)', '.t-header .t-title', '$240 | New Request');
   if (deep) {
     assertEq('[T] T02 cards = the 2 booked garments', await q('count', '.garment-card'), 2);
     assertEq('[T] T02 card prices', (await q('texts', '.garment-card__price')).join(' '), '$120 $120');
-    /* R6 (Kevin): T02 leads with the subtotal — $240 Subtotal / $24 Taily Fee / $216 Your Payout */
-    assertEq('[T] T02 subtotal / fee / payout rows (R6)', await q('fees'), '$240 $24 $216');
-    await assertText('[T] T02 CTA amount', '[data-act="accept"]', 'Accept Request · $216');
+    /* R7 (Kevin): the one money row is "Your payout $240" — no Subtotal, no Taily Fee */
+    assertEq('[T] T02 money rows = Your payout only (R7)', `${await q('fees')} | ${(await q('feeDescs')).join(',')}`, '$240 | Your payout');
+    await assertTrue('[T] T02 never prints the customer’s fee / total / a commission (R7)', () => !/Taily Fee|Subtotal|Visitation fee|Deposit|10 ?%/i.test(document.querySelector('.screen').textContent));
+    await assertText('[T] T02 CTA amount (R7)', '[data-act="accept"]', 'Accept Request · $240');
     const rows = (await q('texts', '.summary-card__row')).join(' | ');
     assertIncludes('[T] T02 customer rows carry the visit address', rows, '88 Leonard St, 4B');
     assertIncludes('[T] T02 customer rows carry the requested time', rows, when);
@@ -355,17 +361,17 @@ async function tailorAccepts(a, { deep = false } = {}) {
   await assertAt('[T] Accept → T03', 't03-request-accepted', 'confirmed', 'tailor');
   if (deep) {
     await assertText('[T] T03 hero right after Accept', '.status-hero__title', 'Booking Confirmed!');
-    assertEq('[T] T03 fee / payout rows', await q('fees'), '$24 $216');
+    assertEq('[T] T03 payout row (R7)', await q('fees'), '$240');
   }
   const b = await shared();
-  log(!!b?.depositOn, '[S] tailorAccepts stamped depositOn', `depositOn=${b?.depositOn}`);
+  log(!!b?.feeChargedOn && b.feeHeld === false && !b.feeLocked, '[S] tailorAccepts CHARGED the held fee (feeChargedOn, not yet locked, R7)', `feeChargedOn=${b?.feeChargedOn} feeHeld=${b?.feeHeld}`);
   log(b?.name === 'Marco Tailor' && b.initials === 'MT' && b.tailorId === 'marco' && b.matching === false, '[S] tailorAccepts named the tailor (Marco · MT · marco, R6)', `name=${b?.name} matching=${b?.matching}`);
   return b;
 }
 
-/** R6 helpers: pin the shared visit `days` ahead at the same time
-    (≥ 12 h → deposit refunded on a customer cancel) or `hours` from
-    now (< 12 h → kept). Need-by follows two days after. */
+/** Pin the shared visit `days` ahead at the same time, or `hours` from
+    now. Need-by follows two days after. (R7: the refund no longer
+    depends on the clock — confirmAppointment decides it.) */
 async function pinVisit({ days = null, hours = null }) {
   await page.evaluate(([d, h]) => {
     const a = window.__shared(); const D = window.__data;
@@ -405,8 +411,9 @@ async function customerSeesConfirmed(a, { deep = false } = {}) {
   if (deep) {
     await assertText('[C] 03/Confirmed pill', '.status-hero .pill span:last-child', 'Confirmed');
     assertEq('[C] 03/Confirmed cards = booked garments', await q('count', '.garment-card'), 2);
-    assertEq('[C] 03/Confirmed subtotal / deposit / balance', await q('fees'), '$240 -$24 $216');
-    assertIncludes('[C] 03/Confirmed deposit row dated by tailorAccepts', (await q('feeDescs'))[1], `10% Deposit - Paid ${a.depositOn}`);
+    assertEq('[C] 03/Confirmed alterations / fee / total (R7)', await q('fees'), '$240 $25 $265');
+    assertEq('[C] 03/Confirmed row captions (R7)', (await q('feeDescs')).join(' | '), `Alterations (est.) | Visitation fee — charged ${a.feeChargedOn} | Total`);
+    await assertText('[C] 03/Confirmed note: alterations paid at handoff (R7)', '.fee-note', 'Alterations are paid at pickup or delivery.');
     const rows = (await q('texts', '.summary-card__row')).join(' | ');
     assertIncludes('[C] 03/Confirmed rows: address', rows, '88 Leonard St, 4B');
     assertIncludes('[C] 03/Confirmed rows: when (same grammar as T02)', rows, when);
@@ -421,7 +428,7 @@ async function tailorOpensPreVisit(a, { deep = false } = {}) {
   await assertAt('[T] tailor home (confirmed)', 't01-home', 'confirmed', 'tailor');
   await assertTrue('[T] T01 request card gone after accept', () => !document.querySelector('.req-card'));
   const jobs = await q('jobCards');
-  log(jobs[0]?.pill === 'Confirmed' && jobs[0].payout === '$216' && jobs[0].text.includes('Sarah Chen'), '[T] T01 job card = the accepted booking ($216 · Confirmed)', `first=${jobs[0]?.pill}/${jobs[0]?.payout}`);
+  log(jobs[0]?.pill === 'Confirmed' && jobs[0].payout === '$240' && jobs[0].text.includes('Sarah Chen'), '[T] T01 job card = the accepted booking ($240 · Confirmed, R7)', `first=${jobs[0]?.pill}/${jobs[0]?.payout}`);
   if (deep) {
     assertEq('[T] T01 job right slot = item count', jobs[0]?.right, '2 items');
     assertEq('[T] T01 job meta = time - address', jobs[0]?.meta, `${when.split(' · ')[1]} - 88 Leonard St, 4B`);
@@ -441,39 +448,41 @@ async function tailorVisitAndSend(a, { deep = false } = {}) {
   await page.click('[data-act="start"]');
   await assertAt('[T] Start Appointment → T04', 't04-appointment-details', 'confirmed');
   assertEq('[T] T04 starts from the booked order (2 cards)', await q('count', '.garment-card'), 2);
-  assertEq('[T] T04 fee / payout rows follow the booking', await q('fees'), '$24 $216');
+  assertEq('[T] T04 payout row follows the booking (R7)', await q('fees'), '$240');
   /* + Sleeve ($80) on card 1 via the additional-service selector */
   await page.click('[data-sel="add"][data-gi="0"]');
   await page.click('.selector--open .selector__option[data-option="Sleeve"]');
   await page.waitForTimeout(250);
-  assertEq('[T] T04 added service recomputes fee / payout ($320)', await q('fees'), '$32 $288');
+  assertEq('[T] T04 added service recomputes the payout ($320, R7)', await q('fees'), '$320');
   assertEq('[T] T04 card 1 price moved to $200', (await q('texts', '.garment-card__price'))[0], '$200');
   /* + Additional Garment (Suit Jacket · Sleeve $80) */
   await page.click('[data-act="add-garment"]');
   await page.waitForTimeout(250);
   assertEq('[T] T04 added garment → 3 cards', await q('count', '.garment-card'), 3);
-  assertEq('[T] T04 fee / payout rows recompute ($400)', await q('fees'), '$40 $360');
+  assertEq('[T] T04 payout recomputes ($400, R7)', await q('fees'), '$400');
   await page.click('[data-act="continue"]');
   await assertAt('[T] Continue → T05', 't05-confirm-final-pricing', 'confirmed');
   if (deep) {
     assertEq('[T] T05 marks the added service + added garment', `${await q('count', '.garment-card__service--info')}/${await q('count', '.garment-card--info')}`, '2/1');
     assertEq('[T] T05 card prices', (await q('texts', '.garment-card__price')).join(' '), '$200 $120 $80');
-    assertEq('[T] T05 fee / payout rows', await q('fees'), '$40 $360');
+    assertEq('[T] T05 payout row (R7)', await q('fees'), '$400');
+    assertIncludes('[T] T05 states the scope change before Send (R7)', await q('text', '[data-payout-change]'), 'Payout $240 → $400 (+$160)');
     assertEq('[T] T05 lists no removals', await q('count', '.t-removed__row'), 0);
   }
   await page.click('[data-act="send"]');
   await assertAt('[T] Send → T06 awaiting approval', 't06-appointment-status', 'awaiting-approval', 'tailor');
   const b = await shared();
-  log(b?.garments?.length === 3 && b.totals?.subtotal === 400 && b.totals?.total === 400 && b.totals?.deposit === 24 && b.booked?.length === 2 && !!b.revisedAt,
-    '[S] Send wrote the final order (3 garments · $400 · deposit $24 · booked kept)', `garments=${b?.garments?.length} subtotal=${b?.totals?.subtotal} deposit=${b?.totals?.deposit} booked=${b?.booked?.length} revisedAt=${b?.revisedAt}`);
+  log(b?.garments?.length === 3 && b.totals?.alterations === 400 && b.totals?.visitFee === 25 && b.totals?.visitFeeCharged === 25 && b.totals?.visitFeeAdded === 0 && b.totals?.total === 425 && b.booked?.length === 2 && !!b.revisedAt,
+    '[S] Send wrote the final order (3 garments · $400 · fee still $25 · $425 · booked kept, R7)', `garments=${b?.garments?.length} alterations=${b?.totals?.alterations} fee=${b?.totals?.visitFee}+${b?.totals?.visitFeeAdded} total=${b?.totals?.total} booked=${b?.booked?.length} revisedAt=${b?.revisedAt}`);
   if (deep) {
-    assertIncludes('[T] T06 status line', await q('text', '.t-header .t-body'), 'Waiting for Sarah to approve');
-    await assertText('[T] T06 job payout = final − 10 %', '.job-card__payout', '$360');
+    /* R7: the tailor side names the payout in this line ("Sarah is reviewing the updated order — payout $400 once approved.") */
+    await assertTrue('[T] T06 status line (awaiting approval, R7 payout wording accepted)', () => /Waiting for Sarah to approve|Sarah is reviewing the updated order/.test(document.querySelector('.t-header .t-body')?.textContent ?? ''));
+    await assertText('[T] T06 job payout = the final $400 (R7)', '.job-card__payout', '$400');
     await assertText('[T] T06 job pill', '.job-card .pill span:last-child', 'Awaiting Customer');
     await assertText('[T] T06 job right slot', '.job-card__bottom > span:last-child', '3 items');
     assertEq('[T] T06 cards = the sent order', await q('count', '.garment-card'), 3);
     assertEq('[T] T06 card prices', (await q('texts', '.garment-card__price')).join(' '), '$200 $120 $80');
-    assertEq('[T] T06 fee / payout rows', await q('fees'), '$40 $360');
+    assertEq('[T] T06 payout row (R7)', await q('fees'), '$400');
     await assertText('[T] T06 primary CTA', '.t-actions .cta', 'Mark Ready');
   }
   return b;
@@ -496,7 +505,8 @@ async function customerOpensReview(a, { deep = false } = {}) {
     await assertText('[C] 03/Tailoring awaiting pill', '.status-hero .pill span:last-child', 'Awaiting Approval');
     assertEq('[C] 03/Tailoring cards = the sent order', await q('count', '.garment-card'), 3);
     assertEq('[C] 03/Tailoring card prices (same as T06)', (await q('texts', '.garment-card__price')).join(' '), '$200 $120 $80');
-    assertEq('[C] 03/Tailoring subtotal / deposit / due', await q('fees'), '$400 -$24 $376');
+    assertEq('[C] 03/Tailoring alterations / fee / total / due (R7)', await q('fees'), '$400 $25 $425 $400');
+    assertEq('[C] 03/Tailoring captions (R7)', (await q('feeDescs')).join(' | '), 'Alterations | Visitation fee — paid | Total | Due at handoff');
     await assertTrue('[C] 03/Tailoring shows the View final order row', () => !!document.querySelector('.link-row[data-act="review-order"]'));
     const rows = (await q('texts', '.summary-card__row')).join(' | ');
     assertIncludes('[C] 03/Tailoring rows: appt', rows, `Appt: ${when}`);
@@ -508,8 +518,9 @@ async function customerOpensReview(a, { deep = false } = {}) {
     assertEq('[C] 04/Modified cards = the sent order', await q('count', '.garment-card'), 3);
     assertEq('[C] 04/Modified marks (services / garments / fee rows)', `${await q('count', '.garment-card__service--info')}/${await q('count', '.garment-card--info')}/${await q('count', '.fee-row--info')}`, '2/1/3');
     assertEq('[C] 04/Modified card prices', (await q('texts', '.garment-card__price')).join(' '), '$200 $120 $80');
-    assertEq('[C] 04/Modified subtotal / deposit / due', await q('fees'), '$400 -$24 $376');
-    assertIncludes('[C] 04/Modified deposit row dated', (await q('feeDescs'))[1], `10% Deposit - Paid ${a.depositOn}`);
+    assertEq('[C] 04/Modified alterations / fee / total / due (R7)', await q('fees'), '$400 $25 $425 $400');
+    assertEq('[C] 04/Modified captions (R7)', (await q('feeDescs')).join(' | '), 'Alterations | Visitation fee — paid | Total | Due at handoff');
+    await assertTrue('[C] 04 never says deposit / 10% / Taily fee / Balance (R7)', () => !/deposit|10 ?%|Taily fee|Balance/i.test(document.querySelector('.screen').textContent));
     await assertText('[C] 04/Modified tailor name in the sub', '.heading .t-body', 'Marco measured and pinned at your appointment. Review the final details and pricing before tailoring starts.');
     assertEq('[C] 04/Modified lists no removals', await q('count', '.removed-row'), 0);
   }
@@ -521,7 +532,7 @@ async function customerApproves(a, { deep = false } = {}) {
   await page.click('[data-act="approve"]');
   await assertAt('[C] Approve → 03/Tailoring (tailoring)', '03-status-tailoring', 'tailoring', 'user');
   const b = await shared();
-  log(!!b?.approvedAt && b.totals?.subtotal === 400, '[S] approveOrder stamped approvedAt, order untouched', `approvedAt=${b?.approvedAt}`);
+  log(!!b?.approvedAt && b.totals?.alterations === 400 && b.totals?.total === 425, '[S] approveOrder stamped approvedAt, order untouched', `approvedAt=${b?.approvedAt}`);
   if (deep) {
     await assertText('[C] 03/Tailoring pill', '.status-hero .pill span:last-child', 'Tailoring');
     await assertText('[C] 03/Tailoring hero', '.status-hero__title', 'Tailoring in Progress.');
@@ -640,7 +651,7 @@ await fresh('A');
   await page.waitForTimeout(250);
   await page.click('[data-act="continue"]');
   await assertAt('[C] Pickup → 05a', '05a-pickup-window', 'ready-for-pickup');
-  assertIncludes('[C] 05a due at pickup = $400 − $24', await q('text', '.due-card__amount'), '$376');
+  assertIncludes('[C] 05a due at pickup = the $400 alterations (fee already charged, R7)', await q('text', '.due-card__amount'), '$400 ·');
   const w = await handoffPick();
   assertEq('[C] 05a draws the two handoff days (3 chips each)', await q('count', '[data-win]'), 6);
   await page.click(`[data-win="${w.wi}"][data-chip="${w.ci}"]`);
@@ -686,7 +697,8 @@ await fresh('A');
     const f = await shared();
     assertEq('[S] deliver stamped deliveredAt from the window day', f?.deliveredAt, w.day);
   }
-  assertEq('[T] T08 order total / fee / payout', (await q('texts', '.price-row__value')).join(' '), '$400 −$40 $360');
+  assertEq('[T] T08 payout summary: items → Your payout $400 (R7)', (await q('texts', '.price-row__value')).join(' '), '$200 $120 $80 $400');
+  await assertTrue('[T] T08 has no Order total / Taily fee rows (R7)', () => !/Order total|Taily fee|−\$/.test(document.querySelector('.screen').textContent));
   await page.click('[data-act="home"]');
   await assertAt('[T] Back to Home (job complete)', 't01-home', 'delivered');
   {
@@ -704,12 +716,12 @@ await fresh('A');
   await assertAt('[C] card → 03/Summary', '03-status-summary', 'delivered');
   assertEq('[C] 03/Summary Items Received = deliveredAt', (await q('texts', '.status-hero__row span'))[1], w.day);
   assertEq('[C] 03/Summary cards = final order', await q('count', '.garment-card'), 3);
-  assertEq('[C] 03/Summary rows (pickup: no delivery row)', await q('fees'), '$400 -$24 $376');
-  assertEq('[C] 03/Summary total row is the pickup one, dated by the window', (await q('feeDescs'))[2], `Total - Paid at pickup ${w.mdy}`);
+  assertEq('[C] 03/Summary rows (pickup: no delivery row, R7)', await q('fees'), '$400 $25 $425 $400');
+  assertEq('[C] 03/Summary last row is the pickup one, dated by the window (R7)', (await q('feeDescs'))[3], `Paid at pickup ${w.mdy}`);
   await render('06-journey-complete');
   await assertAt('[C] 06 receipt', '06-journey-complete', 'delivered');
-  assertEq('[C] 06 receipt rows agree with 03/Summary', await q('fees'), '$400 -$24 $376');
-  assertEq('[C] 06 receipt descs agree with 03/Summary', (await q('feeDescs')).join(' | '), `Subtotal - Confirmed ${await mdy(a.when)} | 10% Deposit - Paid ${e.depositOn} | Total - Paid at pickup ${w.mdy}`);
+  assertEq('[C] 06 receipt rows agree with 03/Summary (R7)', await q('fees'), '$400 $25 $425 $400');
+  assertEq('[C] 06 receipt descs agree with 03/Summary (R7)', (await q('feeDescs')).join(' | '), `Alterations | Visitation fee — paid ${e.feeChargedOn} | Total | Paid at pickup ${w.mdy}`);
   await page.click('[data-act="review"]');
   await assertOverlay('[C]   …06.1 review sheet', '06.1-leave-review');
   await assertText('[C] 06.1 sub = tailor · items · handoff day', '.review-sheet__sub', `Marco Tailor · 3 items · ${w.day}`);
@@ -751,7 +763,8 @@ await fresh('B');
   await page.click('[data-act="continue"]');
   await assertAt('[C] Delivery → 05b', '05b-delivery-options', 'ready-for-pickup');
   await assertText('[C] 05b delivers to the customer’s address', '[data-addr-full]', '88 Leonard St, 4B — New York, NY 10013');
-  assertEq('[C] 05b balance / delivery / charged', (await q('texts', '.info-row span:last-child')).join(' '), '$376 $20 $396');
+  assertEq('[C] 05b alterations / delivery / due at delivery (R7)', (await q('texts', '.info-row span:last-child')).join(' '), '$400 $20 $420');
+  assertEq('[C] 05b captions (R7)', (await q('texts', '.info-row span:first-child')).join(' | '), 'Alterations | Delivery | Due at delivery');
   const w = await handoffPick();
   assertEq('[C] 05b draws the two handoff days (3 chips each)', await q('count', '[data-win]'), 6);
   await page.click(`[data-win="${w.wi}"][data-chip="${w.ci}"]`);
@@ -788,18 +801,22 @@ await fresh('B');
   await render('t07-job-ready');
   await page.click('[data-act="picked-up"]');
   await assertAt('[T] Mark Delivered → T08', 't08-job-complete', 'delivered', 'tailor');
-  assertEq('[T] T08 order total / fee / payout', (await q('texts', '.price-row__value')).join(' '), '$400 −$40 $360');
+  assertEq('[T] T08 payout summary: items → Your payout $400 (R7)', (await q('texts', '.price-row__value')).join(' '), '$200 $120 $80 $400');
+  {
+    const f = await shared();
+    log(f?.totals?.delivery === 20 && f.totals.total === 445, '[S] chooseFulfilment(delivery) added the $20 to the totals ($445, R7)', `delivery=${f?.totals?.delivery} total=${f?.totals?.total}`);
+  }
 
   await flip();
   await assertAt('[C] View as Customer (delivered)', '01-home', 'delivered', 'user');
   await assertText('[C] 01 shows the seed’s live card, not the delivered order (R3-U-03)', '.appt-card .pill span:last-child', 'Confirmed');
   await openBookingsCard('[C] 09 Past lists the delivered order', { pill: 'Completed', meta: `Delivered: ${w.day}` });
   await assertAt('[C] card → 03/Summary', '03-status-summary', 'delivered');
-  assertEq('[C] 03/Summary rows (delivery: +$20)', await q('fees'), '$400 -$24 $20 $396');
-  assertEq('[C] 03/Summary delivery + total rows', (await q('feeDescs')).slice(2).join(' | '), `Delivery - Paid ${w.mdy} | Total - Paid ${w.mdy}`);
+  assertEq('[C] 03/Summary rows (delivery: +$20, R7)', await q('fees'), '$400 $25 $20 $445 $420');
+  assertEq('[C] 03/Summary delivery / total / paid rows (R7)', (await q('feeDescs')).slice(2).join(' | '), `Delivery | Total | Paid at delivery ${w.mdy}`);
   await render('06-journey-complete');
-  assertEq('[C] 06 receipt rows agree with 03/Summary', await q('fees'), '$400 -$24 $20 $396');
-  assertEq('[C] 06 receipt delivery + total rows', (await q('feeDescs')).slice(2).join(' | '), `Delivery - Paid ${w.mdy} | Total - Paid ${w.mdy}`);
+  assertEq('[C] 06 receipt rows agree with 03/Summary (R7)', await q('fees'), '$400 $25 $20 $445 $420');
+  assertEq('[C] 06 receipt delivery / total / paid rows (R7)', (await q('feeDescs')).slice(2).join(' | '), `Delivery | Total | Paid at delivery ${w.mdy}`);
   await render('09-bookings');
   const pastMetas = (await q('bookings')).past.map((c) => c.meta);
   log(pastMetas.includes(`Delivered: ${w.day}`), '[C] 09 lists the delivered order under Past', `past=${pastMetas.join(', ')}`);
@@ -824,10 +841,12 @@ await fresh('C');
   await assertAt('[T] Decline Request → T01 (declined)', 't01-home', 'declined', 'tailor');
   {
     const jobs = await q('jobCards');
-    log(!(await q('count', '.req-card')) && jobs.length === 2 && !jobs.some((j) => j.text.includes('Declined')) && jobs.some((j) => j.pill === 'Confirmed' && j.payout === '$180'),
+    log(!(await q('count', '.req-card')) && jobs.length === 2 && !jobs.some((j) => j.text.includes('Declined')) && jobs.some((j) => j.pill === 'Confirmed' && j.payout === '$200'),
       '[T] T01: no request card, no Declined row; the seed job stays', `jobs=${jobs.map((j) => `${j.pill}/${j.payout}`).join(', ')}`);
     const t = await terminalPlacement();
     log(t.status === 'declined' && t.by === 'tailor' && t.reason === 'declined' && t.wasRequested && t.inPast && t.notUpcoming && t.stash, '[S] declined: moved to past[0], lastCancelled, nothing charged', JSON.stringify(t));
+    const f = await shared();
+    log(f?.refund === 25 && f.feeKept === false, '[S] declined: the $25 hold is released (refund 25, not kept, R7)', `refund=${f?.refund} feeKept=${f?.feeKept}`);
   }
   await flip();
   await assertAt('[C] View as Customer (declined)', '01-home', 'declined', 'user');
@@ -874,7 +893,7 @@ await fresh('D', { solo: true });
   {
     const t = await terminalPlacement();
     const f = await shared();
-    log(!(await page.evaluate(() => window.Taily.state.upcoming.some((x) => x.mine))) && t.status === 'cancelled' && t.by === 'customer' && t.wasRequested && t.inPast && t.stash && f.totals?.subtotal === a.totals.subtotal,
+    log(!(await page.evaluate(() => window.Taily.state.upcoming.some((x) => x.mine))) && t.status === 'cancelled' && t.by === 'customer' && t.wasRequested && t.inPast && t.stash && f.totals?.alterations === a.totals.alterations && f.refund === 25 && f.feeKept === false,
       '[S] request withdrawn: past[0] + lastCancelled (wasRequested)', JSON.stringify(t));
   }
   await flip();
@@ -905,7 +924,7 @@ await fresh('E', { solo: true });
   await assertText('[C] 03.1 reschedule wording', '.screen-sheet--overlay .modal__title', 'Before you reschedule');
   await page.click('[data-act="go-back"]');
   await page.waitForTimeout(400);
-  /* ---- R6: ≥ 12 h before the visit → the deposit is refunded ---- */
+  /* ---- R7: BEFORE confirming the visit → the fee is refunded ---- */
   const far = await pinVisit({ days: 5 });
   await render('03-status-confirmed');
   await page.click('[data-act="reschedule"]');
@@ -913,7 +932,7 @@ await fresh('E', { solo: true });
   {
     const rows = await popupRows();
     assertEq('[C] 03.1 row 1: the visit with Marco is cancelled', rows[0], `✕ Your ${await fmtWhen(far.when)} with Marco is cancelled`);
-    assertEq('[C] 03.1 row 2: deposit refunded (≥ 12 h, R6)', rows[1], '✓ Your $24 deposit is refunded');
+    assertEq('[C] 03.1 row 2: fee refunded before confirming (R7)', rows[1], '✓ Your $25 visitation fee is refunded');
     assertEq('[C] 03.1 row 3: items and time kept — new tailor (R6)', rows[2], '↻ Your items and time are kept — we’ll find you a new tailor');
     await assertText('[C] 03.1 CTA unchanged', '[data-act="confirm-reschedule"]', 'Reschedule / Cancel');
   }
@@ -930,15 +949,15 @@ await fresh('E', { solo: true });
     const t = await terminalPlacement();
     const f = await shared();
     log(t.status === 'cancelled' && t.by === 'customer' && t.reason === 'customer' && !t.wasRequested && t.inPast && t.stash, '[S] confirmed visit cancelled: past[0] + lastCancelled', JSON.stringify(t));
-    log(f?.refund === 24 && f.depositKept === false, '[S] cancel ≥ 12 h: refund = $24, depositKept false (R6)', `refund=${f?.refund} kept=${f?.depositKept}`);
+    log(f?.refund === 25 && f.feeKept === false, '[S] cancel before confirming: refund = $25, feeKept false (R7)', `refund=${f?.refund} kept=${f?.feeKept}`);
   }
   await openBookingsCard('[C] 09 Past lists the cancelled visit', { pill: 'Cancelled', meta: await cardWhen(far.when) });
   await assertAt('[C] card → 03/Cancelled', '03-status-cancelled', 'cancelled', 'user');
   await assertText('[C] 03/Cancelled pill', '.status-hero .pill span:last-child', 'Cancelled');
   await assertText('[C] 03/Cancelled customer title', '.status-hero__title', 'Appointment Cancelled');
-  await assertText('[C] 03/Cancelled body: refunded to the real pay method (R6)', '.status-hero__body', 'Your $24 deposit is refunded to Apple Pay.');
-  assertEq('[C] 03/Cancelled keeps the confirmed order rows', await q('fees'), '$240 -$24 $216');
-  assertIncludes('[C] 03/Cancelled deposit row reads Refunded', (await q('feeDescs'))[1], '10% Deposit - Refunded');
+  await assertText('[C] 03/Cancelled body: fee refunded to the real pay method (R7)', '.status-hero__body', 'Your $25 visitation fee is refunded to Apple Pay.');
+  assertEq('[C] 03/Cancelled keeps the confirmed order rows (R7)', await q('fees'), '$240 $25 $265');
+  assertIncludes('[C] 03/Cancelled fee row reads Refunded (R7)', (await q('feeDescs'))[1], 'Visitation fee — Refunded');
   await flip();
   await assertAt('[T] View as Tailor after the cancel', 't01-home', 'cancelled', 'tailor');
   await assertTrue('[T] T01: no request card', () => !document.querySelector('.req-card'));
@@ -953,7 +972,7 @@ await fresh('E', { solo: true });
   await assertAt('[T] Cancelled card → T03B', 't03b-job-cancelled', 'cancelled');
   await assertText('[T] T03B hero', '.status-hero__title', 'Job Cancelled.');
   assertIncludes('[T] T03B names the live slot (not tonight)', await q('text', '.status-hero__body'), `your ${await fmtWhen(far.when)} slot is open on your calendar again`);
-  await assertTrue('[T] T03B: nothing about the deposit staying (it was refunded)', () => !/stays with you/.test(document.querySelector('.status-hero__body').textContent));
+  await assertTrue('[T] T03B: nothing about the fee staying, no deposit / amount (R7)', () => !/stays with|deposit|\$\d/i.test(document.querySelector('.status-hero__body').textContent));
   await page.click('[data-act="home"]');
   await assertAt('[T] Back to Home', 't01-home', 'cancelled');
 
@@ -981,26 +1000,36 @@ await fresh('E', { solo: true });
   await assertAt('[C] View as Customer after accept', '01-home', 'confirmed', 'user');
   await assertText('[C] 01 card now reads Marco Tailor', '.appt-card__name', 'Marco Tailor');
 
-  /* ---- R6: < 12 h before the visit → the deposit is KEPT ---- */
-  const near = await pinVisit({ hours: 2 });
+  /* ---- R7: AFTER confirming the visit (the 24-hour prompt) → the fee is KEPT ---- */
+  const near = await pinVisit({ days: 1 });
   await render('03-status-confirmed');
+  await page.click('.summary-card');                     // the day before arrives → 03/Reminder
+  await assertAt('[C] tailor card → 03/Reminder (the confirmation prompt)', '03-status-reminder', 'confirmed', 'user');
+  await assertText('[C] 03/Reminder non-refundable line before Confirm (R7)', '[data-fee-warning]', 'Confirming makes your $25 visitation fee non-refundable. Cancel before confirming for a full refund.');
+  {
+    const r = await page.evaluate(() => { const a = window.__shared(); const ok = window.__sync.confirmAppointment(a); return { ok, locked: a.feeLocked, at: a.confirmedAt ?? null }; });
+    log(r.ok === true && r.locked === true && !!r.at, '[S] confirmAppointment: feeLocked + confirmedAt (R7)', JSON.stringify(r));
+  }
+  await render('03-status-reminder');
+  await assertText('[C] 03/Reminder pill once confirmed (R7)', '.status-hero .pill span:last-child', 'Confirmed · fee non-refundable');
+  assertEq('[C] 03/Reminder: the warning line is gone once confirmed', await q('count', '[data-fee-warning]'), 0);
   await page.click('[data-act="reschedule"]');
-  await assertOverlay('[C]   …03.1 reschedule popup (visit in 2 h)', '03.1-reschedule-popup');
+  await assertOverlay('[C]   …03.1 reschedule popup (visit confirmed)', '03.1-reschedule-popup');
   {
     const rows = await popupRows();
-    assertEq('[C] 03.1 row 2: deposit NOT refunded within 12 h (R6)', rows[1], '✕ Your $24 deposit is not refunded — you’re within 12 hours of the visit');
+    assertEq('[C] 03.1 row 2: fee non-refundable after confirming (R7)', rows[1], '✕ Your $25 visitation fee is non-refundable (you confirmed the visit)');
     assertEq('[C] 03.1 row 3 still promises the new tailor', rows[2], '↻ Your items and time are kept — we’ll find you a new tailor');
   }
   await page.click('[data-act="confirm-reschedule"]');
   await assertAt('[C] confirm → 02 again', '02-appointment-details', 'cancelled', 'user');
   {
     const f = await shared();
-    log(f?.refund === 0 && f.depositKept === true && f.cancelledBy === 'customer', '[S] cancel < 12 h: refund 0, depositKept true (R6)', `refund=${f?.refund} kept=${f?.depositKept}`);
+    log(f?.refund === 0 && f.feeKept === true && f.cancelledBy === 'customer', '[S] cancel after confirming: refund 0, feeKept true (R7)', `refund=${f?.refund} kept=${f?.feeKept}`);
   }
   await openBookingsCard('[C] 09 Past lists the late-cancelled visit', { pill: 'Cancelled', meta: await cardWhen(near.when) });
   await assertAt('[C] card → 03/Cancelled', '03-status-cancelled', 'cancelled', 'user');
-  await assertText('[C] 03/Cancelled body: kept within 12 hours (R6)', '.status-hero__body', 'Cancelled within 12 hours of the visit, so your $24 deposit was kept. Rebook whenever you’re ready.');
-  assertEq('[C] 03/Cancelled deposit row reads Kept', (await q('feeDescs'))[1], '10% Deposit - Kept');
+  await assertText('[C] 03/Cancelled body: fee kept after confirming (R7)', '.status-hero__body', 'Your $25 visitation fee was kept — you had confirmed the visit.');
+  assertEq('[C] 03/Cancelled fee row reads Kept (R7)', (await q('feeDescs'))[1], 'Visitation fee — Kept');
   assertEq('[C] 03/Cancelled: no refund card (the body says it)', await q('count', '.prepare-card'), 0);
   await flip();
   await assertAt('[T] View as Tailor after the late cancel', 't01-home', 'cancelled', 'tailor');
@@ -1014,7 +1043,7 @@ await fresh('E', { solo: true });
     log(found, '[T] T01 lists the late-cancelled row (Slot reopened)', `time=${time}`);
   }
   await assertAt('[T] Cancelled row → T03B', 't03b-job-cancelled', 'cancelled');
-  assertIncludes('[T] T03B says her deposit stays with Marco (< 12 h, R6)', await q('text', '.status-hero__body'), 'Her $24 deposit stays with you.');
+  await assertTrue('[T] T03B (Sarah cancelled): no deposit, no amount — the fee is Taily’s business (R7)', () => !/deposit|\$\d|stays with you/i.test(document.querySelector('.status-hero__body').textContent));
 }
 
 /* ============================================================
@@ -1030,7 +1059,7 @@ await fresh('E2');
   await render('t01-home');
   {
     const jobs = await q('jobCards').then((j) => j.filter((x) => x.text.includes('Sarah Chen')));
-    log(jobs.length === 2 && jobs.every((j) => j.pill === 'Confirmed') && jobs.map((j) => j.payout).sort().join(',') === '$180,$216', '[T] T01 after Accept: two Confirmed Sarah jobs ($216 fresh + $180 seed)', jobs.map((j) => `${j.pill}/${j.payout}`).join(', '));
+    log(jobs.length === 2 && jobs.every((j) => j.pill === 'Confirmed') && jobs.map((j) => j.payout).sort().join(',') === '$200,$240', '[T] T01 after Accept: two Confirmed Sarah jobs ($240 fresh + $200 seed, R7)', jobs.map((j) => `${j.pill}/${j.payout}`).join(', '));
   }
   await customerSeesConfirmed(b);
   const aWhen = await cardWhen(a.when);
@@ -1077,7 +1106,7 @@ await fresh('E2');
   {
     const jobs = await q('jobCards');
     log(jobs.some((j) => j.pill === 'Cancelled' && j.payout === null && j.right === 'Slot reopened'), '[T] T01 shows the cancelled booking · Slot reopened (closed row, no payout)', `jobs=${jobs.map((j) => `${j.pill}/${j.payout}`).join(', ')} req=${await q('count', '.req-card')}`);
-    log(jobs.some((j) => j.pill === 'Confirmed' && j.payout === '$180'), '[T] T01 keeps the seed’s Confirmed job', '');
+    log(jobs.some((j) => j.pill === 'Confirmed' && j.payout === '$200'), '[T] T01 keeps the seed’s Confirmed job ($200, R7)', '');
   }
   await page.click('.job-card:has-text("Slot reopened")');
   await assertAt('[T] Cancelled row → T03B', 't03b-job-cancelled', 'cancelled');
@@ -1229,7 +1258,7 @@ await fresh('F');
   await page.click('[data-act="accept-time"]');
   await assertAt('[C] Accept New Time → 03/Confirmed', '03-status-confirmed', 'confirmed', 'user');
   const f = await shared();
-  log(f?.when === p3.proposed && f.proposed == null && !!f.depositOn, '[S] acceptProposedTime: when = the proposal, confirmed, deposit charged', `when=${f?.when} depositOn=${f?.depositOn}`);
+  log(f?.when === p3.proposed && f.proposed == null && !!f.feeChargedOn && f.feeHeld === false, '[S] acceptProposedTime: when = the proposal, confirmed, fee charged (R7)', `when=${f?.when} feeChargedOn=${f?.feeChargedOn}`);
   log(!(await page.evaluate(() => { const a = window.__shared(); return window.__data.isAfterDay(a.when, a.needBy); })), '[S] the accepted time is not after the need-by day (R3-U-02)', `when=${f?.when} needBy=${f?.needBy}`);
   /* R3-U-05: 03/Confirmed REPLACED 03/Requested — back does not resurrect "Finding your tailor…" */
   await page.goBack();
@@ -1250,7 +1279,7 @@ await fresh('F');
   {
     const jobs = await q('jobCards');
     const j = jobs[0];
-    log(j?.pill === 'Confirmed' && j.payout === '$216' && j.meta === `${p3.when.split(' · ')[1]} - 88 Leonard St, 4B` && j.badge === badge, '[T] T01 job card carries the new date / time', `first=${JSON.stringify(j)}`);
+    log(j?.pill === 'Confirmed' && j.payout === '$240' && j.meta === `${p3.when.split(' · ')[1]} - 88 Leonard St, 4B` && j.badge === badge, '[T] T01 job card carries the new date / time', `first=${JSON.stringify(j)}`);
   }
   await page.click('[data-act="open-job"]');
   await assertAt('[T] job card → T03 pre-visit', 't03-request-accepted', 'confirmed');
@@ -1290,7 +1319,7 @@ await fresh('G');
   }
   await page.click('.job-card:has-text("Expired")');
   await assertAt('[T] Expired row → T02 expired view', 't02-appointment-request', 'expired');
-  await assertText('[T] T02 expired header', '.t-header .t-title', '$216 | Request Expired');
+  await assertText('[T] T02 expired header (R7)', '.t-header .t-title', '$240 | Request Expired');
   await assertTrue('[T] T02 expired: no Accept / Decline', () => !document.querySelector('[data-act="accept"]') && !document.querySelector('[data-act="decline"]'));
   assertIncludes('[T] T02 expired note', await q('body'), 'This request lapsed before you responded.');
   await page.click('[data-act="home"]');
@@ -1328,7 +1357,7 @@ await fresh('G');
   await assertAt('[T] View as Tailor (both expired)', 't01-home', 'expired', 'tailor');
   {
     const jobs = await q('jobCards');
-    log(!(await q('count', '.req-card')) && jobs.filter((j) => j.pill === 'Expired').length === 2 && jobs.some((j) => j.pill === 'Confirmed' && j.payout === '$180'), '[T] T01: no request, two Expired rows, the seed job untouched', `jobs=${jobs.map((j) => `${j.pill}/${j.payout}`).join(', ')}`);
+    log(!(await q('count', '.req-card')) && jobs.filter((j) => j.pill === 'Expired').length === 2 && jobs.some((j) => j.pill === 'Confirmed' && j.payout === '$200'), '[T] T01: no request, two Expired rows, the seed job untouched', `jobs=${jobs.map((j) => `${j.pill}/${j.payout}`).join(', ')}`);
   }
   /* R3-T-02c: a request that lapses while Marco's proposal is pending keeps the proposal on record */
   {
@@ -1379,12 +1408,13 @@ await fresh('H');
   await tailorOpensPreVisit(b);
   await tailorCantMakeIt('cant-make-it');
   await assertText('[T] T03B cancelled-by-you title', '.status-hero__title', 'You cancelled this job.');
-  assertIncludes('[T] T03B body: her deposit is refunded + the slot (R3-T-05)', await q('text', '.status-hero__body'), `her $24 deposit is refunded. Your ${await fmtWhen(a.when)} slot is open again.`);
+  assertIncludes('[T] T03B body names the slot (R3-T-05)', await q('text', '.status-hero__body'), `Your ${await fmtWhen(a.when)} slot is open again.`);
+  await assertTrue('[T] T03B body: no deposit, no amount (R7)', () => !/deposit|\$\d/i.test(document.querySelector('.status-hero__body').textContent));
   {
     const t = await terminalPlacement();
     const f = await shared();
     log(t.status === 'cancelled' && t.by === 'tailor' && t.reason === 'cant-make-it' && !t.wasRequested && t.inPast && t.notUpcoming && t.stash, '[S] tailorCancels(cant-make-it): past[0] + lastCancelled', JSON.stringify(t));
-    log(f?.refund === 24 && f.depositKept === false, '[S] tailor cancel: refund = $24, depositKept false (R6)', `refund=${f?.refund} kept=${f?.depositKept}`);
+    log(f?.refund === 25 && f.feeKept === false, '[S] tailor cancel: refund = $25, feeKept false (R7)', `refund=${f?.refund} kept=${f?.feeKept}`);
   }
   await page.click('[data-act="home"]');
   await assertAt('[T] Back to Home', 't01-home', 'cancelled');
@@ -1399,9 +1429,9 @@ await fresh('H');
   await assertAt('[C] card → 03/Cancelled', '03-status-cancelled', 'cancelled');
   await assertText('[C] 03/Cancelled tailor-cancelled title', '.status-hero__title', 'Marco had to cancel');
   await assertText('[C] 03/Cancelled pill', '.status-hero .pill span:last-child', 'Cancelled');
-  assertEq('[C] 03/Cancelled body: the PAID deposit is refunded (R3-U-06)', await q('text', '.status-hero__body'), 'Your $24 deposit is refunded to Apple Pay. We can find you another tailor.');
-  assertEq('[C] 03/Cancelled keeps the receipt rows (deposit was paid)', await q('fees'), '$240 -$24 $216');
-  assertIncludes('[C] 03/Cancelled deposit row reads Refunded (R6)', (await q('feeDescs'))[1], '10% Deposit - Refunded');
+  assertEq('[C] 03/Cancelled body: the CHARGED fee is refunded (R7)', await q('text', '.status-hero__body'), 'Your $25 visitation fee is refunded to Apple Pay. We can find you another tailor.');
+  assertEq('[C] 03/Cancelled keeps the receipt rows (fee was charged, R7)', await q('fees'), '$240 $25 $265');
+  assertIncludes('[C] 03/Cancelled fee row reads Refunded (R7)', (await q('feeDescs'))[1], 'Visitation fee — Refunded');
   assertEq('[C] 03/Cancelled: no refund card (the body says it)', await q('count', '.prepare-card'), 0);
   await assertText('[C] 03/Cancelled primary CTA', '[data-act="rerequest"]', 'Find Another Tailor');
   await page.click('[data-act="rerequest"]');
@@ -1431,16 +1461,32 @@ await fresh('H');
       await page.waitForTimeout(400);
     }
   }
+  /* R7: a no-show keeps the fee ONLY once Sarah confirmed the visit — prove the
+     unlocked rule in the substrate first, then lock this visit and no-show it */
+  {
+    const r = await page.evaluate(() => {
+      const S = window.__sync; const s = window.Taily.state;
+      const a = window.__shared();
+      const ghost = JSON.parse(JSON.stringify(a)); ghost.when = 'Dec 1, 9:30 AM'; ghost.needBy = 'Dec 3, 9:30 AM'; delete ghost.feeLocked; delete ghost.confirmedAt;
+      s.upcoming.push(ghost);
+      const res = S.tailorCancels(ghost, 'no-show');
+      s.past.splice(s.past.indexOf(ghost), 1); s.lastCancelled = null;
+      return { refund: res?.refund, kept: res?.kept, feeKept: ghost.feeKept };
+    });
+    log(r.refund === 25 && r.kept === false && r.feeKept === false, '[S] no-show BEFORE the visit is confirmed: fee refunded (R7)', JSON.stringify(r));
+    const lock = await page.evaluate(() => { const a = window.__shared(); return window.__sync.confirmAppointment(a) && a.feeLocked === true; });
+    log(lock, '[S] Sarah confirms the visit (feeLocked) before the no-show', '');
+  }
   const dd = await shared();
   await tailorCantMakeIt('no-show');
   await assertText('[T] T03B no-show title', '.status-hero__title', 'Sarah didn’t show.');
   /* R6 fee policy: a no-show keeps the deposit, both sides say so */
-  assertEq('[T] T03B no-show body: her deposit stays (R6)', await q('text', '.status-hero__body'), 'The job is closed and the slot is open again. Her $24 deposit stays with you.');
+  await assertTrue('[T] T03B no-show body: no deposit, no amount (R7)', () => !/deposit|\$\d/i.test(document.querySelector('.status-hero__body').textContent));
   {
     const t = await terminalPlacement();
     const f = await shared();
     log(t.status === 'cancelled' && t.by === 'tailor' && t.reason === 'no-show' && t.inPast && t.stash, '[S] tailorCancels(no-show): past[0] + lastCancelled', JSON.stringify(t));
-    log(f?.refund === 0 && f.depositKept === true, '[S] no-show: refund 0, depositKept true (R6)', `refund=${f?.refund} kept=${f?.depositKept}`);
+    log(f?.refund === 0 && f.feeKept === true, '[S] no-show after confirming: refund 0, feeKept true (R7)', `refund=${f?.refund} kept=${f?.feeKept}`);
   }
   await page.click('[data-act="calendar"]');
   /* R3-T-06: View Calendar behaves like the Calendar tab — the soonest open job (the seed's pre-visit) */
@@ -1462,9 +1508,9 @@ await fresh('H');
   await openBookingsCard('[C] 09 Missed appointment card', { pill: 'Cancelled', meta: 'Missed appointment' });
   await assertAt('[C] card → 03/Cancelled', '03-status-cancelled', 'cancelled');
   await assertText('[C] 03/Cancelled no-show title (R3-U-08)', '.status-hero__title', 'We missed you');
-  assertEq('[C] 03/Cancelled no-show body dates the visit, deposit kept (R6)', await q('text', '.status-hero__body'), `Marco marked the ${await fmtWhen(dd.when)} visit as a no-show, so your $24 deposit was kept.`);
-  assertEq('[C] 03/Cancelled keeps the receipt rows (deposit was paid)', await q('fees'), '$240 -$24 $216');
-  assertEq('[C] 03/Cancelled deposit row reads Kept (R6)', (await q('feeDescs'))[1], '10% Deposit - Kept');
+  assertEq('[C] 03/Cancelled no-show body dates the visit, fee kept (R7)', await q('text', '.status-hero__body'), `Marco marked the ${await fmtWhen(dd.when)} visit as a no-show, so your $25 visitation fee was kept.`);
+  assertEq('[C] 03/Cancelled keeps the receipt rows (fee was charged, R7)', await q('fees'), '$240 $25 $265');
+  assertEq('[C] 03/Cancelled fee row reads Kept (R7)', (await q('feeDescs'))[1], 'Visitation fee — Kept');
   await assertText('[C] 03/Cancelled primary CTA', '[data-act="rerequest"]', 'Find Another Tailor');
 }
 
@@ -1552,23 +1598,23 @@ await fresh('J');
   await page.click('[data-act="remove-garment"][data-gi="1"]');
   await page.waitForTimeout(250);
   assertEq('[T] T04 removed the Pants / Jeans → 1 card', await q('count', '.garment-card'), 1);
-  assertEq('[T] T04 fee / payout recompute ($120)', await q('fees'), '$12 $108');
+  assertEq('[T] T04 payout recomputes ($120, R7)', await q('fees'), '$120');
   await page.click('[data-act="continue"]');
   await assertAt('[T] Continue → T05', 't05-confirm-final-pricing', 'confirmed');
   assertEq('[T] T05 cards = the survivor', await q('count', '.garment-card'), 1);
   assertEq('[T] T05 survivor is not marked added (matched by id)', await q('count', '.garment-card--info'), 0);
   await assertText('[T] T05 lists the removal', '.t-removed__row span', 'Removed at the visit — Pants / Jeans · Hem / Adjust Length');
   await assertText('[T] T05 removal price struck', '.t-removed__row s', '$120');
-  assertEq('[T] T05 fee / payout rows', await q('fees'), '$12 $108');
+  assertEq('[T] T05 payout row (R7)', await q('fees'), '$120');
   await page.click('[data-act="send"]');
   await assertAt('[T] Send → T06 awaiting approval', 't06-appointment-status', 'awaiting-approval', 'tailor');
   {
     const f = await shared();
-    log(f?.removed?.length === 1 && f.removed[0].type === 'Pants / Jeans' && f.removed[0].amount === 120 && f.garments.length === 1 && f.count === 1 && f.totals?.subtotal === 120 && f.totals.deposit === 24 && f.booked?.length === 2,
-      '[S] Send wrote a.removed + the 1-garment order (deposit kept, booked kept)', `removed=${JSON.stringify(f?.removed)} garments=${f?.garments?.length} count=${f?.count} subtotal=${f?.totals?.subtotal}`);
+    log(f?.removed?.length === 1 && f.removed[0].type === 'Pants / Jeans' && f.removed[0].amount === 120 && f.garments.length === 1 && f.count === 1 && f.totals?.alterations === 120 && f.totals.visitFee === 25 && f.totals.visitFeeAdded === 0 && f.totals.total === 145 && f.booked?.length === 2,
+      '[S] Send wrote a.removed + the 1-garment order (fee stays $25, booked kept, R7)', `removed=${JSON.stringify(f?.removed)} garments=${f?.garments?.length} count=${f?.count} alterations=${f?.totals?.alterations} fee=${f?.totals?.visitFee}`);
   }
   await assertText('[T] T06 job right slot follows the final order', '.job-card__bottom > span:last-child', '1 Suit Jacket');
-  await assertText('[T] T06 job payout', '.job-card__payout', '$108');
+  await assertText('[T] T06 job payout (R7)', '.job-card__payout', '$120');
 
   await flip();
   await assertAt('[C] View as Customer (awaiting approval)', '01-home', 'awaiting-approval', 'user');
@@ -1578,14 +1624,14 @@ await fresh('J');
   await page.click('.appt-card');
   await assertAt('[C] card → 03/Tailoring (awaiting)', '03-status-tailoring', 'awaiting-approval');
   assertEq('[C] 03/Tailoring cards = the sent order', await q('count', '.garment-card'), 1);
-  assertEq('[C] 03/Tailoring subtotal / deposit / due', await q('fees'), '$120 -$24 $96');
+  assertEq('[C] 03/Tailoring alterations / fee / total / due (R7)', await q('fees'), '$120 $25 $145 $120');
   await page.click('.cta-bar [data-act="review-order"]');
   await assertAt('[C] Review Final Order → 04/Modified (a removal is a modification)', '04-review-approve-modified', 'awaiting-approval');
   assertEq('[C] 04/Modified cards = the survivor', await q('count', '.garment-card'), 1);
   assertEq('[C] 04/Modified lists one removal', await q('count', '.removed-row'), 1);
   await assertText('[C] 04/Modified removal line', '.removed-row span', 'Removed at the visit — Pants / Jeans · Hem / Adjust Length');
   await assertText('[C] 04/Modified removal price struck', '.removed-row s', '$120');
-  assertEq('[C] 04/Modified subtotal / deposit / due', await q('fees'), '$120 -$24 $96');
+  assertEq('[C] 04/Modified alterations / fee / total / due (R7)', await q('fees'), '$120 $25 $145 $120');
   assertEq('[C] 04/Modified fee rows marked as changed', await q('count', '.fee-row--info'), 3);
   await page.click('[data-act="approve"]');
   await assertAt('[C] Approve → 03/Tailoring (tailoring)', '03-status-tailoring', 'tailoring', 'user');
@@ -1599,7 +1645,7 @@ await fresh('J');
   await assertAt('[T] View as Tailor (tailoring)', 't01-home', 'tailoring', 'tailor');
   {
     const j = (await q('jobCards'))[0];
-    log(j?.pill === 'Tailoring' && j.right === '1 Suit Jacket' && j.payout === '$108', '[T] T01 job card follows the 1-garment order', `first=${j?.pill}/${j?.right}/${j?.payout}`);
+    log(j?.pill === 'Tailoring' && j.right === '1 Suit Jacket' && j.payout === '$120', '[T] T01 job card follows the 1-garment order (R7)', `first=${j?.pill}/${j?.right}/${j?.payout}`);
   }
 }
 

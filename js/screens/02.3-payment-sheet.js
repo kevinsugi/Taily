@@ -6,13 +6,19 @@
 
 import { register, render as go, back } from '../app.js';
 import { sheet, sheetOverlay, methodRow, wireSheetA11y } from '../components.js';
-import { state, requestTailor } from '../state.js';
-import { view02 } from './02-appointment-details.js';
+import { money } from '../data.js';
+import { state, requestTailor, bookingLines } from '../state.js';
+import { view02, ensureGarments } from './02-appointment-details.js';
 import { openAddCardOverlay } from './02.4-add-card-sheet.js';
 
+/* R7 (Kevin): the sheet holds the visitation fee for the LIVE item
+   count — charged when a tailor accepts; the alterations are paid at
+   handoff. Figma sync pending (the frame's sub still says deposit). */
 function payContent() {
+  ensureGarments();
+  const fee = money(bookingLines(null).visitFee);
   return `<h1 class="t-title c-ink">How would you like to pay?</h1>
-<p class="t-small c-500 sheet__sub">Your card is saved now — the deposit is only charged when your tailor confirms.</p>
+<p class="t-small c-500 sheet__sub">Hold your ${fee} visitation fee — charged when a tailor accepts. Alterations are paid at pickup or delivery.</p>
 ${methodRow('Apple Pay', 'apple')}
 ${methodRow('Google Pay', 'google')}
 ${methodRow('Credit Card', 'card')}

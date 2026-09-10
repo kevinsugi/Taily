@@ -30,6 +30,9 @@
    row (View All's style) hides the closed rows for the session
    (`state.tailorUi.clearedClosed`); a job that closes after the tap
    re-shows them. The completed row keeps its payout and stays.
+   Round 7 (money model v2): the request card leads with the PAYOUT —
+   100% of the alteration prices ("$200 · 2 items"); job cards read
+   "Payout $200". No commission anywhere on the tailor side.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
@@ -58,7 +61,7 @@ function requestFor(a, idx, fixture) {
   const by = a.proposed ? null : proposalDeclinedBy(a);
   return requestCard({
     idx,
-    payout: fixture ? '$180' : v.money.payout,
+    payout: fixture ? '$200' : v.money.payout,
     count: fixture ? '' : `${v.items} item${v.items === 1 ? '' : 's'}`,
     name: CUSTOMER.name,
     address: `${fixture ? CUSTOMER.short : v.address} · ${CUSTOMER.dist}`,

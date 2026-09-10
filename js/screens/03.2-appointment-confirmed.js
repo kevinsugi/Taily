@@ -9,7 +9,7 @@
 
 import { register, render as go } from '../app.js';
 import { cta, modalOverlay } from '../components.js';
-import { apptEntry, completeAppointment, draftFinalOrder } from '../state.js';
+import { apptEntry, confirmAppointment, completeAppointment, draftFinalOrder } from '../state.js';
 import { viewReminder } from './03-status-reminder.js';
 
 function modalHtml() {
@@ -30,6 +30,9 @@ function wireModal(root, close) {
        (the frames' +Sleeve / +jacket fiction; a no-op once the tailor
        side has sent its own), then the order awaits approval. */
     const a = apptEntry();
+    /* R7: the customer's confirmation locks the visitation fee
+       (confirmedAt + feeLocked) BEFORE the appointment happens */
+    confirmAppointment(a);
     draftFinalOrder(a);
     completeAppointment(a);
     /* R2-U-01: close the overlay BEFORE navigating (scroll lock / back).

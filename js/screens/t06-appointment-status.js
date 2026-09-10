@@ -7,12 +7,16 @@
    header and a per-status primary CTA (awaiting/tailoring → Mark
    Ready, ready → View Handoff Details, delivered → View Payout); the
    chevron goes Home. The harness deep link (seed still 'confirmed')
-   renders the frame's Tailoring fixture: $324, three cards itemised
-   $120/$80/$80, Mark Ready, no status line.
+   renders the frame's Tailoring fixture: three cards, payout $360,
+   Mark Ready, no status line.
    Round 2: renders the tapped job and passes it to every transition
    (R2-T-01/02); while Sarah talks the order over (a.changesRequestedAt)
    the line says so and `Message Sarah` leads (R2-T-09); the ready line
    waits for her handoff choice (R2-T-07).
+   Round 7 (Kevin's money model v2): the job card and the one money row
+   read "Your payout $360" — 100% of the cards' prices, no fee row; the
+   fixture itemises $200 / $80 / $80 so the cards ARE the breakdown.
+   The awaiting line names the payout Sarah is approving.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
@@ -22,8 +26,9 @@ import { tailorChrome, wireTailorNav, backHeader, jobCard, orderCards, payoutRow
 import { current, jobView, isFixture, isTerminalJob, payoutDate, T, FIXTURE_T06, CUSTOMER } from '../tailor-data.js';
 
 const LINE = {
-  'awaiting-approval': 'Waiting for Sarah to approve the final order. You’ll be notified — tailoring starts after approval.',
-  tailoring: 'Sarah approved the final order. Mark the job ready when the garments are done.',
+  /* round 7: the payout Sarah is approving, spelled out */
+  'awaiting-approval': (v) => `Sarah is reviewing the updated order — payout ${v.money.payout} once approved.`,
+  tailoring: () => 'Sarah approved the final order. Mark the job ready when the garments are done.',
 };
 const TALK = 'Sarah wants to talk the order over before approving — message her; she approves in her app.';
 
@@ -33,13 +38,13 @@ export function viewStatus(s, forced = null) {
   const a = forced ?? current(s);
   const v = jobView(a);
   const fixture = !forced && (isFixture() || !v.post);
-  const shown = fixture ? jobView({ ...a, status: 'tailoring', garments: FIXTURE_T06, totals: { subtotal: 360 } }) : v;
+  const shown = fixture ? jobView({ ...a, status: 'tailoring', garments: FIXTURE_T06 }) : v;
   const talking = !fixture && v.canon === 'awaiting-approval' && !!a.changesRequestedAt;
-  const line = fixture ? '' : talking ? TALK : {
+  const line = fixture ? '' : talking ? TALK : ({
     ...LINE,
-    'ready-for-pickup': a.fulfilment ? `Ready — handoff ${a.fulfilment.window}.` : 'Ready — waiting for Sarah to schedule the handoff.',
-    delivered: `Completed · payout ${v.money.payout} on ${payoutDate(a)}.`,   // R3-T-04
-  }[v.canon] ?? '';
+    'ready-for-pickup': () => (a.fulfilment ? `Ready — handoff ${a.fulfilment.window}.` : 'Ready — waiting for Sarah to schedule the handoff.'),
+    delivered: () => `Completed · payout ${v.money.payout} on ${payoutDate(a)}.`,   // R3-T-04
+  }[v.canon]?.(v) ?? '');
   const primary = fixture || v.canon === 'awaiting-approval' || v.canon === 'tailoring'
     ? cta('Mark Ready', { attrs: 'data-act="ready"' })
     : v.canon === 'ready-for-pickup'

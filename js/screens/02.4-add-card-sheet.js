@@ -6,11 +6,15 @@
 
 import { register, render as go, back } from '../app.js';
 import { sheet, sheetOverlay, cta, wireSheetA11y } from '../components.js';
-import { state, requestTailor } from '../state.js';
+import { money } from '../data.js';
+import { state, requestTailor, bookingLines } from '../state.js';
 import { ICON_CARD } from '../icons.js';
-import { view02 } from './02-appointment-details.js';
+import { view02, ensureGarments } from './02-appointment-details.js';
 
+/* R7: the note names the held visitation fee (live item count). */
 function cardContent() {
+  ensureGarments();
+  const fee = money(bookingLines(null).visitFee);
   return `<h1 class="t-title c-ink">Add card</h1>
 <div class="card-field">
   ${ICON_CARD}
@@ -19,7 +23,7 @@ function cardContent() {
   <input class="card-field__input card-field__cvc" name="cvc" inputmode="numeric" autocomplete="cc-csc" maxlength="3" placeholder="CVC" aria-label="Security code">
 </div>
 ${cta('Next', { disabled: true, attrs: 'data-act="next"' })}
-<p class="t-small c-500 sheet__sub">Saved securely — charged only when your tailor confirms the appointment.</p>`;
+<p class="t-small c-500 sheet__sub">Saved securely — your ${fee} visitation fee is charged only when a tailor accepts.</p>`;
 }
 
 /* Live formatting + Next enablement: card number groups in fours,

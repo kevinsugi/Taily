@@ -65,7 +65,8 @@ export function apptMeta(a) {
     declined: `Declined by ${first}`,
     cancelled: a.cancelledBy === 'tailor'
       ? (a.reason === 'no-show' ? 'Missed appointment' : `Cancelled by ${first}`)
-      : cardWhen(a),
+      /* R7: the unconfirmed auto-cancel (Taily, 12 hours before the visit) */
+      : (a.reason === 'unconfirmed' ? 'Cancelled · visit not confirmed' : cardWhen(a)),
   };
   return map[cardStatus(a)] ?? a.when;
 }

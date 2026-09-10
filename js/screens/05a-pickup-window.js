@@ -17,7 +17,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, deliveryWindow, selectTime, cta } from '../components.js';
+import { chrome, deliveryWindow, selectTime, cta, dueBase } from '../components.js';
 import { money, dayRows, fmtDay, handoffWindows } from '../data.js';
 import { state, chooseFulfilment, finalOrder } from '../state.js';
 import { openDateTimeOverlay } from './02.1-date-time-sheet.js';
@@ -61,10 +61,11 @@ export function windowDated(sel, wins = windowsFor()) {
   return `${fmtDay(wins[sel.w].date, wins[sel.w].abbr)} · ${wins[sel.w].chips[sel.c]}`;
 }
 
-/** Amount due at handoff for the appointment being viewed. */
+/** Amount due at handoff for the appointment being viewed, before
+    delivery (R7): the alterations + any re-tiered visitation fee —
+    the fee itself was charged on acceptance. 05B adds the $20. */
 export function amountDue(s) {
-  const t = finalOrder(currentAppt(s)).totals;
-  return (t.total ?? 0) - (t.deposit ?? 0);
+  return dueBase(finalOrder(currentAppt(s)).totals);
 }
 
 export function windowsHtml(sel, wins = windowsFor()) {

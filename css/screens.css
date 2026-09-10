@@ -47,6 +47,13 @@
   box-shadow: inset 0 1px 0 var(--neutral-200);   /* top hairline, inside */
 }
 .cta-bar__note { text-align: center; }
+/* UX-LOOP round 7 (money model v2): 02's visitation-fee card above the
+   CTA bar, 03/Confirmed · Reminder's "paid at handoff" note under the
+   rows, 03/Reminder's non-refundable warning above the actions. */
+.fee-card { gap: var(--space-2, 2px); }
+.fee-card__line, .fee-card__note { margin: 0; }
+.fee-note, .fee-warning { margin: 0; }
+.fee-warning { padding: 0 var(--space-4); text-align: center; }
 /* half-pixel baseline shim â€” Figma rasterises 02's CTA-bar block 0.5px
    lower; measured per screen (04c/04d want none). */
 [data-s="02-appointment-details"] .cta-bar > * { transform: translateY(0.5px); }
@@ -549,7 +556,7 @@
 .screen[data-screen="03-status-expired"] { min-height: 844px; }
 .screen[data-screen="03-status-declined"] { min-height: 844px; }
 .screen[data-screen="03-status-tailor-cancelled"] { min-height: 930px; }   /* round 3: fee rows shown (R3-U-06) */
-.screen[data-screen="03-status-no-show"] { min-height: 930px; }   /* round 6: one-line "deposit was kept" body */
+.screen[data-screen="03-status-no-show"] { min-height: 930px; }   /* round 6: one-line "fee was kept" body */
 .screen[data-screen="04-review-approve-removed"] { min-height: 997px; }
 .screen[data-screen="03-status-new-time"] { min-height: 872px; }
 .screen[data-screen="09-bookings-closed"] { min-height: 1050px; }   /* round 3: no matching note under a proposed time (R3-U-07) */

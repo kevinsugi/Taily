@@ -7,10 +7,15 @@
    appointment's reviewed order (a.garments / a.totals — written by the
    tailor's T05 Send or the user-side demo); the harness deep link
    keeps the frame's $200 fixture. Approve only stamps approvedAt.
+   UX-LOOP round 7 (Kevin): rows Alterations / Visitation fee — paid /
+   [Additional visitation fee — when the final item count re-tiered
+   it, charged at handoff] / Total / Due at handoff (alterations + the
+   added fee). Figma sync pending (Default / Modified / Removed frames
+   still draw Subtotal / -$20 Deposit / Due).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, cta, feeRow, orderCards, receiptDates } from '../components.js';
+import { chrome, cta, orderCards, orderRows } from '../components.js';
 import { money, SEED_UPCOMING } from '../data.js';
 import { apptEntry, approveOrder, finalOrder, orderModified, isPostAppointment, isTerminal, canonicalStatus } from '../state.js';
 import { openRequestChanges } from './04.1-request-changes.js';
@@ -25,7 +30,6 @@ export function viewReview(s, screenId, fixture) {
   const o = live ? finalOrder(a) : fixture;
   const info = orderModified(o);
   const t = o.totals;
-  const d = receiptDates(a);
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];
   /* R2-T-08: booked garments the tailor dropped at the visit, listed
      under the cards the way T05 shows them to Marco (frame: 04 -
@@ -40,9 +44,7 @@ export function viewReview(s, screenId, fixture) {
   <div class="garments-card">
     ${orderCards(o, { variant: 'PostAppt', marks: true })}
     ${removed.map((r) => `<div class="removed-row t-small c-500"><span>Removed at the visit — ${r.type} · ${(r.jobs ?? []).join(', ')}</span><s>${money(r.amount)}</s></div>`).join('\n    ')}
-    ${feeRow(money(t.total), 'Subtotal', { line: true, info })}
-    ${feeRow(money(-t.deposit), `10% Deposit - Paid ${d.deposit}`, { line: true, info })}
-    ${feeRow(money(t.total - t.deposit), 'Due at Pickup / Delivery', { info })}
+    ${orderRows(t, { feeDesc: 'Visitation fee — paid', due: 'Due at handoff', info })}
   </div>
   <div class="cta-bar">
     ${cta('Approve Final Order', { attrs: 'data-act="approve"' })}

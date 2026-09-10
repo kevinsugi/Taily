@@ -28,10 +28,15 @@
                                    cant-make-it / no-show = tailor,
                                    expiry = none)
                       reason       'customer' | 'declined' | 'expired' |
-                                   'cant-make-it' | 'no-show'
+                                   'cant-make-it' | 'no-show' | 'unconfirmed'
                       cancelledAt  "Wed, Sept 9" (fmtDay of today)
                       wasRequested true when it was still searching
-                                   (nothing was ever charged)
+                                   (nothing was ever charged — the fee
+                                   hold is released)
+                      refund       the visitation fee going back (0 kept)
+                      feeKept      true only when a CHARGED fee is kept
+                                   (round 7: the customer confirmed the
+                                   visit, then cancelled / no-showed)
    state.lastCancelled  the SAME object as the most recently moved
                     entry (=== state.past[0] right after the move); null
                     at boot, after reset() and after requestTailor().
@@ -43,40 +48,63 @@
 import {
   TAILORS,
   JOB_TYPES,
-  DEPOSIT_RATE,
   APPT_DEFAULT,
   SEED_UPCOMING,
   SEED_PAST,
   SEED_FINAL_ORDER,
-  garmentAmount,
+  DELIVERY_FEE,
+  visitFee,
+  visitFeeNote,
+  apptTotals,
+  payout,
   fmtDay,
   shiftDay,
   parseWhen,
   mdy,
   isAfterDay,
   nextOrderId,
-  withinHours,
 } from './data.js';
 
-/* ---------- UX-LOOP round 6 substrate (Kevin's decisions) ----------
-   FEE POLICY ("fee" = the customer's 10% deposit; the tailor's Taily
-   fee is unchanged): the tailor cancelling refunds it; the customer
-   cancelling within 12 hours of the visit (withinHours), or a no-show,
-   keeps it; an earlier customer cancel refunds it. A request no tailor
-   ever accepted charges nothing (hold released) as before. Every
-   terminal entry gains
-     refund       the dollars going back (0 when kept / never charged)
-     depositKept  true only when a PAID deposit is kept (< 12 h customer
-                  cancel, no-show)
+/* ---------- UX-LOOP round 7 substrate: money model v2 (Kevin) ----------
+   THE VISITATION FEE IS THE DEPOSIT. No 10% anything, on either side.
+     a.totals = { alterations, items, visitFee, visitFeeCharged,
+                  visitFeeAdded, delivery, total } (data.js apptTotals;
+                  `subtotal` = alterations, deprecated alias)
+     requestTailor()        visitFee from the booked item count (tiers in
+                            data.js), `feeHeld: true` — held, not charged
+     tailorAccepts(a)       charges it: `feeChargedOn` (receipt date),
+                            feeHeld false. acceptProposedTime() likewise.
+     confirmAppointment(a)  the 24-hour prompt's Confirm: `confirmedAt`,
+                            `feeLocked = true` → the fee is non-refundable
+                            from here (no-show included)
+     cancelAppointment(a)   refund = feeLocked ? 0 : visitFee; a request
+                            never accepted charged nothing (hold released)
+     tailorCancels(a, r)    'cant-make-it' → full refund always;
+                            'no-show' → kept only if feeLocked
+     declineAppointment / expireAppointment → full refund (never charged)
+     autoCancelUnconfirmed(a)  12 hours before the visit with no
+                            confirmation: terminal `cancelled`,
+                            cancelledBy 'none', reason 'unconfirmed',
+                            full refund, moved to past like the others
+     writeFinalOrder / draftFinalOrder re-tier the fee from the final
+                            item count (apptTotals): `visitFeeAdded` is
+                            owed at handoff with the alterations; the
+                            charged fee never shrinks.
+   Every terminal entry stamps `refund` + `feeKept`. The old deposit /
+   depositOn / depositKept fields are gone. The tailor side reads
+   payout(garments) = 100% of the alteration prices and never the
+   customer's fee / delivery / total.
+   ---------- round 6 (kept) ----------
    NO TAILOR NAME BEFORE MATCHING: requestTailor() leaves name /
    initials / tailorId null and sets `matching: true`; tailorAccepts()
    (and acceptProposedTime()) assign Marco and clear it. Screens read
    data.js tailorName() / tailorInitials() / tailorFirst().
    RESCHEDULE = cancel + resubmit the same job for a new tailor:
-   rescheduleAppointment(a) cancels (same 12-hour rule), copies the
-   items into the booking form + Home selection (copyItemsOver) and
-   restores the requested time / need-by / visit type; 03.1 then lands
-   on 02, whose Request Tailor creates a new matching request.
+   rescheduleAppointment(a) cancels (round 7: the feeLocked rule),
+   copies the items into the booking form + Home selection
+   (copyItemsOver) and restores the requested time / need-by / visit
+   type; 03.1 then lands on 02, whose Request Tailor creates a new
+   matching request.
    ---------------------------------------------------------------- */
 
 /** Marco — the one tailor the prototype matches with. */
@@ -191,9 +219,10 @@ export function advanceStatus() {
     appointment: a,
     prev,
     next,
-    // v3 charged the deposit exactly on requested/searching -> confirmed
-    depositCharged: canon === 'searching' && next === 'confirmed',
-    deposit: a.totals ? a.totals.deposit : null,
+    // v3 charged the hold exactly on requested/searching -> confirmed
+    // (round 7: the hold is the visitation fee)
+    feeCharged: canon === 'searching' && next === 'confirmed',
+    visitFee: a.totals ? a.totals.visitFee : null,
   };
 }
 
@@ -252,6 +281,9 @@ export function requestTailor() {
     garments: JSON.parse(JSON.stringify(state.garments)),
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     totals,
+    /* R7: the visitation fee is HELD at booking (its tier from the
+       booked count is already in `totals`), charged on acceptance */
+    feeHeld: true,
     /* R3-T-04: one order number per booking (the seed keeps 4417) */
     orderId: nextOrderId(),
     /* R4-U-02: the method this booking paid with — 03/Cancelled's refund
@@ -288,13 +320,37 @@ export function step(from, to, extra = {}, a = apptEntry()) {
   return true;
 }
 
-/** Tailor accepts the request — the deposit hold is charged now (v3
-    semantic); depositOn dates the receipt rows. A pending time
+/** The receipt date of the fee charge ("9/10/26"; the seed's fiction
+    says 7/7/26). */
+const chargeDate = () => mdy(new Date().toDateString(), '7/7/26');
+/** Charge the held visitation fee (R7): stamps `feeChargedOn`, clears
+    the hold. Idempotent — a fee already charged keeps its date. */
+function chargeFee(a) {
+  if (!a) return;
+  a.feeChargedOn ??= chargeDate();
+  a.feeHeld = false;
+}
+
+/** Tailor accepts the request — the held visitation fee is charged now
+    (Kevin, R7): `feeChargedOn` dates the receipt rows. A pending time
     proposal is moot once the request is accepted as booked. */
 export function tailorAccepts(a = apptEntry()) {
-  const ok = step('searching', 'confirmed', { depositOn: mdy(new Date().toDateString(), '7/7/26') }, a);
-  if (ok) { a.proposed = null; assignTailor(a); }   // R6: the tailor is named on acceptance
+  const ok = step('searching', 'confirmed', {}, a);
+  if (ok) { chargeFee(a); a.proposed = null; assignTailor(a); }   // R6: the tailor is named on acceptance
   return ok;
+}
+/**
+ * The 24-hour prompt's Confirm (R7): the customer confirms the visit —
+ * `confirmedAt` + `feeLocked = true`: from here the visitation fee is
+ * non-refundable (a no-show keeps it too). Only a confirmed, not yet
+ * happened appointment can be confirmed; returns true when it was.
+ * 03.2's Confirm calls this before completeAppointment().
+ */
+export function confirmAppointment(a = apptEntry()) {
+  if (!a || canonicalStatus(a.status) !== 'confirmed') return false;
+  a.confirmedAt = today();
+  a.feeLocked = true;
+  return true;
 }
 /** The appointment happened; tailor drafts the final order. */
 export const completeAppointment = (a = apptEntry()) => step('confirmed', 'awaiting-approval', {}, a);
@@ -317,10 +373,16 @@ export function markReady(a = apptEntry()) {
   return step('tailoring', 'ready-for-pickup', { readyAt }, a);
 }
 /** 07a/07b: how the garments come back. `date` is the window's calendar
-    day ("Jul 17") so receipts and the delivered stamp can name it. */
+    day ("Jul 17") so receipts and the delivered stamp can name it.
+    R7: home delivery adds DELIVERY_FEE to the totals (`delivery`,
+    `total`); pickup takes it back out. */
 export function chooseFulfilment(method, window, date = null, a = apptEntry()) {
   if (!a) return false;
   a.fulfilment = { method, window, date };
+  if (a.totals) {
+    const delivery = method === 'delivery' ? DELIVERY_FEE : 0;
+    a.totals = { ...a.totals, delivery, total: (a.totals.alterations ?? 0) + (a.totals.visitFee ?? 0) + delivery };
+  }
   return true;
 }
 /** Garments back with the customer — stamps deliveredAt from the
@@ -352,18 +414,18 @@ export function proposeTime(a, when) {
 }
 
 /** The customer accepts a proposed time (or the tailor confirms a
-    time): `a.when = when`, proposal cleared, status confirmed, deposit
-    hold charged (depositOn). `when` first keeps the v3 signature;
-    omitted, it falls back to the pending proposal. */
+    time): `a.when = when`, proposal cleared, status confirmed, the held
+    visitation fee charged (feeChargedOn, R7). `when` first keeps the v3
+    signature; omitted, it falls back to the pending proposal. */
 export function acceptProposedTime(when, a = apptEntry()) {
   if (!a) return null;
   const at = when ?? a.proposed?.when;
   if (at) a.when = at;
   a.proposed = null;
   a.status = 'confirmed';
-  a.depositOn ??= mdy(new Date().toDateString(), '7/7/26');
+  chargeFee(a);
   assignTailor(a);   // R6: accepting the proposal books the proposing tailor
-  return { appointment: a, when: a.when, deposit: a.totals ? a.totals.deposit : null };
+  return { appointment: a, when: a.when, visitFee: a.totals ? a.totals.visitFee : null };
 }
 
 /** The proposal is dropped: by the customer (Keep Looking, the
@@ -412,47 +474,62 @@ function terminate(a, status, cancelledBy, reason) {
   return wasRequested;
 }
 
+/** The visitation fee on file for an appointment (charged or held). */
+const feeOf = (a) => a?.totals?.visitFeeCharged ?? a?.totals?.visitFee ?? 0;
+/** Stamp the fee outcome on a terminal entry (R7): `refund` (the fee
+    going back — the hold released when it was never charged) and
+    `feeKept` (a charged fee stays with Taily). */
+function settleFee(a, { kept = false } = {}) {
+  const fee = feeOf(a);
+  a.refund = kept ? 0 : fee;
+  a.feeKept = kept && fee > 0;
+  return { refund: a.refund, kept: a.feeKept };
+}
+
 /** The tailor declines the request (cancelledBy 'tailor', reason
-    'declined'). Nothing was charged. */
+    'declined'). Nothing was charged — the fee hold is released. */
 export function declineAppointment(a = apptEntry()) {
   if (!a) return null;
   terminate(a, 'declined', 'tailor', 'declined');
-  return { appointment: a, deposit: a.totals ? a.totals.deposit : 20 };
+  const { refund } = settleFee(a);
+  return { appointment: a, refund, visitFee: feeOf(a) };
 }
 
 /** No tailor accepted in time (cancelledBy 'none', reason 'expired').
     A proposal still pending is kept on `a.lapsedProposal` (R3-T-02:
-    "Marco proposed … but the request lapsed before you answered"). */
+    "Marco proposed … but the request lapsed before you answered").
+    The fee hold is released. */
 export function expireAppointment(a = apptEntry()) {
   if (!a) return null;
   if (a.proposed) { a.lapsedProposal = a.proposed; a.proposed = null; }
   terminate(a, 'expired', 'none', 'expired');
-  return { appointment: a };
+  const { refund } = settleFee(a);
+  return { appointment: a, refund };
 }
 
 /** The tailor cancels a confirmed visit (R2-U-05 / R2-T-05):
     reason 'cant-make-it' | 'no-show'. Status 'cancelled', cancelledBy
-    'tailor'. R6 fee policy: can't-make-it refunds the paid deposit
-    (`refund` = deposit, `depositKept` false); a no-show keeps it
-    (`refund` 0, `depositKept` true). */
+    'tailor'. R7 fee policy: the tailor cancelling refunds the fee,
+    always (`feeLocked` ignored); a no-show keeps it ONLY once the
+    customer had confirmed the visit (`feeLocked`) — before that it
+    is refunded too. */
 export function tailorCancels(a = apptEntry(), reason = 'cant-make-it') {
   if (!a) return null;
   const wasRequested = terminate(a, 'cancelled', 'tailor', reason);
-  const deposit = a.totals ? a.totals.deposit : 0;
-  const refund = (wasRequested || reason === 'no-show') ? 0 : deposit;
-  a.refund = refund;
-  a.depositKept = reason === 'no-show' && !wasRequested;
-  return { appointment: a, wasRequested, reason, refund, kept: a.depositKept };
+  const { refund, kept } = settleFee(a, { kept: reason === 'no-show' && !wasRequested && a.feeLocked === true });
+  return { appointment: a, wasRequested, reason, refund, kept };
 }
 
 /**
  * The customer cancels (a request withdrawn, or a confirmed visit).
- * v3: a request that was never confirmed charges nothing; a confirmed
- * appointment refunds the deposit. `aOrIndex` may be the appointment,
- * its index in state.upcoming, or nothing (the one being viewed — v3
- * read state.upcoming[currentAppt.index]). The entry moves to
- * state.past[0] with status 'cancelled', cancelledBy 'customer',
- * reason 'customer', and state.lastCancelled points at it.
+ * v3: a request that was never confirmed charges nothing. R7: a
+ * confirmed appointment refunds the visitation fee in full until the
+ * customer confirmed the visit on the 24-hour prompt (`feeLocked`,
+ * confirmAppointment) — after that the fee is kept. `aOrIndex` may be
+ * the appointment, its index in state.upcoming, or nothing (the one
+ * being viewed — v3 read state.upcoming[currentAppt.index]). The entry
+ * moves to state.past[0] with status 'cancelled', cancelledBy
+ * 'customer', reason 'customer', and state.lastCancelled points at it.
  * R4-U-01: once the appointment has happened (awaiting-approval →
  * delivered) the order is the tailor's measured work — it cannot be
  * cancelled from here; returns null and leaves the entry untouched
@@ -464,17 +541,25 @@ export function cancelAppointment(aOrIndex) {
   else a = state.upcoming[aOrIndex == null ? state.currentAppt.index : aOrIndex];
   if (!a) return null;
   if (isPostAppointment(a)) return null;
-  /* R6 fee policy: decided BEFORE the entry moves (a.when is untouched
-     either way) — within 12 hours of the visit the paid deposit stays
-     with the tailor; earlier it comes back; a never-confirmed request
-     charged nothing to begin with. */
-  const late = withinHours(a.when, 12);
   const wasRequested = terminate(a, 'cancelled', 'customer', 'customer');
-  const deposit = a.totals ? a.totals.deposit : 0;
-  const refund = (wasRequested || late) ? 0 : deposit;
-  a.refund = refund;
-  a.depositKept = refund === 0 && !wasRequested;
-  return { appointment: a, wasRequested, refund, kept: a.depositKept };
+  const { refund, kept } = settleFee(a, { kept: !wasRequested && a.feeLocked === true });
+  return { appointment: a, wasRequested, refund, kept };
+}
+
+/**
+ * R7: 12 hours before the visit with no confirmation on the 24-hour
+ * prompt — Taily cancels the appointment for the customer: terminal
+ * `cancelled`, cancelledBy 'none', reason 'unconfirmed', the fee
+ * refunded in full (it was never locked), the tailor's slot reopened
+ * (T01 renders the closed row). Only a confirmed, unconfirmed
+ * (`!feeLocked`), not yet happened appointment qualifies; returns null
+ * otherwise. The customer-side demo is 03/Reminder's title tap.
+ */
+export function autoCancelUnconfirmed(a = apptEntry()) {
+  if (!a || canonicalStatus(a.status) !== 'confirmed' || a.feeLocked) return null;
+  terminate(a, 'cancelled', 'none', 'unconfirmed');
+  const { refund } = settleFee(a);
+  return { appointment: a, refund };
 }
 
 /**
@@ -494,8 +579,8 @@ export function copyItemsOver(a) {
 
 /**
  * R6 "reschedule" = cancel + resubmit the same job for a new tailor at
- * the same time (Kevin): runs cancelAppointment(a) (same 12-hour rule,
- * same terminal placement — null when the visit already happened),
+ * the same time (Kevin): runs cancelAppointment(a) (R7: the feeLocked
+ * rule, same terminal placement — null when the visit already happened),
  * copies the items into the booking form + Home selection and restores
  * the requested time / need-by / visit type on state.appt, so 02 opens
  * pre-filled and its Request Tailor creates a fresh matching request.
@@ -550,8 +635,11 @@ export function clearGarments() {
 /* ---------- Estimates ---------- */
 
 /**
- * Per-tailor minimums ("$N+"); deposit = 10% of the total.
- * Ported verbatim from v3 bookingLines(), reading from `state`.
+ * The booking form's pricing (02's fee card + CTA, 03/Requested's
+ * estimate row): per-tailor minimums ("$N+") for the alterations and
+ * the visitation fee tier for the item count (R7) — the same shape
+ * apptTotals() returns, plus `note` (the tier's supporting line, ''
+ * on the $25 tier). Ported from v3 bookingLines(), reading `state`.
  */
 export function bookingLines(tailor) {
   const mult = tailor ? tailor.mult : 1;
@@ -560,29 +648,24 @@ export function bookingLines(tailor) {
     qty: g.qty,
     amount: Math.round(g.jobs.reduce((s, j) => s + JOB_TYPES[j].price * mult, 0)) * g.qty,
   }));
-  const subtotal = rows.reduce((s, r) => s + r.amount, 0);
-  const visitFee = (state.appt.where === 'Home Visit' && tailor && tailor.homeFee) ? tailor.homeFee : 0;
-  const total = subtotal + visitFee;
-  const deposit = Math.round(total * DEPOSIT_RATE * 100) / 100;
-  return { rows, subtotal, visitFee, total, deposit };
+  const alterations = rows.reduce((s, r) => s + r.amount, 0);
+  const items = state.garments.reduce((s, g) => s + (g.qty ?? 1), 0);
+  const fee = visitFee(items);
+  return {
+    rows, alterations, items,
+    visitFee: fee, visitFeeCharged: fee, visitFeeAdded: 0,
+    delivery: 0, total: alterations + fee,
+    note: visitFeeNote(items),
+    subtotal: alterations,   // deprecated alias
+  };
 }
 
 /* ---------- The final order (UX-LOOP round 1) ---------- */
 
-/**
- * Totals for a garment list at multiplier 1, keeping the appointment's
- * original deposit (10% of what was booked — it never re-prices).
- * Shared with the tailor's at-visit editor: call it after writing
- * `a.garments` to refresh `a.totals`.
- */
-export function apptTotals(garments, base = {}) {
-  const rows = (garments ?? []).map((g) => ({ label: `${g.type} — ${g.jobs.join(', ')}`, qty: g.qty, amount: garmentAmount(g) }));
-  const subtotal = rows.reduce((s, r) => s + r.amount, 0);
-  const visitFee = base.visitFee ?? 0;
-  const total = subtotal + visitFee;
-  const deposit = base.deposit ?? Math.round(total * DEPOSIT_RATE * 100) / 100;
-  return { rows, subtotal, visitFee, total, deposit };
-}
+/* apptTotals() / payout() live in data.js since round 7 (the tailor
+   side imports them from either module); re-exported here for the
+   round 1–6 import paths. */
+export { apptTotals, payout };
 
 /**
  * The order to draw on post-appointment screens (03/Tailoring, 04, 05A/B,
@@ -622,10 +705,10 @@ export function draftFinalOrder(a = apptEntry()) {
   if (extra) { first.jobs.push(extra); first.addedJobs = [...(first.addedJobs ?? []), extra]; }
   garments.push({ id: nextGarmentId(), type: first.type, jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2, added: true });
   a.garments = garments;
-  a.totals = apptTotals(garments, a.totals ?? {});
+  a.totals = apptTotals(garments, a.totals ?? {});   // R7: re-tiers the fee, never below the charged one
   a.revisedAt = fmtDay(a.when, 'Sun, Jul 12');
   refreshItemSummary(a);   // R2-U-08: cards follow the final order
   return a;
 }
 
-export { TAILORS, JOB_TYPES, DEPOSIT_RATE };
+export { TAILORS, JOB_TYPES };

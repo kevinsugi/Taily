@@ -2,8 +2,9 @@
    06B - Review & Approve Final Order - Modified — Figma 551:6263.
    06A with the order modified at the appointment: card 1 gains an
    added service, card 3 is a whole added garment, and every touched
-   price renders semantic/info. Fee rows: $360 Subtotal / - $20
-   Deposit / $340 Due. Gap 16, heading at the bare 128 offset.
+   price renders semantic/info. Fee rows (R7): $360 Alterations / $25
+   Visitation fee — paid / $385 Total / $360 Due at handoff. Gap 16,
+   heading at the bare 128 offset.
    The harness deep link draws SEED_FINAL_ORDER (the frame's fiction:
    +$80 Sleeve on card 1, +$80 jacket → 200 + 80 + 80 = 360); a live
    visit draws the appointment's reviewed order with its own added

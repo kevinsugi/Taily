@@ -4,13 +4,14 @@
    View All Appointments CTA + accent cancel line. Gap 8.
    State: the searching appointment (post-request).
    Phase R3 (Kevin): the request card reads the ACTUAL order — address/
-   visit, requested time and items/estimate/deposit come from state, so
+   visit, requested time and items/estimate/fee come from state, so
    it matches whatever was booked. The frame's requested-time fixture
    ('Thu, Jul 9 · 9:30 AM') is stale — text-parity ALLOWs it; the
    address and estimate lines match the frame since UX-LOOP R1
    (Home Visit fiction, $200 / $20 seeded order). Cancel request opens
-   the R1 popup. The deposit is a HOLD until the tailor confirms
-   (02.3's copy) — "held" here, released on cancel (R1-U-03).
+   the R1 popup. R7 (Kevin): the visitation fee is a HOLD until a
+   tailor accepts (02.3's copy) — "$25 visitation fee held" here, the
+   cancel line reads "nothing has been charged" (Figma sync pending).
    UX-LOOP R2-U-03 (round 3: frame "03 - Order Status / New Time" +
    route 03-status-new-time): when the tailor
    proposed another time (`a.proposed`) the hero becomes the
@@ -101,12 +102,13 @@ export function viewRequested(s, forced = null) {
     ? [
       metaRow('◉', `${req.place} — ${req.visit}`),
       metaRow('▤', fmtWhen(req.when, req.when)),
-      metaRow('✂', `${itemsLabel(itemCount(req), 'item')} · ${money(req.totals.subtotal)}.00+ est. · ${money(req.totals.deposit)} deposit held`),
+      /* R7: the held visitation fee (the tier for the booked count) */
+      metaRow('✂', `${itemsLabel(itemCount(req), 'item')} · ${money(req.totals.alterations)}.00+ est. · ${money(req.totals.visitFee)} visitation fee held`),
     ]
     : [
       metaRow('◉', `${s.contact.street}, ${s.contact.unit} — ${s.appt.where}`),
       metaRow('▤', s.appt.when),
-      metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.subtotal)}.00+ est. · ${money(t.deposit)} deposit held`),
+      metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.alterations)}.00+ est. · ${money(t.visitFee)} visitation fee held`),
     ];
   /* the acceptance window (the tailor side's timer twin) — R6: in the
      frame too (under the hero); tapping it live is the "time passes" demo */
@@ -130,7 +132,7 @@ export function viewRequested(s, forced = null) {
   </div>
   ${infoCard(rows.join(''))}
   ${actions}
-  <button type="button" class="cancel-line" data-act="cancel">Cancel request — deposit refunded</button>
+  <button type="button" class="cancel-line" data-act="cancel">Cancel request — nothing has been charged</button>
 </div>`;
 }
 

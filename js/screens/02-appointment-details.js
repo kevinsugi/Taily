@@ -2,13 +2,20 @@
    02 - Appointment Details — Figma 277:2676.
    Heading+address group (mirrors 01, opens the 02b sheet) + two
    full-width filter pills + garments group (label 8 over the cards) +
-   CTA bar (top hairline, CTA with live deposit, disclaimer).
+   CTA bar (top hairline, CTA with the live visitation fee, disclaimer).
    Sections stack at gap 16.
+   UX-LOOP round 7 (Kevin's money model v2): the deposit is gone. A fee
+   card above the CTA bar reads "Visitation fee $25 · 2 items" — the
+   tier for the LIVE item count on the form (1–4 → $25, 5–10 → $50,
+   11+ → $100; the $50 / $100 tiers add data.js VISIT_FEE_NOTE) — and
+   the CTA reads "Hold $25 Visitation Fee": held now, charged when a
+   tailor accepts, alterations paid at handoff. Figma sync pending
+   (02 + its four sheet backdrops still draw the $20 Deposit CTA).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, filterPill, garmentCard, cta, toast } from '../components.js';
-import { money, garmentAmount, isAfter } from '../data.js';
+import { money, garmentAmount, isAfter, itemsLabel } from '../data.js';
 import { state, addGarment, removeGarment, bookingLines } from '../state.js';
 /* Sheets open as in-place overlays (v3 sheetShow parity) — navigating to
    the 02a/04a routes would rebuild this screen and flash. The routes
@@ -66,11 +73,21 @@ export function view02(s) {
       <button type="button" class="add-garment" data-act="add-garment">+ Additional Garment</button>
     </div>
   </div>
+  ${feeCard(totals)}
   <div class="cta-bar">
-    ${cta(`Request Tailor · ${money(totals.deposit)} Deposit (10%)`, { attrs: 'data-act="request"' })}
+    ${cta(`Hold ${money(totals.visitFee)} Visitation Fee`, { attrs: 'data-act="request"' })}
     <p class="t-small c-500 cta-bar__note">A Taily-certified tailor near you will accept your request — final pricing is confirmed at your appointment.</p>
   </div>
 </div>`;
+}
+
+/** R7: the visitation fee card — the tier for the booked item count,
+    with the $50 / $100 tiers' supporting line. */
+export function feeCard(t) {
+  return `<div class="prepare-card fee-card" data-fee-card>
+    <p class="t-body w-500 c-ink fee-card__line">Visitation fee ${money(t.visitFee)} · ${itemsLabel(t.items, 'item')}</p>
+    ${t.note ? `<p class="t-small c-500 fee-card__note">${t.note}</p>` : ''}
+  </div>`;
 }
 
 /* UX-LOOP R1-U-11: repaint the need-by pill's validity in place after

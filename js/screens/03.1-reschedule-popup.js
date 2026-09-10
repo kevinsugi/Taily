@@ -6,35 +6,48 @@
    Reschedule / Cancel, the 01/09 card Reschedule, and 03's cancel
    line (mode 'cancel' — cancel-worded per UX-003).
    UX-003: the rows quote the ACTUAL appointment (when / tailor /
-   deposit). The frame still draws the "Thursday's 7:00 PM" fixture —
+   fee). The frame still draws the "Thursday's 7:00 PM" fixture —
    text-parity ALLOWs it.
    UX-LOOP R1-U-03: cancel mode (a request no tailor has confirmed)
    says the card hold is released — nothing was charged; confirming
    withdraws it (cancelAppointment) and lands on 03/Cancelled.
    UX-LOOP round 6 (Kevin): "rescheduling" = cancel + resubmit the same
    job for a new tailor. Reschedule mode's confirm runs
-   rescheduleAppointment(): the visit is cancelled under the 12-hour
-   rule (≥ 12 h before the visit the deposit is refunded, closer it is
-   kept — the ✓ / ✕ row says which), the items, requested time,
-   need-by and visit type are copied into the booking form, and the
-   popup lands on 02 (replace) with the "Appointment cancelled — send
-   the same job…" toast. The customer never chooses the tailor. The
-   registered route (harness deep link) keeps the frame's rows.
+   rescheduleAppointment(): the visit is cancelled, the items,
+   requested time, need-by and visit type are copied into the booking
+   form, and the popup lands on 02 (replace) with the "Appointment
+   cancelled — send the same job…" toast. The customer never chooses
+   the tailor. The registered route (harness deep link) keeps the
+   frame's rows.
+   UX-LOOP round 7 (Kevin's money model v2): the 12-hour rule is gone.
+   The visitation fee is refunded in full until the customer confirms
+   the visit on the 24-hour prompt (`a.feeLocked`) — the ✓ / ✕ row
+   says which: "✓ Your $25 visitation fee is refunded" / "✕ Your $25
+   visitation fee is non-refundable (you confirmed the visit)". Figma
+   sync pending (the frame's row still says deposit).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { cta, modalOverlay, toast } from '../components.js';
-import { money, fmtWhen, withinHours, tailorFirst } from '../data.js';
+import { money, fmtWhen, tailorFirst } from '../data.js';
 import { state, apptEntry, cancelAppointment, rescheduleAppointment, copyItemsOver } from '../state.js';
 import { viewReminder } from './03-status-reminder.js';
 
 const live = () => !!window.__tailyNavigated;
 const row = (glyph, tone, text) => `<div class="modal__row"><span class="modal__glyph ${tone}">${glyph}</span><span>${text}</span></div>`;
 
+/** The fee row of the reschedule popup (R7): refunded until the visit
+    is confirmed, non-refundable after. */
+export const feeRowFor = (a) => {
+  const fee = money(a?.totals?.visitFeeCharged ?? a?.totals?.visitFee ?? 25);
+  return a?.feeLocked
+    ? row('✕', 'c-error', `Your ${fee} visitation fee is non-refundable (you confirmed the visit)`)
+    : row('✓', 'c-success', `Your ${fee} visitation fee is refunded`);
+};
+
 function modalHtml(mode = 'reschedule') {
   const a = apptEntry() ?? {};
   const first = tailorFirst(a, 'your tailor');
-  const deposit = a.totals?.deposit ?? 20;
   const when = fmtWhen(a.when, 'Sunday Jul 12, 7PM');
   const cancelMode = mode === 'cancel';
   let rows;
@@ -46,13 +59,10 @@ function modalHtml(mode = 'reschedule') {
       row('✓', 'c-success', 'Nothing was charged — the hold on your card is released'),
     ];
   } else if (live()) {
-    /* R6: the 12-hour rule, then the reschedule promise */
-    const kept = withinHours(a.when, 12);
+    /* R7: the fee row follows feeLocked, then the reschedule promise */
     rows = [
       row('✕', 'c-error', `Your ${when} with ${first} is cancelled`),
-      kept
-        ? row('✕', 'c-error', `Your ${money(deposit)} deposit is not refunded — you’re within 12 hours of the visit`)
-        : row('✓', 'c-success', `Your ${money(deposit)} deposit is refunded`),
+      feeRowFor(a),
       row('↻', 'c-accent-ink', 'Your items and time are kept — we’ll find you a new tailor'),
     ];
   } else {
@@ -60,7 +70,7 @@ function modalHtml(mode = 'reschedule') {
     rows = [
       row('✕', 'c-error', `Your ${when} with ${first} is cancelled`),
       row('↻', 'c-accent-ink', 'A new order starts with your items copied over'),
-      row('✓', 'c-success', `Your ${money(deposit)} deposit is refunded.`),
+      feeRowFor(a),
     ];
   }
   return `<div class="modal">

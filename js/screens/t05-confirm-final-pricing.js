@@ -13,13 +13,19 @@
    the visit render as "Removed at the visit — …" lines (R2-T-08);
    Send passes the tapped job and checks the transition before
    toasting (R2-T-02).
+   Round 7 (Kevin's money model v2): the one money row is "Your payout
+   $360" (100% of the cards' prices, no fee row), and when the draft is
+   worth something other than what Marco accepted the job for
+   (`a.tailor.acceptedPayout`) the scope change is stated BEFORE Send:
+   "Payout $200 → $360 (+$160)". Send moves the accepted payout with
+   the final order (writeFinalOrder).
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
 import { cta, toast } from '../components.js';
 import { state } from '../state.js';
-import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, removedRows } from '../tailor-components.js';
-import { current, jobView, draftFor, orderMarks, orderTotals, bookedGarments, writeFinalOrder, tailorOf, isFixture, isTerminalJob, T } from '../tailor-data.js';
+import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, payoutChangeRow, removedRows } from '../tailor-components.js';
+import { current, jobView, draftFor, orderMarks, orderMoney, payoutChange, bookedGarments, writeFinalOrder, tailorOf, isFixture, isTerminalJob, T } from '../tailor-data.js';
 
 /** Exported: `forced` = { draft, booked } renders a given at-visit draft
     against its booking (round-3 frame "T05 - Confirm Final Pricing / Removed"). */
@@ -34,9 +40,10 @@ export function viewPricing(s, forced = null) {
   <div class="garments-card">
     ${orderCards(draft, { variant: 'Appt_View', marks })}
     ${fixture ? '' : removedRows(removed)}
-    ${payoutRows(orderTotals(draft))}
+    ${payoutRows(orderMoney(draft))}
   </div>
   <div class="t-actions">
+    ${payoutChangeRow(payoutChange(a, draft, forced ? orderMoney(forced.booked).payout : undefined))}
     ${cta('Send to Sarah for Approval', { attrs: 'data-act="send"' })}
     ${cta('Review Details', { variant: 'secondary', attrs: 'data-act="review"' })}
   </div>

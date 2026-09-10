@@ -8,7 +8,8 @@
    from the booked order (a.tailor.draft, see draftFor); the
    selectors / ⊕ Additional Service / ✕ / photo tiles / Add Comment /
    + Additional Garment mutate it exactly as 02 mutates state.garments,
-   and the fee rows recompute on every change. T05 Send writes the
+   and the "Your payout" row (round 7: 100% of the alteration prices,
+   no fee row) recomputes on every change. T05 Send writes the
    draft back to the appointment. The harness deep link starts from
    the frame's final-order fixture instead. Round 2: the draft is keyed
    to the tapped job and its garments keep their booked ids (R2-T-08).
@@ -20,7 +21,7 @@ import { register, render as go, back } from '../app.js';
 import { summaryCard, cta, toast } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, wireOrderEditor, openChat } from '../tailor-components.js';
-import { current, jobView, draftFor, orderTotals, isFixture, CUSTOMER, CUSTOMER_ROWS, isTerminalJob } from '../tailor-data.js';
+import { current, jobView, draftFor, orderMoney, isFixture, CUSTOMER, CUSTOMER_ROWS, isTerminalJob } from '../tailor-data.js';
 
 function renderScreen(s) {
   const a = current(s);
@@ -35,7 +36,7 @@ function renderScreen(s) {
     <div class="garments-card">
       ${orderCards(draft, { variant: 'Appt' })}
       ${fixture ? '' : '<button type="button" class="add-garment" data-act="add-garment">+ Additional Garment</button>'}
-      ${payoutRows(orderTotals(draft))}
+      ${payoutRows(orderMoney(draft))}
     </div>
   </div>
   <div class="t-actions">

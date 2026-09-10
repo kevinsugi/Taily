@@ -320,3 +320,14 @@ html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) +
 .t03a__note::placeholder { color: var(--neutral-500); opacity: 1; }
 .t03a__note:focus { outline: none; box-shadow: inset 0 0 0 1px var(--neutral-400); }
 .t03a__note[hidden] { display: none; }
+
+/* ---------- UX-LOOP round 7 (money model v2) ---------- */
+/* T05: the scope change stated before Send — "Payout $200 → $360 (+$160)"
+   in semantic/info, centred above the CTA (live + fixture; frame sync
+   pending) */
+.t-payout-change {
+  margin: 0;
+  width: 100%;
+  text-align: center;
+  font-family: var(--font-sans); font-size: var(--size-14); line-height: 18px; font-weight: 600; color: var(--info);
+}

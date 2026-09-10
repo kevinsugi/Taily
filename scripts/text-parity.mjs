@@ -44,19 +44,81 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // "Switch to …" secondary in the frame as in the build — those ALLOWs
 // are gone too; 05.1/Dated keeps its inherited entry until that
 // backdrop is confirmed synced.
+/* ---------- UX-LOOP round 7 — R7 money model — Figma sync pending ----------
+   Kevin's money model v2 (UX-LOOP.md round 7 ledger): no deposit, no
+   10%, no Taily fee; a tiered visitation fee held at booking and
+   charged on acceptance; the tailor sees only "Your payout". Round 7
+   is code-first — every frame money string below is what the FRAMES
+   still draw and the build no longer renders. One dedicated money sync
+   applies the ledger to Figma; these entries go with it. */
+const R7_02_CTA = ['Request Tailor · $20 Deposit (10%)'];                                   // 02 + its sheet backdrops → "Hold $25 Visitation Fee"
+const R7_REQUESTED = ['2 items · $200.00+ est. · $20 deposit held', 'Cancel request — deposit refunded'];
+const R7_BOOKED = ['Subtotal - Confirmed at Appointment', '-$20', '10% Deposit - Paid 7/7/26', '$180', 'Balance'];   // 03/Confirmed · Reminder · Cancelled + backdrops → Alterations (est.) / Visitation fee — charged / Total
+const R7_FINAL = ['Subtotal - Confirmed 7/12/26', '-$20', '10% Deposit - Paid 7/7/26', '$340', 'Due at Pickup / Delivery'];   // 03/Tailoring (+ 03.3 backdrop) → Alterations / Visitation fee — paid / Total / Due at handoff
+const R7_REVIEW = ['Subtotal', '-$20', '10% Deposit - Paid 7/7/26', 'Due at Pickup / Delivery'];   // 04 Default / Modified / Removed (+ their due amount)
+const R7_RECEIPT = ['$360', 'Subtotal - Confirmed 7/12/26', '-$20', '10% Deposit - Paid 7/7/26', 'Delivery - Paid 7/17/26', 'Total - Paid 7/17/26'];   // 06 / 03/Summary (+ 06.1 backdrop) → Alterations / Visitation fee — paid 7/7/26 / Delivery / Total / Paid at delivery
+const R7_DELIVERY = ['Balance due', '$340', 'Charged on delivery'];                           // 05B (+ 05.1 backdrops) → Alterations / Delivery / Due at delivery
+/* tailor side (coordinated with the tailor implementer): payout = 100%
+   of the alteration prices, no Subtotal / Taily Fee rows */
+const R7_T_PAYOUT = ['Taily Fee (10%)', 'Your Payout'];
+const R7_T_REQUEST = ['$180', 'Subtotal', ...R7_T_PAYOUT];
+
 const ALLOW = {
   // Phase R3 (Kevin): 03's request card reads the live order; the
   // frame's requested-time fixture is stale (the address and estimate
-  // lines match since UX-LOOP R1 — Home Visit fiction, $200 / $20 seed).
-  '03-status-requested': ['Thu, Jul 9 · 9:30 AM'],
+  // lines match since UX-LOOP R1 — Home Visit fiction, $200 seed).
+  '03-status-requested': ['Thu, Jul 9 · 9:30 AM', ...R7_REQUESTED],
   // UX-003: R1's rows quote the actual appointment; the frame keeps
   // the "Thursday's 7:00 PM" fixture.
-  '03.1-reschedule-popup': ['Thursday’s 7:00 PM with Marco is cancelled'],
+  '03.1-reschedule-popup': ['Thursday’s 7:00 PM with Marco is cancelled', ...R7_BOOKED, 'Your $20 deposit is refunded.'],
   // UX-LOOP round 3: the sibling frames inherit their base's documented
   // divergence — 03/New Time keeps 03/Requested's stale requested-time
   // fixture, 05.1/Dated draws 07B underneath.
-  '03-status-new-time': ['Thu, Jul 9 · 9:30 AM'],
-  '05.1-window-confirmed-dated': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
+  '03-status-new-time': ['Thu, Jul 9 · 9:30 AM', ...R7_REQUESTED],
+  '05.1-window-confirmed-dated': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery', ...R7_DELIVERY],
+  /* ---- R7 money model — Figma sync pending (customer) ---- */
+  '02-appointment-details': R7_02_CTA,
+  '02.1-date-time-sheet': R7_02_CTA,
+  '02.2-address-sheet': R7_02_CTA,
+  '02.3-payment-sheet': [...R7_02_CTA, 'Your card is saved now — the deposit is only charged when your tailor confirms.'],
+  '02.4-add-card-sheet': [...R7_02_CTA, 'Saved securely — charged only when your tailor confirms the appointment.'],
+  '03-status-confirmed': R7_BOOKED,
+  '03-status-reminder': R7_BOOKED,
+  '03.2-appointment-confirmed': R7_BOOKED,
+  '04.1-request-changes': R7_BOOKED,
+  '03-status-cancelled': [...R7_BOOKED, 'Your $20 deposit will be returned to Visa •••• 4242. Please rebook whenever you’re ready.'],
+  '03-status-tailor-cancelled': [...R7_BOOKED, 'Your $20 deposit is refunded to Visa •••• 4242. We can find you another tailor.'],
+  '03-status-no-show': [...R7_BOOKED, 'Marco marked the Sun, Jul 12 · 7:00 PM visit as a no-show, so your $20 deposit was kept.'],
+  '03-status-tailoring': R7_FINAL,
+  '03.3-photo-viewer': R7_FINAL,
+  '04-review-approve': [...R7_REVIEW, '$180'],
+  '04-review-approve-modified': [...R7_REVIEW, '$340'],
+  '04-review-approve-removed': [...R7_REVIEW, '$260'],
+  '05-items-ready': ['Marco finished ahead of schedule. Choose how you’d like them back, the balance is settled upon receipt.'],
+  '05a-pickup-window': ['$340 · Charged to your saved card at pickup.'],
+  '05b-delivery-options': R7_DELIVERY,
+  '05.1-window-confirmed': R7_DELIVERY,
+  '06-journey-complete': R7_RECEIPT,
+  '03-status-summary': R7_RECEIPT,
+  '06.1-leave-review': R7_RECEIPT,
+  /* ---- R7 money model — Figma sync pending (tailor) ---- */
+  't01-home': ['$180'],
+  't01-home-closed': ['$180'],
+  't02-appointment-request': [...R7_T_REQUEST, 'Accept Request · $180'],
+  't02-accepted': R7_T_REQUEST,
+  't02-expired': R7_T_REQUEST,
+  't03-request-accepted': ['$180', ...R7_T_PAYOUT],
+  't03-upcoming-visit': ['$180', ...R7_T_PAYOUT],
+  't03.1-cant-make-it': ['$180', ...R7_T_PAYOUT, 'The job closes, Sarah is notified and her $20 deposit is refunded.'],
+  't03b-by-you': ['Sarah’s been notified and her $20 deposit is refunded. Your Sun, Jul 12 · 7:00 PM slot is open again.'],
+  't03b-no-show': ['The job is closed and the slot is open again. Her $20 deposit stays with you.'],
+  't04-appointment-details': ['$324', ...R7_T_PAYOUT],
+  't05-confirm-final-pricing': ['$324', ...R7_T_PAYOUT],
+  't05-removed': ['$252', ...R7_T_PAYOUT],
+  't06-appointment-status': ['$324', '$120', ...R7_T_PAYOUT],
+  't06-questions': ['$324', '$120', ...R7_T_PAYOUT],
+  't07-job-ready': ['Sarah will pick up her items. Payment will be processed upon pickup.'],
+  't08-job-complete': ['Order total', 'Taily fee', '−$36', '$324'],
 };
 
 /* ---------- token (same conventions as export-refs.mjs) ---------- */

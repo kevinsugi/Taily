@@ -12,13 +12,16 @@
    handoff completes). The harness deep link keeps the frame's pickup
    fixture (Fri, Jul 17 · 3:00 PM at 1025 Broadway). Transitions take
    the tapped job (R2-T-01/02).
+   Round 7 (Kevin's money model v2): the handoff copy speaks of Marco's
+   PAYOUT, never of Sarah's payment — no delivery fee, no "payment
+   processed"; the order summary ends in "Your payout $360".
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
 import { cta, toast } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, detailRow, orderDropdown, orderCards, payoutRows, openChat } from '../tailor-components.js';
-import { current, jobView, isFixture, firstPickupWindow, T, FIXTURE_FINAL, orderTotals } from '../tailor-data.js';
+import { current, jobView, isFixture, firstPickupWindow, T, FIXTURE_FINAL, orderMoney } from '../tailor-data.js';
 
 const SHOP = '1025 Broadway';
 
@@ -34,10 +37,9 @@ export function viewReady(s, forced = null) {
   const body = waiting
     ? 'Ready. Sarah hasn’t chosen pickup or delivery yet — you’ll see it here when she does.'
     : f
-      ? `Sarah chose ${delivery ? `delivery to ${v.address}` : 'pickup at your shop'}.<br>Payment will be processed on handoff.`
-      : 'Sarah will pick up her items.<br>Payment will be processed upon pickup.';
+      ? `Sarah chose ${delivery ? `delivery to ${v.address}` : 'pickup at your shop'}.<br>Your payout is released on handoff.`
+      : 'Sarah will pick up her items.<br>Your payout is released on handoff.';
   const garments = fixture ? FIXTURE_FINAL : v.garments;
-  const totals = fixture ? { fee: 36, payout: 324 } : v;
   const actions = waiting
     ? `${cta('Message Sarah', { attrs: 'data-act="message"' })}
     ${cta('Mark Picked Up', { variant: 'secondary', attrs: 'data-act="picked-up" title="Demo: Sarah chooses pickup now"' })}`
@@ -61,7 +63,7 @@ export function viewReady(s, forced = null) {
   ${orderDropdown()}
   <div class="garments-card order-summary" hidden>
     ${orderCards(garments, { variant: 'Appt_View', plain: true })}
-    ${payoutRows(fixture ? totals : orderTotals(garments))}
+    ${payoutRows(orderMoney(garments))}
   </div>
 </div>`;
 }

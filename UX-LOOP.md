@@ -605,3 +605,127 @@ Three agents (substrate + customer, tailor, Figma). Every decision applied:
   than 844 since the round 3 fee rows / second CTA — left hugging (trim content, or accept the
   height). The BLOCKED Requested-card Actions slot (Review Time) is unchanged. The customer-side
   fixture on 09 Closed Cards renders "Matching you with a tailor" (frame says the same now).
+
+## Round 7 — Money model v2 (Kevin, Sep 10 2026) — code-first, one dedicated Figma money sync afterwards
+
+### Kevin's rules (verbatim intent)
+- **No 10% anything.** The 10% deposit flow and the 10% tailor commission are removed and never
+  referenced on either side. Taily's MVP revenue is the visitation fee only; tailors receive
+  100% of the alteration charges assigned to them.
+- **Visitation fee by booked item count** (sum of quantities): 1–4 items **$25**; 5–10 **$50**;
+  11+ **$100**. The $50 / $100 tiers carry the supporting line "Helps cover transportation for
+  larger appointments." Shown clearly before the customer confirms and pays.
+- **The visitation fee is the deposit.** Held at booking, **charged when a tailor accepts**
+  (Kevin's choice). Refunded automatically if the request expires, is declined or withdrawn.
+- **24-hour reminder = confirmation prompt.** Before confirming, the customer may cancel any time
+  for a full refund. Confirming makes the fee **non-refundable** (no-show included); this is
+  stated plainly on the reminder before the Confirm button. Unconfirmed 12 hours before the visit
+  → auto-cancelled, fee refunded, tailor's slot reopened. **This replaces the 12-hour rule from
+  round 6.** Tailor cancels → fee refunded, always.
+- **Customer pricing** shows Alterations / Visitation fee / (Delivery $20 if chosen) / Total.
+  Alterations (+ delivery) are charged at handoff, as today; the fee was charged at acceptance.
+- **Tailor sees only their earnings:** per-alteration prices (their own) and "Your payout $X".
+  Never the customer's total, the visitation fee, delivery, or any margin. Payout is prominent on
+  the request screen and does not change after acceptance unless the scope changes; a scope change
+  at the fitting shows "Payout $200 → $360" before Send.
+- **Principle:** the customer buys a managed Taily service; the tailor accepts a job from Taily
+  for a defined payout. Never model the tailor charging the customer or paying a commission.
+
+### Assumptions (stated, not asked)
+- Tier re-evaluates when the tailor adds items at the fitting; the customer sees the new fee on 04
+  (approval) and it is charged with the alterations at handoff (the original fee stays charged).
+- "Item" = garment quantity. Removing items never lowers an already-charged fee.
+
+### Substrate contract (round 7)
+- `data.js`: `VISIT_FEE_TIERS = [{ max: 4, fee: 25 }, { max: 10, fee: 50, note }, { max: Infinity, fee: 100, note }]`;
+  `visitFee(count)`, `visitFeeNote(count)` (`''` for the $25 tier); `apptTotals(garments)` →
+  `{ alterations, items, visitFee, delivery, total }` (no deposit, no subtotal-minus-deposit);
+  `payout(garments)` = sum of alteration prices (tailor side).
+- `state.js`: `a.totals = { alterations, visitFee, visitFeeCharged, delivery, total }`;
+  `requestTailor()` sets `visitFee` from the booked count (`feeHeld: true`); `tailorAccepts(a)`
+  stamps `feeChargedOn`; `confirmAppointment(a)` (the 24-h prompt) stamps `confirmedAt` and
+  `feeLocked = true`; `cancelAppointment(a)` refund = `feeLocked ? 0 : visitFee` (withdraw /
+  expiry / decline / tailor cancel → full refund, `feeLocked` ignored for tailor cancel);
+  `tailorCancels(a, 'no-show')` → fee kept only if `feeLocked`; new `autoCancelUnconfirmed(a)`
+  (terminal `cancelled`, `cancelledBy: 'none'`, `reason: 'unconfirmed'`, refund). The old
+  `deposit` fields go away; `depositOn` → `feeChargedOn`. `writeFinalOrder` re-tiers the fee
+  when the item count grows (`visitFeeAdded` = new − charged).
+- Seed fiction: pre-visit alterations $200 (2 items) + fee $25 = **$225**; post-visit $360 (3
+  items, still the $25 tier) → total $385, + $20 delivery = **$405**; tailor payout $200 → $360.
+  SEED_PAST and James adjusted the same way.
+
+### Exact copy (customer)
+- 02 CTA: `Hold $25 Visitation Fee` (was "$20 Deposit (10%)"); above the CTA a fee card:
+  `Visitation fee $25 · 2 items` (+ tier note on $50/$100); payment sheet title/sub: `Hold your
+  $25 visitation fee — charged when a tailor accepts. Alterations are paid at pickup or delivery.`
+- 03/Requested meta: `2 items · $200.00+ est. · $25 visitation fee held`; cancel line
+  `Cancel request — nothing has been charged`.
+- 03/Confirmed rows: `Alterations $200 (est.)` / `Visitation fee $25 — charged 7/7/26` /
+  `Total $225`; body line `Alterations are paid at pickup or delivery.`
+- 03/Reminder (24-h prompt): title as frame; **new line under the summary**: `Confirming makes
+  your $25 visitation fee non-refundable. Cancel before confirming for a full refund.`;
+  CTA `Confirm Appointment` unchanged; after confirming, the hero pill row reads `Confirmed ·
+  fee non-refundable`. Demo affordance: tapping the reminder title = "12 hours pass without
+  confirming" → auto-cancel.
+- 03.1 rows: before confirmation `✓ Your $25 visitation fee is refunded`; after `✕ Your $25
+  visitation fee is non-refundable (you confirmed the visit)`.
+- 03/Cancelled bodies: unconfirmed auto-cancel `We didn't hear back before the visit, so it was
+  cancelled. Your $25 visitation fee is refunded to Apple Pay.`; customer cancel after
+  confirming `Your $25 visitation fee was kept — you had confirmed the visit.`; no-show `…so your
+  $25 visitation fee was kept.`; tailor cancel / decline / expiry / withdraw → refunded / nothing
+  charged. Fee rows: `Visitation fee $25 — Refunded 7/12/26` or `Kept`.
+- 04 (approval): `Alterations $360` (items itemised, added marks) / `Visitation fee $25 — paid`
+  (+ `Additional visitation fee $25` when re-tiered) / `Total $385` / `Due at handoff $360`.
+- 05a/05b: `Due at pickup $360` / `Due at delivery $380 (incl. $20 delivery)`.
+- 06 / 03-Summary receipt: `Alterations $360` / `Visitation fee $25 — paid 7/7/26` / (`Delivery
+  $20`) / `Total $385` (`$405`) / `Paid at pickup 7/17/26 $360`.
+### Exact copy (tailor)
+- T01 request card: `$200 | Sarah Chen` with `$200 · 2 items`; job cards: `Payout $200`.
+- T02: `$200 | New Request`; garment cards with alteration prices; rows `Hem / Adjust Length
+  $120`, `Sleeve / Adjust Length $80`; `Your payout $200` (no fee row, no subtotal row);
+  CTA `Accept Request · $200`.
+- T03/T04/T05/T06/T07/T08: `Your payout $360` after the visit; T05 before Send: `Payout $200 →
+  $360 (+$160)`; T08: `PAYOUT SUMMARY · TLY-2026-4417` → items → `Your payout $360` /
+  `Arrives in your account · Mon, Jul 20`.
+- Nothing on the tailor side prints the customer's total, the visitation fee or delivery.
+
+### Figma sync pending ledger (opened round 7) — every money row
+User: 02 CTA + fee card, 02.1–02.4 backdrops, 03/Requested meta, 03/Confirmed rows, 03/Reminder
+new line, 03.1 rows, 03/Cancelled variants + fee rows, 03/Tailoring rows, 04 Default/Modified/
+Removed rows, 05a/05b due lines, 05.1 backdrops, 06, 03/Summary, 06.1 backdrop, 03.3 backdrop,
+09 cards (if any money). Tailor: T01 payouts, T02 ×3 rows/CTA, T03, T04, T05 (+ Removed), T06
+(+ Questions), T07 (+ Waiting) summaries, T08. Baselines accepted with `pending-figma`; parity
+ALLOWs reference this ledger. One dedicated money sync applies them all when Kevin says so.
+
+### Round 7 — results (Sep 10 2026) — money model v2 built, code-first
+- **Substrate:** `VISIT_FEE_TIERS` / `visitFee` / `visitFeeNote` / `apptTotals` (alterations, items,
+  visitFee, visitFeeCharged, visitFeeAdded, delivery, total) / `payout`; `a.totals` in that shape
+  on seeds and live bookings; fee held at request (`feeHeld`), charged at acceptance
+  (`feeChargedOn`), locked by `confirmAppointment(a)` at the 24-hour prompt (`feeLocked`);
+  refunds: unlocked cancel / withdraw / expiry / decline / tailor cancel → full refund, locked
+  cancel and locked no-show → kept; `autoCancelUnconfirmed(a)` (reason `unconfirmed`).
+  `chooseFulfilment('delivery')` adds $20 to the total. Deposit, 10%, Balance and the round 6
+  12-hour rule are gone from both sides (grep-proven; `withinHours` stays for the no-show gate).
+- **Customer:** 02 fee card + `Hold $25 Visitation Fee` CTA with tier notes (live count incl.
+  quantities); 02.3 / 02.4 sub copy; 03/Requested meta + cancel line; 03/Confirmed and Reminder
+  rows (Alterations est. / Visitation fee — charged / Total + "paid at pickup or delivery" note);
+  the reminder's non-refundable warning before Confirm and the `Confirmed · fee non-refundable`
+  pill after; 03.1 refund / non-refundable rows; 03/Cancelled variants incl. the new unconfirmed
+  auto-cancel with fee rows Refunded / Kept; 04 rows with `Additional visitation fee` on re-tier;
+  05a/05b due lines; 06 / 03-Summary receipts. Demo affordance: tapping the reminder title =
+  12 hours pass without confirming → auto-cancel.
+- **Tailor:** all commission rows removed; payout = 100% of alteration prices, prominent on
+  T01/T02 before Accept and stored as `a.tailor.acceptedPayout`; T04 recomputes live; T05 shows
+  `Payout $200 → $360 (+$160)` before Send; T06 awaiting line names the pending payout; T08 lists
+  items → `Your payout`; refund lines name the visitation fee without amounts (Taily's money);
+  a DOM sweep in the tailor click-through proves no tailor screen prints a customer total, the
+  visitation fee, delivery or any margin.
+- **Harness:** `npm run check` ALL PASS (427 s): diff 60/60 (36 baselines accepted `pending-figma`, height deltas = the removed / added money rows: T02 −41 to −62 px, T08 +45 px, 04 ×3 and 06 +41 px, 03/Reminder +60 px for the warning), text parity 59/59 with the `R7_*` ALLOW groups, click-through 194, tailor click-through 325 (incl. the no-customer-pricing DOM sweep), sync click-through 933, style hygiene.
+- **Figma sync pending ledger:** every money row on both pages (see the round 7 ledger above);
+  36 baselines accepted `pending-figma`; parity ALLOW groups `R7_*` reference this ledger.
+- **Seed fiction now:** alterations $200 (2 items) + $25 fee = $225; after the visit $360 →
+  $385, delivery $405; tailor payout $200 → $360; sync booking $240 → $400.
+- **Noted:** `Confirmed · fee non-refundable` and the locked 03.1 row are reachable live only via
+  the substrate because 03.2's Confirm both locks and completes the visit (demo compression);
+  03/Reminder's fee caption wraps to two lines; the T06 frame's `$120` card price is in the ALLOWs
+  (fixture now itemises $200/$80/$80).

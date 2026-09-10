@@ -79,7 +79,7 @@ export function chrome(active = 'home', time = '9:41') {
    ============================================================ */
 
 import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, CHEVRON_RIGHT, ICON_CARD, ICON_ADD_CIRCLE } from './icons.js';
-import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, money, rowPrice, fmtWhen, fmtDay, mdy } from './data.js';
+import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, DELIVERY_FEE, money, rowPrice, fmtWhen, fmtDay, mdy } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
 export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
@@ -272,13 +272,15 @@ export function apptCard(a) {
  * Status Hero — Figma Property 1 variants. `variant` is the kebab name:
  * requested | new-times | declined | confirmed | tailoring | ready.
  */
-export function statusHero({ variant = 'requested', pill, title, titleLine2, body, rowLabel, rowValue, titleWeight, titleColor } = {}) {
+export function statusHero({ variant = 'requested', pill, pillLabel, title, titleLine2, body, rowLabel, rowValue, titleWeight, titleColor } = {}) {
   const PILL_FOR = {
     'requested': 'requested', 'new-times': 'requested', 'declined': 'declined',
     'confirmed': 'confirmed', 'tailoring': 'confirmed', 'ready': 'ready',
   };
   const parts = [];
-  if (pill !== false) parts.push(statusPill(pill ?? PILL_FOR[variant]));
+  /* `pillLabel` (R7): a custom pill caption on the same variant —
+     03/Reminder's "Confirmed · fee non-refundable" once the visit is confirmed */
+  if (pill !== false) parts.push(statusPill(pill ?? PILL_FOR[variant], pillLabel));
   if (title) parts.push(`<h2 class="status-hero__title${titleWeight === 600 ? ' w-600' : ''}${titleColor ? ` c-${titleColor}` : ''}">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h2>`);
   if (body) parts.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
   if (rowLabel) parts.push(`<div class="status-hero__row"><span>${rowLabel}</span><span>${rowValue ?? ''}</span></div>`);
@@ -751,7 +753,7 @@ export function requestCard({ name, initials, rows = [] } = {}) {
 </div>`;
 }
 
-/** Fee/deposit row (04c/04d/05/06a/06b). Long descriptions wrap.
+/** Fee row — price + caption (03/Confirmed · Tailoring, 04, 06). Long descriptions wrap.
     line: bottom hairline (Phase R0 — every row but the last).
     info: semantic/info price (06B — totals touched by the modified order). */
 export function feeRow(price, desc, { line = false, info = false } = {}) {
@@ -793,30 +795,81 @@ export function apptRows(a) {
 }
 
 /** Receipt dates for an appointment — the frames' fiction when the
-    appointment carries no dates of its own. */
+    appointment carries no dates of its own. `fee` = the day the
+    visitation fee was charged (tailorAccepts stamps feeChargedOn, R7). */
 export function receiptDates(a) {
   /* R2-U-10: a delivered order with no handoff facts of its own is
      received on its appointment day, not the Jul 17 fixture */
   const done = ['delivered', 'completed'].includes(String(a?.status ?? '').toLowerCase());
   return {
     confirmed: mdy(a?.when, '7/12/26'),
-    deposit: a?.depositOn ?? '7/7/26',
+    fee: a?.feeChargedOn ?? '7/7/26',
     handoff: mdy(a?.fulfilment?.date ?? a?.fulfilment?.window ?? a?.deliveredAt ?? (done ? a?.when : null), '7/17/26'),
   };
 }
 
-/** Fee rows of a settled order (06 / 03/Summary, R1-U-07): subtotal,
-    -deposit, then either "Total - Paid at pickup" or "$20 Delivery" +
-    total, following `a.fulfilment`. No fulfilment (harness deep link)
-    keeps the frames' delivery fixture. */
+/* ============================================================
+   Money rows (UX-LOOP round 7 — Kevin's money model v2). The customer
+   sees Alterations / Visitation fee / (Additional visitation fee when
+   the final order re-tiered it) / (Delivery) / Total, and what is due
+   at handoff: the alterations (+ the added fee, + delivery) — the
+   visitation fee itself was charged when the tailor accepted. Nothing
+   here mentions a deposit, a percentage or a Taily fee.
+   ============================================================ */
+
+/** What the customer still owes at handoff BEFORE a handoff method is
+    chosen: alterations + any re-tiered fee (05A/05B add delivery
+    themselves). */
+export const dueBase = (t) => (t?.alterations ?? t?.subtotal ?? 0) + (t?.visitFeeAdded ?? 0);
+/** What is charged at handoff for the order as it stands (delivery
+    included once 05B chose it). */
+export const dueAtHandoff = (t) => dueBase(t) + (t?.delivery ?? 0);
+
+/**
+ * The pricing rows of an order (03/Confirmed · Reminder · Tailoring,
+ * 04, 03/Cancelled): Alterations / Visitation fee / [Additional
+ * visitation fee] / Total / [due line]. `est` marks the alterations as
+ * an estimate (pre-visit), `feeDesc` is the fee row's caption
+ * ("Visitation fee — charged 7/7/26", "… — paid", "… — Refunded
+ * 9/10/26", "… — Kept"), `due` adds the last row ("Due at handoff"),
+ * `info` paints the rows the final order touched semantic/info (04
+ * Modified). The added fee row is always info — it is new money.
+ */
+export function orderRows(t, { est = false, feeDesc = 'Visitation fee — paid', due = null, info = false } = {}) {
+  const alterations = t?.alterations ?? t?.subtotal ?? 0;
+  const fee = t?.visitFeeCharged ?? t?.visitFee ?? 0;
+  const added = t?.visitFeeAdded ?? 0;
+  const delivery = t?.delivery ?? 0;
+  const rows = [
+    feeRow(money(alterations), est ? 'Alterations (est.)' : 'Alterations', { line: true, info }),
+    feeRow(money(fee), feeDesc, { line: true }),
+  ];
+  if (added > 0) rows.push(feeRow(money(added), 'Additional visitation fee', { line: true, info: true }));
+  if (delivery > 0) rows.push(feeRow(money(delivery), 'Delivery', { line: true }));
+  rows.push(feeRow(money(alterations + fee + added + delivery), 'Total', { line: !!due, info }));
+  if (due) rows.push(feeRow(money(dueAtHandoff(t)), due, { info }));
+  return rows.join('\n      ');
+}
+
+/** The receipt of a settled order (06 / 03/Summary, R1-U-07 → R7):
+    Alterations / Visitation fee — paid <date> / [Delivery] / Total /
+    Paid at pickup|delivery <date>, following `a.fulfilment`. No
+    fulfilment (harness deep link) keeps the frames' delivery fixture
+    ($360 + $25 + $20 = $405, $380 paid at delivery). */
 export function receiptRows(a, t) {
   const d = receiptDates(a);
-  const due = (t.total ?? 0) - (t.deposit ?? 0);
+  const alterations = t?.alterations ?? t?.subtotal ?? 0;
+  const fee = t?.visitFeeCharged ?? t?.visitFee ?? 0;
+  const added = t?.visitFeeAdded ?? 0;
+  const pickup = a?.fulfilment?.method === 'pickup';
+  const delivery = pickup ? 0 : (a?.fulfilment?.method === 'delivery' ? (t?.delivery || DELIVERY_FEE) : DELIVERY_FEE);
   const rows = [
-    feeRow(money(t.total), `Subtotal - Confirmed ${d.confirmed}`, { line: true }),
-    feeRow(money(-(t.deposit ?? 0)), `10% Deposit - Paid ${d.deposit}`, { line: true }),
+    feeRow(money(alterations), 'Alterations', { line: true }),
+    feeRow(money(fee), `Visitation fee — paid ${d.fee}`, { line: true }),
   ];
-  if (a?.fulfilment?.method === 'pickup') rows.push(feeRow(money(due), `Total - Paid at pickup ${d.handoff}`));
-  else rows.push(feeRow('$20', `Delivery - Paid ${d.handoff}`, { line: true }), feeRow(money(due + 20), `Total - Paid ${d.handoff}`));
+  if (added > 0) rows.push(feeRow(money(added), 'Additional visitation fee', { line: true }));
+  if (delivery > 0) rows.push(feeRow(money(delivery), 'Delivery', { line: true }));
+  rows.push(feeRow(money(alterations + fee + added + delivery), 'Total', { line: true }));
+  rows.push(feeRow(money(alterations + added + delivery), `Paid at ${pickup ? 'pickup' : 'delivery'} ${d.handoff}`));
   return rows.join('\n    ');
 }

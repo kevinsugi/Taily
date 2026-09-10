@@ -15,8 +15,8 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, feeRow, cta, toast, orderCards, receiptDates, linkRow } from '../components.js';
-import { money, fmtWhen, fmtDay } from '../data.js';
+import { chrome, statusHero, summaryCard, cta, toast, orderCards, orderRows, linkRow } from '../components.js';
+import { fmtWhen, fmtDay } from '../data.js';
 import { state, apptEntry, canonicalStatus, isTerminal, markReady, deliver, finalOrder, orderModified } from '../state.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
 import { pointAtTerminal } from './03.1-reschedule-popup.js';
@@ -76,7 +76,11 @@ export function viewTailoring(s) {
   }[canon] ?? { title: 'Tailoring in Progress.', label: `Message ${first}`, act: 'message', noMessage: true };
   const o = finalOrder(a);
   const t = o.totals;
-  const d = receiptDates(a);
+  /* R7 pricing rows: Alterations / Visitation fee — paid / [Additional
+     visitation fee] / [Delivery] / Total / Due at handoff (the fee was
+     charged on acceptance; alterations + the rest at handoff). Figma
+     sync pending (the frame draws Subtotal / -$20 Deposit / Due). */
+  const rows = orderRows(t, { feeDesc: 'Visitation fee — paid', due: canon === 'delivered' ? 'Paid at handoff' : 'Due at handoff' });
 
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-tailoring">
@@ -85,9 +89,7 @@ export function viewTailoring(s) {
   ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: [`▤&nbsp;&nbsp;Appt: ${fmtWhen(a.when, 'Sun, Jul 12 · 7:00 PM')}`, `▤&nbsp;&nbsp;Need by: ${fmtDay(a.needBy, 'Fri, Jul 17')}`] })}
   <div class="garments-card" data-act="review">
     ${orderCards(o, { variant: 'PostAppt' })}
-    ${feeRow(money(t.total), `Subtotal - Confirmed ${d.confirmed}`, { line: true })}
-    ${feeRow(money(-t.deposit), `10% Deposit - Paid ${d.deposit}`, { line: true })}
-    ${feeRow(money(t.total - t.deposit), 'Due at Pickup / Delivery')}
+    ${rows}
     ${canon === 'awaiting-approval' ? linkRow('View final order', { attrs: 'data-act="review-order"' }) : ''}
   </div>
   <div class="cta-bar cta-bar--plain">

@@ -9,22 +9,30 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, feeRow, cta, toast, orderCards, apptRows, receiptDates } from '../components.js';
-import { money } from '../data.js';
+import { chrome, statusHero, summaryCard, cta, toast, orderCards, apptRows, receiptDates, orderRows } from '../components.js';
 import { state, isTerminal, isPostAppointment } from '../state.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
 
+/* R7 (Kevin's money model v2): the summary prices the BOOKED order —
+   "Alterations (est.)" / "Visitation fee — charged 7/7/26" (the fee
+   was charged when the tailor accepted) / "Total" — and says the
+   alterations are paid at handoff. No deposit row. Figma sync pending
+   (the 03/Confirmed and 03/Reminder frames still draw Subtotal /
+   -$20 Deposit / Balance). */
+export const ALTERATIONS_NOTE = 'Alterations are paid at pickup or delivery.';
+
 /** The pre-appointment order summary shared by 03/Confirmed and
-    03/Reminder: ViewOnly cards, subtotal, -deposit, balance. */
+    03/Reminder: ViewOnly cards + the R7 pricing rows + the note. */
 export function bookingSummary(a) {
-  const t = a?.totals ?? { subtotal: 200, deposit: 20 };
-  const subtotal = t.subtotal ?? t.total ?? 200;
-  const deposit = t.deposit ?? 20;
+  const t = a?.totals ?? { alterations: 200, visitFee: 25, visitFeeCharged: 25, total: 225 };
   return `${orderCards({ garments: a?.garments, totals: t }, { variant: 'ViewOnly' })}
-      ${feeRow(money(subtotal), 'Subtotal - Confirmed at Appointment', { line: true })}
-      ${feeRow(money(-deposit), `10% Deposit - Paid ${receiptDates(a).deposit}`, { line: true })}
-      ${feeRow(money(subtotal - deposit), 'Balance')}`;
+      ${orderRows(t, { est: true, feeDesc: `Visitation fee — charged ${receiptDates(a).fee}` })}
+      <p class="t-small c-500 fee-note">${ALTERATIONS_NOTE}</p>`;
 }
+
+/** The hero pill once the customer confirmed the visit on the 24-hour
+    prompt (R7): the fee is locked. */
+export const confirmedPill = (a) => (a?.feeLocked ? { pill: 'confirmed', pillLabel: 'Confirmed · fee non-refundable' } : { pill: 'confirmed' });
 
 export const currentAppt = (s) => {
   const cur = s.currentAppt ?? { list: 'upcoming', index: 0 };
@@ -35,7 +43,7 @@ function renderScreen(s) {
   const a = currentAppt(s);
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-confirmed">
-  ${statusHero({ pill: 'confirmed', title: 'Appointment Confirmed', titleWeight: 600 })}
+  ${statusHero({ ...confirmedPill(a), title: 'Appointment Confirmed', titleWeight: 600 })}
   <div class="summary">
     ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
     <div class="garments-card">

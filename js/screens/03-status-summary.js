@@ -1,8 +1,9 @@
 /* ============================================================
    04E - Order Summary — Figma 533:3946.
    Completed-appointment receipt: "Order Summary" hero with an Items
-   Received row, ViewOnly garments card with deposit + balance-paid
-   fee rows, single secondary View All Appointments CTA.
+   Received row, ViewOnly garments card with the receipt rows (R7:
+   Alterations / Visitation fee — paid / [Delivery] / Total / Paid at
+   pickup|delivery), single secondary View All Appointments CTA.
    Active=Bookings. Opened from a completed appointment card.
    UX-LOOP R1-U-07: the receipt rows are 06's (fulfilment-aware —
    a pickup order shows no delivery fee); Items Received reads the

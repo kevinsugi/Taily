@@ -48,7 +48,29 @@ export const JOB_TYPES = {
 /* Selector Type=Additional menu rows (541:1975), in frame order. */
 export const ADD_SERVICES = ['Taper', 'Sleeve', 'Resize', 'Repair', 'Lining'];
 
-export const DEPOSIT_RATE = 0.10; // deposit = 10% of estimated minimum, credited toward the total
+/* ============================================================
+   UX-LOOP round 7 — money model v2 (Kevin). No deposit, no 10% of
+   anything: Taily's only customer charge besides the alterations is a
+   flat VISITATION FEE tiered by the booked item count (sum of
+   quantities). It is HELD at booking, charged when a tailor accepts
+   (state.js tailorAccepts stamps `feeChargedOn`), refunded in full
+   until the customer confirms the visit on the 24-hour prompt
+   (`feeLocked`), and non-refundable after. Alterations (+ $20
+   delivery when chosen) are paid at handoff. The tailor's payout is
+   100% of the alteration prices — see payout().
+   ============================================================ */
+export const VISIT_FEE_NOTE = 'Helps cover transportation for larger appointments.';
+export const VISIT_FEE_TIERS = [
+  { max: 4, fee: 25 },
+  { max: 10, fee: 50, note: VISIT_FEE_NOTE },
+  { max: Infinity, fee: 100, note: VISIT_FEE_NOTE },
+];
+/** The visitation fee for a booked item count (1–4 → $25, 5–10 → $50, 11+ → $100). */
+export const visitFee = (count) => (VISIT_FEE_TIERS.find((t) => (Number(count) || 0) <= t.max) ?? VISIT_FEE_TIERS[VISIT_FEE_TIERS.length - 1]).fee;
+/** The tier's supporting line ('' on the $25 tier). */
+export const visitFeeNote = (count) => (VISIT_FEE_TIERS.find((t) => (Number(count) || 0) <= t.max) ?? VISIT_FEE_TIERS[VISIT_FEE_TIERS.length - 1]).note ?? '';
+/** Home delivery, chosen on 05 (05B) — charged with the alterations at handoff. */
+export const DELIVERY_FEE = 20;
 
 export const TAILORS = [
   { id: 'marco', name: 'Marco Tailor', initials: 'MT', promoted: true,
@@ -146,24 +168,28 @@ export const SEED_UPCOMING = [
     visit: 'Home Visit', count: 3, month: 'JUL', day: '12',
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
     /* UX-LOOP R1-U-02: the seed is the BOOKED (pre-appointment) order —
-       $120 Hem + $80 Sleeve = $200, deposit $20 — exactly what 02 /
-       03/Confirmed / 03/Reminder draw. `a.garments` / `a.totals` are the
-       shared truth for the final order: the tailor's T05 Send (or the
-       user-side demo, state.draftFinalOrder()) writes the reviewed
-       $360 order into them at the appointment. Post-appointment screens
-       loaded by the harness with the seed still 'confirmed' render
-       SEED_FINAL_ORDER (the frames' 06B fiction) instead. `count` /
-       `itemLines` stay the 01/09 frames' exact card copy. */
+       $120 Hem + $80 Sleeve = $200 alterations — exactly what 02 /
+       03/Confirmed / 03/Reminder draw. Round 7: + the $25 visitation fee
+       (2 items → the $25 tier, charged 7/7/26 when Marco accepted) =
+       $225. `a.garments` / `a.totals` are the shared truth for the final
+       order: the tailor's T05 Send (or the user-side demo,
+       state.draftFinalOrder()) writes the reviewed $360 order into them
+       at the appointment. Post-appointment screens loaded by the harness
+       with the seed still 'confirmed' render SEED_FINAL_ORDER (the
+       frames' 06B fiction) instead. `count` / `itemLines` stay the 01/09
+       frames' exact card copy. */
     garments: [{ id: 'g1', type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
-    totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
+    feeChargedOn: '7/7/26',
+    totals: { alterations: 200, items: 2, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 225, subtotal: 200 } },
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
     when: 'Jul 1, 3PM', needBy: 'Thurs, Sep 2', status: 'ready', items: '2 items · Alterations',
     visit: 'Home Visit', count: 2, month: 'JUL', day: '1',
     itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
     garments: [{ id: 'g3', type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { id: 'g4', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['The shoes you plan to wear with your garments.'],
-    totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
+    feeChargedOn: '6/26/26',
+    totals: { alterations: 200, items: 2, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 225, subtotal: 200 } },
 ];
 /* garments/totals added so the 04d detail view has data to render;
    itemLines stay the 09 frame's exact card copy.
@@ -172,28 +198,31 @@ export const SEED_UPCOMING = [
    need-by after the visit, a same-day store pickup (`fulfilment`),
    `deliveredAt` in the card's own grammar so the 09 frame's
    "Picked up: Sep 2, 2PM" is unchanged (fmtDay() it for "Wed, Sept 2"),
-   and a deposit date before the visit. `displayCount` keeps the 09
+   and a fee-charged date before the visit (round 7: the $25 visitation
+   fee, charged 8/28/26 on acceptance). `displayCount` keeps the 09
    frame's "2 Items Total" quirk on the second card. Garment ids g5/g6. */
 export const SEED_PAST = [
   { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '15 West Broadway',
     when: 'Sep 2, 2PM', needBy: 'Sep 4', status: 'Delivered', items: '1 jean · Length', month: 'SEP', day: '2',
     visit: 'Store Visit', count: 1, itemLines: ['1 Jean - Length'],
     fulfilment: { method: 'pickup', window: 'Wed 2–4 PM', date: 'Sep 2' },
-    deliveredAt: 'Sep 2, 2PM', depositOn: '8/28/26',
+    deliveredAt: 'Sep 2, 2PM', feeChargedOn: '8/28/26', feeLocked: true,
     garments: [{ id: 'g5', type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
-    totals: { subtotal: 120, visitFee: 0, total: 120, deposit: 12 } },
+    totals: { alterations: 120, items: 1, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 145, subtotal: 120 } },
   { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '15 West Broadway',
     when: 'Sep 2, 2PM', needBy: 'Sep 4', status: 'Delivered', items: '1 shirt · Length', month: 'SEP', day: '2',
     visit: 'Store Visit', count: 1, displayCount: 2, itemLines: ['1 Shirt - Length'],
     fulfilment: { method: 'pickup', window: 'Wed 2–4 PM', date: 'Sep 2' },
-    deliveredAt: 'Sep 2, 2PM', depositOn: '8/28/26',
+    deliveredAt: 'Sep 2, 2PM', feeChargedOn: '8/28/26', feeLocked: true,
     garments: [{ id: 'g6', type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
-    totals: { subtotal: 120, visitFee: 0, total: 120, deposit: 12 } },
+    totals: { alterations: 120, items: 1, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 145, subtotal: 120 } },
 ];
 
 /* The frames' post-appointment fiction (06B / 04D / 08 / 04E): at the
    Jul 12 visit Marco added an $80 Sleeve service to garment 1 and a
-   third $80 Suit Jacket — $200 booked → $360 final, deposit still $20.
+   third $80 Suit Jacket — $200 booked → $360 final. Round 7: 3 items
+   is still the $25 tier, so the fee stays $25 → total $385 (+ $20
+   delivery = $405 on the delivery receipt); tailor payout $200 → $360.
    `added` marks a whole added garment, `addedJobs` the services added
    at the appointment (04/Modified paints both semantic/info). The
    harness's deep links render this when the seed is still pre-
@@ -207,7 +236,7 @@ export const SEED_FINAL_ORDER = {
     { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 },
     { id: 'g7', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2, added: true },
   ],
-  totals: { subtotal: 360, visitFee: 0, total: 360, deposit: 20 },
+  totals: { alterations: 360, items: 3, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 385, subtotal: 360 },
 };
 
 /* ============================================================
@@ -233,6 +262,41 @@ export function rowPrice(g, rows, i) {
   return money(garmentAmount(g));
 }
 export const garmentAmount = (g) => Math.round((g.jobs ?? []).reduce((s, j) => s + (JOB_TYPES[j]?.price ?? 0), 0)) * (g.qty ?? 1);
+
+/**
+ * The customer's totals for a garment list (round 7 money model):
+ *   { rows, alterations, items, visitFee, visitFeeCharged,
+ *     visitFeeAdded, delivery, total, subtotal }
+ * `alterations` = the sum of the alteration prices (multiplier 1);
+ * `items` = the qty-aware count; `visitFee` = the tier for THAT count,
+ * never below the fee already held / charged (`base.visitFeeCharged` —
+ * removing items never lowers a charged fee); `visitFeeAdded` =
+ * max(0, tier − charged), the extra fee a larger final order owes at
+ * handoff; `delivery` = `base.delivery` (0 until 05B chooses home
+ * delivery); `total` = alterations + visitFee + delivery. `subtotal`
+ * is a deprecated alias of `alterations` (the tailor side's jobView
+ * still reads it). Shared with the tailor's at-visit editor: call it
+ * after writing `a.garments` with the old totals as `base`.
+ */
+export function apptTotals(garments, base = {}) {
+  const rows = (garments ?? []).map((g) => ({ label: `${g.type} — ${(g.jobs ?? []).join(', ')}`, qty: g.qty ?? 1, amount: garmentAmount(g) }));
+  const alterations = rows.reduce((s, r) => s + r.amount, 0);
+  const items = (garments ?? []).reduce((s, g) => s + (g.qty ?? 1), 0);
+  const tier = visitFee(items);
+  const charged = base?.visitFeeCharged ?? base?.visitFee ?? tier;
+  const fee = Math.max(tier, charged);
+  const delivery = base?.delivery ?? 0;
+  return {
+    rows, alterations, items,
+    visitFee: fee, visitFeeCharged: charged, visitFeeAdded: Math.max(0, tier - charged),
+    delivery, total: alterations + fee + delivery,
+    subtotal: alterations,
+  };
+}
+
+/** The tailor's payout for a garment list: 100% of the alteration
+    prices — no fee, no commission (Kevin, round 7). */
+export const payout = (garments) => (garments ?? []).reduce((s, g) => s + garmentAmount(g), 0);
 
 /** "1 Item" / "3 Items" (09's "1 Items Total" bug, R1-U-19). */
 export const itemsLabel = (n, word = 'Item') => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -366,12 +430,14 @@ export const PAY_LABELS = { apple: 'Apple Pay', google: 'Google Pay', card: 'Vis
    ============================================================ */
 
 /**
- * Is `when` less than `hours` ahead of `now`? The customer's deposit is
- * kept when she cancels within 12 hours of the visit (Kevin, round 6).
- * A `when` already in the past (the seed's Jul 12 fiction counts as
- * today — its own day IS "today") is within the window; an unparsable
- * `when` is not (nothing to measure against → treated as far ahead).
- * `now` is an optional override (ms) so the harness can pin the clock.
+ * Is `when` less than `hours` ahead of `now`? Round 7 retired the
+ * 12-hour refund rule (the customer's confirmation on the 24-hour
+ * prompt decides the fee now — state.js confirmAppointment); the
+ * helper stays for the tailor side's time gates. A `when` already in
+ * the past (the seed's Jul 12 fiction counts as today — its own day IS
+ * "today") is within the window; an unparsable `when` is not (nothing
+ * to measure against → treated as far ahead). `now` is an optional
+ * override (ms) so the harness can pin the clock.
  */
 export function withinHours(when, hours, now = Date.now()) {
   const p = parseWhen(when);

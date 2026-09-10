@@ -486,3 +486,48 @@ final Figma sync is needed beyond the BLOCKED item carried for Kevin).
 - **Harness:** `npm run check` ALL PASS (357 s): diff 58/58 at baseline, text parity,
   click-through 117, tailor click-through 199, **sync click-through 807**, style hygiene.
 - **Round 5 = verification round:** both directors re-verify round 4 and confirm sign-off.
+
+## Round 5 — verification round (Sep 10 2026, 02:10) — **both flows SIGN-OFF**
+
+Tree `3e94aa0`, `npm run check` ALL PASS (357 s; 58 screens, click-through 117, tailor 199,
+sync 807). No code changed in this round.
+
+- **Tailor flow — SIGN-OFF holds** (report `round5/tailor/tailor-flow-review.md`, 76 shots).
+  Round 4 items 4/4 PASS with evidence; regression sweep 62/62 (seed day + every branch); no
+  P0–P2. P3 notes: R5-T-01 back from the replaced T01 reaches the stale T04 editor (guards hold,
+  nothing written); R5-T-02 a deep-linked T06 for a closed job draws the Tailoring view under the
+  guard.
+- **User flow — SIGN-OFF** (report `round5/user/user-flow-review.md`, 95 shots). Round 4 items
+  3/3 PASS on the exact paths that found them; 03 family opens and backs cleanly on every status;
+  19 cold deep links unchanged; no P0–P2. P3 note: R5-U-01 Approve pushes rather than replaces,
+  so back after approving shows a stale 04 (Approve again is a no-op; Request Changes there stamps
+  a tailoring order).
+
+## Loop closed — End state met (Sep 10 2026, 02:45)
+
+| Criterion | Status |
+|---|---|
+| Complete — scope | ✔ 27 user screens/overlays + 11 tailor frames (TM1 = `570:8782` / `t10-messages`) + 21 sibling frames for the new states; suggest another time, request expiry, tailor cancel / no-show built on both personas. Out of scope untouched (onboarding, Calendar day list, Shop). |
+| Complete — interactions | ✔ Every in-scope control real and state-backed (user sweep: 41 states / 598 controls; tailor: every screen). Remaining toasts are on the allowed list (Profile, Add to Calendar, View All, Shop, Calendar), guards, labelled demos, or the deferred Support toast. |
+| Synchronized | ✔ `scripts/clickthrough-sync.mjs` — 807 assertions inside `npm run check` covering book → accept / decline / propose / expire → pre-visit → visit edit (incl. removal) → send → approve / request changes → tailoring → ready → handoff (pickup and delivery) → complete → review, plus customer cancel (before and after acceptance), tailor cancel, no-show, and two bookings coexisting. |
+| Quality gate | ✔ Both directors SIGN-OFF in the same round after verifying the previous round; harness green. |
+
+**Rounds:** 1 (`3191d79`, 35 fixes, Figma-first) · 2 (`249afc0`, 26 fixes, branches + sync
+proof) · 3 (`67b1949` Figma sync, `a145dbb` 13 fixes) · 4 (`3e94aa0`, 5 fixes) · 5 verification.
+**Figma sync pending ledger:** empty. No push was made (Kevin's call).
+
+### Carried for Kevin
+- **BLOCKED (Figma):** the Appointment Card `Status=Requested` variant has no Actions slot, so
+  `09 - Bookings / Closed Cards` cannot show the `Review Time` CTA (baseline 8.28 until fixed).
+- **Figma decisions:** R4-T-02 note row + photo counts on the customer's PostAppt card; R3-T-07
+  Support toast (allow, or a canned support chat); T03A "Other" textarea; the "2 hours to accept"
+  line on 03/Requested; the new 03 variants hug their content (784–820 tall) and sit at the far
+  right of their rows; pre-round-2 `- $20` / `7:00PM` ALLOWs on 6 frames; the flow chart
+  `263:6457` lacks the approval gate and a suggest-time edge.
+- **Product calls:** fee policy on tailor cancel / no-show (built as no charge, deposit refunded);
+  a real reschedule path (need-by shift on a later proposal); tailor named before matching
+  (R1-U-10); dated window in the 05A/05B CTAs (R1-U-17); clipped "Pinned" label (R1-U-23);
+  T02 visit/subtotal rows (R3-T-12); T03 hero copy (R3-T-15); "Done today" rows dismissable.
+- **P3 leftovers (XS each):** R5-U-01 Approve should `replace` + 04 needs a non-awaiting guard;
+  R5-T-01/02 T04/T05/T06 should redirect a terminal job on render; the persona toggle can overlap a
+  toast.

@@ -57,16 +57,21 @@ function wireSheet(root, close, onConfirm) {
       text: root.querySelector('[data-review]')?.value?.trim() ?? '',
     });
     close?.();
-    const first = (apptEntry()?.name ?? 'Marco Tailor').split(' ')[0];
+    const first = tailorName(apptEntry()).split(' ')[0];
     toast(`Thanks — your review was sent to ${first}!`);
   });
 }
 
+/** One name for the sheet, its toast and the "already reviewed" toast
+    (UX-LOOP R2-U-10: the seed past bookings display `displayName`). */
+export const tailorName = (a) => a?.displayName ?? a?.name ?? 'Marco Tailor';
+
 /** Open over the live 08 / 09 for the appointment currentAppt points at. */
 export function openLeaveReview() {
   const a = apptEntry() ?? {};
-  const handoff = a.deliveredAt ?? fmtDay(a.fulfilment?.date, 'Jul 17');
-  modalOverlay(sheetHtml({ sub: `${a.name ?? 'Marco Tailor'} · ${itemsLabel(itemCount(a) || 2, 'item')} · ${handoff}`, live: true }),
+  /* R2-U-10: no fulfilment on file → the appointment's own day */
+  const handoff = fmtDay(a.deliveredAt ?? a.fulfilment?.date ?? a.when, 'Jul 17');
+  modalOverlay(sheetHtml({ sub: `${tailorName(a)} · ${itemsLabel(itemCount(a) || 2, 'item')} · ${handoff}`, live: true }),
     { dataS: '06.1-leave-review' }, (root, close) => wireSheet(root, close, (review) => { a.review = review; }));
 }
 

@@ -5,22 +5,23 @@
    Active=T-Calendar.
 
    UX-LOOP R1-T-03: a real editor. The cards render a DRAFT that starts
-   from the booked order (state.tailorUi.draft, see draftFor); the
+   from the booked order (a.tailor.draft, see draftFor); the
    selectors / ⊕ Additional Service / ✕ / photo tiles / Add Comment /
    + Additional Garment mutate it exactly as 02 mutates state.garments,
    and the fee rows recompute on every change. T05 Send writes the
    draft back to the appointment. The harness deep link starts from
-   the frame's final-order fixture instead.
+   the frame's final-order fixture instead. Round 2: the draft is keyed
+   to the tapped job and its garments keep their booked ids (R2-T-08).
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
 import { summaryCard, cta, toast } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, wireOrderEditor } from '../tailor-components.js';
-import { job, jobView, draftFor, orderTotals, isFixture, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
+import { current, jobView, draftFor, orderTotals, isFixture, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
 
 function renderScreen(s) {
-  const a = job(s);
+  const a = current(s);
   const v = jobView(a);
   const fixture = isFixture();
   const draft = draftFor(s, a, { fixture });
@@ -47,7 +48,7 @@ function wire(root) {
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t03-request-accepted'));
   root.querySelector('[data-act="continue"]')?.addEventListener('click', () => go('t05-confirm-final-pricing'));
   root.querySelector('[data-act="support"]')?.addEventListener('click', () => toast('Taily Support is outside this prototype'));
-  const draft = draftFor(state, job(state), { fixture: isFixture() });
+  const draft = draftFor(state, current(state), { fixture: isFixture() });
   wireOrderEditor(root, draft, () => go('t04-appointment-details', { replace: true }));
 }
 

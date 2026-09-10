@@ -32,11 +32,13 @@ function modalHtml({ method = 'Pickup', when = 'Sat, Aug 30 · 5:00–6:00 PM', 
 </div>`;
 }
 
-function wireModal(root) {
-  root.querySelector('[data-act="window-done"]')?.addEventListener('click', () => go('01-home'));
+function wireModal(root, close) {
+  /* R2-U-01: close the overlay BEFORE navigating (scroll lock / back) */
+  root.querySelector('[data-act="window-done"]')?.addEventListener('click', () => { close?.(); go('01-home'); });
 }
 
-/** Open over the live 07A/07B after chooseFulfilment(). */
+/** Open over the live 07A/07B after chooseFulfilment(). `when` is the
+    dated window label ("Fri, Jul 17 · 4–6 PM", R2-U-02). */
 export function openWindowConfirmed({ method, when }) {
   const a = apptEntry() ?? {};
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];

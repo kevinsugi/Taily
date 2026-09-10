@@ -6,7 +6,7 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, garmentTile, cta, apptCard, toast } from '../components.js';
-import { GARMENT_TYPES, itemsLabel, fmtDay } from '../data.js';
+import { GARMENT_TYPES, itemsLabel, itemCount, fmtDay, fmtWhen } from '../data.js';
 import { state, addGarment, isTerminal } from '../state.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
 import { openReschedulePopup } from './03.1-reschedule-popup.js';
@@ -33,23 +33,40 @@ const cardStatus = (a) => CARD_STATUS[String(a?.status ?? '').toLowerCase()] ?? 
 export function apptMeta(a) {
   const f = a.fulfilment;
   const method = f?.method === 'delivery' ? 'Delivery' : 'Pickup';
+  const first = (a.name ?? 'Marco Tailor').split(' ')[0];
   const map = {
-    /* Phase R5: the Requested variant writes the prefixed form */
-    requested: `Appt Date: ${a.when}`,
+    /* Phase R5: the Requested variant writes the prefixed form.
+       UX-LOOP R2-U-03: a proposed time takes the line over. */
+    requested: a.proposed ? `New time proposed: ${fmtWhen(a.proposed.when)}` : `Appt Date: ${a.when}`,
     /* Phase R1: confirmed cards show the bare date (was "Appt Date: …") */
     confirmed: a.when,
     'awaiting-approval': `Est. Ready Date: ${fmtDay(a.needBy)}`,
     tailoring: `Est. Ready Date: ${fmtDay(a.needBy)}`,
-    /* UX-010: a Ready order isn't "Completed" (frame updated too) */
+    /* UX-010: a Ready order isn't "Completed" (frame updated too).
+       R2-U-02: the window label carries its date ("Fri, Jul 17 · 4–6 PM"). */
     ready: f ? `${method}: ${f.window}` : `Ready since: ${a.readyAt ?? a.when}`,
     completed: `${f?.method === 'delivery' ? 'Delivered' : 'Picked up'}: ${a.deliveredAt ?? f?.window ?? a.when}`,
+    /* UX-LOOP R2-U-04/05/07: terminal cards say why (no actions) */
+    expired: 'Request expired · no tailor accepted',
+    cancelled: a.cancelledBy === 'tailor'
+      ? (a.reason === 'no-show' ? 'Missed appointment' : `Cancelled by ${first}`)
+      : a.when,
   };
   return map[cardStatus(a)] ?? a.when;
 }
 
 /** "3 Items Total - Home Visit:" — one rule for 01 and every 09 card
-    (R1-U-19 singular, R1-U-22 visit type). */
-export const apptItemsTitle = (a, count = a.count) => `${itemsLabel(count)} Total - ${a.visit}:`;
+    (R1-U-19 singular, R1-U-22 visit type). UX-LOOP R2-U-08: once the
+    tailor's final order is on file (`revisedAt`) the count is derived
+    from the garments; the seed keeps its frame copy until revised. */
+export const apptItemsTitle = (a, count = a.revisedAt ? itemCount(a) : a.count) => `${itemsLabel(count)} Total - ${a.visit}:`;
+
+/** The card's item lines — the booking's `itemLines` until the final
+    order is written, then `${qty} ${type} - ${jobs}` per garment. */
+export function apptItemLines(a) {
+  if (!a?.revisedAt || !a.garments?.length) return a?.itemLines ?? [];
+  return a.garments.map((g) => `${g.qty ?? 1} ${g.type} - ${(g.jobs ?? []).join(', ')}`);
+}
 
 /** Where a tapped appointment card goes, by status. Shared with 09.
     UX-001: a Requested card returns to 03 (the matching status view) —
@@ -71,12 +88,32 @@ export function apptTarget(a) {
     offers to change the window instead (R1-U-06). */
 export function apptActions(a) {
   const map = {
+    /* R2-U-03: a proposed time gets one small CTA → 03/Requested */
+    requested: a.proposed ? ['Review Time'] : [],
     confirmed: ['Message', 'Reschedule'],
     tailoring: ['Message'],
     ready: [a.fulfilment ? 'Change Pickup / Delivery' : 'Schedule Pickup / Delivery'],
     completed: ['Leave Review'],
   };
   return map[cardStatus(a)] ?? [];
+}
+
+/** Wire the small CTAs of one appointment card. `select()` points
+    state.currentAppt at the card's appointment; shared by 01 and 09. */
+export function wireCardActions(card, select, { onLeaveReview } = {}) {
+  card.querySelectorAll('.cta-small').forEach((b) => {
+    const label = b.textContent.trim();
+    const on = (fn) => b.addEventListener('click', () => { select(); fn(); });
+    if (label === 'Message') on(() => go('10-messages'));
+    /* Phase R3 (Kevin): the card's Reschedule opens the R1 popup */
+    if (label === 'Reschedule') on(() => openReschedulePopup());
+    /* Phase R5 (Kevin): a Ready card's CTA leads to 07 (also to change
+       an already-scheduled window) */
+    if (label === 'Schedule Pickup / Delivery' || label === 'Change Pickup / Delivery') on(() => go('05-items-ready'));
+    /* R2-U-03: review the tailor's proposed time on 03/Requested */
+    if (label === 'Review Time') on(() => go('03-status-requested'));
+    if (label === 'Leave Review' && onLeaveReview) on(onLeaveReview);
+  });
 }
 
 export function view01(s) {
@@ -95,7 +132,7 @@ export function view01(s) {
     itemsTitle: apptItemsTitle(a),
     /* Phase R1: the 01 frame lists only two item lines under "3 Items
        Total" where 09 lists all three — built verbatim; raised. */
-    items: (a.itemLines ?? []).slice(0, 2),
+    items: apptItemLines(a).slice(0, 2),
     prepare: a.bring ?? [],
     actions: apptActions(a),
   }) : '';
@@ -159,37 +196,16 @@ export function wire01(root) {
   /* The card itself opens the appointment: ready → pickup options
      (07), completed → order summary (04e), requested → back to 03,
      otherwise the detail (04d). Inner buttons keep their actions. */
-  root.querySelector('.appt-card')?.addEventListener('click', (e) => {
+  const card = root.querySelector('.appt-card');
+  const select = () => { state.currentAppt = { list: 'upcoming', index: 0 }; };
+  card?.addEventListener('click', (e) => {
     if (e.target.closest('button')) return;
     const target = apptTarget(state.upcoming[0]);
     if (!target) return;
-    state.currentAppt = { list: 'upcoming', index: 0 };
+    select();
     go(target);
   });
-  root.querySelectorAll('.appt-card .cta-small').forEach((b) => {
-    const label = b.textContent.trim();
-    if (label === 'Message') {
-      b.addEventListener('click', () => {
-        state.currentAppt = { list: 'upcoming', index: 0 };
-        go('10-messages');
-      });
-    }
-    /* Phase R3 (Kevin): the card's Reschedule opens the R1 popup */
-    if (label === 'Reschedule') {
-      b.addEventListener('click', () => {
-        state.currentAppt = { list: 'upcoming', index: 0 };
-        openReschedulePopup();
-      });
-    }
-    /* Phase R5 (Kevin): a Ready card's CTA leads to 07 (also to change
-       an already-scheduled window) */
-    if (label === 'Schedule Pickup / Delivery' || label === 'Change Pickup / Delivery') {
-      b.addEventListener('click', () => {
-        state.currentAppt = { list: 'upcoming', index: 0 };
-        go('05-items-ready');
-      });
-    }
-  });
+  if (card) wireCardActions(card, select);
   root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {

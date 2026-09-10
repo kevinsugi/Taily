@@ -223,3 +223,136 @@ Implementers ran under the original Figma-first rule (the cadence change arrived
   (worked around in tailor.css); lifecycle transitions act on `apptEntry()` rather than the
   `mine` job (wrong entry if the user browses a past booking before switching persona); a fresh
   booking's `depositOn` is stamped from the real date while its appointment date is fiction-year.
+
+## Round 2 — started Sep 9 2026, 22:40 (code-only round; Figma sync is round 3)
+
+Baseline: `3191d79`. A third agent built `scripts/clickthrough-sync.mjs` (372 cross-persona
+assertions, wired into `npm run check`): 369 PASS, **3 genuine FAILs** (logged as R2-S-01…03).
+
+### User flow — director verdict: NOT YET
+Report: scratchpad `round2/user/user-flow-review.md`. Round 1 verification: 18 PASS, 2 PARTIAL
+(R1-U-08 — literal "July 12" note + July handoff dates → R2-U-02; R1-U-16 — first back after a
+modal confirm is swallowed → R2-U-01). Director's summary: fixes hold and the money trail is
+consistent on seed, fresh and three-garment orders; blocked by a new P0 (scroll lock after
+03.2 / 05.1 / 03.1 confirms) and by the unbuilt end-state branches.
+
+### Tailor flow — director verdict: NOT YET
+Report: scratchpad `round2/tailor/tailor-flow-review.md`. Round 1 verification: 14 PASS, 1
+PARTIAL (R1-T-01 — withdrawing a fresh request resurrects the seed → R2-T-01). Director's
+summary: the mirror works on seed and fresh bookings, the editor is real, chat is right both
+ways; blocked by the two-`mine` defect, transitions acting on the customer's `currentAppt`,
+and the three missing branches. Flow chart `263:6457` still lacks the approval gate and a
+suggest-time edge (End state is authoritative).
+
+| ID | P | Finding (short) | Decision | Reason / scope |
+|---|---|---|---|---|
+| R2-U-01 | P0 | 03.2 / 05.1 / 03.1 confirms navigate without closing the overlay: page stays `overflow:hidden`, next back swallowed | **ACCEPT** | `close()` before `go()`; `render()` closes any active overlay synchronously; never capture a `hidden` previous overflow; click-through asserts scrolling after each |
+| R2-U-06 / R2-T-01 / R2-S-03 | P1 | Two `mine` appointments: fresh booking hides the confirmed job, cancellation invisible to the tailor, seed resurrected as a phantom request | **ACCEPT** | Tailor side becomes a LIST (`jobs(s)`), per-appointment tailor state (`a.tailor = {requestHandled, expiresAt, draft, …}`), T02+ take the tapped appointment (`tailorUi.current`); terminal appointments move to `state.past` so both 09 and T01 show them; seed keeps `mine` |
+| R2-T-02 | P1 | Transitions act on the customer's `currentAppt`; Send toasts success while doing nothing | **ACCEPT** | `step(from, to, extra, a = apptEntry())`; every transition takes an explicit appointment and returns success; tailor screens pass their job; T05 checks the result before toasting |
+| R2-U-04 / R2-T-03 | P1 | Request expiry unbuilt; `expired` crashes 01/09 | **ACCEPT** | `expireAppointment(a)` wired to the T01 tick + demo taps (T01 timer strip; 03/Requested "2 hours" line = time passes); `expired` pill/card/03-Cancelled variant "Request expired" + `Send Request Again`; T01 "Expired · request lapsed" row. Figma sync pending: T01 expired card, 03/Cancelled expired copy |
+| R2-U-03 / R2-T-04 | P1 | Suggest another time unbuilt on both sides | **ACCEPT** | `proposeTime(a, when)` (status stays searching, `a.proposed`), `acceptProposedTime(when, a)`, `declineProposedTime(a)`. Marco: T03A "Schedule conflict" row opens the 02.1 wheel (next 7 days); T01 request card "Time proposed · … — waiting for Sarah" + Withdraw. Sarah: 03/Requested `new-times` hero "Marco proposed a new time" + `Accept New Time` / `Keep Looking` (+ cancel line), card meta + `Review Time`; demo tap on the 03/Requested pill = Marco proposes tomorrow 11 AM. Figma sync pending: T03A variant, 03/Requested-proposed, T01 proposed card |
+| R2-U-05 / R2-T-05 | P1 | No-show / tailor-side cancel unbuilt | **ACCEPT** | `tailorCancels(a, reason)` (`cant-make-it` / `no-show`, `cancelledBy:'tailor'`); T03 pre-visit tertiary CTA opens a modal with two radio rows, then T03B per reason; user 03/Cancelled "Marco had to cancel" / "We missed you at …" + `Find Another Tailor`; cards "Cancelled by Marco" / "Missed appointment". **Fee rule defaulted to no charge (hold released) — Kevin's call.** Figma sync pending: T03 CTA + modal, T03B / 03-Cancelled variants |
+| R2-U-02 | P1 | Handoff windows hard-wired to Jul 16/17; "July 12" literal note | **ACCEPT** | `handoffWindows(a)` from `readyAt` to `needBy` (seed still Thu Jul 16 / Fri Jul 17, frames unchanged); dated window labels on 05.1 / card / hero; note "All details confirmed on ${fmtDay(a.when)}" |
+| R2-U-07 | P2 | Declined request shown as "Appointment Cancelled", no next step; terminal orders vanish from 09 | **ACCEPT** | Terminal entries move to `state.past` (from the mirror fix); 03/Cancelled title/body per reason (declined / expired / customer / tailor / no-show) + `Send to Another Tailor` (re-request with copied garments). Figma sync pending: 03/Cancelled variants |
+| R2-U-08 / R2-S-01 / R2-S-02 | P2 | Cards keep the booking-time item count after the final order | **ACCEPT** | `refreshItemSummary(a)` called by `writeFinalOrder` / `draftFinalOrder`; seed keeps frame copy until revised |
+| R2-U-09 | P2 | 02's photo "+" tile is inert | **ACCEPT** | Tap adds a placeholder photo (WithPhoto look), ✕ removes |
+| R2-U-10 | P2 | Seed past bookings open a contradictory summary | **ACCEPT** | Coherent seed-past facts; `receiptDates()` falls back to the appointment's own day; one name for review sheet/toasts |
+| R2-U-11 | P3 | Live tailoring state still leads with Add to Calendar | **ACCEPT** | Live primary `Message Marco`. Figma sync pending: 03/Tailoring CTA bar |
+| R2-U-12 | P3 | Toast survives the persona flip | **ACCEPT** | `render()` clears `.toast` on persona change |
+| R2-T-06 / R2-S-04 | P2 | T03B literal copy; withdrawn request shown as a closed job | **ACCEPT** | Live copy from state; withdrawn: "Request withdrawn." + T01 pill "Withdrawn", no payout |
+| R2-T-07 | P2 | T07 / T06 assert a Jul 17 pickup before the customer chose | **ACCEPT** | Live "waiting for Sarah to schedule" state, `Message Sarah` primary, Mark Picked Up = recorded demo ("Demo: Sarah chose pickup now"). Figma sync pending: T07 waiting variant |
+| R2-T-08 | P2 | Removal marks slip by index; removals invisible to the customer | **ACCEPT** | Stable garment `id`s; `orderMarks` by id; `a.removed` rendered on T05 and 04 ("Removed at the visit — …") |
+| R2-T-09 | P2 | Request Changes leaves no trace for the tailor | **ACCEPT** | 04.1 Sounds Good runs `requestChanges(a)` and opens chat with a canned bubble; T06 line + `Message Sarah` primary; T01 "Sarah has questions"; approval clears |
+| R2-T-10 | P3 | Status label drift (chat pill, delivery jobs) | **ACCEPT** | Tailor chat pill from `jobView`; "Ready for Delivery"; chat ready subline from `fulfilment.date` |
+| R2-T-11 | P3 | Browser back after Accept re-offers Accept | **ACCEPT** | Accept renders T03 with `replace`; T02 for a confirmed job shows inert `Accepted` |
+| R2-T-12 | P3 | Tailor page M1 frame is the customer view; TM1 node gone; no harness cover for the tailor chat | **DEFER to round 3** | Figma sync round: edit `570:8782` to the tailor view, export `ref/t10-messages.png`, register a `t10-messages` route. End state's TM1 reference now means `570:8782` |
+
+Opportunities logged: payment-failure / modify-request chart branches (scope decision for
+Kevin); three handoff days; customer-side acceptance countdown; decline reason shown to the
+customer; measurement photos at tailoring; Calendar day list; toggle landing on the mirrored
+screen; "Done today" row on T01.
+
+### Round 2 — substrate contract (shared files: one owner, the others code against it)
+`js/state.js`, `js/data.js`, `js/components.js`, `css/components.css`, `js/app.js` are owned by
+the **substrate implementer** this round. Additive only (state.js stays the v3-ported machine):
+- `step(from, to, extra, a = apptEntry())` returns a boolean. `tailorAccepts(a)`,
+  `completeAppointment(a)`, `approveOrder(a)` (clears `changesRequestedAt`, stamps `approvedAt`),
+  `markReady(a)`, `deliver(a)`, `chooseFulfilment(method, window, date, a)`, `declineAppointment(a)`,
+  `cancelAppointment(a | index)` all accept an explicit appointment and return success.
+- Terminal transitions (`cancelAppointment`, `declineAppointment`, `expireAppointment(a)`,
+  `tailorCancels(a, reason)` with reason `cant-make-it` or `no-show`) set the terminal status,
+  `cancelledBy` (`customer` / `tailor` / `none`), `reason`, `cancelledAt`, `wasRequested`, MOVE the
+  entry from `state.upcoming` to the front of `state.past`, and set `state.lastCancelled` to it.
+  No charge on any of them (hold released); the fee policy is Kevin's call.
+- `proposeTime(a, when)`: `a.proposed = { when, by: 'tailor', at }`, status unchanged (searching).
+  `acceptProposedTime(when, a)`: `a.when = when`, `a.proposed = null`, status confirmed.
+  `declineProposedTime(a)`: `a.proposed = null`, `a.proposalDeclined = when`.
+- `requestChanges(a)` stamps `a.changesRequestedAt`.
+- Garments get stable `id`s (`addGarment`, seeds, `SEED_FINAL_ORDER`); `refreshItemSummary(a)`
+  recomputes `a.count / a.itemLines / a.items` from `a.garments` (called by whoever writes them).
+- `data.js`: `handoffWindows(a)` (two days from `readyAt`, capped at `needBy`; fixture fallback so
+  the seed still yields Thu Jul 16 / Fri Jul 17); coherent `SEED_PAST` facts (R2-U-10).
+- `components.js`: `PILL_VARIANTS.expired` (declined styling, label "Expired"); `cardStatus` treats
+  expired / cancelled / declined as terminal; `statusHero` `new-times` variant usable; overlay
+  lifecycle fix (R2-U-01) with `closeOverlay()` called from `render()`; toast cleared on persona change.
+- Screen owners: user cluster = `js/screens/0*.js`, `scripts/clickthrough.mjs`,
+  `scripts/text-parity.mjs`; tailor cluster = `js/screens/t*.js`, `js/tailor-*.js`, `css/tailor.css`,
+  `js/screens/10-messages.js`, `scripts/clickthrough-tailor.mjs`. `scripts/clickthrough-sync.mjs` is
+  extended afterwards by a fourth agent.
+
+### Figma sync pending ledger (opened round 2, applied in round 3)
+| Screen | Frame | Change |
+|---|---|---|
+| t01-home | 455:3560 | Expired row ("Expired · request lapsed"); "Time proposed · … — waiting for Sarah" request-card state; "Withdrawn" job card |
+| t02 / t03a | 455:2170 / 449:733 | "Suggest another time" entry (T03A Schedule-conflict row opens the time wheel) |
+| t03-request-accepted | 449:714 | Pre-visit view + tertiary CTA "Can't make it / Customer no-show" and its modal |
+| t03b-job-cancelled | 449:752 | Variants: tailor-cancelled, no-show, request withdrawn |
+| t07-job-ready | 449:847 | "Waiting for Sarah to schedule" variant |
+| 03-status-requested | 281:1237 | Proposed-time hero + Accept New Time / Keep Looking |
+| 03-status-cancelled | 558:3817 | Variants: declined, expired, tailor-cancelled, no-show + `Send to Another Tailor` / `Find Another Tailor` |
+| 03-status-tailoring | 308:3578 | Live CTA bar (Message Marco primary while tailoring) |
+| 10-messages (tailor) | 570:8782 | Tailor view of M1 (SC / Sarah Chen / flipped rows / "Message Sarah…") + `t10-messages` route and ref |
+
+### Figma sync pending — rows added by the round 2 implementers
+| Screen | Frame | Change |
+|---|---|---|
+| 03-status-requested | 281:1237 | Proposed state: hero "Marco proposed a new time" + body; `Accept New Time` / `Keep Looking` replace `View All Appointments`; optional live line "Tailors have up to 2 hours to accept your request." |
+| 03-status-cancelled | 558:3817 | Variant copy: expired ("Request expired" + `Send Request Again` / `Back to Home`), declined ("Marco couldn't take this request" + `Send to Another Tailor`), tailor-cancelled ("Marco had to cancel" + `Find Another Tailor`), no-show ("We missed you at <when>" + `Find Another Tailor`); refund card and fee rows dropped on those |
+| 03-status-tailoring | 308:3578 | Note "…confirmed on July 12." → "…confirmed on Sun, Jul 12."; live CTA bar (Message Marco primary while tailoring) |
+| 01-home / 09-bookings | 277:2653 / 277:2804 | Requested card "New time proposed: …" + `Review Time`; terminal card metas "Request expired · no tailor accepted" / "Cancelled by Marco" / "Missed appointment"; Expired pill |
+| 05.1-window-confirmed (+ Ready card meta, 03/Tailoring scheduled hero) | 576:9219 | Window labels dated ("Fri, Jul 17 · 4–6 PM") |
+| t02-appointment-request | 455:2170 | Live variants "$… \| Accepted" (inert CTA, no Decline) and "$… \| Request Expired" (note + Back to Home); proposal note |
+| t03-request-accepted | 449:714 | Tertiary `Can't make it`; modal `t03.1-cant-make-it` ("Can't make this visit?", two radio rows, Confirm / Go Back) |
+| t03a-decline-request | 449:733 | Primary reads `Suggest Another Time` when Schedule conflict is chosen; the 02.1 wheel retitled "Suggest another time" |
+| t05-confirm-final-pricing / 04-review-approve-modified | 449:809 / 551:6263 | "Removed at the visit — …" rows (c-500, struck price) |
+| t06-appointment-status | 473:6324 | Talk-it-over line + `Message Sarah` primary; "Sarah has questions"; ready line "waiting for Sarah to schedule the handoff" |
+| t01-home | 455:3560 | Withdrawn / Expired rows without a payout column; "Cancelled · by you" / "No-show"; "Sarah kept her original time"; closed rows sit below the Leo Von filler |
+
+Demo affordances added in round 2 (live only): 03/Requested hero-pill tap = Marco proposes the
+day after at 11:00 AM; 03/Requested "Tailors have up to 2 hours…" line tap = time passes (expiry);
+T01 request-card timer-strip tap = time passes; T07 waiting state's secondary `Mark Picked Up` =
+"Demo: Sarah chose pickup now". Fee policy on tailor cancel / no-show defaulted to **no charge** —
+Kevin's call.
+
+### Round 2 — results (Sep 9 2026, 23:55)
+Code-only round; four agents (substrate, user screens, tailor screens, integration).
+- **Accepted items:** 26 of 27 DONE (every ACCEPT row above); R2-T-12 deferred to the round 3
+  Figma sync as planned. Substrate contract delivered as specified (explicit-target transitions,
+  terminal → `state.past`, proposed time, expiry, tailor cancel / no-show, request changes,
+  garment ids + `refreshItemSummary`, `handoffWindows`, coherent seed-past facts, `expired` pill,
+  overlay lifecycle fix, toast cleared on persona flip).
+- **Branches built code-first:** suggest another time, request expiry, tailor cancel / no-show,
+  request-changes trace, removal marks — on both personas, with demo affordances (listed above).
+- **Harness:** `npm run check` ALL PASS — diff 37/37 at baseline (no `--accept` needed: every
+  change is live-only, fixtures unchanged), text parity (no new ALLOWs), click-through ~85,
+  tailor click-through 153, **sync click-through 768 assertions** (repaired for the derived
+  handoff windows and extended to the new branches), style hygiene — 299 s.
+- **CLAUDE.md** gained the "UX-LOOP round 2" notes (mirror model v2, transitions, branches, dates,
+  overlay lifecycle, demo affordances).
+- **Figma sync pending ledger:** 9 rows from triage + 11 rows from the implementers — applied in
+  round 3.
+- **Deferred to Kevin (new):** fee policy on tailor cancel / no-show (built as no charge); T03A
+  "Other" textarea; a real reschedule path; the "2 hours to accept" line on the 03/Requested frame.
+- **Noticed, not changed:** `state.ui.window` is shared across appointments; browser back from
+  03/Cancelled after a 03.1 confirm lands on the cancelled entry's 03/Confirmed; no-show title
+  wraps at serif-28; delivered jobs stay under Active Jobs on T01.

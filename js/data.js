@@ -152,29 +152,40 @@ export const SEED_UPCOMING = [
        loaded by the harness with the seed still 'confirmed' render
        SEED_FINAL_ORDER (the frames' 06B fiction) instead. `count` /
        `itemLines` stay the 01/09 frames' exact card copy. */
-    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
+    garments: [{ id: 'g1', type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
     when: 'Jul 1, 3PM', needBy: 'Thurs, Sep 2', status: 'ready', items: '2 items · Alterations',
     visit: 'Home Visit', count: 2, month: 'JUL', day: '1',
     itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
-    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
+    garments: [{ id: 'g3', type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { id: 'g4', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['The shoes you plan to wear with your garments.'],
     totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
 ];
 /* garments/totals added so the 04d detail view has data to render;
-   itemLines stay the 09 frame's exact card copy. */
+   itemLines stay the 09 frame's exact card copy.
+   UX-LOOP R2-U-10: coherent facts for the two past seeds — ONE name
+   (the "Marco Tailor" the 09 frame draws; `displayName` is gone), a
+   need-by after the visit, a same-day store pickup (`fulfilment`),
+   `deliveredAt` in the card's own grammar so the 09 frame's
+   "Picked up: Sep 2, 2PM" is unchanged (fmtDay() it for "Wed, Sept 2"),
+   and a deposit date before the visit. `displayCount` keeps the 09
+   frame's "2 Items Total" quirk on the second card. Garment ids g5/g6. */
 export const SEED_PAST = [
-  { name: 'Elena Tailor', initials: 'EA', tailorId: 'elena', where: 'shop', place: '15 West Broadway',
-    when: 'Sep 2, 2PM', status: 'Delivered', items: '1 jean · Length', month: 'SEP', day: '2', displayName: 'Marco Tailor',
+  { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '15 West Broadway',
+    when: 'Sep 2, 2PM', needBy: 'Sep 4', status: 'Delivered', items: '1 jean · Length', month: 'SEP', day: '2',
     visit: 'Store Visit', count: 1, itemLines: ['1 Jean - Length'],
-    garments: [{ type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
+    fulfilment: { method: 'pickup', window: 'Wed 2–4 PM', date: 'Sep 2' },
+    deliveredAt: 'Sep 2, 2PM', depositOn: '8/28/26',
+    garments: [{ id: 'g5', type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
     totals: { subtotal: 120, visitFee: 0, total: 120, deposit: 12 } },
-  { name: 'Grace Tailor', initials: 'GT', tailorId: 'stitch', where: 'shop', place: '15 West Broadway',
-    when: 'Sep 2, 2PM', status: 'Delivered', items: '1 shirt · Length', month: 'SEP', day: '2', displayName: 'Marco Tailor',
+  { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '15 West Broadway',
+    when: 'Sep 2, 2PM', needBy: 'Sep 4', status: 'Delivered', items: '1 shirt · Length', month: 'SEP', day: '2',
     visit: 'Store Visit', count: 1, displayCount: 2, itemLines: ['1 Shirt - Length'],
-    garments: [{ type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
+    fulfilment: { method: 'pickup', window: 'Wed 2–4 PM', date: 'Sep 2' },
+    deliveredAt: 'Sep 2, 2PM', depositOn: '8/28/26',
+    garments: [{ id: 'g6', type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
     totals: { subtotal: 120, visitFee: 0, total: 120, deposit: 12 } },
 ];
 
@@ -188,9 +199,11 @@ export const SEED_PAST = [
    state.draftFinalOrder() or the tailor's T05 Send. */
 export const SEED_FINAL_ORDER = {
   garments: [
-    { type: 'Suit Jacket', jobs: ['Hem / Adjust Length', 'Sleeve / Adjust Length'], addedJobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 },
-    { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 },
-    { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2, added: true },
+    /* g1/g2 = the seed's booked garments (same identity, R2-T-08);
+       g7 = the jacket added at the visit */
+    { id: 'g1', type: 'Suit Jacket', jobs: ['Hem / Adjust Length', 'Sleeve / Adjust Length'], addedJobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 },
+    { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 },
+    { id: 'g7', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2, added: true },
   ],
   totals: { subtotal: 360, visitFee: 0, total: 360, deposit: 20 },
 };
@@ -292,6 +305,50 @@ export function dayRows(from, to, max = 31) {
   }
   return rows.length ? rows : [`${DOW[a.date.getDay()]} ${a.day} ${a.mon}`];
 }
+const FULL_DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const FULL_MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/* The 05A/05B frames' handoff days, chip copy verbatim (the second
+   day's first chip is hyphenated in the frame — kept). */
+const HANDOFF_CHIPS = [['9–11 AM', '12–2 PM', '4–6 PM'], ['9-11 AM', '12–2 PM', '4–6 PM']];
+const HANDOFF_FIXTURE = ['Thu, Jul 16', 'Fri, Jul 17'];
+
+/**
+ * The pickup / delivery window days for an appointment (UX-LOOP
+ * R2-U-02), in the shape 05A's WINDOWS constant has always had:
+ *   [{ day: 'Thursday, July 16', abbr: 'Thu', date: 'Jul 16',
+ *      chips: ['9–11 AM', '12–2 PM', '4–6 PM'] }, …]
+ * (`short` / `slots` are aliases of `abbr` / `chips`.)
+ * Day 1 = a.readyAt, day 2 = the next day, capped at a.needBy — when
+ * readyAt already IS the need-by day only one window is returned.
+ * Without a readyAt (the seed before markReady, harness deep links)
+ * the frames' fixture stands, so the seed yields Thu Jul 16 / Fri Jul 17.
+ */
+export function handoffWindows(a) {
+  const ready = parseWhen(a?.readyAt);
+  const needBy = parseWhen(a?.needBy);
+  const days = [];
+  if (!ready) days.push(...HANDOFF_FIXTURE);
+  else {
+    const d0 = new Date(ready.date); d0.setHours(0, 0, 0, 0);
+    const d1 = new Date(d0); d1.setDate(d1.getDate() + 1);
+    const cap = needBy ? new Date(needBy.date) : null; if (cap) cap.setHours(0, 0, 0, 0);
+    const key = (d) => `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}`;
+    days.push(key(d0));
+    if (!cap || d1 <= cap) days.push(key(d1));
+  }
+  return days.map((str, i) => {
+    const p = parseWhen(str);
+    const chips = HANDOFF_CHIPS[Math.min(i, HANDOFF_CHIPS.length - 1)];
+    return {
+      day: `${FULL_DOW[p.date.getDay()]}, ${FULL_MON[p.date.getMonth()]} ${p.day}`,
+      abbr: p.dow, short: p.dow,
+      date: `${p.mon} ${p.day}`,
+      chips, slots: chips,
+    };
+  });
+}
+
 /** Is `needBy` strictly after `when`? (02's need-by validation.) */
 export function isAfter(needBy, when) {
   const a = parseWhen(needBy); const b = parseWhen(when);

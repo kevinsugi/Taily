@@ -13,10 +13,11 @@
 import { register, render as go } from '../app.js';
 import { chrome, infoCard, infoRow, cta } from '../components.js';
 import { money } from '../data.js';
-import { chooseFulfilment } from '../state.js';
-import { winSel, windowLabel, windowDate, windowsHtml, wireWindows, amountDue } from './05a-pickup-window.js';
+import { state, chooseFulfilment } from '../state.js';
+import { winSel, windowLabel, windowDate, windowDated, windowsHtml, wireWindows, amountDue } from './05a-pickup-window.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
 import { openWindowConfirmed } from './05.1-window-confirmed.js';
+import { currentAppt } from './03-status-confirmed.js';
 
 /* Exported: 07C draws this screen (dimmed) as its frame backdrop. */
 export function viewDelivery(s) {
@@ -52,8 +53,8 @@ function wire(root) {
      the order stays 'ready' until the TAILOR confirms the handoff. */
   root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => {
     const sel = winSel();
-    const when = windowLabel(sel);
-    chooseFulfilment('delivery', when, windowDate(sel));
+    const when = windowDated(sel);   // R2-U-02: the stored window carries its date
+    chooseFulfilment('delivery', when, windowDate(sel), currentAppt(state));
     openWindowConfirmed({ method: 'delivery', when });
   });
   root.querySelector('[data-act="select"]')?.addEventListener('click', () => go('05a-pickup-window'));

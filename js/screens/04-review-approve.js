@@ -12,7 +12,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, cta, feeRow, orderCards, receiptDates } from '../components.js';
 import { money, SEED_UPCOMING } from '../data.js';
-import { approveOrder, finalOrder, orderModified, isPostAppointment } from '../state.js';
+import { apptEntry, approveOrder, finalOrder, orderModified, isPostAppointment } from '../state.js';
 import { openRequestChanges } from './04.1-request-changes.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
 import { currentAppt } from './03-status-confirmed.js';
@@ -27,6 +27,9 @@ export function viewReview(s, screenId, fixture) {
   const t = o.totals;
   const d = receiptDates(a);
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];
+  /* R2-T-08 (live only): booked garments the tailor dropped at the
+     visit, listed under the cards the way T05 shows them to Marco */
+  const removed = live ? (o.removed ?? []) : [];
   return `${chrome('home')}
 <div class="body" data-s="${screenId}">
   <div class="heading">
@@ -35,6 +38,7 @@ export function viewReview(s, screenId, fixture) {
   </div>
   <div class="garments-card">
     ${orderCards(o, { variant: 'PostAppt', marks: true })}
+    ${removed.map((r) => `<div class="removed-row t-small c-500"><span>Removed at the visit — ${r.type} · ${(r.jobs ?? []).join(', ')}</span><s>${money(r.amount)}</s></div>`).join('\n    ')}
     ${feeRow(money(t.total), 'Subtotal', { line: true, info })}
     ${feeRow(money(-t.deposit), `10% Deposit - Paid ${d.deposit}`, { line: true, info })}
     ${feeRow(money(t.total - t.deposit), 'Due at Pickup / Delivery', { info })}
@@ -51,7 +55,7 @@ export function wireReview(root) {
   wirePhotoViewer(root);
   /* Phase R4 (Kevin): approving lands back on 04D with the order in
      'tailoring' (the home/bookings cards reflect it). */
-  root.querySelector('[data-act="approve"]')?.addEventListener('click', () => { approveOrder(); go('03-status-tailoring'); });
+  root.querySelector('[data-act="approve"]')?.addEventListener('click', () => { approveOrder(apptEntry()); go('03-status-tailoring'); });
   root.querySelector('[data-act="changes"]')?.addEventListener('click', () => openRequestChanges());
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {

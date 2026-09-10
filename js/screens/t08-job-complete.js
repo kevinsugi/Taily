@@ -9,11 +9,11 @@
 import { register, render as go } from '../app.js';
 import { statusHero, cta } from '../components.js';
 import { tailorChrome, wireTailorNav, priceRow, hairline, orderDropdown, orderCards, payoutRows } from '../tailor-components.js';
-import { job, jobView, isFixture, FIXTURE_FINAL, orderTotals } from '../tailor-data.js';
+import { current, jobView, isFixture, FIXTURE_FINAL, orderTotals } from '../tailor-data.js';
 import { wireOrderDropdown } from './t07-job-ready.js';
 
 function renderScreen(s) {
-  const v = jobView(job(s));
+  const v = jobView(current(s));           // the tapped job (R2-T-01)
   const fixture = isFixture() || !v.post;
   const m = fixture ? { subtotal: '$360', feeNeg: '−$36', payout: '$324' } : v.money;
   const garments = fixture ? FIXTURE_FINAL : v.garments;

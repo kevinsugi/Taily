@@ -9,27 +9,33 @@
    chevron goes Home. The harness deep link (seed still 'confirmed')
    renders the frame's Tailoring fixture: $324, three cards itemised
    $120/$80/$80, Mark Ready, no status line.
+   Round 2: renders the tapped job and passes it to every transition
+   (R2-T-01/02); while Sarah talks the order over (a.changesRequestedAt)
+   the line says so and `Message Sarah` leads (R2-T-09); the ready line
+   waits for her handoff choice (R2-T-07).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { cta, toast } from '../components.js';
-import { state, approveOrder, markReady } from '../state.js';
+import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, jobCard, orderCards, payoutRows } from '../tailor-components.js';
-import { job, jobView, isFixture, FIXTURE_T06, CUSTOMER } from '../tailor-data.js';
+import { current, jobView, isFixture, T, FIXTURE_T06, CUSTOMER } from '../tailor-data.js';
 
 const LINE = {
   'awaiting-approval': 'Waiting for Sarah to approve the final order. You’ll be notified — tailoring starts after approval.',
   tailoring: 'Sarah approved the final order. Mark the job ready when the garments are done.',
 };
+const TALK = 'Sarah wants to talk the order over before approving — message her; she approves in her app.';
 
 function renderScreen(s) {
-  const a = job(s);
+  const a = current(s);
   const v = jobView(a);
   const fixture = isFixture() || !v.post;
   const shown = fixture ? jobView({ ...a, status: 'tailoring', garments: FIXTURE_T06, totals: { subtotal: 360 } }) : v;
-  const line = fixture ? '' : {
+  const talking = !fixture && v.canon === 'awaiting-approval' && !!a.changesRequestedAt;
+  const line = fixture ? '' : talking ? TALK : {
     ...LINE,
-    'ready-for-pickup': `Ready — handoff ${a.fulfilment?.window ?? 'Fri, Jul 17 · 3:00 PM'}.`,
+    'ready-for-pickup': a.fulfilment ? `Ready — handoff ${a.fulfilment.window}.` : 'Ready — waiting for Sarah to schedule the handoff.',
     delivered: `Completed · payout ${v.money.payout} on Mon, Jul 20.`,
   }[v.canon] ?? '';
   const primary = fixture || v.canon === 'awaiting-approval' || v.canon === 'tailoring'
@@ -37,18 +43,20 @@ function renderScreen(s) {
     : v.canon === 'ready-for-pickup'
       ? cta('View Handoff Details', { attrs: 'data-act="handoff"' })
       : cta('View Payout', { attrs: 'data-act="payout"' });
+  const right = talking ? 'Sarah has questions' : shown.itemsLabel;
   return `${tailorChrome('calendar')}
 <div class="body" data-s="t06-appointment-status">
   ${backHeader('Appointment Status', line)}
   <div class="summary">
-    ${jobCard({ month: shown.month, day: shown.day, name: CUSTOMER.name, meta: shown.meta, payout: shown.money.payout, status: shown.pill, pillLabel: shown.pillLabel, stage: shown.stage, right: shown.itemsLabel })}
+    ${jobCard({ month: shown.month, day: shown.day, name: CUSTOMER.name, meta: shown.meta, payout: shown.money.payout, status: shown.pill, pillLabel: shown.pillLabel, stage: shown.stage, right })}
     <div class="garments-card">
       ${orderCards(shown.garments, { variant: 'Appt_View', plain: true })}
       ${payoutRows(shown)}
     </div>
   </div>
   <div class="t-actions">
-    ${primary}
+    ${talking ? cta('Message Sarah', { attrs: 'data-act="message"' }) : ''}
+    ${talking ? primary.replace('class="cta"', 'class="cta cta--secondary"') : primary}
     ${cta('Back to Appointments', { variant: 'secondary', attrs: 'data-act="home"' })}
   </div>
 </div>`;
@@ -60,12 +68,14 @@ function wire(root) {
   root.querySelector('[data-act="home"]')?.addEventListener('click', () => go('t01-home'));
   root.querySelector('[data-act="handoff"]')?.addEventListener('click', () => go('t07-job-ready'));
   root.querySelector('[data-act="payout"]')?.addEventListener('click', () => go('t08-job-complete'));
+  root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));
   root.querySelector('[data-act="ready"]')?.addEventListener('click', () => {
-    const v = jobView(job(state));
-    /* demo shortcut (recorded): Sarah approves on the spot if she hasn't yet */
-    if (v.canon === 'awaiting-approval') { approveOrder(); toast('Demo: Sarah approved the final order'); }
+    const a = current(state);
+    const v = jobView(a);
     if (v.canon === 'confirmed') { toast('Nothing to mark ready yet — send the final order first'); return; }
-    markReady();
+    /* demo shortcut (recorded): Sarah approves on the spot if she hasn't yet */
+    if (v.canon === 'awaiting-approval') { if (T.approve(a)) toast('Demo: Sarah approved the final order'); }
+    if (!T.ready(a)) { toast('Already marked ready'); return; }
     go('t07-job-ready');
   });
 }

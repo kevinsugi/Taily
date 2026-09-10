@@ -137,6 +137,23 @@ function wire(root) {
       }
     });
   });
+  /* UX-LOOP R2-U-09: the camera "+" tile captures a placeholder photo
+     (the card takes the WithPhoto look); a photo's ✕ drops it again —
+     mirrors the tailor editor's add-photo. Cards render in
+     state.garments order; the ✕ control carries the index. */
+  root.querySelectorAll('.garment-card').forEach((card) => {
+    const g = state.garments[Number(card.querySelector('[data-act="remove-garment"]')?.dataset.gi)];
+    if (!g) return;
+    card.querySelector('.photo-tile--add')?.addEventListener('click', () => {
+      g.photos = (g.photos ?? 0) + 1;
+      go('02-appointment-details', { replace: true });
+    });
+    card.querySelectorAll('.photo-tile__cancel').forEach((x) => x.addEventListener('click', (e) => {
+      e.stopPropagation();
+      g.photos = Math.max(0, (g.photos ?? 0) - 1);
+      go('02-appointment-details', { replace: true });
+    }));
+  });
   root.addEventListener('click', closeMenus);
 
   root.querySelector('[data-act="time"]')?.addEventListener('click', () => openDateTimeOverlay('appt'));

@@ -93,7 +93,15 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
     return false;
   }
 
+  /* UX-LOOP R2-U-01: an overlay that a handler navigated away from
+     (03.2 / 05.1 / 03.1 confirms) must not outlive its screen — close
+     it NOW so the page unfreezes and the next popstate steps back
+     instead of running a stale close. */
+  closeOverlay({ instant: true });
+  const prevPersona = state.persona;
   syncPersona(id);
+  /* R2-U-12: a toast raised by one persona does not survive the flip */
+  if (prevPersona !== state.persona) document.querySelectorAll('.toast').forEach((t) => t.remove());
   el.innerHTML = entry.view(state);
   el.dataset.screen = id;
   entry.wire?.(el);

@@ -20,8 +20,8 @@ import { register, render as go, back } from '../app.js';
 import { chrome, statusPill, bubble } from '../components.js';
 import { fmtWhen, fmtDay } from '../data.js';
 import { state, canonicalStatus } from '../state.js';
-import { tailorChrome, wireTailorNav } from '../tailor-components.js';
-import { job, isFixture } from '../tailor-data.js';
+import { tailorChrome, wireTailorNav, pill } from '../tailor-components.js';
+import { current, jobView, isFixture, isSeed } from '../tailor-data.js';
 
 /* The frame's conversation (282:1239) — Marco's seeded thread. */
 const SEED_THREAD = [
@@ -39,7 +39,7 @@ const REPLIES = [
 const FRAME_META = 'Sun, Jul 12 · 7:00 PM · Home Visit';
 
 function currentAppointment(s) {
-  if (s.persona === 'tailor') return job(s) ?? {};
+  if (s.persona === 'tailor') return current(s) ?? {};   // the tapped job (R2-T-01)
   const cur = s.currentAppt ?? { list: 'upcoming', index: 0 };
   return s[cur.list]?.[cur.index] ?? s.upcoming[0] ?? {};
 }
@@ -49,11 +49,16 @@ function threadFor(s, a) {
   const key = a.displayName ?? a.name ?? 'Marco Tailor';
   if (!s.chats[key]) {
     const first = key.split(' ')[0];
-    /* the seeded appointment (it alone carries the 01 card's `items`
-       copy) opens with the frame's conversation */
-    s.chats[key] = a.mine && a.items
+    /* the seeded appointment opens with the frame's conversation */
+    s.chats[key] = isSeed(a)
       ? SEED_THREAD.map((m) => ({ ...m }))
       : [{ who: 'tailor', text: `Hi {name} — ${first} here. How can I help?` }];
+  }
+  /* R2-T-09: a canned customer bubble queued by 04.1's Sounds Good
+     ("Can we talk about the changes?") lands in the thread once */
+  if (a.pendingChatSeed) {
+    s.chats[key].push({ who: 'customer', text: String(a.pendingChatSeed) });
+    a.pendingChatSeed = null;
   }
   return s.chats[key];
 }
@@ -67,13 +72,23 @@ function pillStatus(status) {
   return s;
 }
 
-/** Header subline for both personas: the appointment, or the handoff once ready. */
+/** Header subline for both personas: the appointment, or the handoff
+    once ready (R2-T-10: dated by the chosen window's day when there is
+    one, else need-by). */
 function chatMeta(a) {
   const canon = canonicalStatus(String(a.status ?? 'confirmed').toLowerCase());
-  const day = fmtDay(a.needBy, 'Fri, Jul 17');
+  const day = fmtDay(a.fulfilment?.date ?? a.needBy, 'Fri, Jul 17');
   if (canon === 'ready-for-pickup') return `Ready for ${a.fulfilment?.method === 'delivery' ? 'delivery' : 'pickup'} · ${day}`;
   if (canon === 'delivered') return `Completed · ${day}`;
   return [fmtWhen(a.when, ''), a.visit].filter(Boolean).join(' · ') || FRAME_META;
+}
+
+/** The header pill: the tailor reads his own vocabulary (jobView —
+    "Awaiting Customer", "Ready for Delivery"), the customer hers. */
+function headPill(a, tailor) {
+  if (!tailor) return statusPill(pillStatus(a.status));
+  const v = jobView(a);
+  return pill(v.pill, v.pillLabel);
 }
 
 function renderScreen(s) {
@@ -97,7 +112,7 @@ function renderScreen(s) {
       <span class="t-body w-700 c-ink">${name}</span>
       <span class="t-small c-500">${meta}</span>
     </div>
-    ${statusPill(pillStatus(a.status))}
+    ${headPill(a, tailor)}
   </div>
   <p class="t-caps c-500 chat-day">TODAY, 4:12 PM</p>
   ${msgs}

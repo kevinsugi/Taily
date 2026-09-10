@@ -6,13 +6,17 @@
    upcoming order moves under Past Bookings. R1-U-14: Leave Review
    opens the 06.1 sheet for that appointment (a second tap toasts).
    R1-U-19/22: one card-title rule ("3 Items Total - Home Visit:").
+   UX-LOOP R2-U-07 / R2-U-06: terminal appointments (cancelled /
+   declined / expired) live in `state.past` and list under Past
+   Bookings with their own card variant (no actions); tapping one
+   opens 03/Cancelled for that entry. Delivered seeds keep the
+   Completed card + Leave Review.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, apptCard, toast } from '../components.js';
-import { state, canonicalStatus } from '../state.js';
-import { apptMeta, apptActions, apptTarget, apptItemsTitle } from './01-home.js';
-import { openReschedulePopup } from './03.1-reschedule-popup.js';
+import { state, canonicalStatus, isTerminal } from '../state.js';
+import { apptMeta, apptActions, apptTarget, apptItemsTitle, apptItemLines, wireCardActions } from './01-home.js';
 import { openLeaveReview } from './06.1-leave-review.js';
 
 function upcomingCard(a, isFirst) {
@@ -22,7 +26,7 @@ function upcomingCard(a, isFirst) {
     name: a.displayName ?? a.name,
     meta: apptMeta(a),
     itemsTitle: apptItemsTitle(a),
-    items: a.itemLines ?? [],
+    items: apptItemLines(a),
     /* the 09 frame draws the prepare list on the first card only */
     prepare: isFirst ? (a.bring ?? []) : [],
     actions: apptActions(a),
@@ -30,13 +34,25 @@ function upcomingCard(a, isFirst) {
 }
 
 function pastCard(a) {
+  /* R2-U-07: a terminal entry keeps its own pill / meta, no actions */
+  if (isTerminal(a)) {
+    return apptCard({
+      status: canonicalStatus(a.status),
+      month: a.month, day: a.day,
+      name: a.displayName ?? a.name,
+      meta: apptMeta(a),
+      itemsTitle: apptItemsTitle(a),
+      items: apptItemLines(a),
+      actions: [],
+    });
+  }
   return apptCard({
     status: 'completed',
     month: a.month, day: a.day,
     name: a.displayName ?? a.name,
     meta: a.fulfilment || a.deliveredAt ? apptMeta(a) : `Picked up: ${a.when}`,
-    itemsTitle: apptItemsTitle(a, a.displayCount ?? a.count),
-    items: a.itemLines ?? [],
+    itemsTitle: apptItemsTitle(a, a.displayCount),
+    items: apptItemLines(a),
     actions: ['Leave Review'],
   });
 }
@@ -47,8 +63,8 @@ const delivered = (a) => canonicalStatus(a.status) === 'delivered';
 function partition(s) {
   const up = s.upcoming.map((a, index) => ({ a, ref: { list: 'upcoming', index } }));
   return {
-    current: up.filter((x) => !delivered(x.a)),
-    past: [...up.filter((x) => delivered(x.a)), ...s.past.map((a, index) => ({ a, ref: { list: 'past', index } }))],
+    current: up.filter((x) => !delivered(x.a) && !isTerminal(x.a)),
+    past: [...up.filter((x) => delivered(x.a) || isTerminal(x.a)), ...s.past.map((a, index) => ({ a, ref: { list: 'past', index } }))],
   };
 }
 
@@ -73,44 +89,21 @@ function wire(root) {
     const ref = refs[i];
     if (!ref) return;
     const appt = () => state[ref.list][ref.index];
+    const select = () => { state.currentAppt = ref; };
     card.addEventListener('click', (e) => {
       if (e.target.closest('button')) return;
       const target = apptTarget(appt());
       if (!target) return;   // Requested cards are inert (Phase R5)
-      state.currentAppt = ref;
+      select();
       go(target);
     });
-    card.querySelectorAll('.cta-small').forEach((b) => {
-      const label = b.textContent.trim();
-      if (label === 'Message') {
-        b.addEventListener('click', () => {
-          state.currentAppt = ref;
-          go('10-messages');
-        });
-      }
-      /* Phase R3 (Kevin, via 01): Reschedule opens the R1 popup */
-      if (label === 'Reschedule') {
-        b.addEventListener('click', () => {
-          state.currentAppt = ref;
-          openReschedulePopup();
-        });
-      }
-      /* Phase R5 (Kevin): a Ready card's CTA leads to 07 */
-      if (label === 'Schedule Pickup / Delivery' || label === 'Change Pickup / Delivery') {
-        b.addEventListener('click', () => {
-          state.currentAppt = ref;
-          go('05-items-ready');
-        });
-      }
+    wireCardActions(card, select, {
       /* R1-U-14: the review sheet, once per appointment */
-      if (label === 'Leave Review') {
-        b.addEventListener('click', () => {
-          state.currentAppt = ref;
-          const a = appt();
-          if (a.review) { toast(`You already reviewed ${(a.displayName ?? a.name ?? 'Marco Tailor').split(' ')[0]}`); return; }
-          openLeaveReview();
-        });
-      }
+      onLeaveReview: () => {
+        const a = appt();
+        if (a.review) { toast(`You already reviewed ${(a.displayName ?? a.name ?? 'Marco Tailor').split(' ')[0]}`); return; }
+        openLeaveReview();
+      },
     });
   });
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {

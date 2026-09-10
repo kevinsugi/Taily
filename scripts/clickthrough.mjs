@@ -39,6 +39,22 @@ await page.waitForTimeout(300);
 let failures = 0;
 const screenId = () => page.evaluate(() => document.getElementById('screen').dataset.screen);
 const status = () => page.evaluate(() => window.Taily.state.upcoming[0]?.status ?? '(none)');
+/* the appointment being viewed (terminal entries move to state.past, R2-U-07) */
+const curStatus = () => page.evaluate(() => { const s = window.Taily.state; const c = s.currentAppt; return s[c.list]?.[c.index]?.status ?? '(none)'; });
+const heroTitle = () => page.evaluate(() => document.querySelector('.status-hero__title')?.textContent.replace(/\s+/g, ' ').trim() ?? '(none)');
+
+function check(desc, ok, detail = '') {
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(34)} ${detail}`);
+}
+
+/* UX-LOOP R2-U-01: a modal confirm that navigates must leave the page
+   scrollable — the overlay's freeze is lifted with it. */
+async function assertScrolls(desc) {
+  await page.waitForTimeout(350);
+  const ov = await page.evaluate(() => document.documentElement.style.overflow);
+  check(desc, ov !== 'hidden', `overflow="${ov}"`);
+}
 
 async function assertAt(desc, expScreen, expStatus) {
   await page.waitForTimeout(350);
@@ -73,6 +89,15 @@ await page.goBack();
 await assertAt('browser back → Home', '01-home', 'confirmed');
 await page.goForward();
 await assertAt('browser forward → 02', '02-appointment-details', 'confirmed');
+// UX-LOOP R2-U-09: the camera "+" tile adds a placeholder photo; ✕ removes it
+const photoTiles = () => page.evaluate(() => document.querySelectorAll('.photo-tile--photo').length);
+const before = await photoTiles();
+await page.click('.photo-tile--add');
+await page.waitForTimeout(300);
+check('photo "+" tile adds a photo', await photoTiles() === before + 1, `${before} → ${await photoTiles()}`);
+await page.click('.photo-tile__cancel');
+await page.waitForTimeout(300);
+check('photo ✕ removes it', await photoTiles() === before, `now ${await photoTiles()}`);
 await page.click('[data-act="time"]');
 await assertAt('Requested-time pill (stays on 02)', '02-appointment-details');
 await assertOverlay('  …time sheet overlays', '02.1-date-time-sheet');
@@ -132,6 +157,12 @@ await page.waitForTimeout(400);
 // Phase R0: 06 - Order Status was deleted; 04D (Appointment Status)
 // takes its place, and tapping the order opens the modified review (06B).
 await assertAt('appointment done', '03-status-tailoring', 'awaiting-approval');
+await assertScrolls('page scrolls after 03.2 confirm');
+// UX-LOOP R2-U-08: the card follows the final order once revised
+const cardCount = await page.evaluate(() => { window.Taily.render('01-home'); return document.querySelector('.card-list__title')?.textContent ?? ''; });
+check('card count follows the final order', /^2 Items Total/.test(cardCount), `"${cardCount}"`);
+await page.evaluate(() => window.Taily.render('03-status-tailoring'));
+await page.waitForTimeout(200);
 // Phase R2: tapping a Before/Pinned photo opens the PV3 viewer
 await page.click('.photo-row');
 await assertOverlay('  …PV3 viewer overlays', '03.3-photo-viewer');
@@ -145,18 +176,31 @@ await page.goBack();
 await assertAt('browser back → status', '03-status-tailoring', 'awaiting-approval');
 await page.click('[data-act="review"]');
 await assertAt('open final order', '04-review-approve-modified', 'awaiting-approval');
-// Phase R2: Request Changes opens the RC1 popup; Sounds Good dismisses
+// Phase R2: Request Changes opens the RC1 popup. UX-LOOP R2-T-09: Sounds
+// Good stamps changesRequestedAt and opens the chat with a canned bubble.
 await page.click('[data-act="changes"]');
 await assertOverlay('  …RC1 popup overlays', '04.1-request-changes');
 await page.click('[data-act="sounds-good"]');
 await page.waitForTimeout(400);
 await assertOverlay('  …popup gone', null);
+await assertAt('Sounds Good → chat', '10-messages', 'awaiting-approval');
+const changes = await page.evaluate(() => ({
+  stamped: !!window.Taily.state.upcoming[0]?.changesRequestedAt,
+  bubble: [...document.querySelectorAll('.bubble')].some((b) => /talk about the changes/.test(b.textContent)),
+}));
+check('changes requested + bubble', changes.stamped && changes.bubble, JSON.stringify(changes));
+await page.goBack();
+await assertAt('browser back → review', '04-review-approve-modified', 'awaiting-approval');
 // Phase R4/R5: approving lands back on 04D as 'tailoring'. Tapping the
 // order simulates the TAILOR finishing (markReady) — the user stays on
 // 04D (card flips to Ready) and reaches 07 only via the appointment
 // card's Schedule Pickup / Delivery.
 await page.click('[data-act="approve"]');
 await assertAt('approve order', '03-status-tailoring', 'tailoring');
+check('approval clears the change request', !(await page.evaluate(() => window.Taily.state.upcoming[0]?.changesRequestedAt)));
+// UX-LOOP R2-U-11: the LIVE tailoring state leads with Message Marco
+const tailoringCtas = await page.evaluate(() => [...document.querySelectorAll('.cta-bar .cta')].map((b) => b.textContent.trim()));
+check('tailoring CTA bar (live)', tailoringCtas[0] === 'Message Marco' && tailoringCtas[1] === 'View All Appointments', tailoringCtas.join(' | '));
 await page.click('[data-act="review"]');
 await assertAt('tailor marks ready', '03-status-tailoring', 'ready-for-pickup');
 await page.evaluate(() => window.Taily.render('01-home'));
@@ -176,6 +220,10 @@ await assertOverlay('  …07C window confirmed', '05.1-window-confirmed');
 await page.click('[data-act="window-done"]');
 await page.waitForTimeout(400);
 await assertAt('window scheduled (still ready)', '01-home', 'ready-for-pickup');
+await assertScrolls('page scrolls after 05.1 Done');
+// UX-LOOP R2-U-02: the stored window carries its date (card meta / hero)
+const windowMeta = await page.evaluate(() => document.querySelector('.appt-card__meta')?.textContent.trim() ?? '');
+check('window label carries its date', /^Pickup: \w{3}, \w{3,4} \d{1,2} · /.test(windowMeta), `"${windowMeta}"`);
 await page.click('.appt-card');
 await assertAt('scheduled card opens status', '03-status-tailoring', 'ready-for-pickup');
 await page.click('[data-act="review"]');
@@ -215,6 +263,89 @@ const seedsOk = cards.sections.join('|') === 'Current Bookings|Past Bookings'
   && !cards.current.includes('Completed') && cards.past.length === 3 && cards.past.every((p) => p === 'Completed');
 if (!seedsOk) failures++;
 console.log(`${seedsOk ? 'PASS' : 'FAIL'}  bookings partitions by status        current=${cards.current.join(',')} past=${cards.past.join(',')}`);
+
+/* ============================================================
+   UX-LOOP round 2 — the frameless branches (R2-U-03/04/05/07) and the
+   03.1 confirm's scroll (R2-U-01). Each starts a fresh request from
+   Home (the previous booking's selection is still on the tiles).
+   ============================================================ */
+async function rebook(desc) {
+  await page.evaluate(() => window.Taily.render('01-home'));
+  await page.waitForTimeout(200);
+  const picked = await page.evaluate(() => Object.values(window.Taily.state.ui?.homeSelection ?? {}).some((q) => q > 0));
+  if (!picked) await page.click('[data-tile="Suit Jacket"]');
+  await page.click('[data-act="start-booking"]');
+  await assertAt(`${desc}: Start Booking`, '02-appointment-details');
+  await page.click('[data-act="request"]');
+  await assertOverlay('  …payment sheet overlays', '02.3-payment-sheet');
+  await page.click('.method-row');                    // Apple Pay
+  await assertAt(`${desc}: request sent`, '03-status-requested', 'searching');
+}
+
+// R2-U-04: the "2 hours" line = time passes → the request expires
+await rebook('expiry');
+await page.click('[data-act="expire"]');
+await assertAt('expiry demo → 03/Cancelled', '03-status-cancelled');
+check('  …expired variant', await heroTitle() === 'Request expired' && await curStatus() === 'expired', `title="${await heroTitle()}" status=${await curStatus()}`);
+await assertScrolls('  …page scrolls');
+await page.click('[data-act="rerequest"]');
+await assertAt('Send Request Again → 02', '02-appointment-details');
+check('  …garments seeded', (await page.evaluate(() => document.querySelectorAll('.garment-card').length)) >= 1);
+
+// R2-U-03: the tailor proposes another time (demo: hero pill)
+await page.click('[data-act="request"]');
+await assertOverlay('  …payment sheet overlays', '02.3-payment-sheet');
+await page.click('.method-row');
+await assertAt('re-request sent', '03-status-requested', 'searching');
+await page.click('.status-hero .pill');
+await page.waitForTimeout(300);
+check('proposed-time hero', /proposed a new time$/.test(await heroTitle()), `"${await heroTitle()}"`);
+const cardMeta = await page.evaluate(() => { window.Taily.render('01-home'); return { meta: document.querySelector('.appt-card__meta')?.textContent.trim(), ctas: [...document.querySelectorAll('.appt-card .cta-small')].map((b) => b.textContent.trim()) }; });
+check('  …card "New time proposed"', /^New time proposed: /.test(cardMeta.meta ?? '') && cardMeta.ctas.join() === 'Review Time', JSON.stringify(cardMeta));
+await page.evaluate(() => [...document.querySelectorAll('.appt-card .cta-small')].find((b) => b.textContent.trim() === 'Review Time')?.click());
+await assertAt('Review Time → 03/Requested', '03-status-requested', 'searching');
+await page.click('[data-act="keep-looking"]');
+await assertAt('Keep Looking (still searching)', '03-status-requested', 'searching');
+check('  …normal hero back', await heroTitle() === 'Finding your tailor…' && !(await page.evaluate(() => window.Taily.state.upcoming[0]?.proposed)), `"${await heroTitle()}"`);
+await page.click('.status-hero .pill');
+await page.waitForTimeout(300);
+await page.click('[data-act="accept-time"]');
+await assertAt('Accept New Time → 03/Confirmed', '03-status-confirmed', 'confirmed');
+check('  …when is the proposed time', /11:00 AM$/.test(await page.evaluate(() => window.Taily.state.upcoming[0]?.when ?? '')), await page.evaluate(() => window.Taily.state.upcoming[0]?.when));
+
+// R2-U-01: the 03.1 confirm closes its overlay before navigating
+await page.click('[data-act="reschedule"]');
+await assertOverlay('  …R1 popup overlays', '03.1-reschedule-popup');
+await page.click('[data-act="confirm-reschedule"]');
+await assertAt('03.1 confirm → 03/Cancelled', '03-status-cancelled');
+await assertScrolls('page scrolls after 03.1 confirm');
+check('  …customer variant', await heroTitle() === 'Appointment Cancelled' && await curStatus() === 'cancelled', `title="${await heroTitle()}" status=${await curStatus()}`);
+await page.goBack();
+await page.waitForTimeout(400);
+check('  …next back not swallowed', (await screenId()) !== '03-status-cancelled', `screen=${await screenId()}`);
+
+// R2-U-07: terminal entries list under Past with their own card
+await page.evaluate(() => window.Taily.render('09-bookings'));
+await page.waitForTimeout(300);
+const pastPills = await page.evaluate(() => {
+  const kids = [...document.querySelectorAll('[data-s="09-bookings"] > *')];
+  const h1s = kids.filter((e) => e.tagName === 'H1');
+  return kids.slice(kids.indexOf(h1s[1])).filter((e) => e.classList.contains('appt-card')).map((e) => e.querySelector('.pill span:last-child')?.textContent);
+});
+check('09 lists cancelled + expired under Past', pastPills.includes('Cancelled') && pastPills.includes('Expired'), pastPills.join(','));
+
+// R2-U-07: a declined request → 03/Cancelled "couldn’t take" → Send to Another Tailor
+await rebook('decline');
+await page.evaluate(async () => { const m = await import('/js/state.js'); m.declineAppointment(m.state.upcoming[0]); });
+await page.evaluate(() => window.Taily.render('09-bookings'));
+await page.waitForTimeout(300);
+await page.evaluate(() => [...document.querySelectorAll('.appt-card')].find((c) => c.querySelector('.pill span:last-child')?.textContent === 'Declined')?.querySelector('.appt-card__name')?.click());
+await assertAt('declined card → 03/Cancelled', '03-status-cancelled');
+check('  …declined variant', /couldn’t take this request$/.test(await heroTitle()) && await curStatus() === 'declined', `title="${await heroTitle()}"`);
+const declinedCta = await page.evaluate(() => document.querySelector('[data-act="rerequest"]')?.textContent.trim());
+check('  …Send to Another Tailor', declinedCta === 'Send to Another Tailor', `"${declinedCta}"`);
+await page.click('[data-act="rerequest"]');
+await assertAt('Send to Another Tailor → 02', '02-appointment-details');
 
 console.log(errors.length ? `CONSOLE ERRORS:\n  ${errors.join('\n  ')}` : 'no console errors');
 if (errors.length) failures++;

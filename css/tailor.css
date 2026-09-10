@@ -239,3 +239,24 @@ html.has-input .stage-caption { visibility: visible; }
   box-shadow: inset 0 0 0 1px var(--neutral-300);
   font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px; font-weight: 600; color: var(--neutral-600);
 }
+
+/* ---------- UX-LOOP round 2 (code-only; Figma sync pending) ---------- */
+/* R2-T-03 demo: the timer strip is the "time passes" tap */
+.req-card__timer[data-act] { cursor: pointer; }
+/* R2-T-04: proposed-time state + "Sarah kept her original time" */
+.req-card__note { color: var(--accent-ink); font-weight: 600; }
+.req-card__proposed {
+  margin: 0;
+  font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px; font-weight: 600; color: var(--accent-ink);
+}
+.req-card__withdraw { align-self: center; padding-inline: var(--space-8); }
+/* R2-T-08: booked garments dropped at the visit */
+.t-removed { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
+.t-removed__row {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12);
+  font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px; font-weight: 500; color: var(--neutral-500);
+}
+.t-removed__row s { flex-shrink: 0; }
+/* R2-T-05: the "Can't make it" modal reuses the T03A reason rows */
+.modal--reasons .reasons--modal { padding-inline: 0; }
+.modal--reasons .radio-row { padding-block: var(--space-12); }

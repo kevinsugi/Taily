@@ -42,19 +42,31 @@ function modalHtml(mode = 'reschedule') {
 }
 
 /* R1-U-09: the cancelled order's garments become the next booking's
-   starting point (02 cards + 01 tile badges) */
-function copyItemsOver(a) {
+   starting point (02 cards + 01 tile badges). Exported: 03/Cancelled's
+   re-request CTAs (R2-U-04/05/07) use the same copy-over. */
+export function copyItemsOver(a) {
   const garments = JSON.parse(JSON.stringify(a?.garments ?? []));
-  garments.forEach((g) => { delete g.added; delete g.addedJobs; delete g.displayPrice; });
+  garments.forEach((g) => { delete g.added; delete g.addedJobs; delete g.displayPrice; delete g.id; });
   state.garments = garments;
   state.ui ??= {};
   state.ui.homeSelection = garments.reduce((m, g) => { m[g.type] = (m[g.type] ?? 0) + g.qty; return m; }, {});
 }
 
+/** After a terminal transition the entry sits in state.past (R2-U-07);
+    point currentAppt at it so 03/Cancelled and chat read that entry. */
+export function pointAtTerminal(a) {
+  const i = state.past.indexOf(a);
+  if (i >= 0) state.currentAppt = { list: 'past', index: i };
+}
+
 function wireModal(root, close) {
   root.querySelector('[data-act="confirm-reschedule"]')?.addEventListener('click', () => {
-    const res = cancelAppointment();   // stashes state.lastCancelled for 05X
-    if (res?.appointment) copyItemsOver(res.appointment);
+    const a = apptEntry();
+    const res = cancelAppointment(a);   // stashes state.lastCancelled for 05X
+    if (res && a) { copyItemsOver(a); pointAtTerminal(a); }
+    /* R2-U-01: close the overlay BEFORE navigating — otherwise the page
+       stays scroll-locked and the next back gesture is swallowed */
+    close();
     go('03-status-cancelled');
   });
   root.querySelector('[data-act="go-back"]')?.addEventListener('click', () => close());

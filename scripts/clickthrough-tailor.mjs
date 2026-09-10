@@ -3,14 +3,21 @@
    Drives Marco's path on the SAME appointment the user books:
      T01 → T02 (accept) → T03 → T01 → T03 pre-visit (Start Appointment)
      → T04 (edit the draft: +service, +garment → $360) → T05 (send
-     writes the final order) → T06 (mark ready) → T07 (picked up) → T08,
+     writes the final order) → T06 (mark ready) → T07 (waiting for
+     Sarah's handoff choice; demo pickup) → T08,
    asserting screen id + state status; the decline branch (no default
    reason, T01 → T03A → declined); the customer-cancellation branch
    (03.1 popup → T01 Cancelled card → T03B); chat authorship across
    personas; T07 following a delivery choice; and one cross-persona
    check: user books on 02 → tailor accepts on T02 → user's card is
    Confirmed and opens 03/Confirmed.
-   Exit code 1 on any failed assertion.
+   UX-LOOP round 2: two bookings coexist on T01 (R2-T-01); browser back
+   after Accept (R2-T-11); expiry via the timer-strip demo (R2-T-03);
+   suggest another time → proposed card → customer accepts / keeps
+   looking (R2-T-04); can't-make-it and no-show → T03B variants
+   (R2-T-05); withdrawn request → T03B / Withdrawn row (R2-T-06);
+   removal marks (R2-T-08); Request Changes line (R2-T-09); chat pill
+   vocabulary (R2-T-10). Exit code 1 on any failed assertion.
    ============================================================ */
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -38,7 +45,9 @@ page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 
 let failures = 0;
 const screenId = () => page.evaluate(() => document.getElementById('screen').dataset.screen);
-const status = () => page.evaluate(() => (window.Taily.state.upcoming.find((a) => a.mine) ?? window.Taily.state.lastCancelled)?.status ?? '(none)');
+/* the job the tailor is acting on: the tapped one (state.tailorUi.current),
+   else the first `mine` entry still upcoming, else the latest closed one */
+const status = () => page.evaluate(() => { const s = window.Taily.state; return (s.tailorUi?.current ?? s.upcoming.find((a) => a.mine) ?? s.lastCancelled)?.status ?? '(none)'; });
 const persona = () => page.evaluate(() => window.Taily.state.persona);
 const text = (sel) => page.evaluate((q) => document.querySelector(q)?.textContent.trim() ?? null, sel);
 
@@ -133,8 +142,11 @@ await render('t06-appointment-status');
 await assertText('T06 ready CTA', '.t-actions .cta', 'View Handoff Details');
 await page.click('[data-act="handoff"]');
 await assertAt('View Handoff Details', 't07-job-ready', 'ready-for-pickup');
+/* R2-T-07: Sarah has not scheduled — T07 waits; Mark Picked Up is the recorded demo */
+await assertTrue('T07 waits for Sarah’s handoff choice', () => /hasn’t chosen pickup or delivery yet/.test(document.body.textContent) && document.body.textContent.includes('Not scheduled yet') && document.querySelector('.t-actions .cta').textContent === 'Message Sarah');
 await page.click('[data-act="picked-up"]');
-await assertAt('Mark Picked Up', 't08-job-complete', 'delivered');
+await assertAt('Mark Picked Up (demo: Sarah chose pickup now)', 't08-job-complete', 'delivered');
+await assertTrue('demo recorded a pickup window on the job', () => { const a = window.Taily.state.upcoming.find((x) => x.mine); return a.fulfilment?.method === 'pickup' && /·/.test(a.fulfilment.window); });
 await assertTrue('T08 payout reads the final order', () => document.body.textContent.includes('$360') && document.body.textContent.includes('$324') && document.body.textContent.includes('Arrives in your account'));
 await render('t06-appointment-status');
 await assertText('T06 delivered CTA', '.t-actions .cta', 'View Payout');
@@ -199,9 +211,10 @@ await page.click('[data-act="confirm-reschedule"]');
 await assertAt('user cancels the confirmed visit', '03-status-cancelled', 'cancelled', 'user');
 await page.click('#persona-toggle');
 await assertAt('View as Tailor after the cancel', 't01-home', 'cancelled', 'tailor');
-await assertTrue('T01: no request card, Sarah reads Cancelled · Slot reopened', () => !document.querySelector('.req-card') && document.querySelectorAll('.job-card').length === 2 && document.querySelector('.job-card').textContent.includes('Cancelled') && document.querySelector('.job-card').textContent.includes('Slot reopened'));
+await assertTrue('T01: no request card, Sarah reads Cancelled · Slot reopened', () => { const cards = [...document.querySelectorAll('.job-card')]; const c = cards.find((x) => x.textContent.includes('Sarah Chen')); return !document.querySelector('.req-card') && cards.length === 2 && c && c.textContent.includes('Cancelled') && c.textContent.includes('Slot reopened'); });
 await page.click('[data-act="open-job"]');
 await assertAt('cancelled card opens T03B', 't03b-job-cancelled', 'cancelled');
+await assertTrue('T03B (seed) keeps the tonight fiction', () => document.body.textContent.includes('tonight’s 7:00 PM slot'));
 await page.click('[data-act="calendar"]');
 await assertAt('View Calendar', 't01-home', 'cancelled');
 
@@ -239,6 +252,242 @@ await assertAt('View as Customer', '01-home', 'confirmed', 'user');
 await assertTrue('user card reads Confirmed', () => document.querySelector('.appt-card .pill')?.textContent.trim() === 'Confirmed');
 await page.click('.appt-card');
 await assertAt('user card opens 03/Confirmed', '03-status-confirmed', 'confirmed');
+
+/* ============================================================
+   UX-LOOP round 2 — the list model and the three new branches
+   ============================================================ */
+
+/* helpers: book a fresh Suit Jacket request as the customer (02 → 03/Requested) */
+async function bookFresh() {
+  await page.click('[data-tile="Suit Jacket"]');
+  await page.click('[data-act="start-booking"]');
+  await page.click('[data-act="time"]');
+  await page.waitForTimeout(400);
+  await page.click('[data-act="sheet-confirm"]');
+  await page.waitForTimeout(400);
+  await page.click('[data-act="needby"]');
+  await page.waitForTimeout(400);
+  await page.evaluate(() => { document.querySelector('.wheel__col--scroll').scrollTop += 40; });
+  await page.waitForTimeout(300);
+  await page.click('[data-act="sheet-confirm"]');
+  await page.waitForTimeout(400);
+  await page.click('[data-act="request"]');
+  await page.waitForTimeout(400);
+  await page.click('.method-row');
+  await page.waitForTimeout(300);
+}
+/* assert on Sarah's FRESH job or the SEED (the Jul 12 fiction), wherever it lives now */
+const SEED_WHEN = 'Sunday Jul 12, 7PM';
+async function assertJob(desc, which, fn) {
+  const ok = await page.evaluate(({ which, src, SEED_WHEN }) => {
+    const s = window.Taily.state;
+    const all = [...s.upcoming, ...s.past];
+    const a = which === 'fresh' ? all.find((x) => x.mine && x.when !== SEED_WHEN) : all.find((x) => x.mine && x.when === SEED_WHEN);
+    return !!new Function('a', 's', `return (${src})(a, s)`)(a, s);
+  }, { which, src: fn.toString(), SEED_WHEN });
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc}`);
+}
+
+/* ---------- R2-T-01: two bookings coexist on T01; the tapped card wins ---------- */
+await open('01-home');
+await bookFresh();
+await assertAt('customer books a second job', '03-status-requested', 'searching', 'user');
+await page.click('#persona-toggle');
+await assertAt('T01 with two mine bookings', 't01-home', 'searching', 'tailor');
+await assertTrue('T01 lists the fresh request AND the seed’s confirmed job (no phantom seed request)', () => document.querySelectorAll('.req-card').length === 1 && document.querySelector('.req-card__name b').textContent === '$108' && [...document.querySelectorAll('.job-card')].some((c) => c.textContent.includes('Sarah Chen') && c.textContent.includes('Confirmed')));
+await assertTrue('the request card carries its own timer', () => document.querySelectorAll('[data-timer]').length === 1);
+await page.click('.req-card[data-req="0"] [data-act="view-details"]');
+await assertAt('View Details on the fresh request', 't02-appointment-request', 'searching');
+await assertText('T02 renders the tapped job ($108)', '.t-header .t-title', '$108 | New Request');
+await page.click('[data-act="back"]');
+await page.click('[data-act="open-job"]');
+await assertAt('the seed job card still opens its pre-visit T03', 't03-request-accepted', 'confirmed');
+await assertTrue('T03 renders the seed (Jul 12)', () => /Sun, Jul 12/.test(document.querySelector('.t-header .t-body').textContent));
+await page.click('.top-nav [data-nav="t-calendar"]');
+await assertAt('Calendar tab → the soonest open job (seed)', 't03-request-accepted', 'confirmed');
+
+/* ---------- R2-T-11: browser back after Accept never re-offers Accept ---------- */
+await render('t01-home');
+await page.click('.req-card[data-req="0"] [data-act="view-details"]');
+await page.click('[data-act="accept"]');
+await assertAt('Accept the fresh request', 't03-request-accepted', 'confirmed');
+await page.goBack();
+await assertAt('browser back after Accept lands on T01, not T02', 't01-home', 'confirmed');
+await page.click('[data-act="open-job"][data-job="0"]');
+await render('t02-appointment-request');
+await assertText('T02 for an accepted job reads Accepted', '.t-actions .cta', 'Accepted');
+await assertTrue('…with no Decline', () => !document.querySelector('[data-act="decline"]'));
+await page.click('[data-act="accept"]');
+await assertAt('inert Accepted stays on T02', 't02-appointment-request', 'confirmed');
+await assertTrue('…and toasts Already accepted', () => document.querySelector('.toast')?.textContent === 'Already accepted');
+
+/* ---------- R2-T-08: removing a booked garment at the visit ---------- */
+await render('t01-home');
+await page.click('[data-act="open-job"][data-job="0"]');
+await assertAt('open the fresh confirmed job', 't03-request-accepted', 'confirmed');
+await page.click('[data-act="start"]');
+await page.click('[data-act="add-garment"]');
+await page.waitForTimeout(200);
+await page.click('[data-act="remove-garment"][data-gi="0"]');
+await page.waitForTimeout(200);
+await assertTrue('booked garment removed, added one kept', () => document.querySelectorAll('.garment-card').length === 1);
+await page.click('[data-act="continue"]');
+await assertAt('T05 after a removal', 't05-confirm-final-pricing', 'confirmed');
+await assertTrue('T05 marks the survivor as added (by id, not index)', () => document.querySelectorAll('.garment-card--info').length === 1);
+await assertTrue('T05 lists the removed booked garment', () => /Removed at the visit — Suit Jacket · Hem \/ Adjust Length/.test(document.querySelector('.t-removed')?.textContent ?? '') && !!document.querySelector('.t-removed s'));
+await page.click('[data-act="send"]');
+await assertAt('Send after a removal', 't06-appointment-status', 'awaiting-approval');
+await assertJob('a.removed carries the dropped Hem; item summary refreshed', 'fresh', (a) => a.removed?.length === 1 && a.removed[0].jobs[0] === 'Hem / Adjust Length' && a.garments.length === 1 && a.count === 1);
+
+/* ---------- R2-T-09: Request Changes leaves a trace ---------- */
+await render('04-review-approve-modified');
+await assertAt('customer reviews the modified order', '04-review-approve-modified', 'awaiting-approval', 'user');
+await page.click('[data-act="changes"]');
+await page.waitForTimeout(400);
+await page.click('[data-act="sounds-good"]');
+await page.waitForTimeout(500);
+await assertJob('changesRequestedAt stamped', 'fresh', (a) => !!a.changesRequestedAt);
+await render('t06-appointment-status');
+await assertTrue('T06 says Sarah wants to talk it over; Message Sarah leads', () => /talk the order over/.test(document.querySelector('.t-header .t-body').textContent) && document.querySelector('.t-actions .cta').textContent === 'Message Sarah');
+await render('t01-home');
+await assertTrue('T01 card reads Sarah has questions', () => [...document.querySelectorAll('.job-card')].some((c) => c.textContent.includes('Sarah has questions')));
+await render('10-messages');
+await assertTrue('tailor chat pill uses the tailor vocabulary', () => document.querySelector('.chat-head .pill')?.textContent.trim() === 'Awaiting Customer');
+await page.click('[data-act="back"]');
+
+/* ---------- R2-T-02: the customer browsing a past booking never redirects a tailor transition ---------- */
+await render('09-bookings');
+await page.evaluate(() => { window.Taily.state.currentAppt = { list: 'past', index: window.Taily.state.past.length - 1 }; });
+await render('t06-appointment-status');
+await page.click('[data-act="ready"]');
+await assertAt('Mark Ready acts on the tailor’s job, not the customer’s currentAppt', 't07-job-ready', 'ready-for-pickup');
+await assertJob('approval cleared the changes stamp', 'fresh', (a) => !a.changesRequestedAt && a.status === 'ready-for-pickup');
+await assertTrue('T07 waits for the handoff choice', () => document.body.textContent.includes('Not scheduled yet'));
+await render('t06-appointment-status');
+await assertTrue('T06 ready line waits for Sarah', () => /waiting for Sarah to schedule the handoff/.test(document.querySelector('.t-header .t-body').textContent));
+
+/* ---------- R2-T-10: delivery vocabulary ---------- */
+await page.evaluate(() => { const a = window.Taily.state.upcoming.find((x) => x.mine && x.when !== 'Sunday Jul 12, 7PM'); a.fulfilment = { method: 'delivery', window: 'Thu, Jul 16 · 9–11 AM', date: 'Jul 16' }; });
+await render('t01-home');
+await assertTrue('T01 pill reads Ready for Delivery', () => [...document.querySelectorAll('.job-card')].some((c) => c.textContent.includes('Ready for Delivery')));
+await render('10-messages');
+await assertTrue('chat subline dates the handoff by the chosen window', () => document.querySelector('.chat-head__names .t-small').textContent === 'Ready for delivery · Thu, Jul 16');
+await assertTrue('chat pill reads Ready for Delivery', () => document.querySelector('.chat-head .pill')?.textContent.trim() === 'Ready for Delivery');
+
+/* ---------- R2-T-03: expiry (timer-strip demo) ---------- */
+await open('01-home');
+await bookFresh();
+await page.click('#persona-toggle');
+await assertAt('fresh request on T01', 't01-home', 'searching', 'tailor');
+await page.click('.req-card[data-req="0"] [data-act="time-passes"]');
+await assertAt('time passes → stays on T01', 't01-home');
+await assertTrue('toast: Sarah’s request expired', () => document.querySelector('.toast')?.textContent === 'Sarah’s request expired');
+await assertTrue('request card gone; Expired row under Active Jobs, no payout', () => { const c = [...document.querySelectorAll('.job-card')].find((x) => x.textContent.includes('Expired')); return document.querySelectorAll('.req-card').length === 0 && c && c.textContent.includes('No action needed') && !c.querySelector('.job-card__payout'); });
+await assertJob('expired job moved to past', 'fresh', (a, s) => a.status === 'expired' && s.past.includes(a) && !s.upcoming.includes(a));
+await page.click('.job-card:has-text("Expired")');
+await assertAt('Expired row opens T02', 't02-appointment-request', 'expired');
+await assertTrue('T02 for an expired job offers no Accept / Decline', () => !document.querySelector('[data-act="accept"]') && !document.querySelector('[data-act="decline"]') && /Request Expired/.test(document.querySelector('.t-header .t-title').textContent));
+await page.click('#persona-toggle');
+await assertAt('customer home survives an expired job', '01-home', undefined, 'user');
+await assertJob('…and the expired job is still expired', 'fresh', (a) => a.status === 'expired');
+
+/* ---------- R2-T-04: suggest another time ---------- */
+await open('01-home');
+await bookFresh();
+await page.click('#persona-toggle');
+await page.click('.req-card[data-req="0"] [data-act="decline"]');
+await assertAt('Decline from the fresh request', 't03a-decline-request', 'searching');
+await page.click('[data-reason="0"]');
+await assertText('Schedule conflict → Suggest Another Time', '[data-act="decline"]', 'Suggest Another Time');
+await page.click('[data-act="decline"]');
+await page.waitForTimeout(500);
+await assertTrue('the time wheel opens, titled for a proposal', () => document.querySelector('.screen-sheet--overlay .sheet__title')?.textContent === 'Suggest another time');
+await page.evaluate(() => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop += 40; });
+await page.waitForTimeout(300);
+await page.click('.screen-sheet--overlay [data-act="set-time"]');
+await assertAt('proposal lands on T01', 't01-home', 'searching');
+await assertJob('a.proposed set by the tailor; timer restarted', 'fresh', (a) => a.proposed?.by === 'tailor' && !!a.proposed.when && a.tailor.expiresAt > Date.now() + 80 * 60000);
+await assertTrue('request card reads Time proposed … waiting for Sarah + Withdraw, no Decline', () => { const c = document.querySelector('.req-card[data-req="0"]'); return /Time proposed · .* — waiting for Sarah/.test(c.textContent) && !!c.querySelector('[data-act="withdraw"]') && !c.querySelector('[data-act="decline"]'); });
+await page.click('.req-card[data-req="0"] [data-act="withdraw"]');
+await assertAt('Withdraw the proposal', 't01-home', 'searching');
+await assertTrue('card returns with Decline and says Sarah kept her original time', () => { const c = document.querySelector('.req-card[data-req="0"]'); return !!c.querySelector('[data-act="decline"]') && c.textContent.includes('Sarah kept her original time'); });
+/* propose again, then the customer accepts */
+await page.click('.req-card[data-req="0"] [data-act="decline"]');
+await page.click('[data-reason="0"]');
+await page.click('[data-act="decline"]');
+await page.waitForTimeout(500);
+await page.click('.screen-sheet--overlay [data-act="set-time"]');
+await assertAt('second proposal', 't01-home', 'searching');
+const proposedWhen = await page.evaluate(() => window.Taily.state.upcoming.find((a) => a.mine && a.when !== 'Sunday Jul 12, 7PM').proposed.when);
+await page.evaluate(async () => { const S = await import('/js/state.js'); const a = window.Taily.state.upcoming.find((x) => x.mine && x.when !== 'Sunday Jul 12, 7PM'); S.acceptProposedTime(a.proposed.when, a); });
+await render('t01-home');
+await assertAt('Sarah accepts the proposed time', 't01-home', 'confirmed');
+await page.evaluate((w) => { window.__when = w; }, proposedWhen);
+await assertJob('a.when is the proposed time; proposal cleared', 'fresh', (a) => a.when === window.__when && a.proposed == null);
+await assertTrue('request card became the job card', () => document.querySelectorAll('.req-card').length === 0 && [...document.querySelectorAll('.job-card')].filter((c) => c.textContent.includes('Sarah Chen') && c.textContent.includes('Confirmed')).length === 2);
+
+/* ---------- R2-T-05: can't make it / no-show → T03B ---------- */
+await page.click('[data-act="open-job"][data-job="0"]');
+await assertAt('open the freshly confirmed job', 't03-request-accepted', 'confirmed');
+await assertTrue('pre-visit view offers Can’t make it', () => !!document.querySelector('[data-act="cant-make-it"]'));
+await page.click('[data-act="cant-make-it"]');
+await page.waitForTimeout(400);
+await page.click('[data-act="confirm-cancel"]');
+await assertAt('confirm without a reason stays put', 't03-request-accepted', 'confirmed');
+await page.click('[data-reason="cant-make-it"]');
+await page.click('[data-act="confirm-cancel"]');
+await assertAt('I need to cancel → T03B', 't03b-job-cancelled', 'cancelled');
+await assertTrue('T03B reads You cancelled this job + the live slot', () => document.querySelector('.status-hero__title').textContent === 'You cancelled this job.' && /her hold is released\. Your .* slot is open again\./.test(document.querySelector('.status-hero__body').textContent));
+await assertJob('tailor cancel stamped and moved to past', 'fresh', (a, s) => a.status === 'cancelled' && a.cancelledBy === 'tailor' && a.reason === 'cant-make-it' && s.past.includes(a));
+await page.click('[data-act="home"]');
+await assertTrue('T01 row reads Cancelled · by you', () => [...document.querySelectorAll('.job-card')].some((c) => c.textContent.includes('Cancelled · by you')));
+await page.click('#persona-toggle');
+await assertAt('customer sees the tailor cancellation', '01-home', 'cancelled', 'user');
+/* no-show on the seed */
+await open('t01-home');
+await page.click('[data-act="view-details"]');
+await page.click('[data-act="accept"]');
+await page.click('[data-act="home"]');
+await page.click('[data-act="open-job"]');
+await page.click('[data-act="cant-make-it"]');
+await page.waitForTimeout(400);
+await page.click('[data-reason="no-show"]');
+await page.click('[data-act="confirm-cancel"]');
+await assertAt('Sarah didn’t show → T03B', 't03b-job-cancelled', 'cancelled');
+await assertTrue('T03B no-show copy', () => document.querySelector('.status-hero__title').textContent === 'Sarah didn’t show.' && /Nothing was charged/.test(document.querySelector('.status-hero__body').textContent));
+await page.click('[data-act="calendar"]');
+await assertTrue('T01 row reads No-show', () => [...document.querySelectorAll('.job-card')].some((c) => c.textContent.includes('No-show')));
+
+/* ---------- R2-T-06: a withdrawn request is not a closed job ---------- */
+await open('01-home');
+await bookFresh();
+await page.click('[data-act="cancel"]');
+await page.waitForTimeout(400);
+await page.click('[data-act="confirm-reschedule"]');
+await assertAt('customer withdraws the fresh request', '03-status-cancelled', undefined, 'user');
+await assertJob('withdrawn: cancelled + wasRequested', 'fresh', (a) => a.status === 'cancelled' && a.wasRequested === true);
+await page.click('#persona-toggle');
+await assertTrue('T01 row reads Withdrawn · No action needed, no payout', () => { const c = [...document.querySelectorAll('.job-card')].find((x) => x.textContent.includes('Withdrawn')); return c && c.textContent.includes('No action needed') && !c.querySelector('.job-card__payout'); });
+await page.click('.job-card:has-text("Withdrawn")');
+await assertAt('Withdrawn row opens T03B', 't03b-job-cancelled', 'cancelled');
+await assertTrue('T03B reads Request withdrawn', () => document.querySelector('.status-hero__title').textContent === 'Request withdrawn.' && /withdrew her .* request before you accepted\. Nothing to do\./.test(document.querySelector('.status-hero__body').textContent));
+/* a confirmed non-seed cancel names its own slot */
+await open('01-home');
+await bookFresh();
+await page.click('#persona-toggle');
+await page.click('.req-card[data-req="0"] [data-act="view-details"]');
+await page.click('[data-act="accept"]');
+await page.click('#persona-toggle');
+await page.click('.appt-card');
+await page.click('[data-act="reschedule"]');
+await page.waitForTimeout(400);
+await page.click('[data-act="confirm-reschedule"]');
+await assertAt('customer cancels the confirmed fresh visit', '03-status-cancelled', undefined, 'user');
+await page.click('#persona-toggle');
+await page.click('.job-card:has-text("Slot reopened")');
+await assertAt('Cancelled row opens T03B', 't03b-job-cancelled', 'cancelled');
+await assertTrue('T03B names the live slot, not tonight', () => /your .* slot is open on your calendar again/.test(document.querySelector('.status-hero__body').textContent) && !/tonight/.test(document.querySelector('.status-hero__body').textContent));
 
 console.log(errors.length ? `CONSOLE ERRORS:\n  ${errors.join('\n  ')}` : 'no console errors');
 if (errors.length) failures++;

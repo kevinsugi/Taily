@@ -7,12 +7,19 @@
    Tailor - Garment Card 238:5113).
    ============================================================ */
 
-import { statusBar, topNav, statusPill, progressBar, ctaSmall, photoTile, selector, additionalSelector, feeRow, toast } from './components.js';
+import { statusBar, topNav, statusPill, progressBar, ctaSmall, cta, photoTile, selector, additionalSelector, feeRow, toast, modalOverlay } from './components.js';
 import { GARMENT_TYPES, JOB_TYPES, GARMENT_ICONS, money, garmentAmount } from './data.js';
 import { ICON_ADD_CIRCLE } from './icons.js';
 import { render as go } from './app.js';
 import { state } from './state.js';
-import { job, jobTarget } from './tailor-data.js';
+import { primaryJob, setCurrent, jobTarget } from './tailor-data.js';
+
+/** statusPill with the round-2 `expired` variant (declined styling,
+    "Expired") — falls back to the declined variant until the substrate
+    registers it in PILL_VARIANTS. */
+export function pill(status, label) {
+  try { return statusPill(status, label); } catch { return statusPill('declined', label); }
+}
 
 const T_NAV = [['t-home', 'Home'], ['t-calendar', 'Calendar'], ['t-shop', 'Shop']];
 
@@ -31,13 +38,14 @@ export function tailorChrome(active = 'home', time = '9:41') {
   return statusBar(time) + '\n' + topNav(`t-${active}`, T_NAV);
 }
 
-/** Tailor nav routing: Home → T01, Calendar → the job's status screen. */
+/** Tailor nav routing: Home → T01, Calendar → the soonest open job's
+    status screen (R2-T-01). */
 export function wireTailorNav(root) {
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {
     e.preventDefault();
     const k = el.dataset.nav;
     if (k === 't-home') go('t01-home');
-    else if (k === 't-calendar') { const a = job(state); go(a ? jobTarget(a) : 't01-home'); }
+    else if (k === 't-calendar') { const a = primaryJob(state); if (a) setCurrent(a); go(a ? jobTarget(a) : 't01-home'); }
     else toast('Shop is outside this prototype');
   }));
 }
@@ -58,35 +66,95 @@ export function sectionRow(label, right = '') {
   return `<div class="t-section-row"><span class="t-body w-600 c-500">${label}</span>${right ? `<button type="button" class="t-link" data-act="view-all">${right}</button>` : ''}</div>`;
 }
 
-/** T01 New Request card (455:3661) — timer strip + details + two small CTAs. */
-export function requestCard({ payout, name, meta, address, lines = [], expires = 'EXPIRES IN 1H 24M', where = '88 Leonard St, 4B · 1.2 mi' }) {
-  return `<article class="req-card">
-  <div class="req-card__timer"><span data-timer>${expires}</span><span>${where}</span></div>
+/**
+ * T01 New Request card (455:3661) — timer strip + details + two small
+ * CTAs. `idx` keys the card to its job (R2-T-01: one card per searching
+ * job, each with its own timer); the timer strip is the recorded demo
+ * "time passes" tap (R2-T-03). `proposed` (R2-T-04) swaps the actions
+ * for the waiting line + Withdraw; `note` is a one-line status under
+ * the meta ("Sarah kept her original time").
+ */
+export function requestCard({
+  payout, name, meta, address, lines = [], expires = 'EXPIRES IN 1H 24M', where = '88 Leonard St, 4B · 1.2 mi',
+  idx = 0, proposed = '', note = '',
+}) {
+  const key = ` data-req="${idx}"`;
+  const actions = proposed
+    ? `<p class="req-card__proposed">Time proposed · ${proposed} — waiting for Sarah</p>
+    <div class="req-card__actions">
+      ${ctaSmall('View Details', { attrs: `data-act="view-details"${key}` }).replace('class="cta-small"', 'class="cta-small cta-small--dark"')}
+      <button type="button" class="t-link req-card__withdraw" data-act="withdraw"${key}>Withdraw</button>
+    </div>`
+    : `<div class="req-card__actions">
+      ${ctaSmall('View Details', { attrs: `data-act="view-details"${key}` }).replace('class="cta-small"', 'class="cta-small cta-small--dark"')}
+      ${ctaSmall('Decline', { attrs: `data-act="decline"${key}` })}
+    </div>`;
+  return `<article class="req-card"${key}>
+  <div class="req-card__timer" data-act="time-passes"${key} title="Demo: time passes"><span data-timer${key}>${expires}</span><span>${where}</span></div>
   <div class="req-card__details">
     <div class="req-card__who">
       <div class="req-card__name"><b>${payout}</b><span>|</span><span>${name}</span></div>
-      <div class="req-card__meta"><span>${meta}</span><span>◉ <b>${address}</b></span></div>
+      <div class="req-card__meta"><span>${meta}</span><span>◉ <b>${address}</b></span>${note ? `<span class="req-card__note">${note}</span>` : ''}</div>
     </div>
     <ul class="req-card__items">${lines.map((l) => `<li>${l}</li>`).join('')}</ul>
-    <div class="req-card__actions">
-      ${ctaSmall('View Details', { attrs: 'data-act="view-details"' }).replace('class="cta-small"', 'class="cta-small cta-small--dark"')}
-      ${ctaSmall('Decline', { attrs: 'data-act="decline"' })}
-    </div>
+    ${actions}
   </div>
 </article>`;
 }
 
-/** Active Job Card (470:3993) — date badge, name/meta, payout, progress, pill + right text. */
+/** Active Job Card (470:3993) — date badge, name/meta, payout, progress,
+    pill + right text. `payout: null` suppresses the payout column
+    (R2-T-06: a withdrawn / expired request never was a job). */
 export function jobCard({ month, day, name, meta, payout, status = 'confirmed', pillLabel, stage = 'confirmed', right = '', rightInk = false, attrs = '' }) {
+  const pay = payout == null ? '' : `<div class="job-card__pay"><span class="job-card__payout">${payout}</span><span class="job-card__paylabel">Payout</span></div>`;
   return `<article class="job-card" ${attrs}>
   <div class="job-card__top">
     <div class="appt-card__date"><span class="appt-card__month">${month}</span><span class="appt-card__day">${day}</span></div>
     <div class="job-card__info"><span class="job-card__name">${name}</span><span class="job-card__meta">${meta}</span></div>
-    <div class="job-card__pay"><span class="job-card__payout">${payout}</span><span class="job-card__paylabel">Payout</span></div>
+    ${pay}
   </div>
   ${progressBar(stage)}
-  <div class="job-card__bottom${rightInk ? ' job-card__bottom--ink' : ''}">${statusPill(status, pillLabel)}<span>${right}</span></div>
+  <div class="job-card__bottom${rightInk ? ' job-card__bottom--ink' : ''}">${pill(status, pillLabel)}<span>${right}</span></div>
 </article>`;
+}
+
+/** "Removed at the visit — Suit Jacket · Hem / Adjust Length  $120"
+    lines under the T05 cards (R2-T-08). */
+export function removedRows(removed = []) {
+  if (!removed.length) return '';
+  return `<div class="t-removed">${removed.map((r) => `<div class="t-removed__row"><span>Removed at the visit — ${r.type} · ${r.jobs.join(', ')}</span><s>${money(r.amount)}</s></div>`).join('')}</div>`;
+}
+
+/**
+ * T03 pre-visit "Can't make it" modal (R2-T-05): two T2 radio rows and
+ * a confirm; `onConfirm(reason)` gets 'cant-make-it' or 'no-show'.
+ */
+export function openCantMakeIt(onConfirm) {
+  const html = `<div class="modal modal--reasons">
+  <h2 class="modal__title">Can’t make this visit?</h2>
+  <div class="reasons reasons--modal" role="radiogroup" aria-label="Reason">
+    ${radioRow('I need to cancel', { attrs: 'data-reason="cant-make-it"' })}
+    ${hairline()}
+    ${radioRow('Sarah didn’t show', { attrs: 'data-reason="no-show"' })}
+  </div>
+  <div class="modal__actions">
+    ${cta('Confirm', { attrs: 'data-act="confirm-cancel"' })}
+    ${cta('Go Back', { variant: 'secondary', attrs: 'data-act="go-back"' })}
+  </div>
+</div>`;
+  return modalOverlay(html, { dataS: 't03.1-cant-make-it' }, (root, close) => {
+    let reason = null;
+    root.querySelectorAll('[data-reason]').forEach((el) => el.addEventListener('click', () => {
+      reason = el.dataset.reason;
+      root.querySelectorAll('.radio-row').forEach((r) => { r.classList.toggle('radio-row--selected', r === el); r.setAttribute('aria-checked', r === el); });
+    }));
+    root.querySelector('[data-act="confirm-cancel"]')?.addEventListener('click', () => {
+      if (!reason) { toast('Choose a reason first'); return; }
+      close();
+      onConfirm(reason);
+    });
+    root.querySelector('[data-act="go-back"]')?.addEventListener('click', () => close());
+  });
 }
 
 /** T2 / Detail Row — label left, SemiBold value right. */

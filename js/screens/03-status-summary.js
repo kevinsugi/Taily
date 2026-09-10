@@ -12,9 +12,22 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, summaryCard, cta, orderCards, apptRows, receiptRows } from '../components.js';
+import { fmtDay } from '../data.js';
 import { finalOrder } from '../state.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
 import { currentAppt } from './03-status-confirmed.js';
+
+/** Items Received: the delivered stamp, else the handoff day, else —
+    live only (UX-LOOP R2-U-10, the seed past bookings) — the
+    appointment's own day. The harness deep link keeps the frame's
+    "July 17, 2026". */
+function receivedOn(a) {
+  /* the seed past bookings keep deliveredAt in the 09 card's grammar
+     ("Sep 2, 2PM") — one day grammar here */
+  if (a.deliveredAt) return fmtDay(a.deliveredAt, a.deliveredAt);
+  if (!window.__tailyNavigated) return 'July 17, 2026';
+  return fmtDay(a.fulfilment?.date ?? a.fulfilment?.window ?? a.when, 'July 17, 2026');
+}
 
 function renderScreen(s) {
   const a = currentAppt(s);
@@ -22,7 +35,7 @@ function renderScreen(s) {
 
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-summary">
-  ${statusHero({ pill: 'completed', title: 'Order Summary', rowLabel: 'Items Received:', rowValue: a.deliveredAt ?? 'July 17, 2026' })}
+  ${statusHero({ pill: 'completed', title: 'Order Summary', rowLabel: 'Items Received:', rowValue: receivedOn(a) })}
   ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
   <div class="garments-card">
     ${orderCards(o, { variant: 'PostAppt' })}

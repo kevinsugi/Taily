@@ -357,9 +357,12 @@
   font-weight: 700;
   flex-shrink: 0;
 }
-.chat-head__names { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 0 0; min-width: 1px; }
-/* Figma lets the meta line overflow its column rather than wrap */
+.chat-head__names { display: flex; flex-direction: column; gap: var(--space-4); flex: 1; min-width: 0; }
+/* Figma lets the meta line overflow its column rather than wrap;
+   UX-LOOP round 2 (tailor request): the meta line clips with an
+   ellipsis instead of pushing the pill off the frame */
 .chat-head__names > span { white-space: nowrap; }
+.chat-head__names > .t-small { overflow: hidden; text-overflow: ellipsis; }
 .chat-day { width: 100%; text-align: center; }
 .composer {
   display: flex;

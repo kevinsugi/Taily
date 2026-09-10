@@ -14,30 +14,42 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, deliveryWindow, selectTime, cta } from '../components.js';
-import { money, dayRows } from '../data.js';
+import { money, dayRows, fmtDay, handoffWindows } from '../data.js';
 import { state, chooseFulfilment, finalOrder } from '../state.js';
 import { openDateTimeOverlay } from './02.1-date-time-sheet.js';
 import { openWindowConfirmed } from './05.1-window-confirmed.js';
 import { currentAppt } from './03-status-confirmed.js';
 
-export const WINDOWS = [
-  { day: 'Thursday, July 16', abbr: 'Thu', date: 'Jul 16', chips: ['9–11 AM', '12–2 PM', '4–6 PM'] },
-  { day: 'Friday, July 17', abbr: 'Fri', date: 'Jul 17', chips: ['9-11 AM', '12–2 PM', '4–6 PM'] },
-];
+/* UX-LOOP R2-U-02: the two window days are derived from the
+   appointment (readyAt → need-by, data.js handoffWindows) — the seed
+   still yields the frames' Thu Jul 16 / Fri Jul 17. */
+export const windowsFor = (s = state) => handoffWindows(currentAppt(s));
 
 /** The pickup/delivery window selection, shared by 07A and 07B. */
 export function winSel(s = state) {
   s.ui ??= {};
   s.ui.window ??= { w: 0, c: 0, custom: null, customDay: null };
-  return s.ui.window;
+  const sel = s.ui.window;
+  /* a shorter range (one day) must not strand an older selection */
+  const wins = windowsFor(s);
+  if (sel.w >= wins.length) sel.w = 0;
+  if (sel.c >= (wins[sel.w]?.chips.length ?? 0)) sel.c = 0;
+  return sel;
 }
 
-export function windowLabel(sel) {
-  return sel.custom ?? `${WINDOWS[sel.w].abbr} ${WINDOWS[sel.w].chips[sel.c]}`;
+/** "Fri 4–6 PM" — the CTA copy (undated per R1-U-17, Kevin's call). */
+export function windowLabel(sel, wins = windowsFor()) {
+  return sel.custom ?? `${wins[sel.w].abbr} ${wins[sel.w].chips[sel.c]}`;
 }
 /** The chosen window's calendar day ("Jul 17") for receipts. */
-export function windowDate(sel) {
-  return sel.custom ? sel.customDay : WINDOWS[sel.w].date;
+export function windowDate(sel, wins = windowsFor()) {
+  return sel.custom ? sel.customDay : wins[sel.w].date;
+}
+/** "Fri, Jul 17 · 4–6 PM" — the dated label stored on the fulfilment
+    (05.1's When row, the card meta, 03/Tailoring's hero — R2-U-02). */
+export function windowDated(sel, wins = windowsFor()) {
+  if (sel.custom) return `${fmtDay(sel.customDay, sel.customDay)} · ${sel.customTime ?? sel.custom}`;
+  return `${fmtDay(wins[sel.w].date, wins[sel.w].abbr)} · ${wins[sel.w].chips[sel.c]}`;
 }
 
 /** Amount due at handoff for the appointment being viewed. */
@@ -46,8 +58,8 @@ export function amountDue(s) {
   return (t.total ?? 0) - (t.deposit ?? 0);
 }
 
-export function windowsHtml(sel) {
-  return WINDOWS.map((w, wi) => deliveryWindow(w.day, w.chips.map((label, ci) => ({
+export function windowsHtml(sel, wins = windowsFor()) {
+  return wins.map((w, wi) => deliveryWindow(w.day, w.chips.map((label, ci) => ({
     label,
     selected: !sel.custom && sel.w === wi && sel.c === ci,
     attrs: `data-win="${wi}" data-chip="${ci}"`,
@@ -68,10 +80,12 @@ export function wireWindows(root, screenId) {
   root.querySelector('[data-act="custom-time"]')?.addEventListener('click', () => {
     /* R1-U-11: only days between the ready date and the need-by */
     const a = currentAppt(state);
-    const days = dayRows(a.readyAt ?? WINDOWS[0].date, a.needBy ?? WINDOWS[1].date);
+    const wins = windowsFor(state);
+    const days = dayRows(a.readyAt ?? wins[0].date, a.needBy ?? wins[wins.length - 1].date);
     openDateTimeOverlay('custom', (p) => {
       sel.custom = `${p.day} at ${p.time}`;
       sel.customDay = p.day;
+      sel.customTime = p.time;
       go(screenId, { replace: true });
     }, { days });
   });
@@ -105,8 +119,8 @@ function wire(root) {
      the order stays 'ready' until the TAILOR confirms the handoff. */
   root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => {
     const sel = winSel();
-    const when = windowLabel(sel);
-    chooseFulfilment('pickup', when, windowDate(sel));
+    const when = windowDated(sel);   // R2-U-02: the stored window carries its date
+    chooseFulfilment('pickup', when, windowDate(sel), currentAppt(state));
     openWindowConfirmed({ method: 'pickup', when });
   });
   root.querySelector('[data-act="select"]')?.addEventListener('click', () => go('05b-delivery-options'));

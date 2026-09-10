@@ -11,14 +11,44 @@
    (Home Visit fiction, $200 / $20 seeded order). Cancel request opens
    the R1 popup. The deposit is a HOLD until the tailor confirms
    (02.3's copy) — "held" here, released on cancel (R1-U-03).
+   UX-LOOP R2-U-03 (live only; Figma sync pending): when the tailor
+   proposed another time (`a.proposed`) the hero becomes the
+   `new-times` variant — "Marco proposed a new time" + Accept New Time
+   (→ 03/Confirmed) / Keep Looking (proposal cleared, still searching)
+   above the cancel line; the 01/09 card says "New time proposed: …".
+   R2-U-04: an expired request re-routes to 03/Cancelled.
+   DEMO affordances (never on the harness deep link): tapping the hero
+   pill = "Marco proposes the next day, 11 AM"; tapping the "2 hours"
+   line = time passes → the request expires.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, infoCard, metaRow, cta } from '../components.js';
-import { money, itemsLabel } from '../data.js';
-import { state, tailorAccepts, bookingLines } from '../state.js';
+import { money, itemsLabel, fmtWhen, shiftDay, parseWhen } from '../data.js';
+import {
+  state, tailorAccepts, bookingLines, isTerminal,
+  proposeTime, acceptProposedTime, declineProposedTime, expireAppointment,
+} from '../state.js';
 import { ensureGarments } from './02-appointment-details.js';
-import { openReschedulePopup } from './03.1-reschedule-popup.js';
+import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
+import { currentAppt } from './03-status-confirmed.js';
+
+const live = () => !!window.__tailyNavigated;
+
+/** DEMO: the day after the requested time, 11:00 AM, in the 02.1 pill
+    grammar ("Sept 10, 11:00 AM") so it parses everywhere. */
+function nextDayEleven(a) {
+  const day = shiftDay(a?.when, 1) ?? shiftDay(new Date().toDateString(), 1);   // "Thu, Sept 10"
+  return `${day.replace(/^\w+, /, '')}, 11:00 AM`;
+}
+
+/** The 01/09 card badge follows the (new) appointment day. */
+function stampBadge(a) {
+  const p = parseWhen(a?.when);
+  if (!p) return;
+  a.month = p.mon.slice(0, 3).toUpperCase();
+  a.day = String(p.day);
+}
 
 function renderScreen(s) {
   /* direct load (diff harness): seed 02's garments so the estimate has
@@ -26,9 +56,25 @@ function renderScreen(s) {
   ensureGarments();
   const t = bookingLines(null);
   const n = s.garments.reduce((sum, g) => sum + g.qty, 0);
+  const a = live() ? currentAppt(s) : null;
+  const first = (a?.name ?? 'Marco Tailor').split(' ')[0];
+  const proposed = a?.proposed?.when ?? null;
+  const hero = proposed
+    ? statusHero({ variant: 'new-times', title: `${first} proposed a new time`, body: `Your ${fmtWhen(a.when)} slot isn’t free. ${first} can do ${fmtWhen(proposed)}.` })
+    : statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-certified tailor near you. We’ll notify you the moment one accepts.' });
+  /* live-only: the acceptance window (the tailor side's timer twin) —
+     tapping it is the "time passes" demo */
+  const window2h = a && !proposed
+    ? `<p class="t-small c-500" data-act="expire" role="button" tabindex="0">Tailors have up to 2 hours to accept your request.</p>`
+    : '';
+  const actions = proposed
+    ? `${cta('Accept New Time', { attrs: 'data-act="accept-time"' })}
+  ${cta('Keep Looking', { variant: 'secondary', attrs: 'data-act="keep-looking"' })}`
+    : cta('View All Appointments', { attrs: 'data-act="bookings"' });
   return `${chrome('home')}
 <div class="body" data-s="03-status-requested">
-  ${statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-certified tailor near you. We’ll notify you the moment one accepts.' })}
+  ${hero}
+  ${window2h}
   <!-- Placeholder per Kevin: this becomes a live Google Map centred on
        the user's location. The frame's raster is deliberately not used.
        Phase R8: the frame now leads with the Status Hero, map second. -->
@@ -41,18 +87,50 @@ function renderScreen(s) {
     metaRow('▤', s.appt.when),
     metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.subtotal)}.00+ est. · ${money(t.deposit)} deposit held`),
   ].join(''))}
-  ${cta('View All Appointments', { attrs: 'data-act="bookings"' })}
+  ${actions}
   <button type="button" class="cancel-line" data-act="cancel">Cancel request — deposit refunded</button>
 </div>`;
 }
 
 function wire(root) {
+  const a = live() ? currentAppt(state) : null;
+  /* R2-U-04: status-driven — a request that already ended (expired
+     while the customer was away, declined) shows its 03/Cancelled */
+  if (a && isTerminal(a)) {
+    setTimeout(() => { pointAtTerminal(a); go('03-status-cancelled', { replace: true }); }, 0);
+    return;
+  }
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   /* Phase R3 (Kevin): cancel request runs through the R1 popup —
      cancel-worded (UX-003) */
   root.querySelector('[data-act="cancel"]')?.addEventListener('click', () => openReschedulePopup('cancel'));
   // demo affordance: tapping the map simulates the tailor accepting
-  root.querySelector('[data-act="map"]')?.addEventListener('click', () => { tailorAccepts(); go('03-status-confirmed'); });
+  root.querySelector('[data-act="map"]')?.addEventListener('click', () => { tailorAccepts(a ?? undefined); go('03-status-confirmed'); });
+  /* R2-U-03: the proposal's answers */
+  root.querySelector('[data-act="accept-time"]')?.addEventListener('click', () => {
+    if (!a?.proposed) return;
+    acceptProposedTime(a.proposed.when, a);
+    stampBadge(a);
+    go('03-status-confirmed');
+  });
+  root.querySelector('[data-act="keep-looking"]')?.addEventListener('click', () => {
+    declineProposedTime(a);
+    go('03-status-requested', { replace: true });
+  });
+  if (a) {
+    // DEMO: the hero pill = "Marco proposes the next day, 11 AM"
+    root.querySelector('.status-hero .pill')?.addEventListener('click', () => {
+      if (a.proposed) return;
+      proposeTime(a, nextDayEleven(a));
+      go('03-status-requested', { replace: true });
+    });
+    // DEMO: the "2 hours" line = time passes → the request expires
+    root.querySelector('[data-act="expire"]')?.addEventListener('click', () => {
+      expireAppointment(a);
+      pointAtTerminal(a);
+      go('03-status-cancelled', { replace: true });
+    });
+  }
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {
     e.preventDefault();
     go(el.dataset.nav === 'bookings' ? '09-bookings' : '01-home');

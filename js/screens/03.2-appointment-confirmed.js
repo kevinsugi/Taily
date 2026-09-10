@@ -9,7 +9,7 @@
 
 import { register, render as go } from '../app.js';
 import { cta, modalOverlay } from '../components.js';
-import { completeAppointment, draftFinalOrder } from '../state.js';
+import { apptEntry, completeAppointment, draftFinalOrder } from '../state.js';
 import { viewReminder } from './03-status-reminder.js';
 
 function modalHtml() {
@@ -23,14 +23,17 @@ function modalHtml() {
 </div>`;
 }
 
-function wireModal(root) {
+function wireModal(root, close) {
   root.querySelector('[data-act="confirm-appt"]')?.addEventListener('click', () => {
     /* DEMO (UX-LOOP R1-U-02): the appointment "happens" — Marco's
        at-visit review writes the reviewed order into the appointment
        (the frames' +Sleeve / +jacket fiction; a no-op once the tailor
        side has sent its own), then the order awaits approval. */
-    draftFinalOrder();
-    completeAppointment();
+    const a = apptEntry();
+    draftFinalOrder(a);
+    completeAppointment(a);
+    /* R2-U-01: close the overlay BEFORE navigating (scroll lock / back) */
+    close?.();
     go('03-status-tailoring');
   });
 }

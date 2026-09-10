@@ -14,7 +14,7 @@ import { register, render as go } from '../app.js';
 import { chrome, cta, toast, orderCards, receiptRows } from '../components.js';
 import { state, clearGarments, finalOrder } from '../state.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
-import { openLeaveReview } from './06.1-leave-review.js';
+import { openLeaveReview, tailorName } from './06.1-leave-review.js';
 import { currentAppt } from './03-status-confirmed.js';
 
 /* Exported: 08C draws this screen (dimmed) as its frame backdrop. */
@@ -56,7 +56,7 @@ function wire(root) {
      sent, a second tap acknowledges instead (R1-U-14) */
   root.querySelector('[data-act="review"]')?.addEventListener('click', () => {
     const a = currentAppt(state);
-    if (a.review) { toast(`You already reviewed ${(a.name ?? 'Marco Tailor').split(' ')[0]}`); return; }
+    if (a.review) { toast(`You already reviewed ${tailorName(a).split(' ')[0]}`); return; }
     openLeaveReview();
   });
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {

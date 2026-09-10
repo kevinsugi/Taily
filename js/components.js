@@ -106,6 +106,9 @@ const PILL_VARIANTS = {
   'awaiting-approval':     { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Awaiting Approval' },
   'ready-for-pickup':      { cls: 'pill--ready',             icon: 'ready',       label: 'Ready' },
   'delivered':             { cls: 'pill--completed',         icon: 'completed',   label: 'Completed' },
+  /* UX-LOOP R2-U-04: a request nobody accepted in time — declined
+     styling, its own label */
+  'expired':               { cls: 'pill--declined',          icon: 'declined',    label: 'Expired' },
 };
 
 export function statusPill(status, label) {
@@ -182,6 +185,22 @@ export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
    CTA_Small 302:1656, Progress Bar 473:7627.
    ============================================================ */
 
+/** The appointment-card variant an appointment renders as: v4 chain
+    names normalise onto the Figma card keys (requested / confirmed /
+    tailoring / ready / completed); the terminal statuses — cancelled,
+    declined, expired — are card variants of their own (R1-U-20, R2-U-04)
+    and never throw. Accepts a status string or an appointment. */
+const CARD_STATUS = {
+  searching: 'requested', 'awaiting-approval': 'tailoring', 'ready-for-pickup': 'ready', delivered: 'completed',
+};
+export function cardStatus(aOrStatus) {
+  const raw = typeof aOrStatus === 'string' ? aOrStatus : aOrStatus?.status;
+  const s = String(raw ?? '').toLowerCase();
+  return CARD_STATUS[s] ?? s;
+}
+export const TERMINAL_CARD_STATUSES = ['cancelled', 'declined', 'expired'];
+export const isTerminalStatus = (aOrStatus) => TERMINAL_CARD_STATUSES.includes(cardStatus(aOrStatus));
+
 /** CTA_Small — outline action inside cards. */
 export function ctaSmall(label, { attrs = '' } = {}) {
   return `<button type="button" class="cta-small" ${attrs}>${label}</button>`;
@@ -219,6 +238,8 @@ export function apptCard(a) {
     completed: 'complete', delivered: 'complete',
     'ready-for-pickup': 'ready',
     'awaiting-approval': 'confirmed', searching: 'confirmed', requested: 'confirmed',
+    /* terminal cards (R1-U-20 / R2-U-04): an unfilled bar, no throw */
+    expired: 'declined',
   };
   const stage = STAGE[status] ?? status;
   const lists = [];
@@ -260,7 +281,9 @@ export function statusHero({ variant = 'requested', pill, title, titleLine2, bod
   if (title) parts.push(`<h2 class="status-hero__title${titleWeight === 600 ? ' w-600' : ''}${titleColor ? ` c-${titleColor}` : ''}">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h2>`);
   if (body) parts.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
   if (rowLabel) parts.push(`<div class="status-hero__row"><span>${rowLabel}</span><span>${rowValue ?? ''}</span></div>`);
-  return `<div class="status-hero">${parts.join('\n  ')}</div>`;
+  /* `new-times` (R2-U-03): pill Requested + a custom title/body — the
+     modifier class is a hook, it changes nothing the frames draw */
+  return `<div class="status-hero status-hero--${variant}">${parts.join('\n  ')}</div>`;
 }
 
 /** Tailor Summary Card — avatar + info rows (glyph-prefixed). */
@@ -445,13 +468,34 @@ export function wireSheetA11y(root, dismiss) {
    open before stepping back a screen. Overlays register their close()
    here while mounted. */
 let activeOverlay = null;
-/** Close the open overlay, if any. Returns true when one was closed. */
-export function closeOverlay() {
+/** Close the open overlay, if any. Returns true when one was closed.
+    UX-LOOP R2-U-01: the router calls this synchronously before it
+    replaces #screen — `instant` skips the exit animation and restores
+    the page scroll at once (the holder is about to be wiped anyway). */
+export function closeOverlay({ instant = false } = {}) {
+  /* an overlay whose close() is already animating out (a handler
+     closed it, then navigated) has nothing left to animate once the
+     router wipes #screen — finish it now so the page unfreezes */
+  if (instant) for (const fin of [...pendingFinish]) fin();
   if (!activeOverlay) return false;
   const c = activeOverlay;
   activeOverlay = null;
-  c();
+  c({ instant });
   return true;
+}
+/* finish() callbacks of overlays mid slide-out (see closeOverlay) */
+const pendingFinish = new Set();
+
+/* Freeze the page behind an overlay and remember what to restore.
+   R2-U-01: a previous `hidden` is a stale lock from an overlay that was
+   wiped mid-life — never re-apply it; treat it as ''. */
+function freezePage(doc) {
+  const stale = doc.style.overflow === 'hidden';
+  const prev = { overflow: stale ? '' : doc.style.overflow, paddingRight: stale ? '' : doc.style.paddingRight };
+  const sbw = window.innerWidth - doc.clientWidth;
+  doc.style.overflow = 'hidden';
+  if (sbw > 0) doc.style.paddingRight = `${sbw}px`;
+  return prev;
 }
 /** Is an overlay (sheet / modal / viewer) currently mounted? */
 export const overlayOpen = () => activeOverlay !== null;
@@ -483,26 +527,28 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
   /* Freeze the page while the sheet is open; pad for the vanishing
      scrollbar so the centred stage doesn't shift. */
   const doc = document.documentElement;
-  const sbw = window.innerWidth - doc.clientWidth;
-  const prev = { overflow: doc.style.overflow, paddingRight: doc.style.paddingRight };
-  doc.style.overflow = 'hidden';
-  if (sbw > 0) doc.style.paddingRight = `${sbw}px`;
+  const prev = freezePage(doc);
 
   const host = holder.querySelector('.sheet-host');
   requestAnimationFrame(() => requestAnimationFrame(() => { host.dataset.open = 'true'; }));
   let closing = false;
-  const close = () => {
+  const close = (opts = {}) => {
     if (closing) return;
     closing = true;
     if (activeOverlay === close) activeOverlay = null;
     holder.classList.add('is-closing');
     host.dataset.open = 'false';
-    setTimeout(() => {
+    const finish = () => {
+      pendingFinish.delete(finish);
       holder.remove();
       doc.style.overflow = prev.overflow;
       doc.style.paddingRight = prev.paddingRight;
       if (opener?.isConnected) opener.focus({ preventScroll: true });
-    }, 300);
+    };
+    /* R2-U-01: a holder the router already wiped has nothing to
+       animate — unfreeze the page now, not 300 ms later */
+    if (opts.instant || !holder.isConnected) finish();
+    else { pendingFinish.add(finish); setTimeout(finish, 300); }
   };
   activeOverlay = close;
   holder.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', close));
@@ -535,28 +581,28 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
   screenEl.appendChild(holder);
 
   const doc = document.documentElement;
-  const sbw = window.innerWidth - doc.clientWidth;
-  const prev = { overflow: doc.style.overflow, paddingRight: doc.style.paddingRight };
-  doc.style.overflow = 'hidden';
-  if (sbw > 0) doc.style.paddingRight = `${sbw}px`;
+  const prev = freezePage(doc);
 
   requestAnimationFrame(() => requestAnimationFrame(() => { holder.dataset.open = 'true'; }));
   let closing = false;
-  const close = () => {
+  const close = (opts = {}) => {
     if (closing) return;
     closing = true;
     if (activeOverlay === close) activeOverlay = null;
     holder.classList.add('is-closing');
     holder.dataset.open = 'false';
     const finish = () => {
+      pendingFinish.delete(finish);
       holder.remove();
       doc.style.overflow = prev.overflow;
       doc.style.paddingRight = prev.paddingRight;
       if (opener?.isConnected) opener.focus({ preventScroll: true });
     };
     /* instant (PV3, Kevin): the panel has no exit animation, so waiting
-       the fade-out window just reads as lag */
-    if (instant) finish(); else setTimeout(finish, 300);
+       the fade-out window just reads as lag. R2-U-01: same when the
+       router asks, or the holder is already off the DOM. */
+    if (instant || opts.instant || !holder.isConnected) finish();
+    else { pendingFinish.add(finish); setTimeout(finish, 300); }
   };
   activeOverlay = close;
   holder.querySelector('[data-act="modal-dismiss"]')?.addEventListener('click', close);
@@ -734,10 +780,13 @@ export function apptRows(a) {
 /** Receipt dates for an appointment — the frames' fiction when the
     appointment carries no dates of its own. */
 export function receiptDates(a) {
+  /* R2-U-10: a delivered order with no handoff facts of its own is
+     received on its appointment day, not the Jul 17 fixture */
+  const done = ['delivered', 'completed'].includes(String(a?.status ?? '').toLowerCase());
   return {
     confirmed: mdy(a?.when, '7/12/26'),
     deposit: a?.depositOn ?? '7/7/26',
-    handoff: mdy(a?.fulfilment?.date ?? a?.fulfilment?.window ?? a?.deliveredAt, '7/17/26'),
+    handoff: mdy(a?.fulfilment?.date ?? a?.fulfilment?.window ?? a?.deliveredAt ?? (done ? a?.when : null), '7/17/26'),
   };
 }
 

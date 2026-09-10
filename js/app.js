@@ -18,7 +18,21 @@ const SCREEN_MODULES = [
   '04-review-approve', '04-review-approve-modified', '05-items-ready', '05a-pickup-window', '05b-delivery-options', '06-journey-complete',
   '03.1-reschedule-popup', '03-status-cancelled', '03.2-appointment-confirmed', '03.3-photo-viewer', '04.1-request-changes',
   '05.1-window-confirmed', '06.1-leave-review',
+  /* Tailor flow (Phase T) — Marco's view of the same appointment */
+  't01-home', 't02-appointment-request', 't03-request-accepted', 't03a-decline-request', 't03b-job-cancelled',
+  't04-appointment-details', 't05-confirm-final-pricing', 't06-appointment-status', 't07-job-ready', 't08-job-complete',
 ];
+
+/* Persona gate (Phase T5, throwaway until onboarding sets it): tailor
+   screens are t-prefixed; opening one flips the persona, the shared
+   messages screen keeps whichever persona opened it. */
+const isTailorScreen = (id) => /^t0/.test(id);
+function syncPersona(id) {
+  if (isTailorScreen(id)) state.persona = 'tailor';
+  else if (id !== '10-messages') state.persona = 'user';
+  const btn = document.getElementById('persona-toggle');
+  if (btn) btn.textContent = state.persona === 'tailor' ? 'View as Customer' : 'View as Tailor';
+}
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */
 const screens = new Map();
@@ -64,6 +78,7 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
     return false;
   }
 
+  syncPersona(id);
   el.innerHTML = entry.view(state);
   el.dataset.screen = id;
   entry.wire?.(el);
@@ -129,6 +144,9 @@ async function boot() {
     const profile = e.target.closest('[data-nav="profile"]');
     if (profile) { e.preventDefault(); toast('Profile is outside this prototype'); }
   });
+  state.persona ??= 'user';
+  document.getElementById('persona-toggle')?.addEventListener('click', () =>
+    render(state.persona === 'tailor' ? '01-home' : 't01-home'));
   const wanted = new URLSearchParams(location.search).get('screen');
   const first = registered()[0];
   const id = wanted || first;

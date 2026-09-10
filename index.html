@@ -15,11 +15,14 @@
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/screens.css">
+<link rel="stylesheet" href="css/tailor.css">
 </head>
 <body>
 
 <div class="stage">
   <div class="screen" id="screen"></div>
+  <!-- Persona gate (Phase T5): dev toggle outside .screen so pixel diffs never see it -->
+  <div class="stage-caption"><button type="button" class="persona-toggle" id="persona-toggle">View as Tailor</button></div>
 </div>
 
 <!-- Announces screen changes to assistive tech; screens themselves stay silent. -->

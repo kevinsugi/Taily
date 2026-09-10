@@ -29,7 +29,17 @@
     "03.1-reschedule-popup": "558:1867",
     "03-status-cancelled": "558:3817",
     "03.3-photo-viewer": "559:2112",
-    "04.1-request-changes": "559:3265"
+    "04.1-request-changes": "559:3265",
+    "t01-home": "455:3560",
+    "t02-appointment-request": "455:2170",
+    "t03-request-accepted": "449:714",
+    "t03a-decline-request": "449:733",
+    "t03b-job-cancelled": "449:752",
+    "t04-appointment-details": "455:2587",
+    "t05-confirm-final-pricing": "449:809",
+    "t06-appointment-status": "473:6324",
+    "t07-job-ready": "449:847",
+    "t08-job-complete": "449:866"
   },
   "baselines": {
     "01-home": 0.53,
@@ -58,6 +68,16 @@
     "04.1-request-changes": 0.1,
     "03.2-appointment-confirmed": 0.36,
     "06.1-leave-review": 1.31,
-    "05.1-window-confirmed": 0.86
+    "05.1-window-confirmed": 0.86,
+    "t01-home": 0.86,
+    "t02-appointment-request": 7.96,
+    "t03-request-accepted": 5.95,
+    "t03a-decline-request": 1.76,
+    "t03b-job-cancelled": 4.86,
+    "t04-appointment-details": 4.75,
+    "t05-confirm-final-pricing": 8.73,
+    "t06-appointment-status": 8.33,
+    "t07-job-ready": 0.98,
+    "t08-job-complete": 4
   }
 }

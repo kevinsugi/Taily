@@ -14,6 +14,7 @@
 import { register, render as go, back } from '../app.js';
 import { chrome, statusPill, bubble } from '../components.js';
 import { state } from '../state.js';
+import { tailorChrome, wireTailorNav } from '../tailor-components.js';
 
 /* The frame's conversation (282:1239) — Marco's seeded thread. */
 const SEED_THREAD = [
@@ -56,16 +57,20 @@ function pillStatus(status) {
 
 function renderScreen(s) {
   const a = currentAppointment(s);
-  const name = a.displayName ?? a.name ?? 'Marco Tailor';
+  /* Phase T: the tailor sees the same thread from Marco's side —
+     Sarah in the header, bubbles flipped (CLAUDE.md "Tailor flow"). */
+  const tailor = s.persona === 'tailor';
+  const name = tailor ? 'Sarah Chen' : (a.displayName ?? a.name ?? 'Marco Tailor');
   const first = name.split(' ')[0];
-  const meta = a.chatMeta ?? [a.when, a.visit].filter(Boolean).join(' · ');
-  const msgs = threadFor(s, a).map((m) => bubble(m.text, m.who)).join('\n  ');
+  const meta = tailor ? 'Tonight · 7:00 PM · Home visit' : (a.chatMeta ?? [a.when, a.visit].filter(Boolean).join(' · '));
+  const side = (who) => (tailor ? (who === 'me' ? 'them' : 'me') : who);
+  const msgs = threadFor(s, a).map((m) => bubble(tailor ? m.text.replace('Hi Kevin', 'Hi Sarah') : m.text, side(m.who))).join('\n  ');
 
-  return `${chrome('home')}
+  return `${tailor ? tailorChrome('home') : chrome('home')}
 <div class="body" data-s="10-messages">
   <div class="chat-head">
     <button type="button" class="chat-head__back" data-act="back">‹</button>
-    <span class="chat-head__avatar">${a.initials ?? 'MT'}</span>
+    <span class="chat-head__avatar">${tailor ? 'SC' : (a.initials ?? 'MT')}</span>
     <div class="chat-head__names">
       <span class="t-body w-700 c-ink">${name}</span>
       <span class="t-small c-500">${meta}</span>
@@ -107,6 +112,11 @@ function wire(root) {
   root.querySelector('.composer__send')?.addEventListener('click', send);
   input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
 
+  if (state.persona === 'tailor') {
+    root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));
+    wireTailorNav(root);
+    return;
+  }
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('09-bookings'));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {
     e.preventDefault();

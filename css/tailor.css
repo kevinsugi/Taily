@@ -1,0 +1,203 @@
+/* ============================================================
+   Tailor flow — tailor-only layout + components (Phase T).
+   Additive on the shared substrate: nothing here restyles a
+   user-flow component. Tokens only.
+   ============================================================ */
+
+/* every tailor screen: root gap 16, bottom pad 40 (frames) */
+[data-s^="t0"] { gap: var(--space-16); padding-bottom: var(--space-40); }
+[data-s="t03a-decline-request"] { gap: var(--space-8); }
+/* frame heights: shorter than the 844 stage, or dead space below the
+   last child (T01 / T03 end well under their frames, like 02) */
+.screen[data-screen="t01-home"] { min-height: 988px; }
+.screen[data-screen="t03-request-accepted"] { min-height: 897.5px; }
+.screen[data-screen="t03a-decline-request"] { min-height: 635.5px; }
+.screen[data-screen="t03b-job-cancelled"] { min-height: 415.5px; }
+.screen[data-screen="t07-job-ready"] { min-height: 640px; }
+.screen[data-screen="t08-job-complete"] { min-height: 595px; }
+[data-s="t03b-job-cancelled"] .status-hero,
+[data-s="t08-job-complete"] .status-hero { gap: var(--space-12); }
+/* hero copy is a 300px column on the frames */
+[data-s="t03-request-accepted"] .status-hero__body,
+[data-s="t03b-job-cancelled"] .status-hero__body,
+[data-s="t08-job-complete"] .status-hero__body { max-width: 300px; }
+
+/* ---------- header row: ‹ + serif title (+ sub) ---------- */
+.t-header { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
+.t-back {
+  height: 36px;
+  padding-inline: var(--space-8);
+  background: none;
+  border: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-28);
+  line-height: 34px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.t-heading { display: flex; flex-direction: column; gap: var(--space-4); }
+.t-status { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
+.t-section-row { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; }
+.t-link {
+  background: none; border: 0; padding: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--accent-ink);
+}
+.t-actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+.t-actions--pad { padding-block: var(--space-12); }
+.t-actions--16 { gap: var(--space-16); }
+
+/* ---------- T01 New Request card (455:3661) ---------- */
+.req-card {
+  width: 100%;
+  background: var(--white);
+  border-radius: var(--radius-20);
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(28, 27, 24, 0.06);
+}
+.req-card__timer {
+  display: flex; justify-content: space-between;
+  padding: var(--space-8) var(--space-20);
+  background: var(--warning-bg);
+  color: var(--warning);
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 600;
+}
+.req-card__details {
+  display: flex; flex-direction: column; gap: var(--space-12);
+  padding: var(--space-16) var(--space-20) var(--space-20);
+}
+.req-card__who { display: flex; flex-direction: column; gap: var(--space-4); }
+.req-card__name {
+  display: flex; align-items: center; gap: var(--space-12);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.req-card__name b { font-weight: 700; }
+.req-card__meta {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--neutral-500);
+}
+.req-card__meta b { font-weight: 600; }
+.req-card__items {
+  margin: 0;
+  padding-left: 18px;
+  display: flex; flex-direction: column; gap: var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--neutral-500);
+}
+.req-card__actions { display: flex; gap: var(--space-12); width: 100%; }
+.req-card__actions .cta-small { padding-block: var(--space-8); }
+.cta-small--dark { background: var(--ink); color: var(--neutral-50); box-shadow: none; }
+
+/* ---------- Active Job Card (470:3993) ---------- */
+.job-card {
+  display: flex; flex-direction: column; gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-16) var(--space-20);
+  background: var(--white);
+  border-radius: var(--radius-20);
+}
+.job-card__top { display: flex; align-items: center; gap: var(--space-16); width: 100%; }
+.job-card__info { flex: 1 0 0; min-width: 1px; display: flex; flex-direction: column; gap: var(--space-4); }
+.job-card__name {
+  font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--ink); white-space: nowrap;
+}
+.job-card__meta {
+  font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px; font-weight: 500; color: var(--neutral-600); white-space: nowrap;
+}
+.job-card__pay { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-4); }
+.job-card__payout { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 700; color: var(--ink); }
+.job-card__paylabel { font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px; font-weight: 400; color: var(--neutral-500); }
+.job-card__bottom {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px; font-weight: 500; color: var(--neutral-600);
+}
+.job-card__bottom--ink { color: var(--ink); }
+
+/* ---------- T2 rows ---------- */
+.t-detail-card {
+  display: flex; flex-direction: column; gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-20);
+  background: var(--white);
+  border-radius: var(--radius-20);
+}
+.t-detail-row { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; }
+.t-detail-row__label { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 400; color: var(--neutral-500); }
+.t-detail-row__value { font-family: var(--font-sans); font-size: var(--size-14); line-height: 18px; font-weight: 600; color: var(--ink); }
+
+.price-group { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+.price-row {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 400; color: var(--ink);
+}
+.price-row__value { font-size: var(--size-14); line-height: 18px; font-weight: 600; }
+.price-row--muted, .price-row--muted .price-row__value { color: var(--neutral-500); }
+.price-row--total { font-weight: 700; }
+.price-row--total .price-row__value { font-size: var(--size-16); line-height: 21px; font-weight: 700; }
+.hairline { width: 100%; height: 1px; background: var(--neutral-200); }
+.payout-summary__title {
+  font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 500; color: var(--neutral-500);
+  white-space: pre;
+}
+.payout-summary__note { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 400; color: var(--neutral-500); }
+
+.reasons { display: flex; flex-direction: column; width: 100%; padding-inline: var(--space-20); border-radius: var(--radius-20); }
+.radio-row {
+  display: flex; align-items: center; gap: var(--space-12); width: 100%;
+  padding-block: var(--space-16);
+  background: none; border: 0; text-align: left;
+  font-family: var(--font-sans); font-size: var(--size-14); line-height: 18px; font-weight: 400; color: var(--ink);
+}
+.radio-row--selected { font-weight: 600; }
+.radio-row__dot { width: 18px; height: 18px; border-radius: var(--radius-full); box-shadow: inset 0 0 0 1.5px var(--neutral-400); flex-shrink: 0; }
+.radio-row--selected .radio-row__dot { box-shadow: inset 0 0 0 5px var(--ink); }
+
+/* ---------- View Order Summary disclosure ---------- */
+.order-dropdown {
+  display: flex; align-items: center; gap: var(--space-8); width: 100%;
+  background: none; border: 0; padding: 0;
+  font-family: var(--font-serif); font-size: var(--size-28); line-height: 34px; font-weight: 600; color: var(--neutral-500);
+}
+.order-dropdown__chevron { transition: transform 160ms var(--ease-out); }
+.order-dropdown.is-open .order-dropdown__chevron { transform: rotate(180deg); }
+.order-summary[hidden] { display: none; }
+
+/* ---------- Tailor - Garment Card extras ---------- */
+.tgc__group { display: flex; flex-direction: column; gap: var(--space-4); }
+.tgc__label { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 500; color: var(--accent-ink); }
+.tgc__comment {
+  display: flex; align-items: center; gap: var(--space-8);
+  background: none; border: 0; padding: 0;
+  font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--accent-ink);
+}
+.tgc__comment .icon-add-circle { width: 14px; height: 14px; }
+.tgc__comment-view { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--ink); }
+.tgc .garment-card__service--info { color: var(--info); }
+
+/* ---------- persona toggle (stage caption, OUTSIDE .screen) ---------- */
+.stage-caption { display: flex; justify-content: center; padding: var(--space-16); }
+.persona-toggle {
+  padding: var(--space-8) var(--space-16);
+  background: var(--white);
+  border: 0;
+  border-radius: var(--radius-20);
+  box-shadow: inset 0 0 0 1px var(--neutral-300);
+  font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px; font-weight: 600; color: var(--neutral-600);
+}

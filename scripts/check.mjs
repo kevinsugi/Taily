@@ -29,6 +29,7 @@ function run(name, args) {
 run('diff (ratchet baselines)', ['scripts/diff.mjs', 'all']);
 run('text parity', ['scripts/text-parity.mjs']);
 run('click-through', ['scripts/clickthrough.mjs']);
+run('tailor click-through', ['scripts/clickthrough-tailor.mjs']);
 
 /* ---------- style hygiene ---------- */
 console.log(`\n━━ style hygiene ${'━'.repeat(44)}`);

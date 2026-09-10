@@ -241,10 +241,18 @@ export function orderDropdown(open = false) {
     No fee, no subtotal, nothing of the customer's. `payout` is a number
     (jobView / orderMoney) or an already-formatted string. `offered`
     (R7-T-02, T02 expired): the muted "Payout offered" — money that
-    lapsed with the request. */
-export function payoutRows({ payout }, { offered = false } = {}) {
+    lapsed with the request. `protection` (round 8, T02 base + Accepted
+    only): a muted "No-show protection · paid if Sarah doesn’t show" row
+    under the payout with the trip compensation (jobView.protection /
+    data.js noShowComp) — never the fee it is derived from. */
+export const NO_SHOW_PROTECTION = 'No-show protection · paid if Sarah doesn’t show';
+export function payoutRows({ payout }, { offered = false, protection = null } = {}) {
   const price = typeof payout === 'number' ? money(payout) : payout;
-  return offered ? feeRow(price, 'Payout offered', { muted: true }) : feeRow(price, 'Your payout');
+  if (offered) return feeRow(price, 'Payout offered', { muted: true });
+  if (protection == null) return feeRow(price, 'Your payout');
+  const comp = typeof protection === 'number' ? money(protection) : protection;
+  return `${feeRow(price, 'Your payout', { line: true })}
+      ${feeRow(comp, NO_SHOW_PROTECTION, { muted: true })}`;
 }
 
 /** T05's scope-change line before Send: "Payout $200 → $360 (+$160)". */

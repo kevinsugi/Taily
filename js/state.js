@@ -57,6 +57,7 @@ import {
   visitFeeNote,
   apptTotals,
   payout,
+  noShowComp,
   fmtDay,
   shiftDay,
   parseWhen,
@@ -80,7 +81,9 @@ import {
      cancelAppointment(a)   refund = feeLocked ? 0 : visitFee; a request
                             never accepted charged nothing (hold released)
      tailorCancels(a, r)    'cant-make-it' → full refund always;
-                            'no-show' → kept only if feeLocked
+                            'no-show' → kept only if feeLocked; stamps
+                            `a.noShowComp` (round 8: the tailor's trip
+                            compensation, data.js noShowComp) either way
      declineAppointment / expireAppointment → full refund (never charged)
      autoCancelUnconfirmed(a)  12 hours before the visit with no
                             confirmation: terminal `cancelled`,
@@ -512,12 +515,17 @@ export function expireAppointment(a = apptEntry()) {
     'tailor'. R7 fee policy: the tailor cancelling refunds the fee,
     always (`feeLocked` ignored); a no-show keeps it ONLY once the
     customer had confirmed the visit (`feeLocked`) — before that it
-    is refunded too. */
+    is refunded too. Round 8 (Kevin): a no-show pays the tailor
+    `noShowComp(a.totals.visitFee)` for the trip — stamped on
+    `a.noShowComp` whenever the tailor marks a no-show (Taily pays it
+    from the kept fee, and absorbs it if the visit was unlocked);
+    nothing changes on the customer's record. */
 export function tailorCancels(a = apptEntry(), reason = 'cant-make-it') {
   if (!a) return null;
   const wasRequested = terminate(a, 'cancelled', 'tailor', reason);
   const { refund, kept } = settleFee(a, { kept: reason === 'no-show' && !wasRequested && a.feeLocked === true });
-  return { appointment: a, wasRequested, reason, refund, kept };
+  if (reason === 'no-show') a.noShowComp = noShowComp(a.totals?.visitFee ?? feeOf(a));
+  return { appointment: a, wasRequested, reason, refund, kept, noShowComp: a.noShowComp };
 }
 
 /**

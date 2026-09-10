@@ -39,7 +39,9 @@ export const currentAppt = (s) => {
   return s[cur.list]?.[cur.index] ?? s.upcoming[0] ?? {};
 };
 
-function renderScreen(s) {
+/** Exported (round 8): `03-status-confirmed-locked` renders it with the
+    fee-locked seed (frame "03 - Order Status / Confirmed Locked"). */
+export function viewConfirmed(s) {
   const a = currentAppt(s);
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-confirmed">
@@ -63,7 +65,7 @@ function renderScreen(s) {
 </div>`;
 }
 
-function wire(root) {
+export function wire(root) {
   /* R3-U-05: a status screen reached (by back / forward) for an
      appointment that already ended shows its 03/Cancelled instead —
      03/Requested's guard, adopted family-wide. `replace` keeps the
@@ -99,4 +101,4 @@ function wire(root) {
   });
 }
 
-register('03-status-confirmed', renderScreen, wire);
+register('03-status-confirmed', viewConfirmed, wire);

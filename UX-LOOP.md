@@ -767,3 +767,98 @@ ALLOWs reference this ledger. One dedicated money sync applies them all when Kev
 - **For Kevin:** tailor no-show compensation (a wasted trip earns nothing while Taily keeps the
   fee) is a policy question the directors raised; the Figma money sync is pending (ledger above);
   03/Reminder is now 2506 px tall on the fixture (callout + rows) — the sync may want to tighten it.
+
+## Round 8 — Figma money sync + no-show compensation + Requested card (Kevin, Sep 10 2026)
+
+### Kevin's decisions
+- **Label stays "Visitation fee."** Customers pay it; tailors never see it.
+- **No-show compensation:** when the customer no-shows, the tailor receives **$20 on a $25 fee**
+  and **half the fee at $50 or more** ($25 on $50, $50 on $100). Shown to the tailor **before
+  accepting** (T02) and **paid on no-show** (T03B + the closed row). The tailor still never sees
+  the customer's fee itself — only the compensation amount.
+- **Figma sync scope: full parity** — every money row on every frame replaced by the current
+  model, **no 10% / deposit / Taily fee / Balance / Subtotal-minus-deposit anywhere in the file**,
+  plus a frame for every live-only state introduced since round 3 (list below).
+- **Requested card:** the Appointment Card `Status=Requested` variant gains an Actions row with
+  one `CTA_Small` `Review Time` so `09 - Bookings / Closed Cards` renders it (BLOCKED item closed).
+- **Tall 03 frames:** re-measure after the money rows change; pad to 844 where the content fits,
+  otherwise leave hugging and note it.
+
+### Assumption
+- Compensation is paid whenever the tailor marks a no-show (Taily pays it from the kept fee; if
+  the visit was somehow unlocked, Taily absorbs it). Nothing changes on the customer side.
+
+### Substrate / code contract (code agent)
+- `data.js`: `noShowComp(visitFee)` → `visitFee >= 50 ? visitFee / 2 : 20`.
+- `state.js`: `tailorCancels(a, 'no-show')` stamps `a.noShowComp = noShowComp(a.totals.visitFee)`.
+- Tailor copy (verbatim): T02 (base + Accepted; not Expired) — a muted row under `Your payout`:
+  price `$20`, caption `No-show protection · paid if Sarah doesn't show`. T03B no-show body:
+  `Sarah didn't show. The job is closed and the slot is open again. You'll receive $20 for the trip.`
+  T01 Done today no-show row right text: `No-show · $20`. (Amount = `noShowComp` of the job's fee;
+  the tailor sweep must keep rejecting "visitation", "Total", "deposit", "10%".)
+- **Fixture routes for the new frames** (code agent adds the route modules + fixtures and registers
+  them in `app.js`; the Figma agent adds the id → node entries in `scripts/screens.json`):
+  `03-status-reminder-locked` (03/Reminder after `confirmAppointment`: pill `Confirmed · fee
+  non-refundable`, no callout), `03-status-confirmed-locked` (03/Confirmed locked pill),
+  `03-status-unconfirmed` (03/Cancelled unconfirmed auto-cancel variant), `04-review-approve-retiered`
+  (04 Modified after a re-tier: `Additional visitation fee — 5 items now, $50 tier` + note).
+  Existing routes already render the other live states as fixtures: `t02-expired` (`Payout offered`),
+  `t05-confirm-final-pricing` (payout change line), `03.2-appointment-confirmed` (locked row).
+
+### Figma sync (Figma agent) — frame names and what each shows
+- **Money rows on existing frames:** for every id in `scripts/screens.json`, screenshot the served
+  fixture (`http://127.0.0.1:4173/index.html?screen=<id>`) and read its `.fee-row`, fee card, callout,
+  hero body and CTA texts; edit the frame's Fee Row instances (clone / hide as needed) and text
+  nodes so the frame reads exactly what the build renders. Then search every text node in the file
+  for `10%`, `Deposit`, `deposit`, `Taily Fee`, `Taily fee`, `Balance`, `Subtotal - Confirmed`,
+  `- $20`, `-$20`, `$180`, `$324`, `$340`, `$36` and resolve each (edit or hide).
+- **New sibling frames** (duplicate of the base, placed at the right end of the base's row; only the
+  state's text / visibility changed): `03 - Order Status / Reminder Locked` ← 03/Reminder;
+  `03 - Order Status / Confirmed Locked` ← 03/Confirmed; `03 - Order Status / Unconfirmed` ←
+  03/Cancelled; `04 - Review & Approve / Re-tiered` ← 04 Modified. Add
+  `03-status-reminder-locked`, `03-status-confirmed-locked`, `03-status-unconfirmed`,
+  `04-review-approve-retiered` → node ids to `scripts/screens.json` `screens` (no baselines).
+- **Existing frames that gain a live-state element:** T02 base + Accepted (no-show protection row);
+  T05 + T05 Removed (`Payout $200 → $360 (+$160)` line above Send); T02 Expired (`Payout offered`
+  muted row); 03/Reminder (callout `Before you confirm` above Confirm); 03.2 (locked row);
+  02 (fee card with `Alterations est.` line); 04 ×3 and 03/Tailoring (rows); 03/Cancelled ×5 (no
+  Total row; fee row outcome); T01 Closed Rows (`No-show · $20` right text on the no-show row).
+- **Requested card:** edit the Appointment Card component set (`Status=Requested` variant, 571:9099):
+  add an Actions row (clone from the Confirmed variant's Actions) with a single `CTA_Small`
+  `Review Time`; verify `09 - Bookings / Closed Cards` 609:4676 renders it.
+- **Heights:** re-measure Tailor Cancelled 608:4333, No-Show 608:4433, New Time 609:2594 (and any 03
+  variant) after the rows change; set 844 fixed where content ≤ 844, else hug and report.
+- **Refs:** `node scripts/export-refs.mjs <every edited or new id>`.
+
+### After both agents (orchestrator)
+Register nothing further (code agent registers routes); `npm run diff -- <ids> --accept` for every
+re-exported frame; remove the `R7_*` parity ALLOW groups (frames now match); `npm run check`;
+commit; verification review of the sync (both flows, parity-focused).
+
+### Round 8 — results (Sep 10 2026)
+- **No-show compensation (Kevin):** `noShowComp(visitFee)` = $20 on a $25 fee, half the fee at
+  $50+; `tailorCancels(a, 'no-show')` stamps `a.noShowComp`. T02 (base + Accepted) shows a muted
+  `$20 · No-show protection · paid if Sarah doesn't show` row under the payout; T03B no-show says
+  `You'll receive $20 for the trip.`; T01 Done today no-show row reads `No-show · $20`. The tailor
+  still never sees the fee itself; the customer side is unchanged.
+- **Figma money sync (full parity):** every money row on both pages now reads what the build
+  renders — 02 fee card + `Hold $25 Visitation Fee` CTA (and the four sheet backdrops), 03 rows
+  (Alterations est. / Visitation fee — charged / Total + note), the reminder callout and the 03.2
+  locked row, 03/Tailoring · 04 ×3 · 03.3 rows with Total and Due at handoff, receipts (06 /
+  Summary / 06.1) with Paid at delivery, 03/Cancelled ×5 fee outcomes, 05 / 05A / 05B / 05.1 due
+  lines; tailor T01 / T02 ×3 / T03 ×2 / T03.1 / T04 / T05 ×2 / T06 ×2 / T07 / T08 / T03B with payout-only
+  rows, the T05 payout-change line, T02 Expired "Payout offered", T02 no-show protection. A
+  file-wide search finds zero visible old-vocabulary text (the hidden fee rows remain hidden per
+  the hide-don't-delete convention). Components-page masters cleaned.
+- **New frames (a frame for every live state):** `03 - Order Status / Reminder Locked` 644:5949,
+  `/ Confirmed Locked` 644:6051, `/ Unconfirmed` 644:6149, `04 - Review & Approve / Re-tiered`
+  644:6244, with routes `03-status-reminder-locked`, `03-status-confirmed-locked`,
+  `03-status-unconfirmed`, `04-review-approve-retiered`.
+- **Requested card:** the Appointment Card `Status=Requested` variant gained an Actions row with a
+  `Review Time` small CTA; `09 - Bookings / Closed Cards` renders it (BLOCKED item closed).
+- **Heights:** no 03 variant fits 844 after the rows changed; all stay hugging (Tailor Cancelled
+  889, No-Show 868, New Time 872, Cancelled 907, Unconfirmed 910; Expired / Declined stay 844).
+- **Harness:** `npm run check` ALL CHECKS PASS — 447s: diff 64/64 (63 baselines accepted to the synced refs), text parity 64/64 with the R7 groups emptied, click-through 207, tailor click-through 362, sync click-through 939, style hygiene. The `R7_*` parity ALLOW groups are emptied — parity passes without them.
+- **Follow-up:** the 04 Re-tiered frame was first drawn before its route existed (three cards,
+  $410) and was re-synced to the build (fourth added card `2 × Pants / Jeans · Hem · $240`, $600 /
+  $25 / $25 / $650 / $625); the Confirmed / Reminder Locked pills un-clipped. Refs re-exported; baselines accepted.

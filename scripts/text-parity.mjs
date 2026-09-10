@@ -52,16 +52,16 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
    still draw and the build no longer renders. One dedicated money sync
    applies the ledger to Figma; these entries go with it. */
 const R7_02_CTA = ['Request Tailor · $20 Deposit (10%)'];                                   // 02 + its sheet backdrops → "Hold $25 Visitation Fee"
-const R7_REQUESTED = ['2 items · $200.00+ est. · $20 deposit held', 'Cancel request — deposit refunded'];
-const R7_BOOKED = ['Subtotal - Confirmed at Appointment', '-$20', '10% Deposit - Paid 7/7/26', '$180', 'Balance'];   // 03/Confirmed · Reminder · Cancelled + backdrops → Alterations (est.) / Visitation fee — charged / Total
-const R7_FINAL = ['Subtotal - Confirmed 7/12/26', '-$20', '10% Deposit - Paid 7/7/26', '$340', 'Due at Pickup / Delivery'];   // 03/Tailoring (+ 03.3 backdrop) → Alterations / Visitation fee — paid / Total / Due at handoff
-const R7_REVIEW = ['Subtotal', '-$20', '10% Deposit - Paid 7/7/26', 'Due at Pickup / Delivery'];   // 04 Default / Modified / Removed (+ their due amount)
-const R7_RECEIPT = ['$360', 'Subtotal - Confirmed 7/12/26', '-$20', '10% Deposit - Paid 7/7/26', 'Delivery - Paid 7/17/26', 'Total - Paid 7/17/26'];   // 06 / 03/Summary (+ 06.1 backdrop) → Alterations / Visitation fee — paid 7/7/26 / Delivery / Total / Paid at delivery
-const R7_DELIVERY = ['Balance due', '$340', 'Charged on delivery'];                           // 05B (+ 05.1 backdrops) → Alterations / Delivery / Due at delivery
+const R7_REQUESTED = [];   // R8: frames synced to the money model — kept empty for history
+const R7_BOOKED = [];   // R8: frames synced to the money model — kept empty for history   // 03/Confirmed · Reminder · Cancelled + backdrops → Alterations (est.) / Visitation fee — charged / Total
+const R7_FINAL = [];   // R8: frames synced to the money model — kept empty for history   // 03/Tailoring (+ 03.3 backdrop) → Alterations / Visitation fee — paid / Total / Due at handoff
+const R7_REVIEW = [];   // R8: frames synced to the money model — kept empty for history   // 04 Default / Modified / Removed (+ their due amount)
+const R7_RECEIPT = [];   // R8: frames synced to the money model — kept empty for history   // 06 / 03/Summary (+ 06.1 backdrop) → Alterations / Visitation fee — paid 7/7/26 / Delivery / Total / Paid at delivery
+const R7_DELIVERY = [];   // R8: frames synced to the money model — kept empty for history                           // 05B (+ 05.1 backdrops) → Alterations / Delivery / Due at delivery
 /* tailor side (coordinated with the tailor implementer): payout = 100%
    of the alteration prices, no Subtotal / Taily Fee rows */
-const R7_T_PAYOUT = ['Taily Fee (10%)', 'Your Payout'];
-const R7_T_REQUEST = ['$180', 'Subtotal', ...R7_T_PAYOUT];
+const R7_T_PAYOUT = [];   // R8: frames synced to the money model — kept empty for history
+const R7_T_REQUEST = [];   // R8: frames synced to the money model — kept empty for history
 
 const ALLOW = {
   // Phase R3 (Kevin): 03's request card reads the live order; the

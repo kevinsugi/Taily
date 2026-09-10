@@ -18,12 +18,17 @@
    nothing here names it. Every ending says only what happened to the
    job and the slot. The round-6 "deposit stays with you" wording is
    gone.
+   Round 8 (Kevin): a no-show pays Marco for the trip — the body ends
+   "You’ll receive $20 for the trip." (a.noShowComp, stamped by
+   tailorCancels; $20 on the $25 tier, half the fee from $50). Still
+   nothing about Sarah's fee itself.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { statusHero, cta } from '../components.js';
+import { money } from '../data.js';
 import { tailorChrome, wireTailorNav, openCalendar } from '../tailor-components.js';
-import { current, jobView, endedBy, isFixture, isSeed } from '../tailor-data.js';
+import { current, jobView, endedBy, isFixture, isSeed, noShowCompOf } from '../tailor-data.js';
 
 const FRAME = { title: 'Job Cancelled.', body: 'Sarah cancelled this visit. The job is closed and tonight’s 7:00 PM slot is open on your calendar again.' };
 
@@ -34,7 +39,7 @@ export function cancelCopy(a, { forced = false } = {}) {
   switch (endedBy(a)) {
     case 'withdrawn': return { title: 'Request withdrawn.', body: `Sarah withdrew her ${when} request before you accepted. Nothing to do.` };
     case 'tailor': return { title: 'You cancelled this job.', body: `Sarah’s been notified. Your ${when} slot is open again.` };
-    case 'no-show': return { title: 'Sarah didn’t show.', body: 'The job is closed and the slot is open again.' };
+    case 'no-show': return { title: 'Sarah didn’t show.', body: `The job is closed and the slot is open again. You’ll receive ${money(noShowCompOf(a))} for the trip.` };
     case 'expired': return { title: 'Request expired.', body: `No response in time — Sarah’s ${when} request lapsed. Nothing to do.` };
     default: {
       /* Sarah cancelled: the seed keeps the frame's "tonight" line */

@@ -22,6 +22,11 @@
    the scope changes at the visit. R7-T-02: the expired view keeps the
    "$200 | Request Expired" header but its money row is the muted
    "Payout offered" — money that lapsed with the request.
+   Round 8 (Kevin): a muted "No-show protection · paid if Sarah
+   doesn’t show" row sits under "Your payout" on the base and Accepted
+   views (not Expired) — the trip compensation Marco receives if Sarah
+   no-shows ($20 on the seed; data.js noShowComp of the booked fee's
+   tier). The fee itself is still never printed on this side.
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
@@ -82,7 +87,7 @@ export function viewRequest(s, mode = null) {
     ${summaryCard({ initials: CUSTOMER.initials, name: CUSTOMER.name, rows })}
     <div class="garments-card">
       ${bookedCards(v)}
-      ${payoutRows(v, { offered: expired })}
+      ${payoutRows(v, { offered: expired, protection: expired ? null : v.protection })}
     </div>
   </div>
   <div class="t-actions">

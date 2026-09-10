@@ -63,7 +63,8 @@ export function viewReminder(s) {
 </div>`;
 }
 
-function wire(root) {
+/** Exported (round 8): `03-status-reminder-locked` reuses it. */
+export function wire(root) {
   /* R3-U-05: a status screen reached (by back / forward) for an
      appointment that already ended shows its 03/Cancelled instead —
      03/Requested's guard, adopted family-wide. `replace` keeps the

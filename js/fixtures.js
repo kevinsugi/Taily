@@ -10,7 +10,7 @@
    own deep links are unchanged.
    ============================================================ */
 
-import { SEED_UPCOMING, SEED_FINAL_ORDER } from './data.js';
+import { SEED_UPCOMING, SEED_FINAL_ORDER, apptTotals } from './data.js';
 import { state } from './state.js';
 import { FIXTURE_T06 } from './tailor-data.js';
 
@@ -26,11 +26,22 @@ export const APPT_DECLINED = () => seedAppt({ status: 'declined', cancelledBy: '
    only once Sarah confirmed the visit (feeLocked) — the No-Show frame
    draws the kept case. cancelledAt = the fiction's Jul 12. */
 export const APPT_TAILOR_CANCELLED = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'cant-make-it', wasRequested: false, cancelledAt: 'Sun, Jul 12', refund: 25, feeKept: false });
-export const APPT_NO_SHOW = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'no-show', wasRequested: false, cancelledAt: 'Sun, Jul 12', feeLocked: true, confirmedAt: 'Sat, Jul 11', refund: 0, feeKept: true });
+/* Round 8: the substrate also stamps the tailor's trip compensation on a
+   no-show (`noShowComp`, $20 on the seed's $25 tier) — T03B / T01 read it. */
+export const APPT_NO_SHOW = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'no-show', wasRequested: false, cancelledAt: 'Sun, Jul 12', feeLocked: true, confirmedAt: 'Sat, Jul 11', refund: 0, feeKept: true, noShowComp: 20 });
 export const APPT_WITHDRAWN = () => seedAppt({ status: 'cancelled', cancelledBy: 'customer', reason: 'customer', wasRequested: true });
 /** R7: 12 hours before the visit, never confirmed → Taily cancelled it
     (cancelledBy 'none', reason 'unconfirmed', fee refunded). */
 export const APPT_UNCONFIRMED = () => seedAppt({ status: 'cancelled', cancelledBy: 'none', reason: 'unconfirmed', wasRequested: false, cancelledAt: 'Sun, Jul 12', refund: 25, feeKept: false });
+
+/* ---------- round 8 (Figma money sync): the round-7 live-only states ----------
+   The seed still confirmed, after Sarah's Confirm on the 24-hour prompt
+   (state.js confirmAppointment): `feeLocked` → the hero pill reads
+   "Confirmed · fee non-refundable" and 03/Reminder drops its "Before
+   you confirm" callout. Frames "03 - Order Status / Reminder Locked ·
+   Confirmed Locked" (routes 03-status-reminder-locked /
+   03-status-confirmed-locked). */
+export const APPT_FEE_LOCKED = () => seedAppt({ feeLocked: true, confirmedAt: 'Sat, Jul 11' });
 
 /* ---------- proposed time (R2-U-03 / R2-T-04): the next day, 11 AM ---------- */
 export const PROPOSED_WHEN = 'Jul 13, 11:00 AM';
@@ -61,6 +72,21 @@ export const FINAL_ORDER_REMOVED = () => ({
   totals: { alterations: 280, items: 2, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 305, subtotal: 280 },
   removed: [clone(REMOVED_G2)],
 });
+/* ---------- the final order re-tiered the fee (round 8, R7-U-02) ----------
+   The frames' $360 final order plus two pairs of pants Sarah brought out
+   at the visit (g8, added, Hem ×2 = $240) → 5 items, the $50 tier: the
+   $25 charged at booking stays and "Additional visitation fee — 5 items
+   now, $50 tier" ($25) is owed at handoff, with feeTierNote under the
+   rows. $600 alterations + $25 + $25 = $650. Frame "04 - Review &
+   Approve / Re-tiered" (route 04-review-approve-retiered). */
+export const FINAL_ORDER_RETIERED = () => {
+  const garments = [
+    ...clone(SEED_FINAL_ORDER.garments),
+    { id: 'g8', type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], qty: 2, photos: 2, added: true },
+  ];
+  return { garments, totals: apptTotals(garments, SEED_FINAL_ORDER.totals) };
+};
+
 /** The tailor's T05 draft for the same visit (no id on the added jacket). */
 export const DRAFT_REMOVED = () => {
   const [g1, g7] = FINAL_ORDER_REMOVED().garments;

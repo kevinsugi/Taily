@@ -163,6 +163,16 @@ export function payoutChange(a, draft, from = acceptedPayoutOf(a)) {
   const d = to - from;
   return { from, to, delta: d, text: `Payout ${money(from)} → ${money(to)} (${d > 0 ? '+' : '−'}${money(Math.abs(d))})` };
 }
+/** Round 8 (Kevin): the no-show compensation Marco receives for the
+    trip if Sarah doesn't show — `a.noShowComp` once the substrate
+    stamped it (tailorCancels 'no-show'), else quoted ahead of time from
+    the booked fee's tier (data.js noShowComp: $20 on the $25 tier, half
+    the fee from $50). The fee itself is still never printed here. */
+export function noShowCompOf(a) {
+  if (typeof a?.noShowComp === 'number') return a.noShowComp;
+  const fee = a?.totals?.visitFee ?? a?.totals?.visitFeeCharged ?? 25;
+  return typeof D.noShowComp === 'function' ? D.noShowComp(fee) : 20;
+}
 /** The tailor's name / initials as the CUSTOMER side prints them
     (round 6: unassigned until a tailor accepts — data.js owns the
     neutral copy; until it lands, the appointment's own fields). */
@@ -300,6 +310,7 @@ export function jobView(a) {
      customer's alterations / Taily's fee / delivery / total) is never
      read on the tailor side. */
   const payout = payoutOf(garments);
+  const protection = noShowCompOf(a);   // round 8: T02's "No-show protection" row / T03B / T01's closed row
   const delivery = a?.fulfilment?.method === 'delivery';
   const PILL = {
     searching: ['new-request', 'New Request'],
@@ -322,8 +333,8 @@ export function jobView(a) {
   const time = when.split(' · ')[1] ?? when;
   const visitLabel = a?.visit === 'Store Visit' || a?.where === 'shop' ? 'Store visit' : 'Home visit';
   return {
-    canon: c, post, garments, payout, visitLabel,
-    money: { payout: money(payout) },
+    canon: c, post, garments, payout, protection, visitLabel,
+    money: { payout: money(payout), protection: money(protection) },
     items: garments.reduce((s, g) => s + (g.qty ?? 1), 0),
     itemsLabel: garmentsLabel(garments),
     pill, pillLabel, stage: STAGE[c] ?? 'confirmed',

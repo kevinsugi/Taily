@@ -298,6 +298,20 @@ export function apptTotals(garments, base = {}) {
     prices — no fee, no commission (Kevin, round 7). */
 export const payout = (garments) => (garments ?? []).reduce((s, g) => s + garmentAmount(g), 0);
 
+/**
+ * No-show compensation (Kevin, UX-LOOP round 8): what the tailor
+ * receives for the trip when the customer no-shows — $20 on the $25
+ * tier, half the fee at $50 or more ($25 on $50, $50 on $100). Taily
+ * pays it from the kept visitation fee (absorbed if the visit was
+ * somehow unlocked); the tailor never sees the fee itself, only this
+ * amount. `state.tailorCancels(a, 'no-show')` stamps it on
+ * `a.noShowComp`; T02 quotes it before Accept from the booked fee.
+ */
+export const noShowComp = (visitFee) => {
+  const fee = Number(visitFee) || 0;
+  return fee >= 50 ? fee / 2 : 20;
+};
+
 /** "1 Item" / "3 Items" (09's "1 Items Total" bug, R1-U-19). */
 export const itemsLabel = (n, word = 'Item') => `${n} ${word}${n === 1 ? '' : 's'}`;
 /** Garment count of an appointment (qty-aware, falls back to `count`). */

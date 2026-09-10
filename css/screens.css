@@ -566,6 +566,11 @@
 .screen[data-screen="04-review-approve-removed"] { min-height: 997px; }
 .screen[data-screen="03-status-new-time"] { min-height: 872px; }
 .screen[data-screen="09-bookings-closed"] { min-height: 1050px; }   /* round 3: no matching note under a proposed time (R3-U-07) */
+/* UX-LOOP round 8 — sibling frames for the round-7 live-only states
+   (measured from the round-8 refs; 04 / Re-tiered hugs its content) */
+.screen[data-screen="03-status-reminder-locked"] { min-height: 1088px; }
+.screen[data-screen="03-status-confirmed-locked"] { min-height: 1160px; }
+.screen[data-screen="03-status-unconfirmed"] { min-height: 910px; }
 
 /* PV3 - Photo Viewer (559:2112): 04D dimmed under an ink@95% scrim,
    filmstrip panel pinned at the 128 offset. Literal 2/10px gaps and

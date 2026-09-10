@@ -33,6 +33,8 @@
    Round 7 (money model v2): the request card leads with the PAYOUT —
    100% of the alteration prices ("$200 · 2 items"); job cards read
    "Payout $200". No commission anywhere on the tailor side.
+   Round 8 (Kevin): the Done today no-show row reads "No-show · $20" —
+   the trip compensation the substrate stamped (a.noShowComp).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
@@ -99,7 +101,8 @@ function doneRowFor(a, idx, fixture) {
     return jobCard({ ...base, meta: lapsed, status: 'expired', pillLabel: 'Expired', right: 'No action needed' });
   }
   if (how === 'withdrawn') return jobCard({ ...base, meta, status: 'cancelled', pillLabel: 'Withdrawn', right: 'No action needed' });
-  const right = how === 'no-show' ? 'No-show' : how === 'tailor' ? 'Cancelled · by you' : 'Slot reopened';
+  /* round 8: the no-show row names the trip compensation (a.noShowComp) */
+  const right = how === 'no-show' ? `No-show · ${v.money.protection}` : how === 'tailor' ? 'Cancelled · by you' : 'Slot reopened';
   return jobCard({ ...base, meta, status: 'cancelled', pillLabel: 'Cancelled', right });
 }
 

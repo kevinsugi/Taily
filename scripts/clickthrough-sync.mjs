@@ -349,7 +349,8 @@ async function tailorAccepts(a, { deep = false } = {}) {
     assertEq('[T] T02 cards = the 2 booked garments', await q('count', '.garment-card'), 2);
     assertEq('[T] T02 card prices', (await q('texts', '.garment-card__price')).join(' '), '$120 $120');
     /* R7 (Kevin): the one money row is "Your payout $240" — no Subtotal, no Taily Fee */
-    assertEq('[T] T02 money rows = Your payout only (R7)', `${await q('fees')} | ${(await q('feeDescs')).join(',')}`, '$240 | Your payout');
+    /* R7: the payout row; R8: plus the muted No-show protection row ($20 on the $25 tier — never the fee) */
+    assertEq('[T] T02 money rows = Your payout + No-show protection (R7/R8)', `${await q('fees')} | ${(await q('feeDescs')).join(',')}`, '$240 $20 | Your payout,No-show protection · paid if Sarah doesn’t show');
     await assertTrue('[T] T02 never prints the customer’s fee / total / a commission (R7)', () => !/Taily Fee|Subtotal|Visitation fee|Deposit|10 ?%/i.test(document.querySelector('.screen').textContent));
     await assertText('[T] T02 CTA amount (R7)', '[data-act="accept"]', 'Accept Request · $240');
     const rows = (await q('texts', '.summary-card__row')).join(' | ');
@@ -1483,13 +1484,14 @@ await fresh('H');
   const dd = await shared();
   await tailorCantMakeIt('no-show');
   await assertText('[T] T03B no-show title', '.status-hero__title', 'Sarah didn’t show.');
-  /* R6 fee policy: a no-show keeps the deposit, both sides say so */
-  await assertTrue('[T] T03B no-show body: no deposit, no amount (R7)', () => !/deposit|\$\d/i.test(document.querySelector('.status-hero__body').textContent));
+  /* R7: nothing about Sarah's fee on Marco's side; R8: the trip compensation is named */
+  await assertText('[T] T03B no-show body: the $20 trip compensation, nothing about the fee (R7/R8)', '.status-hero__body', 'The job is closed and the slot is open again. You’ll receive $20 for the trip.');
   {
     const t = await terminalPlacement();
     const f = await shared();
     log(t.status === 'cancelled' && t.by === 'tailor' && t.reason === 'no-show' && t.inPast && t.stash, '[S] tailorCancels(no-show): past[0] + lastCancelled', JSON.stringify(t));
     log(f?.refund === 0 && f.feeKept === true, '[S] no-show after confirming: refund 0, feeKept true (R7)', `refund=${f?.refund} kept=${f?.feeKept}`);
+    log(f?.noShowComp === 20 && f.totals?.visitFee === 25, '[S] no-show stamps a.noShowComp = 20 on the $25 tier (R8); Sarah’s fee record unchanged', `noShowComp=${f?.noShowComp} visitFee=${f?.totals?.visitFee}`);
   }
   await page.click('[data-act="calendar"]');
   /* R3-T-06: View Calendar behaves like the Calendar tab — the soonest open job (the seed's pre-visit) */
@@ -1497,7 +1499,7 @@ await fresh('H');
   await render('t01-home');
   {
     const jobs = await q('jobCards');
-    log(jobs.some((j) => j.pill === 'Cancelled' && j.right === 'No-show') && jobs.some((j) => j.right === 'Cancelled · by you'), '[T] T01 rows: No-show and Cancelled · by you', `jobs=${jobs.map((j) => `${j.pill}/${j.right}`).join(', ')}`);
+    log(jobs.some((j) => j.pill === 'Cancelled' && j.right === 'No-show · $20') && jobs.some((j) => j.right === 'Cancelled · by you'), '[T] T01 rows: No-show · $20 (R8) and Cancelled · by you', `jobs=${jobs.map((j) => `${j.pill}/${j.right}`).join(', ')}`);
   }
   await flip();
   await assertAt('[C] View as Customer (no-show)', '01-home', 'cancelled', 'user');
@@ -1515,6 +1517,10 @@ await fresh('H');
   assertEq('[C] 03/Cancelled keeps Alterations (est.) + the fee row, no Total (R7-U-04)', await q('fees'), '$240 $25');
   assertEq('[C] 03/Cancelled fee row reads Kept (R7)', (await q('feeDescs'))[1], 'Visitation fee — Kept');
   await assertText('[C] 03/Cancelled primary CTA', '[data-act="rerequest"]', 'Find Another Tailor');
+  /* R8: the compensation is between Taily and Marco — nothing of it reaches Sarah's screens */
+  await assertTrue('[C] 03/Cancelled says nothing about the tailor’s trip compensation (R8)', () => !/trip|protection|No-show ·|\$20\b/.test(document.querySelector('.screen').innerText));
+  await render('09-bookings');
+  await assertTrue('[C] 09 says nothing about the tailor’s trip compensation (R8)', () => !/trip|protection|\$20\b/.test(document.querySelector('.screen').innerText));
 }
 
 /* ============================================================

@@ -825,6 +825,38 @@ check('  …Send to Another Tailor', declinedCta === 'Send to Another Tailor', `
 await page.click('[data-act="rerequest"]');
 await assertAt('Send to Another Tailor → 02', '02-appointment-details');
 
+/* ---------- UX-LOOP round 8: cold deep links for the money-sync sibling frames ----------
+   Each fixture route renders its round-7 live-only state on a cold load
+   (before any navigation), and the base deep links render as before —
+   the routes exist ahead of their scripts/screens.json entries. */
+const R8_COLD = {
+  '03-status-reminder-locked': { pill: 'Confirmed · fee non-refundable', title: 'Please Confirm Tomorrow’s Appointment', callout: false, fees: '$200 Alterations (est.) | $25 Visitation fee — charged 7/7/26 | $225 Total' },
+  '03-status-confirmed-locked': { pill: 'Confirmed · fee non-refundable', title: 'Appointment Confirmed', callout: false, fees: '$200 Alterations (est.) | $25 Visitation fee — charged 7/7/26 | $225 Total' },
+  '03-status-unconfirmed': { pill: 'Cancelled', title: 'Appointment Cancelled', body: 'We didn’t hear back before the visit, so it was cancelled. Your $25 visitation fee is refunded to Visa •••• 4242.', fees: '$200 Alterations (est.) | $25 Visitation fee — Refunded 7/12/26', cta: 'Send Request Again' },
+  '04-review-approve-retiered': { title: 'Approve your final order.', cards: 4, fees: '$600 Alterations | $25 Visitation fee — paid | $25 Additional visitation fee — 5 items now, $50 tier | $650 Total | $625 Due at handoff', note: 'Your order grew to 5 items, so the visitation fee is now $50. The extra $25 is charged with your alterations at handoff.' },
+  /* the bases, unchanged */
+  '03-status-reminder': { pill: 'Confirmed', callout: true },
+  '03-status-confirmed': { pill: 'Confirmed', callout: false },
+  '03-status-cancelled': { pill: 'Declined', title: 'Appointment Cancelled', body: null },   // the frame's fixture pill (unchanged since round 3)
+  '04-review-approve-modified': { cards: 3, fees: '$360 Alterations | $25 Visitation fee — paid | $385 Total | $360 Due at handoff', note: null },
+};
+for (const [id, want] of Object.entries(R8_COLD)) {
+  await page.goto(`${origin}/index.html?screen=${id}`, { waitUntil: 'load' });
+  await page.waitForTimeout(300);
+  const got = await page.evaluate(() => {
+    const q = (s) => document.querySelector(s)?.textContent.replace(/\s+/g, ' ').trim() ?? null;
+    return {
+      screen: document.getElementById('screen').dataset.screen, registered: !document.querySelector('.screen-missing'),
+      pill: q('.status-hero .pill'), title: q('.status-hero__title') ?? q('.heading h1'), body: q('.status-hero__body'),
+      callout: !!document.querySelector('[data-fee-warning]'), cards: document.querySelectorAll('.garment-card').length,
+      fees: [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | '),
+      note: q('[data-fee-tier-note]'), cta: q('[data-act="rerequest"]'),
+    };
+  });
+  const bad = Object.entries(want).filter(([k, v]) => got[k] !== v).map(([k, v]) => `${k}: got ${JSON.stringify(got[k])}, want ${JSON.stringify(v)}`);
+  check(`R8 cold deep link ${id}`, got.screen === id && got.registered && bad.length === 0, bad.join('; '));
+}
+
 console.log(errors.length ? `CONSOLE ERRORS:\n  ${errors.join('\n  ')}` : 'no console errors');
 if (errors.length) failures++;
 await browser.close();

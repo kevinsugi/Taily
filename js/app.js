@@ -21,6 +21,8 @@ const SCREEN_MODULES = [
   /* UX-LOOP round 3 Figma sync: sibling frames for the round-2 live-only states (fixture routes) */
   '03-status-expired', '03-status-declined', '03-status-tailor-cancelled', '03-status-no-show', '03-status-new-time',
   '04-review-approve-removed', '05.1-window-confirmed-dated', '09-bookings-closed',
+  /* UX-LOOP round 8 Figma money sync: sibling frames for the round-7 live-only states (fixture routes) */
+  '03-status-reminder-locked', '03-status-confirmed-locked', '03-status-unconfirmed', '04-review-approve-retiered',
   /* Tailor flow (Phase T) — Marco's view of the same appointment */
   't01-home', 't02-appointment-request', 't03-request-accepted', 't03a-decline-request', 't03b-job-cancelled',
   't04-appointment-details', 't05-confirm-final-pricing', 't06-appointment-status', 't07-job-ready', 't08-job-complete',

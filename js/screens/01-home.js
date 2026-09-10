@@ -6,10 +6,11 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, garmentTile, cta, apptCard, toast } from '../components.js';
-import { GARMENT_TYPES, itemsLabel, itemCount, fmtDay, fmtWhen } from '../data.js';
-import { state, addGarment, isTerminal } from '../state.js';
+import { GARMENT_TYPES, SEED_UPCOMING, itemsLabel, itemCount, fmtDay, fmtWhen, parseWhen } from '../data.js';
+import { state, addGarment, isTerminal, canonicalStatus } from '../state.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
-import { openReschedulePopup } from './03.1-reschedule-popup.js';
+import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
+import { openLeaveReview, tailorName } from './06.1-leave-review.js';
 
 const TILE_ORDER = Object.keys(GARMENT_TYPES); // 9 types, Figma order
 
@@ -30,6 +31,14 @@ const cardStatus = (a) => CARD_STATUS[String(a?.status ?? '').toLowerCase()] ?? 
    scheduled window after 05A/05B, the handoff day when delivered. The
    frames' fixtures (confirmed / a Ready card with no window / past
    cards) render exactly as before. */
+/* R3-U-07c: live cards share 03's row grammar ("Thu, Sept 10 · 9:30
+   AM"); the seeds keep the frames' own strings ("Sunday Jul 12, 7PM"). */
+const isSeedWhen = (a) => SEED_UPCOMING.some((s) => s.when === a?.when);
+const cardWhen = (a) => (isSeedWhen(a) ? a.when : fmtWhen(a.when, a.when));
+/* R3-U-09: a ready date still ahead of today reads as a pickup date,
+   not "since" */
+const isFuture = (str) => { const p = parseWhen(str); const t = new Date(); t.setHours(23, 59, 59, 999); return !!p && p.date > t; };
+
 export function apptMeta(a) {
   const f = a.fulfilment;
   const method = f?.method === 'delivery' ? 'Delivery' : 'Pickup';
@@ -37,22 +46,56 @@ export function apptMeta(a) {
   const map = {
     /* Phase R5: the Requested variant writes the prefixed form.
        UX-LOOP R2-U-03: a proposed time takes the line over. */
-    requested: a.proposed ? `New time proposed: ${fmtWhen(a.proposed.when)}` : `Appt Date: ${a.when}`,
+    requested: a.proposed ? `New time proposed: ${fmtWhen(a.proposed.when)}` : `Appt Date: ${cardWhen(a)}`,
     /* Phase R1: confirmed cards show the bare date (was "Appt Date: …") */
-    confirmed: a.when,
+    confirmed: cardWhen(a),
     'awaiting-approval': `Est. Ready Date: ${fmtDay(a.needBy)}`,
     tailoring: `Est. Ready Date: ${fmtDay(a.needBy)}`,
     /* UX-010: a Ready order isn't "Completed" (frame updated too).
        R2-U-02: the window label carries its date ("Fri, Jul 17 · 4–6 PM"). */
-    ready: f ? `${method}: ${f.window}` : `Ready since: ${a.readyAt ?? a.when}`,
+    ready: f ? `${method}: ${f.window}`
+      : (a.readyAt && isFuture(a.readyAt) ? `Ready · pickup from ${fmtDay(a.readyAt)}` : `Ready since: ${a.readyAt ?? a.when}`),
     completed: `${f?.method === 'delivery' ? 'Delivered' : 'Picked up'}: ${a.deliveredAt ?? f?.window ?? a.when}`,
-    /* UX-LOOP R2-U-04/05/07: terminal cards say why (no actions) */
-    expired: 'Request expired · no tailor accepted',
+    /* UX-LOOP R2-U-04/05/07: terminal cards say why (no actions).
+       R3-T-02c: a proposal that lapsed unanswered is named. */
+    expired: a.lapsedProposal ? `Request expired · ${first}’s proposed time went unanswered` : 'Request expired · no tailor accepted',
+    declined: `Declined by ${first}`,
     cancelled: a.cancelledBy === 'tailor'
       ? (a.reason === 'no-show' ? 'Missed appointment' : `Cancelled by ${first}`)
-      : a.when,
+      : cardWhen(a),
   };
   return map[cardStatus(a)] ?? a.when;
+}
+
+/* ---------- R3-U-03: what Home shows ----------
+   The live card = the first entry in state.upcoming that is neither
+   delivered nor terminal (list order is newest-first, so it is the
+   customer's latest open booking; the seed's fiction dates are in the
+   past, so a date sort would demote a fresh booking behind Jul 12).
+   Above it, ONCE, today's terminal outcome (state.lastCancelled when it
+   is `mine` and ended today) so a decline / expiry / tailor cancel is
+   seen on the screen the persona flip lands on — dismissed after it
+   was opened, or by the next transition (requestTailor resets it).
+   Nothing live → the most recent delivered order under "Recent
+   Appointment". The frame fixture (seed confirmed at boot) is the live
+   card alone, unchanged. */
+const today = () => fmtDay(new Date().toDateString());
+const isLive = (a) => a && !isTerminal(a) && canonicalStatus(a.status) !== 'delivered';
+export function homeCards(s) {
+  const cards = [];
+  const lc = s.lastCancelled;
+  const seen = s.ui?.outcomeSeen;
+  if (lc?.mine && isTerminal(lc) && lc.cancelledAt === today() && seen !== lc) {
+    const i = s.past.indexOf(lc);
+    cards.push({ a: lc, kind: 'outcome', ref: i >= 0 ? { list: 'past', index: i } : null });
+  }
+  const li = s.upcoming.findIndex(isLive);
+  if (li >= 0) cards.push({ a: s.upcoming[li], kind: 'live', ref: { list: 'upcoming', index: li } });
+  else {
+    const di = s.upcoming.findIndex((a) => canonicalStatus(a?.status) === 'delivered');
+    if (di >= 0) cards.push({ a: s.upcoming[di], kind: 'delivered', ref: { list: 'upcoming', index: di } });
+  }
+  return cards;
 }
 
 /** "3 Items Total - Home Visit:" — one rule for 01 and every 09 card
@@ -118,14 +161,14 @@ export function wireCardActions(card, select, { onLeaveReview } = {}) {
 
 export function view01(s) {
   const sel = s.ui?.homeSelection ?? {};
-  const a = s.upcoming[0];
+  const cards = homeCards(s);
   const anySelected = Object.values(sel).some((q) => q > 0);
 
   const tiles = TILE_ORDER.map((t) =>
     garmentTile(t, { qty: sel[t] ?? 0, attrs: `data-tile="${t}"` })).join('');
 
-  const card = a ? apptCard({
-    status: a.status,
+  const card = cards.map(({ a, kind }) => apptCard({
+    status: kind === 'outcome' ? canonicalStatus(a.status) : a.status,
     month: a.month, day: a.day,
     name: a.name,
     meta: apptMeta(a),
@@ -134,8 +177,9 @@ export function view01(s) {
        Total" where 09 lists all three — built verbatim; raised. */
     items: apptItemLines(a).slice(0, 2),
     prepare: a.bring ?? [],
-    actions: apptActions(a),
-  }) : '';
+    actions: kind === 'outcome' ? [] : apptActions(a),
+  })).join('\n  ');
+  const heading = cards.some((c) => c.kind === 'live') || !cards.length ? 'Upcoming Appointments' : 'Recent Appointment';
 
   return `${chrome('home')}
 <div class="body" data-s="01-home">
@@ -146,7 +190,7 @@ export function view01(s) {
   <div class="tile-grid">${tiles}</div>
   ${cta('Start Booking', { attrs: 'data-act="start-booking"' })}
   <div class="upcoming-header">
-    <span class="t-section c-500">Upcoming Appointments</span>
+    <span class="t-section c-500">${heading}</span>
   </div>
   ${card}
 </div>`;
@@ -193,19 +237,36 @@ export function wire01(root) {
     state.garments = state.garments.filter((g) => (sel[g.type] ?? 0) > 0);
     go('02-appointment-details');
   });
-  /* The card itself opens the appointment: ready → pickup options
-     (07), completed → order summary (04e), requested → back to 03,
-     otherwise the detail (04d). Inner buttons keep their actions. */
-  const card = root.querySelector('.appt-card');
-  const select = () => { state.currentAppt = { list: 'upcoming', index: 0 }; };
-  card?.addEventListener('click', (e) => {
-    if (e.target.closest('button')) return;
-    const target = apptTarget(state.upcoming[0]);
-    if (!target) return;
-    select();
-    go(target);
+  /* The cards open their appointment (R3-U-03: today's outcome card,
+     then the live one — same refs homeCards() rendered): ready →
+     pickup options (07), completed → order summary (04e), requested →
+     back to 03, terminal → 03/Cancelled, otherwise the detail (04d).
+     Inner buttons keep their actions. */
+  const cards = homeCards(state);
+  root.querySelectorAll('.appt-card').forEach((card, i) => {
+    const c = cards[i];
+    if (!c) return;
+    const appt = () => (c.ref ? state[c.ref.list][c.ref.index] : c.a);
+    const select = () => {
+      if (c.kind === 'outcome') { state.ui ??= {}; state.ui.outcomeSeen = c.a; pointAtTerminal(c.a); }
+      else state.currentAppt = c.ref;
+    };
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      const target = apptTarget(appt());
+      if (!target) return;
+      select();
+      go(target);
+    });
+    wireCardActions(card, select, {
+      /* R3-U-04: Leave Review works like 09's (once per appointment) */
+      onLeaveReview: () => {
+        const a = appt();
+        if (a?.review) { toast(`You already reviewed ${tailorName(a).split(' ')[0]}`); return; }
+        openLeaveReview();
+      },
+    });
   });
-  if (card) wireCardActions(card, select);
   root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {

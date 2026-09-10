@@ -243,8 +243,9 @@ export function apptCard(a) {
   };
   const stage = STAGE[status] ?? status;
   const lists = [];
-  /* Requested's matching note sits between the bar and the items */
-  if (searching) lists.push('<p class="appt-card__note">We will match you with a tailor within the next 2 hours.</p>');
+  /* Requested's matching note sits between the bar and the items —
+     not once a tailor has answered with a time (R3-U-07) */
+  if (searching && !/^New time proposed/.test(String(meta))) lists.push('<p class="appt-card__note">We will match you with a tailor within the next 2 hours.</p>');
   if (items.length) lists.push(cardList(itemsTitle ?? `${items.length} Items Total:`, items));
   if (prepare.length && (status === 'confirmed' || status === 'tailoring')) lists.push(cardList('Please Prepare:', prepare));
   const actionRow = actions.length

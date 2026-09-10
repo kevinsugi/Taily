@@ -24,8 +24,8 @@ export function openPaymentOverlay() {
   sheetOverlay(payContent(), { dataS: '02.3-payment-sheet' }, (root, close) => {
     const rows = root.querySelectorAll('.method-row');
     // close() first — it restores the scroll freeze after the slide-out
-    rows[0]?.addEventListener('click', () => { state.payMethod = 'apple'; close(); requestTailor(); go('03-status-requested'); });
-    rows[1]?.addEventListener('click', () => { state.payMethod = 'google'; close(); requestTailor(); go('03-status-requested'); });
+    rows[0]?.addEventListener('click', () => { state.payMethod = 'apple'; close(); requestTailor(); go('03-status-requested', { replace: true }); });
+    rows[1]?.addEventListener('click', () => { state.payMethod = 'google'; close(); requestTailor(); go('03-status-requested', { replace: true }); });
     /* R1-U-21: ✕ / Escape on the card sheet reopens this one */
     rows[2]?.addEventListener('click', () => { state.payMethod = 'card'; close(); openAddCardOverlay({ onCancel: openPaymentOverlay }); });
     root.querySelector('[data-act="cancel"]')?.addEventListener('click', close);
@@ -48,8 +48,8 @@ function wire(root) {
   const rows = root.querySelectorAll('.method-row');
   // paying sends the request: the machine enters `searching` (03);
   // the tailor accepting moves it to confirmed (04c).
-  rows[0]?.addEventListener('click', () => { state.payMethod = 'apple'; requestTailor(); go('03-status-requested'); });
-  rows[1]?.addEventListener('click', () => { state.payMethod = 'google'; requestTailor(); go('03-status-requested'); });
+  rows[0]?.addEventListener('click', () => { state.payMethod = 'apple'; requestTailor(); go('03-status-requested', { replace: true }); });
+  rows[1]?.addEventListener('click', () => { state.payMethod = 'google'; requestTailor(); go('03-status-requested', { replace: true }); });
   rows[2]?.addEventListener('click', () => { state.payMethod = 'card'; go('02.4-add-card-sheet'); });
   const dismiss = () => { back() || go('02-appointment-details'); };
   root.querySelector('[data-act="cancel"]')?.addEventListener('click', dismiss);

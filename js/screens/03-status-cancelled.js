@@ -17,11 +17,17 @@
      expired            "Request expired"              Send Request Again
      declined           "Marco couldn’t take this…"    Send to Another Tailor
      tailor cancelled   "Marco had to cancel"          Find Another Tailor
-     no-show            "We missed you at …"           Find Another Tailor
+     no-show            "We missed you"                Find Another Tailor
      customer cancel    "Appointment Cancelled"        (Back to Home)
-   Nothing is charged on any of them (hold released — the fee policy
-   is Kevin's call). The re-request CTAs reuse 03.1's copy-over: the
-   garments become the next booking and 02 opens with them seeded.
+   R3-U-06 / R3-T-05: the deposit is a HOLD only until the tailor
+   confirms — a request never confirmed (withdrawn / declined /
+   expired) says "Nothing was charged — the hold is released"; a
+   CONFIRMED visit the tailor cancels or marks a no-show keeps the
+   receipt's fee rows and says the paid deposit is refunded to the
+   pay method (no fee — the fee policy is Kevin's call). R3-U-08: the
+   no-show timestamp lives in the body, not the title. The re-request
+   CTAs reuse 03.1's copy-over: the garments become the next booking
+   and 02 opens with them seeded.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
@@ -32,21 +38,28 @@ import { copyItemsOver } from './03.1-reschedule-popup.js';
 
 /** Title / body / CTA per terminal reason. `null` body = the frame's
     layout (refund card + Back to Home). */
-function variantFor(live, a) {
+function variantFor(live, a, { deposit = 20, payLabel = PAY_LABELS.card } = {}) {
   if (!live) return { pill: 'declined', title: 'Appointment Cancelled', body: null, cta: null };
   const status = canonicalStatus(a.status);
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];
+  const when = fmtWhen(a.when, 'Sun, Jul 12 · 7:00 PM');
   if (status === 'expired') {
-    return { pill: 'expired', title: 'Request expired', body: 'No tailor accepted in time. Nothing was charged — the hold on your card is released.', cta: 'Send Request Again' };
+    /* R3-T-02c: a proposal that lapsed unanswered is named */
+    const lead = a.lapsedProposal?.when
+      ? `${first} proposed ${fmtWhen(a.lapsedProposal.when)} but the request lapsed before you answered.`
+      : 'No tailor accepted in time.';
+    return { pill: 'expired', title: 'Request expired', body: `${lead} Nothing was charged — the hold on your card is released.`, cta: 'Send Request Again' };
   }
   if (status === 'declined') {
     return { pill: 'declined', title: `${first} couldn’t take this request`, body: 'Nothing was charged — the hold on your card is released. We can send it to another tailor.', cta: 'Send to Another Tailor' };
   }
   if (a.cancelledBy === 'tailor' && a.reason === 'no-show') {
-    return { pill: 'cancelled', title: `We missed you at ${fmtWhen(a.when, 'Sun, Jul 12 · 7:00 PM')}`, body: `${first} marked this visit as a no-show. Nothing was charged.`, cta: 'Find Another Tailor' };
+    const money2 = a.wasRequested ? 'Nothing was charged.' : `Your ${money(deposit)} deposit is refunded — no fee this time.`;
+    return { pill: 'cancelled', title: 'We missed you', body: `${first} marked the ${when} visit as a no-show. ${money2}`, cta: 'Find Another Tailor' };
   }
   if (a.cancelledBy === 'tailor') {
-    return { pill: 'cancelled', title: `${first} had to cancel`, body: 'Nothing was charged — the hold on your card is released. We can find you another tailor.', cta: 'Find Another Tailor' };
+    const money2 = a.wasRequested ? 'Nothing was charged — the hold on your card is released.' : `Your ${money(deposit)} deposit is refunded to ${payLabel}.`;
+    return { pill: 'cancelled', title: `${first} had to cancel`, body: `${money2} We can find you another tailor.`, cta: 'Find Another Tailor' };
   }
   return { pill: 'cancelled', title: 'Appointment Cancelled', body: null, cta: null };
 }
@@ -59,14 +72,16 @@ export function viewCancelled(s, forced = null) {
   const live = forced ?? (isTerminal(cur) ? cur : s.lastCancelled);
   const a = live ?? SEED_UPCOMING[0];
   const status = canonicalStatus(live?.status);
-  const v = variantFor(!!live, a);
-  const neverConfirmed = !!live && (live.wasRequested || status === 'declined' || status === 'expired');
-  /* fee rows only where the deposit was actually taken: the frame's
-     fixture and a customer cancelling a confirmed appointment */
-  const charged = !live || (!neverConfirmed && a.cancelledBy !== 'tailor');
   const t = a.totals ?? { subtotal: 200, deposit: 20 };
   const subtotal = t.subtotal ?? t.total ?? 200;
   const deposit = t.deposit ?? 20;
+  const payLabel = live ? (PAY_LABELS[s.payMethod] ?? PAY_LABELS.card) : PAY_LABELS.card;
+  const v = variantFor(!!live, a, { deposit, payLabel });
+  const neverConfirmed = !!live && (live.wasRequested || status === 'declined' || status === 'expired');
+  /* fee rows wherever the deposit was actually taken: the frame's
+     fixture and any CONFIRMED visit that ended — the customer's own
+     cancel, the tailor's cancel, a no-show (R3-U-06) */
+  const charged = !live || !neverConfirmed;
   const rows = charged ? `
       ${feeRow(money(subtotal), 'Subtotal - Confirmed at Appointment', { line: true })}
       ${feeRow(money(-deposit), `10% Deposit - Paid ${receiptDates(a).deposit}`, { line: true })}
@@ -77,7 +92,7 @@ export function viewCancelled(s, forced = null) {
     ? `<p class="t-body w-500 c-500">Nothing was charged</p>
       <p class="t-body c-700">The hold on your card is released. Please rebook whenever you’re ready.</p>`
     : `<p class="t-body w-500 c-500">Refund on the way</p>
-      <p class="t-body c-700">Your ${money(deposit)} deposit will be returned to ${live ? (PAY_LABELS[s.payMethod] ?? PAY_LABELS.card) : PAY_LABELS.card}. Please rebook whenever you’re ready.</p>`}
+      <p class="t-body c-700">Your ${money(deposit)} deposit will be returned to ${payLabel}. Please rebook whenever you’re ready.</p>`}
     </div>`;
   const actions = v.cta
     ? `${cta(v.cta, { attrs: 'data-act="rerequest"' })}

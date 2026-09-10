@@ -65,9 +65,12 @@ function wireModal(root, close) {
     const res = cancelAppointment(a);   // stashes state.lastCancelled for 05X
     if (res && a) { copyItemsOver(a); pointAtTerminal(a); }
     /* R2-U-01: close the overlay BEFORE navigating — otherwise the page
-       stays scroll-locked and the next back gesture is swallowed */
+       stays scroll-locked and the next back gesture is swallowed.
+       R3-U-05: the cancelled status REPLACES the status screen it was
+       opened from, so back lands on 01 / 09, never on a "Confirmed"
+       ghost with a live Reschedule / Cancel. */
     close();
-    go('03-status-cancelled');
+    go('03-status-cancelled', { replace: true });
   });
   root.querySelector('[data-act="go-back"]')?.addEventListener('click', () => close());
 }

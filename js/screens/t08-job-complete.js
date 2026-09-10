@@ -4,24 +4,31 @@
    payout, arriving Mon, Jul 20), Back to Home, "View Order Summary".
    Active=T-Calendar. UX-LOOP R1-T-02/13: the money is the live final
    order's; the harness deep link keeps the frame's $360 / −$36 / $324.
+   Round 3 (R3-T-04): the order number and the payout date are the
+   job's own — `a.orderId` (shared with the customer's 06; the seed
+   keeps TLY-2026-4417) and `payoutDate(a)` (handoff day + 4, weekday;
+   the seed's Thu Jul 16 pickup → Mon, Jul 20, so the frame is unchanged).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { statusHero, cta } from '../components.js';
 import { tailorChrome, wireTailorNav, priceRow, hairline, orderDropdown, orderCards, payoutRows } from '../tailor-components.js';
-import { current, jobView, isFixture, FIXTURE_FINAL, orderTotals } from '../tailor-data.js';
+import { current, jobView, isFixture, payoutDate, orderId, FIXTURE_FINAL, orderTotals } from '../tailor-data.js';
 import { wireOrderDropdown } from './t07-job-ready.js';
 
 function renderScreen(s) {
-  const v = jobView(current(s));           // the tapped job (R2-T-01)
+  const a = current(s);                     // the tapped job (R2-T-01)
+  const v = jobView(a);
   const fixture = isFixture() || !v.post;
   const m = fixture ? { subtotal: '$360', feeNeg: '−$36', payout: '$324' } : v.money;
   const garments = fixture ? FIXTURE_FINAL : v.garments;
+  const arrives = fixture ? 'Mon, Jul 20' : payoutDate(a);
+  const id = fixture ? 'TLY-2026-4417' : orderId(a);
   return `${tailorChrome('calendar')}
 <div class="body" data-s="t08-job-complete">
   ${statusHero({ pill: false, title: 'Job complete.', body: 'Nice work, Marco. Your payout is on the way.' })}
   <div class="t-detail-card">
-    <span class="payout-summary__title">PAYOUT SUMMARY  ·  TLY-2026-4417</span>
+    <span class="payout-summary__title">PAYOUT SUMMARY  ·  ${id}</span>
     <div class="price-group">
       ${priceRow('Order total', m.subtotal)}
       ${priceRow('Taily fee', m.feeNeg, { muted: true })}
@@ -29,7 +36,7 @@ function renderScreen(s) {
     ${hairline()}
     <div class="price-group">
       ${priceRow('Your payout', m.payout, { total: true })}
-      <span class="payout-summary__note">Arrives in your account · Mon, Jul 20</span>
+      <span class="payout-summary__note">Arrives in your account · ${arrives}</span>
     </div>
   </div>
   ${cta('Back to Home', { attrs: 'data-act="home"' })}

@@ -406,3 +406,33 @@ All 20 ledger rows applied; the ledger is **cleared** except one BLOCKED item.
 - **Harness:** 58 screens diff-gated; `npm run check` ALL PASS (317 s). Text parity: dead `04-review-approve-modified` ALLOW removed; two documented inherited ALLOWs added (`03-status-new-time`, `05.1-window-confirmed-dated`).
 - **BLOCKED (Kevin):** the Appointment Card `Status=Requested` variant has no Actions slot, so `09 - Bookings / Closed Cards` cannot show the `Review Time` CTA the code renders — baseline sits at 8.08 until the variant gains an Actions row.
 - **For Kevin:** the new 03 variants hug their content (784–820 tall); the frames sit at the far right of their rows; live-only states still without a frame: 03/Tailoring scheduled / ready / delivered heroes and the dated Ready card meta, the T03A wheel title. Pre-round-2 `- $20` / `7:00PM` ALLOWs (6 frames) remain — a cheap follow-up sync if wanted.
+
+### Round 3 — results (Sep 10 2026, 01:20)
+- **Accepted items:** 13 of 13 DONE (R3-U-01…09, R3-T-01…06); R3-T-07 deferred (Support toast
+  treated as out-of-scope — Kevin to confirm). Substrate additions: `proposalDays(a)`,
+  `isAfterDay`, `payoutDate(a)`, `nextOrderId()` / `a.orderId`, `proposeTime` refuses dates after
+  the need-by day, `declineProposedTime(a, by)`, `expireAppointment` stashes `lapsedProposal`,
+  `requestTailor` clears the booking form and Home selection.
+- **Customer:** 03/Requested reads the appointment; proposals bounded on both sides with the
+  need-by named in the hero; Home shows today's terminal outcome once above the live card and
+  falls back to "Recent Appointment"; 01 Leave Review live; terminal guards on every 03 view +
+  `replace` navigation so back never lands on a spent status screen; refund wording on
+  tailor-cancel / no-show for confirmed bookings; card grammar nits; "Ready · pickup from …".
+- **Tailor:** T03A wheel bounded (+ no-slot line, refusal toast); Withdraw attributed to Marco;
+  T02 while proposed = Withdraw Proposal / Decline; Expired row names an unanswered proposal;
+  T01 partitioned into New Requests / Active Jobs / Done today (closed rows muted, no payout;
+  request cards "$108 · 1 item"); `payoutDate` + `orderId` on T06/T08; Can't-make-it modal with
+  a consequence line, reason-specific confirm and a time-gated no-show row; T03B refund copy;
+  Calendar prefers open jobs; View Calendar = the tab.
+- **Figma (round 3 frames only):** 03 Tailor Cancelled / No-Show bodies + fee rows, 09 Closed
+  Cards note, 03 New Time body, T01 Closed Rows "Done today" section, T03.1 consequence line +
+  "Cancel Job", T03B By You / No-Show bodies. Refs re-exported; baselines re-accepted for
+  `09-bookings-closed` (8.28, still the BLOCKED Review Time row), `t01-home-closed` 1.29,
+  `t03.1-cant-make-it` 3.62, `t03b-by-you` 5.05, `t03b-no-show` 4.65.
+- **Harness:** `npm run check` ALL PASS (340 s): diff 58/58, text parity, click-through, tailor
+  click-through 174, **sync click-through 796**, style hygiene.
+- **Figma sync pending ledger:** empty (BLOCKED item carried: Appointment Card Requested
+  variant needs an Actions row for `Review Time`).
+- **Noticed, not changed:** Home picks the live card by list order (a date sort would reorder the
+  seed fixture); 03/Reminder reached by browser back after an appointment happened is a stale
+  non-terminal screen; T03A's sub is 12px where the frame draws 14 (pre-existing).

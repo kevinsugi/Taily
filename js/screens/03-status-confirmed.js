@@ -11,7 +11,8 @@
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, summaryCard, feeRow, cta, toast, orderCards, apptRows, receiptDates } from '../components.js';
 import { money } from '../data.js';
-import { openReschedulePopup } from './03.1-reschedule-popup.js';
+import { state, isTerminal } from '../state.js';
+import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
 
 /** The pre-appointment order summary shared by 03/Confirmed and
     03/Reminder: ViewOnly cards, subtotal, -deposit, balance. */
@@ -55,6 +56,15 @@ function renderScreen(s) {
 }
 
 function wire(root) {
+  /* R3-U-05: a status screen reached (by back / forward) for an
+     appointment that already ended shows its 03/Cancelled instead —
+     03/Requested's guard, adopted family-wide. `replace` keeps the
+     dead screen out of the stack. */
+  const cur = currentAppt(state);
+  if (window.__tailyNavigated && isTerminal(cur)) {
+    setTimeout(() => { pointAtTerminal(cur); go('03-status-cancelled', { replace: true }); }, 0);
+    return;
+  }
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelector('[data-act="reschedule"]')?.addEventListener('click', () => openReschedulePopup());
   /* UX-004: Message works like 04D's; Calendar acknowledges */

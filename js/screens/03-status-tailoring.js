@@ -17,8 +17,10 @@
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, summaryCard, feeRow, cta, toast, orderCards, receiptDates, linkRow } from '../components.js';
 import { money, fmtWhen, fmtDay } from '../data.js';
-import { apptEntry, canonicalStatus, markReady, deliver, finalOrder, orderModified } from '../state.js';
+import { state, apptEntry, canonicalStatus, isTerminal, markReady, deliver, finalOrder, orderModified } from '../state.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
+import { pointAtTerminal } from './03.1-reschedule-popup.js';
+import { currentAppt } from './03-status-confirmed.js';
 
 /* Kept for older imports; the helper lives in data.js now. */
 export { rowPrice } from '../data.js';
@@ -97,6 +99,15 @@ export function viewTailoring(s) {
 }
 
 function wire(root) {
+  /* R3-U-05: a status screen reached (by back / forward) for an
+     appointment that already ended shows its 03/Cancelled instead —
+     03/Requested's guard, adopted family-wide. `replace` keeps the
+     dead screen out of the stack. */
+  const cur = currentAppt(state);
+  if (window.__tailyNavigated && isTerminal(cur)) {
+    setTimeout(() => { pointAtTerminal(cur); go('03-status-cancelled', { replace: true }); }, 0);
+    return;
+  }
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));
   root.querySelector('[data-act="calendar"]')?.addEventListener('click', () => toast('Added to your calendar'));   // UX-004

@@ -53,6 +53,8 @@ import {
   shiftDay,
   parseWhen,
   mdy,
+  isAfterDay,
+  nextOrderId,
 } from './data.js';
 
 /* The happy path — extended for the v4 flow (Kevin-approved):
@@ -217,10 +219,19 @@ export function requestTailor() {
     garments: JSON.parse(JSON.stringify(state.garments)),
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     totals,
+    /* R3-T-04: one order number per booking (the seed keeps 4417) */
+    orderId: nextOrderId(),
   };
   state.upcoming.unshift(a);
   state.currentAppt = { list: 'upcoming', index: 0 };
   state.lastCancelled = null;
+  /* R3-U-01: the appointment owns the garments now — the booking form
+     and the Home tile selection start empty (a duplicate request is no
+     longer one tap away; copyItemsOver / + Additional Garment rebuild
+     the selection from garments when they need it). */
+  state.garments = [];
+  state.ui ??= {};
+  state.ui.homeSelection = {};
   return a;
 }
 
@@ -288,9 +299,13 @@ export function deliver(a = apptEntry()) {
 
 /** The tailor proposes another time for a request. Status stays
     searching; `a.proposed = { when, by: 'tailor', at }`. Only a
-    searching appointment can receive a proposal. */
+    searching appointment can receive a proposal, and only for a day
+    no later than the need-by day (R3-U-02 / R3-T-01 — day-level, the
+    rule markReady uses; `proposalDays(a)` in data.js is the wheel's
+    matching bound). Returns false otherwise. */
 export function proposeTime(a, when) {
   if (!a || !when || canonicalStatus(a.status) !== 'searching') return false;
+  if (isAfterDay(when, a.needBy)) return false;
   a.proposed = { when, by: 'tailor', at: today() };
   a.proposalDeclined = null;
   return true;
@@ -310,11 +325,14 @@ export function acceptProposedTime(when, a = apptEntry()) {
   return { appointment: a, when: a.when, deposit: a.totals ? a.totals.deposit : null };
 }
 
-/** The customer keeps looking: proposal cleared, remembered on
-    `a.proposalDeclined`; status stays searching. */
-export function declineProposedTime(a = apptEntry()) {
+/** The proposal is dropped: by the customer (Keep Looking, the
+    default) or by the tailor withdrawing it (`by = 'tailor'`, R3-T-02).
+    Cleared and remembered as `a.proposalDeclined = { when, by }`;
+    status stays searching. */
+export function declineProposedTime(a = apptEntry(), by = 'customer') {
   if (!a) return false;
-  a.proposalDeclined = a.proposed?.when ?? a.proposalDeclined ?? null;
+  const when = a.proposed?.when ?? a.proposalDeclined?.when ?? null;
+  a.proposalDeclined = when ? { when, by } : null;
   a.proposed = null;
   return true;
 }
@@ -361,9 +379,12 @@ export function declineAppointment(a = apptEntry()) {
   return { appointment: a, deposit: a.totals ? a.totals.deposit : 20 };
 }
 
-/** No tailor accepted in time (cancelledBy 'none', reason 'expired'). */
+/** No tailor accepted in time (cancelledBy 'none', reason 'expired').
+    A proposal still pending is kept on `a.lapsedProposal` (R3-T-02:
+    "Marco proposed … but the request lapsed before you answered"). */
 export function expireAppointment(a = apptEntry()) {
   if (!a) return null;
+  if (a.proposed) { a.lapsedProposal = a.proposed; a.proposed = null; }
   terminate(a, 'expired', 'none', 'expired');
   return { appointment: a };
 }

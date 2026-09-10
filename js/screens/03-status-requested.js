@@ -25,7 +25,7 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, infoCard, metaRow, cta } from '../components.js';
-import { money, itemsLabel, fmtWhen, shiftDay, parseWhen } from '../data.js';
+import { money, itemsLabel, itemCount, fmtWhen, fmtDay, shiftDay, parseWhen, proposalDays } from '../data.js';
 import {
   state, tailorAccepts, bookingLines, isTerminal,
   proposeTime, acceptProposedTime, declineProposedTime, expireAppointment,
@@ -37,10 +37,19 @@ import { currentAppt } from './03-status-confirmed.js';
 const live = () => !!window.__tailyNavigated;
 
 /** DEMO: the day after the requested time, 11:00 AM, in the 02.1 pill
-    grammar ("Sept 10, 11:00 AM") so it parses everywhere. */
+    grammar ("Sept 10, 11:00 AM") so it parses everywhere. R3-U-02:
+    capped at the last day the tailor could propose (proposalDays —
+    the need-by day); when that is the requested day itself the demo
+    proposes a later slot the same day. */
 function nextDayEleven(a) {
-  const day = shiftDay(a?.when, 1) ?? shiftDay(new Date().toDateString(), 1);   // "Thu, Sept 10"
-  return `${day.replace(/^\w+, /, '')}, 11:00 AM`;
+  const days = proposalDays(a);
+  const last = days[days.length - 1];                       // "Fri 11 Sept"
+  const next = shiftDay(a?.when, 1) ?? shiftDay(new Date().toDateString(), 1);   // "Thu, Sept 10"
+  const cap = last ? fmtDay(last.replace(/^(\w+) (\d+) (\w+)$/, '$1, $3 $2')) : null;
+  const day = (cap && parseWhen(cap) && parseWhen(next) && parseWhen(cap).date < parseWhen(next).date) ? cap : next;
+  const md = day.replace(/^\w+, /, '');
+  const when = `${md}, 11:00 AM`;
+  return fmtWhen(when) === fmtWhen(a?.when) ? `${md}, 2:00 PM` : when;
 }
 
 /** The 01/09 card badge follows the (new) appointment day. */
@@ -62,9 +71,27 @@ export function viewRequested(s, forced = null) {
   const a = forced ?? (live() ? currentAppt(s) : null);
   const first = (a?.name ?? 'Marco Tailor').split(' ')[0];
   const proposed = a?.proposed?.when ?? null;
+  /* R3-U-02: the proposal is bounded by the need-by (proposeTime) —
+     the hero says so, so the trade-off is visible */
+  const needBy = a?.needBy ? ` Your need-by stays ${fmtDay(a.needBy)}.` : '';
   const hero = proposed
-    ? statusHero({ variant: 'new-times', title: `${first} proposed a new time`, body: `Your ${fmtWhen(a.when)} slot isn’t free. ${first} can do ${fmtWhen(proposed)}.` })
+    ? statusHero({ variant: 'new-times', title: `${first} proposed a new time`, body: `Your ${fmtWhen(a.when)} slot isn’t free. ${first} can do ${fmtWhen(proposed)}.${needBy}` })
     : statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-certified tailor near you. We’ll notify you the moment one accepts.' });
+  /* R3-U-01: the request card reads the APPOINTMENT once one exists —
+     a second unsent booking on the form no longer rewrites it. The
+     harness deep link (no navigation yet) keeps the form fixture. */
+  const req = live() && a?.totals ? a : null;
+  const rows = req
+    ? [
+      metaRow('◉', `${req.place} — ${req.visit}`),
+      metaRow('▤', fmtWhen(req.when, req.when)),
+      metaRow('✂', `${itemsLabel(itemCount(req), 'item')} · ${money(req.totals.subtotal)}.00+ est. · ${money(req.totals.deposit)} deposit held`),
+    ]
+    : [
+      metaRow('◉', `${s.contact.street}, ${s.contact.unit} — ${s.appt.where}`),
+      metaRow('▤', s.appt.when),
+      metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.subtotal)}.00+ est. · ${money(t.deposit)} deposit held`),
+    ];
   /* live-only: the acceptance window (the tailor side's timer twin) —
      tapping it is the "time passes" demo */
   const window2h = a && !proposed
@@ -85,11 +112,7 @@ export function viewRequested(s, forced = null) {
     <span class="map-card__pin">◉</span>
     <span class="t-small c-500">Map preview — connects to Google Maps</span>
   </div>
-  ${infoCard([
-    metaRow('◉', `${s.contact.street}, ${s.contact.unit} — ${s.appt.where}`),
-    metaRow('▤', s.appt.when),
-    metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.subtotal)}.00+ est. · ${money(t.deposit)} deposit held`),
-  ].join(''))}
+  ${infoCard(rows.join(''))}
   ${actions}
   <button type="button" class="cancel-line" data-act="cancel">Cancel request — deposit refunded</button>
 </div>`;
@@ -107,14 +130,16 @@ export function wire(root) {
   /* Phase R3 (Kevin): cancel request runs through the R1 popup —
      cancel-worded (UX-003) */
   root.querySelector('[data-act="cancel"]')?.addEventListener('click', () => openReschedulePopup('cancel'));
-  // demo affordance: tapping the map simulates the tailor accepting
-  root.querySelector('[data-act="map"]')?.addEventListener('click', () => { tailorAccepts(a ?? undefined); go('03-status-confirmed'); });
+  /* demo affordance: tapping the map simulates the tailor accepting.
+     R3-U-05: a status screen REPLACES the one it supersedes (03 is one
+     family) — back never lands on a stale "Finding your tailor…" */
+  root.querySelector('[data-act="map"]')?.addEventListener('click', () => { tailorAccepts(a ?? undefined); go('03-status-confirmed', { replace: true }); });
   /* R2-U-03: the proposal's answers */
   root.querySelector('[data-act="accept-time"]')?.addEventListener('click', () => {
     if (!a?.proposed) return;
     acceptProposedTime(a.proposed.when, a);
     stampBadge(a);
-    go('03-status-confirmed');
+    go('03-status-confirmed', { replace: true });
   });
   root.querySelector('[data-act="keep-looking"]')?.addEventListener('click', () => {
     declineProposedTime(a);

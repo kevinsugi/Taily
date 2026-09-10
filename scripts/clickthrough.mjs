@@ -137,6 +137,29 @@ await page.waitForTimeout(700);
 await assertOverlay('  …dismiss reopens payment sheet', '02.3-payment-sheet');
 await page.click('.method-row');                      // Apple Pay → request sent
 await assertAt('Pay (request sent)', '03-status-requested', 'searching');
+// UX-LOOP R3-U-01: the appointment owns the garments now — Home has no
+// selection left over and Start Booking cannot start a duplicate
+await page.evaluate(() => window.Taily.render('01-home'));
+await page.waitForTimeout(200);
+{
+  const home = await page.evaluate(() => ({
+    heading: document.querySelector('[data-s="01-home"] h1')?.textContent.trim(),
+    badges: [...document.querySelectorAll('[data-tile] .garment-tile__qty, [data-tile] [data-minus]')].length,
+    garments: window.Taily.state.garments.length,
+    selected: Object.values(window.Taily.state.ui?.homeSelection ?? {}).filter((q) => q > 0).length,
+  }));
+  check('Home after Request Tailor: no selection', home.heading === 'What Are We Tailoring?' && home.garments === 0 && home.selected === 0, JSON.stringify(home));
+}
+await page.click('[data-act="start-booking"]');
+await assertAt('  …Start Booking stays (no duplicate)', '01-home', 'searching');
+await page.evaluate(() => window.Taily.render('03-status-requested'));
+await page.waitForTimeout(200);
+// R3-U-01: the request card reads the appointment (03 grammar), not the form
+{
+  const rows = await page.evaluate(() => [...document.querySelectorAll('.meta-row span:last-child')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+  const a = await page.evaluate(() => { const x = window.Taily.state.upcoming[0]; return { sub: x.totals.subtotal, dep: x.totals.deposit, n: x.count }; });
+  check('03/Requested rows read the appointment', rows[0] === '88 Leonard St, 4B — Home Visit' && /^\w{3}, \w{3,4} \d{1,2} · \d{1,2}:\d{2} [AP]M$/.test(rows[1]) && rows[2] === `${a.n} item · $${a.sub}.00+ est. · $${a.dep} deposit held`, rows.join(' | '));
+}
 await page.click('[data-act="map"]');                 // demo: tailor accepts
 await assertAt('tailor accepts', '03-status-confirmed', 'confirmed');
 // UX-LOOP R1-U-01: the tailor card is the demo "day before" → reminder
@@ -242,6 +265,33 @@ const review = await page.evaluate(() => window.Taily.state.upcoming[0]?.review?
 if (review !== 5) failures++;
 console.log(`${review === 5 ? 'PASS' : 'FAIL'}  review stored on the appointment     rating=${review}`);
 
+// UX-LOOP R3-U-03/04: with nothing live, Home falls back to the delivered
+// order under "Recent Appointment" and its Leave Review is real (09's
+// handler, once per appointment). The seed is parked for the probe.
+{
+  await page.evaluate(() => { const s = window.Taily.state; window.__parked = s.upcoming.filter((a) => a.status !== 'delivered'); s.upcoming = s.upcoming.filter((a) => a.status === 'delivered'); window.Taily.render('01-home'); });
+  await page.waitForTimeout(200);
+  const home = await page.evaluate(() => ({ heading: document.querySelector('.upcoming-header .t-section')?.textContent.trim(), pill: document.querySelector('.appt-card .pill span:last-child')?.textContent.trim(), ctas: [...document.querySelectorAll('.appt-card .cta-small')].map((b) => b.textContent.trim()) }));
+  check('Home falls back to the delivered order', home.heading === 'Recent Appointment' && home.pill === 'Completed' && home.ctas.join() === 'Leave Review', JSON.stringify(home));
+  await page.evaluate(() => [...document.querySelectorAll('.appt-card .cta-small')].find((b) => b.textContent.trim() === 'Leave Review')?.click());
+  await page.waitForTimeout(300);
+  const toastTxt = await page.evaluate(() => document.querySelector('.toast')?.textContent.trim() ?? '');
+  check('01 Leave Review guards a stored review', toastTxt === 'You already reviewed Marco', `toast="${toastTxt}"`);
+  await assertOverlay('  …no sheet for a reviewed order', null);
+  await page.evaluate(() => { delete window.Taily.state.upcoming[0].review; window.Taily.render('01-home'); });
+  await page.waitForTimeout(200);
+  await page.evaluate(() => [...document.querySelectorAll('.appt-card .cta-small')].find((b) => b.textContent.trim() === 'Leave Review')?.click());
+  await assertOverlay('01 Leave Review opens 06.1', '06.1-leave-review');
+  await page.click('[data-star="4"]');
+  await page.click('[data-act="confirm-review"]');
+  await page.waitForTimeout(400);
+  await assertOverlay('  …review sheet gone', null);
+  check('  …review stored from 01', (await page.evaluate(() => window.Taily.state.upcoming[0]?.review?.rating)) === 4);
+  await page.evaluate(() => { const s = window.Taily.state; s.upcoming = [...window.__parked, ...s.upcoming]; s.upcoming[0].review = { rating: 5, text: '' }; });
+  // put the delivered order back at the front (list order = newest first) so the seeds follow
+  await page.evaluate(() => { const s = window.Taily.state; const d = s.upcoming.find((a) => a.status === 'delivered'); s.upcoming = [d, ...s.upcoming.filter((a) => a !== d)]; });
+}
+
 // Bookings: seeds + the delivered order under Past (R1-U-13)
 await page.evaluate(() => { window.Taily.state && window.Taily.render('09-bookings'); });
 await page.waitForTimeout(300);
@@ -323,6 +373,52 @@ check('  …customer variant', await heroTitle() === 'Appointment Cancelled' && 
 await page.goBack();
 await page.waitForTimeout(400);
 check('  …next back not swallowed', (await screenId()) !== '03-status-cancelled', `screen=${await screenId()}`);
+// UX-LOOP R3-U-05: the cancelled status REPLACED 03/Confirmed — back lands on
+// Home / Bookings, never on a "Confirmed" ghost with a live Reschedule
+check('  …back lands on Home / Bookings, no Confirmed ghost', ['01-home', '09-bookings'].includes(await screenId()), `screen=${await screenId()}`);
+// …and a status screen re-entered for an ended appointment redirects to 03/Cancelled
+await page.evaluate(() => window.Taily.render('03-status-confirmed'));
+await page.waitForTimeout(300);
+await assertAt('03/Confirmed for a cancelled entry → 03/Cancelled', '03-status-cancelled');
+check('  …no live Reschedule on the way', !(await page.evaluate(() => !!document.querySelector('[data-act="reschedule"]'))));
+// R3-U-03: today's outcome shows on Home once, above the live card
+await page.evaluate(() => window.Taily.render('01-home'));
+await page.waitForTimeout(200);
+{
+  const cards = await page.evaluate(() => [...document.querySelectorAll('[data-s="01-home"] .appt-card')].map((e) => e.querySelector('.pill span:last-child')?.textContent.trim()));
+  check('Home shows today’s Cancelled outcome above the live card', cards[0] === 'Cancelled' && cards.length === 2, cards.join(','));
+  await page.click('[data-s="01-home"] .appt-card');
+  await assertAt('  …outcome card → 03/Cancelled', '03-status-cancelled');
+  await page.evaluate(() => window.Taily.render('01-home'));
+  await page.waitForTimeout(200);
+  const after = await page.evaluate(() => [...document.querySelectorAll('[data-s="01-home"] .appt-card')].map((e) => e.querySelector('.pill span:last-child')?.textContent.trim()));
+  check('  …seen once — gone on the next visit', after.length === 1 && after[0] !== 'Cancelled', after.join(','));
+}
+
+// UX-LOOP R3-U-01: a second, unsent booking must not rewrite a live request card
+await rebook('second-form');
+{
+  const before = await page.evaluate(() => [...document.querySelectorAll('.meta-row span:last-child')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+  await page.evaluate(() => window.Taily.render('01-home'));
+  await page.waitForTimeout(200);
+  await page.click('[data-tile="Suit Pant"]');
+  await page.click('[data-tile="Shirt / Blouse"]');
+  await page.click('[data-act="start-booking"]');
+  await assertAt('second booking form (unsent)', '02-appointment-details', 'searching');
+  await page.evaluate(() => window.Taily.render('09-bookings'));
+  await page.waitForTimeout(200);
+  await page.evaluate(() => [...document.querySelectorAll('.appt-card')].find((c) => c.querySelector('.pill span:last-child')?.textContent === 'Requested')?.querySelector('.appt-card__name')?.click());
+  await assertAt('Requested card → 03/Requested', '03-status-requested', 'searching');
+  const after = await page.evaluate(() => [...document.querySelectorAll('.meta-row span:last-child')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+  check('03/Requested rows unchanged by the second form', after.join('|') === before.join('|'), `${after.join(' | ')}`);
+  // clear the probe's form, then withdraw the live request so the decline run starts clean
+  await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.homeSelection = {}; });
+  await page.click('[data-act="cancel"]');
+  await assertOverlay('  …R1 popup (cancel mode)', '03.1-reschedule-popup');
+  await page.click('[data-act="confirm-reschedule"]');
+  await assertAt('  …withdrawn → 03/Cancelled', '03-status-cancelled');
+  await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.homeSelection = {}; });
+}
 
 // R2-U-07: terminal entries list under Past with their own card
 await page.evaluate(() => window.Taily.render('09-bookings'));

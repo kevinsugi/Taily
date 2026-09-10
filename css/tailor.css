@@ -16,7 +16,7 @@
 .screen[data-screen="t07-job-ready"] { min-height: 640px; }
 .screen[data-screen="t08-job-complete"] { min-height: 595px; }
 /* UX-LOOP round 3 — the sibling frames' heights (Figma hugs content) */
-.screen[data-screen="t01-home-closed"] { min-height: 1312px; }
+.screen[data-screen="t01-home-closed"] { min-height: 1349px; }   /* round 3: + the "Done today" section row */
 .screen[data-screen="t02-accepted"] { min-height: 825px; }
 .screen[data-screen="t02-expired"] { min-height: 883px; }
 .screen[data-screen="t03-upcoming-visit"] { min-height: 954px; }
@@ -273,3 +273,20 @@ html.has-input .stage-caption { visibility: visible; }
 /* R2-T-05: the "Can't make it" modal reuses the T03A reason rows */
 .modal--reasons .reasons--modal { padding-inline: 0; }
 .modal--reasons .radio-row { padding-block: var(--space-12); }
+
+/* ---------- UX-LOOP round 3 ---------- */
+/* R3-T-03: "Done today" rows — closed jobs, nothing left to do */
+.job-card--closed { opacity: 0.7; }
+/* R3-T-03: "$108 · 1 item" discriminator on same-day request cards */
+.req-card__count { font-weight: 500; color: var(--neutral-500); margin-left: calc(-1 * var(--space-4)); }
+/* R3-T-05: the modal's consequence line + the gated no-show row */
+/* the frame's line is T03A's 14/18 sub (cloned), not .t-small's 12/16 */
+.modal__consequence {
+  margin: 0; width: 100%;
+  font-family: var(--font-sans); font-size: var(--size-14); line-height: 18px; font-weight: 400; color: var(--neutral-500);
+}
+.radio-row[disabled] { color: var(--neutral-400); cursor: default; }
+.radio-row[disabled] .radio-row__dot { box-shadow: inset 0 0 0 1.5px var(--neutral-300); }
+.radio-row__note { display: block; margin-top: var(--space-4); font-size: var(--size-12); line-height: 16px; color: var(--neutral-500); }
+/* R3-T-01: T03A's "no later slot to offer" reason */
+.t03a__reason { margin: 0; padding-inline: var(--space-20); }

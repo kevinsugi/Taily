@@ -12,7 +12,8 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, summaryCard, cta, apptRows } from '../components.js';
-import { openReschedulePopup } from './03.1-reschedule-popup.js';
+import { state, isTerminal } from '../state.js';
+import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
 import { openConfirmPopup } from './03.2-appointment-confirmed.js';
 import { bookingSummary, currentAppt } from './03-status-confirmed.js';
 
@@ -43,6 +44,15 @@ export function viewReminder(s) {
 }
 
 function wire(root) {
+  /* R3-U-05: a status screen reached (by back / forward) for an
+     appointment that already ended shows its 03/Cancelled instead —
+     03/Requested's guard, adopted family-wide. `replace` keeps the
+     dead screen out of the stack. */
+  const cur = currentAppt(state);
+  if (window.__tailyNavigated && isTerminal(cur)) {
+    setTimeout(() => { pointAtTerminal(cur); go('03-status-cancelled', { replace: true }); }, 0);
+    return;
+  }
   /* Phase R4 (Kevin): Confirm Appointment opens the 05C popup; its
      Confirm runs completeAppointment() and lands on 04D. */
   root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => openConfirmPopup());

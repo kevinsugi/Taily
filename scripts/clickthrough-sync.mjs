@@ -158,6 +158,27 @@ const fmtDay = (str) => page.evaluate((v) => window.__data.fmtDay(v), str);
 const mdy = (str) => page.evaluate((v) => window.__data.mdy(v), str);
 const shiftDay = (str, n) => page.evaluate(([v, k]) => window.__data.shiftDay(v, k), [str, n]);
 const render = async (id) => { await page.evaluate((i) => window.Taily.render(i), id); await page.waitForTimeout(250); };
+/* R3-U-07c: live cards print the 03 row grammar; R3-U-09: a ready date
+   still ahead reads "Ready · pickup from …" */
+const cardWhen = (str) => fmtWhen(str);
+const readyMeta = (readyAt) => page.evaluate((r) => {
+  const p = window.__data.parseWhen(r); const t = new Date(); t.setHours(23, 59, 59, 999);
+  return p && p.date > t ? `Ready · pickup from ${window.__data.fmtDay(r)}` : `Ready since: ${r}`;
+}, readyAt);
+/* R3-U-03: Home's cards in DOM order — today's outcome first, then the live one */
+const homeCards = () => page.evaluate(() => [...document.querySelectorAll('[data-s="01-home"] .appt-card')].map((e) => ({
+  pill: e.querySelector('.pill span:last-child')?.textContent.replace(/\s+/g, ' ').trim(),
+  meta: e.querySelector('.appt-card__meta')?.textContent.replace(/\s+/g, ' ').trim(),
+  ctas: [...e.querySelectorAll('.cta-small')].map((b) => b.textContent.trim()),
+})));
+/** Home after a terminal outcome (R3-U-03): the outcome card sits ABOVE
+    the live card (the seed when present), once. */
+async function assertHomeOutcome(desc, { pill, meta, live = 'Confirmed' }) {
+  const cards = await homeCards();
+  const ok = cards[0]?.pill === pill && (meta == null || cards[0].meta === meta) && cards[0].ctas.length === 0
+    && (live == null ? cards.length === 1 : cards[1]?.pill === live);
+  log(ok, desc, `cards=${cards.map((c) => `${c.pill}/${c.meta}`).join(' | ')}`);
+}
 /** "the shared appointment is state.past[0] and state.lastCancelled" */
 const terminalPlacement = () => page.evaluate(() => {
   const s = window.Taily.state; const a = window.__shared();
@@ -264,7 +285,10 @@ async function bookAsCustomer({ deep = false } = {}) {
   if (deep) {
     const rows = await q('texts', '.meta-row span:last-child');
     assertEq('[C] 03/Requested address · visit row', rows[0], '88 Leonard St, 4B — Home Visit');
-    assertEq('[C] 03/Requested requested-time row', rows[1], a.when);
+    assertEq('[C] 03/Requested requested-time row (03 grammar)', rows[1], await fmtWhen(a.when));
+    /* R3-U-01: the request card reads the APPOINTMENT, the form is spent */
+    const form = await page.evaluate(() => ({ garments: window.Taily.state.garments.length, sel: Object.values(window.Taily.state.ui?.homeSelection ?? {}).filter((q) => q > 0).length }));
+    log(form.garments === 0 && form.sel === 0, '[S] requestTailor cleared the form + Home selection', JSON.stringify(form));
     assertEq('[C] 03/Requested items · estimate · hold row', rows[2], '2 items · $240.00+ est. · $24 deposit held');
     await assertText('[C] 03/Requested hero', '.status-hero__title', 'Finding your tailor…');
   }
@@ -338,7 +362,7 @@ async function customerSeesConfirmed(a, { deep = false } = {}) {
   await flip();
   await assertAt('[C] View as Customer after accept', '01-home', 'confirmed', 'user');
   await assertText('[C] 01 card pill', '.appt-card .pill span:last-child', 'Confirmed');
-  await assertText('[C] 01 card meta = requested time', '.appt-card__meta', a.when);
+  await assertText('[C] 01 card meta = requested time (03 grammar)', '.appt-card__meta', await cardWhen(a.when));
   if (deep) {
     await assertText('[C] 01 card tailor', '.appt-card__name', 'Marco Tailor');
     assertIncludes('[C] 01 card items title', await q('text', '.appt-card'), '2 Items Total - Home Visit:');
@@ -571,7 +595,7 @@ await fresh('A');
   await flip();
   await assertAt('[C] View as Customer (ready)', '01-home', 'ready-for-pickup', 'user');
   await assertText('[C] 01 card pill', '.appt-card .pill span:last-child', 'Ready');
-  await assertText('[C] 01 card meta = Ready since readyAt', '.appt-card__meta', `Ready since: ${e.readyAt}`);
+  await assertText('[C] 01 card meta = ready (since / pickup from)', '.appt-card__meta', await readyMeta(e.readyAt));
   await assertText('[C] 01 card CTA', '.appt-card .cta-small', 'Schedule Pickup / Delivery');
   await page.click('.appt-card');
   await assertAt('[C] card → 03/Tailoring (ready)', '03-status-tailoring', 'ready-for-pickup');
@@ -631,15 +655,18 @@ await fresh('A');
   assertEq('[T] T08 order total / fee / payout', (await q('texts', '.price-row__value')).join(' '), '$400 −$40 $360');
   await page.click('[data-act="home"]');
   await assertAt('[T] Back to Home (job complete)', 't01-home', 'delivered');
-  await assertText('[T] T01 job pill', '.job-card .pill span:last-child', 'Completed');
+  {
+    const jobs = await q('jobCards');
+    log(jobs.some((j) => j.pill === 'Completed' && j.text.includes('Sarah Chen')), '[T] T01 lists the job as Completed (Done today, R3-T-03)', `jobs=${jobs.map((j) => `${j.pill}/${j.payout}`).join(', ')}`);
+  }
 
   /* ---- customer: receipt / summary / bookings / review ---- */
   await flip();
   await assertAt('[C] View as Customer (delivered)', '01-home', 'delivered', 'user');
-  await assertText('[C] 01 card pill', '.appt-card .pill span:last-child', 'Completed');
-  await assertText('[C] 01 card meta = handoff', '.appt-card__meta', `Picked up: ${w.day}`);
-  await assertText('[C] 01 card CTA', '.appt-card .cta-small', 'Leave Review');
-  await page.click('.appt-card');
+  await assertText('[C] 01 shows the seed’s live card, not the delivered order (R3-U-03)', '.appt-card .pill span:last-child', 'Confirmed');
+  await render('09-bookings');
+  await assertTrue('[C] 09 Completed card = handoff meta + Leave Review', (m) => { const c = [...document.querySelectorAll('.appt-card')].find((e) => e.querySelector('.appt-card__meta')?.textContent.trim() === m); return !!c && [...c.querySelectorAll('.cta-small')].map((b) => b.textContent.trim()).join() === 'Leave Review'; }, '', `Picked up: ${w.day}`);
+  await openBookingsCard('[C] 09 Past lists the delivered order', { pill: 'Completed', meta: `Picked up: ${w.day}` });
   await assertAt('[C] card → 03/Summary', '03-status-summary', 'delivered');
   assertEq('[C] 03/Summary Items Received = deliveredAt', (await q('texts', '.status-hero__row span'))[1], w.day);
   assertEq('[C] 03/Summary cards = final order', await q('count', '.garment-card'), 3);
@@ -730,9 +757,8 @@ await fresh('B');
 
   await flip();
   await assertAt('[C] View as Customer (delivered)', '01-home', 'delivered', 'user');
-  await assertText('[C] 01 card pill', '.appt-card .pill span:last-child', 'Completed');
-  await assertText('[C] 01 card meta = handoff', '.appt-card__meta', `Delivered: ${w.day}`);
-  await page.click('.appt-card');
+  await assertText('[C] 01 shows the seed’s live card, not the delivered order (R3-U-03)', '.appt-card .pill span:last-child', 'Confirmed');
+  await openBookingsCard('[C] 09 Past lists the delivered order', { pill: 'Completed', meta: `Delivered: ${w.day}` });
   await assertAt('[C] card → 03/Summary', '03-status-summary', 'delivered');
   assertEq('[C] 03/Summary rows (delivery: +$20)', await q('fees'), '$400 -$24 $20 $396');
   assertEq('[C] 03/Summary delivery + total rows', (await q('feeDescs')).slice(2).join(' | '), `Delivery - Paid ${w.mdy} | Total - Paid ${w.mdy}`);
@@ -770,8 +796,15 @@ await fresh('C');
   }
   await flip();
   await assertAt('[C] View as Customer (declined)', '01-home', 'declined', 'user');
-  await assertText('[C] 01 keeps the seed’s Confirmed card (declined is not upcoming)', '.appt-card .pill span:last-child', 'Confirmed');
-  await openBookingsCard('[C] 09 Past lists the Declined card', { pill: 'Declined', meta: a.when });
+  await assertHomeOutcome('[C] 01 shows the Declined outcome above the seed’s Confirmed card (R3-U-03)', { pill: 'Declined', meta: 'Declined by Marco' });
+  await page.click('[data-s="01-home"] .appt-card');
+  await assertAt('[C] outcome card → 03/Cancelled', '03-status-cancelled', 'declined');
+  await render('01-home');
+  {
+    const cards = await homeCards();
+    log(cards.length === 1 && cards[0].pill === 'Confirmed', '[C] the outcome card is shown once — Home is back to the seed', `cards=${cards.map((c) => c.pill).join(',')}`);
+  }
+  await openBookingsCard('[C] 09 Past lists the Declined card', { pill: 'Declined', meta: 'Declined by Marco' });
   await assertAt('[C] Declined card → 03/Cancelled', '03-status-cancelled', 'declined');
   await assertText('[C] 03/Cancelled declined title', '.status-hero__title', 'Marco couldn’t take this request');
   await assertText('[C] 03/Cancelled pill', '.status-hero .pill span:last-child', 'Declined');
@@ -852,7 +885,7 @@ await fresh('E', { solo: true });
     const row = (await q('jobCards')).find((j) => j.text.includes('Sarah Chen'));
     assertEq('[T] T01 Sarah job pill', row?.pill, 'Cancelled');
     assertEq('[T] T01 Sarah job right slot', row?.right, 'Slot reopened');
-    assertEq('[T] T01 Sarah job payout (the cancelled booking)', row?.payout, '$216');
+    assertEq('[T] T01 cancelled row has no payout column (closed, R3-T-03)', row?.payout, null);
   }
   await page.click('[data-act="open-job"]');
   await assertAt('[T] Cancelled card → T03B', 't03b-job-cancelled', 'cancelled');
@@ -878,11 +911,12 @@ await fresh('E2');
     log(jobs.length === 2 && jobs.every((j) => j.pill === 'Confirmed') && jobs.map((j) => j.payout).sort().join(',') === '$180,$216', '[T] T01 after Accept: two Confirmed Sarah jobs ($216 fresh + $180 seed)', jobs.map((j) => `${j.pill}/${j.payout}`).join(', '));
   }
   await customerSeesConfirmed(b);
+  const aWhen = await cardWhen(a.when);
   await render('09-bookings');
   {
     const cards = await q('bookings');
     const confirmed = cards.current.filter((c) => c.pill === 'Confirmed');
-    log(confirmed.length === 2 && confirmed.some((c) => c.meta === a.when) && confirmed.some((c) => c.meta === seedBefore.when), '[C] 09 Current lists both Confirmed bookings (fresh + seed)', `current=${cards.current.map((c) => `${c.pill}/${c.meta}`).join(', ')}`);
+    log(confirmed.length === 2 && confirmed.some((c) => c.meta === aWhen) && confirmed.some((c) => c.meta === seedBefore.when), '[C] 09 Current lists both Confirmed bookings (fresh + seed)', `current=${cards.current.map((c) => `${c.pill}/${c.meta}`).join(', ')}`);
   }
   await render('01-home');
   await page.click('.appt-card');
@@ -897,20 +931,27 @@ await fresh('E2');
     log(t.status === 'cancelled' && t.inPast && t.stash, '[S] the fresh booking is the cancelled stash', JSON.stringify(t));
     log(s?.status === seedBefore.status && s.when === seedBefore.when && !s.cancelledAt, '[S] the seed is untouched by the cancel', `seed=${s?.status}/${s?.when}`);
   }
+  /* R3-U-05: the cancelled status replaced 03/Confirmed — back lands on Home, no ghost */
+  await page.goBack();
+  await page.waitForTimeout(400);
+  log(['01-home', '09-bookings'].includes(await screenId()), '[C] back after the cancel lands on Home / Bookings, not a Confirmed ghost', `screen=${await screenId()}`);
   await render('01-home');
-  await assertText('[C] 01 card is now the seed (Confirmed)', '.appt-card .pill span:last-child', 'Confirmed');
-  await assertText('[C] 01 card meta = the seed’s date', '.appt-card__meta', seedBefore.when);
+  await assertHomeOutcome('[C] 01: today’s Cancelled outcome above the seed (R3-U-03)', { pill: 'Cancelled', meta: aWhen });
+  {
+    const cards = await homeCards();
+    log(cards[1]?.meta === seedBefore.when, '[C] 01 live card = the seed’s date', `meta=${cards[1]?.meta}`);
+  }
   {
     await render('09-bookings');
     const cards = await q('bookings');
-    log(cards.current.filter((c) => c.pill === 'Confirmed').length === 1 && cards.current.some((c) => c.meta === seedBefore.when) && cards.past.some((c) => c.pill === 'Cancelled' && c.meta === a.when),
+    log(cards.current.filter((c) => c.pill === 'Confirmed').length === 1 && cards.current.some((c) => c.meta === seedBefore.when) && cards.past.some((c) => c.pill === 'Cancelled' && c.meta === aWhen),
       '[C] 09: seed still Current, the cancelled booking under Past', `current=${cards.current.map((c) => c.pill).join(',')} past=${cards.past.map((c) => `${c.pill}/${c.meta}`).join(', ')}`);
   }
   await flip();
   await assertAt('[T] View as Tailor after the cancel (seed present)', 't01-home', 'cancelled', 'tailor');
   {
     const jobs = await q('jobCards');
-    log(jobs.some((j) => j.pill === 'Cancelled' && j.payout === '$216' && j.right === 'Slot reopened'), '[T] T01 shows the cancelled $216 booking · Slot reopened', `jobs=${jobs.map((j) => `${j.pill}/${j.payout}`).join(', ')} req=${await q('count', '.req-card')}`);
+    log(jobs.some((j) => j.pill === 'Cancelled' && j.payout === null && j.right === 'Slot reopened'), '[T] T01 shows the cancelled booking · Slot reopened (closed row, no payout)', `jobs=${jobs.map((j) => `${j.pill}/${j.payout}`).join(', ')} req=${await q('count', '.req-card')}`);
     log(jobs.some((j) => j.pill === 'Confirmed' && j.payout === '$180'), '[T] T01 keeps the seed’s Confirmed job', '');
   }
   await page.click('.job-card:has-text("Slot reopened")');
@@ -931,6 +972,15 @@ async function tailorProposes(label) {
   await page.click('[data-act="decline"]');
   await page.waitForTimeout(500);
   await assertText(`[T] ${label}: the time wheel opens, titled for a proposal`, '.screen-sheet--overlay .sheet__title', 'Suggest another time');
+  /* R3-U-02 / R3-T-01: the wheel offers the requested day → the need-by day, nothing later */
+  {
+    const a0 = await shared();
+    const want = await page.evaluate(() => window.__data.proposalDays(window.__shared()));
+    const rows = await page.evaluate(() => { const col = document.querySelector('.screen-sheet--overlay .wheel__col--scroll'); return [...col.children].map((e) => e.textContent.trim()).filter(Boolean); });
+    const lastDay = rows[rows.length - 1] ?? '';
+    log(rows.length === want.length && rows.join('|') === want.join('|'), `[T] ${label}: wheel days = proposalDays (requested day → need-by day)`, `rows=${rows.join(', ')} needBy=${await fmtDay(a0.needBy)}`);
+    log(!!lastDay && (await fmtDay(lastDay.replace(/^(\w+) (\d+) (\w+)$/, '$1, $3 $2'))) === (await fmtDay(a0.needBy)), `[T] ${label}: the last wheel day IS the need-by day`, `last=${lastDay}`);
+  }
   await page.evaluate(() => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop += 40; });
   await page.waitForTimeout(300);
   await page.click('.screen-sheet--overlay [data-act="set-time"]');
@@ -951,10 +1001,23 @@ await fresh('F');
   await flip();
   await assertAt('[T] View as Tailor', 't01-home', 'searching', 'tailor');
   const p1 = await tailorProposes('proposal 1');
+  /* R3-U-02 / R3-T-01 (substrate): a proposal after the need-by day is refused */
+  {
+    const late = await page.evaluate(() => { const a = window.__shared(); const d = window.__data.shiftDay(a.needBy, 1); return `${d.replace(/^\w+, /, '')}, 10:00 AM`; });
+    const r = await page.evaluate((w) => { const a = window.__shared(); const before = JSON.stringify(a.proposed); const ok = window.__sync.proposeTime(a, w); return { ok, kept: JSON.stringify(a.proposed) === before }; }, late);
+    log(r.ok === false && r.kept, '[S] proposeTime refuses a day after the need-by (proposal untouched)', `late=${late} → ${r.ok}`);
+    const same = await page.evaluate(() => { const a = window.__shared(); const d = window.__data.fmtDay(a.needBy); return `${d.replace(/^\w+, /, '')}, 4:00 PM`; });
+    const r2 = await page.evaluate((w) => { const a = window.__shared(); const p = a.proposed; const ok = window.__sync.proposeTime(a, w); const now = a.proposed; a.proposed = p; return { ok, now: now?.when }; }, same);
+    log(r2.ok === true && r2.now === same, '[S] proposeTime accepts the need-by day itself (day-level rule)', `same=${same} → ${r2.ok}`);
+  }
   await page.click('.req-card [data-act="view-details"]');
   await assertAt('[T] View Details on the proposed request → T02', 't02-appointment-request', 'searching');
   assertIncludes('[T] T02 notes the pending proposal', await q('text', '[data-s="t02-appointment-request"] > p.t-body'), `You proposed ${p1.when} — waiting for Sarah.`);
-  await assertText('[T] T02 still offers Accept (Sarah’s original time)', '[data-act="accept"]', 'Accept Request · $216');
+  /* R3-T-02b: while a proposal is pending T02 cannot book the original time */
+  {
+    const ctas = await q('texts', '.t-actions .cta');
+    log(!(await q('count', '[data-act="accept"]')) && ctas.some((t) => /withdraw proposal/i.test(t)) && ctas.some((t) => /^decline/i.test(t)), '[T] T02 while proposed: Withdraw Proposal + Decline, no Accept', ctas.join(' | '));
+  }
 
   /* customer: card "New time proposed" → Review Time → new-times hero → Keep Looking */
   await flip();
@@ -966,18 +1029,19 @@ await fresh('F');
   await assertAt('[C] Review Time → 03/Requested', '03-status-requested', 'searching');
   await assertTrue('[C] 03/Requested uses the new-times hero', () => !!document.querySelector('.status-hero--new-times'));
   await assertText('[C] 03/Requested proposed hero', '.status-hero__title', 'Marco proposed a new time');
-  assertEq('[C] 03/Requested proposed body', await q('text', '.status-hero__body'), `Your ${await fmtWhen(a.when)} slot isn’t free. Marco can do ${p1.when}.`);
+  assertEq('[C] 03/Requested proposed body names the need-by (R3-U-02)', await q('text', '.status-hero__body'), `Your ${await fmtWhen(a.when)} slot isn’t free. Marco can do ${p1.when}. Your need-by stays ${await fmtDay(a.needBy)}.`);
   assertEq('[C] 03/Requested CTAs', (await q('texts', '[data-s="03-status-requested"] .cta')).join(' | '), 'Accept New Time | Keep Looking');
   await page.click('[data-act="keep-looking"]');
   await assertAt('[C] Keep Looking → still searching', '03-status-requested', 'searching', 'user');
   await assertText('[C] 03/Requested hero back to searching', '.status-hero__title', 'Finding your tailor…');
   {
     const f = await shared();
-    log(f?.proposed == null && f.proposalDeclined === p1.proposed && f.when === a.when, '[S] declineProposedTime: proposal cleared, remembered, when unchanged', `proposalDeclined=${f?.proposalDeclined} when=${f?.when}`);
+    log(f?.proposed == null && f.proposalDeclined?.when === p1.proposed && f.proposalDeclined?.by === 'customer' && f.when === a.when, '[S] declineProposedTime: proposal cleared, remembered { when, by: customer }, when unchanged', `proposalDeclined=${JSON.stringify(f?.proposalDeclined)} when=${f?.when}`);
   }
   await render('01-home');
-  await assertText('[C] 01 card meta back to the requested time', '.appt-card__meta', `Appt Date: ${a.when}`);
+  await assertText('[C] 01 card meta back to the requested time', '.appt-card__meta', `Appt Date: ${await cardWhen(a.when)}`);
   assertEq('[C] 01 card has no Review Time', await q('count', '.appt-card .cta-small'), 0);
+  await assertTrue('[C] 01 Requested card shows the matching note again', () => !!document.querySelector('.appt-card__note'));
 
   /* tailor: "Sarah kept her original time" → propose again → Withdraw */
   await flip();
@@ -985,17 +1049,23 @@ await fresh('F');
   assertIncludes('[T] T01 card says Sarah kept her original time', await q('text', '.req-card__note'), 'Sarah kept her original time');
   await assertTrue('[T] T01 card back to Decline (no proposed line)', () => !!document.querySelector('.req-card [data-act="decline"]') && !document.querySelector('.req-card__proposed'));
   await tailorProposes('proposal 2');
+  /* R3-U-07a: no "We will match you…" under a proposed time */
+  await flip();
+  await assertAt('[C] View as Customer (second proposal)', '01-home', 'searching', 'user');
+  await assertTrue('[C] 01 proposed card drops the matching note (R3-U-07)', () => !document.querySelector('.appt-card__note') && /^New time proposed/.test(document.querySelector('.appt-card__meta')?.textContent.trim() ?? ''));
+  await flip();
+  await assertAt('[T] View as Tailor (proposal 2 pending)', 't01-home', 'searching', 'tailor');
   await page.click('.req-card [data-act="withdraw"]');
   await assertAt('[T] Withdraw → T01', 't01-home', 'searching', 'tailor');
-  assertEq('[T] Withdraw toast', await q('toast'), 'Proposal withdrawn — Sarah keeps her original time');
-  await assertTrue('[T] T01 card back to Decline + Sarah kept her original time', () => !!document.querySelector('.req-card [data-act="decline"]') && !document.querySelector('.req-card__proposed') && /Sarah kept her original time/.test(document.querySelector('.req-card')?.textContent ?? ''));
+  assertIncludes('[T] Withdraw toast (Marco’s own act, R3-T-02)', await q('toast'), 'Proposal withdrawn');
+  await assertTrue('[T] T01 card back to Decline + You withdrew your proposed time', () => !!document.querySelector('.req-card [data-act="decline"]') && !document.querySelector('.req-card__proposed') && /You withdrew your proposed time/.test(document.querySelector('.req-card')?.textContent ?? '') && !/Sarah kept her original time/.test(document.querySelector('.req-card')?.textContent ?? ''));
   {
     const f = await shared();
-    log(f?.proposed == null && f.status === 'searching', '[S] withdraw = declineProposedTime, still searching', `proposed=${f?.proposed}`);
+    log(f?.proposed == null && f.status === 'searching' && f.proposalDeclined?.by === 'tailor', '[S] withdraw = declineProposedTime(a, tailor), still searching', `proposed=${f?.proposed} proposalDeclined=${JSON.stringify(f?.proposalDeclined)}`);
   }
   await flip();
   await assertAt('[C] View as Customer (withdrawn)', '01-home', 'searching', 'user');
-  await assertText('[C] 01 card meta = requested time (no proposal)', '.appt-card__meta', `Appt Date: ${a.when}`);
+  await assertText('[C] 01 card meta = requested time (no proposal)', '.appt-card__meta', `Appt Date: ${await cardWhen(a.when)}`);
   assertEq('[C] 01 card has no Review Time', await q('count', '.appt-card .cta-small'), 0);
 
   /* propose a third time → the customer accepts → both sides on the new when */
@@ -1010,12 +1080,18 @@ await fresh('F');
   await assertAt('[C] Accept New Time → 03/Confirmed', '03-status-confirmed', 'confirmed', 'user');
   const f = await shared();
   log(f?.when === p3.proposed && f.proposed == null && !!f.depositOn, '[S] acceptProposedTime: when = the proposal, confirmed, deposit charged', `when=${f?.when} depositOn=${f?.depositOn}`);
+  log(!(await page.evaluate(() => { const a = window.__shared(); return window.__data.isAfterDay(a.when, a.needBy); })), '[S] the accepted time is not after the need-by day (R3-U-02)', `when=${f?.when} needBy=${f?.needBy}`);
+  /* R3-U-05: 03/Confirmed REPLACED 03/Requested — back does not resurrect "Finding your tailor…" */
+  await page.goBack();
+  await page.waitForTimeout(400);
+  log((await screenId()) !== '03-status-requested', '[C] back from 03/Confirmed skips the spent 03/Requested', `screen=${await screenId()}`);
+  await render('03-status-confirmed');
   const badge = await page.evaluate((w) => { const p = window.__data.parseWhen(w); return `${p.mon.slice(0, 3).toUpperCase()} ${p.day}`; }, f.when);
   await assertText('[C] 03/Confirmed pill', '.status-hero .pill span:last-child', 'Confirmed');
   assertIncludes('[C] 03/Confirmed rows carry the NEW time', (await q('texts', '.summary-card__row')).join(' | '), p3.when);
   await render('01-home');
   await assertText('[C] 01 card pill', '.appt-card .pill span:last-child', 'Confirmed');
-  await assertText('[C] 01 card meta = the new when', '.appt-card__meta', f.when);
+  await assertText('[C] 01 card meta = the new when (03 grammar)', '.appt-card__meta', await cardWhen(f.when));
   assertEq('[C] 01 card badge follows the new day', `${await q('text', '.appt-card__month')} ${await q('text', '.appt-card__day')}`, badge);
 
   await flip();
@@ -1031,6 +1107,15 @@ await fresh('F');
   assertIncludes('[T] T03 pre-visit sub = the new when', await q('text', '.t-header .t-body'), `${p3.when} at 88 Leonard St, 4B`);
   await render('t02-appointment-request');
   await assertText('[T] T02 for the accepted job reads Accepted', '.t-actions .cta', 'Accepted');
+  /* R3-U-02 downstream: run the job to ready in the substrate — readyAt is never before the (accepted) visit */
+  {
+    const r = await page.evaluate(() => {
+      const a = window.__shared(); const S = window.__sync; const D = window.__data;
+      S.completeAppointment(a); S.approveOrder(a); S.markReady(a);
+      return { status: S.canonicalStatus(a.status), readyAt: a.readyAt, when: a.when, needBy: a.needBy, early: D.isAfterDay(a.when, a.readyAt), late: D.isAfterDay(a.readyAt, a.needBy) };
+    });
+    log(r.status === 'ready-for-pickup' && !!r.readyAt && !r.early && !r.late, '[S] markReady after an accepted proposal: readyAt between the visit day and the need-by day', JSON.stringify(r));
+  }
 }
 
 /* ============================================================
@@ -1063,7 +1148,7 @@ await fresh('G');
 
   await flip();
   await assertAt('[C] View as Customer (expired)', '01-home', 'expired', 'user');
-  await assertText('[C] 01 keeps the seed’s Confirmed card (expired is not upcoming)', '.appt-card .pill span:last-child', 'Confirmed');
+  await assertHomeOutcome('[C] 01 shows the Expired outcome above the seed’s Confirmed card (R3-U-03)', { pill: 'Expired', meta: 'Request expired · no tailor accepted' });
   await openBookingsCard('[C] 09 Past lists the Expired card', { pill: 'Expired', meta: 'Request expired · no tailor accepted' });
   await assertAt('[C] Expired card → 03/Cancelled', '03-status-cancelled', 'expired');
   await assertText('[C] 03/Cancelled expired title', '.status-hero__title', 'Request expired');
@@ -1095,6 +1180,27 @@ await fresh('G');
     const jobs = await q('jobCards');
     log(!(await q('count', '.req-card')) && jobs.filter((j) => j.pill === 'Expired').length === 2 && jobs.some((j) => j.pill === 'Confirmed' && j.payout === '$180'), '[T] T01: no request, two Expired rows, the seed job untouched', `jobs=${jobs.map((j) => `${j.pill}/${j.payout}`).join(', ')}`);
   }
+  /* R3-T-02c: a request that lapses while Marco's proposal is pending keeps the proposal on record */
+  {
+    const r = await page.evaluate(() => {
+      const S = window.__sync; const s = window.Taily.state;
+      const a = s.past.find((x) => x.mine && S.canonicalStatus(x.status) === 'expired');
+      const b = JSON.parse(JSON.stringify(a)); delete b.status; delete b.cancelledBy; delete b.reason; delete b.cancelledAt; delete b.wasRequested; delete b.lapsedProposal;
+      b.status = 'searching'; b.when = 'Dec 1, 9:30 AM'; b.needBy = 'Dec 3, 9:30 AM'; b.tailor = {};
+      s.upcoming.unshift(b);
+      const ok = S.proposeTime(b, 'Dec 2, 10:00 AM');
+      S.expireAppointment(b);
+      return { ok, status: S.canonicalStatus(b.status), lapsed: b.lapsedProposal?.when, proposed: b.proposed };
+    });
+    log(r.ok && r.status === 'expired' && r.lapsed === 'Dec 2, 10:00 AM' && r.proposed == null, '[S] expireAppointment keeps the pending proposal as a.lapsedProposal', JSON.stringify(r));
+    await flip();
+    await render('09-bookings');
+    const cards = await q('bookings');
+    log(cards.past.some((x) => x.pill === 'Expired' && x.meta === 'Request expired · Marco’s proposed time went unanswered'), '[C] 09 Expired card names the unanswered proposal', `past=${cards.past.map((x) => x.meta).join(' | ')}`);
+    await openBookingsCard('[C] open it', { pill: 'Expired', meta: 'Request expired · Marco’s proposed time went unanswered' });
+    await assertAt('[C] → 03/Cancelled (expired)', '03-status-cancelled', 'expired');
+    assertIncludes('[C] 03/Cancelled body: Marco proposed … but the request lapsed', await q('text', '.status-hero__body'), 'Marco proposed Wed, Dec 2 · 10:00 AM but the request lapsed before you answered.');
+  }
 }
 
 /* ============================================================
@@ -1122,7 +1228,7 @@ await fresh('H');
   await tailorOpensPreVisit(b);
   await tailorCantMakeIt('cant-make-it');
   await assertText('[T] T03B cancelled-by-you title', '.status-hero__title', 'You cancelled this job.');
-  assertIncludes('[T] T03B body: hold released + the slot', await q('text', '.status-hero__body'), `her hold is released. Your ${await fmtWhen(a.when)} slot is open again.`);
+  assertIncludes('[T] T03B body: her deposit is refunded + the slot (R3-T-05)', await q('text', '.status-hero__body'), `her $24 deposit is refunded. Your ${await fmtWhen(a.when)} slot is open again.`);
   {
     const t = await terminalPlacement();
     log(t.status === 'cancelled' && t.by === 'tailor' && t.reason === 'cant-make-it' && !t.wasRequested && t.inPast && t.notUpcoming && t.stash, '[S] tailorCancels(cant-make-it): past[0] + lastCancelled', JSON.stringify(t));
@@ -1131,18 +1237,18 @@ await fresh('H');
   await assertAt('[T] Back to Home', 't01-home', 'cancelled');
   {
     const jobs = await q('jobCards');
-    log(jobs.some((j) => j.pill === 'Cancelled' && j.right === 'Cancelled · by you' && j.payout === '$216'), '[T] T01 row reads Cancelled · by you', `jobs=${jobs.map((j) => `${j.pill}/${j.right}`).join(', ')}`);
+    log(jobs.some((j) => j.pill === 'Cancelled' && j.right === 'Cancelled · by you' && j.payout === null), '[T] T01 row reads Cancelled · by you (closed row, no payout)', `jobs=${jobs.map((j) => `${j.pill}/${j.right}`).join(', ')}`);
   }
   await flip();
   await assertAt('[C] View as Customer (tailor cancelled)', '01-home', 'cancelled', 'user');
-  await assertText('[C] 01 keeps the seed’s Confirmed card (cancelled is not upcoming)', '.appt-card .pill span:last-child', 'Confirmed');
+  await assertHomeOutcome('[C] 01 shows the Cancelled-by-Marco outcome above the seed (R3-U-03)', { pill: 'Cancelled', meta: 'Cancelled by Marco' });
   await openBookingsCard('[C] 09 Past card reads Cancelled by Marco', { pill: 'Cancelled', meta: 'Cancelled by Marco' });
   await assertAt('[C] card → 03/Cancelled', '03-status-cancelled', 'cancelled');
   await assertText('[C] 03/Cancelled tailor-cancelled title', '.status-hero__title', 'Marco had to cancel');
   await assertText('[C] 03/Cancelled pill', '.status-hero .pill span:last-child', 'Cancelled');
-  assertIncludes('[C] 03/Cancelled body: nothing charged', await q('text', '.status-hero__body'), 'Nothing was charged — the hold on your card is released');
-  assertEq('[C] 03/Cancelled: no fee rows (hold released)', await q('count', '.fee-row'), 0);
-  assertEq('[C] 03/Cancelled: no refund card', await q('count', '.prepare-card'), 0);
+  assertEq('[C] 03/Cancelled body: the PAID deposit is refunded (R3-U-06)', await q('text', '.status-hero__body'), 'Your $24 deposit is refunded to Apple Pay. We can find you another tailor.');
+  assertEq('[C] 03/Cancelled keeps the receipt rows (deposit was paid)', await q('fees'), '$240 -$24 $216');
+  assertEq('[C] 03/Cancelled: no refund card (the body says it)', await q('count', '.prepare-card'), 0);
   await assertText('[C] 03/Cancelled primary CTA', '[data-act="rerequest"]', 'Find Another Tailor');
   await page.click('[data-act="rerequest"]');
   const c = await rebookFrom02('Find Another Tailor');
@@ -1151,15 +1257,38 @@ await fresh('H');
   const d = await tailorAccepts(c);
   await customerSeesConfirmed(d);
   await tailorOpensPreVisit(d);
+  /* R3-T-05: the no-show row is gated on the visit time — when the run
+     happens before the (today, 9:30 AM) visit, prove the gate, then let
+     the visit pass and reopen the modal */
+  await page.click('[data-act="cant-make-it"]');
+  await assertOverlay('[T]   …Can’t make it modal', 't03.1-cant-make-it');
+  {
+    const ahead = await page.evaluate(() => { const a = window.__shared(); return (window.__data.parseWhen(a.when)?.date.getTime() ?? 0) > Date.now(); });
+    const disabled = await page.evaluate(() => { const el = document.querySelector('[data-reason="no-show"]'); return !!el && (el.disabled || el.getAttribute('aria-disabled') === 'true'); });
+    log(disabled === ahead, `[T] no-show row ${ahead ? 'disabled while the visit is ahead' : 'enabled once the visit time has passed'} (R3-T-05)`, `ahead=${ahead} disabled=${disabled}`);
+    if (ahead) {
+      assertIncludes('[T]   …the row says when it opens', await q('text', '[data-reason="no-show"]'), 'Available after');
+      await page.click('[data-act="go-back"]');
+      await page.waitForTimeout(400);
+      await page.evaluate(() => { const a = window.__shared(); a.when = a.when.replace(/\d{1,2}:\d{2} [AP]M$/, '12:05 AM'); });   // the visit time passes
+      await render('t03-request-accepted');
+    } else {
+      await page.click('[data-act="go-back"]');
+      await page.waitForTimeout(400);
+    }
+  }
+  const dd = await shared();
   await tailorCantMakeIt('no-show');
   await assertText('[T] T03B no-show title', '.status-hero__title', 'Sarah didn’t show.');
-  assertIncludes('[T] T03B no-show body', await q('text', '.status-hero__body'), 'Nothing was charged.');
+  assertIncludes('[T] T03B no-show body: no fee', await q('text', '.status-hero__body'), 'No fee was charged.');
   {
     const t = await terminalPlacement();
     log(t.status === 'cancelled' && t.by === 'tailor' && t.reason === 'no-show' && t.inPast && t.stash, '[S] tailorCancels(no-show): past[0] + lastCancelled', JSON.stringify(t));
   }
   await page.click('[data-act="calendar"]');
-  await assertAt('[T] View Calendar → T01', 't01-home', 'cancelled');
+  /* R3-T-06: View Calendar behaves like the Calendar tab — the soonest open job (the seed's pre-visit) */
+  await assertAt('[T] View Calendar → the seed’s upcoming visit (Calendar tab, R3-T-06)', 't03-request-accepted', 'cancelled');
+  await render('t01-home');
   {
     const jobs = await q('jobCards');
     log(jobs.some((j) => j.pill === 'Cancelled' && j.right === 'No-show') && jobs.some((j) => j.right === 'Cancelled · by you'), '[T] T01 rows: No-show and Cancelled · by you', `jobs=${jobs.map((j) => `${j.pill}/${j.right}`).join(', ')}`);
@@ -1171,11 +1300,13 @@ await fresh('H');
     const cards = await q('bookings');
     log(cards.past.some((x) => x.pill === 'Cancelled' && x.meta === 'Missed appointment') && cards.past.some((x) => x.pill === 'Cancelled' && x.meta === 'Cancelled by Marco'), '[C] 09 Past: Missed appointment + Cancelled by Marco', `past=${cards.past.map((x) => `${x.pill}/${x.meta}`).join(', ')}`);
   }
+  await render('01-home');
+  await assertHomeOutcome('[C] 01 shows the Missed-appointment outcome above the seed (R3-U-03)', { pill: 'Cancelled', meta: 'Missed appointment' });
   await openBookingsCard('[C] 09 Missed appointment card', { pill: 'Cancelled', meta: 'Missed appointment' });
   await assertAt('[C] card → 03/Cancelled', '03-status-cancelled', 'cancelled');
-  await assertText('[C] 03/Cancelled no-show title', '.status-hero__title', `We missed you at ${await fmtWhen(c.when)}`);
-  assertIncludes('[C] 03/Cancelled no-show body', await q('text', '.status-hero__body'), 'Marco marked this visit as a no-show. Nothing was charged.');
-  assertEq('[C] 03/Cancelled: no fee rows', await q('count', '.fee-row'), 0);
+  await assertText('[C] 03/Cancelled no-show title (R3-U-08)', '.status-hero__title', 'We missed you');
+  assertEq('[C] 03/Cancelled no-show body dates the visit, refunds the paid deposit (R3-U-06)', await q('text', '.status-hero__body'), `Marco marked the ${await fmtWhen(dd.when)} visit as a no-show. Your $24 deposit is refunded — no fee this time.`);
+  assertEq('[C] 03/Cancelled keeps the receipt rows (deposit was paid)', await q('fees'), '$240 -$24 $216');
   await assertText('[C] 03/Cancelled primary CTA', '[data-act="rerequest"]', 'Find Another Tailor');
 }
 

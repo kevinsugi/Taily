@@ -57,7 +57,7 @@ export function openAddCardOverlay({ onCancel = null } = {}) {
     // close() first — it restores the scroll freeze after the slide-out
     root.querySelector('[data-act="next"]')?.addEventListener('click', () => {
       if (!complete()) return;
-      close(); requestTailor(); go('03-status-requested');
+      close(); requestTailor(); go('03-status-requested', { replace: true });
     });
     if (onCancel) {
       const reopen = () => setTimeout(onCancel, 320);   // after the slide-out
@@ -83,7 +83,7 @@ function wire(root) {
   const complete = wireCardFields(root);
   root.querySelector('[data-act="next"]')?.addEventListener('click', () => {
     if (!complete()) return;
-    requestTailor(); go('03-status-requested');
+    requestTailor(); go('03-status-requested', { replace: true });
   });
   const dismiss = () => { back() || go('02.3-payment-sheet'); };
   root.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', dismiss));

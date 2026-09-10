@@ -8,6 +8,9 @@
    tailorAccepts (R2-T-02); Accept lands on T03 with `replace` and an
    already-accepted job shows an inert `Accepted` with no Decline
    (R2-T-11); an expired request shows no Accept at all (R2-T-03).
+   Round 3 (R3-T-02): while a proposal is pending the primary is
+   `Withdraw Proposal` (same handler as T01's link) and there is no
+   Accept — accepting would book the time Marco just said he can't do.
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
@@ -15,7 +18,7 @@ import { summaryCard, garmentCard, cta, toast } from '../components.js';
 import { money, garmentAmount } from '../data.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, payoutRows } from '../tailor-components.js';
-import { current, jobView, tailorOf, isFixture, isSeed, T, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
+import { current, jobView, tailorOf, isFixture, isSeed, restartTimer, T, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
 
 /** The booked order as ViewOnly cards (shared with T03). */
 export function bookedCards(v) {
@@ -43,11 +46,17 @@ export function viewRequest(s, mode = null) {
     : a?.proposed?.when && !fixture
       ? `<p class="t-body c-500">You proposed ${jobView({ ...a, when: a.proposed.when }).when} — waiting for Sarah.</p>`
       : '';
+  /* R3-T-02: while Marco's proposal is out, the original time is not
+     his to accept — Withdraw Proposal leads, Decline stays */
+  const proposed = !fixture && !expired && !accepted && !!a?.proposed?.when;
   const actions = expired
     ? cta('Back to Home', { attrs: 'data-act="home"' })
     : accepted
       ? cta('Accepted', { attrs: 'data-act="accept"' })
-      : `${cta(`Accept Request · ${v.money.payout}`, { attrs: 'data-act="accept"' })}
+      : proposed
+        ? `${cta('Withdraw Proposal', { attrs: 'data-act="withdraw"' })}
+    ${cta('Decline', { variant: 'secondary', attrs: 'data-act="decline"' })}`
+        : `${cta(`Accept Request · ${v.money.payout}`, { attrs: 'data-act="accept"' })}
     ${cta('Decline', { variant: 'secondary', attrs: 'data-act="decline"' })}`;
   return `${tailorChrome('home')}
 <div class="body" data-s="t02-appointment-request">
@@ -86,6 +95,13 @@ export function wire(root) {
     go('t03-request-accepted', { replace: true });   // R2-T-11: back never re-offers Accept
   });
   root.querySelector('[data-act="decline"]')?.addEventListener('click', () => go('t03a-decline-request'));
+  root.querySelector('[data-act="withdraw"]')?.addEventListener('click', () => {
+    const a = current(state);
+    if (!a?.proposed || !T.withdrawProposal(a)) { toast('No proposal to withdraw'); return; }
+    restartTimer(a);
+    toast('Proposal withdrawn');
+    go('t01-home');
+  });
 }
 
 register('t02-appointment-request', viewRequest, wire);

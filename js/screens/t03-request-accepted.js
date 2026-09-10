@@ -11,7 +11,9 @@
    harness deep link, which keeps the frame).
    Round 2: renders the tapped job (R2-T-01); the pre-visit view gains
    a tertiary "Can't make it" CTA → modal (I need to cancel / Sarah
-   didn't show) → tailorCancels(a, reason) → T03B (R2-T-05).
+   didn't show) → tailorCancels(a, reason) → T03B (R2-T-05). Round 3
+   (R3-T-05): the modal states the consequence per reason and gates
+   no-show on the visit time (openCantMakeIt takes the job).
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
@@ -66,7 +68,7 @@ export function wire(root) {
   root.querySelector('[data-act="start"]')?.addEventListener('click', () => go('t04-appointment-details'));
   root.querySelector('[data-act="status"]')?.addEventListener('click', () => go(jobTarget(current(state))));
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));
-  root.querySelector('[data-act="cant-make-it"]')?.addEventListener('click', () => openCantMakeIt((reason) => {
+  root.querySelector('[data-act="cant-make-it"]')?.addEventListener('click', () => openCantMakeIt(current(state), (reason) => {
     const job = current(state);
     if (jobView(job).canon !== 'confirmed' || !T.cancel(job, reason)) { toast('This job is no longer on your calendar'); return; }
     toast(reason === 'no-show' ? 'Marked as a no-show — Sarah has been notified' : 'Job cancelled — Sarah has been notified');

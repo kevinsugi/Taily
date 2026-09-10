@@ -8,11 +8,11 @@
    ============================================================ */
 
 import { statusBar, topNav, statusPill, progressBar, ctaSmall, cta, photoTile, selector, additionalSelector, feeRow, toast, modalOverlay } from './components.js';
-import { GARMENT_TYPES, JOB_TYPES, GARMENT_ICONS, money, garmentAmount } from './data.js';
+import { GARMENT_TYPES, JOB_TYPES, GARMENT_ICONS, money, garmentAmount, fmtWhen, parseWhen } from './data.js';
 import { ICON_ADD_CIRCLE } from './icons.js';
 import { render as go } from './app.js';
 import { state } from './state.js';
-import { primaryJob, setCurrent, jobTarget } from './tailor-data.js';
+import { primaryJob, setCurrent, jobTarget, isSeed, depositOf } from './tailor-data.js';
 
 /** statusPill with the round-2 `expired` variant (declined styling,
     "Expired") — falls back to the declined variant until the substrate
@@ -38,14 +38,21 @@ export function tailorChrome(active = 'home', time = '9:41') {
   return statusBar(time) + '\n' + topNav(`t-${active}`, T_NAV);
 }
 
-/** Tailor nav routing: Home → T01, Calendar → the soonest open job's
-    status screen (R2-T-01). */
+/** The Calendar tab (R2-T-01, R3-T-06): the soonest job still on the
+    calendar opens its status screen; nothing live → T01. T03B's
+    `View Calendar` does the same. */
+export function openCalendar() {
+  const a = primaryJob(state);
+  if (a) setCurrent(a);
+  go(a ? jobTarget(a) : 't01-home');
+}
+/** Tailor nav routing: Home → T01, Calendar → openCalendar(). */
 export function wireTailorNav(root) {
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {
     e.preventDefault();
     const k = el.dataset.nav;
     if (k === 't-home') go('t01-home');
-    else if (k === 't-calendar') { const a = primaryJob(state); if (a) setCurrent(a); go(a ? jobTarget(a) : 't01-home'); }
+    else if (k === 't-calendar') openCalendar();
     else toast('Shop is outside this prototype');
   }));
 }
@@ -76,9 +83,11 @@ export function sectionRow(label, right = '') {
  */
 export function requestCard({
   payout, name, meta, address, lines = [], expires = 'EXPIRES IN 1H 24M', where = '88 Leonard St, 4B · 1.2 mi',
-  idx = 0, proposed = '', note = '',
+  idx = 0, proposed = '', note = '', count = '',
 }) {
   const key = ` data-req="${idx}"`;
+  /* R3-T-03: "$108 · 1 item" — two same-day requests differ by more than the payout */
+  const head = `<b>${payout}</b>${count ? `<span class="req-card__count">· ${count}</span>` : ''}`;
   const actions = proposed
     ? `<p class="req-card__proposed">Time proposed · ${proposed} — waiting for Sarah</p>
     <div class="req-card__actions">
@@ -93,7 +102,7 @@ export function requestCard({
   <div class="req-card__timer" data-act="time-passes"${key} title="Demo: time passes"><span data-timer${key}>${expires}</span><span>${where}</span></div>
   <div class="req-card__details">
     <div class="req-card__who">
-      <div class="req-card__name"><b>${payout}</b><span>|</span><span>${name}</span></div>
+      <div class="req-card__name">${head}<span>|</span><span>${name}</span></div>
       <div class="req-card__meta"><span>${meta}</span><span>◉ <b>${address}</b></span>${note ? `<span class="req-card__note">${note}</span>` : ''}</div>
     </div>
     <ul class="req-card__items">${lines.map((l) => `<li>${l}</li>`).join('')}</ul>
@@ -104,10 +113,12 @@ export function requestCard({
 
 /** Active Job Card (470:3993) — date badge, name/meta, payout, progress,
     pill + right text. `payout: null` suppresses the payout column
-    (R2-T-06: a withdrawn / expired request never was a job). */
-export function jobCard({ month, day, name, meta, payout, status = 'confirmed', pillLabel, stage = 'confirmed', right = '', rightInk = false, attrs = '' }) {
-  const pay = payout == null ? '' : `<div class="job-card__pay"><span class="job-card__payout">${payout}</span><span class="job-card__paylabel">Payout</span></div>`;
-  return `<article class="job-card" ${attrs}>
+    (R2-T-06: a withdrawn / expired request never was a job). `closed`
+    (R3-T-03) is the muted "Done today" variant for cancelled / withdrawn
+    / expired rows — nothing left to do, no payout column. */
+export function jobCard({ month, day, name, meta, payout, status = 'confirmed', pillLabel, stage = 'confirmed', right = '', rightInk = false, attrs = '', closed = false }) {
+  const pay = payout == null || closed ? '' : `<div class="job-card__pay"><span class="job-card__payout">${payout}</span><span class="job-card__paylabel">Payout</span></div>`;
+  return `<article class="job-card${closed ? ' job-card--closed' : ''}" ${attrs}>
   <div class="job-card__top">
     <div class="appt-card__date"><span class="appt-card__month">${month}</span><span class="appt-card__day">${day}</span></div>
     <div class="job-card__info"><span class="job-card__name">${name}</span><span class="job-card__meta">${meta}</span></div>
@@ -126,31 +137,54 @@ export function removedRows(removed = []) {
 }
 
 /**
- * T03 pre-visit "Can't make it" modal (R2-T-05): two T2 radio rows and
- * a confirm; `onConfirm(reason)` gets 'cant-make-it' or 'no-show'.
+ * T03 pre-visit "Can't make it" modal (R2-T-05, R3-T-05): two T2 radio
+ * rows, a consequence line that follows the selected row, and a confirm
+ * that names the action once a reason is chosen (`Cancel Job` / `Mark
+ * No-show`). The no-show row is disabled while the visit is still ahead
+ * — the seed's Jul 12 fiction counts as today. `onConfirm(reason)` gets
+ * 'cant-make-it' or 'no-show'. The frame (612:4397) draws "I need to
+ * cancel" selected.
  */
-export function cantMakeItHtml() {
+const CONSEQUENCE = {
+  'cant-make-it': (a) => `The job closes, Sarah is notified and her ${money(depositOf(a))} deposit is refunded.`,
+  'no-show': () => 'The job closes and Sarah is notified. No fee is charged this time.',
+};
+const CONFIRM_LABEL = { 'cant-make-it': 'Cancel Job', 'no-show': 'Mark No-show' };
+/** Is the visit still ahead of us? The seed's Jul 12 is "today". */
+export const visitAhead = (a, now = Date.now()) => !isSeed(a) && (parseWhen(a?.when)?.date.getTime() ?? 0) > now;
+
+export function cantMakeItHtml(a = null, { selected = null } = {}) {
+  const ahead = !!a && visitAhead(a);
+  const noShowNote = ahead ? `<span class="radio-row__note">Available after ${fmtWhen(a.when)}</span>` : '';
+  const consequence = selected ? CONSEQUENCE[selected]?.(a) ?? '' : '';
   return `<div class="modal modal--reasons">
   <h2 class="modal__title">Can’t make this visit?</h2>
   <div class="reasons reasons--modal" role="radiogroup" aria-label="Reason">
-    ${radioRow('I need to cancel', { attrs: 'data-reason="cant-make-it"' })}
+    ${radioRow('I need to cancel', { selected: selected === 'cant-make-it', attrs: 'data-reason="cant-make-it"' })}
     ${hairline()}
-    ${radioRow('Sarah didn’t show', { attrs: 'data-reason="no-show"' })}
+    ${radioRow(`Sarah didn’t show${noShowNote}`, { selected: selected === 'no-show', attrs: `data-reason="no-show"${ahead ? ' disabled aria-disabled="true"' : ''}` })}
   </div>
+  <p class="modal__consequence" data-consequence${consequence ? '' : ' hidden'}>${consequence}</p>
   <div class="modal__actions">
-    ${cta('Confirm', { attrs: 'data-act="confirm-cancel"' })}
+    ${cta(selected ? CONFIRM_LABEL[selected] : 'Confirm', { attrs: 'data-act="confirm-cancel"' })}
     ${cta('Go Back', { variant: 'secondary', attrs: 'data-act="go-back"' })}
   </div>
 </div>`;
 }
-export function openCantMakeIt(onConfirm) {
-  return modalOverlay(cantMakeItHtml(), { dataS: 't03.1-cant-make-it' }, (root, close) => {
+export function openCantMakeIt(a, onConfirm) {
+  if (typeof a === 'function') { onConfirm = a; a = null; }   // round-2 call shape
+  return modalOverlay(cantMakeItHtml(a), { dataS: 't03.1-cant-make-it' }, (root, close) => {
     let reason = null;
+    const line = root.querySelector('[data-consequence]');
+    const confirm = root.querySelector('[data-act="confirm-cancel"]');
     root.querySelectorAll('[data-reason]').forEach((el) => el.addEventListener('click', () => {
+      if (el.disabled) return;
       reason = el.dataset.reason;
       root.querySelectorAll('.radio-row').forEach((r) => { r.classList.toggle('radio-row--selected', r === el); r.setAttribute('aria-checked', r === el); });
+      if (line) { line.textContent = CONSEQUENCE[reason]?.(a) ?? ''; line.hidden = !line.textContent; }
+      if (confirm) confirm.textContent = CONFIRM_LABEL[reason] ?? 'Confirm';
     }));
-    root.querySelector('[data-act="confirm-cancel"]')?.addEventListener('click', () => {
+    confirm?.addEventListener('click', () => {
       if (!reason) { toast('Choose a reason first'); return; }
       close();
       onConfirm(reason);

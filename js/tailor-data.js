@@ -90,9 +90,44 @@ export const T = {
   expire: (a) => call('expireAppointment', a),
   cancel: (a, reason) => call('tailorCancels', a, reason),
   propose: (a, when) => call('proposeTime', a, when),
-  withdrawProposal: (a) => call('declineProposedTime', a),
+  /* R3-T-02: Marco withdrawing his own proposal is attributed to him */
+  withdrawProposal: (a) => call('declineProposedTime', a, 'tailor'),
   refreshItems: (a) => call('refreshItemSummary', a),
 };
+
+/* ---------- round-3 substrate reads (call-time lookups) ----------
+   data.js gains proposalDays / payoutDate this round; each is looked up
+   when called so this module loads while data.js is being extended. */
+
+/** Wheel rows Marco may propose (R3-T-01): the substrate bounds them by
+    Sarah's need-by day; until it lands, the round-2 seven days from the
+    requested visit. `[]` = no later slot to offer. */
+export function proposalDays(a) {
+  if (typeof D.proposalDays === 'function') return D.proposalDays(a) ?? [];
+  const from = a?.when;
+  const to = D.shiftDay(from, 6);
+  return from && to ? D.dayRows(from, to, 7) : [];
+}
+/** Who declined the pending proposal — 'tailor' (Marco withdrew it) or
+    'customer' (Sarah kept looking); null when none was declined. Reads
+    the round-3 `{ when, by }` shape and the round-2 string. */
+export function proposalDeclinedBy(a) {
+  const d = a?.proposalDeclined;
+  if (!d) return null;
+  return typeof d === 'object' ? (d.by ?? 'customer') : 'customer';
+}
+/** "Mon, Jul 20" — the day the payout lands (R3-T-04: handoff day + 4,
+    rounded to a weekday, in the substrate). The frames' literal stands
+    until data.js provides it. */
+export function payoutDate(a) {
+  const d = typeof D.payoutDate === 'function' ? D.payoutDate(a) : null;
+  return d || 'Mon, Jul 20';
+}
+/** The order number both personas share (R3-T-04): stamped by
+    requestTailor; the seed keeps the frames' TLY-2026-4417. */
+export const orderId = (a) => a?.orderId ?? 'TLY-2026-4417';
+/** The deposit Sarah paid on a confirmed booking (10% of what she booked). */
+export const depositOf = (a) => a?.totals?.deposit ?? 20;
 /** The first pickup window data.js offers for this job (R2-U-02's
     handoffWindows), in the dated label 05A stores ("Thu, Jul 16 · 9–11 AM")
     — the T07 demo "Sarah chose pickup now" (R2-T-07). */
@@ -118,10 +153,18 @@ export function jobs(s = state) {
 }
 
 const whenMs = (a) => parseWhen(a?.when)?.date.getTime() ?? Number.MAX_SAFE_INTEGER;
-/** The soonest non-terminal job (Calendar tab, fallbacks). */
+/** A job Marco still has something to do on: confirmed → ready (not
+    delivered, not closed). */
+export const isOpenJob = (a) => !isTerminalJob(a) && canon(a) !== 'delivered' && canon(a) !== 'searching';
+/** The soonest job still on the calendar (Calendar tab, T03B's View
+    Calendar, fallbacks): open jobs first, then requests, then — only
+    when nothing else is live — the latest delivered one (R3-T-06). Never
+    a closed job. */
 export function primaryJob(s = state) {
-  const open = jobs(s).filter((a) => !isTerminalJob(a)).sort((x, y) => whenMs(x) - whenMs(y));
-  return open[0] ?? jobs(s)[0] ?? null;
+  const all = jobs(s);
+  const live = all.filter((a) => !isTerminalJob(a) && canon(a) !== 'delivered').sort((x, y) => whenMs(x) - whenMs(y));
+  const open = live.filter(isOpenJob);
+  return open[0] ?? live[0] ?? all.find((a) => canon(a) === 'delivered') ?? null;
 }
 
 /** Tailor-side UI flags kept on state (throwaway, like state.ui):
@@ -138,7 +181,7 @@ export function setCurrent(a, s = state) { tailorUi(s).current = a ?? null; retu
 export function current(s = state) {
   const ui = tailorUi(s);
   if (ui.current && jobs(s).includes(ui.current)) return ui.current;
-  ui.current = primaryJob(s);
+  ui.current = primaryJob(s) ?? jobs(s)[0] ?? null;
   return ui.current;
 }
 /** Round-1 name, kept for callers that only need "a job". */

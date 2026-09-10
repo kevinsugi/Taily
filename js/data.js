@@ -140,6 +140,7 @@ export const SEED_UPCOMING = [
   /* `mine: true` tags the appointment both personas share (the tailor
      side resolves "Sarah's job" by this tag, never by index). */
   { mine: true, name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'home', place: '88 Leonard Street',
+    orderId: 'TLY-2026-4417',   // R3-T-04: the frames' order number; fresh bookings count up from it
     when: 'Sunday Jul 12, 7PM', needBy: 'Fri, Jul 17', status: 'confirmed', items: '3 items · Alterations',
     visit: 'Home Visit', count: 3, month: 'JUL', day: '12',
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
@@ -357,3 +358,64 @@ export function isAfter(needBy, when) {
 }
 /** Human label for the saved pay method (03/Cancelled's refund line). */
 export const PAY_LABELS = { apple: 'Apple Pay', google: 'Google Pay', card: 'Visa •••• 4242' };
+
+/* ============================================================
+   UX-LOOP round 3 substrate (shared by both personas)
+   ============================================================ */
+const dayStart = (str) => {
+  const p = parseWhen(str);
+  if (!p) return null;
+  const d = new Date(p.date); d.setHours(0, 0, 0, 0);
+  return d;
+};
+/** Day-level: is `when`'s calendar day after `bound`'s? false when
+    either side fails to parse (R3-U-02 / R3-T-01 — the same rule
+    markReady uses, not the datetime `isAfter`). */
+export function isAfterDay(when, bound) {
+  const a = dayStart(when); const b = dayStart(bound);
+  return !!(a && b && a > b);
+}
+
+/**
+ * The days a tailor may propose for a request (R3-U-02 / R3-T-01), as
+ * wheel rows ("Thu 10 Sept"): the requested day through the need-by
+ * day. The need-by day itself is offered only while a wheel slot can
+ * still precede the need-by time (the wheel's earliest hour is 7 AM);
+ * a need-by at or before 7 AM stops at the day before. Falls back to
+ * seven days from the requested visit only when the need-by is
+ * missing / unparsable.
+ */
+export function proposalDays(a) {
+  const from = a?.when;
+  const start = dayStart(from);
+  if (!start) return [];
+  const nb = parseWhen(a?.needBy);
+  if (!nb) return dayRows(from, shiftDay(from, 6), 7);
+  let last = new Date(nb.date); last.setHours(0, 0, 0, 0);
+  if (nb.hour != null && nb.hour * 60 + nb.min <= 7 * 60) last.setDate(last.getDate() - 1);
+  if (last < start) last = start;
+  return dayRows(from, `${MON[last.getMonth()]} ${last.getDate()}`, 31);
+}
+
+/**
+ * When the tailor's payout lands (R3-T-04): the handoff day
+ * (`deliveredAt`, else the scheduled window's day, else `readyAt`,
+ * else — nothing ready yet — the day before need-by, markReady's own
+ * default) plus 4 days, rounded forward to a weekday. "Fri, Jul 17".
+ * The Jul 12 seed yields "Mon, Jul 20" (ready Thu Jul 16 + 4).
+ */
+export function payoutDate(a) {
+  const base = a?.deliveredAt ?? a?.fulfilment?.date ?? a?.readyAt ?? (a?.needBy ? shiftDay(a.needBy, -1) : null);
+  const p = parseWhen(base);
+  if (!p) return 'Mon, Jul 20';
+  const d = new Date(p.date); d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 4);
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}`;
+}
+
+/** Order ids per booking (R3-T-04): the seed keeps TLY-2026-4417;
+    every requestTailor() takes the next one (4418, 4419, …). */
+let orderSeq = 4417;
+export const SEED_ORDER_ID = 'TLY-2026-4417';
+export const nextOrderId = () => `TLY-2026-${++orderSeq}`;

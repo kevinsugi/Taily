@@ -546,11 +546,11 @@
    frame hugs its content; the 03 variants are shorter than the phone) */
 .screen[data-screen="03-status-expired"] { min-height: 784px; }
 .screen[data-screen="03-status-declined"] { min-height: 818px; }
-.screen[data-screen="03-status-tailor-cancelled"] { min-height: 786px; }
-.screen[data-screen="03-status-no-show"] { min-height: 820px; }
+.screen[data-screen="03-status-tailor-cancelled"] { min-height: 930px; }   /* round 3: fee rows shown (R3-U-06) */
+.screen[data-screen="03-status-no-show"] { min-height: 951px; }   /* round 3: fee rows shown, one-line title (R3-U-06/08) */
 .screen[data-screen="04-review-approve-removed"] { min-height: 997px; }
 .screen[data-screen="03-status-new-time"] { min-height: 872px; }
-.screen[data-screen="09-bookings-closed"] { min-height: 1078px; }
+.screen[data-screen="09-bookings-closed"] { min-height: 1050px; }   /* round 3: no matching note under a proposed time (R3-U-07) */
 
 /* PV3 - Photo Viewer (559:2112): 04D dimmed under an ink@95% scrim,
    filmstrip panel pinned at the 128 offset. Literal 2/10px gaps and

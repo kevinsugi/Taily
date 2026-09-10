@@ -2,7 +2,8 @@
    T01 - Home / View Requests — Figma 455:3560.
    Serif greeting, New Requests (one request card per job Sarah is
    still asking for), Active Jobs (one job card per open job + Leo Von
-   filler, then this session's Cancelled / Withdrawn / Expired rows).
+   filler), and — once something ended today — a "Done today" section
+   (delivered first, then Cancelled / Withdrawn / Expired rows).
    Gap 16. Active=T-Home.
 
    UX-LOOP round 1: the request card's payout / lines / meta and the
@@ -17,7 +18,14 @@
    "Sarah kept her original time" when she declined it. R2-T-05/06:
    terminal rows per reason (by you / No-show / Withdrawn / Expired).
    R2-T-09: "Sarah has questions" while she talks the order over.
-   The harness deep link keeps the frame's fixture.
+   Round 3: R3-T-02 — Withdraw is Marco's own act ("You withdrew your
+   proposed time"); an expired request whose proposal went unanswered
+   says so. R3-T-03 — the three-way partition above; closed rows are
+   the muted `closed` card variant with no payout column; live request
+   cards carry "$108 · 1 item" so two same-day requests read apart.
+   The harness deep link keeps the frame's fixture; the round-3 frame
+   "T01 - Home / Closed Rows" (t01-home-closed) draws the "Done today"
+   section.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
@@ -26,7 +34,7 @@ import { fmtWhen } from '../data.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, sectionRow, requestCard, jobCard } from '../tailor-components.js';
 import {
-  jobs, jobView, jobTarget, tailorOf, setCurrent, isFixture, isSeed, isLapsed, requestTimer, restartTimer, endedBy, canon, T,
+  jobs, jobView, jobTarget, tailorOf, setCurrent, isFixture, isSeed, isLapsed, requestTimer, restartTimer, endedBy, canon, proposalDeclinedBy, T,
   CUSTOMER, FILLER_JOB,
 } from '../tailor-data.js';
 
@@ -35,22 +43,26 @@ import {
    fiction renders on the harness deep link only — live, a confirmed
    job is a job (R2-T-01: no phantom "New Request" for an accepted visit) */
 const isRequest = (a, fixture) => canon(a) === 'searching' || (fixture && isSeed(a) && canon(a) === 'confirmed' && !tailorOf(a).requestHandled);
-const isOpenJob = (a) => !['searching', 'declined', 'expired', 'cancelled'].includes(canon(a));
+/* R3-T-03: Active Jobs = confirmed → ready-for-pickup; delivered and
+   closed jobs live under "Done today" */
+const isActive = (a) => ['confirmed', 'awaiting-approval', 'tailoring', 'ready-for-pickup'].includes(canon(a));
+const isDone = (a) => ['delivered', 'cancelled', 'expired', 'declined'].includes(canon(a));
 
 function requestFor(a, idx, fixture) {
   const v = jobView(a);
   const t = tailorOf(a);
-  const kept = !!a.proposalDeclined && !a.proposed;
+  const by = a.proposed ? null : proposalDeclinedBy(a);
   return requestCard({
     idx,
     payout: fixture ? '$180' : v.money.payout,
+    count: fixture ? '' : `${v.items} item${v.items === 1 ? '' : 's'}`,
     name: CUSTOMER.name,
     address: `${fixture ? CUSTOMER.short : v.address} · ${CUSTOMER.dist}`,
     meta: fixture ? '▤ Tonight 7:00 PM · Need by Fri, Jul 17 (5 Days)' : `▤ ${v.when} · Need by ${v.needBy}`,
     lines: v.lines.length ? v.lines : ['Suit Jacket - Hem / Adjust Length - $120', 'Suit Jacket - Sleeve / Adjust Length - $80'],
     expires: requestTimer(t),
     proposed: a.proposed?.when ? fmtWhen(a.proposed.when) : '',
-    note: kept ? 'Sarah kept her original time' : '',
+    note: by === 'tailor' ? 'You withdrew your proposed time' : by === 'customer' ? 'Sarah kept her original time' : '',
   });
 }
 
@@ -63,18 +75,24 @@ function openJobFor(a, idx, fixture) {
   });
 }
 
-/** This session's closed jobs — Cancelled (by Sarah / by you / no-show),
-    Withdrawn and Expired rows; declined ones simply leave. */
-function closedRowFor(a, idx, fixture) {
+/** "Done today": the completed job keeps its payout; Cancelled (by
+    Sarah / by you / no-show), Withdrawn and Expired rows are the muted
+    closed variant; declined ones simply leave. */
+function doneRowFor(a, idx, fixture) {
   const v = jobView(a);
+  if (v.canon === 'delivered') return openJobFor(a, idx, fixture);
   const how = endedBy(a);
   if (how === 'declined') return '';
   const meta = fixture ? '7:00PM - 88 Leonard St, 4B' : v.meta;
-  const base = { month: v.month, day: v.day, name: CUSTOMER.name, stage: 'confirmed', attrs: `data-act="open-job" data-job="${idx}"` };
-  if (how === 'expired') return jobCard({ ...base, meta: `Request lapsed · ${v.when}`, payout: null, status: 'expired', pillLabel: 'Expired', right: 'No action needed' });
-  if (how === 'withdrawn') return jobCard({ ...base, meta, payout: null, status: 'cancelled', pillLabel: 'Withdrawn', right: 'No action needed' });
+  const base = { month: v.month, day: v.day, name: CUSTOMER.name, stage: 'confirmed', closed: true, attrs: `data-act="open-job" data-job="${idx}"` };
+  if (how === 'expired') {
+    /* R3-T-02: the proposal Marco made lapsed with the request */
+    const lapsed = a.lapsedProposal ? 'Request lapsed — your proposal went unanswered' : `Request lapsed · ${v.when}`;
+    return jobCard({ ...base, meta: lapsed, status: 'expired', pillLabel: 'Expired', right: 'No action needed' });
+  }
+  if (how === 'withdrawn') return jobCard({ ...base, meta, status: 'cancelled', pillLabel: 'Withdrawn', right: 'No action needed' });
   const right = how === 'no-show' ? 'No-show' : how === 'tailor' ? 'Cancelled · by you' : 'Slot reopened';
-  return jobCard({ ...base, meta, payout: v.money.payout, status: 'cancelled', pillLabel: 'Cancelled', right });
+  return jobCard({ ...base, meta, status: 'cancelled', pillLabel: 'Cancelled', right });
 }
 
 /** Exported: `t01-home-closed` (round-3 frame "T01 - Home / Closed Rows")
@@ -83,8 +101,12 @@ export function viewTailorHome(s) {
   const fixture = isFixture();
   const list = jobs(s);
   const requests = list.map((a, i) => (isRequest(a, fixture) ? requestFor(a, i, fixture) : '')).filter(Boolean);
-  const open = list.map((a, i) => (isOpenJob(a) ? openJobFor(a, i, fixture) : '')).filter(Boolean);
-  const closed = list.map((a, i) => (['cancelled', 'expired', 'declined'].includes(canon(a)) ? closedRowFor(a, i, fixture) : '')).filter(Boolean);
+  const active = list.map((a, i) => (isActive(a) ? openJobFor(a, i, fixture) : '')).filter(Boolean);
+  /* delivered first, then the closed rows, each group in list order */
+  const done = [
+    ...list.map((a, i) => (canon(a) === 'delivered' ? doneRowFor(a, i, fixture) : '')),
+    ...list.map((a, i) => (isDone(a) && canon(a) !== 'delivered' ? doneRowFor(a, i, fixture) : '')),
+  ].filter(Boolean);
 
   return `${tailorChrome('home')}
 <div class="body" data-s="t01-home">
@@ -93,10 +115,13 @@ export function viewTailorHome(s) {
   ${requests.length ? `<div class="t-actions t-actions--16">${requests.join('\n    ')}</div>` : '<p class="t-body c-500">No new requests.</p>'}
   ${sectionRow('Active Jobs', 'View All')}
   <div class="t-actions t-actions--16">
-    ${open.join('\n    ')}
+    ${active.join('\n    ')}
     ${jobCard({ ...FILLER_JOB, attrs: 'data-act="filler"' })}
-    ${closed.join('\n    ')}
   </div>
+  ${done.length ? `${sectionRow('Done today')}
+  <div class="t-actions t-actions--16 t-done">
+    ${done.join('\n    ')}
+  </div>` : ''}
 </div>`;
 }
 
@@ -122,7 +147,8 @@ export function wire(root) {
   root.querySelectorAll('[data-act="decline"]').forEach((el) => el.addEventListener('click', () => { setCurrent(at(el)); go('t03a-decline-request'); }));
   root.querySelectorAll('[data-act="withdraw"]').forEach((el) => el.addEventListener('click', () => {
     const a = at(el);
-    if (T.withdrawProposal(a)) { restartTimer(a); toast('Proposal withdrawn — Sarah keeps her original time'); rerender(); }
+    /* R3-T-02: Marco's own act — Sarah did nothing */
+    if (T.withdrawProposal(a)) { restartTimer(a); toast('Proposal withdrawn'); rerender(); }
   }));
   root.querySelectorAll('[data-act="open-job"]').forEach((el) => el.addEventListener('click', () => { const a = at(el); setCurrent(a); go(jobTarget(a)); }));
   root.querySelector('[data-act="filler"]')?.addEventListener('click', () => toast('Leo Von’s job is outside this prototype'));

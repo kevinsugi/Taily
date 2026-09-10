@@ -19,7 +19,7 @@ import { register, render as go } from '../app.js';
 import { cta, toast } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, jobCard, orderCards, payoutRows } from '../tailor-components.js';
-import { current, jobView, isFixture, T, FIXTURE_T06, CUSTOMER } from '../tailor-data.js';
+import { current, jobView, isFixture, payoutDate, T, FIXTURE_T06, CUSTOMER } from '../tailor-data.js';
 
 const LINE = {
   'awaiting-approval': 'Waiting for Sarah to approve the final order. You’ll be notified — tailoring starts after approval.',
@@ -38,7 +38,7 @@ export function viewStatus(s, forced = null) {
   const line = fixture ? '' : talking ? TALK : {
     ...LINE,
     'ready-for-pickup': a.fulfilment ? `Ready — handoff ${a.fulfilment.window}.` : 'Ready — waiting for Sarah to schedule the handoff.',
-    delivered: `Completed · payout ${v.money.payout} on Mon, Jul 20.`,
+    delivered: `Completed · payout ${v.money.payout} on ${payoutDate(a)}.`,   // R3-T-04
   }[v.canon] ?? '';
   const primary = fixture || v.canon === 'awaiting-approval' || v.canon === 'tailoring'
     ? cta('Mark Ready', { attrs: 'data-act="ready"' })

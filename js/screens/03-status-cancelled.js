@@ -110,10 +110,12 @@ export function viewCancelled(s, forced = null) {
   const neverConfirmed = !!live && (live.wasRequested || status === 'declined' || status === 'expired');
   /* fee rows wherever the fee was actually charged: the frame's
      fixture and any CONFIRMED visit that ended — the customer's own
-     cancel, the tailor's cancel, a no-show, the unconfirmed auto-cancel */
+     cancel, the tailor's cancel, a no-show, the unconfirmed auto-cancel.
+     R7-U-04: no Total row on a visit that ended — only the fee was ever
+     charged, so Alterations (est.) + the fee row with its outcome. */
   const charged = !live || !neverConfirmed;
   const rows = charged ? `
-      ${orderRows(t, { est: true, feeDesc: feeDesc(a, !!live) })}` : '';
+      ${orderRows(t, { est: true, feeDesc: feeDesc(a, !!live), total: false })}` : '';
   const refund = v.body ? '' : `
     <div class="prepare-card">
       ${neverConfirmed

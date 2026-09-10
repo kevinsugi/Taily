@@ -82,10 +82,13 @@ export function view02(s) {
 }
 
 /** R7: the visitation fee card — the tier for the booked item count,
-    with the $50 / $100 tiers' supporting line. */
+    R7-U-03's second line summing the form's alterations ("Alterations
+    est. $240 · paid at pickup or delivery"), then the $50 / $100 tiers'
+    supporting line. */
 export function feeCard(t) {
   return `<div class="prepare-card fee-card" data-fee-card>
     <p class="t-body w-500 c-ink fee-card__line">Visitation fee ${money(t.visitFee)} · ${itemsLabel(t.items, 'item')}</p>
+    <p class="t-small c-500 fee-card__est">Alterations est. ${money(t.alterations)} · paid at pickup or delivery</p>
     ${t.note ? `<p class="t-small c-500 fee-card__note">${t.note}</p>` : ''}
   </div>`;
 }

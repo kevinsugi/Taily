@@ -10,12 +10,16 @@
    UX-LOOP round 7 (Kevin): rows Alterations / Visitation fee — paid /
    [Additional visitation fee — when the final item count re-tiered
    it, charged at handoff] / Total / Due at handoff (alterations + the
-   added fee). Figma sync pending (Default / Modified / Removed frames
-   still draw Subtotal / -$20 Deposit / Due).
+   added fee). R7-U-02: the added row says why — "Additional visitation
+   fee — 5 items now, $50 tier" — with a fee-note under the rows ("Your
+   order grew to 5 items, so the visitation fee is now $50. The extra
+   $25 is charged with your alterations at handoff."). Figma sync
+   pending (Default / Modified / Removed frames still draw Subtotal /
+   -$20 Deposit / Due).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, cta, orderCards, orderRows } from '../components.js';
+import { chrome, cta, orderCards, orderRows, feeTierNote } from '../components.js';
 import { money, SEED_UPCOMING } from '../data.js';
 import { apptEntry, approveOrder, finalOrder, orderModified, isPostAppointment, isTerminal, canonicalStatus } from '../state.js';
 import { openRequestChanges } from './04.1-request-changes.js';
@@ -44,7 +48,8 @@ export function viewReview(s, screenId, fixture) {
   <div class="garments-card">
     ${orderCards(o, { variant: 'PostAppt', marks: true })}
     ${removed.map((r) => `<div class="removed-row t-small c-500"><span>Removed at the visit — ${r.type} · ${(r.jobs ?? []).join(', ')}</span><s>${money(r.amount)}</s></div>`).join('\n    ')}
-    ${orderRows(t, { feeDesc: 'Visitation fee — paid', due: 'Due at handoff', info })}
+    ${orderRows(t, { feeDesc: 'Visitation fee — paid', due: 'Due at handoff', info, tier: true })}
+    ${feeTierNote(t)}
   </div>
   <div class="cta-bar">
     ${cta('Approve Final Order', { attrs: 'data-act="approve"' })}

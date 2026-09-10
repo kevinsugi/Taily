@@ -19,7 +19,9 @@
    alteration prices on the cards ("$200 | New Request" / "Your payout
    $200" / "Accept Request · $200"); the Subtotal and Taily Fee rows are
    gone. Accept stamps `a.tailor.acceptedPayout`, which only moves when
-   the scope changes at the visit.
+   the scope changes at the visit. R7-T-02: the expired view keeps the
+   "$200 | Request Expired" header but its money row is the muted
+   "Payout offered" — money that lapsed with the request.
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
@@ -80,7 +82,7 @@ export function viewRequest(s, mode = null) {
     ${summaryCard({ initials: CUSTOMER.initials, name: CUSTOMER.name, rows })}
     <div class="garments-card">
       ${bookedCards(v)}
-      ${payoutRows(v)}
+      ${payoutRows(v, { offered: expired })}
     </div>
   </div>
   <div class="t-actions">

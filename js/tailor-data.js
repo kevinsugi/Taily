@@ -16,7 +16,7 @@
    from Taily for a defined payout = 100% of the alteration prices —
    booked $200 → payout $200; final $360 → payout $360. There is no
    commission, and NOTHING on the tailor side reads the customer's
-   total, the visitation fee or delivery (`a.totals` is never printed
+   total, what she paid Taily, or delivery (`a.totals` is never printed
    here). Pre-visit screens read the BOOKED order (`a.garments`, or
    `a.booked` once T05 Send has written the final order back);
    post-visit screens read the final `a.garments` the user side shares
@@ -133,11 +133,11 @@ export function payoutDate(a) {
 export const orderId = (a) => a?.orderId ?? 'TLY-2026-4417';
 
 /* ---------- round-7 money reads (call-time lookups) ----------
-   The visitation fee is Taily's and the tailor never sees its amount;
-   the only fee fact the tailor side reads is whether Sarah CONFIRMED
-   the visit on her 24-hour prompt (`a.feeLocked`, stamped by the
-   substrate's confirmAppointment): a no-show then keeps the fee with
-   Taily, otherwise it is refunded. A tailor cancel always refunds it. */
+   What Sarah paid Taily is between her and Taily — nothing on the tailor
+   side names it (rule-literal after the director verification). The one
+   fact kept readable is whether Sarah CONFIRMED the visit on her 24-hour
+   prompt (`a.feeLocked`, stamped by the substrate's confirmAppointment);
+   no tailor copy reads it any more. */
 export const feeLocked = (a) => a?.feeLocked === true;
 /** The tailor's payout for a garment list = 100% of the alteration
     prices (data.js `payout()` once it lands; the same sum until then). */
@@ -297,8 +297,8 @@ export function jobView(a) {
   const garments = post ? (a?.garments ?? []) : bookedGarments(a);
   /* the payout is the sum of the alteration prices on the cards — the
      final order post-visit, the booking before it. `a.totals` (the
-     customer's alterations / visitation fee / delivery / total) is
-     never read on the tailor side. */
+     customer's alterations / Taily's fee / delivery / total) is never
+     read on the tailor side. */
   const payout = payoutOf(garments);
   const delivery = a?.fulfilment?.method === 'delivery';
   const PILL = {

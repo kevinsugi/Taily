@@ -729,3 +729,24 @@ ALLOWs reference this ledger. One dedicated money sync applies them all when Kev
   the substrate because 03.2's Confirm both locks and completes the visit (demo compression);
   03/Reminder's fee caption wraps to two lines; the T06 frame's `$120` card price is in the ALLOWs
   (fixture now itemises $200/$80/$80).
+
+### Round 7 — director verification of the money model (Sep 10 2026)
+- **Tailor flow — SIGN-OFF** (`round7/review-tailor/money-review.md`, 147 assertions, 67 shots):
+  payout leads every request surface, unchanged after acceptance, scope changes shown before Send,
+  no customer pricing on 48 live + fixture states, tone = a job from Taily.
+- **User flow — NOT YET** (`round7/review-user/money-review.md`, 159 assertions, 61 shots): the
+  model is implemented as ruled on every path (tiers, held → charged → locked, every refund / keep
+  outcome, re-tier, receipts, cross-persona equality, no old vocabulary on 35 deep links); two
+  P2s about the customer *understanding* the rules.
+
+| ID | P | Finding (short) | Decision | Scope |
+|---|---|---|---|---|
+| R7-U-01 | P2 | The non-refundable warning is 12px fine print on 03/Reminder; the committing 03.2 modal never mentions it | **ACCEPT** | Promote to a "Before you confirm" callout in the actions block (body size, ink, `!` glyph; Kevin's sentence as the body + "no-shows included"); 03.2 gains a row `! Your $25 visitation fee is now non-refundable.` |
+| R7-U-02 | P2 | `Additional visitation fee` on 04 with no reason | **ACCEPT** | Caption where it first appears (04, 03/Tailoring): `Additional visitation fee — 5 items now, $50 tier`, plus a `fee-note` line "Your order grew to 5 items, so the visitation fee is now $50. The extra $25 is charged with your alterations at handoff." Receipts keep the short label |
+| R7-U-03 | P3 | 02 never totals the alterations before the hold | **ACCEPT** | Fee card second line `Alterations est. $240 · paid at pickup or delivery` |
+| R7-U-04 | P3 | 03/Cancelled keeps a `Total` row on a visit where only the fee was charged | **ACCEPT** | Drop the Total row on terminal entries; keep Alterations (est.) + the fee row with its outcome |
+| O-3 / rule 4 | — | Tailor refund lines name "her visitation fee" (no amount) | **ACCEPT (rule-literal)** | T03.1 / T03B never mention the customer's fee: cancel `The job closes and Sarah is notified.`; no-show `The job closes and Sarah is notified.` (nothing about money) |
+| R7-T-01 | P3 | Pending payout looks final on the job card while awaiting approval | **ACCEPT** | Card caption `Payout · pending` while awaiting-approval |
+| R7-T-02 | P3 | Expired request still advertises a payout | **ACCEPT** | T02 expired: muted row labelled `Payout offered`, header `$240 \| Request Expired` kept |
+| R7-T-03 | P3 | On a three-card draft T05's payout and change line sit below the fold | **ACCEPT** | Header sub `Reviewed with Sarah at the visit · Payout $360` (live) |
+| Note | — | Tailor no-show compensation (a wasted trip earns nothing) | **Kevin** | Policy question, not built |

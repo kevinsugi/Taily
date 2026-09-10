@@ -48,12 +48,18 @@
 }
 .cta-bar__note { text-align: center; }
 /* UX-LOOP round 7 (money model v2): 02's visitation-fee card above the
-   CTA bar, 03/Confirmed · Reminder's "paid at handoff" note under the
-   rows, 03/Reminder's non-refundable warning above the actions. */
+   CTA bar (R7-U-03: + the alterations estimate line), 03/Confirmed ·
+   Reminder · Tailoring · 04's notes under the rows. */
 .fee-card { gap: var(--space-2, 2px); }
-.fee-card__line, .fee-card__note { margin: 0; }
-.fee-note, .fee-warning { margin: 0; }
-.fee-warning { padding: 0 var(--space-4); text-align: center; }
+.fee-card__line, .fee-card__note, .fee-card__est { margin: 0; }
+.fee-note { margin: 0; }
+/* R7-U-01: 03/Reminder's "Before you confirm" callout in the actions
+   block — a prepare-card with a leading ! glyph (03.2's row glyph)
+   beside the title, body-size ink copy, left-aligned. */
+.fee-callout { text-align: left; }
+.fee-callout__title { display: flex; align-items: flex-start; gap: var(--space-8); margin: 0; }
+.fee-callout__glyph { font-weight: 700; flex-shrink: 0; }
+.fee-callout__body { margin: 0; }
 /* half-pixel baseline shim â€” Figma rasterises 02's CTA-bar block 0.5px
    lower; measured per screen (04c/04d want none). */
 [data-s="02-appointment-details"] .cta-bar > * { transform: translateY(0.5px); }

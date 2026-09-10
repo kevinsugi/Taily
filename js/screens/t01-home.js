@@ -79,6 +79,7 @@ function openJobFor(a, idx, fixture) {
   return jobCard({
     month: v.month, day: v.day, name: CUSTOMER.name, meta: fixture ? '7:00PM - 88 Leonard St, 4B' : v.meta, payout: v.money.payout,
     status: v.pill, pillLabel: v.pillLabel, stage: v.stage, right, attrs: `data-act="open-job" data-job="${idx}"`,
+    pending: v.canon === 'awaiting-approval',   // R7-T-01: "Payout · pending" until Sarah approves
   });
 }
 

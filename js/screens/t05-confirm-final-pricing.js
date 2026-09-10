@@ -23,6 +23,7 @@
 
 import { register, render as go, back } from '../app.js';
 import { cta, toast } from '../components.js';
+import { money } from '../data.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, payoutChangeRow, removedRows } from '../tailor-components.js';
 import { current, jobView, draftFor, orderMarks, orderMoney, payoutChange, bookedGarments, writeFinalOrder, tailorOf, isFixture, isTerminalJob, T } from '../tailor-data.js';
@@ -34,9 +35,13 @@ export function viewPricing(s, forced = null) {
   const fixture = isFixture() && !forced;
   const draft = forced?.draft ?? draftFor(s, a, { fixture });
   const { marks, removed } = orderMarks(draft, forced?.booked ?? bookedGarments(a));
+  /* R7-T-03: on a long draft the payout row sits below the fold — the
+     live header sub carries the draft's payout too ("… · Payout $360");
+     the fixture routes keep the frame's sub. */
+  const sub = isFixture() ? 'Reviewed with Sarah at the visit' : `Reviewed with Sarah at the visit · Payout ${money(orderMoney(draft).payout)}`;
   return `${tailorChrome('calendar')}
 <div class="body" data-s="t05-confirm-final-pricing">
-  ${backHeader('Confirm Details', 'Reviewed with Sarah at the visit')}
+  ${backHeader('Confirm Details', sub)}
   <div class="garments-card">
     ${orderCards(draft, { variant: 'Appt_View', marks })}
     ${fixture ? '' : removedRows(removed)}

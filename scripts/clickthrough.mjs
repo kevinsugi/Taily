@@ -211,11 +211,18 @@ await assertAt('tailor accepts', '03-status-confirmed', 'confirmed');
 // UX-LOOP R1-U-01: the tailor card is the demo "day before" → reminder
 await page.click('.summary-card');
 await assertAt('reminder fires (confirmed)', '03-status-reminder', 'confirmed');
-// R7: the reminder IS the confirmation prompt — the non-refundable line
-// sits before Confirm; the pill is the plain Confirmed until confirmed
+// R7: the reminder IS the confirmation prompt — R7-U-01: the "Before you
+// confirm" callout heads the actions block (a prepare-card, body-size
+// ink copy, ! glyph) right above Confirm; the pill is the plain
+// Confirmed until confirmed
 {
-  const r = await page.evaluate(() => ({ warn: document.querySelector('[data-fee-warning]')?.textContent.trim(), pill: document.querySelector('.status-hero .pill span:last-child')?.textContent.trim() }));
-  check('03/Reminder non-refundable line before Confirm', r.warn === 'Confirming makes your $25 visitation fee non-refundable. Cancel before confirming for a full refund.' && r.pill === 'Confirmed', JSON.stringify(r));
+  const r = await page.evaluate(() => {
+    const w = document.querySelector('[data-fee-warning]');
+    const cs = w && getComputedStyle(w.querySelector('[data-fee-warning-body]'));
+    return { title: [...(w?.querySelector('.fee-callout__title')?.children ?? [])].map((c) => c.textContent.trim()).join(' '), body: w?.querySelector('[data-fee-warning-body]')?.textContent.trim(), inActions: !!w?.closest('.actions'), beforeConfirm: w?.nextElementSibling?.matches('[data-act="confirm"]'), card: w?.classList.contains('prepare-card'), size: cs?.fontSize, ink: cs?.color, pill: document.querySelector('.status-hero .pill span:last-child')?.textContent.trim() };
+  });
+  check('03/Reminder "Before you confirm" callout before Confirm (R7-U-01)', r.title === '! Before you confirm' && r.body === 'Confirming makes your $25 visitation fee non-refundable — no-shows included. Cancel before confirming and it’s refunded in full.' && r.inActions && r.beforeConfirm && r.card && r.pill === 'Confirmed', JSON.stringify(r));
+  check('  …body-size ink copy, not fine print', r.size === '16px' && r.ink === 'rgb(28, 27, 24)', `${r.size} ${r.ink}`);
 }
 // Phase R2: Reschedule / Cancel opens the R1 popup; Go Back dismisses
 await page.click('[data-act="reschedule"]');
@@ -231,6 +238,11 @@ await assertOverlay('  …popup gone', null);
 // the appointment happen.
 await page.click('[data-act="confirm"]');
 await assertOverlay('  …05C popup overlays', '03.2-appointment-confirmed');
+// R7-U-01: the tap that locks the fee says so — a ! row between the frame's two
+{
+  const rows = await page.evaluate(() => [...document.querySelectorAll('.screen-sheet--overlay .modal__row')].map((e) => [...e.children].map((c) => c.textContent.replace(/\s+/g, ' ').trim()).join(' ')));
+  check('03.2 row 2: fee now non-refundable (R7-U-01)', rows.length === 3 && rows[1] === '! Your $25 visitation fee is now non-refundable.' && /^✓ Marco will message/.test(rows[0]) && /^! Please prepare/.test(rows[2]), rows.join(' | '));
+}
 await page.click('[data-act="confirm-appt"]');        // appointment happens
 await page.waitForTimeout(400);
 // Phase R0: 06 - Order Status was deleted; 04D (Appointment Status)
@@ -617,7 +629,8 @@ await page.evaluate(() => window.Taily.render('03-status-confirmed'));
 await assertAt('03/Confirmed for the kept-fee entry → 03/Cancelled', '03-status-cancelled');
 {
   const r = await page.evaluate(() => ({ body: document.querySelector('.status-hero__body')?.textContent.trim(), desc: document.querySelectorAll('.fee-row__desc')[1]?.textContent.trim(), fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), refundCard: document.querySelectorAll('.prepare-card').length }));
-  check('  …03/Cancelled: kept body + Kept row', r.body === `Your $${near.fee} visitation fee was kept — you had confirmed the visit.` && r.desc === 'Visitation fee — Kept' && r.fees === '$120 $25 $145' && r.refundCard === 0, JSON.stringify(r));
+  // R7-U-04: no Total row on a visit that ended — Alterations (est.) + the fee row with its outcome
+  check('  …03/Cancelled: kept body + Kept row, no Total (R7-U-04)', r.body === `Your $${near.fee} visitation fee was kept — you had confirmed the visit.` && r.desc === 'Visitation fee — Kept' && r.fees === '$120 $25' && r.refundCard === 0, JSON.stringify(r));
 }
 
 // the copied-over job is not resubmitted again — clear the form
@@ -673,11 +686,13 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
   const on02 = async (garments) => {
     await page.evaluate((g) => { window.Taily.state.garments = g; window.Taily.render('02-appointment-details'); }, garments);
     await page.waitForTimeout(200);
-    return page.evaluate(() => ({ card: document.querySelector('.fee-card__line')?.textContent.trim(), note: document.querySelector('.fee-card__note')?.textContent.trim() ?? null, cta: document.querySelector('[data-act="request"]')?.textContent.trim() }));
+    return page.evaluate(() => ({ card: document.querySelector('.fee-card__line')?.textContent.trim(), est: document.querySelector('.fee-card__est')?.textContent.trim() ?? null, note: document.querySelector('.fee-card__note')?.textContent.trim() ?? null, order: [...document.querySelector('.fee-card').children].map((e) => e.className.split(' ').pop()).join(','), cta: document.querySelector('[data-act="request"]')?.textContent.trim() }));
   };
   const g = (n, qty = 1) => Array.from({ length: n }, () => ({ type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], qty, photos: 0 }));
   let r = await on02(g(2));
   check('02 fee card 2 items → $25, no note', r.card === 'Visitation fee $25 · 2 items' && r.note === null && r.cta === 'Hold $25 Visitation Fee', JSON.stringify(r));
+  // R7-U-03: the second line sums the form's alterations before the hold
+  check('02 fee card line 2: Alterations est. $240 · paid at pickup or delivery (R7-U-03)', r.est === 'Alterations est. $240 · paid at pickup or delivery' && r.order === 'fee-card__line,fee-card__est', `"${r.est}" ${r.order}`);
   r = await on02(g(4));
   check('02 fee card 4 items → still $25', r.card === 'Visitation fee $25 · 4 items' && r.note === null, JSON.stringify(r));
   r = await on02(g(5));
@@ -688,6 +703,7 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
   check('02 fee card 10 items → $50', r.card === 'Visitation fee $50 · 10 items', JSON.stringify(r));
   r = await on02(g(11));
   check('02 fee card 11 items → $100 + note, CTA Hold $100', r.card === 'Visitation fee $100 · 11 items' && r.note === 'Helps cover transportation for larger appointments.' && r.cta === 'Hold $100 Visitation Fee', JSON.stringify(r));
+  check('  …line 2 follows the live sum, tier note stays third (R7-U-03)', r.est === 'Alterations est. $1320 · paid at pickup or delivery' && r.order === 'fee-card__line,fee-card__est,fee-card__note', `"${r.est}" ${r.order}`);
   // the payment sheet quotes the same fee
   await page.click('[data-act="request"]');
   await assertOverlay('  …payment sheet overlays', '02.3-payment-sheet');
@@ -729,7 +745,17 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
   await page.evaluate(() => window.Taily.render('04-review-approve-modified'));
   await page.waitForTimeout(200);
   const rows = await page.evaluate(() => ({ fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), info: document.querySelectorAll('.fee-row--info').length }));
-  check('04/Modified re-tiered: $520 / $25 paid / +$25 Additional visitation fee / $570 / due $545', rows.fees === '$520 $25 $25 $570 $545' && rows.descs === 'Alterations | Visitation fee — paid | Additional visitation fee | Total | Due at handoff' && rows.info === 4, `${rows.fees} | ${rows.descs} info=${rows.info}`);
+  // R7-U-02: the added row says why, and a fee-note under the rows explains the re-tier (04 + 03/Tailoring; receipts keep the short label)
+  const TIER_NOTE = 'Your order grew to 5 items, so the visitation fee is now $50. The extra $25 is charged with your alterations at handoff.';
+  check('04/Modified re-tiered: $520 / $25 paid / +$25 Additional visitation fee — 5 items now, $50 tier / $570 / due $545', rows.fees === '$520 $25 $25 $570 $545' && rows.descs === 'Alterations | Visitation fee — paid | Additional visitation fee — 5 items now, $50 tier | Total | Due at handoff' && rows.info === 4, `${rows.fees} | ${rows.descs} info=${rows.info}`);
+  {
+    const n = await page.evaluate(() => document.querySelector('[data-fee-tier-note]')?.textContent.trim());
+    check('04/Modified fee-note explains the re-tier (R7-U-02)', n === TIER_NOTE, `"${n}"`);
+    await page.evaluate(() => window.Taily.render('03-status-tailoring'));
+    await page.waitForTimeout(200);
+    const t = await page.evaluate(() => ({ descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), note: document.querySelector('[data-fee-tier-note]')?.textContent.trim() }));
+    check('03/Tailoring (awaiting) carries the same caption + fee-note (R7-U-02)', t.descs === 'Alterations | Visitation fee — paid | Additional visitation fee — 5 items now, $50 tier | Total | Due at handoff' && t.note === TIER_NOTE, `${t.descs} | "${t.note}"`);
+  }
   await page.evaluate(async () => { const S = await import('/js/state.js'); const a = window.Taily.state.upcoming[0]; S.approveOrder(a); S.markReady(a); window.Taily.render('05a-pickup-window'); });
   await page.waitForTimeout(200);
   const due = await page.evaluate(() => document.querySelector('.due-card__amount')?.textContent.trim());
@@ -737,7 +763,7 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
   await page.evaluate(() => window.Taily.render('05b-delivery-options'));
   await page.waitForTimeout(200);
   const b = await page.evaluate(() => [...document.querySelectorAll('.info-row')].map((e) => [...e.children].map((c) => c.textContent.trim()).join(' ')).join(' | '));
-  check('05b rows: Alterations $520 | Additional visitation fee $25 | Delivery $20 | Due at delivery $565', b === 'Alterations $520 | Additional visitation fee $25 | Delivery $20 | Due at delivery $565', b);
+  check('05b rows keep the short label: Alterations $520 | Additional visitation fee $25 | Delivery $20 | Due at delivery $565', b === 'Alterations $520 | Additional visitation fee $25 | Delivery $20 | Due at delivery $565', b);
   const rc = await page.evaluate(async () => {
     const S = await import('/js/state.js'); const a = window.Taily.state.upcoming[0];
     S.chooseFulfilment('delivery', 'Fri, Jul 17 · 4–6 PM', 'Jul 17', a); S.deliver(a);
@@ -746,7 +772,7 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
     return { delivery: a.totals.delivery, total: a.totals.total, fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), chargedOn: a.feeChargedOn };
   });
   check('chooseFulfilment(delivery) adds $20 to the totals ($590)', rc.delivery === 20 && rc.total === 590, JSON.stringify({ delivery: rc.delivery, total: rc.total }));
-  check('06 receipt (delivery, re-tiered): $520 / $25 / $25 / $20 / $590 / paid $565', rc.fees === '$520 $25 $25 $20 $590 $565' && rc.descs === `Alterations | Visitation fee — paid ${rc.chargedOn} | Additional visitation fee | Delivery | Total | Paid at delivery 7/17/26`, `${rc.fees} | ${rc.descs}`);
+  check('06 receipt (delivery, re-tiered) keeps the short label: $520 / $25 / $25 / $20 / $590 / paid $565', rc.fees === '$520 $25 $25 $20 $590 $565' && rc.descs === `Alterations | Visitation fee — paid ${rc.chargedOn} | Additional visitation fee | Delivery | Total | Paid at delivery 7/17/26` && !(await page.evaluate(() => !!document.querySelector('[data-fee-tier-note]'))), `${rc.fees} | ${rc.descs}`);
   // park it under Past so the later probes read the seeds as before
   await page.evaluate(() => { const s = window.Taily.state; const d = s.upcoming.shift(); s.upcoming.push(d); s.garments = []; s.ui.homeSelection = {}; });
 }

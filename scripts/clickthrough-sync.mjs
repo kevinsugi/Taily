@@ -467,6 +467,7 @@ async function tailorVisitAndSend(a, { deep = false } = {}) {
     assertEq('[T] T05 card prices', (await q('texts', '.garment-card__price')).join(' '), '$200 $120 $80');
     assertEq('[T] T05 payout row (R7)', await q('fees'), '$400');
     assertIncludes('[T] T05 states the scope change before Send (R7)', await q('text', '[data-payout-change]'), 'Payout $240 → $400 (+$160)');
+    await assertText('[T] T05 header sub carries the draft payout (R7-T-03)', '.t-header .t-body', 'Reviewed with Sarah at the visit · Payout $400');
     assertEq('[T] T05 lists no removals', await q('count', '.t-removed__row'), 0);
   }
   await page.click('[data-act="send"]');
@@ -478,6 +479,7 @@ async function tailorVisitAndSend(a, { deep = false } = {}) {
     /* R7: the tailor side names the payout in this line ("Sarah is reviewing the updated order — payout $400 once approved.") */
     await assertTrue('[T] T06 status line (awaiting approval, R7 payout wording accepted)', () => /Waiting for Sarah to approve|Sarah is reviewing the updated order/.test(document.querySelector('.t-header .t-body')?.textContent ?? ''));
     await assertText('[T] T06 job payout = the final $400 (R7)', '.job-card__payout', '$400');
+    await assertText('[T] T06 job caption = Payout · pending while Sarah approves (R7-T-01)', '.job-card__paylabel', 'Payout · pending');
     await assertText('[T] T06 job pill', '.job-card .pill span:last-child', 'Awaiting Customer');
     await assertText('[T] T06 job right slot', '.job-card__bottom > span:last-child', '3 items');
     assertEq('[T] T06 cards = the sent order', await q('count', '.garment-card'), 3);
@@ -956,7 +958,7 @@ await fresh('E', { solo: true });
   await assertText('[C] 03/Cancelled pill', '.status-hero .pill span:last-child', 'Cancelled');
   await assertText('[C] 03/Cancelled customer title', '.status-hero__title', 'Appointment Cancelled');
   await assertText('[C] 03/Cancelled body: fee refunded to the real pay method (R7)', '.status-hero__body', 'Your $25 visitation fee is refunded to Apple Pay.');
-  assertEq('[C] 03/Cancelled keeps the confirmed order rows (R7)', await q('fees'), '$240 $25 $265');
+  assertEq('[C] 03/Cancelled keeps Alterations (est.) + the fee row, no Total (R7-U-04)', await q('fees'), '$240 $25');
   assertIncludes('[C] 03/Cancelled fee row reads Refunded (R7)', (await q('feeDescs'))[1], 'Visitation fee — Refunded');
   await flip();
   await assertAt('[T] View as Tailor after the cancel', 't01-home', 'cancelled', 'tailor');
@@ -1005,7 +1007,8 @@ await fresh('E', { solo: true });
   await render('03-status-confirmed');
   await page.click('.summary-card');                     // the day before arrives → 03/Reminder
   await assertAt('[C] tailor card → 03/Reminder (the confirmation prompt)', '03-status-reminder', 'confirmed', 'user');
-  await assertText('[C] 03/Reminder non-refundable line before Confirm (R7)', '[data-fee-warning]', 'Confirming makes your $25 visitation fee non-refundable. Cancel before confirming for a full refund.');
+  await assertText('[C] 03/Reminder "Before you confirm" callout body before Confirm (R7-U-01)', '[data-fee-warning-body]', 'Confirming makes your $25 visitation fee non-refundable — no-shows included. Cancel before confirming and it’s refunded in full.');
+  await assertTrue('[C] 03/Reminder callout heads the actions block, right above Confirm (R7-U-01)', () => { const w = document.querySelector('[data-fee-warning]'); return w.classList.contains('prepare-card') && w.parentElement.classList.contains('actions') && w.nextElementSibling.matches('[data-act="confirm"]'); });
   {
     const r = await page.evaluate(() => { const a = window.__shared(); const ok = window.__sync.confirmAppointment(a); return { ok, locked: a.feeLocked, at: a.confirmedAt ?? null }; });
     log(r.ok === true && r.locked === true && !!r.at, '[S] confirmAppointment: feeLocked + confirmedAt (R7)', JSON.stringify(r));
@@ -1430,7 +1433,7 @@ await fresh('H');
   await assertText('[C] 03/Cancelled tailor-cancelled title', '.status-hero__title', 'Marco had to cancel');
   await assertText('[C] 03/Cancelled pill', '.status-hero .pill span:last-child', 'Cancelled');
   assertEq('[C] 03/Cancelled body: the CHARGED fee is refunded (R7)', await q('text', '.status-hero__body'), 'Your $25 visitation fee is refunded to Apple Pay. We can find you another tailor.');
-  assertEq('[C] 03/Cancelled keeps the receipt rows (fee was charged, R7)', await q('fees'), '$240 $25 $265');
+  assertEq('[C] 03/Cancelled keeps Alterations (est.) + the fee row, no Total (R7-U-04)', await q('fees'), '$240 $25');
   assertIncludes('[C] 03/Cancelled fee row reads Refunded (R7)', (await q('feeDescs'))[1], 'Visitation fee — Refunded');
   assertEq('[C] 03/Cancelled: no refund card (the body says it)', await q('count', '.prepare-card'), 0);
   await assertText('[C] 03/Cancelled primary CTA', '[data-act="rerequest"]', 'Find Another Tailor');
@@ -1509,7 +1512,7 @@ await fresh('H');
   await assertAt('[C] card → 03/Cancelled', '03-status-cancelled', 'cancelled');
   await assertText('[C] 03/Cancelled no-show title (R3-U-08)', '.status-hero__title', 'We missed you');
   assertEq('[C] 03/Cancelled no-show body dates the visit, fee kept (R7)', await q('text', '.status-hero__body'), `Marco marked the ${await fmtWhen(dd.when)} visit as a no-show, so your $25 visitation fee was kept.`);
-  assertEq('[C] 03/Cancelled keeps the receipt rows (fee was charged, R7)', await q('fees'), '$240 $25 $265');
+  assertEq('[C] 03/Cancelled keeps Alterations (est.) + the fee row, no Total (R7-U-04)', await q('fees'), '$240 $25');
   assertEq('[C] 03/Cancelled fee row reads Kept (R7)', (await q('feeDescs'))[1], 'Visitation fee — Kept');
   await assertText('[C] 03/Cancelled primary CTA', '[data-act="rerequest"]', 'Find Another Tailor');
 }

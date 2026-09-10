@@ -12,7 +12,7 @@ import { GARMENT_TYPES, JOB_TYPES, GARMENT_ICONS, money, garmentAmount, fmtWhen,
 import { ICON_ADD_CIRCLE } from './icons.js';
 import { render as go } from './app.js';
 import { state } from './state.js';
-import { primaryJob, setCurrent, jobTarget, isSeed, feeLocked, tailorUi } from './tailor-data.js';
+import { primaryJob, setCurrent, jobTarget, isSeed, tailorUi } from './tailor-data.js';
 
 /** statusPill with the round-2 `expired` variant (declined styling,
     "Expired") — falls back to the declined variant until the substrate
@@ -126,9 +126,11 @@ export function requestCard({
     pill + right text. `payout: null` suppresses the payout column
     (R2-T-06: a withdrawn / expired request never was a job). `closed`
     (R3-T-03) is the muted "Done today" variant for cancelled / withdrawn
-    / expired rows — nothing left to do, no payout column. */
-export function jobCard({ month, day, name, meta, payout, status = 'confirmed', pillLabel, stage = 'confirmed', right = '', rightInk = false, attrs = '', closed = false }) {
-  const pay = payout == null || closed ? '' : `<div class="job-card__pay"><span class="job-card__payout">${payout}</span><span class="job-card__paylabel">Payout</span></div>`;
+    / expired rows — nothing left to do, no payout column. `pending`
+    (R7-T-01) captions the payout "Payout · pending" while Sarah is
+    still approving the sent order — the number is not settled yet. */
+export function jobCard({ month, day, name, meta, payout, status = 'confirmed', pillLabel, stage = 'confirmed', right = '', rightInk = false, attrs = '', closed = false, pending = false }) {
+  const pay = payout == null || closed ? '' : `<div class="job-card__pay"><span class="job-card__payout">${payout}</span><span class="job-card__paylabel">${pending ? 'Payout · pending' : 'Payout'}</span></div>`;
   return `<article class="job-card${closed ? ' job-card--closed' : ''}" ${attrs}>
   <div class="job-card__top">
     <div class="appt-card__date"><span class="appt-card__month">${month}</span><span class="appt-card__day">${day}</span></div>
@@ -156,13 +158,12 @@ export function removedRows(removed = []) {
  * 'cant-make-it' or 'no-show'. The frame (612:4397) draws "I need to
  * cancel" selected.
  */
-/* Round 7 (Kevin): the visitation fee is Taily's and its amount is never
-   shown to the tailor. A tailor cancel always refunds it; a no-show
-   keeps it with Taily only once Sarah confirmed the visit (feeLocked). */
-export const NO_SHOW_FEE = (a) => (feeLocked(a) ? 'Her visitation fee stays with Taily.' : 'Her visitation fee is refunded.');
+/* Round 7 (Kevin, rule-literal after the director verification): what
+   Sarah paid Taily is between her and Taily — the consequence lines say
+   only what happens to the job and the slot. */
 const CONSEQUENCE = {
-  'cant-make-it': () => 'The job closes, Sarah is notified and her visitation fee is refunded.',
-  'no-show': (a) => `The job closes and Sarah is notified. ${NO_SHOW_FEE(a)}`,
+  'cant-make-it': () => 'The job closes, Sarah is notified and your slot reopens.',
+  'no-show': () => 'The job closes and Sarah is notified.',
 };
 const CONFIRM_LABEL = { 'cant-make-it': 'Cancel Job', 'no-show': 'Mark No-show' };
 /** Is the visit still ahead of us? The seed's Jul 12 is "today". */
@@ -238,9 +239,12 @@ export function orderDropdown(open = false) {
 /** "Your payout $X" under an order (round 7): the one money row the
     tailor sees — 100% of the alteration prices on the cards above it.
     No fee, no subtotal, nothing of the customer's. `payout` is a number
-    (jobView / orderMoney) or an already-formatted string. */
-export function payoutRows({ payout }) {
-  return feeRow(typeof payout === 'number' ? money(payout) : payout, 'Your payout');
+    (jobView / orderMoney) or an already-formatted string. `offered`
+    (R7-T-02, T02 expired): the muted "Payout offered" — money that
+    lapsed with the request. */
+export function payoutRows({ payout }, { offered = false } = {}) {
+  const price = typeof payout === 'number' ? money(payout) : payout;
+  return offered ? feeRow(price, 'Payout offered', { muted: true }) : feeRow(price, 'Your payout');
 }
 
 /** T05's scope-change line before Send: "Payout $200 → $360 (+$160)". */

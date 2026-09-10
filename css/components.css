@@ -1205,6 +1205,9 @@
 .removed-row s { flex-shrink: 0; color: var(--neutral-500); }
 /* Phase R0 (06B): totals touched by the modified order */
 .fee-row--info .fee-row__price { color: var(--info); }
+/* UX-LOOP R7-T-02 (T02 expired): money no longer on offer — the closed
+   rows' muted colour on price and caption ("Payout offered") */
+.fee-row--muted .fee-row__price, .fee-row--muted .fee-row__desc { color: var(--neutral-500); }
 
 /* ============================================================
    Modal — R1 (558:1899) / RC1 (559:3297), Phase R2. 326-wide white

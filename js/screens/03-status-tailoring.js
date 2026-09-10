@@ -15,7 +15,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, cta, toast, orderCards, orderRows, linkRow } from '../components.js';
+import { chrome, statusHero, summaryCard, cta, toast, orderCards, orderRows, feeTierNote, linkRow } from '../components.js';
 import { fmtWhen, fmtDay } from '../data.js';
 import { state, apptEntry, canonicalStatus, isTerminal, markReady, deliver, finalOrder, orderModified } from '../state.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
@@ -77,10 +77,14 @@ export function viewTailoring(s) {
   const o = finalOrder(a);
   const t = o.totals;
   /* R7 pricing rows: Alterations / Visitation fee — paid / [Additional
-     visitation fee] / [Delivery] / Total / Due at handoff (the fee was
-     charged on acceptance; alterations + the rest at handoff). Figma
-     sync pending (the frame draws Subtotal / -$20 Deposit / Due). */
-  const rows = orderRows(t, { feeDesc: 'Visitation fee — paid', due: canon === 'delivered' ? 'Paid at handoff' : 'Due at handoff' });
+     visitation fee — 5 items now, $50 tier] / [Delivery] / Total / Due
+     at handoff (the fee was charged on acceptance; alterations + the
+     rest at handoff). R7-U-02: a re-tiered fee is explained here and on
+     04 (caption + fee-note); the note goes once the order is delivered
+     (nothing left to charge at handoff). Figma sync pending (the frame
+     draws Subtotal / -$20 Deposit / Due). */
+  const rows = orderRows(t, { feeDesc: 'Visitation fee — paid', due: canon === 'delivered' ? 'Paid at handoff' : 'Due at handoff', tier: true })
+    + (canon === 'delivered' ? '' : `\n    ${feeTierNote(t)}`);
 
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-tailoring">

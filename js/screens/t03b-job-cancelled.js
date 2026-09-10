@@ -13,18 +13,16 @@
    charges no fee; "hold released" wording stays only for requests
    Marco never accepted. R3-T-06: View Calendar behaves like the
    Calendar tab (the soonest job still on the calendar).
-   Round 7 (Kevin's money model v2): the visitation fee is Taily's and
-   its amount is never shown here. A tailor cancel always refunds it
-   ("her visitation fee is refunded"); a no-show keeps it with Taily
-   only once Sarah confirmed the visit (`a.feeLocked`), else it is
-   refunded; a customer cancel says nothing about the fee — it is
-   between Sarah and Taily. The round-6 "deposit stays with you"
-   wording is gone.
+   Round 7 (Kevin's money model v2, rule-literal after the director
+   verification): what Sarah paid Taily is between her and Taily —
+   nothing here names it. Every ending says only what happened to the
+   job and the slot. The round-6 "deposit stays with you" wording is
+   gone.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { statusHero, cta } from '../components.js';
-import { tailorChrome, wireTailorNav, openCalendar, NO_SHOW_FEE } from '../tailor-components.js';
+import { tailorChrome, wireTailorNav, openCalendar } from '../tailor-components.js';
 import { current, jobView, endedBy, isFixture, isSeed } from '../tailor-data.js';
 
 const FRAME = { title: 'Job Cancelled.', body: 'Sarah cancelled this visit. The job is closed and tonight’s 7:00 PM slot is open on your calendar again.' };
@@ -35,13 +33,11 @@ export function cancelCopy(a, { forced = false } = {}) {
   const when = jobView(a).when;
   switch (endedBy(a)) {
     case 'withdrawn': return { title: 'Request withdrawn.', body: `Sarah withdrew her ${when} request before you accepted. Nothing to do.` };
-    /* round 7: a tailor cancel always refunds Sarah's visitation fee (no amount) */
-    case 'tailor': return { title: 'You cancelled this job.', body: `Sarah’s been notified and her visitation fee is refunded. Your ${when} slot is open again.` };
-    case 'no-show': return { title: 'Sarah didn’t show.', body: `The job is closed and the slot is open again. ${NO_SHOW_FEE(a)}` };
+    case 'tailor': return { title: 'You cancelled this job.', body: `Sarah’s been notified. Your ${when} slot is open again.` };
+    case 'no-show': return { title: 'Sarah didn’t show.', body: 'The job is closed and the slot is open again.' };
     case 'expired': return { title: 'Request expired.', body: `No response in time — Sarah’s ${when} request lapsed. Nothing to do.` };
     default: {
-      /* Sarah cancelled: the seed keeps the frame's "tonight" line;
-         whatever happens to her fee is between her and Taily */
+      /* Sarah cancelled: the seed keeps the frame's "tonight" line */
       const body = isSeed(a) ? FRAME.body : `Sarah cancelled this visit. The job is closed and your ${when} slot is open on your calendar again.`;
       return { title: FRAME.title, body };
     }

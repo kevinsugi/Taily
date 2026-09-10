@@ -79,7 +79,7 @@ export function chrome(active = 'home', time = '9:41') {
    ============================================================ */
 
 import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, CHEVRON_RIGHT, ICON_CARD, ICON_ADD_CIRCLE } from './icons.js';
-import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, DELIVERY_FEE, money, rowPrice, fmtWhen, fmtDay, mdy } from './data.js';
+import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, DELIVERY_FEE, money, rowPrice, fmtWhen, fmtDay, mdy, visitFee, itemsLabel } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
 export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
@@ -755,9 +755,11 @@ export function requestCard({ name, initials, rows = [] } = {}) {
 
 /** Fee row — price + caption (03/Confirmed · Tailoring, 04, 06). Long descriptions wrap.
     line: bottom hairline (Phase R0 — every row but the last).
-    info: semantic/info price (06B — totals touched by the modified order). */
-export function feeRow(price, desc, { line = false, info = false } = {}) {
-  return `<div class="fee-row${line ? ' fee-row--line' : ''}${info ? ' fee-row--info' : ''}"><span class="fee-row__price">${price}</span><span class="fee-row__desc">${desc}</span></div>`;
+    info: semantic/info price (06B — totals touched by the modified order).
+    muted: neutral-500 price + caption (R7-T-02 — money that is no
+    longer on offer, e.g. an expired request's "Payout offered"). */
+export function feeRow(price, desc, { line = false, info = false, muted = false } = {}) {
+  return `<div class="fee-row${line ? ' fee-row--line' : ''}${info ? ' fee-row--info' : ''}${muted ? ' fee-row--muted' : ''}"><span class="fee-row__price">${price}</span><span class="fee-row__desc">${desc}</span></div>`;
 }
 
 /* ============================================================
@@ -834,21 +836,43 @@ export const dueAtHandoff = (t) => dueBase(t) + (t?.delivery ?? 0);
  * 9/10/26", "… — Kept"), `due` adds the last row ("Due at handoff"),
  * `info` paints the rows the final order touched semantic/info (04
  * Modified). The added fee row is always info — it is new money.
+ * `tier` (R7-U-02: 04 and 03/Tailoring, where the re-tiered fee first
+ * appears) captions the added row with its reason — "Additional
+ * visitation fee — 5 items now, $50 tier"; receipts keep the short
+ * label. `total: false` (R7-U-04: 03/Cancelled) drops the Total row —
+ * on a visit that ended, the sum is nothing the customer paid or owes.
+ * Every row but the last carries the hairline.
  */
-export function orderRows(t, { est = false, feeDesc = 'Visitation fee — paid', due = null, info = false } = {}) {
+export function orderRows(t, { est = false, feeDesc = 'Visitation fee — paid', due = null, info = false, tier = false, total = true } = {}) {
   const alterations = t?.alterations ?? t?.subtotal ?? 0;
   const fee = t?.visitFeeCharged ?? t?.visitFee ?? 0;
   const added = t?.visitFeeAdded ?? 0;
   const delivery = t?.delivery ?? 0;
   const rows = [
-    feeRow(money(alterations), est ? 'Alterations (est.)' : 'Alterations', { line: true, info }),
-    feeRow(money(fee), feeDesc, { line: true }),
+    [money(alterations), est ? 'Alterations (est.)' : 'Alterations', { info }],
+    [money(fee), feeDesc, {}],
   ];
-  if (added > 0) rows.push(feeRow(money(added), 'Additional visitation fee', { line: true, info: true }));
-  if (delivery > 0) rows.push(feeRow(money(delivery), 'Delivery', { line: true }));
-  rows.push(feeRow(money(alterations + fee + added + delivery), 'Total', { line: !!due, info }));
-  if (due) rows.push(feeRow(money(dueAtHandoff(t)), due, { info }));
-  return rows.join('\n      ');
+  if (added > 0) rows.push([money(added), tier ? addedFeeCaption(t) : 'Additional visitation fee', { info: true }]);
+  if (delivery > 0) rows.push([money(delivery), 'Delivery', {}]);
+  if (total) rows.push([money(alterations + fee + added + delivery), 'Total', { info }]);
+  if (due) rows.push([money(dueAtHandoff(t)), due, { info }]);
+  return rows.map(([p, d, o], i) => feeRow(p, d, { ...o, line: i < rows.length - 1 })).join('\n      ');
+}
+
+/** "Additional visitation fee — 5 items now, $50 tier" (R7-U-02): the
+    re-tiered fee's caption where it first appears. Numbers from the
+    order's item count and the tier that count lands on. */
+export const addedFeeCaption = (t) => `Additional visitation fee — ${itemsLabel(t?.items ?? 0, 'item')} now, ${money(visitFee(t?.items ?? 0))} tier`;
+
+/** The note under the rows explaining a re-tiered fee (R7-U-02, 04 and
+    03/Tailoring): "Your order grew to 5 items, so the visitation fee is
+    now $50. The extra $25 is charged with your alterations at handoff."
+    Empty when the final order did not re-tier the fee. Same style as
+    the "Alterations are paid at pickup or delivery." note. */
+export function feeTierNote(t) {
+  const added = t?.visitFeeAdded ?? 0;
+  if (!(added > 0)) return '';
+  return `<p class="t-small c-500 fee-note" data-fee-tier-note>Your order grew to ${itemsLabel(t?.items ?? 0, 'item')}, so the visitation fee is now ${money(visitFee(t?.items ?? 0))}. The extra ${money(added)} is charged with your alterations at handoff.</p>`;
 }
 
 /** The receipt of a settled order (06 / 03/Summary, R1-U-07 → R7):

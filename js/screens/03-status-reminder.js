@@ -18,16 +18,23 @@ import { openConfirmPopup } from './03.2-appointment-confirmed.js';
 import { bookingSummary, currentAppt, confirmedPill } from './03-status-confirmed.js';
 
 /* UX-LOOP round 7 (Kevin): the 24-hour reminder IS the confirmation
-   prompt. Under the summary, before Confirm: "Confirming makes your
-   $25 visitation fee non-refundable. Cancel before confirming for a
-   full refund." Confirming (03.2) runs confirmAppointment() — the
-   pill then reads "Confirmed · fee non-refundable" and the line goes.
+   prompt. R7-U-01 (director verification): the consequence is a
+   "Before you confirm" callout at the head of the actions block — a
+   prepare-card with a leading ! glyph, body-size ink copy — not fine
+   print: "Confirming makes your $25 visitation fee non-refundable —
+   no-shows included. Cancel before confirming and it’s refunded in
+   full." Confirming (03.2) runs confirmAppointment() — the pill then
+   reads "Confirmed · fee non-refundable" and the callout goes.
    Unconfirmed 12 hours before the visit → Taily auto-cancels with a
    full refund (autoCancelUnconfirmed). DEMO affordance (live only):
    tapping the hero title = "12 hours pass without confirming" →
    03/Cancelled's unconfirmed variant. Figma sync pending (the frame
-   has no such line). */
-export const nonRefundableLine = (a) => (a?.feeLocked ? '' : `<p class="t-small c-500 fee-warning" data-fee-warning>Confirming makes your ${money(a?.totals?.visitFeeCharged ?? a?.totals?.visitFee ?? 25)} visitation fee non-refundable. Cancel before confirming for a full refund.</p>`);
+   has no such callout). */
+export const reminderFee = (a) => money(a?.totals?.visitFeeCharged ?? a?.totals?.visitFee ?? 25);
+export const nonRefundableCallout = (a) => (a?.feeLocked ? '' : `<div class="prepare-card fee-callout" data-fee-warning>
+      <p class="t-body w-500 c-ink fee-callout__title"><span class="fee-callout__glyph c-accent-ink">!</span><span>Before you confirm</span></p>
+      <p class="t-body c-ink fee-callout__body" data-fee-warning-body>Confirming makes your ${reminderFee(a)} visitation fee non-refundable — no-shows included. Cancel before confirming and it’s refunded in full.</p>
+    </div>`);
 
 /* Exported: R1 / RC1 / 05X draw this screen (dimmed) as their frame
    backdrop. */
@@ -47,8 +54,8 @@ export function viewReminder(s) {
       <ul class="t-body c-700 prepare-list"><li>Your garments</li><li>The shoes you plan to wear with them</li></ul>
     </div>
   </div>
-  ${nonRefundableLine(a)}
   <div class="actions">
+    ${nonRefundableCallout(a)}
     ${cta('Confirm Appointment', { attrs: 'data-act="confirm"' })}
     ${cta(`Message ${first}`, { variant: 'secondary', attrs: 'data-act="message"' })}
     ${cta('Reschedule / Cancel', { variant: 'secondary', attrs: 'data-act="reschedule"' })}

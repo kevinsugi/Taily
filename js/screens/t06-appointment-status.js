@@ -55,7 +55,7 @@ export function viewStatus(s, forced = null) {
 <div class="body" data-s="t06-appointment-status">
   ${backHeader('Appointment Status', line)}
   <div class="summary">
-    ${jobCard({ month: shown.month, day: shown.day, name: CUSTOMER.name, meta: shown.meta, payout: shown.money.payout, status: shown.pill, pillLabel: shown.pillLabel, stage: shown.stage, right })}
+    ${jobCard({ month: shown.month, day: shown.day, name: CUSTOMER.name, meta: shown.meta, payout: shown.money.payout, status: shown.pill, pillLabel: shown.pillLabel, stage: shown.stage, right, pending: shown.canon === 'awaiting-approval' })}
     <div class="garments-card">
       ${orderCards(shown.garments, { variant: 'Appt_View', plain: true })}
       ${payoutRows(shown)}

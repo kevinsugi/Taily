@@ -115,8 +115,8 @@ const ALLOW = {
   't04-appointment-details': ['$324', ...R7_T_PAYOUT],
   't05-confirm-final-pricing': ['$324', ...R7_T_PAYOUT],
   't05-removed': ['$252', ...R7_T_PAYOUT],
-  't06-appointment-status': ['$324', '$120', ...R7_T_PAYOUT],
-  't06-questions': ['$324', '$120', ...R7_T_PAYOUT],
+  't06-appointment-status': ['$324', ...R7_T_PAYOUT],
+  't06-questions': ['$324', ...R7_T_PAYOUT],
   't07-job-ready': ['Sarah will pick up her items. Payment will be processed upon pickup.'],
   't08-job-complete': ['Order total', 'Taily fee', '−$36', '$324'],
 };

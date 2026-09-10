@@ -862,3 +862,21 @@ commit; verification review of the sync (both flows, parity-focused).
 - **Follow-up:** the 04 Re-tiered frame was first drawn before its route existed (three cards,
   $410) and was re-synced to the build (fourth added card `2 × Pants / Jeans · Hem · $240`, $600 /
   $25 / $25 / $650 / $625); the Confirmed / Reminder Locked pills un-clipped. Refs re-exported; baselines accepted.
+
+### Round 8 — verification and close (Sep 10 2026)
+- **User flow — SIGN-OFF** (`round8/review-user/sync-review.md`): every user-page frame reads what
+  the build renders (16 frames composited side by side, all 35 fixture routes read via REST);
+  zero old vocabulary on the user page (visible and hidden) and on every served route; the
+  Requested card renders `Review Time` on the frame and the route; nothing about tailor
+  compensation reaches the customer; the held → charged → locked → kept / refunded ladder and
+  both receipts re-driven (35/35).
+- **Tailor flow — SIGN-OFF** (`round8/review-tailor/sync-review.md`): all 15 tailor frames match
+  the build; no `Taily Fee` / `Subtotal` / `10%` / `$180` / `$324` / `deposit` / `visitation` on
+  any tailor frame or fixture; the no-show protection row reads as part of the offer without
+  exposing the fee, T03B's trip line is honest, compensation follows the tier ($20 / $25 / $50)
+  and is paid whether or not the visit was locked (121 assertions).
+- **Housekeeping after sign-off:** 04 Modified's paid $25 painted ink; 03/Cancelled refund card weights match the prepare cards; T06 / T06 Questions card 1 now $200 with the Sleeve line (the round 1 $120 fiction retired, $120 ALLOW dropped); Status Hero Ready default sentence and the flow-chart label lost their deposit/balance wording; the 11 hidden Taily-fee rows deleted; the re-tiered route's missing body gap fixed (13.47% → 0.30%). Refs re-exported, 5 baselines accepted. `npm run check` ALL CHECKS PASS — 445s.
+- **Carried for Kevin (low):** T03B no-show gives no payout timing for the trip money (needs the
+  payout cadence); "paid if Sarah doesn't show" is agentless (optional reword); 03 variant frames
+  above 844 hug their content by his rule; Leo Von's progress-bar colour differs between the T01
+  frame and the build (pre-existing, non-money).

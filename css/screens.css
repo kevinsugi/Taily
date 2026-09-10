@@ -440,6 +440,9 @@
 .screen[data-screen="04-review-approve-modified"] { min-height: 1108px; }
 /* round 3: the Removed variant shares 04/Modified's chassis */
 [data-s="04-review-approve-removed"] { padding-bottom: var(--space-24); gap: var(--space-16); }
+/* UX-LOOP round 8: the Re-tiered fixture route shares 04/Modified's chassis
+   (gap 16 under the heading, 24 bottom pad). */
+[data-s="04-review-approve-retiered"] { padding-bottom: var(--space-24); gap: var(--space-16); }
 .heading { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
 
 /* 07 - Items Ready: inner pad 20/20/24, gap 12 */

@@ -15,6 +15,7 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, apptCard, toast } from '../components.js';
+import { tailorName } from '../data.js';
 import { state, canonicalStatus, isTerminal } from '../state.js';
 import { apptMeta, apptActions, apptTarget, apptItemsTitle, apptItemLines, wireCardActions } from './01-home.js';
 import { openLeaveReview } from './06.1-leave-review.js';
@@ -23,7 +24,7 @@ function upcomingCard(a, isFirst) {
   return apptCard({
     status: a.status,
     month: a.month, day: a.day,
-    name: a.displayName ?? a.name,
+    name: a.displayName ?? tailorName(a),   // R6: "Matching you with a tailor" until one accepts
     meta: apptMeta(a),
     itemsTitle: apptItemsTitle(a),
     items: apptItemLines(a),
@@ -39,7 +40,7 @@ function pastCard(a) {
     return apptCard({
       status: canonicalStatus(a.status),
       month: a.month, day: a.day,
-      name: a.displayName ?? a.name,
+      name: a.displayName ?? tailorName(a),   // R6: "Matching you with a tailor" until one accepts
       meta: apptMeta(a),
       itemsTitle: apptItemsTitle(a),
       items: apptItemLines(a),
@@ -49,7 +50,7 @@ function pastCard(a) {
   return apptCard({
     status: 'completed',
     month: a.month, day: a.day,
-    name: a.displayName ?? a.name,
+    name: a.displayName ?? tailorName(a),   // R6: "Matching you with a tailor" until one accepts
     meta: a.fulfilment || a.deliveredAt ? apptMeta(a) : `Picked up: ${a.when}`,
     itemsTitle: apptItemsTitle(a, a.displayCount),
     items: apptItemLines(a),

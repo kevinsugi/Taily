@@ -137,6 +137,23 @@ await page.waitForTimeout(700);
 await assertOverlay('  …dismiss reopens payment sheet', '02.3-payment-sheet');
 await page.click('.method-row');                      // Apple Pay → request sent
 await assertAt('Pay (request sent)', '03-status-requested', 'searching');
+// UX-LOOP round 6 (Kevin): no tailor name before one accepts — the
+// request card leads with ✂ + "Matching you with a tailor", the
+// 2-hour acceptance line is in the frame
+{
+  const r = await page.evaluate(() => ({
+    a: (({ name, initials, tailorId, matching }) => ({ name, initials, tailorId, matching }))(window.Taily.state.upcoming[0]),
+    name: document.querySelector('.request-card__name')?.textContent.trim(),
+    avatar: document.querySelector('.request-card .avatar')?.textContent.trim(),
+    line: document.querySelector('[data-act="expire"]')?.textContent.trim(),
+    hasMarco: /Marco/.test(document.querySelector('[data-s="03-status-requested"] .info-card')?.textContent ?? ''),
+  }));
+  const document_hasMarco = r.hasMarco;
+  check('requestTailor leaves the tailor unnamed', r.a.name === null && r.a.initials === null && r.a.tailorId === null && r.a.matching === true, JSON.stringify(r.a));
+  /* R6: the frame's request card has no name row — the customer sees NO tailor name before matching */
+  check('03/Requested card shows no tailor name before matching', r.name === undefined && !document_hasMarco, `name="${r.name}"`);
+  check('03/Requested shows the 2-hour line', r.line === 'Tailors have up to 2 hours to accept your request.', `"${r.line}"`);
+}
 // UX-LOOP R3-U-01: the appointment owns the garments now — Home has no
 // selection left over and Start Booking cannot start a duplicate
 await page.evaluate(() => window.Taily.render('01-home'));
@@ -149,6 +166,14 @@ await page.waitForTimeout(200);
     selected: Object.values(window.Taily.state.ui?.homeSelection ?? {}).filter((q) => q > 0).length,
   }));
   check('Home after Request Tailor: no selection', home.heading === 'What Are We Tailoring?' && home.garments === 0 && home.selected === 0, JSON.stringify(home));
+  // R6: the Requested card is nameless — "Matching you with a tailor",
+  // meta "Requested: …", no Message CTA while matching
+  const card = await page.evaluate(() => ({
+    name: document.querySelector('.appt-card__name')?.textContent.trim(),
+    meta: document.querySelector('.appt-card__meta')?.textContent.trim(),
+    ctas: [...document.querySelectorAll('.appt-card .cta-small')].map((b) => b.textContent.trim()),
+  }));
+  check('01 Requested card = Matching you with a tailor', card.name === 'Matching you with a tailor' && /^Requested: \w{3}, \w{3,4} \d{1,2} · /.test(card.meta ?? '') && card.ctas.length === 0, JSON.stringify(card));
 }
 await page.click('[data-act="start-booking"]');
 await assertAt('  …Start Booking stays (no duplicate)', '01-home', 'searching');
@@ -162,6 +187,16 @@ await page.waitForTimeout(200);
 }
 await page.click('[data-act="map"]');                 // demo: tailor accepts
 await assertAt('tailor accepts', '03-status-confirmed', 'confirmed');
+// R6: acceptance names Marco everywhere
+{
+  const r = await page.evaluate(() => ({
+    a: (({ name, initials, tailorId, matching }) => ({ name, initials, tailorId, matching }))(window.Taily.state.upcoming[0]),
+    card: document.querySelector('.summary-card__name')?.textContent.trim(),
+    avatar: document.querySelector('.summary-card .avatar')?.textContent.trim(),
+  }));
+  check('tailorAccepts names Marco (MT · marco)', r.a.name === 'Marco Tailor' && r.a.initials === 'MT' && r.a.tailorId === 'marco' && r.a.matching === false, JSON.stringify(r.a));
+  check('03/Confirmed card reads Marco Tailor', r.card === 'Marco Tailor' && r.avatar === 'MT', `card="${r.card}" avatar="${r.avatar}"`);
+}
 // UX-LOOP R1-U-01: the tailor card is the demo "day before" → reminder
 await page.click('.summary-card');
 await assertAt('reminder fires (confirmed)', '03-status-reminder', 'confirmed');
@@ -264,6 +299,20 @@ await assertAt('schedule pickup/delivery', '05-items-ready', 'ready-for-pickup')
 await page.click('[data-opt="pickup"]');
 await page.click('[data-act="continue"]');
 await assertAt('continue to pickup', '05a-pickup-window', 'ready-for-pickup');
+// UX-LOOP round 6 (Kevin, UX-008): the CTA carries the DATED window and
+// the secondary switches between pickup and delivery
+{
+  const ctas = () => page.evaluate(() => ({ confirm: document.querySelector('[data-act="confirm"]')?.textContent.trim(), other: document.querySelector('[data-act="select"]')?.textContent.trim() }));
+  const DATED = /^Confirm (Pickup|Delivery) · \w{3}, \w{3,4} \d{1,2} · .+$/;
+  let c = await ctas();
+  check('05A CTA = Confirm Pickup · <dated window>', DATED.test(c.confirm ?? '') && /^Confirm Pickup/.test(c.confirm) && c.other === 'Switch to Delivery', JSON.stringify(c));
+  await page.click('[data-act="select"]');
+  await assertAt('Switch to Delivery → 05B', '05b-delivery-options', 'ready-for-pickup');
+  c = await ctas();
+  check('05B CTA = Confirm Delivery · <dated window>', DATED.test(c.confirm ?? '') && /^Confirm Delivery/.test(c.confirm) && c.other === 'Switch to Pickup', JSON.stringify(c));
+  await page.click('[data-act="select"]');
+  await assertAt('Switch to Pickup → 05A', '05a-pickup-window', 'ready-for-pickup');
+}
 // Phase R6: confirming opens 07C; the order stays ready until the
 // TAILOR confirms the handoff (demo: tap the order on 04D) → 08.
 await page.click('[data-act="confirm"]');
@@ -398,24 +447,112 @@ await page.click('[data-act="accept-time"]');
 await assertAt('Accept New Time → 03/Confirmed', '03-status-confirmed', 'confirmed');
 check('  …when is the proposed time', (await page.evaluate(() => window.Taily.state.upcoming[0]?.when ?? '')) === demoProposal.when, await page.evaluate(() => window.Taily.state.upcoming[0]?.when));
 
-// R2-U-01: the 03.1 confirm closes its overlay before navigating
+/* ============================================================
+   UX-LOOP round 6 (Kevin): "reschedule" = cancel + resubmit the same
+   job for a new tailor, under the 12-hour fee rule — ≥ 12 h before
+   the visit the deposit is refunded, closer it is kept. 03.1's
+   confirm lands on 02 pre-filled (replace + toast); Request Tailor
+   creates a fresh matching request.
+   ============================================================ */
+const pinVisit = (opts) => page.evaluate(async ([d, h]) => {
+  const a = window.Taily.state.upcoming[0]; const D = await import('/js/data.js');
+  const time = a.when.match(/\d{1,2}:\d{2} [AP]M$/)?.[0] ?? '9:30 AM';
+  if (d != null) a.when = `${D.shiftDay(a.when, d).replace(/^\w+, /, '')}, ${time}`;
+  else {
+    const t = new Date(Date.now() + h * 3600e3);
+    const h12 = ((t.getHours() + 11) % 12) + 1;
+    a.when = `${D.fmtDay(t.toDateString()).replace(/^\w+, /, '')}, ${h12}:${String(t.getMinutes()).padStart(2, '0')} ${t.getHours() >= 12 ? 'PM' : 'AM'}`;
+  }
+  a.needBy = D.shiftDay(a.when, 2);
+  return { when: a.when, needBy: a.needBy, visit: a.visit, orderId: a.orderId, deposit: a.totals.deposit };
+}, [opts.days ?? null, opts.hours ?? null]);
+/* "✕ Your … is cancelled" — glyph + text, one space between */
+const popupRows = () => page.evaluate(() => [...document.querySelectorAll('.screen-sheet--overlay .modal__row')].map((e) => [...e.children].map((c) => c.textContent.replace(/\s+/g, ' ').trim()).join(' ')));
+const RESCHEDULE_TOAST = 'Appointment cancelled — send the same job to find a new tailor';
+
+// ≥ 12 h: refunded
+const far = await pinVisit({ days: 5 });
+await page.evaluate(() => window.Taily.render('03-status-confirmed', { replace: true }));
+await page.waitForTimeout(200);
 await page.click('[data-act="reschedule"]');
-await assertOverlay('  …R1 popup overlays', '03.1-reschedule-popup');
+await assertOverlay('  …R1 popup overlays (visit 5 days out)', '03.1-reschedule-popup');
+{
+  const rows = await popupRows();
+  const farWhen = await page.evaluate(async (w) => (await import('/js/data.js')).fmtWhen(w), far.when);
+  check('03.1 rows: cancelled / refunded / kept-for-new-tailor', rows[0] === `✕ Your ${farWhen} with Marco is cancelled`
+    && rows[1] === `✓ Your $${far.deposit} deposit is refunded` && rows[2] === '↻ Your items and time are kept — we’ll find you a new tailor', rows.join(' | '));
+}
+// R2-U-01: the 03.1 confirm closes its overlay before navigating
 await page.click('[data-act="confirm-reschedule"]');
-await assertAt('03.1 confirm → 03/Cancelled', '03-status-cancelled');
+await assertAt('03.1 confirm → 02 (reschedule = cancel + resubmit)', '02-appointment-details');
 await assertScrolls('page scrolls after 03.1 confirm');
-check('  …customer variant', await heroTitle() === 'Appointment Cancelled' && await curStatus() === 'cancelled', `title="${await heroTitle()}" status=${await curStatus()}`);
+{
+  const r = await page.evaluate(() => ({
+    toast: document.querySelector('.toast')?.textContent.trim(),
+    when: document.querySelector('[data-act="time"]')?.firstChild?.nodeValue?.trim(),
+    needBy: document.querySelector('[data-act="needby"]')?.firstChild?.nodeValue?.trim(),
+    where: window.Taily.state.appt.where,
+    garments: document.querySelectorAll('.garment-card').length,
+    past: (({ status, refund, depositKept, cancelledBy }) => ({ status, refund, depositKept, cancelledBy }))(window.Taily.state.past[0]),
+    stash: window.Taily.state.lastCancelled === window.Taily.state.past[0],
+  }));
+  check('  …toast', r.toast === RESCHEDULE_TOAST, `"${r.toast}"`);
+  check('  …02 pre-filled (time / need-by / visit / items)', r.when === far.when && r.needBy === far.needBy && r.where === far.visit && r.garments >= 1, JSON.stringify({ when: r.when, needBy: r.needBy, where: r.where, garments: r.garments }));
+  check('  …cancelled ≥ 12 h: refund = deposit, not kept', r.past.status === 'cancelled' && r.past.cancelledBy === 'customer' && r.past.refund === far.deposit && r.past.depositKept === false && r.stash, JSON.stringify(r.past));
+}
 await page.goBack();
 await page.waitForTimeout(400);
-check('  …next back not swallowed', (await screenId()) !== '03-status-cancelled', `screen=${await screenId()}`);
-// UX-LOOP R3-U-05: the cancelled status REPLACED 03/Confirmed — back lands on
-// Home / Bookings, never on a "Confirmed" ghost with a live Reschedule
+check('  …next back not swallowed', (await screenId()) !== '02-appointment-details', `screen=${await screenId()}`);
+// UX-LOOP R3-U-05: 02 REPLACED 03/Confirmed — back lands on Home / Bookings,
+// never on a "Confirmed" ghost with a live Reschedule
 check('  …back lands on Home / Bookings, no Confirmed ghost', ['01-home', '09-bookings'].includes(await screenId()), `screen=${await screenId()}`);
 // …and a status screen re-entered for an ended appointment redirects to 03/Cancelled
 await page.evaluate(() => window.Taily.render('03-status-confirmed'));
 await page.waitForTimeout(300);
 await assertAt('03/Confirmed for a cancelled entry → 03/Cancelled', '03-status-cancelled');
 check('  …no live Reschedule on the way', !(await page.evaluate(() => !!document.querySelector('[data-act="reschedule"]'))));
+{
+  const r = await page.evaluate(() => ({ title: document.querySelector('.status-hero__title')?.textContent.trim(), body: document.querySelector('.status-hero__body')?.textContent.trim(), desc: document.querySelectorAll('.fee-row__desc')[1]?.textContent.trim(), card: document.querySelector('.summary-card__name')?.textContent.trim() }));
+  check('  …03/Cancelled: refunded body + Refunded row', r.title === 'Appointment Cancelled' && r.body === `Your $${far.deposit} deposit is refunded to Apple Pay.` && /^10% Deposit - Refunded /.test(r.desc ?? '') && r.card === 'Marco Tailor', JSON.stringify(r));
+}
+// …the same job goes out again as a NEW matching request (no name until accept)
+await page.evaluate(() => window.Taily.render('02-appointment-details'));
+await page.waitForTimeout(200);
+await page.click('[data-act="request"]');
+await assertOverlay('  …payment sheet overlays', '02.3-payment-sheet');
+await page.click('.method-row');
+await assertAt('rescheduled job re-requested', '03-status-requested', 'searching');
+{
+  const r = await page.evaluate(() => { const a = window.Taily.state.upcoming[0]; return { orderId: a.orderId, when: a.when, needBy: a.needBy, name: a.name, matching: a.matching, card: document.querySelector('.request-card__name')?.textContent.trim() }; });
+  check('  …new order id, same time / need-by, no tailor yet', r.orderId !== far.orderId && r.when === far.when && r.needBy === far.needBy && r.name === null && r.matching === true && r.card === undefined, JSON.stringify(r));
+}
+await page.click('[data-act="map"]');                 // demo: a tailor accepts
+await assertAt('  …accepted → 03/Confirmed', '03-status-confirmed', 'confirmed');
+check('  …Marco named on acceptance', (await page.evaluate(() => window.Taily.state.upcoming[0].name)) === 'Marco Tailor');
+// < 12 h: kept
+const near = await pinVisit({ hours: 2 });
+await page.evaluate(() => window.Taily.render('03-status-confirmed', { replace: true }));
+await page.waitForTimeout(200);
+await page.click('[data-act="reschedule"]');
+await assertOverlay('  …R1 popup overlays (visit in 2 h)', '03.1-reschedule-popup');
+{
+  const rows = await popupRows();
+  check('03.1 row: not refunded within 12 hours', rows[1] === `✕ Your $${near.deposit} deposit is not refunded — you’re within 12 hours of the visit`, rows[1]);
+}
+await page.click('[data-act="confirm-reschedule"]');
+await assertAt('03.1 confirm (< 12 h) → 02', '02-appointment-details');
+{
+  const r = await page.evaluate(() => (({ status, refund, depositKept }) => ({ status, refund, depositKept }))(window.Taily.state.past[0]));
+  check('  …cancelled < 12 h: refund 0, deposit kept', r.status === 'cancelled' && r.refund === 0 && r.depositKept === true, JSON.stringify(r));
+}
+await page.evaluate(() => window.Taily.render('03-status-confirmed'));
+await assertAt('03/Confirmed for the late-cancelled entry → 03/Cancelled', '03-status-cancelled');
+{
+  const r = await page.evaluate(() => ({ body: document.querySelector('.status-hero__body')?.textContent.trim(), desc: document.querySelectorAll('.fee-row__desc')[1]?.textContent.trim(), refundCard: document.querySelectorAll('.prepare-card').length }));
+  check('  …03/Cancelled: kept body + Kept row', r.body === `Cancelled within 12 hours of the visit, so your $${near.deposit} deposit was kept. Rebook whenever you’re ready.` && r.desc === '10% Deposit - Kept' && r.refundCard === 0, JSON.stringify(r));
+}
+// the copied-over job is not resubmitted again — clear the form
+await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.homeSelection = {}; });
 // R3-U-03: today's outcome shows on Home once, above the live card
 await page.evaluate(() => window.Taily.render('01-home'));
 await page.waitForTimeout(200);

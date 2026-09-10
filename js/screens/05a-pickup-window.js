@@ -10,6 +10,10 @@
    UX-LOOP R1-U-02: the amount due reads the live final order;
    R1-U-11: the custom picker is bounded to ready date → need-by and
    9 AM–6 PM.
+   UX-LOOP round 6 (Kevin, UX-008 resolved): the CTA carries the DATED
+   window ("Confirm Pickup · Fri, Jul 17 · 4–6 PM") and the secondary
+   reads "Switch to Delivery" (07B: "Switch to Pickup"); frames edited
+   to match. The deep link opens on the frames' Fri 4–6 PM selection.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
@@ -28,7 +32,12 @@ export const windowsFor = (s = state) => handoffWindows(currentAppt(s));
 /** The pickup/delivery window selection, shared by 07A and 07B. */
 export function winSel(s = state) {
   s.ui ??= {};
-  s.ui.window ??= { w: 0, c: 0, custom: null, customDay: null };
+  /* live: the FIRST option (Phase R3, Kevin); the harness deep link
+     (no navigation yet) opens on the frames' selection — Fri, Jul 17 ·
+     4–6 PM — so the R6 dated CTA reads exactly as the frame draws it */
+  s.ui.window ??= window.__tailyNavigated
+    ? { w: 0, c: 0, custom: null, customDay: null }
+    : { w: 1, c: 2, custom: null, customDay: null };
   const sel = s.ui.window;
   /* a shorter range (one day) must not strand an older selection */
   const wins = windowsFor(s);
@@ -107,8 +116,8 @@ function renderScreen(s) {
     <p class="due-card__amount">${money(amountDue(s))} · Charged to your saved card at pickup.</p>
   </div>
   <div class="actions">
-    ${cta(`Confirm Pickup · ${windowLabel(sel)}`, { attrs: 'data-act="confirm"' })}
-    ${cta('Select Delivery', { variant: 'secondary', attrs: 'data-act="select"' })}
+    ${cta(`Confirm Pickup · ${windowDated(sel)}`, { attrs: 'data-act="confirm"' })}
+    ${cta('Switch to Delivery', { variant: 'secondary', attrs: 'data-act="select"' })}
   </div>
 </div>`;
 }

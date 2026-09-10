@@ -544,10 +544,12 @@
 .screen[data-screen="03-status-cancelled"] { min-height: 948.5px; }
 /* UX-LOOP round 3 — sibling frames of the round-2 live-only states (each
    frame hugs its content; the 03 variants are shorter than the phone) */
-.screen[data-screen="03-status-expired"] { min-height: 784px; }
-.screen[data-screen="03-status-declined"] { min-height: 818px; }
+/* UX-LOOP round 6 (Kevin): the 03 variant frames are padded to the
+   phone's 844 (Expired / Declined; the taller ones hug their content) */
+.screen[data-screen="03-status-expired"] { min-height: 844px; }
+.screen[data-screen="03-status-declined"] { min-height: 844px; }
 .screen[data-screen="03-status-tailor-cancelled"] { min-height: 930px; }   /* round 3: fee rows shown (R3-U-06) */
-.screen[data-screen="03-status-no-show"] { min-height: 951px; }   /* round 3: fee rows shown, one-line title (R3-U-06/08) */
+.screen[data-screen="03-status-no-show"] { min-height: 930px; }   /* round 6: one-line "deposit was kept" body */
 .screen[data-screen="04-review-approve-removed"] { min-height: 997px; }
 .screen[data-screen="03-status-new-time"] { min-height: 872px; }
 .screen[data-screen="09-bookings-closed"] { min-height: 1050px; }   /* round 3: no matching note under a proposed time (R3-U-07) */

@@ -16,6 +16,14 @@
    route, which renders this screen as Marco. Typing + send (button or
    Enter) appends a bubble in place and the other side answers after
    a beat. v3 had no chat behaviour — this is new, prototype-canned.
+   UX-LOOP round 6: T04's Contact Taily Support opens this screen on
+   a canned SUPPORT thread (`state.tailorUi.chat === 'support'`, set by
+   openChat): avatar TS, "Taily Support", "Usually replies in 10 min",
+   no pill; one seed bubble from Support and one canned reply per
+   send. It lives on `state.chats.support` (authors 'support' /
+   'tailor') — the job thread is untouched. The customer side prints
+   the tailor's name / initials through tailorName() / tailorInitials()
+   (unassigned until a tailor accepts).
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
@@ -23,7 +31,20 @@ import { chrome, statusPill, bubble } from '../components.js';
 import { fmtWhen, fmtDay } from '../data.js';
 import { state, canonicalStatus } from '../state.js';
 import { tailorChrome, wireTailorNav, pill } from '../tailor-components.js';
-import { current, jobView, isFixture, isSeed } from '../tailor-data.js';
+import { current, jobView, isFixture, isSeed, tailorUi, tailorName, tailorInitials } from '../tailor-data.js';
+
+/* Round 6: the canned Taily Support thread (tailor side only). */
+const SUPPORT = {
+  name: 'Taily Support', initials: 'TS', meta: 'Usually replies in 10 min',
+  seed: 'Hi Marco — Taily Support here. How can we help with this visit?',
+  reply: 'Thanks, we’re on it. A specialist will reply within 10 minutes.',
+};
+const isSupport = (s) => s.persona === 'tailor' && tailorUi(s).chat === 'support';
+function supportThread(s) {
+  s.chats ??= {};
+  s.chats.support ??= [{ who: 'support', text: SUPPORT.seed }];
+  return s.chats.support;
+}
 
 /* The frame's conversation (282:1239) — Marco's seeded thread. */
 const SEED_THREAD = [
@@ -48,7 +69,8 @@ function currentAppointment(s) {
 
 function threadFor(s, a) {
   s.chats ??= {};
-  const key = a.displayName ?? a.name ?? 'Marco Tailor';
+  /* keyed by the assigned tailor (never the "Matching…" placeholder) */
+  const key = a.name ?? 'Marco Tailor';
   if (!s.chats[key]) {
     const first = key.split(' ')[0];
     /* the seeded appointment opens with the frame's conversation */
@@ -98,23 +120,26 @@ export function renderScreen(s) {
   /* Phase T: the tailor sees the same thread from Marco's side —
      Sarah in the header, her own messages on the right. */
   const tailor = s.persona === 'tailor';
+  const support = isSupport(s);
   const me = tailor ? 'tailor' : 'customer';
-  const name = tailor ? 'Sarah Chen' : (a.displayName ?? a.name ?? 'Marco Tailor');
-  const first = name.split(' ')[0];
+  const name = support ? SUPPORT.name : tailor ? 'Sarah Chen' : (tailorName(a) || 'Marco Tailor');
+  const first = support ? SUPPORT.name : name.split(' ')[0];
+  const initials = support ? SUPPORT.initials : tailor ? 'SC' : (tailorInitials(a) || 'MT');
   const customerName = tailor ? 'Sarah' : 'Kevin';
-  const meta = isFixture() ? FRAME_META : chatMeta(a);
-  const msgs = threadFor(s, a).map((m) => bubble(m.text.replace('{name}', customerName), m.who === me ? 'me' : 'them')).join('\n  ');
+  const meta = support ? SUPPORT.meta : isFixture() ? FRAME_META : chatMeta(a);
+  const thread = support ? supportThread(s) : threadFor(s, a);
+  const msgs = thread.map((m) => bubble(m.text.replace('{name}', customerName), m.who === me ? 'me' : 'them')).join('\n  ');
 
   return `${tailor ? tailorChrome('home') : chrome('home')}
-<div class="body" data-s="10-messages">
+<div class="body" data-s="10-messages"${support ? ' data-thread="support"' : ''}>
   <div class="chat-head">
     <button type="button" class="chat-head__back" data-act="back">‹</button>
-    <span class="chat-head__avatar">${tailor ? 'SC' : (a.initials ?? 'MT')}</span>
+    <span class="chat-head__avatar">${initials}</span>
     <div class="chat-head__names">
       <span class="t-body w-700 c-ink">${name}</span>
       <span class="t-small c-500">${meta}</span>
     </div>
-    ${headPill(a, tailor)}
+    ${support ? '' : headPill(a, tailor)}
   </div>
   <p class="t-caps c-500 chat-day">TODAY, 4:12 PM</p>
   ${msgs}
@@ -127,10 +152,11 @@ export function renderScreen(s) {
 
 export function wire(root) {
   const a = currentAppointment(state);
-  const thread = threadFor(state, a);
   const tailor = state.persona === 'tailor';
+  const support = isSupport(state);
+  const thread = support ? supportThread(state) : threadFor(state, a);
   const me = tailor ? 'tailor' : 'customer';
-  const other = tailor ? 'customer' : 'tailor';
+  const other = support ? 'support' : tailor ? 'customer' : 'tailor';
   const input = root.querySelector('.composer__input');
   const composerEl = root.querySelector('.composer');
 
@@ -144,7 +170,8 @@ export function wire(root) {
     if (!text) return;
     input.value = '';
     addBubble(text, me);
-    const reply = REPLIES[ri++ % REPLIES.length];
+    /* round 6: Support always answers with the same canned line */
+    const reply = support ? SUPPORT.reply : REPLIES[ri++ % REPLIES.length];
     setTimeout(() => {
       // navigated away mid-reply: keep the message in the thread only
       if (root.isConnected) addBubble(reply, other);
@@ -155,7 +182,8 @@ export function wire(root) {
   input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
 
   if (tailor) {
-    root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));
+    /* back returns wherever Marco came from (T04 for the support thread) */
+    root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go(support ? 't04-appointment-details' : 't01-home'));
     wireTailorNav(root);
     return;
   }

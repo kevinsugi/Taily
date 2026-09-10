@@ -24,7 +24,7 @@ const SCREEN_MODULES = [
   /* Tailor flow (Phase T) — Marco's view of the same appointment */
   't01-home', 't02-appointment-request', 't03-request-accepted', 't03a-decline-request', 't03b-job-cancelled',
   't04-appointment-details', 't05-confirm-final-pricing', 't06-appointment-status', 't07-job-ready', 't08-job-complete',
-  't01-home-closed', 't02-accepted', 't02-expired', 't03-upcoming-visit', 't03.1-cant-make-it', 't03a-suggest-time',
+  't01-home-closed', 't02-accepted', 't02-expired', 't03-upcoming-visit', 't03.1-cant-make-it', 't03a-suggest-time', 't03a-other',
   't03b-by-you', 't03b-no-show', 't03b-withdrawn', 't05-removed', 't06-questions', 't07-waiting', 't10-messages',
 ];
 

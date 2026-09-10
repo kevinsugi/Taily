@@ -361,6 +361,36 @@ export function isAfter(needBy, when) {
 export const PAY_LABELS = { apple: 'Apple Pay', google: 'Google Pay', card: 'Visa •••• 4242' };
 
 /* ============================================================
+   UX-LOOP round 6 substrate (Kevin's fee policy + "no tailor name
+   before matching") — shared by both personas.
+   ============================================================ */
+
+/**
+ * Is `when` less than `hours` ahead of `now`? The customer's deposit is
+ * kept when she cancels within 12 hours of the visit (Kevin, round 6).
+ * A `when` already in the past (the seed's Jul 12 fiction counts as
+ * today — its own day IS "today") is within the window; an unparsable
+ * `when` is not (nothing to measure against → treated as far ahead).
+ * `now` is an optional override (ms) so the harness can pin the clock.
+ */
+export function withinHours(when, hours, now = Date.now()) {
+  const p = parseWhen(when);
+  if (!p) return false;
+  return p.date.getTime() - now < hours * 3600 * 1000;
+}
+
+/** The tailor's name as the customer may see it: nothing until a
+    tailor accepts (`requestTailor()` leaves `a.name` null;
+    `tailorAccepts()` assigns it). */
+export const TAILOR_MATCHING = 'Matching you with a tailor';
+export const tailorName = (a) => a?.name ?? TAILOR_MATCHING;
+/** The avatar glyph beside it — initials once matched, ✂ before. */
+export const tailorInitials = (a) => a?.initials ?? '✂';
+/** First name for prose ("Marco …"); `fallback` before a tailor is
+    matched ("A tailor …" / "your tailor …"). */
+export const tailorFirst = (a, fallback = 'A tailor') => (a?.name ? a.name.split(' ')[0] : fallback);
+
+/* ============================================================
    UX-LOOP round 3 substrate (shared by both personas)
    ============================================================ */
 const dayStart = (str) => {

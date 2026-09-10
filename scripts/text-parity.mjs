@@ -36,36 +36,22 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // UX-LOOP R1-U-02: 02's seeded cards are $120 Hem + $80 Sleeve in the
 // frame AND the build, so the "$20 Deposit" CTA is honest — the old
 // STALE_DEPOSIT allowance (02 + its four sheet backdrops) is gone.
-// Phase R0.1 (Kevin): deposit rows read "-$20" everywhere; the
-// 04D/06A/06B frames still write it spaced ("- $20").
-const SPACED_DEPOSIT = '- $20';
+// UX-LOOP round 6 (Kevin): the six older frames that wrote the deposit
+// spaced ("- $20") and 03/Tailoring's Appt row "7:00PM" were synced to
+// "-$20" / "7:00 PM" in Figma — their SPACED_DEPOSIT / Appt ALLOWs are
+// gone (03/Tailoring, 03/Summary, 04, 06, 03.3 and 06.1 backdrops).
+// 05A / 05B (and 05.1's 07B backdrop) now carry the dated CTA and the
+// "Switch to …" secondary in the frame as in the build — those ALLOWs
+// are gone too; 05.1/Dated keeps its inherited entry until that
+// backdrop is confirmed synced.
 const ALLOW = {
   // Phase R3 (Kevin): 03's request card reads the live order; the
   // frame's requested-time fixture is stale (the address and estimate
   // lines match since UX-LOOP R1 — Home Visit fiction, $200 / $20 seed).
   '03-status-requested': ['Thu, Jul 9 · 9:30 AM'],
-  // Phase R8: the tailor card's Appt row reads the live appointment
-  // ("Appt: Sunday Jul 12, 7PM"); the frame writes the abbreviated
-  // fixture form. Applies to PV3 too — its backdrop is this frame.
-  '03-status-tailoring': [SPACED_DEPOSIT, '▤ Appt: Sun, Jul 12 · 7:00PM'],
-  '03-status-summary': [SPACED_DEPOSIT],
-  '04-review-approve': [SPACED_DEPOSIT],   // 04/Modified reads -$20 already (its ALLOW was dead — dropped in round 3)
-  // Phase R3 (Kevin): windows default to the FIRST option and the
-  // secondary CTA cross-navigates ("Select Delivery" on 07A, "Select
-  // Pickup" on 07B) — the frames still draw Fri 4-6PM selected and
-  // same-screen labels.
-  '05a-pickup-window': ['Confirm Pickup · Fri 4-6PM', 'Select Pickup'],
-  '05b-delivery-options': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
-  '06-journey-complete': [SPACED_DEPOSIT],
-  // PV3's backdrop is 03/Tailoring — same spaced deposit + Appt fixture
-  '03.3-photo-viewer': [SPACED_DEPOSIT, '▤ Appt: Sun, Jul 12 · 7:00PM'],
   // UX-003: R1's rows quote the actual appointment; the frame keeps
   // the "Thursday's 7:00 PM" fixture.
   '03.1-reschedule-popup': ['Thursday’s 7:00 PM with Marco is cancelled'],
-  // 07C's backdrop is 07B (same R3 chip/CTA divergences); 08C's
-  // backdrop is 08 (spaced deposit in the frame).
-  '05.1-window-confirmed': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
-  '06.1-leave-review': [SPACED_DEPOSIT],
   // UX-LOOP round 3: the sibling frames inherit their base's documented
   // divergence — 03/New Time keeps 03/Requested's stale requested-time
   // fixture, 05.1/Dated draws 07B underneath.
@@ -172,7 +158,7 @@ for (const [id] of entries) {
   await page.waitForTimeout(150);
   const domText = norm(await page.evaluate(() => {
     const scr = document.querySelector('.screen');
-    const inputs = [...scr.querySelectorAll('input')].map((i) => `${i.value} ${i.placeholder}`).join(' ');
+    const inputs = [...scr.querySelectorAll('input, textarea')].map((i) => `${i.value} ${i.placeholder}`).join(' ');
     return `${scr.innerText} ${inputs}`;
   }));
 

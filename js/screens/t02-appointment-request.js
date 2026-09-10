@@ -11,6 +11,10 @@
    Round 3 (R3-T-02): while a proposal is pending the primary is
    `Withdraw Proposal` (same handler as T01's link) and there is no
    Accept — accepting would book the time Marco just said he can't do.
+   Round 6: the customer card's first row adds the visit type and the
+   travel distance ("… · Home visit · 1.2 mi") and the fee rows lead
+   with the Subtotal ($200 / $20 / $180 on the seed) — base frame and
+   its Accepted / Expired siblings alike.
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
@@ -18,7 +22,7 @@ import { summaryCard, garmentCard, cta, toast } from '../components.js';
 import { money, garmentAmount } from '../data.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, payoutRows } from '../tailor-components.js';
-import { current, jobView, tailorOf, isFixture, isSeed, restartTimer, T, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
+import { current, jobView, tailorOf, isFixture, isSeed, restartTimer, T, CUSTOMER, REQUEST_ROWS } from '../tailor-data.js';
 
 /** The booked order as ViewOnly cards (shared with T03). */
 export function bookedCards(v) {
@@ -37,7 +41,8 @@ export function viewRequest(s, mode = null) {
   const a = current(s);
   const v = jobView(a);
   const fixture = isFixture();
-  const rows = fixture ? CUSTOMER_ROWS : v.rows;
+  /* round 6: the first row carries the visit type + distance (REQUEST_ROWS on the frame) */
+  const rows = fixture ? REQUEST_ROWS : v.requestRows;
   const expired = mode === 'expired' || (!fixture && v.canon === 'expired');
   const accepted = mode === 'accepted' || (!fixture && !expired && !pending(a, v));
   const title = expired ? `${v.money.payout} | Request Expired` : accepted ? `${v.money.payout} | Accepted` : `${v.money.payout} | New Request`;
@@ -70,7 +75,7 @@ export function viewRequest(s, mode = null) {
     ${summaryCard({ initials: CUSTOMER.initials, name: CUSTOMER.name, rows })}
     <div class="garments-card">
       ${bookedCards(v)}
-      ${payoutRows(v)}
+      ${payoutRows(v, { subtotal: true })}
     </div>
   </div>
   <div class="t-actions">

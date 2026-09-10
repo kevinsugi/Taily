@@ -13,15 +13,21 @@
    charges no fee; "hold released" wording stays only for requests
    Marco never accepted. R3-T-06: View Calendar behaves like the
    Calendar tab (the soonest job still on the calendar).
+   Round 6 fee policy (Kevin): a no-show keeps Sarah's deposit with
+   Marco ("Her $20 deposit stays with you." — the amount from the
+   appointment), and so does a customer cancel within 12 hours of the
+   visit (`a.depositKept`, stamped by the substrate's
+   cancelAppointment); a tailor cancel still refunds it.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { statusHero, cta } from '../components.js';
 import { money } from '../data.js';
 import { tailorChrome, wireTailorNav, openCalendar } from '../tailor-components.js';
-import { current, jobView, endedBy, isFixture, isSeed, depositOf } from '../tailor-data.js';
+import { current, jobView, endedBy, isFixture, isSeed, depositOf, depositKept } from '../tailor-data.js';
 
 const FRAME = { title: 'Job Cancelled.', body: 'Sarah cancelled this visit. The job is closed and tonight’s 7:00 PM slot is open on your calendar again.' };
+const KEPT = (a) => `Her ${money(depositOf(a))} deposit stays with you.`;
 
 /** Hero + body for the way this job ended. */
 export function cancelCopy(a, { forced = false } = {}) {
@@ -35,9 +41,14 @@ export function cancelCopy(a, { forced = false } = {}) {
         ? `Sarah’s been notified and her hold is released. Your ${when} slot is open again.`
         : `Sarah’s been notified and her ${money(depositOf(a))} deposit is refunded. Your ${when} slot is open again.`,
     };
-    case 'no-show': return { title: 'Sarah didn’t show.', body: 'The job is closed and the slot is open again. No fee was charged.' };
+    case 'no-show': return { title: 'Sarah didn’t show.', body: `The job is closed and the slot is open again. ${KEPT(a)}` };
     case 'expired': return { title: 'Request expired.', body: `No response in time — Sarah’s ${when} request lapsed. Nothing to do.` };
-    default: return isSeed(a) ? FRAME : { title: FRAME.title, body: `Sarah cancelled this visit. The job is closed and your ${when} slot is open on your calendar again.` };
+    default: {
+      /* Sarah cancelled: the seed keeps the frame's "tonight" line; a
+         cancel inside 12 hours of the visit adds the kept-deposit line */
+      const body = isSeed(a) ? FRAME.body : `Sarah cancelled this visit. The job is closed and your ${when} slot is open on your calendar again.`;
+      return { title: FRAME.title, body: depositKept(a) ? `${body} ${KEPT(a)}` : body };
+    }
   }
 }
 

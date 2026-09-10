@@ -17,7 +17,7 @@
 import { register, render as go, back } from '../app.js';
 import { cta, toast } from '../components.js';
 import { state } from '../state.js';
-import { tailorChrome, wireTailorNav, backHeader, detailRow, orderDropdown, orderCards, payoutRows } from '../tailor-components.js';
+import { tailorChrome, wireTailorNav, backHeader, detailRow, orderDropdown, orderCards, payoutRows, openChat } from '../tailor-components.js';
 import { current, jobView, isFixture, firstPickupWindow, T, FIXTURE_FINAL, orderTotals } from '../tailor-data.js';
 
 const SHOP = '1025 Broadway';
@@ -94,7 +94,7 @@ export function wire(root) {
     if (!T.deliver(a)) { toast('Already handed off'); return; }
     go('t08-job-complete');
   });
-  root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));
+  root.querySelector('[data-act="message"]')?.addEventListener('click', () => openChat());
   root.querySelector('[data-act="home"]')?.addEventListener('click', () => go('t01-home'));
 }
 

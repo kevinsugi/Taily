@@ -24,7 +24,12 @@
    and the request-card item count (R3-T-03); payout date + order id per
    job (R3-T-04); the Can't-make-it modal's consequence line, confirm
    label and no-show gate (R3-T-05); Calendar tab / View Calendar
-   priority (R3-T-06). Exit code 1 on any failed assertion.
+   priority (R3-T-06).
+   UX-LOOP round 6: T02's visit-type / distance row + Subtotal; T03A's
+   Other note (a.declineNote) + the t03a-other fixture; the canned Taily
+   Support chat from T04; the fee policy on the tailor side (no-show and
+   a < 12 h customer cancel keep the deposit — T03.1 line, T03B copy);
+   T01's Done today Clear + re-show. Exit code 1 on any failed assertion.
    ============================================================ */
 
 import { readFileSync, existsSync } from 'node:fs';
@@ -241,7 +246,8 @@ await assertAt('user on 03/Confirmed', '03-status-confirmed', 'confirmed', 'user
 await page.click('[data-act="reschedule"]');
 await page.waitForTimeout(400);
 await page.click('[data-act="confirm-reschedule"]');
-await assertAt('user cancels the confirmed visit', '03-status-cancelled', 'cancelled', 'user');
+/* R6: 03.1's confirm is reschedule = cancel + resubmit — the customer lands on 02 with the visit cancelled */
+await assertAt('user cancels the confirmed visit', '02-appointment-details', 'cancelled', 'user');
 await page.click('#persona-toggle');
 await assertAt('View as Tailor after the cancel', 't01-home', 'cancelled', 'tailor');
 await assertTrue('T01: no request card, Sarah reads Cancelled · Slot reopened', () => { const cards = [...document.querySelectorAll('.job-card')]; const c = cards.find((x) => x.textContent.includes('Sarah Chen')); return !document.querySelector('.req-card') && cards.length === 2 && c && c.textContent.includes('Cancelled') && c.textContent.includes('Slot reopened'); });
@@ -536,10 +542,10 @@ await page.click('[data-act="open-job"]');
 await page.click('[data-act="cant-make-it"]');
 await page.waitForTimeout(400);
 await page.click('[data-reason="no-show"]');
-await assertTrue('R3-T-05: no-show available on the seed (Jul 12 counts as today), consequence + Mark No-show', () => !document.querySelector('[data-reason="no-show"]').disabled && document.querySelector('[data-consequence]').textContent === 'The job closes and Sarah is notified. No fee is charged this time.' && document.querySelector('[data-act="confirm-cancel"]').textContent === 'Mark No-show');
+await assertTrue('R3-T-05 / R6: no-show available on the seed (Jul 12 counts as today), kept-deposit consequence + Mark No-show', () => !document.querySelector('[data-reason="no-show"]').disabled && document.querySelector('[data-consequence]').textContent === 'The job closes and Sarah is notified. Her $20 deposit stays with you.' && document.querySelector('[data-act="confirm-cancel"]').textContent === 'Mark No-show');
 await page.click('[data-act="confirm-cancel"]');
 await assertAt('Sarah didn’t show → T03B', 't03b-job-cancelled', 'cancelled');
-await assertTrue('T03B no-show copy', () => document.querySelector('.status-hero__title').textContent === 'Sarah didn’t show.' && document.querySelector('.status-hero__body').textContent === 'The job is closed and the slot is open again. No fee was charged.');
+await assertTrue('T03B no-show copy (R6: deposit stays with you)', () => document.querySelector('.status-hero__title').textContent === 'Sarah didn’t show.' && document.querySelector('.status-hero__body').textContent === 'The job is closed and the slot is open again. Her $20 deposit stays with you.');
 await page.click('[data-act="calendar"]');
 await assertTrue('T01 row reads No-show', () => [...document.querySelectorAll('.job-card')].some((c) => c.textContent.includes('No-show')));
 
@@ -567,7 +573,7 @@ await page.click('.appt-card');
 await page.click('[data-act="reschedule"]');
 await page.waitForTimeout(400);
 await page.click('[data-act="confirm-reschedule"]');
-await assertAt('customer cancels the confirmed fresh visit', '03-status-cancelled', undefined, 'user');
+await assertAt('customer cancels the confirmed fresh visit', '02-appointment-details', undefined, 'user');   // R6: reschedule lands on 02
 await page.click('#persona-toggle');
 await page.click('.job-card:has-text("Slot reopened")');
 await assertAt('Cancelled row opens T03B', 't03b-job-cancelled', 'cancelled');
@@ -651,6 +657,151 @@ for (const id of ['t06-appointment-status', 't04-appointment-details', 't05-conf
   await assertTrue(`R5-T-01/02: ${id} for a closed job says it is off the calendar`, () => document.querySelector('.toast')?.textContent === 'This job is no longer on your calendar');
   await assertAt('  …and lands on T01 without drawing the screen', 't01-home', 'cancelled');
 }
+
+/* ============================================================
+   UX-LOOP round 6 — Kevin's decisions (tailor side)
+   ============================================================ */
+
+/* ---------- R6: T02 rows — visit type + distance, Subtotal row (seed fixture, then a fresh live job) ---------- */
+await open('t02-appointment-request');
+await assertTrue('R6: T02 fixture first row reads the frame copy', () => [...document.querySelectorAll('.summary-card__row')][0]?.textContent.replace(/ /g, ' ').trim() === '◉  88 Leonard Street, 4B · Home visit · 1.2 mi');
+await assertTrue('R6: T02 fixture fee rows read $200 Subtotal / $20 Taily Fee (10%) / $180 Your Payout', () => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$200 Subtotal | $20 Taily Fee (10%) | $180 Your Payout');
+for (const id of ['t02-accepted', 't02-expired']) {
+  await open(id);
+  await assertTrue(`R6: ${id} fixture carries the same rows`, () => [...document.querySelectorAll('.summary-card__row')][0]?.textContent.replace(/ /g, ' ').trim() === '◉  88 Leonard Street, 4B · Home visit · 1.2 mi' && [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent).join(' ') === 'Subtotal Taily Fee (10%) Your Payout');
+}
+await open('01-home');
+await bookFresh();
+await page.click('#persona-toggle');
+await page.click('.req-card[data-req="0"] [data-act="view-details"]');
+await assertAt('R6: T02 for the fresh live request', 't02-appointment-request', 'searching');
+await assertTrue('R6: live first row = live address · visit type · 1.2 mi', () => [...document.querySelectorAll('.summary-card__row')][0]?.textContent.replace(/ /g, ' ').trim() === '◉  88 Leonard St, 4B · Home visit · 1.2 mi');
+await assertTrue('R6: live fee rows from the $120 booking ($120 / $12 / $108)', () => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$120 Subtotal | $12 Taily Fee (10%) | $108 Your Payout');
+await render('t03-request-accepted');
+await assertTrue('R6: T03 rows are unchanged (no visit type on the shared card, no Subtotal row)', () => !/Home visit · 1\.2 mi/.test(document.querySelector('.summary-card').textContent) && !document.body.textContent.includes('Subtotal'));
+
+/* ---------- R6: T03A "Other" reveals a note; Decline stores a.declineNote ---------- */
+await render('t01-home');
+await page.click('.req-card[data-req="0"] [data-act="decline"]');
+await assertAt('R6: Decline the fresh request', 't03a-decline-request', 'searching');
+await assertTrue('R6: note hidden until Other is chosen', () => document.querySelector('[data-act="decline-note"]').hidden);
+await page.click('[data-reason="4"]');
+await assertTrue('R6: Other reveals the textarea with its placeholder', () => { const t = document.querySelector('[data-act="decline-note"]'); return !t.hidden && t.placeholder === 'Tell us more (optional)' && document.querySelector('[data-act="decline"]').textContent === 'Decline Request'; });
+await page.click('[data-reason="1"]');
+await assertTrue('R6: another reason hides it again', () => document.querySelector('[data-act="decline-note"]').hidden);
+await page.click('[data-reason="4"]');
+await page.fill('[data-act="decline-note"]', 'Booked solid this week');
+await page.click('[data-act="decline"]');
+await assertAt('R6: Decline with Other → T01', 't01-home', 'declined');
+await assertJob('R6: a.declineNote stored on the declined job', 'fresh', (a) => a.status === 'declined' && a.declineNote === 'Booked solid this week');
+/* the fixture route module (js/screens/t03a-other.js) is registered by app.js's SCREEN_MODULES — skip until it is */
+await open('t03a-other');
+if (await page.evaluate(() => window.Taily.registered().includes('t03a-other'))) {
+  await assertTrue('R6: t03a-other fixture draws Other selected + the note field', () => document.querySelector('[data-reason="4"]').classList.contains('radio-row--selected') && !document.querySelector('[data-act="decline-note"]').hidden && document.querySelector('[data-act="decline-note"]').placeholder === 'Tell us more (optional)');
+} else {
+  console.log('SKIP  R6: t03a-other is not in app.js SCREEN_MODULES yet (orchestrator registers it)');
+}
+await open('t03a-decline-request');
+await assertTrue('R6: the base T03A fixture keeps the first row + no note field', () => document.querySelector('[data-reason="0"]').classList.contains('radio-row--selected') && document.querySelector('[data-act="decline-note"]').hidden);
+
+/* ---------- R6: canned Taily Support chat from T04 ---------- */
+await open('t01-home');
+await page.click('[data-act="view-details"]');
+await page.click('[data-act="accept"]');
+await page.click('[data-act="home"]');
+await page.click('[data-act="open-job"]');
+await page.click('[data-act="start"]');
+await assertAt('R6: at the visit (T04)', 't04-appointment-details', 'confirmed');
+await page.click('[data-act="support"]');
+await assertAt('R6: Contact Taily Support → 10-messages', '10-messages', 'confirmed', 'tailor');
+await assertTrue('R6: support head — TS / Taily Support / Usually replies in 10 min / no pill', () => document.querySelector('.body').dataset.thread === 'support' && document.querySelector('.chat-head__avatar').textContent === 'TS' && document.querySelector('.chat-head__names span').textContent === 'Taily Support' && document.querySelector('.chat-head__names .t-small').textContent === 'Usually replies in 10 min' && !document.querySelector('.chat-head .pill'));
+await assertTrue('R6: one seed bubble from Support, on their side', () => { const b = [...document.querySelectorAll('.bubble')]; return b.length === 1 && b[0].textContent === 'Hi Marco — Taily Support here. How can we help with this visit?' && !b[0].classList.contains('bubble--me'); });
+await page.fill('.composer__input', 'Sarah’s buzzer is broken');
+await page.keyboard.press('Enter');
+await page.waitForTimeout(200);
+await assertTrue('R6: Marco’s message sits on his side', () => { const b = [...document.querySelectorAll('.bubble')]; return b.length === 2 && b[1].classList.contains('bubble--me'); });
+await page.waitForTimeout(1300);
+await assertTrue('R6: canned support reply lands', () => { const b = [...document.querySelectorAll('.bubble')]; return b.length === 3 && b[2].textContent === 'Thanks, we’re on it. A specialist will reply within 10 minutes.' && !b[2].classList.contains('bubble--me'); });
+await assertTrue('R6: thread stored on state.chats.support with absolute authors; the job thread untouched', () => { const c = window.Taily.state.chats; return c.support.map((m) => m.who).join(',') === 'support,tailor,support' && !c['Marco Tailor']; });
+await page.click('[data-act="back"]');
+await assertAt('R6: back returns to T04', 't04-appointment-details', 'confirmed');
+await page.click('[data-act="back"]');
+await page.click('[data-act="message"]');
+await assertAt('R6: Message Sarah after the support chat', '10-messages', 'confirmed', 'tailor');
+await assertTrue('R6: …opens Sarah’s thread, not support', () => !document.querySelector('.body').dataset.thread && document.querySelector('.chat-head__avatar').textContent === 'SC' && document.querySelector('.chat-head__names span').textContent === 'Sarah Chen' && !!document.querySelector('.chat-head .pill'));
+await open('10-messages');
+await assertTrue('R6: the ?screen=10-messages deep link is unchanged (customer, Marco’s thread)', () => window.Taily.state.persona === 'user' && document.querySelector('.chat-head__names span').textContent === 'Marco Tailor' && document.querySelector('.chat-head__avatar').textContent === 'MT');
+
+/* ---------- R6: fee policy — customer cancel inside 12 h keeps the deposit; earlier refunds it ---------- */
+async function bookAndAccept() {
+  await open('01-home');
+  await bookFresh();
+  await page.click('#persona-toggle');
+  await page.click('.req-card[data-req="0"] [data-act="view-details"]');
+  await page.click('[data-act="accept"]');
+  await assertAt('R6: fresh job accepted', 't03-request-accepted', 'confirmed');
+}
+/* re-date the fresh confirmed job `hoursAhead` from now (the prototype's
+   "Sept 10, 9:00 PM" grammar) and let Sarah cancel it through the substrate */
+async function cancelFreshIn(hoursAhead) {
+  await page.evaluate(async (hours) => {
+    const D = await import('/js/data.js'); const S = await import('/js/state.js');
+    const a = window.Taily.state.upcoming.find((x) => x.mine && x.status === 'confirmed' && x.when !== 'Sunday Jul 12, 7PM');
+    const d = new Date(Date.now() + hours * 3600e3);
+    const md = D.shiftDay(d.toDateString(), 0).replace(/^\w+, /, '');
+    const h12 = ((d.getHours() + 11) % 12) + 1;
+    a.when = `${md}, ${h12}:00 ${d.getHours() >= 12 ? 'PM' : 'AM'}`;
+    a.needBy = `${D.shiftDay(d.toDateString(), 1).replace(/^\w+, /, '')}, 11:59 PM`;
+    window.__r6 = S.cancelAppointment(a);
+  }, hoursAhead);
+}
+await bookAndAccept();
+await cancelFreshIn(2);
+await assertJob('R6: cancel 2 h before the visit → depositKept, refund 0', 'fresh', (a) => a.status === 'cancelled' && a.depositKept === true && a.refund === 0 && window.__r6?.kept === true);
+await render('t01-home');
+await page.click('.job-card:has-text("Slot reopened")');
+await assertAt('R6: Cancelled row opens T03B', 't03b-job-cancelled', 'cancelled');
+await assertTrue('R6: T03B adds "Her $12 deposit stays with you." on a < 12 h customer cancel', () => /slot is open on your calendar again\. Her \$12 deposit stays with you\.$/.test(document.querySelector('.status-hero__body').textContent));
+await bookAndAccept();
+await cancelFreshIn(72);
+await assertJob('R6: cancel 3 days before the visit → refunded, deposit not kept', 'fresh', (a) => a.status === 'cancelled' && !a.depositKept && a.refund === 12);
+await render('t01-home');
+await page.click('.job-card:has-text("Slot reopened")');
+await assertAt('R6: Cancelled row opens T03B (early cancel)', 't03b-job-cancelled', 'cancelled');
+await assertTrue('R6: T03B says nothing about the deposit on an early cancel', () => !/deposit/.test(document.querySelector('.status-hero__body').textContent));
+/* the T03.1 modal's no-show line reads the job's own deposit */
+await bookAndAccept();
+await page.evaluate(() => { const a = window.Taily.state.upcoming.find((x) => x.mine && x.status === 'confirmed' && x.when !== 'Sunday Jul 12, 7PM'); a.when = 'Jul 11, 9:30 AM'; a.needBy = 'Jul 17, 3:00 PM'; });
+await render('t01-home');
+await page.evaluate(() => [...document.querySelectorAll('[data-act="open-job"]')].find((c) => c.textContent.includes('Confirmed') && c.textContent.includes('9:30 AM'))?.click());
+await assertAt('R6: open the (past-dated) fresh visit', 't03-request-accepted', 'confirmed');
+await page.click('[data-act="cant-make-it"]');
+await page.waitForTimeout(400);
+await page.click('[data-reason="no-show"]');
+await assertTrue('R6: no-show consequence names the job’s $12 deposit', () => document.querySelector('[data-consequence]').textContent === 'The job closes and Sarah is notified. Her $12 deposit stays with you.');
+await page.click('[data-act="confirm-cancel"]');
+await assertAt('R6: Mark No-show → T03B', 't03b-job-cancelled', 'cancelled');
+await assertTrue('R6: T03B no-show reads the job’s deposit', () => document.querySelector('.status-hero__body').textContent === 'The job is closed and the slot is open again. Her $12 deposit stays with you.');
+await assertJob('R6: no-show stamps depositKept', 'fresh', (a) => a.reason === 'no-show' && a.depositKept === true);
+
+/* ---------- R6: "Done today" Clear — hides the closed rows; a later closure re-shows them ---------- */
+await render('t01-home');
+await assertTrue('R6: Done today shows closed rows + the Clear link', () => { const row = [...document.querySelectorAll('.t-section-row')].find((e) => e.textContent.includes('Done today')); return !!row && row.querySelector('[data-act="clear-done"]')?.textContent === 'Clear' && document.querySelectorAll('.t-done .job-card--closed').length >= 1; });
+await page.click('[data-act="clear-done"]');
+await assertAt('R6: Clear stays on T01', 't01-home');
+await assertTrue('R6: closed rows hidden, flag set, no section left (nothing completed)', () => window.Taily.state.tailorUi.clearedClosed === true && !document.querySelector('.t-done') && ![...document.querySelectorAll('.t-section-row')].some((e) => e.textContent.includes('Done today')));
+await render('t02-appointment-request');
+await render('t01-home');
+await assertTrue('R6: …and stays hidden across renders', () => !document.querySelector('.t-done'));
+/* Sarah withdraws a new request → a new terminal transition re-shows the section */
+await page.click('#persona-toggle');
+await bookFresh();
+await page.evaluate(async () => { const S = await import('/js/state.js'); const a = window.Taily.state.upcoming.find((x) => x.mine && x.status === 'searching'); S.cancelAppointment(a); });
+await page.click('#persona-toggle');
+await assertAt('R6: back on T01 after a new closure', 't01-home', undefined, 'tailor');
+await assertTrue('R6: the closed rows re-show (all of them) with Clear again; flag dropped', () => window.Taily.state.tailorUi.clearedClosed === false && document.querySelectorAll('.t-done .job-card--closed').length >= 2 && [...document.querySelectorAll('.t-done .job-card')].some((c) => c.textContent.includes('Withdrawn')) && !!document.querySelector('[data-act="clear-done"]'));
+await open('t01-home-closed');
+await assertTrue('R6: the T01 / Closed Rows fixture draws the Clear link', () => document.querySelector('[data-act="clear-done"]')?.textContent === 'Clear');
 
 console.log(errors.length ? `CONSOLE ERRORS:\n  ${errors.join('\n  ')}` : 'no console errors');
 if (errors.length) failures++;

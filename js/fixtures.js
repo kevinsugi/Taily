@@ -28,7 +28,13 @@ export const APPT_WITHDRAWN = () => seedAppt({ status: 'cancelled', cancelledBy:
 
 /* ---------- proposed time (R2-U-03 / R2-T-04): the next day, 11 AM ---------- */
 export const PROPOSED_WHEN = 'Jul 13, 11:00 AM';
-export const APPT_PROPOSED = () => seedAppt({ status: 'searching', proposed: { when: PROPOSED_WHEN, by: 'tailor', at: 'Sun, Jul 12' } });
+/* R6: a request still matching has NO tailor yet (name / initials /
+   tailorId null, `matching`) — the 03 New Time hero reads "A tailor
+   proposed a new time", the 09 Closed Cards request card "Matching you
+   with a tailor" (frames edited to match in round 6). */
+export const MATCHING = { name: null, initials: null, tailorId: null, matching: true };
+export const APPT_MATCHING = () => seedAppt({ status: 'searching', ...MATCHING });
+export const APPT_PROPOSED = () => seedAppt({ status: 'searching', ...MATCHING, proposed: { when: PROPOSED_WHEN, by: 'tailor', at: 'Sun, Jul 12' } });
 
 /* ---------- post-visit states on the frames' $360 final order ---------- */
 const finalOrder = () => ({ garments: clone(SEED_FINAL_ORDER.garments), totals: clone(SEED_FINAL_ORDER.totals) });

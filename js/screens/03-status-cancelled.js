@@ -32,16 +32,25 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, summaryCard, feeRow, cta, orderCards, apptRows, receiptDates } from '../components.js';
-import { money, PAY_LABELS, SEED_UPCOMING, fmtWhen } from '../data.js';
-import { state, isTerminal, canonicalStatus } from '../state.js';
-import { copyItemsOver } from './03.1-reschedule-popup.js';
+import { money, mdy, PAY_LABELS, SEED_UPCOMING, fmtWhen, tailorName, tailorInitials, tailorFirst } from '../data.js';
+import { state, isTerminal, canonicalStatus, copyItemsOver } from '../state.js';
+
+/* UX-LOOP round 6 (Kevin's fee policy): the tailor cancelling refunds
+   the paid deposit; the customer cancelling within 12 hours of the
+   visit, or a no-show, keeps it (`a.depositKept`, stamped by the
+   substrate); an earlier customer cancel refunds it. The body says
+   which; live entries also relabel the deposit row "Kept" /
+   "Refunded <date>" (the frames keep "Paid 7/7/26"). No tailor name
+   before one accepts: a request that ended unmatched says "A tailor",
+   and its card reads "No tailor matched" under the ✂ avatar. */
+const NO_TAILOR = 'No tailor matched';
 
 /** Title / body / CTA per terminal reason. `null` body = the frame's
     layout (refund card + Back to Home). */
 function variantFor(live, a, { deposit = 20, payLabel = PAY_LABELS.card } = {}) {
   if (!live) return { pill: 'declined', title: 'Appointment Cancelled', body: null, cta: null };
   const status = canonicalStatus(a.status);
-  const first = (a.name ?? 'Marco Tailor').split(' ')[0];
+  const first = tailorFirst(a);
   const when = fmtWhen(a.when, 'Sun, Jul 12 · 7:00 PM');
   if (status === 'expired') {
     /* R3-T-02c: a proposal that lapsed unanswered is named */
@@ -54,14 +63,31 @@ function variantFor(live, a, { deposit = 20, payLabel = PAY_LABELS.card } = {}) 
     return { pill: 'declined', title: `${first} couldn’t take this request`, body: 'Nothing was charged — the hold on your card is released. We can send it to another tailor.', cta: 'Send to Another Tailor' };
   }
   if (a.cancelledBy === 'tailor' && a.reason === 'no-show') {
-    const money2 = a.wasRequested ? 'Nothing was charged.' : `Your ${money(deposit)} deposit is refunded — no fee this time.`;
-    return { pill: 'cancelled', title: 'We missed you', body: `${first} marked the ${when} visit as a no-show. ${money2}`, cta: 'Find Another Tailor' };
+    const money2 = a.wasRequested ? '. Nothing was charged.' : `, so your ${money(deposit)} deposit was kept.`;
+    return { pill: 'cancelled', title: 'We missed you', body: `${first} marked the ${when} visit as a no-show${money2}`, cta: 'Find Another Tailor' };
   }
   if (a.cancelledBy === 'tailor') {
     const money2 = a.wasRequested ? 'Nothing was charged — the hold on your card is released.' : `Your ${money(deposit)} deposit is refunded to ${payLabel}.`;
     return { pill: 'cancelled', title: `${first} had to cancel`, body: `${money2} We can find you another tailor.`, cta: 'Find Another Tailor' };
   }
+  /* the customer's own cancel of a CONFIRMED visit: refunded, or kept
+     within 12 hours (R6); a withdrawn request keeps the frame's
+     "Nothing was charged" card */
+  if (!a.wasRequested) {
+    const body = a.depositKept
+      ? `Cancelled within 12 hours of the visit, so your ${money(deposit)} deposit was kept. Rebook whenever you’re ready.`
+      : `Your ${money(deposit)} deposit is refunded to ${payLabel}.`;
+    return { pill: 'cancelled', title: 'Appointment Cancelled', body, cta: null };
+  }
   return { pill: 'cancelled', title: 'Appointment Cancelled', body: null, cta: null };
+}
+
+/** The deposit row's description: the frames' "Paid 7/7/26", or the
+    live outcome — "Kept" / "Refunded 9/10/26" (R6). */
+function depositDesc(a, live) {
+  if (live && a.depositKept) return '10% Deposit - Kept';
+  if (live && a.refund > 0) return `10% Deposit - Refunded ${mdy(a.cancelledAt, receiptDates(a).deposit)}`;
+  return `10% Deposit - Paid ${receiptDates(a).deposit}`;
 }
 
 /** Exported: the round-3 variant routes (03/Expired · Declined · Tailor
@@ -86,7 +112,7 @@ export function viewCancelled(s, forced = null) {
   const charged = !live || !neverConfirmed;
   const rows = charged ? `
       ${feeRow(money(subtotal), 'Subtotal - Confirmed at Appointment', { line: true })}
-      ${feeRow(money(-deposit), `10% Deposit - Paid ${receiptDates(a).deposit}`, { line: true })}
+      ${feeRow(money(-deposit), depositDesc(a, !!live), { line: true })}
       ${feeRow(money(subtotal - deposit), 'Balance')}` : '';
   const refund = v.body ? '' : `
     <div class="prepare-card">
@@ -104,7 +130,7 @@ export function viewCancelled(s, forced = null) {
 <div class="body" data-s="03-status-cancelled">
   ${statusHero({ pill: v.pill, title: v.title, body: v.body ?? undefined, titleWeight: 600, titleColor: 'error' })}
   <div class="summary">
-    ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
+    ${summaryCard({ fixed: true, initials: tailorInitials(a), name: a.name ? tailorName(a) : NO_TAILOR, rows: apptRows(a) })}
     <div class="garments-card">
       ${orderCards({ garments: a.garments, totals: t }, { variant: 'ViewOnly' })}${rows}
     </div>${refund}

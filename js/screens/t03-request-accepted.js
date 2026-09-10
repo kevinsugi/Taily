@@ -19,7 +19,7 @@
 import { register, render as go, back } from '../app.js';
 import { statusHero, summaryCard, cta, toast } from '../components.js';
 import { state } from '../state.js';
-import { tailorChrome, wireTailorNav, backHeader, payoutRows, openCantMakeIt } from '../tailor-components.js';
+import { tailorChrome, wireTailorNav, backHeader, payoutRows, openCantMakeIt, openChat } from '../tailor-components.js';
 import { current, jobView, jobTarget, tailorOf, isFixture, T, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
 import { bookedCards } from './t02-appointment-request.js';
 
@@ -67,7 +67,7 @@ export function wire(root) {
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));
   root.querySelector('[data-act="start"]')?.addEventListener('click', () => go('t04-appointment-details'));
   root.querySelector('[data-act="status"]')?.addEventListener('click', () => go(jobTarget(current(state))));
-  root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));
+  root.querySelector('[data-act="message"]')?.addEventListener('click', () => openChat());
   root.querySelector('[data-act="cant-make-it"]')?.addEventListener('click', () => openCantMakeIt(current(state), (reason) => {
     const job = current(state);
     if (jobView(job).canon !== 'confirmed' || !T.cancel(job, reason)) { toast('This job is no longer on your calendar'); return; }

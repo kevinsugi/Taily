@@ -55,7 +55,39 @@ import {
   mdy,
   isAfterDay,
   nextOrderId,
+  withinHours,
 } from './data.js';
+
+/* ---------- UX-LOOP round 6 substrate (Kevin's decisions) ----------
+   FEE POLICY ("fee" = the customer's 10% deposit; the tailor's Taily
+   fee is unchanged): the tailor cancelling refunds it; the customer
+   cancelling within 12 hours of the visit (withinHours), or a no-show,
+   keeps it; an earlier customer cancel refunds it. A request no tailor
+   ever accepted charges nothing (hold released) as before. Every
+   terminal entry gains
+     refund       the dollars going back (0 when kept / never charged)
+     depositKept  true only when a PAID deposit is kept (< 12 h customer
+                  cancel, no-show)
+   NO TAILOR NAME BEFORE MATCHING: requestTailor() leaves name /
+   initials / tailorId null and sets `matching: true`; tailorAccepts()
+   (and acceptProposedTime()) assign Marco and clear it. Screens read
+   data.js tailorName() / tailorInitials() / tailorFirst().
+   RESCHEDULE = cancel + resubmit the same job for a new tailor:
+   rescheduleAppointment(a) cancels (same 12-hour rule), copies the
+   items into the booking form + Home selection (copyItemsOver) and
+   restores the requested time / need-by / visit type; 03.1 then lands
+   on 02, whose Request Tailor creates a new matching request.
+   ---------------------------------------------------------------- */
+
+/** Marco — the one tailor the prototype matches with. */
+const MATCHED_TAILOR = { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco' };
+function assignTailor(a) {
+  if (!a) return;
+  a.name ??= MATCHED_TAILOR.name;
+  a.initials ??= MATCHED_TAILOR.initials;
+  a.tailorId ??= MATCHED_TAILOR.tailorId;
+  a.matching = false;
+}
 
 /* The happy path — extended for the v4 flow (Kevin-approved):
      searching -> confirmed -> awaiting-approval -> tailoring
@@ -209,7 +241,8 @@ export function requestTailor() {
   const a = {
     /* `mine`: the appointment both personas share (R1-T-01) */
     mine: true,
-    name: 'Marco Tailor', initials: 'MT', tailorId: 'marco',
+    /* R6: no tailor until one accepts — tailorAccepts() assigns Marco */
+    name: null, initials: null, tailorId: null, matching: true,
     where: home ? 'home' : 'shop',
     place: home ? `${contact.street}${contact.unit ? ', ' + contact.unit : ''}` : '1025 Broadway, Midtown West',
     when: state.appt.when, needBy: state.appt.needBy, status: 'searching',
@@ -260,7 +293,7 @@ export function step(from, to, extra = {}, a = apptEntry()) {
     proposal is moot once the request is accepted as booked. */
 export function tailorAccepts(a = apptEntry()) {
   const ok = step('searching', 'confirmed', { depositOn: mdy(new Date().toDateString(), '7/7/26') }, a);
-  if (ok) a.proposed = null;
+  if (ok) { a.proposed = null; assignTailor(a); }   // R6: the tailor is named on acceptance
   return ok;
 }
 /** The appointment happened; tailor drafts the final order. */
@@ -329,6 +362,7 @@ export function acceptProposedTime(when, a = apptEntry()) {
   a.proposed = null;
   a.status = 'confirmed';
   a.depositOn ??= mdy(new Date().toDateString(), '7/7/26');
+  assignTailor(a);   // R6: accepting the proposal books the proposing tailor
   return { appointment: a, when: a.when, deposit: a.totals ? a.totals.deposit : null };
 }
 
@@ -398,11 +432,17 @@ export function expireAppointment(a = apptEntry()) {
 
 /** The tailor cancels a confirmed visit (R2-U-05 / R2-T-05):
     reason 'cant-make-it' | 'no-show'. Status 'cancelled', cancelledBy
-    'tailor'. No charge — the hold is released (fee policy: Kevin). */
+    'tailor'. R6 fee policy: can't-make-it refunds the paid deposit
+    (`refund` = deposit, `depositKept` false); a no-show keeps it
+    (`refund` 0, `depositKept` true). */
 export function tailorCancels(a = apptEntry(), reason = 'cant-make-it') {
   if (!a) return null;
   const wasRequested = terminate(a, 'cancelled', 'tailor', reason);
-  return { appointment: a, wasRequested, reason, refund: wasRequested ? 0 : (a.totals ? a.totals.deposit : 0) };
+  const deposit = a.totals ? a.totals.deposit : 0;
+  const refund = (wasRequested || reason === 'no-show') ? 0 : deposit;
+  a.refund = refund;
+  a.depositKept = reason === 'no-show' && !wasRequested;
+  return { appointment: a, wasRequested, reason, refund, kept: a.depositKept };
 }
 
 /**
@@ -424,12 +464,51 @@ export function cancelAppointment(aOrIndex) {
   else a = state.upcoming[aOrIndex == null ? state.currentAppt.index : aOrIndex];
   if (!a) return null;
   if (isPostAppointment(a)) return null;
+  /* R6 fee policy: decided BEFORE the entry moves (a.when is untouched
+     either way) — within 12 hours of the visit the paid deposit stays
+     with the tailor; earlier it comes back; a never-confirmed request
+     charged nothing to begin with. */
+  const late = withinHours(a.when, 12);
   const wasRequested = terminate(a, 'cancelled', 'customer', 'customer');
-  return {
-    appointment: a,
-    wasRequested,
-    refund: wasRequested ? 0 : (a.totals ? a.totals.deposit : 0),
-  };
+  const deposit = a.totals ? a.totals.deposit : 0;
+  const refund = (wasRequested || late) ? 0 : deposit;
+  a.refund = refund;
+  a.depositKept = refund === 0 && !wasRequested;
+  return { appointment: a, wasRequested, refund, kept: a.depositKept };
+}
+
+/**
+ * The cancelled order's garments become the next booking's starting
+ * point — 02's cards and 01's tile badges (R1-U-09). Moved here from
+ * 03.1 in round 6 so rescheduleAppointment() can call it; the screen
+ * re-exports it for 03/Cancelled's re-request CTAs.
+ */
+export function copyItemsOver(a) {
+  const garments = clone(a?.garments ?? []);
+  garments.forEach((g) => { delete g.added; delete g.addedJobs; delete g.displayPrice; delete g.id; });
+  state.garments = garments;
+  state.ui ??= {};
+  state.ui.homeSelection = garments.reduce((m, g) => { m[g.type] = (m[g.type] ?? 0) + g.qty; return m; }, {});
+  return garments;
+}
+
+/**
+ * R6 "reschedule" = cancel + resubmit the same job for a new tailor at
+ * the same time (Kevin): runs cancelAppointment(a) (same 12-hour rule,
+ * same terminal placement — null when the visit already happened),
+ * copies the items into the booking form + Home selection and restores
+ * the requested time / need-by / visit type on state.appt, so 02 opens
+ * pre-filled and its Request Tailor creates a fresh matching request.
+ * Returns the cancel result ({ appointment, wasRequested, refund, kept }).
+ */
+export function rescheduleAppointment(a = apptEntry()) {
+  const res = cancelAppointment(a);
+  if (!res) return null;
+  copyItemsOver(a);
+  if (a.when) state.appt.when = a.when;
+  if (a.needBy) state.appt.needBy = a.needBy;
+  if (a.visit) state.appt.where = a.visit;
+  return res;
 }
 
 /** Re-send the same request to a different tailor. */

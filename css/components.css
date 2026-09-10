@@ -1149,6 +1149,19 @@
 }
 .meta-row__glyph { font-size: var(--size-12); line-height: 16px; }
 
+/* UX-LOOP round 6: 03/Requested's request card leads with a who-row —
+   a 40px avatar (the ✂ glyph until a tailor accepts) beside the name
+   "Matching you with a tailor" — above the glyph rows. */
+.request-card__who { display: flex; align-items: center; gap: var(--space-12); width: 100%; padding-bottom: var(--space-4); }
+.avatar--sm { width: 40px; height: 40px; border-radius: 12px; font-size: var(--size-16); line-height: 21px; }
+.request-card__name {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
 /* Fee row (04c…): price cell (px16) + description */
 .fee-row {
   display: flex;

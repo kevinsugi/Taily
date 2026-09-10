@@ -537,3 +537,71 @@ proof) · 3 (`67b1949` Figma sync, `a145dbb` 13 fixes) · 4 (`3e94aa0`, 5 fixes)
 - **R5-T-01 / R5-T-02:** T04, T05 and T06 redirect on render for a closed job ("This job is no longer on your calendar" → T01 with `replace`); no editor is drawn for a cancelled job reached through history or a deep link.
 - **Toggle vs toast:** `toast()` flags `html.has-toast` while a toast is up and the persona toggle steps above it (`bottom` = 16 + 40 + 8 px, tokens only).
 - Tailor click-through gained three redirect assertions (replacing the click-based R4-T-03 T06 check). `npm run check` ALL PASS (362 s): 58 diffs at baseline, parity, click-through, tailor, sync 807, style hygiene. No Figma change (all live-only). Remaining for Kevin: the BLOCKED Requested-card Actions slot and the Figma / product decisions listed above.
+
+## Round 6 — Kevin's decisions on the carried items (Sep 10 2026, 03:20) — Figma round
+
+Kevin resolved every carried item. Exact copy below is the single source for Figma and code.
+
+### Decisions
+| Item | Decision |
+|---|---|
+| Tailor's garment note / photos | **Tailor-only.** Never shown on the customer's cards. No Figma slot. |
+| Contact Taily Support (T04) | **Canned support chat.** Opens `10-messages` on a "Taily Support" thread (avatar `TS`, header "Taily Support", sub "Usually replies in 10 min", pill hidden). Seed bubble from Support: "Hi Marco — Taily Support here. How can we help with this visit?" Marco sends → canned reply "Thanks, we're on it. A specialist will reply within 10 minutes." Back returns to T04. |
+| T03A "Other" | **Text field.** Selecting Other reveals a textarea (placeholder "Tell us more (optional)"); stored as `a.declineNote`. Figma: T03A / Suggest Time frame gains the field state (new sibling `T03A - Decline Request / Other`). |
+| "Tailors have up to 2 hours to accept your request." | **Into the 03/Requested frame** (`281:1237`) under the hero; code renders it on the fixture too (it stays the expiry demo tap live). |
+| New 03 variant frames | **Pad to 844** (Expired, Declined, Tailor Cancelled, No-Show, New Time) — frame height 844, content unchanged; routes' `min-height` follow; refs + baselines re-accepted. |
+| `- $20` / `7:00PM` on 6 older frames | **Sync the frames** to `-$20` and `7:00 PM`; remove the matching text-parity ALLOWs. |
+| Flow chart `263:6457` | **Add** a Decision "Customer approves final order?" between 05 and 06 (Yes → tailoring; No → "Talk it over" → back to 05) and a "Suggest another time" edge: Accept? → "Suggest another time" process → Sarah decides (Accept new time → 03; Keep looking → back to matching). Same Flow / components as the rest of the chart. |
+| Fee policy | **Tailor cancels → deposit refunded. Customer cancels within 12 hours of the visit, or no-shows → deposit NOT refunded.** Customer cancels earlier → refunded. ("Fee" = the customer's 10% deposit; the tailor's Taily fee is unchanged.) |
+| "Rescheduling" | **= cancel + resubmit the same job for a new tailor at the same time.** 03.1's reschedule confirm cancels the appointment (12-hour rule applies), copies items, requested time, need-by and visit type into the booking form, and lands on **02 (Appointment Details)**. The customer never chooses the tailor. |
+| Tailor name before matching | **Never shown until a tailor accepts.** `requestTailor()` leaves `name` / `initials` / `tailorId` empty; `tailorAccepts()` assigns Marco. Requested cards, 03/Requested's card, 03.1's withdraw copy, the proposal hero and chat entry points use neutral copy (below). Figma: 03/Requested card name, Requested card variants on 01 / 09 / 09 Closed Cards, 03 New Time hero. |
+| 05A / 05B (best judgement) | CTA carries the dated window: `Confirm Pickup · Fri, Jul 17 · 4–6 PM` / `Confirm Delivery · …`; secondary CTA reads `Switch to Delivery` / `Switch to Pickup` (UX-008 resolved). Figma 05a `283:1328`, 05b `283:1372` + the 05.1 backdrops if they carry copies. |
+| "Pinned" photo row | **Leave clipped** (hints at scrolling). No change. |
+| T02 | **Add** the visit type, travel distance and subtotal: first row `◉ 88 Leonard Street, 4B · Home visit · 1.2 mi`; fee rows `$200 Subtotal` / `$20 Taily Fee (10%)` / `$180 Your Payout`. Figma `455:2170` + the Accepted / Expired siblings. |
+| T03 hero | **Keep** "Booking Confirmed!" as is. |
+| "Done today" rows | **Dismissable**: a `Clear` link on the section row hides the closed rows for the session (`state.tailorUi.clearedClosed`). Figma: `T01 - Home / Closed Rows` gains the link. |
+
+### Exact copy
+- **Matching (no tailor yet):** card title `Matching you with a tailor`, avatar glyph `✂` (no initials), meta `Requested: Thu, Sept 10 · 9:30 AM`; 03/Requested card name `Matching you with a tailor`, sub unchanged; 03.1 withdraw row `Your Thu, Sept 10 · 9:30 AM request is withdrawn`; proposal hero title `A tailor proposed a new time`, body `Your Thu, Sept 10 · 9:30 AM slot isn't free. They can do Fri, Sept 11 · 11:00 AM. Your need-by stays Fri, Sept 11.`; card meta `New time proposed: …`; no Message CTA while matching.
+- **Customer cancel, confirmed, ≥ 12 h before the visit (03.1 rows):** `✕ Your Sun, Jul 12 · 7:00 PM with Marco is cancelled` / `✓ Your $20 deposit is refunded` / `↻ Your items and time are kept — we'll find you a new tailor` (reschedule mode) · CTA `Reschedule / Cancel` (unchanged) — 03/Cancelled: `Your $20 deposit is refunded to Apple Pay.`
+- **Customer cancel, < 12 h:** 03.1 row `✕ Your $20 deposit is not refunded — you're within 12 hours of the visit` (replaces the ✓ row) — 03/Cancelled body `Cancelled within 12 hours of the visit, so your $20 deposit was kept. Rebook whenever you're ready.` — T03B (customer cancel) adds `Her $20 deposit stays with you.` when kept.
+- **No-show:** T03.1 line `The job closes and Sarah is notified. Her $20 deposit stays with you.`; T03B `Sarah didn't show. The job is closed and the slot is open again. Her $20 deposit stays with you.`; customer 03/Cancelled `Marco marked the Sun, Jul 12 · 7:00 PM visit as a no-show, so your $20 deposit was kept.` + `Find Another Tailor`.
+- **Tailor cancels:** unchanged (`…her $20 deposit is refunded.` / `Your $20 deposit is refunded to …`).
+- **Reschedule landing:** toast on 02 `Appointment cancelled — send the same job to find a new tailor`; 02 pre-filled with the copied items, requested time, need-by and visit type.
+- **Done today:** section row `Done today` + right link `Clear`.
+- **T03A Other:** textarea placeholder `Tell us more (optional)`.
+
+### Round 6 — results (Sep 10 2026)
+Three agents (substrate + customer, tailor, Figma). Every decision applied:
+- **Fee policy:** `cancelAppointment` applies the 12-hour rule (`a.refund`, `a.depositKept`);
+  no-show keeps the deposit; tailor cancel refunds. 03.1 rows, 03/Cancelled bodies, T03.1's
+  no-show line and T03B read the outcome with the real amount; live deposit row reads
+  `Kept` / `Refunded <date>` (fixtures keep "Paid 7/7/26").
+- **Reschedule = cancel + resubmit:** `rescheduleAppointment(a)` → 02 pre-filled (items, time,
+  need-by, visit type) + toast; Request Tailor opens a new matching request.
+- **No tailor name before matching:** `requestTailor()` leaves the tailor unassigned
+  (`a.matching`), `tailorAccepts` assigns Marco; cards read "Matching you with a tailor" with a
+  ✂ glyph and `Requested: <when>`; the proposal hero says "A tailor proposed a new time";
+  pre-accept terminal copy is neutral ("A tailor couldn't take this request", "Declined by a
+  tailor", "No tailor matched" on 03/Cancelled's card — wording chosen by the implementer).
+  03/Requested keeps the frame's plain info card (the frame has no name row).
+- **Support chat:** T04 → `10-messages` support thread (TS / Taily Support / canned reply).
+- **T03A Other:** textarea "Tell us more (optional)" → `a.declineNote`; new frame
+  `T03A - Decline Request / Other` 629:4443, route `t03a-other`.
+- **T02:** first row `◉ 88 Leonard Street, 4B · Home visit · 1.2 mi` (wraps to two lines) and a
+  `$200 Subtotal` fee row, on the base frame and the Accepted / Expired siblings.
+- **Done today:** `Clear` link hides closed rows for the session; a new closure re-shows them.
+- **05A / 05B:** `Confirm Pickup · Fri, Jul 17 · 4–6 PM` / `Switch to Delivery` (mirror on 05B),
+  frames + 05.1 backdrops synced (UX-008 resolved).
+- **Frames:** "Tailors have up to 2 hours…" added to 03/Requested (16px, under the hero);
+  03 New Time hero neutral; Expired / Declined padded to 844; No-Show + T03B/No-Show bodies per
+  policy; `-$20` / `7:00 PM` synced on the six older frames (parity ALLOWs removed);
+  09 Closed Cards' Requested card renamed; T01 Closed Rows `Clear` link.
+- **Flow chart 263:6457:** "Customer approves final order?" decision (No → "Talk it over (chat)"
+  → back to 05) and the "Suggest another time" → "Customer accepts new time?" branch added; frame
+  grew to 1400 tall, no crossings.
+- **Harness:** `npm run check` ALL PASS (408 s): diff 60/60 (27 baselines re-accepted to the re-exported refs; T02 ×3 sit at 14.6–15.9 because the frame wraps the first row where the build wraps differently — revisit at the money sync), text parity (textarea placeholders now count; six `-$20` / `7:00 PM` ALLOWs removed), click-through 142, tailor click-through 250, sync click-through 903, style hygiene. 03/Requested keeps the plain info card (the frame has no name row) — the who-row the copy block asked for was dropped; two scripts updated to assert "no tailor name" instead.
+- **Needs Kevin:** Tailor Cancelled (930), No-Show (930) and New Time (872) are already taller
+  than 844 since the round 3 fee rows / second CTA — left hugging (trim content, or accept the
+  height). The BLOCKED Requested-card Actions slot (Review Time) is unchanged. The customer-side
+  fixture on 09 Closed Cards renders "Matching you with a tailor" (frame says the same now).

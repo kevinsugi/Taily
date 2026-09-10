@@ -6,7 +6,7 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, garmentTile, cta, apptCard, toast } from '../components.js';
-import { GARMENT_TYPES, SEED_UPCOMING, itemsLabel, itemCount, fmtDay, fmtWhen, parseWhen } from '../data.js';
+import { GARMENT_TYPES, SEED_UPCOMING, itemsLabel, itemCount, fmtDay, fmtWhen, parseWhen, tailorName as matchedName, tailorFirst } from '../data.js';
 import { state, addGarment, isTerminal, canonicalStatus } from '../state.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
@@ -42,11 +42,14 @@ const isFuture = (str) => { const p = parseWhen(str); const t = new Date(); t.se
 export function apptMeta(a) {
   const f = a.fulfilment;
   const method = f?.method === 'delivery' ? 'Delivery' : 'Pickup';
-  const first = (a.name ?? 'Marco Tailor').split(' ')[0];
+  /* R6 (Kevin): no tailor name before one accepts — a request that
+     ended unmatched names "a tailor", never Marco */
+  const first = tailorFirst(a, 'a tailor');
   const map = {
-    /* Phase R5: the Requested variant writes the prefixed form.
+    /* Phase R5: the Requested variant writes the prefixed form — R6:
+       "Requested: …" while matching (frame variant edited to match).
        UX-LOOP R2-U-03: a proposed time takes the line over. */
-    requested: a.proposed ? `New time proposed: ${fmtWhen(a.proposed.when)}` : `Appt Date: ${cardWhen(a)}`,
+    requested: a.proposed ? `New time proposed: ${fmtWhen(a.proposed.when)}` : `Requested: ${cardWhen(a)}`,
     /* Phase R1: confirmed cards show the bare date (was "Appt Date: …") */
     confirmed: cardWhen(a),
     'awaiting-approval': `Est. Ready Date: ${fmtDay(a.needBy)}`,
@@ -170,7 +173,7 @@ export function view01(s) {
   const card = cards.map(({ a, kind }) => apptCard({
     status: kind === 'outcome' ? canonicalStatus(a.status) : a.status,
     month: a.month, day: a.day,
-    name: a.name,
+    name: matchedName(a),   // R6: "Matching you with a tailor" until one accepts
     meta: apptMeta(a),
     itemsTitle: apptItemsTitle(a),
     /* Phase R1: the 01 frame lists only two item lines under "3 Items

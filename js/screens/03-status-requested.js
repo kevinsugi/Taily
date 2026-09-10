@@ -21,11 +21,16 @@
    DEMO affordances (never on the harness deep link): tapping the hero
    pill = "Marco proposes the next day, 11 AM"; tapping the "2 hours"
    line = time passes → the request expires.
+   UX-LOOP round 6 (Kevin): no tailor name before a tailor accepts —
+   the request card leads with the ✂ avatar + "Matching you with a
+   tailor" (requestCard), the proposal hero reads "A tailor proposed a
+   new time … They can do …", and the "2 hours" line is in the frame
+   (rendered on the deep link too; the expiry tap stays live-only).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, infoCard, metaRow, cta } from '../components.js';
-import { money, itemsLabel, itemCount, fmtWhen, fmtDay, shiftDay, parseWhen, proposalDays, proposalHours } from '../data.js';
+import { money, itemsLabel, itemCount, fmtWhen, fmtDay, shiftDay, parseWhen, proposalDays, proposalHours, tailorName, tailorInitials } from '../data.js';
 import {
   state, tailorAccepts, bookingLines, isTerminal,
   proposeTime, acceptProposedTime, declineProposedTime, expireAppointment,
@@ -79,13 +84,14 @@ export function viewRequested(s, forced = null) {
   const t = bookingLines(null);
   const n = s.garments.reduce((sum, g) => sum + g.qty, 0);
   const a = forced ?? (live() ? currentAppt(s) : null);
-  const first = (a?.name ?? 'Marco Tailor').split(' ')[0];
   const proposed = a?.proposed?.when ?? null;
   /* R3-U-02: the proposal is bounded by the need-by (proposeTime) —
-     the hero says so, so the trade-off is visible */
+     the hero says so, so the trade-off is visible.
+     R6 (Kevin): no tailor name before matching — the proposing tailor
+     stays anonymous ("A tailor proposed a new time … They can do …"). */
   const needBy = a?.needBy ? ` Your need-by stays ${fmtDay(a.needBy)}.` : '';
   const hero = proposed
-    ? statusHero({ variant: 'new-times', title: `${first} proposed a new time`, body: `Your ${fmtWhen(a.when)} slot isn’t free. ${first} can do ${fmtWhen(proposed)}.${needBy}` })
+    ? statusHero({ variant: 'new-times', title: 'A tailor proposed a new time', body: `Your ${fmtWhen(a.when)} slot isn’t free. They can do ${fmtWhen(proposed)}.${needBy}` })
     : statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-certified tailor near you. We’ll notify you the moment one accepts.' });
   /* R3-U-01: the request card reads the APPOINTMENT once one exists —
      a second unsent booking on the form no longer rewrites it. The
@@ -102,10 +108,10 @@ export function viewRequested(s, forced = null) {
       metaRow('▤', s.appt.when),
       metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.subtotal)}.00+ est. · ${money(t.deposit)} deposit held`),
     ];
-  /* live-only: the acceptance window (the tailor side's timer twin) —
-     tapping it is the "time passes" demo */
-  const window2h = a && !proposed
-    ? `<p class="t-small c-500" data-act="expire" role="button" tabindex="0">Tailors have up to 2 hours to accept your request.</p>`
+  /* the acceptance window (the tailor side's timer twin) — R6: in the
+     frame too (under the hero); tapping it live is the "time passes" demo */
+  const window2h = !proposed
+    ? `<p class="t-body c-500" data-act="expire" role="button" tabindex="0">Tailors have up to 2 hours to accept your request.</p>`
     : '';
   const actions = proposed
     ? `${cta('Accept New Time', { attrs: 'data-act="accept-time"' })}

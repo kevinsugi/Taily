@@ -292,3 +292,31 @@ html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) +
 .radio-row__note { display: block; margin-top: var(--space-4); font-size: var(--size-12); line-height: 16px; color: var(--neutral-500); }
 /* R3-T-01: T03A's "no later slot to offer" reason */
 .t03a__reason { margin: 0; padding-inline: var(--space-20); }
+
+/* ---------- UX-LOOP round 6 ---------- */
+/* T02's first summary row ("… · Home visit · 1.2 mi") is longer than the
+   shared card's single line — let it wrap on T02 (and its siblings). */
+[data-s="t02-appointment-request"] .summary-card__row { white-space: pre-wrap; }
+[data-s="t02-appointment-request"] .summary-card__info { min-width: 0; flex: 1 1 0; }
+/* T03A "Other" note — the tailor's at-visit note field (tgc__note),
+   inset to the reason rows' 20px. Tokens only, the 14/18 row type. */
+.screen[data-screen="t03a-other"] { min-height: 729px; }
+.t03a__note {
+  width: calc(100% - 2 * var(--space-20));
+  margin-inline: var(--space-20);
+  min-height: 74px;
+  padding: var(--space-12);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--neutral-200);
+  resize: none;
+  font-family: var(--font-sans);
+  font-size: var(--size-14);
+  line-height: 18px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.t03a__note::placeholder { color: var(--neutral-500); opacity: 1; }
+.t03a__note:focus { outline: none; box-shadow: inset 0 0 0 1px var(--neutral-400); }
+.t03a__note[hidden] { display: none; }

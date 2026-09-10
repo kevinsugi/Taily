@@ -740,6 +740,17 @@ export function metaRow(glyph, text) {
   return `<div class="meta-row"><span class="meta-row__glyph">${glyph}</span><span>${text}</span></div>`;
 }
 
+/** 03/Requested's request card (UX-LOOP round 6): the info card with a
+    who-row on top — small avatar + name. Before a tailor accepts the
+    name is "Matching you with a tailor" and the avatar the ✂ glyph
+    (data.js tailorName / tailorInitials); the meta rows follow. */
+export function requestCard({ name, initials, rows = [] } = {}) {
+  return `<div class="info-card request-card">
+  <div class="request-card__who"><span class="avatar avatar--sm">${initials}</span><span class="request-card__name">${name}</span></div>
+  ${rows.join('')}
+</div>`;
+}
+
 /** Fee/deposit row (04c/04d/05/06a/06b). Long descriptions wrap.
     line: bottom hairline (Phase R0 — every row but the last).
     info: semantic/info price (06B — totals touched by the modified order). */

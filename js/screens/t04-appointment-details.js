@@ -12,12 +12,14 @@
    draft back to the appointment. The harness deep link starts from
    the frame's final-order fixture instead. Round 2: the draft is keyed
    to the tapped job and its garments keep their booked ids (R2-T-08).
+   Round 6: Contact Taily Support opens 10-messages on the canned
+   support thread (openChat('support')); its back chevron returns here.
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
 import { summaryCard, cta, toast } from '../components.js';
 import { state } from '../state.js';
-import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, wireOrderEditor } from '../tailor-components.js';
+import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, wireOrderEditor, openChat } from '../tailor-components.js';
 import { current, jobView, draftFor, orderTotals, isFixture, CUSTOMER, CUSTOMER_ROWS, isTerminalJob } from '../tailor-data.js';
 
 function renderScreen(s) {
@@ -50,7 +52,8 @@ function wire(root) {
   wireTailorNav(root);
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t03-request-accepted'));
   root.querySelector('[data-act="continue"]')?.addEventListener('click', () => go('t05-confirm-final-pricing'));
-  root.querySelector('[data-act="support"]')?.addEventListener('click', () => toast('Taily Support is outside this prototype'));
+  /* round 6: the canned Taily Support thread on the shared messages screen; back returns here */
+  root.querySelector('[data-act="support"]')?.addEventListener('click', () => openChat('support'));
   const draft = draftFor(state, current(state), { fixture: isFixture() });
   wireOrderEditor(root, draft, () => go('t04-appointment-details', { replace: true }));
 }

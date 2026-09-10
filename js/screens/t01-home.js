@@ -26,6 +26,10 @@
    The harness deep link keeps the frame's fixture; the round-3 frame
    "T01 - Home / Closed Rows" (t01-home-closed) draws the "Done today"
    section.
+   Round 6: "Done today" is dismissable — a `Clear` link on the section
+   row (View All's style) hides the closed rows for the session
+   (`state.tailorUi.clearedClosed`); a job that closes after the tap
+   re-shows them. The completed row keeps its payout and stays.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
@@ -35,7 +39,7 @@ import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, sectionRow, requestCard, jobCard } from '../tailor-components.js';
 import {
   jobs, jobView, jobTarget, tailorOf, setCurrent, isFixture, isSeed, isLapsed, requestTimer, restartTimer, endedBy, canon, proposalDeclinedBy, T,
-  CUSTOMER, FILLER_JOB,
+  clearClosed, closedCleared, CUSTOMER, FILLER_JOB,
 } from '../tailor-data.js';
 
 /* one request card per job Sarah is still asking for. The FRAME draws
@@ -102,11 +106,16 @@ export function viewTailorHome(s) {
   const list = jobs(s);
   const requests = list.map((a, i) => (isRequest(a, fixture) ? requestFor(a, i, fixture) : '')).filter(Boolean);
   const active = list.map((a, i) => (isActive(a) ? openJobFor(a, i, fixture) : '')).filter(Boolean);
-  /* delivered first, then the closed rows, each group in list order */
+  /* delivered first, then the closed rows, each group in list order.
+     Round 6: the closed rows are hidden once Clear was tapped (until a
+     job closes after it); the Clear link shows only while they are. */
+  const closedJobs = list.filter((a) => isDone(a) && canon(a) !== 'delivered' && endedBy(a) !== 'declined');
+  const cleared = closedCleared(closedJobs, s);
   const done = [
     ...list.map((a, i) => (canon(a) === 'delivered' ? doneRowFor(a, i, fixture) : '')),
-    ...list.map((a, i) => (isDone(a) && canon(a) !== 'delivered' ? doneRowFor(a, i, fixture) : '')),
+    ...(cleared ? [] : list.map((a, i) => (isDone(a) && canon(a) !== 'delivered' ? doneRowFor(a, i, fixture) : ''))),
   ].filter(Boolean);
+  const clearLink = !cleared && closedJobs.length ? 'Clear' : '';
 
   return `${tailorChrome('home')}
 <div class="body" data-s="t01-home">
@@ -118,7 +127,7 @@ export function viewTailorHome(s) {
     ${active.join('\n    ')}
     ${jobCard({ ...FILLER_JOB, attrs: 'data-act="filler"' })}
   </div>
-  ${done.length ? `${sectionRow('Done today')}
+  ${done.length ? `${sectionRow('Done today', clearLink, 'clear-done')}
   <div class="t-actions t-actions--16 t-done">
     ${done.join('\n    ')}
   </div>` : ''}
@@ -153,6 +162,11 @@ export function wire(root) {
   root.querySelectorAll('[data-act="open-job"]').forEach((el) => el.addEventListener('click', () => { const a = at(el); setCurrent(a); go(jobTarget(a)); }));
   root.querySelector('[data-act="filler"]')?.addEventListener('click', () => toast('Leo Von’s job is outside this prototype'));
   root.querySelector('[data-act="view-all"]')?.addEventListener('click', () => toast('All jobs are outside this prototype'));
+  /* round 6: Clear hides the closed "Done today" rows for the session */
+  root.querySelector('[data-act="clear-done"]')?.addEventListener('click', () => {
+    clearClosed(list.filter((a) => isDone(a) && canon(a) !== 'delivered' && endedBy(a) !== 'declined'));
+    rerender();
+  });
 
   /* R2-T-03 demo affordance (recorded): tapping the timer strip = time
      passes → the request expires. The confirmed seed's fixture card

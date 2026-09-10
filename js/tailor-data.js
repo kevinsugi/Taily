@@ -128,6 +128,18 @@ export function payoutDate(a) {
 export const orderId = (a) => a?.orderId ?? 'TLY-2026-4417';
 /** The deposit Sarah paid on a confirmed booking (10% of what she booked). */
 export const depositOf = (a) => a?.totals?.deposit ?? 20;
+
+/* ---------- round-6 substrate reads (call-time lookups) ----------
+   Fee policy (Kevin, round 6): a no-show or a customer cancel within
+   12 hours of the visit keeps Sarah's deposit with Marco; the substrate
+   stamps `a.depositKept` on both (tailorCancels(a, 'no-show') /
+   cancelAppointment(a)). A no-show always keeps it, whatever the stamp. */
+export const depositKept = (a) => a?.depositKept === true || endedBy(a) === 'no-show';
+/** The tailor's name / initials as the CUSTOMER side prints them
+    (round 6: unassigned until a tailor accepts — data.js owns the
+    neutral copy; until it lands, the appointment's own fields). */
+export const tailorName = (a) => (typeof D.tailorName === 'function' ? D.tailorName(a) : (a?.displayName ?? a?.name ?? 'Marco Tailor'));
+export const tailorInitials = (a) => (typeof D.tailorInitials === 'function' ? D.tailorInitials(a) : (a?.initials ?? 'MT'));
 /** The first pickup window data.js offers for this job (R2-U-02's
     handoffWindows), in the dated label 05A stores ("Thu, Jul 16 · 9–11 AM")
     — the T07 demo "Sarah chose pickup now" (R2-T-07). */
@@ -168,10 +180,29 @@ export function primaryJob(s = state) {
 }
 
 /** Tailor-side UI flags kept on state (throwaway, like state.ui):
-    `current` = the appointment the tailor tapped. */
+    `current` = the appointment the tailor tapped; `chat` = which
+    thread the shared messages screen opens for Marco ('support' from
+    T04's Contact Taily Support, else Sarah's — round 6); `clearedClosed`
+    + `cleared` = T01's "Done today" Clear (round 6: the closed rows
+    dismissed this session, re-shown when a job closes after the tap). */
 export function tailorUi(s = state) {
   s.tailorUi ??= { current: null };
   return s.tailorUi;
+}
+/** Round 6: hide T01's closed "Done today" rows for the session. */
+export function clearClosed(closedJobs, s = state) {
+  const ui = tailorUi(s);
+  ui.clearedClosed = true;
+  ui.cleared = [...closedJobs];
+}
+/** Are the closed rows hidden? A job that closed AFTER the Clear tap
+    (not in the snapshot) re-shows the section and drops the flag. */
+export function closedCleared(closedJobs, s = state) {
+  const ui = tailorUi(s);
+  if (!ui.clearedClosed) return false;
+  const snap = ui.cleared ?? [];
+  if (closedJobs.some((a) => !snap.includes(a))) { ui.clearedClosed = false; ui.cleared = null; return false; }
+  return true;
 }
 export function setCurrent(a, s = state) { tailorUi(s).current = a ?? null; return a; }
 
@@ -265,8 +296,9 @@ export function jobView(a) {
   const address = visitAddress(a);
   const nb = parseWhen(a?.needBy);
   const time = when.split(' · ')[1] ?? when;
+  const visitLabel = a?.visit === 'Store Visit' || a?.where === 'shop' ? 'Store visit' : 'Home visit';
   return {
-    canon: c, post, garments, subtotal, fee, payout,
+    canon: c, post, garments, subtotal, fee, payout, visitLabel,
     money: { subtotal: money(subtotal), fee: money(fee), payout: money(payout), feeNeg: `−${money(fee)}` },
     items: garments.reduce((s, g) => s + (g.qty ?? 1), 0),
     itemsLabel: garmentsLabel(garments),
@@ -276,8 +308,11 @@ export function jobView(a) {
     month: post && nb ? nb.mon.slice(0, 3).toUpperCase() : (a?.month ?? 'JUL'),
     day: post && nb ? String(nb.day) : (a?.day ?? '12'),
     meta: post ? `Need by: ${needBy}` : `${time} - ${address}`,
-    /* Tailor Summary Card rows (T02/T03/T04) from the live appointment */
+    /* Tailor Summary Card rows (T03/T04) from the live appointment */
     rows: [`◉&nbsp;&nbsp;${address}`, `▤&nbsp;&nbsp;${when}`, `▤&nbsp;&nbsp;Need By: ${needBy}`],
+    /* T02's rows (round 6): the first row adds the visit type and the
+       travel distance (fixed 1.2 mi — the fiction) */
+    requestRows: [`◉&nbsp;&nbsp;${address} · ${visitLabel} · ${CUSTOMER.dist}`, `▤&nbsp;&nbsp;${when}`, `▤&nbsp;&nbsp;Need By: ${needBy}`],
     /* T01 request card item lines */
     lines: garments.map((g) => `${g.type} - ${g.jobs.join(', ')} - ${money(garmentAmount(g))}`),
   };
@@ -295,8 +330,11 @@ export function jobTarget(a) {
   return 't01-home';
 }
 
-/** Summary-card rows shared by the T02/T03/T04 FRAMES (copy verbatim). */
+/** Summary-card rows shared by the T03/T04 FRAMES (copy verbatim). */
 export const CUSTOMER_ROWS = ['◉&nbsp;&nbsp;88 Leonard Street', '▤&nbsp;&nbsp;Sun, Jul 12 · 7:00 PM', '▤&nbsp;&nbsp;Need By: Fri, Jul 17'];
+/** T02's rows on the FRAME (round 6: 455:2170 + Accepted / Expired) —
+    unit, visit type and distance on the first row. */
+export const REQUEST_ROWS = ['◉&nbsp;&nbsp;88 Leonard Street, 4B · Home visit · 1.2 mi', '▤&nbsp;&nbsp;Sun, Jul 12 · 7:00 PM', '▤&nbsp;&nbsp;Need By: Fri, Jul 17'];
 
 /* ---------- the at-visit draft (R1-T-03, R2-T-08) ---------- */
 

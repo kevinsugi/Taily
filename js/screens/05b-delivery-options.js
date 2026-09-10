@@ -8,13 +8,15 @@
    opens the wheel picker, the secondary CTA cross-navigates to 07A,
    and Change address opens the 02B sheet.
    UX-LOOP R1-U-02: the balance rows read the live final order.
+   UX-LOOP round 6 (Kevin, UX-008 resolved): dated CTA ("Confirm
+   Delivery · Fri, Jul 17 · 4–6 PM") + "Switch to Pickup" — see 05A.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, infoCard, infoRow, cta } from '../components.js';
 import { money } from '../data.js';
 import { state, chooseFulfilment } from '../state.js';
-import { winSel, windowLabel, windowDate, windowDated, windowsHtml, wireWindows, amountDue } from './05a-pickup-window.js';
+import { winSel, windowDate, windowDated, windowsHtml, wireWindows, amountDue } from './05a-pickup-window.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
 import { openWindowConfirmed } from './05.1-window-confirmed.js';
 import { currentAppt } from './03-status-confirmed.js';
@@ -41,8 +43,8 @@ export function viewDelivery(s) {
     infoRow('Charged on delivery', money(due + 20), { total: true }),
   ].join(''))}
   <div class="actions">
-    ${cta(`Confirm Delivery · ${windowLabel(sel)}`, { attrs: 'data-act="confirm"' })}
-    ${cta('Select Pickup', { variant: 'secondary', attrs: 'data-act="select"' })}
+    ${cta(`Confirm Delivery · ${windowDated(sel)}`, { attrs: 'data-act="confirm"' })}
+    ${cta('Switch to Pickup', { variant: 'secondary', attrs: 'data-act="select"' })}
   </div>
 </div>`;
 }

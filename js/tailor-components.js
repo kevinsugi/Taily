@@ -12,7 +12,7 @@ import { GARMENT_TYPES, JOB_TYPES, GARMENT_ICONS, money, garmentAmount, fmtWhen,
 import { ICON_ADD_CIRCLE } from './icons.js';
 import { render as go } from './app.js';
 import { state } from './state.js';
-import { primaryJob, setCurrent, jobTarget, isSeed, depositOf } from './tailor-data.js';
+import { primaryJob, setCurrent, jobTarget, isSeed, depositOf, tailorUi } from './tailor-data.js';
 
 /** statusPill with the round-2 `expired` variant (declined styling,
     "Expired") — falls back to the declined variant until the substrate
@@ -57,6 +57,16 @@ export function wireTailorNav(root) {
   }));
 }
 
+/** Open the shared messages screen for Marco (round 6): `thread`
+    'customer' = Sarah's job thread (T03 / T06 / T07 Message Sarah),
+    'support' = the canned Taily Support thread (T04 Contact Taily
+    Support). The flag is read by 10-messages while the persona is the
+    tailor; a `?screen=10-messages` deep link never carries one. */
+export function openChat(thread = 'customer') {
+  tailorUi(state).chat = thread;
+  go('10-messages');
+}
+
 /** Back chevron + serif title (+ 16px sub) — the T04–T07 header row. */
 export function backHeader(title, sub = '', { back = true } = {}) {
   return `<div class="t-header">
@@ -68,9 +78,10 @@ export function backHeader(title, sub = '', { back = true } = {}) {
 </div>`;
 }
 
-/** "New Requests" / "Active Jobs · View All" section row. */
-export function sectionRow(label, right = '') {
-  return `<div class="t-section-row"><span class="t-body w-600 c-500">${label}</span>${right ? `<button type="button" class="t-link" data-act="view-all">${right}</button>` : ''}</div>`;
+/** "New Requests" / "Active Jobs · View All" / "Done today · Clear"
+    section row — `act` names the right link's handler (round 6). */
+export function sectionRow(label, right = '', act = 'view-all') {
+  return `<div class="t-section-row"><span class="t-body w-600 c-500">${label}</span>${right ? `<button type="button" class="t-link" data-act="${act}">${right}</button>` : ''}</div>`;
 }
 
 /**
@@ -147,7 +158,8 @@ export function removedRows(removed = []) {
  */
 const CONSEQUENCE = {
   'cant-make-it': (a) => `The job closes, Sarah is notified and her ${money(depositOf(a))} deposit is refunded.`,
-  'no-show': () => 'The job closes and Sarah is notified. No fee is charged this time.',
+  /* round 6 fee policy: a no-show keeps the deposit with Marco */
+  'no-show': (a) => `The job closes and Sarah is notified. Her ${money(depositOf(a))} deposit stays with you.`,
 };
 const CONFIRM_LABEL = { 'cant-make-it': 'Cancel Job', 'no-show': 'Mark No-show' };
 /** Is the visit still ahead of us? The seed's Jul 12 is "today". */
@@ -220,9 +232,11 @@ export function orderDropdown(open = false) {
 </button>`;
 }
 
-/** Taily Fee (10%) / Your Payout rows under an order. */
-export function payoutRows({ fee, payout }) {
-  return `${feeRow(money(fee), 'Taily Fee (10%)', { line: true })}
+/** Taily Fee (10%) / Your Payout rows under an order — with the
+    Subtotal row above them when asked (T02, round 6). */
+export function payoutRows({ subtotal, fee, payout }, { subtotal: withSubtotal = false } = {}) {
+  return `${withSubtotal ? `${feeRow(money(subtotal), 'Subtotal', { line: true })}
+      ` : ''}${feeRow(money(fee), 'Taily Fee (10%)', { line: true })}
       ${feeRow(money(payout), 'Your Payout')}`;
 }
 

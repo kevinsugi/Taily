@@ -18,7 +18,7 @@
 import { register, render as go } from '../app.js';
 import { cta, toast } from '../components.js';
 import { state } from '../state.js';
-import { tailorChrome, wireTailorNav, backHeader, jobCard, orderCards, payoutRows } from '../tailor-components.js';
+import { tailorChrome, wireTailorNav, backHeader, jobCard, orderCards, payoutRows, openChat } from '../tailor-components.js';
 import { current, jobView, isFixture, isTerminalJob, payoutDate, T, FIXTURE_T06, CUSTOMER } from '../tailor-data.js';
 
 const LINE = {
@@ -73,7 +73,7 @@ export function wire(root) {
   root.querySelector('[data-act="home"]')?.addEventListener('click', () => go('t01-home'));
   root.querySelector('[data-act="handoff"]')?.addEventListener('click', () => go('t07-job-ready'));
   root.querySelector('[data-act="payout"]')?.addEventListener('click', () => go('t08-job-complete'));
-  root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));
+  root.querySelector('[data-act="message"]')?.addEventListener('click', () => openChat());
   root.querySelector('[data-act="ready"]')?.addEventListener('click', () => {
     const a = current(state);
     /* R4-T-03: a closed job (reached through history) is not "already

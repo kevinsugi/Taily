@@ -4,36 +4,68 @@
    title, three glyph rows (✕ error / ↻ accent / ✓ success),
    Reschedule / Cancel + Go Back CTAs. Opened from 04C's / 05's
    Reschedule / Cancel, the 01/09 card Reschedule, and 03's cancel
-   line (mode 'cancel' — cancel-worded per UX-003); confirming runs
-   cancelAppointment() (deposit refunded, v3 semantics; the removed
-   appointment lands on state.lastCancelled for 05X) and lands there.
+   line (mode 'cancel' — cancel-worded per UX-003).
    UX-003: the rows quote the ACTUAL appointment (when / tailor /
    deposit). The frame still draws the "Thursday's 7:00 PM" fixture —
    text-parity ALLOWs it.
    UX-LOOP R1-U-03: cancel mode (a request no tailor has confirmed)
-   says the card hold is released — nothing was charged.
-   UX-LOOP R1-U-09: "your items copied over" is honoured — confirming
-   copies the appointment's garments into the home selection so Start
-   Booking is one tap away.
+   says the card hold is released — nothing was charged; confirming
+   withdraws it (cancelAppointment) and lands on 03/Cancelled.
+   UX-LOOP round 6 (Kevin): "rescheduling" = cancel + resubmit the same
+   job for a new tailor. Reschedule mode's confirm runs
+   rescheduleAppointment(): the visit is cancelled under the 12-hour
+   rule (≥ 12 h before the visit the deposit is refunded, closer it is
+   kept — the ✓ / ✕ row says which), the items, requested time,
+   need-by and visit type are copied into the booking form, and the
+   popup lands on 02 (replace) with the "Appointment cancelled — send
+   the same job…" toast. The customer never chooses the tailor. The
+   registered route (harness deep link) keeps the frame's rows.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { cta, modalOverlay, toast } from '../components.js';
-import { money, fmtWhen } from '../data.js';
-import { state, apptEntry, cancelAppointment } from '../state.js';
+import { money, fmtWhen, withinHours, tailorFirst } from '../data.js';
+import { state, apptEntry, cancelAppointment, rescheduleAppointment, copyItemsOver } from '../state.js';
 import { viewReminder } from './03-status-reminder.js';
+
+const live = () => !!window.__tailyNavigated;
+const row = (glyph, tone, text) => `<div class="modal__row"><span class="modal__glyph ${tone}">${glyph}</span><span>${text}</span></div>`;
 
 function modalHtml(mode = 'reschedule') {
   const a = apptEntry() ?? {};
-  const first = (a.name ?? 'Marco Tailor').split(' ')[0];
+  const first = tailorFirst(a, 'your tailor');
   const deposit = a.totals?.deposit ?? 20;
   const when = fmtWhen(a.when, 'Sunday Jul 12, 7PM');
   const cancelMode = mode === 'cancel';
+  let rows;
+  if (cancelMode) {
+    /* withdrawing a request no tailor has accepted (unchanged) */
+    rows = [
+      row('✕', 'c-error', `Your ${when} request is withdrawn`),
+      row('↻', 'c-accent-ink', 'A new order starts with your items copied over'),
+      row('✓', 'c-success', 'Nothing was charged — the hold on your card is released'),
+    ];
+  } else if (live()) {
+    /* R6: the 12-hour rule, then the reschedule promise */
+    const kept = withinHours(a.when, 12);
+    rows = [
+      row('✕', 'c-error', `Your ${when} with ${first} is cancelled`),
+      kept
+        ? row('✕', 'c-error', `Your ${money(deposit)} deposit is not refunded — you’re within 12 hours of the visit`)
+        : row('✓', 'c-success', `Your ${money(deposit)} deposit is refunded`),
+      row('↻', 'c-accent-ink', 'Your items and time are kept — we’ll find you a new tailor'),
+    ];
+  } else {
+    /* the frame's fixture rows (harness deep link) */
+    rows = [
+      row('✕', 'c-error', `Your ${when} with ${first} is cancelled`),
+      row('↻', 'c-accent-ink', 'A new order starts with your items copied over'),
+      row('✓', 'c-success', `Your ${money(deposit)} deposit is refunded.`),
+    ];
+  }
   return `<div class="modal">
   <h2 class="modal__title">${cancelMode ? 'Before you cancel' : 'Before you reschedule'}</h2>
-  <div class="modal__row"><span class="modal__glyph c-error">✕</span><span>${cancelMode ? `Your ${when} request is withdrawn` : `${when} with ${first} is cancelled`}</span></div>
-  <div class="modal__row"><span class="modal__glyph c-accent-ink">↻</span><span>A new order starts with your items copied over</span></div>
-  <div class="modal__row"><span class="modal__glyph c-success">✓</span><span>${cancelMode ? 'Nothing was charged — the hold on your card is released' : `Your ${money(deposit)} deposit is refunded.`}</span></div>
+  ${rows.join('\n  ')}
   <div class="modal__actions">
     ${cta(cancelMode ? 'Cancel Request' : 'Reschedule / Cancel', { attrs: 'data-act="confirm-reschedule"' })}
     ${cta('Go Back', { variant: 'secondary', attrs: 'data-act="go-back"' })}
@@ -42,15 +74,10 @@ function modalHtml(mode = 'reschedule') {
 }
 
 /* R1-U-09: the cancelled order's garments become the next booking's
-   starting point (02 cards + 01 tile badges). Exported: 03/Cancelled's
-   re-request CTAs (R2-U-04/05/07) use the same copy-over. */
-export function copyItemsOver(a) {
-  const garments = JSON.parse(JSON.stringify(a?.garments ?? []));
-  garments.forEach((g) => { delete g.added; delete g.addedJobs; delete g.displayPrice; delete g.id; });
-  state.garments = garments;
-  state.ui ??= {};
-  state.ui.homeSelection = garments.reduce((m, g) => { m[g.type] = (m[g.type] ?? 0) + g.qty; return m; }, {});
-}
+   starting point (02 cards + 01 tile badges). The rule lives in
+   state.js since round 6 (rescheduleAppointment uses it); re-exported
+   for 03/Cancelled's re-request CTAs (R2-U-04/05/07). */
+export { copyItemsOver };
 
 /** After a terminal transition the entry sits in state.past (R2-U-07);
     point currentAppt at it so 03/Cancelled and chat read that entry. */
@@ -59,26 +86,33 @@ export function pointAtTerminal(a) {
   if (i >= 0) state.currentAppt = { list: 'past', index: i };
 }
 
-function wireModal(root, close) {
+export const RESCHEDULE_TOAST = 'Appointment cancelled — send the same job to find a new tailor';
+
+function wireModal(root, close, mode = 'reschedule') {
   root.querySelector('[data-act="confirm-reschedule"]')?.addEventListener('click', () => {
     const a = apptEntry();
-    const res = cancelAppointment(a);   // stashes state.lastCancelled for 05X
+    const cancelMode = mode === 'cancel';
+    /* R6: reschedule = cancel + resubmit (items, time, need-by and visit
+       type restored on the form); cancel mode only withdraws */
+    const res = cancelMode ? cancelAppointment(a) : rescheduleAppointment(a);   // stashes state.lastCancelled for 05X
     /* R4-U-01: the substrate refuses once the appointment happened —
        the measured order is Marco's to change, not this popup's */
     if (!res && a) {
-      const first = (a.name ?? 'Marco Tailor').split(' ')[0];
-      toast(`This order can’t be cancelled here — message ${first}`);
+      toast(`This order can’t be cancelled here — message ${tailorFirst(a, 'your tailor')}`);
       close();
       return;
     }
-    if (res && a) { copyItemsOver(a); pointAtTerminal(a); }
+    if (res && a && cancelMode) { copyItemsOver(a); }
+    if (res && a) pointAtTerminal(a);
     /* R2-U-01: close the overlay BEFORE navigating — otherwise the page
        stays scroll-locked and the next back gesture is swallowed.
-       R3-U-05: the cancelled status REPLACES the status screen it was
+       R3-U-05: the next screen REPLACES the status screen it was
        opened from, so back lands on 01 / 09, never on a "Confirmed"
        ghost with a live Reschedule / Cancel. */
     close();
-    go('03-status-cancelled', { replace: true });
+    if (cancelMode) { go('03-status-cancelled', { replace: true }); return; }
+    go('02-appointment-details', { replace: true });
+    toast(RESCHEDULE_TOAST);
   });
   root.querySelector('[data-act="go-back"]')?.addEventListener('click', () => close());
 }
@@ -86,7 +120,7 @@ function wireModal(root, close) {
 /** Open the popup over the live screen. mode 'cancel' (03's cancel
     line) swaps in cancel wording. */
 export function openReschedulePopup(mode = 'reschedule') {
-  modalOverlay(modalHtml(mode), { dataS: '03.1-reschedule-popup' }, wireModal);
+  modalOverlay(modalHtml(mode), { dataS: '03.1-reschedule-popup' }, (root, close) => wireModal(root, close, mode));
 }
 
 /* Route registration keeps the frame-verbatim render for the diff

@@ -181,6 +181,34 @@ await page.waitForTimeout(400);
 // takes its place, and tapping the order opens the modified review (06B).
 await assertAt('appointment done', '03-status-tailoring', 'awaiting-approval');
 await assertScrolls('page scrolls after 03.2 confirm');
+// UX-LOOP R4-U-01: 03/Reminder and 03/Tailoring REPLACED the screens they
+// superseded — two browser backs after the visit never show the stale
+// "Appointment Confirmed" / reminder with a live Reschedule / Cancel
+{
+  const seen = [];
+  for (let i = 0; i < 2; i++) { await page.goBack(); await page.waitForTimeout(400); seen.push(await screenId()); }
+  check('two backs after 03.2 never show 03/Confirmed or 03/Reminder', !seen.some((s) => s === '03-status-confirmed' || s === '03-status-reminder'), seen.join(' ← '));
+  check('  …no Reschedule / Cancel on the way', !(await page.evaluate(() => !!document.querySelector('[data-act="reschedule"]'))));
+  // …and the family guard: 03/Confirmed / 03/Reminder re-entered for an
+  // appointment that already happened redirect to 03/Tailoring
+  await page.evaluate(() => window.Taily.render('03-status-confirmed'));
+  await assertAt('03/Confirmed for a post-visit entry → 03/Tailoring', '03-status-tailoring', 'awaiting-approval');
+  await page.evaluate(() => window.Taily.render('03-status-reminder'));
+  await assertAt('03/Reminder for a post-visit entry → 03/Tailoring', '03-status-tailoring', 'awaiting-approval');
+  // …and the substrate refuses to cancel a measured order (03.1 toasts and closes)
+  const r = await page.evaluate(async () => {
+    const S = await import('/js/state.js'); const P = await import('/js/screens/03.1-reschedule-popup.js');
+    const a = S.apptEntry(); const res = S.cancelAppointment(a);
+    P.openReschedulePopup();
+    await new Promise((r) => setTimeout(r, 300));
+    document.querySelector('[data-act="confirm-reschedule"]')?.click();
+    await new Promise((r) => setTimeout(r, 400));
+    return { res, status: a.status, inPast: S.state.past.includes(a), toast: document.querySelector('.toast')?.textContent ?? '', overlay: !!document.querySelector('.screen-sheet--overlay:not(.is-closing)') };
+  });
+  check('cancelAppointment() refuses a post-visit order', r.res === null && r.status === 'awaiting-approval' && !r.inPast, `res=${r.res} status=${r.status}`);
+  check('  …03.1 confirm toasts and closes instead', r.toast === 'This order can’t be cancelled here — message Marco' && !r.overlay, `toast="${r.toast}" overlay=${r.overlay}`);
+  await assertAt('  …still on 03/Tailoring', '03-status-tailoring', 'awaiting-approval');
+}
 // UX-LOOP R2-U-08: the card follows the final order once revised
 const cardCount = await page.evaluate(() => { window.Taily.render('01-home'); return document.querySelector('.card-list__title')?.textContent ?? ''; });
 check('card count follows the final order', /^2 Items Total/.test(cardCount), `"${cardCount}"`);
@@ -359,9 +387,16 @@ await assertAt('Keep Looking (still searching)', '03-status-requested', 'searchi
 check('  …normal hero back', await heroTitle() === 'Finding your tailor…' && !(await page.evaluate(() => window.Taily.state.upcoming[0]?.proposed)), `"${await heroTitle()}"`);
 await page.click('.status-hero .pill');
 await page.waitForTimeout(300);
+// UX-LOOP R4-U-03: the demo proposes on the need-by day here (need-by = the
+// next day, 9:30 AM), so it respects the hour cap — 9:00 AM, not 11:00 AM
+const demoProposal = await page.evaluate(async () => {
+  const D = await import('/js/data.js'); const a = window.Taily.state.upcoming[0];
+  return { when: a.proposed?.when ?? '', needBy: a.needBy, before: !!a.proposed && D.parseWhen(a.proposed.when).date < D.parseWhen(a.needBy).date, sameDay: D.fmtDay(a.proposed?.when) === D.fmtDay(a.needBy) };
+});
+check('  …demo proposal on the need-by day is before the need-by time', demoProposal.sameDay && demoProposal.before && /9:00 AM$/.test(demoProposal.when), `${demoProposal.when} (need-by ${demoProposal.needBy})`);
 await page.click('[data-act="accept-time"]');
 await assertAt('Accept New Time → 03/Confirmed', '03-status-confirmed', 'confirmed');
-check('  …when is the proposed time', /11:00 AM$/.test(await page.evaluate(() => window.Taily.state.upcoming[0]?.when ?? '')), await page.evaluate(() => window.Taily.state.upcoming[0]?.when));
+check('  …when is the proposed time', (await page.evaluate(() => window.Taily.state.upcoming[0]?.when ?? '')) === demoProposal.when, await page.evaluate(() => window.Taily.state.upcoming[0]?.when));
 
 // R2-U-01: the 03.1 confirm closes its overlay before navigating
 await page.click('[data-act="reschedule"]');

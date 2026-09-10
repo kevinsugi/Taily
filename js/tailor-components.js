@@ -248,7 +248,7 @@ export function tailorGarmentCard({
     const [primary, ...extra] = services;
     const addTile = (kind) => `<button type="button" class="tgc__tile-btn" data-act="add-photo" data-kind="${kind}"${gi} aria-label="Add ${kind} photo">${photoTile('add')}</button>`;
     const note = (commentOpen || comment)
-      ? `<textarea class="tgc__note" data-act="note"${gi} rows="1" placeholder="Note for Sarah…" aria-label="Comment">${esc(comment)}</textarea>`
+      ? `<textarea class="tgc__note" data-act="note"${gi} rows="1" placeholder="Note on this garment…" aria-label="Comment">${esc(comment)}</textarea>`
       : `<button type="button" class="tgc__comment" data-act="comment"${gi}>${ICON_ADD_CIRCLE}<span>Add Comment</span></button>`;
     rows = `<div class="garment-card__row">
       ${selector('quantity', String(qty), ['1', '2', '3', '4', '5'], { attrs: `data-sel="qty"${gi}` })}

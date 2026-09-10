@@ -436,3 +436,53 @@ All 20 ledger rows applied; the ledger is **cleared** except one BLOCKED item.
 - **Noticed, not changed:** Home picks the live card by list order (a date sort would reorder the
   seed fixture); 03/Reminder reached by browser back after an appointment happened is a stale
   non-terminal screen; T03A's sub is 12px where the frame draws 14 (pre-existing).
+
+## Round 4 — started Sep 10 2026, 01:25 (code-only round)
+
+Baseline: `a145dbb`, `npm run check` ALL PASS (58 screens, sync 796).
+
+### Tailor flow — director verdict: **SIGN-OFF**
+Report: scratchpad `round4/tailor/tailor-flow-review.md` (86 shots). Round 3 verification: **6/6 PASS**.
+No P0–P2 open; every End-state branch reaches its tailor screen and its customer screen with the
+same facts; no inert control; remaining toasts are on the allowed list or guards. Four P3 polish
+notes listed below.
+
+### User flow — director verdict: NOT YET (one P2)
+Report: scratchpad `round4/user/user-flow-review.md` (200 shots). Round 3 verification: **11/11 PASS**
+(R3-U-01…09 + customer halves of R3-T-02/04). Control sweep: 41 live states, 598 controls, every
+toast on the allowed list or a guard; 35 cold deep links error-free. One P2 the round 3 guard
+pattern did not cover, plus two P3s.
+
+| ID | P | Finding (short) | Decision | Reason / scope |
+|---|---|---|---|---|
+| R4-U-01 | P2 | Two back gestures after the visit reach a stale "Appointment Confirmed" whose Reschedule / Cancel cancels a measured, sent order | **ACCEPT** | 03.2 Confirm and the 03/Confirmed tailor-card demo navigate with `replace`; the 03 family guard extends from terminal-only to "not the status this view renders" (post-appointment → 03/Tailoring with `replace`); `cancelAppointment()` refuses post-appointment statuses |
+| R4-U-02 | P3 | Refund line names the current pay method, not the one the booking paid with | **ACCEPT** | `requestTailor()` stamps `a.payMethod`; 03/Cancelled, 03.1 and T03B read `a.payMethod ?? state.payMethod` |
+| R4-U-03 / R4-T-01 / R4-T-04 | P3 | On the need-by day the proposal wheel offers hours after the need-by time; the "no later slot" line is unreachable | **ACCEPT** | Cap the hour rows on the last proposable day to slots before the need-by time; drop the day when none fit (which makes the no-slot line reachable); `proposeTime` compares datetime when the days are equal |
+| R4-T-03 | P3 | A stale T05 reached by browser back guards a cancelled job with the wrong reason | **ACCEPT** | Terminal job check first on T05 Send and T06 Mark Ready: toast "This job is no longer on your calendar" + T01 with `replace` |
+| R4-T-02 | P3 | Marco's garment note and captured photos never reach Sarah's cards (her frames have no slot) | **DEFER** | Figma decision for Kevin (note row + photo counts on the customer's PostAppt card); until then the T04 placeholder reads "Note on this garment…" |
+
+Opportunities logged: delivered outcome on Home when another booking is live; per-booking pay
+method on the receipt row; per-appointment visit address on T01; order number on the customer's
+receipt; "Sarah accepted your time" cue; Message Sarah on T02 before accepting.
+
+### Round 4 — plan
+One implementer (both clusters; small, cross-cutting), then `npm run check`, commit. Round 5 is a
+verification round: both directors re-verify round 4 and confirm sign-off; if both sign off with
+the harness green and the ledger empty, the loop ends (no frame-visible change in round 4, so no
+final Figma sync is needed beyond the BLOCKED item carried for Kevin).
+
+### Round 4 — results (Sep 10 2026, 02:05)
+- **Accepted items:** 5 of 5 DONE (R4-U-01, R4-U-02, R4-U-03 / R4-T-01 / R4-T-04, R4-T-03, plus the
+  R4-T-02 placeholder reword). All live-only; no baseline changes; no Figma edits; ledger stays
+  empty (BLOCKED `Review Time` frame gap carried for Kevin; R4-T-02 note/photo slot on the
+  customer's card is Kevin's Figma decision).
+- 03.2 Confirm and the Confirmed→Reminder demo navigate with `replace`; 03/Confirmed and
+  03/Reminder redirect a post-appointment entry to 03/Tailoring; `cancelAppointment()` refuses
+  post-appointment statuses (03.1 toasts and closes). `a.payMethod` per booking. Proposal hours
+  are capped on the need-by day (`proposalHours` / `proposalMins`, shared `STUDIO_HOURS`); the wheel
+  re-rows hours as the day settles; `proposalDays` may return `[]`, which makes T03A's no-slot line
+  reachable; `proposeTime` compares the datetime on the need-by day. T05 Send / T06 Mark Ready on a
+  closed job toast "This job is no longer on your calendar" and return to T01.
+- **Harness:** `npm run check` ALL PASS (357 s): diff 58/58 at baseline, text parity,
+  click-through 117, tailor click-through 199, **sync click-through 807**, style hygiene.
+- **Round 5 = verification round:** both directors re-verify round 4 and confirm sign-off.

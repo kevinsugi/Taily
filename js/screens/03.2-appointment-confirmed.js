@@ -32,9 +32,13 @@ function wireModal(root, close) {
     const a = apptEntry();
     draftFinalOrder(a);
     completeAppointment(a);
-    /* R2-U-01: close the overlay BEFORE navigating (scroll lock / back) */
+    /* R2-U-01: close the overlay BEFORE navigating (scroll lock / back).
+       R4-U-01: the 03 family supersedes itself — 03/Tailoring REPLACES
+       the reminder, so back never lands on a stale "Please Confirm
+       Tomorrow's Appointment" / "Appointment Confirmed" with a live
+       Reschedule / Cancel for an order Marco has already measured. */
     close?.();
-    go('03-status-tailoring');
+    go('03-status-tailoring', { replace: true });
   });
 }
 

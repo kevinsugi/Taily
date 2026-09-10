@@ -19,7 +19,7 @@ import { register, render as go, back } from '../app.js';
 import { cta, toast } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, removedRows } from '../tailor-components.js';
-import { current, jobView, draftFor, orderMarks, orderTotals, bookedGarments, writeFinalOrder, tailorOf, isFixture, T } from '../tailor-data.js';
+import { current, jobView, draftFor, orderMarks, orderTotals, bookedGarments, writeFinalOrder, tailorOf, isFixture, isTerminalJob, T } from '../tailor-data.js';
 
 /** Exported: `forced` = { draft, booked } renders a given at-visit draft
     against its booking (round-3 frame "T05 - Confirm Final Pricing / Removed"). */
@@ -49,6 +49,9 @@ export function wire(root) {
   root.querySelector('[data-act="review"]')?.addEventListener('click', () => back() || go('t04-appointment-details'));
   root.querySelector('[data-act="send"]')?.addEventListener('click', () => {
     const a = current(state);
+    /* R4-T-03: a stale T05 reached through history for a job that has
+       since closed (Sarah cancelled) — say so, and leave the editor */
+    if (a && isTerminalJob(a)) { toast('This job is no longer on your calendar'); go('t01-home', { replace: true }); return; }
     /* R2-T-02: the transition names its job and must succeed before
        anything is written or announced */
     if (!a || jobView(a).canon !== 'confirmed' || !T.complete(a)) { toast('Already sent to Sarah'); return; }

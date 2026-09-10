@@ -158,3 +158,9 @@ Page **"Tailor - Main Flow 2"** (`445:1491`) was designed by Kevin ahead of the 
 - Deposit wording: confirmed bookings ended by the tailor say the deposit is refunded (customer 03/Cancelled + T03B); "hold released" only for never-confirmed requests. `payoutDate(a)` = handoff day + 4 → weekday (seed still Mon, Jul 20).
 - T01 sections: New Requests / Active Jobs / Done today (closed rows `.job-card--closed`, no payout); `primaryJob()` never picks a closed job. The Can't-make-it modal carries a consequence line, `Cancel Job` / `Mark No-show` labels, and a no-show row gated on the visit time (seed's Jul 12 counts as today).
 - Harness: sync click-through 796, tailor 174; the round 3 fixture frames were edited in place for the new copy (T01 Closed Rows "Done today", T03.1 line, T03B and 03 variant bodies).
+
+### UX-LOOP round 4
+
+- Proposals are bounded by the need-by day AND time: `proposalDays` / `proposalHours` / `proposalMins` (shared `STUDIO_HOURS` 9 AM–6 PM) feed the wheel, which re-rows hours as the day settles; `proposalDays` may return `[]` (T03A then shows the no-slot line and keeps Decline). `proposeTime` compares the datetime on the need-by day.
+- The 03 family guard also redirects a post-appointment entry (03/Confirmed, 03/Reminder → 03/Tailoring, `replace`); 03.2 Confirm and the Confirmed→Reminder demo use `replace`; `cancelAppointment()` refuses post-appointment statuses. `a.payMethod` is stamped per booking and read by 03/Cancelled. T05 Send / T06 Mark Ready on a closed job return to T01 with "This job is no longer on your calendar".
+- Harness: click-through 117, tailor 199, sync 807.

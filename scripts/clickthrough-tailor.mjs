@@ -573,6 +573,83 @@ await page.click('.job-card:has-text("Slot reopened")');
 await assertAt('Cancelled row opens T03B', 't03b-job-cancelled', 'cancelled');
 await assertTrue('T03B names the live slot, not tonight', () => /your .* slot is open on your calendar again/.test(document.querySelector('.status-hero__body').textContent) && !/tonight/.test(document.querySelector('.status-hero__body').textContent));
 
+/* ---------- R4-T-01 / R4-T-04: the need-by HOUR cap and the no-slot line ---------- */
+/* a same-day need-by: visit 9:30 AM, need-by 11:00 AM the same day → one wheel day, hours 9 / 10 AM only */
+await open('01-home');
+await bookFresh();
+await page.evaluate(() => { const a = window.Taily.state.upcoming.find((x) => x.mine && x.status === 'searching'); a.needBy = `${a.when.split(',')[0]}, 11:00 AM`; });
+await page.click('#persona-toggle');
+await assertAt('View as Tailor (same-day need-by)', 't01-home', 'searching', 'tailor');
+await page.click('.req-card[data-req="0"] [data-act="decline"]');
+await page.click('[data-reason="0"]');
+await assertText('Schedule conflict still offers Suggest Another Time (a slot before 11 AM exists)', '[data-act="decline"]', 'Suggest Another Time');
+await assertTrue('no-slot line hidden while a slot fits', () => document.querySelector('[data-no-slot]').hidden);
+await page.click('[data-act="decline"]');
+await page.waitForTimeout(500);
+await assertTrue('R4-T-01: the wheel offers one day and only the hours before the need-by time', () => {
+  const cols = [...document.querySelectorAll('.screen-sheet--overlay .wheel__col--scroll')];
+  const read = (c) => [...c.querySelectorAll('.wheel__row')].map((e) => e.textContent.trim());
+  return read(cols[0]).length === 1 && read(cols[1]).join('|') === '9 AM|10 AM' && read(cols[2]).length === 4;
+});
+await assertTrue('  …CTA quotes a capped slot', () => /at 10:00 AM$/.test(document.querySelector('.screen-sheet--overlay [data-act="set-time"]').textContent));
+await page.click('.screen-sheet--overlay [data-act="set-time"]');
+await assertAt('same-day proposal lands on T01', 't01-home', 'searching');
+await assertJob('a.proposed is on the visit day, before the need-by time', 'fresh', (a) => a.proposed?.when === `${a.when.split(',')[0]}, 10:00 AM`);
+/* the substrate refuses a same-day slot at / after the need-by time, from T03A's own wheel path */
+await assertTrue('proposeTime refuses 11:00 AM / 2:00 PM on the need-by day, accepts 9:00 AM', async () => {
+  const S = await import('/js/state.js');
+  const a = window.Taily.state.upcoming.find((x) => x.mine && x.status === 'searching');
+  const md = a.when.split(',')[0];
+  const keep = a.proposed;
+  const r = [S.proposeTime(a, `${md}, 11:00 AM`), S.proposeTime(a, `${md}, 2:00 PM`), S.proposeTime(a, `${md}, 9:00 AM`)];
+  a.proposed = keep;
+  return r[0] === false && r[1] === false && r[2] === true;
+});
+/* R4-T-04: nothing before the need-by fits (visit 7 AM, need-by 8 AM — studio hours start at 9) → the no-slot line, Decline Request stays primary */
+await page.click('.req-card[data-req="0"] [data-act="withdraw"]');
+await assertAt('Withdraw the same-day proposal', 't01-home', 'searching');
+await page.evaluate(() => { const a = window.Taily.state.upcoming.find((x) => x.mine && x.status === 'searching'); const md = a.when.split(',')[0]; a.when = `${md}, 7:00 AM`; a.needBy = `${md}, 8:00 AM`; });
+await render('t01-home');
+await page.click('.req-card[data-req="0"] [data-act="decline"]');
+await assertAt('Decline on the no-slot request', 't03a-decline-request', 'searching');
+await assertTrue('proposalDays() is empty for this request', async () => { const D = await import('/js/data.js'); const a = window.Taily.state.upcoming.find((x) => x.mine && x.status === 'searching'); return D.proposalDays(a).length === 0; });
+await page.click('[data-reason="0"]');
+await assertText('R4-T-04: Schedule conflict keeps Decline Request when no slot fits', '[data-act="decline"]', 'Decline Request');
+await assertTrue('  …the no-slot line shows and names the need-by', () => { const l = document.querySelector('[data-no-slot]'); return !l.hidden && /^Sarah needs these by \w{3}, \w{3,4} \d{1,2} — no later slot to offer$/.test(l.textContent.trim()); });
+await page.click('[data-act="decline"]');
+await assertAt('Decline Request → T01', 't01-home', 'declined');
+await assertJob('the request is declined', 'fresh', (a) => a.status === 'declined');
+
+/* ---------- R4-T-03: a stale T05 / T06 for a job that closed meanwhile ---------- */
+await open('01-home');
+await bookFresh();
+await page.click('#persona-toggle');
+await page.click('[data-act="view-details"]');
+await page.click('[data-act="accept"]');
+await assertAt('accept the fresh request', 't03-request-accepted', 'confirmed');
+/* the pre-visit view (Start Appointment) is the job card's T03, not the just-accepted one */
+await render('t01-home');
+await page.evaluate(() => [...document.querySelectorAll('[data-act="open-job"]')].find((c) => c.textContent.includes('Confirmed') && !c.textContent.includes('JUL'))?.click());
+await assertAt('open the fresh job → T03 pre-visit', 't03-request-accepted', 'confirmed');
+await page.click('[data-act="start"]');
+await assertAt('Start Appointment → T04', 't04-appointment-details', 'confirmed');
+await page.click('[data-act="continue"]');
+await assertAt('Continue → T05', 't05-confirm-final-pricing', 'confirmed');
+/* Sarah cancels the confirmed visit meanwhile (the substrate, as her 03.1 would) */
+await page.evaluate(async () => { const S = await import('/js/state.js'); const a = window.Taily.state.upcoming.find((x) => x.mine && x.status === 'confirmed' && x.when !== 'Sunday Jul 12, 7PM'); S.cancelAppointment(a); });
+await page.click('[data-act="send"]');
+await page.waitForTimeout(300);
+await assertTrue('R4-T-03: Send on a closed job says it is off the calendar (not "already sent")', () => document.querySelector('.toast')?.textContent === 'This job is no longer on your calendar');
+await assertAt('  …and leaves the editor for T01', 't01-home', 'cancelled');
+await assertTrue('  …T01 replaced the stale editor (back does not return to T05)', () => { window.Taily.back(); return document.getElementById('screen').dataset.screen !== 't05-confirm-final-pricing'; });
+await assertJob('nothing was written to the cancelled job', 'fresh', (a) => a.status === 'cancelled' && !a.revisedAt);
+/* T06 Mark Ready on a closed job */
+await render('t06-appointment-status');
+await page.click('[data-act="ready"]');
+await page.waitForTimeout(300);
+await assertTrue('R4-T-03: Mark Ready on a closed job says it is off the calendar', () => document.querySelector('.toast')?.textContent === 'This job is no longer on your calendar');
+await assertAt('  …and lands on T01', 't01-home', 'cancelled');
+
 console.log(errors.length ? `CONSOLE ERRORS:\n  ${errors.join('\n  ')}` : 'no console errors');
 if (errors.length) failures++;
 await browser.close();

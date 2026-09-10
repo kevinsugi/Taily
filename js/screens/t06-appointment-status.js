@@ -19,7 +19,7 @@ import { register, render as go } from '../app.js';
 import { cta, toast } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, jobCard, orderCards, payoutRows } from '../tailor-components.js';
-import { current, jobView, isFixture, payoutDate, T, FIXTURE_T06, CUSTOMER } from '../tailor-data.js';
+import { current, jobView, isFixture, isTerminalJob, payoutDate, T, FIXTURE_T06, CUSTOMER } from '../tailor-data.js';
 
 const LINE = {
   'awaiting-approval': 'Waiting for Sarah to approve the final order. You’ll be notified — tailoring starts after approval.',
@@ -73,6 +73,9 @@ export function wire(root) {
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));
   root.querySelector('[data-act="ready"]')?.addEventListener('click', () => {
     const a = current(state);
+    /* R4-T-03: a closed job (reached through history) is not "already
+       marked ready" — it is off the calendar */
+    if (a && isTerminalJob(a)) { toast('This job is no longer on your calendar'); go('t01-home', { replace: true }); return; }
     const v = jobView(a);
     if (v.canon === 'confirmed') { toast('Nothing to mark ready yet — send the final order first'); return; }
     /* demo shortcut (recorded): Sarah approves on the spot if she hasn't yet */

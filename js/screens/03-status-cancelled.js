@@ -75,7 +75,9 @@ export function viewCancelled(s, forced = null) {
   const t = a.totals ?? { subtotal: 200, deposit: 20 };
   const subtotal = t.subtotal ?? t.total ?? 200;
   const deposit = t.deposit ?? 20;
-  const payLabel = live ? (PAY_LABELS[s.payMethod] ?? PAY_LABELS.card) : PAY_LABELS.card;
+  /* R4-U-02: the method THIS booking paid with (a later booking may
+     have chosen another); older entries fall back to the current one */
+  const payLabel = live ? (PAY_LABELS[live.payMethod ?? s.payMethod] ?? PAY_LABELS.card) : PAY_LABELS.card;
   const v = variantFor(!!live, a, { deposit, payLabel });
   const neverConfirmed = !!live && (live.wasRequested || status === 'declined' || status === 'expired');
   /* fee rows wherever the deposit was actually taken: the frame's

@@ -980,6 +980,22 @@ async function tailorProposes(label) {
     const lastDay = rows[rows.length - 1] ?? '';
     log(rows.length === want.length && rows.join('|') === want.join('|'), `[T] ${label}: wheel days = proposalDays (requested day → need-by day)`, `rows=${rows.join(', ')} needBy=${await fmtDay(a0.needBy)}`);
     log(!!lastDay && (await fmtDay(lastDay.replace(/^(\w+) (\d+) (\w+)$/, '$1, $3 $2'))) === (await fmtDay(a0.needBy)), `[T] ${label}: the last wheel day IS the need-by day`, `last=${lastDay}`);
+    /* R4-U-03 / R4-T-01: settle on the need-by day → the hour column caps to the slots before the need-by time (9:30 AM → 9 AM · 00/15) */
+    await page.evaluate((n) => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop = 40 * n; }, rows.length - 1);
+    await page.waitForTimeout(400);
+    const capped = await page.evaluate(() => {
+      const cols = [...document.querySelectorAll('.screen-sheet--overlay .wheel__col--scroll')];
+      const read = (c) => [...c.querySelectorAll('.wheel__row')].map((e) => e.textContent.trim());
+      return { day: read(cols[0])[Number(cols[0].dataset.sel)], hours: read(cols[1]), mins: read(cols[2]), cta: document.querySelector('.screen-sheet--overlay [data-act="set-time"]').textContent };
+    });
+    const wantHours = await page.evaluate((d) => window.__data.proposalHours(window.__shared(), d), capped.day);
+    log(capped.hours.join('|') === wantHours.join('|') && capped.hours.join('|') === '9 AM' && capped.mins.join('|') === '00|15', `[T] ${label}: on the need-by day the wheel offers only slots before the need-by time`, `day=${capped.day} hours=${capped.hours.join(',')} mins=${capped.mins.join(',')}`);
+    log(/at 9:(00|15) AM$/.test(capped.cta), `[T] ${label}: the CTA follows the capped slot`, capped.cta);
+    /* back to the requested day → the full studio hours return */
+    await page.evaluate(() => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop = 0; });
+    await page.waitForTimeout(400);
+    const full = await page.evaluate(() => [...document.querySelectorAll('.screen-sheet--overlay .wheel__col--scroll')[1].querySelectorAll('.wheel__row')].length);
+    log(full === 10, `[T] ${label}: back on the requested day the hour column is whole again`, `hours=${full}`);
   }
   await page.evaluate(() => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop += 40; });
   await page.waitForTimeout(300);
@@ -1006,9 +1022,16 @@ await fresh('F');
     const late = await page.evaluate(() => { const a = window.__shared(); const d = window.__data.shiftDay(a.needBy, 1); return `${d.replace(/^\w+, /, '')}, 10:00 AM`; });
     const r = await page.evaluate((w) => { const a = window.__shared(); const before = JSON.stringify(a.proposed); const ok = window.__sync.proposeTime(a, w); return { ok, kept: JSON.stringify(a.proposed) === before }; }, late);
     log(r.ok === false && r.kept, '[S] proposeTime refuses a day after the need-by (proposal untouched)', `late=${late} → ${r.ok}`);
-    const same = await page.evaluate(() => { const a = window.__shared(); const d = window.__data.fmtDay(a.needBy); return `${d.replace(/^\w+, /, '')}, 4:00 PM`; });
+    /* R4-U-03 / R4-T-01: the need-by DAY is allowed only before the need-by TIME (9:30 AM here) */
+    const same = await page.evaluate(() => { const a = window.__shared(); const d = window.__data.fmtDay(a.needBy); return `${d.replace(/^\w+, /, '')}, 9:00 AM`; });
     const r2 = await page.evaluate((w) => { const a = window.__shared(); const p = a.proposed; const ok = window.__sync.proposeTime(a, w); const now = a.proposed; a.proposed = p; return { ok, now: now?.when }; }, same);
-    log(r2.ok === true && r2.now === same, '[S] proposeTime accepts the need-by day itself (day-level rule)', `same=${same} → ${r2.ok}`);
+    log(r2.ok === true && r2.now === same, '[S] proposeTime accepts the need-by day before the need-by time', `same=${same} → ${r2.ok}`);
+    const after = await page.evaluate(() => { const a = window.__shared(); const d = window.__data.fmtDay(a.needBy); return `${d.replace(/^\w+, /, '')}, 4:00 PM`; });
+    const r3 = await page.evaluate((w) => { const a = window.__shared(); const before = JSON.stringify(a.proposed); const ok = window.__sync.proposeTime(a, w); return { ok, kept: JSON.stringify(a.proposed) === before }; }, after);
+    log(r3.ok === false && r3.kept, '[S] proposeTime refuses the need-by day after the need-by time (proposal untouched)', `after=${after} → ${r3.ok}`);
+    const at = await page.evaluate(() => { const a = window.__shared(); return `${window.__data.fmtDay(a.needBy).replace(/^\w+, /, '')}, ${window.__data.fmtWhen(a.needBy).split(' · ')[1]}`; });
+    const r4 = await page.evaluate((w) => { const a = window.__shared(); return window.__sync.proposeTime(a, w); }, at);
+    log(r4 === false, '[S] proposeTime refuses the need-by time itself (strictly before)', `at=${at} → ${r4}`);
   }
   await page.click('.req-card [data-act="view-details"]');
   await assertAt('[T] View Details on the proposed request → T02', 't02-appointment-request', 'searching');

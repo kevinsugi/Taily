@@ -25,7 +25,7 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, infoCard, metaRow, cta } from '../components.js';
-import { money, itemsLabel, itemCount, fmtWhen, fmtDay, shiftDay, parseWhen, proposalDays } from '../data.js';
+import { money, itemsLabel, itemCount, fmtWhen, fmtDay, shiftDay, parseWhen, proposalDays, proposalHours } from '../data.js';
 import {
   state, tailorAccepts, bookingLines, isTerminal,
   proposeTime, acceptProposedTime, declineProposedTime, expireAppointment,
@@ -40,16 +40,26 @@ const live = () => !!window.__tailyNavigated;
     grammar ("Sept 10, 11:00 AM") so it parses everywhere. R3-U-02:
     capped at the last day the tailor could propose (proposalDays —
     the need-by day); when that is the requested day itself the demo
-    proposes a later slot the same day. */
+    proposes a later slot the same day. R4-U-03: on the need-by day the
+    hour respects the same cap Marco's wheel has (proposalHours) — the
+    latest slot before the need-by time when 11 AM is past it. Returns
+    null when there is nothing left to propose (proposalDays = []). */
 function nextDayEleven(a) {
   const days = proposalDays(a);
+  if (!days.length) return null;
   const last = days[days.length - 1];                       // "Fri 11 Sept"
   const next = shiftDay(a?.when, 1) ?? shiftDay(new Date().toDateString(), 1);   // "Thu, Sept 10"
-  const cap = last ? fmtDay(last.replace(/^(\w+) (\d+) (\w+)$/, '$1, $3 $2')) : null;
-  const day = (cap && parseWhen(cap) && parseWhen(next) && parseWhen(cap).date < parseWhen(next).date) ? cap : next;
+  const cap = fmtDay(last.replace(/^(\w+) (\d+) (\w+)$/, '$1, $3 $2'));
+  const day = (parseWhen(cap) && parseWhen(next) && parseWhen(cap).date < parseWhen(next).date) ? cap : next;
   const md = day.replace(/^\w+, /, '');
-  const when = `${md}, 11:00 AM`;
-  return fmtWhen(when) === fmtWhen(a?.when) ? `${md}, 2:00 PM` : when;
+  const row = day.replace(/^(\w+), (\w+) (\d+)$/, '$1 $3 $2');   // wheel-row grammar for proposalHours
+  const hours = proposalHours(a, row);
+  const slot = (h) => `${md}, ${h.replace(' ', ':00 ')}`;         // '11 AM' → 'Sept 11, 11:00 AM'
+  const pref = hours.includes('11 AM') ? '11 AM' : hours[hours.length - 1];
+  if (!pref) return null;
+  if (fmtWhen(slot(pref)) !== fmtWhen(a?.when)) return slot(pref);
+  const alt = hours.includes('2 PM') ? '2 PM' : hours.find((h) => h !== pref);
+  return alt ? slot(alt) : null;
 }
 
 /** The 01/09 card badge follows the (new) appointment day. */
@@ -149,7 +159,9 @@ export function wire(root) {
     // DEMO: the hero pill = "Marco proposes the next day, 11 AM"
     root.querySelector('.status-hero .pill')?.addEventListener('click', () => {
       if (a.proposed) return;
-      proposeTime(a, nextDayEleven(a));
+      /* R4-U-03: nothing before the need-by is left to propose — the
+         same case T03A's "no later slot to offer" line covers */
+      if (!proposeTime(a, nextDayEleven(a))) return;
       go('03-status-requested', { replace: true });
     });
     // DEMO: the "2 hours" line = time passes → the request expires

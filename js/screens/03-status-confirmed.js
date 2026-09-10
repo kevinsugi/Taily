@@ -11,7 +11,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, summaryCard, feeRow, cta, toast, orderCards, apptRows, receiptDates } from '../components.js';
 import { money } from '../data.js';
-import { state, isTerminal } from '../state.js';
+import { state, isTerminal, isPostAppointment } from '../state.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
 
 /** The pre-appointment order summary shared by 03/Confirmed and
@@ -65,14 +65,23 @@ function wire(root) {
     setTimeout(() => { pointAtTerminal(cur); go('03-status-cancelled', { replace: true }); }, 0);
     return;
   }
+  /* R4-U-01: the guard covers "not the status this view renders" — an
+     appointment that already happened shows its 03/Tailoring (back
+     after the visit must never offer Reschedule / Cancel on a measured
+     order). Deep links keep the frame's fixture. */
+  if (window.__tailyNavigated && isPostAppointment(cur)) {
+    setTimeout(() => go('03-status-tailoring', { replace: true }), 0);
+    return;
+  }
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
   root.querySelector('[data-act="reschedule"]')?.addEventListener('click', () => openReschedulePopup());
   /* UX-004: Message works like 04D's; Calendar acknowledges */
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));
   root.querySelector('[data-act="calendar"]')?.addEventListener('click', () => toast('Added to your calendar'));
   /* DEMO (R1-U-01): the tailor card is "the day before arrives" → the
-     reminder, the only road to 03.2 and the appointment happening */
-  root.querySelector('.summary-card')?.addEventListener('click', () => go('03-status-reminder'));
+     reminder, the only road to 03.2 and the appointment happening.
+     R4-U-01: it REPLACES this screen (one family, one history entry). */
+  root.querySelector('.summary-card')?.addEventListener('click', () => go('03-status-reminder', { replace: true }));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();

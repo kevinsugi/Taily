@@ -221,6 +221,9 @@ export function requestTailor() {
     totals,
     /* R3-T-04: one order number per booking (the seed keeps 4417) */
     orderId: nextOrderId(),
+    /* R4-U-02: the method this booking paid with — 03/Cancelled's refund
+       line reads it, not whatever a later booking chose */
+    payMethod: state.payMethod,
   };
   state.upcoming.unshift(a);
   state.currentAppt = { list: 'upcoming', index: 0 };
@@ -302,10 +305,14 @@ export function deliver(a = apptEntry()) {
     searching appointment can receive a proposal, and only for a day
     no later than the need-by day (R3-U-02 / R3-T-01 — day-level, the
     rule markReady uses; `proposalDays(a)` in data.js is the wheel's
-    matching bound). Returns false otherwise. */
+    matching bound). R4-U-03 / R4-T-01: ON the need-by day the slot
+    must also be strictly before the need-by time (when it has one) —
+    `proposalHours` caps the wheel the same way. Returns false otherwise. */
 export function proposeTime(a, when) {
   if (!a || !when || canonicalStatus(a.status) !== 'searching') return false;
   if (isAfterDay(when, a.needBy)) return false;
+  const w = parseWhen(when); const nb = parseWhen(a.needBy);
+  if (w && nb && nb.hour != null && w.date.toDateString() === nb.date.toDateString() && w.date >= nb.date) return false;
   a.proposed = { when, by: 'tailor', at: today() };
   a.proposalDeclined = null;
   return true;
@@ -406,12 +413,17 @@ export function tailorCancels(a = apptEntry(), reason = 'cant-make-it') {
  * read state.upcoming[currentAppt.index]). The entry moves to
  * state.past[0] with status 'cancelled', cancelledBy 'customer',
  * reason 'customer', and state.lastCancelled points at it.
+ * R4-U-01: once the appointment has happened (awaiting-approval →
+ * delivered) the order is the tailor's measured work — it cannot be
+ * cancelled from here; returns null and leaves the entry untouched
+ * (03.1 toasts "message Marco").
  */
 export function cancelAppointment(aOrIndex) {
   let a;
   if (aOrIndex && typeof aOrIndex === 'object') a = aOrIndex;
   else a = state.upcoming[aOrIndex == null ? state.currentAppt.index : aOrIndex];
   if (!a) return null;
+  if (isPostAppointment(a)) return null;
   const wasRequested = terminate(a, 'cancelled', 'customer', 'customer');
   return {
     appointment: a,

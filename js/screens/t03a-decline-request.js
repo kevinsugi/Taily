@@ -14,12 +14,17 @@
    `proposalDays(a)` — bounded by Sarah's need-by. When there is no
    later slot to offer the Schedule-conflict row keeps `Decline Request`
    with a one-line reason; a proposal the substrate refuses (after the
-   need-by day) toasts "That's after Sarah's need-by date".
+   need-by day) toasts "That's after Sarah's need-by (…)".
+   Round 4 (R4-T-01/04): on the need-by day the wheel's hours stop
+   before the need-by time (`proposalHours` / `proposalMins`); when no
+   slot fits, `proposalDays` drops the day — and returns `[]` when the
+   need-by is on the visit day at or before 9 AM, which is when the
+   no-slot line shows and `Decline Request` stays the primary.
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
 import { cta, toast } from '../components.js';
-import { fmtWhen, fmtDay } from '../data.js';
+import { fmtWhen, fmtDay, proposalHours, proposalMins } from '../data.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, radioRow, hairline } from '../tailor-components.js';
 import { current, jobView, tailorOf, isFixture, restartTimer, proposalDays, T } from '../tailor-data.js';
@@ -63,16 +68,22 @@ function suggestTime(a) {
   openDateTimeOverlay('custom', (p) => {
     const when = `${p.md}, ${p.time}`;
     if (!T.propose(a, when)) {
-      /* the substrate refuses a day after Sarah's need-by (R3-T-01) —
-         or the request is no longer open */
-      toast(jobView(a).canon === 'searching' ? 'That’s after Sarah’s need-by date' : 'This request can no longer be rescheduled');
+      /* the substrate refuses a slot after Sarah's need-by (R3-T-01 day,
+         R4-T-01 time on that day) — or the request is no longer open */
+      toast(jobView(a).canon === 'searching' ? `That’s after Sarah’s need-by (${fmtWhen(a.needBy)})` : 'This request can no longer be rescheduled');
       return;
     }
     restartTimer(a);
     tailorOf(a).declineReason = null;
     toast(`Proposed ${fmtWhen(when)} — waiting for Sarah`);
     go('t01-home');
-  }, { days: proposalDays(a) });
+  }, {
+    days: proposalDays(a),
+    /* R4-U-03 / R4-T-01: on the need-by day only the slots before the
+       need-by time */
+    hoursFor: (day) => proposalHours(a, day),
+    minsFor: (day, hour) => proposalMins(a, day, hour),
+  });
   /* the shared picker is titled for its 05A/05B use; this is a proposal */
   const title = document.querySelector('#screen .screen-sheet--overlay .sheet__title');
   if (title) title.textContent = 'Suggest another time';

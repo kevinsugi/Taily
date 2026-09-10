@@ -141,6 +141,7 @@ export const SEED_UPCOMING = [
      side resolves "Sarah's job" by this tag, never by index). */
   { mine: true, name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'home', place: '88 Leonard Street',
     orderId: 'TLY-2026-4417',   // R3-T-04: the frames' order number; fresh bookings count up from it
+    payMethod: 'card',          // R4-U-02: the frames' "Visa •••• 4242" — each booking keeps the method it paid with
     when: 'Sunday Jul 12, 7PM', needBy: 'Fri, Jul 17', status: 'confirmed', items: '3 items · Alterations',
     visit: 'Home Visit', count: 3, month: 'JUL', day: '12',
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
@@ -376,14 +377,63 @@ export function isAfterDay(when, bound) {
   return !!(a && b && a > b);
 }
 
+/* The custom wheel's hour / minute rows (05A/05B custom pickup and the
+   T03A proposal): studio hours 9 AM – 6 PM, quarter hours. */
+export const STUDIO_HOURS = ['9 AM', '10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM'];
+export const WHEEL_MINS = ['00', '15', '30', '45'];
+/** '9 AM' → 540, '12 PM' → 720, '1 PM' → 780 (minutes since midnight). */
+const hourRowMins = (row) => {
+  const m = String(row).match(/(\d{1,2})\s*(AM|PM)/i);
+  if (!m) return null;
+  return ((Number(m[1]) % 12) + (m[2].toUpperCase() === 'PM' ? 12 : 0)) * 60;
+};
+/* wheel day row "Fri 11 Sept" → parseWhen-able "Fri, Sept 11" */
+const dayRowDate = (row) => dayStart(String(row).replace(/^(\w+) (\d+) (\w+)$/, '$1, $3 $2'));
+/* -1 / 0 / 1: the wheel day against the need-by day (null = unbounded:
+   no need-by, no time on it, or an unparsable day row) */
+function needByCmp(a, dayRow) {
+  const nb = parseWhen(a?.needBy);
+  const d = dayRowDate(dayRow);
+  if (!nb || nb.hour == null || !d) return null;
+  const n = dayStart(a.needBy);
+  return d < n ? -1 : d > n ? 1 : 0;
+}
+
+/**
+ * The hour rows the tailor may propose on a wheel day (R4-U-03 /
+ * R4-T-01): every studio hour on a day before the need-by, only the
+ * hours STRICTLY before the need-by time on the need-by day itself,
+ * none after it. A need-by without a time bounds by day only.
+ */
+export function proposalHours(a, dayRow, hours = STUDIO_HOURS) {
+  const cmp = needByCmp(a, dayRow);
+  if (cmp == null || cmp < 0) return hours;
+  if (cmp > 0) return [];
+  const nb = parseWhen(a.needBy);
+  const limit = nb.hour * 60 + nb.min;
+  return hours.filter((h) => { const m = hourRowMins(h); return m != null && m < limit; });
+}
+/** The minute rows for a proposal hour: capped only when that hour is
+    the need-by hour on the need-by day (9 AM before a 9:30 AM need-by →
+    00 / 15). */
+export function proposalMins(a, dayRow, hourRow, mins = WHEEL_MINS) {
+  if (needByCmp(a, dayRow) !== 0) return mins;
+  const nb = parseWhen(a.needBy);
+  const h = hourRowMins(hourRow);
+  if (h == null || h + 60 <= nb.hour * 60 + nb.min) return mins;
+  return mins.filter((m) => h + Number(m) < nb.hour * 60 + nb.min);
+}
+
 /**
  * The days a tailor may propose for a request (R3-U-02 / R3-T-01), as
  * wheel rows ("Thu 10 Sept"): the requested day through the need-by
  * day. The need-by day itself is offered only while a wheel slot can
- * still precede the need-by time (the wheel's earliest hour is 7 AM);
- * a need-by at or before 7 AM stops at the day before. Falls back to
- * seven days from the requested visit only when the need-by is
- * missing / unparsable.
+ * still precede the need-by time (`proposalHours`, studio hours from
+ * 9 AM); a need-by at or before 9 AM stops at the day before. `[]`
+ * when nothing is left — a need-by on the visit day at or before 9 AM
+ * (R4-T-04: T03A's "no later slot to offer" line). Falls back to seven
+ * days from the requested visit only when the need-by is missing /
+ * unparsable.
  */
 export function proposalDays(a) {
   const from = a?.when;
@@ -391,9 +441,10 @@ export function proposalDays(a) {
   if (!start) return [];
   const nb = parseWhen(a?.needBy);
   if (!nb) return dayRows(from, shiftDay(from, 6), 7);
-  let last = new Date(nb.date); last.setHours(0, 0, 0, 0);
-  if (nb.hour != null && nb.hour * 60 + nb.min <= 7 * 60) last.setDate(last.getDate() - 1);
-  if (last < start) last = start;
+  const last = new Date(nb.date); last.setHours(0, 0, 0, 0);
+  const nbRow = `${DOW[last.getDay()]} ${last.getDate()} ${MON[last.getMonth()]}`;
+  if (proposalHours(a, nbRow).length === 0) last.setDate(last.getDate() - 1);
+  if (last < start) return [];
   return dayRows(from, `${MON[last.getMonth()]} ${last.getDate()}`, 31);
 }
 

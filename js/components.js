@@ -668,12 +668,14 @@ export function wheelScroll(columns) {
  */
 export function wireWheel(root, onChange) {
   root.querySelectorAll('.wheel__col--scroll').forEach((col) => {
-    const rows = [...col.querySelectorAll('.wheel__row')];
     col.scrollTop = Number(col.dataset.sel) * 40;
     let timer;
     col.addEventListener('scroll', () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
+        /* rows are read per settle — a column may be re-rowed while
+           open (setWheelRows: the proposal wheel's need-by hour cap) */
+        const rows = [...col.querySelectorAll('.wheel__row')];
         const idx = Math.max(0, Math.min(rows.length - 1, Math.round(col.scrollTop / 40)));
         col.dataset.sel = idx;
         rows.forEach((r, i) => {

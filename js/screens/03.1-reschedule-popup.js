@@ -18,7 +18,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { cta, modalOverlay } from '../components.js';
+import { cta, modalOverlay, toast } from '../components.js';
 import { money, fmtWhen } from '../data.js';
 import { state, apptEntry, cancelAppointment } from '../state.js';
 import { viewReminder } from './03-status-reminder.js';
@@ -63,6 +63,14 @@ function wireModal(root, close) {
   root.querySelector('[data-act="confirm-reschedule"]')?.addEventListener('click', () => {
     const a = apptEntry();
     const res = cancelAppointment(a);   // stashes state.lastCancelled for 05X
+    /* R4-U-01: the substrate refuses once the appointment happened —
+       the measured order is Marco's to change, not this popup's */
+    if (!res && a) {
+      const first = (a.name ?? 'Marco Tailor').split(' ')[0];
+      toast(`This order can’t be cancelled here — message ${first}`);
+      close();
+      return;
+    }
     if (res && a) { copyItemsOver(a); pointAtTerminal(a); }
     /* R2-U-01: close the overlay BEFORE navigating — otherwise the page
        stays scroll-locked and the next back gesture is swallowed.

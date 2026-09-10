@@ -5,15 +5,21 @@
    Reschedule / Cancel + Go Back CTAs. Opened from 04C's / 05's
    Reschedule / Cancel, the 01/09 card Reschedule, and 03's cancel
    line (mode 'cancel' — cancel-worded per UX-003); confirming runs
-   cancelAppointment() (deposit refunded, v3 semantics), stashes the
-   appointment for 05X, and lands there.
+   cancelAppointment() (deposit refunded, v3 semantics; the removed
+   appointment lands on state.lastCancelled for 05X) and lands there.
    UX-003: the rows quote the ACTUAL appointment (when / tailor /
    deposit). The frame still draws the "Thursday's 7:00 PM" fixture —
    text-parity ALLOWs it.
+   UX-LOOP R1-U-03: cancel mode (a request no tailor has confirmed)
+   says the card hold is released — nothing was charged.
+   UX-LOOP R1-U-09: "your items copied over" is honoured — confirming
+   copies the appointment's garments into the home selection so Start
+   Booking is one tap away.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { cta, modalOverlay } from '../components.js';
+import { money, fmtWhen } from '../data.js';
 import { state, apptEntry, cancelAppointment } from '../state.js';
 import { viewReminder } from './03-status-reminder.js';
 
@@ -21,12 +27,13 @@ function modalHtml(mode = 'reschedule') {
   const a = apptEntry() ?? {};
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];
   const deposit = a.totals?.deposit ?? 20;
+  const when = fmtWhen(a.when, 'Sunday Jul 12, 7PM');
   const cancelMode = mode === 'cancel';
   return `<div class="modal">
   <h2 class="modal__title">${cancelMode ? 'Before you cancel' : 'Before you reschedule'}</h2>
-  <div class="modal__row"><span class="modal__glyph c-error">✕</span><span>${a.when ?? 'Sunday Jul 12, 7PM'} with ${first} is cancelled</span></div>
+  <div class="modal__row"><span class="modal__glyph c-error">✕</span><span>${cancelMode ? `Your ${when} request is withdrawn` : `${when} with ${first} is cancelled`}</span></div>
   <div class="modal__row"><span class="modal__glyph c-accent-ink">↻</span><span>A new order starts with your items copied over</span></div>
-  <div class="modal__row"><span class="modal__glyph c-success">✓</span><span>Your $${deposit} deposit is refunded.</span></div>
+  <div class="modal__row"><span class="modal__glyph c-success">✓</span><span>${cancelMode ? 'Nothing was charged — the hold on your card is released' : `Your ${money(deposit)} deposit is refunded.`}</span></div>
   <div class="modal__actions">
     ${cta(cancelMode ? 'Cancel Request' : 'Reschedule / Cancel', { attrs: 'data-act="confirm-reschedule"' })}
     ${cta('Go Back', { variant: 'secondary', attrs: 'data-act="go-back"' })}
@@ -34,10 +41,20 @@ function modalHtml(mode = 'reschedule') {
 </div>`;
 }
 
+/* R1-U-09: the cancelled order's garments become the next booking's
+   starting point (02 cards + 01 tile badges) */
+function copyItemsOver(a) {
+  const garments = JSON.parse(JSON.stringify(a?.garments ?? []));
+  garments.forEach((g) => { delete g.added; delete g.addedJobs; delete g.displayPrice; });
+  state.garments = garments;
+  state.ui ??= {};
+  state.ui.homeSelection = garments.reduce((m, g) => { m[g.type] = (m[g.type] ?? 0) + g.qty; return m; }, {});
+}
+
 function wireModal(root, close) {
   root.querySelector('[data-act="confirm-reschedule"]')?.addEventListener('click', () => {
-    const res = cancelAppointment();
-    state.lastCancelled = res?.appointment ?? null;   // 05X renders this
+    const res = cancelAppointment();   // stashes state.lastCancelled for 05X
+    if (res?.appointment) copyItemsOver(res.appointment);
     go('03-status-cancelled');
   });
   root.querySelector('[data-act="go-back"]')?.addEventListener('click', () => close());

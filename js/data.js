@@ -125,7 +125,11 @@ export const TAILORS = [
 export const APPT_PLACES = ['Home Visit', 'Store Visit'];
 /* Phase R1 (Kevin): dates aligned to the Jul 12 fiction across all
    frames. */
-export const APPT_DEFAULT = { when: 'Jul 12, 7:00 PM', needBy: 'Jul 17, 3:00PM', where: 'Store Visit' };
+/* UX-LOOP R1-U-05 (Kevin's fiction committed): the appointment is a
+   HOME visit at the customer's 88 Leonard St, 4B — 02's address sheet,
+   03.2's "Marco will message you when he arrives" and the tailor page
+   all already said so. */
+export const APPT_DEFAULT = { when: 'Jul 12, 7:00 PM', needBy: 'Jul 17, 3:00PM', where: 'Home Visit' };
 export const NEED_BY_OPTS = ['Thurs, Sept 1', 'Fri, Sept 2', 'Next week', 'Flexible'];
 
 /* Seed appointments. state.js deep-clones these so the app can be reset.
@@ -133,23 +137,24 @@ export const NEED_BY_OPTS = ['Thurs, Sept 1', 'Fri, Sept 2', 'Next week', 'Flexi
    Figma frames — v3 showed Jul 8 / 2 items here. Statuses, structure and
    totals are untouched v3 behaviour. */
 export const SEED_UPCOMING = [
-  { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '1025 Broadway, Midtown West',
+  /* `mine: true` tags the appointment both personas share (the tailor
+     side resolves "Sarah's job" by this tag, never by index). */
+  { mine: true, name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'home', place: '88 Leonard Street',
     when: 'Sunday Jul 12, 7PM', needBy: 'Fri, Jul 17', status: 'confirmed', items: '3 items · Alterations',
-    visit: 'Store Visit', count: 3, month: 'JUL', day: '12',
+    visit: 'Home Visit', count: 3, month: 'JUL', day: '12',
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
-    /* Phase R0/R2: the seed carries the POST-appointment modified order
-       (06B fiction — an added $80 Sleeve service on garment 1 and a
-       third Suit Jacket): booked at $200, confirmed at $360, deposit
-       still 10% of the original $200. 04D/04E/08 itemize it fully;
-       04C/05/06A keep their own pre-modification frame fixtures, and
-       01 lists only the original two items (pre-appointment view). */
-    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length', 'Sleeve / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
+    /* UX-LOOP R1-U-02: the seed is the BOOKED (pre-appointment) order —
+       $120 Hem + $80 Sleeve = $200, deposit $20 — exactly what 02 /
+       03/Confirmed / 03/Reminder draw. `a.garments` / `a.totals` are the
+       shared truth for the final order: the tailor's T05 Send (or the
+       user-side demo, state.draftFinalOrder()) writes the reviewed
+       $360 order into them at the appointment. Post-appointment screens
+       loaded by the harness with the seed still 'confirmed' render
+       SEED_FINAL_ORDER (the frames' 06B fiction) instead. `count` /
+       `itemLines` stay the 01/09 frames' exact card copy. */
+    garments: [{ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
-    /* M1's header subline is frame fiction that disagrees with this
-       seed's own when/visit — carried verbatim; other appointments
-       compute theirs. */
-    chatMeta: 'Thu, Jul 9 · 9:30 AM · Home Visit',
-    totals: { subtotal: 360, visitFee: 0, total: 360, deposit: 20 } },
+    totals: { subtotal: 200, visitFee: 0, total: 200, deposit: 20 } },
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
     when: 'Jul 1, 3PM', needBy: 'Thurs, Sep 2', status: 'ready', items: '2 items · Alterations',
     visit: 'Home Visit', count: 2, month: 'JUL', day: '1',
@@ -172,3 +177,126 @@ export const SEED_PAST = [
     garments: [{ type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
     totals: { subtotal: 120, visitFee: 0, total: 120, deposit: 12 } },
 ];
+
+/* The frames' post-appointment fiction (06B / 04D / 08 / 04E): at the
+   Jul 12 visit Marco added an $80 Sleeve service to garment 1 and a
+   third $80 Suit Jacket — $200 booked → $360 final, deposit still $20.
+   `added` marks a whole added garment, `addedJobs` the services added
+   at the appointment (04/Modified paints both semantic/info). The
+   harness's deep links render this when the seed is still pre-
+   appointment; the live flow writes the same shape via
+   state.draftFinalOrder() or the tailor's T05 Send. */
+export const SEED_FINAL_ORDER = {
+  garments: [
+    { type: 'Suit Jacket', jobs: ['Hem / Adjust Length', 'Sleeve / Adjust Length'], addedJobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 },
+    { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 },
+    { type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2, added: true },
+  ],
+  totals: { subtotal: 360, visitFee: 0, total: 360, deposit: 20 },
+};
+
+/* ============================================================
+   Shared formatters (UX-LOOP round 1) — stable names, reused by both
+   personas. Money renders whole dollars or two decimals ($20 / $20.80);
+   dates come out in ONE grammar: rows "Sun, Jul 12 · 7:00 PM", days
+   "Fri, Jul 17", receipts "7/12/26". Every fiction string in the seeds
+   ("Sunday Jul 12, 7PM", "Jul 17, 3:00PM", "Thurs, Sep 2") and every
+   picker value ("Sept 9, 9:30 AM") parses; the weekday is computed from
+   the real calendar of the current year (Jul 12 2026 IS a Sunday).
+   ============================================================ */
+export const money = (n) => {
+  const v = Number(n) || 0;
+  const s = Number.isInteger(v) ? String(Math.abs(v)) : Math.abs(v).toFixed(2);
+  return `${v < 0 ? '-' : ''}$${s}`;
+};
+
+/** Per-garment price: the appointment's totals.rows snapshot when the
+    flow built them (bookingLines), else recomputed from JOB_TYPES —
+    both agree at multiplier 1. */
+export function rowPrice(g, rows, i) {
+  if (rows?.[i]?.amount != null) return money(rows[i].amount);
+  return money(garmentAmount(g));
+}
+export const garmentAmount = (g) => Math.round((g.jobs ?? []).reduce((s, j) => s + (JOB_TYPES[j]?.price ?? 0), 0)) * (g.qty ?? 1);
+
+/** "1 Item" / "3 Items" (09's "1 Items Total" bug, R1-U-19). */
+export const itemsLabel = (n, word = 'Item') => `${n} ${word}${n === 1 ? '' : 's'}`;
+/** Garment count of an appointment (qty-aware, falls back to `count`). */
+export const itemCount = (a) => (a?.garments ?? []).reduce((s, g) => s + (g.qty ?? 1), 0) || a?.count || 0;
+
+const MONTH_INDEX = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+/* en-GB short months — the 02.1 wheel writes "Sept" for September */
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+
+/** Parse any of the prototype's date strings. Returns
+    { date, dow, mon, day, hour, min } or null. `hour` is null when the
+    string carries no time. */
+export function parseWhen(str) {
+  if (!str) return null;
+  const s = String(str);
+  const m = s.match(/\b([A-Za-z]{3,9})\.?\s+(\d{1,2})\b/);
+  const key = m?.[1].slice(0, 3).toLowerCase();
+  if (!m || !(key in MONTH_INDEX)) return null;
+  const mi = MONTH_INDEX[key];
+  const day = Number(m[2]);
+  const t = s.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+  let hour = null; let min = 0;
+  if (t) {
+    hour = (Number(t[1]) % 12) + (t[3].toUpperCase() === 'PM' ? 12 : 0);
+    min = Number(t[2] ?? 0);
+  }
+  const date = new Date(new Date().getFullYear(), mi, day, hour ?? 0, min);
+  return { date, dow: DOW[date.getDay()], mon: MON[mi], day, hour, min };
+}
+
+const clock = (p) => {
+  const h12 = ((p.hour + 11) % 12) + 1;
+  return `${h12}:${String(p.min).padStart(2, '0')} ${p.hour >= 12 ? 'PM' : 'AM'}`;
+};
+/** "Sun, Jul 12 · 7:00 PM" (or the day alone when there is no time). */
+export function fmtWhen(str, fallback = '') {
+  const p = parseWhen(str);
+  if (!p) return fallback || String(str ?? '');
+  return p.hour == null ? `${p.dow}, ${p.mon} ${p.day}` : `${p.dow}, ${p.mon} ${p.day} · ${clock(p)}`;
+}
+/** "Fri, Jul 17". */
+export function fmtDay(str, fallback = '') {
+  const p = parseWhen(str);
+  return p ? `${p.dow}, ${p.mon} ${p.day}` : (fallback || String(str ?? ''));
+}
+/** "7/12/26" — receipt rows. */
+export function mdy(str, fallback = '') {
+  const p = parseWhen(str);
+  if (!p) return fallback;
+  return `${p.date.getMonth() + 1}/${p.day}/${String(p.date.getFullYear()).slice(-2)}`;
+}
+/** Shift a parsed/parsable day by n days → "Thu, Jul 16". */
+export function shiftDay(str, n) {
+  const p = parseWhen(str);
+  if (!p) return null;
+  const d = new Date(p.date); d.setDate(d.getDate() + n);
+  return `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}`;
+}
+/** Wheel rows ("Thu 16 Jul") for every day from `from` to `to`
+    inclusive — the 05A/05B custom-pickup range (ready date → need-by). */
+export function dayRows(from, to, max = 31) {
+  const a = parseWhen(from); const b = parseWhen(to);
+  if (!a) return [];
+  const rows = [];
+  const d = new Date(a.date); d.setHours(0, 0, 0, 0);
+  const end = b ? new Date(b.date) : new Date(d); if (b) end.setHours(0, 0, 0, 0);
+  while (d <= end && rows.length < max) {
+    rows.push(`${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`);
+    d.setDate(d.getDate() + 1);
+  }
+  return rows.length ? rows : [`${DOW[a.date.getDay()]} ${a.day} ${a.mon}`];
+}
+/** Is `needBy` strictly after `when`? (02's need-by validation.) */
+export function isAfter(needBy, when) {
+  const a = parseWhen(needBy); const b = parseWhen(when);
+  if (!a || !b) return true;
+  return a.date > b.date;
+}
+/** Human label for the saved pay method (03/Cancelled's refund line). */
+export const PAY_LABELS = { apple: 'Apple Pay', google: 'Google Pay', card: 'Visa •••• 4242' };

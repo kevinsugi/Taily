@@ -7,18 +7,21 @@
    raised), confirm CTA follows the selection, Request Custom Time
    opens the wheel picker, the secondary CTA cross-navigates to 07A,
    and Change address opens the 02B sheet.
+   UX-LOOP R1-U-02: the balance rows read the live final order.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, infoCard, infoRow, cta } from '../components.js';
+import { money } from '../data.js';
 import { chooseFulfilment } from '../state.js';
-import { winSel, windowLabel, windowsHtml, wireWindows } from './05a-pickup-window.js';
+import { winSel, windowLabel, windowDate, windowsHtml, wireWindows, amountDue } from './05a-pickup-window.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
 import { openWindowConfirmed } from './05.1-window-confirmed.js';
 
 /* Exported: 07C draws this screen (dimmed) as its frame backdrop. */
 export function viewDelivery(s) {
   const sel = winSel(s);
+  const due = amountDue(s);
   return `${chrome('home')}
 <div class="body" data-s="05b-delivery-options">
   <div class="heading">
@@ -32,9 +35,9 @@ export function viewDelivery(s) {
   </div>
   ${windowsHtml(sel)}
   ${infoCard([
-    infoRow('Balance due', '$340'),
+    infoRow('Balance due', money(due)),
     infoRow('Delivery', '$20'),
-    infoRow('Charged on delivery', '$360', { total: true }),
+    infoRow('Charged on delivery', money(due + 20), { total: true }),
   ].join(''))}
   <div class="actions">
     ${cta(`Confirm Delivery · ${windowLabel(sel)}`, { attrs: 'data-act="confirm"' })}
@@ -48,8 +51,9 @@ function wire(root) {
   /* Phase R6 (Kevin): confirming opens the Window Confirmed modal —
      the order stays 'ready' until the TAILOR confirms the handoff. */
   root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => {
-    const when = windowLabel(winSel());
-    chooseFulfilment('delivery', when);
+    const sel = winSel();
+    const when = windowLabel(sel);
+    chooseFulfilment('delivery', when, windowDate(sel));
     openWindowConfirmed({ method: 'delivery', when });
   });
   root.querySelector('[data-act="select"]')?.addEventListener('click', () => go('05a-pickup-window'));

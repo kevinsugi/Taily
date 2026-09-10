@@ -7,28 +7,43 @@
    draw Fri 4–6 PM selected; raised), the confirm CTA follows the
    selection, Request Custom Time opens the wheel picker, and the
    secondary CTA cross-navigates to 07B.
+   UX-LOOP R1-U-02: the amount due reads the live final order;
+   R1-U-11: the custom picker is bounded to ready date → need-by and
+   9 AM–6 PM.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, deliveryWindow, selectTime, cta } from '../components.js';
-import { state, chooseFulfilment } from '../state.js';
+import { money, dayRows } from '../data.js';
+import { state, chooseFulfilment, finalOrder } from '../state.js';
 import { openDateTimeOverlay } from './02.1-date-time-sheet.js';
 import { openWindowConfirmed } from './05.1-window-confirmed.js';
+import { currentAppt } from './03-status-confirmed.js';
 
 export const WINDOWS = [
-  { day: 'Thursday, July 16', abbr: 'Thu', chips: ['9–11 AM', '12–2 PM', '4–6 PM'] },
-  { day: 'Friday, July 17', abbr: 'Fri', chips: ['9-11 AM', '12–2 PM', '4–6 PM'] },
+  { day: 'Thursday, July 16', abbr: 'Thu', date: 'Jul 16', chips: ['9–11 AM', '12–2 PM', '4–6 PM'] },
+  { day: 'Friday, July 17', abbr: 'Fri', date: 'Jul 17', chips: ['9-11 AM', '12–2 PM', '4–6 PM'] },
 ];
 
 /** The pickup/delivery window selection, shared by 07A and 07B. */
 export function winSel(s = state) {
   s.ui ??= {};
-  s.ui.window ??= { w: 0, c: 0, custom: null };
+  s.ui.window ??= { w: 0, c: 0, custom: null, customDay: null };
   return s.ui.window;
 }
 
 export function windowLabel(sel) {
   return sel.custom ?? `${WINDOWS[sel.w].abbr} ${WINDOWS[sel.w].chips[sel.c]}`;
+}
+/** The chosen window's calendar day ("Jul 17") for receipts. */
+export function windowDate(sel) {
+  return sel.custom ? sel.customDay : WINDOWS[sel.w].date;
+}
+
+/** Amount due at handoff for the appointment being viewed. */
+export function amountDue(s) {
+  const t = finalOrder(currentAppt(s)).totals;
+  return (t.total ?? 0) - (t.deposit ?? 0);
 }
 
 export function windowsHtml(sel) {
@@ -47,28 +62,35 @@ export function windowsHtml(sel) {
 export function wireWindows(root, screenId) {
   const sel = winSel();
   root.querySelectorAll('[data-win]').forEach((chip) => chip.addEventListener('click', () => {
-    Object.assign(sel, { w: Number(chip.dataset.win), c: Number(chip.dataset.chip), custom: null });
+    Object.assign(sel, { w: Number(chip.dataset.win), c: Number(chip.dataset.chip), custom: null, customDay: null });
     go(screenId, { replace: true });
   }));
-  root.querySelector('[data-act="custom-time"]')?.addEventListener('click', () =>
+  root.querySelector('[data-act="custom-time"]')?.addEventListener('click', () => {
+    /* R1-U-11: only days between the ready date and the need-by */
+    const a = currentAppt(state);
+    const days = dayRows(a.readyAt ?? WINDOWS[0].date, a.needBy ?? WINDOWS[1].date);
     openDateTimeOverlay('custom', (p) => {
       sel.custom = `${p.day} at ${p.time}`;
+      sel.customDay = p.day;
       go(screenId, { replace: true });
-    }));
+    }, { days });
+  });
 }
 
 function renderScreen(s) {
   const sel = winSel(s);
+  const a = currentAppt(s);
+  const first = (a.name ?? 'Marco Tailor').split(' ')[0];
   return `${chrome('home')}
 <div class="body" data-s="05a-pickup-window">
   <div class="heading">
     <h1 class="t-title c-ink">Select a pickup window.</h1>
-    <p class="t-body w-500 c-500">Marco’s studio · 1025 Broadway.<br>Payment is settled at handoff.</p>
+    <p class="t-body w-500 c-500">${first}’s studio · 1025 Broadway.<br>Payment is settled at handoff.</p>
   </div>
   ${windowsHtml(sel)}
   <div class="prepare-card">
     <p class="t-body w-500 c-500">Due at pickup</p>
-    <p class="due-card__amount">$340 · Charged to your saved card at pickup.</p>
+    <p class="due-card__amount">${money(amountDue(s))} · Charged to your saved card at pickup.</p>
   </div>
   <div class="actions">
     ${cta(`Confirm Pickup · ${windowLabel(sel)}`, { attrs: 'data-act="confirm"' })}
@@ -82,8 +104,9 @@ function wire(root) {
   /* Phase R6 (Kevin): confirming opens the Window Confirmed modal —
      the order stays 'ready' until the TAILOR confirms the handoff. */
   root.querySelector('[data-act="confirm"]')?.addEventListener('click', () => {
-    const when = windowLabel(winSel());
-    chooseFulfilment('pickup', when);
+    const sel = winSel();
+    const when = windowLabel(sel);
+    chooseFulfilment('pickup', when, windowDate(sel));
     openWindowConfirmed({ method: 'pickup', when });
   });
   root.querySelector('[data-act="select"]')?.addEventListener('click', () => go('05b-delivery-options'));

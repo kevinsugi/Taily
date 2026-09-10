@@ -7,8 +7,8 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, filterPill, garmentCard, cta } from '../components.js';
-import { JOB_TYPES } from '../data.js';
+import { chrome, filterPill, garmentCard, cta, toast } from '../components.js';
+import { money, garmentAmount, isAfter } from '../data.js';
 import { state, addGarment, removeGarment, bookingLines } from '../state.js';
 /* Sheets open as in-place overlays (v3 sheetShow parity) — navigating to
    the 02a/04a routes would rebuild this screen and flash. The routes
@@ -17,22 +17,20 @@ import { openDateTimeOverlay } from './02.1-date-time-sheet.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
 import { openPaymentOverlay } from './02.3-payment-sheet.js';
 
-/* The frame's placeholder garments (re-revised with the Selector
-   rollout): two identical suit jackets, both "Hem / Adjust Length",
-   two photos each, "$55" placeholder price. NB the frame's CTA still
-   reads "$20 Deposit" — stale against its own seeds (2×$120 → $24);
-   we compute honestly. Raised in CLAUDE.md. */
+/* The frame's seeded garments (UX-LOOP R1-U-02, Figma updated to
+   match): a $120 Hem jacket and an $80 Sleeve jacket, two photos each —
+   the $200 / $20 booking the whole fiction is built on. Seeded ONLY for
+   the harness's direct loads (02, its sheets, 03/Requested); a live
+   visit always arrives with the garments Start Booking built
+   (R1-U-12). */
 export function ensureGarments() {
-  if (state.garments.length) return;
-  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2, displayPrice: '$55' });
-  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2, displayPrice: '$55' });
+  if (state.garments.length || window.__tailyNavigated) return;
+  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 });
+  addGarment({ type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 });
 }
 
-function priceFor(g) {
-  if (g.displayPrice) return g.displayPrice;
-  const amount = Math.round(g.jobs.reduce((s, j) => s + (JOB_TYPES[j]?.price ?? 0), 0)) * g.qty;
-  return `$${amount}`;
-}
+const NEEDBY_MSG = 'Need-by must be after your appointment';
+export const needByOk = (s = state) => isAfter(s.appt.needBy, s.appt.when);
 
 /* Exported: 02a/04a/04b draw this screen dimmed behind their scrim
    (the updated frames show it in place of the old flat backdrop). */
@@ -45,7 +43,7 @@ export function view02(s) {
     variant: 'WithPhoto',
     type: g.type,
     qty: g.qty,
-    price: priceFor(g),
+    price: money(garmentAmount(g)),
     services: g.jobs,
     photos: g.photos ?? 0,
     index: i,
@@ -59,7 +57,7 @@ export function view02(s) {
   </div>
   <div class="filters">
     ${filterPill('Requested time:', appt.when, { attrs: 'data-act="time"' })}
-    ${filterPill('Need by:', appt.needBy, { attrs: 'data-act="needby"' })}
+    ${filterPill('Need by:', appt.needBy, { attrs: 'data-act="needby"', error: needByOk(s) ? '' : NEEDBY_MSG })}
   </div>
   <div class="garments">
     <p class="t-body w-600 c-ink">Garments:</p>
@@ -69,10 +67,22 @@ export function view02(s) {
     </div>
   </div>
   <div class="cta-bar">
-    ${cta(`Request Tailor · $${totals.deposit} Deposit (10%)`, { attrs: 'data-act="request"' })}
+    ${cta(`Request Tailor · ${money(totals.deposit)} Deposit (10%)`, { attrs: 'data-act="request"' })}
     <p class="t-small c-500 cta-bar__note">A Taily-certified tailor near you will accept your request — final pricing is confirmed at your appointment.</p>
   </div>
 </div>`;
+}
+
+/* UX-LOOP R1-U-11: repaint the need-by pill's validity in place after
+   the picker closes (the picker updates the pill text without
+   re-rendering — see 02.1's setPillValue). */
+function syncNeedBy(root) {
+  const pill = root.querySelector('[data-act="needby"]')?.closest('.filter-pill');
+  if (!pill) return;
+  const ok = needByOk();
+  pill.classList.toggle('filter-pill--error', !ok);
+  const help = pill.querySelector('[data-pill-help]');
+  if (help) help.textContent = ok ? '' : NEEDBY_MSG;
 }
 
 function wire(root) {
@@ -131,8 +141,15 @@ function wire(root) {
 
   root.querySelector('[data-act="time"]')?.addEventListener('click', () => openDateTimeOverlay('appt'));
   root.querySelector('[data-act="needby"]')?.addEventListener('click', () => openDateTimeOverlay('needby'));
+  /* the picker announces a pill change on .filters (dies with the render) */
+  root.querySelector('.filters')?.addEventListener('taily:appt-changed', () => syncNeedBy(root));
   root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
-  root.querySelector('[data-act="request"]')?.addEventListener('click', () => openPaymentOverlay());
+  root.querySelector('[data-act="request"]')?.addEventListener('click', () => {
+    /* R1-U-11: an impossible need-by keeps the request inert (no
+       disabled CTA variant exists — the pill + toast explain) */
+    if (!needByOk()) { syncNeedBy(root); toast(NEEDBY_MSG); return; }
+    openPaymentOverlay();
+  });
   root.querySelector('[data-act="add-garment"]')?.addEventListener('click', () => {
     /* back to Home to pick more tiles — the tile badges mirror the
        current garments, and Start Booking reconciles (01-home.js) so

@@ -79,7 +79,7 @@ export function chrome(active = 'home', time = '9:41') {
    ============================================================ */
 
 import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, CHEVRON_RIGHT, ICON_CARD, ICON_ADD_CIRCLE } from './icons.js';
-import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES } from './data.js';
+import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, money, rowPrice, fmtWhen, fmtDay, mdy } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
 export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
@@ -125,17 +125,25 @@ export function selectTime(label = 'Select Time', { attrs = '' } = {}) {
   return `<button type="button" class="select-time" ${attrs}>${label}${CHEVRON_DOWN}</button>`;
 }
 
-/** Filter Pill — Figma Shape=Default | Open. */
-export function filterPill(caption, value, { open = false, options = [], attrs = '' } = {}) {
+/** Filter Pill — Figma Shape=Default | Open. `error` (UX-LOOP R1-U-11,
+    live-only): paints the value semantic/error and adds a helper line. */
+export function filterPill(caption, value, { open = false, options = [], attrs = '', error = '' } = {}) {
   const dropdown = open
     ? `<div class="filter-pill__dropdown">${options.map((o, i) =>
         `<button type="button" class="filter-pill__option${i === 0 ? ' is-selected' : ''}">${o}</button>`).join('')}</div>`
     : '';
-  return `<div class="filter-pill${open ? ' filter-pill--open' : ''}">
+  return `<div class="filter-pill${open ? ' filter-pill--open' : ''}${error ? ' filter-pill--error' : ''}">
   <span class="filter-pill__label">${caption}</span>
   <button type="button" class="filter-pill__box" ${attrs}>${value}${CHEVRON_DOWN}</button>
+  <span class="filter-pill__help" data-pill-help>${error}</span>
   ${dropdown}
 </div>`;
+}
+
+/** Accent link row with a trailing chevron (03/Tailoring's
+    "View final order ›", UX-LOOP R1-U-04). */
+export function linkRow(label, { attrs = '' } = {}) {
+  return `<button type="button" class="link-row" ${attrs}>${label}${CHEVRON_RIGHT.replace('method-row__chevron', 'link-row__chevron')}</button>`;
 }
 
 /**
@@ -404,9 +412,9 @@ export function sheet(contentHtml, { open = null, header = null, grabber = true,
  * Call from a sheet screen's wire() with the dismiss handler.
  */
 export function wireSheetA11y(root, dismiss) {
-  /* UX-006: modals and the photo viewer share the sheet's a11y —
-     Escape closes, Tab stays inside the panel */
-  const panel = root.querySelector('.sheet, .modal, .photo-viewer');
+  /* UX-006: modals, the photo viewer and the review sheet share the
+     sheet's a11y — Escape closes, Tab stays inside the panel */
+  const panel = root.querySelector('.sheet, .modal, .photo-viewer, .review-sheet');
   if (!panel) return;
   const FOCUSABLE = 'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])';
   const items = () => [...panel.querySelectorAll(FOCUSABLE)].filter((e) => !e.disabled && e.offsetParent !== null);
@@ -433,6 +441,21 @@ export function wireSheetA11y(root, dismiss) {
  * ✕ / scrim clicks, Escape and focus trapping are handled here;
  * `wireFn(root, close)` binds the sheet's own actions. Returns close().
  */
+/* UX-LOOP R1-U-16: the router's popstate closes whichever overlay is
+   open before stepping back a screen. Overlays register their close()
+   here while mounted. */
+let activeOverlay = null;
+/** Close the open overlay, if any. Returns true when one was closed. */
+export function closeOverlay() {
+  if (!activeOverlay) return false;
+  const c = activeOverlay;
+  activeOverlay = null;
+  c();
+  return true;
+}
+/** Is an overlay (sheet / modal / viewer) currently mounted? */
+export const overlayOpen = () => activeOverlay !== null;
+
 export function sheetOverlay(contentHtml, { header = null, variant = '', dataS = '' } = {}, wireFn) {
   const screenEl = document.getElementById('screen');
   // one overlay at a time (a closing one, mid slide-out, doesn't count)
@@ -471,6 +494,7 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
   const close = () => {
     if (closing) return;
     closing = true;
+    if (activeOverlay === close) activeOverlay = null;
     holder.classList.add('is-closing');
     host.dataset.open = 'false';
     setTimeout(() => {
@@ -480,6 +504,7 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
       if (opener?.isConnected) opener.focus({ preventScroll: true });
     }, 300);
   };
+  activeOverlay = close;
   holder.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', close));
   wireSheetA11y(holder, close);
   wireFn?.(holder, close);
@@ -520,6 +545,7 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
   const close = () => {
     if (closing) return;
     closing = true;
+    if (activeOverlay === close) activeOverlay = null;
     holder.classList.add('is-closing');
     holder.dataset.open = 'false';
     const finish = () => {
@@ -532,6 +558,7 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
        the fade-out window just reads as lag */
     if (instant) finish(); else setTimeout(finish, 300);
   };
+  activeOverlay = close;
   holder.querySelector('[data-act="modal-dismiss"]')?.addEventListener('click', close);
   wireSheetA11y(holder, close);   // UX-006: Escape closes, focus stays inside
   wireFn?.(holder, close);
@@ -668,4 +695,64 @@ export function metaRow(glyph, text) {
     info: semantic/info price (06B — totals touched by the modified order). */
 export function feeRow(price, desc, { line = false, info = false } = {}) {
   return `<div class="fee-row${line ? ' fee-row--line' : ''}${info ? ' fee-row--info' : ''}"><span class="fee-row__price">${price}</span><span class="fee-row__desc">${desc}</span></div>`;
+}
+
+/* ============================================================
+   Order helpers (UX-LOOP round 1) — shared by every screen that draws
+   an appointment's order, and reusable by the tailor side.
+   ============================================================ */
+
+/** Garment cards for an order ({ garments, totals }). `variant` is the
+    User - Garment Card variant; PostAppt cards draw the Before/Pinned
+    rows. With `marks` (04/Modified only — the other frames draw the
+    final order plain), added garments / added services written at the
+    appointment render semantic/info like 06B. */
+export function orderCards(order, { variant = 'ViewOnly', beforePhotos = 4, pinnedPhotos = 4, marks = false } = {}) {
+  const t = order?.totals ?? {};
+  return (order?.garments ?? []).map((g, i) => garmentCard({
+    variant, type: g.type, qty: g.qty,
+    price: rowPrice(g, t.rows, i),
+    services: (g.jobs ?? []).map((j) => (marks && g.addedJobs?.includes(j) ? { label: j, added: true } : j)),
+    added: marks && !!g.added,
+    priceInfo: marks && !!(g.addedJobs?.length),
+    photos: g.photos ?? 0,
+    beforePhotos, pinnedPhotos,
+  })).join('\n    ');
+}
+
+/** The tailor summary card's rows for an appointment: place, when,
+    need-by — one grammar ("Sun, Jul 12 · 7:00 PM" / "Need by: Fri,
+    Jul 17"), R1-U-08. */
+export function apptRows(a) {
+  return [
+    `◉&nbsp;&nbsp;${a?.place ?? '88 Leonard Street'} `,
+    `▤&nbsp;&nbsp;${fmtWhen(a?.when, 'Sun, Jul 12 · 7:00 PM')}`,
+    `▤&nbsp;&nbsp;Need by: ${fmtDay(a?.needBy, 'Fri, Jul 17')}`,
+  ];
+}
+
+/** Receipt dates for an appointment — the frames' fiction when the
+    appointment carries no dates of its own. */
+export function receiptDates(a) {
+  return {
+    confirmed: mdy(a?.when, '7/12/26'),
+    deposit: a?.depositOn ?? '7/7/26',
+    handoff: mdy(a?.fulfilment?.date ?? a?.fulfilment?.window ?? a?.deliveredAt, '7/17/26'),
+  };
+}
+
+/** Fee rows of a settled order (06 / 03/Summary, R1-U-07): subtotal,
+    -deposit, then either "Total - Paid at pickup" or "$20 Delivery" +
+    total, following `a.fulfilment`. No fulfilment (harness deep link)
+    keeps the frames' delivery fixture. */
+export function receiptRows(a, t) {
+  const d = receiptDates(a);
+  const due = (t.total ?? 0) - (t.deposit ?? 0);
+  const rows = [
+    feeRow(money(t.total), `Subtotal - Confirmed ${d.confirmed}`, { line: true }),
+    feeRow(money(-(t.deposit ?? 0)), `10% Deposit - Paid ${d.deposit}`, { line: true }),
+  ];
+  if (a?.fulfilment?.method === 'pickup') rows.push(feeRow(money(due), `Total - Paid at pickup ${d.handoff}`));
+  else rows.push(feeRow('$20', `Delivery - Paid ${d.handoff}`, { line: true }), feeRow(money(due + 20), `Total - Paid ${d.handoff}`));
+  return rows.join('\n    ');
 }

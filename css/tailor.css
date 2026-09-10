@@ -188,11 +188,49 @@
   font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--accent-ink);
 }
 .tgc__comment .icon-add-circle { width: 14px; height: 14px; }
-.tgc__comment-view { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--ink); }
+/* the frame paints “Comment” accent-ink (T05 449:809, verified via API) */
+.tgc__comment-view { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--accent-ink); }
 .tgc .garment-card__service--info { color: var(--info); }
+/* at-visit editor (R1-T-03): tappable add-tile, the tailor's note.
+   Added-service rows carry full JOB_TYPES names ("Sleeve / Adjust
+   Length") where 02 only ever shows the short menu names — keep the
+   trigger on one line like the frame's Service Row. */
+.tgc .selector--added .selector__trigger { white-space: nowrap; }
+.tgc__tile-btn { display: flex; padding: 0; border: 0; background: none; }
+.tgc__note {
+  width: 100%;
+  min-height: 37px;
+  padding: var(--space-8) var(--space-12);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  box-shadow: inset 0 0 0 1px var(--neutral-200);
+  resize: none;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 400;
+  color: var(--ink);
+}
+.tgc__note::placeholder { color: var(--neutral-500); opacity: 1; }
+.tgc__note:focus { outline: none; box-shadow: inset 0 0 0 1px var(--neutral-400); }
+/* live-only "+ Additional Garment" inside the garments card (mirrors 02) */
+[data-s="t04-appointment-details"] .add-garment { margin-block: var(--space-8); }
 
-/* ---------- persona toggle (stage caption, OUTSIDE .screen) ---------- */
-.stage-caption { display: flex; justify-content: center; padding: var(--space-16); }
+/* ---------- persona toggle (stage caption, OUTSIDE .screen) ----------
+   R1-T-17: pinned to the viewport's bottom-right so it is never below
+   the fold. Hidden until the first input (see tailor-components.js) —
+   the diff harness renders each frame at exactly its own height, so a
+   pinned control would otherwise sit inside every .screen screenshot. */
+.stage-caption {
+  position: fixed;
+  right: var(--space-16);
+  bottom: var(--space-16);
+  z-index: 20;
+  display: flex;
+  visibility: hidden;
+}
+html.has-input .stage-caption { visibility: visible; }
 .persona-toggle {
   padding: var(--space-8) var(--space-16);
   background: var(--white);

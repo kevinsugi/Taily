@@ -3,14 +3,16 @@
    Review / Sheet 582:2266). 08 dimmed under an ink@45% scrim + n50
    review card at y291: grabber, serif-28 title, sub, five 30px
    stars (fixture: 4 filled), bordered text input, Confirm Review.
-   Opened from 08's Leave a Review. LIVE: stars select a 1–5 rating,
-   the input is a real textarea, and Confirm closes with a thank-you
-   toast. The route render keeps the frame's fixture (4 stars, typed
-   review text).
+   Opened from 08's Leave a Review (and 09's Leave Review, R1-U-14).
+   LIVE: stars select a 1–5 rating, the input is a real textarea, and
+   Confirm stores { rating, text } on the appointment and closes with
+   a thank-you toast. The route render keeps the frame's fixture
+   (4 stars, typed review text, "2 items · Jul 17").
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { cta, modalOverlay, toast } from '../components.js';
+import { itemsLabel, itemCount, fmtDay } from '../data.js';
 import { apptEntry } from '../state.js';
 import { viewComplete } from './06-journey-complete.js';
 
@@ -21,7 +23,7 @@ function stars(rating) {
     `<button type="button" class="${i < rating ? 'is-filled' : ''}" data-star="${i + 1}" aria-label="${i + 1} star${i ? 's' : ''}">${i < rating ? '★' : '☆'}</button>`).join('\n    ');
 }
 
-function sheetHtml({ rating = 4, sub = 'Marco Tailor · 2 items · Sept 1', live = false } = {}) {
+function sheetHtml({ rating = 4, sub = 'Marco Tailor · 2 items · Jul 17', live = false } = {}) {
   return `<div class="review-sheet" role="dialog" aria-label="Leave a review">
   <span class="review-sheet__grabber" aria-hidden="true"></span>
   <div class="review-sheet__head">
@@ -47,20 +49,25 @@ function wireStars(root) {
   }));
 }
 
-function wireSheet(root, close) {
+function wireSheet(root, close, onConfirm) {
   wireStars(root);
   root.querySelector('[data-act="confirm-review"]')?.addEventListener('click', () => {
+    onConfirm?.({
+      rating: root.querySelectorAll('[data-star].is-filled').length,
+      text: root.querySelector('[data-review]')?.value?.trim() ?? '',
+    });
     close?.();
-    toast('Thanks — your review was sent to Marco!');
+    const first = (apptEntry()?.name ?? 'Marco Tailor').split(' ')[0];
+    toast(`Thanks — your review was sent to ${first}!`);
   });
 }
 
-/** Open over the live 08. */
+/** Open over the live 08 / 09 for the appointment currentAppt points at. */
 export function openLeaveReview() {
   const a = apptEntry() ?? {};
-  const n = (a.garments ?? []).reduce((s, g) => s + g.qty, 0) || a.count || 2;
-  modalOverlay(sheetHtml({ sub: `${a.name ?? 'Marco Tailor'} · ${n} items · Sept 1`, live: true }),
-    { dataS: '06.1-leave-review' }, wireSheet);
+  const handoff = a.deliveredAt ?? fmtDay(a.fulfilment?.date, 'Jul 17');
+  modalOverlay(sheetHtml({ sub: `${a.name ?? 'Marco Tailor'} · ${itemsLabel(itemCount(a) || 2, 'item')} · ${handoff}`, live: true }),
+    { dataS: '06.1-leave-review' }, (root, close) => wireSheet(root, close, (review) => { a.review = review; }));
 }
 
 /* Route registration keeps the frame-verbatim render for the diff

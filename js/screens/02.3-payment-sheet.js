@@ -26,7 +26,8 @@ export function openPaymentOverlay() {
     // close() first — it restores the scroll freeze after the slide-out
     rows[0]?.addEventListener('click', () => { state.payMethod = 'apple'; close(); requestTailor(); go('03-status-requested'); });
     rows[1]?.addEventListener('click', () => { state.payMethod = 'google'; close(); requestTailor(); go('03-status-requested'); });
-    rows[2]?.addEventListener('click', () => { state.payMethod = 'card'; close(); openAddCardOverlay(); });
+    /* R1-U-21: ✕ / Escape on the card sheet reopens this one */
+    rows[2]?.addEventListener('click', () => { state.payMethod = 'card'; close(); openAddCardOverlay({ onCancel: openPaymentOverlay }); });
     root.querySelector('[data-act="cancel"]')?.addEventListener('click', close);
   });
 }

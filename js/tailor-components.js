@@ -1,5 +1,5 @@
 /* ============================================================
-   Tailor flow — components (Phase T, fast build).
+   Tailor flow — components (Phase T, refined in UX-LOOP round 1).
    Tailor-only render functions; user-flow components are reused
    from components.js wherever a frame instances the same master.
    Styles live in css/tailor.css. Figma: "TAILOR — T/ COMPONENTS"
@@ -7,14 +7,24 @@
    Tailor - Garment Card 238:5113).
    ============================================================ */
 
-import { statusBar, topNav, statusPill, progressBar, ctaSmall, photoTile, selector, additionalSelector, toast } from './components.js';
-import { GARMENT_TYPES, JOB_TYPES, GARMENT_ICONS } from './data.js';
+import { statusBar, topNav, statusPill, progressBar, ctaSmall, photoTile, selector, additionalSelector, feeRow, toast } from './components.js';
+import { GARMENT_TYPES, JOB_TYPES, GARMENT_ICONS, money, garmentAmount } from './data.js';
 import { ICON_ADD_CIRCLE } from './icons.js';
 import { render as go } from './app.js';
 import { state } from './state.js';
 import { job, jobTarget } from './tailor-data.js';
 
 const T_NAV = [['t-home', 'Home'], ['t-calendar', 'Calendar'], ['t-shop', 'Shop']];
+
+const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/* R1-T-17: the persona toggle is pinned to the viewport (outside .screen)
+   and revealed on the first input — the diff harness's viewport equals
+   the frame, so a pinned control would otherwise land inside every
+   element screenshot. Any pointer/key/wheel/touch event reveals it. */
+const reveal = () => document.documentElement.classList.add('has-input');
+['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((ev) =>
+  document.addEventListener(ev, reveal, { once: true, passive: true }));
 
 /** Top Nav Active=T-Home | T-Calendar | T-Shop + status bar. */
 export function tailorChrome(active = 'home', time = '9:41') {
@@ -51,7 +61,7 @@ export function sectionRow(label, right = '') {
 /** T01 New Request card (455:3661) — timer strip + details + two small CTAs. */
 export function requestCard({ payout, name, meta, address, lines = [], expires = 'EXPIRES IN 1H 24M', where = '88 Leonard St, 4B · 1.2 mi' }) {
   return `<article class="req-card">
-  <div class="req-card__timer"><span>${expires}</span><span>${where}</span></div>
+  <div class="req-card__timer"><span data-timer>${expires}</span><span>${where}</span></div>
   <div class="req-card__details">
     <div class="req-card__who">
       <div class="req-card__name"><b>${payout}</b><span>|</span><span>${name}</span></div>
@@ -97,54 +107,148 @@ export function radioRow(label, { selected = false, attrs = '' } = {}) {
 
 export const hairline = () => '<div class="hairline"></div>';
 
-/** "View Order Summary ⌃" serif disclosure (T07/T08). */
+/** "View Order Summary ⌄" serif disclosure (T07/T08) — chevron points
+    down when closed, up when open (R1-T-13). */
 export function orderDropdown(open = false) {
   return `<button type="button" class="order-dropdown${open ? ' is-open' : ''}" data-act="order-summary" aria-expanded="${open}">
   <span>View Order Summary</span>
-  <svg class="order-dropdown__chevron" width="16" height="8" viewBox="0 0 16 8" fill="none" aria-hidden="true"><path d="M1 7L8 1L15 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <svg class="order-dropdown__chevron" width="16" height="8" viewBox="0 0 16 8" fill="none" aria-hidden="true"><path d="M1 1L8 7L15 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </button>`;
+}
+
+/** Taily Fee (10%) / Your Payout rows under an order. */
+export function payoutRows({ fee, payout }) {
+  return `${feeRow(money(fee), 'Taily Fee (10%)', { line: true })}
+      ${feeRow(money(payout), 'Your Payout')}`;
 }
 
 /**
  * Tailor - Garment Card (238:5113) — Appt (editable at the visit) and
- * Appt_View (T05/T06 review). Chip + rows reuse the user garment-card
- * classes; the upload/comment rows are tailor-only.
+ * Appt_View (T05–T08 summaries). Chip + rows reuse the user garment-card
+ * classes; the upload/comment rows are tailor-only. Appt mirrors 02's
+ * editor: quantity/item/job selectors, added services as Additional
+ * rows with ✕, the ⊕ Additional Service trigger. Appt_View carries no
+ * ✕ (R1-T-09) and shows captured photos / the tailor's note when there
+ * are any, else the frame's add-tile and “Comment” placeholder.
  */
-export function tailorGarmentCard({ variant = 'Appt_View', type = 'Suit Jacket', qty = 1, price = '$120', priceInfo = false, services = ['Hem / Adjust Length'], index = 0 }) {
+export function tailorGarmentCard({
+  variant = 'Appt_View', type = 'Suit Jacket', qty = 1, price = '$120', priceInfo = false, added = false,
+  services = ['Hem / Adjust Length'], addedJobs = [], before = 0, pinned = 0, comment = '', commentOpen = false, index = 0,
+}) {
   const art = GARMENT_ICONS[type] ? `<span class="garment-card__artbox"><img class="garment-card__art" src="${GARMENT_ICONS[type]}" alt="${type}"></span>` : '';
-  const chip = `<div class="garment-card__chip">${art}<span class="garment-card__price${priceInfo ? ' garment-card__price--info' : ''}">${price}</span></div>`;
+  const chip = `<div class="garment-card__chip">${art}<span class="garment-card__price${(priceInfo || added) ? ' garment-card__price--info' : ''}">${price}</span></div>`;
   const gi = ` data-gi="${index}"`;
+  const shots = (n) => Array.from({ length: n }, () => photoTile('photo')).join('');
   let rows;
   if (variant === 'Appt') {
+    const [primary, ...extra] = services;
+    const addTile = (kind) => `<button type="button" class="tgc__tile-btn" data-act="add-photo" data-kind="${kind}"${gi} aria-label="Add ${kind} photo">${photoTile('add')}</button>`;
+    const note = (commentOpen || comment)
+      ? `<textarea class="tgc__note" data-act="note"${gi} rows="1" placeholder="Note for Sarah…" aria-label="Comment">${esc(comment)}</textarea>`
+      : `<button type="button" class="tgc__comment" data-act="comment"${gi}>${ICON_ADD_CIRCLE}<span>Add Comment</span></button>`;
     rows = `<div class="garment-card__row">
       ${selector('quantity', String(qty), ['1', '2', '3', '4', '5'], { attrs: `data-sel="qty"${gi}` })}
       ${selector('item', type, Object.keys(GARMENT_TYPES), { attrs: `data-sel="item"${gi}` })}
     </div>
-    ${services.map((s, j) => `<div class="garment-card__service">${selector('job', s.label ?? s, Object.keys(JOB_TYPES), { attrs: `data-sel="job" data-ji="${j}"${gi}` })}</div>`).join('')}
+    <div class="garment-card__service">${selector('job', primary, Object.keys(JOB_TYPES), { attrs: `data-sel="job" data-ji="0"${gi}` })}</div>
+    ${extra.map((s, j) => `<div class="garment-card__service">${additionalSelector({ value: s, attrs: `data-sel="added" data-ji="${j + 1}"${gi}` })}</div>`).join('')}
     ${additionalSelector({ attrs: `data-sel="add"${gi}` })}
-    <div class="tgc__group"><span class="tgc__label">Upload Before Photos</span><div class="photo-tiles">${photoTile('add')}</div></div>
-    <div class="tgc__group"><span class="tgc__label">Upload Pinned Photos</span><div class="photo-tiles">${photoTile('add')}</div></div>
-    <button type="button" class="tgc__comment" data-act="comment">${ICON_ADD_CIRCLE}<span>Add Comment</span></button>`;
+    <div class="tgc__group"><span class="tgc__label">Upload Before Photos</span><div class="photo-tiles">${shots(before)}${addTile('before')}</div></div>
+    <div class="tgc__group"><span class="tgc__label">Upload Pinned Photos</span><div class="photo-tiles">${shots(pinned)}${addTile('pinned')}</div></div>
+    ${note}`;
   } else {
     rows = `<div class="garment-card__row garment-card__row--tight"><span>${qty}</span><span>${type}</span></div>
-    ${services.map((s) => `<div class="garment-card__service${s.added ? ' garment-card__service--info' : ''}">${s.label ?? s}</div>`).join('')}
-    <div class="tgc__group"><span class="tgc__label">Before Photos</span><div class="photo-tiles">${photoTile('add')}</div></div>
-    <div class="tgc__group"><span class="tgc__label">Pinned Photos</span><div class="photo-tiles">${photoTile('add')}</div></div>
-    <span class="tgc__comment-view">“Comment”</span>`;
+    ${services.map((s) => `<div class="garment-card__service${(added || addedJobs.includes(s)) ? ' garment-card__service--info' : ''}">${s}</div>`).join('')}
+    <div class="tgc__group"><span class="tgc__label">Before Photos</span><div class="photo-tiles">${before ? shots(before) : photoTile('add')}</div></div>
+    <div class="tgc__group"><span class="tgc__label">Pinned Photos</span><div class="photo-tiles">${pinned ? shots(pinned) : photoTile('add')}</div></div>
+    <span class="tgc__comment-view">“${comment ? esc(comment) : 'Comment'}”</span>`;
   }
-  return `<article class="garment-card tgc${variant === 'Appt' ? '' : ' garment-card--view'}">
+  const close = variant === 'Appt' ? `<button type="button" class="garment-card__close" data-act="remove-garment"${gi} aria-label="Remove garment">✕</button>` : '';
+  return `<article class="garment-card tgc${variant === 'Appt' ? '' : ' garment-card--view'}${added ? ' garment-card--info' : ''}">
   ${chip}
   <div class="garment-card__content tgc__content">${rows}</div>
-  <button type="button" class="garment-card__close" data-act="remove-garment"${gi} aria-label="Remove garment">✕</button>
+  ${close}
 </article>`;
 }
 
-/** The three post-appointment cards + fee rows (T05/T06/T07/T08 summary). */
-export function orderCards(v, { variant = 'Appt_View', showAdded = false } = {}) {
-  const card1 = showAdded
-    ? tailorGarmentCard({ variant, price: '$200', priceInfo: true, services: ['Hem / Adjust Length', { label: 'Sleeve / Adjust Length', added: true }], index: 0 })
-    : tailorGarmentCard({ variant, price: variant === 'Appt' ? '$200' : '$120', services: variant === 'Appt' ? ['Hem / Adjust Length', 'Sleeve / Adjust Length'] : ['Hem / Adjust Length'], index: 0 });
-  return `${card1}
-    ${tailorGarmentCard({ variant, price: '$80', services: ['Sleeve / Adjust Length'], index: 1 })}
-    ${tailorGarmentCard({ variant, price: '$80', services: ['Sleeve / Adjust Length'], index: 2 })}`;
+/**
+ * A garment list as tailor cards. `marks` (from orderMarks) paints what
+ * changed at the visit in semantic/info; `plain` ignores the markers the
+ * final order carries (T06/T07/T08 mirror 04D, which paints nothing).
+ */
+export function orderCards(garments, { variant = 'Appt_View', marks = null, plain = false } = {}) {
+  return garments.map((g, i) => {
+    const m = marks?.[i] ?? (plain ? {} : { added: !!g.added, addedJobs: g.addedJobs ?? [] });
+    return tailorGarmentCard({
+      variant, type: g.type, qty: g.qty ?? 1, price: money(garmentAmount(g)), services: g.jobs,
+      before: g.before ?? 0, pinned: g.pinned ?? 0, comment: g.comment ?? '', commentOpen: !!g.commentOpen, index: i,
+      added: !!m.added, addedJobs: m.addedJobs ?? [], priceInfo: !!m.priceInfo,
+    });
+  }).join('\n      ');
+}
+
+/**
+ * The at-visit editor's wiring (R1-T-03) — 02's selector wiring on a
+ * draft garment list: one menu open at a time, options mutate the draft
+ * and `rerender()`, ✕ drops an added service or a whole garment, add
+ * tiles capture a placeholder photo, Add Comment opens a note.
+ */
+export function wireOrderEditor(root, garments, rerender) {
+  const closeMenus = () => root.querySelectorAll('.selector--open').forEach((el) => el.classList.remove('selector--open'));
+  root.querySelectorAll('.selector__trigger').forEach((btn) => btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const sel = btn.closest('.selector');
+    const wasOpen = sel.classList.contains('selector--open');
+    closeMenus();
+    if (!wasOpen) sel.classList.add('selector--open');
+  }));
+  root.querySelectorAll('.selector__option').forEach((opt) => opt.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const trigger = opt.closest('.selector').querySelector('.selector__trigger');
+    const g = garments[Number(trigger.dataset.gi)];
+    const v = opt.dataset.option;
+    if (!g) return;
+    if (trigger.dataset.sel === 'qty') g.qty = Number(v);
+    if (trigger.dataset.sel === 'item') g.type = v;
+    if (trigger.dataset.sel === 'job') g.jobs[Number(trigger.dataset.ji)] = v;
+    if (trigger.dataset.sel === 'add') g.jobs.push(v);
+    if (trigger.dataset.sel === 'added') g.jobs[Number(trigger.dataset.ji)] = v;
+    rerender();
+  }));
+  root.querySelectorAll('[data-remove]').forEach((btn) => btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const g = garments[Number(btn.dataset.gi)];
+    if (!g) return;
+    g.jobs.splice(Number(btn.dataset.ji), 1);
+    rerender();
+  }));
+  root.querySelectorAll('[data-act="remove-garment"]').forEach((btn) => btn.addEventListener('click', () => {
+    if (garments.length <= 1) { toast('Keep at least one garment'); return; }
+    garments.splice(Number(btn.dataset.gi), 1);
+    rerender();
+  }));
+  root.querySelectorAll('[data-act="add-photo"]').forEach((btn) => btn.addEventListener('click', () => {
+    const g = garments[Number(btn.dataset.gi)];
+    if (!g) return;
+    const key = btn.dataset.kind === 'pinned' ? 'pinned' : 'before';
+    g[key] = (g[key] ?? 0) + 1;
+    rerender();
+  }));
+  root.querySelectorAll('[data-act="comment"]').forEach((btn) => btn.addEventListener('click', () => {
+    const gi = Number(btn.dataset.gi);
+    const g = garments[gi];
+    if (!g) return;
+    g.commentOpen = true;
+    rerender();
+    root.querySelector(`[data-act="note"][data-gi="${gi}"]`)?.focus();
+  }));
+  root.querySelectorAll('[data-act="note"]').forEach((ta) => ta.addEventListener('input', () => {
+    const g = garments[Number(ta.dataset.gi)];
+    if (g) g.comment = ta.value;
+  }));
+  root.querySelectorAll('[data-act="add-garment"]').forEach((btn) => btn.addEventListener('click', () => {
+    garments.push({ type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 0 });
+    rerender();
+  }));
+  root.addEventListener('click', closeMenus);
 }

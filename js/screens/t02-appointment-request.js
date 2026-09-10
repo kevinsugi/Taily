@@ -2,33 +2,43 @@
    T02 - Appointment Request — Figma 455:2170.
    "$180 | New Request" header, Order Summary (customer card +
    ViewOnly garment cards + fee rows), Accept / Decline. Active=T-Home.
+   UX-LOOP R1-T-02: cards, fee, payout, CTA and customer rows come from
+   the live booking; the harness deep link keeps the frame's rows.
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { summaryCard, garmentCard, feeRow, cta } from '../components.js';
+import { summaryCard, garmentCard, cta } from '../components.js';
+import { money, garmentAmount } from '../data.js';
 import { state, tailorAccepts } from '../state.js';
-import { tailorChrome, wireTailorNav } from '../tailor-components.js';
-import { tailorUi, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
+import { tailorChrome, wireTailorNav, payoutRows } from '../tailor-components.js';
+import { job, jobView, tailorUi, isFixture, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
 
-function renderScreen() {
+/** The booked order as ViewOnly cards (shared with T03). */
+export function bookedCards(v) {
+  return v.garments.map((g) => garmentCard({
+    variant: 'ViewOnly', type: g.type, qty: g.qty ?? 1, price: money(garmentAmount(g)), services: g.jobs, photos: g.photos ?? 2,
+  })).join('\n      ');
+}
+
+function renderScreen(s) {
+  const v = jobView(job(s));
+  const rows = isFixture() ? CUSTOMER_ROWS : v.rows;
   return `${tailorChrome('home')}
 <div class="body" data-s="t02-appointment-request">
   <div class="t-header">
     <button type="button" class="t-back" data-act="back" aria-label="Back">‹</button>
-    <h1 class="t-title w-600 c-ink">$180 | New Request</h1>
+    <h1 class="t-title w-600 c-ink">${v.money.payout} | New Request</h1>
   </div>
   <div class="summary">
     <h2 class="t-title w-600 c-ink summary__title">Order Summary</h2>
-    ${summaryCard({ initials: CUSTOMER.initials, name: CUSTOMER.name, rows: CUSTOMER_ROWS })}
+    ${summaryCard({ initials: CUSTOMER.initials, name: CUSTOMER.name, rows })}
     <div class="garments-card">
-      ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}
-      ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 })}
-      ${feeRow('$20', 'Taily Fee (10%)', { line: true })}
-      ${feeRow('$180', 'Your Payout')}
+      ${bookedCards(v)}
+      ${payoutRows(v)}
     </div>
   </div>
   <div class="t-actions">
-    ${cta('Accept Request · $180', { attrs: 'data-act="accept"' })}
+    ${cta(`Accept Request · ${v.money.payout}`, { attrs: 'data-act="accept"' })}
     ${cta('Decline', { variant: 'secondary', attrs: 'data-act="decline"' })}
   </div>
 </div>`;
@@ -39,7 +49,9 @@ function wire(root) {
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));
   root.querySelector('[data-act="accept"]')?.addEventListener('click', () => {
     tailorAccepts();                       // searching → confirmed (no-op if already confirmed)
-    tailorUi(state).requestHandled = true;
+    const ui = tailorUi(state);
+    ui.requestHandled = true;
+    ui.justAccepted = true;                // T03 renders "Booking Confirmed!" once
     go('t03-request-accepted');
   });
   root.querySelector('[data-act="decline"]')?.addEventListener('click', () => go('t03a-decline-request'));

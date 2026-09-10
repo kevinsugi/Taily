@@ -1,26 +1,38 @@
 /* ============================================================
    T04 - Appointment Details — Figma 455:2587.
-   At the visit: customer card + three editable (Appt) garment cards
-   with upload rows, fee rows ($36 / $324), Continue + Contact Taily
-   Support. Active=T-Calendar.
+   At the visit: customer card + editable (Appt) garment cards with
+   upload rows, fee rows, Continue + Contact Taily Support.
+   Active=T-Calendar.
+
+   UX-LOOP R1-T-03: a real editor. The cards render a DRAFT that starts
+   from the booked order (state.tailorUi.draft, see draftFor); the
+   selectors / ⊕ Additional Service / ✕ / photo tiles / Add Comment /
+   + Additional Garment mutate it exactly as 02 mutates state.garments,
+   and the fee rows recompute on every change. T05 Send writes the
+   draft back to the appointment. The harness deep link starts from
+   the frame's final-order fixture instead.
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { summaryCard, feeRow, cta, toast } from '../components.js';
-import { tailorChrome, wireTailorNav, backHeader, orderCards } from '../tailor-components.js';
-import { job, jobView, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
+import { summaryCard, cta, toast } from '../components.js';
+import { state } from '../state.js';
+import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, wireOrderEditor } from '../tailor-components.js';
+import { job, jobView, draftFor, orderTotals, isFixture, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
 
 function renderScreen(s) {
-  const v = jobView(job(s));
+  const a = job(s);
+  const v = jobView(a);
+  const fixture = isFixture();
+  const draft = draftFor(s, a, { fixture });
   return `${tailorChrome('calendar')}
 <div class="body" data-s="t04-appointment-details">
   ${backHeader('Appointment Details', 'Upload all notes and photos below.')}
   <div class="summary">
-    ${summaryCard({ initials: 'MT', name: CUSTOMER.name, rows: CUSTOMER_ROWS })}
+    ${summaryCard({ initials: CUSTOMER.initials, name: CUSTOMER.name, rows: fixture ? CUSTOMER_ROWS : v.rows })}
     <div class="garments-card">
-      ${orderCards(v, { variant: 'Appt' })}
-      ${feeRow('$36', 'Taily Fee (10%)', { line: true })}
-      ${feeRow('$324', 'Your Payout')}
+      ${orderCards(draft, { variant: 'Appt' })}
+      ${fixture ? '' : '<button type="button" class="add-garment" data-act="add-garment">+ Additional Garment</button>'}
+      ${payoutRows(orderTotals(draft))}
     </div>
   </div>
   <div class="t-actions">
@@ -32,11 +44,11 @@ function renderScreen(s) {
 
 function wire(root) {
   wireTailorNav(root);
-  root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));
+  root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t03-request-accepted'));
   root.querySelector('[data-act="continue"]')?.addEventListener('click', () => go('t05-confirm-final-pricing'));
   root.querySelector('[data-act="support"]')?.addEventListener('click', () => toast('Taily Support is outside this prototype'));
-  root.querySelectorAll('[data-act="comment"], [data-act="remove-garment"], [data-sel]').forEach((el) =>
-    el.addEventListener('click', (e) => { e.preventDefault(); toast('Editing at the visit comes in the next round'); }));
+  const draft = draftFor(state, job(state), { fixture: isFixture() });
+  wireOrderEditor(root, draft, () => go('t04-appointment-details', { replace: true }));
 }
 
 register('t04-appointment-details', renderScreen, wire);

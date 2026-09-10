@@ -3,25 +3,42 @@
    Two-line SemiBold hero, Order Summary (tailor card + white
    garments card with ViewOnly cards + fee rows + prepare card),
    three-CTA bar with top hairline. Active=Bookings.
+   UX-LOOP R1-U-02: the summary renders the LIVE appointment (the
+   seed IS the frame's $200 fixture). R1-U-01 demo affordance: tapping
+   the tailor summary card = "the day before arrives" → 03/Reminder.
    ============================================================ */
 
-import { register, render as go, back } from '../app.js';
-import { chrome, statusHero, summaryCard, garmentCard, feeRow, cta, toast } from '../components.js';
-import { state } from '../state.js';
+import { register, render as go } from '../app.js';
+import { chrome, statusHero, summaryCard, feeRow, cta, toast, orderCards, apptRows, receiptDates } from '../components.js';
+import { money } from '../data.js';
 import { openReschedulePopup } from './03.1-reschedule-popup.js';
 
+/** The pre-appointment order summary shared by 03/Confirmed and
+    03/Reminder: ViewOnly cards, subtotal, -deposit, balance. */
+export function bookingSummary(a) {
+  const t = a?.totals ?? { subtotal: 200, deposit: 20 };
+  const subtotal = t.subtotal ?? t.total ?? 200;
+  const deposit = t.deposit ?? 20;
+  return `${orderCards({ garments: a?.garments, totals: t }, { variant: 'ViewOnly' })}
+      ${feeRow(money(subtotal), 'Subtotal - Confirmed at Appointment', { line: true })}
+      ${feeRow(money(-deposit), `10% Deposit - Paid ${receiptDates(a).deposit}`, { line: true })}
+      ${feeRow(money(subtotal - deposit), 'Balance')}`;
+}
+
+export const currentAppt = (s) => {
+  const cur = s.currentAppt ?? { list: 'upcoming', index: 0 };
+  return s[cur.list]?.[cur.index] ?? s.upcoming[0] ?? {};
+};
+
 function renderScreen(s) {
+  const a = currentAppt(s);
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-confirmed">
   ${statusHero({ pill: 'confirmed', title: 'Appointment Confirmed', titleWeight: 600 })}
   <div class="summary">
-    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17'] })}
+    ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
     <div class="garments-card">
-      ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}
-      ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 })}
-      ${feeRow('$200', 'Subtotal - Confirmed at Appointment', { line: true })}
-      ${feeRow('-$20', '10% Deposit - Paid 7/7/26', { line: true })}
-      ${feeRow('$180', 'Balance')}
+      ${bookingSummary(a)}
     </div>
     <div class="prepare-card">
       <p class="t-body w-500 c-500">Please prepare:</p>
@@ -43,6 +60,9 @@ function wire(root) {
   /* UX-004: Message works like 04D's; Calendar acknowledges */
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));
   root.querySelector('[data-act="calendar"]')?.addEventListener('click', () => toast('Added to your calendar'));
+  /* DEMO (R1-U-01): the tailor card is "the day before arrives" → the
+     reminder, the only road to 03.2 and the appointment happening */
+  root.querySelector('.summary-card')?.addEventListener('click', () => go('03-status-reminder'));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();

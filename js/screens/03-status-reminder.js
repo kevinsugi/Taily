@@ -4,27 +4,30 @@
    fixed tailor card, garments card with photo pairs, prepare
    card) + Confirm / Message / Reschedule-Cancel actions (the cancel
    line moved into the R1 popup in Phase R2).
+   UX-LOOP R1-U-02/08/18: renders the live appointment through the
+   same summary as 03/Confirmed (rows "Sun, Jul 12 · 7:00 PM",
+   deposit "-$20" — frame updated). Reached from 03/Confirmed's tailor
+   card (R1-U-01).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, garmentCard, feeRow, cta } from '../components.js';
+import { chrome, statusHero, summaryCard, cta, apptRows } from '../components.js';
 import { openReschedulePopup } from './03.1-reschedule-popup.js';
 import { openConfirmPopup } from './03.2-appointment-confirmed.js';
+import { bookingSummary, currentAppt } from './03-status-confirmed.js';
 
 /* Exported: R1 / RC1 / 05X draw this screen (dimmed) as their frame
    backdrop. */
-export function viewReminder() {
+export function viewReminder(s) {
+  const a = currentAppt(s);
+  const first = (a.name ?? 'Marco Tailor').split(' ')[0];
   return `${chrome('home')}
 <div class="body" data-s="03-status-reminder">
   ${statusHero({ pill: 'confirmed', title: 'Please Confirm Tomorrow’s Appointment', titleWeight: 600 })}
   <div class="summary">
-    ${summaryCard({ fixed: true, initials: 'MT', name: 'Marco Tailor', rows: ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17'] })}
+    ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
     <div class="garments-card">
-      ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 })}
-      ${garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 })}
-      ${feeRow('$200', 'Subtotal - Confirmed at Appointment', { line: true })}
-      ${feeRow('$20', '10% Deposit - Paid 7/7/26', { line: true })}
-      ${feeRow('$180', 'Balance')}
+      ${bookingSummary(a)}
     </div>
     <div class="prepare-card">
       <p class="t-body w-500 c-500">Please prepare:</p>
@@ -33,7 +36,7 @@ export function viewReminder() {
   </div>
   <div class="actions">
     ${cta('Confirm Appointment', { attrs: 'data-act="confirm"' })}
-    ${cta('Message Marco', { variant: 'secondary', attrs: 'data-act="message"' })}
+    ${cta(`Message ${first}`, { variant: 'secondary', attrs: 'data-act="message"' })}
     ${cta('Reschedule / Cancel', { variant: 'secondary', attrs: 'data-act="reschedule"' })}
   </div>
 </div>`;

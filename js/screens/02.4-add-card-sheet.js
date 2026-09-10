@@ -48,8 +48,10 @@ function wireCardFields(root) {
   return complete;
 }
 
-/** Open the add-card sheet over the live screen (nothing behind re-renders). */
-export function openAddCardOverlay() {
+/** Open the add-card sheet over the live screen (nothing behind
+    re-renders). `onCancel` (UX-LOOP R1-U-21): ✕ / scrim / Escape hand
+    the user back to the payment sheet instead of abandoning the flow. */
+export function openAddCardOverlay({ onCancel = null } = {}) {
   sheetOverlay(cardContent(), { dataS: '02.4-add-card-sheet' }, (root, close) => {
     const complete = wireCardFields(root);
     // close() first — it restores the scroll freeze after the slide-out
@@ -57,6 +59,11 @@ export function openAddCardOverlay() {
       if (!complete()) return;
       close(); requestTailor(); go('03-status-requested');
     });
+    if (onCancel) {
+      const reopen = () => setTimeout(onCancel, 320);   // after the slide-out
+      root.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', reopen));
+      root.addEventListener('keydown', (e) => { if (e.key === 'Escape') reopen(); });
+    }
   });
 }
 

@@ -7,6 +7,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, cta } from '../components.js';
 import { state, chooseFulfilment } from '../state.js';
+import { TAILORS } from '../data.js';
 
 function optionRow({ id, title, sub, price, selected }) {
   return `<button type="button" class="option-row${selected ? ' option-row--selected' : ''}" data-opt="${id}">
@@ -27,7 +28,9 @@ function renderScreen(s) {
   const cur = s.currentAppt ?? { list: 'upcoming', index: 0 };
   const a = s[cur.list]?.[cur.index] ?? s.upcoming[0] ?? {};
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];
-  const studio = (a.place ?? '1025 Broadway').split(',')[0];
+  /* the pickup point is the TAILOR's studio (a.place is the visit
+     address — the customer's home since UX-LOOP R1-U-05) */
+  const studio = (TAILORS.find((t) => t.id === a.tailorId)?.address ?? '1025 Broadway').split(',')[0];
   return `${chrome('home')}
 <div class="body" data-s="05-items-ready">
   ${statusHero({ pill: 'ready', variant: 'ready', title: 'Your items are ready.', titleWeight: 600, titleColor: 'success', body: `${first} finished ahead of schedule. Choose how you’d like them back, the balance is settled upon receipt.` })}

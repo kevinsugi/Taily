@@ -33,21 +33,17 @@ import { chromium } from 'playwright';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /* ---------- deliberate divergences (see CLAUDE.md) ---------- */
-// 02's fee fiction is stale: the frame CTA says $20 where the build
-// computes $24 — on 02 itself and on every sheet whose backdrop is 02.
-const STALE_DEPOSIT = 'Request Tailor · $20 Deposit (10%)';
+// UX-LOOP R1-U-02: 02's seeded cards are $120 Hem + $80 Sleeve in the
+// frame AND the build, so the "$20 Deposit" CTA is honest — the old
+// STALE_DEPOSIT allowance (02 + its four sheet backdrops) is gone.
 // Phase R0.1 (Kevin): deposit rows read "-$20" everywhere; the
 // 04D/06A/06B frames still write it spaced ("- $20").
 const SPACED_DEPOSIT = '- $20';
 const ALLOW = {
-  '02-appointment-details': [STALE_DEPOSIT],
-  '02.1-date-time-sheet': [STALE_DEPOSIT],
-  '02.2-address-sheet': [STALE_DEPOSIT],
   // Phase R3 (Kevin): 03's request card reads the live order; the
-  // frame's fixture is stale.
-  '03-status-requested': ['88 Leonard St, 4B — Home Visit', 'Thu, Jul 9 · 9:30 AM', '2 items · $200.00+ est. · $20 deposit held'],
-  '02.3-payment-sheet': [STALE_DEPOSIT],
-  '02.4-add-card-sheet': [STALE_DEPOSIT],
+  // frame's requested-time fixture is stale (the address and estimate
+  // lines match since UX-LOOP R1 — Home Visit fiction, $200 / $20 seed).
+  '03-status-requested': ['Thu, Jul 9 · 9:30 AM'],
   // Phase R8: the tailor card's Appt row reads the live appointment
   // ("Appt: Sunday Jul 12, 7PM"); the frame writes the abbreviated
   // fixture form. Applies to PV3 too — its backdrop is this frame.

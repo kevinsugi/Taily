@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { state } from './state.js';
-import { toast } from './components.js';
+import { toast, closeOverlay } from './components.js';
 
 /* Screens self-register via register(). They are loaded dynamically in
    boot() — a static import here would run the screen module before this
@@ -58,6 +58,21 @@ export function currentScreen() {
   return history[history.length - 1] ?? null;
 }
 
+/* ---------- Browser history (UX-LOOP R1-U-16) ----------
+   Every screen push mirrors into window.history (same URL — the
+   `?screen=` deep link is preserved verbatim), so the phone's back
+   gesture steps the prototype back instead of leaving it. An open
+   overlay is closed first. The first render replaces the landing entry
+   so there is never a stray entry before the root screen. */
+const H = typeof window !== 'undefined' ? window.history : null;
+let ignorePops = 0;
+function syncHistory(id, replace) {
+  if (!H) return;
+  const ours = H.state && H.state.taily;
+  if (replace || !ours) H.replaceState({ taily: id }, '', location.href);
+  else H.pushState({ taily: id }, '', location.href);
+}
+
 /**
  * Paint a screen.
  * @param {string} id      screen id from scripts/screens.json
@@ -84,8 +99,10 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   entry.wire?.(el);
   window.__tailyNavigated = true;   // first render sets it AFTER wire ran
 
+  const same = currentScreen() === id;
   if (opts.replace && history.length) history[history.length - 1] = id;
-  else if (currentScreen() !== id) history.push(id);
+  else if (!same) history.push(id);
+  syncHistory(id, opts.replace || same || history.length < 2);
 
   announce(id);
   return true;
@@ -97,7 +114,28 @@ export function back() {
   history.pop();
   const to = history[history.length - 1];
   render(to, { replace: true });
+  /* keep the browser stack in step: drop the entry we just left (the
+     popstate it fires is ours — ignored) */
+  if (H && H.state?.taily && H.length > 1) { ignorePops++; H.back(); }
   return to;
+}
+
+function onPopState(e) {
+  if (ignorePops > 0) { ignorePops--; return; }
+  if (closeOverlay()) {
+    /* the browser already dropped an entry — put the screen's back so
+       the next gesture still steps a screen */
+    H.pushState({ taily: currentScreen() }, '', location.href);
+    return;
+  }
+  const id = e?.state?.taily;
+  if (history.length >= 2 && (!id || history[history.length - 2] === id)) {
+    history.pop();                       // back
+    render(history[history.length - 1], { replace: true });
+  } else if (id && screens.has(id) && id !== currentScreen()) {
+    history.push(id);                    // forward
+    render(id, { replace: true });
+  }
 }
 
 function announce(id) {
@@ -139,6 +177,7 @@ function wireDragScroll() {
 async function boot() {
   await Promise.all(SCREEN_MODULES.map((m) => import(`./screens/${m}.js`)));
   wireDragScroll();
+  window.addEventListener('popstate', onPopState);
   /* UX-004: Profile has no screen — acknowledge instead of ignoring */
   document.addEventListener('click', (e) => {
     const profile = e.target.closest('[data-nav="profile"]');

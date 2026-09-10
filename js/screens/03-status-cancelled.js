@@ -2,48 +2,51 @@
    05X - Appointment Cancelled V1 (Summary kept) — Figma 558:3817.
    05's chassis with a one-line error-red heading, the cancelled
    order's summary, a refund card in place of the prepare card, and
-   a single Back to Home CTA. Reached from R1's confirm.
-   UX-003: when R1 stashed the cancelled appointment
-   (state.lastCancelled), the tailor card, garments and money render
-   from it; a direct load (diff harness) renders the frame's $200
-   fixture.
+   a single Back to Home CTA. Reached from R1's confirm, or from a
+   cancelled / declined appointment card (R1-U-20).
+   UX-003 / UX-LOOP R1-U-03: renders state.lastCancelled (or the
+   terminal appointment the card opened). The deposit is a HOLD until
+   the tailor confirms, so a request cancelled (or declined) before
+   confirmation shows the Cancelled pill, no Paid / Balance rows and
+   "Nothing was charged"; a confirmed cancellation keeps the frame's
+   summary and names the real pay method in the refund line. A direct
+   load (diff harness) renders the frame's $200 / Visa fixture.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, garmentCard, feeRow, cta } from '../components.js';
-import { rowPrice } from './03-status-tailoring.js';
+import { chrome, statusHero, summaryCard, feeRow, cta, orderCards, apptRows, receiptDates } from '../components.js';
+import { money, PAY_LABELS, SEED_UPCOMING } from '../data.js';
+import { isTerminal, canonicalStatus } from '../state.js';
 
 function renderScreen(s) {
-  const a = s.lastCancelled;
-  const t = a?.totals ?? { subtotal: 200, deposit: 20 };
+  const cur = s[s.currentAppt?.list ?? 'upcoming']?.[s.currentAppt?.index ?? 0];
+  const live = isTerminal(cur) ? cur : s.lastCancelled;
+  const a = live ?? SEED_UPCOMING[0];
+  const status = canonicalStatus(live?.status);
+  const neverConfirmed = !!live && (live.wasRequested || status === 'declined' || status === 'expired');
+  const pill = !live || status === 'declined' ? 'declined' : 'cancelled';
+  const t = a.totals ?? { subtotal: 200, deposit: 20 };
+  const subtotal = t.subtotal ?? t.total ?? 200;
   const deposit = t.deposit ?? 20;
-  const subtotal = t.subtotal ?? 200;
-  const cards = a
-    ? (a.garments ?? []).map((g, i) => garmentCard({
-        variant: 'ViewOnly', type: g.type, qty: g.qty,
-        price: rowPrice(g, t.rows, i), services: g.jobs, photos: g.photos ?? 0,
-      })).join('\n      ')
-    : [
-        garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$120', services: ['Hem / Adjust Length'], photos: 2 }),
-        garmentCard({ variant: 'ViewOnly', type: 'Suit Jacket', qty: 1, price: '$80', services: ['Sleeve / Adjust Length'], photos: 2 }),
-      ].join('\n      ');
-  const rows = a
-    ? ['◉&nbsp;&nbsp;' + `${s.contact.street}, ${s.contact.unit} `, '▤&nbsp;&nbsp;' + (a.when ?? ''), '▤&nbsp;&nbsp;Need by: ' + (a.needBy ?? s.appt.needBy)]
-    : ['◉&nbsp;&nbsp;88 Leonard Street ', '▤&nbsp;&nbsp;Fri, Jul 12 · 7:00PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17'];
+  const rows = neverConfirmed ? '' : `
+      ${feeRow(money(subtotal), 'Subtotal - Confirmed at Appointment', { line: true })}
+      ${feeRow(money(-deposit), `10% Deposit - Paid ${receiptDates(a).deposit}`, { line: true })}
+      ${feeRow(money(subtotal - deposit), 'Balance')}`;
+  const refund = neverConfirmed
+    ? `<p class="t-body w-500 c-500">Nothing was charged</p>
+      <p class="t-body c-700">The hold on your card is released. Please rebook whenever you’re ready.</p>`
+    : `<p class="t-body w-500 c-500">Refund on the way</p>
+      <p class="t-body c-700">Your ${money(deposit)} deposit will be returned to ${live ? (PAY_LABELS[s.payMethod] ?? PAY_LABELS.card) : PAY_LABELS.card}. Please rebook whenever you’re ready.</p>`;
   return `${chrome('home')}
 <div class="body" data-s="03-status-cancelled">
-  ${statusHero({ pill: 'declined', title: 'Appointment Cancelled', titleWeight: 600, titleColor: 'error' })}
+  ${statusHero({ pill, title: 'Appointment Cancelled', titleWeight: 600, titleColor: 'error' })}
   <div class="summary">
-    ${summaryCard({ fixed: true, initials: a?.initials ?? 'MT', name: a?.name ?? 'Marco Tailor', rows })}
+    ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
     <div class="garments-card">
-      ${cards}
-      ${feeRow(`$${subtotal}`, 'Subtotal - Confirmed at Appointment', { line: true })}
-      ${feeRow(`$${deposit}`, '10% Deposit - Paid 7/7/26', { line: true })}
-      ${feeRow(`$${subtotal - deposit}`, 'Balance')}
+      ${orderCards({ garments: a.garments, totals: t }, { variant: 'ViewOnly' })}${rows}
     </div>
     <div class="prepare-card">
-      <p class="t-body w-500 c-500">Refund on the way</p>
-      <p class="t-body c-700">Your $${deposit} deposit will be returned to Visa •••• 4242. Please rebook whenever you’re ready.</p>
+      ${refund}
     </div>
   </div>
   <div class="actions">

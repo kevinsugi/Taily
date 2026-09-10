@@ -5,9 +5,9 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, garmentTile, cta, apptCard } from '../components.js';
-import { GARMENT_TYPES } from '../data.js';
-import { state, addGarment } from '../state.js';
+import { chrome, garmentTile, cta, apptCard, toast } from '../components.js';
+import { GARMENT_TYPES, itemsLabel, fmtDay } from '../data.js';
+import { state, addGarment, isTerminal } from '../state.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
 import { openReschedulePopup } from './03.1-reschedule-popup.js';
 
@@ -25,19 +25,31 @@ function selection() {
 const CARD_STATUS = { searching: 'requested', 'ready-for-pickup': 'ready', delivered: 'completed' };
 const cardStatus = (a) => CARD_STATUS[String(a?.status ?? '').toLowerCase()] ?? String(a?.status ?? '').toLowerCase();
 
+/* UX-LOOP R1-U-06: each status names ITS date — the need-by while the
+   tailor works, readyAt (stamped by markReady) once finished, the
+   scheduled window after 05A/05B, the handoff day when delivered. The
+   frames' fixtures (confirmed / a Ready card with no window / past
+   cards) render exactly as before. */
 export function apptMeta(a) {
+  const f = a.fulfilment;
+  const method = f?.method === 'delivery' ? 'Delivery' : 'Pickup';
   const map = {
     /* Phase R5: the Requested variant writes the prefixed form */
     requested: `Appt Date: ${a.when}`,
     /* Phase R1: confirmed cards show the bare date (was "Appt Date: …") */
     confirmed: a.when,
-    tailoring: `Est. Ready Date: ${a.when}`,
+    'awaiting-approval': `Est. Ready Date: ${fmtDay(a.needBy)}`,
+    tailoring: `Est. Ready Date: ${fmtDay(a.needBy)}`,
     /* UX-010: a Ready order isn't "Completed" (frame updated too) */
-    ready: `Ready since: ${a.when}`,
-    completed: `Picked up: ${a.when}`,
+    ready: f ? `${method}: ${f.window}` : `Ready since: ${a.readyAt ?? a.when}`,
+    completed: `${f?.method === 'delivery' ? 'Delivered' : 'Picked up'}: ${a.deliveredAt ?? f?.window ?? a.when}`,
   };
   return map[cardStatus(a)] ?? a.when;
 }
+
+/** "3 Items Total - Home Visit:" — one rule for 01 and every 09 card
+    (R1-U-19 singular, R1-U-22 visit type). */
+export const apptItemsTitle = (a, count = a.count) => `${itemsLabel(count)} Total - ${a.visit}:`;
 
 /** Where a tapped appointment card goes, by status. Shared with 09.
     UX-001: a Requested card returns to 03 (the matching status view) —
@@ -45,21 +57,23 @@ export function apptMeta(a) {
 /* Phase R8 (Kevin): the card always opens its RESPECTIVE 03 status
    variant — Requested, Confirmed, Tailoring (also the ready state's
    home), or Summary. The ready card's Schedule Pickup / Delivery CTA
-   still leads to 05. */
+   still leads to 05. R1-U-20: cancelled / declined → 03/Cancelled. */
 export function apptTarget(a) {
   const s = String(a?.status ?? '').toLowerCase();
   if (s === 'requested' || s === 'searching') return '03-status-requested';
   if (s === 'confirmed') return '03-status-confirmed';
   if (s === 'completed' || s === 'delivered') return '03-status-summary';
+  if (isTerminal(a)) return '03-status-cancelled';
   return '03-status-tailoring';   // awaiting-approval / tailoring / ready
 }
 
-/** Card actions per status (Figma variants). */
+/** Card actions per status (Figma variants). A scheduled Ready card
+    offers to change the window instead (R1-U-06). */
 export function apptActions(a) {
   const map = {
     confirmed: ['Message', 'Reschedule'],
     tailoring: ['Message'],
-    ready: ['Schedule Pickup / Delivery'],
+    ready: [a.fulfilment ? 'Change Pickup / Delivery' : 'Schedule Pickup / Delivery'],
     completed: ['Leave Review'],
   };
   return map[cardStatus(a)] ?? [];
@@ -78,7 +92,7 @@ export function view01(s) {
     month: a.month, day: a.day,
     name: a.name,
     meta: apptMeta(a),
-    itemsTitle: `${a.count} Items Total - ${a.visit}:`,
+    itemsTitle: apptItemsTitle(a),
     /* Phase R1: the 01 frame lists only two item lines under "3 Items
        Total" where 09 lists all three — built verbatim; raised. */
     items: (a.itemLines ?? []).slice(0, 2),
@@ -123,6 +137,9 @@ export function wire01(root) {
        top up with default-job cards, trim from the last card of a
        type, drop deselected types. */
     const sel = selection();
+    /* UX-LOOP R1-U-12: nothing selected books nothing — stay put (no
+       disabled CTA variant exists in Figma; the toast says why) */
+    if (!Object.values(sel).some((q) => q > 0)) { toast('Pick a garment to start'); return; }
     for (const [type, want] of Object.entries(sel)) {
       if (want <= 0) continue;
       let have = state.garments.filter((g) => g.type === type).reduce((s, g) => s + g.qty, 0);
@@ -164,8 +181,9 @@ export function wire01(root) {
         openReschedulePopup();
       });
     }
-    /* Phase R5 (Kevin): a Ready card's CTA leads to 07 */
-    if (label === 'Schedule Pickup / Delivery') {
+    /* Phase R5 (Kevin): a Ready card's CTA leads to 07 (also to change
+       an already-scheduled window) */
+    if (label === 'Schedule Pickup / Delivery' || label === 'Change Pickup / Delivery') {
       b.addEventListener('click', () => {
         state.currentAppt = { list: 'upcoming', index: 0 };
         go('05-items-ready');

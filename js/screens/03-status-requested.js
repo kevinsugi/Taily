@@ -5,13 +5,17 @@
    State: the searching appointment (post-request).
    Phase R3 (Kevin): the request card reads the ACTUAL order — address/
    visit, requested time and items/estimate/deposit come from state, so
-   it matches whatever was booked. The frame's fixture ('Thu, Jul 9 ·
-   9:30 AM', Home Visit, 2 items $200/$20) is stale — text-parity
-   ALLOWs it. Cancel request opens the R1 popup.
+   it matches whatever was booked. The frame's requested-time fixture
+   ('Thu, Jul 9 · 9:30 AM') is stale — text-parity ALLOWs it; the
+   address and estimate lines match the frame since UX-LOOP R1
+   (Home Visit fiction, $200 / $20 seeded order). Cancel request opens
+   the R1 popup. The deposit is a HOLD until the tailor confirms
+   (02.3's copy) — "held" here, released on cancel (R1-U-03).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, infoCard, metaRow, cta } from '../components.js';
+import { money, itemsLabel } from '../data.js';
 import { state, tailorAccepts, bookingLines } from '../state.js';
 import { ensureGarments } from './02-appointment-details.js';
 import { openReschedulePopup } from './03.1-reschedule-popup.js';
@@ -35,7 +39,7 @@ function renderScreen(s) {
   ${infoCard([
     metaRow('◉', `${s.contact.street}, ${s.contact.unit} — ${s.appt.where}`),
     metaRow('▤', s.appt.when),
-    metaRow('✂', `${n} item${n === 1 ? '' : 's'} · $${t.subtotal}.00+ est. · $${t.deposit} deposit held`),
+    metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.subtotal)}.00+ est. · ${money(t.deposit)} deposit held`),
   ].join(''))}
   ${cta('View All Appointments', { attrs: 'data-act="bookings"' })}
   <button type="button" class="cancel-line" data-act="cancel">Cancel request — deposit refunded</button>

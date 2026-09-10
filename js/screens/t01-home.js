@@ -77,7 +77,9 @@ function closedRowFor(a, idx, fixture) {
   return jobCard({ ...base, meta, payout: v.money.payout, status: 'cancelled', pillLabel: 'Cancelled', right });
 }
 
-function renderScreen(s) {
+/** Exported: `t01-home-closed` (round-3 frame "T01 - Home / Closed Rows")
+    renders a fixture state's proposed request + closed rows. */
+export function viewTailorHome(s) {
   const fixture = isFixture();
   const list = jobs(s);
   const requests = list.map((a, i) => (isRequest(a, fixture) ? requestFor(a, i, fixture) : '')).filter(Boolean);
@@ -110,7 +112,7 @@ function expireLapsed(now = Date.now()) {
   return changed;
 }
 
-function wire(root) {
+export function wire(root) {
   wireTailorNav(root);
   const list = jobs(state);
   const at = (el) => list[Number(el.dataset.req ?? el.dataset.job)];
@@ -149,4 +151,4 @@ function wire(root) {
   }
 }
 
-register('t01-home', renderScreen, wire);
+register('t01-home', viewTailorHome, wire);

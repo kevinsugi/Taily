@@ -21,11 +21,13 @@ import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, removedRows } from '../tailor-components.js';
 import { current, jobView, draftFor, orderMarks, orderTotals, bookedGarments, writeFinalOrder, tailorOf, isFixture, T } from '../tailor-data.js';
 
-function renderScreen(s) {
+/** Exported: `forced` = { draft, booked } renders a given at-visit draft
+    against its booking (round-3 frame "T05 - Confirm Final Pricing / Removed"). */
+export function viewPricing(s, forced = null) {
   const a = current(s);
-  const fixture = isFixture();
-  const draft = draftFor(s, a, { fixture });
-  const { marks, removed } = orderMarks(draft, bookedGarments(a));
+  const fixture = isFixture() && !forced;
+  const draft = forced?.draft ?? draftFor(s, a, { fixture });
+  const { marks, removed } = orderMarks(draft, forced?.booked ?? bookedGarments(a));
   return `${tailorChrome('calendar')}
 <div class="body" data-s="t05-confirm-final-pricing">
   ${backHeader('Confirm Details', 'Reviewed with Sarah at the visit')}
@@ -41,7 +43,7 @@ function renderScreen(s) {
 </div>`;
 }
 
-function wire(root) {
+export function wire(root) {
   wireTailorNav(root);
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t04-appointment-details'));
   root.querySelector('[data-act="review"]')?.addEventListener('click', () => back() || go('t04-appointment-details'));
@@ -58,4 +60,4 @@ function wire(root) {
   });
 }
 
-register('t05-confirm-final-pricing', renderScreen, wire);
+register('t05-confirm-final-pricing', viewPricing, wire);

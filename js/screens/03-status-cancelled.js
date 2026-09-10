@@ -11,7 +11,8 @@
    "Nothing was charged"; a confirmed cancellation keeps the frame's
    summary and names the real pay method in the refund line. A direct
    load (diff harness) renders the frame's $200 / Visa fixture.
-   UX-LOOP R2-U-04/05/07 (live only; Figma sync pending): the title,
+   UX-LOOP R2-U-04/05/07 (round 3: each has a sibling frame + route —
+   03-status-expired / -declined / -tailor-cancelled / -no-show): the title,
    body and primary CTA follow WHY it ended —
      expired            "Request expired"              Send Request Again
      declined           "Marco couldn’t take this…"    Send to Another Tailor
@@ -50,9 +51,12 @@ function variantFor(live, a) {
   return { pill: 'cancelled', title: 'Appointment Cancelled', body: null, cta: null };
 }
 
-function renderScreen(s) {
+/** Exported: the round-3 variant routes (03/Expired · Declined · Tailor
+    Cancelled · No-Show) render this screen with a `forced` terminal
+    appointment instead of state's. */
+export function viewCancelled(s, forced = null) {
   const cur = s[s.currentAppt?.list ?? 'upcoming']?.[s.currentAppt?.index ?? 0];
-  const live = isTerminal(cur) ? cur : s.lastCancelled;
+  const live = forced ?? (isTerminal(cur) ? cur : s.lastCancelled);
   const a = live ?? SEED_UPCOMING[0];
   const status = canonicalStatus(live?.status);
   const v = variantFor(!!live, a);
@@ -94,7 +98,7 @@ function renderScreen(s) {
 </div>`;
 }
 
-function wire(root) {
+export function wire(root) {
   root.querySelector('[data-act="home"]')?.addEventListener('click', () => go('01-home'));
   /* R2-U-04/05/07: send the same garments out again — 02 opens with
      the cards seeded (03.1's copy-over) and Request Tailor books anew */
@@ -109,4 +113,4 @@ function wire(root) {
   }));
 }
 
-register('03-status-cancelled', renderScreen, wire);
+register('03-status-cancelled', viewCancelled, wire);

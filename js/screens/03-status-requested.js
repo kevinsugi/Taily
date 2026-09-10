@@ -11,7 +11,8 @@
    (Home Visit fiction, $200 / $20 seeded order). Cancel request opens
    the R1 popup. The deposit is a HOLD until the tailor confirms
    (02.3's copy) — "held" here, released on cancel (R1-U-03).
-   UX-LOOP R2-U-03 (live only; Figma sync pending): when the tailor
+   UX-LOOP R2-U-03 (round 3: frame "03 - Order Status / New Time" +
+   route 03-status-new-time): when the tailor
    proposed another time (`a.proposed`) the hero becomes the
    `new-times` variant — "Marco proposed a new time" + Accept New Time
    (→ 03/Confirmed) / Keep Looking (proposal cleared, still searching)
@@ -50,13 +51,15 @@ function stampBadge(a) {
   a.day = String(p.day);
 }
 
-function renderScreen(s) {
+/** Exported: `03-status-new-time` (round 3 frame "03 - Order Status /
+    New Time") renders the proposed-time state with a `forced` appointment. */
+export function viewRequested(s, forced = null) {
   /* direct load (diff harness): seed 02's garments so the estimate has
      something to price */
   ensureGarments();
   const t = bookingLines(null);
   const n = s.garments.reduce((sum, g) => sum + g.qty, 0);
-  const a = live() ? currentAppt(s) : null;
+  const a = forced ?? (live() ? currentAppt(s) : null);
   const first = (a?.name ?? 'Marco Tailor').split(' ')[0];
   const proposed = a?.proposed?.when ?? null;
   const hero = proposed
@@ -92,7 +95,7 @@ function renderScreen(s) {
 </div>`;
 }
 
-function wire(root) {
+export function wire(root) {
   const a = live() ? currentAppt(state) : null;
   /* R2-U-04: status-driven — a request that already ended (expired
      while the customer was away, declined) shows its 03/Cancelled */
@@ -137,4 +140,4 @@ function wire(root) {
   }));
 }
 
-register('03-status-requested', renderScreen, wire);
+register('03-status-requested', viewRequested, wire);

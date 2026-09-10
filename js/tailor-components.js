@@ -129,8 +129,8 @@ export function removedRows(removed = []) {
  * T03 pre-visit "Can't make it" modal (R2-T-05): two T2 radio rows and
  * a confirm; `onConfirm(reason)` gets 'cant-make-it' or 'no-show'.
  */
-export function openCantMakeIt(onConfirm) {
-  const html = `<div class="modal modal--reasons">
+export function cantMakeItHtml() {
+  return `<div class="modal modal--reasons">
   <h2 class="modal__title">Can’t make this visit?</h2>
   <div class="reasons reasons--modal" role="radiogroup" aria-label="Reason">
     ${radioRow('I need to cancel', { attrs: 'data-reason="cant-make-it"' })}
@@ -142,7 +142,9 @@ export function openCantMakeIt(onConfirm) {
     ${cta('Go Back', { variant: 'secondary', attrs: 'data-act="go-back"' })}
   </div>
 </div>`;
-  return modalOverlay(html, { dataS: 't03.1-cant-make-it' }, (root, close) => {
+}
+export function openCantMakeIt(onConfirm) {
+  return modalOverlay(cantMakeItHtml(), { dataS: 't03.1-cant-make-it' }, (root, close) => {
     let reason = null;
     root.querySelectorAll('[data-reason]').forEach((el) => el.addEventListener('click', () => {
       reason = el.dataset.reason;

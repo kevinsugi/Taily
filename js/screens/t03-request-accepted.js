@@ -21,11 +21,13 @@ import { tailorChrome, wireTailorNav, backHeader, payoutRows, openCantMakeIt } f
 import { current, jobView, jobTarget, tailorOf, isFixture, T, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
 import { bookedCards } from './t02-appointment-request.js';
 
-function renderScreen(s) {
+/** Exported: `mode` 'upcoming' forces the pre-visit view (round-3 frame
+    "T03 - Upcoming Visit", also the backdrop of T03.1). */
+export function viewAccepted(s, mode = null) {
   const a = current(s);
   const v = jobView(a);
   const fixture = isFixture();
-  const accepted = fixture || tailorOf(a).justAccepted;
+  const accepted = mode === 'upcoming' ? false : (fixture || tailorOf(a).justAccepted);
   const visit = a?.visit === 'Store Visit' ? 'Store visit' : 'Home visit';
   const head = accepted
     ? statusHero({ pill: false, title: 'Booking Confirmed!', body: 'We let Sarah know you’re coming and added the visit to your calendar.' })
@@ -55,7 +57,7 @@ function renderScreen(s) {
 </div>`;
 }
 
-function wire(root) {
+export function wire(root) {
   wireTailorNav(root);
   const a = current(state);
   tailorOf(a).justAccepted = false;   // the next visit to T03 is the pre-visit view
@@ -72,4 +74,4 @@ function wire(root) {
   }));
 }
 
-register('t03-request-accepted', renderScreen, wire);
+register('t03-request-accepted', viewAccepted, wire);

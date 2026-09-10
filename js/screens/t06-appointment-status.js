@@ -27,10 +27,12 @@ const LINE = {
 };
 const TALK = 'Sarah wants to talk the order over before approving — message her; she approves in her app.';
 
-function renderScreen(s) {
-  const a = current(s);
+/** Exported: a `forced` post-visit job renders live (round-3 frame
+    "T06 - Appointment Status / Sarah Has Questions"). */
+export function viewStatus(s, forced = null) {
+  const a = forced ?? current(s);
   const v = jobView(a);
-  const fixture = isFixture() || !v.post;
+  const fixture = !forced && (isFixture() || !v.post);
   const shown = fixture ? jobView({ ...a, status: 'tailoring', garments: FIXTURE_T06, totals: { subtotal: 360 } }) : v;
   const talking = !fixture && v.canon === 'awaiting-approval' && !!a.changesRequestedAt;
   const line = fixture ? '' : talking ? TALK : {
@@ -62,7 +64,7 @@ function renderScreen(s) {
 </div>`;
 }
 
-function wire(root) {
+export function wire(root) {
   wireTailorNav(root);
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => go('t01-home'));
   root.querySelector('[data-act="home"]')?.addEventListener('click', () => go('t01-home'));
@@ -80,4 +82,4 @@ function wire(root) {
   });
 }
 
-register('t06-appointment-status', renderScreen, wire);
+register('t06-appointment-status', viewStatus, wire);

@@ -68,7 +68,9 @@ function partition(s) {
   };
 }
 
-function renderScreen(s) {
+/** Exported: `09-bookings-closed` (round 3 frame "09 - Bookings / Closed
+    Cards") renders the terminal / proposed-time cards from a fixture state. */
+export function viewBookings(s) {
   const { current, past } = partition(s);
   return `${chrome('bookings')}
 <div class="body" data-s="09-bookings">
@@ -79,7 +81,7 @@ function renderScreen(s) {
 </div>`;
 }
 
-function wire(root) {
+export function wire(root) {
   /* Cards open the appointment's 03 variant (apptTarget); DOM order is
      current then past, mirrored by partition(). Inner buttons
      (Message / Reschedule / Leave Review) keep their actions. */
@@ -115,4 +117,4 @@ function wire(root) {
   });
 }
 
-register('09-bookings', renderScreen, wire);
+register('09-bookings', viewBookings, wire);

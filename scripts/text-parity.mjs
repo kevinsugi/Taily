@@ -49,8 +49,7 @@ const ALLOW = {
   // fixture form. Applies to PV3 too — its backdrop is this frame.
   '03-status-tailoring': [SPACED_DEPOSIT, '▤ Appt: Sun, Jul 12 · 7:00PM'],
   '03-status-summary': [SPACED_DEPOSIT],
-  '04-review-approve': [SPACED_DEPOSIT],
-  '04-review-approve-modified': [SPACED_DEPOSIT],
+  '04-review-approve': [SPACED_DEPOSIT],   // 04/Modified reads -$20 already (its ALLOW was dead — dropped in round 3)
   // Phase R3 (Kevin): windows default to the FIRST option and the
   // secondary CTA cross-navigates ("Select Delivery" on 07A, "Select
   // Pickup" on 07B) — the frames still draw Fri 4-6PM selected and
@@ -67,6 +66,11 @@ const ALLOW = {
   // backdrop is 08 (spaced deposit in the frame).
   '05.1-window-confirmed': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
   '06.1-leave-review': [SPACED_DEPOSIT],
+  // UX-LOOP round 3: the sibling frames inherit their base's documented
+  // divergence — 03/New Time keeps 03/Requested's stale requested-time
+  // fixture, 05.1/Dated draws 07B underneath.
+  '03-status-new-time': ['Thu, Jul 9 · 9:30 AM'],
+  '05.1-window-confirmed-dated': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery'],
 };
 
 /* ---------- token (same conventions as export-refs.mjs) ---------- */

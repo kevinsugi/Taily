@@ -244,7 +244,7 @@
 /* Phase R2: 04C gained the Reschedule / Cancel CTA â†’ 1192 */
 .screen[data-screen="03-status-confirmed"] { min-height: 1144px; }
 /* Phase R4: the Active Job Card hero grew the frame to 1173 */
-.screen[data-screen="03-status-tailoring"] { min-height: 1235.5px; }
+.screen[data-screen="03-status-tailoring"] { min-height: 1173.5px; }   /* round 3: Add to Calendar left the CTA bar */
 /* 04D hero â€” Active Job Card, user side (570:8929): white r20 card,
    date badge + name/need-by + Tailoring pill head, tailoring progress
    bar, measured-and-pinned note. */
@@ -425,6 +425,8 @@
    the added service + garment grow the frame to 1108. */
 [data-s="04-review-approve-modified"] { padding-bottom: var(--space-24); gap: var(--space-16); }
 .screen[data-screen="04-review-approve-modified"] { min-height: 1108px; }
+/* round 3: the Removed variant shares 04/Modified's chassis */
+[data-s="04-review-approve-removed"] { padding-bottom: var(--space-24); gap: var(--space-16); }
 .heading { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
 
 /* 07 - Items Ready: inner pad 20/20/24, gap 12 */
@@ -532,12 +534,23 @@
 [data-s="04.1-request-changes"] .modal { top: 281px; }
 [data-s="03.2-appointment-confirmed"] .modal { top: 248px; }
 [data-s="05.1-window-confirmed"] .modal { top: 232px; }
+/* T03.1 (round 3): the tailor's Can't-make-it modal sits where 03.1's does */
+[data-s="t03.1-cant-make-it"] .modal { top: 248px; }
 [data-s="06.1-leave-review"] .review-sheet { top: 291px; }
 
 /* 05X - Appointment Cancelled (558:3817): 05's chassis, one-line
    heading, refund card in place of the prepare card, single CTA. */
 [data-s="03-status-cancelled"] { padding-bottom: var(--space-24); gap: var(--space-12); }
 .screen[data-screen="03-status-cancelled"] { min-height: 948.5px; }
+/* UX-LOOP round 3 — sibling frames of the round-2 live-only states (each
+   frame hugs its content; the 03 variants are shorter than the phone) */
+.screen[data-screen="03-status-expired"] { min-height: 784px; }
+.screen[data-screen="03-status-declined"] { min-height: 818px; }
+.screen[data-screen="03-status-tailor-cancelled"] { min-height: 786px; }
+.screen[data-screen="03-status-no-show"] { min-height: 820px; }
+.screen[data-screen="04-review-approve-removed"] { min-height: 997px; }
+.screen[data-screen="03-status-new-time"] { min-height: 872px; }
+.screen[data-screen="09-bookings-closed"] { min-height: 1078px; }
 
 /* PV3 - Photo Viewer (559:2112): 04D dimmed under an ink@95% scrim,
    filmstrip panel pinned at the 128 offset. Literal 2/10px gaps and

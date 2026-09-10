@@ -11,7 +11,9 @@
    reads "Hi Kevin" and Marco's view reads "Hi Sarah". The header
    subline is computed from the appointment for both personas
    (R1-U-08 / R1-T-16); the harness deep link keeps the frame's
-   "Sun, Jul 12 · 7:00 PM · Home Visit". Typing + send (button or
+   "Sun, Jul 12 · 7:00 PM · Home Visit"; the tailor page's frame
+   TM1 - Message Customer (570:8782) is covered by the `t10-messages`
+   route, which renders this screen as Marco. Typing + send (button or
    Enter) appends a bubble in place and the other side answers after
    a beat. v3 had no chat behaviour — this is new, prototype-canned.
    ============================================================ */
@@ -91,7 +93,7 @@ function headPill(a, tailor) {
   return pill(v.pill, v.pillLabel);
 }
 
-function renderScreen(s) {
+export function renderScreen(s) {
   const a = currentAppointment(s);
   /* Phase T: the tailor sees the same thread from Marco's side —
      Sarah in the header, her own messages on the right. */
@@ -123,7 +125,7 @@ function renderScreen(s) {
 </div>`;
 }
 
-function wire(root) {
+export function wire(root) {
   const a = currentAppointment(state);
   const thread = threadFor(state, a);
   const tailor = state.persona === 'tailor';

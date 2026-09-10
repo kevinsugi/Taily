@@ -54,12 +54,13 @@ export function openWindowConfirmed({ method, when }) {
 
 /* Route registration keeps the frame-verbatim render for the diff
    harness: 07B as backdrop, scrim, fixture modal. */
-function renderScreen(s) {
+export function viewWindowConfirmed(s, modal = {}) {
   return `<div class="screen-sheet" data-s="05.1-window-confirmed">
   <div class="sheet-backdrop" aria-hidden="true">${viewDelivery(s)}</div>
   <div class="modal-scrim"></div>
-  ${modalHtml()}
+  ${modalHtml(modal)}
 </div>`;
 }
+export { wireModal };
 
-register('05.1-window-confirmed', renderScreen, wireModal);
+register('05.1-window-confirmed', viewWindowConfirmed, wireModal);

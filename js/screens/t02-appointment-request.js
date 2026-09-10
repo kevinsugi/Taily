@@ -28,13 +28,15 @@ export function bookedCards(v) {
    though its status is already confirmed (the frame's fiction) */
 const pending = (a, v) => v.canon === 'searching' || (isSeed(a) && v.canon === 'confirmed' && !tailorOf(a).requestHandled);
 
-function renderScreen(s) {
+/** Exported: `mode` 'accepted' | 'expired' forces the round-3 frames
+    "T02 - Appointment Request / Accepted · Expired" on their fixture routes. */
+export function viewRequest(s, mode = null) {
   const a = current(s);
   const v = jobView(a);
   const fixture = isFixture();
   const rows = fixture ? CUSTOMER_ROWS : v.rows;
-  const expired = !fixture && v.canon === 'expired';
-  const accepted = !fixture && !expired && !pending(a, v);
+  const expired = mode === 'expired' || (!fixture && v.canon === 'expired');
+  const accepted = mode === 'accepted' || (!fixture && !expired && !pending(a, v));
   const title = expired ? `${v.money.payout} | Request Expired` : accepted ? `${v.money.payout} | Accepted` : `${v.money.payout} | New Request`;
   const note = expired
     ? '<p class="t-body c-500">This request lapsed before you responded. Sarah has been told — nothing to do.</p>'
@@ -68,7 +70,7 @@ function renderScreen(s) {
 </div>`;
 }
 
-function wire(root) {
+export function wire(root) {
   wireTailorNav(root);
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));
   root.querySelector('[data-act="home"]')?.addEventListener('click', () => go('t01-home'));
@@ -86,4 +88,4 @@ function wire(root) {
   root.querySelector('[data-act="decline"]')?.addEventListener('click', () => go('t03a-decline-request'));
 }
 
-register('t02-appointment-request', renderScreen, wire);
+register('t02-appointment-request', viewRequest, wire);

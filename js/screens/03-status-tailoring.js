@@ -46,17 +46,13 @@ export function viewTailoring(s) {
   }[canon] ?? 'tailoring';
   const method = a.fulfilment?.method === 'delivery' ? 'Delivery' : 'Pickup';
   const apptDay = fmtDay(a.when, 'Sun, Jul 12').replace(/^\w+, /, '');   // "Jul 12"
-  /* the harness deep link (seed still 'confirmed') renders the frame's
-     Tailoring fixture verbatim; every navigated visit is live */
-  const fixture = !window.__tailyNavigated;
   /* UX-007: the sub follows the status. R2-U-02: the tailoring line
      names the appointment's own day ("All details confirmed on Sun,
-     Jul 12."); the frame's literal "July 12" survives only on the
-     harness load — Figma sync pending. */
-  const frameNote = 'All details confirmed on July 12. We will let you know as soon as your items are ready.';
+     Jul 12." — the frame was synced to this grammar in round 3). */
+  const frameNote = `All details confirmed on ${fmtDay(a.when, 'Sun, Jul 12')}. We will let you know as soon as your items are ready.`;
   const note = {
     'awaiting-approval': `Measured and pinned at your appointment on ${apptDay}. Review and approve the final order to start tailoring.`,
-    tailoring: fixture ? frameNote : `All details confirmed on ${fmtDay(a.when, 'Sun, Jul 12')}. We will let you know as soon as your items are ready.`,
+    tailoring: frameNote,
     /* Phase R6: once a window is scheduled, the handoff waits on the
        tailor's confirmation (the window label carries its date, R2-U-02) */
     'ready-for-pickup': a.fulfilment
@@ -64,21 +60,18 @@ export function viewTailoring(s) {
       : 'Your items are ready. Tap the order below — or use your appointment card — to choose how you’d like them back.',
     delivered: 'Delivered. Tap the order below to see your receipt.',
   }[canon] ?? frameNote;
-  /* R1-U-04: hero title + primary CTA per live status; the frame's
-     tailoring fixture for the harness load. R2-U-11: the LIVE
+  /* R1-U-04: hero title + primary CTA per live status. R2-U-11: the
      tailoring state leads with Message Marco (the appointment already
-     happened — nothing to add to a calendar); the harness's seed load
-     keeps the frame's Add to Calendar bar. Figma sync pending. */
+     happened — nothing to add to a calendar); the frame's CTA bar was
+     synced to it in round 3, so the harness load renders it too. */
   const hero = {
     'awaiting-approval': { title: 'Approve your final order.', label: 'Review Final Order', act: 'review-order' },
-    tailoring: fixture
-      ? { title: 'Tailoring in Progress.', label: 'Add to Calendar', act: 'calendar' }
-      : { title: 'Tailoring in Progress.', label: `Message ${first}`, act: 'message', noMessage: true },
+    tailoring: { title: 'Tailoring in Progress.', label: `Message ${first}`, act: 'message', noMessage: true },
     'ready-for-pickup': a.fulfilment
       ? { title: `${method} · ${a.fulfilment.window}`, label: 'Change Pickup / Delivery', act: 'schedule' }
       : { title: 'Your items are ready.', label: 'Schedule Pickup / Delivery', act: 'schedule' },
     delivered: { title: 'Delivered.', label: 'View Receipt', act: 'receipt' },
-  }[canon] ?? { title: 'Tailoring in Progress.', label: 'Add to Calendar', act: 'calendar' };
+  }[canon] ?? { title: 'Tailoring in Progress.', label: `Message ${first}`, act: 'message', noMessage: true };
   const o = finalOrder(a);
   const t = o.totals;
   const d = receiptDates(a);

@@ -18,15 +18,21 @@ const SCREEN_MODULES = [
   '04-review-approve', '04-review-approve-modified', '05-items-ready', '05a-pickup-window', '05b-delivery-options', '06-journey-complete',
   '03.1-reschedule-popup', '03-status-cancelled', '03.2-appointment-confirmed', '03.3-photo-viewer', '04.1-request-changes',
   '05.1-window-confirmed', '06.1-leave-review',
+  /* UX-LOOP round 3 Figma sync: sibling frames for the round-2 live-only states (fixture routes) */
+  '03-status-expired', '03-status-declined', '03-status-tailor-cancelled', '03-status-no-show', '03-status-new-time',
+  '04-review-approve-removed', '05.1-window-confirmed-dated', '09-bookings-closed',
   /* Tailor flow (Phase T) — Marco's view of the same appointment */
   't01-home', 't02-appointment-request', 't03-request-accepted', 't03a-decline-request', 't03b-job-cancelled',
   't04-appointment-details', 't05-confirm-final-pricing', 't06-appointment-status', 't07-job-ready', 't08-job-complete',
+  't01-home-closed', 't02-accepted', 't02-expired', 't03-upcoming-visit', 't03.1-cant-make-it', 't03a-suggest-time',
+  't03b-by-you', 't03b-no-show', 't03b-withdrawn', 't05-removed', 't06-questions', 't07-waiting', 't10-messages',
 ];
 
 /* Persona gate (Phase T5, throwaway until onboarding sets it): tailor
    screens are t-prefixed; opening one flips the persona, the shared
-   messages screen keeps whichever persona opened it. */
-const isTailorScreen = (id) => /^t0/.test(id);
+   messages screen keeps whichever persona opened it (its tailor-side
+   fixture route `t10-messages` flips it like any t-screen). */
+const isTailorScreen = (id) => /^t\d/.test(id);   // t01…t08, t10-messages (round 3)
 function syncPersona(id) {
   if (isTailorScreen(id)) state.persona = 'tailor';
   else if (id !== '10-messages') state.persona = 'user';

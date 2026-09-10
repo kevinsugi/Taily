@@ -27,11 +27,14 @@ const CONFLICT = 0;
 const canPropose = (a) => jobView(a).canon === 'searching';
 const primaryLabel = (reason, a, fixture) => (!fixture && reason === CONFLICT && canPropose(a) ? 'Suggest Another Time' : 'Decline Request');
 
-function renderScreen(s) {
+/** Exported: `mode` 'suggest' forces the Schedule-conflict primary (round-3
+    frame "T03A - Decline Request / Suggest Time"). */
+export function viewDecline(s, mode = null) {
   const a = current(s);
   const t = tailorOf(a);
   const fixture = isFixture();
   const sel = fixture ? (t.declineReason ?? 0) : t.declineReason;
+  const label = mode === 'suggest' ? 'Suggest Another Time' : primaryLabel(sel, a, fixture);
   const rows = REASONS.map((r, i) => radioRow(r, { selected: i === sel, attrs: `data-reason="${i}"` })).join(hairline());
   return `${tailorChrome('home')}
 <div class="body" data-s="t03a-decline-request">
@@ -41,7 +44,7 @@ function renderScreen(s) {
   </div>
   <div class="reasons" role="radiogroup" aria-label="Reason">${rows}</div>
   <div class="t-actions t-actions--pad">
-    ${cta(primaryLabel(sel, a, fixture), { attrs: 'data-act="decline"' })}
+    ${cta(label, { attrs: 'data-act="decline"' })}
     ${cta('Back to details', { variant: 'secondary', attrs: 'data-act="back"' })}
   </div>
 </div>`;
@@ -68,7 +71,7 @@ function suggestTime(a) {
   if (title) title.textContent = 'Suggest another time';
 }
 
-function wire(root) {
+export function wire(root) {
   wireTailorNav(root);
   const a = current(state);
   const t = tailorOf(a);
@@ -92,4 +95,4 @@ function wire(root) {
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));
 }
 
-register('t03a-decline-request', renderScreen, wire);
+register('t03a-decline-request', viewDecline, wire);

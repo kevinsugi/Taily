@@ -27,9 +27,10 @@ export function viewReview(s, screenId, fixture) {
   const t = o.totals;
   const d = receiptDates(a);
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];
-  /* R2-T-08 (live only): booked garments the tailor dropped at the
-     visit, listed under the cards the way T05 shows them to Marco */
-  const removed = live ? (o.removed ?? []) : [];
+  /* R2-T-08: booked garments the tailor dropped at the visit, listed
+     under the cards the way T05 shows them to Marco (frame: 04 -
+     Review & Approve / Removed, round 3) */
+  const removed = o.removed ?? [];   // the round-3 "Removed" frame's fixture carries its own
   return `${chrome('home')}
 <div class="body" data-s="${screenId}">
   <div class="heading">

@@ -15,6 +15,19 @@
 .screen[data-screen="t03b-job-cancelled"] { min-height: 415.5px; }
 .screen[data-screen="t07-job-ready"] { min-height: 640px; }
 .screen[data-screen="t08-job-complete"] { min-height: 595px; }
+/* UX-LOOP round 3 — the sibling frames' heights (Figma hugs content) */
+.screen[data-screen="t01-home-closed"] { min-height: 1312px; }
+.screen[data-screen="t02-accepted"] { min-height: 825px; }
+.screen[data-screen="t02-expired"] { min-height: 883px; }
+.screen[data-screen="t03-upcoming-visit"] { min-height: 954px; }
+.screen[data-screen="t03a-suggest-time"] { min-height: 635.5px; }
+.screen[data-screen="t03b-by-you"],
+.screen[data-screen="t03b-withdrawn"] { min-height: 415.5px; }
+.screen[data-screen="t03b-no-show"] { min-height: 394.5px; }
+.screen[data-screen="t05-removed"] { min-height: 1049.5px; }
+.screen[data-screen="t06-questions"] { min-height: 1502px; }
+.screen[data-screen="t07-waiting"] { min-height: 640px; }
+.screen[data-screen="t10-messages"] { min-height: 1103px; }
 [data-s="t03b-job-cancelled"] .status-hero,
 [data-s="t08-job-complete"] .status-hero { gap: var(--space-12); }
 /* hero copy is a 300px column on the frames */

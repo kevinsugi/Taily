@@ -356,3 +356,53 @@ Code-only round; four agents (substrate, user screens, tailor screens, integrati
 - **Noticed, not changed:** `state.ui.window` is shared across appointments; browser back from
   03/Cancelled after a 03.1 confirm lands on the cancelled entry's 03/Confirmed; no-show title
   wraps at serif-28; delivered jobs stay under Active Jobs on T01.
+
+## Round 3 — started Sep 10 2026, 00:05 (Figma sync round + reviews)
+
+Baseline: `249afc0`. A Figma-sync agent is applying the 20-row ledger (text edits + sibling
+frames for the new states, fixture routes, refs, baselines) while both directors review the
+live prototype.
+
+### User flow — director verdict: NOT YET
+Report: scratchpad `round3/user/user-flow-review.md` (192 shots). Round 2 verification: **14/14 PASS**
+(R2-U-01…12 + customer halves of R2-T-08/09). Director's summary: the End state's three branches
+are real on both sides and tell the same story; what remains are two P1s the new branches and the
+mirror model exposed (03/Requested renders the booking form, not the appointment, and the Home
+selection survives Request Tailor; proposed times are not bounded by the need-by date) and four
+P2s. All code-only, S effort; one more round should reach SIGN-OFF.
+
+### Tailor flow — director verdict: NOT YET
+Report: scratchpad `round3/tailor/tailor-flow-review.md` (97 shots). Round 2 verification: **15/15 PASS**
+(R2-T-01…11, R2-S-01…04). Director's summary: the whole day runs T01 → T08 with no dead click;
+blocked by the same need-by hole (P1) and four contained P2s; fix them and the tailor side is
+ready to sign off.
+
+| ID | P | Finding (short) | Decision | Reason / scope |
+|---|---|---|---|---|
+| R3-U-01 | P1 | 03/Requested renders the booking form (`state.garments/appt`), not the appointment; Home selection survives Request Tailor (duplicate request one tap away) | **ACCEPT** | 03/Requested meta rows read the appointment (fixture via `isFixture()`); `requestTailor()` clears `state.garments` + `ui.homeSelection` once the appointment owns them |
+| R3-U-02 / R3-T-01 | P1 | A proposed time is not bounded by need-by on either side; accepting it puts `readyAt` before the visit | **ACCEPT** | `proposalDays(a) = dayRows(a.when, a.needBy)` (7-day fallback only when need-by missing); `proposeTime` returns false when the day is after need-by (T03A toasts "That's after Sarah's need-by date"); customer demo caps at need-by; new-times hero names the need-by; sync assertion added |
+| R3-U-03 | P2 | 01 always renders `upcoming[0]`: delivered order under "Upcoming", terminal outcomes silent on Home | **ACCEPT** | Home card = soonest live entry; today's `lastCancelled` (mine) renders its terminal card above it once; fallback to the most recent delivered entry when nothing is live. Frame fixture unchanged |
+| R3-U-04 | P2 | 01 card's Leave Review is dead | **ACCEPT** | Pass 09's handler with the `a.review` guard |
+| R3-U-05 | P2 | Back after cancelling shows the cancelled entry as "Appointment Confirmed" with a live Reschedule / Cancel | **ACCEPT** | 03/Confirmed, Reminder, Tailoring adopt 03/Requested's terminal guard; terminal navigations use `replace` so the dead status screen leaves the stack |
+| R3-U-06 / R3-T-05 | P2 | Tailor-cancel / no-show say "nothing was charged — hold released" on a paid deposit; the Can't-make-it modal states no consequence; no-show offered days before the visit | **ACCEPT** | Confirmed bookings: "Your $12 deposit is refunded to <method>" on 03/Cancelled and "her deposit is refunded" on T03B (hold wording only for never-confirmed requests); modal gains a consequence line per selected radio and a reason-specific confirm label; no-show row gated on the visit time (seed's Jul 12 counts as today). Ledger rows updated |
+| R3-U-07 | P3 | Card nits: matching note under a proposal; bare Declined meta; live date grammar | **ACCEPT** | Skip the note when proposed; "Declined by Marco"; live cards use `fmtWhen`, seed keeps the frame string |
+| R3-U-08 | P3 | No-show title "We missed you at <timestamp>" wraps mid-token | **ACCEPT** | Title "We missed you", timestamp moves to the body; ledger row updated |
+| R3-U-09 | P3 | "Ready since: <tomorrow>" | **ACCEPT** | Future `readyAt` → "Ready · pickup from <day>" |
+| R3-T-02 | P2 | Proposal sub-state leaks: Withdraw attributed to Sarah; T02 Accept books the original time while proposed; expiry-while-proposed blames "no tailor" | **ACCEPT** | `declineProposedTime(a, by)` ("You withdrew your proposed time"); T02 while proposed: `Withdraw Proposal` primary + Decline, no Accept; `a.lapsedProposal` on expiry → customer copy "Marco proposed … but the request lapsed before you answered" |
+| R3-T-03 | P2 | T01 "Active Jobs" mixes open, completed and closed rows; same-day requests indistinguishable | **ACCEPT** | Partition: New Requests / Active Jobs (confirmed → ready + Leo) / "Done today" (delivered, then cancelled / withdrawn / expired, muted `closed` card variant); request cards gain "$108 · 1 item" style discriminator. Ledger: the `t01-home-closed` frame gets the "Done today" section row |
+| R3-T-04 | P2 | Payout date "Mon, Jul 20" and order id `TLY-2026-4417` are literals on every job | **ACCEPT** | `payoutDate(a)` = handoff day + 4 rounded to a weekday (seed still Mon, Jul 20); `a.orderId` per appointment (seed keeps 4417; fresh bookings increment) shared by 06 / 03-Summary / T08 |
+| R3-T-06 | P3 | Calendar tab opens a completed job over a confirmed visit; T03B View Calendar = Back to Home | **ACCEPT** | `primaryJob` excludes delivered; View Calendar behaves like the tab |
+| R3-T-07 | P3 | T04 "Contact Taily Support" is a toast outside the allow-list | **DEFER (default kept)** | Support has no destination in scope; treated as an out-of-scope area with an honest toast — Kevin to confirm or ask for a canned support chat |
+
+Opportunities logged: need-by shift on accepting a later proposal (= the deferred real
+reschedule); Home outcome banner; decline reason shown to the customer; single-day handoff
+collapses into the CTA; live countdown on 03/Requested; "Sarah accepted your time" toast;
+Message Sarah on T02 before accepting; closed rows dismissable; per-booking order number.
+
+### Round 3 — Figma sync applied (Sep 10 2026, 00:45)
+All 20 ledger rows applied; the ledger is **cleared** except one BLOCKED item.
+- **Text edits in place:** 03/Tailoring `308:3578` (note "Sun, Jul 12", CTA bar `Message Marco` primary; 03.3's backdrop clone matched); TM1 `570:8782` is now the tailor view ("TM1 - Message Customer") — the End state's TM1 reference is `570:8782`, keyed `t10-messages`.
+- **New sibling frames (duplicates of their base, placed at the right end of the stage row, instances and variable bindings intact, no new tokens)** with fixture routes and seeded baselines: `03 - Order Status / Expired` 608:2338, `/ Declined` 608:2434, `/ Tailor Cancelled` 608:4333, `/ No-Show` 608:4433, `/ New Time` 609:2594; `04 - Review & Approve / Removed` 609:2649; `05.1 - Window Confirmed / Dated` 609:2779; `09 - Bookings / Closed Cards` 609:4676; `T01 - Home / Closed Rows` 611:4243; `T02 - Appointment Request / Accepted` 609:4983, `/ Expired` 609:5032; `T03 - Upcoming Visit` 610:3963; `T03.1 - Can't Make It` 612:4397; `T03A - Decline Request / Suggest Time` 609:5082; `T03B - Job Cancelled / By You` 609:5126, `/ No-Show` 609:5156, `/ Withdrawn` 609:5186; `T05 - Confirm Final Pricing / Removed` 610:4088; `T06 - Appointment Status / Sarah Has Questions` 610:4205; `T07 - Job Ready / Waiting` 610:4283. Routes live in `js/fixtures.js` + 21 one-line modules; base deep links unchanged; persona gate now `/^t\d/`.
+- **Harness:** 58 screens diff-gated; `npm run check` ALL PASS (317 s). Text parity: dead `04-review-approve-modified` ALLOW removed; two documented inherited ALLOWs added (`03-status-new-time`, `05.1-window-confirmed-dated`).
+- **BLOCKED (Kevin):** the Appointment Card `Status=Requested` variant has no Actions slot, so `09 - Bookings / Closed Cards` cannot show the `Review Time` CTA the code renders — baseline sits at 8.08 until the variant gains an Actions row.
+- **For Kevin:** the new 03 variants hug their content (784–820 tall); the frames sit at the far right of their rows; live-only states still without a frame: 03/Tailoring scheduled / ready / delivered heroes and the dated Ready card meta, the T03A wheel title. Pre-round-2 `- $20` / `7:00PM` ALLOWs (6 frames) remain — a cheap follow-up sync if wanted.

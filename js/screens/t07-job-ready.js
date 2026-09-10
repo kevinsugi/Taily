@@ -22,10 +22,12 @@ import { current, jobView, isFixture, firstPickupWindow, T, FIXTURE_FINAL, order
 
 const SHOP = '1025 Broadway';
 
-function renderScreen(s) {
-  const a = current(s);
+/** Exported: a `forced` ready job renders live (round-3 frame
+    "T07 - Job Ready / Waiting"). */
+export function viewReady(s, forced = null) {
+  const a = forced ?? current(s);
   const v = jobView(a);
-  const fixture = isFixture() || !v.post;
+  const fixture = !forced && (isFixture() || !v.post);
   const f = fixture ? null : a?.fulfilment;
   const waiting = !fixture && !f;
   const delivery = f?.method === 'delivery';
@@ -75,7 +77,7 @@ export function wireOrderDropdown(root) {
   });
 }
 
-function wire(root) {
+export function wire(root) {
   wireTailorNav(root);
   wireOrderDropdown(root);
   root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));
@@ -96,4 +98,4 @@ function wire(root) {
   root.querySelector('[data-act="home"]')?.addEventListener('click', () => go('t01-home'));
 }
 
-register('t07-job-ready', renderScreen, wire);
+register('t07-job-ready', viewReady, wire);

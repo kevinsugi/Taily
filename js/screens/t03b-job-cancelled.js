@@ -19,8 +19,8 @@ import { current, jobView, endedBy, isFixture, isSeed } from '../tailor-data.js'
 const FRAME = { title: 'Job Cancelled.', body: 'Sarah cancelled this visit. The job is closed and tonight’s 7:00 PM slot is open on your calendar again.' };
 
 /** Hero + body for the way this job ended. */
-export function cancelCopy(a) {
-  if (isFixture() || !a) return FRAME;
+export function cancelCopy(a, { forced = false } = {}) {
+  if (!a || (isFixture() && !forced)) return FRAME;
   const when = jobView(a).when;
   switch (endedBy(a)) {
     case 'withdrawn': return { title: 'Request withdrawn.', body: `Sarah withdrew her ${when} request before you accepted. Nothing to do.` };
@@ -31,8 +31,10 @@ export function cancelCopy(a) {
   }
 }
 
-function renderScreen(s) {
-  const { title, body } = cancelCopy(current(s));
+/** Exported: a `forced` terminal job renders its own copy on the round-3
+    frames "T03B - Job Cancelled / By You · No-Show · Withdrawn". */
+export function viewJobCancelled(s, forced = null) {
+  const { title, body } = forced ? cancelCopy(forced, { forced: true }) : cancelCopy(current(s));
   return `${tailorChrome('calendar')}
 <div class="body" data-s="t03b-job-cancelled">
   ${statusHero({ pill: false, title, titleColor: 'error', body })}
@@ -43,10 +45,10 @@ function renderScreen(s) {
 </div>`;
 }
 
-function wire(root) {
+export function wire(root) {
   wireTailorNav(root);
   root.querySelector('[data-act="home"]')?.addEventListener('click', () => go('t01-home'));
   root.querySelector('[data-act="calendar"]')?.addEventListener('click', () => go('t01-home'));
 }
 
-register('t03b-job-cancelled', renderScreen, wire);
+register('t03b-job-cancelled', viewJobCancelled, wire);

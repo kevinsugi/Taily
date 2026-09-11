@@ -8,9 +8,14 @@
    card above the CTA bar reads "Visitation fee $25 · 2 items" — the
    tier for the LIVE item count on the form (1–4 → $25, 5–10 → $50,
    11+ → $100; the $50 / $100 tiers add data.js VISIT_FEE_NOTE) — and
-   the CTA reads "Hold $25 Visitation Fee": held now, charged when a
-   tailor accepts, alterations paid at handoff. Figma sync pending
-   (02 + its four sheet backdrops still draw the $20 Deposit CTA).
+   the CTA reads "Reserve Appt · $25" (round 9, Kevin — was "Hold $25
+   Visitation Fee"): held now, charged when a tailor accepts,
+   alterations paid at handoff.
+   Round 9 (Kevin): both pills open as "Select Time" (state.appt.when /
+   needBy start null) and the request is inert until both are picked;
+   the fee card takes the garment card's chassis — price column left,
+   description right — and sits INSIDE the CTA bar above the CTA, as the
+   frame draws it (frame + the four sheet backdrops synced).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
@@ -37,6 +42,9 @@ export function ensureGarments() {
 }
 
 const NEEDBY_MSG = 'Need-by must be after your appointment';
+const PICK_TIME_MSG = 'Select a requested time';
+const PICK_NEEDBY_MSG = 'Select a need-by time';
+export const PILL_EMPTY = 'Select Time';
 export const needByOk = (s = state) => isAfter(s.appt.needBy, s.appt.when);
 
 /* Exported: 02a/04a/04b draw this screen dimmed behind their scrim
@@ -63,8 +71,8 @@ export function view02(s) {
     <p class="t-body c-ink home-address" data-act="address" role="button" tabindex="0"><span class="emoji">📍</span> <span data-addr-text>${contact.street}, ${s.userLoc}</span></p>
   </div>
   <div class="filters">
-    ${filterPill('Requested time:', appt.when, { attrs: 'data-act="time"' })}
-    ${filterPill('Need by:', appt.needBy, { attrs: 'data-act="needby"', error: needByOk(s) ? '' : NEEDBY_MSG })}
+    ${filterPill('Requested time:', appt.when ?? PILL_EMPTY, { attrs: 'data-act="time"' })}
+    ${filterPill('Need by:', appt.needBy ?? PILL_EMPTY, { attrs: 'data-act="needby"', error: needByOk(s) ? '' : NEEDBY_MSG })}
   </div>
   <div class="garments">
     <p class="t-body w-600 c-ink">Garments:</p>
@@ -73,9 +81,9 @@ export function view02(s) {
       <button type="button" class="add-garment" data-act="add-garment">+ Additional Garment</button>
     </div>
   </div>
-  ${feeCard(totals)}
   <div class="cta-bar">
-    ${cta(`Hold ${money(totals.visitFee)} Visitation Fee`, { attrs: 'data-act="request"' })}
+    ${feeCard(totals)}
+    ${cta(`Reserve Appt · ${money(totals.visitFee)}`, { attrs: 'data-act="request"' })}
     <p class="t-small c-500 cta-bar__note">A Taily-certified tailor near you will accept your request — final pricing is confirmed at your appointment.</p>
   </div>
 </div>`;
@@ -84,12 +92,17 @@ export function view02(s) {
 /** R7: the visitation fee card — the tier for the booked item count,
     R7-U-03's second line summing the form's alterations ("Alterations
     est. $240 · paid at pickup or delivery"), then the $50 / $100 tiers'
-    supporting line. */
+    supporting line. Round 9 (Kevin): laid out like the garment card —
+    the price in the 68px left column (the card's price style), the
+    description stacked on the right (garment-row weight). */
 export function feeCard(t) {
-  return `<div class="prepare-card fee-card" data-fee-card>
-    <p class="t-body w-500 c-ink fee-card__line">Visitation fee ${money(t.visitFee)} · ${itemsLabel(t.items, 'item')}</p>
-    <p class="t-small c-500 fee-card__est">Alterations est. ${money(t.alterations)} · paid at pickup or delivery</p>
-    ${t.note ? `<p class="t-small c-500 fee-card__note">${t.note}</p>` : ''}
+  return `<div class="fee-card" data-fee-card>
+    <div class="fee-card__chip"><span class="fee-card__price">${money(t.visitFee)}</span></div>
+    <div class="fee-card__content">
+      <p class="fee-card__line">Visitation fee · ${itemsLabel(t.items, 'item')}</p>
+      <p class="t-small c-500 fee-card__est">Alterations est. ${money(t.alterations)} · paid at pickup or delivery</p>
+      ${t.note ? `<p class="t-small c-500 fee-card__note">${t.note}</p>` : ''}
+    </div>
   </div>`;
 }
 
@@ -103,6 +116,27 @@ function syncNeedBy(root) {
   pill.classList.toggle('filter-pill--error', !ok);
   const help = pill.querySelector('[data-pill-help]');
   if (help) help.textContent = ok ? '' : NEEDBY_MSG;
+  /* round 9: a pill the wheel just filled drops its "Select …" error */
+  if (state.appt.when) markPill(root, 'time', '');
+}
+
+/* Round 9: paint / clear a pill's error line in place (same chassis as
+   the need-by validation — no disabled CTA variant exists). */
+function markPill(root, act, msg) {
+  const pill = root.querySelector(`[data-act="${act}"]`)?.closest('.filter-pill');
+  if (!pill) return;
+  pill.classList.toggle('filter-pill--error', !!msg);
+  const help = pill.querySelector('[data-pill-help]');
+  if (help) help.textContent = msg;
+}
+
+/** Round 9: the first thing still missing before a request can go out —
+    the requested time, then the need-by, then the need-by order. */
+export function requestBlocker(s = state) {
+  if (!s.appt.when) return { act: 'time', msg: PICK_TIME_MSG };
+  if (!s.appt.needBy) return { act: 'needby', msg: PICK_NEEDBY_MSG };
+  if (!needByOk(s)) return { act: 'needby', msg: NEEDBY_MSG };
+  return null;
 }
 
 function wire(root) {
@@ -182,9 +216,11 @@ function wire(root) {
   root.querySelector('.filters')?.addEventListener('taily:appt-changed', () => syncNeedBy(root));
   root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelector('[data-act="request"]')?.addEventListener('click', () => {
-    /* R1-U-11: an impossible need-by keeps the request inert (no
-       disabled CTA variant exists — the pill + toast explain) */
-    if (!needByOk()) { syncNeedBy(root); toast(NEEDBY_MSG); return; }
+    /* R1-U-11 / round 9: a missing time, a missing need-by or an
+       impossible need-by keeps the request inert (no disabled CTA
+       variant exists — the pill + toast explain) */
+    const blocker = requestBlocker();
+    if (blocker) { markPill(root, blocker.act, blocker.msg); toast(blocker.msg); return; }
     openPaymentOverlay();
   });
   root.querySelector('[data-act="add-garment"]')?.addEventListener('click', () => {

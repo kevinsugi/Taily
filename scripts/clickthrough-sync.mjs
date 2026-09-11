@@ -252,6 +252,10 @@ async function bookAsCustomer({ deep = false } = {}) {
   await page.click('[data-tile="Pants / Jeans"]');
   await page.click('[data-act="start-booking"]');
   await assertAt('[C] Start Booking → 02', '02-appointment-details');
+  /* round 9: give each garment a photo (the camera tile, R2-U-09) so 03/Confirmed has tiles to open the viewer from */
+  await page.click('.garment-card:nth-of-type(1) .photo-tile--add'); await page.waitForTimeout(250);
+  await page.click('.garment-card:nth-of-type(2) .photo-tile--add'); await page.waitForTimeout(250);
+  assertEq('[C] 02: one photo on each of the two cards', await q('count', '.photo-tile--photo'), 2);
   await page.click('[data-act="time"]');
   await assertOverlay('[C]   …requested-time sheet', '02.1-date-time-sheet');
   await page.click('[data-act="sheet-confirm"]');
@@ -272,8 +276,9 @@ async function bookAsCustomer({ deep = false } = {}) {
   if (deep) {
     assertEq('[C] 02 requested-time pill = state.appt.when', await q('text', '[data-act="time"]'), appt.when);
     assertEq('[C] 02 need-by pill = state.appt.needBy', await q('text', '[data-act="needby"]'), appt.needBy);
-    await assertText('[C] 02 CTA holds the $25 visitation fee (R7)', '[data-act="request"]', 'Hold $25 Visitation Fee');
-    await assertText('[C] 02 fee card = tier for the live count (R7)', '.fee-card__line', 'Visitation fee $25 · 2 items');
+    await assertText('[C] 02 CTA reserves the appointment for the $25 visitation fee (round 9)', '[data-act="request"]', 'Reserve Appt · $25');
+    await assertText('[C] 02 fee card price column = tier for the live count (round 9)', '.fee-card__price', '$25');
+    await assertText('[C] 02 fee card line = Visitation fee · 2 items (round 9)', '.fee-card__line', 'Visitation fee · 2 items');
     assertEq('[C] 02 fee card: no tier note on the $25 tier', await q('count', '.fee-card__note'), 0);
   }
   await page.click('[data-act="request"]');
@@ -409,6 +414,19 @@ async function customerSeesConfirmed(a, { deep = false } = {}) {
   }
   await page.click('.appt-card');
   await assertAt('[C] card → 03/Confirmed', '03-status-confirmed', 'confirmed');
+  /* round 9 (Kevin): the booking cards' photo tiles open the 03.3 viewer in booking mode */
+  {
+    const tiles = await q('count', '.garment-card--view .photo-tiles--tappable .photo-tile--photo');
+    log(tiles === 2, '[C] 03/Confirmed: the two booking cards expose their 2 tappable photo tiles (round 9)', `tiles=${tiles}`);
+    await page.click('.garment-card--view .photo-tile--photo');
+    await assertOverlay('[C]   …photo viewer overlays (booking mode)', '03.3-photo-viewer');
+    const pv = await page.evaluate(() => ({ title: document.querySelector('.screen-sheet--overlay [data-pv-title]')?.textContent.trim(), sub: document.querySelector('.screen-sheet--overlay .photo-viewer__sub')?.textContent.trim(), legend: document.querySelectorAll('.screen-sheet--overlay .photo-viewer__legend').length, thumbs: document.querySelectorAll('.screen-sheet--overlay [data-thumb]').length, active: document.querySelector('.screen-sheet--overlay [data-thumb].is-active')?.dataset.thumb }));
+    log(pv.title === 'Suit Jacket — Your photos' && pv.sub === 'Added when you booked' && pv.legend === 0 && pv.thumbs === 1 && pv.active === '0', '[C]   …viewer: garment title, "Added when you booked", no Before/Pinned legend, one thumb per photo, first active', JSON.stringify(pv));
+    await page.click('.screen-sheet--overlay [data-act="pv-close"]');
+    await page.waitForTimeout(300);
+    await assertOverlay('[C]   …viewer closed', null);
+    await assertAt('[C]   …still on 03/Confirmed', '03-status-confirmed', 'confirmed');
+  }
   if (deep) {
     await assertText('[C] 03/Confirmed pill', '.status-hero .pill span:last-child', 'Confirmed');
     assertEq('[C] 03/Confirmed cards = booked garments', await q('count', '.garment-card'), 2);
@@ -944,8 +962,10 @@ await fresh('E', { solo: true });
   await assertAt('[C] confirm → 02 (reschedule = cancel + resubmit, R6)', '02-appointment-details', 'cancelled', 'user');
   assertEq('[C] 02 toast', await q('toast'), 'Appointment cancelled — send the same job to find a new tailor');
   await assertTrue('[C] page scrolls after the 03.1 confirm (R2-U-01)', () => document.documentElement.style.overflow !== 'hidden');
-  assertEq('[C] 02 requested-time pill = the cancelled visit’s time', await q('text', '[data-act="time"]'), far.when);
-  assertEq('[C] 02 need-by pill = the cancelled visit’s need-by', await q('text', '[data-act="needby"]'), far.needBy);
+  /* round 9: the pills read the copied dates in the pill grammar (fmtPill — "Sept 18" for a day-only need-by) */
+  const farPill = await page.evaluate(async (f) => { const D = await import('/js/data.js'); return { when: D.fmtPill(f.when), needBy: D.fmtPill(f.needBy) }; }, { when: far.when, needBy: far.needBy });
+  assertEq('[C] 02 requested-time pill = the cancelled visit’s time', await q('text', '[data-act="time"]'), farPill.when);
+  assertEq('[C] 02 need-by pill = the cancelled visit’s need-by (pill grammar)', await q('text', '[data-act="needby"]'), farPill.needBy);
   assertEq('[C] 02 carries the same 2 garments', await q('count', '.garment-card'), 2);
   await assertTrue('[C] 02 visit type restored (Home Visit)', () => window.Taily.state.appt.where === 'Home Visit');
   {
@@ -985,7 +1005,7 @@ await fresh('E', { solo: true });
   await assertAt('[C] View as Customer (form still carries the job)', '01-home', 'cancelled', 'user');
   await render('02-appointment-details');
   const c = await rebookFrom02('Rescheduled job');
-  log(c?.orderId !== far.orderId && c?.when === far.when && c.needBy === far.needBy && c.name == null && c.matching === true, '[S] new request: fresh order id, same time / need-by, no tailor yet', `orderId=${c?.orderId} (was ${far.orderId}) when=${c?.when} name=${c?.name}`);
+  log(c?.orderId !== far.orderId && c?.when === farPill.when && c.needBy === farPill.needBy && c.name == null && c.matching === true, '[S] new request: fresh order id, same time / need-by (pill grammar), no tailor yet', `orderId=${c?.orderId} (was ${far.orderId}) when=${c?.when} needBy=${c?.needBy} (want ${farPill.needBy}) name=${c?.name}`);
   await render('01-home');
   await assertText('[C] 01 card = Matching you with a tailor (R6)', '.appt-card__name', 'Matching you with a tailor');
   await assertText('[C] 01 card meta = Requested: …', '.appt-card__meta', `Requested: ${await cardWhen(c.when)}`);

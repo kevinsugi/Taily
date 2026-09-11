@@ -4,7 +4,12 @@
    header (title + "Pinned by" sub, ✕), Before/Pinned legend, 440px
    stage with ‹ › arrows, five 52px filmstrip thumbs (active ringed).
    Opened by tapping a photo on any post-appointment card (Before/
-   Pinned rows); pre-appointment photo tiles do nothing (Kevin).
+   Pinned rows). Round 9 (Kevin): 03/Confirmed's booking cards open it
+   too — `booking` mode shows the customer's own uploads (title
+   "<garment> — Your photos", sub "Added when you booked", no Before /
+   Pinned legend, one thumb per photo); the other pre-appointment
+   screens' tiles stay inert. Sibling frame "03.3 - Photo Viewer /
+   Booking" → route `03.3-photo-viewer-booking`.
    All art is the media placeholder — no real photos exist yet.
    ============================================================ */
 
@@ -14,22 +19,28 @@ import { viewTailoring } from './03-status-tailoring.js';
 
 const THUMBS = 5;
 
-function panelHtml({ garment = 'Suit Jacket', active = 2 } = {}) {
-  const thumbs = Array.from({ length: THUMBS }, (_, i) =>
-    `<button type="button" class="photo-viewer__thumb${i === active ? ' is-active' : ''}" data-thumb="${i}" aria-label="Photo ${i + 1}"></button>`).join('');
-  return `<div class="photo-viewer">
+/** `booking` (round 9): the customer's own booking photos — no legend,
+    `count` thumbs (one per photo), the first one active. Exported for
+    the 03.3-photo-viewer-booking fixture route. */
+export function panelHtml({ garment = 'Suit Jacket', active = 2, booking = false, count = THUMBS } = {}) {
+  const n = booking ? Math.max(1, count) : THUMBS;
+  const start = booking ? Math.min(active, n - 1) : active;
+  const thumbs = Array.from({ length: n }, (_, i) =>
+    `<button type="button" class="photo-viewer__thumb${i === start ? ' is-active' : ''}" data-thumb="${i}" aria-label="Photo ${i + 1}"></button>`).join('');
+  const legend = booking ? '' : `<div class="photo-viewer__legend">
+      <button type="button" class="is-active" data-legend="Before">Before</button>
+      <button type="button" data-legend="Pinned">Pinned</button>
+    </div>`;
+  return `<div class="photo-viewer${booking ? ' photo-viewer--booking' : ''}">
   <div class="photo-viewer__header">
     <div class="photo-viewer__titles">
-      <span class="photo-viewer__title" data-pv-title>${garment} — Before</span>
-      <span class="photo-viewer__sub">Pinned by Marco · Thu, Jul 17</span>
+      <span class="photo-viewer__title" data-pv-title>${garment} — ${booking ? 'Your photos' : 'Before'}</span>
+      <span class="photo-viewer__sub">${booking ? 'Added when you booked' : 'Pinned by Marco · Thu, Jul 17'}</span>
     </div>
     <button type="button" class="photo-viewer__ctl" data-act="pv-close" aria-label="Close">✕</button>
   </div>
   <div class="photo-viewer__photos">
-    <div class="photo-viewer__legend">
-      <button type="button" class="is-active" data-legend="Before">Before</button>
-      <button type="button" data-legend="Pinned">Pinned</button>
-    </div>
+    ${legend}
     <div class="photo-viewer__stage">
       <button type="button" class="photo-viewer__ctl photo-viewer__arrow photo-viewer__arrow--left" data-act="pv-prev" aria-label="Previous photo">‹</button>
       <button type="button" class="photo-viewer__ctl photo-viewer__arrow photo-viewer__arrow--right" data-act="pv-next" aria-label="Next photo">›</button>
@@ -41,14 +52,14 @@ function panelHtml({ garment = 'Suit Jacket', active = 2 } = {}) {
 
 /* Thumb selection + Before/Pinned legend are live; the stage stays the
    placeholder (no real photos in the prototype). */
-function wirePanel(root, close) {
+export function wirePanel(root, close) {
   root.querySelector('[data-act="pv-close"]')?.addEventListener('click', () => close());
   const thumbs = [...root.querySelectorAll('[data-thumb]')];
   const select = (i) => thumbs.forEach((t, j) => t.classList.toggle('is-active', i === j));
   const current = () => thumbs.findIndex((t) => t.classList.contains('is-active'));
   thumbs.forEach((t, i) => t.addEventListener('click', () => select(i)));
   root.querySelector('[data-act="pv-prev"]')?.addEventListener('click', () => select(Math.max(0, current() - 1)));
-  root.querySelector('[data-act="pv-next"]')?.addEventListener('click', () => select(Math.min(THUMBS - 1, current() + 1)));
+  root.querySelector('[data-act="pv-next"]')?.addEventListener('click', () => select(Math.min(thumbs.length - 1, current() + 1)));
   const legends = [...root.querySelectorAll('[data-legend]')];
   legends.forEach((l) => l.addEventListener('click', () => {
     legends.forEach((x) => x.classList.toggle('is-active', x === l));
@@ -96,6 +107,29 @@ export function wirePhotoViewer(root) {
   });
 }
 
+/** Round 9 (Kevin): wire the ViewOnly booking cards' photo tiles in
+    `root` (03/Confirmed) — tapping a tile opens the same viewer in
+    `booking` mode on that photo. Only the screen that calls this gets
+    it; the other pre-appointment tiles stay inert. */
+export function wireBookingPhotos(root) {
+  root.querySelectorAll('.garment-card--view .photo-tiles').forEach((row) => {
+    const tiles = [...row.querySelectorAll('.photo-tile--photo')];
+    if (!tiles.length) return;
+    row.classList.add('photo-tiles--tappable');
+    const card = row.closest('.garment-card');
+    const garment = card?.querySelector('.garment-card__row--tight span:last-child')?.textContent ?? 'Suit Jacket';
+    tiles.forEach((tile, i) => {
+      tile.setAttribute('role', 'button');
+      tile.setAttribute('tabindex', '0');
+      tile.setAttribute('aria-label', `Photo ${i + 1} of ${tiles.length}`);
+      tile.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openPhotoViewer({ garment, booking: true, count: tiles.length, active: i });
+      });
+    });
+  });
+}
+
 /* Route registration keeps the frame-verbatim render for the diff
    harness: 04D as backdrop, near-opaque scrim, panel. */
 function renderScreen(s) {
@@ -111,3 +145,5 @@ function wire(root) {
 }
 
 register('03.3-photo-viewer', renderScreen, wire);
+/* The booking-mode fixture route lives in 03.3-photo-viewer-booking.js
+   (app.js imports one module per route id). */

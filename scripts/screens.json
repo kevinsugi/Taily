@@ -65,12 +65,13 @@
     "03-status-reminder-locked": "644:5949",
     "03-status-confirmed-locked": "644:6051",
     "03-status-unconfirmed": "644:6149",
-    "04-review-approve-retiered": "644:6244"
+    "04-review-approve-retiered": "644:6244",
+    "03.3-photo-viewer-booking": "654:5774"
   },
   "baselines": {
     "01-home": 0.53,
     "01a-home-selected": 0.6,
-    "02-appointment-details": 9.05,
+    "02-appointment-details": 0.64,
     "02.1-date-time-sheet": 0.22,
     "02.2-address-sheet": 0.05,
     "03-status-requested": 6.02,
@@ -130,6 +131,7 @@
     "03-status-unconfirmed": 1.51,
     "04-review-approve-retiered": 0.3,
     "03-status-confirmed-locked": 0.38,
-    "03-status-reminder-locked": 0.48
+    "03-status-reminder-locked": 0.48,
+    "03.3-photo-viewer-booking": 0.01
   }
 }

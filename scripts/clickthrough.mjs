@@ -98,6 +98,25 @@ check('photo "+" tile adds a photo', await photoTiles() === before + 1, `${befor
 await page.click('.photo-tile__cancel');
 await page.waitForTimeout(300);
 check('photo ✕ removes it', await photoTiles() === before, `now ${await photoTiles()}`);
+// UX-LOOP round 9 (Kevin): both pills open as "Select Time"; the request
+// is inert (pill error + toast) until the requested time AND the need-by
+// are picked.
+const pillState = (act) => page.evaluate((a) => {
+  const box = document.querySelector(`[data-act="${a}"]`); const pill = box?.closest('.filter-pill');
+  return { value: box?.firstChild?.nodeValue?.trim(), error: !!pill?.classList.contains('filter-pill--error'), help: pill?.querySelector('[data-pill-help]')?.textContent.trim() ?? '' };
+}, act);
+{
+  const t = await pillState('time'); const n = await pillState('needby');
+  check('02 pills default to Select Time (round 9)', t.value === 'Select Time' && n.value === 'Select Time' && !t.error && !n.error, JSON.stringify({ t, n }));
+}
+await page.click('[data-act="request"]');
+await assertAt('Request Tailor, no time yet (stays on 02)', '02-appointment-details');
+await assertOverlay('  …no payment sheet', null);
+{
+  const t = await pillState('time');
+  const toastText = await page.evaluate(() => document.querySelector('.toast')?.textContent.trim());
+  check('  …requested-time pill errors + toast "Select a requested time"', t.error && t.help === 'Select a requested time' && toastText === 'Select a requested time', JSON.stringify({ t, toastText }));
+}
 await page.click('[data-act="time"]');
 await assertAt('Requested-time pill (stays on 02)', '02-appointment-details');
 await assertOverlay('  …time sheet overlays', '02.1-date-time-sheet');
@@ -105,16 +124,21 @@ await page.click('[data-act="sheet-confirm"]');
 await page.waitForTimeout(400);
 await assertAt('sheet ✓ returns', '02-appointment-details');
 await assertOverlay('  …overlay gone', null);
-// UX-LOOP R1-U-11: the requested time is now today, the fiction's
-// Jul 17 need-by lies before it → the pill errors and the request is
-// inert until the need-by wheel (which opens on the requested date)
-// is moved one day on.
+{
+  const t = await pillState('time');
+  check('  …time picked: pill reads the wheel value, error gone', /^[A-Z][a-z]{2,4} \d{1,2}, \d{1,2}:\d{2} (AM|PM)$/.test(t.value ?? '') && !t.error, JSON.stringify(t));
+}
+// UX-LOOP R1-U-11 / round 9: no need-by yet → the request stays inert
+// until the need-by wheel (which opens on the requested date) is moved
+// one day on.
 const needByError = () => page.evaluate(() => !!document.querySelector('.filter-pill--error'));
-console.log(`${await needByError() ? 'PASS' : 'FAIL'}  need-by before appointment errors`);
-if (!await needByError()) failures++;
 await page.click('[data-act="request"]');
-await assertAt('Request Tailor, invalid need-by', '02-appointment-details');
+await assertAt('Request Tailor, no need-by yet', '02-appointment-details');
 await assertOverlay('  …no payment sheet', null);
+{
+  const n = await pillState('needby');
+  check('  …need-by pill errors "Select a need-by time"', n.error && n.help === 'Select a need-by time' && n.value === 'Select Time', JSON.stringify(n));
+}
 await page.click('[data-act="needby"]');
 await assertOverlay('  …need-by sheet overlays', '02.1-date-time-sheet');
 await page.evaluate(() => {
@@ -565,7 +589,9 @@ await assertScrolls('page scrolls after 03.1 confirm');
     stash: window.Taily.state.lastCancelled === window.Taily.state.past[0],
   }));
   check('  …toast', r.toast === RESCHEDULE_TOAST, `"${r.toast}"`);
-  check('  …02 pre-filled (time / need-by / visit / items)', r.when === far.when && r.needBy === far.needBy && r.where === far.visit && r.garments >= 1, JSON.stringify({ when: r.when, needBy: r.needBy, where: r.where, garments: r.garments }));
+  /* round 9: the pills read the copied dates in the pill grammar (fmtPill — "Sept 19" for a day-only need-by) */
+  const farPill = await page.evaluate(async (f) => { const D = await import('/js/data.js'); return { when: D.fmtPill(f.when), needBy: D.fmtPill(f.needBy) }; }, { when: far.when, needBy: far.needBy });
+  check('  …02 pre-filled (time / need-by / visit / items)', r.when === farPill.when && r.needBy === farPill.needBy && r.where === far.visit && r.garments >= 1, JSON.stringify({ when: r.when, needBy: r.needBy, want: farPill, where: r.where, garments: r.garments }));
   check('  …cancelled before confirming: refund = fee, not kept', r.past.status === 'cancelled' && r.past.cancelledBy === 'customer' && r.past.refund === far.fee && r.past.feeKept === false && r.stash, JSON.stringify(r.past));
 }
 await page.goBack();
@@ -592,7 +618,8 @@ await page.click('.method-row');
 await assertAt('rescheduled job re-requested', '03-status-requested', 'searching');
 {
   const r = await page.evaluate(() => { const a = window.Taily.state.upcoming[0]; return { orderId: a.orderId, when: a.when, needBy: a.needBy, name: a.name, matching: a.matching, card: document.querySelector('.request-card__name')?.textContent.trim() }; });
-  check('  …new order id, same time / need-by, no tailor yet', r.orderId !== far.orderId && r.when === far.when && r.needBy === far.needBy && r.name === null && r.matching === true && r.card === undefined, JSON.stringify(r));
+  const farPill = await page.evaluate(async (f) => { const D = await import('/js/data.js'); return { when: D.fmtPill(f.when), needBy: D.fmtPill(f.needBy) }; }, { when: far.when, needBy: far.needBy });
+  check('  …new order id, same time / need-by, no tailor yet', r.orderId !== far.orderId && r.when === farPill.when && r.needBy === farPill.needBy && r.name === null && r.matching === true && r.card === undefined, JSON.stringify({ ...r, want: farPill }));
 }
 await page.click('[data-act="map"]');                 // demo: a tailor accepts
 await assertAt('  …accepted → 03/Confirmed', '03-status-confirmed', 'confirmed');
@@ -686,23 +713,25 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
   const on02 = async (garments) => {
     await page.evaluate((g) => { window.Taily.state.garments = g; window.Taily.render('02-appointment-details'); }, garments);
     await page.waitForTimeout(200);
-    return page.evaluate(() => ({ card: document.querySelector('.fee-card__line')?.textContent.trim(), est: document.querySelector('.fee-card__est')?.textContent.trim() ?? null, note: document.querySelector('.fee-card__note')?.textContent.trim() ?? null, order: [...document.querySelector('.fee-card').children].map((e) => e.className.split(' ').pop()).join(','), cta: document.querySelector('[data-act="request"]')?.textContent.trim() }));
+    /* round 9: the card is garment-card shaped — price column + content column; `card` joins them */
+    return page.evaluate(() => ({ card: `${document.querySelector('.fee-card__price')?.textContent.trim()} | ${document.querySelector('.fee-card__line')?.textContent.trim()}`, est: document.querySelector('.fee-card__est')?.textContent.trim() ?? null, note: document.querySelector('.fee-card__note')?.textContent.trim() ?? null, order: [...document.querySelector('.fee-card__content').children].map((e) => e.className.split(' ').pop()).join(','), cols: [...document.querySelector('.fee-card').children].map((e) => e.className).join(','), cta: document.querySelector('[data-act="request"]')?.textContent.trim() }));
   };
   const g = (n, qty = 1) => Array.from({ length: n }, () => ({ type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], qty, photos: 0 }));
   let r = await on02(g(2));
-  check('02 fee card 2 items → $25, no note', r.card === 'Visitation fee $25 · 2 items' && r.note === null && r.cta === 'Hold $25 Visitation Fee', JSON.stringify(r));
+  check('02 fee card 2 items → $25, no note, CTA Reserve Appt · $25 (round 9)', r.card === '$25 | Visitation fee · 2 items' && r.note === null && r.cta === 'Reserve Appt · $25', JSON.stringify(r));
+  check('  …garment-card layout: price column left, content right (round 9)', r.cols === 'fee-card__chip,fee-card__content', r.cols);
   // R7-U-03: the second line sums the form's alterations before the hold
   check('02 fee card line 2: Alterations est. $240 · paid at pickup or delivery (R7-U-03)', r.est === 'Alterations est. $240 · paid at pickup or delivery' && r.order === 'fee-card__line,fee-card__est', `"${r.est}" ${r.order}`);
   r = await on02(g(4));
-  check('02 fee card 4 items → still $25', r.card === 'Visitation fee $25 · 4 items' && r.note === null, JSON.stringify(r));
+  check('02 fee card 4 items → still $25', r.card === '$25 | Visitation fee · 4 items' && r.note === null, JSON.stringify(r));
   r = await on02(g(5));
-  check('02 fee card 5 items → $50 + note, CTA Hold $50', r.card === 'Visitation fee $50 · 5 items' && r.note === 'Helps cover transportation for larger appointments.' && r.cta === 'Hold $50 Visitation Fee', JSON.stringify(r));
+  check('02 fee card 5 items → $50 + note, CTA Reserve Appt · $50', r.card === '$50 | Visitation fee · 5 items' && r.note === 'Helps cover transportation for larger appointments.' && r.cta === 'Reserve Appt · $50', JSON.stringify(r));
   r = await on02(g(3, 2));   // 3 garments × qty 2 = 6 items (qty-aware)
-  check('02 fee card counts quantities (3 × 2 = 6 → $50)', r.card === 'Visitation fee $50 · 6 items' && r.cta === 'Hold $50 Visitation Fee', JSON.stringify(r));
+  check('02 fee card counts quantities (3 × 2 = 6 → $50)', r.card === '$50 | Visitation fee · 6 items' && r.cta === 'Reserve Appt · $50', JSON.stringify(r));
   r = await on02(g(10));
-  check('02 fee card 10 items → $50', r.card === 'Visitation fee $50 · 10 items', JSON.stringify(r));
+  check('02 fee card 10 items → $50', r.card === '$50 | Visitation fee · 10 items', JSON.stringify(r));
   r = await on02(g(11));
-  check('02 fee card 11 items → $100 + note, CTA Hold $100', r.card === 'Visitation fee $100 · 11 items' && r.note === 'Helps cover transportation for larger appointments.' && r.cta === 'Hold $100 Visitation Fee', JSON.stringify(r));
+  check('02 fee card 11 items → $100 + note, CTA Reserve Appt · $100', r.card === '$100 | Visitation fee · 11 items' && r.note === 'Helps cover transportation for larger appointments.' && r.cta === 'Reserve Appt · $100', JSON.stringify(r));
   check('  …line 2 follows the live sum, tier note stays third (R7-U-03)', r.est === 'Alterations est. $1320 · paid at pickup or delivery' && r.order === 'fee-card__line,fee-card__est,fee-card__note', `"${r.est}" ${r.order}`);
   // the payment sheet quotes the same fee
   await page.click('[data-act="request"]');

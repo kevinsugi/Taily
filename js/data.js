@@ -151,7 +151,18 @@ export const APPT_PLACES = ['Home Visit', 'Store Visit'];
    HOME visit at the customer's 88 Leonard St, 4B — 02's address sheet,
    03.2's "Marco will message you when he arrives" and the tailor page
    all already said so. */
-export const APPT_DEFAULT = { when: 'Jul 12, 7:00 PM', needBy: 'Jul 17, 3:00PM', where: 'Home Visit' };
+/* Round 9 (Kevin): both 02 pills start EMPTY — "Select Time" until the
+   wheel writes them (one grammar, fmtPill). Nothing is requested until
+   both are set. */
+export const APPT_DEFAULT = { when: null, needBy: null, where: 'Home Visit' };
+/** The 02 pills' one grammar — "Jul 12, 7:00 PM" (day alone when the
+    source carries no time). Copies from an appointment (reschedule,
+    re-request) pass through here so the two pills always match. */
+export function fmtPill(str) {
+  const p = parseWhen(str);
+  if (!p) return str ?? null;
+  return p.hour == null ? `${p.mon} ${p.day}` : `${p.mon} ${p.day}, ${clock(p)}`;
+}
 export const NEED_BY_OPTS = ['Thurs, Sept 1', 'Fri, Sept 2', 'Next week', 'Flexible'];
 
 /* Seed appointments. state.js deep-clones these so the app can be reset.

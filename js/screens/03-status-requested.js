@@ -107,7 +107,7 @@ export function viewRequested(s, forced = null) {
     ]
     : [
       metaRow('◉', `${s.contact.street}, ${s.contact.unit} — ${s.appt.where}`),
-      metaRow('▤', s.appt.when),
+      metaRow('▤', s.appt.when ?? fmtWhen(s.upcoming[0]?.when, 'Select Time')),
       metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.alterations)}.00+ est. · ${money(t.visitFee)} visitation fee held`),
     ];
   /* the acceptance window (the tailor side's timer twin) — R6: in the

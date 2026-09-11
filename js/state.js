@@ -64,6 +64,7 @@ import {
   mdy,
   isAfterDay,
   nextOrderId,
+  fmtPill,
 } from './data.js';
 
 /* ---------- UX-LOOP round 7 substrate: money model v2 (Kevin) ----------
@@ -266,7 +267,7 @@ export function refreshItemSummary(a) {
 export function requestTailor() {
   const totals = bookingLines(null);
   /* badge from the requested time ("Jul 12, 7:00 PM" → JUL / 12) */
-  const m = state.appt.when.match(/^([A-Za-z]+)\s+(\d+)/);
+  const m = String(state.appt.when ?? '').match(/^([A-Za-z]+)\s+(\d+)/);
   const { contact } = state;
   const home = state.appt.where === 'Home Visit';
   ensureGarmentIds(state.garments);
@@ -598,8 +599,8 @@ export function rescheduleAppointment(a = apptEntry()) {
   const res = cancelAppointment(a);
   if (!res) return null;
   copyItemsOver(a);
-  if (a.when) state.appt.when = a.when;
-  if (a.needBy) state.appt.needBy = a.needBy;
+  if (a.when) state.appt.when = fmtPill(a.when);
+  if (a.needBy) state.appt.needBy = fmtPill(a.needBy);
   if (a.visit) state.appt.where = a.visit;
   return res;
 }

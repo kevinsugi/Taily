@@ -880,3 +880,61 @@ commit; verification review of the sync (both flows, parity-focused).
   payout cadence); "paid if Sarah doesn't show" is agentless (optional reword); 03 variant frames
   above 844 hug their content by his rule; Leo Von's progress-bar colour differs between the T01
   frame and the build (pre-existing, non-money).
+
+
+## Round 9 — Kevin's user-flow edits (Sep 11 2026; Figma round 9, user page only)
+
+### Kevin's edits (verbatim intent)
+- 02: "Requested time" / "Need by" pills default to **Select Time**; both pills share one grammar.
+- 02: the Visitation Fee card takes the **garment card's layout** — the $25 on the left, the
+  description on the right.
+- 02 CTA: "Hold $25 Visitation Fee" → **"Reserve Appt · $25"** (Kevin typed a bullet "•"; built
+  with the app's middle dot "·" used by every other CTA / caption — flagged below).
+- 03/Confirmed: the booking garment cards' photo thumbnails **open the photo viewer** (the same
+  03.3 popup the post-appointment Before / Pinned rows use).
+
+### Results
+- **Pills.** `APPT_DEFAULT.when / needBy` start `null`; `filterPill` prints "Select Time" for an
+  empty value. `requestBlocker()` (02) keeps Reserve inert until the requested time AND the need-by
+  are picked (pill error line + toast: "Select a requested time" / "Select a need-by time", then the
+  R1-U-11 order rule); the wheel's Set Time clears the error in place. `fmtPill()` (data.js) is the
+  pills' one grammar — "Jul 12, 7:00 PM" (day alone when the source has no time); reschedule /
+  re-request copies pass through it, so the seed's "Sunday Jul 12, 7PM" / "Fri, Jul 17" read
+  "Jul 12, 7:00 PM" / "Jul 17". `requestTailor()` tolerates a null time (harness shortcuts);
+  03/Requested's deep-link form row falls back to the seed's time.
+- **Fee card.** `.fee-card` is the 02 garment card's chassis (pad 16/12/16/16, gap 12, r16, card
+  shadow): a 68px price column (`.fee-card__price`, the card's Medium 16 ink) and a content column
+  at gap 4 — "Visitation fee · 2 items" (garment-row SemiBold 16 ink), the Alterations est. line,
+  the tier note. It now sits INSIDE `.cta-bar` above the CTA, as the frame always drew it (the R7
+  build had it outside — that 12px offset was most of 02's 9.05 baseline). The 12px est. line wraps
+  to two lines in the narrower column on both sides (card 73 → 89 tall).
+- **CTA.** `Reserve Appt · ${fee}` — follows the tier ($25 / $50 / $100) like before.
+- **Photo viewer (booking mode).** `wireBookingPhotos(root)` (03.3 module) wires the ViewOnly
+  cards' tiles on 03/Confirmed (+ its Locked fixture, same wire): tap → `openPhotoViewer({ booking,
+  count, active })` = the same panel with title "<garment> — Your photos", sub "Added when you
+  booked", no Before / Pinned legend, one thumb per photo (tapped one active). Tiles get
+  role=button + labels; `.photo-tiles--tappable` cursor. 03/Reminder's and 03/Tailoring's
+  pre-visit tiles stay inert (Kevin named the Confirmed page only).
+- **Figma (user page).** 02 + the four sheet backdrops (02.1–02.4): both pill labels "Select
+  Time"; CTA "Reserve Appt · $25"; Fee Card rebuilt in place (HORIZONTAL, space/12 gap, space/16 ·
+  space/12 paddings, garment-card shadow, `Price Chip` 68×FILL centred "$25" Medium size/16 ink,
+  `Content` FILL column with the two lines, first SemiBold) — same node ids (640:2913 … 640:2925),
+  frame heights unchanged (02 stays 1012). New sibling frame `03.3 - Photo Viewer / Booking`
+  (654:5774, end of the 03 row): 03/Confirmed clone as backdrop, retitled panel, legend hidden,
+  thumbs 3–5 hidden, thumb 1 ringed, arrows re-centred on the stage → route
+  `03.3-photo-viewer-booking` (baseline 0.01).
+- **Harness.** 02 min-height 1012 (frame height). Refs re-exported for the six frames; 02 baseline
+  9.05 → 0.64 (accepted); the four sheets unchanged (0.22 / 0.05 / 0.64 / 0.42). Text parity passes
+  on all seven touched routes with no new ALLOWs. Click-through: pills default + blocked-request
+  checks, fee-card column assertions, `Reserve Appt` CTA per tier, reschedule pre-fill compared
+  through `fmtPill`; sync click-through: photos added on 02 (camera tile) so 03/Confirmed opens the
+  viewer in booking mode (title / sub / no legend / thumb count) and closes back to 03/Confirmed.
+
+### Flags for Kevin (low)
+- "•" vs "·": built "Reserve Appt · $25" with the app's middle dot. Say the word and it becomes "•".
+- The fee card's est. line now wraps to two lines (both sides). A shorter line ("Alterations est.
+  $200 · paid at handoff") would keep it to one — your call.
+- Copy I chose: "Select a requested time" / "Select a need-by time" (blocked request), and the
+  booking viewer's "<garment> — Your photos" / "Added when you booked".
+- 03/Reminder's booking cards still don't open the viewer (only 03/Confirmed per the ask); one
+  line to extend if wanted.

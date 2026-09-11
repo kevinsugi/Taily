@@ -12,6 +12,7 @@ import { register, render as go } from '../app.js';
 import { chrome, statusHero, summaryCard, cta, toast, orderCards, apptRows, receiptDates, orderRows } from '../components.js';
 import { state, isTerminal, isPostAppointment } from '../state.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
+import { wireBookingPhotos } from './03.3-photo-viewer.js';
 
 /* R7 (Kevin's money model v2): the summary prices the BOOKED order —
    "Alterations (est.)" / "Visitation fee — charged 7/7/26" (the fee
@@ -84,6 +85,9 @@ export function wire(root) {
     return;
   }
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));
+  /* Round 9 (Kevin): the booking cards' photo tiles open the 03.3 viewer
+     (booking mode) — same popup as the post-appointment Before/Pinned rows */
+  wireBookingPhotos(root);
   root.querySelector('[data-act="reschedule"]')?.addEventListener('click', () => openReschedulePopup());
   /* UX-004: Message works like 04D's; Calendar acknowledges */
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));

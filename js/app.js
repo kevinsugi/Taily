@@ -23,6 +23,8 @@ const SCREEN_MODULES = [
   '04-review-approve-removed', '05.1-window-confirmed-dated', '09-bookings-closed',
   /* UX-LOOP round 8 Figma money sync: sibling frames for the round-7 live-only states (fixture routes) */
   '03-status-reminder-locked', '03-status-confirmed-locked', '03-status-unconfirmed', '04-review-approve-retiered',
+  /* UX-LOOP round 9: 03/Confirmed's booking photos open the viewer (sibling frame, fixture route) */
+  '03.3-photo-viewer-booking',
   /* Tailor flow (Phase T) — Marco's view of the same appointment */
   't01-home', 't02-appointment-request', 't03-request-accepted', 't03a-decline-request', 't03b-job-cancelled',
   't04-appointment-details', 't05-confirm-final-pricing', 't06-appointment-status', 't07-job-ready', 't08-job-complete',

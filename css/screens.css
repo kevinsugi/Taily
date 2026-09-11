@@ -13,7 +13,7 @@
 
 /* 02 - Appointment Details â€” frame is 931 tall with dead space below
    the CTA bar; Filters frame is fixed 64 with 52px of content. */
-.screen[data-screen="02-appointment-details"] { min-height: 931px; }
+.screen[data-screen="02-appointment-details"] { min-height: 1012px; }   /* round 9: the frame grew to 1012 with the fee card */
 [data-s="02-appointment-details"] { gap: var(--space-16); }
 /* Phase R0: two pills split the 350 track 1:1 (171 each, gap 8) â€”
    the row no longer scrolls. */
@@ -50,7 +50,49 @@
 /* UX-LOOP round 7 (money model v2): 02's visitation-fee card above the
    CTA bar (R7-U-03: + the alterations estimate line), 03/Confirmed ·
    Reminder · Tailoring · 04's notes under the rows. */
-.fee-card { gap: var(--space-2, 2px); }
+/* Round 9 (Kevin): the fee card takes the 02 garment card's chassis —
+   same padding / gap / radius / shadow, a 68px price column on the left
+   (the card's price style: Medium 16 ink, centred) and the description
+   stacked at gap 4 on the right (the garment row's SemiBold 16 ink over
+   the 12px Medium n500 lines). */
+.fee-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-16) var(--space-12) var(--space-16) var(--space-16);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: 0 6px 8px rgba(28, 27, 24, 0.07), 0 2px 3px rgba(28, 27, 24, 0.06);
+}
+.fee-card__chip {
+  display: flex;
+  justify-content: center;
+  width: 68px;
+  flex-shrink: 0;
+}
+.fee-card__price {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.fee-card__content {
+  display: flex;
+  flex: 1 0 0;
+  min-width: 1px;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-right: var(--space-8);
+}
+.fee-card__line {
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--ink);
+}
 .fee-card__line, .fee-card__note, .fee-card__est { margin: 0; }
 .fee-note { margin: 0; }
 /* R7-U-01: 03/Reminder's "Before you confirm" callout in the actions
@@ -580,6 +622,11 @@
    the 300px strip are the frame's own off-grid values. */
 /* z3 clears the chrome (status bar / top nav sit at z2) */
 .pv-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 95%, transparent); z-index: 3; }
+/* Round 9: 03/Confirmed's booking photo tiles open the viewer (booking
+   mode — no legend, one thumb per photo); the tappable row gets the
+   Before/Pinned rows' cursor. */
+.photo-tiles--tappable { cursor: pointer; }
+.photo-tiles--tappable .photo-tile--photo:active { transform: scale(0.97); }
 .photo-viewer { position: absolute; z-index: 3; left: var(--space-20); right: var(--space-20); top: 128px; }
 .photo-viewer__header { display: flex; justify-content: space-between; align-items: flex-start; }
 .photo-viewer__titles { display: flex; flex-direction: column; gap: 2px; }

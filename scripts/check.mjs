@@ -26,7 +26,7 @@ const t0 = Date.now();
 const steps = [];
 
 /* the lines worth reading when a step passes */
-const SIGNAL = /^FAIL|FAILURE|CONSOLE ERRORS|Error|over gate|compared,|ALL ASSERTIONS|Text parity:|no console errors|^s*(missing|extra):/;
+const SIGNAL = /^FAIL|FAILURE|CONSOLE ERRORS|Error|over gate|compared,|ALL ASSERTIONS|Text parity:|no console errors|^\s*(missing|extra):/;
 
 function run(name, args) {
   console.log(`\n━━ ${name} ${'━'.repeat(Math.max(1, 60 - name.length))}`);

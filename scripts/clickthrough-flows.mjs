@@ -101,6 +101,7 @@ const EXPECT = {
   't-home-request': 'New Request',
   't-request': 'No-show protection',
   't-request-expired': 'Expired',
+  't-request-new-time': 'Propose ·',
   't-accepted': 'Booking Confirmed!',
   't-decline': 'Decline Request',
   't-suggest-time': 'Suggest Another Time',
@@ -127,7 +128,7 @@ const EXPECT = {
   't-no-show': 'for the trip',
   't-customer-cancelled': 'cancelled',
   't-withdrawn': 'withdrawn',
-  't-home-closed': 'Done today',
+  't-home-closed': 'Past Jobs',
   't-messages': 'Sarah',
 };
 

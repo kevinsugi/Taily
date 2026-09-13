@@ -215,6 +215,7 @@ export const FLOWS = {
         { key: 't-home-request', code: 'T01', title: 'Home — new request', screen: 't01-home', setup: (a) => asRequest(a) },
         { key: 't-request', code: 'T02', title: 'Appointment request', note: 'Payout and no-show protection', screen: 't02-appointment-request', setup: (a) => asRequest(a) },
         { key: 't-request-expired', code: 'T02', title: 'Request expired', screen: 't02-appointment-request', setup: (a) => { asRequest(a); expireAppointment(a); } },
+        { key: 't-request-new-time', code: 'T02', title: 'Request new time', note: 'The propose wheel', screen: 't02-appointment-request', setup: (a) => asRequest(a), click: ['[data-act="new-time"]'] },
         { key: 't-accepted', code: 'T03', title: 'Booking confirmed', note: 'Right after Accept', screen: 't03-request-accepted', setup: (a) => { accepted(a); tailorOf(a).justAccepted = true; } },
         { key: 't-decline', code: 'T03A', title: 'Decline request', screen: 't03a-decline-request', setup: (a) => asRequest(a) },
         { key: 't-suggest-time', code: 'T03A', title: 'Decline — suggest another time', note: 'Schedule conflict selected', screen: 't03a-decline-request', setup: (a) => { asRequest(a); tailorOf(a).declineReason = 0; } },

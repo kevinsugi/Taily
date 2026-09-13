@@ -31,10 +31,11 @@
 
 import { register, render as go, back } from '../app.js';
 import { summaryCard, garmentCard, cta, toast } from '../components.js';
-import { money, garmentAmount } from '../data.js';
+import { money, garmentAmount, fmtDay } from '../data.js';
+import { proposeNewTime } from './t03a-decline-request.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, payoutRows } from '../tailor-components.js';
-import { current, jobView, tailorOf, isFixture, isSeed, restartTimer, stampAcceptedPayout, T, CUSTOMER, REQUEST_ROWS } from '../tailor-data.js';
+import { current, jobView, tailorOf, isFixture, isSeed, restartTimer, stampAcceptedPayout, proposalDays, T, CUSTOMER, REQUEST_ROWS } from '../tailor-data.js';
 
 /** The booked order as ViewOnly cards (shared with T03). */
 export function bookedCards(v) {
@@ -69,12 +70,13 @@ export function viewRequest(s, mode = null) {
   const actions = expired
     ? cta('Back to Home', { attrs: 'data-act="home"' })
     : accepted
-      ? cta('Accepted', { attrs: 'data-act="accept"' })
+      ? cta('Back to Home', { attrs: 'data-act="home"' })   /* round 11: the Accepted frame's single CTA */
       : proposed
         ? `${cta('Withdraw Proposal', { attrs: 'data-act="withdraw"' })}
     ${cta('Decline', { variant: 'secondary', attrs: 'data-act="decline"' })}`
         : `${cta(`Accept Request · ${v.money.payout}`, { attrs: 'data-act="accept"' })}
-    ${cta('Decline', { variant: 'secondary', attrs: 'data-act="decline"' })}`;
+    ${cta('Decline', { variant: 'secondary', attrs: 'data-act="decline"' })}
+    ${cta('Request New Time', { variant: 'secondary', attrs: 'data-act="new-time"' })}`;
   return `${tailorChrome('home')}
 <div class="body" data-s="t02-appointment-request">
   <div class="t-header">
@@ -113,6 +115,14 @@ export function wire(root) {
     go('t03-request-accepted', { replace: true });   // R2-T-11: back never re-offers Accept
   });
   root.querySelector('[data-act="decline"]')?.addEventListener('click', () => go('t03a-decline-request'));
+  /* round 11 (Kevin): propose another time straight from the request —
+     the 02.1 wheel ("Propose · …"); a proposal lands on T01 */
+  root.querySelector('[data-act="new-time"]')?.addEventListener('click', () => {
+    const a = current(state);
+    if (!a || jobView(a).canon !== 'searching') { toast('This request is no longer open'); return; }
+    if (!proposalDays(a).length) { toast(`Sarah needs these by ${fmtDay(a.needBy)} — no later slot to offer`); return; }
+    proposeNewTime(a);
+  });
   root.querySelector('[data-act="withdraw"]')?.addEventListener('click', () => {
     const a = current(state);
     if (!a?.proposed || !T.withdrawProposal(a)) { toast('No proposal to withdraw'); return; }

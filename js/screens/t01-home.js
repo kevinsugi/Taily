@@ -134,7 +134,7 @@ export function viewTailorHome(s) {
     ${active.join('\n    ')}
     ${jobCard({ ...FILLER_JOB, attrs: 'data-act="filler"' })}
   </div>
-  ${done.length ? `${sectionRow('Done today', clearLink, 'clear-done')}
+  ${done.length ? `${sectionRow('Past Jobs', clearLink, 'clear-done')}
   <div class="t-actions t-actions--16 t-done">
     ${done.join('\n    ')}
   </div>` : ''}
@@ -161,11 +161,6 @@ export function wire(root) {
 
   root.querySelectorAll('[data-act="view-details"]').forEach((el) => el.addEventListener('click', () => { setCurrent(at(el)); go('t02-appointment-request'); }));
   root.querySelectorAll('[data-act="decline"]').forEach((el) => el.addEventListener('click', () => { setCurrent(at(el)); go('t03a-decline-request'); }));
-  root.querySelectorAll('[data-act="withdraw"]').forEach((el) => el.addEventListener('click', () => {
-    const a = at(el);
-    /* R3-T-02: Marco's own act — Sarah did nothing */
-    if (T.withdrawProposal(a)) { restartTimer(a); toast('Proposal withdrawn'); rerender(); }
-  }));
   root.querySelectorAll('[data-act="open-job"]').forEach((el) => el.addEventListener('click', () => { const a = at(el); setCurrent(a); go(jobTarget(a)); }));
   root.querySelector('[data-act="filler"]')?.addEventListener('click', () => toast('Leo Von’s job is outside this prototype'));
   root.querySelector('[data-act="view-all"]')?.addEventListener('click', () => toast('All jobs are outside this prototype'));

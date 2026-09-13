@@ -99,16 +99,15 @@ export function requestCard({
   const key = ` data-req="${idx}"`;
   /* R3-T-03: "$108 · 1 item" — two same-day requests differ by more than the payout */
   const head = `<b>${payout}</b>${count ? `<span class="req-card__count">· ${count}</span>` : ''}`;
-  const actions = proposed
-    ? `<p class="req-card__proposed">Time proposed · ${proposed} — waiting for Sarah</p>
-    <div class="req-card__actions">
-      ${ctaSmall('View Details', { attrs: `data-act="view-details"${key}` }).replace('class="cta-small"', 'class="cta-small cta-small--dark"')}
-      <button type="button" class="t-link req-card__withdraw" data-act="withdraw"${key}>Withdraw</button>
-    </div>`
-    : `<div class="req-card__actions">
+  /* Round 11 (Kevin's Appt_Request component, 659:6509): Default and
+     NewTime variants share the same actions — View Details + Decline;
+     NewTime adds the "Time proposed …" line under the items. Withdraw
+     lives on T02 (Withdraw Proposal), not on the card. */
+  const actions = `<div class="req-card__actions">
       ${ctaSmall('View Details', { attrs: `data-act="view-details"${key}` }).replace('class="cta-small"', 'class="cta-small cta-small--dark"')}
       ${ctaSmall('Decline', { attrs: `data-act="decline"${key}` })}
     </div>`;
+  const proposedLine = proposed ? `<p class="req-card__proposed">Time proposed · ${proposed} — waiting for Sarah</p>` : '';
   return `<article class="req-card"${key}>
   <div class="req-card__timer" data-act="time-passes"${key} title="Demo: time passes"><span data-timer${key}>${expires}</span><span>${where}</span></div>
   <div class="req-card__details">
@@ -116,7 +115,10 @@ export function requestCard({
       <div class="req-card__name">${head}<span>|</span><span>${name}</span></div>
       <div class="req-card__meta"><span>${meta}</span><span>◉ <b>${address}</b></span>${note ? `<span class="req-card__note">${note}</span>` : ''}</div>
     </div>
-    <ul class="req-card__items">${lines.map((l) => `<li>${l}</li>`).join('')}</ul>
+    <div class="req-card__items-block">
+      <ul class="req-card__items">${lines.map((l) => `<li>${l}</li>`).join('')}</ul>
+      ${proposedLine}
+    </div>
     ${actions}
   </div>
 </article>`;

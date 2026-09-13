@@ -10,8 +10,6 @@
 /* frame heights: shorter than the 844 stage, or dead space below the
    last child (T01 / T03 end well under their frames, like 02) */
 .screen[data-screen="t01-home"] { min-height: 988px; }
-.screen[data-screen="t03-request-accepted"] { min-height: 897.5px; }
-.screen[data-screen="t03a-decline-request"] { min-height: 635.5px; }
 .screen[data-screen="t03b-job-cancelled"] { min-height: 415.5px; }
 .screen[data-screen="t07-job-ready"] { min-height: 640px; }
 .screen[data-screen="t08-job-complete"] { min-height: 595px; }
@@ -24,11 +22,6 @@
 .screen[data-screen="t03b-by-you"],
 .screen[data-screen="t03b-withdrawn"] { min-height: 415.5px; }
 .screen[data-screen="t03b-no-show"] { min-height: 394.5px; }
-.screen[data-screen="t05-removed"] { min-height: 1049.5px; }
-.screen[data-screen="t06-questions"] { min-height: 1554px; }   /* round 10: + Edit Details */
-/* round 10 (Kevin): Edit Details → resend sibling frames */
-.screen[data-screen="t06-awaiting"] { min-height: 1467px; }
-.screen[data-screen="t05-resend"] { min-height: 1263.33px; }
 .screen[data-screen="t07-waiting"] { min-height: 640px; }
 .screen[data-screen="t10-messages"] { min-height: 1103px; }
 [data-s="t03b-job-cancelled"] .status-hero,
@@ -117,6 +110,9 @@
   font-weight: 400;
   color: var(--neutral-500);
 }
+/* round 11: the Items frame holds the list and, on the NewTime variant,
+   the proposed line (SemiBold 12 accent-ink, no bullet) at gap 4 */
+.req-card__items-block { display: flex; flex-direction: column; gap: var(--space-4); }
 .req-card__actions { display: flex; gap: var(--space-12); width: 100%; }
 .req-card__actions .cta-small { padding-block: var(--space-8); }
 .cta-small--dark { background: var(--ink); color: var(--neutral-50); box-shadow: none; }

@@ -1145,7 +1145,7 @@ async function tailorProposes(label) {
   await assertText(`[T] ${label}: Schedule conflict → Suggest Another Time`, '[data-act="decline"]', 'Suggest Another Time');
   await page.click('[data-act="decline"]');
   await page.waitForTimeout(500);
-  await assertText(`[T] ${label}: the time wheel opens, titled for a proposal`, '.screen-sheet--overlay .sheet__title', 'Suggest another time');
+  await assertText(`[T] ${label}: the time wheel opens, titled for a proposal`, '.screen-sheet--overlay .sheet__title', 'Request New Time');
   /* R3-U-02 / R3-T-01: the wheel offers the requested day → the need-by day, nothing later */
   {
     const a0 = await shared();
@@ -1181,7 +1181,7 @@ async function tailorProposes(label) {
   log(!!p && a.proposed.by === 'tailor' && a.status === 'searching' && p !== a.when && a.tailor?.expiresAt > Date.now() + 80 * 60000, `[S] ${label}: a.proposed set by the tailor, status unchanged, timer restarted`, `proposed=${p} when=${a?.when}`);
   const when = await fmtWhen(p);
   await assertText(`[T] ${label}: T01 card reads Time proposed … waiting for Sarah`, '.req-card__proposed', `Time proposed · ${when} — waiting for Sarah`);
-  await assertTrue(`[T] ${label}: T01 card offers Withdraw, no Decline`, () => !!document.querySelector('.req-card [data-act="withdraw"]') && !document.querySelector('.req-card [data-act="decline"]'));
+  await assertTrue(`[T] ${label}: T01 card offers Decline, no Withdraw (round 11: Withdraw lives on T02)`, () => !!document.querySelector('.req-card [data-act="decline"]') && !document.querySelector('.req-card [data-act="withdraw"]'));
   return { a, proposed: p, when };
 }
 
@@ -1254,8 +1254,10 @@ await fresh('F');
   await assertTrue('[C] 01 proposed card drops the matching note (R3-U-07)', () => !document.querySelector('.appt-card__note') && /^New time proposed/.test(document.querySelector('.appt-card__meta')?.textContent.trim() ?? ''));
   await flip();
   await assertAt('[T] View as Tailor (proposal 2 pending)', 't01-home', 'searching', 'tailor');
-  await page.click('.req-card [data-act="withdraw"]');
-  await assertAt('[T] Withdraw → T01', 't01-home', 'searching', 'tailor');
+  await page.click('.req-card [data-act="view-details"]');
+  await assertAt('[T] View Details → T02 (proposal pending)', 't02-appointment-request', 'searching', 'tailor');
+  await page.click('[data-act="withdraw"]');
+  await assertAt('[T] Withdraw (T02) → T01', 't01-home', 'searching', 'tailor');
   assertIncludes('[T] Withdraw toast (Marco’s own act, R3-T-02)', await q('toast'), 'Proposal withdrawn');
   await assertTrue('[T] T01 card back to Decline + You withdrew your proposed time', () => !!document.querySelector('.req-card [data-act="decline"]') && !document.querySelector('.req-card__proposed') && /You withdrew your proposed time/.test(document.querySelector('.req-card')?.textContent ?? '') && !/Sarah kept her original time/.test(document.querySelector('.req-card')?.textContent ?? ''));
   {
@@ -1305,7 +1307,7 @@ await fresh('F');
   await assertAt('[T] job card → T03 pre-visit', 't03-request-accepted', 'confirmed');
   assertIncludes('[T] T03 pre-visit sub = the new when', await q('text', '.t-header .t-body'), `${p3.when} at 88 Leonard St, 4B`);
   await render('t02-appointment-request');
-  await assertText('[T] T02 for the accepted job reads Accepted', '.t-actions .cta', 'Accepted');
+  await assertText('[T] T02 for the accepted job offers Back to Home (round 11)', '.t-actions .cta', 'Back to Home');
   /* R3-U-02 downstream: run the job to ready in the substrate — readyAt is never before the (accepted) visit */
   {
     const r = await page.evaluate(() => {

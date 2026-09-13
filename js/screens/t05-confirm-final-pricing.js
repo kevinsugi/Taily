@@ -3,7 +3,7 @@
    "Confirm Details" + "Reviewed with Sarah at the visit"; the draft
    order with what changed at the visit in semantic/info (card 1's
    added Sleeve + $200, the added third jacket), fee rows,
-   Send to Sarah for Approval / Review Details. Active=T-Calendar.
+   Send to Sarah for Approval / Edit Details (round 11, was Review Details). Active=T-Calendar.
 
    UX-LOOP R1-T-03/06/07: Send writes the draft into a.garments /
    a.totals (the shared final order), runs completeAppointment(),
@@ -55,7 +55,7 @@ export function viewPricing(s, forced = null) {
   <div class="t-actions">
     ${payoutChangeRow(payoutChange(a, draft, forced ? orderMoney(forced.booked).payout : undefined))}
     ${cta(resend ? 'Resend to Sarah for Approval' : 'Send to Sarah for Approval', { attrs: 'data-act="send"' })}
-    ${cta('Review Details', { variant: 'secondary', attrs: 'data-act="review"' })}
+    ${cta('Edit Details', { variant: 'secondary', attrs: 'data-act="review"' })}   <!-- round 11: Kevin renamed Review Details -->
   </div>
 </div>`;
 }

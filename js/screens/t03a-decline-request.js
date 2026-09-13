@@ -74,7 +74,11 @@ export function viewDecline(s, mode = null) {
 </div>`;
 }
 
-function suggestTime(a) {
+/** Round 11 (Kevin): the proposal wheel — the 02.1 sheet titled
+    "Request New Time" with a "Propose · <day> at <time>" CTA, bounded by
+    Sarah's need-by. Shared by T02's Request New Time and T03A's
+    Schedule-conflict primary; a proposal lands on T01 (the NewTime card). */
+export function proposeNewTime(a) {
   openDateTimeOverlay('custom', (p) => {
     const when = `${p.md}, ${p.time}`;
     if (!T.propose(a, when)) {
@@ -88,16 +92,16 @@ function suggestTime(a) {
     toast(`Proposed ${fmtWhen(when)} — waiting for Sarah`);
     go('t01-home');
   }, {
+    header: 'Request New Time',
+    cta: 'Propose',
     days: proposalDays(a),
     /* R4-U-03 / R4-T-01: on the need-by day only the slots before the
        need-by time */
     hoursFor: (day) => proposalHours(a, day),
     minsFor: (day, hour) => proposalMins(a, day, hour),
   });
-  /* the shared picker is titled for its 05A/05B use; this is a proposal */
-  const title = document.querySelector('#screen .screen-sheet--overlay .sheet__title');
-  if (title) title.textContent = 'Suggest another time';
 }
+const suggestTime = proposeNewTime;
 
 export function wire(root) {
   wireTailorNav(root);

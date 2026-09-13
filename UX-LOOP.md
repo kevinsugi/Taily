@@ -1013,3 +1013,73 @@ commit; verification review of the sync (both flows, parity-focused).
 - The resend note copy is mine: "I updated the order — please take another look and approve it
   when it looks right." and the 04 line "Marco updated the order on <day>. Changes are highlighted
   below."
+
+
+## Round 11 — Kevin's tailor edits: Appt_Request component, Request New Time, frame cleanup (Sep 13 2026)
+
+### Kevin's asks and answers
+- **Appt_Request component** (Components page 659:6509, `Property 1 = Default | NewTime`) is the
+  T01 request card; T01 / Closed Rows uses NewTime. Both variants end in View Details + Decline;
+  NewTime adds "Time proposed · … — waiting for Sarah" under the items. Answer: **Decline on the
+  card opens T03A** (reasons), like T02's Decline.
+- **T02 "Request New Time"** (third CTA, secondary): opens the 02.1 date & time sheet as
+  "Request New Time" with a **Propose · <day> at <time>** CTA; proposing lands on T01 with the
+  NewTime card. Answer: **keep both** entry points — T03A's Schedule-conflict primary uses the
+  same wheel (`proposeNewTime` in t03a-decline-request.js).
+- **Frames as the source of truth**: Kevin deleted T03 Booking Confirmed, T03A Decline (base),
+  T05 Removed, T06 Sarah Has Questions and round 10's T06 Awaiting Approval / T05 Resend. Answer:
+  follow the frames; **review** other redundant / conflicting frames (list below), no deletions
+  by me.
+- **T01**: build to the new frames now — "Done today" is **Past Jobs** (Clear kept); the Active
+  Jobs list follows the frame.
+
+### Results
+- `requestCard` (tailor-components) renders the component: Timer strip / $payout | name / meta
+  rows / items (+ the NewTime line in `.req-card__items-block`) / View Details + Decline. Withdraw
+  is T02's **Withdraw Proposal** only (the card's link is gone).
+- `openDateTimeOverlay` gained `opts.header` / `opts.cta` (the verb before "· <day> at <time>");
+  `proposeNewTime(a)` (exported from t03a) titles it "Request New Time" / "Propose", bounded by
+  Sarah's need-by (day + time), restarts the request timer and lands on T01. T02's new CTA calls
+  it (toasts when the request is no longer open or no slot before the need-by remains).
+- T01: "Past Jobs" section (rows unchanged: delivered, cancelled-by-you, no-show · $X, withdrawn,
+  expired; Clear). The base frame's Sarah card is an un-overridden Active Job Card (APPT / 8/29 /
+  $102) — built live (JUL 12 / $200 / Confirmed), parity ALLOWs the defaults, baseline 2.19.
+- Harness: the six deleted frames left `screens.json` (60 screens), their refs and route
+  min-heights are gone; their routes stay registered (Test flows menu). New flow entry
+  `t-request-new-time` (T02 → the propose wheel). Tailor / sync click-throughs withdraw via T02.
+  Refs re-exported: T01, T01 Closed Rows, T02 (baselines 2.19 / 1.80 / 14.36 — the T02 fast-build
+  baseline was 15.06).
+
+### Frame review — redundant or conflicting (no deletions made; your call)
+Rule I applied when reading: a sibling frame earns its place when it changes LAYOUT (rows added,
+a section, a different card); a frame that differs only by copy, a pill or one CTA is a code
+state the Test flows menu already covers.
+- **Copy-only siblings (candidates to delete):** tailor `T02 / Accepted`, `T02 / Expired`,
+  `T03B / By You`, `T03B / No-Show`, `T03B / Withdrawn`, `T07 / Waiting`, `T03A / Suggest Time`
+  (T02's Request New Time now covers the path; T03A's primary flips label only); user
+  `03 / Confirmed Locked`, `03 / Reminder Locked` (pill + callout only), `05.1 / Dated`,
+  `03.3 / Booking` (the same viewer minus the legend).
+- **Stray:** `01 - Home` (455:2081) sits on the tailor page — a copy of the user Home, not keyed
+  to any route.
+- **Conflicts to resolve:**
+  - `T01 - Home / View Requests` (the base T01, 455:3560): Sarah's Active Job Card is
+    un-overridden — reads APPT / 8/29 / $102 where the fiction is JUL 12 / $200; Leo Von's reads
+    DUE / 9/2 (the master's default) where every other frame says SEP 2.
+  - Active Job Card master (470:3993): the items label was re-created and defaults to "2 Suit
+    Jackets"; T06's instance carries the "3 Suit Jackets" override (three jackets after the visit).
+  - `02 - Appointment Details` (657:4875): card 2 has no service line ($80 with no job); the
+    Additional Service selector is a detached 155×29 frame where the Selector master is 159×32.
+  - `03 - Order Status / New Time` inherits 03/Requested's stale "Thu, Jul 9 · 9:30 AM" fixture
+    (ALLOW'd since round 3).
+  - `T03A / Suggest Time` vs T02's new CTA: two entry points to one wheel (you chose to keep both).
+- **Kept as-is (they change layout):** T01 / Closed Rows, T03A / Other, T03.1, T03 / Upcoming
+  Visit, 03 Expired / Declined / Tailor Cancelled / No-Show / New Time / Unconfirmed, 04 Removed /
+  Re-tiered, 09 Closed Cards, 02.1–02.4, 03.1–03.3, 04.1, 05.1, 06.1.
+
+### Flags (low)
+- **Sibling / base conflict (untracked edit):** T02 / Accepted, T02 / Expired and T03 / Upcoming Visit now end the address row with "· 1.2 mi" ("·1.2 mi", no space, on Expired and T03) while the T02 base row is "◉ 88 Leonard Street, 4B". Built to the base; parity ALLOWs the three siblings.
+- **Adopted from your latest edits:** T05's secondary CTA reads "Edit Details" (was Review Details); T02 / Accepted's single CTA is "Back to Home" (the build's accepted state now offers it instead of the inert "Accepted").
+- Kevin wrote "Propose - (time)"; built "Propose · Sun, Jul 12 at 10:00 AM" (the app's middle
+  dot and the sheet's day/time grammar).
+- The T02 CTA is inert once a proposal is out (T02 then shows Withdraw Proposal / Decline, as
+  before) and toasts when no slot before the need-by is left.

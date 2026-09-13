@@ -136,10 +136,13 @@ function setPillValue(act, value) {
 export function openDateTimeOverlay(mode = 'appt', onSet, opts = {}) {
   const cols = mode === 'custom' ? customWheel(opts.days, opts) : apptWheel(mode);
   const start = pick(cols.map((c) => c.rows[c.sel]));
+  /* round 11 (Kevin): the tailor's proposal reuses this sheet with its
+     own header and CTA verb — `opts.header`, `opts.cta` ("Propose") */
+  const label = (p) => `${opts.cta ?? 'Set Time'} · ${p.day} at ${p.time}`;
   const content = wheelScroll(cols)
-    + cta(`Set Time · ${start.day} at ${start.time}`, { attrs: 'data-act="set-time"' });
+    + cta(label(start), { attrs: 'data-act="set-time"' });
   sheetOverlay(content, {
-    header: mode === 'needby' ? 'Need By' : mode === 'custom' ? 'Custom pickup time' : 'Date &amp; Time',
+    header: opts.header ?? (mode === 'needby' ? 'Need By' : mode === 'custom' ? 'Custom pickup time' : 'Date &amp; Time'),
     variant: 'picker',
     dataS: '02.1-date-time-sheet',
   }, (root, close) => {
@@ -158,7 +161,7 @@ export function openDateTimeOverlay(mode = 'appt', onSet, opts = {}) {
     };
     const updateCta = () => {
       const p = readPick(root, cols);
-      ctaEl.textContent = `Set Time · ${p.day} at ${p.time}`;
+      ctaEl.textContent = label(p);
     };
     // CTA label follows the wheels as they settle (v3 updateWheelCta)
     wireWheel(root, () => { capSlots(); updateCta(); });

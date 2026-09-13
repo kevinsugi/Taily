@@ -16,7 +16,7 @@ import { register, render as go } from '../app.js';
 import { chrome, infoCard, infoRow, cta } from '../components.js';
 import { money, DELIVERY_FEE } from '../data.js';
 import { finalOrder } from '../state.js';
-import { state, chooseFulfilment } from '../state.js';
+import { state, chooseFulfilment, homeAddress, FIXTURE_CONTACT } from '../state.js';
 import { winSel, windowDate, windowDated, windowsHtml, wireWindows, amountDue } from './05a-pickup-window.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
 import { openWindowConfirmed } from './05.1-window-confirmed.js';
@@ -45,7 +45,7 @@ export function viewDelivery(s) {
   </div>
   <div class="prepare-card">
     <p class="t-caps c-500">DELIVER TO</p>
-    <p class="t-body w-600 c-ink" data-addr-full>${s.contact.street}, ${s.contact.unit} — New York, NY ${s.contact.zip}</p>
+    <p class="t-body w-600 c-ink" data-addr-full>${homeAddress()} — New York, NY ${s.contact.zip || FIXTURE_CONTACT.zip}</p>
     <button type="button" class="t-small w-600 address-card__change" data-act="change">Change address</button>
   </div>
   ${windowsHtml(sel)}

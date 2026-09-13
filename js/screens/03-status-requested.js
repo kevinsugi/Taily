@@ -36,6 +36,7 @@ import {
   state, tailorAccepts, bookingLines, isTerminal,
   proposeTime, acceptProposedTime, declineProposedTime, expireAppointment,
 } from '../state.js';
+import { homeAddress } from '../state.js';   // round 12: the entered address, else the seed's
 import { ensureGarments } from './02-appointment-details.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
 import { currentAppt } from './03-status-confirmed.js';
@@ -83,7 +84,7 @@ export function viewRequested(s, forced = null) {
      something to price */
   ensureGarments();
   const t = bookingLines(null);
-  const n = s.garments.reduce((sum, g) => sum + g.qty, 0);
+  const n = s.garments.length;   // round 12: one garment = one item
   const a = forced ?? (live() ? currentAppt(s) : null);
   const proposed = a?.proposed?.when ?? null;
   /* R3-U-02: the proposal is bounded by the need-by (proposeTime) —
@@ -108,7 +109,7 @@ export function viewRequested(s, forced = null) {
       metaRow('🏠', `${money(req.totals.visitFee)} visitation fee`),
     ]
     : [
-      metaRow('◉', `${s.contact.street}, ${s.contact.unit} — ${s.appt.where}`),
+      metaRow('◉', `${homeAddress()} — ${s.appt.where}`),
       metaRow('▤', s.appt.when ?? fmtWhen(s.upcoming[0]?.when, 'Select Time')),
       metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.alterations)}.00+ est.`),
       metaRow('🏠', `${money(t.visitFee)} visitation fee`),

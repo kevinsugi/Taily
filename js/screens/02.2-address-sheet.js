@@ -9,7 +9,7 @@
 
 import { register, render as go, back } from '../app.js';
 import { sheet, sheetOverlay, cta, wireSheetA11y } from '../components.js';
-import { state } from '../state.js';
+import { state, addressLine, FIXTURE_CONTACT } from '../state.js';
 import { view02 } from './02-appointment-details.js';
 import { ICON_LOCATION_PIN } from '../icons.js';
 
@@ -73,7 +73,7 @@ export function openAddressOverlay() {
          (01/02 heading address = [data-addr-text]; 07B's DELIVER TO
          line = [data-addr-full]) */
       const homeLine = document.querySelector('#screen [data-addr-text]');
-      if (homeLine) homeLine.textContent = `${state.contact.street}, ${state.userLoc}`;
+      if (homeLine) homeLine.textContent = addressLine();
       const fullLine = document.querySelector('#screen [data-addr-full]');
       if (fullLine) fullLine.textContent = `${state.contact.street}, ${state.contact.unit} — New York, NY ${state.contact.zip}`;
       close();
@@ -84,7 +84,7 @@ export function openAddressOverlay() {
 function renderScreen() {
   return `<div class="screen-sheet" data-s="02.2-address-sheet">
   <div class="sheet-backdrop" aria-hidden="true">${view02(state)}</div>
-  ${sheet(formContent(state.contact))}
+  ${sheet(formContent(state.contact.street ? state.contact : FIXTURE_CONTACT))}
 </div>`;
 }
 

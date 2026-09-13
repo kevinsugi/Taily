@@ -1083,3 +1083,65 @@ state the Test flows menu already covers.
   dot and the sheet's day/time grammar).
 - The T02 CTA is inert once a proposal is out (T02 then shows Withdraw Proposal / Decline, as
   before) and toasts when no slot before the need-by is left.
+
+
+## Round 12 — money model v3 (tiers + tailor cut), one card per garment, address gate, 04.1 / 06.1 (Sep 13 2026)
+
+### Kevin's asks and answers
+- **Fee Update Screen** (04 / Re-tiered): show the updated amount in blue, never the fee twice.
+  Answer: one row, "$90 | Visitation fee — 5 items, $90 tier" in semantic/info, the fee-note
+  under the rows keeps the explanation ("… now $90. The extra $40 is charged with your
+  alterations at handoff.").
+- **Visitation fee tiers**: customer $50 / $90 / $150, tailor's cut $25 / $50 / $90. Answer:
+  bands 1–4 / 5–10 / 11+ (as before); the cut is its own "Visitation fee" row and **Your payout
+  includes it**; no-show compensation = the cut.
+- **01 Home**: plus icon above the badge, controls stacked vertically (01a - Home_Selected).
+- **01 / 02**: address defaults to "Please Enter Address"; every garment on its own card, the
+  quantity selector is gone (02 - Appointment Details). Answer: quantity leaves the model
+  everywhere (every garment is one item; Home + / − add or remove a card); Reserve is gated on
+  the address (toast + the 02.2 sheet opens), the seed's booking keeps 88 Leonard St.
+- **04.1**: new copy; Sounds Good only closes. Answer: the round-2 "Sarah has questions" trace
+  (requestChanges, canned chat bubble, T06 / T01 state) is removed entirely.
+- **06.1**: five stars by default; Confirm → "Review Submitted", gone after 2 s or on a tap.
+  Answer: sibling frame "06.1 - Leave Review / Submitted" (check + title only).
+- Figma: everything not already drawn was written via the API (01a and 02 were Kevin's).
+
+### Results
+- data.js: `VISIT_FEE_TIERS` 50 / 90 / 150, `TAILOR_FEE_TIERS` 25 / 50 / 90 (`tailorFee`),
+  `payoutParts()` / `payout()` = alterations + cut, `noShowComp(items)` = the cut, `itemCount` =
+  garments.length; seeds $200 + $50 = $250, final $360 + $50 = $410 (+ $20 delivery = $430),
+  past $120 + $50 = $170; `qty` is gone from every seed, fixture and write path.
+- components.js: `orderRows` draws ONE fee row — the re-tiered amount in info with
+  `retieredFeeCaption` ("Visitation fee — 5 items, $90 tier"); `receiptRows` folds the extra into
+  the paid row; editable garment cards have no quantity selector; the selected tile stacks
+  plus / badge / minus (`TILE_PLUS`, assets/icons/tile-plus.svg).
+- tailor side: `jobView` / `orderMoney` carry `visitCut`; `payoutRows` prints "$25 Visitation fee"
+  above "Your payout" (T02 / T03 / T04 / T05 / T06 / T07 / T08 + the T08 payout summary row);
+  seed payout $200 → **$225**, final $360 → **$385**, T05 "Payout $225 → $385 (+$160)"; the
+  customer-pricing sweep now allows the tailor's own row and forbids the customer captions.
+- state.js: `contact.street` starts empty; `ADDRESS_PLACEHOLDER` / `hasAddress` / `addressLine` /
+  `homeAddress(a)` / `FIXTURE_CONTACT`; 02's `requestBlocker` checks the address first (toast
+  "Enter your address" + the 02.2 sheet); `requestChanges` removed; `approveOrder` simplified.
+- 04.1: informational only. 06.1: `rating = 5`, `submittedHtml()` swaps in after Confirm
+  (`SUBMITTED_MS` = 2000, first tap dismisses), route `06.1-leave-review-submitted`.
+- Test flows: `c-review-submitted` added, `t-status-questions` retired (`t06-questions` route
+  deleted).
+- Figma (API): every "$25" fee → "$50", "$225" → "$250", "$385" → "$410", "$405" → "$430",
+  "$305" → "$330" on both pages' frames + backdrops and the fee bodies ("your $50 visitation
+  fee…", "Hold your $50…", "Reserve Appt · $50"); 04 / Re-tiered = one $90 info row + caption +
+  note, two Pants / Jeans cards at $120; 04.1 body; 01 / 01a / 02 + the 02.1–02.4 backdrops read
+  "📍 Please Enter Address" (01 was already Kevin's); 06.1 fifth star filled; new frame
+  684:5355. Tailor page: payouts $225 / $385, "Accept Request · $225", new "Visitation fee $25"
+  Fee Rows above every "Your payout" (hairline from T02's rows), No-show protection $25, T03B
+  "$25 for the trip", T01 / Closed Rows "No-show · $25", T08 "Visitation fee $25" price row.
+- Harness: customer 220 / tailor 361 / sync 1008 / flows 89 assertions; refs re-exported;
+  baselines re-accepted for the money frames.
+
+### Flags (low)
+- The 02.2 address-sheet frame still draws the filled form (88 Leonard St / 4B / 10013) —
+  the route renders that fixture when nothing is entered; live it opens empty.
+- 05b's "Due at delivery" breakdown still lists the re-tier difference as "Additional
+  visitation fee $40" (it is the amount still owed, not the fee again) — say if you want it
+  folded too.
+- T02 / T03 frames print the tailor's "$25 Visitation fee" row — the tailor never sees the
+  customer's $50 / $90 / $150; the click-through sweeps for those captions.

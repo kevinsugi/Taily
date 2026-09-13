@@ -25,13 +25,14 @@ const SCREEN_MODULES = [
   '03-status-reminder-locked', '03-status-confirmed-locked', '03-status-unconfirmed', '04-review-approve-retiered',
   /* UX-LOOP round 9: 03/Confirmed's booking photos open the viewer (sibling frame, fixture route) */
   '03.3-photo-viewer-booking',
+  /* Round 12: the Leave Review sheet's "Review Submitted" state (sibling frame; registered by 06.1's module) */
   /* Round 10: the tailor's Edit Details → resend (sibling frames, fixture routes) */
   't06-awaiting', 't05-resend',
   /* Tailor flow (Phase T) — Marco's view of the same appointment */
   't01-home', 't02-appointment-request', 't03-request-accepted', 't03a-decline-request', 't03b-job-cancelled',
   't04-appointment-details', 't05-confirm-final-pricing', 't06-appointment-status', 't07-job-ready', 't08-job-complete',
   't01-home-closed', 't02-accepted', 't02-expired', 't03-upcoming-visit', 't03.1-cant-make-it', 't03a-suggest-time', 't03a-other',
-  't03b-by-you', 't03b-no-show', 't03b-withdrawn', 't05-removed', 't06-questions', 't07-waiting', 't10-messages',
+  't03b-by-you', 't03b-no-show', 't03b-withdrawn', 't05-removed', 't07-waiting', 't10-messages',
 ];
 
 /* Persona gate (Phase T5, throwaway until onboarding sets it): tailor

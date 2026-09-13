@@ -7,7 +7,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, garmentTile, cta, apptCard, toast } from '../components.js';
 import { GARMENT_TYPES, SEED_UPCOMING, itemsLabel, itemCount, fmtDay, fmtWhen, parseWhen, tailorName as matchedName, tailorFirst } from '../data.js';
-import { state, addGarment, isTerminal, canonicalStatus, statusScreen } from '../state.js';
+import { state, addGarment, isTerminal, canonicalStatus, statusScreen, addressLine } from '../state.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
 import { openLeaveReview, tailorName } from './06.1-leave-review.js';
@@ -109,10 +109,11 @@ export function homeCards(s) {
 export const apptItemsTitle = (a, count = a.revisedAt ? itemCount(a) : a.count) => `${itemsLabel(count)} Total - ${a.visit}:`;
 
 /** The card's item lines — the booking's `itemLines` until the final
-    order is written, then `${qty} ${type} - ${jobs}` per garment. */
+    order is written, then `1 ${type} - ${jobs}` per garment (round 12:
+    one garment = one item). */
 export function apptItemLines(a) {
   if (!a?.revisedAt || !a.garments?.length) return a?.itemLines ?? [];
-  return a.garments.map((g) => `${g.qty ?? 1} ${g.type} - ${(g.jobs ?? []).join(', ')}`);
+  return a.garments.map((g) => `1 ${g.type} - ${(g.jobs ?? []).join(', ')}`);
 }
 
 /** Where a tapped appointment card goes, by status. Shared with 09.
@@ -185,7 +186,7 @@ export function view01(s) {
 <div class="body" data-s="01-home">
   <div class="home-heading">
     <h1 class="t-title t-title--tight c-ink">${anySelected ? 'Tap to Add More Items' : 'What Are We Tailoring?'}</h1>
-    <p class="t-body c-ink home-address" data-act="address" role="button" tabindex="0"><span class="emoji">📍</span> <span data-addr-text>${s.contact.street}, ${s.userLoc}</span></p>
+    <p class="t-body c-ink home-address" data-act="address" role="button" tabindex="0"><span class="emoji">📍</span> <span data-addr-text>${addressLine(s.contact)}</span></p>
   </div>
   <div class="tile-grid">${tiles}</div>
   ${cta('Start Booking', { attrs: 'data-act="start-booking"' })}
@@ -202,6 +203,8 @@ export function wire01(root) {
       const t = el.dataset.tile;
       const sel = selection();
       // v3: the tile adds one; its "−" removes one (unselects at 0).
+      // Round 12 (Kevin): the "+" above the badge adds another card of
+      // the same garment (same as tapping the tile body).
       if (e.target.closest('[data-minus]')) {
         sel[t] = Math.max(0, (sel[t] ?? 0) - 1);
         if (sel[t] === 0) delete sel[t];
@@ -213,25 +216,22 @@ export function wire01(root) {
   });
   root.querySelector('[data-act="start-booking"]')?.addEventListener('click', () => {
     /* v3 startBooking, but reconciling instead of rebuilding: garments
-       customised on 02 (services, qty, photos) survive the
-       "+ Additional Garment" round-trip. Tile counts are the truth —
-       top up with default-job cards, trim from the last card of a
-       type, drop deselected types. */
+       customised on 02 (services, photos) survive the "+ Additional
+       Garment" round-trip. Tile counts are the truth — top up with
+       default-job cards (one card per item, round 12), trim from the
+       last card of a type, drop deselected types. */
     const sel = selection();
     /* UX-LOOP R1-U-12: nothing selected books nothing — stay put (no
        disabled CTA variant exists in Figma; the toast says why) */
     if (!Object.values(sel).some((q) => q > 0)) { toast('Pick a garment to start'); return; }
     for (const [type, want] of Object.entries(sel)) {
       if (want <= 0) continue;
-      let have = state.garments.filter((g) => g.type === type).reduce((s, g) => s + g.qty, 0);
-      if (want > have) addGarment({ type, jobs: ['Hem / Adjust Length'], qty: want - have, photos: 0 });
+      let have = state.garments.filter((g) => g.type === type).length;
+      for (; have < want; have++) addGarment({ type, jobs: ['Hem / Adjust Length'], photos: 0 });
       for (let i = state.garments.length - 1; i >= 0 && have > want; i--) {
-        const g = state.garments[i];
-        if (g.type !== type) continue;
-        const cut = Math.min(g.qty, have - want);
-        g.qty -= cut;
-        have -= cut;
-        if (!g.qty) state.garments.splice(i, 1);
+        if (state.garments[i].type !== type) continue;
+        state.garments.splice(i, 1);
+        have--;
       }
     }
     state.garments = state.garments.filter((g) => (sel[g.type] ?? 0) > 0);

@@ -40,7 +40,7 @@ import { current, jobView, tailorOf, isFixture, isSeed, restartTimer, stampAccep
 /** The booked order as ViewOnly cards (shared with T03). */
 export function bookedCards(v) {
   return v.garments.map((g) => garmentCard({
-    variant: 'ViewOnly', type: g.type, qty: g.qty ?? 1, price: money(garmentAmount(g)), services: g.jobs, photos: g.photos ?? 2,
+    variant: 'ViewOnly', type: g.type, price: money(garmentAmount(g)), services: g.jobs, photos: g.photos ?? 2,
   })).join('\n      ');
 }
 

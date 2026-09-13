@@ -170,9 +170,13 @@ export function payoutChange(a, draft, from = acceptedPayoutOf(a)) {
     the fee from $50). The fee itself is still never printed here. */
 export function noShowCompOf(a) {
   if (typeof a?.noShowComp === 'number') return a.noShowComp;
-  const fee = a?.totals?.visitFee ?? a?.totals?.visitFeeCharged ?? 25;
-  return typeof D.noShowComp === 'function' ? D.noShowComp(fee) : 20;
+  /* round 12: the tailor's cut of the fee for the booked item count */
+  const items = bookedGarments(a).length || a?.count || 2;
+  return typeof D.noShowComp === 'function' ? D.noShowComp(items) : 25;
 }
+/** Round 12 (Kevin): the tailor's cut of the visitation fee for a garment
+    list — the second line of the payout (data.js tailorFee). */
+export const visitCutOf = (garments = []) => (garments.length && typeof D.tailorFee === 'function' ? D.tailorFee(garments.length) : 0);
 /** The tailor's name / initials as the CUSTOMER side prints them
     (round 6: unassigned until a tailor accepts — data.js owns the
     neutral copy; until it lands, the appointment's own fields). */
@@ -268,7 +272,7 @@ export const isPost = (c) => POST_STATUSES.includes(c);
 
 /** The money a tailor screen prints for a garment list: the payout
     (100% of the alteration prices) — nothing else. */
-export const orderMoney = (garments = []) => ({ payout: payoutOf(garments) });
+export const orderMoney = (garments = []) => ({ payout: payoutOf(garments), visitCut: visitCutOf(garments), alterations: payoutOf(garments) - visitCutOf(garments) });
 
 /** The order as the customer booked it — `a.booked` once T05 Send has
     stashed it, else the live `a.garments` (pre-visit they are the same). */
@@ -286,15 +290,18 @@ export const FIXTURE_T06 = FIXTURE_FINAL.map((g) => ({ ...g, addedJobs: [], adde
     the tailor's place otherwise. */
 export function visitAddress(a, s = state) {
   if (a?.visit === 'Home Visit' || a?.where === 'home') {
+    /* round 12: the address the booking recorded (a.place) — the live
+       contact only while nothing is stamped yet; the seed's short form last */
     const c = s.contact ?? {};
-    return `${c.street ?? CUSTOMER.short}${c.unit ? `, ${c.unit}` : ''}`;
+    if (isSeed(a)) return CUSTOMER.short;   // the fiction's "88 Leonard St, 4B"
+    return a?.place || (c.street ? `${c.street}${c.unit ? `, ${c.unit}` : ''}` : CUSTOMER.short);
   }
   return a?.place ?? CUSTOMER.short;
 }
 
 /** "3 Suit Jackets" / "1 Pants / Jeans" / "4 items" (mixed types). */
 export function garmentsLabel(garments = []) {
-  const n = garments.reduce((s, g) => s + (g.qty ?? 1), 0);
+  const n = garments.length;   // round 12: one garment = one item
   const types = [...new Set(garments.map((g) => g.type))];
   if (types.length === 1) return `${n} ${n === 1 ? types[0] : (GARMENT_TYPES[types[0]]?.plural ?? types[0])}`;
   return `${n} item${n === 1 ? '' : 's'}`;
@@ -310,6 +317,7 @@ export function jobView(a) {
      customer's alterations / Taily's fee / delivery / total) is never
      read on the tailor side. */
   const payout = payoutOf(garments);
+  const visitCut = visitCutOf(garments);   // round 12: the tailor's cut of the visitation fee, inside the payout
   const protection = noShowCompOf(a);   // round 8: T02's "No-show protection" row / T03B / T01's closed row
   const delivery = a?.fulfilment?.method === 'delivery';
   const PILL = {
@@ -333,9 +341,9 @@ export function jobView(a) {
   const time = when.split(' · ')[1] ?? when;
   const visitLabel = a?.visit === 'Store Visit' || a?.where === 'shop' ? 'Store visit' : 'Home visit';
   return {
-    canon: c, post, garments, payout, protection, visitLabel,
-    money: { payout: money(payout), protection: money(protection) },
-    items: garments.reduce((s, g) => s + (g.qty ?? 1), 0),
+    canon: c, post, garments, payout, visitCut, alterations: payout - visitCut, protection, visitLabel,
+    money: { payout: money(payout), visitCut: money(visitCut), protection: money(protection) },
+    items: garments.length,
     itemsLabel: garmentsLabel(garments),
     pill, pillLabel, stage: STAGE[c] ?? 'confirmed',
     when, needBy, address,
@@ -415,7 +423,7 @@ export function orderMarks(draft, booked) {
   const removed = byId.size
     ? booked.filter((b) => b?.id && !draft.some((g) => g.id === b.id))
     : booked.slice(draft.length);
-  return { marks, removed: removed.map((b) => ({ id: b.id, type: b.type, jobs: [...b.jobs], qty: b.qty ?? 1, amount: garmentAmount(b) })) };
+  return { marks, removed: removed.map((b) => ({ id: b.id, type: b.type, jobs: [...b.jobs], amount: garmentAmount(b) })) };
 }
 
 /** T05 Send: the reviewed draft becomes the appointment's final order —
@@ -465,7 +473,6 @@ export function resendFinalOrder(a, draft) {
   writeFinalOrder(a, draft);
   a.resentAt = fmtDay(new Date().toDateString());
   a.resendCount = (a.resendCount ?? 0) + 1;
-  delete a.changesRequestedAt;
   a.pendingTailorNote = 'I updated the order — please take another look and approve it when it looks right.';
   tailorOf(a).draft = null;
   return true;

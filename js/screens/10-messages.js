@@ -78,12 +78,6 @@ function threadFor(s, a) {
       ? SEED_THREAD.map((m) => ({ ...m }))
       : [{ who: 'tailor', text: `Hi {name} — ${first} here. How can I help?` }];
   }
-  /* R2-T-09: a canned customer bubble queued by 04.1's Sounds Good
-     ("Can we talk about the changes?") lands in the thread once */
-  if (a.pendingChatSeed) {
-    s.chats[key].push({ who: 'customer', text: String(a.pendingChatSeed) });
-    a.pendingChatSeed = null;
-  }
   /* Round 10: Marco's note after resending the edited order lands the same way */
   if (a.pendingTailorNote) {
     s.chats[key].push({ who: 'tailor', text: String(a.pendingTailorNote) });

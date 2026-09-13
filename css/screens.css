@@ -595,6 +595,7 @@
 /* T03.1 (round 3): the tailor's Can't-make-it modal sits where 03.1's does */
 [data-s="t03.1-cant-make-it"] .modal { top: 248px; }
 [data-s="06.1-leave-review"] .review-sheet { top: 291px; }
+[data-s="06.1-leave-review-submitted"] .review-sheet { top: 291px; }
 
 /* 05X - Appointment Cancelled (558:3817): 05's chassis, one-line
    heading, refund card in place of the prepare card, single CTA. */

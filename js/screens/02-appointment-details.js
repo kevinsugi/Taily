@@ -24,7 +24,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, filterPill, garmentCard, cta, toast, orderRows } from '../components.js';
 import { money, garmentAmount, isAfter } from '../data.js';
-import { state, addGarment, removeGarment, bookingLines } from '../state.js';
+import { state, addGarment, removeGarment, bookingLines, addressLine, hasAddress } from '../state.js';
 /* Sheets open as in-place overlays (v3 sheetShow parity) — navigating to
    the 02a/04a routes would rebuild this screen and flash. The routes
    remain registered for the diff harness. */
@@ -40,13 +40,14 @@ import { openPaymentOverlay } from './02.3-payment-sheet.js';
    (R1-U-12). */
 export function ensureGarments() {
   if (state.garments.length || window.__tailyNavigated) return;
-  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 });
-  addGarment({ type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 });
+  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], photos: 2 });
+  addGarment({ type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], photos: 2 });
 }
 
 const NEEDBY_MSG = 'Need-by must be after your appointment';
 const PICK_TIME_MSG = 'Select a requested time';
 const PICK_NEEDBY_MSG = 'Select a need-by time';
+const PICK_ADDRESS_MSG = 'Enter your address';
 export const PILL_EMPTY = 'Select Time';
 export const needByOk = (s = state) => isAfter(s.appt.needBy, s.appt.when);
 
@@ -61,7 +62,6 @@ export function view02(s) {
     variant: 'WithPhoto',
     flat: true,
     type: g.type,
-    qty: g.qty,
     price: money(garmentAmount(g)),
     services: g.jobs,
     photos: g.photos ?? 0,
@@ -72,7 +72,7 @@ export function view02(s) {
 <div class="body" data-s="02-appointment-details">
   <div class="home-heading">
     <h1 class="t-title t-title--tight c-ink">Appointment Details</h1>
-    <p class="t-body c-ink home-address" data-act="address" role="button" tabindex="0"><span class="emoji">📍</span> <span data-addr-text>${contact.street}, ${s.userLoc}</span></p>
+    <p class="t-body c-ink home-address" data-act="address" role="button" tabindex="0"><span class="emoji">📍</span> <span data-addr-text>${addressLine(contact)}</span></p>
   </div>
   <div class="filters">
     ${filterPill('Requested time:', appt.when ?? PILL_EMPTY, { attrs: 'data-act="time"' })}
@@ -122,8 +122,10 @@ function markPill(root, act, msg) {
 }
 
 /** Round 9: the first thing still missing before a request can go out —
-    the requested time, then the need-by, then the need-by order. */
+    the address (round 12, Kevin: "Please Enter Address" until one is
+    entered), the requested time, then the need-by, then the need-by order. */
 export function requestBlocker(s = state) {
+  if (!hasAddress(s.contact)) return { act: 'address', msg: PICK_ADDRESS_MSG };
   if (!s.appt.when) return { act: 'time', msg: PICK_TIME_MSG };
   if (!s.appt.needBy) return { act: 'needby', msg: PICK_NEEDBY_MSG };
   if (!needByOk(s)) return { act: 'needby', msg: NEEDBY_MSG };
@@ -150,7 +152,6 @@ function wire(root) {
       const g = state.garments[Number(trigger.dataset.gi)];
       const v = opt.dataset.option;
       if (!g) return;
-      if (trigger.dataset.sel === 'qty') g.qty = Number(v);
       if (trigger.dataset.sel === 'item') g.type = v;
       if (trigger.dataset.sel === 'job') g.jobs[Number(trigger.dataset.ji)] = v;
       if (trigger.dataset.sel === 'add') g.jobs.push(v);
@@ -211,6 +212,8 @@ function wire(root) {
        impossible need-by keeps the request inert (no disabled CTA
        variant exists — the pill + toast explain) */
     const blocker = requestBlocker();
+    /* round 12: no address yet → the address sheet opens with the toast */
+    if (blocker?.act === 'address') { toast(blocker.msg); openAddressOverlay(); return; }
     if (blocker) { markPill(root, blocker.act, blocker.msg); toast(blocker.msg); return; }
     openPaymentOverlay();
   });
@@ -220,7 +223,7 @@ function wire(root) {
        card customisations survive the round-trip */
     state.ui ??= {};
     state.ui.homeSelection = state.garments.reduce((m, g) => {
-      m[g.type] = (m[g.type] ?? 0) + g.qty;
+      m[g.type] = (m[g.type] ?? 0) + 1;   // round 12: one card = one item
       return m;
     }, {});
     go('01-home');

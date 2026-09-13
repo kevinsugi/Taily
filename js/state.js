@@ -58,6 +58,7 @@ import {
   apptTotals,
   payout,
   noShowComp,
+  itemCount,
   fmtDay,
   shiftDay,
   parseWhen,
@@ -143,7 +144,7 @@ const clone = (v) => JSON.parse(JSON.stringify(v));
 
 /* ---------- App state (v3 module-level `let`s, gathered) ---------- */
 export const state = {
-  garments: [],            // { type, jobs, qty, photos }
+  garments: [],            // { id, type, jobs, photos } — one garment = one item (round 12)
   selection: null,         // { tailor, time, origin }
   lastBooking: null,       // rendered on the success screen
   /* UX-LOOP R1: the appointment the user last cancelled (03/Cancelled
@@ -155,11 +156,14 @@ export const state = {
     phone: '(212) 555-0148',
     email: 'kevin@example.com',
     updates: true,
-    street: '88 Leonard St',
-    unit: '4B',
-    zip: '10013',
-    /* 02B address sheet (538:1382) */
-    notes: 'Buzz 4B — entrance is on Leonard St',
+    /* Round 12 (Kevin): no address until the customer enters one —
+       01 / 02 read "Please Enter Address" (addressLine) and 02's
+       Reserve stays inert (requestBlocker) until it is saved. The
+       02.2 frame's filled form is FIXTURE_CONTACT below. */
+    street: '',
+    unit: '',
+    zip: '',
+    notes: '',
     saveHome: true,
   },
   payMethod: 'card',
@@ -167,6 +171,19 @@ export const state = {
   past: clone(SEED_PAST),
   currentAppt: { list: 'upcoming', index: 0 },
 };
+
+/** The 02.2 frame's filled form (538:1382) and the seed booking's
+    home address — the harness deep link and the Test flows menu use it. */
+export const FIXTURE_CONTACT = { street: '88 Leonard St', unit: '4B', zip: '10013', notes: 'Buzz 4B — entrance is on Leonard St', saveHome: true };
+/* ---------- Address (round 12, Kevin) ---------- */
+export const ADDRESS_PLACEHOLDER = 'Please Enter Address';
+/** Has the customer entered a street address yet? */
+export const hasAddress = (c = state.contact) => !!(c?.street && String(c.street).trim());
+/** The 01 / 02 heading line: "88 Leonard St, New York, NY" or the placeholder. */
+export const addressLine = (c = state.contact) => (hasAddress(c) ? `${c.street}, ${state.userLoc}` : ADDRESS_PLACEHOLDER);
+/** "88 Leonard St, 4B" — the home address an appointment reads; the
+    appointment's own `place` (the seed's) when nothing was entered. */
+export const homeAddress = (a = null, c = state.contact) => (hasAddress(c) ? `${c.street}${c.unit ? `, ${c.unit}` : ''}` : (a?.place ?? `${FIXTURE_CONTACT.street}, ${FIXTURE_CONTACT.unit}`));
 
 /** Restore the seeded starting state. */
 export function reset() {
@@ -256,10 +273,10 @@ export function ensureGarmentIds(garments = []) {
  */
 export function refreshItemSummary(a) {
   if (!a || !Array.isArray(a.garments)) return a;
-  const n = a.garments.reduce((s, g) => s + (g.qty ?? 1), 0);
+  const n = a.garments.length;   // round 12: one garment = one item
   a.count = n;
   a.items = `${n} item${n === 1 ? '' : 's'} · Alterations`;
-  a.itemLines = a.garments.map((g) => `${g.qty ?? 1} ${g.type} - ${(g.jobs ?? []).join(', ')}`);
+  a.itemLines = a.garments.map((g) => `1 ${g.type} - ${(g.jobs ?? []).join(', ')}`);
   return a;
 }
 
@@ -279,9 +296,9 @@ export function requestTailor() {
     where: home ? 'home' : 'shop',
     place: home ? `${contact.street}${contact.unit ? ', ' + contact.unit : ''}` : '1025 Broadway, Midtown West',
     when: state.appt.when, needBy: state.appt.needBy, status: 'searching',
-    visit: state.appt.where, count: state.garments.reduce((s, g) => s + g.qty, 0),
+    visit: state.appt.where, count: state.garments.length,
     month: (m?.[1] ?? 'JUL').slice(0, 3).toUpperCase(), day: m?.[2] ?? '12',
-    itemLines: state.garments.map((g) => `${g.qty} ${g.type} - ${g.jobs.join(', ')}`),
+    itemLines: state.garments.map((g) => `1 ${g.type} - ${g.jobs.join(', ')}`),
     garments: JSON.parse(JSON.stringify(state.garments)),
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     totals,
@@ -359,13 +376,8 @@ export function confirmAppointment(a = apptEntry()) {
 /** The appointment happened; tailor drafts the final order. */
 export const completeAppointment = (a = apptEntry()) => step('confirmed', 'awaiting-approval', {}, a);
 /** User approves the final order (stamps approvedAt — the order on
-    file is already the reviewed one, nothing is copied). Clears a
-    pending Request Changes (R2-T-09). */
-export function approveOrder(a = apptEntry()) {
-  const ok = step('awaiting-approval', 'tailoring', { approvedAt: fmtDay(a?.when, 'Sun, Jul 12') }, a);
-  if (ok) delete a.changesRequestedAt;
-  return ok;
-}
+    file is already the reviewed one, nothing is copied). */
+export const approveOrder = (a = apptEntry()) => step('awaiting-approval', 'tailoring', { approvedAt: fmtDay(a?.when, 'Sun, Jul 12') }, a);
 /** Garments finished — stamps readyAt (the fiction's Thu, Jul 16: the
     day before need-by, never before the appointment itself). */
 export function markReady(a = apptEntry()) {
@@ -444,13 +456,8 @@ export function declineProposedTime(a = apptEntry(), by = 'customer') {
   return true;
 }
 
-/** 04.1 Sounds Good (R2-T-09): the customer wants to talk the final
-    order over before approving. Status unchanged; approveOrder clears it. */
-export function requestChanges(a = apptEntry()) {
-  if (!a) return false;
-  a.changesRequestedAt = fmtDay(a.when, 'Sun, Jul 12');
-  return true;
-}
+/* Round 12 (Kevin): 04.1's Sounds Good only closes the popup — the
+   round-2 requestChanges() trace ("Sarah has questions") is gone. */
 
 /* ---------- Terminal transitions → state.past (R2-U-06/07, R2-T-01) ---------- */
 
@@ -525,7 +532,8 @@ export function tailorCancels(a = apptEntry(), reason = 'cant-make-it') {
   if (!a) return null;
   const wasRequested = terminate(a, 'cancelled', 'tailor', reason);
   const { refund, kept } = settleFee(a, { kept: reason === 'no-show' && !wasRequested && a.feeLocked === true });
-  if (reason === 'no-show') a.noShowComp = noShowComp(a.totals?.visitFee ?? feeOf(a));
+  /* round 12: the compensation is the tailor's cut of the fee for the booked count */
+  if (reason === 'no-show') a.noShowComp = noShowComp(itemCount(a));
   return { appointment: a, wasRequested, reason, refund, kept, noShowComp: a.noShowComp };
 }
 
@@ -582,7 +590,7 @@ export function copyItemsOver(a) {
   garments.forEach((g) => { delete g.added; delete g.addedJobs; delete g.displayPrice; delete g.id; });
   state.garments = garments;
   state.ui ??= {};
-  state.ui.homeSelection = garments.reduce((m, g) => { m[g.type] = (m[g.type] ?? 0) + g.qty; return m; }, {});
+  state.ui.homeSelection = garments.reduce((m, g) => { m[g.type] = (m[g.type] ?? 0) + 1; return m; }, {});
   return garments;
 }
 
@@ -654,11 +662,10 @@ export function bookingLines(tailor) {
   const mult = tailor ? tailor.mult : 1;
   const rows = state.garments.map((g) => ({
     label: `${g.type} — ${g.jobs.join(', ')}`,
-    qty: g.qty,
-    amount: Math.round(g.jobs.reduce((s, j) => s + JOB_TYPES[j].price * mult, 0)) * g.qty,
+    amount: Math.round(g.jobs.reduce((s, j) => s + JOB_TYPES[j].price * mult, 0)),
   }));
   const alterations = rows.reduce((s, r) => s + r.amount, 0);
-  const items = state.garments.reduce((s, g) => s + (g.qty ?? 1), 0);
+  const items = state.garments.length;   // round 12: one garment = one item
   const fee = visitFee(items);
   return {
     rows, alterations, items,
@@ -729,7 +736,7 @@ export function draftFinalOrder(a = apptEntry()) {
   const first = garments[0];
   const extra = ['Sleeve / Adjust Length', 'Hem / Adjust Length', 'Taper / Slim Fit'].find((j) => !first.jobs.includes(j));
   if (extra) { first.jobs.push(extra); first.addedJobs = [...(first.addedJobs ?? []), extra]; }
-  garments.push({ id: nextGarmentId(), type: first.type, jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2, added: true });
+  garments.push({ id: nextGarmentId(), type: first.type, jobs: ['Sleeve / Adjust Length'], photos: 2, added: true });
   a.garments = garments;
   a.totals = apptTotals(garments, a.totals ?? {});   // R7: re-tiers the fee, never below the charged one
   a.revisedAt = fmtDay(a.when, 'Sun, Jul 12');

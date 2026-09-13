@@ -23,7 +23,7 @@ import { wireOrderDropdown } from './t07-job-ready.js';
 
 /** "Suit Jacket · Hem / Adjust Length, Sleeve / Adjust Length" — one
     line per garment card (×qty when more than one). */
-const itemLabel = (g) => `${(g.qty ?? 1) > 1 ? `${g.qty} × ` : ''}${g.type} · ${g.jobs.join(', ')}`;
+const itemLabel = (g) => `${g.type} · ${g.jobs.join(', ')}`;   // round 12: one garment = one item
 
 function renderScreen(s) {
   const a = current(s);                     // the tapped job (R2-T-01)
@@ -40,6 +40,7 @@ function renderScreen(s) {
     <span class="payout-summary__title">PAYOUT SUMMARY  ·  ${id}</span>
     <div class="price-group">
       ${garments.map((g) => priceRow(itemLabel(g), money(garmentAmount(g)))).join('\n      ')}
+      ${priceRow('Visitation fee', money(m.visitCut))}
     </div>
     ${hairline()}
     <div class="price-group">

@@ -20,7 +20,7 @@
 import {
   state, reset, tailorAccepts, confirmAppointment, completeAppointment, approveOrder,
   markReady, chooseFulfilment, deliver, proposeTime, declineAppointment, expireAppointment,
-  tailorCancels, cancelAppointment, autoCancelUnconfirmed, requestChanges, addGarment, setAppt,
+  tailorCancels, cancelAppointment, autoCancelUnconfirmed, addGarment, setAppt,
 } from './state.js';
 import { SEED_FINAL_ORDER } from './data.js';
 import { PROPOSED_WHEN } from './fixtures.js';
@@ -39,8 +39,9 @@ export function resetDemo() {
   delete state.chats;
   state.tailorUi = { current: null };
   state.persona = 'user';
-  state.contact.street = '88 Leonard St';
+  state.contact.street = '88 Leonard St';   // round 12: the menu's steps start past "Please Enter Address"
   state.contact.unit = '4B';
+  state.contact.zip = '10013';
 }
 
 /** The seed appointment wherever it now lives (upcoming or past). */
@@ -77,8 +78,8 @@ const DRAFTS = {
     const [g1, , g7] = DRAFTS.modified();
     return [g1, g7];
   },
-  /* the $360 order + two pairs of pants → 5 items, the $50 fee tier */
-  retiered: () => [...DRAFTS.modified(), { type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], qty: 2, photos: 2 }],
+  /* the $360 order + two pairs of pants → 5 items, the $90 fee tier (round 12: one card per item) */
+  retiered: () => [...DRAFTS.modified(), { type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], photos: 2 }, { type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], photos: 2 }],
 };
 
 /** The visit happened: Sarah confirmed on the 24-hour prompt, Marco
@@ -106,8 +107,8 @@ const delivered = (a, method) => { scheduled(a, method); deliver(a); return a; }
 
 /** 02's form: the frame's two jackets (two photos each). */
 function bookingForm({ times = false } = {}) {
-  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 });
-  addGarment({ type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 });
+  addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], photos: 2 });
+  addGarment({ type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], photos: 2 });
   state.ui.homeSelection = { 'Suit Jacket': 2 };
   if (times) { setAppt('when', 'Jul 12, 7:00 PM'); setAppt('needBy', 'Jul 17, 3:00 PM'); }
 }
@@ -183,6 +184,7 @@ export const FLOWS = {
         { key: 'c-complete', code: '06', title: 'Journey complete', note: 'Picked up', screen: '06-journey-complete', setup: (a) => delivered(a, 'pickup') },
         { key: 'c-complete-delivery', code: '06', title: 'Journey complete — delivered', note: '+$20 delivery', screen: '06-journey-complete', setup: (a) => delivered(a, 'delivery') },
         { key: 'c-leave-review', code: '06.1', title: 'Leave a review', screen: '06-journey-complete', setup: (a) => delivered(a), click: ['[data-act="review"]'] },
+        { key: 'c-review-submitted', code: '06.1', title: 'Review submitted', note: 'closes itself after 2 s or on a tap', screen: '06-journey-complete', setup: (a) => delivered(a), click: ['[data-act="review"]', '[data-act="confirm-review"]'] },
         { key: 'c-summary', code: '03', title: 'Order summary', note: 'Receipt after completion', screen: '03-status-summary', setup: (a) => delivered(a) },
       ],
     },
@@ -246,7 +248,6 @@ export const FLOWS = {
       title: 'After the visit',
       items: [
         { key: 't-status-awaiting', code: 'T06', title: 'Status — awaiting Sarah’s approval', screen: 't06-appointment-status', setup: (a) => visited(a) },
-        { key: 't-status-questions', code: 'T06', title: 'Status — Sarah has questions', screen: 't06-appointment-status', setup: (a) => { visited(a); requestChanges(a); } },
         { key: 't-status-resent', code: 'T06', title: 'Status — updated order sent again', screen: 't06-appointment-status', setup: (a) => resent(a) },
         { key: 't-status-tailoring', code: 'T06', title: 'Status — tailoring', note: 'Order approved', screen: 't06-appointment-status', setup: (a) => approved(a) },
         { key: 't-ready-waiting', code: 'T07', title: 'Job ready — waiting for Sarah', note: 'No handoff chosen yet', screen: 't07-job-ready', setup: (a) => ready(a) },

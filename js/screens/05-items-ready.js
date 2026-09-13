@@ -9,7 +9,7 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, cta } from '../components.js';
-import { state, chooseFulfilment } from '../state.js';
+import { state, chooseFulfilment, homeAddress } from '../state.js';
 import { TAILORS } from '../data.js';
 
 function optionRow({ id, title, sub, price, selected }) {
@@ -37,7 +37,7 @@ function renderScreen(s) {
   return `${chrome('home')}
 <div class="body" data-s="05-items-ready">
   ${statusHero({ pill: 'ready', variant: 'ready', title: 'Your items are ready.', titleWeight: 600, titleColor: 'success', body: `${first} finished ahead of schedule. Choose how you’d like them back — your alterations are paid when you receive them.` })}
-  ${optionRow({ id: 'delivery', title: 'Home delivery', sub: `Courier service for  ${s.contact.street}, ${s.contact.unit}`, price: '$20', selected: sel === 'delivery' })}
+  ${optionRow({ id: 'delivery', title: 'Home delivery', sub: `Courier service for  ${homeAddress()}`, price: '$20', selected: sel === 'delivery' })}
   ${optionRow({ id: 'pickup', title: 'Pickup', sub: `From ${first}’s studio · ${studio}`, price: 'Free', selected: sel === 'pickup' })}
   <div class="actions">
     ${cta('Continue', { attrs: 'data-act="continue"' })}

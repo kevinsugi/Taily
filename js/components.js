@@ -78,7 +78,7 @@ export function chrome(active = 'home', time = '9:41') {
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, CHEVRON_RIGHT, ICON_CARD, ICON_ADD_CIRCLE } from './icons.js';
+import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, TILE_PLUS, CHEVRON_RIGHT, ICON_CARD, ICON_ADD_CIRCLE } from './icons.js';
 import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, DELIVERY_FEE, money, rowPrice, fmtWhen, fmtDay, mdy, visitFee, itemsLabel } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
@@ -162,6 +162,10 @@ const TILE_ART = {
   'Pants / Jeans': 'pants-jeans', 'Skirt': 'skirt', 'Accessories': 'accessories',
 };
 
+/* Round 12 (Kevin, 01a 532:946): the selected tile's controls stack
+   vertically at the tile's top-right — plus / count badge / minus
+   (`.garment-tile__qty`); plus adds another card of that garment, minus
+   removes one (unselects at 0). */
 export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
   const selected = qty > 0;
   const art = TILE_ART[type]
@@ -170,7 +174,7 @@ export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
       ? `<img class="garment-tile__art" src="${GARMENT_ICONS[type]}" alt="">`
       : `<span class="garment-tile__art"></span>`;
   const badge = selected
-    ? `<span class="garment-tile__qty"><span class="garment-tile__badge">${qty}</span><span class="garment-tile__minus-hit" data-minus role="button" aria-label="Remove one ${type}">${TILE_MINUS}</span></span>`
+    ? `<span class="garment-tile__qty"><span class="garment-tile__minus-hit" data-plus role="button" aria-label="Add another ${type}">${TILE_PLUS}</span><span class="garment-tile__badge">${qty}</span><span class="garment-tile__minus-hit" data-minus role="button" aria-label="Remove one ${type}">${TILE_MINUS}</span></span>`
     : '';
   return `<button type="button" class="garment-tile${selected ? ' garment-tile--selected' : ''}" ${attrs}>
   ${art}
@@ -374,8 +378,8 @@ export function garmentCard({
   if (editable) {
     const gi = index === null ? '' : ` data-gi="${index}"`;
     const [primary, ...added] = services;
+    /* round 12 (Kevin, 02 657:4875): no quantity selector — one card per garment */
     rows = `<div class="garment-card__row">
-      ${selector('quantity', String(qty), ['1', '2', '3', '4', '5'], { attrs: `data-sel="qty"${gi}` })}
       ${selector('item', type, Object.keys(GARMENT_TYPES), { attrs: `data-sel="item"${gi}` })}
     </div>
     <div class="garment-card__service">${selector('job', primary, Object.keys(JOB_TYPES), { attrs: `data-sel="job" data-ji="0"${gi}` })}</div>
@@ -778,7 +782,7 @@ export function feeRow(price, desc, { line = false, info = false, muted = false 
 export function orderCards(order, { variant = 'ViewOnly', beforePhotos = 4, pinnedPhotos = 4, marks = false } = {}) {
   const t = order?.totals ?? {};
   return (order?.garments ?? []).map((g, i) => garmentCard({
-    variant, type: g.type, qty: g.qty,
+    variant, type: g.type,
     price: rowPrice(g, t.rows, i),
     services: (g.jobs ?? []).map((j) => (marks && g.addedJobs?.includes(j) ? { label: j, added: true } : j)),
     added: marks && !!g.added,
@@ -851,21 +855,26 @@ export function orderRows(t, { est = false, feeDesc = 'Visitation fee — paid',
   const fee = t?.visitFeeCharged ?? t?.visitFee ?? 0;
   const added = t?.visitFeeAdded ?? 0;
   const delivery = t?.delivery ?? 0;
+  /* round 12 (Kevin): a re-tiered fee is ONE row — the updated amount
+     in semantic/info (never the fee twice); `tier` captions it with the
+     count + tier, feeTierNote() explains the extra under the rows */
   const rows = [
     [money(alterations), est ? 'Alterations (est.)' : 'Alterations', { info }],
-    [money(fee), feeDesc, {}],
+    added > 0
+      ? [money(fee + added), tier ? retieredFeeCaption(t) : 'Visitation fee — updated', { info: true }]
+      : [money(fee), feeDesc, {}],
   ];
-  if (added > 0) rows.push([money(added), tier ? addedFeeCaption(t) : 'Additional visitation fee', { info: true }]);
   if (delivery > 0) rows.push([money(delivery), 'Delivery', {}]);
   if (total) rows.push([money(alterations + fee + added + delivery), 'Total', { info }]);
   if (due) rows.push([money(dueAtHandoff(t)), due, { info }]);
   return rows.map(([p, d, o], i) => feeRow(p, d, { ...o, line: i < rows.length - 1 })).join('\n      ');
 }
 
-/** "Additional visitation fee — 5 items now, $50 tier" (R7-U-02): the
-    re-tiered fee's caption where it first appears. Numbers from the
-    order's item count and the tier that count lands on. */
-export const addedFeeCaption = (t) => `Additional visitation fee — ${itemsLabel(t?.items ?? 0, 'item')} now, ${money(visitFee(t?.items ?? 0))} tier`;
+/** "Visitation fee — 5 items, $90 tier" (round 12, was the separate
+    "Additional visitation fee …" row): the re-tiered fee's caption where
+    it first appears. Numbers from the order's item count and the tier
+    that count lands on. */
+export const retieredFeeCaption = (t) => `Visitation fee — ${itemsLabel(t?.items ?? 0, 'item')}, ${money(visitFee(t?.items ?? 0))} tier`;
 
 /** The note under the rows explaining a re-tiered fee (R7-U-02, 04 and
     03/Tailoring): "Your order grew to 5 items, so the visitation fee is
@@ -890,11 +899,12 @@ export function receiptRows(a, t) {
   const added = t?.visitFeeAdded ?? 0;
   const pickup = a?.fulfilment?.method === 'pickup';
   const delivery = pickup ? 0 : (a?.fulfilment?.method === 'delivery' ? (t?.delivery || DELIVERY_FEE) : DELIVERY_FEE);
+  /* round 12: one fee row, the re-tiered amount included (the extra was
+     settled at handoff with the alterations) */
   const rows = [
     feeRow(money(alterations), 'Alterations', { line: true }),
-    feeRow(money(fee), `Visitation fee — paid ${d.fee}`, { line: true }),
+    feeRow(money(fee + added), `Visitation fee — paid ${d.fee}`, { line: true }),
   ];
-  if (added > 0) rows.push(feeRow(money(added), 'Additional visitation fee', { line: true }));
   if (delivery > 0) rows.push(feeRow(money(delivery), 'Delivery', { line: true }));
   rows.push(feeRow(money(alterations + fee + added + delivery), 'Total', { line: true }));
   rows.push(feeRow(money(alterations + added + delivery), `Paid at ${pickup ? 'pickup' : 'delivery'} ${d.handoff}`));

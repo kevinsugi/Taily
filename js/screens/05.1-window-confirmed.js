@@ -13,7 +13,7 @@
 
 import { register, render as go } from '../app.js';
 import { cta, modalOverlay } from '../components.js';
-import { state, apptEntry } from '../state.js';
+import { state, apptEntry, homeAddress } from '../state.js';
 import { viewDelivery } from './05b-delivery-options.js';
 
 function modalHtml({ method = 'Pickup', when = 'Sat, Aug 30 · 5:00–6:00 PM', where = '1025 Broadway', items = '2 items · pressed & bagged', first = 'Marco' } = {}) {
@@ -42,11 +42,11 @@ function wireModal(root, close) {
 export function openWindowConfirmed({ method, when }) {
   const a = apptEntry() ?? {};
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];
-  const n = (a.garments ?? []).reduce((s, g) => s + g.qty, 0) || a.count || 2;
+  const n = (a.garments ?? []).length || a.count || 2;
   modalOverlay(modalHtml({
     method: method === 'delivery' ? 'Delivery' : 'Pickup',
     when,
-    where: method === 'delivery' ? `${state.contact.street}, ${state.contact.unit}` : '1025 Broadway',
+    where: method === 'delivery' ? homeAddress(a) : '1025 Broadway',
     items: `${n} items · pressed & bagged`,
     first,
   }), { dataS: '05.1-window-confirmed' }, wireModal);

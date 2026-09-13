@@ -12,7 +12,7 @@
 
 import { SEED_UPCOMING, SEED_FINAL_ORDER, apptTotals } from './data.js';
 import { state } from './state.js';
-import { FIXTURE_T06 } from './tailor-data.js';
+import { tailorFee } from './data.js';
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
@@ -25,14 +25,14 @@ export const APPT_DECLINED = () => seedAppt({ status: 'declined', cancelledBy: '
 /* R7: the tailor cancelling refunds the $25 fee; a no-show keeps it
    only once Sarah confirmed the visit (feeLocked) — the No-Show frame
    draws the kept case. cancelledAt = the fiction's Jul 12. */
-export const APPT_TAILOR_CANCELLED = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'cant-make-it', wasRequested: false, cancelledAt: 'Sun, Jul 12', refund: 25, feeKept: false });
+export const APPT_TAILOR_CANCELLED = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'cant-make-it', wasRequested: false, cancelledAt: 'Sun, Jul 12', refund: 50, feeKept: false });
 /* Round 8: the substrate also stamps the tailor's trip compensation on a
    no-show (`noShowComp`, $20 on the seed's $25 tier) — T03B / T01 read it. */
-export const APPT_NO_SHOW = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'no-show', wasRequested: false, cancelledAt: 'Sun, Jul 12', feeLocked: true, confirmedAt: 'Sat, Jul 11', refund: 0, feeKept: true, noShowComp: 20 });
+export const APPT_NO_SHOW = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'no-show', wasRequested: false, cancelledAt: 'Sun, Jul 12', feeLocked: true, confirmedAt: 'Sat, Jul 11', refund: 0, feeKept: true, noShowComp: tailorFee(2) });
 export const APPT_WITHDRAWN = () => seedAppt({ status: 'cancelled', cancelledBy: 'customer', reason: 'customer', wasRequested: true });
 /** R7: 12 hours before the visit, never confirmed → Taily cancelled it
     (cancelledBy 'none', reason 'unconfirmed', fee refunded). */
-export const APPT_UNCONFIRMED = () => seedAppt({ status: 'cancelled', cancelledBy: 'none', reason: 'unconfirmed', wasRequested: false, cancelledAt: 'Sun, Jul 12', refund: 25, feeKept: false });
+export const APPT_UNCONFIRMED = () => seedAppt({ status: 'cancelled', cancelledBy: 'none', reason: 'unconfirmed', wasRequested: false, cancelledAt: 'Sun, Jul 12', refund: 50, feeKept: false });
 
 /* ---------- round 8 (Figma money sync): the round-7 live-only states ----------
    The seed still confirmed, after Sarah's Confirm on the 24-hour prompt
@@ -55,14 +55,9 @@ export const APPT_PROPOSED = () => seedAppt({ status: 'searching', ...MATCHING, 
 
 /* ---------- post-visit states on the frames' $360 final order ---------- */
 const finalOrder = () => ({ garments: clone(SEED_FINAL_ORDER.garments), totals: clone(SEED_FINAL_ORDER.totals) });
-/** T06 "Sarah has questions": awaiting approval, Request Changes sent
-    (R2-T-09). Cards itemize the T06 frame's $120 / $80 / $80 (the
-    CLAUDE.md quirk) against the $360 total. */
-export const APPT_QUESTIONS = () => seedAppt({ status: 'awaiting-approval', changesRequestedAt: 'Sun, Jul 12', revisedAt: 'Sun, Jul 12', garments: clone(FIXTURE_T06), totals: clone(SEED_FINAL_ORDER.totals) });
-/** Round 10: T06 while Sarah is simply reviewing the sent order (frame
-    "T06 - Appointment Status / Awaiting Approval") — Mark Ready / Edit
-    Details / Back. */
-export const APPT_AWAITING = () => seedAppt({ status: 'awaiting-approval', revisedAt: 'Sun, Jul 12', garments: clone(FIXTURE_T06), totals: clone(SEED_FINAL_ORDER.totals) });
+/** Round 10: T06 while Sarah is reviewing the sent order — Mark Ready /
+    Edit Details / Back (round 12: the "Sarah has questions" state is gone). */
+export const APPT_AWAITING = () => seedAppt({ status: 'awaiting-approval', revisedAt: 'Sun, Jul 12', ...finalOrder() });
 /** Round 10: the tailor's at-visit draft in tailor-side shape (no marks,
     the added jacket without an id) — T05's Resend fixture. */
 export const DRAFT_MODIFIED = () => clone(SEED_FINAL_ORDER.garments).map(({ addedJobs, added, ...g }) => (added ? (({ id, ...rest }) => rest)(g) : g));
@@ -72,24 +67,26 @@ export const APPT_READY_WAITING = () => seedAppt({ status: 'ready-for-pickup', r
 /* ---------- a garment dropped at the visit (R2-T-08) ----------
    Booked: g1 Hem $120 + g2 Sleeve $80. At the visit g1 gained a Sleeve
    (+$80), g2 was removed and a third jacket was added → $280. */
-export const REMOVED_G2 = { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, amount: 80 };
+export const REMOVED_G2 = { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], amount: 80 };
 export const FINAL_ORDER_REMOVED = () => ({
   garments: [clone(SEED_FINAL_ORDER.garments[0]), clone(SEED_FINAL_ORDER.garments[2])],
-  /* R7: 2 items keep the $25 tier — $280 + $25 = $305 */
-  totals: { alterations: 280, items: 2, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 305, subtotal: 280 },
+  /* round 12: 2 items keep the $50 tier — $280 + $50 = $330 */
+  totals: { alterations: 280, items: 2, visitFee: 50, visitFeeCharged: 50, visitFeeAdded: 0, delivery: 0, total: 330, subtotal: 280 },
   removed: [clone(REMOVED_G2)],
 });
 /* ---------- the final order re-tiered the fee (round 8, R7-U-02) ----------
    The frames' $360 final order plus two pairs of pants Sarah brought out
-   at the visit (g8, added, Hem ×2 = $240) → 5 items, the $50 tier: the
-   $25 charged at booking stays and "Additional visitation fee — 5 items
-   now, $50 tier" ($25) is owed at handoff, with feeTierNote under the
-   rows. $600 alterations + $25 + $25 = $650. Frame "04 - Review &
+   at the visit (g8 + g9, added, Hem $120 each — round 12: one card per
+   item) → 5 items, the $90 tier: the $50 charged at booking stays and
+   the fee row reads the updated $90 in semantic/info (one row, round
+   12), the extra $40 owed at handoff with feeTierNote under the rows.
+   $600 alterations + $90 = $690, $640 due. Frame "04 - Review &
    Approve / Re-tiered" (route 04-review-approve-retiered). */
 export const FINAL_ORDER_RETIERED = () => {
   const garments = [
     ...clone(SEED_FINAL_ORDER.garments),
-    { id: 'g8', type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], qty: 2, photos: 2, added: true },
+    { id: 'g8', type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], photos: 2, added: true },
+    { id: 'g9', type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], photos: 2, added: true },
   ];
   return { garments, totals: apptTotals(garments, SEED_FINAL_ORDER.totals) };
 };

@@ -31,7 +31,6 @@ const LINE = {
   'awaiting-approval': (v) => `Sarah is reviewing the updated order — payout ${v.money.payout} once approved.`,
   tailoring: () => 'Sarah approved the final order. Mark the job ready when the garments are done.',
 };
-const TALK = 'Sarah wants to talk the order over before approving — message her; she approves in her app.';
 
 /** Exported: a `forced` post-visit job renders live (round-3 frame
     "T06 - Appointment Status / Sarah Has Questions"). */
@@ -40,13 +39,12 @@ export function viewStatus(s, forced = null) {
   const v = jobView(a);
   const fixture = !forced && (isFixture() || !v.post);
   const shown = fixture ? jobView({ ...a, status: 'tailoring', garments: FIXTURE_T06 }) : v;
-  const talking = !fixture && v.canon === 'awaiting-approval' && !!a.changesRequestedAt;
   /* round 10 (Kevin): while Sarah is reviewing, Marco can reopen the
      order (Edit Details → T04 → T05 Resend) */
   const awaiting = !fixture && v.canon === 'awaiting-approval';
   const edit = awaiting ? cta('Edit Details', { variant: 'secondary', attrs: 'data-act="edit"' }) : '';
-  const resent = awaiting && !talking && a.resentAt ? `Updated order sent again on ${fmtDay(a.resentAt)} — Sarah is reviewing it; payout ${v.money.payout} once approved.` : null;
-  const line = fixture ? '' : talking ? TALK : resent ?? ({
+  const resent = awaiting && a.resentAt ? `Updated order sent again on ${fmtDay(a.resentAt)} — Sarah is reviewing it; payout ${v.money.payout} once approved.` : null;
+  const line = fixture ? '' : resent ?? ({
     ...LINE,
     'ready-for-pickup': () => (a.fulfilment ? `Ready — handoff ${a.fulfilment.window}.` : 'Ready — waiting for Sarah to schedule the handoff.'),
     delivered: () => `Completed · payout ${v.money.payout} on ${payoutDate(a)}.`,   // R3-T-04
@@ -56,7 +54,7 @@ export function viewStatus(s, forced = null) {
     : v.canon === 'ready-for-pickup'
       ? cta('View Handoff Details', { attrs: 'data-act="handoff"' })
       : cta('View Payout', { attrs: 'data-act="payout"' });
-  const right = talking ? 'Sarah has questions' : shown.itemsLabel;
+  const right = shown.itemsLabel;   // round 12: the "Sarah has questions" state is gone (04.1 only closes)
   return `${tailorChrome('calendar')}
 <div class="body" data-s="t06-appointment-status">
   ${backHeader('Appointment Status', line)}
@@ -68,10 +66,8 @@ export function viewStatus(s, forced = null) {
     </div>
   </div>
   <div class="t-actions">
-    ${talking ? cta('Message Sarah', { attrs: 'data-act="message"' }) : ''}
-    ${talking ? edit : ''}
-    ${talking ? primary.replace('class="cta"', 'class="cta cta--secondary"') : primary}
-    ${talking ? '' : edit}
+    ${primary}
+    ${edit}
     ${cta('Back to Appointments', { variant: 'secondary', attrs: 'data-act="home"' })}
   </div>
 </div>`;

@@ -60,15 +60,26 @@ export const ADD_SERVICES = ['Taper', 'Sleeve', 'Resize', 'Repair', 'Lining'];
    100% of the alteration prices — see payout().
    ============================================================ */
 export const VISIT_FEE_NOTE = 'Helps cover transportation for larger appointments.';
+/* Round 12 (Kevin): customer tiers $50 / $90 / $150 by item count, and
+   the tailor now takes a CUT of the fee on the same bands — $25 / $50 /
+   $90 (tailorFee) — paid with the alteration payout (see payout()). */
 export const VISIT_FEE_TIERS = [
-  { max: 4, fee: 25 },
-  { max: 10, fee: 50, note: VISIT_FEE_NOTE },
-  { max: Infinity, fee: 100, note: VISIT_FEE_NOTE },
+  { max: 4, fee: 50 },
+  { max: 10, fee: 90, note: VISIT_FEE_NOTE },
+  { max: Infinity, fee: 150, note: VISIT_FEE_NOTE },
 ];
-/** The visitation fee for a booked item count (1–4 → $25, 5–10 → $50, 11+ → $100). */
-export const visitFee = (count) => (VISIT_FEE_TIERS.find((t) => (Number(count) || 0) <= t.max) ?? VISIT_FEE_TIERS[VISIT_FEE_TIERS.length - 1]).fee;
-/** The tier's supporting line ('' on the $25 tier). */
-export const visitFeeNote = (count) => (VISIT_FEE_TIERS.find((t) => (Number(count) || 0) <= t.max) ?? VISIT_FEE_TIERS[VISIT_FEE_TIERS.length - 1]).note ?? '';
+export const TAILOR_FEE_TIERS = [
+  { max: 4, fee: 25 },
+  { max: 10, fee: 50 },
+  { max: Infinity, fee: 90 },
+];
+const tierFor = (tiers, count) => tiers.find((t) => (Number(count) || 0) <= t.max) ?? tiers[tiers.length - 1];
+/** The visitation fee for a booked item count (1–4 → $50, 5–10 → $90, 11+ → $150). */
+export const visitFee = (count) => tierFor(VISIT_FEE_TIERS, count).fee;
+/** The tailor's cut of the visitation fee for an item count (1–4 → $25, 5–10 → $50, 11+ → $90). */
+export const tailorFee = (count) => tierFor(TAILOR_FEE_TIERS, count).fee;
+/** The tier's supporting line ('' on the $50 tier). */
+export const visitFeeNote = (count) => tierFor(VISIT_FEE_TIERS, count).note ?? '';
 /** Home delivery, chosen on 05 (05B) — charged with the alterations at handoff. */
 export const DELIVERY_FEE = 20;
 
@@ -189,18 +200,18 @@ export const SEED_UPCOMING = [
        with the seed still 'confirmed' render SEED_FINAL_ORDER (the
        frames' 06B fiction) instead. `count` / `itemLines` stay the 01/09
        frames' exact card copy. */
-    garments: [{ id: 'g1', type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
+    garments: [{ id: 'g1', type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], photos: 2 }, { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], photos: 2 }],
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     feeChargedOn: '7/7/26',
-    totals: { alterations: 200, items: 2, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 225, subtotal: 200 } },
+    totals: { alterations: 200, items: 2, visitFee: 50, visitFeeCharged: 50, visitFeeAdded: 0, delivery: 0, total: 250, subtotal: 200 } },
   { name: 'James Tailor', initials: 'JT', tailorId: 'marco', where: 'home', place: '404 Madison, Midtown',
     when: 'Jul 1, 3PM', needBy: 'Thurs, Sep 2', status: 'ready', items: '2 items · Alterations',
     visit: 'Home Visit', count: 2, month: 'JUL', day: '1',
     itemLines: ['1 Suit Jacket - Hem - Adjust Length', '1 Suit Jacket - Sleeve - Adjust Length'],
-    garments: [{ id: 'g3', type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], qty: 1, photos: 2 }, { id: 'g4', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 }],
+    garments: [{ id: 'g3', type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], photos: 2 }, { id: 'g4', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], photos: 2 }],
     bring: ['The shoes you plan to wear with your garments.'],
     feeChargedOn: '6/26/26',
-    totals: { alterations: 200, items: 2, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 225, subtotal: 200 } },
+    totals: { alterations: 200, items: 2, visitFee: 50, visitFeeCharged: 50, visitFeeAdded: 0, delivery: 0, total: 250, subtotal: 200 } },
 ];
 /* garments/totals added so the 04d detail view has data to render;
    itemLines stay the 09 frame's exact card copy.
@@ -218,15 +229,15 @@ export const SEED_PAST = [
     visit: 'Store Visit', count: 1, itemLines: ['1 Jean - Length'],
     fulfilment: { method: 'pickup', window: 'Wed 2–4 PM', date: 'Sep 2' },
     deliveredAt: 'Sep 2, 2PM', feeChargedOn: '8/28/26', feeLocked: true,
-    garments: [{ id: 'g5', type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
-    totals: { alterations: 120, items: 1, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 145, subtotal: 120 } },
+    garments: [{ id: 'g5', type: 'Pants / Jeans', jobs: ['Hem / Adjust Length'], photos: 0 }],
+    totals: { alterations: 120, items: 1, visitFee: 50, visitFeeCharged: 50, visitFeeAdded: 0, delivery: 0, total: 170, subtotal: 120 } },
   { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco', where: 'shop', place: '15 West Broadway',
     when: 'Sep 2, 2PM', needBy: 'Sep 4', status: 'Delivered', items: '1 shirt · Length', month: 'SEP', day: '2',
     visit: 'Store Visit', count: 1, displayCount: 2, itemLines: ['1 Shirt - Length'],
     fulfilment: { method: 'pickup', window: 'Wed 2–4 PM', date: 'Sep 2' },
     deliveredAt: 'Sep 2, 2PM', feeChargedOn: '8/28/26', feeLocked: true,
-    garments: [{ id: 'g6', type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], qty: 1, photos: 0 }],
-    totals: { alterations: 120, items: 1, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 145, subtotal: 120 } },
+    garments: [{ id: 'g6', type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], photos: 0 }],
+    totals: { alterations: 120, items: 1, visitFee: 50, visitFeeCharged: 50, visitFeeAdded: 0, delivery: 0, total: 170, subtotal: 120 } },
 ];
 
 /* The frames' post-appointment fiction (06B / 04D / 08 / 04E): at the
@@ -243,11 +254,11 @@ export const SEED_FINAL_ORDER = {
   garments: [
     /* g1/g2 = the seed's booked garments (same identity, R2-T-08);
        g7 = the jacket added at the visit */
-    { id: 'g1', type: 'Suit Jacket', jobs: ['Hem / Adjust Length', 'Sleeve / Adjust Length'], addedJobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 },
-    { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2 },
-    { id: 'g7', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 2, added: true },
+    { id: 'g1', type: 'Suit Jacket', jobs: ['Hem / Adjust Length', 'Sleeve / Adjust Length'], addedJobs: ['Sleeve / Adjust Length'], photos: 2 },
+    { id: 'g2', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], photos: 2 },
+    { id: 'g7', type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], photos: 2, added: true },
   ],
-  totals: { alterations: 360, items: 3, visitFee: 25, visitFeeCharged: 25, visitFeeAdded: 0, delivery: 0, total: 385, subtotal: 360 },
+  totals: { alterations: 360, items: 3, visitFee: 50, visitFeeCharged: 50, visitFeeAdded: 0, delivery: 0, total: 410, subtotal: 360 },
 };
 
 /* ============================================================
@@ -272,7 +283,7 @@ export function rowPrice(g, rows, i) {
   if (rows?.[i]?.amount != null) return money(rows[i].amount);
   return money(garmentAmount(g));
 }
-export const garmentAmount = (g) => Math.round((g.jobs ?? []).reduce((s, j) => s + (JOB_TYPES[j]?.price ?? 0), 0)) * (g.qty ?? 1);
+export const garmentAmount = (g) => Math.round((g.jobs ?? []).reduce((s, j) => s + (JOB_TYPES[j]?.price ?? 0), 0));
 
 /**
  * The customer's totals for a garment list (round 7 money model):
@@ -290,9 +301,10 @@ export const garmentAmount = (g) => Math.round((g.jobs ?? []).reduce((s, j) => s
  * after writing `a.garments` with the old totals as `base`.
  */
 export function apptTotals(garments, base = {}) {
-  const rows = (garments ?? []).map((g) => ({ label: `${g.type} — ${(g.jobs ?? []).join(', ')}`, qty: g.qty ?? 1, amount: garmentAmount(g) }));
+  /* round 12 (Kevin): one garment = one item — quantities are gone */
+  const rows = (garments ?? []).map((g) => ({ label: `${g.type} — ${(g.jobs ?? []).join(', ')}`, amount: garmentAmount(g) }));
   const alterations = rows.reduce((s, r) => s + r.amount, 0);
-  const items = (garments ?? []).reduce((s, g) => s + (g.qty ?? 1), 0);
+  const items = (garments ?? []).length;
   const tier = visitFee(items);
   const charged = base?.visitFeeCharged ?? base?.visitFee ?? tier;
   const fee = Math.max(tier, charged);
@@ -305,9 +317,18 @@ export function apptTotals(garments, base = {}) {
   };
 }
 
-/** The tailor's payout for a garment list: 100% of the alteration
-    prices — no fee, no commission (Kevin, round 7). */
-export const payout = (garments) => (garments ?? []).reduce((s, g) => s + garmentAmount(g), 0);
+/** The tailor's payout for a garment list (Kevin, round 12): 100% of
+    the alteration prices PLUS the tailor's cut of the visitation fee
+    for that item count (tailorFee) — no commission. payoutParts()
+    returns the two parts the tailor screens itemise. */
+export const payoutParts = (garments) => {
+  const list = garments ?? [];
+  const alterations = list.reduce((s, g) => s + garmentAmount(g), 0);
+  const items = list.length;
+  const visitCut = items ? tailorFee(items) : 0;
+  return { alterations, items, visitCut, payout: alterations + visitCut };
+};
+export const payout = (garments) => payoutParts(garments).payout;
 
 /**
  * No-show compensation (Kevin, UX-LOOP round 8): what the tailor
@@ -318,15 +339,14 @@ export const payout = (garments) => (garments ?? []).reduce((s, g) => s + garmen
  * amount. `state.tailorCancels(a, 'no-show')` stamps it on
  * `a.noShowComp`; T02 quotes it before Accept from the booked fee.
  */
-export const noShowComp = (visitFee) => {
-  const fee = Number(visitFee) || 0;
-  return fee >= 50 ? fee / 2 : 20;
-};
+/* Round 12 (Kevin): the compensation IS the tailor's cut of the fee for
+   the booked item count — $25 / $50 / $90. */
+export const noShowComp = (items) => tailorFee(items);
 
 /** "1 Item" / "3 Items" (09's "1 Items Total" bug, R1-U-19). */
 export const itemsLabel = (n, word = 'Item') => `${n} ${word}${n === 1 ? '' : 's'}`;
 /** Garment count of an appointment (qty-aware, falls back to `count`). */
-export const itemCount = (a) => (a?.garments ?? []).reduce((s, g) => s + (g.qty ?? 1), 0) || a?.count || 0;
+export const itemCount = (a) => (a?.garments ?? []).length || a?.count || 0;
 
 const MONTH_INDEX = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

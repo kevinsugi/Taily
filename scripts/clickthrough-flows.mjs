@@ -70,10 +70,10 @@ const EXPECT = {
   'c-reminder': 'Before you confirm',
   'c-reminder-locked': 'non-refundable',
   'c-confirm-popup': 'non-refundable',
-  'c-review-updated': { has: '$385', not: 'Removed at the visit' },
-  'c-review-unchanged': { has: '$225', not: '$360' },
+  'c-review-updated': { has: '$410', not: 'Removed at the visit' },
+  'c-review-unchanged': { has: '$250', not: '$360' },
   'c-review-removed': 'Removed at the visit',
-  'c-review-retiered': 'Additional visitation fee',
+  'c-review-retiered': '5 items, $90 tier',
   'c-request-changes': 'Sounds Good',
   'c-resent': 'updated the order on',
   'c-tailoring': 'Tailoring in Progress',
@@ -86,6 +86,7 @@ const EXPECT = {
   'c-scheduled': 'Fri, Jul 17',
   'c-complete': 'Leave a Review',
   'c-complete-delivery': 'Delivery',
+  'c-review-submitted': 'Review Submitted',
   'c-leave-review': 'Confirm',
   'c-summary': 'Items Received',
   'c-cancel-refund': 'refunded',
@@ -111,11 +112,10 @@ const EXPECT = {
   't-upcoming': 'Start Appointment',
   't-cant-make-it': 'I need to cancel',
   't-details': 'Contact Taily Support',
-  't-final-pricing': '$200 → $360',
+  't-final-pricing': '$225 → $385',
   't-final-removed': 'Removed at the visit',
   't-support': 'Taily Support',
   't-status-awaiting': 'Sarah is reviewing the updated order',
-  't-status-questions': 'questions',
   't-status-resent': 'sent again',
   't-edit-details': 'Continue',
   't-resend': 'Resend to Sarah',
@@ -123,7 +123,7 @@ const EXPECT = {
   't-ready-waiting': 'Message Sarah',
   't-ready-pickup': 'Mark Picked Up',
   't-ready-delivery': 'Deliver',
-  't-complete': '$360',
+  't-complete': '$385',
   't-cancelled-by-you': 'cancelled',
   't-no-show': 'for the trip',
   't-customer-cancelled': 'cancelled',
@@ -233,7 +233,7 @@ if (!DUMP) {
   await page.goto(`${origin}/index.html?flow=t-final-pricing`, { waitUntil: 'load' });
   await page.waitForTimeout(500);
   const booted = await landing();
-  check('?flow=t-final-pricing boots into T05 with the payout change', booted.screen === 't05-confirm-final-pricing' && booted.persona === 'tailor' && booted.text.includes('$200 → $360'), `${booted.screen} ${booted.persona}`);
+  check('?flow=t-final-pricing boots into T05 with the payout change', booted.screen === 't05-confirm-final-pricing' && booted.persona === 'tailor' && booted.text.includes('$225 → $385'), `${booted.screen} ${booted.persona}`);
   await page.goto(`${origin}/index.html?flow=c-reschedule`, { waitUntil: 'load' });
   await page.waitForTimeout(500);
   const bootedOverlay = await landing();

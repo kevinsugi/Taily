@@ -248,12 +248,17 @@ export function orderDropdown(open = false) {
     under the payout with the trip compensation (jobView.protection /
     data.js noShowComp) — never the fee it is derived from. */
 export const NO_SHOW_PROTECTION = 'No-show protection · paid if Sarah doesn’t show';
-export function payoutRows({ payout }, { offered = false, protection = null } = {}) {
+/* Round 12 (Kevin): the tailor takes a cut of the visitation fee — its
+   own "Visitation fee" row above "Your payout" (which includes it). */
+export function payoutRows({ payout, visitCut = null }, { offered = false, protection = null } = {}) {
   const price = typeof payout === 'number' ? money(payout) : payout;
-  if (offered) return feeRow(price, 'Payout offered', { muted: true });
-  if (protection == null) return feeRow(price, 'Your payout');
+  const cut = visitCut == null ? '' : (typeof visitCut === 'number' ? money(visitCut) : visitCut);
+  const cutRow = cut ? `${feeRow(cut, 'Visitation fee', { line: true })}
+      ` : '';
+  if (offered) return `${cutRow}${feeRow(price, 'Payout offered', { muted: true })}`;
+  if (protection == null) return `${cutRow}${feeRow(price, 'Your payout')}`;
   const comp = typeof protection === 'number' ? money(protection) : protection;
-  return `${feeRow(price, 'Your payout', { line: true })}
+  return `${cutRow}${feeRow(price, 'Your payout', { line: true })}
       ${feeRow(comp, NO_SHOW_PROTECTION, { muted: true })}`;
 }
 
@@ -287,8 +292,8 @@ export function tailorGarmentCard({
     const note = (commentOpen || comment)
       ? `<textarea class="tgc__note" data-act="note"${gi} rows="1" placeholder="Note on this garment…" aria-label="Comment">${esc(comment)}</textarea>`
       : `<button type="button" class="tgc__comment" data-act="comment"${gi}>${ICON_ADD_CIRCLE}<span>Add Comment</span></button>`;
+    /* round 12 (Kevin): no quantity selector — one card per garment */
     rows = `<div class="garment-card__row">
-      ${selector('quantity', String(qty), ['1', '2', '3', '4', '5'], { attrs: `data-sel="qty"${gi}` })}
       ${selector('item', type, Object.keys(GARMENT_TYPES), { attrs: `data-sel="item"${gi}` })}
     </div>
     <div class="garment-card__service">${selector('job', primary, Object.keys(JOB_TYPES), { attrs: `data-sel="job" data-ji="0"${gi}` })}</div>
@@ -321,7 +326,7 @@ export function orderCards(garments, { variant = 'Appt_View', marks = null, plai
   return garments.map((g, i) => {
     const m = marks?.[i] ?? (plain ? {} : { added: !!g.added, addedJobs: g.addedJobs ?? [] });
     return tailorGarmentCard({
-      variant, type: g.type, qty: g.qty ?? 1, price: money(garmentAmount(g)), services: g.jobs,
+      variant, type: g.type, price: money(garmentAmount(g)), services: g.jobs,
       before: g.before ?? 0, pinned: g.pinned ?? 0, comment: g.comment ?? '', commentOpen: !!g.commentOpen, index: i,
       added: !!m.added, addedJobs: m.addedJobs ?? [], priceInfo: !!m.priceInfo,
     });
@@ -349,7 +354,6 @@ export function wireOrderEditor(root, garments, rerender) {
     const g = garments[Number(trigger.dataset.gi)];
     const v = opt.dataset.option;
     if (!g) return;
-    if (trigger.dataset.sel === 'qty') g.qty = Number(v);
     if (trigger.dataset.sel === 'item') g.type = v;
     if (trigger.dataset.sel === 'job') g.jobs[Number(trigger.dataset.ji)] = v;
     if (trigger.dataset.sel === 'add') g.jobs.push(v);
@@ -388,7 +392,7 @@ export function wireOrderEditor(root, garments, rerender) {
     if (g) g.comment = ta.value;
   }));
   root.querySelectorAll('[data-act="add-garment"]').forEach((btn) => btn.addEventListener('click', () => {
-    garments.push({ type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], qty: 1, photos: 0 });
+    garments.push({ type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], photos: 0 });
     rerender();
   }));
   root.addEventListener('click', closeMenus);

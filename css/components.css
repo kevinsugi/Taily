@@ -331,14 +331,16 @@
   overflow: visible;
 }
 
-/* Quantity badge + minus button — 01a (532:946): cluster absolute at
-   left 64 / top -9 on the 108.667 tile. */
+/* Plus / quantity badge / minus — 01a (532:946), round 12 (Kevin): the
+   three 22px controls stack vertically, right-aligned, absolute at
+   left 89 / top -9 on the 108.667 tile. */
 .garment-tile__qty {
   position: absolute;
   top: -9px;
-  left: 64px;
+  left: 89px;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: flex-end;
 }
 .garment-tile__badge {
   width: 22px;
@@ -1387,6 +1389,15 @@
   color: var(--neutral-300);
 }
 .review-sheet__stars button.is-filled { color: var(--warning); }
+/* Round 12 (Kevin): the "Review Submitted" state — check + title, centred */
+.review-sheet__head--center { align-items: center; text-align: center; }
+.review-sheet__check {
+  font-family: var(--font-sans);
+  font-size: var(--size-24);
+  line-height: 31px;
+  font-weight: 600;
+  color: var(--success);
+}
 .review-sheet__input {
   width: 100%;
   min-height: 65px;

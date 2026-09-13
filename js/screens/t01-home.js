@@ -63,7 +63,7 @@ function requestFor(a, idx, fixture) {
   const by = a.proposed ? null : proposalDeclinedBy(a);
   return requestCard({
     idx,
-    payout: fixture ? '$200' : v.money.payout,
+    payout: fixture ? '$225' : v.money.payout,   // round 12: $200 alterations + the $25 fee cut
     count: fixture ? '' : `${v.items} item${v.items === 1 ? '' : 's'}`,
     name: CUSTOMER.name,
     address: `${fixture ? CUSTOMER.short : v.address} · ${CUSTOMER.dist}`,
@@ -77,7 +77,7 @@ function requestFor(a, idx, fixture) {
 
 function openJobFor(a, idx, fixture) {
   const v = jobView(a);
-  const right = a.changesRequestedAt && v.canon === 'awaiting-approval' ? 'Sarah has questions' : v.itemsLabel;
+  const right = v.itemsLabel;   // round 12: the "Sarah has questions" state is gone
   return jobCard({
     month: v.month, day: v.day, name: CUSTOMER.name, meta: fixture ? '7:00PM - 88 Leonard St, 4B' : v.meta, payout: v.money.payout,
     status: v.pill, pillLabel: v.pillLabel, stage: v.stage, right, attrs: `data-act="open-job" data-job="${idx}"`,

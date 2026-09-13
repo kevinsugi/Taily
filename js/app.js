@@ -25,6 +25,8 @@ const SCREEN_MODULES = [
   '03-status-reminder-locked', '03-status-confirmed-locked', '03-status-unconfirmed', '04-review-approve-retiered',
   /* UX-LOOP round 9: 03/Confirmed's booking photos open the viewer (sibling frame, fixture route) */
   '03.3-photo-viewer-booking',
+  /* Round 10: the tailor's Edit Details → resend (sibling frames, fixture routes) */
+  't06-awaiting', 't05-resend',
   /* Tailor flow (Phase T) — Marco's view of the same appointment */
   't01-home', 't02-appointment-request', 't03-request-accepted', 't03a-decline-request', 't03b-job-cancelled',
   't04-appointment-details', 't05-confirm-final-pricing', 't06-appointment-status', 't07-job-ready', 't08-job-complete',

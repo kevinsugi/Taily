@@ -12,7 +12,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, summaryCard, cta, apptRows } from '../components.js';
 import { money } from '../data.js';
-import { state, isTerminal, isPostAppointment, autoCancelUnconfirmed } from '../state.js';
+import { state, isTerminal, isPostAppointment, autoCancelUnconfirmed, statusScreen } from '../state.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
 import { openConfirmPopup } from './03.2-appointment-confirmed.js';
 import { bookingSummary, currentAppt, confirmedPill } from './03-status-confirmed.js';
@@ -77,7 +77,7 @@ export function wire(root) {
   /* R4-U-01: an appointment that already happened shows its
      03/Tailoring — never a stale reminder with Reschedule / Cancel */
   if (window.__tailyNavigated && isPostAppointment(cur)) {
-    setTimeout(() => go('03-status-tailoring', { replace: true }), 0);
+    setTimeout(() => go(statusScreen(cur), { replace: true }), 0);   // round 10: 04 while awaiting approval
     return;
   }
   /* Phase R4 (Kevin): Confirm Appointment opens the 05C popup; its

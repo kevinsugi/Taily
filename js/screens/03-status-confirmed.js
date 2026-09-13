@@ -10,7 +10,7 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, statusHero, summaryCard, cta, toast, orderCards, apptRows, receiptDates, orderRows } from '../components.js';
-import { state, isTerminal, isPostAppointment } from '../state.js';
+import { state, isTerminal, isPostAppointment, statusScreen } from '../state.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
 import { wireBookingPhotos } from './03.3-photo-viewer.js';
 
@@ -61,7 +61,6 @@ export function viewConfirmed(s) {
     ${cta('Add to Calendar', { attrs: 'data-act="calendar"' })}
     ${cta('Message Tailor', { variant: 'secondary', attrs: 'data-act="message"' })}
     ${cta('Reschedule / Cancel', { variant: 'secondary', attrs: 'data-act="reschedule"' })}
-    ${cta('View All Appointments', { variant: 'secondary', attrs: 'data-act="bookings"' })}
   </div>
 </div>`;
 }
@@ -81,7 +80,7 @@ export function wire(root) {
      after the visit must never offer Reschedule / Cancel on a measured
      order). Deep links keep the frame's fixture. */
   if (window.__tailyNavigated && isPostAppointment(cur)) {
-    setTimeout(() => go('03-status-tailoring', { replace: true }), 0);
+    setTimeout(() => go(statusScreen(cur), { replace: true }), 0);   // round 10: 04 while awaiting approval
     return;
   }
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));

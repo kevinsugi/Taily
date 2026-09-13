@@ -102,13 +102,16 @@ export function viewRequested(s, forced = null) {
     ? [
       metaRow('◉', `${req.place} — ${req.visit}`),
       metaRow('▤', fmtWhen(req.when, req.when)),
-      /* R7: the held visitation fee (the tier for the booked count) */
-      metaRow('✂', `${itemsLabel(itemCount(req), 'item')} · ${money(req.totals.alterations)}.00+ est. · ${money(req.totals.visitFee)} visitation fee held`),
+      /* R7: the held visitation fee (the tier for the booked count) —
+         round 10 (Kevin): its own row under the items / estimate */
+      metaRow('✂', `${itemsLabel(itemCount(req), 'item')} · ${money(req.totals.alterations)}.00+ est.`),
+      metaRow('🏠', `${money(req.totals.visitFee)} visitation fee`),
     ]
     : [
       metaRow('◉', `${s.contact.street}, ${s.contact.unit} — ${s.appt.where}`),
       metaRow('▤', s.appt.when ?? fmtWhen(s.upcoming[0]?.when, 'Select Time')),
-      metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.alterations)}.00+ est. · ${money(t.visitFee)} visitation fee held`),
+      metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.alterations)}.00+ est.`),
+      metaRow('🏠', `${money(t.visitFee)} visitation fee`),
     ];
   /* the acceptance window (the tailor side's timer twin) — R6: in the
      frame too (under the hero); tapping it live is the "time passes" demo */
@@ -118,7 +121,7 @@ export function viewRequested(s, forced = null) {
   const actions = proposed
     ? `${cta('Accept New Time', { attrs: 'data-act="accept-time"' })}
   ${cta('Keep Looking', { variant: 'secondary', attrs: 'data-act="keep-looking"' })}`
-    : cta('View All Appointments', { attrs: 'data-act="bookings"' });
+    : '';   // round 10 (Kevin): no View All Appointments on the 03 family
   return `${chrome('home')}
 <div class="body" data-s="03-status-requested">
   ${hero}

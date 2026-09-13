@@ -59,6 +59,13 @@ const finalOrder = () => ({ garments: clone(SEED_FINAL_ORDER.garments), totals: 
     (R2-T-09). Cards itemize the T06 frame's $120 / $80 / $80 (the
     CLAUDE.md quirk) against the $360 total. */
 export const APPT_QUESTIONS = () => seedAppt({ status: 'awaiting-approval', changesRequestedAt: 'Sun, Jul 12', revisedAt: 'Sun, Jul 12', garments: clone(FIXTURE_T06), totals: clone(SEED_FINAL_ORDER.totals) });
+/** Round 10: T06 while Sarah is simply reviewing the sent order (frame
+    "T06 - Appointment Status / Awaiting Approval") — Mark Ready / Edit
+    Details / Back. */
+export const APPT_AWAITING = () => seedAppt({ status: 'awaiting-approval', revisedAt: 'Sun, Jul 12', garments: clone(FIXTURE_T06), totals: clone(SEED_FINAL_ORDER.totals) });
+/** Round 10: the tailor's at-visit draft in tailor-side shape (no marks,
+    the added jacket without an id) — T05's Resend fixture. */
+export const DRAFT_MODIFIED = () => clone(SEED_FINAL_ORDER.garments).map(({ addedJobs, added, ...g }) => (added ? (({ id, ...rest }) => rest)(g) : g));
 /** T07 "waiting for Sarah to schedule": ready, no handoff chosen yet (R2-T-07). */
 export const APPT_READY_WAITING = () => seedAppt({ status: 'ready-for-pickup', readyAt: 'Thu, Jul 16', revisedAt: 'Sun, Jul 12', ...finalOrder() });
 

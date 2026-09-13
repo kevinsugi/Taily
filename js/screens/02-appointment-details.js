@@ -13,14 +13,17 @@
    alterations paid at handoff.
    Round 9 (Kevin): both pills open as "Select Time" (state.appt.when /
    needBy start null) and the request is inert until both are picked;
-   the fee card takes the garment card's chassis — price column left,
-   description right — and sits INSIDE the CTA bar above the CTA, as the
-   frame draws it (frame + the four sheet backdrops synced).
+   Round 10 (Kevin, new frame 657:4875 — the old 277:2676 was deleted):
+   the editable garment cards sit as flat rows INSIDE one white garments
+   card like every other page (`flat`), followed by the money rows —
+   Alterations (est.) / Visitation fee - Due Today / Total — and the
+   paid-at-handoff note; "+ Additional Garment" stands below the card;
+   the fee card is gone. The four sheet backdrops were re-synced to it.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, filterPill, garmentCard, cta, toast } from '../components.js';
-import { money, garmentAmount, isAfter, itemsLabel } from '../data.js';
+import { chrome, filterPill, garmentCard, cta, toast, orderRows } from '../components.js';
+import { money, garmentAmount, isAfter } from '../data.js';
 import { state, addGarment, removeGarment, bookingLines } from '../state.js';
 /* Sheets open as in-place overlays (v3 sheetShow parity) — navigating to
    the 02a/04a routes would rebuild this screen and flash. The routes
@@ -56,6 +59,7 @@ export function view02(s) {
 
   const cards = s.garments.map((g, i) => garmentCard({
     variant: 'WithPhoto',
+    flat: true,
     type: g.type,
     qty: g.qty,
     price: money(garmentAmount(g)),
@@ -74,37 +78,24 @@ export function view02(s) {
     ${filterPill('Requested time:', appt.when ?? PILL_EMPTY, { attrs: 'data-act="time"' })}
     ${filterPill('Need by:', appt.needBy ?? PILL_EMPTY, { attrs: 'data-act="needby"', error: needByOk(s) ? '' : NEEDBY_MSG })}
   </div>
-  <div class="garments">
-    <p class="t-body w-600 c-ink">Garments:</p>
-    <div class="garments__cards">
-      ${cards}
-      <button type="button" class="add-garment" data-act="add-garment">+ Additional Garment</button>
-    </div>
+  <div class="garments-card" data-garments>
+    ${cards}
+    ${orderRows(totals, { est: true, feeDesc: 'Visitation fee - Due Today' })}
+    <p class="t-small c-500 fee-note">${ALTERATIONS_NOTE}</p>
+    ${totals.note ? `<p class="t-small c-500 fee-note" data-fee-tier-note>${totals.note}</p>` : ''}
   </div>
+  <button type="button" class="add-garment" data-act="add-garment">+ Additional Garment</button>
   <div class="cta-bar">
-    ${feeCard(totals)}
     ${cta(`Reserve Appt · ${money(totals.visitFee)}`, { attrs: 'data-act="request"' })}
     <p class="t-small c-500 cta-bar__note">A Taily-certified tailor near you will accept your request — final pricing is confirmed at your appointment.</p>
   </div>
 </div>`;
 }
 
-/** R7: the visitation fee card — the tier for the booked item count,
-    R7-U-03's second line summing the form's alterations ("Alterations
-    est. $240 · paid at pickup or delivery"), then the $50 / $100 tiers'
-    supporting line. Round 9 (Kevin): laid out like the garment card —
-    the price in the 68px left column (the card's price style), the
-    description stacked on the right (garment-row weight). */
-export function feeCard(t) {
-  return `<div class="fee-card" data-fee-card>
-    <div class="fee-card__chip"><span class="fee-card__price">${money(t.visitFee)}</span></div>
-    <div class="fee-card__content">
-      <p class="fee-card__line">Visitation fee · ${itemsLabel(t.items, 'item')}</p>
-      <p class="t-small c-500 fee-card__est">Alterations est. ${money(t.alterations)} · paid at pickup or delivery</p>
-      ${t.note ? `<p class="t-small c-500 fee-card__note">${t.note}</p>` : ''}
-    </div>
-  </div>`;
-}
+/* The note under the money rows — the same sentence 03/Confirmed and
+   03/Reminder print (kept local: importing it from 03/Confirmed would
+   pull the status family into the booking form's module graph). */
+const ALTERATIONS_NOTE = 'Alterations are paid at pickup or delivery.';
 
 /* UX-LOOP R1-U-11: repaint the need-by pill's validity in place after
    the picker closes (the picker updates the pill text without

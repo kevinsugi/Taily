@@ -15,9 +15,9 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, cta, toast, orderCards, orderRows, feeTierNote, linkRow } from '../components.js';
+import { chrome, statusHero, summaryCard, cta, toast, orderCards, orderRows, feeTierNote } from '../components.js';
 import { fmtWhen, fmtDay } from '../data.js';
-import { state, apptEntry, canonicalStatus, isTerminal, markReady, deliver, finalOrder, orderModified } from '../state.js';
+import { state, apptEntry, canonicalStatus, isTerminal, markReady, deliver, finalOrder, orderModified, statusScreen } from '../state.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
 import { pointAtTerminal } from './03.1-reschedule-popup.js';
 import { currentAppt } from './03-status-confirmed.js';
@@ -94,12 +94,10 @@ export function viewTailoring(s) {
   <div class="garments-card" data-act="review">
     ${orderCards(o, { variant: 'PostAppt' })}
     ${rows}
-    ${canon === 'awaiting-approval' ? linkRow('View final order', { attrs: 'data-act="review-order"' }) : ''}
   </div>
   <div class="cta-bar cta-bar--plain">
     ${cta(hero.label, { attrs: `data-act="${hero.act}"` })}
     ${hero.noMessage ? '' : cta(`Message ${first}`, { variant: 'secondary', attrs: 'data-act="message"' })}
-    ${cta('View All Appointments', { variant: 'secondary', attrs: 'data-act="bookings"' })}
   </div>
 </div>`;
 }
@@ -112,6 +110,13 @@ function wire(root) {
   const cur = currentAppt(state);
   if (window.__tailyNavigated && isTerminal(cur)) {
     setTimeout(() => { pointAtTerminal(cur); go('03-status-cancelled', { replace: true }); }, 0);
+    return;
+  }
+  /* Round 10 (Kevin): while the final order awaits approval, 04 IS the
+     screen — a status view reached here (back, a deep link, a resend)
+     hands over to it. */
+  if (window.__tailyNavigated && canonicalStatus(cur.status) === 'awaiting-approval') {
+    setTimeout(() => go(statusScreen(cur), { replace: true }), 0);
     return;
   }
   root.querySelector('[data-act="bookings"]')?.addEventListener('click', () => go('09-bookings'));

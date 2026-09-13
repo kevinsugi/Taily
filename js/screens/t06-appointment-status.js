@@ -23,7 +23,8 @@ import { register, render as go } from '../app.js';
 import { cta, toast } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, jobCard, orderCards, payoutRows, openChat } from '../tailor-components.js';
-import { current, jobView, isFixture, isTerminalJob, payoutDate, T, FIXTURE_T06, CUSTOMER } from '../tailor-data.js';
+import { current, jobView, isFixture, isTerminalJob, payoutDate, T, FIXTURE_T06, CUSTOMER, reopenDraft } from '../tailor-data.js';
+import { fmtDay } from '../data.js';
 
 const LINE = {
   /* round 7: the payout Sarah is approving, spelled out */
@@ -40,7 +41,12 @@ export function viewStatus(s, forced = null) {
   const fixture = !forced && (isFixture() || !v.post);
   const shown = fixture ? jobView({ ...a, status: 'tailoring', garments: FIXTURE_T06 }) : v;
   const talking = !fixture && v.canon === 'awaiting-approval' && !!a.changesRequestedAt;
-  const line = fixture ? '' : talking ? TALK : ({
+  /* round 10 (Kevin): while Sarah is reviewing, Marco can reopen the
+     order (Edit Details → T04 → T05 Resend) */
+  const awaiting = !fixture && v.canon === 'awaiting-approval';
+  const edit = awaiting ? cta('Edit Details', { variant: 'secondary', attrs: 'data-act="edit"' }) : '';
+  const resent = awaiting && !talking && a.resentAt ? `Updated order sent again on ${fmtDay(a.resentAt)} — Sarah is reviewing it; payout ${v.money.payout} once approved.` : null;
+  const line = fixture ? '' : talking ? TALK : resent ?? ({
     ...LINE,
     'ready-for-pickup': () => (a.fulfilment ? `Ready — handoff ${a.fulfilment.window}.` : 'Ready — waiting for Sarah to schedule the handoff.'),
     delivered: () => `Completed · payout ${v.money.payout} on ${payoutDate(a)}.`,   // R3-T-04
@@ -63,7 +69,9 @@ export function viewStatus(s, forced = null) {
   </div>
   <div class="t-actions">
     ${talking ? cta('Message Sarah', { attrs: 'data-act="message"' }) : ''}
+    ${talking ? edit : ''}
     ${talking ? primary.replace('class="cta"', 'class="cta cta--secondary"') : primary}
+    ${talking ? '' : edit}
     ${cta('Back to Appointments', { variant: 'secondary', attrs: 'data-act="home"' })}
   </div>
 </div>`;
@@ -79,6 +87,13 @@ export function wire(root) {
   root.querySelector('[data-act="handoff"]')?.addEventListener('click', () => go('t07-job-ready'));
   root.querySelector('[data-act="payout"]')?.addEventListener('click', () => go('t08-job-complete'));
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => openChat());
+  /* round 10 (Kevin): reopen the sent order for editing; T05's Send resends it */
+  root.querySelector('[data-act="edit"]')?.addEventListener('click', () => {
+    const a = current(state);
+    if (!a || jobView(a).canon !== 'awaiting-approval') { toast('Nothing to edit — Sarah already approved the order'); return; }
+    reopenDraft(a);
+    go('t04-appointment-details');
+  });
   root.querySelector('[data-act="ready"]')?.addEventListener('click', () => {
     const a = current(state);
     /* R4-T-03: a closed job (reached through history) is not "already

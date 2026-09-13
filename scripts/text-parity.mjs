@@ -102,8 +102,13 @@ const ALLOW = {
   '03-status-summary': R7_RECEIPT,
   '06.1-leave-review': R7_RECEIPT,
   /* ---- R7 money model — Figma sync pending (tailor) ---- */
-  't01-home': ['$180'],
-  't01-home-closed': ['$180'],
+  /* Round 10 (Sep 13 2026): Kevin rebuilt the tailor Active Job Card master's
+     items label + date slots ('2 Suit Jackets', 'DUE', '9/2' defaults bleed
+     through where instance overrides were lost) and added a 'Past Jobs' /
+     'Decline' to the T01 frames — untracked edits, raised in UX-LOOP.md,
+     ALLOW'd until Kevin says what T01 should show. */
+  't01-home': ['$180', '2 Suit Jackets', 'DUE', '9/2', 'APPT', '8/29', '$102'],
+  't01-home-closed': ['$180', '2 Suit Jackets', 'DUE', '9/2', 'Decline', 'Past Jobs'],
   't02-appointment-request': [...R7_T_REQUEST, 'Accept Request · $180'],
   't02-accepted': R7_T_REQUEST,
   't02-expired': R7_T_REQUEST,

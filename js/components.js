@@ -354,6 +354,9 @@ export function garmentCard({
      a services entry may be { label, added } for one added service;
      priceInfo=true paints just the price (a total that changed). */
   added = false, priceInfo = false,
+  /* Round 10 (Kevin): an editable card drawn as a flat row inside one
+     white garments card (02's new frame) — no chassis of its own. */
+  flat = false,
 } = {}) {
   const editable = variant === 'Default' || variant === 'WithPhoto';
   // Card art: ref-rendered raster when we have one (matches Figma's
@@ -401,7 +404,7 @@ export function garmentCard({
 
   const close = editable ? `<button type="button" class="garment-card__close" data-act="remove-garment"${index === null ? '' : ` data-gi="${index}"`} aria-label="Remove garment">✕</button>` : '';
 
-  return `<article class="garment-card${editable ? '' : ' garment-card--view'}${added ? ' garment-card--info' : ''}">
+  return `<article class="garment-card${editable ? '' : ' garment-card--view'}${flat ? ' garment-card--flat' : ''}${added ? ' garment-card--info' : ''}">
   ${chip}
   <div class="garment-card__content">
     ${rows}

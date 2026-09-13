@@ -783,6 +783,16 @@
   color: var(--neutral-500);
 }
 
+/* Round 10 (Kevin): 02's editable cards sit INSIDE one white garments
+   card like every other page — flat rows at pad 16/0, a hairline under
+   each, no shadow / radius of their own (frame 657:4875); the ✕ sits
+   at the content's top-right. */
+.garment-card--flat {
+  padding: var(--space-16) 0;
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 var(--neutral-100);
+}
+.garment-card--flat .garment-card__close { top: var(--space-16); right: 0; }
 .garment-card__close {
   position: absolute;
   top: 11px;

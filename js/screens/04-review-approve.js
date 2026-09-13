@@ -20,8 +20,8 @@
 
 import { register, render as go } from '../app.js';
 import { chrome, cta, orderCards, orderRows, feeTierNote } from '../components.js';
-import { money, SEED_UPCOMING } from '../data.js';
-import { apptEntry, approveOrder, finalOrder, orderModified, isPostAppointment, isTerminal, canonicalStatus } from '../state.js';
+import { money, fmtDay, SEED_UPCOMING } from '../data.js';
+import { apptEntry, approveOrder, finalOrder, orderModified, isPostAppointment, isTerminal, canonicalStatus, statusScreen } from '../state.js';
 import { openRequestChanges } from './04.1-request-changes.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
 import { currentAppt } from './03-status-confirmed.js';
@@ -44,6 +44,7 @@ export function viewReview(s, screenId, fixture) {
   <div class="heading">
     <h1 class="t-title w-600 c-ink">Approve your final order.</h1>
     <p class="t-body w-500 c-500">${first} measured and pinned at your appointment. Review the final details and pricing before tailoring starts.</p>
+    ${live && a.resentAt ? `<p class="t-small w-500 c-info" data-resent>${first} updated the order on ${fmtDay(a.resentAt)}. Changes are highlighted below.</p>` : ''}
   </div>
   <div class="garments-card">
     ${orderCards(o, { variant: 'PostAppt', marks: true })}
@@ -54,7 +55,6 @@ export function viewReview(s, screenId, fixture) {
   <div class="cta-bar">
     ${cta('Approve Final Order', { attrs: 'data-act="approve"' })}
     ${cta('Request Changes', { variant: 'secondary', attrs: 'data-act="changes"' })}
-    ${cta('View All Appointments', { variant: 'secondary', attrs: 'data-act="bookings"' })}
   </div>
 </div>`;
 }
@@ -65,7 +65,7 @@ export function wireReview(root) {
      view; a terminal entry to 03/Cancelled. Deep links keep the fixture. */
   const cur = apptEntry();
   if (window.__tailyNavigated && cur && canonicalStatus(cur.status) !== 'awaiting-approval') {
-    setTimeout(() => go(isTerminal(cur) ? '03-status-cancelled' : '03-status-tailoring', { replace: true }), 0);
+    setTimeout(() => go(statusScreen(cur), { replace: true }), 0);
     return;
   }
   wirePhotoViewer(root);

@@ -24,7 +24,7 @@ import {
 } from './state.js';
 import { SEED_FINAL_ORDER } from './data.js';
 import { PROPOSED_WHEN } from './fixtures.js';
-import { tailorOf, setCurrent, stampAcceptedPayout, writeFinalOrder } from './tailor-data.js';
+import { tailorOf, setCurrent, stampAcceptedPayout, writeFinalOrder, reopenDraft, resendFinalOrder } from './tailor-data.js';
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
@@ -91,6 +91,9 @@ function visited(a, order = 'modified') {
   return a;
 }
 
+/** Round 10: Marco reopened the sent order and sent it again with two
+    pairs of pants added (Edit Details → T04 → T05 Resend). */
+const resent = (a) => { visited(a); reopenDraft(a); resendFinalOrder(a, DRAFTS.retiered()); return a; };
 const approved = (a, order) => { visited(a, order); approveOrder(a); return a; };
 const ready = (a, order) => { approved(a, order); markReady(a); return a; };
 /** Sarah picked a handoff window on 05A / 05B (the seed's windows). */
@@ -158,7 +161,7 @@ export const FLOWS = {
         { key: 'c-review-removed', code: '04', title: 'Review — item removed', note: 'A jacket was dropped at the visit', screen: '04-review-approve', setup: (a) => visited(a, 'removed') },
         { key: 'c-review-retiered', code: '04', title: 'Review — higher fee tier', note: '5 items, additional visitation fee', screen: '04-review-approve', setup: (a) => visited(a, 'retiered') },
         { key: 'c-request-changes', code: '04.1', title: 'Request changes popup', screen: '04-review-approve', setup: (a) => visited(a), click: ['[data-act="changes"]'] },
-        { key: 'c-awaiting', code: '03', title: 'Tailoring — awaiting your approval', screen: '03-status-tailoring', setup: (a) => visited(a) },
+        { key: 'c-resent', code: '04', title: 'Review — Marco updated the order', note: 'Sent again after editing, changes highlighted', screen: '04-review-approve', setup: (a) => resent(a) },
       ],
     },
     {
@@ -233,6 +236,8 @@ export const FLOWS = {
         { key: 't-details', code: 'T04', title: 'Appointment details', note: 'Edit the order', screen: 't04-appointment-details', setup: (a) => accepted(a) },
         { key: 't-final-pricing', code: 'T05', title: 'Confirm final pricing', note: 'Updated invoice, payout $200 → $360', screen: 't05-confirm-final-pricing', setup: (a) => { accepted(a); tailorOf(a).draft = DRAFTS.modified(); } },
         { key: 't-final-removed', code: 'T05', title: 'Final pricing — item removed', screen: 't05-confirm-final-pricing', setup: (a) => { accepted(a); tailorOf(a).draft = DRAFTS.removed(); } },
+        { key: 't-edit-details', code: 'T04', title: 'Edit details — order reopened', note: 'Awaiting approval; edit and resend', screen: 't04-appointment-details', setup: (a) => { visited(a); reopenDraft(a); } },
+        { key: 't-resend', code: 'T05', title: 'Resend final pricing', note: 'Two pairs of pants added after sending', screen: 't05-confirm-final-pricing', setup: (a) => { visited(a); reopenDraft(a); tailorOf(a).draft = DRAFTS.retiered(); } },
         { key: 't-support', code: 'TM1', title: 'Taily support chat', screen: '10-messages', setup: (a) => { accepted(a); state.tailorUi.chat = 'support'; } },
       ],
     },
@@ -241,6 +246,7 @@ export const FLOWS = {
       items: [
         { key: 't-status-awaiting', code: 'T06', title: 'Status — awaiting Sarah’s approval', screen: 't06-appointment-status', setup: (a) => visited(a) },
         { key: 't-status-questions', code: 'T06', title: 'Status — Sarah has questions', screen: 't06-appointment-status', setup: (a) => { visited(a); requestChanges(a); } },
+        { key: 't-status-resent', code: 'T06', title: 'Status — updated order sent again', screen: 't06-appointment-status', setup: (a) => resent(a) },
         { key: 't-status-tailoring', code: 'T06', title: 'Status — tailoring', note: 'Order approved', screen: 't06-appointment-status', setup: (a) => approved(a) },
         { key: 't-ready-waiting', code: 'T07', title: 'Job ready — waiting for Sarah', note: 'No handoff chosen yet', screen: 't07-job-ready', setup: (a) => ready(a) },
         { key: 't-ready-pickup', code: 'T07', title: 'Job ready — pickup scheduled', screen: 't07-job-ready', setup: (a) => scheduled(a, 'pickup') },

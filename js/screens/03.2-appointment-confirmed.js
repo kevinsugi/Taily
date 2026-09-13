@@ -9,7 +9,7 @@
 
 import { register, render as go } from '../app.js';
 import { cta, modalOverlay } from '../components.js';
-import { apptEntry, confirmAppointment, completeAppointment, draftFinalOrder } from '../state.js';
+import { apptEntry, confirmAppointment, completeAppointment, draftFinalOrder, statusScreen } from '../state.js';
 import { viewReminder, reminderFee } from './03-status-reminder.js';
 import { currentAppt } from './03-status-confirmed.js';
 
@@ -47,7 +47,8 @@ function wireModal(root, close) {
        Tomorrow's Appointment" / "Appointment Confirmed" with a live
        Reschedule / Cancel for an order Marco has already measured. */
     close?.();
-    go('03-status-tailoring', { replace: true });
+    /* round 10 (Kevin): the final order awaits approval → 04 is the screen */
+    go(statusScreen(a), { replace: true });
   });
 }
 

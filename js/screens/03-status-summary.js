@@ -42,9 +42,6 @@ function renderScreen(s) {
     ${orderCards(o, { variant: 'PostAppt' })}
     ${receiptRows(a, o.totals)}
   </div>
-  <div class="cta-bar cta-bar--plain">
-    ${cta('View All Appointments', { variant: 'secondary', attrs: 'data-act="bookings"' })}
-  </div>
 </div>`;
 }
 

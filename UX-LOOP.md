@@ -938,3 +938,78 @@ commit; verification review of the sync (both flows, parity-focused).
   booking viewer's "<garment> — Your photos" / "Added when you booked".
 - 03/Reminder's booking cards still don't open the viewer (only 03/Confirmed per the ask); one
   line to extend if wanted.
+
+
+## Round 10 — Kevin's user + tailor edits (Sep 13 2026; Figma round)
+
+### Kevin's asks and answers
+- **02 Appointment Details:** Kevin deleted the old frame and drew a new one (657:4875) — the
+  editable garment cards sit as flat rows inside ONE white garments card like every other page,
+  followed by Alterations (est.) / Visitation fee - Due Today / Total and the paid-at-handoff
+  note; "+ Additional Garment" below the card; the fee card is gone. Copy kept verbatim
+  ("Due Today").
+- **Approve flow:** one screen. Answer: **04 Review & Approve directly** — the Home / Bookings
+  card and every status guard open 04 while the order awaits approval (blue marks vs the booking,
+  Approve Final Order / Request Changes); 03/Tailoring takes over once approved.
+- **"View All Appointments":** removed from **every 03 and 04 screen** (answer: all, not just the
+  approve screen). Bookings tab is the way back.
+- **03/Requested:** the request card's items / estimate and the visitation fee are two rows
+  (`✂ 2 items · $200.00+ est.` / `🏠 $25 visitation fee`), verbatim from the frame.
+- **Tailor — awaiting customer:** T06 gains **Edit Details** → T04 (the sent order reopened) →
+  T05 **Resend to Sarah for Approval**. Answer on the customer side: **line + chat note** — 04
+  reads "Marco updated the order on <day>. Changes are highlighted below." and a canned bubble
+  from Marco lands in the thread; a pending Request Changes clears.
+
+### Results
+- **Substrate.** `statusScreen(a)` (state.js) is the one map from status to screen —
+  `apptTarget`, the 03/Confirmed · Reminder · Tailoring guards, 04's stale guard and 03.2's
+  Confirm all use it; awaiting-approval → `04-review-approve[-modified]`. Tailor side:
+  `reopenDraft(a)` (the draft restarts from the SENT order, ids kept so marks stay measured
+  against the booking) and `resendFinalOrder(a, draft)` (writeFinalOrder + `resentAt`,
+  `resendCount`, clears `changesRequestedAt`, queues `pendingTailorNote` which 10-messages
+  pushes as a tailor bubble once). T06: Edit Details (secondary) while awaiting — Message Sarah /
+  Edit Details / Mark Ready / Back when Sarah has questions, Mark Ready / Edit Details / Back
+  otherwise; the status line names a resend. T05: "Updated after sending · Payout $X" + Resend CTA
+  when the job is already awaiting; Send resends instead of completing.
+- **02.** `garmentCard({ flat })` + `.garment-card--flat` (pad 16/0, hairline, no shadow, ✕ at
+  the content's top-right) inside `.garments-card`; `orderRows(totals, { est, feeDesc:
+  'Visitation fee - Due Today' })`; the tier note stays as a second fee-note on the $50 / $100
+  tiers. Frame id → 657:4875 in screens.json; the four sheet backdrops re-synced via API (the
+  "Screen" group replaced by clones of the new 02's children).
+- **Figma (user page).** View All CTAs HIDDEN on 03/Confirmed, Confirmed Locked, Tailoring,
+  Summary (its whole CTA Bar — it was the only CTA), Requested, and both 03.3 backdrops; the 04
+  frames already lacked it. 03/New Time's request card split like 03/Requested. Frame heights →
+  `min-height`: Confirmed / Locked 1098, Tailoring 1152.25, Summary 1089.5.
+- **Figma (tailor page).** `T06 - Appointment Status / Sarah Has Questions` gained Edit Details
+  (after Message Sarah); new `T06 - Appointment Status / Awaiting Approval` (666:4837 →
+  `t06-awaiting`: reviewing line, Mark Ready primary / Edit Details / Back) and `T05 - Confirm
+  Final Pricing / Resend` (666:4979 → `t05-resend`).
+- **Flows menu.** `c-awaiting` (03/Tailoring awaiting) replaced by `c-resent` (04 after a
+  resend); tailor `t-edit-details`, `t-resend`, `t-status-resent`.
+- **Harness.** clickthrough / sync: awaiting-approval lands on 04 directly (no Review Final Order
+  hop, no link row), 04 CTAs = Approve / Request Changes, tailoring bar = Message Marco only, 02
+  money rows per tier, 03/Requested rows split; flows click-through covers the new entries.
+  Baselines accepted: 02 7.64 (see flags), sheets ≤ 1.53, 03/Requested 1.56, New Time 1.52,
+  Confirmed 0.35, Locked 0.40, Tailoring 2.99, Summary 0.64, T06 Questions 5.84, T06 Awaiting
+  5.95, T05 Resend 6.79.
+
+### Figma inconsistencies raised (not silently fixed)
+- **New 02, card 2 has no service line** — the $80 jacket's Content has Garment Row → Additional
+  Service → photos, no "Sleeve / Adjust Length" row (the old frame had it). Built with the service
+  (a priced garment always has one); the 02 baseline (7.64) carries the 25px shift until the frame
+  gets the row back.
+- **New 02's "Additional Service" selector is detached and smaller** (frame 155×29, ⊕ 20 with a
+  17 vector) where the Selector master `Type=Additional` (541:1975) is 159×32 with a 24 icon.
+  Built per the master (3px per card in the baseline).
+- **Tailor Active Job Card master (Kevin, between rounds):** its items label was re-created
+  (659:5821) and reads "2 Suit Jackets" by default, which bled into the T06 frames; the instance
+  overrides were restored to "3 Suit Jackets" (the fixture's three jackets). Other tailor frames
+  showing "2 Suit Jackets" are listed in the round log if any.
+
+### Flags for Kevin (low)
+- **T01 is mid-edit on your side** (untracked this round): frame 455:3560 is now named "T01 - Home / View Requests", carries a second, un-overridden Active Job Card instance (the master's DUE / 9/2 / APPT / 8/29 / $102 / 2 Suit Jackets defaults) and a `Decline` small CTA in the request card; T01 / Closed Rows shows a "Past Jobs" heading. Nothing was built for these — text parity ALLOWs them on `t01-home` / `t01-home-closed` until you say what T01 should become; the T01 refs were NOT re-exported (diff still measures the Sep 10 frames).
+- "Visitation fee - Due Today" is drawn (and built) even though the fee is only HELD at booking and
+  charged when a tailor accepts — kept verbatim per your answer.
+- The resend note copy is mine: "I updated the order — please take another look and approve it
+  when it looks right." and the 04 line "Marco updated the order on <day>. Changes are highlighted
+  below."

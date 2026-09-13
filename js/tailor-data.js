@@ -446,6 +446,31 @@ export function writeFinalOrder(a, draft) {
   return a;
 }
 
+/** Round 10 (Kevin): T06's Edit Details while the order awaits approval —
+    the draft reopens from the order Sarah is looking at (ids kept, so
+    orderMarks keeps measuring against the booking). */
+export function reopenDraft(a) {
+  const t = tailorOf(a);
+  t.draft = clone(ensureIds(a?.garments ?? [])).map(({ addedJobs, added, commentOpen, ...g }) => g);
+  return t.draft;
+}
+/** Round 10: T05 Send on a job already awaiting approval — the edited
+    draft replaces the sent order (marks vs the booking as before),
+    Sarah's pending Request Changes clears, `resentAt` is stamped (04
+    says so) and a note from Marco lands in the thread on its next open
+    (10-messages reads `pendingTailorNote`). Status stays
+    awaiting-approval; returns false when the job is not awaiting. */
+export function resendFinalOrder(a, draft) {
+  if (!a || canon(a) !== 'awaiting-approval') return false;
+  writeFinalOrder(a, draft);
+  a.resentAt = fmtDay(new Date().toDateString());
+  a.resendCount = (a.resendCount ?? 0) + 1;
+  delete a.changesRequestedAt;
+  a.pendingTailorNote = 'I updated the order — please take another look and approve it when it looks right.';
+  tailorOf(a).draft = null;
+  return true;
+}
+
 /** Request expiry timer from a deadline (R1-T-14, per job since R2-T-01).
     First render reads "EXPIRES IN 1H 24M" and it ticks down from there. */
 export function requestTimer(t, now = Date.now()) {

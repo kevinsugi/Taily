@@ -84,6 +84,11 @@ function threadFor(s, a) {
     s.chats[key].push({ who: 'customer', text: String(a.pendingChatSeed) });
     a.pendingChatSeed = null;
   }
+  /* Round 10: Marco's note after resending the edited order lands the same way */
+  if (a.pendingTailorNote) {
+    s.chats[key].push({ who: 'tailor', text: String(a.pendingTailorNote) });
+    a.pendingTailorNote = null;
+  }
   return s.chats[key];
 }
 

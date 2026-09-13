@@ -697,6 +697,23 @@ export function finalOrder(a) {
 export const orderModified = (order) => (order?.garments ?? []).some((g) => g.added || g.addedJobs?.length) || (order?.removed?.length ?? 0) > 0;
 
 /**
+ * Which screen an appointment opens from its card, and where the 03
+ * family's guards hand over to (round 10, Kevin): the 03 variant for
+ * its status — and, while the final order awaits approval, 04 Review &
+ * Approve ITSELF (one approve screen; the Modified route when the visit
+ * changed the booking). Terminal entries → 03/Cancelled.
+ */
+export function statusScreen(a) {
+  const s = canonicalStatus(a?.status);
+  if (isTerminal(a)) return '03-status-cancelled';
+  if (s === 'searching') return '03-status-requested';
+  if (s === 'confirmed') return '03-status-confirmed';
+  if (s === 'awaiting-approval') return orderModified(finalOrder(a)) ? '04-review-approve-modified' : '04-review-approve';
+  if (s === 'delivered') return '03-status-summary';
+  return '03-status-tailoring';   // tailoring / ready-for-pickup
+}
+
+/**
  * DEMO (user side, 03.2's Confirm): the tailor's at-visit review, as the
  * frames tell it — one extra service on the first garment and one more
  * of the same garment. Writes a.garments / a.totals (the shared final

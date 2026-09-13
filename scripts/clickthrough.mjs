@@ -208,7 +208,8 @@ await page.waitForTimeout(200);
 {
   const rows = await page.evaluate(() => [...document.querySelectorAll('.meta-row span:last-child')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
   const a = await page.evaluate(() => { const x = window.Taily.state.upcoming[0]; return { alt: x.totals.alterations, fee: x.totals.visitFee, n: x.count, held: x.feeHeld, chargedOn: x.feeChargedOn ?? null, hasDeposit: 'deposit' in x.totals }; });
-  check('03/Requested rows read the appointment', rows[0] === '88 Leonard St, 4B — Home Visit' && /^\w{3}, \w{3,4} \d{1,2} · \d{1,2}:\d{2} [AP]M$/.test(rows[1]) && rows[2] === `${a.n} item · $${a.alt}.00+ est. · $${a.fee} visitation fee held`, rows.join(' | '));
+  /* round 10 (Kevin): the fee has its own row under the items / estimate */
+  check('03/Requested rows read the appointment', rows[0] === '88 Leonard St, 4B — Home Visit' && /^\w{3}, \w{3,4} \d{1,2} · \d{1,2}:\d{2} [AP]M$/.test(rows[1]) && rows[2] === `${a.n} item · $${a.alt}.00+ est.` && rows[3] === `$${a.fee} visitation fee`, rows.join(' | '));
   check('requestTailor holds the $25 fee (1 item), nothing charged', a.fee === 25 && a.held === true && a.chargedOn === null && !a.hasDeposit, JSON.stringify(a));
   const cancelLine = await page.evaluate(() => document.querySelector('[data-act="cancel"]')?.textContent.trim());
   check('03/Requested cancel line: nothing has been charged', cancelLine === 'Cancel request — nothing has been charged', `"${cancelLine}"`);
@@ -271,7 +272,8 @@ await page.click('[data-act="confirm-appt"]');        // appointment happens
 await page.waitForTimeout(400);
 // Phase R0: 06 - Order Status was deleted; 04D (Appointment Status)
 // takes its place, and tapping the order opens the modified review (06B).
-await assertAt('appointment done', '03-status-tailoring', 'awaiting-approval');
+/* round 10 (Kevin): the final order awaits approval → 04 IS the screen */
+await assertAt('appointment done → 04/Modified directly', '04-review-approve-modified', 'awaiting-approval');
 await assertScrolls('page scrolls after 03.2 confirm');
 // R7: 03.2's Confirm ran confirmAppointment() first — the fee is locked
 {
@@ -292,9 +294,11 @@ await assertScrolls('page scrolls after 03.2 confirm');
   // …and the family guard: 03/Confirmed / 03/Reminder re-entered for an
   // appointment that already happened redirect to 03/Tailoring
   await page.evaluate(() => window.Taily.render('03-status-confirmed'));
-  await assertAt('03/Confirmed for a post-visit entry → 03/Tailoring', '03-status-tailoring', 'awaiting-approval');
+  await assertAt('03/Confirmed for a post-visit entry → 04 (awaiting approval)', '04-review-approve-modified', 'awaiting-approval');
   await page.evaluate(() => window.Taily.render('03-status-reminder'));
-  await assertAt('03/Reminder for a post-visit entry → 03/Tailoring', '03-status-tailoring', 'awaiting-approval');
+  await assertAt('03/Reminder for a post-visit entry → 04 (awaiting approval)', '04-review-approve-modified', 'awaiting-approval');
+  await page.evaluate(() => window.Taily.render('03-status-tailoring'));
+  await assertAt('03/Tailoring for an awaiting-approval entry → 04 (round 10)', '04-review-approve-modified', 'awaiting-approval');
   // …and the substrate refuses to cancel a measured order (03.1 toasts and closes)
   const r = await page.evaluate(async () => {
     const S = await import('/js/state.js'); const P = await import('/js/screens/03.1-reschedule-popup.js');
@@ -307,26 +311,25 @@ await assertScrolls('page scrolls after 03.2 confirm');
   });
   check('cancelAppointment() refuses a post-visit order', r.res === null && r.status === 'awaiting-approval' && !r.inPast, `res=${r.res} status=${r.status}`);
   check('  …03.1 confirm toasts and closes instead', r.toast === 'This order can’t be cancelled here — message Marco' && !r.overlay, `toast="${r.toast}" overlay=${r.overlay}`);
-  await assertAt('  …still on 03/Tailoring', '03-status-tailoring', 'awaiting-approval');
+  await assertAt('  …still on 04', '04-review-approve-modified', 'awaiting-approval');
 }
 // UX-LOOP R2-U-08: the card follows the final order once revised
 const cardCount = await page.evaluate(() => { window.Taily.render('01-home'); return document.querySelector('.card-list__title')?.textContent ?? ''; });
 check('card count follows the final order', /^2 Items Total/.test(cardCount), `"${cardCount}"`);
-await page.evaluate(() => window.Taily.render('03-status-tailoring'));
+await page.evaluate(() => window.Taily.render('04-review-approve-modified'));
 await page.waitForTimeout(200);
-// Phase R2: tapping a Before/Pinned photo opens the PV3 viewer
+// Phase R2: tapping a Before/Pinned photo opens the PV3 viewer (on 04 too)
 await page.click('.photo-row');
 await assertOverlay('  …PV3 viewer overlays', '03.3-photo-viewer');
 await page.click('[data-act="pv-close"]');
 await page.waitForTimeout(400);
 await assertOverlay('  …viewer gone', null);
-// UX-LOOP R1-U-04: the hero's primary CTA reviews the order too
-await page.click('[data-act="review-order"]');
-await assertAt('Review Final Order CTA', '04-review-approve-modified', 'awaiting-approval');
-await page.goBack();
-await assertAt('browser back → status', '03-status-tailoring', 'awaiting-approval');
-await page.click('[data-act="review"] .fee-row');
-await assertAt('open final order', '04-review-approve-modified', 'awaiting-approval');
+// round 10 (Kevin): one approve screen — no Review Final Order hop, no View All
+await assertAt('the approve screen', '04-review-approve-modified', 'awaiting-approval');
+{
+  const ctas = await page.evaluate(() => [...document.querySelectorAll('.cta-bar .cta')].map((b) => b.textContent.trim()));
+  check('04 CTAs: Approve Final Order / Request Changes only (round 10)', ctas.join(' | ') === 'Approve Final Order | Request Changes', ctas.join(' | '));
+}
 // R7: 04 prices the final order — no deposit, the fee already paid
 {
   const rows = await page.evaluate(() => ({ fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), info: document.querySelectorAll('.fee-row--info').length, text: document.querySelector('[data-s]')?.textContent ?? '' }));
@@ -357,7 +360,7 @@ await assertAt('approve order', '03-status-tailoring', 'tailoring');
 check('approval clears the change request', !(await page.evaluate(() => window.Taily.state.upcoming[0]?.changesRequestedAt)));
 // UX-LOOP R2-U-11: the LIVE tailoring state leads with Message Marco
 const tailoringCtas = await page.evaluate(() => [...document.querySelectorAll('.cta-bar .cta')].map((b) => b.textContent.trim()));
-check('tailoring CTA bar (live)', tailoringCtas[0] === 'Message Marco' && tailoringCtas[1] === 'View All Appointments', tailoringCtas.join(' | '));
+check('tailoring CTA bar (live): Message Marco only (round 10: no View All)', tailoringCtas.join(' | ') === 'Message Marco', tailoringCtas.join(' | '));
 await page.click('[data-act="review"] .fee-row');
 await assertAt('tailor marks ready', '03-status-tailoring', 'ready-for-pickup');
 await page.evaluate(() => window.Taily.render('01-home'));
@@ -713,26 +716,25 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
   const on02 = async (garments) => {
     await page.evaluate((g) => { window.Taily.state.garments = g; window.Taily.render('02-appointment-details'); }, garments);
     await page.waitForTimeout(200);
-    /* round 9: the card is garment-card shaped — price column + content column; `card` joins them */
-    return page.evaluate(() => ({ card: `${document.querySelector('.fee-card__price')?.textContent.trim()} | ${document.querySelector('.fee-card__line')?.textContent.trim()}`, est: document.querySelector('.fee-card__est')?.textContent.trim() ?? null, note: document.querySelector('.fee-card__note')?.textContent.trim() ?? null, order: [...document.querySelector('.fee-card__content').children].map((e) => e.className.split(' ').pop()).join(','), cols: [...document.querySelector('.fee-card').children].map((e) => e.className).join(','), cta: document.querySelector('[data-act="request"]')?.textContent.trim() }));
+    /* round 10 (Kevin): the fee card is gone — the garments card ends in money rows */
+    return page.evaluate(() => ({ fees: [...document.querySelectorAll('[data-garments] .fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('[data-garments] .fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), notes: [...document.querySelectorAll('[data-garments] .fee-note')].map((e) => e.textContent.trim()), cards: document.querySelectorAll('[data-garments] .garment-card--flat').length, cta: document.querySelector('[data-act="request"]')?.textContent.trim() }));
   };
   const g = (n, qty = 1) => Array.from({ length: n }, () => ({ type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], qty, photos: 0 }));
   let r = await on02(g(2));
-  check('02 fee card 2 items → $25, no note, CTA Reserve Appt · $25 (round 9)', r.card === '$25 | Visitation fee · 2 items' && r.note === null && r.cta === 'Reserve Appt · $25', JSON.stringify(r));
-  check('  …garment-card layout: price column left, content right (round 9)', r.cols === 'fee-card__chip,fee-card__content', r.cols);
-  // R7-U-03: the second line sums the form's alterations before the hold
-  check('02 fee card line 2: Alterations est. $240 · paid at pickup or delivery (R7-U-03)', r.est === 'Alterations est. $240 · paid at pickup or delivery' && r.order === 'fee-card__line,fee-card__est', `"${r.est}" ${r.order}`);
+  const NOTE = 'Alterations are paid at pickup or delivery.';
+  const TIER = 'Helps cover transportation for larger appointments.';
+  check('02 money rows, 2 items → $240 / $25 / $265, CTA Reserve Appt · $25 (round 10)', r.fees === '$240 $25 $265' && r.descs === 'Alterations (est.) | Visitation fee - Due Today | Total' && r.notes.join('|') === NOTE && r.cta === 'Reserve Appt · $25', JSON.stringify(r));
+  check('  …the editable cards sit as flat rows inside the garments card (round 10)', r.cards === 2, `cards=${r.cards}`);
   r = await on02(g(4));
-  check('02 fee card 4 items → still $25', r.card === '$25 | Visitation fee · 4 items' && r.note === null, JSON.stringify(r));
+  check('02 rows, 4 items → still $25', r.fees === '$480 $25 $505' && r.notes.length === 1, JSON.stringify(r));
   r = await on02(g(5));
-  check('02 fee card 5 items → $50 + note, CTA Reserve Appt · $50', r.card === '$50 | Visitation fee · 5 items' && r.note === 'Helps cover transportation for larger appointments.' && r.cta === 'Reserve Appt · $50', JSON.stringify(r));
+  check('02 rows, 5 items → $50 + tier note, CTA Reserve Appt · $50', r.fees === '$600 $50 $650' && r.notes.join('|') === `${NOTE}|${TIER}` && r.cta === 'Reserve Appt · $50', JSON.stringify(r));
   r = await on02(g(3, 2));   // 3 garments × qty 2 = 6 items (qty-aware)
-  check('02 fee card counts quantities (3 × 2 = 6 → $50)', r.card === '$50 | Visitation fee · 6 items' && r.cta === 'Reserve Appt · $50', JSON.stringify(r));
+  check('02 rows count quantities (3 × 2 = 6 → $50)', r.fees === '$720 $50 $770' && r.cta === 'Reserve Appt · $50', JSON.stringify(r));
   r = await on02(g(10));
-  check('02 fee card 10 items → $50', r.card === '$50 | Visitation fee · 10 items', JSON.stringify(r));
+  check('02 rows, 10 items → $50', r.fees === '$1200 $50 $1250', JSON.stringify(r));
   r = await on02(g(11));
-  check('02 fee card 11 items → $100 + note, CTA Reserve Appt · $100', r.card === '$100 | Visitation fee · 11 items' && r.note === 'Helps cover transportation for larger appointments.' && r.cta === 'Reserve Appt · $100', JSON.stringify(r));
-  check('  …line 2 follows the live sum, tier note stays third (R7-U-03)', r.est === 'Alterations est. $1320 · paid at pickup or delivery' && r.order === 'fee-card__line,fee-card__est,fee-card__note', `"${r.est}" ${r.order}`);
+  check('02 rows, 11 items → $100 + tier note, CTA Reserve Appt · $100', r.fees === '$1320 $100 $1420' && r.notes.join('|') === `${NOTE}|${TIER}` && r.cta === 'Reserve Appt · $100', JSON.stringify(r));
   // the payment sheet quotes the same fee
   await page.click('[data-act="request"]');
   await assertOverlay('  …payment sheet overlays', '02.3-payment-sheet');
@@ -740,8 +742,8 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
   check('02.3 sub: Hold your $100 visitation fee — charged when a tailor accepts…', sub === 'Hold your $100 visitation fee — charged when a tailor accepts. Alterations are paid at pickup or delivery.', `"${sub}"`);
   await page.click('.method-row');                    // Apple Pay
   await assertAt('  …11-item request sent', '03-status-requested', 'searching');
-  const row = await page.evaluate(() => [...document.querySelectorAll('.meta-row span:last-child')].map((e) => e.textContent.replace(/\s+/g, ' ').trim())[2]);
-  check('03/Requested holds $100 for 11 items', row === '11 items · $1320.00+ est. · $100 visitation fee held', `"${row}"`);
+  const rows11 = await page.evaluate(() => [...document.querySelectorAll('.meta-row span:last-child')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
+  check('03/Requested holds $100 for 11 items (own row, round 10)', rows11[2] === '11 items · $1320.00+ est.' && rows11[3] === '$100 visitation fee', rows11.join(' | '));
   const held = await page.evaluate(() => { const a = window.Taily.state.upcoming[0]; return { fee: a.totals.visitFee, charged: a.totals.visitFeeCharged, total: a.totals.total, held: a.feeHeld }; });
   check('  …appointment totals: $1320 + $100 = $1420, held', held.fee === 100 && held.charged === 100 && held.total === 1420 && held.held === true, JSON.stringify(held));
   // withdraw it (nothing charged) so the next probes start clean

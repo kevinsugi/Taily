@@ -279,9 +279,10 @@ async function bookAsCustomer({ deep = false } = {}) {
     assertEq('[C] 02 requested-time pill = state.appt.when', await q('text', '[data-act="time"]'), appt.when);
     assertEq('[C] 02 need-by pill = state.appt.needBy', await q('text', '[data-act="needby"]'), appt.needBy);
     await assertText('[C] 02 CTA reserves the appointment for the $25 visitation fee (round 9)', '[data-act="request"]', 'Reserve Appt · $25');
-    await assertText('[C] 02 fee card price column = tier for the live count (round 9)', '.fee-card__price', '$25');
-    await assertText('[C] 02 fee card line = Visitation fee · 2 items (round 9)', '.fee-card__line', 'Visitation fee · 2 items');
-    assertEq('[C] 02 fee card: no tier note on the $25 tier', await q('count', '.fee-card__note'), 0);
+    /* round 10 (Kevin): money rows close the garments card; no fee card */
+    assertEq('[C] 02 money rows = est. / fee tier for the live count / total (round 10)', await q('fees'), '$240 $25 $265');
+    assertEq('[C] 02 row captions (round 10)', (await q('feeDescs')).join(' | '), 'Alterations (est.) | Visitation fee - Due Today | Total');
+    assertEq('[C] 02: no tier note on the $25 tier', await q('count', '[data-fee-tier-note]'), 0);
   }
   await page.click('[data-act="request"]');
   await assertOverlay('[C]   …payment sheet', '02.3-payment-sheet');
@@ -305,7 +306,8 @@ async function bookAsCustomer({ deep = false } = {}) {
     /* R3-U-01: the request card reads the APPOINTMENT, the form is spent */
     const form = await page.evaluate(() => ({ garments: window.Taily.state.garments.length, sel: Object.values(window.Taily.state.ui?.homeSelection ?? {}).filter((q) => q > 0).length }));
     log(form.garments === 0 && form.sel === 0, '[S] requestTailor cleared the form + Home selection', JSON.stringify(form));
-    assertEq('[C] 03/Requested items · estimate · hold row (R7)', rows[2], '2 items · $240.00+ est. · $25 visitation fee held');
+    assertEq('[C] 03/Requested items · estimate row (R7, split in round 10)', rows[2], '2 items · $240.00+ est.');
+    assertEq('[C] 03/Requested visitation-fee row (round 10)', rows[3], '$25 visitation fee');
     await assertText('[C] 03/Requested cancel line: nothing has been charged (R7)', '[data-act="cancel"]', 'Cancel request — nothing has been charged');
     await assertText('[C] 03/Requested hero', '.status-hero__title', 'Finding your tailor…');
   }
@@ -522,21 +524,13 @@ async function customerOpensReview(a, { deep = false } = {}) {
     assertIncludes('[C] 01 card items title follows the SENT order (3 items)', await q('text', '.appt-card'), '3 Items Total - Home Visit:');
   }
   await page.click('.appt-card');
-  await assertAt('[C] card → 03/Tailoring (awaiting)', '03-status-tailoring', 'awaiting-approval');
+  /* round 10 (Kevin): the card opens the approve screen directly — no 03/Tailoring hop */
+  await assertAt('[C] card → 04/Modified directly (round 10)', '04-review-approve-modified', 'awaiting-approval');
   if (deep) {
-    await assertText('[C] 03/Tailoring awaiting hero', '.status-hero__title', 'Approve your final order.');
-    await assertText('[C] 03/Tailoring awaiting pill', '.status-hero .pill span:last-child', 'Awaiting Approval');
-    assertEq('[C] 03/Tailoring cards = the sent order', await q('count', '.garment-card'), 3);
-    assertEq('[C] 03/Tailoring card prices (same as T06)', (await q('texts', '.garment-card__price')).join(' '), '$200 $120 $80');
-    assertEq('[C] 03/Tailoring alterations / fee / total / due (R7)', await q('fees'), '$400 $25 $425 $400');
-    assertEq('[C] 03/Tailoring captions (R7)', (await q('feeDescs')).join(' | '), 'Alterations | Visitation fee — paid | Total | Due at handoff');
-    await assertTrue('[C] 03/Tailoring shows the View final order row', () => !!document.querySelector('.link-row[data-act="review-order"]'));
-    const rows = (await q('texts', '.summary-card__row')).join(' | ');
-    assertIncludes('[C] 03/Tailoring rows: appt', rows, `Appt: ${when}`);
-    assertIncludes('[C] 03/Tailoring rows: need-by', rows, `Need by: ${needBy}`);
+    await assertText('[C] 04 heading', '.heading .t-title', 'Approve your final order.');
+    assertEq('[C] 04 CTAs: Approve / Request Changes only (round 10)', (await q('texts', '.cta-bar .cta')).join(' | '), 'Approve Final Order | Request Changes');
+    void when; void needBy;
   }
-  await page.click('.cta-bar [data-act="review-order"]');
-  await assertAt('[C] Review Final Order → 04/Modified', '04-review-approve-modified', 'awaiting-approval');
   if (deep) {
     assertEq('[C] 04/Modified cards = the sent order', await q('count', '.garment-card'), 3);
     assertEq('[C] 04/Modified marks (services / garments / fee rows)', `${await q('count', '.garment-card__service--info')}/${await q('count', '.garment-card--info')}/${await q('count', '.fee-row--info')}`, '2/1/3');
@@ -1576,7 +1570,7 @@ await fresh('I');
   await page.click('[data-act="open-job"]');
   await assertAt('[T] job card → T06', 't06-appointment-status', 'awaiting-approval');
   assertIncludes('[T] T06 line: Sarah wants to talk the order over', await q('text', '.t-header .t-body'), 'Sarah wants to talk the order over before approving');
-  assertEq('[T] T06 CTAs lead with Message Sarah', (await q('texts', '.t-actions .cta')).join(' | '), 'Message Sarah | Mark Ready | Back to Appointments');
+  assertEq('[T] T06 CTAs lead with Message Sarah, Edit Details next (round 10)', (await q('texts', '.t-actions .cta')).join(' | '), 'Message Sarah | Edit Details | Mark Ready | Back to Appointments');
   await assertText('[T] T06 job right slot', '.job-card__bottom > span:last-child', 'Sarah has questions');
   await page.click('[data-act="message"]');
   await assertAt('[T] Message Sarah → 10', '10-messages', 'awaiting-approval', 'tailor');
@@ -1590,9 +1584,7 @@ await fresh('I');
   await flip();
   await assertAt('[C] View as Customer', '01-home', 'awaiting-approval', 'user');
   await page.click('.appt-card');
-  await assertAt('[C] card → 03/Tailoring (awaiting)', '03-status-tailoring', 'awaiting-approval');
-  await page.click('.cta-bar [data-act="review-order"]');
-  await assertAt('[C] Review Final Order → 04/Modified', '04-review-approve-modified', 'awaiting-approval');
+  await assertAt('[C] card → 04/Modified directly (round 10)', '04-review-approve-modified', 'awaiting-approval');
   await page.click('[data-act="approve"]');
   await assertAt('[C] Approve → 03/Tailoring (tailoring)', '03-status-tailoring', 'tailoring', 'user');
   {
@@ -1653,11 +1645,7 @@ await fresh('J');
   assertIncludes('[C] 01 card items title follows the final order (1 item)', await q('text', '.appt-card'), '1 Item Total - Home Visit:');
   await assertTrue('[C] 01 card no longer lists the Pants / Jeans', () => !document.querySelector('.appt-card').textContent.includes('Pants / Jeans'));
   await page.click('.appt-card');
-  await assertAt('[C] card → 03/Tailoring (awaiting)', '03-status-tailoring', 'awaiting-approval');
-  assertEq('[C] 03/Tailoring cards = the sent order', await q('count', '.garment-card'), 1);
-  assertEq('[C] 03/Tailoring alterations / fee / total / due (R7)', await q('fees'), '$120 $25 $145 $120');
-  await page.click('.cta-bar [data-act="review-order"]');
-  await assertAt('[C] Review Final Order → 04/Modified (a removal is a modification)', '04-review-approve-modified', 'awaiting-approval');
+  await assertAt('[C] card → 04/Modified directly (a removal is a modification; round 10)', '04-review-approve-modified', 'awaiting-approval');
   assertEq('[C] 04/Modified cards = the survivor', await q('count', '.garment-card'), 1);
   assertEq('[C] 04/Modified lists one removal', await q('count', '.removed-row'), 1);
   await assertText('[C] 04/Modified removal line', '.removed-row span', 'Removed at the visit — Pants / Jeans · Hem / Adjust Length');

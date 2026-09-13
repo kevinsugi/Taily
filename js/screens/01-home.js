@@ -7,7 +7,7 @@
 import { register, render as go } from '../app.js';
 import { chrome, garmentTile, cta, apptCard, toast } from '../components.js';
 import { GARMENT_TYPES, SEED_UPCOMING, itemsLabel, itemCount, fmtDay, fmtWhen, parseWhen, tailorName as matchedName, tailorFirst } from '../data.js';
-import { state, addGarment, isTerminal, canonicalStatus } from '../state.js';
+import { state, addGarment, isTerminal, canonicalStatus, statusScreen } from '../state.js';
 import { openAddressOverlay } from './02.2-address-sheet.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
 import { openLeaveReview, tailorName } from './06.1-leave-review.js';
@@ -123,12 +123,8 @@ export function apptItemLines(a) {
    home), or Summary. The ready card's Schedule Pickup / Delivery CTA
    still leads to 05. R1-U-20: cancelled / declined → 03/Cancelled. */
 export function apptTarget(a) {
-  const s = String(a?.status ?? '').toLowerCase();
-  if (s === 'requested' || s === 'searching') return '03-status-requested';
-  if (s === 'confirmed') return '03-status-confirmed';
-  if (s === 'completed' || s === 'delivered') return '03-status-summary';
-  if (isTerminal(a)) return '03-status-cancelled';
-  return '03-status-tailoring';   // awaiting-approval / tailoring / ready
+  /* round 10 (Kevin): one shared map — awaiting-approval opens 04 directly */
+  return statusScreen(a);
 }
 
 /** Card actions per status (Figma variants). A scheduled Ready card

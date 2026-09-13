@@ -14,6 +14,10 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, extname } from 'node:path';
 import { createServer } from 'node:http';
 import { chromium } from 'playwright';
+/* every dollar amount comes from scripts/money.mjs (→ js/data.js) */
+import { $, fees, DELIVERY, SEED, FINAL, RETIERED, LIVE } from './money.mjs';
+const CB = LIVE.customer.booked, CF = LIVE.customer.final;   // the happy path's booked / final order
+const RB = LIVE.retier.booked, RF = LIVE.retier.final;       // the re-tier probe's booked / final order
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
@@ -43,9 +47,20 @@ const status = () => page.evaluate(() => window.Taily.state.upcoming[0]?.status 
 const curStatus = () => page.evaluate(() => { const s = window.Taily.state; const c = s.currentAppt; return s[c.list]?.[c.index]?.status ?? '(none)'; });
 const heroTitle = () => page.evaluate(() => document.querySelector('.status-hero__title')?.textContent.replace(/\s+/g, ' ').trim() ?? '(none)');
 
+/* the caller's file:line for FAIL lines — the first stack frame outside the assertion helpers */
+const HELPER_FRAME = /\b(check|assertAt|assertOverlay|assertScrolls|here)\b/;
+const ME = import.meta.url.split('/').pop();
+function here() {
+  for (const f of (new Error().stack ?? '').split('\n').slice(1)) {
+    const m = f.match(/([^/\\(]+\.mjs):(\d+):\d+\)?\s*$/);
+    if (!m || m[1] !== ME || HELPER_FRAME.test(f.replace(/\(.*$/, ''))) continue;
+    return ` (${m[1]}:${m[2]})`;
+  }
+  return '';
+}
 function check(desc, ok, detail = '') {
   if (!ok) failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(34)} ${detail}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(34)} ${detail}${ok ? '' : here()}`);
 }
 
 /* UX-LOOP R2-U-01: a modal confirm that navigates must leave the page
@@ -62,7 +77,7 @@ async function assertAt(desc, expScreen, expStatus) {
   const okS = s === expScreen;
   const okT = expStatus === undefined || st === expStatus;
   if (!okS || !okT) failures++;
-  console.log(`${okS && okT ? 'PASS' : 'FAIL'}  ${desc.padEnd(34)} screen=${s}${okS ? '' : ` (want ${expScreen})`}  status=${st}${okT ? '' : ` (want ${expStatus})`}`);
+  console.log(`${okS && okT ? 'PASS' : 'FAIL'}  ${desc.padEnd(34)} screen=${s}${okS ? '' : ` (want ${expScreen})`}  status=${st}${okT ? '' : ` (want ${expStatus})`}${okS && okT ? '' : here()}`);
 }
 
 /* Sheets are in-place overlays since the motion round: the route never
@@ -74,7 +89,7 @@ async function assertOverlay(desc, expDataS) {
     document.querySelector('.screen-sheet--overlay:not(.is-closing)')?.dataset.s ?? '(none)');
   const ok = s === (expDataS ?? '(none)');
   if (!ok) failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(34)} overlay=${s}${ok ? '' : ` (want ${expDataS ?? 'none'})`}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(34)} overlay=${s}${ok ? '' : ` (want ${expDataS ?? 'none'})${here()}`}`);
 }
 
 await assertAt('boot', '01-home', 'confirmed');
@@ -234,7 +249,7 @@ await page.waitForTimeout(200);
   const a = await page.evaluate(() => { const x = window.Taily.state.upcoming[0]; return { alt: x.totals.alterations, fee: x.totals.visitFee, n: x.count, held: x.feeHeld, chargedOn: x.feeChargedOn ?? null, hasDeposit: 'deposit' in x.totals }; });
   /* round 10 (Kevin): the fee has its own row under the items / estimate */
   check('03/Requested rows read the appointment', rows[0] === '88 Leonard St, 4B — Home Visit' && /^\w{3}, \w{3,4} \d{1,2} · \d{1,2}:\d{2} [AP]M$/.test(rows[1]) && rows[2] === `${a.n} item · $${a.alt}.00+ est.` && rows[3] === `$${a.fee} visitation fee`, rows.join(' | '));
-  check('requestTailor holds the $50 fee (1 item, round 12), nothing charged', a.fee === 50 && a.held === true && a.chargedOn === null && !a.hasDeposit, JSON.stringify(a));
+  check(`requestTailor holds the ${$(CB.fee)} fee (1 item, round 12), nothing charged`, a.fee === CB.fee && a.held === true && a.chargedOn === null && !a.hasDeposit, JSON.stringify(a));
   const cancelLine = await page.evaluate(() => document.querySelector('[data-act="cancel"]')?.textContent.trim());
   check('03/Requested cancel line: nothing has been charged', cancelLine === 'Cancel request — nothing has been charged', `"${cancelLine}"`);
 }
@@ -244,7 +259,7 @@ await assertAt('tailor accepts', '03-status-confirmed', 'confirmed');
 {
   const r = await page.evaluate(() => { const x = window.Taily.state.upcoming[0]; return { held: x.feeHeld, chargedOn: x.feeChargedOn ?? null, locked: !!x.feeLocked, fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()), note: document.querySelector('.fee-note')?.textContent.trim() }; });
   check('tailorAccepts charges the fee (feeChargedOn, hold released)', r.held === false && /^\d{1,2}\/\d{1,2}\/\d{2}$/.test(r.chargedOn ?? '') && !r.locked, JSON.stringify({ held: r.held, chargedOn: r.chargedOn }));
-  check('03/Confirmed rows: Alterations (est.) / Visitation fee — charged / Total', r.fees === '$120 $50 $170' && r.descs[0] === 'Alterations (est.)' && r.descs[1] === `Visitation fee — charged ${r.chargedOn}` && r.descs[2] === 'Total', `${r.fees} | ${r.descs.join(' | ')}`);
+  check('03/Confirmed rows: Alterations (est.) / Visitation fee — charged / Total', r.fees === fees(CB.alt, CB.fee, CB.total) && r.descs[0] === 'Alterations (est.)' && r.descs[1] === `Visitation fee — charged ${r.chargedOn}` && r.descs[2] === 'Total', `${r.fees} | ${r.descs.join(' | ')}`);
   check('03/Confirmed note: alterations paid at handoff', r.note === 'Alterations are paid at pickup or delivery.', `"${r.note}"`);
 }
 // R6: acceptance names Marco everywhere
@@ -270,7 +285,7 @@ await assertAt('reminder fires (confirmed)', '03-status-reminder', 'confirmed');
     const cs = w && getComputedStyle(w.querySelector('[data-fee-warning-body]'));
     return { title: [...(w?.querySelector('.fee-callout__title')?.children ?? [])].map((c) => c.textContent.trim()).join(' '), body: w?.querySelector('[data-fee-warning-body]')?.textContent.trim(), inActions: !!w?.closest('.actions'), beforeConfirm: w?.nextElementSibling?.matches('[data-act="confirm"]'), card: w?.classList.contains('prepare-card'), size: cs?.fontSize, ink: cs?.color, pill: document.querySelector('.status-hero .pill span:last-child')?.textContent.trim() };
   });
-  check('03/Reminder "Before you confirm" callout before Confirm (R7-U-01)', r.title === '! Before you confirm' && r.body === 'Confirming makes your $50 visitation fee non-refundable — no-shows included. Cancel before confirming and it’s refunded in full.' && r.inActions && r.beforeConfirm && r.card && r.pill === 'Confirmed', JSON.stringify(r));
+  check('03/Reminder "Before you confirm" callout before Confirm (R7-U-01)', r.title === '! Before you confirm' && r.body === `Confirming makes your ${$(CB.fee)} visitation fee non-refundable — no-shows included. Cancel before confirming and it’s refunded in full.` && r.inActions && r.beforeConfirm && r.card && r.pill === 'Confirmed', JSON.stringify(r));
   check('  …body-size ink copy, not fine print', r.size === '16px' && r.ink === 'rgb(28, 27, 24)', `${r.size} ${r.ink}`);
 }
 // Phase R2: Reschedule / Cancel opens the R1 popup; Go Back dismisses
@@ -278,7 +293,7 @@ await page.click('[data-act="reschedule"]');
 await assertOverlay('  …R1 popup overlays', '03.1-reschedule-popup');
 {
   const rows = await page.evaluate(() => [...document.querySelectorAll('.screen-sheet--overlay .modal__row')].map((e) => [...e.children].map((c) => c.textContent.replace(/\s+/g, ' ').trim()).join(' ')));
-  check('03.1 row before confirming: fee refunded', rows[1] === '✓ Your $50 visitation fee is refunded', rows[1]);
+  check('03.1 row before confirming: fee refunded', rows[1] === `✓ Your ${$(CB.fee)} visitation fee is refunded`, rows[1]);
 }
 await page.click('[data-act="go-back"]');
 await page.waitForTimeout(400);
@@ -290,7 +305,7 @@ await assertOverlay('  …05C popup overlays', '03.2-appointment-confirmed');
 // R7-U-01: the tap that locks the fee says so — a ! row between the frame's two
 {
   const rows = await page.evaluate(() => [...document.querySelectorAll('.screen-sheet--overlay .modal__row')].map((e) => [...e.children].map((c) => c.textContent.replace(/\s+/g, ' ').trim()).join(' ')));
-  check('03.2 row 2: fee now non-refundable (R7-U-01)', rows.length === 3 && rows[1] === '! Your $50 visitation fee is now non-refundable.' && /^✓ Marco will message/.test(rows[0]) && /^! Please prepare/.test(rows[2]), rows.join(' | '));
+  check('03.2 row 2: fee now non-refundable (R7-U-01)', rows.length === 3 && rows[1] === `! Your ${$(CB.fee)} visitation fee is now non-refundable.` && /^✓ Marco will message/.test(rows[0]) && /^! Please prepare/.test(rows[2]), rows.join(' | '));
 }
 await page.click('[data-act="confirm-appt"]');        // appointment happens
 await page.waitForTimeout(400);
@@ -303,9 +318,9 @@ await assertScrolls('page scrolls after 03.2 confirm');
 {
   const r = await page.evaluate(() => { const x = window.Taily.state.upcoming[0]; return { locked: x.feeLocked, at: x.confirmedAt ?? null, fee: x.totals.visitFee, charged: x.totals.visitFeeCharged, added: x.totals.visitFeeAdded, alt: x.totals.alterations, total: x.totals.total, items: x.totals.items }; });
   check('confirmAppointment locked the fee (confirmedAt, feeLocked)', r.locked === true && !!r.at, JSON.stringify({ locked: r.locked, at: r.at }));
-  check('final order (2 items) keeps the $50 tier: $280 + $50 = $330 (round 12)', r.items === 2 && r.alt === 280 && r.fee === 50 && r.charged === 50 && r.added === 0 && r.total === 330, JSON.stringify(r));
+  check(`final order (2 items) keeps the ${$(CF.fee)} tier: ${$(CF.alt)} + ${$(CF.fee)} = ${$(CF.total)} (round 12)`, r.items === CF.items && r.alt === CF.alt && r.fee === CF.fee && r.charged === CF.charged && r.added === CF.added && r.total === CF.total, JSON.stringify(r));
   const rows = await page.evaluate(() => ({ fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | ') }));
-  check('03/Tailoring rows: Alterations / Visitation fee — paid / Total / Due at handoff', rows.fees === '$280 $50 $330 $280' && rows.descs === 'Alterations | Visitation fee — paid | Total | Due at handoff', `${rows.fees} | ${rows.descs}`);
+  check('03/Tailoring rows: Alterations / Visitation fee — paid / Total / Due at handoff', rows.fees === fees(CF.alt, CF.fee, CF.total, CF.due) && rows.descs === 'Alterations | Visitation fee — paid | Total | Due at handoff', `${rows.fees} | ${rows.descs}`);
 }
 // UX-LOOP R4-U-01: 03/Reminder and 03/Tailoring REPLACED the screens they
 // superseded — two browser backs after the visit never show the stale
@@ -357,7 +372,7 @@ await assertAt('the approve screen', '04-review-approve-modified', 'awaiting-app
 // R7: 04 prices the final order — no deposit, the fee already paid
 {
   const rows = await page.evaluate(() => ({ fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), info: document.querySelectorAll('.fee-row--info').length, text: document.querySelector('[data-s]')?.textContent ?? '' }));
-  check('04/Modified rows: $280 / $50 paid / $330 / due $280', rows.fees === '$280 $50 $330 $280' && rows.descs === 'Alterations | Visitation fee — paid | Total | Due at handoff' && rows.info === 3, `${rows.fees} | ${rows.descs} info=${rows.info}`);
+  check(`04/Modified rows: ${$(CF.alt)} / ${$(CF.fee)} paid / ${$(CF.total)} / due ${$(CF.due)}`, rows.fees === fees(CF.alt, CF.fee, CF.total, CF.due) && rows.descs === 'Alterations | Visitation fee — paid | Total | Due at handoff' && rows.info === 3, `${rows.fees} | ${rows.descs} info=${rows.info}`);
   check('04 never says deposit / 10% / Taily fee / Balance', !/deposit|10%|Taily fee|Balance/i.test(rows.text));
 }
 // Phase R2: Request Changes opens the RC1 popup. Round 12 (Kevin): Sounds
@@ -397,7 +412,7 @@ await assertAt('continue to pickup', '05a-pickup-window', 'ready-for-pickup');
 // R7: due at pickup = the alterations (the fee was charged on acceptance)
 {
   const due = await page.evaluate(() => document.querySelector('.due-card__amount')?.textContent.trim());
-  check('05a due at pickup = $280 (alterations only)', /^\$280 · /.test(due ?? ''), `"${due}"`);
+  check(`05a due at pickup = ${$(CF.due)} (alterations only)`, (due ?? '').startsWith(`${$(CF.due)} · `), `"${due}"`);
 }
 // UX-LOOP round 6 (Kevin, UX-008): the CTA carries the DATED window and
 // the secondary switches between pickup and delivery
@@ -410,9 +425,10 @@ await assertAt('continue to pickup', '05a-pickup-window', 'ready-for-pickup');
   await assertAt('Switch to Delivery → 05B', '05b-delivery-options', 'ready-for-pickup');
   c = await ctas();
   check('05B CTA = Confirm Delivery · <dated window>', DATED.test(c.confirm ?? '') && /^Confirm Delivery/.test(c.confirm) && c.other === 'Switch to Pickup', JSON.stringify(c));
-  // R7: Alterations / Delivery / Due at delivery ($280 + $20)
+  // R7: Alterations / Delivery / Due at delivery (alterations + delivery)
   const rows = await page.evaluate(() => [...document.querySelectorAll('.info-row')].map((e) => [...e.children].map((c) => c.textContent.trim()).join(' ')).join(' | '));
-  check('05B rows: Alterations $280 | Delivery $20 | Due at delivery $300', rows === 'Alterations $280 | Delivery $20 | Due at delivery $300', rows);
+  const want05b = `Alterations ${$(CF.alt)} | Delivery ${$(DELIVERY)} | Due at delivery ${$(CF.due + DELIVERY)}`;
+  check(`05B rows: ${want05b}`, rows === want05b, rows);
   await page.click('[data-act="select"]');
   await assertAt('Switch to Pickup → 05A', '05a-pickup-window', 'ready-for-pickup');
 }
@@ -434,7 +450,7 @@ await assertAt('tailor confirms handoff', '06-journey-complete', 'delivered');
 // R7 receipt: Alterations / Visitation fee — paid <date> / Total / Paid at pickup <date>
 {
   const r = await page.evaluate(() => { const x = window.Taily.state.upcoming[0]; return { fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()), chargedOn: x.feeChargedOn, delivery: x.totals.delivery, total: x.totals.total }; });
-  check('06 receipt rows (pickup): $280 / $50 / $330 / $280 paid', r.fees === '$280 $50 $330 $280' && r.delivery === 0 && r.total === 330, `${r.fees} delivery=${r.delivery} total=${r.total}`);
+  check(`06 receipt rows (pickup): ${$(CF.alt)} / ${$(CF.fee)} / ${$(CF.total)} / ${$(CF.due)} paid`, r.fees === fees(CF.alt, CF.fee, CF.total, CF.due) && r.delivery === 0 && r.total === CF.total, `${r.fees} delivery=${r.delivery} total=${r.total}`);
   check('06 receipt descs', r.descs[0] === 'Alterations' && r.descs[1] === `Visitation fee — paid ${r.chargedOn}` && r.descs[2] === 'Total' && /^Paid at pickup \d{1,2}\/\d{1,2}\/\d{2}$/.test(r.descs[3] ?? ''), r.descs.join(' | '));
   await page.evaluate(() => window.Taily.render('03-status-summary'));
   await page.waitForTimeout(200);
@@ -689,7 +705,7 @@ await assertAt('03/Confirmed for the kept-fee entry → 03/Cancelled', '03-statu
 {
   const r = await page.evaluate(() => ({ body: document.querySelector('.status-hero__body')?.textContent.trim(), desc: document.querySelectorAll('.fee-row__desc')[1]?.textContent.trim(), fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), refundCard: document.querySelectorAll('.prepare-card').length }));
   // R7-U-04: no Total row on a visit that ended — Alterations (est.) + the fee row with its outcome
-  check('  …03/Cancelled: kept body + Kept row, no Total (R7-U-04)', r.body === `Your $${near.fee} visitation fee was kept — you had confirmed the visit.` && r.desc === 'Visitation fee — Kept' && r.fees === '$120 $50' && r.refundCard === 0, JSON.stringify(r));
+  check('  …03/Cancelled: kept body + Kept row, no Total (R7-U-04)', r.body === `Your $${near.fee} visitation fee was kept — you had confirmed the visit.` && r.desc === 'Visitation fee — Kept' && r.fees === fees(CB.alt, CB.fee) && r.refundCard === 0, JSON.stringify(r));
 }
 
 // the copied-over job is not resubmitted again — clear the form
@@ -726,8 +742,8 @@ await assertAt('reminder title tap → auto-cancel → 03/Cancelled', '03-status
     past: (({ status, cancelledBy, reason, refund, feeKept, wasRequested }) => ({ status, cancelledBy, reason, refund, feeKept, wasRequested }))(window.Taily.state.past[0]),
     stash: window.Taily.state.lastCancelled === window.Taily.state.past[0],
   }));
-  check('autoCancelUnconfirmed: cancelled · none · unconfirmed · full refund', r.past.status === 'cancelled' && r.past.cancelledBy === 'none' && r.past.reason === 'unconfirmed' && r.past.refund === 50 && r.past.feeKept === false && r.past.wasRequested === false && r.stash, JSON.stringify(r.past));
-  check('  …03/Cancelled unconfirmed body + Refunded row + Send Request Again', r.title === 'Appointment Cancelled' && r.body === 'We didn’t hear back before the visit, so it was cancelled. Your $50 visitation fee is refunded to Apple Pay.' && /^Visitation fee — Refunded /.test(r.desc ?? '') && r.cta === 'Send Request Again', JSON.stringify({ title: r.title, body: r.body, desc: r.desc, cta: r.cta }));
+  check('autoCancelUnconfirmed: cancelled · none · unconfirmed · full refund', r.past.status === 'cancelled' && r.past.cancelledBy === 'none' && r.past.reason === 'unconfirmed' && r.past.refund === CB.fee && r.past.feeKept === false && r.past.wasRequested === false && r.stash, JSON.stringify(r.past));
+  check('  …03/Cancelled unconfirmed body + Refunded row + Send Request Again', r.title === 'Appointment Cancelled' && r.body === `We didn’t hear back before the visit, so it was cancelled. Your ${$(CB.fee)} visitation fee is refunded to Apple Pay.` && /^Visitation fee — Refunded /.test(r.desc ?? '') && r.cta === 'Send Request Again', JSON.stringify({ title: r.title, body: r.body, desc: r.desc, cta: r.cta }));
   await assertScrolls('  …page scrolls');
   await page.evaluate(() => window.Taily.render('01-home'));
   await page.waitForTimeout(200);
@@ -752,36 +768,38 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
   let r = await on02(g(2));
   const NOTE = 'Alterations are paid at pickup or delivery.';
   const TIER = 'Helps cover transportation for larger appointments.';
-  check('02 money rows, 2 items → $240 / $50 / $290, CTA Reserve Appt · $50 (round 12 tiers)', r.fees === '$240 $50 $290' && r.descs === 'Alterations (est.) | Visitation fee - Due Today | Total' && r.notes.join('|') === NOTE && r.cta === 'Reserve Appt · $50', JSON.stringify(r));
+  const T = LIVE.tiers;   // n × $120 Hem → the fee tier for n items
+  const T2 = T(2), T4 = T(4), T5 = T(5), T6 = T(6), T10 = T(10), T11 = T(11);
+  check(`02 money rows, 2 items → ${$(T2.alt)} / ${$(T2.fee)} / ${$(T2.total)}, CTA Reserve Appt · ${$(T2.fee)} (round 12 tiers)`, r.fees === fees(T2.alt, T2.fee, T2.total) && r.descs === 'Alterations (est.) | Visitation fee - Due Today | Total' && r.notes.join('|') === NOTE && r.cta === `Reserve Appt · ${$(T2.fee)}`, JSON.stringify(r));
   check('  …the editable cards sit as flat rows inside the garments card (round 10)', r.cards === 2, `cards=${r.cards}`);
   r = await on02(g(4));
-  check('02 rows, 4 items → still $50', r.fees === '$480 $50 $530' && r.notes.length === 1, JSON.stringify(r));
+  check(`02 rows, 4 items → still ${$(T4.fee)}`, r.fees === fees(T4.alt, T4.fee, T4.total) && r.notes.length === 1, JSON.stringify(r));
   r = await on02(g(5));
-  check('02 rows, 5 items → $90 + tier note, CTA Reserve Appt · $90', r.fees === '$600 $90 $690' && r.notes.join('|') === `${NOTE}|${TIER}` && r.cta === 'Reserve Appt · $90', JSON.stringify(r));
+  check(`02 rows, 5 items → ${$(T5.fee)} + tier note, CTA Reserve Appt · ${$(T5.fee)}`, r.fees === fees(T5.alt, T5.fee, T5.total) && r.notes.join('|') === `${NOTE}|${TIER}` && r.cta === `Reserve Appt · ${$(T5.fee)}`, JSON.stringify(r));
   r = await on02(g(6));   // round 12: one card per item — six cards, six items
-  check('02 rows, 6 items → $90', r.fees === '$720 $90 $810' && r.cta === 'Reserve Appt · $90', JSON.stringify(r));
+  check(`02 rows, 6 items → ${$(T6.fee)}`, r.fees === fees(T6.alt, T6.fee, T6.total) && r.cta === `Reserve Appt · ${$(T6.fee)}`, JSON.stringify(r));
   r = await on02(g(10));
-  check('02 rows, 10 items → $90', r.fees === '$1200 $90 $1290', JSON.stringify(r));
+  check(`02 rows, 10 items → ${$(T10.fee)}`, r.fees === fees(T10.alt, T10.fee, T10.total), JSON.stringify(r));
   r = await on02(g(11));
-  check('02 rows, 11 items → $150 + tier note, CTA Reserve Appt · $150', r.fees === '$1320 $150 $1470' && r.notes.join('|') === `${NOTE}|${TIER}` && r.cta === 'Reserve Appt · $150', JSON.stringify(r));
+  check(`02 rows, 11 items → ${$(T11.fee)} + tier note, CTA Reserve Appt · ${$(T11.fee)}`, r.fees === fees(T11.alt, T11.fee, T11.total) && r.notes.join('|') === `${NOTE}|${TIER}` && r.cta === `Reserve Appt · ${$(T11.fee)}`, JSON.stringify(r));
   // the payment sheet quotes the same fee
   await page.click('[data-act="request"]');
   await assertOverlay('  …payment sheet overlays', '02.3-payment-sheet');
   const sub = await page.evaluate(() => document.querySelector('.screen-sheet--overlay .sheet__sub')?.textContent.trim());
-  check('02.3 sub: Hold your $150 visitation fee — charged when a tailor accepts…', sub === 'Hold your $150 visitation fee — charged when a tailor accepts. Alterations are paid at pickup or delivery.', `"${sub}"`);
+  check(`02.3 sub: Hold your ${$(T11.fee)} visitation fee — charged when a tailor accepts…`, sub === `Hold your ${$(T11.fee)} visitation fee — charged when a tailor accepts. Alterations are paid at pickup or delivery.`, `"${sub}"`);
   await page.click('.method-row');                    // Apple Pay
   await assertAt('  …11-item request sent', '03-status-requested', 'searching');
   const rows11 = await page.evaluate(() => [...document.querySelectorAll('.meta-row span:last-child')].map((e) => e.textContent.replace(/\s+/g, ' ').trim()));
-  check('03/Requested holds $150 for 11 items (own row, round 10)', rows11[2] === '11 items · $1320.00+ est.' && rows11[3] === '$150 visitation fee', rows11.join(' | '));
+  check(`03/Requested holds ${$(T11.fee)} for 11 items (own row, round 10)`, rows11[2] === `11 items · ${$(T11.alt)}.00+ est.` && rows11[3] === `${$(T11.fee)} visitation fee`, rows11.join(' | '));
   const held = await page.evaluate(() => { const a = window.Taily.state.upcoming[0]; return { fee: a.totals.visitFee, charged: a.totals.visitFeeCharged, total: a.totals.total, held: a.feeHeld }; });
-  check('  …appointment totals: $1320 + $150 = $1470, held', held.fee === 150 && held.charged === 150 && held.total === 1470 && held.held === true, JSON.stringify(held));
+  check(`  …appointment totals: ${$(T11.alt)} + ${$(T11.fee)} = ${$(T11.total)}, held`, held.fee === T11.fee && held.charged === T11.charged && held.total === T11.total && held.held === true, JSON.stringify(held));
   // withdraw it (nothing charged) so the next probes start clean
   await page.click('[data-act="cancel"]');
   await assertOverlay('  …R1 popup (cancel mode)', '03.1-reschedule-popup');
   await page.click('[data-act="confirm-reschedule"]');
   await assertAt('  …withdrawn → 03/Cancelled', '03-status-cancelled');
   const w = await page.evaluate(() => ({ refund: window.Taily.state.past[0].refund, kept: window.Taily.state.past[0].feeKept, rows: document.querySelectorAll('.fee-row').length, body: document.body.textContent.includes('Nothing was charged') }));
-  check('  …withdrawn request: hold released ($150 back), no fee rows', w.refund === 150 && w.kept === false && w.rows === 0 && w.body, JSON.stringify(w));
+  check(`  …withdrawn request: hold released (${$(T11.fee)} back), no fee rows`, w.refund === T11.fee && w.kept === false && w.rows === 0 && w.body, JSON.stringify(w));
   await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.homeSelection = {}; });
 }
 
@@ -800,30 +818,32 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
     S.tailorAccepts(a); S.confirmAppointment(a); S.draftFinalOrder(a); S.completeAppointment(a);
     return { booked, final: { fee: a.totals.visitFee, charged: a.totals.visitFeeCharged, added: a.totals.visitFeeAdded, items: a.totals.items, alt: a.totals.alterations, total: a.totals.total }, status: a.status };
   });
-  check('4 booked items hold $50 ($320 + $50 = $370, round 12)', r.booked.fee === 50 && r.booked.items === 4 && r.booked.total === 370, JSON.stringify(r.booked));
-  check('the fitting adds a 5th item (+Hem, +jacket) → $90 tier: charged $50, added $40', r.final.items === 5 && r.final.charged === 50 && r.final.fee === 90 && r.final.added === 40 && r.final.alt === 520 && r.final.total === 610 && r.status === 'awaiting-approval', JSON.stringify(r.final));
+  check(`4 booked items hold ${$(RB.fee)} (${$(RB.alt)} + ${$(RB.fee)} = ${$(RB.total)}, round 12)`, r.booked.fee === RB.fee && r.booked.items === RB.items && r.booked.total === RB.total, JSON.stringify(r.booked));
+  check(`the fitting adds a 5th item (+Hem, +jacket) → ${$(RF.fee)} tier: charged ${$(RF.charged)}, added ${$(RF.added)}`, r.final.items === RF.items && r.final.charged === RF.charged && r.final.fee === RF.fee && r.final.added === RF.added && r.final.alt === RF.alt && r.final.total === RF.total && r.status === 'awaiting-approval', JSON.stringify(r.final));
   await page.evaluate(() => window.Taily.render('04-review-approve-modified'));
   await page.waitForTimeout(200);
   const rows = await page.evaluate(() => ({ fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), info: document.querySelectorAll('.fee-row--info').length }));
   // Round 12 (Kevin): ONE fee row — the updated $90 in semantic/info, captioned with the count + tier — and the fee-note under the rows explains the extra (04 + 03/Tailoring)
-  const TIER_NOTE = 'Your order grew to 5 items, so the visitation fee is now $90. The extra $40 is charged with your alterations at handoff.';
-  check('04/Modified re-tiered: $520 / $90 Visitation fee — 5 items, $90 tier (one row, info) / $610 / due $560', rows.fees === '$520 $90 $610 $560' && rows.descs === 'Alterations | Visitation fee — 5 items, $90 tier | Total | Due at handoff' && rows.info === 4, `${rows.fees} | ${rows.descs} info=${rows.info}`);
+  const TIER_NOTE = `Your order grew to 5 items, so the visitation fee is now ${$(RF.fee)}. The extra ${$(RF.added)} is charged with your alterations at handoff.`;
+  const RETIER_DESCS = `Alterations | Visitation fee — 5 items, ${$(RF.fee)} tier | Total | Due at handoff`;
+  check(`04/Modified re-tiered: ${$(RF.alt)} / ${$(RF.fee)} Visitation fee — 5 items, ${$(RF.fee)} tier (one row, info) / ${$(RF.total)} / due ${$(RF.due)}`, rows.fees === fees(RF.alt, RF.fee, RF.total, RF.due) && rows.descs === RETIER_DESCS && rows.info === 4, `${rows.fees} | ${rows.descs} info=${rows.info}`);
   {
     const n = await page.evaluate(() => document.querySelector('[data-fee-tier-note]')?.textContent.trim());
     check('04/Modified fee-note explains the re-tier (R7-U-02)', n === TIER_NOTE, `"${n}"`);
     await page.evaluate(() => window.Taily.render('03-status-tailoring'));
     await page.waitForTimeout(200);
     const t = await page.evaluate(() => ({ descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), note: document.querySelector('[data-fee-tier-note]')?.textContent.trim() }));
-    check('03/Tailoring (awaiting) carries the same caption + fee-note (R7-U-02)', t.descs === 'Alterations | Visitation fee — 5 items, $90 tier | Total | Due at handoff' && t.note === TIER_NOTE, `${t.descs} | "${t.note}"`);
+    check('03/Tailoring (awaiting) carries the same caption + fee-note (R7-U-02)', t.descs === RETIER_DESCS && t.note === TIER_NOTE, `${t.descs} | "${t.note}"`);
   }
   await page.evaluate(async () => { const S = await import('/js/state.js'); const a = window.Taily.state.upcoming[0]; S.approveOrder(a); S.markReady(a); window.Taily.render('05a-pickup-window'); });
   await page.waitForTimeout(200);
   const due = await page.evaluate(() => document.querySelector('.due-card__amount')?.textContent.trim());
-  check('05a due at pickup = $560 (alterations + the $40 fee difference)', /^\$560 · /.test(due ?? ''), `"${due}"`);
+  check(`05a due at pickup = ${$(RF.due)} (alterations + the ${$(RF.added)} fee difference)`, (due ?? '').startsWith(`${$(RF.due)} · `), `"${due}"`);
   await page.evaluate(() => window.Taily.render('05b-delivery-options'));
   await page.waitForTimeout(200);
   const b = await page.evaluate(() => [...document.querySelectorAll('.info-row')].map((e) => [...e.children].map((c) => c.textContent.trim()).join(' ')).join(' | '));
-  check('05b rows keep the short label: Alterations $520 | Additional visitation fee $25 | Delivery $20 | Due at delivery $565', b === 'Alterations $520 | Additional visitation fee $40 | Delivery $20 | Due at delivery $580', b);
+  const want05bRetier = `Alterations ${$(RF.alt)} | Additional visitation fee ${$(RF.added)} | Delivery ${$(DELIVERY)} | Due at delivery ${$(RF.due + DELIVERY)}`;
+  check(`05b rows keep the short label: ${want05bRetier}`, b === want05bRetier, b);
   const rc = await page.evaluate(async () => {
     const S = await import('/js/state.js'); const a = window.Taily.state.upcoming[0];
     S.chooseFulfilment('delivery', 'Fri, Jul 17 · 4–6 PM', 'Jul 17', a); S.deliver(a);
@@ -831,8 +851,8 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
     await new Promise((r) => setTimeout(r, 200));
     return { delivery: a.totals.delivery, total: a.totals.total, fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), chargedOn: a.feeChargedOn };
   });
-  check('chooseFulfilment(delivery) adds $20 to the totals ($630)', rc.delivery === 20 && rc.total === 630, JSON.stringify({ delivery: rc.delivery, total: rc.total }));
-  check('06 receipt (delivery, re-tiered): one fee row at $90 — $520 / $90 / $20 / $630 / paid $580 (round 12)', rc.fees === '$520 $90 $20 $630 $580' && rc.descs === `Alterations | Visitation fee — paid ${rc.chargedOn} | Delivery | Total | Paid at delivery 7/17/26` && !(await page.evaluate(() => !!document.querySelector('[data-fee-tier-note]'))), `${rc.fees} | ${rc.descs}`);
+  check(`chooseFulfilment(delivery) adds ${$(DELIVERY)} to the totals (${$(RF.total + DELIVERY)})`, rc.delivery === DELIVERY && rc.total === RF.total + DELIVERY, JSON.stringify({ delivery: rc.delivery, total: rc.total }));
+  check(`06 receipt (delivery, re-tiered): one fee row at ${$(RF.fee)} — ${$(RF.alt)} / ${$(RF.fee)} / ${$(DELIVERY)} / ${$(RF.total + DELIVERY)} / paid ${$(RF.due + DELIVERY)} (round 12)`, rc.fees === fees(RF.alt, RF.fee, DELIVERY, RF.total + DELIVERY, RF.due + DELIVERY) && rc.descs === `Alterations | Visitation fee — paid ${rc.chargedOn} | Delivery | Total | Paid at delivery 7/17/26` && !(await page.evaluate(() => !!document.querySelector('[data-fee-tier-note]'))), `${rc.fees} | ${rc.descs}`);
   // park it under Past so the later probes read the seeds as before
   await page.evaluate(() => { const s = window.Taily.state; const d = s.upcoming.shift(); s.upcoming.push(d); s.garments = []; s.ui.homeSelection = {}; });
 }
@@ -890,15 +910,15 @@ await assertAt('Send to Another Tailor → 02', '02-appointment-details');
    (before any navigation), and the base deep links render as before —
    the routes exist ahead of their scripts/screens.json entries. */
 const R8_COLD = {
-  '03-status-reminder-locked': { pill: 'Confirmed · fee non-refundable', title: 'Please Confirm Tomorrow’s Appointment', callout: false, fees: '$200 Alterations (est.) | $50 Visitation fee — charged 7/7/26 | $250 Total' },
-  '03-status-confirmed-locked': { pill: 'Confirmed · fee non-refundable', title: 'Appointment Confirmed', callout: false, fees: '$200 Alterations (est.) | $50 Visitation fee — charged 7/7/26 | $250 Total' },
-  '03-status-unconfirmed': { pill: 'Cancelled', title: 'Appointment Cancelled', body: 'We didn’t hear back before the visit, so it was cancelled. Your $50 visitation fee is refunded to Visa •••• 4242.', fees: '$200 Alterations (est.) | $50 Visitation fee — Refunded 7/12/26', cta: 'Send Request Again' },
-  '04-review-approve-retiered': { title: 'Approve your final order.', cards: 5, fees: '$600 Alterations | $90 Visitation fee — 5 items, $90 tier | $690 Total | $640 Due at handoff', note: 'Your order grew to 5 items, so the visitation fee is now $90. The extra $40 is charged with your alterations at handoff.' },
+  '03-status-reminder-locked': { pill: 'Confirmed · fee non-refundable', title: 'Please Confirm Tomorrow’s Appointment', callout: false, fees: `${$(SEED.alt)} Alterations (est.) | ${$(SEED.fee)} Visitation fee — charged 7/7/26 | ${$(SEED.total)} Total` },
+  '03-status-confirmed-locked': { pill: 'Confirmed · fee non-refundable', title: 'Appointment Confirmed', callout: false, fees: `${$(SEED.alt)} Alterations (est.) | ${$(SEED.fee)} Visitation fee — charged 7/7/26 | ${$(SEED.total)} Total` },
+  '03-status-unconfirmed': { pill: 'Cancelled', title: 'Appointment Cancelled', body: `We didn’t hear back before the visit, so it was cancelled. Your ${$(SEED.fee)} visitation fee is refunded to Visa •••• 4242.`, fees: `${$(SEED.alt)} Alterations (est.) | ${$(SEED.fee)} Visitation fee — Refunded 7/12/26`, cta: 'Send Request Again' },
+  '04-review-approve-retiered': { title: 'Approve your final order.', cards: 5, fees: `${$(RETIERED.alt)} Alterations | ${$(RETIERED.fee)} Visitation fee — 5 items, ${$(RETIERED.fee)} tier | ${$(RETIERED.total)} Total | ${$(RETIERED.due)} Due at handoff`, note: `Your order grew to 5 items, so the visitation fee is now ${$(RETIERED.fee)}. The extra ${$(RETIERED.added)} is charged with your alterations at handoff.` },
   /* the bases, unchanged */
   '03-status-reminder': { pill: 'Confirmed', callout: true },
   '03-status-confirmed': { pill: 'Confirmed', callout: false },
   '03-status-cancelled': { pill: 'Declined', title: 'Appointment Cancelled', body: null },   // the frame's fixture pill (unchanged since round 3)
-  '04-review-approve-modified': { cards: 3, fees: '$360 Alterations | $50 Visitation fee — paid | $410 Total | $360 Due at handoff', note: null },
+  '04-review-approve-modified': { cards: 3, fees: `${$(FINAL.alt)} Alterations | ${$(FINAL.fee)} Visitation fee — paid | ${$(FINAL.total)} Total | ${$(FINAL.due)} Due at handoff`, note: null },
 };
 for (const [id, want] of Object.entries(R8_COLD)) {
   await page.goto(`${origin}/index.html?screen=${id}`, { waitUntil: 'load' });

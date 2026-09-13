@@ -8,6 +8,10 @@
      4. lint  — literal hex colors / px font-sizes outside
                 css/tokens.css + css/base.css
 
+   Quiet by default: each step's output is captured and only its
+   signal lines are printed (FAIL / summary / console-error lines plus
+   one "N PASS" count); a step that exits non-zero is printed in full.
+   `--verbose` streams every step's full output as before.
    Prints one summary block; exits 1 if anything failed.
    ============================================================ */
 
@@ -17,13 +21,33 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const VERBOSE = process.argv.includes('--verbose');
 const t0 = Date.now();
 const steps = [];
 
+/* the lines worth reading when a step passes */
+const SIGNAL = /^FAIL|FAILURE|CONSOLE ERRORS|Error|over gate|compared,|ALL ASSERTIONS|Text parity:|no console errors|^s*(missing|extra):/;
+
 function run(name, args) {
   console.log(`\n━━ ${name} ${'━'.repeat(Math.max(1, 60 - name.length))}`);
-  const r = spawnSync(process.execPath, args, { cwd: ROOT, stdio: 'inherit' });
-  steps.push({ name, ok: r.status === 0 });
+  if (VERBOSE) {
+    const r = spawnSync(process.execPath, args, { cwd: ROOT, stdio: 'inherit' });
+    steps.push({ name, ok: r.status === 0 });
+    return;
+  }
+  const r = spawnSync(process.execPath, args, { cwd: ROOT, stdio: 'pipe', encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+  const ok = r.status === 0;
+  if (!ok) {
+    process.stdout.write(out.endsWith('\n') || !out ? out : `${out}\n`);
+    if (r.error) console.log(`  ${r.error.message}`);
+    console.log(`  (exit ${r.status ?? r.signal})`);
+  } else {
+    const lines = out.split(/\r?\n/);
+    for (const line of lines) if (SIGNAL.test(line)) console.log(line);
+    console.log(`  ${lines.filter((l) => l.startsWith('PASS')).length} PASS`);
+  }
+  steps.push({ name, ok });
 }
 
 run('diff (ratchet baselines)', ['scripts/diff.mjs', 'all']);

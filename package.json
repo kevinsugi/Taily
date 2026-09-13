@@ -6,7 +6,8 @@
     "refs": "node scripts/export-refs.mjs",
     "refs:check": "node scripts/refs-check.mjs",
     "diff": "node scripts/diff.mjs",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "figma:find": "node scripts/figma-find.mjs"
   },
   "repository": {
     "type": "git",

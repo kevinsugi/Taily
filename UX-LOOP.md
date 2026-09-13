@@ -1145,3 +1145,10 @@ state the Test flows menu already covers.
   folded too.
 - T02 / T03 frames print the tailor's "$25 Visitation fee" row — the tailor never sees the
   customer's $50 / $90 / $150; the click-through sweeps for those captions.
+
+
+## Figma sync pending (ledger — Kevin: Figma is written only when asked, Sep 13 2026)
+
+Rounds are code + harness by default. Every frame edit a round would have made is listed here (frame · node · old → new) and stays until Kevin says "sync Figma"; text-parity ALLOW entries and accepted baselines for these carry a `pending-figma` note. On sync: `npm run figma:find "<text>"` for the ids, one `use_figma` call per page, `npm run refs`, re-accept the diffs, clear the entries below.
+
+- (nothing pending — round 12 was synced in full)

@@ -53,6 +53,17 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, extname } from 'node:path';
 import { createServer } from 'node:http';
 import { chromium } from 'playwright';
+/* every dollar amount comes from scripts/money.mjs (→ js/data.js) */
+import { $, fees, sum, PRICE, payoutChange, SEED, FINAL, REMOVED, LIVE } from './money.mjs';
+const TF = LIVE.tailor.fresh, TL = LIVE.tailor.lowered, T5 = LIVE.tailor.five;   // the live bookings this script makes
+const MID = sum(SEED.alt + PRICE.sleeve, SEED.items);                           // the seed after + Sleeve on card 1, before the third jacket
+/* the tailor's money rows: "$cut Visitation fee | $payout Your payout [| $comp No-show protection …]" */
+const cutRow = (o) => `${$(o.cut)} Visitation fee`;
+const payoutRow = (o) => `${$(o.payout)} Your payout`;
+const protectRow = (o) => `${$(o.comp)} No-show protection · paid if Sarah doesn’t show`;
+const rowsBefore = (o) => `${cutRow(o)} | ${payoutRow(o)} | ${protectRow(o)}`;   // T02 before Accept
+const rowsAfter = (o) => `${cutRow(o)} | ${payoutRow(o)}`;                        // T03 onward
+const tripLine = (o) => `The job is closed and the slot is open again. You’ll receive ${$(o.comp)} for the trip.`;
 
 const ROOT = resolve(new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
@@ -80,6 +91,17 @@ const status = () => page.evaluate(() => { const s = window.Taily.state; return 
 const persona = () => page.evaluate(() => window.Taily.state.persona);
 const text = (sel) => page.evaluate((q) => document.querySelector(q)?.textContent.trim() ?? null, sel);
 
+/* the caller's file:line for FAIL lines — the first stack frame outside the assertion helpers */
+const HELPER_FRAME = /\b(assertAt|assertTrue|assertText|assertClean|assertJob|here)\b/;
+const ME = import.meta.url.split('/').pop();
+function here() {
+  for (const f of (new Error().stack ?? '').split('\n').slice(1)) {
+    const m = f.match(/([^/\\(]+\.mjs):(\d+):\d+\)?\s*$/);
+    if (!m || m[1] !== ME || HELPER_FRAME.test(f.replace(/\(.*$/, ''))) continue;
+    return ` (${m[1]}:${m[2]})`;
+  }
+  return '';
+}
 async function assertAt(desc, expScreen, expStatus, expPersona) {
   await page.waitForTimeout(300);
   const s = await screenId(), st = await status(), p = await persona();
@@ -87,18 +109,19 @@ async function assertAt(desc, expScreen, expStatus, expPersona) {
   const okT = expStatus === undefined || st === expStatus;
   const okP = expPersona === undefined || p === expPersona;
   if (!okS || !okT || !okP) failures++;
-  console.log(`${okS && okT && okP ? 'PASS' : 'FAIL'}  ${desc.padEnd(38)} screen=${s}${okS ? '' : ` (want ${expScreen})`}  status=${st}${okT ? '' : ` (want ${expStatus})`}${expPersona ? `  persona=${p}` : ''}`);
+  console.log(`${okS && okT && okP ? 'PASS' : 'FAIL'}  ${desc.padEnd(38)} screen=${s}${okS ? '' : ` (want ${expScreen})`}  status=${st}${okT ? '' : ` (want ${expStatus})`}${expPersona ? `  persona=${p}` : ''}${okS && okT && okP ? '' : here()}`);
 }
-async function assertTrue(desc, fn) {
-  const ok = await page.evaluate(fn);
+/* `arg` is handed to the browser-side callback (money values live in node) */
+async function assertTrue(desc, fn, arg = undefined) {
+  const ok = await page.evaluate(fn, arg);
   if (!ok) failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc}${ok ? '' : here()}`);
 }
 async function assertText(desc, sel, want) {
   const got = await text(sel);
   const ok = got === want;
   if (!ok) failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(38)} "${got}"${ok ? '' : ` (want "${want}")`}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(38)} "${got}"${ok ? '' : ` (want "${want}")${here()}`}`);
 }
 const open = async (id) => { await page.goto(`${origin}/index.html?screen=${id}`, { waitUntil: 'load' }); await page.waitForTimeout(300); };
 const render = async (id) => { await page.evaluate((i) => window.Taily.render(i), id); await page.waitForTimeout(200); };
@@ -126,7 +149,7 @@ async function assertClean(desc) {
   }, CUSTOMER_MONEY.map(String));
   const ok = hits.length === 0;
   if (!ok) failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(38)} no customer pricing on screen${ok ? '' : ` (found ${hits.join(' ')})`}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(38)} no customer pricing on screen${ok ? '' : ` (found ${hits.join(' ')})${here()}`}`);
 }
 /* the one money row under an order: "$200 Your payout" (R7) */
 const feeRows = () => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ');
@@ -136,27 +159,27 @@ await open('t01-home');
 await assertAt('boot as tailor', 't01-home', 'confirmed', 'tailor');
 await assertTrue('request card + Sarah job on T01', () => !!document.querySelector('.req-card') && document.querySelectorAll('.job-card').length === 2);
 await assertText('timer reads the fixture', '[data-timer]', 'EXPIRES IN 1H 24M');
-await assertTrue('Round 12: T01 request card leads with the $225 payout ($200 + the $25 fee cut)', () => document.querySelector('.req-card__name b').textContent === '$225' && !/\$180/.test(document.body.textContent));
+await assertTrue(`Round 12: T01 request card leads with the ${$(SEED.payout)} payout (${$(SEED.alt)} + the ${$(SEED.cut)} fee cut)`, (w) => document.querySelector('.req-card__name b').textContent === w && !/\$180/.test(document.body.textContent), $(SEED.payout));   // money: $180 is the OLD (pre-round-12) payout, swept as stale
 await assertClean('R7: T01');
 await page.click('[data-act="view-details"]');
 await assertAt('View Details', 't02-appointment-request', 'confirmed');
-await assertText('T02 header is the booked payout', '.t-header .t-title', '$225 | New Request');
+await assertText('T02 header is the booked payout', '.t-header .t-title', `${$(SEED.payout)} | New Request`);
 await assertTrue('T02 lists the two booked cards', () => document.querySelectorAll('.garment-card').length === 2);
 /* R7: the payout is prominent BEFORE accepting — the payout row, the CTA names it, no fee / subtotal row.
-   R8: plus the muted No-show protection row under it ($20 on the seed's $25 tier) */
-await assertTrue('Round 12: T02 rows "$25 Visitation fee | $225 Your payout | $25 No-show protection · paid if Sarah doesn’t show"', () => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$25 Visitation fee | $225 Your payout | $25 No-show protection · paid if Sarah doesn’t show' && document.querySelectorAll('.fee-row')[2].classList.contains('fee-row--muted') && !document.querySelectorAll('.fee-row')[0].classList.contains('fee-row--muted'));
-await assertText('R7: T02 CTA names the payout', '[data-act="accept"]', 'Accept Request · $225');
+   R8: plus the muted No-show protection row under it (the tailor's cut for the seed's tier) */
+await assertTrue(`Round 12: T02 rows "${rowsBefore(SEED)}"`, (w) => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === w && document.querySelectorAll('.fee-row')[2].classList.contains('fee-row--muted') && !document.querySelectorAll('.fee-row')[0].classList.contains('fee-row--muted'), rowsBefore(SEED));
+await assertText('R7: T02 CTA names the payout', '[data-act="accept"]', `Accept Request · ${$(SEED.payout)}`);
 await assertClean('R7: T02 before Accept');
 await page.click('[data-act="accept"]');
 await assertAt('Accept Request', 't03-request-accepted', 'confirmed');
 await assertText('T03 reads Booking Confirmed right after Accept', '.status-hero__title', 'Booking Confirmed!');
 await assertText('T03 avatar is Sarah', '.summary-card .avatar', 'SC');
-await assertTrue('Round 12: Accept stamped a.tailor.acceptedPayout = 225; T03 reads the fee cut + Your payout $225', () => { const a = window.Taily.state.upcoming.find((x) => x.mine); return a.tailor.acceptedPayout === 225 && [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$25 Visitation fee | $225 Your payout'; });
+await assertTrue(`Round 12: Accept stamped a.tailor.acceptedPayout = ${SEED.payout}; T03 reads the fee cut + Your payout ${$(SEED.payout)}`, (M) => { const a = window.Taily.state.upcoming.find((x) => x.mine); return a.tailor.acceptedPayout === M.payout && [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === M.rows; }, { payout: SEED.payout, rows: rowsAfter(SEED) });
 await assertClean('R7: T03 after Accept');
 await page.click('[data-act="home"]');
 await assertAt('Back to Home', 't01-home', 'confirmed');
 await assertTrue('request card gone after accept', () => !document.querySelector('.req-card'));
-await assertTrue('Sarah card reads 2 Suit Jackets · $225 (unchanged after Accept)', () => document.querySelector('.job-card').textContent.includes('2 Suit Jackets') && document.querySelector('.job-card__payout').textContent === '$225' && document.querySelector('.job-card__paylabel').textContent === 'Payout');
+await assertTrue(`Sarah card reads 2 Suit Jackets · ${$(SEED.payout)} (unchanged after Accept)`, (w) => document.querySelector('.job-card').textContent.includes('2 Suit Jackets') && document.querySelector('.job-card__payout').textContent === w && document.querySelector('.job-card__paylabel').textContent === 'Payout', $(SEED.payout));
 await page.click('[data-act="open-job"]');
 await assertAt('open confirmed job → pre-visit T03', 't03-request-accepted', 'confirmed');
 await assertText('pre-visit header', '.t-header .t-title', 'Upcoming visit');
@@ -164,16 +187,16 @@ await assertTrue('pre-visit sub carries the live date + address', () => /Sun, Ju
 await page.click('[data-act="start"]');
 await assertAt('Start Appointment', 't04-appointment-details', 'confirmed');
 await assertTrue('T04 starts from the BOOKED order', () => document.querySelectorAll('.garment-card').length === 2);
-await assertTrue('T04 rows follow the booking ($25 fee cut + $225 payout, round 12)', () => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$25 Visitation fee | $225 Your payout');
+await assertTrue(`T04 rows follow the booking (${$(SEED.cut)} fee cut + ${$(SEED.payout)} payout, round 12)`, (w) => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === w, rowsAfter(SEED));
 await assertClean('R7: T04');
 /* edit the draft: + Sleeve on card 1, + a third jacket → the $360 fiction */
 await page.click('[data-sel="add"][data-gi="0"]');
 await page.click('.selector--open .selector__option[data-option="Sleeve"]');
 await page.waitForTimeout(200);
-await assertTrue('added service recomputes the payout row ($280 + $25 = $305)', () => [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent).join(' ') === '$25 $305');
+await assertTrue(`added service recomputes the payout row (${$(MID.alt)} + ${$(MID.cut)} = ${$(MID.payout)})`, (w) => [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent).join(' ') === w, fees(MID.cut, MID.payout));
 await page.click('[data-act="add-garment"]');
 await page.waitForTimeout(200);
-await assertTrue('added garment → 3 cards, payout $385', () => document.querySelectorAll('.garment-card').length === 3 && [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent).join(' ') === '$25 $385');
+await assertTrue(`added garment → 3 cards, payout ${$(FINAL.payout)}`, (w) => document.querySelectorAll('.garment-card').length === 3 && [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent).join(' ') === w, fees(FINAL.cut, FINAL.payout));
 await page.click('[data-act="add-photo"][data-kind="before"][data-gi="0"]');
 await page.waitForTimeout(200);
 await assertTrue('photo tile captured on card 1', () => document.querySelector('.garment-card .photo-tiles .photo-tile--photo') !== null);
@@ -185,17 +208,17 @@ await assertAt('Continue', 't05-confirm-final-pricing', 'confirmed');
 await assertTrue('T05 paints the added service + garment info', () => document.querySelectorAll('.garment-card__service--info').length >= 2 && document.querySelectorAll('.garment-card--info').length === 1);
 await assertTrue('T05 shows the captured note + photo, no ✕', () => document.body.textContent.includes('“Take in the waist 1 in”') && !!document.querySelector('.photo-tile--photo') && !document.querySelector('.garment-card__close'));
 /* R7: the scope changed at the visit — the payout change is stated BEFORE Send, above the CTA */
-await assertText('R7-T-03: T05 header sub carries the draft payout above the fold', '.t-header .t-body', 'Reviewed with Sarah at the visit · Payout $385');
-await assertTrue('Round 12: T05 reads the fee cut + Your payout $385 and "Payout $225 → $385 (+$160)" before Send', () => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$25 Visitation fee | $385 Your payout' && document.querySelector('[data-payout-change]')?.textContent === 'Payout $225 → $385 (+$160)' && document.querySelector('.t-actions').firstElementChild.hasAttribute('data-payout-change'));
-await assertTrue('R7: the accepted payout is still $225 until Send', () => window.Taily.state.upcoming.find((x) => x.mine).tailor.acceptedPayout === 225);
+await assertText('R7-T-03: T05 header sub carries the draft payout above the fold', '.t-header .t-body', `Reviewed with Sarah at the visit · Payout ${$(FINAL.payout)}`);
+await assertTrue(`Round 12: T05 reads the fee cut + Your payout ${$(FINAL.payout)} and "${payoutChange(SEED, FINAL)}" before Send`, (M) => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === M.rows && document.querySelector('[data-payout-change]')?.textContent === M.change && document.querySelector('.t-actions').firstElementChild.hasAttribute('data-payout-change'), { rows: rowsAfter(FINAL), change: payoutChange(SEED, FINAL) });
+await assertTrue(`R7: the accepted payout is still ${$(SEED.payout)} until Send`, (w) => window.Taily.state.upcoming.find((x) => x.mine).tailor.acceptedPayout === w, SEED.payout);
 await assertClean('R7: T05');
 await page.click('[data-act="send"]');
 await assertAt('Send to Sarah for Approval', 't06-appointment-status', 'awaiting-approval');
-await assertTrue('Send wrote the final order into the appointment (R7 totals: alterations 360, no deposit)', () => { const a = window.Taily.state.upcoming.find((x) => x.mine); return a.garments.length === 3 && a.totals.alterations === 360 && a.totals.deposit == null && a.garments[0].addedJobs?.[0] === 'Sleeve' && a.garments[2].added === true && a.booked.length === 2; });
-await assertTrue('R7: Send moved the accepted payout to $385', () => window.Taily.state.upcoming.find((x) => x.mine).tailor.acceptedPayout === 385);
-await assertText('R7: T06 awaiting line names the payout', '.t-header .t-body', 'Sarah is reviewing the updated order — payout $385 once approved.');
+await assertTrue(`Send wrote the final order into the appointment (R7 totals: alterations ${FINAL.alt}, no deposit)`, (alt) => { const a = window.Taily.state.upcoming.find((x) => x.mine); return a.garments.length === 3 && a.totals.alterations === alt && a.totals.deposit == null && a.garments[0].addedJobs?.[0] === 'Sleeve' && a.garments[2].added === true && a.booked.length === 2; }, FINAL.alt);
+await assertTrue(`R7: Send moved the accepted payout to ${$(FINAL.payout)}`, (w) => window.Taily.state.upcoming.find((x) => x.mine).tailor.acceptedPayout === w, FINAL.payout);
+await assertText('R7: T06 awaiting line names the payout', '.t-header .t-body', `Sarah is reviewing the updated order — payout ${$(FINAL.payout)} once approved.`);
 await assertText('R7-T-01: T06 job card caption reads Payout · pending while Sarah approves', '.job-card__paylabel', 'Payout · pending');
-await assertTrue('T06 job card reads $385 · 3 Suit Jackets; fee cut + payout rows', () => document.querySelector('.job-card__payout').textContent === '$385' && document.querySelector('.job-card').textContent.includes('3 Suit Jackets') && [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$25 Visitation fee | $385 Your payout');
+await assertTrue(`T06 job card reads ${$(FINAL.payout)} · 3 Suit Jackets; fee cut + payout rows`, (M) => document.querySelector('.job-card__payout').textContent === M.payout && document.querySelector('.job-card').textContent.includes('3 Suit Jackets') && [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === M.rows, { payout: $(FINAL.payout), rows: rowsAfter(FINAL) });
 await assertClean('R7: T06');
 await page.click('[data-act="back"]');
 await assertAt('T06 chevron goes Home (not the editor)', 't01-home', 'awaiting-approval');
@@ -213,7 +236,7 @@ await assertAt('Mark Ready', 't07-job-ready', 'ready-for-pickup');
 await assertTrue('T07 items follow the final order', () => document.body.textContent.includes('3 Suit Jackets'));
 await page.click('[data-act="order-summary"]');
 await assertTrue('order summary expands', () => !document.querySelector('.order-summary').hidden);
-await assertTrue('R7: T07 order summary ends in $385 Your payout (after the fee cut row)', () => [...document.querySelectorAll('.order-summary .fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$25 Visitation fee | $385 Your payout');
+await assertTrue(`R7: T07 order summary ends in ${payoutRow(FINAL)} (after the fee cut row)`, (w) => [...document.querySelectorAll('.order-summary .fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === w, rowsAfter(FINAL));
 await assertClean('R7: T07 (summary open)');
 await render('t06-appointment-status');
 await assertText('T06 ready CTA', '.t-actions .cta', 'View Handoff Details');
@@ -224,10 +247,11 @@ await assertTrue('T07 waits for Sarah’s handoff choice', () => /hasn’t chose
 await page.click('[data-act="picked-up"]');
 await assertAt('Mark Picked Up (demo: Sarah chose pickup now)', 't08-job-complete', 'delivered');
 await assertTrue('demo recorded a pickup window on the job', () => { const a = window.Taily.state.upcoming.find((x) => x.mine); return a.fulfilment?.method === 'pickup' && /·/.test(a.fulfilment.window); });
-await assertTrue('Round 12: T08 payout summary = items → Visitation fee $25 → Your payout $385 (no order total)', () => {
+await assertTrue(`Round 12: T08 payout summary = items → Visitation fee ${$(FINAL.cut)} → Your payout ${$(FINAL.payout)} (no order total)`, (M) => {
   const rows = [...document.querySelectorAll('.t-detail-card .price-row')].map((r) => `${r.firstElementChild.textContent}=${r.querySelector('.price-row__value').textContent}`);
-  return rows.length === 5 && /^Suit Jacket · Hem \/ Adjust Length, Sleeve.*=\$200$/.test(rows[0]) && rows[1] === 'Suit Jacket · Sleeve / Adjust Length=$80' && rows[2] === 'Suit Jacket · Sleeve / Adjust Length=$80' && rows[3] === 'Visitation fee=$25' && rows[4] === 'Your payout=$385' && document.querySelector('.price-row--total').textContent.includes('$385') && !document.body.textContent.includes('$324') && document.body.textContent.includes('Arrives in your account');
-});
+  /* $200 / $80 are the garment lines (fixed fiction); $324 is the OLD payout, swept as stale */
+  return rows.length === 5 && /^Suit Jacket · Hem \/ Adjust Length, Sleeve.*=\$200$/.test(rows[0]) && rows[1] === 'Suit Jacket · Sleeve / Adjust Length=$80' && rows[2] === 'Suit Jacket · Sleeve / Adjust Length=$80' && rows[3] === `Visitation fee=${M.cut}` && rows[4] === `Your payout=${M.payout}` && document.querySelector('.price-row--total').textContent.includes(M.payout) && !document.body.textContent.includes('$324') && document.body.textContent.includes('Arrives in your account');
+}, { cut: $(FINAL.cut), payout: $(FINAL.payout) });
 await assertClean('R7: T08');
 await render('t06-appointment-status');
 await assertText('T06 delivered CTA', '.t-actions .cta', 'View Payout');
@@ -236,12 +260,12 @@ await assertAt('View Payout', 't08-job-complete', 'delivered');
 await page.click('[data-act="home"]');
 await assertAt('Back to Home (job complete)', 't01-home', 'delivered');
 /* R3-T-03: the completed job moves under "Done today" (payout kept); Active Jobs holds only Leo */
-await assertTrue('T01: completed seed under Done today with its payout; Active Jobs = Leo only', () => {
+await assertTrue('T01: completed seed under Done today with its payout; Active Jobs = Leo only', (payout) => {
   const sections = [...document.querySelectorAll('.t-section-row')].map((e) => e.textContent.trim());
   const c = document.querySelector('.t-done .job-card');
   const active = [...document.querySelectorAll('.t-actions:not(.t-done)')].find((b) => b.querySelector('.job-card'));
-  return sections.some((s) => s.startsWith('Past Jobs')) && c && c.textContent.includes('Completed') && c.querySelector('.job-card__payout')?.textContent === '$385' && !c.classList.contains('job-card--closed') && active && active.querySelectorAll('.job-card').length === 1 && active.textContent.includes('Leo Von');
-});
+  return sections.some((s) => s.startsWith('Past Jobs')) && c && c.textContent.includes('Completed') && c.querySelector('.job-card__payout')?.textContent === payout && !c.classList.contains('job-card--closed') && active && active.querySelectorAll('.job-card').length === 1 && active.textContent.includes('Leo Von');
+}, $(FINAL.payout));
 await render('01-home');
 await page.click('.appt-card');
 /* R3-U-03 (user side): the completed entry's Home card opens its status
@@ -251,7 +275,7 @@ await page.waitForTimeout(300);
   const s = await screenId(), p = await persona();
   const ok = /^03-status-(summary|tailoring)$/.test(s) && p === 'user';
   if (!ok) failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${'user card opens the completed order'.padEnd(38)} screen=${s}  persona=${p}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${'user card opens the completed order'.padEnd(38)} screen=${s}  persona=${p}${ok ? '' : here()}`);
 }
 /* R3-T-06: the Calendar tab prefers a confirmed visit over the completed seed */
 await render('01-home');
@@ -352,10 +376,10 @@ await page.click('.method-row');
 await assertAt('user requests a tailor', '03-status-requested', 'searching', 'user');
 await flip();
 await assertAt('View as Tailor', 't01-home', 'searching', 'tailor');
-await assertTrue('new request shows on T01 at the booked payout ($120 Hem + the $25 fee cut = $145, round 12)', () => !!document.querySelector('.req-card') && document.querySelector('.req-card__name b').textContent === '$145');
+await assertTrue(`new request shows on T01 at the booked payout (${$(TF.alt)} Hem + the ${$(TF.cut)} fee cut = ${$(TF.payout)}, round 12)`, (w) => !!document.querySelector('.req-card') && document.querySelector('.req-card__name b').textContent === w, $(TF.payout));
 await page.click('[data-act="view-details"]');
-await assertText('T02 header follows the booking', '.t-header .t-title', '$145 | New Request');
-await assertText('R7: T02 CTA follows the booking', '[data-act="accept"]', 'Accept Request · $145');
+await assertText('T02 header follows the booking', '.t-header .t-title', `${$(TF.payout)} | New Request`);
+await assertText('R7: T02 CTA follows the booking', '[data-act="accept"]', `Accept Request · ${$(TF.payout)}`);
 await assertTrue('T02 lists the one booked card', () => document.querySelectorAll('.garment-card').length === 1);
 await page.click('[data-act="accept"]');
 await assertAt('tailor accepts the new request', 't03-request-accepted', 'confirmed');
@@ -392,15 +416,16 @@ async function bookFresh(items = 1) {
 }
 /* assert on Sarah's FRESH job or the SEED (the Jul 12 fiction), wherever it lives now */
 const SEED_WHEN = 'Sunday Jul 12, 7PM';
-async function assertJob(desc, which, fn) {
-  const ok = await page.evaluate(({ which, src, SEED_WHEN }) => {
+/* `M` (money values from node) reaches the callback as its third argument */
+async function assertJob(desc, which, fn, M = undefined) {
+  const ok = await page.evaluate(({ which, src, SEED_WHEN, M }) => {
     const s = window.Taily.state;
     const all = [...s.upcoming, ...s.past];
     const a = which === 'fresh' ? all.find((x) => x.mine && x.when !== SEED_WHEN) : all.find((x) => x.mine && x.when === SEED_WHEN);
-    return !!new Function('a', 's', `return (${src})(a, s)`)(a, s);
-  }, { which, src: fn.toString(), SEED_WHEN });
+    return !!new Function('a', 's', 'M', `return (${src})(a, s, M)`)(a, s, M);
+  }, { which, src: fn.toString(), SEED_WHEN, M });
   if (!ok) failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc}${ok ? '' : here()}`);
 }
 
 /* ---------- R2-T-01: two bookings coexist on T01; the tapped card wins ---------- */
@@ -409,12 +434,12 @@ await bookFresh();
 await assertAt('customer books a second job', '03-status-requested', 'searching', 'user');
 await flip();
 await assertAt('T01 with two mine bookings', 't01-home', 'searching', 'tailor');
-await assertTrue('T01 lists the fresh request AND the seed’s confirmed job (no phantom seed request)', () => document.querySelectorAll('.req-card').length === 1 && document.querySelector('.req-card__name b').textContent === '$145' && [...document.querySelectorAll('.job-card')].some((c) => c.textContent.includes('Sarah Chen') && c.textContent.includes('Confirmed')));
+await assertTrue('T01 lists the fresh request AND the seed’s confirmed job (no phantom seed request)', (w) => document.querySelectorAll('.req-card').length === 1 && document.querySelector('.req-card__name b').textContent === w && [...document.querySelectorAll('.job-card')].some((c) => c.textContent.includes('Sarah Chen') && c.textContent.includes('Confirmed')), $(TF.payout));
 await assertTrue('the request card carries its own timer', () => document.querySelectorAll('[data-timer]').length === 1);
-await assertTrue('R3-T-03: live request card reads $145 · 1 item', () => document.querySelector('.req-card__name b').textContent === '$145' && document.querySelector('.req-card__count')?.textContent === '· 1 item');
+await assertTrue(`R3-T-03: live request card reads ${$(TF.payout)} · 1 item`, (w) => document.querySelector('.req-card__name b').textContent === w && document.querySelector('.req-card__count')?.textContent === '· 1 item', $(TF.payout));
 await page.click('.req-card[data-req="0"] [data-act="view-details"]');
 await assertAt('View Details on the fresh request', 't02-appointment-request', 'searching');
-await assertText('T02 renders the tapped job ($145)', '.t-header .t-title', '$145 | New Request');
+await assertText(`T02 renders the tapped job (${$(TF.payout)})`, '.t-header .t-title', `${$(TF.payout)} | New Request`);
 await page.click('[data-act="back"]');
 await page.click('[data-act="open-job"]');
 await assertAt('the seed job card still opens its pre-visit T03', 't03-request-accepted', 'confirmed');
@@ -427,7 +452,7 @@ await render('t01-home');
 await page.click('.req-card[data-req="0"] [data-act="view-details"]');
 await page.click('[data-act="accept"]');
 await assertAt('Accept the fresh request', 't03-request-accepted', 'confirmed');
-await assertJob('R7: the fresh job’s accepted payout is $145', 'fresh', (a) => a.tailor.acceptedPayout === 145);
+await assertJob(`R7: the fresh job’s accepted payout is ${$(TF.payout)}`, 'fresh', (a, s, M) => a.tailor.acceptedPayout === M, TF.payout);
 await page.goBack();
 await assertAt('browser back after Accept lands on T01, not T02', 't01-home', 'confirmed');
 await page.click('[data-act="open-job"][data-job="0"]');
@@ -451,11 +476,11 @@ await page.click('[data-act="continue"]');
 await assertAt('T05 after a removal', 't05-confirm-final-pricing', 'confirmed');
 await assertTrue('T05 marks the survivor as added (by id, not index)', () => document.querySelectorAll('.garment-card--info').length === 1);
 await assertTrue('T05 lists the removed booked garment', () => /Removed at the visit — Suit Jacket · Hem \/ Adjust Length/.test(document.querySelector('.t-removed')?.textContent ?? '') && !!document.querySelector('.t-removed s'));
-await assertTrue('R7: a lowered scope reads "Payout $145 → $105 (−$40)" before Send', () => document.querySelector('[data-payout-change]')?.textContent === 'Payout $145 → $105 (−$40)' && [...document.querySelectorAll('.fee-row__price')].pop().textContent === '$105');
+await assertTrue(`R7: a lowered scope reads "${payoutChange(TF, TL)}" before Send`, (M) => document.querySelector('[data-payout-change]')?.textContent === M.change && [...document.querySelectorAll('.fee-row__price')].pop().textContent === M.payout, { change: payoutChange(TF, TL), payout: $(TL.payout) });
 await page.click('[data-act="send"]');
 await assertAt('Send after a removal', 't06-appointment-status', 'awaiting-approval');
 await assertJob('a.removed carries the dropped Hem; item summary refreshed', 'fresh', (a) => a.removed?.length === 1 && a.removed[0].jobs[0] === 'Hem / Adjust Length' && a.garments.length === 1 && a.count === 1);
-await assertJob('R7: accepted payout follows the sent order ($105)', 'fresh', (a) => a.tailor.acceptedPayout === 105);
+await assertJob(`R7: accepted payout follows the sent order (${$(TL.payout)})`, 'fresh', (a, s, M) => a.tailor.acceptedPayout === M, TL.payout);
 
 /* ---------- Round 12 (Kevin): Request Changes leaves NO trace — Sounds Good only closes the popup ---------- */
 await render('04-review-approve-modified');
@@ -507,11 +532,11 @@ await assertTrue('T08 dates the payout from the handoff (+4 → weekday, not Jul
   return !/Jul 20/.test(note) && diff >= 4 && diff <= 6 && ![0, 6].includes(d.getDay()) && document.querySelector('.payout-summary__title').textContent.includes('TLY-2026-4418') && a.orderId === 'TLY-2026-4418';
 });
 await render('t06-appointment-status');
-await assertTrue('T06 delivered line carries the same payout date', async () => {
+await assertTrue('T06 delivered line carries the same payout date', async (payout) => {
   const D = await import('/js/data.js');
   const a = window.Taily.state.upcoming.find((x) => x.mine && x.when !== 'Sunday Jul 12, 7PM');
-  return document.querySelector('.t-header .t-body').textContent === `Completed · payout $105 on ${D.payoutDate(a)}.` && !/Jul 20/.test(D.payoutDate(a));
-});
+  return document.querySelector('.t-header .t-body').textContent === `Completed · payout ${payout} on ${D.payoutDate(a)}.` && !/Jul 20/.test(D.payoutDate(a));
+}, $(TL.payout));
 
 /* ---------- R2-T-03: expiry (timer-strip demo) ---------- */
 await open('01-home');
@@ -532,7 +557,7 @@ await page.click('.job-card:has-text("Expired")');
 await assertAt('Expired row opens T02', 't02-appointment-request', 'expired');
 await assertTrue('T02 for an expired job offers no Accept / Decline', () => !document.querySelector('[data-act="accept"]') && !document.querySelector('[data-act="decline"]') && /Request Expired/.test(document.querySelector('.t-header .t-title').textContent));
 /* R7-T-02: the lapsed money is "Payout offered", muted; the header keeps the amount */
-await assertTrue('R7-T-02: T02 expired money row = muted "Payout offered" (under the fee cut row), header keeps $145 | Request Expired', () => { const r = document.querySelectorAll('.fee-row')[1]; return r.classList.contains('fee-row--muted') && `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}` === '$145 Payout offered' && document.querySelector('.t-header .t-title').textContent === '$145 | Request Expired' && getComputedStyle(r.querySelector('.fee-row__price')).color === 'rgb(133, 124, 111)'; });
+await assertTrue(`R7-T-02: T02 expired money row = muted "Payout offered" (under the fee cut row), header keeps ${$(TF.payout)} | Request Expired`, (M) => { const r = document.querySelectorAll('.fee-row')[1]; return r.classList.contains('fee-row--muted') && `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}` === M.row && document.querySelector('.t-header .t-title').textContent === M.title && getComputedStyle(r.querySelector('.fee-row__price')).color === 'rgb(133, 124, 111)'; }, { row: `${$(TF.payout)} Payout offered`, title: `${$(TF.payout)} | Request Expired` });
 await flip();
 await assertAt('customer home survives an expired job', '01-home', undefined, 'user');
 await assertJob('…and the expired job is still expired', 'fresh', (a) => a.status === 'expired');
@@ -632,12 +657,12 @@ await assertTrue('R3-T-05 / R7: no-show available on the seed (Jul 12 counts as 
 await assertClean('R7: T03.1 modal (no-show)');
 await page.click('[data-act="confirm-cancel"]');
 await assertAt('Sarah didn’t show → T03B', 't03b-job-cancelled', 'cancelled');
-await assertTrue('T03B no-show copy (R7 rule-literal: nothing about the fee; R8: the $20 trip compensation)', () => document.querySelector('.status-hero__title').textContent === 'Sarah didn’t show.' && document.querySelector('.status-hero__body').textContent === 'The job is closed and the slot is open again. You’ll receive $25 for the trip.');
+await assertTrue(`T03B no-show copy (R7 rule-literal: nothing about the fee; R8: the ${$(SEED.comp)} trip compensation)`, (w) => document.querySelector('.status-hero__title').textContent === 'Sarah didn’t show.' && document.querySelector('.status-hero__body').textContent === w, tripLine(SEED));
 await assertClean('R7: T03B (no-show)');
-await assertJob('Round 12: the seed no-show stamped a.noShowComp = 25 (the tailor’s fee cut)', 'seed', (a) => a.reason === 'no-show' && a.noShowComp === 25);
+await assertJob(`Round 12: the seed no-show stamped a.noShowComp = ${SEED.comp} (the tailor’s fee cut)`, 'seed', (a, s, M) => a.reason === 'no-show' && a.noShowComp === M, SEED.comp);
 await page.click('[data-act="calendar"]');
-await assertTrue('T01 row reads No-show · $20 (R8)', () => [...document.querySelectorAll('.job-card--closed')].some((c) => c.querySelector('.job-card__bottom > span:last-child')?.textContent === 'No-show · $25'));
-await assertClean('R8: T01 (No-show · $20 row)');
+await assertTrue(`T01 row reads No-show · ${$(SEED.comp)} (R8)`, (w) => [...document.querySelectorAll('.job-card--closed')].some((c) => c.querySelector('.job-card__bottom > span:last-child')?.textContent === w), `No-show · ${$(SEED.comp)}`);
+await assertClean(`R8: T01 (No-show · ${$(SEED.comp)} row)`);
 
 /* ---------- R2-T-06: a withdrawn request is not a closed job ---------- */
 await open('01-home');
@@ -756,12 +781,12 @@ for (const id of ['t06-appointment-status', 't04-appointment-details', 't05-conf
 /* ---------- R6 / R7: T02 rows — visit type + distance; ONE money row, the payout (seed fixture, then a fresh live job) ---------- */
 await open('t02-appointment-request');
 await assertTrue('R6: T02 fixture first row reads the frame copy', () => [...document.querySelectorAll('.summary-card__row')][0]?.textContent.replace(/ /g, ' ').trim() === '◉  88 Leonard Street, 4B · Home visit · 1.2 mi');
-await assertTrue('Round 12: T02 fixture money = "$25 Visitation fee" + "$225 Your payout" + the muted "$25 No-show protection" row (no Subtotal, no Taily Fee)', () => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$25 Visitation fee | $225 Your payout | $25 No-show protection · paid if Sarah doesn’t show');
-await assertText('R7: T02 fixture CTA', '[data-act="accept"]', 'Accept Request · $225');
+await assertTrue(`Round 12: T02 fixture money = "${cutRow(SEED)}" + "${payoutRow(SEED)}" + the muted "${$(SEED.comp)} No-show protection" row (no Subtotal, no Taily Fee)`, (w) => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === w, rowsBefore(SEED));
+await assertText('R7: T02 fixture CTA', '[data-act="accept"]', `Accept Request · ${$(SEED.payout)}`);
 for (const id of ['t02-accepted', 't02-expired']) {
   await open(id);
   /* R7-T-02: the Expired sibling's row is the muted "Payout offered" — and no protection row (R8) */
-  const wantRow = id === 't02-expired' ? '$25 Visitation fee | $225 Payout offered' : '$25 Visitation fee | $225 Your payout | $25 No-show protection · paid if Sarah doesn’t show';
+  const wantRow = id === 't02-expired' ? `${cutRow(SEED)} | ${$(SEED.payout)} Payout offered` : rowsBefore(SEED);
   await page.evaluate(([w, m]) => { window.__wantRow = w; window.__wantMuted = m; }, [wantRow, id === 't02-expired']);
   await assertTrue(`R6: ${id} fixture carries the same rows`, () => [...document.querySelectorAll('.summary-card__row')][0]?.textContent.replace(/ /g, ' ').trim() === '◉  88 Leonard Street, 4B · Home visit · 1.2 mi' && [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === window.__wantRow && (!window.__wantMuted || document.querySelectorAll('.fee-row')[1].classList.contains('fee-row--muted')));
 }
@@ -771,7 +796,7 @@ await flip();
 await page.click('.req-card[data-req="0"] [data-act="view-details"]');
 await assertAt('R6: T02 for the fresh live request', 't02-appointment-request', 'searching');
 await assertTrue('R6: live first row = live address · visit type · 1.2 mi', () => [...document.querySelectorAll('.summary-card__row')][0]?.textContent.replace(/ /g, ' ').trim() === '◉  88 Leonard St, 4B · Home visit · 1.2 mi');
-await assertTrue('Round 12: live money rows from the $120 booking = "$25 Visitation fee" + "$145 Your payout" + "$25 No-show protection" (1 item → the $25 cut)', () => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$25 Visitation fee | $145 Your payout | $25 No-show protection · paid if Sarah doesn’t show');
+await assertTrue(`Round 12: live money rows from the ${$(TF.alt)} booking = "${cutRow(TF)}" + "${payoutRow(TF)}" + "${$(TF.comp)} No-show protection" (1 item → the ${$(TF.cut)} cut)`, (w) => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === w, rowsBefore(TF));
 await assertClean('R8: T02 (live request)');
 await render('t03-request-accepted');
 await assertTrue('R6 / R7: T03 rows are unchanged (no visit type on the shared card); one money row', () => !/Home visit · 1\.2 mi/.test(document.querySelector('.summary-card').textContent) && !document.body.textContent.includes('Subtotal') && document.querySelectorAll('.fee-row').length === 2);
@@ -861,7 +886,7 @@ async function confirmFresh() {
     return a.feeLocked === true;
   });
   if (!ok) failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  R7: Sarah confirms the visit (feeLocked)`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  R7: Sarah confirms the visit (feeLocked)${ok ? '' : here()}`);
 }
 /* a customer cancel, confirmed or not: T03B never mentions the fee */
 await bookAndAccept();
@@ -898,9 +923,9 @@ await assertTrue('R7: no-show consequence before confirmation — job + notice o
 await assertClean('R7: T03.1 (no-show, unconfirmed)');
 await page.click('[data-act="confirm-cancel"]');
 await assertAt('R7: Mark No-show → T03B', 't03b-job-cancelled', 'cancelled');
-await assertTrue('R7/R8: T03B no-show (unconfirmed) says nothing about the fee — only the $20 trip compensation', () => document.querySelector('.status-hero__body').textContent === 'The job is closed and the slot is open again. You’ll receive $25 for the trip.');
+await assertTrue(`R7/R8: T03B no-show (unconfirmed) says nothing about the fee — only the ${$(TF.comp)} trip compensation`, (w) => document.querySelector('.status-hero__body').textContent === w, tripLine(TF));
 await assertClean('R7: T03B (no-show, unconfirmed)');
-await assertJob('R7/R8: unconfirmed no-show → refund > 0 (the substrate still refunds Sarah) and a.noShowComp = 20 (Taily absorbs it)', 'fresh', (a) => a.reason === 'no-show' && !a.feeLocked && a.refund > 0 && a.noShowComp === 25);
+await assertJob(`R7/R8: unconfirmed no-show → refund > 0 (the substrate still refunds Sarah) and a.noShowComp = ${TF.comp} (Taily absorbs it)`, 'fresh', (a, s, M) => a.reason === 'no-show' && !a.feeLocked && a.refund > 0 && a.noShowComp === M, TF.comp);
 /* no-show AFTER Sarah confirmed → the substrate keeps her fee with Taily; Marco's copy is identical */
 await bookAndAccept();
 await confirmFresh();
@@ -910,34 +935,34 @@ await assertTrue('R7: no-show consequence after confirmation — the same line, 
 await assertClean('R7: T03.1 (no-show, confirmed)');
 await page.click('[data-act="confirm-cancel"]');
 await assertAt('R7: Mark No-show (confirmed) → T03B', 't03b-job-cancelled', 'cancelled');
-await assertTrue('R7/R8: T03B no-show (confirmed) — the same body, no fee, the same $20', () => document.querySelector('.status-hero__body').textContent === 'The job is closed and the slot is open again. You’ll receive $25 for the trip.');
-await assertJob('R7/R8: confirmed no-show → fee kept (refund 0) on Sarah’s record only; a.noShowComp = 20', 'fresh', (a) => a.reason === 'no-show' && a.feeLocked === true && a.refund === 0 && a.noShowComp === 25);
+await assertTrue(`R7/R8: T03B no-show (confirmed) — the same body, no fee, the same ${$(TF.comp)}`, (w) => document.querySelector('.status-hero__body').textContent === w, tripLine(TF));
+await assertJob(`R7/R8: confirmed no-show → fee kept (refund 0) on Sarah’s record only; a.noShowComp = ${TF.comp}`, 'fresh', (a, s, M) => a.reason === 'no-show' && a.feeLocked === true && a.refund === 0 && a.noShowComp === M, TF.comp);
 await assertClean('R7: T03B (no-show, confirmed)');
 
-/* ---------- R8: the compensation follows the fee tier — a 5-item job ($50 tier → $25) ---------- */
+/* ---------- R8: the compensation follows the fee tier — a 5-item job (the customer's second tier → the tailor's second cut) ---------- */
 await open('01-home');
 await bookFresh(5);
 await flip();
 await page.click('.req-card[data-req="0"] [data-act="view-details"]');
 await assertAt('R8: T02 for a 5-item request', 't02-appointment-request', 'searching');
-await assertText('Round 12: header = the $650 payout ($600 + the $50 cut)', '.t-header .t-title', '$650 | New Request');
-await assertTrue('Round 12: T02 rows = "$50 Visitation fee | $650 Your payout | $50 No-show protection · paid if Sarah doesn’t show" (never the customer’s $90 fee)', () => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$50 Visitation fee | $650 Your payout | $50 No-show protection · paid if Sarah doesn’t show' && !/\$90\b/.test(document.getElementById('screen').innerText));
-await assertJob('R8: …quoted from the booked $90 tier (cut $50), nothing stamped yet', 'fresh', (a) => a.totals.visitFee === 90 && a.noShowComp == null);
+await assertText(`Round 12: header = the ${$(T5.payout)} payout (${$(T5.alt)} + the ${$(T5.cut)} cut)`, '.t-header .t-title', `${$(T5.payout)} | New Request`);
+await assertTrue(`Round 12: T02 rows = "${rowsBefore(T5)}" (never the customer’s ${$(T5.fee)} fee)`, (M) => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === M.rows && !new RegExp(`\\$${M.fee}\\b`).test(document.getElementById('screen').innerText), { rows: rowsBefore(T5), fee: T5.fee });
+await assertJob(`R8: …quoted from the booked ${$(T5.fee)} tier (cut ${$(T5.cut)}), nothing stamped yet`, 'fresh', (a, s, M) => a.totals.visitFee === M && a.noShowComp == null, T5.fee);
 await assertClean('R8: T02 (5 items)');
 await page.click('[data-act="accept"]');
 await assertAt('R8: accept the 5-item job', 't03-request-accepted', 'confirmed');
-await assertTrue('R8: T03 keeps the fee cut + payout rows (no protection row after Accept)', () => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === '$50 Visitation fee | $650 Your payout');
+await assertTrue('R8: T03 keeps the fee cut + payout rows (no protection row after Accept)', (w) => [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | ') === w, rowsAfter(T5));
 await openFreshPastVisit();
 await page.click('[data-reason="no-show"]');
 await assertTrue('R8: the no-show consequence line is unchanged', () => document.querySelector('[data-consequence]').textContent === 'The job closes and Sarah is notified.');
 await page.click('[data-act="confirm-cancel"]');
 await assertAt('R8: Mark No-show (5 items) → T03B', 't03b-job-cancelled', 'cancelled');
-await assertTrue('Round 12: T03B reads "You’ll receive $50 for the trip." (the 5-item cut)', () => document.querySelector('.status-hero__body').textContent === 'The job is closed and the slot is open again. You’ll receive $50 for the trip.');
+await assertTrue(`Round 12: T03B reads "You’ll receive ${$(T5.comp)} for the trip." (the 5-item cut)`, (w) => document.querySelector('.status-hero__body').textContent === w, tripLine(T5));
 await assertClean('R8: T03B (no-show, 5 items)');
-await assertJob('Round 12: a.noShowComp = 50 (the tailor’s cut on 5 items); Sarah’s record untouched (refund 90, unlocked)', 'fresh', (a) => a.reason === 'no-show' && a.noShowComp === 50 && a.totals.visitFee === 90 && a.refund === 90 && a.feeKept === false);
+await assertJob(`Round 12: a.noShowComp = ${T5.comp} (the tailor’s cut on 5 items); Sarah’s record untouched (refund ${T5.fee}, unlocked)`, 'fresh', (a, s, M) => a.reason === 'no-show' && a.noShowComp === M.comp && a.totals.visitFee === M.fee && a.refund === M.fee && a.feeKept === false, { comp: T5.comp, fee: T5.fee });
 await render('t01-home');
-await assertTrue('Round 12: Past Jobs row reads "No-show · $50"', () => [...document.querySelectorAll('.t-done .job-card--closed')].some((c) => c.querySelector('.job-card__bottom > span:last-child')?.textContent === 'No-show · $50'));
-await assertClean('R8: T01 (No-show · $25 row)');
+await assertTrue(`Round 12: Past Jobs row reads "No-show · ${$(T5.comp)}"`, (w) => [...document.querySelectorAll('.t-done .job-card--closed')].some((c) => c.querySelector('.job-card__bottom > span:last-child')?.textContent === w), `No-show · ${$(T5.comp)}`);
+await assertClean(`R8: T01 (No-show · ${$(T5.comp)} row)`);
 
 /* ---------- R6: "Done today" Clear — hides the closed rows; a later closure re-shows them ---------- */
 await render('t01-home');
@@ -960,23 +985,24 @@ await assertTrue('R6: the T01 / Closed Rows fixture draws the Clear link', () =>
 
 /* ---------- R7: every tailor fixture deep link — payout numbers + the customer-pricing sweep ---------- */
 const FIXTURE_PAYOUT = {
-  /* round 12 (Kevin): payout = alterations + the tailor's fee cut ($25 on 1–4 items) — a "Visitation fee" row precedes "Your payout" */
-  't01-home': ['$225'], 't02-appointment-request': ['$225 | New Request', '$25 Visitation fee', '$225 Your payout', '$25 No-show protection · paid if Sarah doesn’t show', 'Accept Request · $225'], 't02-accepted': ['$225 | Accepted', '$25 No-show protection · paid if Sarah doesn’t show'], 't02-expired': ['$225 | Request Expired', '$225 Payout offered'],
-  't03-request-accepted': ['$25 Visitation fee', '$225 Your payout'], 't03-upcoming-visit': ['$225 Your payout'], 't03.1-cant-make-it': ['The job closes, Sarah is notified and your slot reopens.'],
-  't04-appointment-details': ['$385 Your payout'], 't05-confirm-final-pricing': ['$385 Your payout', 'Payout $225 → $385 (+$160)'], 't05-removed': ['$305 Your payout', 'Payout $225 → $305 (+$80)'],
-  't06-appointment-status': ['$385 Your payout'], 't07-job-ready': ['$385 Your payout', 'Your payout is released on handoff.'], 't07-waiting': ['$385 Your payout'],
-  't08-job-complete': ['PAYOUT SUMMARY', 'TLY-2026-4417', 'Visitation fee', 'Your payout', '$385', 'Arrives in your account · Mon, Jul 20'],
-  't03b-job-cancelled': [], 't03b-by-you': ['Sarah’s been notified. Your Sun, Jul 12 · 7:00 PM slot is open again.'], 't03b-no-show': ['The job is closed and the slot is open again. You’ll receive $25 for the trip.'],
-  't03b-withdrawn': [], 't03a-decline-request': [], 't03a-suggest-time': [], 't03a-other': [], 't01-home-closed': ['No-show · $25'], 't10-messages': [],
+  /* round 12 (Kevin): payout = alterations + the tailor's fee cut (the first tier on 1–4 items) — a "Visitation fee" row precedes "Your payout" */
+  't01-home': [$(SEED.payout)], 't02-appointment-request': [`${$(SEED.payout)} | New Request`, cutRow(SEED), payoutRow(SEED), protectRow(SEED), `Accept Request · ${$(SEED.payout)}`], 't02-accepted': [`${$(SEED.payout)} | Accepted`, protectRow(SEED)], 't02-expired': [`${$(SEED.payout)} | Request Expired`, `${$(SEED.payout)} Payout offered`],
+  't03-request-accepted': [cutRow(SEED), payoutRow(SEED)], 't03-upcoming-visit': [payoutRow(SEED)], 't03.1-cant-make-it': ['The job closes, Sarah is notified and your slot reopens.'],
+  't04-appointment-details': [payoutRow(FINAL)], 't05-confirm-final-pricing': [payoutRow(FINAL), payoutChange(SEED, FINAL)], 't05-removed': [payoutRow(REMOVED), payoutChange(SEED, REMOVED)],
+  't06-appointment-status': [payoutRow(FINAL)], 't07-job-ready': [payoutRow(FINAL), 'Your payout is released on handoff.'], 't07-waiting': [payoutRow(FINAL)],
+  't08-job-complete': ['PAYOUT SUMMARY', 'TLY-2026-4417', 'Visitation fee', 'Your payout', $(FINAL.payout), 'Arrives in your account · Mon, Jul 20'],
+  't03b-job-cancelled': [], 't03b-by-you': ['Sarah’s been notified. Your Sun, Jul 12 · 7:00 PM slot is open again.'], 't03b-no-show': [tripLine(SEED)],
+  't03b-withdrawn': [], 't03a-decline-request': [], 't03a-suggest-time': [], 't03a-other': [], 't01-home-closed': [`No-show · ${$(SEED.comp)}`], 't10-messages': [],
 };
 for (const [id, wants] of Object.entries(FIXTURE_PAYOUT)) {
   await open(id);
   if (!(await page.evaluate((i) => window.Taily.registered().includes(i), id))) { console.log(`SKIP  ${id} is not registered`); continue; }
   {
+    // money: $180 / $324 / $36 / $28 / $252 are the OLD (pre-round-7/12) deposit + commission numbers, swept as stale — not tier values
     const missing = await page.evaluate((w) => { const rows = [...document.querySelectorAll('.fee-row')].map((r) => `${r.querySelector('.fee-row__price').textContent} ${r.querySelector('.fee-row__desc').textContent}`).join(' | '); const txt = `${document.getElementById('screen').innerText}\n${rows}`; const old = /\$180|\$324|\$36\b|\$28\b|\$252/.exec(txt)?.[0]; return [...w.filter((s) => !txt.includes(s)), ...(old ? [`old money ${old}`] : [])]; }, wants);
     const ok = missing.length === 0;
     if (!ok) failures++;
-    console.log(`${ok ? 'PASS' : 'FAIL'}  R7: ${id} fixture reads ${wants.length ? wants.join(' / ') : 'no money'}${ok ? '' : ` (missing: ${missing.join('; ')})`}`);
+    console.log(`${ok ? 'PASS' : 'FAIL'}  R7: ${id} fixture reads ${wants.length ? wants.join(' / ') : 'no money'}${ok ? '' : ` (missing: ${missing.join('; ')})${here()}`}`);
   }
   await assertClean(`R7: ${id} fixture`);
 }

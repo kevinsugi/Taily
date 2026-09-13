@@ -20,6 +20,8 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, extname } from 'node:path';
 import { createServer } from 'node:http';
 import { chromium } from 'playwright';
+/* every dollar amount comes from scripts/money.mjs (→ js/data.js) */
+import { $, SEED, FINAL, RETIERED } from './money.mjs';
 
 const DUMP = process.argv.includes('--dump');
 const ROOT = resolve(new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
@@ -45,9 +47,20 @@ page.on('console', (m) => {
 });
 
 let failures = 0; let passes = 0;
+/* the caller's file:line for FAIL lines — the first stack frame outside the assertion helpers */
+const HELPER_FRAME = /\b(check|here)\b/;
+const ME = import.meta.url.split('/').pop();
+function here() {
+  for (const f of (new Error().stack ?? '').split('\n').slice(1)) {
+    const m = f.match(/([^/\\(]+\.mjs):(\d+):\d+\)?\s*$/);
+    if (!m || m[1] !== ME || HELPER_FRAME.test(f.replace(/\(.*$/, ''))) continue;
+    return ` (${m[1]}:${m[2]})`;
+  }
+  return '';
+}
 function check(desc, ok, detail = '') {
   if (ok) passes++; else failures++;
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(58)} ${ok ? '' : detail}`);
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${desc.padEnd(58)} ${ok ? '' : detail + here()}`);
 }
 
 /* What each entry must show once it lands: a snippet of the visible
@@ -70,10 +83,10 @@ const EXPECT = {
   'c-reminder': 'Before you confirm',
   'c-reminder-locked': 'non-refundable',
   'c-confirm-popup': 'non-refundable',
-  'c-review-updated': { has: '$410', not: 'Removed at the visit' },
-  'c-review-unchanged': { has: '$250', not: '$360' },
+  'c-review-updated': { has: $(FINAL.total), not: 'Removed at the visit' },
+  'c-review-unchanged': { has: $(SEED.total), not: $(FINAL.alt) },
   'c-review-removed': 'Removed at the visit',
-  'c-review-retiered': '5 items, $90 tier',
+  'c-review-retiered': `5 items, ${$(RETIERED.fee)} tier`,
   'c-request-changes': 'Sounds Good',
   'c-resent': 'updated the order on',
   'c-tailoring': 'Tailoring in Progress',
@@ -112,7 +125,7 @@ const EXPECT = {
   't-upcoming': 'Start Appointment',
   't-cant-make-it': 'I need to cancel',
   't-details': 'Contact Taily Support',
-  't-final-pricing': '$225 → $385',
+  't-final-pricing': `${$(SEED.payout)} → ${$(FINAL.payout)}`,
   't-final-removed': 'Removed at the visit',
   't-support': 'Taily Support',
   't-status-awaiting': 'Sarah is reviewing the updated order',
@@ -123,7 +136,7 @@ const EXPECT = {
   't-ready-waiting': 'Message Sarah',
   't-ready-pickup': 'Mark Picked Up',
   't-ready-delivery': 'Deliver',
-  't-complete': '$385',
+  't-complete': $(FINAL.payout),
   't-cancelled-by-you': 'cancelled',
   't-no-show': 'for the trip',
   't-customer-cancelled': 'cancelled',
@@ -218,7 +231,7 @@ if (!DUMP) {
     alterations: window.Taily.state.upcoming.find((a) => a.mine)?.totals?.alterations,
     trigger: document.querySelector('[data-trigger-who]')?.textContent,
   }));
-  check('flip → T01 as the tailor, state kept (awaiting approval, $360)', flipped.screen === 't01-home' && flipped.persona === 'tailor' && flipped.status === 'awaiting-approval' && flipped.alterations === 360 && flipped.trigger === 'Tailor', JSON.stringify(flipped));
+  check(`flip → T01 as the tailor, state kept (awaiting approval, ${$(FINAL.alt)})`, flipped.screen === 't01-home' && flipped.persona === 'tailor' && flipped.status === 'awaiting-approval' && flipped.alterations === FINAL.alt && flipped.trigger === 'Tailor', JSON.stringify(flipped));
   await page.click('[data-act="open-job"]');
   await page.waitForTimeout(350);
   check('  …the job opens T06 awaiting Sarah’s approval', (await landing()).screen === 't06-appointment-status', (await landing()).screen);
@@ -233,7 +246,7 @@ if (!DUMP) {
   await page.goto(`${origin}/index.html?flow=t-final-pricing`, { waitUntil: 'load' });
   await page.waitForTimeout(500);
   const booted = await landing();
-  check('?flow=t-final-pricing boots into T05 with the payout change', booted.screen === 't05-confirm-final-pricing' && booted.persona === 'tailor' && booted.text.includes('$225 → $385'), `${booted.screen} ${booted.persona}`);
+  check('?flow=t-final-pricing boots into T05 with the payout change', booted.screen === 't05-confirm-final-pricing' && booted.persona === 'tailor' && booted.text.includes(`${$(SEED.payout)} → ${$(FINAL.payout)}`), `${booted.screen} ${booted.persona}`);
   await page.goto(`${origin}/index.html?flow=c-reschedule`, { waitUntil: 'load' });
   await page.waitForTimeout(500);
   const bootedOverlay = await landing();

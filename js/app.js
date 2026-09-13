@@ -40,8 +40,8 @@ const isTailorScreen = (id) => /^t\d/.test(id);   // t01…t08, t10-messages (ro
 function syncPersona(id) {
   if (isTailorScreen(id)) state.persona = 'tailor';
   else if (id !== '10-messages') state.persona = 'user';
-  const btn = document.getElementById('persona-toggle');
-  if (btn) btn.textContent = state.persona === 'tailor' ? 'View as Customer' : 'View as Tailor';
+  /* the Test flows menu (flow-menu.js) repaints its persona labels */
+  document.dispatchEvent(new CustomEvent('taily:persona'));
 }
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */
@@ -88,6 +88,8 @@ function syncHistory(id, replace) {
  * @param {string} id      screen id from scripts/screens.json
  * @param {object} [opts]
  * @param {boolean} [opts.replace]  replace the top of the history stack
+ * @param {boolean} [opts.fresh]    start a new history at this screen
+ *                                  (the Test flows menu's jumps)
  */
 export function render(id, opts = {}) {
   const entry = screens.get(id);
@@ -117,10 +119,11 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   entry.wire?.(el);
   window.__tailyNavigated = true;   // first render sets it AFTER wire ran
 
+  if (opts.fresh) history.length = 0;
   const same = currentScreen() === id;
   if (opts.replace && history.length) history[history.length - 1] = id;
   else if (!same) history.push(id);
-  syncHistory(id, opts.replace || same || history.length < 2);
+  syncHistory(id, opts.replace || opts.fresh || same || history.length < 2);
 
   announce(id);
   return true;
@@ -170,7 +173,7 @@ function wireDragScroll() {
   document.addEventListener('pointerdown', (e) => {
     dragged = false;
     if (e.pointerType !== 'mouse' || e.button !== 0) return;
-    if (e.target.closest('.photo-row, .wheel__col--scroll, input, textarea')) return;
+    if (e.target.closest('.photo-row, .wheel__col--scroll, input, textarea, .stage-caption')) return;
     startY = e.clientY;
     startScroll = window.scrollY;
   });
@@ -202,9 +205,14 @@ async function boot() {
     if (profile) { e.preventDefault(); toast('Profile is outside this prototype'); }
   });
   state.persona ??= 'user';
-  document.getElementById('persona-toggle')?.addEventListener('click', () =>
-    render(state.persona === 'tailor' ? '01-home' : 't01-home'));
-  const wanted = new URLSearchParams(location.search).get('screen');
+  /* Test flows menu (bottom-right): every step of both flows, plus the
+     persona flip. Loaded after the screens — its jumps press their buttons. */
+  const { initFlowMenu, runFlow } = await import('./flow-menu.js');
+  initFlowMenu(render);
+  const params = new URLSearchParams(location.search);
+  const flow = params.get('flow');
+  if (flow && !params.get('screen') && runFlow(flow)) return;
+  const wanted = params.get('screen');
   const first = registered()[0];
   const id = wanted || first;
   if (id) render(id);

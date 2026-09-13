@@ -31,6 +31,7 @@ run('text parity', ['scripts/text-parity.mjs']);
 run('click-through', ['scripts/clickthrough.mjs']);
 run('tailor click-through', ['scripts/clickthrough-tailor.mjs']);
 run('sync click-through', ['scripts/clickthrough-sync.mjs']);
+run('flows menu click-through', ['scripts/clickthrough-flows.mjs']);
 
 /* ---------- style hygiene ---------- */
 console.log(`\n━━ style hygiene ${'━'.repeat(44)}`);

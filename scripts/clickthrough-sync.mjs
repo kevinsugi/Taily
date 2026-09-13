@@ -220,6 +220,8 @@ async function assertTrue(desc, fn, detail = '', arg = undefined) {
 async function flip() {
   await page.mouse.move(120, 300);
   await page.mouse.move(140, 320);
+  /* the flip lives in the Test flows menu's footer since Sep 2026 */
+  await page.click('#flow-trigger');
   await page.click('#persona-toggle');
   await page.waitForTimeout(300);
 }

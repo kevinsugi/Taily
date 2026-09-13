@@ -16,13 +16,15 @@
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/screens.css">
 <link rel="stylesheet" href="css/tailor.css">
+<link rel="stylesheet" href="css/flow-menu.css">
 </head>
 <body>
 
 <div class="stage">
   <div class="screen" id="screen"></div>
-  <!-- Persona gate (Phase T5): dev toggle outside .screen so pixel diffs never see it -->
-  <div class="stage-caption"><button type="button" class="persona-toggle" id="persona-toggle">View as Tailor</button></div>
+  <!-- Test flows menu (js/flow-menu.js): jump to any step of either flow, or flip persona.
+       Outside .screen and hidden until the first input, so pixel diffs never see it. -->
+  <div class="stage-caption"></div>
 </div>
 
 <!-- Announces screen changes to assistive tech; screens themselves stay silent. -->

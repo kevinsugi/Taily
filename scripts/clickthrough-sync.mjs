@@ -511,7 +511,7 @@ async function tailorVisitAndSend(a, { deep = false } = {}) {
   await page.click('[data-act="continue"]');
   await assertAt('[T] Continue → T05', 't05-confirm-final-pricing', 'confirmed');
   if (deep) {
-    assertEq('[T] T05 marks the added service + added garment', `${await q('count', '.garment-card__service--info')}/${await q('count', '.garment-card--info')}`, '2/1');
+    assertEq('[T] T05 marks the added service + added garment', `${await q('count', '.garment-card__service--new')}/${await q('count', '.garment-card--new')}`, '2/1');
     assertEq('[T] T05 card prices', (await q('texts', '.garment-card__price')).join(' '), '$200 $120 $80');
     assertEq('[T] T05 rows (round 12)', await q('fees'), fees(SF.cut, SF.payout));
     assertIncludes('[T] T05 states the scope change before Send (R7)', await q('text', '[data-payout-change]'), payoutChange(SB, SF));
@@ -558,7 +558,7 @@ async function customerOpensReview(a, { deep = false } = {}) {
   }
   if (deep) {
     assertEq('[C] 04/Modified cards = the sent order', await q('count', '.garment-card'), 3);
-    assertEq('[C] 04/Modified marks (services / garments / fee rows)', `${await q('count', '.garment-card__service--info')}/${await q('count', '.garment-card--info')}/${await q('count', '.fee-row--info')}`, '2/1/3');
+    assertEq('[C] 04/Modified marks (services / garments / fee rows)', `${await q('count', '.garment-card__service--new')}/${await q('count', '.garment-card--new')}/${await q('count', '.fee-row--changed')}`, '2/1/3');
     assertEq('[C] 04/Modified card prices', (await q('texts', '.garment-card__price')).join(' '), '$200 $120 $80');
     assertEq('[C] 04/Modified alterations / fee / total / due (R7)', await q('fees'), fees(SF.alt, SF.fee, SF.total, SF.due));
     assertEq('[C] 04/Modified captions (R7)', (await q('feeDescs')).join(' | '), 'Alterations | Visitation fee — paid | Total | Due at handoff');
@@ -1645,7 +1645,7 @@ await fresh('J');
   await page.click('[data-act="continue"]');
   await assertAt('[T] Continue → T05', 't05-confirm-final-pricing', 'confirmed');
   assertEq('[T] T05 cards = the survivor', await q('count', '.garment-card'), 1);
-  assertEq('[T] T05 survivor is not marked added (matched by id)', await q('count', '.garment-card--info'), 0);
+  assertEq('[T] T05 survivor is not marked added (matched by id)', await q('count', '.garment-card--new'), 0);
   await assertText('[T] T05 lists the removal', '.t-removed__row span', 'Removed at the visit — Pants / Jeans · Hem / Adjust Length');
   await assertText('[T] T05 removal price struck', '.t-removed__row s', '$120');
   assertEq('[T] T05 rows (round 12)', await q('fees'), fees(SR.cut, SR.payout));
@@ -1671,7 +1671,7 @@ await fresh('J');
   await assertText('[C] 04/Modified removal line', '.removed-row span', 'Removed at the visit — Pants / Jeans · Hem / Adjust Length');
   await assertText('[C] 04/Modified removal price struck', '.removed-row s', '$120');
   assertEq('[C] 04/Modified alterations / fee / total / due (R7)', await q('fees'), fees(SR.alt, SR.fee, SR.total, SR.due));
-  assertEq('[C] 04/Modified fee rows marked as changed', await q('count', '.fee-row--info'), 3);
+  assertEq('[C] 04/Modified fee rows marked as changed', await q('count', '.fee-row--changed'), 3);
   await page.click('[data-act="approve"]');
   await assertAt('[C] Approve → 03/Tailoring (tailoring)', '03-status-tailoring', 'tailoring', 'user');
   await render('09-bookings');

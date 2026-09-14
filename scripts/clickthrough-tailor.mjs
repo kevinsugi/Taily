@@ -205,7 +205,7 @@ await page.waitForTimeout(200);
 await page.fill('[data-act="note"][data-gi="0"]', 'Take in the waist 1 in');
 await page.click('[data-act="continue"]');
 await assertAt('Continue', 't05-confirm-final-pricing', 'confirmed');
-await assertTrue('T05 paints the added service + garment info', () => document.querySelectorAll('.garment-card__service--info').length >= 2 && document.querySelectorAll('.garment-card--info').length === 1);
+await assertTrue('T05 paints the added service + garment info', () => document.querySelectorAll('.garment-card__service--new').length >= 2 && document.querySelectorAll('.garment-card--new').length === 1);
 await assertTrue('T05 shows the captured note + photo, no ✕', () => document.body.textContent.includes('“Take in the waist 1 in”') && !!document.querySelector('.photo-tile--photo') && !document.querySelector('.garment-card__close'));
 /* R7: the scope changed at the visit — the payout change is stated BEFORE Send, above the CTA */
 await assertText('R7-T-03: T05 header sub carries the draft payout above the fold', '.t-header .t-body', `Reviewed with Sarah at the visit · Payout ${$(FINAL.payout)}`);
@@ -474,7 +474,7 @@ await page.waitForTimeout(200);
 await assertTrue('booked garment removed, added one kept', () => document.querySelectorAll('.garment-card').length === 1);
 await page.click('[data-act="continue"]');
 await assertAt('T05 after a removal', 't05-confirm-final-pricing', 'confirmed');
-await assertTrue('T05 marks the survivor as added (by id, not index)', () => document.querySelectorAll('.garment-card--info').length === 1);
+await assertTrue('T05 marks the survivor as added (by id, not index)', () => document.querySelectorAll('.garment-card--new').length === 1);
 await assertTrue('T05 lists the removed booked garment', () => /Removed at the visit — Suit Jacket · Hem \/ Adjust Length/.test(document.querySelector('.t-removed')?.textContent ?? '') && !!document.querySelector('.t-removed s'));
 await assertTrue(`R7: a lowered scope reads "${payoutChange(TF, TL)}" before Send`, (M) => document.querySelector('[data-payout-change]')?.textContent === M.change && [...document.querySelectorAll('.fee-row__price')].pop().textContent === M.payout, { change: payoutChange(TF, TL), payout: $(TL.payout) });
 await page.click('[data-act="send"]');

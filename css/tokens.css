@@ -53,6 +53,7 @@
   --space-40: 40px;
 
   /* ---------- Radius · Taily / Radius ---------- */
+  --radius-4: 4px;               /* not a Figma variable — the New_Sticker's literal r4 (687:7420) */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;

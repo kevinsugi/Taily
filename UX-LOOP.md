@@ -1147,8 +1147,72 @@ state the Test flows menu already covers.
   customer's $50 / $90 / $150; the click-through sweeps for those captions.
 
 
+
+## Round 13 — NEW items in green, trust explorations for 03/Confirmed (Sep 13 2026)
+
+### Kevin's asks and answers
+- **04 / Modified**: the User - Garment Card has a new `Additional` variant (687:7388) — items added
+  at the visit read in semantic/success with a "NEW" sticker; apply the format everywhere.
+  Answers: **04 × 3 plus the tailor's T05**; **green everywhere the order changed** (money rows too).
+- **Figma only**: three versions of 03 / Order Status / Confirmed that build trust in the tailor
+  (feedback: a stranger coming into the home). Answers: lean on credentials (verified ID,
+  background check, insured), track record (years, jobs, rating + quotes) and the person (photo,
+  bio, specialties, languages); **sibling frames, exploration only** (not in the harness).
+
+### Results (code, both personas)
+- `garmentCard` (PostAppt) and `tailorGarmentCard` (Appt_View): an added service line gets
+  `.new-badge` ("NEW", 12/16 Medium, success fill, accent/bg text, r4 `--radius-4`) + success
+  text (`.garment-card__service--new`); an added garment gets the badge on its title row
+  (`.garment-card__row--new`), on every service line, and a success price
+  (`.garment-card__price--new`, card class `.garment-card--new`). Money rows that changed are
+  `.fee-row--changed` (success); 04's "updated the order" line and T05's payout-change line are
+  success too. Marked customer cards draw the variant's Photo_Row: Before / Pinned labels over one
+  tile row (tapping a label swaps the set; `wirePhotoViewer`).
+- Harness selectors renamed (`--info` → `--new` / `--changed`); customer 220 / tailor 361 /
+  sync 1008 / flows 89; refs re-exported and baselines re-accepted for the three 04 frames and T05.
+
+### Figma (asked): the 04 frames, T05 and a tailor variant
+- **04 / Re-tiered · Removed**: the added-service cards were swapped to the `Additional` variant
+  (Hem + NEW Sleeve); the added garments (third jacket, both pants) are copies of Kevin's detached
+  NEW card from 04 / Modified (old instances hidden, not deleted; icon fills copied). Every
+  semantic/info text on the three 04 frames is now semantic/success (money rows included).
+  Kevin's card-3 price read $55 — set to the fiction's $80 (totals were already $360 / $410).
+- **Tailor - Garment Card** gained `Property 1=Additional_View` (690:3457, Components page):
+  Appt_View + NEW stickers on the title row and both service rows (instances hide the ones that
+  don't apply), success text. T05's cards 1 and 3 use it; T05's remaining info text → success.
+- Refs: 04 Modified / Re-tiered / Removed and T05 re-exported; baselines 0.46 / 0.60 / 0.62 / 9.48.
+
+### Trust explorations — `03 - Order Status / Confirmed / Trust A · B · C` (694:3129 · 694:3245 · 694:3361)
+Clones of 03/Confirmed at the end of the 03 row (x 8460 / 8930 / 9400), built from existing
+components + variable-bound frames (white card r16 with the summary card's shadow, space/* padding,
+size/* type, Hanken / Cormorant), nothing added to `screens.json` or the click-throughs.
+- **A — Verified (safety-led)**: under the tailor card, "Taily-verified tailor" with three
+  success-bg badges (ID verified · Background check · Insured visit), a "What Taily checks" list
+  (ID + address confirmed in person, background check renewed yearly, visits insured to $5,000),
+  a cancel-any-time line; the CTA bar's hidden fourth CTA is shown as "Share This Visit With Someone".
+- **B — Track record (social proof)**: "★ 4.9 · 128 reviews on Taily", three stat tiles (15 years ·
+  312 Taily visits · 98% on time), two review quotes (Priya R. · Tribeca, Daniel K. · SoHo) and
+  "Read all 128 reviews ›".
+- **C — Meet Marco (human-led)**: the tailor card is replaced by a profile card — photo slot
+  (media/placeholder, 310×180), Cormorant name + "✓ Taily-verified", "Tailor for 15 years ·
+  Tribeca, 1.2 mi away", a two-sentence bio that promises the ID at the door, specialty chips
+  (Suits · Trousers · Dresses · Outerwear), "Speaks English · Italian", and the visit rows
+  (address / time / need-by) under a hairline.
+Pick one (or a mix) and it becomes the 03/Confirmed frame + code; the facts (rating, years,
+reviews, languages, photo) would need a home in `data.js` TAILORS.
+
+### Flags (low)
+- The `New_Sticker` master (687:7420) draws 16px text (44×21) while every instance on 04 /
+  Modified overrides it to 12px (35×16) — built the 12/16 the frame draws.
+- The `Additional` variant's Photo_Row (Before / Pinned labels over one row) differs from the
+  PostAppt variant's two scrolling groups — built both as drawn; say if the PostAppt cards should
+  adopt the label row too.
+- No `radius/4` variable exists for the sticker's r4 — `--radius-4` is marked not-a-Figma-variable.
+- T05 / T06 shots are ~30px shorter than their frames (the tailor cards' Comments row is 29 tall in
+  Figma, 21 in code) — pre-existing since the fast build, inside the 9.4 / 8.2 baselines.
+
 ## Figma sync pending (ledger — Kevin: Figma is written only when asked, Sep 13 2026)
 
 Rounds are code + harness by default. Every frame edit a round would have made is listed here (frame · node · old → new) and stays until Kevin says "sync Figma"; text-parity ALLOW entries and accepted baselines for these carry a `pending-figma` note. On sync: `npm run figma:find "<text>"` for the ids, one `use_figma` call per page, `npm run refs`, re-accept the diffs, clear the entries below.
 
-- (nothing pending — round 12 was synced in full)
+- (nothing pending — rounds 12 and 13 were synced in full; the round-13 trust explorations are Figma-only by design)

@@ -371,7 +371,7 @@ await assertAt('the approve screen', '04-review-approve-modified', 'awaiting-app
 }
 // R7: 04 prices the final order — no deposit, the fee already paid
 {
-  const rows = await page.evaluate(() => ({ fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), info: document.querySelectorAll('.fee-row--info').length, text: document.querySelector('[data-s]')?.textContent ?? '' }));
+  const rows = await page.evaluate(() => ({ fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), info: document.querySelectorAll('.fee-row--changed').length, text: document.querySelector('[data-s]')?.textContent ?? '' }));
   check(`04/Modified rows: ${$(CF.alt)} / ${$(CF.fee)} paid / ${$(CF.total)} / due ${$(CF.due)}`, rows.fees === fees(CF.alt, CF.fee, CF.total, CF.due) && rows.descs === 'Alterations | Visitation fee — paid | Total | Due at handoff' && rows.info === 3, `${rows.fees} | ${rows.descs} info=${rows.info}`);
   check('04 never says deposit / 10% / Taily fee / Balance', !/deposit|10%|Taily fee|Balance/i.test(rows.text));
 }
@@ -822,7 +822,7 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
   check(`the fitting adds a 5th item (+Hem, +jacket) → ${$(RF.fee)} tier: charged ${$(RF.charged)}, added ${$(RF.added)}`, r.final.items === RF.items && r.final.charged === RF.charged && r.final.fee === RF.fee && r.final.added === RF.added && r.final.alt === RF.alt && r.final.total === RF.total && r.status === 'awaiting-approval', JSON.stringify(r.final));
   await page.evaluate(() => window.Taily.render('04-review-approve-modified'));
   await page.waitForTimeout(200);
-  const rows = await page.evaluate(() => ({ fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), info: document.querySelectorAll('.fee-row--info').length }));
+  const rows = await page.evaluate(() => ({ fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), info: document.querySelectorAll('.fee-row--changed').length }));
   // Round 12 (Kevin): ONE fee row — the updated $90 in semantic/info, captioned with the count + tier — and the fee-note under the rows explains the extra (04 + 03/Tailoring)
   const TIER_NOTE = `Your order grew to 5 items, so the visitation fee is now ${$(RF.fee)}. The extra ${$(RF.added)} is charged with your alterations at handoff.`;
   const RETIER_DESCS = `Alterations | Visitation fee — 5 items, ${$(RF.fee)} tier | Total | Due at handoff`;

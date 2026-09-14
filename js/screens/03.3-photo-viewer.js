@@ -100,6 +100,15 @@ export function wirePhotoViewer(root) {
     row.addEventListener('click', (e) => {
       e.stopPropagation();
       if (dragged) { e.preventDefault(); dragged = false; return; }
+      /* round 13: the Before / Pinned labels on a NEW card swap the tile set instead of opening the viewer */
+      const tab = e.target.closest('[data-photo-tab]');
+      if (tab) {
+        e.preventDefault();
+        const which = tab.dataset.photoTab;
+        row.querySelectorAll('[data-photo-tab]').forEach((t) => t.classList.toggle('is-active', t === tab));
+        row.querySelectorAll('[data-photo-set]').forEach((set) => { set.hidden = set.dataset.photoSet !== which; });
+        return;
+      }
       const card = row.closest('.garment-card');
       const garment = card?.querySelector('.garment-card__row--tight span:last-child')?.textContent ?? 'Suit Jacket';
       openPhotoViewer({ garment });

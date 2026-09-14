@@ -202,7 +202,7 @@
 .tgc__comment .icon-add-circle { width: 14px; height: 14px; }
 /* the frame paints “Comment” accent-ink (T05 449:809, verified via API) */
 .tgc__comment-view { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--accent-ink); }
-.tgc .garment-card__service--info { color: var(--info); }
+.tgc .garment-card__service--new { display: flex; align-items: center; gap: var(--space-4); color: var(--success); }   /* round 13: NEW sticker + success */
 /* at-visit editor (R1-T-03): tappable add-tile, the tailor's note.
    Added-service rows carry full JOB_TYPES names ("Sleeve / Adjust
    Length") where 02 only ever shows the short menu names — keep the
@@ -328,5 +328,5 @@ html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) +
   margin: 0;
   width: 100%;
   text-align: center;
-  font-family: var(--font-sans); font-size: var(--size-14); line-height: 18px; font-weight: 600; color: var(--info);
+  font-family: var(--font-sans); font-size: var(--size-14); line-height: 18px; font-weight: 600; color: var(--success);   /* round 13 */
 }

@@ -282,7 +282,7 @@ export function tailorGarmentCard({
   services = ['Hem / Adjust Length'], addedJobs = [], before = 0, pinned = 0, comment = '', commentOpen = false, index = 0,
 }) {
   const art = GARMENT_ICONS[type] ? `<span class="garment-card__artbox"><img class="garment-card__art" src="${GARMENT_ICONS[type]}" alt="${type}"></span>` : '';
-  const chip = `<div class="garment-card__chip">${art}<span class="garment-card__price${(priceInfo || added) ? ' garment-card__price--info' : ''}">${price}</span></div>`;
+  const chip = `<div class="garment-card__chip">${art}<span class="garment-card__price${(priceInfo || added) ? ' garment-card__price--new' : ''}">${price}</span></div>`;
   const gi = ` data-gi="${index}"`;
   const shots = (n) => Array.from({ length: n }, () => photoTile('photo')).join('');
   let rows;
@@ -303,14 +303,15 @@ export function tailorGarmentCard({
     <div class="tgc__group"><span class="tgc__label">Upload Pinned Photos</span><div class="photo-tiles">${shots(pinned)}${addTile('pinned')}</div></div>
     ${note}`;
   } else {
-    rows = `<div class="garment-card__row garment-card__row--tight"><span>${qty}</span><span>${type}</span></div>
-    ${services.map((s) => `<div class="garment-card__service${(added || addedJobs.includes(s)) ? ' garment-card__service--info' : ''}">${s}</div>`).join('')}
+    /* round 13 (Kevin): additions carry the NEW sticker + semantic/success, like the customer's 04 */
+    rows = `<div class="garment-card__row garment-card__row--tight${added ? ' garment-card__row--new' : ''}">${added ? '<span class="new-badge">NEW</span>' : ''}<span>${qty}</span><span>${type}</span></div>
+    ${services.map((s) => { const isNew = added || addedJobs.includes(s); return `<div class="garment-card__service${isNew ? ' garment-card__service--new' : ''}">${isNew ? '<span class="new-badge">NEW</span>' : ''}${s}</div>`; }).join('')}
     <div class="tgc__group"><span class="tgc__label">Before Photos</span><div class="photo-tiles">${before ? shots(before) : photoTile('add')}</div></div>
     <div class="tgc__group"><span class="tgc__label">Pinned Photos</span><div class="photo-tiles">${pinned ? shots(pinned) : photoTile('add')}</div></div>
     <span class="tgc__comment-view">“${comment ? esc(comment) : 'Comment'}”</span>`;
   }
   const close = variant === 'Appt' ? `<button type="button" class="garment-card__close" data-act="remove-garment"${gi} aria-label="Remove garment">✕</button>` : '';
-  return `<article class="garment-card tgc${variant === 'Appt' ? '' : ' garment-card--view'}${added ? ' garment-card--info' : ''}">
+  return `<article class="garment-card tgc${variant === 'Appt' ? '' : ' garment-card--view'}${added ? ' garment-card--new' : ''}">
   ${chip}
   <div class="garment-card__content tgc__content">${rows}</div>
   ${close}

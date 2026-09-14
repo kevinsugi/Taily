@@ -372,7 +372,7 @@ export function garmentCard({
     : GARMENT_ICONS[type]
       ? `<span class="garment-card__artbox"><img class="garment-card__art" src="${GARMENT_ICONS[type]}" alt="${type}"></span>`
       : '';
-  const chip = `<div class="garment-card__chip">${art}${price != null ? `<span class="garment-card__price${(priceInfo || added) ? ' garment-card__price--info' : ''}">${price}</span>` : ''}</div>`;
+  const chip = `<div class="garment-card__chip">${art}${price != null ? `<span class="garment-card__price${(priceInfo || added) ? ' garment-card__price--new' : ''}">${price}</span>` : ''}</div>`;
 
   let rows;
   if (editable) {
@@ -386,10 +386,14 @@ export function garmentCard({
     ${added.map((s, j) => `<div class="garment-card__service">${additionalSelector({ value: s, attrs: `data-sel="added" data-ji="${j + 1}"${gi}` })}</div>`).join('')}
     ${additionalSelector({ attrs: `data-sel="add"${gi}` })}`;
   } else {
-    rows = `<div class="garment-card__row garment-card__row--tight">
-      <span>${qty}</span><span>${type}</span>
+    /* round 13 (Kevin): items added at the visit carry a NEW sticker and
+       paint semantic/success — the whole garment when `added`, one service
+       when its entry is { label, added } (frame: 04 / Modified, variant
+       'Additional' 687:7388 + the detached added-garment card). */
+    rows = `<div class="garment-card__row garment-card__row--tight${added ? ' garment-card__row--new' : ''}">
+      ${added ? '<span class="new-badge">NEW</span>' : ''}<span>${qty}</span><span>${type}</span>
     </div>
-    ${services.map((s) => `<div class="garment-card__service${(s.added || added) ? ' garment-card__service--info' : ''}">${s.label ?? s}</div>`).join('')}`;
+    ${services.map((s) => { const isNew = !!(s.added || added); return `<div class="garment-card__service${isNew ? ' garment-card__service--new' : ''}">${isNew ? '<span class="new-badge">NEW</span>' : ''}${s.label ?? s}</div>`; }).join('')}`;
   }
 
   let tiles = '';
@@ -399,16 +403,29 @@ export function garmentCard({
   } else if (variant === 'ViewOnly' && photos > 0) {
     tiles = `<div class="photo-tiles">${Array.from({ length: photos }, () => photoTile('photo')).join('')}</div>`;
   } else if (variant === 'PostAppt') {
-    const group = (label, n) => `<div class="photo-group">
-      <span class="photo-tiles__label">${label}</span>
-      <div class="photo-tiles">${Array.from({ length: n }, () => photoTile('photo')).join('')}</div>
+    const shots = (n) => Array.from({ length: n }, () => photoTile('photo')).join('');
+    const marked = added || services.some((s) => s && s.added);
+    if (marked) {
+      /* round 13: the Additional variant's Photo_Row — a Before / Pinned
+         label pair (active neutral-500, idle neutral-200) over ONE tile row;
+         tapping a label swaps the set (wirePhotoViewer). */
+      tiles = `<div class="photo-row photo-row--tabs" data-photo-tabs>
+      <span class="photo-tabs"><span class="photo-tiles__label is-active" data-photo-tab="before">Before</span><span class="photo-tiles__label" data-photo-tab="pinned">Pinned</span></span>
+      <div class="photo-tiles" data-photo-set="before">${shots(beforePhotos)}</div>
+      <div class="photo-tiles" data-photo-set="pinned" hidden>${shots(pinnedPhotos)}</div>
     </div>`;
-    tiles = `<div class="photo-row">${group('Before:', beforePhotos)}${group('Pinned:', pinnedPhotos)}</div>`;
+    } else {
+      const group = (label, n) => `<div class="photo-group">
+      <span class="photo-tiles__label">${label}</span>
+      <div class="photo-tiles">${shots(n)}</div>
+    </div>`;
+      tiles = `<div class="photo-row">${group('Before:', beforePhotos)}${group('Pinned:', pinnedPhotos)}</div>`;
+    }
   }
 
   const close = editable ? `<button type="button" class="garment-card__close" data-act="remove-garment"${index === null ? '' : ` data-gi="${index}"`} aria-label="Remove garment">✕</button>` : '';
 
-  return `<article class="garment-card${editable ? '' : ' garment-card--view'}${flat ? ' garment-card--flat' : ''}${added ? ' garment-card--info' : ''}">
+  return `<article class="garment-card${editable ? '' : ' garment-card--view'}${flat ? ' garment-card--flat' : ''}${added ? ' garment-card--new' : ''}">
   ${chip}
   <div class="garment-card__content">
     ${rows}
@@ -766,7 +783,7 @@ export function requestCard({ name, initials, rows = [] } = {}) {
     muted: neutral-500 price + caption (R7-T-02 — money that is no
     longer on offer, e.g. an expired request's "Payout offered"). */
 export function feeRow(price, desc, { line = false, info = false, muted = false } = {}) {
-  return `<div class="fee-row${line ? ' fee-row--line' : ''}${info ? ' fee-row--info' : ''}${muted ? ' fee-row--muted' : ''}"><span class="fee-row__price">${price}</span><span class="fee-row__desc">${desc}</span></div>`;
+  return `<div class="fee-row${line ? ' fee-row--line' : ''}${info ? ' fee-row--changed' : ''}${muted ? ' fee-row--muted' : ''}"><span class="fee-row__price">${price}</span><span class="fee-row__desc">${desc}</span></div>`;
 }
 
 /* ============================================================

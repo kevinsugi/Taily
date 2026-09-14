@@ -689,10 +689,33 @@
   color: var(--accent-ink);
 }
 /* Phase R0 (06B): items added/changed at order confirmation */
-.garment-card--view .garment-card__service--info { color: var(--info); }
-.garment-card__price--info { color: var(--info); }
-.garment-card--info .garment-card__row,
-.garment-card--info .photo-tiles__label { color: var(--info); }
+/* Round 13 (Kevin): items added at the visit — NEW sticker (semantic/success
+   fill, accent/bg 12/16 Medium text, r4, 0/4 padding — the 04 / Modified
+   instances; the New_Sticker master draws 16px, raised) + success text on the
+   added service line / the whole added garment's title + price. */
+.new-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-4);
+  background: var(--success);
+  color: var(--accent-bg);
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.garment-card__row--new { gap: var(--space-4); color: var(--success); }
+.garment-card--view .garment-card__service--new { display: flex; align-items: center; gap: var(--space-4); color: var(--success); }
+.garment-card__price--new { color: var(--success); }
+/* the Additional variant's Photo_Row: Before / Pinned labels over one tile row */
+.photo-row--tabs { flex-direction: column; overflow: visible; margin-right: 0; }
+.photo-tabs { display: flex; gap: var(--space-4); }
+.photo-tabs .photo-tiles__label { color: var(--neutral-200); cursor: pointer; }
+.photo-tabs .photo-tiles__label.is-active { color: var(--neutral-500); }
+.photo-row--tabs [data-photo-set][hidden] { display: none; }   /* the class display beats the hidden attribute */
 
 /* ---------- Selector — Figma 535:1582 ----------
    Inline dropdown in garment cards. Quantity/Item triggers SemiBold 16
@@ -1216,7 +1239,8 @@
 }
 .removed-row s { flex-shrink: 0; color: var(--neutral-500); }
 /* Phase R0 (06B): totals touched by the modified order */
-.fee-row--info .fee-row__price { color: var(--info); }
+/* round 13 (Kevin): money that changed at the visit is green like the items */
+.fee-row--changed .fee-row__price { color: var(--success); }
 /* UX-LOOP R7-T-02 (T02 expired): money no longer on offer — the closed
    rows' muted colour on price and caption ("Payout offered") */
 .fee-row--muted .fee-row__price, .fee-row--muted .fee-row__desc { color: var(--neutral-500); }

@@ -323,7 +323,7 @@ async function bookAsCustomer({ deep = false } = {}) {
   log(a?.name == null && a?.initials == null && a?.tailorId == null && a?.matching === true, '[S] requestTailor: no tailor yet (name / initials / tailorId null, matching)', `name=${a?.name} matching=${a?.matching}`);
   /* R6: the frame's request card carries no name row — assert the customer sees no tailor name */
   await assertTrue('[C] 03/Requested shows no tailor name before matching (R6)', () => !document.querySelector('.request-card__name') && !/Marco/.test(document.querySelector('[data-s="03-status-requested"] .info-card')?.textContent ?? ''));
-  await assertTrue('[C] 03/Requested shows the 2-hour acceptance line', () => document.querySelector('[data-act="expire"]')?.textContent.trim() === 'Tailors have up to 2 hours to accept your request.');
+  await assertTrue('[C] 03/Requested ends in the Taily-verified line + 3 badges (round 14)', () => document.querySelector('[data-act="expire"]')?.textContent.trim() === 'All Taily-verified tailors are:' && document.querySelectorAll('.trust-line .trust-badge').length === 3);
   if (deep) {
     const rows = await q('texts', '.meta-row span:last-child');
     assertEq('[C] 03/Requested address · visit row', rows[0], '88 Leonard St, 4B — Home Visit');
@@ -563,7 +563,7 @@ async function customerOpensReview(a, { deep = false } = {}) {
     assertEq('[C] 04/Modified alterations / fee / total / due (R7)', await q('fees'), fees(SF.alt, SF.fee, SF.total, SF.due));
     assertEq('[C] 04/Modified captions (R7)', (await q('feeDescs')).join(' | '), 'Alterations | Visitation fee — paid | Total | Due at handoff');
     await assertTrue('[C] 04 never says deposit / 10% / Taily fee / Balance (R7)', () => !/deposit|10 ?%|Taily fee|Balance/i.test(document.querySelector('.screen').textContent));
-    await assertText('[C] 04/Modified tailor name in the sub', '.heading .t-body', 'Marco measured and pinned at your appointment. Review the final details and pricing before tailoring starts.');
+    await assertText('[C] 04/Modified sub: review line + the green-items sentence (round 14)', '.heading .t-body', 'Please review the final details and pricing before tailoring starts.New items and services added during your appointment are shown in green below.');
     assertEq('[C] 04/Modified lists no removals', await q('count', '.removed-row'), 0);
   }
 }
@@ -1050,7 +1050,7 @@ await fresh('E', { solo: true });
   /* ---- R7: AFTER confirming the visit (the 24-hour prompt) → the fee is KEPT ---- */
   const near = await pinVisit({ days: 1 });
   await render('03-status-confirmed');
-  await page.click('.summary-card');                     // the day before arrives → 03/Reminder
+  await page.click('.status-hero__title');               // the day before arrives → 03/Reminder (round 14: the card opens 03.4)
   await assertAt('[C] tailor card → 03/Reminder (the confirmation prompt)', '03-status-reminder', 'confirmed', 'user');
   await assertText('[C] 03/Reminder "Before you confirm" callout body before Confirm (R7-U-01)', '[data-fee-warning-body]', `Confirming makes your ${$(SB.fee)} visitation fee non-refundable — no-shows included. Cancel before confirming and it’s refunded in full.`);
   await assertTrue('[C] 03/Reminder callout heads the actions block, right above Confirm (R7-U-01)', () => { const w = document.querySelector('[data-fee-warning]'); return w.classList.contains('prepare-card') && w.parentElement.classList.contains('actions') && w.nextElementSibling.matches('[data-act="confirm"]'); });

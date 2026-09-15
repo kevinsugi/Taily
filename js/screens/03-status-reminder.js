@@ -10,7 +10,8 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, cta, apptRows } from '../components.js';
+import { chrome, statusHero, summaryCard, tailorTrust, cta, apptRows } from '../components.js';
+import { openTailorDetails } from './03.4-tailor-details.js';
 import { money } from '../data.js';
 import { state, isTerminal, isPostAppointment, autoCancelUnconfirmed, statusScreen } from '../state.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
@@ -45,7 +46,7 @@ export function viewReminder(s) {
 <div class="body" data-s="03-status-reminder">
   ${statusHero({ ...confirmedPill(a), title: 'Please Confirm Tomorrow’s Appointment', titleWeight: 600 })}
   <div class="summary">
-    ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
+    ${summaryCard({ fixed: true, ...tailorTrust(a), initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
     <div class="garments-card">
       ${bookingSummary(a)}
     </div>
@@ -94,6 +95,8 @@ export function wire(root) {
       go('03-status-cancelled', { replace: true });
     });
   }
+  /* round 14 (Kevin): the tailor card opens the 03.4 profile popup (no-op while matching) */
+  root.querySelector('.summary-card')?.addEventListener('click', () => openTailorDetails());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {
     e.preventDefault();
     go(el.dataset.nav === 'bookings' ? '09-bookings' : '01-home');

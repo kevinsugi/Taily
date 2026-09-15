@@ -1211,8 +1211,81 @@ reviews, languages, photo) would need a home in `data.js` TAILORS.
 - T05 / T06 shots are ~30px shorter than their frames (the tailor cards' Comments row is 29 tall in
   Figma, 21 in code) — pre-existing since the fast build, inside the 9.4 / 8.2 baselines.
 
+
+## Round 14 — Kevin's Figma updates: Meet Marco is 03/Confirmed, verified badges everywhere, 03.4 tailor popup, 04 copy (Sep 14 2026)
+
+### Kevin's edits (read from the frames)
+- The old `03 - Order Status / Confirmed` (584:10030) and the Trust A / B explorations were deleted;
+  the Meet Marco frame (694:3361) moved into Confirmed's slot with a new "Visit Details" block
+  (address / time / need-by) at the top of the garments card.
+- The **Tailor Summary Card master** gained a ✓ after the name and a Badges row (✓ ID verified ·
+  ✓ Background check · ✓ Insured) — every 03 frame that instances it shows them (Reminder, Locked,
+  Tailoring, Summary, Cancelled, Expired, Declined, Tailor Cancelled, No-Show, Unconfirmed, New
+  Time) plus the 03.1 / 03.2 / 04.1 backdrops.
+- **03/Requested**: "matching your job with a Taily-verified tailor…", then "All Taily-verified
+  tailors are:" + the badges ("Background checked" here) — the "Tailors have up to 2 hours" line is gone.
+- **03.4 - Tailor details** (703:5897): the Meet Marco card as a popup at y 194.5 over 03/Reminder,
+  ink@45% scrim.
+- **04 copy**: Default "Review the final details…", the siblings "Please review…"; Modified adds
+  "New items and services were added during your appointment are shown in green below."; the
+  re-tier note gained "to cover time & transportation costs." and a paragraph break.
+
+### Answers
+- Meet Marco **is** 03/Confirmed → frame renamed `03 - Order Status / Confirmed`, `screens.json`
+  re-keyed to 694:3361; the code's 03/Confirmed rebuilt to it.
+- 03.4 opens from **every tailor card on the 03 family** (the profile card on Confirmed too), never
+  while matching. Home / Bookings cards keep opening their 03 screen.
+- NEW badges stay **only until approval** (04 × 3 + T05) — nothing more in Figma.
+- 04 copy **fixed in Figma + code**: Default reads "Please review…" like its siblings; the green-items
+  sentence reads "New items and services added during your appointment are shown in green below."
+  and appears on Modified, Removed and Re-tiered (the frames with additions).
+
+### Results
+- `summaryCard({ verified, badges })` draws the ✓ + `trustBadges()`; `tailorTrust(a)` supplies both
+  for a booked tailor (nothing while matching / "No tailor matched"). `trustCard(profile)` is the
+  Meet Marco card (photo slot, Cormorant 24 name + ✓ Taily-verified, badges, "Tailor for 15 years ·
+  Tribeca, 1.2 mi away", bio) from `tailorProfile(a)` (data.js: `TAILORS.marco.profile`,
+  `TRUST_BADGES`, `TRUST_BADGES_MATCHING`).
+- 03/Confirmed = hero + trust card + garments card (Visit Details block + cards + rows + note) +
+  prepare card + CTAs. `viewConfirmed(s, { layout: 'card' })` keeps the summary-card layout for the
+  `03-status-confirmed-locked` route, because the Confirmed Locked frame still draws it (flag).
+- `03.4-tailor-details` (new module): `openTailorDetails(a)` mounts the trust card through
+  `modalOverlay` (scrim closes it); every 03 screen wires its `.summary-card` / `.trust-card` tap
+  to it. The old 03/Confirmed demo ("the day before arrives" → 03/Reminder) moved to the hero title.
+- 03/Requested: hero body "Taily-verified", `extra` = the "All Taily-verified tailors are:" line
+  (the "time passes" demo tap) + `TRUST_BADGES_MATCHING`; the 2-hour line is gone.
+- 04: "Please review the final details and pricing before tailoring starts." + the green-items
+  sentence when the order has additions; `feeTierNote` is two paragraphs.
+- Figma (asked): frame rename; the four 04 subs; the 03.3 Booking viewer's backdrop re-synced to the
+  new Confirmed (old group hidden). Refs re-exported (62), `03.4-tailor-details` added, baselines
+  re-accepted for every frame the summary-card master touched; min-heights follow the new frame heights.
+- Test flows: `c-tailor-details` (03/Reminder → tap the tailor card).
+
+### Flags
+- **The master edit bled into the tailor frames**: Sarah's card on T02 (+ Accepted / Expired), T03
+  / Upcoming Visit, T03.1 and T04 now carries the ✓ and the three verification badges (a
+  customer is not a verified tailor), and those instances kept a fixed 111px height so the badge
+  row is clipped to a 15px strip at the card's bottom. Built without them (`[data-s^="t0"]
+  .summary-card` keeps the old padding); parity ALLOWs `R14_SARAH_BADGES`. Please override the
+  Badges / ✓ to hidden on the tailor instances (or make Sarah's card its own component).
+- The Tailor Summary Card master's padding moved to 12/20 (was 20) and hugs 152 tall with the
+  badges; the customer's card follows it (`.summary-card--fixed` now `min-height` 111).
+- The 03.1 / 03.2 / 04.1 popup frames' Reminder backdrops inherited the badges through the master
+  but kept the old fixed card height, so their baselines rose to 1.6–2.1 (accepted) — re-sync
+  those backdrops whenever Reminder is next touched.
+- The re-tiered fee row's caption is now "Visitation fee - 5+ items" (hyphen, tier band) —
+  `retieredFeeCaption` follows; the note's "to cover time & transportation costs." too.
+- **Confirmed Locked (644:6051) still draws the old summary-card layout** while Confirmed is Meet
+  Marco — live, the locked state renders the Meet Marco layout with the locked pill; the fixture
+  route keeps its frame. Say if the Locked frame should become Meet Marco too.
+- 03/Requested's "time passes" demo now sits on the "All Taily-verified tailors are:" line.
+- The summary card's badges read "Background check"; 03/Requested's read "Background checked" —
+  built both as drawn.
+- The profile facts (15 years, Tribeca, 1.2 mi, bio) live on `TAILORS.marco.profile`; James / the
+  past bookings have none, so their cards fall back to Marco's profile if tapped.
+
 ## Figma sync pending (ledger — Kevin: Figma is written only when asked, Sep 13 2026)
 
 Rounds are code + harness by default. Every frame edit a round would have made is listed here (frame · node · old → new) and stays until Kevin says "sync Figma"; text-parity ALLOW entries and accepted baselines for these carry a `pending-figma` note. On sync: `npm run figma:find "<text>"` for the ids, one `use_figma` call per page, `npm run refs`, re-accept the diffs, clear the entries below.
 
-- (nothing pending — rounds 12 and 13 were synced in full; the round-13 trust explorations are Figma-only by design)
+- (nothing pending — rounds 12–14 were synced in full)

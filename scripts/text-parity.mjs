@@ -64,6 +64,11 @@ const R7_DELIVERY = [];   // R8: frames synced to the money model — kept empty
 const R7_T_PAYOUT = [];   // R8: frames synced to the money model — kept empty for history
 const R7_T_REQUEST = [];   // R8: frames synced to the money model — kept empty for history
 
+/* Round 14: Kevin's Tailor Summary Card master edit (the ✓ after the name + the three
+   verification badges) bled into the tailor frames' Sarah cards — a customer is not a
+   verified tailor; raised in UX-LOOP.md, built without them. */
+const R14_SARAH_BADGES = ['✓', '✓ ID verified', '✓ Background check', '✓ Insured'];
+
 const ALLOW = {
   // Phase R3 (Kevin): 03's request card reads the live order; the
   // frame's requested-time fixture is stale (the address and estimate
@@ -110,15 +115,15 @@ const ALLOW = {
      ALLOW'd until Kevin says what T01 should show. */
   't01-home': ['$180', '2 Suit Jackets', 'DUE', '9/2', 'APPT', '8/29', '$102'],
   't01-home-closed': ['$180', '2 Suit Jackets', 'DUE', '9/2'],
-  't02-appointment-request': [...R7_T_REQUEST, 'Accept Request · $180'],
+  't02-appointment-request': [...R14_SARAH_BADGES, ...R7_T_REQUEST, 'Accept Request · $180'],
   /* Round 11: the sibling frames append "· 1.2 mi" ("·1.2" on two) to the address row where the T02 base does not — raised in UX-LOOP.md; the build follows the base */
-  't02-accepted': [...R7_T_REQUEST, '◉ 88 Leonard Street, 4B · 1.2 mi'],
-  't02-expired': [...R7_T_REQUEST, '◉ 88 Leonard Street, 4B ·1.2 mi'],
-  't03-upcoming-visit': ['$180', ...R7_T_PAYOUT, '◉ 88 Leonard Street, 4B ·1.2 mi'],
-  't03.1-cant-make-it': ['$180', ...R7_T_PAYOUT, 'The job closes, Sarah is notified and her $20 deposit is refunded.'],
+  't02-accepted': [...R14_SARAH_BADGES, ...R7_T_REQUEST, '◉ 88 Leonard Street, 4B · 1.2 mi'],
+  't02-expired': [...R14_SARAH_BADGES, ...R7_T_REQUEST, '◉ 88 Leonard Street, 4B ·1.2 mi'],
+  't03-upcoming-visit': [...R14_SARAH_BADGES, '$180', ...R7_T_PAYOUT, '◉ 88 Leonard Street, 4B ·1.2 mi'],
+  't03.1-cant-make-it': [...R14_SARAH_BADGES, '$180', ...R7_T_PAYOUT, 'The job closes, Sarah is notified and her $20 deposit is refunded.'],
   't03b-by-you': ['Sarah’s been notified and her $20 deposit is refunded. Your Sun, Jul 12 · 7:00 PM slot is open again.'],
   't03b-no-show': ['The job is closed and the slot is open again. Her $20 deposit stays with you.'],
-  't04-appointment-details': ['$324', ...R7_T_PAYOUT],
+  't04-appointment-details': [...R14_SARAH_BADGES, '$324', ...R7_T_PAYOUT],
   't05-confirm-final-pricing': ['$324', ...R7_T_PAYOUT],
   't06-appointment-status': ['$324', ...R7_T_PAYOUT],
   't07-job-ready': ['Sarah will pick up her items. Payment will be processed upon pickup.'],

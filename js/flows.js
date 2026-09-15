@@ -151,6 +151,7 @@ export const FLOWS = {
         { key: 'c-reschedule', code: '03.1', title: 'Reschedule / cancel popup', screen: '03-status-confirmed', setup: (a) => accepted(a), click: ['[data-act="reschedule"]'] },
         { key: 'c-reminder', code: '03', title: 'Reminder — confirm the visit', note: '24-hour prompt, fee still refundable', screen: '03-status-reminder', setup: (a) => accepted(a) },
         { key: 'c-reminder-locked', code: '03', title: 'Reminder — visit confirmed', note: 'Fee now non-refundable', screen: '03-status-reminder', setup: (a) => { accepted(a); confirmAppointment(a); } },
+        { key: 'c-tailor-details', code: '03.4', title: 'Tailor details popup', note: 'tap the tailor card', screen: '03-status-reminder', setup: (a) => accepted(a), click: ['.summary-card'] },
         { key: 'c-confirm-popup', code: '03.2', title: 'Appointment confirmed popup', screen: '03-status-reminder', setup: (a) => accepted(a), click: ['[data-act="confirm"]'] },
       ],
     },

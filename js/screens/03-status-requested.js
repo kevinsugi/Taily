@@ -30,8 +30,8 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, infoCard, metaRow, cta } from '../components.js';
-import { money, itemsLabel, itemCount, fmtWhen, fmtDay, shiftDay, parseWhen, proposalDays, proposalHours, tailorName, tailorInitials } from '../data.js';
+import { chrome, statusHero, trustBadges, infoCard, metaRow, cta } from '../components.js';
+import { money, itemsLabel, itemCount, fmtWhen, fmtDay, shiftDay, parseWhen, proposalDays, proposalHours, tailorName, tailorInitials, TRUST_BADGES_MATCHING } from '../data.js';
 import {
   state, tailorAccepts, bookingLines, isTerminal,
   proposeTime, acceptProposedTime, declineProposedTime, expireAppointment,
@@ -94,7 +94,9 @@ export function viewRequested(s, forced = null) {
   const needBy = a?.needBy ? ` Your need-by stays ${fmtDay(a.needBy)}.` : '';
   const hero = proposed
     ? statusHero({ variant: 'new-times', title: 'A tailor proposed a new time', body: `Your ${fmtWhen(a.when)} slot isn’t free. They can do ${fmtWhen(proposed)}.${needBy}` })
-    : statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-certified tailor near you. We’ll notify you the moment one accepts.' });
+    /* round 14 (Kevin): "Taily-verified" + the three badges under the hero; the
+       "time passes" demo line moved onto "All Taily-verified tailors are:" */
+    : statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-verified tailor near you. We’ll notify you the moment one accepts.' });
   /* R3-U-01: the request card reads the APPOINTMENT once one exists —
      a second unsent booking on the form no longer rewrites it. The
      harness deep link (no navigation yet) keeps the form fixture. */
@@ -117,7 +119,9 @@ export function viewRequested(s, forced = null) {
   /* the acceptance window (the tailor side's timer twin) — R6: in the
      frame too (under the hero); tapping it live is the "time passes" demo */
   const window2h = !proposed
-    ? `<p class="t-body c-500" data-act="expire" role="button" tabindex="0">Tailors have up to 2 hours to accept your request.</p>`
+    /* round 14 (Kevin): the 2-hour line became "All Taily-verified tailors are:" + the badges
+       (its own block under the hero, gap 4); the "time passes" demo tap moved onto it */
+    ? `<div class="trust-line"><p class="status-hero__body" data-act="expire" role="button" tabindex="0" title="Demo: time passes">All Taily-verified tailors are:</p>${trustBadges(TRUST_BADGES_MATCHING, { wide: true })}</div>`
     : '';
   const actions = proposed
     ? `${cta('Accept New Time', { attrs: 'data-act="accept-time"' })}

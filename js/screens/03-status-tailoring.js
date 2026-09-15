@@ -15,7 +15,8 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, cta, toast, orderCards, orderRows, feeTierNote } from '../components.js';
+import { chrome, statusHero, summaryCard, tailorTrust, cta, toast, orderCards, orderRows, feeTierNote } from '../components.js';
+import { openTailorDetails } from './03.4-tailor-details.js';
 import { fmtWhen, fmtDay } from '../data.js';
 import { state, apptEntry, canonicalStatus, isTerminal, markReady, deliver, finalOrder, orderModified, statusScreen } from '../state.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
@@ -90,7 +91,7 @@ export function viewTailoring(s) {
 <div class="body" data-s="03-status-tailoring">
   ${statusHero({ pill: pillKey, title: hero.title, titleWeight: 600 })}
   <p class="status-hero__body">${note}</p>
-  ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: [`▤&nbsp;&nbsp;Appt: ${fmtWhen(a.when, 'Sun, Jul 12 · 7:00 PM')}`, `▤&nbsp;&nbsp;Need by: ${fmtDay(a.needBy, 'Fri, Jul 17')}`] })}
+  ${summaryCard({ fixed: true, ...tailorTrust(a), initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: [`▤&nbsp;&nbsp;Appt: ${fmtWhen(a.when, 'Sun, Jul 12 · 7:00 PM')}`, `▤&nbsp;&nbsp;Need by: ${fmtDay(a.needBy, 'Fri, Jul 17')}`] })}
   <div class="garments-card" data-act="review">
     ${orderCards(o, { variant: 'PostAppt' })}
     ${rows}
@@ -152,6 +153,8 @@ function wire(root) {
     else if (s2 === 'delivered') go('03-status-summary');
   });
   wirePhotoViewer(root);
+  /* round 14 (Kevin): the tailor card opens the 03.4 profile popup (no-op while matching) */
+  root.querySelector('.summary-card')?.addEventListener('click', () => openTailorDetails());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();

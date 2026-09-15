@@ -25,6 +25,8 @@ const SCREEN_MODULES = [
   '03-status-reminder-locked', '03-status-confirmed-locked', '03-status-unconfirmed', '04-review-approve-retiered',
   /* UX-LOOP round 9: 03/Confirmed's booking photos open the viewer (sibling frame, fixture route) */
   '03.3-photo-viewer-booking',
+  /* Round 14: the tailor profile popup (03.4) */
+  '03.4-tailor-details',
   /* Round 12: the Leave Review sheet's "Review Submitted" state (sibling frame; registered by 06.1's module) */
   /* Round 10: the tailor's Edit Details → resend (sibling frames, fixture routes) */
   't06-awaiting', 't05-resend',

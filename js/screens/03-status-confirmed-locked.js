@@ -6,4 +6,5 @@ import { register } from '../app.js';
 import { viewConfirmed, wire } from './03-status-confirmed.js';
 import { withLists, APPT_FEE_LOCKED } from '../fixtures.js';
 
-register('03-status-confirmed-locked', (s) => viewConfirmed(withLists({ upcoming: [APPT_FEE_LOCKED()] }, s)), wire);
+/* round 14: the Confirmed Locked frame still draws the summary-card layout (raised) */
+register('03-status-confirmed-locked', (s) => viewConfirmed(withLists({ upcoming: [APPT_FEE_LOCKED()] }, s), { layout: 'card' }), wire);

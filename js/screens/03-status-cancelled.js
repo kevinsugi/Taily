@@ -35,7 +35,8 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, cta, orderCards, apptRows, receiptDates, orderRows } from '../components.js';
+import { chrome, statusHero, summaryCard, tailorTrust, cta, orderCards, apptRows, receiptDates, orderRows } from '../components.js';
+import { openTailorDetails } from './03.4-tailor-details.js';
 import { money, mdy, PAY_LABELS, SEED_UPCOMING, fmtWhen, tailorName, tailorInitials, tailorFirst } from '../data.js';
 import { state, isTerminal, canonicalStatus, copyItemsOver } from '../state.js';
 
@@ -132,7 +133,7 @@ export function viewCancelled(s, forced = null) {
 <div class="body" data-s="03-status-cancelled">
   ${statusHero({ pill: v.pill, title: v.title, body: v.body ?? undefined, titleWeight: 600, titleColor: 'error' })}
   <div class="summary">
-    ${summaryCard({ fixed: true, initials: tailorInitials(a), name: a.name ? tailorName(a) : NO_TAILOR, rows: apptRows(a) })}
+    ${summaryCard({ fixed: true, ...tailorTrust(a), initials: tailorInitials(a), name: a.name ? tailorName(a) : NO_TAILOR, rows: apptRows(a) })}
     <div class="garments-card">
       ${orderCards({ garments: a.garments, totals: t }, { variant: 'ViewOnly' })}${rows}
     </div>${refund}
@@ -152,6 +153,8 @@ export function wire(root) {
     copyItemsOver(isTerminal(cur) ? cur : state.lastCancelled);
     go('02-appointment-details');
   });
+  /* round 14 (Kevin): the tailor card opens the 03.4 profile popup (no-op while matching) */
+  root.querySelector('.summary-card')?.addEventListener('click', () => openTailorDetails());
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => el.addEventListener('click', (e) => {
     e.preventDefault();
     go(el.dataset.nav === 'bookings' ? '09-bookings' : '01-home');

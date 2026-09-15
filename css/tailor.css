@@ -330,3 +330,6 @@ html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) +
   text-align: center;
   font-family: var(--font-sans); font-size: var(--size-14); line-height: 18px; font-weight: 600; color: var(--success);   /* round 13 */
 }
+
+/* Round 14: the tailor frames' Sarah cards still draw the OLD 111px card (fixed height, the master's new badges clipped inside it — raised); the customer's card moved to the master's 12/20 padding. */
+[data-s^="t0"] .summary-card { padding: var(--space-20); }

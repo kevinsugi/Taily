@@ -43,7 +43,7 @@ export function viewReview(s, screenId, fixture) {
 <div class="body" data-s="${screenId}">
   <div class="heading">
     <h1 class="t-title w-600 c-ink">Approve your final order.</h1>
-    <p class="t-body w-500 c-500">${first} measured and pinned at your appointment. Review the final details and pricing before tailoring starts.</p>
+    <p class="t-body w-500 c-500">Please review the final details and pricing before tailoring starts.${(o.garments ?? []).some((g) => g.added || g.addedJobs?.length) ? '<br><br>New items and services added during your appointment are shown in green below.' : ''}</p>
     ${live && a.resentAt ? `<p class="t-small w-500 c-success" data-resent>${first} updated the order on ${fmtDay(a.resentAt)}. Changes are highlighted below.</p>` : ''}
   </div>
   <div class="garments-card">

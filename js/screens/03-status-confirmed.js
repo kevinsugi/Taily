@@ -9,7 +9,9 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, cta, toast, orderCards, apptRows, receiptDates, orderRows } from '../components.js';
+import { chrome, statusHero, summaryCard, tailorTrust, trustCard, cta, toast, orderCards, apptRows, receiptDates, orderRows } from '../components.js';
+import { tailorProfile } from '../data.js';
+import { openTailorDetails } from './03.4-tailor-details.js';
 import { state, isTerminal, isPostAppointment, statusScreen } from '../state.js';
 import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js';
 import { wireBookingPhotos } from './03.3-photo-viewer.js';
@@ -42,14 +44,21 @@ export const currentAppt = (s) => {
 
 /** Exported (round 8): `03-status-confirmed-locked` renders it with the
     fee-locked seed (frame "03 - Order Status / Confirmed Locked"). */
-export function viewConfirmed(s) {
+/* Round 14 (Kevin): 03/Confirmed is the "Meet Marco" layout (694:3361) —
+   the profile card (photo, ✓ Taily-verified, badges, bio) above a garments
+   card that opens with a "Visit Details" block (address / time / need-by).
+   `layout: 'card'` keeps the summary-card layout the Confirmed Locked frame
+   (644:6051) still draws — raised as an inconsistency. */
+export function viewConfirmed(s, { layout = 'profile' } = {}) {
   const a = currentAppt(s);
+  const profile = layout === 'profile' ? (tailorProfile(a) ?? tailorProfile()) : null;
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-confirmed">
   ${statusHero({ ...confirmedPill(a), title: 'Appointment Confirmed', titleWeight: 600 })}
   <div class="summary">
-    ${summaryCard({ fixed: true, initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
+    ${profile ? trustCard(profile) : summaryCard({ fixed: true, ...tailorTrust(a), initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
     <div class="garments-card">
+      ${profile ? `<div class="visit-block"><span class="visit-block__title">Visit Details</span>${apptRows(a).map((r) => `<span class="summary-card__row">${r}</span>`).join('')}</div>` : ''}
       ${bookingSummary(a)}
     </div>
     <div class="prepare-card">
@@ -91,10 +100,11 @@ export function wire(root) {
   /* UX-004: Message works like 04D's; Calendar acknowledges */
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => go('10-messages'));
   root.querySelector('[data-act="calendar"]')?.addEventListener('click', () => toast('Added to your calendar'));
-  /* DEMO (R1-U-01): the tailor card is "the day before arrives" → the
-     reminder, the only road to 03.2 and the appointment happening.
-     R4-U-01: it REPLACES this screen (one family, one history entry). */
-  root.querySelector('.summary-card')?.addEventListener('click', () => go('03-status-reminder', { replace: true }));
+  /* DEMO (R1-U-01): "the day before arrives" → the reminder, the only road
+     to 03.2 and the appointment happening. R4-U-01: it REPLACES this screen.
+     Round 14: the tailor card now opens 03.4, so the demo moved to the hero title. */
+  root.querySelector('.status-hero__title')?.addEventListener('click', () => go('03-status-reminder', { replace: true }));
+  root.querySelectorAll('.trust-card, .summary-card').forEach((c) => c.addEventListener('click', () => openTailorDetails(cur)));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();

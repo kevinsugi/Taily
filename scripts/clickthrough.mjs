@@ -210,12 +210,13 @@ await assertAt('Pay (request sent)', '03-status-requested', 'searching');
     avatar: document.querySelector('.request-card .avatar')?.textContent.trim(),
     line: document.querySelector('[data-act="expire"]')?.textContent.trim(),
     hasMarco: /Marco/.test(document.querySelector('[data-s="03-status-requested"] .info-card')?.textContent ?? ''),
+    badges: document.querySelectorAll('[data-s="03-status-requested"] .trust-line .trust-badge').length,
   }));
-  const document_hasMarco = r.hasMarco;
+  const document_hasMarco = r.hasMarco; const document_badges = r.badges;
   check('requestTailor leaves the tailor unnamed', r.a.name === null && r.a.initials === null && r.a.tailorId === null && r.a.matching === true, JSON.stringify(r.a));
   /* R6: the frame's request card has no name row — the customer sees NO tailor name before matching */
   check('03/Requested card shows no tailor name before matching', r.name === undefined && !document_hasMarco, `name="${r.name}"`);
-  check('03/Requested shows the 2-hour line', r.line === 'Tailors have up to 2 hours to accept your request.', `"${r.line}"`);
+  check('03/Requested hero ends in the Taily-verified line + badges (round 14; the demo tap lives on it)', r.line === 'All Taily-verified tailors are:' && document_badges === 3, `"${r.line}" badges=${document_badges}`);
 }
 // UX-LOOP R3-U-01: the appointment owns the garments now — Home has no
 // selection left over and Start Booking cannot start a duplicate
@@ -266,14 +267,14 @@ await assertAt('tailor accepts', '03-status-confirmed', 'confirmed');
 {
   const r = await page.evaluate(() => ({
     a: (({ name, initials, tailorId, matching }) => ({ name, initials, tailorId, matching }))(window.Taily.state.upcoming[0]),
-    card: document.querySelector('.summary-card__name')?.textContent.trim(),
-    avatar: document.querySelector('.summary-card .avatar')?.textContent.trim(),
+    card: document.querySelector('.trust-card__name')?.textContent.trim(),
+    avatar: document.querySelector('.trust-card__verified')?.textContent.trim(),
   }));
   check('tailorAccepts names Marco (MT · marco)', r.a.name === 'Marco Tailor' && r.a.initials === 'MT' && r.a.tailorId === 'marco' && r.a.matching === false, JSON.stringify(r.a));
-  check('03/Confirmed card reads Marco Tailor', r.card === 'Marco Tailor' && r.avatar === 'MT', `card="${r.card}" avatar="${r.avatar}"`);
+  check('03/Confirmed profile card reads Marco Tailor · ✓ Taily-verified (round 14)', r.card === 'Marco Tailor' && r.avatar === '✓ Taily-verified', `card="${r.card}" avatar="${r.avatar}"`);
 }
 // UX-LOOP R1-U-01: the tailor card is the demo "day before" → reminder
-await page.click('.summary-card');
+await page.click('.status-hero__title');   // round 14: the demo moved off the tailor card (which opens 03.4)
 await assertAt('reminder fires (confirmed)', '03-status-reminder', 'confirmed');
 // R7: the reminder IS the confirmation prompt — R7-U-01: the "Before you
 // confirm" callout heads the actions block (a prepare-card, body-size
@@ -729,7 +730,7 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
 await rebook('unconfirmed');
 await page.click('[data-act="map"]');                 // a tailor accepts → fee charged
 await assertAt('  …accepted → 03/Confirmed', '03-status-confirmed', 'confirmed');
-await page.click('.summary-card');                    // the day before arrives
+await page.click('.status-hero__title');   // round 14: the demo moved off the tailor card (which opens 03.4)                    // the day before arrives
 await assertAt('  …reminder (unconfirmed)', '03-status-reminder', 'confirmed');
 await page.click('.status-hero__title');              // DEMO: 12 hours pass without confirming
 await assertAt('reminder title tap → auto-cancel → 03/Cancelled', '03-status-cancelled');
@@ -824,9 +825,9 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
   await page.waitForTimeout(200);
   const rows = await page.evaluate(() => ({ fees: [...document.querySelectorAll('.fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('.fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), info: document.querySelectorAll('.fee-row--changed').length }));
   // Round 12 (Kevin): ONE fee row — the updated $90 in semantic/info, captioned with the count + tier — and the fee-note under the rows explains the extra (04 + 03/Tailoring)
-  const TIER_NOTE = `Your order grew to 5 items, so the visitation fee is now ${$(RF.fee)}. The extra ${$(RF.added)} is charged with your alterations at handoff.`;
-  const RETIER_DESCS = `Alterations | Visitation fee — 5 items, ${$(RF.fee)} tier | Total | Due at handoff`;
-  check(`04/Modified re-tiered: ${$(RF.alt)} / ${$(RF.fee)} Visitation fee — 5 items, ${$(RF.fee)} tier (one row, info) / ${$(RF.total)} / due ${$(RF.due)}`, rows.fees === fees(RF.alt, RF.fee, RF.total, RF.due) && rows.descs === RETIER_DESCS && rows.info === 4, `${rows.fees} | ${rows.descs} info=${rows.info}`);
+  const TIER_NOTE = `Your order grew to 5 items, so the visitation fee is now ${$(RF.fee)} to cover time & transportation costs.The extra ${$(RF.added)} is charged with your alterations at handoff.`;   // round 14 copy (two paragraphs; textContent drops the <br>s)
+  const RETIER_DESCS = `Alterations | Visitation fee - 5+ items | Total | Due at handoff`;
+  check(`04/Modified re-tiered: ${$(RF.alt)} / ${$(RF.fee)} Visitation fee - 5+ items (one row, info) / ${$(RF.total)} / due ${$(RF.due)}`, rows.fees === fees(RF.alt, RF.fee, RF.total, RF.due) && rows.descs === RETIER_DESCS && rows.info === 4, `${rows.fees} | ${rows.descs} info=${rows.info}`);
   {
     const n = await page.evaluate(() => document.querySelector('[data-fee-tier-note]')?.textContent.trim());
     check('04/Modified fee-note explains the re-tier (R7-U-02)', n === TIER_NOTE, `"${n}"`);
@@ -913,7 +914,7 @@ const R8_COLD = {
   '03-status-reminder-locked': { pill: 'Confirmed · fee non-refundable', title: 'Please Confirm Tomorrow’s Appointment', callout: false, fees: `${$(SEED.alt)} Alterations (est.) | ${$(SEED.fee)} Visitation fee — charged 7/7/26 | ${$(SEED.total)} Total` },
   '03-status-confirmed-locked': { pill: 'Confirmed · fee non-refundable', title: 'Appointment Confirmed', callout: false, fees: `${$(SEED.alt)} Alterations (est.) | ${$(SEED.fee)} Visitation fee — charged 7/7/26 | ${$(SEED.total)} Total` },
   '03-status-unconfirmed': { pill: 'Cancelled', title: 'Appointment Cancelled', body: `We didn’t hear back before the visit, so it was cancelled. Your ${$(SEED.fee)} visitation fee is refunded to Visa •••• 4242.`, fees: `${$(SEED.alt)} Alterations (est.) | ${$(SEED.fee)} Visitation fee — Refunded 7/12/26`, cta: 'Send Request Again' },
-  '04-review-approve-retiered': { title: 'Approve your final order.', cards: 5, fees: `${$(RETIERED.alt)} Alterations | ${$(RETIERED.fee)} Visitation fee — 5 items, ${$(RETIERED.fee)} tier | ${$(RETIERED.total)} Total | ${$(RETIERED.due)} Due at handoff`, note: `Your order grew to 5 items, so the visitation fee is now ${$(RETIERED.fee)}. The extra ${$(RETIERED.added)} is charged with your alterations at handoff.` },
+  '04-review-approve-retiered': { title: 'Approve your final order.', cards: 5, fees: `${$(RETIERED.alt)} Alterations | ${$(RETIERED.fee)} Visitation fee - 5+ items | ${$(RETIERED.total)} Total | ${$(RETIERED.due)} Due at handoff`, note: `Your order grew to 5 items, so the visitation fee is now ${$(RETIERED.fee)} to cover time & transportation costs.The extra ${$(RETIERED.added)} is charged with your alterations at handoff.` },
   /* the bases, unchanged */
   '03-status-reminder': { pill: 'Confirmed', callout: true },
   '03-status-confirmed': { pill: 'Confirmed', callout: false },

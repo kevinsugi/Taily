@@ -79,7 +79,7 @@ export function chrome(active = 'home', time = '9:41') {
    ============================================================ */
 
 import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, TILE_PLUS, CHEVRON_RIGHT, ICON_CARD, ICON_ADD_CIRCLE } from './icons.js';
-import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, DELIVERY_FEE, money, rowPrice, fmtWhen, fmtDay, mdy, visitFee, itemsLabel } from './data.js';
+import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, DELIVERY_FEE, money, rowPrice, fmtWhen, fmtDay, mdy, visitFee, itemsLabel, TRUST_BADGES } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
 export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
@@ -276,7 +276,7 @@ export function apptCard(a) {
  * Status Hero — Figma Property 1 variants. `variant` is the kebab name:
  * requested | new-times | declined | confirmed | tailoring | ready.
  */
-export function statusHero({ variant = 'requested', pill, pillLabel, title, titleLine2, body, rowLabel, rowValue, titleWeight, titleColor } = {}) {
+export function statusHero({ variant = 'requested', pill, pillLabel, title, titleLine2, body, rowLabel, rowValue, titleWeight, titleColor, extra = '' } = {}) {
   const PILL_FOR = {
     'requested': 'requested', 'new-times': 'requested', 'declined': 'declined',
     'confirmed': 'confirmed', 'tailoring': 'confirmed', 'ready': 'ready',
@@ -288,21 +288,53 @@ export function statusHero({ variant = 'requested', pill, pillLabel, title, titl
   if (title) parts.push(`<h2 class="status-hero__title${titleWeight === 600 ? ' w-600' : ''}${titleColor ? ` c-${titleColor}` : ''}">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h2>`);
   if (body) parts.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
   if (rowLabel) parts.push(`<div class="status-hero__row"><span>${rowLabel}</span><span>${rowValue ?? ''}</span></div>`);
+  if (extra) parts.push(extra);   // round 14: 03/Requested's "All Taily-verified tailors are:" + badges
   /* `new-times` (R2-U-03): pill Requested + a custom title/body — the
      modifier class is a hook, it changes nothing the frames draw */
   return `<div class="status-hero status-hero--${variant}">${parts.join('\n  ')}</div>`;
 }
 
 /** Tailor Summary Card — avatar + info rows (glyph-prefixed). */
-export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [], fixed = false } = {}) {
+/* Round 14 (Kevin): the Tailor Summary Card master gained a ✓ after the
+   name and a row of verification badges (ID verified · Background check ·
+   Insured) — `verified` / `badges` draw them; the tailor side's Sarah card
+   passes neither. */
+export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [], fixed = false, verified = false, badges = [] } = {}) {
   return `<article class="summary-card${fixed ? ' summary-card--fixed' : ''}">
   <div class="summary-card__who">
     <span class="avatar">${initials}</span>
     <div class="summary-card__info">
-      <span class="summary-card__name">${name}</span>
+      <span class="summary-card__name-row"><span class="summary-card__name">${name}</span>${verified ? '<span class="summary-card__check">✓</span>' : ''}</span>
       ${rows.map((r) => `<span class="summary-card__row">${r}</span>`).join('\n      ')}
     </div>
   </div>
+  ${badges.length ? trustBadges(badges) : ''}
+</article>`;
+}
+
+/** ✓ badges (round 14): success-bg pills, 12/16 SemiBold success. */
+export function trustBadges(list = [], { wide = false } = {}) {
+  /* `wide`: 03/Requested's chips pad 4/12 where the summary card's pad 4/8 */
+  return `<div class="trust-badges${wide ? ' trust-badges--wide' : ''}">${list.map((b) => `<span class="trust-badge">✓ ${b}</span>`).join('')}</div>`;
+}
+/** What the customer's 03 cards pass for a booked tailor (nothing while matching). */
+export const tailorTrust = (a) => (a?.name ? { verified: true, badges: TRUST_BADGES } : {});
+
+/**
+ * Trust Card — "Meet Marco" (round 14, Kevin): the 03/Confirmed profile
+ * card and the 03.4 popup. Photo slot (media/placeholder), Cormorant 24
+ * name + "✓ Taily-verified", the badges, "Tailor for 15 years · Tribeca,
+ * 1.2 mi away", the bio. `popup` positions it as 03.4 draws it (y 194.5).
+ */
+export function trustCard(p, { popup = false } = {}) {
+  return `<article class="trust-card${popup ? ' trust-card--popup' : ''}" role="${popup ? 'dialog' : 'button'}" aria-label="${p.name}" tabindex="0">
+  <div class="trust-card__photo" aria-hidden="true"></div>
+  <div class="trust-card__head">
+    <div class="trust-card__name-row"><span class="trust-card__name">${p.name}</span>${p.verified ? '<span class="trust-card__verified">✓ Taily-verified</span>' : ''}</div>
+    ${trustBadges(p.badges ?? [])}
+  </div>
+  <p class="trust-card__sub">Tailor for ${p.years} years · ${p.area}, ${p.distance} away</p>
+  <p class="trust-card__bio">${p.bio}</p>
 </article>`;
 }
 
@@ -891,7 +923,9 @@ export function orderRows(t, { est = false, feeDesc = 'Visitation fee — paid',
     "Additional visitation fee …" row): the re-tiered fee's caption where
     it first appears. Numbers from the order's item count and the tier
     that count lands on. */
-export const retieredFeeCaption = (t) => `Visitation fee — ${itemsLabel(t?.items ?? 0, 'item')}, ${money(visitFee(t?.items ?? 0))} tier`;
+/* round 14 (Kevin's frame): "Visitation fee - 5+ items" — the tier's lower bound */
+export const retieredFeeCaption = (t) => `Visitation fee - ${tierMin(t?.items ?? 0)}+ items`;
+const tierMin = (n) => (n >= 11 ? 11 : n >= 5 ? 5 : 1);
 
 /** The note under the rows explaining a re-tiered fee (R7-U-02, 04 and
     03/Tailoring): "Your order grew to 5 items, so the visitation fee is
@@ -901,7 +935,8 @@ export const retieredFeeCaption = (t) => `Visitation fee — ${itemsLabel(t?.ite
 export function feeTierNote(t) {
   const added = t?.visitFeeAdded ?? 0;
   if (!(added > 0)) return '';
-  return `<p class="t-small c-500 fee-note" data-fee-tier-note>Your order grew to ${itemsLabel(t?.items ?? 0, 'item')}, so the visitation fee is now ${money(visitFee(t?.items ?? 0))}. The extra ${money(added)} is charged with your alterations at handoff.</p>`;
+  /* round 14 (Kevin's copy): two paragraphs */
+  return `<p class="t-small c-500 fee-note" data-fee-tier-note>Your order grew to ${itemsLabel(t?.items ?? 0, 'item')}, so the visitation fee is now ${money(visitFee(t?.items ?? 0))} to cover time & transportation costs.<br><br>The extra ${money(added)} is charged with your alterations at handoff.</p>`;
 }
 
 /** The receipt of a settled order (06 / 03/Summary, R1-U-07 → R7):

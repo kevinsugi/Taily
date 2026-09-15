@@ -74,8 +74,17 @@ export const visitFeeNote = (count) => tierFor(VISIT_FEE_TIERS, count).note ?? '
 /** Home delivery, chosen on 05 (05B) — charged with the alterations at handoff. */
 export const DELIVERY_FEE = 20;
 
+/* Round 14 (Kevin): every Taily tailor is verified — the three badges the
+   Tailor Summary Card and the 03.4 profile draw (03/Requested says
+   "Background checked"). */
+export const TRUST_BADGES = ['ID verified', 'Background check', 'Insured'];
+export const TRUST_BADGES_MATCHING = ['ID verified', 'Background checked', 'Insured'];
+
 export const TAILORS = [
   { id: 'marco', name: 'Marco Tailor', initials: 'MT', promoted: true,
+    /* round 14: the profile the 03/Confirmed card and the 03.4 popup draw (frame copy) */
+    profile: { years: 15, area: 'Tribeca', distance: '1.2 mi', photo: null,
+      bio: 'Trained in Naples, cutting suits in New York since 2011. I fit at your home so you can try everything on with the shoes you’ll actually wear — and I’ll always show my Taily ID at the door.' },
     spec: 'Bespoke suiting', specCat: 'Suiting', hood: 'Midtown West',
     home: true, store: true, mult: 1.0, homeFee: 150, turnaround: '3–5 days',
     avail: 'Tue–Sat · mornings & afternoons',
@@ -333,6 +342,15 @@ export const payout = (garments) => payoutParts(garments).payout;
 /* Round 12 (Kevin): the compensation IS the tailor's cut of the fee for
    the booked item count — $25 / $50 / $90. */
 export const noShowComp = (items) => tailorFee(items);
+
+/** Round 14: the profile behind a booked appointment's tailor card —
+    null while the request is still matching (no tailor yet). Falls back
+    to Marco (the seed's tailor) for the harness fixtures. */
+export function tailorProfile(a = null) {
+  if (a && !a.name) return null;
+  const t = TAILORS.find((x) => x.id === (a?.tailorId ?? 'marco')) ?? TAILORS[0];
+  return { name: a?.name ?? t.name, initials: a?.initials ?? t.initials, verified: true, badges: TRUST_BADGES, ...t.profile };
+}
 
 /** "1 Item" / "3 Items" (09's "1 Items Total" bug, R1-U-19). */
 export const itemsLabel = (n, word = 'Item') => `${n} ${word}${n === 1 ? '' : 's'}`;

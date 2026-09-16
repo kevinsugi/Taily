@@ -30,7 +30,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, trustBadges, infoCard, metaRow, cta } from '../components.js';
+import { chrome, statusHero, trustBadges, infoCard, metaRow, cta, headingRow } from '../components.js';
 import { money, itemsLabel, itemCount, fmtWhen, fmtDay, shiftDay, parseWhen, proposalDays, proposalHours, tailorName, tailorInitials, TRUST_BADGES_MATCHING } from '../data.js';
 import {
   state, tailorAccepts, bookingLines, isTerminal,
@@ -129,7 +129,7 @@ export function viewRequested(s, forced = null) {
     : '';   // round 10 (Kevin): no View All Appointments on the 03 family
   return `${chrome('home')}
 <div class="body" data-s="03-status-requested">
-  ${hero}
+  ${headingRow(hero)}
   ${window2h}
   <!-- Placeholder per Kevin: this becomes a live Google Map centred on
        the user's location. The frame's raster is deliberately not used.

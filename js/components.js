@@ -78,8 +78,8 @@ export function chrome(active = 'home', time = '9:41') {
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_MINUS, TILE_PLUS, CHEVRON_RIGHT, ICON_CARD, ICON_ADD_CIRCLE } from './icons.js';
-import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, DELIVERY_FEE, money, rowPrice, fmtWhen, fmtDay, mdy, visitFee, itemsLabel, TRUST_BADGES } from './data.js';
+import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_CHEVRON, CHEVRON_RIGHT, ICON_CARD, ICON_ADD } from './icons.js';
+import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, DELIVERY_FEE, money, rowPrice, fmtWhen, fmtDay, mdy, visitFee, itemsLabel, TRUST_BADGES, VISIT_FEE_CAPTION, ALTERATIONS_EST_CAPTION, HANDOFF_CAPTION, RUSH_CAPTION } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
 export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
@@ -162,24 +162,36 @@ const TILE_ART = {
   'Pants / Jeans': 'pants-jeans', 'Skirt': 'skirt', 'Accessories': 'accessories',
 };
 
-/* Round 12 (Kevin, 01a 532:946): the selected tile's controls stack
-   vertically at the tile's top-right — plus / count badge / minus
-   (`.garment-tile__qty`); plus adds another card of that garment, minus
-   removes one (unselects at 0). */
+/* Round 15 (Kevin, Garment Tile 252:1235): a selected tile is the
+   Selected_One / Selected_Multi / Selected_MultiRow state — a big chevron
+   tap zone at the top (adds one) and the bottom (removes one; unselects
+   at 0), one small icon PER item between them (one large icon for a
+   single item, a row of three up to 3, two rows of three up to 6 — capped
+   at six, the label keeps counting), and the label "3 Suit Jackets".
+   The tile keeps the grid's width (the master draws 110). */
+export const TILE_MAX_ICONS = 6;
 export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
-  const selected = qty > 0;
-  const art = TILE_ART[type]
-    ? `<img class="garment-tile__art" src="assets/garments/tile-${TILE_ART[type]}.png" alt="">`
-    : GARMENT_ICONS[type]
-      ? `<img class="garment-tile__art" src="${GARMENT_ICONS[type]}" alt="">`
-      : `<span class="garment-tile__art"></span>`;
-  const badge = selected
-    ? `<span class="garment-tile__qty"><span class="garment-tile__minus-hit" data-plus role="button" aria-label="Add another ${type}">${TILE_PLUS}</span><span class="garment-tile__badge">${qty}</span><span class="garment-tile__minus-hit" data-minus role="button" aria-label="Remove one ${type}">${TILE_MINUS}</span></span>`
-    : '';
-  return `<button type="button" class="garment-tile${selected ? ' garment-tile--selected' : ''}" ${attrs}>
+  if (!(qty > 0)) {
+    const art = TILE_ART[type]
+      ? `<img class="garment-tile__art" src="assets/garments/tile-${TILE_ART[type]}.png" alt="">`
+      : GARMENT_ICONS[type]
+        ? `<img class="garment-tile__art" src="${GARMENT_ICONS[type]}" alt="">`
+        : `<span class="garment-tile__art"></span>`;
+    return `<button type="button" class="garment-tile" ${attrs}>
   ${art}
   <span class="garment-tile__label">${type}</span>
-  ${badge}
+</button>`;
+  }
+  const size = qty === 1 ? 'one' : qty <= 3 ? 'row' : 'grid';
+  const src = GARMENT_ICONS[type];
+  const icon = src ? `<span class="garment-tile__icon"><img src="${src}" alt=""></span>` : '<span class="garment-tile__icon"></span>';
+  const icons = Array.from({ length: Math.min(qty, TILE_MAX_ICONS) }, () => icon).join('');
+  const label = qty === 1 ? `1 ${type}` : `${qty} ${GARMENT_TYPES[type]?.plural ?? type}`;
+  return `<button type="button" class="garment-tile garment-tile--selected garment-tile--${size}" ${attrs}>
+  <span class="garment-tile__zone garment-tile__zone--add" data-plus role="button" aria-label="Add another ${type}">${TILE_CHEVRON}</span>
+  <span class="garment-tile__icons">${icons}</span>
+  <span class="garment-tile__label">${label}</span>
+  <span class="garment-tile__zone garment-tile__zone--remove" data-minus role="button" aria-label="Remove one ${type}">${TILE_CHEVRON}</span>
 </button>`;
 }
 
@@ -294,28 +306,48 @@ export function statusHero({ variant = 'requested', pill, pillLabel, title, titl
   return `<div class="status-hero status-hero--${variant}">${parts.join('\n  ')}</div>`;
 }
 
-/** Tailor Summary Card — avatar + info rows (glyph-prefixed). */
-/* Round 14 (Kevin): the Tailor Summary Card master gained a ✓ after the
-   name and a row of verification badges (ID verified · Background check ·
-   Insured) — `verified` / `badges` draw them; the tailor side's Sarah card
-   passes neither. */
-export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [], fixed = false, verified = false, badges = [] } = {}) {
-  return `<article class="summary-card${fixed ? ' summary-card--fixed' : ''}">
+/** Tailor Summary Card, Default (720:4896) — avatar + name (+ ✓) with
+    the verification badges wrapping under the name, inside the info
+    column. Round 15 (Kevin): the visit details left the card for the
+    garments card's Visit Details block (`visitBlock`); `rows` stays
+    only for the tailor side's Sarah card, which draws none. Tapping the
+    Default card opens the Expanded one as the 03.4 popup. */
+/* Round 15 (Kevin): the tailor side's Sarah card is the "User Summary"
+   master (207:3847 NewCustomer) — 20 padded, "✓ New Customer" in accent
+   after the name, neutral-100 / accent-ink badges (`user: true`, `tag`). */
+export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [], verified = false, badges = [], tag = '', user = false, attrs = '' } = {}) {
+  return `<article class="summary-card${user ? ' summary-card--user' : ''}"${badges.length && !user ? ' role="button" tabindex="0"' : ''} ${attrs}>
   <div class="summary-card__who">
     <span class="avatar">${initials}</span>
     <div class="summary-card__info">
-      <span class="summary-card__name-row"><span class="summary-card__name">${name}</span>${verified ? '<span class="summary-card__check">✓</span>' : ''}</span>
+      <span class="summary-card__name-row"><span class="summary-card__name">${name}</span>${verified ? '<span class="summary-card__check">✓</span>' : ''}${tag ? `<span class="summary-card__tag">✓ ${tag}</span>` : ''}</span>
+      ${badges.length ? trustBadges(badges, { user }) : ''}
       ${rows.map((r) => `<span class="summary-card__row">${r}</span>`).join('\n      ')}
     </div>
   </div>
-  ${badges.length ? trustBadges(badges) : ''}
 </article>`;
 }
 
+/** Visit Details (round 15, Kevin — 03/Confirmed 694:3423): the block
+    that opens every garments card — serif 24 title over the address /
+    time / need-by rows. `rows` come from apptRows(a) (customer) or the
+    tailor's jobView rows. */
+export function visitBlock(rows = []) {
+  return `<div class="visit-block"><span class="visit-block__title">Visit Details</span>${rows.map((r) => `<span class="visit-block__row">${r}</span>`).join('')}</div>`;
+}
+
+/** The Back control (308:3820) — "‹" 28 Regular ink in a 36-tall, 8-padded
+    box. `headingRow` seats it left of a screen's heading block (gap 4,
+    centred), round 15: every heading but Home's. The router wires every
+    `.back` to step the prototype's history (app.js wireBackButtons). */
+export const backButton = () => '<button type="button" class="back" data-act="back" aria-label="Back">‹</button>';
+export const headingRow = (inner) => `<div class="heading-row">${backButton()}<div class="heading-row__body">${inner}</div></div>`;
+
 /** ✓ badges (round 14): success-bg pills, 12/16 SemiBold success. */
-export function trustBadges(list = [], { wide = false } = {}) {
-  /* `wide`: 03/Requested's chips pad 4/12 where the summary card's pad 4/8 */
-  return `<div class="trust-badges${wide ? ' trust-badges--wide' : ''}">${list.map((b) => `<span class="trust-badge">✓ ${b}</span>`).join('')}</div>`;
+export function trustBadges(list = [], { wide = false, user = false } = {}) {
+  /* `wide`: 03/Requested's chips pad 4/12 where the summary card's pad 4/8;
+     `user` (round 15): the User Summary's neutral-100 / accent-ink chips, no ✓ */
+  return `<div class="trust-badges${wide ? ' trust-badges--wide' : ''}${user ? ' trust-badges--user' : ''}">${list.map((b) => `<span class="trust-badge">${user ? '' : '✓ '}${b}</span>`).join('')}</div>`;
 }
 /** What the customer's 03 cards pass for a booked tailor (nothing while matching). */
 export const tailorTrust = (a) => (a?.name ? { verified: true, badges: TRUST_BADGES } : {});
@@ -326,8 +358,10 @@ export const tailorTrust = (a) => (a?.name ? { verified: true, badges: TRUST_BAD
  * name + "✓ Taily-verified", the badges, "Tailor for 15 years · Tribeca,
  * 1.2 mi away", the bio. `popup` positions it as 03.4 draws it (y 194.5).
  */
+/* Round 15: the in-page Expanded card is inert — only the Default card
+   opens the popup. */
 export function trustCard(p, { popup = false } = {}) {
-  return `<article class="trust-card${popup ? ' trust-card--popup' : ''}" role="${popup ? 'dialog' : 'button'}" aria-label="${p.name}" tabindex="0">
+  return `<article class="trust-card${popup ? ' trust-card--popup' : ''}"${popup ? ` role="dialog" aria-label="${p.name}" tabindex="0"` : ''}>
   <div class="trust-card__photo" aria-hidden="true"></div>
   <div class="trust-card__head">
     <div class="trust-card__name-row"><span class="trust-card__name">${p.name}</span>${p.verified ? '<span class="trust-card__verified">✓ Taily-verified</span>' : ''}</div>
@@ -376,7 +410,7 @@ export function additionalSelector({ value = null, attrs = '' } = {}) {
     `<button type="button" class="selector__option" data-option="${s}">${s}<span class="selector__price">+$${JOB_TYPES[s].price}</span></button>`).join('');
   const menu = `<div class="selector__menu"><span class="selector__menu-header">ADD A SERVICE</span>${rows}</div>`;
   const trigger = value === null
-    ? `<button type="button" class="selector__trigger selector__trigger--add" ${attrs}>${ICON_ADD_CIRCLE}<span>Additional Service</span></button>`
+    ? `<button type="button" class="selector__trigger selector__trigger--add" ${attrs}>${ICON_ADD}<span>Add Service</span></button>`
     : `<button type="button" class="selector__trigger" ${attrs}>${value}${SELECTOR_CHEVRON}</button><button type="button" class="selector__remove" data-remove ${attrs} aria-label="Remove ${value}">✕</button>`;
   return `<span class="selector selector--job selector--additional${value !== null ? ' selector--added' : ''}">${trigger}${menu}</span>`;
 }
@@ -422,8 +456,10 @@ export function garmentCard({
        paint semantic/success — the whole garment when `added`, one service
        when its entry is { label, added } (frame: 04 / Modified, variant
        'Additional' 687:7388 + the detached added-garment card). */
+    /* round 15 (Kevin, 04 / Modified): the title is the garment alone —
+       each item is its own card, so no count */
     rows = `<div class="garment-card__row garment-card__row--tight${added ? ' garment-card__row--new' : ''}">
-      ${added ? '<span class="new-badge">NEW</span>' : ''}<span>${qty}</span><span>${type}</span>
+      ${added ? '<span class="new-badge">NEW</span>' : ''}<span>${type}</span>
     </div>
     ${services.map((s) => { const isNew = !!(s.added || added); return `<div class="garment-card__service${isNew ? ' garment-card__service--new' : ''}">${isNew ? '<span class="new-badge">NEW</span>' : ''}${s.label ?? s}</div>`; }).join('')}`;
   }
@@ -436,23 +472,15 @@ export function garmentCard({
     tiles = `<div class="photo-tiles">${Array.from({ length: photos }, () => photoTile('photo')).join('')}</div>`;
   } else if (variant === 'PostAppt') {
     const shots = (n) => Array.from({ length: n }, () => photoTile('photo')).join('');
-    const marked = added || services.some((s) => s && s.added);
-    if (marked) {
-      /* round 13: the Additional variant's Photo_Row — a Before / Pinned
-         label pair (active neutral-500, idle neutral-200) over ONE tile row;
-         tapping a label swaps the set (wirePhotoViewer). */
-      tiles = `<div class="photo-row photo-row--tabs" data-photo-tabs>
+    /* round 15 (Kevin, 04 / Modified): EVERY post-visit card draws the
+       Photo_Row — a Before / Pinned label pair (active ink, idle
+       neutral-200) over ONE tile row; tapping a label swaps the set,
+       tapping a tile opens the 03.3 viewer (wirePhotoViewer). */
+    tiles = `<div class="photo-row photo-row--tabs" data-photo-tabs>
       <span class="photo-tabs"><span class="photo-tiles__label is-active" data-photo-tab="before">Before</span><span class="photo-tiles__label" data-photo-tab="pinned">Pinned</span></span>
       <div class="photo-tiles" data-photo-set="before">${shots(beforePhotos)}</div>
       <div class="photo-tiles" data-photo-set="pinned" hidden>${shots(pinnedPhotos)}</div>
     </div>`;
-    } else {
-      const group = (label, n) => `<div class="photo-group">
-      <span class="photo-tiles__label">${label}</span>
-      <div class="photo-tiles">${shots(n)}</div>
-    </div>`;
-      tiles = `<div class="photo-row">${group('Before:', beforePhotos)}${group('Pinned:', pinnedPhotos)}</div>`;
-    }
   }
 
   const close = editable ? `<button type="button" class="garment-card__close" data-act="remove-garment"${index === null ? '' : ` data-gi="${index}"`} aria-label="Remove garment">✕</button>` : '';
@@ -814,8 +842,13 @@ export function requestCard({ name, initials, rows = [] } = {}) {
     info: semantic/info price (06B — totals touched by the modified order).
     muted: neutral-500 price + caption (R7-T-02 — money that is no
     longer on offer, e.g. an expired request's "Payout offered"). */
-export function feeRow(price, desc, { line = false, info = false, muted = false } = {}) {
-  return `<div class="fee-row${line ? ' fee-row--line' : ''}${info ? ' fee-row--changed' : ''}${muted ? ' fee-row--muted' : ''}"><span class="fee-row__price">${price}</span><span class="fee-row__desc">${desc}</span></div>`;
+/* Round 15 (Kevin, 02 720:4178): `caption` — a 12/16 Medium neutral-500
+   line under the label, 2 below it, inside the same row. */
+export function feeRow(price, desc, { line = false, info = false, muted = false, caption = '' } = {}) {
+  const text = caption
+    ? `<span class="fee-row__text"><span class="fee-row__desc">${desc}</span><span class="fee-row__caption">${caption}</span></span>`
+    : `<span class="fee-row__desc">${desc}</span>`;
+  return `<div class="fee-row${line ? ' fee-row--line' : ''}${info ? ' fee-row--changed' : ''}${muted ? ' fee-row--muted' : ''}"><span class="fee-row__price">${price}</span>${text}</div>`;
 }
 
 /* ============================================================
@@ -878,7 +911,7 @@ export function receiptDates(a) {
 /** What the customer still owes at handoff BEFORE a handoff method is
     chosen: alterations + any re-tiered fee (05A/05B add delivery
     themselves). */
-export const dueBase = (t) => (t?.alterations ?? t?.subtotal ?? 0) + (t?.visitFeeAdded ?? 0);
+export const dueBase = (t) => (t?.alterations ?? t?.subtotal ?? 0) + (t?.visitFeeAdded ?? 0) + (t?.rush ?? 0);   // round 15: + the rush fee
 /** What is charged at handoff for the order as it stands (delivery
     included once 05B chose it). */
 export const dueAtHandoff = (t) => dueBase(t) + (t?.delivery ?? 0);
@@ -899,22 +932,29 @@ export const dueAtHandoff = (t) => dueBase(t) + (t?.delivery ?? 0);
  * on a visit that ended, the sum is nothing the customer paid or owes.
  * Every row but the last carries the hairline.
  */
-export function orderRows(t, { est = false, feeDesc = 'Visitation fee — paid', due = null, info = false, tier = false, total = true } = {}) {
+/* Round 15 (Kevin): the visitation row always carries its caption ("Helps
+   cover the cost of transport."); `captions` (02) also captions
+   Alterations ("Price is finalized at the appointment.") and Total
+   ("Alterations are paid at pickup or delivery."). A rush order adds a
+   "Rush fee" row (+ its caption) after the visitation fee — paid at handoff. */
+export function orderRows(t, { est = false, feeDesc = 'Visitation fee — paid', due = null, info = false, tier = false, total = true, captions = false } = {}) {
   const alterations = t?.alterations ?? t?.subtotal ?? 0;
   const fee = t?.visitFeeCharged ?? t?.visitFee ?? 0;
   const added = t?.visitFeeAdded ?? 0;
   const delivery = t?.delivery ?? 0;
+  const rush = t?.rush ?? 0;
   /* round 12 (Kevin): a re-tiered fee is ONE row — the updated amount
      in semantic/info (never the fee twice); `tier` captions it with the
      count + tier, feeTierNote() explains the extra under the rows */
   const rows = [
-    [money(alterations), est ? 'Alterations (est.)' : 'Alterations', { info }],
+    [money(alterations), est ? 'Alterations (est.)' : 'Alterations', { info, caption: captions ? ALTERATIONS_EST_CAPTION : '' }],
     added > 0
-      ? [money(fee + added), tier ? retieredFeeCaption(t) : 'Visitation fee — updated', { info: true }]
-      : [money(fee), feeDesc, {}],
+      ? [money(fee + added), tier ? retieredFeeCaption(t) : 'Visitation fee — updated', { info: true, caption: VISIT_FEE_CAPTION }]
+      : [money(fee), feeDesc, { caption: VISIT_FEE_CAPTION }],
   ];
+  if (rush > 0) rows.push([money(rush), 'Rush fee', { caption: RUSH_CAPTION }]);
   if (delivery > 0) rows.push([money(delivery), 'Delivery', {}]);
-  if (total) rows.push([money(alterations + fee + added + delivery), 'Total', { info }]);
+  if (total) rows.push([money(alterations + fee + added + delivery + rush), 'Total', { info, caption: captions ? HANDOFF_CAPTION : '' }]);
   if (due) rows.push([money(dueAtHandoff(t)), due, { info }]);
   return rows.map(([p, d, o], i) => feeRow(p, d, { ...o, line: i < rows.length - 1 })).join('\n      ');
 }
@@ -953,12 +993,14 @@ export function receiptRows(a, t) {
   const delivery = pickup ? 0 : (a?.fulfilment?.method === 'delivery' ? (t?.delivery || DELIVERY_FEE) : DELIVERY_FEE);
   /* round 12: one fee row, the re-tiered amount included (the extra was
      settled at handoff with the alterations) */
+  const rush = t?.rush ?? 0;   // round 15
   const rows = [
     feeRow(money(alterations), 'Alterations', { line: true }),
-    feeRow(money(fee + added), `Visitation fee — paid ${d.fee}`, { line: true }),
+    feeRow(money(fee + added), `Visitation fee — paid ${d.fee}`, { line: true, caption: VISIT_FEE_CAPTION }),
   ];
+  if (rush > 0) rows.push(feeRow(money(rush), 'Rush fee', { line: true, caption: RUSH_CAPTION }));
   if (delivery > 0) rows.push(feeRow(money(delivery), 'Delivery', { line: true }));
-  rows.push(feeRow(money(alterations + fee + added + delivery), 'Total', { line: true }));
-  rows.push(feeRow(money(alterations + added + delivery), `Paid at ${pickup ? 'pickup' : 'delivery'} ${d.handoff}`));
+  rows.push(feeRow(money(alterations + fee + added + rush + delivery), 'Total', { line: true }));
+  rows.push(feeRow(money(alterations + added + rush + delivery), `Paid at ${pickup ? 'pickup' : 'delivery'} ${d.handoff}`));
   return rows.join('\n    ');
 }

@@ -8,7 +8,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, cta } from '../components.js';
+import { chrome, statusHero, cta, headingRow } from '../components.js';
 import { state, chooseFulfilment, homeAddress } from '../state.js';
 import { TAILORS } from '../data.js';
 
@@ -36,7 +36,7 @@ function renderScreen(s) {
   const studio = (TAILORS.find((t) => t.id === a.tailorId)?.address ?? '1025 Broadway').split(',')[0];
   return `${chrome('home')}
 <div class="body" data-s="05-items-ready">
-  ${statusHero({ pill: 'ready', variant: 'ready', title: 'Your items are ready.', titleWeight: 600, titleColor: 'success', body: `${first} finished ahead of schedule. Choose how you’d like them back — your alterations are paid when you receive them.` })}
+  ${headingRow(statusHero({ pill: 'ready', variant: 'ready', title: 'Your items are ready.', titleWeight: 600, titleColor: 'success', body: `${first} finished ahead of schedule. Choose how you’d like them back — your alterations are paid when you receive them.` }))}
   ${optionRow({ id: 'delivery', title: 'Home delivery', sub: `Courier service for  ${homeAddress()}`, price: '$20', selected: sel === 'delivery' })}
   ${optionRow({ id: 'pickup', title: 'Pickup', sub: `From ${first}’s studio · ${studio}`, price: 'Free', selected: sel === 'pickup' })}
   <div class="actions">

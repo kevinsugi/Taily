@@ -17,7 +17,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, deliveryWindow, selectTime, cta, dueBase } from '../components.js';
+import { chrome, deliveryWindow, selectTime, cta, dueBase, headingRow } from '../components.js';
 import { money, dayRows, fmtDay, handoffWindows } from '../data.js';
 import { state, chooseFulfilment, finalOrder } from '../state.js';
 import { openDateTimeOverlay } from './02.1-date-time-sheet.js';
@@ -107,10 +107,10 @@ function renderScreen(s) {
   const first = (a.name ?? 'Marco Tailor').split(' ')[0];
   return `${chrome('home')}
 <div class="body" data-s="05a-pickup-window">
-  <div class="heading">
+  ${headingRow(`<div class="heading">
     <h1 class="t-title c-ink">Select a pickup window.</h1>
     <p class="t-body w-500 c-500">${first}’s studio · 1025 Broadway.<br>Payment is settled at handoff.</p>
-  </div>
+  </div>`)}
   ${windowsHtml(sel)}
   <div class="prepare-card">
     <p class="t-body w-500 c-500">Due at pickup</p>

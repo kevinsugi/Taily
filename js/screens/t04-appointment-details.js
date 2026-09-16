@@ -18,10 +18,10 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { summaryCard, cta, toast } from '../components.js';
+import { summaryCard, cta, toast, visitBlock } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, wireOrderEditor, openChat } from '../tailor-components.js';
-import { current, jobView, draftFor, orderMoney, isFixture, CUSTOMER, CUSTOMER_ROWS, isTerminalJob } from '../tailor-data.js';
+import { current, jobView, draftFor, orderMoney, isFixture, CUSTOMER, customerCard, CUSTOMER_ROWS, isTerminalJob } from '../tailor-data.js';
 
 function renderScreen(s) {
   const a = current(s);
@@ -32,11 +32,12 @@ function renderScreen(s) {
 <div class="body" data-s="t04-appointment-details">
   ${backHeader('Appointment Details', 'Upload all notes and photos below.')}
   <div class="summary">
-    ${summaryCard({ initials: CUSTOMER.initials, name: CUSTOMER.name, rows: fixture ? CUSTOMER_ROWS : v.rows })}
+    ${summaryCard(customerCard())}
     <div class="garments-card">
+      ${visitBlock(fixture ? CUSTOMER_ROWS : v.rows)}
       ${orderCards(draft, { variant: 'Appt' })}
-      ${fixture ? '' : '<button type="button" class="add-garment" data-act="add-garment">+ Additional Garment</button>'}
-      ${payoutRows(orderMoney(draft))}
+      ${fixture ? '' : '<button type="button" class="add-garment" data-act="add-garment">+ Add Garment</button>'}
+      ${payoutRows(orderMoney(draft, a))}
     </div>
   </div>
   <div class="t-actions">

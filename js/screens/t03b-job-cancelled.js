@@ -25,7 +25,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { statusHero, cta } from '../components.js';
+import { statusHero, cta, headingRow } from '../components.js';
 import { money } from '../data.js';
 import { tailorChrome, wireTailorNav, openCalendar } from '../tailor-components.js';
 import { current, jobView, endedBy, isFixture, isSeed, noShowCompOf } from '../tailor-data.js';
@@ -55,7 +55,7 @@ export function viewJobCancelled(s, forced = null) {
   const { title, body } = forced ? cancelCopy(forced, { forced: true }) : cancelCopy(current(s));
   return `${tailorChrome('calendar')}
 <div class="body" data-s="t03b-job-cancelled">
-  ${statusHero({ pill: false, title, titleColor: 'error', body })}
+  ${headingRow(statusHero({ pill: false, title, titleColor: 'error', body }))}
   <div class="t-actions">
     ${cta('Back to Home', { attrs: 'data-act="home"' })}
     ${cta('View Calendar', { variant: 'secondary', attrs: 'data-act="calendar"' })}

@@ -17,10 +17,10 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { statusHero, summaryCard, cta, toast } from '../components.js';
+import { statusHero, summaryCard, cta, toast, visitBlock, headingRow } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, payoutRows, openCantMakeIt, openChat } from '../tailor-components.js';
-import { current, jobView, jobTarget, tailorOf, isFixture, T, CUSTOMER, CUSTOMER_ROWS } from '../tailor-data.js';
+import { current, jobView, jobTarget, tailorOf, isFixture, T, CUSTOMER, customerCard, CUSTOMER_ROWS } from '../tailor-data.js';
 import { bookedCards } from './t02-appointment-request.js';
 
 /** Exported: `mode` 'upcoming' forces the pre-visit view (round-3 frame
@@ -32,7 +32,7 @@ export function viewAccepted(s, mode = null) {
   const accepted = mode === 'upcoming' ? false : (fixture || tailorOf(a).justAccepted);
   const visit = a?.visit === 'Store Visit' ? 'Store visit' : 'Home visit';
   const head = accepted
-    ? statusHero({ pill: false, title: 'Booking Confirmed!', body: 'We let Sarah know you’re coming and added the visit to your calendar.' })
+    ? headingRow(statusHero({ pill: false, title: 'Booking Confirmed!', body: 'We let Sarah know you’re coming and added the visit to your calendar.' }))
     : backHeader('Upcoming visit', `${v.when} at ${v.address} · ${visit}`);
   const primary = accepted
     ? cta('Back to Home', { attrs: 'data-act="home"' })
@@ -45,8 +45,9 @@ export function viewAccepted(s, mode = null) {
 <div class="body" data-s="t03-request-accepted">
   ${head}
   <div class="summary">
-    ${summaryCard({ initials: CUSTOMER.initials, name: CUSTOMER.name, rows: fixture ? CUSTOMER_ROWS : v.rows })}
+    ${summaryCard(customerCard())}
     <div class="garments-card">
+      ${visitBlock(fixture ? CUSTOMER_ROWS : v.rows)}
       ${bookedCards(v)}
       ${payoutRows(v)}
     </div>
@@ -64,7 +65,7 @@ export function wire(root) {
   const a = current(state);
   tailorOf(a).justAccepted = false;   // the next visit to T03 is the pre-visit view
   root.querySelector('[data-act="home"]')?.addEventListener('click', () => go('t01-home'));
-  root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));
+  root.querySelector('.t-back[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));   // round 15: the hero's .back is the router's
   root.querySelector('[data-act="start"]')?.addEventListener('click', () => go('t04-appointment-details'));
   root.querySelector('[data-act="status"]')?.addEventListener('click', () => go(jobTarget(current(state))));
   root.querySelector('[data-act="message"]')?.addEventListener('click', () => openChat());

@@ -15,7 +15,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, tailorTrust, cta, toast, orderCards, orderRows, feeTierNote } from '../components.js';
+import { chrome, statusHero, summaryCard, tailorTrust, cta, toast, orderCards, orderRows, feeTierNote, apptRows, visitBlock, headingRow } from '../components.js';
 import { openTailorDetails } from './03.4-tailor-details.js';
 import { fmtWhen, fmtDay } from '../data.js';
 import { state, apptEntry, canonicalStatus, isTerminal, markReady, deliver, finalOrder, orderModified, statusScreen } from '../state.js';
@@ -89,10 +89,11 @@ export function viewTailoring(s) {
 
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-tailoring">
-  ${statusHero({ pill: pillKey, title: hero.title, titleWeight: 600 })}
+  ${headingRow(statusHero({ pill: pillKey, title: hero.title, titleWeight: 600 }))}
   <p class="status-hero__body">${note}</p>
-  ${summaryCard({ fixed: true, ...tailorTrust(a), initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: [`▤&nbsp;&nbsp;Appt: ${fmtWhen(a.when, 'Sun, Jul 12 · 7:00 PM')}`, `▤&nbsp;&nbsp;Need by: ${fmtDay(a.needBy, 'Fri, Jul 17')}`] })}
+  ${summaryCard({ ...tailorTrust(a), initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor' })}
   <div class="garments-card" data-act="review">
+    ${visitBlock(apptRows(a))}
     ${orderCards(o, { variant: 'PostAppt' })}
     ${rows}
   </div>

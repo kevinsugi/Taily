@@ -15,7 +15,7 @@ import { resolve, extname } from 'node:path';
 import { createServer } from 'node:http';
 import { chromium } from 'playwright';
 /* every dollar amount comes from scripts/money.mjs (→ js/data.js) */
-import { $, fees, DELIVERY, SEED, FINAL, RETIERED, LIVE } from './money.mjs';
+import { $, fees, DELIVERY, SEED, FINAL, RETIERED, LIVE, RUSH, CAPTION } from './money.mjs';
 const CB = LIVE.customer.booked, CF = LIVE.customer.final;   // the happy path's booked / final order
 const RB = LIVE.retier.booked, RF = LIVE.retier.final;       // the re-tier probe's booked / final order
 
@@ -180,15 +180,31 @@ await assertOverlay('  …no payment sheet', null);
 }
 await page.click('[data-act="needby"]');
 await assertOverlay('  …need-by sheet overlays', '02.1-date-time-sheet');
-await page.evaluate(() => {
-  const col = document.querySelector('.screen-sheet--overlay .wheel__col--scroll');
-  col.scrollTop = 40 * (Number(col.dataset.sel) + 1);
-});
-await page.waitForTimeout(300);
-await page.click('[data-act="sheet-confirm"]');
-await page.waitForTimeout(400);
+const moveNeedBy = async (days) => {
+  await page.evaluate((n) => {
+    const col = document.querySelector('.screen-sheet--overlay .wheel__col--scroll');
+    col.scrollTop = 40 * (Number(col.dataset.sel) + n);
+  }, days);
+  await page.waitForTimeout(300);
+  await page.click('[data-act="sheet-confirm"]');
+  await page.waitForTimeout(400);
+};
+await moveNeedBy(1);
 console.log(`${!await needByError() ? 'PASS' : 'FAIL'}  need-by after appointment clears`);
 if (await needByError()) failures++;
+// round 15 (Kevin): a need-by the day after the visit is a RUSH — the $150
+// row (captioned) after the visitation fee, in the total, paid at handoff;
+// the Reserve CTA still carries only the visitation fee. Two days out: no row.
+{
+  const rows02 = () => page.evaluate(() => ({ descs: [...document.querySelectorAll('[data-garments] .fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), fees: [...document.querySelectorAll('[data-garments] .fee-row__price')].map((e) => e.textContent.trim()).join(' '), captions: [...document.querySelectorAll('[data-garments] .fee-row__caption')].map((e) => e.textContent.trim()), cta: document.querySelector('[data-act="request"]')?.textContent.trim(), needBy: window.Taily.state.appt.needBy }));
+  let r = await rows02();
+  check(`02 rush: need-by the day after → Rush fee ${$(RUSH)} row, total +${$(RUSH)}, CTA keeps ${$(CB.fee)} (round 15)`, r.descs === 'Alterations (est.) | Visitation fee - Due Today | Rush fee | Total' && r.fees === fees(CB.alt, CB.fee, RUSH, CB.alt + CB.fee + RUSH) && r.captions[2] === CAPTION.rush && r.cta === `Reserve Appt · ${$(CB.fee)}`, JSON.stringify(r));
+  await page.click('[data-act="needby"]');
+  await assertOverlay('  …need-by sheet reopens', '02.1-date-time-sheet');
+  await moveNeedBy(2);   // the wheel reopens on the requested date
+  r = await rows02();
+  check('  …two days out: no rush row, the three captions', r.descs === 'Alterations (est.) | Visitation fee - Due Today | Total' && r.captions.join('|') === [CAPTION.alterations, CAPTION.visit, CAPTION.handoff].join('|'), JSON.stringify(r));
+}
 await page.click('[data-act="request"]');
 await assertAt('Request Tailor (stays on 02)', '02-appointment-details');
 await assertOverlay('  …payment sheet overlays', '02.3-payment-sheet');
@@ -574,6 +590,9 @@ await assertAt('Review Time → 03/Requested', '03-status-requested', 'searching
 await page.click('[data-act="keep-looking"]');
 await assertAt('Keep Looking (still searching)', '03-status-requested', 'searching');
 check('  …normal hero back', await heroTitle() === 'Finding your tailor…' && !(await page.evaluate(() => window.Taily.state.upcoming[0]?.proposed)), `"${await heroTitle()}"`);
+/* round 15: the happy path books two days out (a next-day need-by is a rush
+   now) — pull the need-by to the next day here so the R4-U-03 cap case holds */
+await page.evaluate(async () => { const D = await import('/js/data.js'); const a = window.Taily.state.upcoming[0]; a.needBy = `${D.shiftDay(a.when, 1).replace(/^\w+, /, '')}, 9:30 AM`; });
 await page.click('.status-hero .pill');
 await page.waitForTimeout(300);
 // UX-LOOP R4-U-03: the demo proposes on the need-by day here (need-by = the
@@ -763,26 +782,26 @@ await page.evaluate(() => { const s = window.Taily.state; s.garments = []; s.ui.
     await page.evaluate((g) => { window.Taily.state.garments = g; window.Taily.render('02-appointment-details'); }, garments);
     await page.waitForTimeout(200);
     /* round 10 (Kevin): the fee card is gone — the garments card ends in money rows */
-    return page.evaluate(() => ({ fees: [...document.querySelectorAll('[data-garments] .fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('[data-garments] .fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), notes: [...document.querySelectorAll('[data-garments] .fee-note')].map((e) => e.textContent.trim()), cards: document.querySelectorAll('[data-garments] .garment-card--flat').length, cta: document.querySelector('[data-act="request"]')?.textContent.trim() }));
+    return page.evaluate(() => ({ fees: [...document.querySelectorAll('[data-garments] .fee-row__price')].map((e) => e.textContent.trim()).join(' '), descs: [...document.querySelectorAll('[data-garments] .fee-row__desc')].map((e) => e.textContent.trim()).join(' | '), captions: [...document.querySelectorAll('[data-garments] .fee-row__caption')].map((e) => e.textContent.trim()), notes: [...document.querySelectorAll('[data-garments] .fee-note')].map((e) => e.textContent.trim()), cards: document.querySelectorAll('[data-garments] .garment-card--flat').length, cta: document.querySelector('[data-act="request"]')?.textContent.trim() }));
   };
   const g = (n) => Array.from({ length: n }, () => ({ type: 'Shirt / Blouse', jobs: ['Hem / Adjust Length'], photos: 0 }));   // round 12: one card per item
   let r = await on02(g(2));
-  const NOTE = 'Alterations are paid at pickup or delivery.';
-  const TIER = 'Helps cover transportation for larger appointments.';
+  /* round 15 (Kevin, 02 frame): the notes under the rows became the rows' captions — every tier, the same three */
+  const CAPTIONS = [CAPTION.alterations, CAPTION.visit, CAPTION.handoff].join('|');
   const T = LIVE.tiers;   // n × $120 Hem → the fee tier for n items
   const T2 = T(2), T4 = T(4), T5 = T(5), T6 = T(6), T10 = T(10), T11 = T(11);
-  check(`02 money rows, 2 items → ${$(T2.alt)} / ${$(T2.fee)} / ${$(T2.total)}, CTA Reserve Appt · ${$(T2.fee)} (round 12 tiers)`, r.fees === fees(T2.alt, T2.fee, T2.total) && r.descs === 'Alterations (est.) | Visitation fee - Due Today | Total' && r.notes.join('|') === NOTE && r.cta === `Reserve Appt · ${$(T2.fee)}`, JSON.stringify(r));
+  check(`02 money rows, 2 items → ${$(T2.alt)} / ${$(T2.fee)} / ${$(T2.total)}, CTA Reserve Appt · ${$(T2.fee)} (round 12 tiers)`, r.fees === fees(T2.alt, T2.fee, T2.total) && r.descs === 'Alterations (est.) | Visitation fee - Due Today | Total' && r.captions.join('|') === CAPTIONS && r.notes.length === 0 && r.cta === `Reserve Appt · ${$(T2.fee)}`, JSON.stringify(r));
   check('  …the editable cards sit as flat rows inside the garments card (round 10)', r.cards === 2, `cards=${r.cards}`);
   r = await on02(g(4));
-  check(`02 rows, 4 items → still ${$(T4.fee)}`, r.fees === fees(T4.alt, T4.fee, T4.total) && r.notes.length === 1, JSON.stringify(r));
+  check(`02 rows, 4 items → still ${$(T4.fee)}`, r.fees === fees(T4.alt, T4.fee, T4.total) && r.captions.join('|') === CAPTIONS, JSON.stringify(r));
   r = await on02(g(5));
-  check(`02 rows, 5 items → ${$(T5.fee)} + tier note, CTA Reserve Appt · ${$(T5.fee)}`, r.fees === fees(T5.alt, T5.fee, T5.total) && r.notes.join('|') === `${NOTE}|${TIER}` && r.cta === `Reserve Appt · ${$(T5.fee)}`, JSON.stringify(r));
+  check(`02 rows, 5 items → ${$(T5.fee)}, same captions, CTA Reserve Appt · ${$(T5.fee)}`, r.fees === fees(T5.alt, T5.fee, T5.total) && r.captions.join('|') === CAPTIONS && r.notes.length === 0 && r.cta === `Reserve Appt · ${$(T5.fee)}`, JSON.stringify(r));
   r = await on02(g(6));   // round 12: one card per item — six cards, six items
   check(`02 rows, 6 items → ${$(T6.fee)}`, r.fees === fees(T6.alt, T6.fee, T6.total) && r.cta === `Reserve Appt · ${$(T6.fee)}`, JSON.stringify(r));
   r = await on02(g(10));
   check(`02 rows, 10 items → ${$(T10.fee)}`, r.fees === fees(T10.alt, T10.fee, T10.total), JSON.stringify(r));
   r = await on02(g(11));
-  check(`02 rows, 11 items → ${$(T11.fee)} + tier note, CTA Reserve Appt · ${$(T11.fee)}`, r.fees === fees(T11.alt, T11.fee, T11.total) && r.notes.join('|') === `${NOTE}|${TIER}` && r.cta === `Reserve Appt · ${$(T11.fee)}`, JSON.stringify(r));
+  check(`02 rows, 11 items → ${$(T11.fee)}, same captions, CTA Reserve Appt · ${$(T11.fee)}`, r.fees === fees(T11.alt, T11.fee, T11.total) && r.captions.join('|') === CAPTIONS && r.notes.length === 0 && r.cta === `Reserve Appt · ${$(T11.fee)}`, JSON.stringify(r));
   // the payment sheet quotes the same fee
   await page.click('[data-act="request"]');
   await assertOverlay('  …payment sheet overlays', '02.3-payment-sheet');

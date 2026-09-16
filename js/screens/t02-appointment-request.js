@@ -30,12 +30,12 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { summaryCard, garmentCard, cta, toast } from '../components.js';
+import { summaryCard, garmentCard, cta, toast, visitBlock } from '../components.js';
 import { money, garmentAmount, fmtDay } from '../data.js';
 import { proposeNewTime } from './t03a-decline-request.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, payoutRows } from '../tailor-components.js';
-import { current, jobView, tailorOf, isFixture, isSeed, restartTimer, stampAcceptedPayout, proposalDays, T, CUSTOMER, REQUEST_ROWS } from '../tailor-data.js';
+import { current, jobView, tailorOf, isFixture, isSeed, restartTimer, stampAcceptedPayout, proposalDays, T, CUSTOMER, customerCard, REQUEST_ROWS } from '../tailor-data.js';
 
 /** The booked order as ViewOnly cards (shared with T03). */
 export function bookedCards(v) {
@@ -86,8 +86,9 @@ export function viewRequest(s, mode = null) {
   ${note}
   <div class="summary">
     <h2 class="t-title w-600 c-ink summary__title">Order Summary</h2>
-    ${summaryCard({ initials: CUSTOMER.initials, name: CUSTOMER.name, rows })}
+    ${summaryCard(customerCard())}
     <div class="garments-card">
+      ${visitBlock(rows)}
       ${bookedCards(v)}
       ${payoutRows(v, { offered: expired, protection: expired ? null : v.protection })}
     </div>

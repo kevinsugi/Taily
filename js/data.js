@@ -50,7 +50,31 @@ export const ADD_SERVICES = ['Taper', 'Sleeve', 'Resize', 'Repair', 'Lining'];
    delivery when chosen) are paid at handoff. The tailor's payout is
    100% of the alteration prices — see payout().
    ============================================================ */
-export const VISIT_FEE_NOTE = 'Helps cover transportation for larger appointments.';
+/* Round 15 (Kevin, 02 657:4875): the fee rows carry their explanation as
+   a caption under the label — the visitation row's on every screen that
+   prints it; 02 also captions Alterations and Total. */
+export const VISIT_FEE_CAPTION = 'Helps cover the cost of transport.';
+export const ALTERATIONS_EST_CAPTION = 'Price is finalized at the appointment.';
+export const HANDOFF_CAPTION = 'Alterations are paid at pickup or delivery.';
+export const VISIT_FEE_NOTE = VISIT_FEE_CAPTION;   // the old tier note — the same line now, on every tier
+
+/* Round 15 (Kevin): RUSH FEE — an order that must be finished within 24
+   hours of the visit (need-by is the visit's day or the next) owes a
+   flat $150, charged with the alterations at handoff; the tailor is paid
+   all of it (its own "Rush fee" line above "Your payout"). */
+export const RUSH_FEE = 150;
+export const RUSH_HOURS = 24;
+export const RUSH_CAPTION = 'Need-by is within 24 hours of your visit.';
+/** Is `needBy` within RUSH_HOURS of the visit's start (inclusive)? A
+    need-by with a time counts to that time; a day-only need-by to the
+    start of its day. Both strings go through parseWhen; anything
+    unparsable is not a rush. */
+export function isRush(when, needBy) {
+  const w = parseWhen(when); const nb = parseWhen(needBy);
+  if (!w || !nb) return false;
+  return nb.date.getTime() - w.date.getTime() <= RUSH_HOURS * 3600 * 1000;
+}
+export const rushFee = (when, needBy) => (isRush(when, needBy) ? RUSH_FEE : 0);
 /* Round 12 (Kevin): customer tiers $50 / $90 / $150 by item count, and
    the tailor now takes a CUT of the fee on the same bands — $25 / $50 /
    $90 (tailorFee) — paid with the alteration payout (see payout()). */
@@ -309,10 +333,11 @@ export function apptTotals(garments, base = {}) {
   const charged = base?.visitFeeCharged ?? base?.visitFee ?? tier;
   const fee = Math.max(tier, charged);
   const delivery = base?.delivery ?? 0;
+  const rush = base?.rush ?? 0;   // round 15: set at booking from the need-by (state.js bookingLines)
   return {
     rows, alterations, items,
     visitFee: fee, visitFeeCharged: charged, visitFeeAdded: Math.max(0, tier - charged),
-    delivery, total: alterations + fee + delivery,
+    delivery, rush, total: alterations + fee + delivery + rush,
     subtotal: alterations,
   };
 }

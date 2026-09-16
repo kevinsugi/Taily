@@ -19,7 +19,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, cta, orderCards, orderRows, feeTierNote } from '../components.js';
+import { chrome, cta, orderCards, orderRows, feeTierNote, apptRows, visitBlock, headingRow } from '../components.js';
 import { money, fmtDay, SEED_UPCOMING } from '../data.js';
 import { apptEntry, approveOrder, finalOrder, orderModified, isPostAppointment, isTerminal, canonicalStatus, statusScreen } from '../state.js';
 import { openRequestChanges } from './04.1-request-changes.js';
@@ -41,12 +41,13 @@ export function viewReview(s, screenId, fixture) {
   const removed = o.removed ?? [];   // the round-3 "Removed" frame's fixture carries its own
   return `${chrome('home')}
 <div class="body" data-s="${screenId}">
-  <div class="heading">
+  ${headingRow(`<div class="heading">
     <h1 class="t-title w-600 c-ink">Approve your final order.</h1>
     <p class="t-body w-500 c-500">Please review the final details and pricing before tailoring starts.${(o.garments ?? []).some((g) => g.added || g.addedJobs?.length) ? '<br><br>New items and services added during your appointment are shown in green below.' : ''}</p>
     ${live && a.resentAt ? `<p class="t-small w-500 c-success" data-resent>${first} updated the order on ${fmtDay(a.resentAt)}. Changes are highlighted below.</p>` : ''}
-  </div>
+  </div>`)}
   <div class="garments-card">
+    ${visitBlock(apptRows(a))}
     ${orderCards(o, { variant: 'PostAppt', marks: true })}
     ${removed.map((r) => `<div class="removed-row t-small c-500"><span>Removed at the visit — ${r.type} · ${(r.jobs ?? []).join(', ')}</span><s>${money(r.amount)}</s></div>`).join('\n    ')}
     ${orderRows(t, { feeDesc: 'Visitation fee — paid', due: 'Due at handoff', info, tier: true })}

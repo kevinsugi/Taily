@@ -55,6 +55,7 @@ import {
   DELIVERY_FEE,
   visitFee,
   visitFeeNote,
+  rushFee,
   apptTotals,
   payout,
   noShowComp,
@@ -667,10 +668,11 @@ export function bookingLines(tailor) {
   const alterations = rows.reduce((s, r) => s + r.amount, 0);
   const items = state.garments.length;   // round 12: one garment = one item
   const fee = visitFee(items);
+  const rush = rushFee(state.appt?.when, state.appt?.needBy);   // round 15 (Kevin): $150 when need-by is within 24h of the visit
   return {
     rows, alterations, items,
     visitFee: fee, visitFeeCharged: fee, visitFeeAdded: 0,
-    delivery: 0, total: alterations + fee,
+    delivery: 0, rush, total: alterations + fee + rush,
     note: visitFeeNote(items),
     subtotal: alterations,   // deprecated alias
   };

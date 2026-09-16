@@ -14,6 +14,7 @@
 /* 02 - Appointment Details â€” frame is 931 tall with dead space below
    the CTA bar; Filters frame is fixed 64 with 52px of content. */
 .screen[data-screen="02-appointment-details"] { min-height: 1012px; }   /* round 9: the frame grew to 1012 with the fee card */
+.screen[data-screen="02-appointment-details-rush"] { min-height: 1036px; }   /* round 15: the rush sibling hugs (728:3244) */
 [data-s="02-appointment-details"] { gap: var(--space-16); }
 /* Phase R0: two pills split the 350 track 1:1 (171 each, gap 8) â€”
    the row no longer scrolls. */
@@ -265,7 +266,7 @@
 [data-s="03-status-summary"] { gap: var(--space-12); padding-bottom: var(--space-24); }
 /* Phase R2: PostAppt cards + four fee rows grew the frame to 1016
    (40 dead below the CTA bar). */
-.screen[data-screen="03-status-summary"] { min-height: 1131px; }   /* round 14: badges on the tailor card */   /* round 10: View All Appointments gone */
+.screen[data-screen="03-status-summary"] { min-height: 1229px; }   /* round 15: back rows / Visit Details / captions */   /* round 14: badges on the tailor card */   /* round 10: View All Appointments gone */
 .summary { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 .summary--tight { gap: var(--space-4); }
 .summary__title { margin: 0; }
@@ -297,9 +298,9 @@
 .prepare-list li::marker { font-size: var(--size-12); }
 
 /* Phase R2: 04C gained the Reschedule / Cancel CTA â†’ 1192 */
-.screen[data-screen="03-status-confirmed"] { min-height: 1570px; }   /* round 14: the Meet Marco layout (694:3361) */   /* round 10: View All Appointments gone */
+.screen[data-screen="03-status-confirmed"] { min-height: 1567px; }   /* round 15: back rows / Visit Details / captions */   /* round 14: the Meet Marco layout (694:3361) */   /* round 10: View All Appointments gone */
 /* Phase R4: the Active Job Card hero grew the frame to 1173 */
-.screen[data-screen="03-status-tailoring"] { min-height: 1168px; }   /* round 14: badges */   /* round 10: View All Appointments gone */   /* round 3: Add to Calendar left the CTA bar */
+.screen[data-screen="03-status-tailoring"] { min-height: 1292px; }   /* round 15: back rows / Visit Details / captions */   /* round 14: badges */   /* round 10: View All Appointments gone */   /* round 3: Add to Calendar left the CTA bar */
 /* 04D hero â€” Active Job Card, user side (570:8929): white r20 card,
    date badge + name/need-by + Tailoring pill head, tailoring progress
    bar, measured-and-pinned note. */
@@ -382,7 +383,7 @@
    Phase R2: the cancel line moved into the R1 popup â€” frame is
    1101.67 â†’ 1102. */
 [data-s="03-status-reminder"] { padding-bottom: var(--space-24); gap: var(--space-12); }
-.screen[data-screen="03-status-reminder"] { min-height: 1294px; }   /* round 14: badges */
+.screen[data-screen="03-status-reminder"] { min-height: 1393px; }   /* round 15: back rows / Visit Details / captions */   /* round 14: badges */
 .actions { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 
 /* M1 - Message Tailor: inner pad 20/20/24, gap 12 */
@@ -475,11 +476,11 @@
    Phase R0: heading pulled up to the bare 128 offset (as on 05);
    third fee row grew the frame to 932. */
 [data-s="04-review-approve"] { padding-bottom: var(--space-24); gap: var(--space-16); }
-.screen[data-screen="04-review-approve"] { min-height: 890px; }   /* round 14: copy */
+.screen[data-screen="04-review-approve"] { min-height: 1036px; }   /* round 15: back rows / Visit Details / captions */   /* round 14: copy */
 /* 06b - Review & Approve - Modified (Phase R0): same chassis as 06a;
    the added service + garment grow the frame to 1108. */
 [data-s="04-review-approve-modified"] { padding-bottom: var(--space-24); gap: var(--space-16); }
-.screen[data-screen="04-review-approve-modified"] { min-height: 1129px; }   /* round 14: copy */
+.screen[data-screen="04-review-approve-modified"] { min-height: 1275px; }   /* round 15: back rows / Visit Details / captions */   /* round 14: copy */
 /* round 3: the Removed variant shares 04/Modified's chassis */
 [data-s="04-review-approve-removed"] { padding-bottom: var(--space-24); gap: var(--space-16); }
 /* UX-LOOP round 8: the Re-tiered fixture route shares 04/Modified's chassis
@@ -581,7 +582,7 @@
 .screen[data-screen="05a-pickup-window"],
 .screen[data-screen="05b-delivery-options"] { min-height: 872px; }
 /* Phase R2: 08's summary went PostAppt with four fee rows â€” 1198 */
-.screen[data-screen="06-journey-complete"] { min-height: 1173px; }
+.screen[data-screen="06-journey-complete"] { min-height: 1348px; }   /* round 15: back rows / Visit Details / captions */
 
 /* ============================================================
    Phase R2 screens â€” R1 / RC1 modal popups, 05X, PV3.
@@ -601,23 +602,23 @@
 /* 05X - Appointment Cancelled (558:3817): 05's chassis, one-line
    heading, refund card in place of the prepare card, single CTA. */
 [data-s="03-status-cancelled"] { padding-bottom: var(--space-24); gap: var(--space-12); }
-.screen[data-screen="03-status-cancelled"] { min-height: 948px; }
+.screen[data-screen="03-status-cancelled"] { min-height: 1047px; }   /* round 15: back rows / Visit Details / captions */
 /* UX-LOOP round 3 — sibling frames of the round-2 live-only states (each
    frame hugs its content; the 03 variants are shorter than the phone) */
 /* UX-LOOP round 6 (Kevin): the 03 variant frames are padded to the
    phone's 844 (Expired / Declined; the taller ones hug their content) */
-.screen[data-screen="03-status-expired"] { min-height: 844px; }
-.screen[data-screen="03-status-declined"] { min-height: 844px; }
-.screen[data-screen="03-status-tailor-cancelled"] { min-height: 930px; }   /* round 3: fee rows shown (R3-U-06) */
-.screen[data-screen="03-status-no-show"] { min-height: 909px; }   /* round 6: one-line "fee was kept" body */
-.screen[data-screen="04-review-approve-removed"] { min-height: 1018px; }   /* round 14: copy */
+.screen[data-screen="03-status-expired"] { min-height: 927px; }   /* round 15: back rows / Visit Details / captions */
+.screen[data-screen="03-status-declined"] { min-height: 961px; }   /* round 15: back rows / Visit Details / captions */
+.screen[data-screen="03-status-tailor-cancelled"] { min-height: 1029px; }   /* round 15: back rows / Visit Details / captions */   /* round 3: fee rows shown (R3-U-06) */
+.screen[data-screen="03-status-no-show"] { min-height: 1029px; }   /* round 15: back rows / Visit Details / captions */   /* round 6: one-line "fee was kept" body */
+.screen[data-screen="04-review-approve-removed"] { min-height: 1164px; }   /* round 15: back rows / Visit Details / captions */   /* round 14: copy */
 .screen[data-screen="03-status-new-time"] { min-height: 872px; }
-.screen[data-screen="09-bookings-closed"] { min-height: 1050px; }   /* round 3: no matching note under a proposed time (R3-U-07) */
+.screen[data-screen="09-bookings-closed"] { min-height: 1102px; }   /* round 15: back rows / Visit Details / captions */   /* round 3: no matching note under a proposed time (R3-U-07) */
 /* UX-LOOP round 8 — sibling frames for the round-7 live-only states
    (measured from the round-8 refs; 04 / Re-tiered hugs its content) */
-.screen[data-screen="03-status-reminder-locked"] { min-height: 1145px; }
-.screen[data-screen="03-status-confirmed-locked"] { min-height: 1139px; }
-.screen[data-screen="03-status-unconfirmed"] { min-height: 951px; }
+.screen[data-screen="03-status-reminder-locked"] { min-height: 1244px; }   /* round 15: back rows / Visit Details / captions */
+.screen[data-screen="03-status-confirmed-locked"] { min-height: 1238px; }   /* round 15: back rows / Visit Details / captions */
+.screen[data-screen="03-status-unconfirmed"] { min-height: 1050px; }   /* round 15: back rows / Visit Details / captions */
 
 /* PV3 - Photo Viewer (559:2112): 04D dimmed under an ink@95% scrim,
    filmstrip panel pinned at the 128 offset. Literal 2/10px gaps and

@@ -1284,8 +1284,53 @@ reviews, languages, photo) would need a home in `data.js` TAILORS.
 - The profile facts (15 years, Tribeca, 1.2 mi, bio) live on `TAILORS.marco.profile`; James / the
   past bookings have none, so their cards fall back to Marco's profile if tapped.
 
+## Round 15 — component-wide updates: garment cards, Home tiles, fee captions, Visit Details, tailor cards, Back, rush fee (Sep 15 2026; Figma synced)
+
+### Kevin's asks (source-of-truth frames named per item)
+- Garment cards (04 / Modified 551:6263): title is the garment alone (no count), "Add Service" / "+ Add Garment" copy (02), simplified colours, Before | Pinned tabs whose taps swap the set and whose tiles open the viewer.
+- Home tiles (Garment Tile 252:1235): Selected_One / Selected_Multi / Selected_MultiRow — big chevron zones top (+1) and bottom (−1), one small icon per item, "3 Suit Jackets".
+- Fee explanations (02 657:4875): the caption sits in the row, right under the label.
+- Visit Details (03 / Confirmed 694:3361) at the top of every order-summary card.
+- Tailor card (Tailor Summary Card 720:4896): Default = tailor details only (visit rows gone); Default tap → the Expanded popup (03.4); the Expanded card in-page is inert.
+- Back beside the headings (02, 03 / Requested) — "every heading".
+- Rush fee: $150 when the order must be done within 24 hours.
+
+### Answers (Kevin: "go with the defaults")
+1. Before | Pinned tabs on post-visit cards only (04 onward); pre-visit cards keep a plain tile row.
+2. Icons cap at six; the label keeps counting. Plurals from `GARMENT_TYPES[].plural`; selected tiles keep the grid width (the master's 110 would overflow the row).
+3. Captions: 02 captions all three rows (Alterations "Price is finalized at the appointment.", Visitation "Helps cover the cost of transport.", Total "Alterations are paid at pickup or delivery."); everywhere else the visitation row alone carries the transport caption, the rest of those frames as drawn.
+4. Visit Details on every customer garments card (03 family, 04 family, 06) — three rows, "Visit Details" serif 24.
+5. Tailor side: the visit rows moved into the same block on the tailor's garments card; Sarah's card is Kevin's new **User Summary** master (207:3847: "Sarah Chen ✓ New Customer" + Nurse / Cat Lover / Enjoys Hiking placeholder badges — built as drawn, raised).
+6. Back on every heading except Home / T01 / Bookings (nav tabs); it steps the prototype's history, Home / T01 at the root.
+7. Rush fee: $150 when the need-by is within 24 h of the visit (inclusive; a day-only need-by counts to its start), drawn with the fee-row pattern + caption "Need-by is within 24 hours of your visit.", paid with the alterations at handoff (Reserve keeps the visitation fee), in every total, and the tailor's payout gets all of it as its own "Rush fee" line.
+8. Figma synced (after a brief "not yet" that arrived once the sync had already run — reported).
+
+### Results
+- `garmentTile()` renders the four tile states (`.garment-tile--one/--row/--grid`, `TILE_CHEVRON`, `--tile-gradient` token); Home's tap wiring is unchanged (zones carry `data-plus` / `data-minus`).
+- `garmentCard()` PostAppt cards all draw the Before | Pinned row (active ink); view services read ink; no count in the title. `additionalSelector` reads "⊕ Add Service" (`ICON_ADD`, 20px); 02 / T04 "+ Add Garment".
+- `feeRow(price, desc, { caption })` → `.fee-row__text` / `.fee-row__caption`; `orderRows({ captions })`, `receiptRows` caption the visitation row; 02 repaints its rows when a pill changes (`repaintRows`).
+- `visitBlock(rows)` (`.visit-block__row`) opens every garments card (customer `apptRows(a)`, tailor `jobView().rows` / `requestRows`, "Need by: Fri, Jul 17 (5 Days)" per Kevin's tailor frames — `daysLabel`).
+- `summaryCard({ tag, user, badges })`: the Default tailor card is avatar + name ✓ + badges in the info column (12/20); `summary-card--user` is Sarah's User Summary (20 pad, accent tag, neutral-100 chips). `trustCard` in-page is inert (no role/cursor); only `.summary-card` opens 03.4.
+- `backButton()` / `headingRow(inner)` (`.heading-row`, `.back` shares `.t-back`'s style); app.js `wireBackButtons` wires every `.back` after a screen's own wire (tailor screens narrow their own `[data-act="back"]` selectors where a heading row was added).
+- Rush: data.js `RUSH_FEE / RUSH_HOURS / isRush / rushFee`, `apptTotals` carries `rush`, state.js `bookingLines` stamps it, `dueBase` adds it; tailor-data `rushOf / jobPayout` (accepted payout, T05 change line, `orderMoney(garments, a)`), `payoutRows({ rush })`.
+- New route + frame: `02-appointment-details-rush` (728:3244). Test flows: `c-home-multi`, `c-details-rush`, `c-confirmed-rush`, `t-request-rush`.
+- T05 draws Sarah's User Summary card (Kevin's frame).
+- Harness: money.mjs `RUSH` / `CAPTION`; the customer and tailor happy paths book two days out (a next-day need-by is a rush now) with a rush probe on 02; `.visit-block__row`; parity ALLOW `01a-home-selected` ("Shirts/Blouses"), t06 ("$120", "✕", "Hem / Adjust Length"), `R14_SARAH_BADGES` retired. Baselines re-accepted where the frames changed; min-heights follow the new frame heights.
+- Figma (Kevin: sync): Visit Details block cloned into 22 customer cards + T02 Accepted / Expired, T03 Upcoming, T03.1, T06; the visitation caption on 24 rows + 02.x backdrops' three captions; Back rows on 28 user headings (03 siblings, 04 ×4, 05 / 05a / 05b, 06, every popup and sheet backdrop) and T03b ×4, T08, T03a ×2; the remaining Sarah cards swapped to User Summary; the 03 siblings' fixed 88px tailor cards set to hug (badges were clipped); Selector Type=Additional reads "Add Service" with the 20px glyph (old icon hidden); Garment Tile description refreshed; 02.x backdrops "+ Add Garment", old note hidden; the 02 / Rush sibling; refs re-exported.
+
+### Flags
+- **03 / Requested (Kevin's Back row)**: the Status Hero stays 350 wide inside the new row, so the frame's hero overflows by the Back's 27px; the code lets it shrink (the body wraps to three lines) — 2.58% accepted.
+- **03 / Confirmed**: "Visitation fee — charged 7/7/26" fits one line in Figma's label column but wraps in Chromium (font metrics) — 4.13% accepted.
+- **Tailor - Garment Card master**: the Appt_View variant still draws a visible ✕ and the T06 frame's first two cards read $120 (the old "$120 / $120 / $80" quirk) — parity ALLOW, T06 11.1% accepted; T04 7.5%.
+- **01a**: the selected tile's label reads "3 Shirts/Blouses" (no spaces) — the code pluralises "Shirts / Blouses" (ALLOW).
+- **02 / Rush** (new): inherits 02's card-2-has-no-service-line quirk — 8.87% first baseline.
+- **User Summary**: the placeholder badges (Nurse / Cat Lover / Enjoys Hiking) and "✓ New Customer" are built as drawn; say when real ones exist.
+- **Garment Tile master**: Selected_One's label is neutral-700 where the multi states use ink — built as drawn (`.garment-tile--one .garment-tile__label`). The add glyph's fill is M3 on-surface #1D1B20 — drawn in ink.
+- **02's second card** still has no service line (standing).
+- 04's Back row centres the chevron on the whole heading block (title + two paragraphs), as the row pattern dictates — say if it should align to the title.
+
 ## Figma sync pending (ledger — Kevin: Figma is written only when asked, Sep 13 2026)
 
 Rounds are code + harness by default. Every frame edit a round would have made is listed here (frame · node · old → new) and stays until Kevin says "sync Figma"; text-parity ALLOW entries and accepted baselines for these carry a `pending-figma` note. On sync: `npm run figma:find "<text>"` for the ids, one `use_figma` call per page, `npm run refs`, re-accept the diffs, clear the entries below.
 
-- (nothing pending — rounds 12–14 were synced in full)
+- (nothing pending — rounds 12–15 were synced in full)

@@ -12,7 +12,7 @@ import { toast, closeOverlay } from './components.js';
    module body (imports hoist), hitting the `screens` map in its TDZ.
    The list grows as Phase 4 lands each screen. */
 const SCREEN_MODULES = [
-  '01-home', '01a-home-selected', '02-appointment-details', '02.1-date-time-sheet', '02.2-address-sheet', '09-bookings',
+  '01-home', '01a-home-selected', '02-appointment-details', '02-appointment-details-rush', '02.1-date-time-sheet', '02.2-address-sheet', '09-bookings',
   '02.3-payment-sheet', '02.4-add-card-sheet', '03-status-confirmed', '03-status-tailoring', '03-status-summary',
   '03-status-requested', '03-status-reminder', '10-messages',
   '04-review-approve', '04-review-approve-modified', '05-items-ready', '05a-pickup-window', '05b-delivery-options', '06-journey-complete',
@@ -122,6 +122,7 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   el.innerHTML = entry.view(state);
   el.dataset.screen = id;
   entry.wire?.(el);
+  wireBackButtons(el);
   window.__tailyNavigated = true;   // first render sets it AFTER wire ran
 
   if (opts.fresh) history.length = 0;
@@ -132,6 +133,19 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
 
   announce(id);
   return true;
+}
+
+/* Round 15 (Kevin): the Back control beside every heading (components.js
+   backButton) — steps the prototype's history; at the root (a cold
+   `?screen=` link) it goes Home for the persona showing. Screens that
+   wire their own `[data-act="back"]` (the tailor's backHeader, the chat
+   heads) are left alone. */
+function wireBackButtons(root) {
+  root.querySelectorAll('.back[data-act="back"]').forEach((btn) => {
+    if (btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', () => back() || render(state.persona === 'tailor' ? 't01-home' : '01-home'));
+  });
 }
 
 /** Step back one screen. Returns the id now showing, or null at the root. */

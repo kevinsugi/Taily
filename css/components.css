@@ -62,12 +62,6 @@
    Clicks stay live — this is a prototype. */
 .cta--disabled { opacity: 0.55; }
 
-/* Tailor Summary Card as placed on 04c: fixed 111 with centred content */
-.summary-card--fixed {
-  /* round 14: the master hugs again (12 + who 96 + 8 + badges 24 + 12 = 152); 111 was the old fixed card */
-  min-height: 111px;
-  justify-content: center;
-}
 
 /* ============================================================
    Status Pill — Figma 312:826. 9 variants. gap4 pl8 pr12 py4 r20.
@@ -324,41 +318,55 @@
   white-space: nowrap;
 }
 
+/* Selected_One / Selected_Multi / Selected_MultiRow (round 15, Kevin —
+   Garment Tile 713:3982 / 713:4000 / 713:4014): 2px neutral-700 border,
+   the Tile Gradient fill, 0 4 4 black@25% shadow, content spread top to
+   bottom — the add zone, the icons, the "3 Suit Jackets" label, the
+   remove zone. Zones are full-width, 4 padded, holding the 22x5 chevron. */
 .garment-tile--selected {
+  justify-content: space-between;
+  gap: 0;
+  padding: 0;
   border: 2px solid var(--neutral-700);
-  padding: calc(var(--space-8) - 1px);       /* keep content box identical */
-  box-shadow: 0 4px 2px rgba(0, 0, 0, 0.25);
-  overflow: visible;
+  background: var(--tile-gradient);
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
 }
-
-/* Plus / quantity badge / minus — 01a (532:946), round 12 (Kevin): the
-   three 22px controls stack vertically, right-aligned, absolute at
-   left 89 / top -9 on the 108.667 tile. */
-.garment-tile__qty {
-  position: absolute;
-  top: -9px;
-  left: 89px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-.garment-tile__badge {
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-20);
-  background: var(--ink);
-  color: var(--neutral-50);
-  font-family: var(--font-sans);
-  font-size: var(--size-12);
-  line-height: 16px;
-  font-weight: 700;
+.garment-tile__zone {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(26, 23, 18, 0.14);
+  width: 100%;
+  padding-block: var(--space-4);
+  color: var(--neutral-700);
+  flex-shrink: 0;
 }
-.garment-tile__minus { width: 22px; height: 22px; flex-shrink: 0; }
-.garment-tile__minus-hit { display: inline-flex; flex-shrink: 0; }
+.garment-tile__chevron { width: 22px; height: 5px; overflow: visible; display: block; }
+.garment-tile__zone--add .garment-tile__chevron { transform: rotate(180deg); }
+.garment-tile__icons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-height: 0;
+}
+.garment-tile__icon { position: relative; display: block; overflow: hidden; flex-shrink: 0; }
+.garment-tile__icon img { position: absolute; max-width: none; }
+/* one item: a 56x44 icon, the art covering it */
+.garment-tile--one .garment-tile__icon { width: 56px; height: 44px; }
+.garment-tile--one .garment-tile__icon img { inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* 2–3 items: a row of 30x40 icons, the art zoomed 127% and shifted as
+   the master's fill (left −36.87%, top −13.64%, 169.7% wide) */
+.garment-tile--row .garment-tile__icon { width: 30px; height: 40px; }
+.garment-tile--row .garment-tile__icon img,
+.garment-tile--grid .garment-tile__icon img { left: -36.87%; top: -13.64%; width: 169.7%; height: 127.27%; }
+/* 4–6 items: two rows of three 25x33 icons */
+.garment-tile--grid .garment-tile__icons { width: 83px; }
+.garment-tile--grid .garment-tile__icon { width: 25px; height: 33px; }
+/* the master draws Selected_One's label neutral-700, the multi states' ink (raised) */
+.garment-tile--one .garment-tile__label { color: var(--neutral-700); }
+.garment-tile--selected .garment-tile__label { transform: none; }
 
 /* ---------- shared motion accessibility ---------- */
 @media (prefers-reduced-motion: reduce) {
@@ -557,12 +565,16 @@
    Tailor Summary Card — Figma 67:196. White p20 r16 gap16 +
    64px squircle avatar (r20, ink) and 16px info rows.
    ============================================================ */
+/* Round 15 (Kevin, Tailor Summary Card 720:4896 Default): 12/20 padded,
+   avatar + an info column (name row, then the badges wrapping under it,
+   gap 4). The visit rows left the card. */
 .summary-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
+  gap: var(--space-8);
   width: 100%;
-  padding: var(--space-12) var(--space-20);   /* round 14: the master moved to 12/20 (was 20) */
+  padding: var(--space-12) var(--space-20);
+  cursor: pointer;
   border-radius: var(--radius-lg);
   background: var(--white);
   box-shadow: 0 6px 16px rgba(28, 27, 24, 0.07), 0 2px 6px rgba(28, 27, 24, 0.06);
@@ -609,8 +621,14 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.summary-card .trust-badges { margin-top: calc(-1 * var(--space-8)); }
+.summary-card__info { flex: 1 1 0; min-width: 0; }
+.summary-card__info .trust-badges { width: 100%; }
 .trust-badges--wide .trust-badge { padding: var(--space-4) var(--space-12); }
+/* Round 15 (Kevin, User Summary 207:3847): the customer's card on the tailor
+   side — 20 padded, the accent "✓ New Customer" tag, neutral-100 chips in accent ink */
+.summary-card--user { padding: var(--space-20); cursor: default; }
+.summary-card__tag { font-size: var(--size-12); line-height: 16px; font-weight: 600; color: var(--accent-ink); }
+.trust-badges--user .trust-badge { background: var(--neutral-100); color: var(--accent-ink); }
 .trust-line { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }   /* master: who → badges gap 8 inside the card's 16 */
 /* Trust Card — Meet Marco (round 14): 03/Confirmed in-page + the 03.4 popup */
 .trust-card {
@@ -622,9 +640,8 @@
   border-radius: var(--radius-lg);
   background: var(--white);
   box-shadow: 0 6px 16px rgba(28, 27, 24, 0.07), 0 2px 6px rgba(28, 27, 24, 0.06);
-  cursor: pointer;
 }
-.trust-card--popup { position: absolute; z-index: 3; left: var(--space-20); top: 194.5px; width: 350px; cursor: default; }
+.trust-card--popup { position: absolute; z-index: 3; left: var(--space-20); top: 194.5px; width: 350px; }
 .trust-card__photo { width: 100%; height: 180px; border-radius: var(--radius-md); background: var(--media-placeholder); }
 .trust-card__head { display: flex; flex-direction: column; gap: var(--space-8); }
 .trust-card__name-row { display: flex; align-items: center; gap: var(--space-8); }
@@ -635,7 +652,25 @@
 /* 03/Confirmed's Visit Details block at the top of the garments card */
 .visit-block { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-12) var(--space-8); box-shadow: inset 0 -1px 0 var(--neutral-100); }
 .visit-block__title { font-family: var(--font-serif); font-size: var(--size-24); line-height: 29px; font-weight: 600; color: var(--ink); }
-.visit-block .summary-card__row { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; }
+.visit-block__row { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 500; color: var(--neutral-600); white-space: pre; }
+/* Round 15 (Kevin): the Back control (308:3820) beside a heading — a
+   36-tall, 8-padded box around "‹" 28 Regular ink; the row centres it
+   on the heading block (gap 4). */
+.back, .t-back {
+  height: 36px;
+  padding-inline: var(--space-8);
+  background: none;
+  border: 0;
+  font-family: var(--font-sans);
+  font-size: var(--size-28);
+  line-height: 34px;
+  font-weight: 400;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.heading-row { display: flex; align-items: center; gap: var(--space-4); width: 100%; }
+.heading-row__body { flex: 1 1 0; min-width: 0; }
+.heading-row__body > * { width: 100%; }
 .summary-card__row { font-weight: 500; color: var(--neutral-600); white-space: pre; }
 
 /* ============================================================
@@ -725,12 +760,14 @@
    per the master (editable variants style their own selectors).
    Phase R0: was unstyled and inherited body ink; every summary
    screen's ref shows accent. */
+/* Round 15 (Kevin, 04 / Modified): services read ink, like the title —
+   success is the only other colour (NEW items). */
 .garment-card--view .garment-card__service {
   font-family: var(--font-sans);
   font-size: var(--size-16);
   line-height: 21px;
   font-weight: 500;
-  color: var(--accent-ink);
+  color: var(--ink);
 }
 /* Phase R0 (06B): items added/changed at order confirmation */
 /* Round 13 (Kevin): items added at the visit — NEW sticker (semantic/success
@@ -758,7 +795,7 @@
 .photo-row--tabs { flex-direction: column; overflow: visible; margin-right: 0; }
 .photo-tabs { display: flex; gap: var(--space-4); }
 .photo-tabs .photo-tiles__label { color: var(--neutral-200); cursor: pointer; }
-.photo-tabs .photo-tiles__label.is-active { color: var(--neutral-500); }
+.photo-tabs .photo-tiles__label.is-active { color: var(--ink); }   /* round 15: the active tab reads ink (04 / Modified 713:3737) */
 .photo-row--tabs [data-photo-set][hidden] { display: none; }   /* the class display beats the hidden attribute */
 
 /* ---------- Selector — Figma 535:1582 ----------
@@ -821,10 +858,11 @@
 /* Type=Additional (541:1951/1975/1983): "⊕ Additional Service" trigger
    (gap 4, py 4 — its 32px trigger pushes the menu to top 38); priced
    ADD A SERVICE menu; added rows get a ✕ remove. */
-.selector__trigger--add { gap: var(--space-4); padding-block: var(--space-4); font-weight: 500; color: var(--accent-ink); }
-/* Figma (541:1989): 24px icon box, 13.33px glyph centred — advance 24+4 */
-.selector__trigger--add .icon-add-circle { width: 13.33px; height: 13.33px; margin: 5.33px; flex-shrink: 0; }
-.selector--additional .selector__menu { top: 38px; }
+/* Round 15 (Kevin, 02 657:5705): "⊕ Add Service" — a 20px add glyph +
+   Medium 16 ink, gap 4, py 4 (the trigger is 28 tall; menu at top 34). */
+.selector__trigger--add { gap: var(--space-4); padding-block: var(--space-4); font-weight: 500; color: var(--ink); }
+.selector__trigger--add .icon-add { width: 20px; height: 20px; flex-shrink: 0; }
+.selector--additional .selector__menu { top: 34px; }
 .selector--added { flex-direction: row; align-items: center; }
 .selector--added .selector__menu { top: 27px; }
 .selector__menu-header {
@@ -1265,6 +1303,16 @@
   font-size: var(--size-16);
   line-height: 21px;
   font-weight: 600;
+  color: var(--neutral-500);
+}
+/* Round 15 (Kevin, 02 720:4178): a captioned row stacks the label over a
+   12/16 Medium neutral-500 caption, 2 apart, filling the row. */
+.fee-row__text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
+.fee-row__caption {
+  font-family: var(--font-sans);
+  font-size: var(--size-12);
+  line-height: 16px;
+  font-weight: 500;
   color: var(--neutral-500);
 }
 /* Phase R0: rows above the last carry a bottom hairline — inset so the

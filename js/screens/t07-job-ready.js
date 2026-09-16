@@ -18,10 +18,10 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { cta, toast } from '../components.js';
+import { cta, toast, visitBlock } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, detailRow, orderDropdown, orderCards, payoutRows, openChat } from '../tailor-components.js';
-import { current, jobView, isFixture, firstPickupWindow, T, FIXTURE_FINAL, orderMoney } from '../tailor-data.js';
+import { current, jobView, isFixture, firstPickupWindow, T, FIXTURE_FINAL, orderMoney, CUSTOMER_ROWS } from '../tailor-data.js';
 
 const SHOP = '1025 Broadway';
 
@@ -62,8 +62,9 @@ export function viewReady(s, forced = null) {
   </div>
   ${orderDropdown()}
   <div class="garments-card order-summary" hidden>
+    ${visitBlock(fixture ? CUSTOMER_ROWS : v.rows)}
     ${orderCards(garments, { variant: 'Appt_View', plain: true })}
-    ${payoutRows(orderMoney(garments))}
+    ${payoutRows(orderMoney(garments, a))}
   </div>
 </div>`;
 }

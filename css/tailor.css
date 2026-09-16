@@ -33,17 +33,7 @@
 
 /* ---------- header row: ‹ + serif title (+ sub) ---------- */
 .t-header { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
-.t-back {
-  height: 36px;
-  padding-inline: var(--space-8);
-  background: none;
-  border: 0;
-  font-family: var(--font-sans);
-  font-size: var(--size-28);
-  line-height: 34px;
-  font-weight: 400;
-  color: var(--ink);
-}
+/* .t-back is styled with the customer's .back (components.css, round 15) */
 .t-heading { display: flex; flex-direction: column; gap: var(--space-4); }
 .t-status { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
 .t-section-row { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; }
@@ -331,5 +321,6 @@ html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) +
   font-family: var(--font-sans); font-size: var(--size-14); line-height: 18px; font-weight: 600; color: var(--success);   /* round 13 */
 }
 
-/* Round 14: the tailor frames' Sarah cards still draw the OLD 111px card (fixed height, the master's new badges clipped inside it — raised); the customer's card moved to the master's 12/20 padding. */
-[data-s^="t0"] .summary-card { padding: var(--space-20); }
+/* Round 15 (Kevin): Sarah's card follows the master (12/20, name only — the
+   badges are the tailor's; the visit rows moved to the Visit Details block). */
+/* (the Sarah card is .summary-card--user — components.css) */

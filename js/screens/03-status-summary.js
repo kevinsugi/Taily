@@ -12,7 +12,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, tailorTrust, cta, orderCards, apptRows, receiptRows } from '../components.js';
+import { chrome, statusHero, summaryCard, tailorTrust, cta, orderCards, apptRows, receiptRows, visitBlock, headingRow } from '../components.js';
 import { openTailorDetails } from './03.4-tailor-details.js';
 import { fmtDay } from '../data.js';
 import { finalOrder } from '../state.js';
@@ -37,9 +37,10 @@ function renderScreen(s) {
 
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-summary">
-  ${statusHero({ pill: 'completed', title: 'Order Summary', rowLabel: 'Items Received:', rowValue: receivedOn(a) })}
-  ${summaryCard({ fixed: true, ...tailorTrust(a), initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
+  ${headingRow(statusHero({ pill: 'completed', title: 'Order Summary', rowLabel: 'Items Received:', rowValue: receivedOn(a) }))}
+  ${summaryCard({ ...tailorTrust(a), initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor' })}
   <div class="garments-card">
+    ${visitBlock(apptRows(a))}
     ${orderCards(o, { variant: 'PostAppt' })}
     ${receiptRows(a, o.totals)}
   </div>

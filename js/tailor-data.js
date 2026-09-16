@@ -36,7 +36,19 @@ import { GARMENT_TYPES, SEED_UPCOMING, SEED_FINAL_ORDER, money, garmentAmount, f
 export const CUSTOMER = {
   name: 'Sarah Chen', first: 'Sarah', initials: 'SC',
   street: '88 Leonard Street', short: '88 Leonard St, 4B', dist: '1.2 mi',
+  /* round 15 (Kevin's User Summary master): the customer's tag + badges — placeholders until real ones exist (raised) */
+  tag: 'New Customer', badges: ['Nurse', 'Cat Lover', 'Enjoys Hiking'],
 };
+/** The Sarah card's props (T02 / T03 / T04): the User Summary master. */
+export const customerCard = () => ({ initials: CUSTOMER.initials, name: CUSTOMER.name, tag: CUSTOMER.tag, badges: CUSTOMER.badges, user: true });
+/** "(5 Days)" — the days between the visit and the need-by, as the tailor's Visit Details row prints it (round 15). */
+export function daysLabel(when, needBy) {
+  const w = parseWhen(when); const nb = parseWhen(needBy);
+  if (!w || !nb) return '';
+  const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const n = Math.max(0, Math.round((day(nb.date) - day(w.date)) / 86400000));
+  return ` (${n} ${n === 1 ? 'Day' : 'Days'})`;
+}
 
 /** Request expiry window (T01 timer): 1H 24M on first render (R1-T-14). */
 export const EXPIRY_MINUTES = 84;
@@ -145,20 +157,28 @@ export function payoutOf(garments = []) {
   if (typeof D.payout === 'function') return D.payout(garments);
   return garments.reduce((s, g) => s + garmentAmount(g), 0);
 }
+/** Round 15 (Kevin): the RUSH FEE — $150 when the customer's need-by is
+    within 24 hours of the visit — is paid to the tailor in full. It is a
+    booking fact the substrate stamps on `a.totals.rush` (state.js
+    bookingLines); the only field of the customer's totals the tailor
+    side reads. */
+export const rushOf = (a) => (typeof a?.totals?.rush === 'number' ? a.totals.rush : 0);
+/** A job's payout: the garment list's alteration prices + the fee cut + the rush fee. */
+export const jobPayout = (a, garments = []) => payoutOf(garments) + rushOf(a);
 /** The payout Marco accepted the job for: stamped on `a.tailor` by T02's
     Accept; a job confirmed another way (Sarah accepting a proposed
     time) is worth what she booked. */
-export const acceptedPayoutOf = (a) => a?.tailor?.acceptedPayout ?? payoutOf(bookedGarments(a));
+export const acceptedPayoutOf = (a) => a?.tailor?.acceptedPayout ?? jobPayout(a, bookedGarments(a));
 /** Stamp the accepted payout once (T02 Accept, the seed's fiction). */
 export function stampAcceptedPayout(a) {
   const t = tailorOf(a);
-  t.acceptedPayout ??= payoutOf(bookedGarments(a));
+  t.acceptedPayout ??= jobPayout(a, bookedGarments(a));
   return t.acceptedPayout;
 }
 /** "Payout $200 → $360 (+$160)" — the scope change T05 shows before
     Send; null when the draft is worth what Marco accepted. */
 export function payoutChange(a, draft, from = acceptedPayoutOf(a)) {
-  const to = payoutOf(draft);
+  const to = jobPayout(a, draft);
   if (from === to) return null;
   const d = to - from;
   return { from, to, delta: d, text: `Payout ${money(from)} → ${money(to)} (${d > 0 ? '+' : '−'}${money(Math.abs(d))})` };
@@ -272,7 +292,8 @@ export const isPost = (c) => POST_STATUSES.includes(c);
 
 /** The money a tailor screen prints for a garment list: the payout
     (100% of the alteration prices) — nothing else. */
-export const orderMoney = (garments = []) => ({ payout: payoutOf(garments), visitCut: visitCutOf(garments), alterations: payoutOf(garments) - visitCutOf(garments) });
+/* round 15: `a` adds the rush fee (its own payout line) */
+export const orderMoney = (garments = [], a = null) => ({ payout: jobPayout(a, garments), visitCut: visitCutOf(garments), rush: rushOf(a), alterations: payoutOf(garments) - visitCutOf(garments) });
 
 /** The order as the customer booked it — `a.booked` once T05 Send has
     stashed it, else the live `a.garments` (pre-visit they are the same). */
@@ -316,7 +337,8 @@ export function jobView(a) {
      final order post-visit, the booking before it. `a.totals` (the
      customer's alterations / Taily's fee / delivery / total) is never
      read on the tailor side. */
-  const payout = payoutOf(garments);
+  const rush = rushOf(a);                  // round 15: the rush fee, paid to the tailor in full
+  const payout = payoutOf(garments) + rush;
   const visitCut = visitCutOf(garments);   // round 12: the tailor's cut of the visitation fee, inside the payout
   const protection = noShowCompOf(a);   // round 8: T02's "No-show protection" row / T03B / T01's closed row
   const delivery = a?.fulfilment?.method === 'delivery';
@@ -341,7 +363,7 @@ export function jobView(a) {
   const time = when.split(' · ')[1] ?? when;
   const visitLabel = a?.visit === 'Store Visit' || a?.where === 'shop' ? 'Store visit' : 'Home visit';
   return {
-    canon: c, post, garments, payout, visitCut, alterations: payout - visitCut, protection, visitLabel,
+    canon: c, post, garments, payout, visitCut, rush, alterations: payout - visitCut - rush, protection, visitLabel,
     money: { payout: money(payout), visitCut: money(visitCut), protection: money(protection) },
     items: garments.length,
     itemsLabel: garmentsLabel(garments),
@@ -352,10 +374,10 @@ export function jobView(a) {
     day: post && nb ? String(nb.day) : (a?.day ?? '12'),
     meta: post ? `Need by: ${needBy}` : `${time} - ${address}`,
     /* Tailor Summary Card rows (T03/T04) from the live appointment */
-    rows: [`◉&nbsp;&nbsp;${address}`, `▤&nbsp;&nbsp;${when}`, `▤&nbsp;&nbsp;Need By: ${needBy}`],
+    rows: [`◉&nbsp;&nbsp;${address}`, `▤&nbsp;&nbsp;${when}`, `▤&nbsp;&nbsp;Need by: ${needBy}${daysLabel(a?.when, a?.needBy)}`],
     /* T02's rows (round 6): the first row adds the visit type and the
        travel distance (fixed 1.2 mi — the fiction) */
-    requestRows: [`◉&nbsp;&nbsp;${address} · ${visitLabel} · ${CUSTOMER.dist}`, `▤&nbsp;&nbsp;${when}`, `▤&nbsp;&nbsp;Need By: ${needBy}`],
+    requestRows: [`◉&nbsp;&nbsp;${address} · ${visitLabel} · ${CUSTOMER.dist}`, `▤&nbsp;&nbsp;${when}`, `▤&nbsp;&nbsp;Need by: ${needBy}${daysLabel(a?.when, a?.needBy)}`],
     /* T01 request card item lines */
     lines: garments.map((g) => `${g.type} - ${g.jobs.join(', ')} - ${money(garmentAmount(g))}`),
   };
@@ -374,10 +396,10 @@ export function jobTarget(a) {
 }
 
 /** Summary-card rows shared by the T03/T04 FRAMES (copy verbatim). */
-export const CUSTOMER_ROWS = ['◉&nbsp;&nbsp;88 Leonard Street', '▤&nbsp;&nbsp;Sun, Jul 12 · 7:00 PM', '▤&nbsp;&nbsp;Need By: Fri, Jul 17'];
+export const CUSTOMER_ROWS = ['◉&nbsp;&nbsp;88 Leonard Street', '▤&nbsp;&nbsp;Sun, Jul 12 · 7:00 PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17 (5 Days)'];
 /** T02's rows on the FRAME (round 6: 455:2170 + Accepted / Expired) —
     unit, visit type and distance on the first row. */
-export const REQUEST_ROWS = ['◉&nbsp;&nbsp;88 Leonard Street, 4B · Home visit · 1.2 mi', '▤&nbsp;&nbsp;Sun, Jul 12 · 7:00 PM', '▤&nbsp;&nbsp;Need By: Fri, Jul 17'];
+export const REQUEST_ROWS = ['◉&nbsp;&nbsp;88 Leonard Street, 4B · Home visit · 1.2 mi', '▤&nbsp;&nbsp;Sun, Jul 12 · 7:00 PM', '▤&nbsp;&nbsp;Need by: Fri, Jul 17 (5 Days)'];
 
 /* ---------- the at-visit draft (R1-T-03, R2-T-08) ---------- */
 
@@ -448,7 +470,7 @@ export function writeFinalOrder(a, draft) {
   if (typeof totals === 'function') a.totals = totals(a.garments, a.totals ?? {});
   else console.warn('apptTotals() is not available yet (substrate pending)');
   /* the scope changed → the payout Marco accepted moves with it */
-  tailorOf(a).acceptedPayout = payoutOf(a.garments);
+  tailorOf(a).acceptedPayout = jobPayout(a, a.garments);
   a.revisedAt = fmtDay(a.when, 'Sun, Jul 12');
   T.refreshItems(a);                      // R2-S-01/02: card item counts follow the final order
   return a;

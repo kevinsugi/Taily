@@ -52,6 +52,10 @@
   --space-32: 32px;
   --space-40: 40px;
 
+  /* Round 15 (Kevin): the Garment Tile's "Tile Gradient" style — neutral-300
+     at both edges fading through white (Selected_* states). */
+  --tile-gradient: linear-gradient(180deg, var(--neutral-300) 0%, rgba(255, 255, 255, 0.5) 8%, #FFFFFF 50%, rgba(255, 255, 255, 0.5) 92%, var(--neutral-300) 100%);
+
   /* ---------- Radius · Taily / Radius ---------- */
   --radius-4: 4px;               /* not a Figma variable — the New_Sticker's literal r4 (687:7420) */
   --radius-sm: 8px;

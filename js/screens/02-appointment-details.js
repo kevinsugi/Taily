@@ -22,7 +22,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, filterPill, garmentCard, cta, toast, orderRows } from '../components.js';
+import { chrome, filterPill, garmentCard, cta, toast, orderRows, headingRow } from '../components.js';
 import { money, garmentAmount, isAfter } from '../data.js';
 import { state, addGarment, removeGarment, bookingLines, addressLine, hasAddress } from '../state.js';
 /* Sheets open as in-place overlays (v3 sheetShow parity) — navigating to
@@ -70,21 +70,19 @@ export function view02(s) {
 
   return `${chrome('home')}
 <div class="body" data-s="02-appointment-details">
-  <div class="home-heading">
+  ${headingRow(`<div class="home-heading">
     <h1 class="t-title t-title--tight c-ink">Appointment Details</h1>
     <p class="t-body c-ink home-address" data-act="address" role="button" tabindex="0"><span class="emoji">📍</span> <span data-addr-text>${addressLine(contact)}</span></p>
-  </div>
+  </div>`)}
   <div class="filters">
     ${filterPill('Requested time:', appt.when ?? PILL_EMPTY, { attrs: 'data-act="time"' })}
     ${filterPill('Need by:', appt.needBy ?? PILL_EMPTY, { attrs: 'data-act="needby"', error: needByOk(s) ? '' : NEEDBY_MSG })}
   </div>
   <div class="garments-card" data-garments>
     ${cards}
-    ${orderRows(totals, { est: true, feeDesc: 'Visitation fee - Due Today' })}
-    <p class="t-small c-500 fee-note">${ALTERATIONS_NOTE}</p>
-    ${totals.note ? `<p class="t-small c-500 fee-note" data-fee-tier-note>${totals.note}</p>` : ''}
+    ${orderRows(totals, { est: true, feeDesc: 'Visitation fee - Due Today', captions: true })}
   </div>
-  <button type="button" class="add-garment" data-act="add-garment">+ Additional Garment</button>
+  <button type="button" class="add-garment" data-act="add-garment">+ Add Garment</button>
   <div class="cta-bar">
     ${cta(`Reserve Appt · ${money(totals.visitFee)}`, { attrs: 'data-act="request"' })}
     <p class="t-small c-500 cta-bar__note">A Taily-certified tailor near you will accept your request — final pricing is confirmed at your appointment.</p>
@@ -92,14 +90,22 @@ export function view02(s) {
 </div>`;
 }
 
-/* The note under the money rows — the same sentence 03/Confirmed and
-   03/Reminder print (kept local: importing it from 03/Confirmed would
-   pull the status family into the booking form's module graph). */
-const ALTERATIONS_NOTE = 'Alterations are paid at pickup or delivery.';
+/* Round 15 (Kevin, 657:4875): the notes under the rows became the rows'
+   captions (orderRows `captions`) — "Alterations are paid at pickup or
+   delivery." is the Total's, the transport line the visitation fee's. */
 
 /* UX-LOOP R1-U-11: repaint the need-by pill's validity in place after
    the picker closes (the picker updates the pill text without
    re-rendering — see 02.1's setPillValue). */
+/* Round 15 (Kevin): the money rows depend on the dates now (the rush fee
+   follows the need-by) — repaint them in place when a pill changes. */
+function repaintRows(root) {
+  const card = root.querySelector('[data-garments]');
+  if (!card) return;
+  card.querySelectorAll('.fee-row').forEach((r) => r.remove());
+  card.insertAdjacentHTML('beforeend', orderRows(bookingLines(null), { est: true, feeDesc: 'Visitation fee - Due Today', captions: true }));
+}
+
 function syncNeedBy(root) {
   const pill = root.querySelector('[data-act="needby"]')?.closest('.filter-pill');
   if (!pill) return;
@@ -205,7 +211,7 @@ function wire(root) {
   root.querySelector('[data-act="time"]')?.addEventListener('click', () => openDateTimeOverlay('appt'));
   root.querySelector('[data-act="needby"]')?.addEventListener('click', () => openDateTimeOverlay('needby'));
   /* the picker announces a pill change on .filters (dies with the render) */
-  root.querySelector('.filters')?.addEventListener('taily:appt-changed', () => syncNeedBy(root));
+  root.querySelector('.filters')?.addEventListener('taily:appt-changed', () => { syncNeedBy(root); repaintRows(root); });
   root.querySelector('[data-act="address"]')?.addEventListener('click', () => openAddressOverlay());
   root.querySelector('[data-act="request"]')?.addEventListener('click', () => {
     /* R1-U-11 / round 9: a missing time, a missing need-by or an
@@ -238,3 +244,4 @@ function wire(root) {
 }
 
 register('02-appointment-details', view02, wire);
+export { wire };

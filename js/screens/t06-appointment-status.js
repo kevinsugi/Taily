@@ -20,10 +20,10 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { cta, toast } from '../components.js';
+import { cta, toast, visitBlock } from '../components.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, jobCard, orderCards, payoutRows, openChat } from '../tailor-components.js';
-import { current, jobView, isFixture, isTerminalJob, payoutDate, T, FIXTURE_T06, CUSTOMER, reopenDraft } from '../tailor-data.js';
+import { current, jobView, isFixture, isTerminalJob, payoutDate, T, FIXTURE_T06, CUSTOMER, CUSTOMER_ROWS, reopenDraft } from '../tailor-data.js';
 import { fmtDay } from '../data.js';
 
 const LINE = {
@@ -61,6 +61,7 @@ export function viewStatus(s, forced = null) {
   <div class="summary">
     ${jobCard({ month: shown.month, day: shown.day, name: CUSTOMER.name, meta: shown.meta, payout: shown.money.payout, status: shown.pill, pillLabel: shown.pillLabel, stage: shown.stage, right, pending: shown.canon === 'awaiting-approval' })}
     <div class="garments-card">
+      ${visitBlock(fixture ? CUSTOMER_ROWS : shown.rows)}
       ${orderCards(shown.garments, { variant: 'Appt_View', plain: true })}
       ${payoutRows(shown)}
     </div>

@@ -67,9 +67,11 @@ const R7_T_REQUEST = [];   // R8: frames synced to the money model — kept empt
 /* Round 14: Kevin's Tailor Summary Card master edit (the ✓ after the name + the three
    verification badges) bled into the tailor frames' Sarah cards — a customer is not a
    verified tailor; raised in UX-LOOP.md, built without them. */
-const R14_SARAH_BADGES = ['✓', '✓ ID verified', '✓ Background check', '✓ Insured'];
+const R14_SARAH_BADGES = [];   // round 15: the tailor frames draw Kevin's User Summary (✓ New Customer + badges) — built
 
 const ALLOW = {
+  /* round 15: the 01a frame's selected tile writes "3 Shirts/Blouses" (no spaces around the slash — raised); the code pluralises GARMENT_TYPES' "Shirts / Blouses" */
+  '01a-home-selected': ['Shirts/Blouses'],
   // Phase R3 (Kevin): 03's request card reads the live order; the
   // frame's requested-time fixture is stale (the address and estimate
   // lines match since UX-LOOP R1 — Home Visit fiction, $200 seed).
@@ -125,7 +127,8 @@ const ALLOW = {
   't03b-no-show': ['The job is closed and the slot is open again. Her $20 deposit stays with you.'],
   't04-appointment-details': [...R14_SARAH_BADGES, '$324', ...R7_T_PAYOUT],
   't05-confirm-final-pricing': ['$324', ...R7_T_PAYOUT],
-  't06-appointment-status': ['$324', ...R7_T_PAYOUT],
+  /* round 15: the T06 frame's first two cards draw the master's "$120" and a visible ✕ on the Appt_View variant (raised; the code's view cards have no close) */
+  't06-appointment-status': ['$324', ...R7_T_PAYOUT, '$120', '✕', 'Hem / Adjust Length'],
   't07-job-ready': ['Sarah will pick up her items. Payment will be processed upon pickup.'],
   't08-job-complete': ['Order total', 'Taily fee', '−$36', '$324'],
 };

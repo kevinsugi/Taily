@@ -387,10 +387,10 @@ async function tailorAccepts(a, { deep = false } = {}) {
     assertEq('[T] T02 money rows = Your payout + No-show protection (R7/R8)', `${await q('fees')} | ${(await q('feeDescs')).join(',')}`, `${fees(SB.cut, SB.payout, SB.comp)} | Visitation fee,Your payout,No-show protection · paid if Sarah doesn’t show`);
     await assertTrue('[T] T02 never prints the customer’s fee / total / a commission (R7)', (fee) => !new RegExp(`Taily Fee|Subtotal|Visitation fee (—|-)|\\$${fee} ?Visitation|\\bTotal\\b|Deposit|10 ?%`, 'i').test(document.querySelector('.screen').textContent), '', SB.fee);
     await assertText('[T] T02 CTA amount (R7)', '[data-act="accept"]', `Accept Request · ${$(SB.payout)}`);
-    const rows = (await q('texts', '.summary-card__row')).join(' | ');
+    const rows = (await q('texts', '.visit-block__row')).join(' | ');
     assertIncludes('[T] T02 customer rows carry the visit address', rows, '88 Leonard St, 4B');
     assertIncludes('[T] T02 customer rows carry the requested time', rows, when);
-    assertIncludes('[T] T02 customer rows carry the need-by', rows, `Need By: ${needBy}`);
+    assertIncludes('[T] T02 customer rows carry the need-by', rows, `Need by: ${needBy}`);
   }
   await page.click('[data-act="accept"]');
   await assertAt('[T] Accept → T03', 't03-request-accepted', 'confirmed', 'tailor');
@@ -462,7 +462,7 @@ async function customerSeesConfirmed(a, { deep = false } = {}) {
     assertEq('[C] 03/Confirmed alterations / fee / total (R7)', await q('fees'), fees(SB.alt, SB.fee, SB.total));
     assertEq('[C] 03/Confirmed row captions (R7)', (await q('feeDescs')).join(' | '), `Alterations (est.) | Visitation fee — charged ${a.feeChargedOn} | Total`);
     await assertText('[C] 03/Confirmed note: alterations paid at handoff (R7)', '.fee-note', 'Alterations are paid at pickup or delivery.');
-    const rows = (await q('texts', '.summary-card__row')).join(' | ');
+    const rows = (await q('texts', '.visit-block__row')).join(' | ');
     assertIncludes('[C] 03/Confirmed rows: address', rows, '88 Leonard St, 4B');
     assertIncludes('[C] 03/Confirmed rows: when (same grammar as T02)', rows, when);
     assertIncludes('[C] 03/Confirmed rows: need-by', rows, `Need by: ${needBy}`);
@@ -1317,7 +1317,7 @@ await fresh('F');
   await render('03-status-confirmed');
   const badge = await page.evaluate((w) => { const p = window.__data.parseWhen(w); return `${p.mon.slice(0, 3).toUpperCase()} ${p.day}`; }, f.when);
   await assertText('[C] 03/Confirmed pill', '.status-hero .pill span:last-child', 'Confirmed');
-  assertIncludes('[C] 03/Confirmed rows carry the NEW time', (await q('texts', '.summary-card__row')).join(' | '), p3.when);
+  assertIncludes('[C] 03/Confirmed rows carry the NEW time', (await q('texts', '.visit-block__row')).join(' | '), p3.when);
   await render('01-home');
   await assertText('[C] 01 card pill', '.appt-card .pill span:last-child', 'Confirmed');
   await assertText('[C] 01 card meta = the new when (03 grammar)', '.appt-card__meta', await cardWhen(f.when));

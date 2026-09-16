@@ -35,7 +35,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, tailorTrust, cta, orderCards, apptRows, receiptDates, orderRows } from '../components.js';
+import { chrome, statusHero, summaryCard, tailorTrust, cta, orderCards, apptRows, receiptDates, orderRows, visitBlock, headingRow } from '../components.js';
 import { openTailorDetails } from './03.4-tailor-details.js';
 import { money, mdy, PAY_LABELS, SEED_UPCOMING, fmtWhen, tailorName, tailorInitials, tailorFirst } from '../data.js';
 import { state, isTerminal, canonicalStatus, copyItemsOver } from '../state.js';
@@ -131,10 +131,11 @@ export function viewCancelled(s, forced = null) {
     : cta('Back to Home', { attrs: 'data-act="home"' });
   return `${chrome('home')}
 <div class="body" data-s="03-status-cancelled">
-  ${statusHero({ pill: v.pill, title: v.title, body: v.body ?? undefined, titleWeight: 600, titleColor: 'error' })}
+  ${headingRow(statusHero({ pill: v.pill, title: v.title, body: v.body ?? undefined, titleWeight: 600, titleColor: 'error' }))}
   <div class="summary">
-    ${summaryCard({ fixed: true, ...tailorTrust(a), initials: tailorInitials(a), name: a.name ? tailorName(a) : NO_TAILOR, rows: apptRows(a) })}
+    ${summaryCard({ ...tailorTrust(a), initials: tailorInitials(a), name: a.name ? tailorName(a) : NO_TAILOR })}
     <div class="garments-card">
+      ${visitBlock(apptRows(a))}
       ${orderCards({ garments: a.garments, totals: t }, { variant: 'ViewOnly' })}${rows}
     </div>${refund}
   </div>

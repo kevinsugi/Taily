@@ -27,7 +27,7 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { cta, toast } from '../components.js';
+import { cta, toast, headingRow } from '../components.js';
 import { fmtWhen, fmtDay, proposalHours, proposalMins } from '../data.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, radioRow, hairline } from '../tailor-components.js';
@@ -60,10 +60,10 @@ export function viewDecline(s, mode = null) {
   const note = `<textarea class="t03a__note" data-act="decline-note" rows="3" placeholder="Tell us more (optional)" aria-label="Tell us more"${sel === OTHER ? '' : ' hidden'}>${esc(a?.declineNote)}</textarea>`;
   return `${tailorChrome('home')}
 <div class="body" data-s="t03a-decline-request">
-  <div class="t-heading">
+  ${headingRow(`<div class="t-heading">
     <h1 class="t-title c-ink">Decline Request</h1>
     <p class="t-small w-400 c-500">Let us know why, Sarah won’t see this.</p>
-  </div>
+  </div>`)}
   <div class="reasons" role="radiogroup" aria-label="Reason">${rows}</div>
   ${note}
   <p class="t-small w-400 c-500 t03a__reason" data-no-slot${showReason ? '' : ' hidden'}>${reasonLine(a)}</p>
@@ -131,7 +131,7 @@ export function wire(root) {
     toast('Request declined');
     go('t01-home');
   });
-  root.querySelector('[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));
+  root.querySelector('.cta[data-act="back"]')?.addEventListener('click', () => back() || go('t01-home'));   // round 15: the heading's .back is the router's
 }
 
 register('t03a-decline-request', viewDecline, wire);

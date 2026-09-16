@@ -22,11 +22,11 @@
    ============================================================ */
 
 import { register, render as go, back } from '../app.js';
-import { cta, toast } from '../components.js';
+import { cta, toast, visitBlock, summaryCard } from '../components.js';
 import { money } from '../data.js';
 import { state } from '../state.js';
 import { tailorChrome, wireTailorNav, backHeader, orderCards, payoutRows, payoutChangeRow, removedRows } from '../tailor-components.js';
-import { current, jobView, draftFor, orderMarks, orderMoney, payoutChange, bookedGarments, writeFinalOrder, resendFinalOrder, tailorOf, isFixture, isTerminalJob, T } from '../tailor-data.js';
+import { current, jobView, draftFor, orderMarks, orderMoney, payoutChange, bookedGarments, writeFinalOrder, resendFinalOrder, tailorOf, isFixture, isTerminalJob, T, CUSTOMER_ROWS, customerCard } from '../tailor-data.js';
 
 /** Exported: `forced` = { draft, booked } renders a given at-visit draft
     against its booking (round-3 frame "T05 - Confirm Final Pricing / Removed"). */
@@ -42,18 +42,20 @@ export function viewPricing(s, forced = null) {
      after Edit Details — the copy says so (frame "T05 - Confirm Final
      Pricing / Resend", forced.resend) */
   const resend = forced ? !!forced.resend : (!fixture && jobView(a).canon === 'awaiting-approval');
-  const sub = resend ? `Updated after sending · Payout ${money(orderMoney(draft).payout)}`
-    : isFixture() ? 'Reviewed with Sarah at the visit' : `Reviewed with Sarah at the visit · Payout ${money(orderMoney(draft).payout)}`;
+  const sub = resend ? `Updated after sending · Payout ${money(orderMoney(draft, a).payout)}`
+    : isFixture() ? 'Reviewed with Sarah at the visit' : `Reviewed with Sarah at the visit · Payout ${money(orderMoney(draft, a).payout)}`;
   return `${tailorChrome('calendar')}
 <div class="body" data-s="t05-confirm-final-pricing">
   ${backHeader('Confirm Details', sub)}
+  ${summaryCard(customerCard())}
   <div class="garments-card">
+    ${visitBlock(fixture ? CUSTOMER_ROWS : jobView(a).rows)}
     ${orderCards(draft, { variant: 'Appt_View', marks })}
     ${fixture ? '' : removedRows(removed)}
-    ${payoutRows(orderMoney(draft))}
+    ${payoutRows(orderMoney(draft, a))}
   </div>
   <div class="t-actions">
-    ${payoutChangeRow(payoutChange(a, draft, forced ? orderMoney(forced.booked).payout : undefined))}
+    ${payoutChangeRow(payoutChange(a, draft, forced ? orderMoney(forced.booked, a).payout : undefined))}
     ${cta(resend ? 'Resend to Sarah for Approval' : 'Send to Sarah for Approval', { attrs: 'data-act="send"' })}
     ${cta('Edit Details', { variant: 'secondary', attrs: 'data-act="review"' })}   <!-- round 11: Kevin renamed Review Details -->
   </div>

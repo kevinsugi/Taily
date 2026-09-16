@@ -18,7 +18,13 @@
 import {
   visitFee, tailorFee, noShowComp, DELIVERY_FEE, payout, apptTotals, JOB_TYPES,
   SEED_UPCOMING, SEED_PAST, SEED_FINAL_ORDER,
+  RUSH_FEE, RUSH_CAPTION, VISIT_FEE_CAPTION, ALTERATIONS_EST_CAPTION, HANDOFF_CAPTION,
 } from '../js/data.js';
+
+/* round 15 (Kevin): the rush fee ($150 when need-by is within 24 h of the
+   visit — paid at handoff, the tailor's in full) and the fee-row captions */
+export const RUSH = RUSH_FEE;
+export const CAPTION = { rush: RUSH_CAPTION, visit: VISIT_FEE_CAPTION, alterations: ALTERATIONS_EST_CAPTION, handoff: HANDOFF_CAPTION };
 import { FINAL_ORDER_REMOVED, FINAL_ORDER_RETIERED } from '../js/fixtures.js';
 
 /** '$' + n — the app's whole-dollar rendering (money() in data.js). */

@@ -13,7 +13,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, infoCard, infoRow, cta } from '../components.js';
+import { chrome, infoCard, infoRow, cta, headingRow } from '../components.js';
 import { money, DELIVERY_FEE } from '../data.js';
 import { finalOrder } from '../state.js';
 import { state, chooseFulfilment, homeAddress, FIXTURE_CONTACT } from '../state.js';
@@ -39,10 +39,10 @@ export function viewDelivery(s) {
   ];
   return `${chrome('home')}
 <div class="body" data-s="05b-delivery-options">
-  <div class="heading">
+  ${headingRow(`<div class="heading">
     <h1 class="t-title c-ink">Delivery details.</h1>
     <p class="t-body w-500 c-500">Please select your preferred delivery window.</p>
-  </div>
+  </div>`)}
   <div class="prepare-card">
     <p class="t-caps c-500">DELIVER TO</p>
     <p class="t-body w-600 c-ink" data-addr-full>${homeAddress()} — New York, NY ${s.contact.zip || FIXTURE_CONTACT.zip}</p>

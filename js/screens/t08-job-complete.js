@@ -15,10 +15,10 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { statusHero, cta } from '../components.js';
+import { statusHero, cta, visitBlock, headingRow } from '../components.js';
 import { garmentAmount, money } from '../data.js';
 import { tailorChrome, wireTailorNav, priceRow, hairline, orderDropdown, orderCards, payoutRows } from '../tailor-components.js';
-import { current, jobView, isFixture, payoutDate, orderId, FIXTURE_FINAL, orderMoney } from '../tailor-data.js';
+import { current, jobView, isFixture, payoutDate, orderId, FIXTURE_FINAL, orderMoney, CUSTOMER_ROWS } from '../tailor-data.js';
 import { wireOrderDropdown } from './t07-job-ready.js';
 
 /** "Suit Jacket · Hem / Adjust Length, Sleeve / Adjust Length" — one
@@ -30,12 +30,12 @@ function renderScreen(s) {
   const v = jobView(a);
   const fixture = isFixture() || !v.post;
   const garments = fixture ? FIXTURE_FINAL : v.garments;
-  const m = orderMoney(garments);
+  const m = orderMoney(garments, a);
   const arrives = fixture ? 'Mon, Jul 20' : payoutDate(a);
   const id = fixture ? 'TLY-2026-4417' : orderId(a);
   return `${tailorChrome('calendar')}
 <div class="body" data-s="t08-job-complete">
-  ${statusHero({ pill: false, title: 'Job complete.', body: 'Nice work, Marco. Your payout is on the way.' })}
+  ${headingRow(statusHero({ pill: false, title: 'Job complete.', body: 'Nice work, Marco. Your payout is on the way.' }))}
   <div class="t-detail-card">
     <span class="payout-summary__title">PAYOUT SUMMARY  ·  ${id}</span>
     <div class="price-group">
@@ -51,6 +51,7 @@ function renderScreen(s) {
   ${cta('Back to Home', { attrs: 'data-act="home"' })}
   ${orderDropdown()}
   <div class="garments-card order-summary" hidden>
+    ${visitBlock(fixture ? CUSTOMER_ROWS : v.rows)}
     ${orderCards(garments, { variant: 'Appt_View', plain: true })}
     ${payoutRows(m)}
   </div>

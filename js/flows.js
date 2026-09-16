@@ -22,7 +22,7 @@ import {
   markReady, chooseFulfilment, deliver, proposeTime, declineAppointment, expireAppointment,
   tailorCancels, cancelAppointment, autoCancelUnconfirmed, addGarment, setAppt,
 } from './state.js';
-import { SEED_FINAL_ORDER } from './data.js';
+import { SEED_FINAL_ORDER, apptTotals, rushFee } from './data.js';
 import { PROPOSED_WHEN } from './fixtures.js';
 import { tailorOf, setCurrent, stampAcceptedPayout, writeFinalOrder, reopenDraft, resendFinalOrder } from './tailor-data.js';
 
@@ -105,12 +105,22 @@ const scheduled = (a, method = 'pickup') => {
 };
 const delivered = (a, method) => { scheduled(a, method); deliver(a); return a; };
 
+/** Round 15 (Kevin): a RUSH booking — the need-by is the day after the
+    visit, so the order owes the $150 rush fee (re-derived from the
+    appointment's own dates through data.js rushFee, never typed in). */
+function rushed(a) {
+  a.needBy = 'Mon, Jul 13';
+  a.totals = apptTotals(a.garments, { ...(a.totals ?? {}), rush: rushFee(a.when, a.needBy) });
+  return a;
+}
+
 /** 02's form: the frame's two jackets (two photos each). */
-function bookingForm({ times = false } = {}) {
+function bookingForm({ times = false, rush = false } = {}) {
   addGarment({ type: 'Suit Jacket', jobs: ['Hem / Adjust Length'], photos: 2 });
   addGarment({ type: 'Suit Jacket', jobs: ['Sleeve / Adjust Length'], photos: 2 });
   state.ui.homeSelection = { 'Suit Jacket': 2 };
-  if (times) { setAppt('when', 'Jul 12, 7:00 PM'); setAppt('needBy', 'Jul 17, 3:00 PM'); }
+  /* round 15: `rush` — a need-by the day after the visit (the $150 rush fee) */
+  if (times) { setAppt('when', 'Jul 12, 7:00 PM'); setAppt('needBy', rush ? 'Jul 13, 3:00 PM' : 'Jul 17, 3:00 PM'); }
 }
 
 /* ============================================================
@@ -127,7 +137,9 @@ export const FLOWS = {
       items: [
         { key: 'c-home', code: '01', title: 'Home', note: 'Fresh start, nothing selected', screen: '01-home' },
         { key: 'c-home-selected', code: '01', title: 'Home — garments picked', note: 'Two jackets selected', screen: '01-home', setup: () => { state.ui.homeSelection = { 'Suit Jacket': 2 }; } },
+        { key: 'c-home-multi', code: '01', title: 'Home — six jackets, three skirts', note: 'The multi-row and row tile states', screen: '01-home', setup: () => { state.ui.homeSelection = { 'Suit Jacket': 6, 'Skirt': 3 }; } },
         { key: 'c-details', code: '02', title: 'Appointment details', note: 'Times not picked yet', screen: '02-appointment-details', setup: () => bookingForm() },
+        { key: 'c-details-rush', code: '02', title: 'Appointment details — rush', note: 'Need-by within 24 h → $150 rush fee', screen: '02-appointment-details', setup: () => bookingForm({ times: true, rush: true }) },
         { key: 'c-details-ready', code: '02', title: 'Appointment details — ready', note: 'Times picked, ready to reserve', screen: '02-appointment-details', setup: () => bookingForm({ times: true }) },
         { key: 'c-time-sheet', code: '02.1', title: 'Date & time picker', screen: '02-appointment-details', setup: () => bookingForm(), click: ['[data-act="time"]'] },
         { key: 'c-address-sheet', code: '02.2', title: 'Address sheet', screen: '02-appointment-details', setup: () => bookingForm(), click: ['[data-act="address"]'] },
@@ -147,6 +159,7 @@ export const FLOWS = {
       title: 'Before the visit',
       items: [
         { key: 'c-confirmed', code: '03', title: 'Confirmed', note: 'Marco accepted', screen: '03-status-confirmed', setup: (a) => accepted(a) },
+        { key: 'c-confirmed-rush', code: '03', title: 'Confirmed — rush order', note: 'Need-by the day after the visit: $150 rush fee', screen: '03-status-confirmed', setup: (a) => accepted(rushed(a)) },
         { key: 'c-booking-photos', code: '03.3', title: 'Photo viewer — your photos', screen: '03-status-confirmed', setup: (a) => accepted(a), click: ['.garment-card--view .photo-tile--photo'] },
         { key: 'c-reschedule', code: '03.1', title: 'Reschedule / cancel popup', screen: '03-status-confirmed', setup: (a) => accepted(a), click: ['[data-act="reschedule"]'] },
         { key: 'c-reminder', code: '03', title: 'Reminder — confirm the visit', note: '24-hour prompt, fee still refundable', screen: '03-status-reminder', setup: (a) => accepted(a) },
@@ -217,6 +230,7 @@ export const FLOWS = {
       items: [
         { key: 't-home-request', code: 'T01', title: 'Home — new request', screen: 't01-home', setup: (a) => asRequest(a) },
         { key: 't-request', code: 'T02', title: 'Appointment request', note: 'Payout and no-show protection', screen: 't02-appointment-request', setup: (a) => asRequest(a) },
+        { key: 't-request-rush', code: 'T02', title: 'Appointment request — rush', note: 'The $150 rush fee is Marco’s, in full', screen: 't02-appointment-request', setup: (a) => asRequest(rushed(a)) },
         { key: 't-request-expired', code: 'T02', title: 'Request expired', screen: 't02-appointment-request', setup: (a) => { asRequest(a); expireAppointment(a); } },
         { key: 't-request-new-time', code: 'T02', title: 'Request new time', note: 'The propose wheel', screen: 't02-appointment-request', setup: (a) => asRequest(a), click: ['[data-act="new-time"]'] },
         { key: 't-accepted', code: 'T03', title: 'Booking confirmed', note: 'Right after Accept', screen: 't03-request-accepted', setup: (a) => { accepted(a); tailorOf(a).justAccepted = true; } },

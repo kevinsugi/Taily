@@ -11,7 +11,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, cta, toast, orderCards, receiptRows } from '../components.js';
+import { chrome, cta, toast, orderCards, receiptRows, apptRows, visitBlock, headingRow } from '../components.js';
 import { state, clearGarments, finalOrder } from '../state.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
 import { openLeaveReview, tailorName } from './06.1-leave-review.js';
@@ -29,9 +29,10 @@ export function viewComplete(s) {
     <span class="done-tile"><img src="assets/garments/done-suit-jacket.png" alt=""></span>
     <span class="done-tile"><img src="assets/garments/done-suit-jacket.png" alt=""></span>
   </div>
-  <h1 class="t-title c-ink center">All done!</h1>
-  <p class="t-body w-500 c-500 center">Your garments are back with you, tailored to fit. Thank you for using Taily.</p>
+  ${headingRow(`<div class="heading"><h1 class="t-title c-ink center">All done!</h1>
+  <p class="t-body w-500 c-500 center">Your garments are back with you, tailored to fit. Thank you for using Taily.</p></div>`)}
   <div class="garments-card">
+      ${visitBlock(apptRows(a))}
       ${orderCards(o, { variant: 'PostAppt' })}
       ${receiptRows(a, o.totals)}
   </div>

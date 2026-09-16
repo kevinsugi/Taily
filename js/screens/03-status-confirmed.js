@@ -9,7 +9,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, tailorTrust, trustCard, cta, toast, orderCards, apptRows, receiptDates, orderRows } from '../components.js';
+import { chrome, statusHero, summaryCard, tailorTrust, trustCard, cta, toast, orderCards, apptRows, receiptDates, orderRows, visitBlock, headingRow } from '../components.js';
 import { tailorProfile } from '../data.js';
 import { openTailorDetails } from './03.4-tailor-details.js';
 import { state, isTerminal, isPostAppointment, statusScreen } from '../state.js';
@@ -28,7 +28,9 @@ export const ALTERATIONS_NOTE = 'Alterations are paid at pickup or delivery.';
     03/Reminder: ViewOnly cards + the R7 pricing rows + the note. */
 export function bookingSummary(a) {
   const t = a?.totals ?? { alterations: 200, visitFee: 25, visitFeeCharged: 25, total: 225 };
-  return `${orderCards({ garments: a?.garments, totals: t }, { variant: 'ViewOnly' })}
+  /* round 15 (Kevin): every garments card opens with the Visit Details block */
+  return `${visitBlock(apptRows(a))}
+      ${orderCards({ garments: a?.garments, totals: t }, { variant: 'ViewOnly' })}
       ${orderRows(t, { est: true, feeDesc: `Visitation fee — charged ${receiptDates(a).fee}` })}
       <p class="t-small c-500 fee-note">${ALTERATIONS_NOTE}</p>`;
 }
@@ -54,11 +56,10 @@ export function viewConfirmed(s, { layout = 'profile' } = {}) {
   const profile = layout === 'profile' ? (tailorProfile(a) ?? tailorProfile()) : null;
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-confirmed">
-  ${statusHero({ ...confirmedPill(a), title: 'Appointment Confirmed', titleWeight: 600 })}
+  ${headingRow(statusHero({ ...confirmedPill(a), title: 'Appointment Confirmed', titleWeight: 600 }))}
   <div class="summary">
-    ${profile ? trustCard(profile) : summaryCard({ fixed: true, ...tailorTrust(a), initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor', rows: apptRows(a) })}
+    ${profile ? trustCard(profile) : summaryCard({ ...tailorTrust(a), initials: a.initials ?? 'MT', name: a.name ?? 'Marco Tailor' })}
     <div class="garments-card">
-      ${profile ? `<div class="visit-block"><span class="visit-block__title">Visit Details</span>${apptRows(a).map((r) => `<span class="summary-card__row">${r}</span>`).join('')}</div>` : ''}
       ${bookingSummary(a)}
     </div>
     <div class="prepare-card">
@@ -104,7 +105,8 @@ export function wire(root) {
      to 03.2 and the appointment happening. R4-U-01: it REPLACES this screen.
      Round 14: the tailor card now opens 03.4, so the demo moved to the hero title. */
   root.querySelector('.status-hero__title')?.addEventListener('click', () => go('03-status-reminder', { replace: true }));
-  root.querySelectorAll('.trust-card, .summary-card').forEach((c) => c.addEventListener('click', () => openTailorDetails(cur)));
+  /* round 15: only the Default card opens 03.4 — the in-page Expanded card is inert */
+  root.querySelector('.summary-card')?.addEventListener('click', () => openTailorDetails(cur));
   root.querySelectorAll('.top-nav [data-nav]').forEach((el) => {
     el.addEventListener('click', (e) => {
       e.preventDefault();

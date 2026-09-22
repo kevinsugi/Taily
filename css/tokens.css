@@ -66,6 +66,7 @@
   --radius-full: 999px;
 
   /* ---------- Type sizes · Taily / Type ---------- */
+  --size-8: 8px;    /* round 16: the calendar cell sublabel (Calendar / Cell 764:4597) */
   --size-10: 10px;
   /* size/11 arrived with the Selector's ADD A SERVICE menu header and
      the 02B field labels (541:1959, 538:1516) — a Figma variable. */

@@ -79,7 +79,7 @@ export function chrome(active = 'home', time = '9:41') {
    ============================================================ */
 
 import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_CHEVRON, CHEVRON_RIGHT, ICON_CARD, ICON_ADD } from './icons.js';
-import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, DELIVERY_FEE, money, rowPrice, fmtWhen, fmtDay, mdy, visitFee, itemsLabel, TRUST_BADGES, VISIT_FEE_CAPTION, ALTERATIONS_EST_CAPTION, HANDOFF_CAPTION, RUSH_CAPTION } from './data.js';
+import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, money, rowPrice, fmtWhen, fmtDay, mdy, visitFee, itemsLabel, TRUST_BADGES, VISIT_FEE_CAPTION, ALTERATIONS_EST_CAPTION, ALTERATIONS_FINAL_CAPTION, HANDOFF_CAPTION, RUSH_LADDER, rushCaption, FEE_LABEL, feeTierLabel } from './data.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
 export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
@@ -214,7 +214,7 @@ export function cardStatus(aOrStatus) {
   const s = String(raw ?? '').toLowerCase();
   return CARD_STATUS[s] ?? s;
 }
-export const TERMINAL_CARD_STATUSES = ['cancelled', 'declined', 'expired'];
+export const TERMINAL_CARD_STATUSES = ['cancelled', 'expired'];   // round 16: a decline re-matches, it is not terminal
 export const isTerminalStatus = (aOrStatus) => TERMINAL_CARD_STATUSES.includes(cardStatus(aOrStatus));
 
 /** CTA_Small — outline action inside cards. */
@@ -298,9 +298,14 @@ export function statusHero({ variant = 'requested', pill, pillLabel, title, titl
      03/Reminder's "Confirmed · fee non-refundable" once the visit is confirmed */
   if (pill !== false) parts.push(statusPill(pill ?? PILL_FOR[variant], pillLabel));
   if (title) parts.push(`<h2 class="status-hero__title${titleWeight === 600 ? ' w-600' : ''}${titleColor ? ` c-${titleColor}` : ''}">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h2>`);
-  if (body) parts.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
+  /* round 16 (Kevin): the explanation (body + extra) is its own block —
+     headingRow() lifts it out of the Back row so it sits at the screen
+     padding, not under the title (the markers are its handle) */
+  const notes = [];
+  if (body) notes.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
   if (rowLabel) parts.push(`<div class="status-hero__row"><span>${rowLabel}</span><span>${rowValue ?? ''}</span></div>`);
-  if (extra) parts.push(extra);   // round 14: 03/Requested's "All Taily-verified tailors are:" + badges
+  if (extra) notes.push(extra);   // round 14: 03/Requested's "All Taily-verified tailors are:" + badges
+  if (notes.length) parts.push(`<!--notes--><div class="status-hero__notes">${notes.join('\n  ')}</div><!--/notes-->`);
   /* `new-times` (R2-U-03): pill Requested + a custom title/body — the
      modifier class is a hook, it changes nothing the frames draw */
   return `<div class="status-hero status-hero--${variant}">${parts.join('\n  ')}</div>`;
@@ -332,8 +337,9 @@ export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [],
     that opens every garments card — serif 24 title over the address /
     time / need-by rows. `rows` come from apptRows(a) (customer) or the
     tailor's jobView rows. */
-export function visitBlock(rows = []) {
-  return `<div class="visit-block"><span class="visit-block__title">Visit Details</span>${rows.map((r) => `<span class="visit-block__row">${r}</span>`).join('')}</div>`;
+/* round 16: `title` — 03 / Delivery Scheduled's "Delivery Details" */
+export function visitBlock(rows = [], { title = 'Visit Details' } = {}) {
+  return `<div class="visit-block"><span class="visit-block__title">${title}</span>${rows.map((r) => `<span class="visit-block__row">${r}</span>`).join('')}</div>`;
 }
 
 /** The Back control (308:3820) — "‹" 28 Regular ink in a 36-tall, 8-padded
@@ -341,7 +347,15 @@ export function visitBlock(rows = []) {
     centred), round 15: every heading but Home's. The router wires every
     `.back` to step the prototype's history (app.js wireBackButtons). */
 export const backButton = () => '<button type="button" class="back" data-act="back" aria-label="Back">‹</button>';
-export const headingRow = (inner) => `<div class="heading-row">${backButton()}<div class="heading-row__body">${inner}</div></div>`;
+/* round 16 (Kevin): the Back sits beside the pill + title only; the
+   explanation block (statusHero's notes, or a screen's own
+   `<!--notes-->…<!--/notes-->` block) follows the row at the padding. */
+export function headingRow(inner) {
+  const m = /<!--notes-->([\s\S]*?)<!--\/notes-->/.exec(inner);
+  const notes = m ? m[1] : '';
+  const head = m ? inner.replace(m[0], '') : inner;
+  return `<div class="heading-row">${backButton()}<div class="heading-row__body">${head}</div></div>${notes}`;
+}
 
 /** ✓ badges (round 14): success-bg pills, 12/16 SemiBold success. */
 export function trustBadges(list = [], { wide = false, user = false } = {}) {
@@ -887,7 +901,7 @@ export function apptRows(a) {
 
 /** Receipt dates for an appointment — the frames' fiction when the
     appointment carries no dates of its own. `fee` = the day the
-    visitation fee was charged (tailorAccepts stamps feeChargedOn, R7). */
+    Concierge fee was charged (tailorAccepts stamps feeChargedOn, R7). */
 export function receiptDates(a) {
   /* R2-U-10: a delivered order with no handoff facts of its own is
      received on its appointment day, not the Jul 17 fixture */
@@ -901,10 +915,10 @@ export function receiptDates(a) {
 
 /* ============================================================
    Money rows (UX-LOOP round 7 — Kevin's money model v2). The customer
-   sees Alterations / Visitation fee / (Additional visitation fee when
+   sees Alterations / Concierge fee / (Additional Concierge fee when
    the final order re-tiered it) / (Delivery) / Total, and what is due
    at handoff: the alterations (+ the added fee, + delivery) — the
-   visitation fee itself was charged when the tailor accepted. Nothing
+   Concierge fee itself was charged when the tailor accepted. Nothing
    here mentions a deposit, a percentage or a Taily fee.
    ============================================================ */
 
@@ -912,22 +926,27 @@ export function receiptDates(a) {
     chosen: alterations + any re-tiered fee (05A/05B add delivery
     themselves). */
 export const dueBase = (t) => (t?.alterations ?? t?.subtotal ?? 0) + (t?.visitFeeAdded ?? 0) + (t?.rush ?? 0);   // round 15: + the rush fee
-/** What is charged at handoff for the order as it stands (delivery
-    included once 05B chose it). */
-export const dueAtHandoff = (t) => dueBase(t) + (t?.delivery ?? 0);
+/** What is charged at delivery for the order as it stands (round 16:
+    delivery itself is inside the concierge fee — nothing is added). */
+export const dueAtHandoff = (t) => dueBase(t);
+/** The rush row's caption from the fee on the totals (the ladder step it
+    sits on — RUSH_LADDER is strictly decreasing, so the fee names the day). */
+export const rushCaptionFor = (t) => rushCaption(t?.rushDays ?? (RUSH_LADDER.indexOf(t?.rush ?? 0) + 1 || 1));
+/** "Concierge fee (5+ items)" for an order's item count (tier suffix from data.js). */
+export const feeLabelFor = (t) => feeTierLabel(t?.items ?? 0);
 
 /**
  * The pricing rows of an order (03/Confirmed · Reminder · Tailoring,
- * 04, 03/Cancelled): Alterations / Visitation fee / [Additional
- * visitation fee] / Total / [due line]. `est` marks the alterations as
+ * 04, 03/Cancelled): Alterations / Concierge fee / [Additional
+ * Concierge fee] / Total / [due line]. `est` marks the alterations as
  * an estimate (pre-visit), `feeDesc` is the fee row's caption
- * ("Visitation fee — charged 7/7/26", "… — paid", "… — Refunded
+ * ("Concierge fee — charged 7/7/26", "… — paid", "… — Refunded
  * 9/10/26", "… — Kept"), `due` adds the last row ("Due at handoff"),
  * `info` paints the rows the final order touched semantic/info (04
  * Modified). The added fee row is always info — it is new money.
  * `tier` (R7-U-02: 04 and 03/Tailoring, where the re-tiered fee first
  * appears) captions the added row with its reason — "Additional
- * visitation fee — 5 items now, $50 tier"; receipts keep the short
+ * Concierge fee — 5 items now, $50 tier"; receipts keep the short
  * label. `total: false` (R7-U-04: 03/Cancelled) drops the Total row —
  * on a visit that ended, the sum is nothing the customer paid or owes.
  * Every row but the last carries the hairline.
@@ -936,71 +955,62 @@ export const dueAtHandoff = (t) => dueBase(t) + (t?.delivery ?? 0);
    cover the cost of transport."); `captions` (02) also captions
    Alterations ("Price is finalized at the appointment.") and Total
    ("Alterations are paid at pickup or delivery."). A rush order adds a
-   "Rush fee" row (+ its caption) after the visitation fee — paid at handoff. */
-export function orderRows(t, { est = false, feeDesc = 'Visitation fee — paid', due = null, info = false, tier = false, total = true, captions = false } = {}) {
+   "Rush fee" row (+ its caption) after the Concierge fee — paid at handoff. */
+/* Round 16 (Kevin, Fee Row 745:5889): "Concierge fee" everywhere, its tier
+   in the title ("Concierge fee (5+ items) - Paid 7/7/26"), one caption
+   rule — pre-visit (`est`) rows caption all three lines, post-visit rows
+   caption Alterations ("Finalized at the appointment.") and the fee; a
+   refunded / kept fee row carries no caption (`feeCaption: false`); a
+   re-tiered fee's caption is the explanation itself (the frame's
+   Re-tiered row). `feeDesc` is the fee row's STATUS suffix ("Due Today",
+   "Paid 7/7/26", "Refunded", "Kept") — the tier label is prepended. */
+export function orderRows(t, { est = false, feeDesc = 'Paid', due = null, info = false, tier = false, total = true, captions = null, feeCaption = true } = {}) {
   const alterations = t?.alterations ?? t?.subtotal ?? 0;
   const fee = t?.visitFeeCharged ?? t?.visitFee ?? 0;
   const added = t?.visitFeeAdded ?? 0;
-  const delivery = t?.delivery ?? 0;
   const rush = t?.rush ?? 0;
-  /* round 12 (Kevin): a re-tiered fee is ONE row — the updated amount
-     in semantic/info (never the fee twice); `tier` captions it with the
-     count + tier, feeTierNote() explains the extra under the rows */
+  const caps = captions ?? est;
   const rows = [
-    [money(alterations), est ? 'Alterations (est.)' : 'Alterations', { info, caption: captions ? ALTERATIONS_EST_CAPTION : '' }],
+    [money(alterations), est ? 'Alterations (est.)' : 'Alterations', { info, caption: est ? ALTERATIONS_EST_CAPTION : ALTERATIONS_FINAL_CAPTION }],
     added > 0
-      ? [money(fee + added), tier ? retieredFeeCaption(t) : 'Visitation fee — updated', { info: true, caption: VISIT_FEE_CAPTION }]
-      : [money(fee), feeDesc, { caption: VISIT_FEE_CAPTION }],
+      ? [money(fee + added), feeLabelFor(t), { info: true, caption: tier ? feeTierNote(t) : VISIT_FEE_CAPTION }]
+      : [money(fee), feeDesc ? `${feeLabelFor(t)} - ${feeDesc}` : feeLabelFor(t), { caption: feeCaption ? VISIT_FEE_CAPTION : '' }],
   ];
-  if (rush > 0) rows.push([money(rush), 'Rush fee', { caption: RUSH_CAPTION }]);
-  if (delivery > 0) rows.push([money(delivery), 'Delivery', {}]);
-  if (total) rows.push([money(alterations + fee + added + delivery + rush), 'Total', { info, caption: captions ? HANDOFF_CAPTION : '' }]);
+  if (rush > 0) rows.push([money(rush), 'Rush fee', { caption: rushCaptionFor(t) }]);
+  if (total) rows.push([money(alterations + fee + added + rush), 'Total', { info, caption: caps ? HANDOFF_CAPTION : '' }]);
   if (due) rows.push([money(dueAtHandoff(t)), due, { info }]);
   return rows.map(([p, d, o], i) => feeRow(p, d, { ...o, line: i < rows.length - 1 })).join('\n      ');
 }
 
-/** "Visitation fee — 5 items, $90 tier" (round 12, was the separate
-    "Additional visitation fee …" row): the re-tiered fee's caption where
-    it first appears. Numbers from the order's item count and the tier
-    that count lands on. */
-/* round 14 (Kevin's frame): "Visitation fee - 5+ items" — the tier's lower bound */
-export const retieredFeeCaption = (t) => `Visitation fee - ${tierMin(t?.items ?? 0)}+ items`;
-const tierMin = (n) => (n >= 11 ? 11 : n >= 5 ? 5 : 1);
-
-/** The note under the rows explaining a re-tiered fee (R7-U-02, 04 and
-    03/Tailoring): "Your order grew to 5 items, so the visitation fee is
-    now $50. The extra $25 is charged with your alterations at handoff."
-    Empty when the final order did not re-tier the fee. Same style as
-    the "Alterations are paid at pickup or delivery." note. */
+/** The re-tiered fee's explanation (round 16: the fee row's own caption on
+    04 / Re-tiered — "Your order grew to 5 items, so the Concierge fee is
+    now $90. The extra $40 is charged with your alterations at handoff.").
+    Empty when the final order did not re-tier the fee. */
 export function feeTierNote(t) {
   const added = t?.visitFeeAdded ?? 0;
   if (!(added > 0)) return '';
-  /* round 14 (Kevin's copy): two paragraphs */
-  return `<p class="t-small c-500 fee-note" data-fee-tier-note>Your order grew to ${itemsLabel(t?.items ?? 0, 'item')}, so the visitation fee is now ${money(visitFee(t?.items ?? 0))} to cover time & transportation costs.<br><br>The extra ${money(added)} is charged with your alterations at handoff.</p>`;
+  return `Your order grew to ${itemsLabel(t?.items ?? 0, 'item')}, so the ${FEE_LABEL} is now ${money(visitFee(t?.items ?? 0))}. The extra ${money(added)} is charged with your alterations at handoff.`;
 }
 
 /** The receipt of a settled order (06 / 03/Summary, R1-U-07 → R7):
-    Alterations / Visitation fee — paid <date> / [Delivery] / Total /
+    Alterations / Concierge fee — paid <date> / [Delivery] / Total /
     Paid at pickup|delivery <date>, following `a.fulfilment`. No
     fulfilment (harness deep link) keeps the frames' delivery fixture
     ($360 + $25 + $20 = $405, $380 paid at delivery). */
+/* round 16 (Kevin): delivery only, no delivery charge — Alterations /
+   Concierge fee - Paid <date> / [Rush fee] / Total / Paid at delivery <date> */
 export function receiptRows(a, t) {
   const d = receiptDates(a);
   const alterations = t?.alterations ?? t?.subtotal ?? 0;
   const fee = t?.visitFeeCharged ?? t?.visitFee ?? 0;
   const added = t?.visitFeeAdded ?? 0;
-  const pickup = a?.fulfilment?.method === 'pickup';
-  const delivery = pickup ? 0 : (a?.fulfilment?.method === 'delivery' ? (t?.delivery || DELIVERY_FEE) : DELIVERY_FEE);
-  /* round 12: one fee row, the re-tiered amount included (the extra was
-     settled at handoff with the alterations) */
   const rush = t?.rush ?? 0;   // round 15
   const rows = [
-    feeRow(money(alterations), 'Alterations', { line: true }),
-    feeRow(money(fee + added), `Visitation fee — paid ${d.fee}`, { line: true, caption: VISIT_FEE_CAPTION }),
+    feeRow(money(alterations), 'Alterations', { line: true, caption: ALTERATIONS_FINAL_CAPTION }),
+    feeRow(money(fee + added), `${feeLabelFor(t)} - Paid ${d.fee}`, { line: true, caption: VISIT_FEE_CAPTION }),
   ];
-  if (rush > 0) rows.push(feeRow(money(rush), 'Rush fee', { line: true, caption: RUSH_CAPTION }));
-  if (delivery > 0) rows.push(feeRow(money(delivery), 'Delivery', { line: true }));
-  rows.push(feeRow(money(alterations + fee + added + rush + delivery), 'Total', { line: true }));
-  rows.push(feeRow(money(alterations + added + rush + delivery), `Paid at ${pickup ? 'pickup' : 'delivery'} ${d.handoff}`));
+  if (rush > 0) rows.push(feeRow(money(rush), 'Rush fee', { line: true, caption: rushCaptionFor(t) }));
+  rows.push(feeRow(money(alterations + fee + added + rush), 'Total', { line: true }));
+  rows.push(feeRow(money(alterations + added + rush), `Paid at delivery ${d.handoff}`));
   return rows.join('\n    ');
 }

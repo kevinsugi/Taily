@@ -22,13 +22,13 @@
    R3-U-08: the no-show timestamp lives in the body, not the title. The
    re-request CTAs reuse 03.1's copy-over: the garments become the next
    booking and 02 opens with them seeded.
-   UX-LOOP round 7 (Kevin's money model v2): the visitation fee is the
+   UX-LOOP round 7 (Kevin's money model v2): the Concierge fee is the
    deposit. Refunded in full when the tailor cancels, the request
    expires / is declined / withdrawn, Taily auto-cancels an unconfirmed
    visit, or the customer cancels BEFORE confirming the visit on the
    24-hour prompt; kept (`a.feeKept`) once she confirmed and then
    cancelled or no-showed. The body says which; live entries relabel
-   the fee row "Visitation fee — Refunded <date>" / "— Kept" (the
+   the fee row "Concierge fee — Refunded <date>" / "— Kept" (the
    frames still draw the deposit rows — Figma sync pending). No tailor
    name before one accepts: a request that ended unmatched says "A
    tailor", and its card reads "No tailor matched" under the ✂ avatar.
@@ -41,16 +41,17 @@ import { money, mdy, PAY_LABELS, SEED_UPCOMING, fmtWhen, tailorName, tailorIniti
 import { state, isTerminal, canonicalStatus, copyItemsOver } from '../state.js';
 
 const NO_TAILOR = 'No tailor matched';
-const HOLD_RELEASED = 'Nothing was charged — the hold on your card is released.';
+const HOLD_RELEASED = 'Nothing was charged and the hold on your card is released.';   // round 16: Kevin's Expired frame copy
 
 /** Title / body / CTA per terminal reason. `null` body = the frame's
     layout (refund card + Back to Home). */
 function variantFor(live, a, { fee = 25, payLabel = PAY_LABELS.card } = {}) {
-  if (!live) return { pill: 'declined', title: 'Appointment Cancelled', body: null, cta: null };
+  /* round 16: the frame's pill reads "Declined" (raised) — the code keeps Cancelled */
+  if (!live) return { pill: 'cancelled', title: 'Appointment Cancelled', body: null, cta: null };
   const status = canonicalStatus(a.status);
   const first = tailorFirst(a);
   const when = fmtWhen(a.when, 'Sun, Jul 12 · 7:00 PM');
-  const refunded = `Your ${money(fee)} visitation fee is refunded to ${payLabel}.`;
+  const refunded = `Your ${money(fee)} Concierge fee is refunded to ${payLabel}.`;
   if (status === 'expired') {
     /* R3-T-02c: a proposal that lapsed unanswered is named */
     const lead = a.lapsedProposal?.when
@@ -63,7 +64,7 @@ function variantFor(live, a, { fee = 25, payLabel = PAY_LABELS.card } = {}) {
   }
   if (a.cancelledBy === 'tailor' && a.reason === 'no-show') {
     /* R7: kept only once the visit was confirmed (feeLocked) */
-    const tail = a.wasRequested ? '. Nothing was charged.' : (a.feeKept ? `, so your ${money(fee)} visitation fee was kept.` : `. ${refunded}`);
+    const tail = a.wasRequested ? '. Nothing was charged.' : (a.feeKept ? `, so your ${money(fee)} Concierge fee was kept.` : `. ${refunded}`);
     return { pill: 'cancelled', title: 'We missed you', body: `${first} marked the ${when} visit as a no-show${tail}`, cta: 'Find Another Tailor' };
   }
   if (a.cancelledBy === 'tailor') {
@@ -79,7 +80,7 @@ function variantFor(live, a, { fee = 25, payLabel = PAY_LABELS.card } = {}) {
      frame's "Nothing was charged" card */
   if (!a.wasRequested) {
     const body = a.feeKept
-      ? `Your ${money(fee)} visitation fee was kept — you had confirmed the visit.`
+      ? `Your ${money(fee)} Concierge fee was kept — you had confirmed the visit.`
       : refunded;
     return { pill: 'cancelled', title: 'Appointment Cancelled', body, cta: null };
   }
@@ -88,10 +89,14 @@ function variantFor(live, a, { fee = 25, payLabel = PAY_LABELS.card } = {}) {
 
 /** The fee row's caption: the frames' "charged 7/7/26", or the live
     outcome — "Kept" / "Refunded 9/10/26" (R7). */
+/* round 16 (Kevin's frames): the STATUS suffix orderRows appends to the
+   "Concierge fee" label — "Kept" / "Refunded" (no date) / "Paid 7/7/26";
+   a refunded row carries no caption, a kept one does (No-Show frame). */
 function feeDesc(a, live) {
-  if (live && a.feeKept) return 'Visitation fee — Kept';
-  if (live && a.refund > 0) return `Visitation fee — Refunded ${mdy(a.cancelledAt, receiptDates(a).fee)}`;
-  return `Visitation fee — charged ${receiptDates(a).fee}`;
+  if (live && a.feeKept) return 'Kept';
+  if (live && a.refund > 0) return 'Refunded';
+  /* the frame's fixture (03 / Cancelled 558:3817) reads Refunded */
+  return live ? `Paid ${receiptDates(a).fee}` : 'Refunded';
 }
 
 /** Exported: the round-3 variant routes (03/Expired · Declined · Tailor
@@ -116,14 +121,14 @@ export function viewCancelled(s, forced = null) {
      charged, so Alterations (est.) + the fee row with its outcome. */
   const charged = !live || !neverConfirmed;
   const rows = charged ? `
-      ${orderRows(t, { est: true, feeDesc: feeDesc(a, !!live), total: false })}` : '';
+      ${orderRows(t, { est: true, feeDesc: feeDesc(a, !!live), feeCaption: !/Refunded$/.test(feeDesc(a, !!live)), total: false })}` : '';
   const refund = v.body ? '' : `
     <div class="prepare-card">
       ${neverConfirmed
     ? `<p class="t-body w-500 c-500">Nothing was charged</p>
       <p class="t-body c-700">The hold on your card is released. Please rebook whenever you’re ready.</p>`
     : `<p class="t-body w-500 c-500">Refund on the way</p>
-      <p class="t-body c-700">Your ${money(fee)} visitation fee will be returned to ${payLabel}. Please rebook whenever you’re ready.</p>`}
+      <p class="t-body c-700">Your ${money(fee)} Concierge fee will be returned to ${payLabel}. Please rebook whenever you’re ready.</p>`}
     </div>`;
   const actions = v.cta
     ? `${cta(v.cta, { attrs: 'data-act="rerequest"' })}

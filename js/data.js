@@ -53,50 +53,61 @@ export const ADD_SERVICES = ['Taper', 'Sleeve', 'Resize', 'Repair', 'Lining'];
 /* Round 15 (Kevin, 02 657:4875): the fee rows carry their explanation as
    a caption under the label — the visitation row's on every screen that
    prints it; 02 also captions Alterations and Total. */
-export const VISIT_FEE_CAPTION = 'Helps cover the cost of transport.';
+/* Round 16 (Kevin, Fee Row 745:5889): the Concierge fee is the CONCIERGE
+   FEE — Taily keeps it, the tailor never sees it. Captions: the concierge
+   row always, Alterations "(est.)" pre-visit / "Finalized" post-visit,
+   Total pre-visit only. */
+export const FEE_LABEL = 'Concierge fee';
+export const VISIT_FEE_CAPTION = 'Covers pickup, fitting, and delivery.';
 export const ALTERATIONS_EST_CAPTION = 'Price is finalized at the appointment.';
-export const HANDOFF_CAPTION = 'Alterations are paid at pickup or delivery.';
+export const ALTERATIONS_FINAL_CAPTION = 'Finalized at the appointment.';
+export const HANDOFF_CAPTION = 'Alterations are paid at delivery.';
 export const VISIT_FEE_NOTE = VISIT_FEE_CAPTION;   // the old tier note — the same line now, on every tier
 
-/* Round 15 (Kevin): RUSH FEE — an order that must be finished within 24
-   hours of the visit (need-by is the visit's day or the next) owes a
-   flat $150, charged with the alterations at handoff; the tailor is paid
-   all of it (its own "Rush fee" line above "Your payout"). */
-export const RUSH_FEE = 150;
-export const RUSH_HOURS = 24;
-export const RUSH_CAPTION = 'Need-by is within 24 hours of your visit.';
-/** Is `needBy` within RUSH_HOURS of the visit's start (inclusive)? A
-    need-by with a time counts to that time; a day-only need-by to the
-    start of its day. Both strings go through parseWhen; anything
-    unparsable is not a rush. */
-export function isRush(when, needBy) {
+/* Round 16 (Kevin, Calendar / Needby 768:7277): RUSH FEE — a ladder by
+   calendar days between the visit and the need-by: the next day +$150,
+   two days +$100, three days +$50, four or more free (round 15's flat
+   $150 within 24 h is gone). Charged with the alterations at handoff; the
+   tailor is paid all of it (its own "Rush fee" line above "Your payout").
+   The need-by TIME is informational; a need-by on or before the visit day
+   counts as the next day. */
+export const RUSH_LADDER = [150, 100, 50];
+export const RUSH_FEE = RUSH_LADDER[0];
+/** Whole calendar days from the visit's day to the need-by's day (null
+    when either is unparsable). */
+export function rushDays(when, needBy) {
   const w = parseWhen(when); const nb = parseWhen(needBy);
-  if (!w || !nb) return false;
-  return nb.date.getTime() - w.date.getTime() <= RUSH_HOURS * 3600 * 1000;
+  if (!w || !nb) return null;
+  const day = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
+  return Math.round((day(nb.date) - day(w.date)) / 86400000);
 }
-export const rushFee = (when, needBy) => (isRush(when, needBy) ? RUSH_FEE : 0);
-/* Round 12 (Kevin): customer tiers $50 / $90 / $150 by item count, and
-   the tailor now takes a CUT of the fee on the same bands — $25 / $50 /
-   $90 (tailorFee) — paid with the alteration payout (see payout()). */
+/** The rush fee for the ladder step that day count lands on. */
+export const rushFeeForDays = (days) => (days == null ? 0 : RUSH_LADDER[Math.max(1, days) - 1] ?? 0);
+export const rushFee = (when, needBy) => rushFeeForDays(rushDays(when, needBy));
+export const isRush = (when, needBy) => rushFee(when, needBy) > 0;
+/** "Need-by is 2 days after your visit." — the rush row's caption. */
+export const rushCaption = (days) => { const n = Math.max(1, days ?? 1); return `Need-by is ${n} day${n === 1 ? '' : 's'} after your visit.`; };
+export const RUSH_CAPTION = rushCaption(1);
+/* Round 16 (Kevin): the concierge fee by item count — $50 (1–4) / $90
+   (5+ items) / $140 (9+ items). Taily keeps all of it: no tailor cut
+   (round 12's $25 / $50 / $90 bands are gone), no delivery charge (the
+   fee covers pickup, fitting and delivery). */
 export const VISIT_FEE_TIERS = [
-  { max: 4, fee: 50 },
-  { max: 10, fee: 90, note: VISIT_FEE_NOTE },
-  { max: Infinity, fee: 150, note: VISIT_FEE_NOTE },
-];
-export const TAILOR_FEE_TIERS = [
-  { max: 4, fee: 25 },
-  { max: 10, fee: 50 },
-  { max: Infinity, fee: 90 },
+  { max: 4, fee: 50, min: 1 },
+  { max: 8, fee: 90, min: 5, note: VISIT_FEE_NOTE },
+  { max: Infinity, fee: 140, min: 9, note: VISIT_FEE_NOTE },
 ];
 const tierFor = (tiers, count) => tiers.find((t) => (Number(count) || 0) <= t.max) ?? tiers[tiers.length - 1];
-/** The visitation fee for a booked item count (1–4 → $50, 5–10 → $90, 11+ → $150). */
+/** The concierge fee for a booked item count (1–4 → $50, 5–8 → $90, 9+ → $140). */
 export const visitFee = (count) => tierFor(VISIT_FEE_TIERS, count).fee;
-/** The tailor's cut of the visitation fee for an item count (1–4 → $25, 5–10 → $50, 11+ → $90). */
-export const tailorFee = (count) => tierFor(TAILOR_FEE_TIERS, count).fee;
+/** The tier's lower bound (1 / 5 / 9) — "(5+ items)". */
+export const feeTierMin = (count) => tierFor(VISIT_FEE_TIERS, count).min;
+/** "Concierge fee" / "Concierge fee (5+ items)" / "Concierge fee (9+ items)". */
+export const feeTierLabel = (count) => { const m = feeTierMin(count); return m > 1 ? `${FEE_LABEL} (${m}+ items)` : FEE_LABEL; };
 /** The tier's supporting line ('' on the $50 tier). */
 export const visitFeeNote = (count) => tierFor(VISIT_FEE_TIERS, count).note ?? '';
-/** Home delivery, chosen on 05 (05B) — charged with the alterations at handoff. */
-export const DELIVERY_FEE = 20;
+/** Round 16: the tailor's no-show compensation is a flat $25 Taily pays. */
+export const NO_SHOW_COMP = 25;
 
 /* Round 14 (Kevin): every Taily tailor is verified — the three badges the
    Tailor Summary Card and the 03.4 profile draw (03/Requested says
@@ -215,7 +226,7 @@ export const SEED_UPCOMING = [
     itemLines: ['1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length', '1 Suit Jacket - Sleeve, Length'],
     /* UX-LOOP R1-U-02: the seed is the BOOKED (pre-appointment) order —
        $120 Hem + $80 Sleeve = $200 alterations — exactly what 02 /
-       03/Confirmed / 03/Reminder draw. Round 7: + the $25 visitation fee
+       03/Confirmed / 03/Reminder draw. Round 7: + the $25 Concierge fee
        (2 items → the $25 tier, charged 7/7/26 when Marco accepted) =
        $225. `a.garments` / `a.totals` are the shared truth for the final
        order: the tailor's T05 Send (or the user-side demo,
@@ -342,16 +353,13 @@ export function apptTotals(garments, base = {}) {
   };
 }
 
-/** The tailor's payout for a garment list (Kevin, round 12): 100% of
-    the alteration prices PLUS the tailor's cut of the visitation fee
-    for that item count (tailorFee) — no commission. payoutParts()
-    returns the two parts the tailor screens itemise. */
+/** The tailor's payout for a garment list (round 16, Kevin): 100% of
+    the alteration prices — no commission, no share of the concierge fee
+    (the rush fee is added by the tailor side, jobPayout). */
 export const payoutParts = (garments) => {
   const list = garments ?? [];
   const alterations = list.reduce((s, g) => s + garmentAmount(g), 0);
-  const items = list.length;
-  const visitCut = items ? tailorFee(items) : 0;
-  return { alterations, items, visitCut, payout: alterations + visitCut };
+  return { alterations, items: list.length, payout: alterations };
 };
 export const payout = (garments) => payoutParts(garments).payout;
 
@@ -359,14 +367,13 @@ export const payout = (garments) => payoutParts(garments).payout;
  * No-show compensation (Kevin, UX-LOOP round 8): what the tailor
  * receives for the trip when the customer no-shows — $20 on the $25
  * tier, half the fee at $50 or more ($25 on $50, $50 on $100). Taily
- * pays it from the kept visitation fee (absorbed if the visit was
+ * pays it from the kept Concierge fee (absorbed if the visit was
  * somehow unlocked); the tailor never sees the fee itself, only this
  * amount. `state.tailorCancels(a, 'no-show')` stamps it on
  * `a.noShowComp`; T02 quotes it before Accept from the booked fee.
  */
-/* Round 12 (Kevin): the compensation IS the tailor's cut of the fee for
-   the booked item count — $25 / $50 / $90. */
-export const noShowComp = (items) => tailorFee(items);
+/* Round 16 (Kevin): a flat $25, paid by Taily whatever the item count. */
+export const noShowComp = () => NO_SHOW_COMP;
 
 /** Round 14: the profile behind a booked appointment's tailor card —
     null while the request is still matching (no tailor yet). Falls back

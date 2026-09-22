@@ -9,8 +9,8 @@
    ('Thu, Jul 9 · 9:30 AM') is stale — text-parity ALLOWs it; the
    address and estimate lines match the frame since UX-LOOP R1
    (Home Visit fiction, $200 / $20 seeded order). Cancel request opens
-   the R1 popup. R7 (Kevin): the visitation fee is a HOLD until a
-   tailor accepts (02.3's copy) — "$25 visitation fee held" here, the
+   the R1 popup. R7 (Kevin): the Concierge fee is a HOLD until a
+   tailor accepts (02.3's copy) — "$25 Concierge fee held" here, the
    cancel line reads "nothing has been charged" (Figma sync pending).
    UX-LOOP R2-U-03 (round 3: frame "03 - Order Status / New Time" +
    route 03-status-new-time): when the tailor
@@ -96,7 +96,7 @@ export function viewRequested(s, forced = null) {
     ? statusHero({ variant: 'new-times', title: 'A tailor proposed a new time', body: `Your ${fmtWhen(a.when)} slot isn’t free. They can do ${fmtWhen(proposed)}.${needBy}` })
     /* round 14 (Kevin): "Taily-verified" + the three badges under the hero; the
        "time passes" demo line moved onto "All Taily-verified tailors are:" */
-    : statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-verified tailor near you. We’ll notify you the moment one accepts.' });
+    : statusHero({ variant: 'requested', title: 'Finding your tailor…', body: 'We’re matching your job with a Taily-verified tailor near you. Most matches happen within the same day, and we’ll notify you as soon as a tailor accepts.' });
   /* R3-U-01: the request card reads the APPOINTMENT once one exists —
      a second unsent booking on the form no longer rewrites it. The
      harness deep link (no navigation yet) keeps the form fixture. */
@@ -105,16 +105,16 @@ export function viewRequested(s, forced = null) {
     ? [
       metaRow('◉', `${req.place} — ${req.visit}`),
       metaRow('▤', fmtWhen(req.when, req.when)),
-      /* R7: the held visitation fee (the tier for the booked count) —
+      /* R7: the held Concierge fee (the tier for the booked count) —
          round 10 (Kevin): its own row under the items / estimate */
       metaRow('✂', `${itemsLabel(itemCount(req), 'item')} · ${money(req.totals.alterations)}.00+ est.`),
-      metaRow('🏠', `${money(req.totals.visitFee)} visitation fee`),
+      metaRow('🏠', `${money(req.totals.visitFee)} Concierge fee`),
     ]
     : [
       metaRow('◉', `${homeAddress()} — ${s.appt.where}`),
       metaRow('▤', s.appt.when ?? fmtWhen(s.upcoming[0]?.when, 'Select Time')),
       metaRow('✂', `${itemsLabel(n, 'item')} · ${money(t.alterations)}.00+ est.`),
-      metaRow('🏠', `${money(t.visitFee)} visitation fee`),
+      metaRow('🏠', `${money(t.visitFee)} Concierge fee`),
     ];
   /* the acceptance window (the tailor side's timer twin) — R6: in the
      frame too (under the hero); tapping it live is the "time passes" demo */

@@ -248,15 +248,13 @@ export function orderDropdown(open = false) {
     under the payout with the trip compensation (jobView.protection /
     data.js noShowComp) — never the fee it is derived from. */
 export const NO_SHOW_PROTECTION = 'No-show protection · paid if Sarah doesn’t show';
-/* Round 12 (Kevin): the tailor takes a cut of the visitation fee — its
-   own "Visitation fee" row above "Your payout" (which includes it). */
-/* Round 15 (Kevin): a rush order adds a "Rush fee" line ($150, paid in full). */
-export function payoutRows({ payout, visitCut = null, rush = 0 }, { offered = false, protection = null } = {}) {
+/* Round 15 (Kevin): a rush order adds a "Rush fee" line (paid in full).
+   Round 16 (Kevin): the concierge fee is Taily's — no fee row on the
+   tailor side at all; the payout is the alterations (+ the rush fee). */
+export function payoutRows({ payout, rush = 0 }, { offered = false, protection = null } = {}) {
   const price = typeof payout === 'number' ? money(payout) : payout;
-  const cut = visitCut == null ? '' : (typeof visitCut === 'number' ? money(visitCut) : visitCut);
-  const cutRow = `${cut ? `${feeRow(cut, 'Visitation fee', { line: true })}
-      ` : ''}${rush > 0 ? `${feeRow(money(rush), 'Rush fee', { line: true })}
-      ` : ''}`;
+  const cutRow = rush > 0 ? `${feeRow(money(rush), 'Rush fee', { line: true })}
+      ` : '';
   if (offered) return `${cutRow}${feeRow(price, 'Payout offered', { muted: true })}`;
   if (protection == null) return `${cutRow}${feeRow(price, 'Your payout')}`;
   const comp = typeof protection === 'number' ? money(protection) : protection;

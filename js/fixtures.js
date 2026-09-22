@@ -12,7 +12,7 @@
 
 import { SEED_UPCOMING, SEED_FINAL_ORDER, apptTotals } from './data.js';
 import { state } from './state.js';
-import { tailorFee } from './data.js';
+import { NO_SHOW_COMP } from './data.js';
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
@@ -21,14 +21,13 @@ export const seedAppt = (overrides = {}) => ({ ...clone(SEED_UPCOMING[0]), ...ov
 
 /* ---------- terminal outcomes (R2-U-04/05/07, R2-T-05/06) ---------- */
 export const APPT_EXPIRED = () => seedAppt({ status: 'expired', cancelledBy: 'none', reason: 'expired', wasRequested: true });
-export const APPT_DECLINED = () => seedAppt({ status: 'declined', cancelledBy: 'tailor', reason: 'declined', wasRequested: true });
 /* R7: the tailor cancelling refunds the $25 fee; a no-show keeps it
    only once Sarah confirmed the visit (feeLocked) — the No-Show frame
    draws the kept case. cancelledAt = the fiction's Jul 12. */
 export const APPT_TAILOR_CANCELLED = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'cant-make-it', wasRequested: false, cancelledAt: 'Sun, Jul 12', refund: 50, feeKept: false });
 /* Round 8: the substrate also stamps the tailor's trip compensation on a
    no-show (`noShowComp`, $20 on the seed's $25 tier) — T03B / T01 read it. */
-export const APPT_NO_SHOW = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'no-show', wasRequested: false, cancelledAt: 'Sun, Jul 12', feeLocked: true, confirmedAt: 'Sat, Jul 11', refund: 0, feeKept: true, noShowComp: tailorFee(2) });
+export const APPT_NO_SHOW = () => seedAppt({ status: 'cancelled', cancelledBy: 'tailor', reason: 'no-show', wasRequested: false, cancelledAt: 'Sun, Jul 12', feeLocked: true, confirmedAt: 'Sat, Jul 11', refund: 0, feeKept: true, noShowComp: NO_SHOW_COMP });
 export const APPT_WITHDRAWN = () => seedAppt({ status: 'cancelled', cancelledBy: 'customer', reason: 'customer', wasRequested: true });
 /** R7: 12 hours before the visit, never confirmed → Taily cancelled it
     (cancelledBy 'none', reason 'unconfirmed', fee refunded). */

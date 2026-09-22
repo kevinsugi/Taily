@@ -66,9 +66,11 @@ function wireForm(root, onSave) {
 }
 
 /** Open the address form over the live screen (the 01/02 address line). */
-export function openAddressOverlay() {
+/* round 16: `onSaved` — 05's delivery calendar repaints its Address row */
+export function openAddressOverlay(onSaved) {
   sheetOverlay(formContent(state.contact), { dataS: '02.2-address-sheet' }, (root, close) => {
     wireForm(root, () => {
+      onSaved?.();
       /* update the opener's live DOM in place — no re-render flash
          (01/02 heading address = [data-addr-text]; 07B's DELIVER TO
          line = [data-addr-full]) */

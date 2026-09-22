@@ -323,12 +323,14 @@
    the Tile Gradient fill, 0 4 4 black@25% shadow, content spread top to
    bottom — the add zone, the icons, the "3 Suit Jackets" label, the
    remove zone. Zones are full-width, 4 padded, holding the 22x5 chevron. */
+/* Round 16 (Kevin): no gradient — white fill, 1px neutral-700 border; the
+   tap zones are the top / bottom 25% of the tile (add / remove). */
 .garment-tile--selected {
   justify-content: space-between;
   gap: 0;
   padding: 0;
-  border: 2px solid var(--neutral-700);
-  background: var(--tile-gradient);
+  border: 1px solid var(--neutral-700);
+  background: var(--white);
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
@@ -337,6 +339,7 @@
   align-items: center;
   justify-content: center;
   width: 100%;
+  height: 25%;
   padding-block: var(--space-4);
   color: var(--neutral-700);
   flex-shrink: 0;
@@ -550,6 +553,12 @@
   width: 100%;
 }
 .status-hero__body--dark { color: var(--neutral-600); }
+/* round 16 (Kevin): the explanation block under a heading row — its own
+   row at the screen padding (03 / Requested's Frame 9: gap 4) */
+.status-hero__notes { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
+.status-hero__notes > * { width: 100%; }
+/* a sheet / popup route's backdrop never widens the frame (05's 354-wide calendar) */
+.sheet-backdrop { overflow: hidden; }
 .status-hero__row {
   display: flex;
   gap: var(--space-8);
@@ -652,7 +661,7 @@
 /* 03/Confirmed's Visit Details block at the top of the garments card */
 .visit-block { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-12) var(--space-8); box-shadow: inset 0 -1px 0 var(--neutral-100); }
 .visit-block__title { font-family: var(--font-serif); font-size: var(--size-24); line-height: 29px; font-weight: 600; color: var(--ink); }
-.visit-block__row { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 500; color: var(--neutral-600); white-space: pre; }
+.visit-block__row { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 400; color: var(--ink); white-space: pre; }   /* round 16: Kevin's frames draw the rows Regular ink */
 /* Round 15 (Kevin): the Back control (308:3820) beside a heading — a
    36-tall, 8-padded box around "‹" 28 Regular ink; the row centres it
    on the heading block (gap 4). */
@@ -668,7 +677,8 @@
   color: var(--ink);
   flex-shrink: 0;
 }
-.heading-row { display: flex; align-items: center; gap: var(--space-4); width: 100%; }
+/* round 16 (Kevin): the heading column starts 28px in (Back 23 + 5) */
+.heading-row { display: flex; align-items: center; gap: 5px; width: 100%; }
 .heading-row__body { flex: 1 1 0; min-width: 0; }
 .heading-row__body > * { width: 100%; }
 .summary-card__row { font-weight: 500; color: var(--neutral-600); white-space: pre; }
@@ -794,7 +804,7 @@
 /* the Additional variant's Photo_Row: Before / Pinned labels over one tile row */
 .photo-row--tabs { flex-direction: column; overflow: visible; margin-right: 0; }
 .photo-tabs { display: flex; gap: var(--space-4); }
-.photo-tabs .photo-tiles__label { color: var(--neutral-200); cursor: pointer; }
+.photo-tabs .photo-tiles__label { color: var(--neutral-400); cursor: pointer; }   /* round 16 (Kevin): the inactive tab reads neutral-400 */
 .photo-tabs .photo-tiles__label.is-active { color: var(--ink); }   /* round 15: the active tab reads ink (04 / Modified 713:3737) */
 .photo-row--tabs [data-photo-set][hidden] { display: none; }   /* the class display beats the hidden attribute */
 
@@ -1287,14 +1297,18 @@
   padding: var(--space-12) 0 var(--space-8);
   width: 100%;
 }
+/* Round 16 (Kevin, Fee Row 745:5889): a 68px amount cell (16 padded, Bold
+   16 ink) beside a filling label column — Medium 16 ink title over an
+   optional Medium 12 ink description, 2 apart; 12 / 8 padding, 12 gap,
+   bottom border. The Modified variant paints the amount success. */
 .fee-row__price {
-  /* Figma: a 68px cell with the price centred inside */
   width: 68px;
+  padding-inline: var(--space-16);
   text-align: center;
   font-family: var(--font-sans);
   font-size: var(--size-16);
   line-height: 21px;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--ink);
   flex-shrink: 0;
 }
@@ -1302,18 +1316,16 @@
   font-family: var(--font-sans);
   font-size: var(--size-16);
   line-height: 21px;
-  font-weight: 600;
-  color: var(--neutral-500);
+  font-weight: 500;
+  color: var(--ink);
 }
-/* Round 15 (Kevin, 02 720:4178): a captioned row stacks the label over a
-   12/16 Medium neutral-500 caption, 2 apart, filling the row. */
 .fee-row__text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
 .fee-row__caption {
   font-family: var(--font-sans);
   font-size: var(--size-12);
   line-height: 16px;
   font-weight: 500;
-  color: var(--neutral-500);
+  color: var(--ink);
 }
 /* Phase R0: rows above the last carry a bottom hairline — inset so the
    41/62 row heights hold (the stroke is not in Figma's layout). */
@@ -1455,8 +1467,9 @@
   text-align: left;
 }
 .detail-row { display: flex; justify-content: space-between; width: 100%; font-family: var(--font-sans); line-height: 21px; }
-.detail-row__label { font-size: var(--size-12); font-weight: 400; color: var(--neutral-500); }
-.detail-row__value { font-size: var(--size-14); font-weight: 600; color: var(--ink); }
+/* round 16 (Kevin, Window Confirmed / Modal): 16px rows */
+.detail-row__label { font-size: var(--size-16); font-weight: 400; color: var(--neutral-500); }
+.detail-row__value { font-size: var(--size-16); font-weight: 600; color: var(--ink); }
 
 /* Leave Review / Sheet (582:2266 family, Phase R6): n50 card, grabber,
    serif-28 title + sub, 30px star row, bordered input, Confirm CTA. */
@@ -1616,3 +1629,116 @@
   color: var(--accent-ink);
 }
 .link-row__chevron { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* ============================================================
+   Calendar (round 16, Kevin — Calendar 768:7277 / Calendar / Cell 764:4597)
+   The date picker: 02's Requested time / Need by popup (02.1) and 05's
+   inline delivery scheduler. js/calendar.js draws it.
+   ============================================================ */
+.calendar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 354px;
+  padding: var(--space-24);
+  border-radius: var(--radius-lg);
+  background: var(--neutral-50);
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+  font-family: var(--font-sans);
+  color: var(--ink);
+}
+.calendar--white { background: var(--white); }
+.calendar__heading { display: flex; flex-direction: column; width: 100%; }
+.calendar__title { font-size: var(--size-16); line-height: 21px; font-weight: 500; }
+.calendar__header { display: flex; align-items: center; gap: var(--space-8); width: 100%; }
+.calendar__month { font-size: var(--size-24); line-height: 31px; font-weight: 500; flex: 1 1 0; }
+.calendar__nav {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+.calendar__arrow { width: 7px; height: 12px; display: block; }
+.calendar__days { display: flex; flex-direction: column; gap: 2px; width: 308px; }
+.calendar__row { display: flex; width: 308px; }
+.cal-cell {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.cal-cell__num { display: block; }
+.cal-cell__sub { display: block; height: 10px; font-size: var(--size-8); line-height: 10px; font-weight: 400; color: var(--ink); }
+.cal-cell--weekday { font-weight: 600; letter-spacing: 0.5px; color: var(--neutral-500); cursor: default; }
+.cal-cell--muted { color: var(--neutral-300); cursor: default; }
+.cal-cell--selected { background: var(--ink); color: var(--neutral-50); font-weight: 600; }
+.cal-cell--selected .cal-cell__sub { color: var(--white); font-weight: 700; }
+.cal-cell--between { background: var(--accent-bg); font-weight: 600; }
+.cal-cell--needby { box-shadow: inset 0 0 0 1px var(--ink); font-weight: 600; }
+.calendar__fields { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }
+.calendar__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  padding-block: var(--space-12);
+  box-shadow: inset 0 -1px 0 var(--neutral-200);
+}
+.calendar__error { font-size: var(--size-16); line-height: 21px; font-weight: 500; color: var(--error); }
+.calendar__selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: var(--size-16);
+  line-height: 21px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+.calendar__field-label { display: flex; align-items: center; gap: 10px; }
+.calendar__icon { width: 16px; height: 16px; display: block; flex-shrink: 0; }
+.calendar__value { color: var(--neutral-500); }
+/* the popup over 02 (02.1 - Date & Time Sheet 756:7291): the card floats
+   at 18 / 215 over the scrimmed screen; the time picker swaps in place */
+.calendar-popup { position: absolute; left: 18px; top: 215px; z-index: 3; }
+.calendar-popup--picker { left: 64px; }
+.modal-host .calendar-popup { transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); }
+.modal-host:not([data-open="true"]) .calendar-popup { opacity: 0; transform: translateY(12px); }
+/* Time Picker / Pickup 771:6886 — a 263-wide white card, 20 padded, the
+   heading centred over a three-column wheel */
+.time-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 263px;
+  padding: var(--space-20);
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+}
+.time-picker__title { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 500; color: var(--ink); text-align: center; }
+.time-picker .wheel { height: 200px; }

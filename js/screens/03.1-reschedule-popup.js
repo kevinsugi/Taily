@@ -20,10 +20,10 @@
    the tailor. The registered route (harness deep link) keeps the
    frame's rows.
    UX-LOOP round 7 (Kevin's money model v2): the 12-hour rule is gone.
-   The visitation fee is refunded in full until the customer confirms
+   The Concierge fee is refunded in full until the customer confirms
    the visit on the 24-hour prompt (`a.feeLocked`) — the ✓ / ✕ row
-   says which: "✓ Your $25 visitation fee is refunded" / "✕ Your $25
-   visitation fee is non-refundable (you confirmed the visit)". Figma
+   says which: "✓ Your $25 Concierge fee is refunded" / "✕ Your $25
+   Concierge fee is non-refundable (you confirmed the visit)". Figma
    sync pending (the frame's row still says deposit).
    ============================================================ */
 
@@ -41,8 +41,8 @@ const row = (glyph, tone, text) => `<div class="modal__row"><span class="modal__
 export const feeRowFor = (a) => {
   const fee = money(a?.totals?.visitFeeCharged ?? a?.totals?.visitFee ?? 25);
   return a?.feeLocked
-    ? row('✕', 'c-error', `Your ${fee} visitation fee is non-refundable (you confirmed the visit)`)
-    : row('✓', 'c-success', `Your ${fee} visitation fee is refunded`);
+    ? row('✕', 'c-error', `Your ${fee} Concierge fee is non-refundable (you confirmed the visit)`)
+    : row('✓', 'c-success', `Your ${fee} Concierge fee is refunded`);
 };
 
 function modalHtml(mode = 'reschedule') {

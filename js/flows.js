@@ -97,13 +97,16 @@ function visited(a, order = 'modified') {
 const resent = (a) => { visited(a); reopenDraft(a); resendFinalOrder(a, DRAFTS.retiered()); return a; };
 const approved = (a, order) => { visited(a, order); approveOrder(a); return a; };
 const ready = (a, order) => { approved(a, order); markReady(a); return a; };
-/** Sarah picked a handoff window on 05A / 05B (the seed's windows). */
-const scheduled = (a, method = 'pickup') => {
+/** Round 16: the delivery Sarah scheduled on 05 (the frames' Thu, Jul 23 · 5:00 PM). */
+export const DEMO_DELIVERY = { window: 'Thu, Jul 23 · 5:00 PM', date: 'Jul 23', day: 'Jul 23', time: '5:00 PM' };
+const scheduled = (a) => {
   ready(a);
-  chooseFulfilment(method, 'Fri, Jul 17 · 4–6 PM', 'Jul 17', a);
+  chooseFulfilment('delivery', DEMO_DELIVERY.window, DEMO_DELIVERY.date, a, a.place ?? '88 Leonard Street, 10013');
   return a;
 };
-const delivered = (a, method) => { scheduled(a, method); deliver(a); return a; };
+/** 05's calendar filled but not yet confirmed (the 05.1 / 05.2 steps press Confirm themselves). */
+const draftDelivery = (a) => { state.ui.delivery = { day: DEMO_DELIVERY.day, time: DEMO_DELIVERY.time, address: a.place ?? '88 Leonard Street, 10013' }; return a; };
+const delivered = (a) => { scheduled(a); deliver(a); return a; };
 
 /** Round 15 (Kevin): a RUSH booking — the need-by is the day after the
     visit, so the order owes the $150 rush fee (re-derived from the
@@ -174,7 +177,7 @@ export const FLOWS = {
         { key: 'c-review-updated', code: '04', title: 'Review — updated invoice', note: 'Marco added a service and a jacket ($360)', screen: '04-review-approve', setup: (a) => visited(a, 'modified') },
         { key: 'c-review-unchanged', code: '04', title: 'Review — order unchanged', note: 'Same as booked ($200)', screen: '04-review-approve', setup: (a) => visited(a, 'unchanged') },
         { key: 'c-review-removed', code: '04', title: 'Review — item removed', note: 'A jacket was dropped at the visit', screen: '04-review-approve', setup: (a) => visited(a, 'removed') },
-        { key: 'c-review-retiered', code: '04', title: 'Review — higher fee tier', note: '5 items, additional visitation fee', screen: '04-review-approve', setup: (a) => visited(a, 'retiered') },
+        { key: 'c-review-retiered', code: '04', title: 'Review — higher fee tier', note: '5 items, additional Concierge fee', screen: '04-review-approve', setup: (a) => visited(a, 'retiered') },
         { key: 'c-request-changes', code: '04.1', title: 'Request changes popup', screen: '04-review-approve', setup: (a) => visited(a), click: ['[data-act="changes"]'] },
         { key: 'c-resent', code: '04', title: 'Review — Marco updated the order', note: 'Sent again after editing, changes highlighted', screen: '04-review-approve', setup: (a) => resent(a) },
       ],
@@ -184,19 +187,17 @@ export const FLOWS = {
       items: [
         { key: 'c-tailoring', code: '03', title: 'Tailoring in progress', note: 'Order approved', screen: '03-status-tailoring', setup: (a) => approved(a) },
         { key: 'c-photo-viewer', code: '03.3', title: 'Photo viewer — before & pinned', screen: '03-status-tailoring', setup: (a) => approved(a), click: ['.photo-row'] },
-        { key: 'c-ready-home', code: '01', title: 'Home — items ready', note: 'Schedule Pickup / Delivery card', screen: '01-home', setup: (a) => ready(a) },
-        { key: 'c-items-ready', code: '05', title: 'Items ready', screen: '05-items-ready', setup: (a) => ready(a) },
-        { key: 'c-pickup', code: '05A', title: 'Pickup window', screen: '05a-pickup-window', setup: (a) => ready(a) },
-        { key: 'c-delivery', code: '05B', title: 'Delivery options', screen: '05b-delivery-options', setup: (a) => ready(a) },
-        { key: 'c-window-confirmed', code: '05.1', title: 'Window confirmed popup', screen: '05a-pickup-window', setup: (a) => ready(a), click: ['[data-act="confirm"]'] },
-        { key: 'c-scheduled', code: '03', title: 'Tailoring — handoff scheduled', note: 'Waiting for Marco to hand over', screen: '03-status-tailoring', setup: (a) => scheduled(a) },
+        { key: 'c-ready-home', code: '01', title: 'Home — items ready', note: 'Schedule Delivery card', screen: '01-home', setup: (a) => ready(a) },
+        { key: 'c-items-ready', code: '05', title: 'Items ready — schedule delivery', note: 'The delivery calendar', screen: '05-items-ready', setup: (a) => ready(a) },
+        { key: 'c-confirm-delivery', code: '05.1', title: 'Confirm delivery popup', note: 'Day + time picked', screen: '05-items-ready', setup: (a) => { ready(a); draftDelivery(a); }, click: ['[data-act="confirm"]'] },
+        { key: 'c-delivery-confirmed', code: '05.2', title: 'Delivery confirmed popup', screen: '05-items-ready', setup: (a) => { ready(a); draftDelivery(a); }, click: ['[data-act="confirm"]', '.screen-sheet--overlay [data-act="confirm-delivery"]'] },
+        { key: 'c-scheduled', code: '03', title: 'Delivery scheduled', note: 'Checking the order after scheduling', screen: '03-status-delivery-scheduled', setup: (a) => scheduled(a) },
       ],
     },
     {
       title: 'Complete',
       items: [
-        { key: 'c-complete', code: '06', title: 'Journey complete', note: 'Picked up', screen: '06-journey-complete', setup: (a) => delivered(a, 'pickup') },
-        { key: 'c-complete-delivery', code: '06', title: 'Journey complete — delivered', note: '+$20 delivery', screen: '06-journey-complete', setup: (a) => delivered(a, 'delivery') },
+        { key: 'c-complete', code: '06', title: 'Journey complete', note: 'Delivered', screen: '06-journey-complete', setup: (a) => delivered(a) },
         { key: 'c-leave-review', code: '06.1', title: 'Leave a review', screen: '06-journey-complete', setup: (a) => delivered(a), click: ['[data-act="review"]'] },
         { key: 'c-review-submitted', code: '06.1', title: 'Review submitted', note: 'closes itself after 2 s or on a tap', screen: '06-journey-complete', setup: (a) => delivered(a), click: ['[data-act="review"]', '[data-act="confirm-review"]'] },
         { key: 'c-summary', code: '03', title: 'Order summary', note: 'Receipt after completion', screen: '03-status-summary', setup: (a) => delivered(a) },
@@ -209,7 +210,7 @@ export const FLOWS = {
         { key: 'c-cancel-kept', code: '03', title: 'Cancelled by you — fee kept', note: 'After confirming the visit', screen: '03-status-cancelled', setup: (a) => { accepted(a); confirmAppointment(a); cancelAppointment(a); } },
         { key: 'c-withdrawn', code: '03', title: 'Request withdrawn', screen: '03-status-cancelled', setup: (a) => { asRequest(a); cancelAppointment(a); } },
         { key: 'c-expired', code: '03', title: 'Request expired', note: 'No tailor accepted in time', screen: '03-status-cancelled', setup: (a) => { asRequest(a); expireAppointment(a); } },
-        { key: 'c-declined', code: '03', title: 'Tailor declined', screen: '03-status-cancelled', setup: (a) => { asRequest(a); declineAppointment(a); } },
+        { key: 'c-declined', code: '03', title: 'Tailor declined — still matching', note: 'Marco passed; the request is back with the next tailor', screen: '03-status-requested', setup: (a) => { asRequest(a); declineAppointment(a); } },
         { key: 'c-tailor-cancelled', code: '03', title: 'Tailor had to cancel', screen: '03-status-cancelled', setup: (a) => { accepted(a); tailorCancels(a, 'cant-make-it'); } },
         { key: 'c-no-show', code: '03', title: 'Marked as a no-show', screen: '03-status-cancelled', setup: (a) => { accepted(a); confirmAppointment(a); tailorCancels(a, 'no-show'); } },
         { key: 'c-unconfirmed', code: '03', title: 'Auto-cancelled — never confirmed', screen: '03-status-cancelled', setup: (a) => { accepted(a); autoCancelUnconfirmed(a); } },
@@ -266,8 +267,7 @@ export const FLOWS = {
         { key: 't-status-resent', code: 'T06', title: 'Status — updated order sent again', screen: 't06-appointment-status', setup: (a) => resent(a) },
         { key: 't-status-tailoring', code: 'T06', title: 'Status — tailoring', note: 'Order approved', screen: 't06-appointment-status', setup: (a) => approved(a) },
         { key: 't-ready-waiting', code: 'T07', title: 'Job ready — waiting for Sarah', note: 'No handoff chosen yet', screen: 't07-job-ready', setup: (a) => ready(a) },
-        { key: 't-ready-pickup', code: 'T07', title: 'Job ready — pickup scheduled', screen: 't07-job-ready', setup: (a) => scheduled(a, 'pickup') },
-        { key: 't-ready-delivery', code: 'T07', title: 'Job ready — delivery scheduled', screen: 't07-job-ready', setup: (a) => scheduled(a, 'delivery') },
+        { key: 't-ready-delivery', code: 'T07', title: 'Job ready — delivery scheduled', screen: 't07-job-ready', setup: (a) => scheduled(a) },
         { key: 't-complete', code: 'T08', title: 'Job complete', note: 'Payout on its way', screen: 't08-job-complete', setup: (a) => delivered(a) },
       ],
     },

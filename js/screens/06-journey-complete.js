@@ -11,8 +11,10 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, cta, toast, orderCards, receiptRows, apptRows, visitBlock, headingRow } from '../components.js';
+import { chrome, cta, toast, orderCards, receiptRows, apptRows, visitBlock } from '../components.js';
 import { state, clearGarments, finalOrder } from '../state.js';
+import { fmtWhen } from '../data.js';
+import { FINAL_ORDER_REMOVED } from '../fixtures.js';
 import { wirePhotoViewer } from './03.3-photo-viewer.js';
 import { openLeaveReview, tailorName } from './06.1-leave-review.js';
 import { currentAppt } from './03-status-confirmed.js';
@@ -20,7 +22,8 @@ import { currentAppt } from './03-status-confirmed.js';
 /* Exported: 08C draws this screen (dimmed) as its frame backdrop. */
 export function viewComplete(s) {
   const a = currentAppt(s);
-  const o = finalOrder(a);
+  /* round 16: the frame draws the $280 two-card order (283:1419) on a cold load */
+  const o = window.__tailyNavigated ? finalOrder(a) : FINAL_ORDER_REMOVED();
 
   return `${chrome('home')}
 <div class="body" data-s="06-journey-complete">
@@ -29,10 +32,10 @@ export function viewComplete(s) {
     <span class="done-tile"><img src="assets/garments/done-suit-jacket.png" alt=""></span>
     <span class="done-tile"><img src="assets/garments/done-suit-jacket.png" alt=""></span>
   </div>
-  ${headingRow(`<div class="heading"><h1 class="t-title c-ink center">All done!</h1>
-  <p class="t-body w-500 c-500 center">Your garments are back with you, tailored to fit. Thank you for using Taily.</p></div>`)}
+  <div class="heading"><h1 class="t-title c-ink center">All done!</h1>
+  <p class="t-body c-ink center">Your garments are back with you, tailored to fit. Thank you for using Taily.</p></div>
   <div class="garments-card">
-      ${visitBlock(apptRows(a))}
+      ${visitBlock([...apptRows(a).slice(0, 2), `▤&nbsp;&nbsp;Delivered: ${fmtWhen(a?.deliveredAt ?? a?.fulfilment?.window, 'Thu, Jul 23 · 5:00 PM')}`])}
       ${orderCards(o, { variant: 'PostAppt' })}
       ${receiptRows(a, o.totals)}
   </div>

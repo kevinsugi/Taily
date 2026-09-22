@@ -33,7 +33,7 @@
                       wasRequested true when it was still searching
                                    (nothing was ever charged — the fee
                                    hold is released)
-                      refund       the visitation fee going back (0 kept)
+                      refund       the Concierge fee going back (0 kept)
                       feeKept      true only when a CHARGED fee is kept
                                    (round 7: the customer confirmed the
                                    visit, then cancelled / no-showed)
@@ -52,7 +52,6 @@ import {
   SEED_UPCOMING,
   SEED_PAST,
   SEED_FINAL_ORDER,
-  DELIVERY_FEE,
   visitFee,
   visitFeeNote,
   rushFee,
@@ -115,11 +114,16 @@ import {
 
 /** Marco — the one tailor the prototype matches with. */
 const MATCHED_TAILOR = { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco' };
+/* round 16 (Kevin): a tailor who declined is skipped — the next one in
+   TAILORS takes the request */
 function assignTailor(a) {
   if (!a) return;
-  a.name ??= MATCHED_TAILOR.name;
-  a.initials ??= MATCHED_TAILOR.initials;
-  a.tailorId ??= MATCHED_TAILOR.tailorId;
+  const declined = a.declinedBy ?? [];
+  const next = declined.includes(MATCHED_TAILOR.tailorId) ? TAILORS.find((t) => !declined.includes(t.id)) : null;
+  const pick = next ? { name: next.name, initials: next.initials, tailorId: next.id } : MATCHED_TAILOR;
+  a.name ??= pick.name;
+  a.initials ??= pick.initials;
+  a.tailorId ??= pick.tailorId;
   a.matching = false;
 }
 
@@ -131,7 +135,9 @@ function assignTailor(a) {
    completed=delivered. declined / cancelled / expired sit outside. */
 export const STATUS_ORDER = ['searching', 'confirmed', 'awaiting-approval', 'tailoring', 'ready-for-pickup', 'delivered'];
 export const STATUS_ALIASES = { requested: 'searching', ready: 'ready-for-pickup', completed: 'delivered' };
-export const TERMINAL_STATUSES = ['declined', 'cancelled', 'expired'];
+/* Round 16 (Kevin): a decline is no longer terminal — the request goes
+   back to matching (declineAppointment). */
+export const TERMINAL_STATUSES = ['cancelled', 'expired'];
 /* Statuses after the appointment happened — the order on file is the
    tailor's reviewed final order, not the booking estimate. */
 export const POST_STATUSES = ['awaiting-approval', 'tailoring', 'ready-for-pickup', 'delivered'];
@@ -242,7 +248,7 @@ export function advanceStatus() {
     prev,
     next,
     // v3 charged the hold exactly on requested/searching -> confirmed
-    // (round 7: the hold is the visitation fee)
+    // (round 7: the hold is the Concierge fee)
     feeCharged: canon === 'searching' && next === 'confirmed',
     visitFee: a.totals ? a.totals.visitFee : null,
   };
@@ -303,7 +309,7 @@ export function requestTailor() {
     garments: JSON.parse(JSON.stringify(state.garments)),
     bring: ['Your garments', 'The shoes you plan to wear with them.'],
     totals,
-    /* R7: the visitation fee is HELD at booking (its tier from the
+    /* R7: the Concierge fee is HELD at booking (its tier from the
        booked count is already in `totals`), charged on acceptance */
     feeHeld: true,
     /* R3-T-04: one order number per booking (the seed keeps 4417) */
@@ -345,7 +351,7 @@ export function step(from, to, extra = {}, a = apptEntry()) {
 /** The receipt date of the fee charge ("9/10/26"; the seed's fiction
     says 7/7/26). */
 const chargeDate = () => mdy(new Date().toDateString(), '7/7/26');
-/** Charge the held visitation fee (R7): stamps `feeChargedOn`, clears
+/** Charge the held Concierge fee (R7): stamps `feeChargedOn`, clears
     the hold. Idempotent — a fee already charged keeps its date. */
 function chargeFee(a) {
   if (!a) return;
@@ -353,17 +359,17 @@ function chargeFee(a) {
   a.feeHeld = false;
 }
 
-/** Tailor accepts the request — the held visitation fee is charged now
+/** Tailor accepts the request — the held Concierge fee is charged now
     (Kevin, R7): `feeChargedOn` dates the receipt rows. A pending time
     proposal is moot once the request is accepted as booked. */
 export function tailorAccepts(a = apptEntry()) {
   const ok = step('searching', 'confirmed', {}, a);
-  if (ok) { chargeFee(a); a.proposed = null; assignTailor(a); }   // R6: the tailor is named on acceptance
+  if (ok) { chargeFee(a); a.proposed = null; assignTailor(a); }   // R6: the tailor is named on acceptance (round 16: never one who declined)
   return ok;
 }
 /**
  * The 24-hour prompt's Confirm (R7): the customer confirms the visit —
- * `confirmedAt` + `feeLocked = true`: from here the visitation fee is
+ * `confirmedAt` + `feeLocked = true`: from here the Concierge fee is
  * non-refundable (a no-show keeps it too). Only a confirmed, not yet
  * happened appointment can be confirmed; returns true when it was.
  * 03.2's Confirm calls this before completeAppointment().
@@ -389,25 +395,27 @@ export function markReady(a = apptEntry()) {
   const readyAt = (dayBefore && (!apptDay || !beforeDay || beforeDay > apptDay)) ? dayBefore : fmtDay(a.needBy, 'Thu, Jul 16');
   return step('tailoring', 'ready-for-pickup', { readyAt }, a);
 }
-/** 07a/07b: how the garments come back. `date` is the window's calendar
-    day ("Jul 17") so receipts and the delivered stamp can name it.
-    R7: home delivery adds DELIVERY_FEE to the totals (`delivery`,
-    `total`); pickup takes it back out. */
-export function chooseFulfilment(method, window, date = null, a = apptEntry()) {
+/** 05: the delivery the customer scheduled (round 16, Kevin: delivery
+    is the only handoff and the concierge fee covers it — nothing is
+    added to the totals). `window` is the label the screens print
+    ("Thu, Jul 23 · 5:00 PM"), `date` its calendar day ("Jul 23") so
+    receipts and the delivered stamp can name it; `address` the delivery
+    address line. The `method` argument is kept for the round-3..15
+    callers and is always 'delivery'. */
+export function chooseFulfilment(method, window, date = null, a = apptEntry(), address = null) {
   if (!a) return false;
-  a.fulfilment = { method, window, date };
-  if (a.totals) {
-    const delivery = method === 'delivery' ? DELIVERY_FEE : 0;
-    a.totals = { ...a.totals, delivery, total: (a.totals.alterations ?? 0) + (a.totals.visitFee ?? 0) + delivery };
-  }
+  a.fulfilment = { method: 'delivery', window, date, address: address ?? a.fulfilment?.address ?? null };
+  if (a.totals) a.totals = { ...a.totals, delivery: 0 };
   return true;
 }
 /** Garments back with the customer — stamps deliveredAt from the
     chosen window's day. */
 export function deliver(a = apptEntry()) {
   if (!a) return false;
-  const day = a.fulfilment?.date ?? a.fulfilment?.window ?? a.readyAt ?? a.needBy;
-  return step('ready-for-pickup', 'delivered', { deliveredAt: fmtDay(day, a.readyAt ?? 'Fri, Jul 17') }, a);
+  /* round 16: the delivered stamp is the scheduled window itself ("Thu,
+     Jul 23 · 5:00 PM" — 06 prints "Delivered: …"), else the day */
+  const day = a.fulfilment?.window ?? a.fulfilment?.date ?? a.readyAt ?? a.needBy;
+  return step('ready-for-pickup', 'delivered', { deliveredAt: a.fulfilment?.window ?? fmtDay(day, a.readyAt ?? 'Fri, Jul 17') }, a);
 }
 
 /* ---------- Proposed time (UX-LOOP R2-U-03 / R2-T-04) ---------- */
@@ -432,7 +440,7 @@ export function proposeTime(a, when) {
 
 /** The customer accepts a proposed time (or the tailor confirms a
     time): `a.when = when`, proposal cleared, status confirmed, the held
-    visitation fee charged (feeChargedOn, R7). `when` first keeps the v3
+    Concierge fee charged (feeChargedOn, R7). `when` first keeps the v3
     signature; omitted, it falls back to the pending proposal. */
 export function acceptProposedTime(when, a = apptEntry()) {
   if (!a) return null;
@@ -486,7 +494,7 @@ function terminate(a, status, cancelledBy, reason) {
   return wasRequested;
 }
 
-/** The visitation fee on file for an appointment (charged or held). */
+/** The Concierge fee on file for an appointment (charged or held). */
 const feeOf = (a) => a?.totals?.visitFeeCharged ?? a?.totals?.visitFee ?? 0;
 /** Stamp the fee outcome on a terminal entry (R7): `refund` (the fee
     going back — the hold released when it was never charged) and
@@ -498,13 +506,19 @@ function settleFee(a, { kept = false } = {}) {
   return { refund: a.refund, kept: a.feeKept };
 }
 
-/** The tailor declines the request (cancelledBy 'tailor', reason
-    'declined'). Nothing was charged — the fee hold is released. */
+/** The tailor declines the request (round 16, Kevin): the request is
+    NOT closed — it goes back to matching with the next tailor, the hold
+    intact, and the customer sees nothing. The declining tailor is
+    remembered on `a.declinedBy` so the tailor side can close its copy
+    (T03A) and the next match skips them. Returns the appointment. */
 export function declineAppointment(a = apptEntry()) {
   if (!a) return null;
-  terminate(a, 'declined', 'tailor', 'declined');
-  const { refund } = settleFee(a);
-  return { appointment: a, refund, visitFee: feeOf(a) };
+  a.declinedBy = [...(a.declinedBy ?? []), a.tailorId ?? 'marco'];
+  a.declinedAt = fmtDay(new Date().toDateString(), 'Sun, Jul 12');
+  Object.assign(a, { status: 'searching', name: null, initials: null, tailorId: null, matching: true, feeHeld: true });
+  a.proposed = null;
+  delete a.tailor;
+  return { appointment: a, visitFee: feeOf(a) };
 }
 
 /** No tailor accepted in time (cancelledBy 'none', reason 'expired').
@@ -541,7 +555,7 @@ export function tailorCancels(a = apptEntry(), reason = 'cant-make-it') {
 /**
  * The customer cancels (a request withdrawn, or a confirmed visit).
  * v3: a request that was never confirmed charges nothing. R7: a
- * confirmed appointment refunds the visitation fee in full until the
+ * confirmed appointment refunds the Concierge fee in full until the
  * customer confirmed the visit on the 24-hour prompt (`feeLocked`,
  * confirmAppointment) — after that the fee is kept. `aOrIndex` may be
  * the appointment, its index in state.upcoming, or nothing (the one
@@ -655,7 +669,7 @@ export function clearGarments() {
 /**
  * The booking form's pricing (02's fee card + CTA, 03/Requested's
  * estimate row): per-tailor minimums ("$N+") for the alterations and
- * the visitation fee tier for the item count (R7) — the same shape
+ * the Concierge fee tier for the item count (R7) — the same shape
  * apptTotals() returns, plus `note` (the tier's supporting line, ''
  * on the $25 tier). Ported from v3 bookingLines(), reading `state`.
  */
@@ -719,7 +733,9 @@ export function statusScreen(a) {
   if (s === 'confirmed') return '03-status-confirmed';
   if (s === 'awaiting-approval') return orderModified(finalOrder(a)) ? '04-review-approve-modified' : '04-review-approve';
   if (s === 'delivered') return '03-status-summary';
-  return '03-status-tailoring';   // tailoring / ready-for-pickup
+  /* round 16 (Kevin): a scheduled delivery has its own status screen */
+  if (s === 'ready-for-pickup' && a?.fulfilment?.window) return '03-status-delivery-scheduled';
+  return '03-status-tailoring';   // tailoring / ready (delivery not scheduled yet)
 }
 
 /**

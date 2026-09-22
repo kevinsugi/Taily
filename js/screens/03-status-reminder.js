@@ -22,7 +22,7 @@ import { bookingSummary, currentAppt, confirmedPill } from './03-status-confirme
    prompt. R7-U-01 (director verification): the consequence is a
    "Before you confirm" callout at the head of the actions block — a
    prepare-card with a leading ! glyph, body-size ink copy — not fine
-   print: "Confirming makes your $25 visitation fee non-refundable —
+   print: "Confirming makes your $25 Concierge fee non-refundable —
    no-shows included. Cancel before confirming and it’s refunded in
    full." Confirming (03.2) runs confirmAppointment() — the pill then
    reads "Confirmed · fee non-refundable" and the callout goes.
@@ -34,7 +34,7 @@ import { bookingSummary, currentAppt, confirmedPill } from './03-status-confirme
 export const reminderFee = (a) => money(a?.totals?.visitFeeCharged ?? a?.totals?.visitFee ?? 25);
 export const nonRefundableCallout = (a) => (a?.feeLocked ? '' : `<div class="prepare-card fee-callout" data-fee-warning>
       <p class="t-body w-500 c-ink fee-callout__title"><span class="fee-callout__glyph c-accent-ink">!</span><span>Before you confirm</span></p>
-      <p class="t-body c-ink fee-callout__body" data-fee-warning-body>Confirming makes your ${reminderFee(a)} visitation fee non-refundable — no-shows included. Cancel before confirming and it’s refunded in full.</p>
+      <p class="t-body c-ink fee-callout__body" data-fee-warning-body>Confirming makes your ${reminderFee(a)} Concierge fee non-refundable — no-shows included. Cancel before confirming and it’s refunded in full.</p>
     </div>`);
 
 /* Exported: R1 / RC1 / 05X draw this screen (dimmed) as their frame

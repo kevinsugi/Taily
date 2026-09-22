@@ -14,14 +14,14 @@ import { viewReminder, reminderFee } from './03-status-reminder.js';
 import { currentAppt } from './03-status-confirmed.js';
 
 /* R7-U-01: the tap that locks the fee says so — a ! row between the
-   frame's two: "Your $25 visitation fee is now non-refundable."
+   frame's two: "Your $25 Concierge fee is now non-refundable."
    (amount from the appointment; live and fixture alike — Figma sync
    pending). */
 function modalHtml(a) {
   return `<div class="modal">
   <h2 class="modal__title modal__title--success">Appointment Confirmed!</h2>
   <div class="modal__row"><span class="modal__glyph c-success">✓</span><span>Marco will message you when he arrives.</span></div>
-  <div class="modal__row" data-fee-locked-row><span class="modal__glyph c-accent-ink">!</span><span>Your ${reminderFee(a)} visitation fee is now non-refundable.</span></div>
+  <div class="modal__row" data-fee-locked-row><span class="modal__glyph c-accent-ink">!</span><span>Your ${reminderFee(a)} Concierge fee is now non-refundable.</span></div>
   <div class="modal__row"><span class="modal__glyph c-accent-ink">!</span><div>Please prepare:<ul class="modal__list"><li>Your garments.</li><li>The shoes you plan to wear with them.</li></ul></div></div>
   <div class="modal__actions">
     ${cta('Confirm', { attrs: 'data-act="confirm-appt"' })}
@@ -36,7 +36,7 @@ function wireModal(root, close) {
        (the frames' +Sleeve / +jacket fiction; a no-op once the tailor
        side has sent its own), then the order awaits approval. */
     const a = apptEntry();
-    /* R7: the customer's confirmation locks the visitation fee
+    /* R7: the customer's confirmation locks the Concierge fee
        (confirmedAt + feeLocked) BEFORE the appointment happens */
     confirmAppointment(a);
     draftFinalOrder(a);

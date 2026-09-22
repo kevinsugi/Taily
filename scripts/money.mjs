@@ -16,15 +16,21 @@
    ============================================================ */
 
 import {
-  visitFee, tailorFee, noShowComp, DELIVERY_FEE, payout, apptTotals, JOB_TYPES,
+  visitFee, noShowComp, payout, apptTotals, JOB_TYPES,
   SEED_UPCOMING, SEED_PAST, SEED_FINAL_ORDER,
-  RUSH_FEE, RUSH_CAPTION, VISIT_FEE_CAPTION, ALTERATIONS_EST_CAPTION, HANDOFF_CAPTION,
+  RUSH_LADDER, rushCaption, VISIT_FEE_CAPTION, ALTERATIONS_EST_CAPTION, ALTERATIONS_FINAL_CAPTION, HANDOFF_CAPTION,
+  FEE_LABEL, feeTierLabel,
 } from '../js/data.js';
 
-/* round 15 (Kevin): the rush fee ($150 when need-by is within 24 h of the
-   visit — paid at handoff, the tailor's in full) and the fee-row captions */
-export const RUSH = RUSH_FEE;
-export const CAPTION = { rush: RUSH_CAPTION, visit: VISIT_FEE_CAPTION, alterations: ALTERATIONS_EST_CAPTION, handoff: HANDOFF_CAPTION };
+/* round 16 (Kevin): the rush LADDER (+$150 / +$100 / +$50 by days after the
+   visit — paid at handoff, the tailor's in full), the fee-row captions and
+   the "Concierge fee" label (+ its tier suffix) */
+export const RUSH = RUSH_LADDER[0];
+export const RUSH_LADDER_STEPS = RUSH_LADDER;
+export const rushCap = rushCaption;
+export const CAPTION = { rush: rushCaption(1), visit: VISIT_FEE_CAPTION, alterations: ALTERATIONS_EST_CAPTION, final: ALTERATIONS_FINAL_CAPTION, handoff: HANDOFF_CAPTION };
+export const FEE_NAME = FEE_LABEL;
+export const feeLabel = feeTierLabel;
 import { FINAL_ORDER_REMOVED, FINAL_ORDER_RETIERED } from '../js/fixtures.js';
 
 /** '$' + n — the app's whole-dollar rendering (money() in data.js). */
@@ -37,10 +43,9 @@ export const PRICE = { hem: JOB_TYPES['Hem / Adjust Length'].price, sleeve: JOB_
 export const payoutChange = (from, to) => `Payout ${$(from.payout)} → ${$(to.payout)} (${to.payout >= from.payout ? '+' : '−'}$${Math.abs(to.payout - from.payout)})`;
 
 /* ---------- the tiers, one representative count each ---------- */
-export const FEE = { t1: visitFee(1), t2: visitFee(5), t3: visitFee(11) };     // the customer's visitation fee
-export const CUT = { t1: tailorFee(1), t2: tailorFee(5), t3: tailorFee(11) };  // the tailor's cut of it
-export const COMP = { t1: noShowComp(1), t2: noShowComp(5), t3: noShowComp(11) }; // no-show trip compensation
-export const DELIVERY = DELIVERY_FEE;
+export const FEE = { t1: visitFee(1), t2: visitFee(5), t3: visitFee(9) };     // the customer's concierge fee ($50 / $90 / $140)
+export const COMP = { t1: noShowComp(), t2: noShowComp(), t3: noShowComp() }; // no-show trip compensation (flat $25, round 16)
+export const DELIVERY = 0;   // round 16: delivery is inside the concierge fee
 
 /**
  * The money model for an order of `alterations` dollars over `items`
@@ -48,22 +53,21 @@ export const DELIVERY = DELIVERY_FEE;
  * the runs whose alteration sum is known but whose garment list is not
  * to hand. `charged` = the fee already charged at booking (a re-tiered
  * final order keeps it and owes the difference at handoff).
- *   fee      the visitation fee row (never below `charged`)
+ *   fee      the Concierge fee row (never below `charged`)
  *   added    the extra owed when the final order re-tiered
  *   total    alterations + fee (+ delivery)
  *   due      what is paid at handoff: alterations + added (+ delivery)
- *   payout   the tailor's payout: alterations + their cut of the fee
- *   comp     the tailor's no-show compensation for that count
+ *   payout   the tailor's payout: the alterations (round 16: no cut of the fee)
+ *   comp     the tailor's no-show compensation (flat)
  */
 export function sum(alterations, items, { charged, delivery = 0 } = {}) {
   const tier = visitFee(items);
   const ch = charged ?? tier;
   const fee = Math.max(tier, ch);
-  const cut = tailorFee(items);
   return {
     alt: alterations, items, fee, charged: ch, added: Math.max(0, tier - ch), delivery,
     total: alterations + fee + delivery, due: alterations + Math.max(0, tier - ch) + delivery,
-    payout: alterations + cut, cut, comp: noShowComp(items),
+    payout: alterations, cut: 0, comp: noShowComp(),
   };
 }
 
@@ -77,7 +81,7 @@ export function ofGarments(garments, base) {
 const seedOf = (a) => ({
   alt: a.totals.alterations, items: a.totals.items, fee: a.totals.visitFee, charged: a.totals.visitFeeCharged,
   added: a.totals.visitFeeAdded, total: a.totals.total, due: a.totals.total - a.totals.visitFeeCharged,
-  payout: payout(a.garments), cut: tailorFee(a.totals.items), comp: noShowComp(a.totals.items),
+  payout: payout(a.garments), cut: 0, comp: noShowComp(),
 });
 /** seed[0] as BOOKED — $200 Hem + Sleeve, 2 items. */
 export const SEED = seedOf(SEED_UPCOMING[0]);
@@ -112,4 +116,4 @@ export const LIVE = {
 };
 
 /** A JSON-safe snapshot to hand to browser-side callbacks. */
-export const M = JSON.parse(JSON.stringify({ FEE, CUT, COMP, DELIVERY, SEED, FINAL, PAST, REMOVED, RETIERED, LIVE: { ...LIVE, tiers: undefined } }));
+export const M = JSON.parse(JSON.stringify({ FEE, COMP, DELIVERY, SEED, FINAL, PAST, REMOVED, RETIERED, LIVE: { ...LIVE, tiers: undefined } }));

@@ -2,10 +2,10 @@
    02 - Appointment Details — Figma 277:2676.
    Heading+address group (mirrors 01, opens the 02b sheet) + two
    full-width filter pills + garments group (label 8 over the cards) +
-   CTA bar (top hairline, CTA with the live visitation fee, disclaimer).
+   CTA bar (top hairline, CTA with the live Concierge fee, disclaimer).
    Sections stack at gap 16.
    UX-LOOP round 7 (Kevin's money model v2): the deposit is gone. A fee
-   card above the CTA bar reads "Visitation fee $25 · 2 items" — the
+   card above the CTA bar reads "Concierge fee $25 · 2 items" — the
    tier for the LIVE item count on the form (1–4 → $25, 5–10 → $50,
    11+ → $100; the $50 / $100 tiers add data.js VISIT_FEE_NOTE) — and
    the CTA reads "Reserve Appt · $25" (round 9, Kevin — was "Hold $25
@@ -16,14 +16,14 @@
    Round 10 (Kevin, new frame 657:4875 — the old 277:2676 was deleted):
    the editable garment cards sit as flat rows INSIDE one white garments
    card like every other page (`flat`), followed by the money rows —
-   Alterations (est.) / Visitation fee - Due Today / Total — and the
+   Alterations (est.) / Concierge fee - Due Today / Total — and the
    paid-at-handoff note; "+ Additional Garment" stands below the card;
    the fee card is gone. The four sheet backdrops were re-synced to it.
    ============================================================ */
 
 import { register, render as go } from '../app.js';
 import { chrome, filterPill, garmentCard, cta, toast, orderRows, headingRow } from '../components.js';
-import { money, garmentAmount, isAfter } from '../data.js';
+import { money, garmentAmount, isAfter, parseWhen } from '../data.js';
 import { state, addGarment, removeGarment, bookingLines, addressLine, hasAddress } from '../state.js';
 /* Sheets open as in-place overlays (v3 sheetShow parity) — navigating to
    the 02a/04a routes would rebuild this screen and flash. The routes
@@ -53,6 +53,20 @@ export const needByOk = (s = state) => isAfter(s.appt.needBy, s.appt.when);
 
 /* Exported: 02a/04a/04b draw this screen dimmed behind their scrim
    (the updated frames show it in place of the old flat backdrop). */
+/** The pill's text for a stored value: "Select Time" when unset; a value
+    on today's date reads "Today · 7:00 PM" (round 16, Kevin), otherwise
+    the stored "Jul 12, 7:00 PM". */
+export function pillText(value) {
+  if (!value) return PILL_EMPTY;
+  const p = parseWhen(value);
+  if (!p) return value;
+  const now = new Date();
+  const today = p.date.getFullYear() === now.getFullYear() && p.date.getMonth() === now.getMonth() && p.date.getDate() === now.getDate();
+  if (!today) return value;
+  const time = value.includes(',') ? value.slice(value.indexOf(',') + 1).trim() : '';
+  return time ? `Today · ${time}` : 'Today';
+}
+
 export function view02(s) {
   ensureGarments();
   const { appt, contact } = s;
@@ -75,12 +89,12 @@ export function view02(s) {
     <p class="t-body c-ink home-address" data-act="address" role="button" tabindex="0"><span class="emoji">📍</span> <span data-addr-text>${addressLine(contact)}</span></p>
   </div>`)}
   <div class="filters">
-    ${filterPill('Requested time:', appt.when ?? PILL_EMPTY, { attrs: 'data-act="time"' })}
-    ${filterPill('Need by:', appt.needBy ?? PILL_EMPTY, { attrs: 'data-act="needby"', error: needByOk(s) ? '' : NEEDBY_MSG })}
+    ${filterPill('Requested time:', pillText(appt.when), { attrs: 'data-act="time"' })}
+    ${filterPill('Need by:', pillText(appt.needBy), { attrs: 'data-act="needby"', error: needByOk(s) ? '' : NEEDBY_MSG })}
   </div>
   <div class="garments-card" data-garments>
     ${cards}
-    ${orderRows(totals, { est: true, feeDesc: 'Visitation fee - Due Today', captions: true })}
+    ${orderRows(totals, { est: true, feeDesc: 'Due Today' })}
   </div>
   <button type="button" class="add-garment" data-act="add-garment">+ Add Garment</button>
   <div class="cta-bar">
@@ -92,7 +106,7 @@ export function view02(s) {
 
 /* Round 15 (Kevin, 657:4875): the notes under the rows became the rows'
    captions (orderRows `captions`) — "Alterations are paid at pickup or
-   delivery." is the Total's, the transport line the visitation fee's. */
+   delivery." is the Total's, the transport line the Concierge fee's. */
 
 /* UX-LOOP R1-U-11: repaint the need-by pill's validity in place after
    the picker closes (the picker updates the pill text without
@@ -103,7 +117,7 @@ function repaintRows(root) {
   const card = root.querySelector('[data-garments]');
   if (!card) return;
   card.querySelectorAll('.fee-row').forEach((r) => r.remove());
-  card.insertAdjacentHTML('beforeend', orderRows(bookingLines(null), { est: true, feeDesc: 'Visitation fee - Due Today', captions: true }));
+  card.insertAdjacentHTML('beforeend', orderRows(bookingLines(null), { est: true, feeDesc: 'Due Today' }));
 }
 
 function syncNeedBy(root) {

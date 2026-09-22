@@ -17,7 +17,7 @@ import { openReschedulePopup, pointAtTerminal } from './03.1-reschedule-popup.js
 import { wireBookingPhotos } from './03.3-photo-viewer.js';
 
 /* R7 (Kevin's money model v2): the summary prices the BOOKED order —
-   "Alterations (est.)" / "Visitation fee — charged 7/7/26" (the fee
+   "Alterations (est.)" / "Concierge fee — charged 7/7/26" (the fee
    was charged when the tailor accepted) / "Total" — and says the
    alterations are paid at handoff. No deposit row. Figma sync pending
    (the 03/Confirmed and 03/Reminder frames still draw Subtotal /
@@ -31,8 +31,7 @@ export function bookingSummary(a) {
   /* round 15 (Kevin): every garments card opens with the Visit Details block */
   return `${visitBlock(apptRows(a))}
       ${orderCards({ garments: a?.garments, totals: t }, { variant: 'ViewOnly' })}
-      ${orderRows(t, { est: true, feeDesc: `Visitation fee — charged ${receiptDates(a).fee}` })}
-      <p class="t-small c-500 fee-note">${ALTERATIONS_NOTE}</p>`;
+      ${orderRows(t, { est: true, feeDesc: a?.feeLocked ? `Paid ${receiptDates(a).fee}` : 'Due Today' })}`;
 }
 
 /** The hero pill once the customer confirmed the visit on the 24-hour

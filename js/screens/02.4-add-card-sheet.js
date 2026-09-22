@@ -11,7 +11,7 @@ import { state, requestTailor, bookingLines } from '../state.js';
 import { ICON_CARD } from '../icons.js';
 import { view02, ensureGarments } from './02-appointment-details.js';
 
-/* R7: the note names the held visitation fee (live item count). */
+/* R7: the note names the held Concierge fee (live item count). */
 function cardContent() {
   ensureGarments();
   const fee = money(bookingLines(null).visitFee);
@@ -23,7 +23,7 @@ function cardContent() {
   <input class="card-field__input card-field__cvc" name="cvc" inputmode="numeric" autocomplete="cc-csc" maxlength="3" placeholder="CVC" aria-label="Security code">
 </div>
 ${cta('Next', { disabled: true, attrs: 'data-act="next"' })}
-<p class="t-small c-500 sheet__sub">Saved securely — your ${fee} visitation fee is charged only when a tailor accepts.</p>`;
+<p class="t-small c-500 sheet__sub">Saved securely — your ${fee} Concierge fee is charged only when a tailor accepts.</p>`;
 }
 
 /* Live formatting + Next enablement: card number groups in fours,

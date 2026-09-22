@@ -11,13 +11,13 @@
    last child (T01 / T03 end well under their frames, like 02) */
 .screen[data-screen="t01-home"] { min-height: 988px; }
 .screen[data-screen="t03b-job-cancelled"] { min-height: 415.5px; }
-.screen[data-screen="t07-job-ready"] { min-height: 640px; }
-.screen[data-screen="t08-job-complete"] { min-height: 595px; }
+.screen[data-screen="t07-job-ready"] { min-height: 682px; }
+.screen[data-screen="t08-job-complete"] { min-height: 628px; }
 /* UX-LOOP round 3 — the sibling frames' heights (Figma hugs content) */
-.screen[data-screen="t01-home-closed"] { min-height: 1349px; }   /* round 3: + the "Done today" section row */
-.screen[data-screen="t02-accepted"] { min-height: 825px; }
-.screen[data-screen="t02-expired"] { min-height: 883px; }
-.screen[data-screen="t03-upcoming-visit"] { min-height: 954px; }
+.screen[data-screen="t01-home-closed"] { min-height: 1341px; }   /* round 3: + the "Done today" section row */
+.screen[data-screen="t02-accepted"] { min-height: 967px; }
+.screen[data-screen="t02-expired"] { min-height: 963px; }
+.screen[data-screen="t03-upcoming-visit"] { min-height: 1034px; }
 .screen[data-screen="t03a-suggest-time"] { min-height: 635.5px; }
 .screen[data-screen="t03b-by-you"],
 .screen[data-screen="t03b-withdrawn"] { min-height: 415.5px; }
@@ -289,7 +289,7 @@ html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) +
 [data-s="t02-appointment-request"] .summary-card__info { min-width: 0; flex: 1 1 0; }
 /* T03A "Other" note — the tailor's at-visit note field (tgc__note),
    inset to the reason rows' 20px. Tokens only, the 14/18 row type. */
-.screen[data-screen="t03a-other"] { min-height: 729px; }
+.screen[data-screen="t03a-other"] { min-height: 730px; }
 .t03a__note {
   width: calc(100% - 2 * var(--space-20));
   margin-inline: var(--space-20);

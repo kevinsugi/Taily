@@ -136,7 +136,7 @@ export function apptActions(a) {
     requested: a.proposed ? ['Review Time'] : [],
     confirmed: ['Message', 'Reschedule'],
     tailoring: ['Message'],
-    ready: [a.fulfilment ? 'Change Pickup / Delivery' : 'Schedule Pickup / Delivery'],
+    ready: [a.fulfilment ? 'Change Delivery' : 'Schedule Delivery'],   // round 16: delivery only
     completed: ['Leave Review'],
   };
   return map[cardStatus(a)] ?? [];
@@ -153,7 +153,7 @@ export function wireCardActions(card, select, { onLeaveReview } = {}) {
     if (label === 'Reschedule') on(() => openReschedulePopup());
     /* Phase R5 (Kevin): a Ready card's CTA leads to 07 (also to change
        an already-scheduled window) */
-    if (label === 'Schedule Pickup / Delivery' || label === 'Change Pickup / Delivery') on(() => go('05-items-ready'));
+    if (label === 'Schedule Delivery' || label === 'Change Delivery') on(() => go('05-items-ready'));
     /* R2-U-03: review the tailor's proposed time on 03/Requested */
     if (label === 'Review Time') on(() => go('03-status-requested'));
     if (label === 'Leave Review' && onLeaveReview) on(onLeaveReview);

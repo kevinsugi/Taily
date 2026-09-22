@@ -34,11 +34,12 @@ export function viewReady(s, forced = null) {
   const f = fixture ? null : a?.fulfilment;
   const waiting = !fixture && !f;
   const delivery = f?.method === 'delivery';
+  /* round 16 (Kevin): delivery is the only handoff — a Taily courier collects */
   const body = waiting
-    ? 'Ready. Sarah hasn’t chosen pickup or delivery yet — you’ll see it here when she does.'
+    ? 'Ready. Sarah hasn’t scheduled delivery yet — you’ll see it here when she does.'
     : f
-      ? `Sarah chose ${delivery ? `delivery to ${v.address}` : 'pickup at your shop'}.<br>Your payout is released on handoff.`
-      : 'Sarah will pick up her items.<br>Your payout is released on handoff.';
+      ? `Sarah scheduled delivery for ${f.window}. A Taily courier will collect the items — your payout is released on handoff.`
+      : 'Sarah scheduled delivery for Thu, Jul 23 · 5:00 PM. A Taily courier will collect the items — your payout is released on handoff.';   // round 16: the frame's fixture copy
   const garments = fixture ? FIXTURE_FINAL : v.garments;
   const actions = waiting
     ? `${cta('Message Sarah', { attrs: 'data-act="message"' })}

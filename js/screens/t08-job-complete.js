@@ -40,7 +40,6 @@ function renderScreen(s) {
     <span class="payout-summary__title">PAYOUT SUMMARY  ·  ${id}</span>
     <div class="price-group">
       ${garments.map((g) => priceRow(itemLabel(g), money(garmentAmount(g)))).join('\n      ')}
-      ${priceRow('Visitation fee', money(m.visitCut))}
     </div>
     ${hairline()}
     <div class="price-group">

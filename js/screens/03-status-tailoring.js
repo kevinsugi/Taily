@@ -15,7 +15,7 @@
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, statusHero, summaryCard, tailorTrust, cta, toast, orderCards, orderRows, feeTierNote, apptRows, visitBlock, headingRow } from '../components.js';
+import { chrome, statusHero, summaryCard, tailorTrust, cta, toast, orderCards, orderRows, receiptDates, apptRows, visitBlock, headingRow } from '../components.js';
 import { openTailorDetails } from './03.4-tailor-details.js';
 import { fmtWhen, fmtDay } from '../data.js';
 import { state, apptEntry, canonicalStatus, isTerminal, markReady, deliver, finalOrder, orderModified, statusScreen } from '../state.js';
@@ -59,8 +59,8 @@ export function viewTailoring(s) {
     /* Phase R6: once a window is scheduled, the handoff waits on the
        tailor's confirmation (the window label carries its date, R2-U-02) */
     'ready-for-pickup': a.fulfilment
-      ? `${method} scheduled · ${a.fulfilment.window}. ${first} will confirm the handoff.`
-      : 'Your items are ready. Tap the order below — or use your appointment card — to choose how you’d like them back.',
+      ? `Delivery scheduled · ${a.fulfilment.window}. We will text you when your courier is on the way.`
+      : 'Your items are ready. Tap the order below — or use your appointment card — to schedule your delivery.',
     delivered: 'Delivered. Tap the order below to see your receipt.',
   }[canon] ?? frameNote;
   /* R1-U-04: hero title + primary CTA per live status. R2-U-11: the
@@ -71,21 +71,22 @@ export function viewTailoring(s) {
     'awaiting-approval': { title: 'Approve your final order.', label: 'Review Final Order', act: 'review-order' },
     tailoring: { title: 'Tailoring in Progress.', label: `Message ${first}`, act: 'message', noMessage: true },
     'ready-for-pickup': a.fulfilment
-      ? { title: `${method} · ${a.fulfilment.window}`, label: 'Change Pickup / Delivery', act: 'schedule' }
-      : { title: 'Your items are ready.', label: 'Schedule Pickup / Delivery', act: 'schedule' },
+      ? { title: 'Delivery Scheduled', label: 'Change Delivery', act: 'schedule' }
+      : { title: 'Your items are ready.', label: 'Schedule Delivery', act: 'schedule' },
     delivered: { title: 'Delivered.', label: 'View Receipt', act: 'receipt' },
   }[canon] ?? { title: 'Tailoring in Progress.', label: `Message ${first}`, act: 'message', noMessage: true };
   const o = finalOrder(a);
   const t = o.totals;
-  /* R7 pricing rows: Alterations / Visitation fee — paid / [Additional
-     visitation fee — 5 items now, $50 tier] / [Delivery] / Total / Due
+  /* R7 pricing rows: Alterations / Concierge fee — paid / [Additional
+     Concierge fee — 5 items now, $50 tier] / [Delivery] / Total / Due
      at handoff (the fee was charged on acceptance; alterations + the
      rest at handoff). R7-U-02: a re-tiered fee is explained here and on
      04 (caption + fee-note); the note goes once the order is delivered
      (nothing left to charge at handoff). Figma sync pending (the frame
      draws Subtotal / -$20 Deposit / Due). */
-  const rows = orderRows(t, { feeDesc: 'Visitation fee — paid', due: canon === 'delivered' ? 'Paid at handoff' : 'Due at handoff', tier: true })
-    + (canon === 'delivered' ? '' : `\n    ${feeTierNote(t)}`);
+  /* round 16 (Kevin): "Concierge fee - Paid 7/7/26", "Due at delivery"; the
+     re-tiered explanation is the fee row's own caption now */
+  const rows = orderRows(t, { feeDesc: `Paid ${receiptDates(a).fee}`, due: canon === 'delivered' ? 'Paid at delivery' : 'Due at delivery', tier: true });
 
   return `${chrome('bookings')}
 <div class="body" data-s="03-status-tailoring">

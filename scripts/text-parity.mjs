@@ -47,17 +47,17 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // backdrop is confirmed synced.
 /* ---------- UX-LOOP round 7 — R7 money model — Figma sync pending ----------
    Kevin's money model v2 (UX-LOOP.md round 7 ledger): no deposit, no
-   10%, no Taily fee; a tiered visitation fee held at booking and
+   10%, no Taily fee; a tiered Concierge fee held at booking and
    charged on acceptance; the tailor sees only "Your payout". Round 7
    is code-first — every frame money string below is what the FRAMES
    still draw and the build no longer renders. One dedicated money sync
    applies the ledger to Figma; these entries go with it. */
 const R7_02_CTA = ['Request Tailor · $20 Deposit (10%)'];                                   // 02 + its sheet backdrops → "Hold $25 Visitation Fee"
 const R7_REQUESTED = [];   // R8: frames synced to the money model — kept empty for history
-const R7_BOOKED = [];   // R8: frames synced to the money model — kept empty for history   // 03/Confirmed · Reminder · Cancelled + backdrops → Alterations (est.) / Visitation fee — charged / Total
-const R7_FINAL = [];   // R8: frames synced to the money model — kept empty for history   // 03/Tailoring (+ 03.3 backdrop) → Alterations / Visitation fee — paid / Total / Due at handoff
+const R7_BOOKED = [];   // R8: frames synced to the money model — kept empty for history   // 03/Confirmed · Reminder · Cancelled + backdrops → Alterations (est.) / Concierge fee — charged / Total
+const R7_FINAL = [];   // R8: frames synced to the money model — kept empty for history   // 03/Tailoring (+ 03.3 backdrop) → Alterations / Concierge fee — paid / Total / Due at handoff
 const R7_REVIEW = [];   // R8: frames synced to the money model — kept empty for history   // 04 Default / Modified / Removed (+ their due amount)
-const R7_RECEIPT = [];   // R8: frames synced to the money model — kept empty for history   // 06 / 03/Summary (+ 06.1 backdrop) → Alterations / Visitation fee — paid 7/7/26 / Delivery / Total / Paid at delivery
+const R7_RECEIPT = [];   // R8: frames synced to the money model — kept empty for history   // 06 / 03/Summary (+ 06.1 backdrop) → Alterations / Concierge fee — paid 7/7/26 / Delivery / Total / Paid at delivery
 const R7_DELIVERY = [];   // R8: frames synced to the money model — kept empty for history                           // 05B (+ 05.1 backdrops) → Alterations / Delivery / Due at delivery
 /* tailor side (coordinated with the tailor implementer): payout = 100%
    of the alteration prices, no Subtotal / Taily Fee rows */
@@ -69,54 +69,87 @@ const R7_T_REQUEST = [];   // R8: frames synced to the money model — kept empt
    verified tailor; raised in UX-LOOP.md, built without them. */
 const R14_SARAH_BADGES = [];   // round 15: the tailor frames draw Kevin's User Summary (✓ New Customer + badges) — built
 
+/* ---------- UX-LOOP round 16 (Kevin): Concierge fee · delivery only · the calendar ----------
+   Frame strings the build renders differently — raised in UX-LOOP.md, ALLOW'd
+   until the frames / fixtures are synced:
+   · the Visit Details address row: the round-16 frames append the zip
+     ("◉ 88 Leonard Street, 10013"); the code prints the seed's place without it
+   · the popup backdrops (03.1 / 03.2 / 03.3 booking / 03.4 / 04.1) draw
+     03/Confirmed in its LOCKED state ("Concierge fee - Paid 7/7/26") with the
+     round-15 Total caption; the live 03/Confirmed reads "Due Today" /
+     "Alterations are paid at delivery."
+   · ended visits (Cancelled / Expired / Tailor-cancelled / No-show / Unconfirmed):
+     the frames keep the est. rows + Total (+ caption); the code drops the Total
+     (R7-U-04) and every row on a request that never booked
+   · receipts: the frames date "Paid at delivery 7/23/26"; the code prints the
+     fulfilment date
+   · APP (fixtures, not synced yet — the tailor click-through fails on them too):
+     the T01 fixture's request card prints $225 (frame $200) and a live 12-hour
+     timer (frame "EXPIRES IN 1H 24M"); the T07 fixture still prints the pickup
+     copy where the frame has the round-16 courier line */
+const R16_ADDRESS = ['◉ 88 Leonard Street, 10013'];
+const R16_LOCKED_BACKDROP = [...R16_ADDRESS, 'Concierge fee - Paid 7/7/26', 'Alterations are paid at pickup or delivery.'];
+const R16_ENDED_ROWS = [...R16_ADDRESS, '$250', 'Total', 'Alterations are paid at delivery.'];
+const R16_RECEIPT = [...R16_ADDRESS, 'Paid at delivery 7/23/26'];
+/* the 06.1 frames' backdrop is the OLD 06 (Back chevron, Need-by row, three cards) — the code's 06 lost its Back / pill in round 16 */
+const R16_REVIEW_BACKDROP = [...R16_RECEIPT, '‹', '▤ Need by: Fri, Jul 17', 'Suit Jacket', 'Sleeve / Adjust Length', 'Before', 'Pinned', '$80', '$360', '$410'];   // the code's 06.1 backdrop is not the $360 / $410 final order (raised)
+const R16_T01_TIMER = ['EXPIRES IN 1H 24M'];
+
 const ALLOW = {
   /* round 15: the 01a frame's selected tile writes "3 Shirts/Blouses" (no spaces around the slash — raised); the code pluralises GARMENT_TYPES' "Shirts / Blouses" */
-  '01a-home-selected': ['Shirts/Blouses'],
+  '01a-home-selected': ['Shirts/Blouses', 'vt'],   // round 16: a stray "vt" text node in the frame (raised)
   // Phase R3 (Kevin): 03's request card reads the live order; the
   // frame's requested-time fixture is stale (the address and estimate
   // lines match since UX-LOOP R1 — Home Visit fiction, $200 seed).
   '03-status-requested': ['Thu, Jul 9 · 9:30 AM', ...R7_REQUESTED],
   // UX-003: R1's rows quote the actual appointment; the frame keeps
   // the "Thursday's 7:00 PM" fixture.
-  '03.1-reschedule-popup': ['Thursday’s 7:00 PM with Marco is cancelled', ...R7_BOOKED, 'Your $20 deposit is refunded.'],
+  '03.1-reschedule-popup': ['Thursday’s 7:00 PM with Marco is cancelled', ...R7_BOOKED, 'Your $20 deposit is refunded.', ...R16_LOCKED_BACKDROP],
   // UX-LOOP round 3: the sibling frames inherit their base's documented
   // divergence — 03/New Time keeps 03/Requested's stale requested-time
   // fixture, 05.1/Dated draws 07B underneath.
   '03-status-new-time': ['Thu, Jul 9 · 9:30 AM', ...R7_REQUESTED],
-  '05.1-window-confirmed-dated': ['Confirm Delivery · Fri 4-6PM', 'Select Delivery', ...R7_DELIVERY],
+  /* round 16: the 05.1 popup's backdrop frame writes the generic balance line; the code prints the amount */
+  '05.1-confirm-delivery': ['Please schedule your delivery below. The balance of your order will be charged upon delivery.'],
   /* ---- R7 money model — Figma sync pending (customer) ---- */
   '02-appointment-details': R7_02_CTA,
   '02.1-date-time-sheet': R7_02_CTA,
   '02.2-address-sheet': R7_02_CTA,
   '02.3-payment-sheet': [...R7_02_CTA, 'Your card is saved now — the deposit is only charged when your tailor confirms.'],
   '02.4-add-card-sheet': [...R7_02_CTA, 'Saved securely — charged only when your tailor confirms the appointment.'],
-  '03-status-confirmed': R7_BOOKED,
-  '03-status-reminder': R7_BOOKED,
-  '03.2-appointment-confirmed': R7_BOOKED,
-  '04.1-request-changes': R7_BOOKED,
-  '03-status-cancelled': [...R7_BOOKED, 'Your $20 deposit will be returned to Visa •••• 4242. Please rebook whenever you’re ready.'],
-  '03-status-tailor-cancelled': [...R7_BOOKED, 'Your $20 deposit is refunded to Visa •••• 4242. We can find you another tailor.'],
-  '03-status-no-show': [...R7_BOOKED, 'Marco marked the Sun, Jul 12 · 7:00 PM visit as a no-show, so your $20 deposit was kept.'],
-  '03-status-tailoring': R7_FINAL,
-  '03.3-photo-viewer': R7_FINAL,
-  '04-review-approve': [...R7_REVIEW, '$180'],
-  '04-review-approve-modified': [...R7_REVIEW, '$340'],
-  '04-review-approve-removed': [...R7_REVIEW, '$260'],
-  '05-items-ready': ['Marco finished ahead of schedule. Choose how you’d like them back, the balance is settled upon receipt.'],
-  '05a-pickup-window': ['$340 · Charged to your saved card at pickup.'],
-  '05b-delivery-options': R7_DELIVERY,
-  '05.1-window-confirmed': R7_DELIVERY,
-  '06-journey-complete': R7_RECEIPT,
-  '03-status-summary': R7_RECEIPT,
-  '06.1-leave-review': R7_RECEIPT,
+  '03-status-confirmed': [...R7_BOOKED, ...R16_ADDRESS],
+  '03-status-confirmed-locked': R16_ADDRESS,
+  /* round 16: the Reminder frame's callout writes a comma where the code writes an em dash ("non-refundable — no-shows included") — raised */
+  '03-status-reminder': [...R7_BOOKED, ...R16_ADDRESS, 'Confirming makes your $50 Concierge fee non-refundable, no-shows included. Cancel before confirming and it’s refunded in full.'],
+  '03-status-reminder-locked': R16_ADDRESS,
+  '03.2-appointment-confirmed': [...R7_BOOKED, ...R16_LOCKED_BACKDROP],
+  '04.1-request-changes': [...R7_BOOKED, ...R16_LOCKED_BACKDROP],
+  '03.3-photo-viewer-booking': R16_LOCKED_BACKDROP,
+  '03.4-tailor-details': R16_LOCKED_BACKDROP,
+  '03-status-cancelled': [...R7_BOOKED, 'Your $20 deposit will be returned to Visa •••• 4242. Please rebook whenever you’re ready.', ...R16_ENDED_ROWS, 'Concierge fee - Refunded'],
+  '03-status-tailor-cancelled': [...R7_BOOKED, 'Your $20 deposit is refunded to Visa •••• 4242. We can find you another tailor.', ...R16_ENDED_ROWS],
+  '03-status-no-show': [...R7_BOOKED, 'Marco marked the Sun, Jul 12 · 7:00 PM visit as a no-show, so your $20 deposit was kept.', ...R16_ENDED_ROWS],
+  '03-status-unconfirmed': R16_ENDED_ROWS,
+  /* round 16: the Expired frame draws the booked rows + a refunded fee and its own body; the code's expired request shows no rows */
+  '03-status-expired': [...R16_ENDED_ROWS, 'No tailor accepted in time. Nothing was charged and the hold on your card is released.', '$200', 'Alterations (est.)', 'Price is finalized at the appointment.', '$50', 'Concierge fee - Refunded'],
+  '03-status-tailoring': [...R7_FINAL, ...R16_ADDRESS],
+  '03.3-photo-viewer': [...R7_FINAL, ...R16_ADDRESS],
+  '04-review-approve': [...R7_REVIEW, '$180', ...R16_ADDRESS],
+  '04-review-approve-modified': [...R7_REVIEW, '$340', ...R16_ADDRESS],
+  '04-review-approve-removed': [...R7_REVIEW, '$260', ...R16_ADDRESS],
+  '04-review-approve-retiered': R16_ADDRESS,
+  '06-journey-complete': [...R7_RECEIPT, ...R16_RECEIPT],
+  '03-status-summary': [...R7_RECEIPT, ...R16_RECEIPT],
+  '06.1-leave-review': [...R7_RECEIPT, ...R16_REVIEW_BACKDROP],
+  '06.1-leave-review-submitted': R16_REVIEW_BACKDROP,
   /* ---- R7 money model — Figma sync pending (tailor) ---- */
   /* Round 10 (Sep 13 2026): Kevin rebuilt the tailor Active Job Card master's
      items label + date slots ('2 Suit Jackets', 'DUE', '9/2' defaults bleed
      through where instance overrides were lost) and added a 'Past Jobs' /
      'Decline' to the T01 frames — untracked edits, raised in UX-LOOP.md,
      ALLOW'd until Kevin says what T01 should show. */
-  't01-home': ['$180', '2 Suit Jackets', 'DUE', '9/2', 'APPT', '8/29', '$102'],
-  't01-home-closed': ['$180', '2 Suit Jackets', 'DUE', '9/2'],
+  't01-home': ['$180', '2 Suit Jackets', 'DUE', '9/2', 'APPT', '8/29', '$102', ...R16_T01_TIMER],
+  't01-home-closed': ['$180', '2 Suit Jackets', 'DUE', '9/2', ...R16_T01_TIMER, '$200'],   // APP: the fixture's request card still prints $225
   't02-appointment-request': [...R14_SARAH_BADGES, ...R7_T_REQUEST, 'Accept Request · $180'],
   /* Round 11: the sibling frames append "· 1.2 mi" ("·1.2" on two) to the address row where the T02 base does not — raised in UX-LOOP.md; the build follows the base */
   't02-accepted': [...R14_SARAH_BADGES, ...R7_T_REQUEST, '◉ 88 Leonard Street, 4B · 1.2 mi'],
@@ -129,7 +162,7 @@ const ALLOW = {
   't05-confirm-final-pricing': ['$324', ...R7_T_PAYOUT],
   /* round 15: the T06 frame's first two cards draw the master's "$120" and a visible ✕ on the Appt_View variant (raised; the code's view cards have no close) */
   't06-appointment-status': ['$324', ...R7_T_PAYOUT, '$120', '✕', 'Hem / Adjust Length'],
-  't07-job-ready': ['Sarah will pick up her items. Payment will be processed upon pickup.'],
+  't07-job-ready': ['Sarah will pick up her items. Payment will be processed upon pickup.', 'Sarah scheduled delivery for Thu, Jul 23 · 5:00 PM. A Taily courier will collect the items — your payout is released on handoff.'],   // APP: the T07 fixture still prints the pickup copy
   't08-job-complete': ['Order total', 'Taily fee', '−$36', '$324'],
 };
 

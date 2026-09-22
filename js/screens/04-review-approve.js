@@ -7,19 +7,19 @@
    appointment's reviewed order (a.garments / a.totals — written by the
    tailor's T05 Send or the user-side demo); the harness deep link
    keeps the frame's $200 fixture. Approve only stamps approvedAt.
-   UX-LOOP round 7 (Kevin): rows Alterations / Visitation fee — paid /
-   [Additional visitation fee — when the final item count re-tiered
+   UX-LOOP round 7 (Kevin): rows Alterations / Concierge fee — paid /
+   [Additional Concierge fee — when the final item count re-tiered
    it, charged at handoff] / Total / Due at handoff (alterations + the
    added fee). R7-U-02: the added row says why — "Additional visitation
    fee — 5 items now, $50 tier" — with a fee-note under the rows ("Your
-   order grew to 5 items, so the visitation fee is now $50. The extra
+   order grew to 5 items, so the Concierge fee is now $50. The extra
    $25 is charged with your alterations at handoff."). Figma sync
    pending (Default / Modified / Removed frames still draw Subtotal /
    -$20 Deposit / Due).
    ============================================================ */
 
 import { register, render as go } from '../app.js';
-import { chrome, cta, orderCards, orderRows, feeTierNote, apptRows, visitBlock, headingRow } from '../components.js';
+import { chrome, cta, orderCards, orderRows, receiptDates, apptRows, visitBlock, headingRow } from '../components.js';
 import { money, fmtDay, SEED_UPCOMING } from '../data.js';
 import { apptEntry, approveOrder, finalOrder, orderModified, isPostAppointment, isTerminal, canonicalStatus, statusScreen } from '../state.js';
 import { openRequestChanges } from './04.1-request-changes.js';
@@ -43,15 +43,15 @@ export function viewReview(s, screenId, fixture) {
 <div class="body" data-s="${screenId}">
   ${headingRow(`<div class="heading">
     <h1 class="t-title w-600 c-ink">Approve your final order.</h1>
+  </div><!--notes--><div class="status-hero__notes">
     <p class="t-body w-500 c-500">Please review the final details and pricing before tailoring starts.${(o.garments ?? []).some((g) => g.added || g.addedJobs?.length) ? '<br><br>New items and services added during your appointment are shown in green below.' : ''}</p>
     ${live && a.resentAt ? `<p class="t-small w-500 c-success" data-resent>${first} updated the order on ${fmtDay(a.resentAt)}. Changes are highlighted below.</p>` : ''}
-  </div>`)}
+  </div><!--/notes-->`)}
   <div class="garments-card">
     ${visitBlock(apptRows(a))}
     ${orderCards(o, { variant: 'PostAppt', marks: true })}
     ${removed.map((r) => `<div class="removed-row t-small c-500"><span>Removed at the visit — ${r.type} · ${(r.jobs ?? []).join(', ')}</span><s>${money(r.amount)}</s></div>`).join('\n    ')}
-    ${orderRows(t, { feeDesc: 'Visitation fee — paid', due: 'Due at handoff', info, tier: true })}
-    ${feeTierNote(t)}
+    ${orderRows(t, { feeDesc: `Paid ${receiptDates(a).fee}`, due: 'Due at delivery', info, tier: true })}
   </div>
   <div class="cta-bar">
     ${cta('Approve Final Order', { attrs: 'data-act="approve"' })}

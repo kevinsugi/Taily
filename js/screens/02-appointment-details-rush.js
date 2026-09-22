@@ -1,7 +1,7 @@
 /* ============================================================
    02 - Appointment Details / Rush — Figma 728:3244 (round 15, Kevin).
    02 with a need-by the day after the visit: the $150 "Rush fee" row
-   (captioned) after the visitation fee, in the Total. Sibling fixture
+   (captioned) after the Concierge fee, in the Total. Sibling fixture
    route only — live, 02 draws the row itself whenever the dates say so.
    ============================================================ */
 

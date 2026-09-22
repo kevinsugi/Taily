@@ -50,8 +50,9 @@ export function daysLabel(when, needBy) {
   return ` (${n} ${n === 1 ? 'Day' : 'Days'})`;
 }
 
-/** Request expiry window (T01 timer): 1H 24M on first render (R1-T-14). */
-export const EXPIRY_MINUTES = 84;
+/** Request expiry window (T01 timer). Round 16 (Kevin): a tailor has 12
+    hours to respond (the T01 frame's "1H 24M" is its fixture). */
+export const EXPIRY_MINUTES = 12 * 60;
 
 export const FILLER_JOB = {
   month: 'SEP', day: '2', name: 'Leo Von', meta: 'Pickup: Sept 1, 2PM',
@@ -70,7 +71,12 @@ export const isFixture = () => !window.__tailyNavigated;
 export const isSeed = (a) => !!(a?.mine && a?.when === SEED_UPCOMING[0].when);
 
 const TERMINAL = ['declined', 'cancelled', 'expired'];
-export const canon = (a) => canonicalStatus(String(a?.status ?? 'confirmed').toLowerCase());
+/** Marco's id on the customer side (data.js TAILORS[0]). */
+export const MY_ID = 'marco';
+/* Round 16 (Kevin): a decline sends the request back to matching on the
+   customer side (state.js declineAppointment stamps `a.declinedBy`); for
+   Marco the job is over — his view of it is 'declined'. */
+export const canon = (a) => ((a?.declinedBy ?? []).includes(MY_ID) ? 'declined' : canonicalStatus(String(a?.status ?? 'confirmed').toLowerCase()));
 export const isTerminalJob = (a) => TERMINAL.includes(canon(a));
 /** How a terminal job ended, from the substrate's stamps (R2-T-05/06):
     'withdrawn' (Sarah pulled a request Marco never accepted), 'no-show',
@@ -190,13 +196,9 @@ export function payoutChange(a, draft, from = acceptedPayoutOf(a)) {
     the fee from $50). The fee itself is still never printed here. */
 export function noShowCompOf(a) {
   if (typeof a?.noShowComp === 'number') return a.noShowComp;
-  /* round 12: the tailor's cut of the fee for the booked item count */
-  const items = bookedGarments(a).length || a?.count || 2;
-  return typeof D.noShowComp === 'function' ? D.noShowComp(items) : 25;
+  /* round 16 (Kevin): a flat $25 Taily pays, whatever the item count */
+  return typeof D.noShowComp === 'function' ? D.noShowComp() : 25;
 }
-/** Round 12 (Kevin): the tailor's cut of the visitation fee for a garment
-    list — the second line of the payout (data.js tailorFee). */
-export const visitCutOf = (garments = []) => (garments.length && typeof D.tailorFee === 'function' ? D.tailorFee(garments.length) : 0);
 /** The tailor's name / initials as the CUSTOMER side prints them
     (round 6: unassigned until a tailor accepts — data.js owns the
     neutral copy; until it lands, the appointment's own fields). */
@@ -293,7 +295,8 @@ export const isPost = (c) => POST_STATUSES.includes(c);
 /** The money a tailor screen prints for a garment list: the payout
     (100% of the alteration prices) — nothing else. */
 /* round 15: `a` adds the rush fee (its own payout line) */
-export const orderMoney = (garments = [], a = null) => ({ payout: jobPayout(a, garments), visitCut: visitCutOf(garments), rush: rushOf(a), alterations: payoutOf(garments) - visitCutOf(garments) });
+/* round 16: no cut of the concierge fee — the payout is the alterations + the rush fee */
+export const orderMoney = (garments = [], a = null) => ({ payout: jobPayout(a, garments), rush: rushOf(a), alterations: payoutOf(garments) });
 
 /** The order as the customer booked it — `a.booked` once T05 Send has
     stashed it, else the live `a.garments` (pre-visit they are the same). */
@@ -338,8 +341,7 @@ export function jobView(a) {
      customer's alterations / Taily's fee / delivery / total) is never
      read on the tailor side. */
   const rush = rushOf(a);                  // round 15: the rush fee, paid to the tailor in full
-  const payout = payoutOf(garments) + rush;
-  const visitCut = visitCutOf(garments);   // round 12: the tailor's cut of the visitation fee, inside the payout
+  const payout = payoutOf(garments) + rush;   // round 16: no share of the concierge fee
   const protection = noShowCompOf(a);   // round 8: T02's "No-show protection" row / T03B / T01's closed row
   const delivery = a?.fulfilment?.method === 'delivery';
   const PILL = {
@@ -363,8 +365,8 @@ export function jobView(a) {
   const time = when.split(' · ')[1] ?? when;
   const visitLabel = a?.visit === 'Store Visit' || a?.where === 'shop' ? 'Store visit' : 'Home visit';
   return {
-    canon: c, post, garments, payout, visitCut, rush, alterations: payout - visitCut - rush, protection, visitLabel,
-    money: { payout: money(payout), visitCut: money(visitCut), protection: money(protection) },
+    canon: c, post, garments, payout, rush, alterations: payout - rush, protection, visitLabel,
+    money: { payout: money(payout), protection: money(protection) },
     items: garments.length,
     itemsLabel: garmentsLabel(garments),
     pill, pillLabel, stage: STAGE[c] ?? 'confirmed',

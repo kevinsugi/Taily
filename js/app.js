@@ -15,12 +15,14 @@ const SCREEN_MODULES = [
   '01-home', '01a-home-selected', '02-appointment-details', '02-appointment-details-rush', '02.1-date-time-sheet', '02.2-address-sheet', '09-bookings',
   '02.3-payment-sheet', '02.4-add-card-sheet', '03-status-confirmed', '03-status-tailoring', '03-status-summary',
   '03-status-requested', '03-status-reminder', '10-messages',
-  '04-review-approve', '04-review-approve-modified', '05-items-ready', '05a-pickup-window', '05b-delivery-options', '06-journey-complete',
+  '04-review-approve', '04-review-approve-modified', '05-items-ready', '06-journey-complete',
   '03.1-reschedule-popup', '03-status-cancelled', '03.2-appointment-confirmed', '03.3-photo-viewer', '04.1-request-changes',
-  '05.1-window-confirmed', '06.1-leave-review',
+  '06.1-leave-review',
+  /* Round 16 (Kevin): delivery only — 05 → 05.1 Confirm Delivery → 05.2 Delivery Confirmed; 03 / Delivery Scheduled is the status screen */
+  '05.1-confirm-delivery', '05.2-delivery-confirmed', '03-status-delivery-scheduled',
   /* UX-LOOP round 3 Figma sync: sibling frames for the round-2 live-only states (fixture routes) */
-  '03-status-expired', '03-status-declined', '03-status-tailor-cancelled', '03-status-no-show', '03-status-new-time',
-  '04-review-approve-removed', '05.1-window-confirmed-dated', '09-bookings-closed',
+  '03-status-expired', '03-status-tailor-cancelled', '03-status-no-show', '03-status-new-time',
+  '04-review-approve-removed', '09-bookings-closed',
   /* UX-LOOP round 8 Figma money sync: sibling frames for the round-7 live-only states (fixture routes) */
   '03-status-reminder-locked', '03-status-confirmed-locked', '03-status-unconfirmed', '04-review-approve-retiered',
   /* UX-LOOP round 9: 03/Confirmed's booking photos open the viewer (sibling frame, fixture route) */

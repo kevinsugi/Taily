@@ -63,13 +63,13 @@ function requestFor(a, idx, fixture) {
   const by = a.proposed ? null : proposalDeclinedBy(a);
   return requestCard({
     idx,
-    payout: fixture ? '$225' : v.money.payout,   // round 12: $200 alterations + the $25 fee cut
+    payout: fixture ? '$200' : v.money.payout,   // round 16: the alterations alone (no fee cut)
     count: fixture ? '' : `${v.items} item${v.items === 1 ? '' : 's'}`,
     name: CUSTOMER.name,
     address: `${fixture ? CUSTOMER.short : v.address} · ${CUSTOMER.dist}`,
     meta: fixture ? '▤ Tonight 7:00 PM · Need by Fri, Jul 17 (5 Days)' : `▤ ${v.when} · Need by ${v.needBy}`,
     lines: v.lines.length ? v.lines : ['Suit Jacket - Hem / Adjust Length - $120', 'Suit Jacket - Sleeve / Adjust Length - $80'],
-    expires: requestTimer(t),
+    expires: fixture ? 'EXPIRES IN 1H 24M' : requestTimer(t),   // round 16: the frame's fixture; live requests get 12 h
     proposed: a.proposed?.when ? fmtWhen(a.proposed.when) : '',
     note: by === 'tailor' ? 'You withdrew your proposed time' : by === 'customer' ? 'Sarah kept her original time' : '',
   });

@@ -70,7 +70,7 @@
     "01-home": 0.53,
     "01a-home-selected": 1.09,
     "02-appointment-details": 6.81,
-    "02.1-date-time-sheet": 2.57,
+    "02.1-date-time-sheet": 22.92,
     "02.2-address-sheet": 0.08,
     "03-status-requested": 2.6,
     "02.3-payment-sheet": 0.64,
@@ -80,7 +80,7 @@
     "03-status-summary": 4.62,
     "03-status-reminder": 3.91,
     "04-review-approve": 0.32,
-    "05-items-ready": 1.5,
+    "05-items-ready": 8.92,
     "06-journey-complete": 0.37,
     "09-bookings": 0.36,
     "10-messages": 0.37,
@@ -125,8 +125,8 @@
     "06.1-leave-review-submitted": 2.54,
     "03.4-tailor-details": 1.39,
     "02-appointment-details-rush": 8.86,
-    "05.1-confirm-delivery": 1.21,
-    "05.2-delivery-confirmed": 1.94,
+    "05.1-confirm-delivery": 6.12,
+    "05.2-delivery-confirmed": 3.56,
     "03-status-delivery-scheduled": 0.37
   }
 }

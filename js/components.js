@@ -767,9 +767,10 @@ export function wheelScroll(columns) {
  * settle (v3's 80ms debounce), report changes. Selection is read back
  * from each column's data-sel.
  */
-export function wireWheel(root, onChange) {
+/* round 17: `rowH` — the Scheduler's wheel runs a 36px pitch */
+export function wireWheel(root, onChange, rowH = 40) {
   root.querySelectorAll('.wheel__col--scroll').forEach((col) => {
-    col.scrollTop = Number(col.dataset.sel) * 40;
+    col.scrollTop = Number(col.dataset.sel) * rowH;
     let timer;
     col.addEventListener('scroll', () => {
       clearTimeout(timer);
@@ -777,7 +778,7 @@ export function wireWheel(root, onChange) {
         /* rows are read per settle — a column may be re-rowed while
            open (setWheelRows: the proposal wheel's need-by hour cap) */
         const rows = [...col.querySelectorAll('.wheel__row')];
-        const idx = Math.max(0, Math.min(rows.length - 1, Math.round(col.scrollTop / 40)));
+        const idx = Math.max(0, Math.min(rows.length - 1, Math.round(col.scrollTop / rowH)));
         col.dataset.sel = idx;
         rows.forEach((r, i) => {
           r.classList.toggle('wheel__row--selected', i === idx);

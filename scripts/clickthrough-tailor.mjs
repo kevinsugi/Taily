@@ -126,38 +126,35 @@ const open = async (id) => { await page.goto(`${origin}/index.html?screen=${id}`
 const render = async (id) => { await page.evaluate((i) => window.Taily.render(i), id); await page.waitForTimeout(200); };
 /* round 12: the booking form needs an address before Reserve works — the customer click-through exercises the sheet; here it is set directly */
 const ensureAddress = () => page.evaluate(() => { const c = window.Taily.state.contact; if (!c.street) Object.assign(c, { street: '88 Leonard St', unit: '4B', zip: '10013' }); });
-/* round 16 (Kevin): 02's pills open the CALENDAR popup — a day cell stores at
-   once; the time row's picker writes 12:00 PM as it opens (wheels: hours
-   9 AM → 9 PM, minutes 00 / 30, AM / PM); the scrim leaves the picker, then
-   closes the popup. */
-const calKey = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
-async function pickCalendarDay(offset) {
-  const key = calKey(offset); const [y, m] = key.split('-').map(Number);
-  for (let i = 0; i < 12; i++) {
-    const shown = await page.evaluate(() => document.querySelector('.screen-sheet--overlay [data-calendar]')?.dataset.month ?? '');
-    const [sy, sm] = shown.split('-').map(Number); const diff = (y - sy) * 12 + (m - sm);
-    if (!diff) break;
-    await page.evaluate((d) => document.querySelector(`.screen-sheet--overlay [data-act="${d > 0 ? 'cal-next' : 'cal-prev'}"]`)?.click(), diff);
-    await page.waitForTimeout(150);
-  }
-  await page.evaluate((k) => document.querySelector(`.screen-sheet--overlay .cal-cell[data-day="${k}"]:not([disabled])`)?.click(), key);
+/* round 17 (Kevin): 02's pills open the SCHEDULER popup — one two-step flow
+   (Schedule Pickup → Next → Schedule Delivery → Confirm); nothing is stored
+   until Confirm. Columns: date / hour '1'..'12' / minute '00','30' / AM,PM at
+   a 36px pitch; times clamp to 9:00 AM – 9:00 PM as a column settles (so the
+   period is settled first). */
+const SCHED_ROW = 36;
+const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const stampOf = (offset, time) => { const d = new Date(); d.setDate(d.getDate() + offset); return `${MON3[d.getMonth()]} ${d.getDate()}, ${time}`; };
+const settleCol = async (i, n) => {
+  await page.evaluate(([c, row, pitch]) => { document.querySelectorAll('.screen-sheet--overlay [data-scheduler] .wheel__col--scroll')[c].scrollTop = row * pitch; }, [i, n, SCHED_ROW]);
   await page.waitForTimeout(250);
-}
+};
 const tapScrim = async () => { await page.evaluate(() => document.querySelector('.screen-sheet--overlay [data-act="modal-dismiss"]')?.click()); await page.waitForTimeout(450); };
-/** 02: the visit `visitOut` days from today at 9:30 AM, the need-by 4 days after it (no rush). */
+/** 02: the visit `visitOut` days from today at 9:30 AM, the delivery (need-by) 4 days after it (no rush). */
 async function pickTimes(visitOut = 1) {
   await page.click('[data-act="time"]');
   await page.waitForTimeout(400);
-  await pickCalendarDay(visitOut);
-  await page.evaluate(() => document.querySelector('.screen-sheet--overlay [data-act="cal-time"]')?.click());
-  await page.waitForTimeout(250);
-  await page.evaluate(() => { const cols = [...document.querySelectorAll('[data-time-picker] .wheel__col--scroll')]; [0, 1, 0].forEach((i, n) => { cols[n].scrollTop = 40 * i; }); });   // 9:30 AM
+  await settleCol(0, visitOut);
+  await settleCol(3, 0);   // AM
+  await settleCol(1, 8);   // 9
+  await settleCol(2, 1);   // 30
+  await page.click('.screen-sheet--overlay [data-act="sched-next"]');
+  await page.waitForTimeout(300);
+  await settleCol(0, 3);   // row 0 = the day after the pickup → four days on
+  await page.click('.screen-sheet--overlay [data-act="sched-confirm"]');
   await page.waitForTimeout(450);
-  await tapScrim(); await tapScrim();
-  await page.click('[data-act="needby"]');
-  await page.waitForTimeout(400);
-  await pickCalendarDay(visitOut + 4);
-  await tapScrim();
+  const got = await page.evaluate(() => `${window.Taily.state.appt.when} | ${window.Taily.state.appt.needBy}`);
+  const want = `${stampOf(visitOut, '9:30 AM')} | ${stampOf(visitOut + 4, '9:30 AM')}`;
+  if (got !== want) { failures++; console.log(`FAIL  pickTimes stored "${got}" (want "${want}")`); }
 }
 /** Persona flip: since Sep 2026 it sits in the Test flows menu's footer —
     reveal the pinned control, open the menu, then flip. */
@@ -390,7 +387,7 @@ await assertAt('boot as customer', '01-home', 'confirmed', 'user');
 await page.click('[data-tile="Suit Jacket"]');
 await page.click('[data-act="start-booking"]');
 await ensureAddress();
-/* R1-U-11 / round 16: the need-by must be after the visit — the calendar
+/* R1-U-11 / round 17: the need-by must be after the visit — the Scheduler
    books it four days on (1–3 days would be a rush) */
 await pickTimes();
 await page.click('[data-act="request"]');
@@ -422,7 +419,7 @@ async function bookFresh(items = 1) {
   for (let i = 0; i < items; i++) { await page.click('[data-tile="Suit Jacket"]'); await page.waitForTimeout(100); }
   await page.click('[data-act="start-booking"]');
   await ensureAddress();
-  await pickTimes();   // round 16: the calendar — need-by four days after the visit (no rush)
+  await pickTimes();   // round 17: the Scheduler — need-by four days after the visit (no rush)
   await page.click('[data-act="request"]');
   await page.waitForTimeout(400);
   await page.click('.method-row');
@@ -586,7 +583,7 @@ await page.click('[data-reason="0"]');
 await assertText('Schedule conflict → Suggest Another Time', '[data-act="decline"]', 'Suggest Another Time');
 await page.click('[data-act="decline"]');
 await page.waitForTimeout(500);
-await assertTrue('the time wheel opens, titled for a proposal', () => document.querySelector('.screen-sheet--overlay .sheet__title')?.textContent === 'Request New Time');
+await assertTrue('the time wheel opens, titled for a proposal', () => document.querySelector('.screen-sheet--overlay [data-scheduler] .scheduler__title')?.textContent.trim() === 'Request New Time' && !document.querySelector('.screen-sheet--overlay .sheet__title') && document.querySelector('.screen-sheet--overlay [data-act="set-time"]')?.textContent.trim() === 'Propose');
 /* R3-T-01: the wheel stops at Sarah's need-by (the visit day + the two days to the need-by here, round 15); the substrate refuses anything later */
 await assertTrue('proposal days bounded by the need-by (visit day → need-by day, 5 days); a later day is refused', async () => {
   const D = await import('/js/data.js'); const S = await import('/js/state.js');
@@ -595,7 +592,7 @@ await assertTrue('proposal days bounded by the need-by (visit day → need-by da
   const late = `${D.shiftDay(a.needBy, 3).replace(/^\w+, /, '')}, 10:00 AM`;
   return days.length === 5 && S.proposeTime(a, late) === false && a.proposed == null;
 });
-await page.evaluate(() => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop += 40; });
+await page.evaluate(() => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop += 36; });
 await page.waitForTimeout(300);
 await page.click('.screen-sheet--overlay [data-act="set-time"]');
 await assertAt('proposal lands on T01', 't01-home', 'searching');
@@ -726,10 +723,10 @@ await assertTrue('R4-T-01: the wheel offers one day and only the hours before th
   const read = (c) => [...c.querySelectorAll('.wheel__row')].map((e) => e.textContent.trim());
   return read(cols[0]).length === 1 && read(cols[1]).join('|') === '9 AM|10 AM' && read(cols[2]).length === 4;
 });
-await assertTrue('  …CTA quotes a capped slot', () => /at 10:00 AM$/.test(document.querySelector('.screen-sheet--overlay [data-act="set-time"]').textContent));
+await assertTrue('  …the button reads Propose; the wheel sits on a capped slot (10 AM · 00)', () => { const cols = [...document.querySelectorAll('.screen-sheet--overlay .wheel__col--scroll')]; const sel = (c) => c.querySelector('.wheel__row--selected')?.textContent.trim(); return document.querySelector('.screen-sheet--overlay [data-act="set-time"]').textContent.trim() === 'Propose' && sel(cols[1]) === '10 AM' && sel(cols[2]) === '00'; });
 await page.click('.screen-sheet--overlay [data-act="set-time"]');
 await assertAt('same-day proposal lands on T01', 't01-home', 'searching');
-/* the calendar stores 'Sep 22' where the proposal wheel writes fmtDay's 'Sept 22' — compare on the 3-letter month */
+/* the Scheduler stores 'Sep 22' where the proposal wheel writes fmtDay's 'Sept 22' — compare on the 3-letter month */
 await assertJob('a.proposed is on the visit day, before the need-by time', 'fresh', (a) => { const d = (x) => String(x ?? '').replace(/^([A-Za-z]{3})[a-z]*/, '$1'); return d(a.proposed?.when) === `${d(a.when.split(',')[0])}, 10:00 AM`; });
 /* the substrate refuses a same-day slot at / after the need-by time, from T03A's own wheel path */
 await assertTrue('proposeTime refuses 11:00 AM / 2:00 PM on the need-by day, accepts 9:00 AM', async () => {

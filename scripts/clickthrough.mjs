@@ -156,78 +156,113 @@ await assertOverlay('  …no payment sheet', null);
   const toastText = await page.evaluate(() => document.querySelector('.toast')?.textContent.trim());
   check('  …requested-time pill errors + toast "Select a requested time"', t.error && t.help === 'Select a requested time' && toastText === 'Select a requested time', JSON.stringify({ t, toastText }));
 }
-/* round 16 (Kevin): both pills open the CALENDAR popup (02.1). A day cell
-   stores the moment it is tapped; the time row swaps in the picker (12:00 PM
-   the moment it opens; hours run 9 AM → 9 PM, minutes 00 / 30); the scrim
-   leaves the picker, then closes the popup. */
-const CAL = '.screen-sheet--overlay';
-const keyOf = (d) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-const dayKey = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return keyOf(d); };
-/** Tap the day cell for `key` ("YYYY-M-D") in the calendar under `root`, paging months as needed. */
-const pickDay = async (key, root = CAL) => {
-  const [y, m] = key.split('-').map(Number);
-  for (let i = 0; i < 12; i++) {
-    const shown = await page.evaluate((r) => document.querySelector(`${r} [data-calendar]`)?.dataset.month ?? '', root);
-    const [sy, sm] = shown.split('-').map(Number);
-    const diff = (y - sy) * 12 + (m - sm);
-    if (!diff) break;
-    await page.evaluate(([r, d]) => document.querySelector(`${r} [data-act="${d > 0 ? 'cal-next' : 'cal-prev'}"]`)?.click(), [root, diff]);
-    await page.waitForTimeout(150);
-  }
-  const ok = await page.evaluate(([r, k]) => { const b = document.querySelector(`${r} .cal-cell[data-day="${k}"]`); if (!b || b.disabled) return false; b.click(); return true; }, [root, key]);
+/* round 17 (Kevin): both pills open the SCHEDULER popup (02.1) — ONE two-step
+   flow: "Schedule Pickup" (date + hour + minute + period wheel, Next) →
+   "Schedule Delivery" (the "Pickup: …" line steps back, Confirm). Nothing is
+   stored until Confirm; the scrim discards. Times clamp to 9:00 AM – 9:00 PM
+   on settle. The delivery wheel lists the days from the day after the pickup,
+   opens ten days out and notes the rush ladder live. Rows sit at a 36px pitch. */
+const SCHED = '.screen-sheet--overlay [data-scheduler]';
+const SCHED_ROW = 36;
+const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "Oct 1, 10:00 AM" — the stored grammar for today + `offset` days. */
+const stampOf = (offset, time) => { const d = new Date(); d.setDate(d.getDate() + offset); return `${MON3[d.getMonth()]} ${d.getDate()}, ${time}`; };
+/** The date row label for today + `offset` days (the app's fmtDay grammar). */
+const dayRow = (offset) => page.evaluate(async (o) => { const D = await import('/js/data.js'); const S = await import('/js/scheduler.js'); const d = new Date(); d.setDate(d.getDate() + o); return D.fmtDay(S.dayStamp(d), S.dayStamp(d)); }, offset);
+/** Settle column `i` of the Scheduler under `root` on row `n`. */
+const settleCol = async (i, n, root = SCHED) => {
+  await page.evaluate(([r, c, row, pitch]) => { document.querySelectorAll(`${r} .wheel__col--scroll`)[c].scrollTop = row * pitch; }, [root, i, n, SCHED_ROW]);
   await page.waitForTimeout(250);
-  return ok;
 };
-const selectable = (key, root = CAL) => page.evaluate(([r, k]) => { const b = document.querySelector(`${r} .cal-cell[data-day="${k}"]`); return !!b && !b.disabled; }, [root, key]);
-/** Open the time row's picker and settle its three wheels (row indexes). */
-const setPickerTime = async (hour, min, period, root = CAL) => {
-  await page.evaluate((r) => document.querySelector(`${r} [data-act="cal-time"]`)?.click(), root);
-  await page.waitForTimeout(250);
-  await page.evaluate(([h, m, p]) => { const cols = [...document.querySelectorAll('[data-time-picker] .wheel__col--scroll')]; [h, m, p].forEach((i, n) => { cols[n].scrollTop = 40 * i; }); }, [hour, min, period]);
-  await page.waitForTimeout(450);
+const HOUR_ROWS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+/** Settle the three time columns on [hour, minute, period] labels — the period
+    first, so the opening-hours clamp never snaps the hour being set. */
+const setSchedTime = async ([h, m, p], root = SCHED) => {
+  await settleCol(3, ['AM', 'PM'].indexOf(p), root);
+  await settleCol(1, HOUR_ROWS.indexOf(h), root);
+  await settleCol(2, ['00', '30'].indexOf(m), root);
 };
-/** The modal scrim (the picker → the calendar; the calendar → closed). */
+/** What the Scheduler under `root` shows. */
+const schedState = (root = SCHED) => page.evaluate((r) => {
+  const el = document.querySelector(r);
+  if (!el) return null;
+  const note = el.querySelector('[data-sched-note]');
+  const sub = el.querySelector('.scheduler__sub');
+  const cols = [...el.querySelectorAll('.wheel__col--scroll')];
+  return {
+    title: el.querySelector('.scheduler__title')?.textContent.trim(),
+    sub: sub?.textContent.trim() ?? null,
+    subTag: sub?.tagName ?? null,
+    note: note?.hidden ? '' : (note?.textContent.trim() ?? ''),
+    cta: el.querySelector('.scheduler__cta')?.textContent.trim(),
+    act: el.querySelector('.scheduler__cta')?.dataset.act,
+    sel: cols.map((c) => c.querySelector('.wheel__row--selected')?.textContent.trim()),
+    idx: cols.map((c) => Number(c.dataset.sel)),
+    first: cols[0]?.querySelector('.wheel__row')?.textContent.trim(),
+    rows: cols.map((c) => c.querySelectorAll('.wheel__row').length),
+  };
+}, root);
+/** The modal scrim (closes the popup, discarding the pick). */
 const tapScrim = async () => { await page.evaluate(() => document.querySelector('.screen-sheet--overlay [data-act="modal-dismiss"]')?.click()); await page.waitForTimeout(500); };
+const schedClick = async (act) => { await page.evaluate((a) => document.querySelector(`.screen-sheet--overlay [data-act="${a}"]`)?.click(), act); await page.waitForTimeout(300); };
 const apptWhen = () => page.evaluate(() => window.Taily.state.appt.when ?? '');
+const apptNeedBy = () => page.evaluate(() => window.Taily.state.appt.needBy ?? '');
 const VISIT = 3;   // the requested day: today + 3
+const PICKUP = stampOf(VISIT, '10:00 AM');
 await page.click('[data-act="time"]');
 await assertAt('Requested-time pill (stays on 02)', '02-appointment-details');
-await assertOverlay('  …calendar popup overlays (round 16)', '02.1-date-time-sheet');
-check('  …the requested-time calendar cannot pick yesterday', !(await selectable(dayKey(-1))));
-check('  …day tapped (today + 3) stores the day at once', await pickDay(dayKey(VISIT)) && /^[A-Z][a-z]{2,4} \d{1,2}$/.test(await apptWhen()), await apptWhen());
-// a day without a time: the scrim shows the error line once, the popup stays
+await assertOverlay('  …Scheduler popup overlays (round 17)', '02.1-date-time-sheet');
+{
+  const s = await schedState();
+  check('  …pickup step: "Schedule Pickup", no sub line, Next, today · 12:00 PM, 60 days', s?.title === 'Schedule Pickup' && s.sub === null && s.cta === 'Next' && s.act === 'sched-next' && s.sel.join('|') === `${await dayRow(0)}|12|00|PM` && s.first === await dayRow(0) && s.rows.join('|') === '60|12|2|2' && s.note === '', JSON.stringify(s));
+}
+await settleCol(0, VISIT);
+await settleCol(1, 9);   // 10 (still PM) → outside opening hours
+{
+  const s = await schedState();
+  check('  …10:00 PM snaps back to 9:00 PM (the wheel follows)', s.sel.join('|') === `${await dayRow(VISIT)}|9|00|PM`, JSON.stringify(s.sel));
+}
+await setSchedTime(['10', '00', 'AM']);
+check('  …wheel settled on today + 3 · 10:00 AM, nothing stored yet', (await schedState()).sel.join('|') === `${await dayRow(VISIT)}|10|00|AM` && (await apptWhen()) === '', JSON.stringify({ sel: (await schedState()).sel, when: await apptWhen() }));
 await tapScrim();
-await assertOverlay('  …scrim with no time: the popup stays (error line)', '02.1-date-time-sheet');
-check('  …calendar error line', !!(await page.evaluate(() => document.querySelector('.screen-sheet--overlay .calendar__error'))));
-await setPickerTime(1, 0, 0);   // 10:00 AM
-check('  …picker settled → state.appt.when carries the time', /, 10:00 AM$/.test(await apptWhen()), await apptWhen());
-await tapScrim();   // the picker → the calendar
-await assertOverlay('  …scrim leaves the picker, popup still open', '02.1-date-time-sheet');
-await tapScrim();   // → closed
-await assertAt('calendar closed', '02-appointment-details');
+await assertOverlay('  …scrim closes the popup', null);
+{
+  const t = await pillState('time');
+  check('  …scrim discards: no pickup stored, the pill still empty', (await apptWhen()) === '' && (await apptNeedBy()) === '' && t.value === 'Select Time', JSON.stringify({ when: await apptWhen(), needBy: await apptNeedBy(), t }));
+}
+// "Need by" with no pickup stored opens on the pickup step
+await page.click('[data-act="needby"]');
+await assertOverlay('  …need-by pill opens the Scheduler', '02.1-date-time-sheet');
+check('  …on the pickup step (no pickup stored yet)', (await schedState())?.title === 'Schedule Pickup', JSON.stringify(await schedState()));
+await settleCol(0, VISIT);
+await setSchedTime(['10', '00', 'AM']);
+await schedClick('sched-next');
+{
+  const s = await schedState();
+  check('  …Next → delivery step: "Schedule Delivery", "Pickup: …" button, Confirm, opens pickup + 10 days, no note', s?.title === 'Schedule Delivery' && s.sub === `Pickup: ${PICKUP}` && s.subTag === 'BUTTON' && s.cta === 'Confirm' && s.act === 'sched-confirm' && s.idx[0] === 9 && s.sel.join('|') === `${await dayRow(VISIT + 10)}|10|00|AM` && s.first === await dayRow(VISIT + 1) && s.rows[0] === 60 && s.note === '', JSON.stringify(s));
+}
+await schedClick('sched-back');
+check('  …the "Pickup: …" line steps back to the pickup (values kept)', (await schedState())?.title === 'Schedule Pickup' && (await schedState()).sel.join('|') === `${await dayRow(VISIT)}|10|00|AM`, JSON.stringify(await schedState()));
+await schedClick('sched-next');
+check('  …Next again → the delivery step', (await schedState())?.title === 'Schedule Delivery', JSON.stringify(await schedState()));
+// the rush ladder shows live as the date column settles
+for (const [row, note] of [[0, `1-Day Delivery: +${$(RUSH_LADDER_STEPS[0])}`], [1, `2-Day Delivery: +${$(RUSH_LADDER_STEPS[1])}`], [2, `3-Day Delivery: +${$(RUSH_LADDER_STEPS[2])}`], [3, '']]) {
+  await settleCol(0, row);
+  const s = await schedState();
+  check(`  …delivery row ${row}: note "${note}"`, s.note.toLowerCase() === note.toLowerCase(), JSON.stringify({ note: s.note, sel: s.sel }));
+}
+check('  …still nothing stored before Confirm', (await apptWhen()) === '' && (await apptNeedBy()) === '', JSON.stringify({ when: await apptWhen(), needBy: await apptNeedBy() }));
+/** On the open delivery step: settle a delivery `days` after the visit and Confirm. */
+const moveNeedBy = async (days) => { await settleCol(0, days - 1); await schedClick('sched-confirm'); await page.waitForTimeout(300); return (await apptNeedBy()) === stampOf(VISIT + days, '10:00 AM'); };
+check('need-by the day after the visit confirmed', await moveNeedBy(1), await apptNeedBy());
+await assertAt('Scheduler closed', '02-appointment-details');
 await assertOverlay('  …overlay gone', null);
 {
   const t = await pillState('time');
-  check('  …time picked: pill reads the calendar value, error gone', /^[A-Z][a-z]{2,4} \d{1,2}, \d{1,2}:\d{2} (AM|PM)$/.test(t.value ?? '') && !t.error, JSON.stringify(t));
-}
-// UX-LOOP R1-U-11 / round 9: no need-by yet → the request stays inert
-// until a need-by day is picked (round 16: the need-by calendar's earliest
-// day is the day AFTER the visit; a day alone is a valid need-by).
-const needByError = () => page.evaluate(() => !!document.querySelector('.filter-pill--error'));
-await page.click('[data-act="request"]');
-await assertAt('Request Tailor, no need-by yet', '02-appointment-details');
-await assertOverlay('  …no payment sheet', null);
-{
   const n = await pillState('needby');
-  check('  …need-by pill errors "Select a need-by time"', n.error && n.help === 'Select a need-by time' && n.value === 'Select Time', JSON.stringify(n));
+  check('  …Confirm stores both: state + pills read "Mon D, H:MM AM"', (await apptWhen()) === PICKUP && t.value === PICKUP && !t.error && n.value === stampOf(VISIT + 1, '10:00 AM') && !n.error, JSON.stringify({ when: await apptWhen(), needBy: await apptNeedBy(), t, n }));
 }
-await page.click('[data-act="needby"]');
-await assertOverlay('  …need-by calendar overlays', '02.1-date-time-sheet');
-check('  …the visit day itself is not selectable for the need-by', !(await selectable(dayKey(VISIT))) && await selectable(dayKey(VISIT + 1)));
-/** Pick a need-by `days` after the visit and close the popup. */
-const moveNeedBy = async (days) => { const ok = await pickDay(dayKey(VISIT + days)); await tapScrim(); return ok; };
-check('need-by the day after the visit picked', await moveNeedBy(1));
-await assertOverlay('  …need-by calendar closed', null);
+const needByError = () => page.evaluate(() => !!document.querySelector('.filter-pill--error'));
 console.log(`${!await needByError() ? 'PASS' : 'FAIL'}  need-by after appointment clears`);
 if (await needByError()) failures++;
 // round 16 (Kevin): the rush fee is a LADDER by calendar days between the
@@ -242,13 +277,13 @@ if (await needByError()) failures++;
   for (const days of [2, 3]) {
     const step = RUSH_LADDER_STEPS[days - 1];
     await page.click('[data-act="needby"]');
-    await assertOverlay('  …need-by calendar reopens', '02.1-date-time-sheet');
+    await assertOverlay('  …need-by reopens the Scheduler (delivery step)', '02.1-date-time-sheet');
     await moveNeedBy(days);
     r = await rows02();
     check(`  …${days} days out: Rush fee ${$(step)}, caption "${rushCap(days)}"`, r.descs === RUSH_DESCS && r.fees === fees(CB.alt, CB.fee, step, CB.alt + CB.fee + step) && r.captions[2] === rushCap(days), JSON.stringify(r));
   }
   await page.click('[data-act="needby"]');
-  await assertOverlay('  …need-by calendar reopens', '02.1-date-time-sheet');
+  await assertOverlay('  …need-by reopens the Scheduler (delivery step)', '02.1-date-time-sheet');
   await moveNeedBy(4);
   r = await rows02();
   check('  …four days out: no rush row, the three captions', r.descs === 'Alterations (est.) | Concierge fee - Due Today | Total' && r.captions.join('|') === [CAPTION.alterations, CAPTION.visit, CAPTION.handoff].join('|'), JSON.stringify(r));
@@ -475,30 +510,27 @@ await page.evaluate(() => {
     .find((b) => b.textContent.trim() === 'Schedule Delivery')?.click();
 });
 await assertAt('Schedule Delivery', '05-items-ready', 'ready-for-pickup');
-// round 16 (Kevin): 05 is the inline delivery calendar — the month the items
-// were ready, the ready day inked "Today", Preferred Time empty, the visit
-// address prefilled; Confirm needs a day, then a time.
-const READY = await page.evaluate(async () => { const D = await import('/js/data.js'); const a = window.Taily.state.upcoming[0]; const d = D.parseWhen(a.readyAt).date; return { key: `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`, day: D.fmtDay(a.readyAt), mdy: D.mdy(a.readyAt), date: `${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}` }; });
+// round 17 (Kevin): 05 is the Scheduler INLINE — "Ready: <ready day>" over
+// "Schedule Delivery", the date rows from the ready day, Confirm inside the
+// card, the visit address prefilled under it. The wheel opens on the delivery
+// booked on 02 (the need-by) when that is on / after the ready day, so a day
+// and a time are always set.
+const READY = await page.evaluate(async () => { const D = await import('/js/data.js'); const S = await import('/js/scheduler.js'); const a = window.Taily.state.upcoming[0]; const d = D.parseWhen(a.readyAt).date; const nb = D.parseWhen(a.needBy); const booked = nb && S.strip(nb.date) >= S.strip(d); return { key: `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`, day: S.dayLabel(d), mdy: D.mdy(a.readyAt), date: S.dayStamp(d), opens: booked ? S.dayLabel(nb.date) : S.dayLabel(d), opensIdx: booked ? S.dayDiff(d, nb.date) : 0, opensTime: booked && nb.hour != null ? S.clampTime(`${((nb.hour + 11) % 12) + 1}:${String(nb.min ?? 0).padStart(2, '0')} ${nb.hour >= 12 ? 'PM' : 'AM'}`) : '12:00 PM', needBy: a.needBy }; });
+const CARD05 = '[data-s="05-items-ready"] [data-scheduler].scheduler--inline';
 {
-  const r = await page.evaluate(() => ({ month: document.querySelector('[data-s="05-items-ready"] [data-calendar]')?.dataset.month, today: document.querySelector('[data-s="05-items-ready"] .cal-cell--selected')?.dataset.day, sub: document.querySelector('[data-s="05-items-ready"] .cal-cell--selected .cal-cell__sub')?.textContent.trim(), time: document.querySelector('[data-cal-time] .calendar__value')?.textContent.trim(), address: document.querySelector('[data-cal-address] .calendar__value')?.textContent.trim(), ctas: [...document.querySelectorAll('[data-s="05-items-ready"] .actions .cta')].map((b) => b.textContent.trim()) }));
-  check('05 delivery calendar: ready month, ready day = Today, Select Time, the address prefilled, Confirm Delivery / Message Marco', r.month === READY.key.replace(/-\d+$/, '-1') && r.today === READY.key && r.sub === 'Today' && r.time === 'Select Time' && /88 Leonard St/.test(r.address ?? '') && r.ctas.join(' | ') === 'Confirm Delivery | Message Marco', JSON.stringify({ ...r, ready: READY.key }));
+  const s = await schedState(CARD05);
+  const r = await page.evaluate(() => ({ address: document.querySelector('[data-s="05-items-ready"] button.address-row[data-act="delivery-address"] [data-delivery-address]')?.textContent.trim(), ctas: [...document.querySelectorAll('[data-s="05-items-ready"] .actions .cta')].map((b) => b.textContent.trim()), inCard: !!document.querySelector('[data-s="05-items-ready"] [data-scheduler] [data-act="confirm"]'), confirms: document.querySelectorAll('[data-s="05-items-ready"] [data-act="confirm"]').length, message: !!document.querySelector('[data-s="05-items-ready"] [data-act="message"]') }));
+  check('05 delivery Scheduler: "Ready: <day>" span, Schedule Delivery, rows from the ready day, Confirm in the card, the address prefilled, Message Marco', s?.title === 'Schedule Delivery' && s.sub === `Ready: ${READY.day}` && s.subTag === 'SPAN' && s.cta === 'Confirm' && s.act === 'confirm' && s.first === READY.day && s.rows.join('|') === '60|12|2|2' && s.note === '' && r.inCard && r.confirms === 1 && /88 Leonard St/.test(r.address ?? '') && r.ctas.join(' | ') === 'Message Marco' && r.message, JSON.stringify({ s, r, READY }));
+  const t = READY.opensTime.match(/^(\d+):(\d+) (AM|PM)$/);
+  check('  …the wheel opens on the delivery booked on 02 (the need-by day + time)', s?.idx[0] === READY.opensIdx && s.sel.join('|') === `${READY.opens}|${t[1]}|${t[2]}|${t[3]}`, JSON.stringify({ sel: s?.sel, idx: s?.idx, READY }));
 }
-const toastText = () => page.evaluate(() => document.querySelector('.toast')?.textContent.trim());
-await page.click('[data-act="confirm"]');
-await assertAt('Confirm with no day: stays on 05', '05-items-ready', 'ready-for-pickup');
-check('  …toast asks for a delivery day', await toastText() === 'Please select a delivery day', await toastText());
-check('05 delivery day picked (the ready day)', await pickDay(READY.key, '[data-s="05-items-ready"]'));
-await page.click('[data-act="confirm"]');
-await assertAt('Confirm with no time: stays on 05', '05-items-ready', 'ready-for-pickup');
+await settleCol(0, 0, CARD05);   // the ready day
+await setSchedTime(['5', '00', 'PM'], CARD05);
 {
-  const err = await page.evaluate(() => document.querySelector('[data-cal-time] .calendar__error')?.textContent.trim());
-  check('  …Preferred Time row errors', err === 'Please select a delivery time', JSON.stringify(err));
+  const s = await schedState(CARD05);
+  const draft = await page.evaluate(() => window.Taily.state.ui.delivery);
+  check('05 delivery settled on the ready day · 5:00 PM (the draft follows)', s.sel.join('|') === `${READY.day}|5|00|PM` && draft?.day === READY.date && draft.time === '5:00 PM', JSON.stringify({ sel: s.sel, draft }));
 }
-await setPickerTime(8, 0, 1, '[data-s="05-items-ready"]');   // 5:00 PM
-await assertOverlay('  …time picker modal', '05-time-picker');
-await tapScrim();
-await assertOverlay('  …picker closed', null);
-check('  …Preferred Time reads 5:00 PM', await page.evaluate(() => document.querySelector('[data-cal-time] .calendar__value')?.textContent.trim()) === '5:00 PM');
 const WINDOW = `${READY.day} · 5:00 PM`;
 await page.click('[data-act="confirm"]');
 await assertOverlay('Confirm Delivery → 05.1 popup', '05.1-confirm-delivery');

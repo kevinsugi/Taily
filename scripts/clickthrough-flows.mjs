@@ -74,7 +74,8 @@ const EXPECT = {
   'c-details-rush': { has: 'Rush fee', not: 'Please Enter Address' },
   'c-confirmed-rush': 'Rush fee',
   't-request-rush': 'Rush fee',
-  'c-time-sheet': { sel: '.screen-sheet--overlay .calendar-popup [data-calendar]' },   // round 16: the calendar popup (no Set Time CTA)
+  'c-time-sheet': { has: 'Schedule Pickup', not: 'Schedule Delivery', sel: '.screen-sheet--overlay .scheduler-popup [data-scheduler] [data-act="sched-next"]' },   // round 17: the Scheduler's pickup step
+  'c-delivery-step': { has: 'Schedule Delivery', not: 'Schedule Pickup', sel: '.screen-sheet--overlay .scheduler-popup [data-scheduler] [data-act="sched-confirm"]' },   // round 17: the Scheduler's delivery step
   'c-address-sheet': 'Save',
   'c-payment-sheet': 'Apple Pay',
   'c-card-sheet': 'Add card',
@@ -97,7 +98,7 @@ const EXPECT = {
   'c-tailoring': 'Tailoring in Progress',
   'c-photo-viewer': 'Pinned',
   'c-ready-home': 'Schedule Delivery',
-  'c-items-ready': 'Confirm Delivery',
+  'c-items-ready': { has: 'Ready: ', not: 'Confirm Delivery', sel: '[data-s="05-items-ready"] [data-scheduler].scheduler--inline [data-act="confirm"]' },   // round 17: the inline Scheduler (Confirm in the card)
   'c-confirm-delivery': 'Edit Details',           // round 16: the 05.1 popup over 05
   'c-delivery-confirmed': 'Delivery confirmed.',  // round 16: the 05.2 popup
   'c-scheduled': 'Delivery Scheduled',            // round 16: 03/Delivery Scheduled
@@ -118,7 +119,7 @@ const EXPECT = {
   't-home-request': 'New Request',
   't-request': 'No-show protection',
   't-request-expired': 'Expired',
-  't-request-new-time': 'Propose ·',
+  't-request-new-time': { has: 'Request New Time', not: 'Propose ·', sel: '.screen-sheet--overlay [data-scheduler] [data-act="set-time"]' },   // round 17: the Scheduler card, button "Propose"
   't-accepted': 'Booking Confirmed!',
   't-decline': 'Decline Request',
   't-suggest-time': 'Suggest Another Time',

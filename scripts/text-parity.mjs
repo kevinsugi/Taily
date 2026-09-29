@@ -95,6 +95,20 @@ const R16_RECEIPT = [...R16_ADDRESS, 'Paid at delivery 7/23/26'];
 const R16_REVIEW_BACKDROP = [...R16_RECEIPT, '‹', '▤ Need by: Fri, Jul 17', 'Suit Jacket', 'Sleeve / Adjust Length', 'Before', 'Pinned', '$80', '$360', '$410'];   // the code's 06.1 backdrop is not the $360 / $410 final order (raised)
 const R16_T01_TIMER = ['EXPIRES IN 1H 24M'];
 
+/* ---------- UX-LOOP round 17 (Kevin): the Scheduler replaces the Calendar — pending-figma ----------
+   The frames are NOT synced this round: 05 / 05.1 / 05.2 still draw the
+   round-16 Calendar (the month title, the ready day's "Today", the Preferred
+   Time row and its value, the page's "Confirm Delivery" CTA) where the code
+   draws the inline Scheduler ("Ready: Mon, Jul 20" / "Schedule Delivery" / the
+   wheel / Confirm). The calendar's weekday heads and day numbers still occur
+   in the rendered text, so they need no entry. 02.1's frame has no card in it
+   (the code's "Schedule Pickup" card is code-only — nothing to allow).
+   UNVERIFIED against live Figma: the token had expired when this was written,
+   so the list is the round-16 build's fixture text that the round-17 render no
+   longer carries (a superset across the three frames) — trim it to what the
+   parity run reports, and drop it with the round-17 Figma sync. */
+const R17_CALENDAR = ['July 2026', 'Today', 'Preferred Time', 'Select Time', '5:00 PM', 'Confirm Delivery'];   // pending-figma (round 17)
+
 const ALLOW = {
   /* round 15: the 01a frame's selected tile writes "3 Shirts/Blouses" (no spaces around the slash — raised); the code pluralises GARMENT_TYPES' "Shirts / Blouses" */
   '01a-home-selected': ['Shirts/Blouses', 'vt'],   // round 16: a stray "vt" text node in the frame (raised)
@@ -110,7 +124,9 @@ const ALLOW = {
   // fixture, 05.1/Dated draws 07B underneath.
   '03-status-new-time': ['Thu, Jul 9 · 9:30 AM', ...R7_REQUESTED],
   /* round 16: the 05.1 popup's backdrop frame writes the generic balance line; the code prints the amount */
-  '05.1-confirm-delivery': ['Please schedule your delivery below. The balance of your order will be charged upon delivery.'],
+  '05.1-confirm-delivery': ['Please schedule your delivery below. The balance of your order will be charged upon delivery.', ...R17_CALENDAR],   // pending-figma (round 17): the backdrop still draws the Calendar
+  '05-items-ready': R17_CALENDAR,             // pending-figma (round 17)
+  '05.2-delivery-confirmed': R17_CALENDAR,   // pending-figma (round 17)
   /* ---- R7 money model — Figma sync pending (customer) ---- */
   '02-appointment-details': R7_02_CTA,
   '02.1-date-time-sheet': R7_02_CTA,

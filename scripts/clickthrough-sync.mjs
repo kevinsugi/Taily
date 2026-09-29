@@ -17,7 +17,7 @@
      A   book fresh → tailor accepts → chat both ways → pre-visit →
          visit edit (+service, +garment) → send → customer approves →
          tailor marks ready (T07 waits) → customer schedules DELIVERY on
-         05's calendar (round 16) → 05.1 → 05.2 → 03/Delivery Scheduled →
+         05's Scheduler (round 17) → 05.1 → 05.2 → 03/Delivery Scheduled →
          tailor "Mark Delivered" → receipt / summary / bookings / review
      B   same to ready, then the delivery from the 01 card's CTA → tailor
          T07 / T08 → receipt (round 16: no delivery charge)
@@ -258,36 +258,48 @@ async function openBookingsCard(desc, { pill, meta }) {
   log(found, desc, `pill=${pill ?? '*'} meta=${meta ?? '*'}`);
 }
 
-/* round 16 (Kevin): 02's pills open the CALENDAR popup — a day cell stores at
-   once; the time row's picker writes 12:00 PM as it opens (wheels: hours
-   9 AM → 9 PM, minutes 00 / 30, AM / PM); the scrim leaves the picker, then
-   closes the popup. 05 draws the same calendar inline (delivery mode). */
-const calKey = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
-/** Tap the day cell `key` ("YYYY-M-D") in the calendar under `root`, paging months as needed. */
-async function pickCalendarDay(key, root = '.screen-sheet--overlay') {
-  const [y, m] = key.split('-').map(Number);
-  for (let i = 0; i < 12; i++) {
-    const shown = await page.evaluate((r) => document.querySelector(`${r} [data-calendar]`)?.dataset.month ?? '', root);
-    const [sy, sm] = shown.split('-').map(Number); const diff = (y - sy) * 12 + (m - sm);
-    if (!diff) break;
-    await page.evaluate(([r, d]) => document.querySelector(`${r} [data-act="${d > 0 ? 'cal-next' : 'cal-prev'}"]`)?.click(), [root, diff]);
-    await page.waitForTimeout(150);
-  }
-  const ok = await page.evaluate(([r, k]) => { const b = document.querySelector(`${r} .cal-cell[data-day="${k}"]:not([disabled])`); b?.click(); return !!b; }, [root, key]);
+/* round 17 (Kevin): 02's pills open the SCHEDULER popup — one two-step flow
+   (Schedule Pickup → Next → Schedule Delivery → Confirm); nothing is stored
+   until Confirm, the scrim discards. Columns: date / hour '1'..'12' / minute
+   '00','30' / AM,PM at a 36px pitch; times clamp to 9:00 AM – 9:00 PM as a
+   column settles (so the period is settled first). 05 draws the same card
+   inline. */
+const SCHED = '.screen-sheet--overlay [data-scheduler]';
+const SCHED_ROW = 36;
+const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "Oct 1, 9:30 AM" — the stored grammar for today + `offset` days. */
+const stampOf = (offset, time) => { const d = new Date(); d.setDate(d.getDate() + offset); return `${MON3[d.getMonth()]} ${d.getDate()}, ${time}`; };
+/** Settle column `i` of the Scheduler under `root` on row `n`. */
+async function settleCol(i, n, root = SCHED) {
+  await page.evaluate(([r, c, row, pitch]) => { document.querySelectorAll(`${r} .wheel__col--scroll`)[c].scrollTop = row * pitch; }, [root, i, n, SCHED_ROW]);
   await page.waitForTimeout(250);
-  return ok;
 }
-/** Open the time row's picker under `root` and settle its wheels (row indexes). */
-async function setPickerTime(hour, min, period, root = '.screen-sheet--overlay') {
-  await page.evaluate((r) => document.querySelector(`${r} [data-act="cal-time"]`)?.click(), root);
-  await page.waitForTimeout(250);
-  await page.evaluate(([h, m, pp]) => { const cols = [...document.querySelectorAll('[data-time-picker] .wheel__col--scroll')]; [h, m, pp].forEach((i, n) => { cols[n].scrollTop = 40 * i; }); }, [hour, min, period]);
-  await page.waitForTimeout(450);
+/** Settle the time columns (row indexes: hour '1'..'12', minute 00 / 30, AM / PM). */
+async function setSchedTime(hour, min, period, root = SCHED) {
+  await settleCol(3, period, root);
+  await settleCol(1, hour, root);
+  await settleCol(2, min, root);
 }
+/** The Scheduler under `root`: title, sub line, note, button, the settled rows. */
+const schedState = (root = SCHED) => page.evaluate((r) => {
+  const el = document.querySelector(r);
+  if (!el) return null;
+  const note = el.querySelector('[data-sched-note]');
+  const cols = [...el.querySelectorAll('.wheel__col--scroll')];
+  return {
+    title: el.querySelector('.scheduler__title')?.textContent.trim(),
+    sub: el.querySelector('.scheduler__sub')?.textContent.trim() ?? '',
+    note: note?.hidden ? '' : (note?.textContent.trim() ?? ''),
+    cta: el.querySelector('.scheduler__cta')?.textContent.trim(),
+    sel: cols.map((c) => c.querySelector('.wheel__row--selected')?.textContent.trim()),
+    idx: cols.map((c) => Number(c.dataset.sel)),
+    first: cols[0]?.querySelector('.wheel__row')?.textContent.trim(),
+  };
+}, root);
 const tapScrim = async () => { await page.evaluate(() => document.querySelector('.screen-sheet--overlay [data-act="modal-dismiss"]')?.click()); await page.waitForTimeout(450); };
 const VISIT_OUT = 0;   // the requested day: today at 9:30 AM (the old wheel default — run H lets the visit time pass)
 
-/** 01 → 02 → the requested-time / need-by calendars → Request Tailor → Apple Pay → 03/Requested.
+/** 01 → 02 → the requested-time / need-by Scheduler (pickup → delivery) → Request Tailor → Apple Pay → 03/Requested.
     Suit Jacket ($120 Hem) + Pants / Jeans ($120 Hem) = $240 alterations; 2
     items → the $50 Concierge fee (R7), held until a tailor accepts.
     The need-by is booked FOUR days past the requested day (round 16: 1–3
@@ -313,25 +325,32 @@ async function bookAsCustomer({ deep = false } = {}) {
   await page.click('.garment-card:nth-of-type(2) .photo-tile--add'); await page.waitForTimeout(250);
   assertEq('[C] 02: one photo on each of the two cards', await q('count', '.photo-tile--photo'), 2);
   await page.click('[data-act="time"]');
-  await assertOverlay('[C]   …requested-time calendar (round 16)', '02.1-date-time-sheet');
-  await assertTrue('[C] 02.1 opens as the calendar popup', () => !!document.querySelector('.screen-sheet--overlay .calendar-popup [data-calendar]'));
-  log(await pickCalendarDay(calKey(VISIT_OUT)), '[C] 02.1 requested day tapped (tomorrow)');
-  await setPickerTime(0, 1, 0);   // 9:30 AM
-  await tapScrim(); await tapScrim();
-  await assertOverlay('[C]   …calendar closed', null);
-  await page.click('[data-act="needby"]');
-  await assertOverlay('[C]   …need-by calendar', '02.1-date-time-sheet');
-  /* R1-U-11 / round 16: the need-by calendar opens on the requested day, its
-     earliest day the one after — book four days on (1–3 would be a rush) */
-  await assertTrue('[C] 02.1 need-by: the visit day itself is disabled', (k) => document.querySelector(`.screen-sheet--overlay .cal-cell[data-day="${k}"]`)?.disabled === true, '', calKey(VISIT_OUT));
-  log(await pickCalendarDay(calKey(VISIT_OUT + 4)), '[C] 02.1 need-by day tapped (visit + 4)');
-  await setPickerTime(0, 1, 0);   // 9:30 AM — a timed need-by (the proposal wheel caps on it, R3-T-01)
-  await tapScrim(); await tapScrim();
-  await assertOverlay('[C]   …need-by calendar closed', null);
+  await assertOverlay('[C]   …requested-time Scheduler (round 17)', '02.1-date-time-sheet');
+  await assertTrue('[C] 02.1 opens as the Scheduler popup', () => !!document.querySelector('.screen-sheet--overlay .scheduler-popup [data-scheduler]'));
+  assertEq('[C] 02.1 pickup step: title / button', await page.evaluate(() => `${document.querySelector('.screen-sheet--overlay .scheduler__title')?.textContent.trim()} | ${document.querySelector('.screen-sheet--overlay .scheduler__cta')?.textContent.trim()}`), 'Schedule Pickup | Next');
+  await settleCol(0, VISIT_OUT);
+  await setSchedTime(8, 1, 0);   // 9:30 AM
+  assertEq('[C] 02.1 pickup wheel settled (today · 9:30 AM)', (await schedState()).sel.slice(1).join(' '), '9 30 AM');
+  assertEq('[C] 02.1 nothing stored before Confirm', await page.evaluate(() => `${window.Taily.state.appt.when ?? ''}|${window.Taily.state.appt.needBy ?? ''}`), '|');
+  await page.click('.screen-sheet--overlay [data-act="sched-next"]');
+  await page.waitForTimeout(300);
+  /* R1-U-11 / round 17: the delivery wheel's first day is the day AFTER the
+     visit and it opens ten days on — book four days on (1–3 would be a rush) */
+  {
+    const s = await schedState();
+    assertEq('[C] 02.1 delivery step: title / sub / button', `${s.title} | ${s.sub} | ${s.cta}`, `Schedule Delivery | Pickup: ${stampOf(VISIT_OUT, '9:30 AM')} | Confirm`);
+    assertEq('[C] 02.1 delivery: opens ten days after the visit, no rush note', `${s.idx[0]} "${s.note}"`, '9 ""');
+    assertEq('[C] 02.1 delivery: the first day is the day after the visit', s.first, await page.evaluate((o) => { const d = new Date(); d.setDate(d.getDate() + o); return window.__data.fmtDay(`${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}`); }, VISIT_OUT + 1));
+  }
+  await settleCol(0, 3);   // visit + 4, 9:30 AM — a timed need-by (the proposal wheel caps on it, R3-T-01)
+  await page.click('.screen-sheet--overlay [data-act="sched-confirm"]');
+  await page.waitForTimeout(450);
+  await assertOverlay('[C]   …Scheduler closed', null);
+  assertEq('[C] 02.1 Confirm stores the pickup and the delivery', await page.evaluate(() => `${window.Taily.state.appt.when} | ${window.Taily.state.appt.needBy}`), `${stampOf(VISIT_OUT, '9:30 AM')} | ${stampOf(VISIT_OUT + 4, '9:30 AM')}`);
   await assertTrue('[C] need-by after the appointment (no error pill)', () => !document.querySelector('.filter-pill--error'));
   const appt = await page.evaluate(() => ({ ...window.Taily.state.appt }));
   if (deep) {
-    assertEq('[C] 02 requested-time pill = Today · <time> (round 16 pill grammar for today)', await q('text', '[data-act="time"]'), `Today · ${appt.when.split(', ')[1]}`);
+    assertEq('[C] 02 requested-time pill = Today · <time> (pill grammar for today)', await q('text', '[data-act="time"]'), `Today · ${appt.when.split(', ')[1]}`);
     assertEq('[C] 02 need-by pill = state.appt.needBy', await q('text', '[data-act="needby"]'), appt.needBy);
     await assertText(`[C] 02 CTA reserves the appointment for the ${$(SB.fee)} Concierge fee (round 9)`, '[data-act="request"]', `Reserve Appt · ${$(SB.fee)}`);
     /* round 10 (Kevin): money rows close the garments card; no fee card */
@@ -642,23 +661,26 @@ async function tailorMarksReady({ deep = false } = {}) {
   return b;
 }
 
-/** 05 (round 16): the inline delivery calendar opens on the month the items
-    were ready with the ready day inked "Today"; pick that day, 5:00 PM on the
-    picker, Confirm → 05.1 (When / Where / Items) → Confirm → 05.2 → Done →
-    03/Delivery Scheduled. Returns the window's labels. */
+/** 05 (round 17): the inline delivery Scheduler — "Ready: <ready day>" over
+    "Schedule Delivery", date rows from the ready day, opening on the delivery
+    booked on 02; settle the ready day, 5:00 PM, Confirm (in the card) → 05.1
+    (When / Where / Items) → Confirm → 05.2 → Done → 03/Delivery Scheduled.
+    Returns the window's labels. */
 async function scheduleDelivery(e, { deep = false } = {}) {
   const w = await page.evaluate((readyAt) => { const D = window.__data; const d = D.parseWhen(readyAt).date; const day = D.fmtDay(readyAt); return { key: `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`, day, mdy: D.mdy(readyAt), date: `${d.toLocaleString('en-US', { month: 'short' })} ${d.getDate()}`, dated: `${day} · 5:00 PM` }; }, e.readyAt);
+  const CARD = '[data-s="05-items-ready"] [data-scheduler].scheduler--inline';
   if (deep) {
-    assertEq('[C] 05 calendar: the ready day is inked Today', await page.evaluate(() => { const c = document.querySelector('[data-s="05-items-ready"] .cal-cell--selected'); return `${c?.dataset.day} ${c?.querySelector('.cal-cell__sub')?.textContent.trim()}`; }), `${w.key} Today`);
-    assertEq('[C] 05 Preferred Time empty, address prefilled from the visit', `${await q('text', '[data-cal-time] .calendar__value')} | ${await q('text', '[data-cal-address] .calendar__value')}`, 'Select Time | 88 Leonard St, 4B');
-    assertEq('[C] 05 CTAs', (await q('texts', '[data-s="05-items-ready"] .actions .cta')).join(' | '), 'Confirm Delivery | Message Marco');
+    const s = await schedState(CARD);
+    assertEq('[C] 05 Scheduler: Ready line / title / button', `${s?.sub} | ${s?.title} | ${s?.cta}`, `Ready: ${w.day} | Schedule Delivery | Confirm`);
+    assertEq('[C] 05 Scheduler: the date rows start on the ready day', s?.first, w.day);
+    assertEq('[C] 05 Scheduler opens on the delivery booked on 02 (need-by day + time)', s?.sel.join(' '), await page.evaluate(() => { const D = window.__data; const a = window.__shared(); const p = D.parseWhen(a.needBy); return `${D.fmtDay(a.needBy)} ${((p.hour + 11) % 12) + 1} ${String(p.min ?? 0).padStart(2, '0')} ${p.hour >= 12 ? 'PM' : 'AM'}`; }));
+    assertEq('[C] 05 address prefilled from the visit', await q('text', '[data-s="05-items-ready"] [data-act="delivery-address"] [data-delivery-address]'), '88 Leonard St, 4B');
+    assertEq('[C] 05 CTAs (Confirm lives in the card)', `${(await q('texts', '[data-s="05-items-ready"] .actions .cta')).join(' | ')} / ${await q('count', '[data-s="05-items-ready"] [data-scheduler] [data-act="confirm"]')}`, 'Message Marco / 1');
   }
-  log(await pickCalendarDay(w.key, '[data-s="05-items-ready"]'), '[C] 05 delivery day tapped (the ready day)', w.key);
-  await setPickerTime(8, 0, 1, '[data-s="05-items-ready"]');   // 5:00 PM
-  await assertOverlay('[C]   …time picker', '05-time-picker');
-  await tapScrim();
-  await assertOverlay('[C]   …picker closed', null);
-  assertEq('[C] 05 Preferred Time reads the picked time', await q('text', '[data-cal-time] .calendar__value'), '5:00 PM');
+  await settleCol(0, 0, CARD);   // the ready day
+  await setSchedTime(4, 0, 1, CARD);   // 5:00 PM
+  assertEq('[C] 05 wheel settled on the ready day · 5:00 PM', (await schedState(CARD)).sel.join(' '), `${w.day} 5 00 PM`);
+  await assertOverlay('[C]   …no popup over 05 yet', null);
   await page.click('[data-act="confirm"]');
   await assertOverlay('[C]   …05.1 confirm delivery popup', '05.1-confirm-delivery');
   assertEq('[C] 05.1 When / Where / Items', (await q('texts', '.screen-sheet--overlay .detail-row__value')).join(' | '), `${w.dated} | 88 Leonard St, 4B | 3 items`);
@@ -732,7 +754,7 @@ await fresh('A');
   const d = await customerApproves(c, { deep: true });
   const e = await tailorMarksReady({ deep: true });
 
-  /* ---- customer: ready card → 05 (the delivery calendar) → 05.1 → 05.2 → 03/Delivery Scheduled ---- */
+  /* ---- customer: ready card → 05 (the delivery Scheduler) → 05.1 → 05.2 → 03/Delivery Scheduled ---- */
   await flip();
   await assertAt('[C] View as Customer (ready)', '01-home', 'ready-for-pickup', 'user');
   await assertText('[C] 01 card pill', '.appt-card .pill span:last-child', 'Ready');
@@ -1183,7 +1205,7 @@ async function tailorProposes(label) {
   await assertText(`[T] ${label}: Schedule conflict → Suggest Another Time`, '[data-act="decline"]', 'Suggest Another Time');
   await page.click('[data-act="decline"]');
   await page.waitForTimeout(500);
-  await assertText(`[T] ${label}: the time wheel opens, titled for a proposal`, '.screen-sheet--overlay .sheet__title', 'Request New Time');
+  await assertText(`[T] ${label}: the time wheel opens, titled for a proposal`, '.screen-sheet--overlay [data-scheduler] .scheduler__title', 'Request New Time');
   /* R3-U-02 / R3-T-01: the wheel offers the requested day → the need-by day, nothing later */
   {
     const a0 = await shared();
@@ -1193,7 +1215,7 @@ async function tailorProposes(label) {
     log(rows.length === want.length && rows.join('|') === want.join('|'), `[T] ${label}: wheel days = proposalDays (requested day → need-by day)`, `rows=${rows.join(', ')} needBy=${await fmtDay(a0.needBy)}`);
     log(!!lastDay && (await fmtDay(lastDay.replace(/^(\w+) (\d+) (\w+)$/, '$1, $3 $2'))) === (await fmtDay(a0.needBy)), `[T] ${label}: the last wheel day IS the need-by day`, `last=${lastDay}`);
     /* R4-U-03 / R4-T-01: settle on the need-by day → the hour column caps to the slots before the need-by time (9:30 AM → 9 AM · 00/15) */
-    await page.evaluate((n) => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop = 40 * n; }, rows.length - 1);
+    await page.evaluate((n) => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop = 36 * n; }, rows.length - 1);
     await page.waitForTimeout(400);
     const capped = await page.evaluate(() => {
       const cols = [...document.querySelectorAll('.screen-sheet--overlay .wheel__col--scroll')];
@@ -1202,14 +1224,14 @@ async function tailorProposes(label) {
     });
     const wantHours = await page.evaluate((d) => window.__data.proposalHours(window.__shared(), d), capped.day);
     log(capped.hours.join('|') === wantHours.join('|') && capped.hours.join('|') === '9 AM' && capped.mins.join('|') === '00|15', `[T] ${label}: on the need-by day the wheel offers only slots before the need-by time`, `day=${capped.day} hours=${capped.hours.join(',')} mins=${capped.mins.join(',')}`);
-    log(/at 9:(00|15) AM$/.test(capped.cta), `[T] ${label}: the CTA follows the capped slot`, capped.cta);
+    { const slot = await page.evaluate(() => [...document.querySelectorAll('.screen-sheet--overlay .wheel__col--scroll')].slice(1).map((c) => c.querySelector('.wheel__row--selected')?.textContent.trim()).join(' · ')); log(capped.cta.trim() === 'Propose' && /^9 AM · (00|15)$/.test(slot), `[T] ${label}: the button reads Propose, the wheel sits on the capped slot`, `cta=${capped.cta.trim()} slot=${slot}`); }
     /* back to the requested day → the full studio hours return */
     await page.evaluate(() => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop = 0; });
     await page.waitForTimeout(400);
     const full = await page.evaluate(() => [...document.querySelectorAll('.screen-sheet--overlay .wheel__col--scroll')[1].querySelectorAll('.wheel__row')].length);
     log(full === 10, `[T] ${label}: back on the requested day the hour column is whole again`, `hours=${full}`);
   }
-  await page.evaluate(() => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop += 40; });
+  await page.evaluate(() => { document.querySelector('.screen-sheet--overlay .wheel__col--scroll').scrollTop += 36; });
   await page.waitForTimeout(300);
   await page.click('.screen-sheet--overlay [data-act="set-time"]');
   await assertAt(`[T] ${label}: confirm → T01 (still searching)`, 't01-home', 'searching', 'tailor');

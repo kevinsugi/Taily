@@ -1371,8 +1371,38 @@ reviews, languages, photo) would need a home in `data.js` TAILORS.
 - **Masters**: the Fee Row master binds title / description / showDescription to Figma VARIABLES rather than component properties (instance overrides were written on the text nodes directly); the Calendar master is 354 wide inside a 350 body (as drawn) and its 308 Days grid overflows the 24 padding by 2px; the Time Picker master draws 36px rows where the shared wheel is 40px (the picker has no frame instance, so nothing diffs); Time / Chip is unused; 02's second card still has no service line (standing); 03 / Requested's hero still overflows its Back row (standing).
 - **Decline is silent** by Kevin's choice — the customer only sees 03 / Requested again. A one-line notice ("Marco couldn't take it — finding another tailor") would be a small follow-up.
 
+## Round 17 — the Scheduler replaces every date / time picker (Sep 28 2026; Figma sync pending)
+
+### Kevin's asks
+- Check frame 02.1 - Date & Time Sheet (756:7291) and the new **Scheduler** master (802:7205: Pickup / Delivery / Delivery_Rush).
+- Replace all date / time selection interactions with the Scheduler.
+
+### Answers (17 questions; Kevin: defaults except 7)
+1 one two-step flow — either pill opens Pickup, Next → Delivery, Confirm saves both; "Need by" opens on Delivery once a pickup exists · 2 the delivery IS the need-by (the pill caption stays "Need by:") · 3 05 keeps its scheduling step, pre-filled with the booked delivery · 4 nothing is saved until Confirm; the scrim discards · 5 the "Pickup: …" line steps back to the pickup · 6 the note follows the ladder ("1-DAY DELIVERY: +$150" / 2-DAY +$100 / 3-DAY +$50, none from four days), live · 7 **the delivery wheel starts 10 days after the pickup** — built as the wheel's opening position; the days from the day after the pickup stay reachable above it (otherwise the rush ladder could never apply) · 8 9:00 AM – 9:00 PM on the half hour · 9 dates from today for 60 days · 10 the Scheduler's wheel at the master's 36px pitch · 11 the app's grammar ("Jul 17, 6:30 PM") · 12 the tailor's Request New Time is the Pickup card titled "Request New Time" with a "Propose" button · 13 05 draws the Delivery card inline, the address as its own row under it · 14 05's small line reads "Ready: Thu, Jul 16" · 15 the Calendar is retired in code · 16 the Figma edits to make on sync (below) · 17 no shadow, as drawn.
+
+### Results
+- **`js/scheduler.js`** (new): `scheduler({ title, sub, subAct, columns, note, cta, ctaAct, inline })`, `dayRows / dateColumn / timeColumns`, `readScheduler / readTime / settle`, `clampTime` (9:00 AM – 9:00 PM), `stamp / dayStamp / dayLabel`, `SCHED_ROW = 36`. The wheel reuses the shared wheel classes (`.wheel--sched`: 180 tall, 36px rows, 72px pads, the neutral-50 band running to the card's right edge); `wireWheel(root, onChange, rowH)` takes the pitch. CSS block "Scheduler" in components.css (`.scheduler`, `.scheduler__sub/title/note/cta`, `.scheduler-popup` at 10 / 263, `.address-row`).
+- **02 / 02.1**: `openSchedulerOverlay(mode)` (behind `openDateTimeOverlay('appt' | 'needby')`) — the two-step popup; the delivery wheel lists pickup + 1 … + 60 and opens on pickup + `DELIVERY_LEAD` (10); `rushNote(days)` paints the note as the wheel settles; Confirm writes `state.appt.when` / `needBy` ("Oct 1, 12:00 PM"), both pills and 02's rows. The 02.1 route = backdrop + scrim + the Pickup card on Fri, Jul 17 · 6:30 PM.
+- **05**: the inline Delivery card (`scheduler--inline`, 350 wide, the date column flexing), "Ready: <ready day>", Confirm inside the card (`data-act="confirm"`), the `.address-row` under it (`openAddressOverlay(onSaved)`), Message Marco. The page's own "Confirm Delivery" CTA is gone (the card has the button). The draft opens on the booked need-by when it is on or after the ready day. 05.1 / 05.2 unchanged.
+- **Tailor**: Request New Time (T02 / T03A) = the same card over the capped day / hour / minute columns (`openProposalScheduler`; the row grammar and the caps are the round-4 rules), button "Propose".
+- **Retired**: `js/calendar.js`, the Calendar CSS block, the wheel time-picker popup, the calendar error states.
+- Test flows: `c-time-sheet` (pickup step), new `c-delivery-step`.
+- **Harness**: diff 61 screens green (four baselines re-accepted `pending-figma`: 02.1 22.9%, 05 8.9%, 05.1 6.1%, 05.2 3.6%), click-throughs customer 245 / tailor 361 / sync 1100 / flows 92, hygiene clean. **Text parity could not run — the Figma token in FigToken.env has expired (API 403).** The new ALLOW entries (`R17_CALENDAR` on 05 / 05.1 / 05.2) were derived from the round-16 render, not from a live parity run; re-run `node scripts/text-parity.mjs` with a fresh token and trim them. The runs book through the two-step card (pickup → Next → delivery → Confirm), check that nothing is stored before Confirm and that the scrim discards, walk the rush note down the ladder, and schedule 05 on the inline card. Coverage dropped with the states that no longer exist: a pickup without a need-by, the calendar's disabled days and error lines.
+
+### Flags
+- **Text parity is unverified this round** — the Figma token expired; a fresh token in FigToken.env is needed before parity, `npm run refs` or a Figma sync can run.
+- **02.1's frame holds no card** — the Scheduler instance (803:5063) is parented to the PAGE, 10 / 263 over the frame, so the exported ref is the bare scrimmed backdrop (baseline accepted `pending-figma`).
+- **05 / 05.1 / 05.2 still draw the round-16 Calendar** and the page-level "Confirm Delivery" CTA (baselines `pending-figma`). The Scheduler master has no address row and no error line — the address became its own row under the card; a missing address toasts.
+- **Scheduler master**: the Selection Band is 659 wide inside a 330 wheel (it runs out of the card's right edge, clipped — built that way); the four columns total 316 of the wheel's 330; rows are 36px under a 40px band; the sub line reads "6:30PM" (no space) — the code prints "6:30 PM"; the master has no description.
+- **Answer 7** is built as the opening position. If it should be the EARLIEST selectable day, the rush ladder (1–3 days) can never apply — say which.
+- The Calendar, Calendar / Cell, Time Picker / Pickup and Time / Chip masters are now unused by any code; they stay in the file.
+- The tailor's card keeps its old row grammar ("Fri 11 Sept", "9 AM") and three columns where the master draws four.
+
 ## Figma sync pending (ledger — Kevin: Figma is written only when asked, Sep 13 2026)
 
 Rounds are code + harness by default. Every frame edit a round would have made is listed here (frame · node · old → new) and stays until Kevin says "sync Figma"; text-parity ALLOW entries and accepted baselines for these carry a `pending-figma` note. On sync: `npm run figma:find "<text>"` for the ids, one `use_figma` call per page, `npm run refs`, re-accept the diffs, clear the entries below.
 
-- (nothing pending — rounds 12–16 were synced in full)
+- (rounds 12–16 were synced in full)
+- **Round 17** · 02.1 - Date & Time Sheet 756:7291 · the page-level Scheduler instance 803:5063 → move INTO the frame at 10 / 263 (above the Scrim).
+- **Round 17** · 05 - Items Ready 283:1287, 05.1 - Confirm Delivery 775:4991, 05.2 - Window Confirmed / Dated 609:2779 · the Calendar (Delivery) instance → the Scheduler Delivery variant inline (350 wide, sub line "Ready: Mon, Jul 20", wheel on Thu, Jul 23 · 5:00 PM, Confirm); add the address row under it ("Address: 88 Leonard Street, 10013"); hide the page CTA "Confirm Delivery" (the card carries Confirm).
+- **Round 17** · Scheduler master 802:7205 · sub line "Pickup: Jul 17, 6:30PM" → "Pickup: Jul 17, 6:30 PM"; add a description. Tailor T02 / T03A have no Request New Time frame — none needed (copy-only state).

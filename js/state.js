@@ -29,6 +29,7 @@ import {
 import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
+  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS,
 } from './data.js';
 
 export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed', 'cancelled'];
@@ -201,31 +202,76 @@ export function validateJob(job = state.job, step = null) {
 /* ---------- tailor sections (M2 fills in the screens) ---------- */
 export const bookable = (tailor) => !!tailor && SECTIONS.every((s) => tailor.onboarding?.[s]);
 const hasWindow = (avail) => Object.values(avail ?? {}).some((w) => (w ?? []).length > 0);
+const blank = (v) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+const isWhole = (n) => Number.isInteger(n);
+const zip5 = (z) => /^\d{5}$/.test(String(z ?? ''));
+const overlaps = (a, b) => (a ?? []).some(([o1, c1]) => (b ?? []).some(([o2, c2]) => o1 < c2 && o2 < c1));   // touching is fine
 const SECTION_RULES = {
-  profile: (d) => ({ ...(d.name?.trim() ? {} : { name: 'name-required' }), ...(d.bio?.trim() ? {} : { bio: 'bio-required' }) }),
-  services: (d) => (Object.values(d.prices ?? {}).some((p) => typeof p === 'number' && p > 0) ? {} : { prices: 'no-services' }),
+  profile: (d) => {
+    const e = {};
+    if (!String(d.name ?? '').trim()) e.name = 'name-required';
+    const bio = String(d.bio ?? '').trim();
+    if (!bio) e.bio = 'bio-required';
+    else if (bio.length > TAILOR_LIMITS.BIO_MAX) e.bio = 'bio-long';
+    return e;
+  },
+  services: (d) => {
+    const e = {};
+    const entries = Object.entries(d.prices ?? {});
+    if (!entries.length) { e.prices = 'no-services'; return e; }
+    for (const [id, raw] of entries) {
+      const n = blank(raw) ? NaN : Number(raw);
+      if (!(n > 0)) e[`price-${id}`] = 'price-missing';
+      else if (!isWhole(n) || n > TAILOR_LIMITS.PRICE_MAX) e[`price-${id}`] = 'price-invalid';
+    }
+    return e;
+  },
   where: (d) => {
     const e = {};
     if (!d.shop?.enabled && !d.home?.enabled) e.where = 'where-required';
-    if (d.shop?.enabled && !String(d.shop.street ?? '').trim()) e.street = 'street-required';
-    if (d.shop?.enabled && !/^\d{5}$/.test(String(d.shop.zip ?? ''))) e.shopZip = 'zip-invalid';
-    if (d.home?.enabled && !(d.home.zips ?? []).length) e.zips = 'zips-required';
-    if (d.home?.enabled && !(typeof d.home.fee === 'number' && d.home.fee >= 0)) e.fee = 'fee-invalid';
+    if (d.shop?.enabled) {
+      if (!String(d.shop.street ?? '').trim()) e.street = 'street-required';
+      if (!zip5(d.shop.zip)) e.shopZip = 'zip-invalid';
+    }
+    if (d.home?.enabled) {
+      const zips = d.home.zips ?? [];
+      if (!zips.length) e.zips = 'zips-required';
+      else if (!zips.every(zip5)) e.zips = 'zip-invalid';
+      const fee = d.home.fee;
+      if (blank(fee) || Number.isNaN(Number(fee))) e.fee = 'fee-missing';
+      else if (!isWhole(Number(fee)) || Number(fee) < 0 || Number(fee) > TAILOR_LIMITS.FEE_MAX) e.fee = 'fee-invalid';
+    }
     return e;
   },
-  returns: (d) => (Object.values(d.returns ?? {}).some(Boolean) ? {} : { returns: 'return-required' }),
+  returns: (d) => {
+    const e = {};
+    const r = d.returns ?? {};
+    if (!Object.values(r).some(Boolean)) e.returns = 'return-required';
+    if (r.pickup && d.shop && !d.shop.enabled) e.pickup = 'pickup-needs-shop';
+    return e;
+  },
   availability: (d) => {
     const e = {};
-    if (d.shop?.enabled && !hasWindow(d.availability?.shop)) e.shop = 'hours-required';
-    if (d.home?.enabled && !hasWindow(d.availability?.home)) e.home = 'hours-required';
-    if (!d.shop?.enabled && !d.home?.enabled && !hasWindow(d.availability?.shop) && !hasWindow(d.availability?.home)) e.hours = 'hours-required';
+    const av = d.availability ?? {};
+    for (const type of ['shop', 'home']) {
+      if (!d[type]?.enabled) continue;
+      if (!hasWindow(av[type])) e[type] = 'hours-required';
+      for (const [day, wins] of Object.entries(av[type] ?? {})) {
+        if ((wins ?? []).some(([o, c]) => minutesOf(o) >= minutesOf(c))) e[`${type}-${day}`] = 'hours-range';
+      }
+    }
+    if (d.shop?.enabled && d.home?.enabled) {
+      for (const day of Object.keys(av.shop ?? {})) if (overlaps(av.shop[day], av.home?.[day])) e[`overlap-${day}`] = 'hours-overlap';
+    }
     return e;
   },
   payouts: (d) => {
     const e = {};
-    if (!String(d.payouts?.bank ?? '').trim()) e.bank = 'bank-required';
-    if (!/^\d{4}$/.test(String(d.payouts?.last4 ?? ''))) e.last4 = 'last4-invalid';
-    if (!String(d.payouts?.holder ?? '').trim()) e.holder = 'holder-required';
+    const p = d.payouts ?? {};
+    if (!String(p.holder ?? '').trim()) e.holder = 'holder-required';
+    if (!/^\d{9}$/.test(String(p.routing ?? ''))) e.routing = 'routing-invalid';
+    if (!/^\d{4}$/.test(String(p.last4 ?? ''))) e.last4 = 'account-invalid';
+    if (!String(p.bank ?? '').trim()) e.bank = 'bank-required';
     return e;
   },
 };
@@ -245,15 +291,62 @@ function deepMerge(target, patch) {
   }
   return target;
 }
-/** Merge `patch` into the (only) tailor and re-derive that section's onboarding flag. */
+const REPLACED = ['prices', 'availability'];   // a patch replaces these (so an unticked service / closed day disappears)
+/** Merge `patch` into the (only) tailor and re-derive that section's onboarding flag; `live` turns true the first time
+    the tailor is bookable and never back (D-56). */
 export function setTailorSection(section, patch) {
   if (!SECTIONS.includes(section)) return fail('unknown-section');
   const t = state.tailors[0];
-  deepMerge(t, patch);
+  const rest = { ...patch };
+  for (const k of REPLACED) {
+    if (!(k in rest)) continue;
+    t[k] = Object.fromEntries(Object.entries(rest[k] ?? {}).filter(([, v]) => v !== undefined).map(([id, v]) => [id, clone(v)]));
+    delete rest[k];
+  }
+  deepMerge(t, rest);
   const v = validateSection(section, t);
   t.onboarding[section] = v.ok;
-  return { ok: true, tailor: t, valid: v.ok, errors: v.errors, bookable: bookable(t) };
+  if (bookable(t)) t.live = true;
+  return { ok: true, tailor: t, valid: v.ok, errors: v.errors, bookable: bookable(t), live: !!t.live };
 }
+/** Payouts: the full account number is validated here and never stored — only its last 4 (D-63). Blank account keeps
+    the stored last4 (edit mode) only while the routing number is unchanged — a new bank needs its account number. */
+export function setPayouts({ holder = '', routing = '', account = '' } = {}) {
+  const t = state.tailors[0];
+  const h = String(holder).trim();
+  const r = String(routing).trim();
+  const a = String(account).replace(/\s/g, '');
+  const errors = {};
+  if (!h) errors.holder = 'holder-required';
+  if (!/^\d{9}$/.test(r)) errors.routing = 'routing-invalid';
+  const keep = !!t.payouts?.last4 && r === String(t.payouts?.routing ?? '');
+  if (a ? !/^\d{4,17}$/.test(a) : !keep) errors.account = 'account-invalid';
+  if (Object.keys(errors).length) return { ok: false, errors };
+  const res = setTailorSection('payouts', { payouts: { holder: h, routing: r, bank: ROUTING_BANKS[r] ?? 'Your bank', last4: a ? a.slice(-4) : t.payouts.last4 } });
+  return { ok: true, tailor: res.tailor, bookable: res.bookable, live: res.live };
+}
+/** Rush editor draft `{ on, fees: { 1, 2, 3 } }` → `{ ok } | { ok: false, errors: { d1: code, … } }` (D-64). */
+export function validateRush({ on = false, fees = {} } = {}) {
+  if (!on) return { ok: true, errors: {} };
+  const errors = {};
+  for (const d of RUSH_TIERS) {
+    const raw = fees[d];
+    const n = blank(raw) ? NaN : Number(raw);
+    if (Number.isNaN(n)) errors[`d${d}`] = 'fee-missing';
+    else if (!isWhole(n) || n < 0 || n > TAILOR_LIMITS.RUSH_MAX) errors[`d${d}`] = 'fee-invalid';
+    else if (d > 1 && !errors[`d${d - 1}`] && !blank(fees[d - 1]) && n > Number(fees[d - 1])) errors[`d${d}`] = 'fee-order';
+  }
+  return { ok: Object.keys(errors).length === 0, errors };
+}
+export function setRush(draft = {}) {
+  const v = validateRush(draft);
+  if (!v.ok) return { ok: false, errors: v.errors };
+  const t = state.tailors[0];
+  t.rush = draft.on ? RUSH_TIERS.map((days) => ({ days, fee: Number(draft.fees[days]) })).filter((r) => r.fee > 0) : [];
+  return { ok: true, tailor: t };
+}
+/** The first onboarding section not yet valid, or null. */
+export const nextSection = (tailor = state.tailors[0]) => SECTIONS.find((s) => !tailor?.onboarding?.[s]) ?? null;
 /** Onboarding flows start from a blank profile with the same id (D-20). */
 export function blankTailor() { state.tailors[0] = clone(BLANK_TAILOR); return state.tailors[0]; }
 
@@ -703,6 +796,6 @@ export const T = {
   tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow,
   startFitting, sendPriceChange, confirmNoChange, approvePriceChange, messageAboutPriceChange, markReady,
   chooseReturn, payBalance, markCompleted, leaveReview, sendMessage, maskContact,
-  setTailorSection, validateSection, blankTailor,
+  setTailorSection, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick,
 };

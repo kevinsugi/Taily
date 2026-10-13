@@ -81,8 +81,8 @@ export function chrome(active = 'home', { persona = 'customer', time = '9:41' } 
    ============================================================ */
 
 import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS } from './icons.js';
-import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE } from './data.js';
-import { fmt, fmtExact, fmtNeg } from './money.js';
+import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
+import { fmt, fmtExact, fmtNeg, cents } from './money.js';
 import { fmtShort, fmtWhen, fmtCountdown } from './dates.js';
 import { POLICY } from './money-config.js';
 
@@ -303,11 +303,11 @@ export const backButton = () => '<button type="button" class="back" data-act="ba
 /* round 16 (Kevin): the Back sits beside the pill + title only; the
    explanation block (statusHero's notes, or a screen's own
    `<!--notes-->…<!--/notes-->` block) follows the row at the padding. */
-export function headingRow(inner) {
+export function headingRow(inner, { back = true } = {}) {
   const m = /<!--notes-->([\s\S]*?)<!--\/notes-->/.exec(inner);
   const notes = m ? m[1] : '';
   const head = m ? inner.replace(m[0], '') : inner;
-  return `<div class="heading-row">${backButton()}<div class="heading-row__body">${head}</div></div>${notes}`;
+  return `<div class="heading-row">${back ? backButton() : ''}<div class="heading-row__body">${head}</div></div>${notes}`;
 }
 
 /** ✓ badges (round 14): success-bg pills, 12/16 SemiBold success. */
@@ -570,19 +570,34 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
  * prototype's scope (calendar, profile, reviews). Ink pill, bottom of
  * the viewport, auto-dismisses.
  */
-export function toast(msg, { tone = 'neutral' } = {}) {
+export function toast(msg, { tone = 'neutral', action = '', onAction = null, ms = action ? 5000 : 2200 } = {}) {
   document.querySelector('.toast')?.remove();
   const el = document.createElement('div');
   el.className = tone === 'neutral' ? 'toast' : `toast toast--${tone}`;   // v5: neutral | success | warning | error | info
   el.setAttribute('role', tone === 'error' ? 'alert' : 'status');
   el.textContent = msg;
+  if (action) {   // an inline action (Undo): the toast takes pointer events for its button
+    el.classList.add('toast--action');
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'toast__action'; btn.textContent = action;
+    btn.addEventListener('click', () => { clearToasts(); onAction?.(); });
+    el.appendChild(btn);
+  }
   document.body.appendChild(el);
+  const bar = document.querySelector('#screen .action-bar');   // never over a sticky CTA (D-71)
+  if (bar) el.style.bottom = `${bar.offsetHeight + 12}px`;
   document.documentElement.classList.add('has-toast');   // the persona toggle steps aside
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('toast--in')));
   setTimeout(() => {
     el.classList.remove('toast--in');
     setTimeout(() => { el.remove(); if (!document.querySelector('.toast')) document.documentElement.classList.remove('has-toast'); }, 300);
-  }, 2200);
+  }, ms);
+}
+
+/** Remove every toast now (a screen change does this — D-71: a toast never outlives its screen). */
+export function clearToasts() {
+  document.querySelectorAll('.toast').forEach((t) => t.remove());
+  document.documentElement.classList.remove('has-toast');
 }
 
 /** Wheel picker — columns: [{ width, rows: [5 strings] }], middle row selected. */
@@ -767,8 +782,10 @@ const noPercent = (label, where) => {
 };
 
 /* ---------- avatar ---------- */
-/** Avatar — size 'sm' 40 | 'md' 56 | 'lg' 80. Photo wins over initials. Decorative (the name sits beside it). */
+/** Avatar — size 'sm' 40 | 'md' 56 | 'lg' 80. Photo wins over initials; `photo: true` = a placeholder photo circle (no <img>). Decorative (the name sits beside it). */
 export function avatar({ initials = '', photo = null, size = 'sm' } = {}) {
+  /* photo === true: the prototype's "added photo" — a --media-placeholder circle, no <img> (D-58) */
+  if (photo === true) return `<span class="avatar avatar--${size} avatar--photo avatar--placeholder" aria-hidden="true"></span>`;
   const inner = photo ? `<img class="avatar__img" src="${esc(photo)}" alt="">` : esc(initials);
   return `<span class="avatar avatar--${size}${photo ? ' avatar--photo' : ''}" aria-hidden="true">${inner}</span>`;
 }
@@ -930,13 +947,14 @@ export function toggle({ id, label, checked = false, disabled = false, helper = 
   <button type="button" class="toggle" id="${id}" role="switch" aria-checked="${checked}" aria-labelledby="${id}-label"${helper ? ` aria-describedby="${id}-help"` : ''} data-toggle="${id}"${disabled ? ' disabled' : ''}><span class="toggle__knob"></span></button>
 </div>`;
 }
-/** Check row — a 44 px row with an inset-stroke box. checked · unchecked · error. */
-export function checkRow({ id, label, checked = false, caption = '', error = '', attrs = '' } = {}) {
-  return `<div class="check-row-wrap${error ? ' check-row-wrap--error' : ''}">
+/** Check row — a 44 px row with an inset-stroke box. checked · unchecked · error · disabled (greyed label, caption still readable). */
+export function checkRow({ id, label, checked = false, caption = '', captionHtml = '', error = '', attrs = '', disabled = false } = {}) {
+  const cap = captionHtml || (caption ? esc(caption) : '');
+  return `<div class="check-row-wrap${error ? ' check-row-wrap--error' : ''}${disabled ? ' check-row-wrap--disabled' : ''}">
   <label class="check-row" for="${id}">
-    <input class="check-row__input" type="checkbox" id="${id}" name="${id}"${checked ? ' checked' : ''}${error ? ` aria-invalid="true" aria-describedby="${id}-msg"` : ''} ${attrs}>
+    <input class="check-row__input" type="checkbox" id="${id}" name="${id}"${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}${error ? ` aria-invalid="true" aria-describedby="${id}-msg"` : ''} ${attrs}>
     <span class="check-row__box" aria-hidden="true">✓</span>
-    <span class="check-row__text"><span class="check-row__label">${esc(label)}</span>${caption ? `<span class="check-row__caption">${esc(caption)}</span>` : ''}</span>
+    <span class="check-row__text"><span class="check-row__label">${esc(label)}</span>${cap ? `<span class="check-row__caption">${cap}</span>` : ''}</span>
   </label>
   ${error ? `<p class="field__msg field__msg--error" id="${id}-msg" role="alert">${esc(error)}</p>` : ''}
 </div>`;
@@ -1154,4 +1172,194 @@ export function wireComposer(root, onSend) {
       input.value = ''; send.disabled = true;
     });
   });
+}
+
+/* ============================================================
+   M2 — tailor onboarding + Shop (docs/v5/M2-spec.md §A6)
+   ============================================================ */
+
+/** The six onboarding steps, in order (step ↔ screen). After `payouts` → to-done. */
+export const ONBOARDING_STEPS = [
+  { id: 'profile', label: 'Profile', screen: 'to-profile' },
+  { id: 'services', label: 'Services and prices', screen: 'to-services' },
+  { id: 'where', label: 'Where you work', screen: 'to-where' },
+  { id: 'returns', label: 'Return options', screen: 'to-returns' },
+  { id: 'availability', label: 'Availability', screen: 'to-availability' },
+  { id: 'payouts', label: 'Payouts', screen: 'to-payouts' },
+];
+
+/** "Step 2 of 6 · Services and prices" over six segments. `current` = id or index; `done` = ids (non-contiguous allowed). */
+export function onboardingSteps(current = 'profile', done = []) {
+  return stepper({ steps: ONBOARDING_STEPS, current, done, variant: 'default' });
+}
+
+/**
+ * Onboarding header — onboarding: status bar + a 56 px bar (Back ‹ left when `back`, a 44 px "Finish later" right);
+ * editing: the tailor chrome with Shop active. The bar is absolute under the status bar, like the top nav it replaces.
+ */
+export function onboardingHeader({ editing = false, back = true } = {}) {
+  if (editing) return chrome('shop', { persona: 'tailor' });
+  return `${statusBar()}
+<div class="ob-bar">
+  ${back ? backButton() : '<span class="ob-bar__spacer" aria-hidden="true"></span>'}
+  <button type="button" class="ob-bar__later t-body w-600" data-act="finish-later">Finish later</button>
+</div>`;
+}
+
+/**
+ * Text area — the field chassis (label, inset box, helper / error) plus a live "n / max" counter. No `maxlength`
+ * (a paste must be able to show the over-max error). The counter is `data-count` (screens update it in place on
+ * `input`); over max it turns --error. states: empty · typing · over max · error.
+ */
+export function textArea({ id, label, value = '', rows = 4, max, helper = '', error = '' } = {}) {
+  const msg = error || helper;
+  const msgId = `${id}-msg`;
+  const countId = `${id}-count`;
+  const n = [...String(value ?? '')].length;
+  const over = max != null && n > max;
+  const describedBy = [msg ? msgId : '', max != null ? countId : ''].filter(Boolean).join(' ');
+  return `<div class="field text-area${error ? ' field--error' : ''}">
+  <label class="field__label" for="${id}">${esc(label)}</label>
+  <div class="field__box text-area__box">
+    <textarea class="text-area__input" id="${id}" name="${id}" rows="${rows}"${error ? ' aria-invalid="true"' : ''}${describedBy ? ` aria-describedby="${describedBy}"` : ''}>${esc(value)}</textarea>
+  </div>
+  <div class="text-area__foot">
+    ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : '<span></span>'}
+    ${max != null ? `<span class="text-area__count t-small c-600${over ? ' text-area__count--over' : ''}" id="${countId}" data-count data-max="${max}" aria-live="off">${n} / ${max}</span>` : ''}
+  </div>
+</div>`;
+}
+
+/**
+ * Service row — a checkbox row; when checked, a whole-dollar `$` price input (`#price-<id>`) with a live
+ * "You get $X" caption under it (`data-take`; hidden while null). `payoutText` = the amount already formatted for its column (money.js `fmtColumn`, D-70); default `fmt(payoutCents)`.
+ * states: unchecked · checked, empty · checked with price + payout · error.
+ */
+export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', error = '' } = {}) {
+  const takeHidden = payoutCents == null;
+  /* caption as a list (garment types) → one nowrap span per item with its " ·" kept inside (no-break space), and a plain
+     space between spans: a line only breaks between whole names and never starts with a "·" */
+  const captionHtml = Array.isArray(caption)
+    ? caption.map((c, i) => `<span class="service-row__part">${esc(c)}${i < caption.length - 1 ? '\u00a0·' : ''}</span>`).join(' ') : '';
+  return `<div class="service-row-wrap${error ? ' service-row-wrap--error' : ''}" data-service="${esc(id)}">
+  <div class="service-row${checked ? ' service-row--on' : ''}">
+    <div class="service-row__check">${checkRow({ id: `svc-${id}`, label, caption: Array.isArray(caption) ? '' : caption, captionHtml, checked, attrs: `data-act="svc" data-id="${esc(id)}"` })}</div>
+    ${checked ? `<div class="service-row__price">
+      <div class="field__box service-row__box${error ? ' service-row__box--error' : ''}">
+        <span class="field__affix" aria-hidden="true">$</span>
+        <input class="field__input" id="price-${esc(id)}" name="price-${esc(id)}" type="text" inputmode="numeric" autocomplete="off" value="${esc(price)}" aria-label="Price for ${esc(label)}"${error ? ` aria-invalid="true" aria-describedby="price-${esc(id)}-msg"` : ''}>
+      </div>
+      <span class="service-row__take t-small w-600 c-700" data-money data-take${takeHidden ? ' hidden' : ''}>${takeHidden ? '' : `You get ${payoutText || fmt(payoutCents)}`}</span>
+    </div>` : ''}
+  </div>
+  ${error ? `<p class="field__msg field__msg--error" id="price-${esc(id)}-msg" role="alert">${esc(error)}</p>` : ''}
+</div>`;
+}
+
+/**
+ * ZIP list — removable 44 px chips (ZIP + neighborhood), an add field (`#zip-add`) with an Add button, "+ zip"
+ * suggestion chips (only those not already listed) and a list-level error. states: empty · 4 zips · input error · list error.
+ */
+export function zipList({ zips = [], input = '', error = '', inputError = '', suggestions = [] } = {}) {
+  const chips = zips.map((z) => {
+    const hood = ZIP_INFO[z]?.hood ?? '';
+    return `<button type="button" class="zip-chip" data-act="zip-remove" data-zip="${esc(z)}" aria-label="Remove ${esc(z)}${hood ? ` ${esc(hood)}` : ''}"><span class="zip-chip__zip">${esc(z)}</span>${hood ? `<span class="zip-chip__hood">${esc(hood)}</span>` : ''}<span class="zip-chip__x" aria-hidden="true">✕</span></button>`;
+  }).join('');
+  const sugg = suggestions.filter((z) => !zips.includes(z))
+    .map((z) => `<button type="button" class="zip-chip zip-chip--suggest" data-act="zip-suggest" data-zip="${esc(z)}" aria-label="Add ${esc(z)}${ZIP_INFO[z] ? ` ${esc(ZIP_INFO[z].hood)}` : ''}">+ ${esc(z)}</button>`).join('');
+  return `<div class="zip-list${error ? ' zip-list--error' : ''}" data-zip-list>
+  <p class="zip-list__label t-small w-600 c-700" id="zip-list-label">ZIP codes you cover</p>
+  <div class="zip-list__chips" role="group" aria-labelledby="zip-list-label">${chips || '<span class="zip-list__none t-small c-600">No ZIP codes yet.</span>'}</div>
+  <div class="zip-list__add">
+    ${field({ id: 'zip-add', label: 'Add a ZIP code', value: input, inputmode: 'numeric', maxlength: 5, autocomplete: 'off', error: inputError })}
+    <div class="zip-list__add-btn">${ctaSmall('Add', { attrs: 'data-act="zip-add"' })}</div>
+  </div>
+  ${sugg ? `<div class="zip-list__suggest" role="group" aria-label="Suggested ZIP codes">${sugg}</div>` : ''}
+  ${error ? `<p class="field__msg field__msg--error" role="alert">${esc(error)}</p>` : ''}
+</div>`;
+}
+
+/**
+ * Day hours — one weekday row: label + on/off switch (`#day-<sched>-<day>`); when open, two 44 px time buttons
+ * (data-act="time", data-edge="open|close"), else "Closed". `open` / `close` are labels ("10:00 AM"). states: closed · open · error.
+ */
+export function dayHours({ sched, day, label, open = null, close = null, error = '' } = {}) {
+  const on = open != null;
+  const id = `day-${sched}-${day}`;
+  const btn = (edge, text, what) => `<button type="button" class="day-hours__time t-body" data-act="time" data-sched="${esc(sched)}" data-day="${esc(day)}" data-edge="${edge}" aria-label="${esc(label)} ${what}: ${esc(text)}">${esc(text)}</button>`;
+  return `<div class="day-hours${on ? ' day-hours--open' : ''}${error ? ' day-hours--error' : ''}" data-day-row="${esc(day)}">
+  ${toggle({ id, label, checked: on, helper: on ? '' : 'Closed' })}
+  ${on ? `<div class="day-hours__times">${btn('open', open, 'opens')}<span class="day-hours__dash c-500" aria-hidden="true">–</span>${btn('close', close ?? '', 'closes')}</div>` : ''}
+  ${error ? `<p class="field__msg field__msg--error day-hours__error" role="alert">${esc(error)}</p>` : ''}
+</div>`;
+}
+
+/**
+ * Customer preview — "What customers see": a caps label over an INERT container (so a tailorRow button inside is
+ * neither focusable nor clickable) on --neutral-100, then an optional caption. `html` is trusted markup built from customer components.
+ */
+export function customerPreview({ title = 'What customers see', html = '', caption = '' } = {}) {
+  return `<section class="customer-preview" aria-label="${esc(title)}">
+  <p class="customer-preview__title t-caps c-600">${esc(title)}</p>
+  <div class="customer-preview__body" inert>${html}</div>
+  ${caption ? `<p class="customer-preview__caption t-small c-600">${esc(caption)}</p>` : ''}
+</section>`;
+}
+
+/**
+ * Mini profile — the tailor's own card (avatar, name, shop, optional 2-line bio) as a left-aligned row on white.
+ * Used inside `customerPreview` when there is no tailorRow to show (to-profile, t-shop, to-done). `data-pv` hooks let
+ * a screen update the name / shop / bio in place while she types. `bio: null` omits the bio line.
+ */
+export function miniProfile({ name = '', initials = '', photo = null, shopName = '', bio = null } = {}) {
+  const n = String(name ?? '').trim();
+  const sh = String(shopName ?? '').trim();
+  return `<div class="mini-profile${bio == null ? '' : ' mini-profile--bio'}">
+  ${avatar({ initials, photo, size: 'md' })}
+  <div class="mini-profile__text">
+    <p class="t-body w-600${n ? '' : ' c-500'}" data-pv="name">${esc(n || 'Your name')}</p>
+    <p class="t-small c-600" data-pv="shop"${sh ? '' : ' hidden'}>${esc(sh)}</p>
+    ${bio == null ? '' : `<p class="t-small c-700 mini-profile__bio" data-pv="bio"${String(bio).trim() ? '' : ' hidden'}>${esc(String(bio).trim())}</p>`}
+  </div>
+</div>`;
+}
+
+/** The customer's "Getting it back" rows (c-tailor), one metaRow per return option she offers. `returns` = { pickup,
+    dropoff, courier }. `empty` (string) renders when nothing is ticked; '' renders nothing. */
+export function returnsRows(returns = {}, { empty = '' } = {}) {
+  const rows = [];
+  if (returns?.pickup) rows.push(metaRow('', 'In-store pickup — free', { icon: 'bag' }));
+  if (returns?.dropoff) rows.push(metaRow('', 'Home drop-off — free', { icon: 'home' }));
+  if (returns?.courier) rows.push(metaRow('', 'Taily courier — priced when your order is ready, before you pay', { icon: 'truck' }));
+  if (!rows.length) return empty ? `<p class="returns-rows returns-rows--empty t-body c-600">${esc(empty)}</p>` : '';
+  return `<div class="returns-rows">${rows.join('')}</div>`;
+}
+
+/**
+ * Rush ladder — the one-line rush-fee ladder ("ready within 1 day of the visit +$40 · 2 days +$25 · … · 4+ days no
+ * rush fee"). One nowrap span per tier, so the line breaks between tiers, never inside one. `rush` = [{ days, fee }]
+ * (fee in whole dollars). Empty → "No rush fees."
+ */
+export function rushLadder(rush = []) {
+  const ladder = [...(rush ?? [])].sort((a, b) => a.days - b.days);
+  if (!ladder.length) return '<span class="rush-ladder" data-money>No rush fees.</span>';
+  const tier = (text) => `<span class="rush-tier">${text}</span>`;
+  const parts = ladder.map((r, i) => tier(`${i === 0 ? `ready within ${r.days} day${r.days === 1 ? '' : 's'} of the visit` : `${r.days} day${r.days === 1 ? '' : 's'}`} +${fmt(cents(r.fee))}`));
+  parts.push(tier(`${ladder[ladder.length - 1].days + 1}+ days no rush fee`));
+  return `<span class="rush-ladder" data-money>${parts.join(' · ')}</span>`;
+}
+
+/**
+ * Leave modal — the "unsaved changes" alertdialog content for modalOverlay(leaveModal(…), { dataS }, wireFn).
+ * Keep editing (primary) · Discard changes (secondary).
+ */
+export function leaveModal({ title = 'Leave without saving?', body = 'Your changes will be lost.' } = {}) {
+  return `<div class="modal modal--leave" role="alertdialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-body">
+  <h2 class="modal__title t-h2" id="leave-title">${esc(title)}</h2>
+  <p class="leave-modal__body" id="leave-body">${esc(body)}</p>
+  <div class="modal__actions">
+    ${cta('Keep editing', { attrs: 'data-act="keep-editing"' })}
+    ${cta('Discard changes', { variant: 'secondary', attrs: 'data-act="discard"' })}
+  </div>
+</div>`;
 }

@@ -1,0 +1,15 @@
+/* to-services — layout only; service rows, preview, stepper, banner and action bar are shared components. */
+.to-services__resume { margin-top: var(--space-16); }
+.to-services__title { margin-top: var(--space-24); }
+.to-services__lead { margin: var(--space-8) 0 0; }
+.to-services__take-note { margin: var(--space-8) 0 0; }
+.to-services__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-12); margin-top: var(--space-24); }
+.to-services__head > span { font-variant-numeric: tabular-nums; }
+.to-services__list-error { margin: var(--space-8) 0 0; }
+.to-services__list-error[hidden] { display: none; }
+.to-services__card { margin-top: var(--space-8); padding: var(--space-4) var(--space-16); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
+.to-services__card .service-row-wrap { padding-block: var(--space-4); box-shadow: inset 0 -1px 0 var(--neutral-100); }
+.to-services__card .service-row-wrap:last-child { box-shadow: none; }
+.to-services__preview { margin-top: var(--space-32); }
+.to-services__prices { display: flex; flex-direction: column; }
+.to-services__more { margin: var(--space-8) 0 0; }

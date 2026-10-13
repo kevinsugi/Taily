@@ -12,7 +12,7 @@ Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.m
 | `js/money-config.js` | `MONEY` rates + `POLICY` timers (incl. `CODE_TTL_MIN` 10, `CODE_RESEND_S` 30) — the ONLY place rates / windows live | spec-approved edits only |
 | `js/sim.js` | `withLatency(done) → cancel()` — every simulated network wait: `state.sim.latency` instant → sync, normal → `LATENCY_MS` 700, hold → never (D-35). Set the busy flag first | component builder |
 | `js/account.js` | DOM-free sign-in model (D-33): `phoneDigits formatPhone validatePhone signOut sendCode codeStatus resendCode verifyCode saveName signInWith addCard useOtherMethod` | component builder |
-| `js/money.js` | money fns, integer cents in/out, `fmt / fmtExact / fmtNeg` | model |
+| `js/money.js` | money fns, integer cents in/out, `fmt / fmtExact / fmtNeg / fmtColumn` | model |
 | `js/dates.js` | ISO date helpers + formatters | model |
 | `js/data.js` | catalog (`GARMENT_TYPES`, `GARMENT_ICONS`, `SERVICES`), seed (`TAILORS` = Amara, `CUSTOMER` = Sarah, `SEED_JOB`, `BLANK_TAILOR`), `DEMO_NOW`, `ZIP_INFO`, labels | model |
 | `js/state.js` | `state`, transitions, selectors, `statusScreen` (DOM-free) | model |
@@ -58,7 +58,7 @@ meaningful default state (`?screen=c-request` shows the request, not "No open re
   Screens never import another screen, never call `Date.now()` (use `now()`), never hard-code money.
 - **Money**: dollar amounts only, never percentages, in every rendered string (lint fails on `%` in `[data-money]`
   or near fee/deposit/payout copy). Amounts come from `js/money.js` on `appt.money` / `estimate()`; print with
-  `fmtExact` in breakdowns, `fmt` in lists, `fmtNeg` for the Taily fee. Money elements carry `data-money`.
+  `fmtExact` in breakdowns, `fmt` in lists, `fmtNeg` for the Taily fee. **One precision per column / list (D-70):** if any amount in a group has cents, show all with cents (`$36.00`, `$18.00`) — format a group with `fmtColumn(listOfCents)` (returns `fmt` or `fmtExact`). Money elements carry `data-money`.
 - **Design**: tokens only (`css/tokens.css`); type = `.t-display` 32 · `.t-title` 28 · `.t-h2` 24 (serif) ·
   `.t-body` 16 · `.t-small` 12 · `.t-caps` 12 · `.t-micro` 10 (sans) + `.w-400…700` + `.c-*`. Never `.t-section` (20).
   Screen 390 wide, `--neutral-50`; status bar h44, top nav h56, `.body` padding-top 128, sides 20. Strokes inside →
@@ -80,7 +80,7 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   `courierQuote(miles) → { miles, cents }`, `quote({ lines, homeFee, rush, courier, deposit }) → { services, homeFee, rush,
   courier, total, deposit, balance, refund, tailyFee, payout }`, `estimate(tailor, job, slotIso?)` (= quote + `rushDays`, `lines`,
   `missing`; the rush tier is read from `slotIso`, null → no rush, D-28), `cancelTerms(appt, nowMs) → { window: 'early'|'late',
-  refund, kept }`, `noShowPayout(deposit)`, `fmt` (`$25` / `$4.50`), `fmtExact` (`$16.00`), `fmtNeg` (`−$12.50`).
+  refund, kept }`, `noShowPayout(deposit)`, `fmt` (`$25` / `$4.50`), `fmtExact` (`$16.00`), `fmtNeg` (`−$12.50`), `fmtColumn(cents[]) → fmt | fmtExact` (D-70).
 - statuses (`STATUSES`; `TERMINAL` = declined cancelled completed): `requested suggested declined expired confirmed fitting
   price-change in-progress ready returning completed cancelled` (`cancel.reason`: `withdrawn switched customer-early
   customer-late tailor-cant-make-it no-show`). `appt.payments.deposit.state`: `authorized captured released refunded kept`.
@@ -93,7 +93,7 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   `leaveReview(id, { stars, text, photos })`, `sendMessage(tailorId, from, { text, photos }) → { ok, masked, message }`.
   Job: `setJob(patch)`, `newJob()`, `addGarment(type)`, `removeGarment(id)`, `setServices(garmentId, ids)`,
   `validateJob(job, step?: 'what'|'where') → { ok, errors }`. Tailor: `setTailorSection(section, patch) → { ok, tailor, valid,
-  errors, bookable }`, `validateSection(section, data) → { ok, errors }`, `blankTailor()` (D-20), `bookable(tailor)`.
+  errors, bookable, live }`, `validateSection(section, data) → { ok, errors }`, `blankTailor()` (D-20), `bookable(tailor)`.
 - selectors: `now()`, `nowIso()`, `setClock(iso)`, `advanceClock(min) → { now, expired[] }`, `tick()`, `msLeft(appt)`, `getAppt`,
   `tailorById`, `apptsFor(persona)`, `activeAppt()`, `threadFor(tailorId)`, `threadReadOnly(tailorId)`, `maskContact(text)
   → { text, masked }`, `eligible(tailor, job) → { ok, reason: 'zip'|'shop-off'|'hidden'|'declined'|'nothing-open'|null }`,
@@ -140,14 +140,15 @@ error, prefix, suffix, maxlength, disabled, attrs })` `codeInput({ id, length, v
 disabled, helper })` `checkRow({ id, label, checked, caption, error, attrs })` `chipGroup({ name, label, options, value, multi, variant:
 chips|segmented, error })` `stepper({ steps, current, done, variant: default|compact })` `bookingSteps(current)` (`BOOKING_STEPS`, 0-based; the compact 5-segment "n of 5" row, first in `.body` on the booking path) `actionBar({ ctaLabel, ctaAct, disabled, busy, busyLabel, lead, note, secondaryLabel, secondaryAct })` (sticky bottom bar — a SIBLING of `main.body` inside `#screen`, body gets `.body--with-bar`; `lead` = HTML with a `data-money` amount; `note` is `aria-describedby` of a disabled CTA; CTA is `[data-act=ctaAct]`) `optionRow({ name, value, title, sub, checked, lead, act })` (single-select `role=radio` row for sheets; wrap rows in `role="radiogroup"`; emits `data-act=act data-name data-value`) `listRow({ title, sub, right, act, chevron, lead })`. States: `skeleton({ kind,
 count })` `emptyState({ title, body, ctaLabel, ctaAct, secondaryLabel, secondaryAct })` `banner({ tone, title, text, actionLabel,
-actionAct, dismissible })` `toast(msg, { tone })`. Money (print dollars only, `data-money`): `moneyRows([{ label, cents, caption,
+actionAct, dismissible })` `toast(msg, { tone, action, onAction, ms })` (`action` = inline Undo button; a toast is cleared on any screen change and sits above a sticky action bar, D-71) `clearToasts()`. Money (print dollars only, `data-money`): `moneyRows([{ label, cents, caption,
 status, kind: default|negative|subtotal|total|muted|changed }])` `customerBreakdown(q, { stage: estimate|booked|ready|paid, tailorFirst,
 depositState })` — pass `depositState: appt.payments.deposit.state` so a pending request reads "On hold", not "Paid" (`'to-hold'` → "Held today", c-pay before the request is sent, D-38) —
 `tailorBreakdown(q)`. Overlays: `sheet(html, { open, header, grabber, variant })` `sheetOverlay(html, { header, variant, dataS }, wireFn)`
 `modalOverlay(html, { dataS, instant }, wireFn)` `closeOverlay({ instant })` `overlayOpen()`. Wheel (columns are keyboard listboxes, `{ width, rows, sel, label }`): `wheel(columns)` `wheelScroll(columns)` `wheelCol` `wheelRows` `markWheelRow(col, idx)`
 `wireWheel(root, onChange, rowH)`; scheduler.js: `scheduler({ title, sub, columns, note, cta, ctaAct, inline, compact })` (`cta: ''` = no inline button; `compact` = 3-row wheel) `slotColumns(slots,
-selectedIso)` `readSlot(root, slots)` `readScheduler` `timeColumns` `readTime`.
-Wiring (call from a screen's `wire`): `wireStars(root)` `wireToggles(root)` (emits `toggle` { id, checked }) `wireChipGroups(root)` (emits
+selectedIso)` `readSlot(root, slots)` `readScheduler` `timeColumns` `readTime` `wireTimeWheel(root)` (the availability time wheel: 9 AM–9 PM on :00 / :30 only, hour / minute rows follow the period — D-71).
+Wiring (call from a screen's `wire`): M2 components (tailor onboarding + Shop): `ONBOARDING_STEPS` (`[{ id, label, screen }]` ×6: profile services where returns availability payouts) `onboardingSteps(current, done = [])` ("Step n of 6 · label"; `current` id|index, `done` ids) `onboardingHeader({ editing = false, back = true })` (onboarding: status bar + 56px `.ob-bar` with Back and a 44px `data-act="finish-later"`; editing: `chrome('shop', { persona: 'tailor' })`) `textArea({ id, label, value, rows = 4, max, helper, error })` (live `data-count` "n / max", no maxlength) `serviceRow({ id, label, caption, checked, price, payoutCents, error })` (caption string, or an array → one nowrap span per item) (`payoutText` = the take-home already formatted for its column, `fmtColumn`, D-70) (checkbox `#svc-<id>` `data-act="svc"`; checked → `$` input `#price-<id>` + `[data-take]` "You get $X", hidden while payoutCents null) `zipList({ zips, input, error, inputError, suggestions })` (chips `data-act="zip-remove"` / `zip-suggest`, `#zip-add`, `data-act="zip-add"`) `dayHours({ sched, day, label, open, close, error })` (switch `#day-<sched>-<day>`; time buttons `data-act="time" data-edge="open|close"`; open/close are labels) `customerPreview({ title = 'What customers see', html, caption })` (inert body; caps title on every screen, no overrides) `miniProfile({ name, initials, photo, shopName, bio })` (the tailor's own card in a preview; `data-pv` hooks; `bio: null` omits it) `returnsRows(returns, { empty })` (c-tailor's "Getting it back" metaRows, shared with to-returns) `rushLadder(rush)` (`[{ days, fee }]` dollars; `.rush-tier` nowrap spans; empty "No rush fees.") `leaveModal({ title, body })` (alertdialog for `modalOverlay`; `data-act="keep-editing"` primary / `discard` secondary). Extended: `checkRow({ …, disabled })` `avatar({ photo: true })` (placeholder circle, no img).
+`wireStars(root)` `wireToggles(root)` (emits `toggle` { id, checked }) `wireChipGroups(root)` (emits
 `chip` { name, value, values }) `wireComposer(root, onSend)` `wireSheetA11y(root, dismiss)`.
 
 ## FLOWS / EXPECT contract (every milestone)
@@ -168,3 +169,11 @@ export const FLOWS_c_tailors = [
 `S = { state, T, driveTo, setClock, advanceClock, sim, job, tailor, appt }`. Every state key in SCREENS.md for the
 milestone needs an entry; the harness fails on a missing key, a wrong screen or persona, an unmet `expect`, a console
 error, a `%` in money copy, a target under 44 px, or a visual diff above 0.10 %.
+
+## Tailor onboarding model (M2; D-55…D-67, spec `docs/v5/M2-spec.md` §A)
+
+- Tailor fields: `phone` (seed `(347) 555-0118` = the existing account), `live` (true the first time all six sections are valid, never back; seed Amara live), `payouts.routing`. Mode of a `to-*` screen: `editing = !!myTailor().live`.
+- `data.js`: `TAILOR_LIMITS { BIO_MAX 300, WORK_PHOTOS_MAX 6, PRICE_MAX 999, FEE_MAX 200, RUSH_MAX 200 }` `RUSH_TIERS [1,2,3]` `SHOP_CITY` `DEFAULT_WEEK` `DAY_KEYS` `DAY_LABEL` `ROUTING_BANKS`; `MONEY.FEE_EXAMPLE_SERVICES` (display-only fee example base).
+- `state.js`: `validateSection(section, data)` returns `{ field: code }` (profile name-required bio-required bio-long · services no-services price-<id> price-missing|price-invalid · where where-required street-required zip-invalid zips-required fee-missing fee-invalid · returns return-required pickup-needs-shop · availability <type> hours-required, <type>-<day> hours-range, overlap-<day> hours-overlap · payouts holder-required routing-invalid account-invalid bank-required). `setTailorSection` REPLACES `prices` / `availability` (deep-merges the rest) and sets `live`. `setPayouts({ holder, routing, account })` (stores only `last4`; blank account keeps it only while the routing number is unchanged, D-69), `validateRush({ on, fees: {1,2,3} })` (`d<n>`: fee-missing fee-invalid fee-order), `setRush(draft)`, `nextSection(tailor?)` — all on `T`.
+- `account.js`: every session fn takes a trailing `who = 'customer' | 'tailor'` (`signOut sendCode codeStatus resendCode verifyCode`); `verifyCode(code, 'tailor')` → `{ ok, isNew, next }` (new number → `blankTailor()` + `phone`, `next: 'profile'`; existing → `next: nextSection()`).
+- `fixtures/common.js`: `onboardTo(step, { phone })` + `NEW_TAILOR_PHONE` — reset → blank tailor signed in → every section before `step` saved with the seed's values through the real setters (`'done'` = live).

@@ -1,0 +1,127 @@
+/* ============================================================
+   t-shop — T7 Shop (M2-spec §C3). Every onboarding section at a
+   glance, each editable, plus rush fees. Focal: the "What
+   customers see" row. Summaries are dollars only.
+   ============================================================ */
+import { register, render as go } from '../app.js';
+import { state, tailorsFor, bookable } from '../state.js';
+import { myTailor, MY_TAILOR_ID } from '../tailor-data.js';
+import { VISIT_LABEL, RETURN_LABEL } from '../data.js';
+import { cents, fmt } from '../money.js';
+import * as A from '../account.js';
+import {
+  chrome, headingRow, banner, customerPreview, tailorRow, miniProfile, listRow, cta, ONBOARDING_STEPS, esc,
+} from '../components.js';
+
+const ID = 't-shop';
+const SCREEN_OF = { ...Object.fromEntries(ONBOARDING_STEPS.map((s) => [s.id, s.screen])), rush: 't-rush' };
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/** Her row as `tailorsFor(state.job)` gives it to a customer (D-65); null when she is not bookable or the demo job doesn't fit. */
+function previewRow() {
+  const job = state.job;
+  const r = tailorsFor(job).rows.find((x) => x.tailor.id === MY_TAILOR_ID);
+  if (!r) return null;
+  return tailorRow({
+    id: r.tailor.id, name: r.tailor.name, initials: r.tailor.initials, photo: r.tailor.photo, verified: r.tailor.verified,
+    rating: r.tailor.rating?.count > 0 ? r.tailor.rating : null, distanceMi: r.distanceMi, quote: r.quote,
+    nextOpening: r.nextOpening, visitType: job.visitType,
+  });
+}
+/* ---------- row summaries (what is saved, in words and dollars) ---------- */
+const SUMMARY = {
+  profile: (t) => [t.name, t.shopName].filter(Boolean).join(' · ') || 'Not set up yet',
+  services: (t) => {
+    const prices = Object.values(t.prices ?? {}).map(Number).filter((n) => n > 0);
+    if (!prices.length) return 'No services yet';
+    const lo = Math.min(...prices); const hi = Math.max(...prices);
+    return `${plural(prices.length, 'service', 'services')} · ${lo === hi ? fmt(cents(lo)) : `${fmt(cents(lo))} to ${fmt(cents(hi))}`}`;
+  },
+  rush: (t) => {
+    const ladder = [...(t.rush ?? [])].sort((a, b) => a.days - b.days);
+    return ladder.length ? ladder.map((r) => `${plural(r.days, 'day', 'days')} +${fmt(cents(r.fee))}`).join(' · ') : 'Off — add a fee for quick turnarounds';
+  },
+  where: (t) => {
+    const parts = [];
+    if (t.shop?.enabled) parts.push(`Shop on ${t.shop.street}`);
+    if (t.home?.enabled) parts.push(`Home visits in ${plural(t.home.zips.length, 'ZIP code', 'ZIP codes')}, ${t.home.fee > 0 ? `${fmt(cents(t.home.fee))} fee` : 'no fee'}`);
+    return parts.join(' · ') || 'Not set up yet';
+  },
+  returns: (t) => Object.keys(RETURN_LABEL).filter((k) => t.returns?.[k])
+    .map((k, i) => (i === 0 || /^Taily/.test(RETURN_LABEL[k]) ? RETURN_LABEL[k] : RETURN_LABEL[k].replace(/^./, (c) => c.toLowerCase()))).join(', ') || 'Not set up yet',
+  availability: (t) => {
+    const parts = [];
+    const days = (kind) => Object.keys(t.availability?.[kind] ?? {}).length;
+    if (t.shop?.enabled) parts.push(days('shop') ? `Shop ${plural(days('shop'), 'day', 'days')}` : 'Shop: none set');
+    if (t.home?.enabled) parts.push(days('home') ? `Home visits ${plural(days('home'), 'day', 'days')}` : 'Home visits: none set');
+    return parts.join(' · ') || 'Not set up yet';
+  },
+  payouts: (t) => (t.payouts?.bank && t.payouts?.last4 ? `${t.payouts.bank} ••${t.payouts.last4} · paid Fridays` : 'Not set up yet'),
+};
+const ROWS = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'services', label: 'Services and prices' },
+  { id: 'rush', label: 'Rush fees' },
+  { id: 'where', label: 'Where you work' },
+  { id: 'returns', label: 'Return options' },
+  { id: 'availability', label: 'Availability' },
+  { id: 'payouts', label: 'Payouts' },
+];
+const STEP_LABEL = Object.fromEntries(ONBOARDING_STEPS.map((s) => [s.id, s.label]));
+
+function view(s) {
+  const t = myTailor();
+  const job = s.job;
+  const ok = bookable(t);
+  const missing = ONBOARDING_STEPS.find((st) => !t.onboarding?.[st.id]);
+  const finishLabel = missing ? STEP_LABEL[missing.id] : 'your setup';
+  const status = ok
+    ? `<p class="${ID}__status"><span class="${ID}__chip t-small w-600"><span aria-hidden="true">●</span> Bookable</span><span class="t-small c-600">Customers can find and book you.</span></p>`
+    : banner({ tone: 'warning', title: 'Customers can’t book you right now', text: `Finish ${finishLabel} to show up again.`, actionLabel: 'Fix it', actionAct: 'fix' });
+  const row = previewRow();
+  const caption = !ok
+    ? `Customers can’t find you until ${finishLabel} is finished.`
+    : row
+      ? `For the sample job: ${job.garments.map((g) => g.type).join(' · ')} · ${VISIT_LABEL.tailor[job.visitType]}`
+      : 'Your estimate shows when a customer picks something you price.';
+  const rows = ROWS.map((r) => listRow({
+    title: r.label,
+    /* "Needs attention" sits as a second line under the summary, so the right column holds only the chevron (R2-2-T-06) */
+    sub: `<span class="${ID}__sum">${esc(SUMMARY[r.id](t))}</span>${r.id !== 'rush' && t.onboarding?.[r.id] === false ? `<span class="${ID}__flag t-small w-600 c-error">Needs attention</span>` : ''}`,
+    act: `edit-${r.id}`,
+  })).join('');
+  return `${chrome('shop', { persona: 'tailor' })}
+<main class="body ${ID}">
+  ${headingRow('<h1 class="t-title">Your shop</h1>', { back: false })}
+  <div class="${ID}__state">${status}</div>
+  <div class="${ID}__preview">${customerPreview({ title: ok ? 'What customers see' : 'What customers will see', html: row ?? miniProfile({ name: t.name, initials: t.initials, photo: t.photo, shopName: t.shopName, bio: t.bio ?? '' }), caption })}</div>
+  <h2 class="t-h2 ${ID}__h2">Your setup</h2>
+  <div class="${ID}__setup">${rows}</div>
+  <div class="${ID}__out">${cta('Sign out', { variant: 'secondary', attrs: 'data-act="sign-out"' })}</div>
+</main>`;
+}
+
+function wire(root) {
+  root.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-act]');
+    if (!a) return;
+    const act = a.dataset.act;
+    if (act.startsWith('edit-')) goTo(act.slice(5));
+    else if (act === 'fix') {
+      const missing = ONBOARDING_STEPS.find((st) => !myTailor().onboarding?.[st.id]);
+      if (missing) goTo(missing.id);
+    } else if (act === 'sign-out') {
+      A.signOut('tailor');
+      go('t-phone', { fresh: true });
+    }
+  });
+}
+function goTo(section) {
+  const screen = SCREEN_OF[section];
+  if (!screen) return;
+  delete state.ui[screen];       // a fresh draft from the saved values
+  go(screen);
+}
+
+register(ID, view, wire);

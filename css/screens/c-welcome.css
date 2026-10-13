@@ -19,6 +19,7 @@
 .c-welcome__or::before, .c-welcome__or::after { content: ""; flex: 1 1 0; height: 1px; background: var(--neutral-200); }
 .c-welcome__gap { height: var(--space-8); }
 .c-welcome__legal { margin: var(--space-16) 0 0; text-align: center; }
+.c-welcome__tailor { margin: var(--space-4) 0 0; text-align: center; }
 .c-welcome__link {
   display: inline; padding: var(--space-12) var(--space-4); margin: calc(var(--space-12) * -1) calc(var(--space-4) * -1);
   font: inherit; font-weight: 600; color: var(--ink); text-decoration: underline; text-underline-offset: 2px;

@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { state } from './state.js';
-import { toast, closeOverlay } from './components.js';
+import { toast, closeOverlay, clearToasts } from './components.js';
 import { ALL_FLOWS, setBootLatency, primaryFlow } from './flows.js';
 import { initFlowMenu, runFlow } from './flow-menu.js';
 
@@ -22,6 +22,8 @@ const SCREEN_MODULES = [
   'c-job', 'c-where', 'c-tailors', 'c-tailor',
   'c-book', 'c-pay', 'c-request',
   /* M2 · Tailor onboarding + Shop */
+  't-phone', 't-code', 'to-profile', 'to-services', 'to-where', 'to-returns', 'to-availability',
+  'to-payouts', 'to-done', 't-shop', 't-rush',
   /* M3 · Request loop */
   /* M4 · Fitting to completion */
   /* M5 · Messaging, accounts, earnings, system */
@@ -46,7 +48,10 @@ function syncPersona(id) {
 /** The landing screen for a persona (falls back to sys-index while that screen is unregistered). */
 export function personaHome(persona = state.persona) {
   const id = PERSONA_HOME[persona];
-  return id && screens.has(id) ? id : 'sys-index';
+  if (id && screens.has(id)) return id;
+  /* D-67: until t-home exists a tailor's home is her shop; never the developer index */
+  if (persona === 'tailor' && screens.has('t-shop')) return 't-shop';
+  return 'sys-index';
 }
 
 /* Top-nav destinations per persona; an unregistered target says so instead of doing nothing. */
@@ -88,6 +93,10 @@ export function registered() {
 
 export function currentScreen() {
   return history[history.length - 1] ?? null;
+}
+/** The screen the user arrived from (null at the root). */
+export function previousScreen() {
+  return history[history.length - 2] ?? null;
 }
 
 /* ---------- Browser history (UX-LOOP R1-U-16) ----------
@@ -132,11 +141,12 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
      it NOW so the page unfreezes and the next popstate steps back
      instead of running a stale close. */
   closeOverlay({ instant: true });
+  const prevScreen = el.dataset.screen;
   el = freshMount();
-  const prevPersona = state.persona;
   syncPersona(id);
-  /* a toast raised by one persona does not survive the flip */
-  if (prevPersona !== state.persona) document.querySelectorAll('.toast').forEach((t) => t.remove());
+  /* a toast never outlives its screen: any change of screen id (or persona) clears it.
+     Re-rendering the SAME screen keeps it (an Undo toast survives the re-render that follows). */
+  if (prevScreen !== id) clearToasts();
   el.innerHTML = entry.view(state);
   el.dataset.screen = id;
   entry.wire?.(el);

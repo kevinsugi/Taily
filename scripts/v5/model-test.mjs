@@ -42,6 +42,8 @@ eq([M.fmt(2500), M.fmt(450), M.fmt(0), M.fmt(12345600)], ['$25', '$4.50', '$0', 
 eq([M.fmtExact(1600), M.fmtExact(5), M.fmtExact(14750), M.fmtExact(0), M.fmtExact(100000)], ['$16.00', '$0.05', '$147.50', '$0.00', '$1,000.00'], 'fmtExact: always two decimals');
 eq([M.fmtNeg(1250), M.fmtNeg(-1250)], ['−$12.50', '−$12.50'], 'fmtNeg: U+2212 minus, dollars');
 ok(!/%/.test([M.fmt(1), M.fmtExact(1), M.fmtNeg(1)].join('')), 'fmt* never print a percent sign');
+eq([[1800, 2700].map(M.fmtColumn([1800, 2700])), [1800, 2250, 3600].map(M.fmtColumn([1800, 2250, 3600]))], [['$18', '$27'], ['$18.00', '$22.50', '$36.00']], 'fmtColumn (D-70): one precision per list, cents for all if any has cents');
+eq(M.fmtColumn([null, 4050])(4050), '$40.50', 'fmtColumn ignores nulls');
 eq([M.cents(12.5), M.cents(0.07), M.cents(19.99), M.cents(25)], [1250, 7, 1999, 2500], 'cents() rounds to integer cents');
 
 /* ================= dates ================= */
@@ -651,17 +653,24 @@ section('tailor sections');
   eq(T.setTailorSection('where', { home: { enabled: true, zips: ['11211'], fee: 35 } }).valid, true, 'where: home visits with zips + fee -> valid');
   eq(T.setTailorSection('where', { home: { zips: [] } }).errors, { zips: 'zips-required' }, 'where: home visits need a zip');
   T.setTailorSection('where', { home: { zips: ['11211'] } });
-  eq(T.setTailorSection('returns', { returns: { pickup: true } }).valid, true, 'returns: one option is enough');
+  eq(T.setTailorSection('returns', { returns: { dropoff: true } }).valid, true, 'returns: one option is enough');
+  eq(T.setTailorSection('returns', { returns: { pickup: true } }).errors, { pickup: 'pickup-needs-shop' }, 'returns: pickup needs a shop (D-61)');
+  T.setTailorSection('returns', { returns: { pickup: false } });
   eq(T.setTailorSection('availability', {}).errors, { home: 'hours-required' }, 'availability: home visits need hours');
   eq(T.setTailorSection('availability', { availability: { home: { mon: [['17:00', '20:00']] } } }).valid, true, 'availability valid');
-  eq(T.setTailorSection('payouts', { payouts: { bank: 'Chase', last4: '12', holder: 'A' } }).errors, { last4: 'last4-invalid' }, 'payouts: last4 must be 4 digits');
-  const last = T.setTailorSection('payouts', { payouts: { last4: '6789' } });
-  eq([last.valid, last.bookable, S.bookable(amara())], [true, true, true], 'six valid sections -> bookable');
+  eq(T.setTailorSection('payouts', { payouts: { bank: 'Chase', last4: '12', holder: 'A', routing: '021000021' } }).errors, { last4: 'account-invalid' }, 'payouts: last4 must be 4 digits');
+  eq(T.setPayouts({ holder: 'A', routing: '12', account: '123' }).errors, { routing: 'routing-invalid', account: 'account-invalid' }, 'setPayouts: routing + account rules');
+  const last = T.setPayouts({ holder: 'Amara Reyes', routing: '021000021', account: '000123456789' });
+  eq([last.ok, last.tailor.payouts.bank, last.tailor.payouts.last4, last.live], [true, 'Chase', '6789', true], 'setPayouts: bank from the routing table, only last4 stored, live');
+  eq(T.setPayouts({ holder: 'Amara Reyes', routing: '021000021', account: '' }).tailor.payouts.last4, '6789', 'setPayouts: blank account keeps the stored last4');
+  eq(T.setPayouts({ holder: 'Amara Reyes', routing: '026009593', account: '' }).errors, { account: 'account-invalid' }, 'setPayouts: a new routing number with a blank account asks for the new account (R2-2-T-01)');
+  eq(S.state.tailors[0].payouts.routing, '021000021', 'setPayouts: a refused change keeps the saved bank');
+  eq([last.ok, last.bookable, S.bookable(amara())], [true, true, true], 'six valid sections -> bookable');
   guard(T.setTailorSection('nonsense', {}), 'unknown-section', 'unknown section');
   const row = S.tailorsFor(state.job);
   eq([row.rows.length, row.empty], [1, null], 'the onboarded tailor shows up in the list');
   eq(row.rows[0].quote.total, 16000, 'the list estimate uses the prices the tailor entered');
-  T.setTailorSection('services', { prices: { 'hem-pants': 30 } });
+  T.setTailorSection('services', { prices: { 'hem-pants': 30, taper: 40, waist: 35, sleeves: 45, 'jacket-sides': 55 } });
   eq(S.tailorsFor(state.job).rows[0].quote.total, 16500, 'editing a price changes the list estimate');
 }
 
@@ -770,6 +779,35 @@ section('M1 components');
 }
 
 /* ================= reset ================= */
+section('M2 tailor onboarding');
+{
+  const r = (draft) => T.validateRush(draft);
+  eq(r({ on: false }).ok, true, 'rush off is always valid');
+  eq(r({ on: true, fees: { 1: '40', 2: '25', 3: '15' } }).ok, true, 'rush ladder valid');
+  eq(r({ on: true, fees: { 1: '10', 2: '25', 3: '' } }).errors, { d2: 'fee-order', d3: 'fee-missing' }, 'rush: order + missing');
+  eq(r({ on: true, fees: { 1: '4.5', 2: '0', 3: '0' } }).errors, { d1: 'fee-invalid' }, 'rush: whole dollars');
+  eq(T.setRush({ on: true, fees: { 1: '40', 2: '25', 3: '0' } }).tailor.rush, [{ days: 1, fee: 40 }, { days: 2, fee: 25 }], 'setRush drops a $0 tier');
+  eq(T.setRush({ on: false, fees: {} }).tailor.rush, [], 'setRush off empties the ladder');
+  const A = await import('../../js/account.js');
+  const { onboardTo, NEW_TAILOR_PHONE } = await import('../../js/fixtures/common.js');
+  onboardTo('services');
+  eq([T.nextSection(), S.bookable(state.tailors[0]), !!state.tailors[0].live], ['services', false, false], 'onboardTo(services): profile saved, not live');
+  eq(S.tailorsFor(state.job).empty, 'zip', 'a half-onboarded tailor is not listed (D-27)');
+  A.signOut('tailor'); A.sendCode(NEW_TAILOR_PHONE, 'tailor');
+  eq(A.verifyCode('123456', 'tailor').next, 'services', 'an existing half-onboarded tailor resumes at the first open step');
+  onboardTo('done');
+  eq([state.tailors[0].live, T.nextSection()], [true, null], 'onboardTo(done) -> live');
+  eq(S.tailorsFor(state.job).rows.length, 1, 'the onboarded tailor is listed');
+  const { SCENARIOS } = await import('../../js/fixtures/money-scenarios.js');
+  eq(S.tailorsFor(state.job).rows[0].quote.total, SCENARIOS.seed.total, 'journey: an onboarded tailor quotes the seed total (D-65)');
+  A.signOut('tailor'); A.sendCode('(718) 555-0100', 'tailor');
+  const v = A.verifyCode('123456', 'tailor');
+  eq([v.isNew, v.next, state.tailors[0].phone, state.tailors[0].name], [true, 'profile', '(718) 555-0100', ''], 'a new tailor number starts a blank tailor');
+  eq(T.setTailorSection('services', { prices: { a: '', b: 5.5, c: 1000, d: 20 } }).errors, { 'price-a': 'price-missing', 'price-b': 'price-invalid', 'price-c': 'price-invalid' }, 'services rules');
+  eq(T.setTailorSection('profile', { name: 'A', bio: 'x'.repeat(301) }).errors, { bio: 'bio-long' }, 'profile: bio too long');
+  eq(T.setTailorSection('availability', { shop: { enabled: true }, home: { enabled: true }, availability: { shop: { tue: [['10:00', '18:00']] }, home: { tue: [['17:00', '20:00']], mon: [['18:00', '17:00']] } } }).errors, { 'home-mon': 'hours-range', 'overlap-tue': 'hours-overlap' }, 'availability: range + overlap');
+}
+
 section('reset');
 {
   S.reset(); state.sim.latency = 'hold'; state.sim.card = 'declined';

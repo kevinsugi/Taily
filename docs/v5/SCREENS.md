@@ -54,7 +54,7 @@ services $125.00 · home-visit fee $35.00 · total $160.00 · deposit $16.00 · 
 
 | id | M | Purpose | States |
 |---|---|---|---|
-| `t-phone` | M2 | Tailor sign-up: phone | `t-phone` ◆ · `t-phone--invalid` · |
+| `t-phone` | M2 | Tailor sign-up: phone | `t-phone` ◆ · `t-phone--invalid` · · `t-phone--saved` · (after Finish later: "Your progress is saved" banner, number pre-filled, D-57) |
 | `t-code` | M2 | SMS code (same errors as `c-code`) | `t-code` ◆ · `t-code--wrong` · · `t-code--expired` · · `t-code--resend` · |
 | `to-profile` | M2 | O1 name, photo, short bio, work photos | `to-profile` ◆ (blank) · `to-profile--errors` · (name required, bio too long) · `to-profile--edit` · (from Shop: Save instead of Next) |
 | `to-services` | M2 | O2 tick services + set a price each | `to-services` ◆ · `to-services--missing-price` · · `to-services--none` · · `to-services--resume` · ("Pick up where you left off" banner, steps 1 done) · `to-services--edit` · |
@@ -63,7 +63,7 @@ services $125.00 · home-visit fee $35.00 · total $160.00 · deposit $16.00 · 
 | `to-availability` | M2 | O5 weekly hours, split shop / home when both | `to-availability` ◆ (split) · `to-availability--single` · (one schedule) · `to-availability--empty` · · `to-availability--overlap` · · `to-availability--edit` · |
 | `to-payouts` | M2 | O6 bank details + the Taily fee in dollars ("On a $100.00 order, Taily keeps $10.00 and you get $90.00") | `to-payouts` ◆ · `to-payouts--invalid` · · `to-payouts--edit` · |
 | `to-done` | M2 | You're bookable confirmation | `to-done` ◆ |
-| `t-shop` | M2 | T7 Shop: every onboarding section with its summary, Edit each, Rush fees row | `t-shop` ◆ |
+| `t-shop` | M2 | T7 Shop: every onboarding section with its summary, Edit each, Rush fees row | `t-shop` ◆ · `t-shop--incomplete` · (home visits on with no home hours: warning banner, row flagged, D-56) |
 | `t-rush` | M2 | T7 Rush fees editor (≤1 / 2 / 3 days → $; 4+ days free) | `t-rush` ◆ · `t-rush--invalid` · · `t-rush--unsaved` O (leave without saving?) |
 
 ## Tailor — job loop (M3–M5)

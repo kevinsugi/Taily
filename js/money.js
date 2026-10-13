@@ -103,5 +103,11 @@ export function fmt(c) {
 }
 /** "$16.00" — every breakdown / receipt / payout row. */
 export const fmtExact = (c) => `${c < 0 ? MINUS : ''}$${group(Math.floor(abs(c) / 100))}.${String(abs(c) % 100).padStart(2, '0')}`;
+/** D-70 — one precision per column / list. Returns a formatter for the group: if ANY amount has cents,
+    every amount prints with cents ("$36.00", "$22.50"); otherwise whole dollars ("$36", "$18"). */
+export function fmtColumn(list) {
+  const cents = (list ?? []).filter((c) => c != null);
+  return cents.some((c) => abs(c) % 100 !== 0) ? fmtExact : fmt;
+}
 /** "−$12.50" (U+2212) — the Taily fee row and refunds-out. */
 export const fmtNeg = (c) => `${MINUS}${fmtExact(abs(c))}`;

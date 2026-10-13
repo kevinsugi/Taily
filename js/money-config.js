@@ -10,6 +10,7 @@ export const MONEY = Object.freeze({
   COURIER_MARKUP: 0.10,     // on top of the courier quote, paid by the customer, kept by Taily
   COURIER_BASE: 8.00,       // mocked Uber quote: $8 base …
   COURIER_PER_MILE: 2.50,   // … + $2.50 per mile
+  FEE_EXAMPLE_SERVICES: 100, // the round services total the payouts step explains the Taily fee with (display only, not a rate, D-63)
   NO_SHOW_COMP: 25,         // floor the tailor is paid on a no-show (D-06)
 });
 

@@ -3,11 +3,11 @@
    Decide on this tailor: who she is, what THIS job costs with her, when, how it comes back.
    Focal: the action bar — "Est. $160 · 2 items" + Pick a time.
    ============================================================ */
-import { register, render as go } from '../app.js';
+import { register, render as go, back, currentScreen, previousScreen } from '../app.js';
 import { state, T, tailorById, estimateNext, eligible, nextOpening } from '../state.js';
 import {
   chrome, bookingSteps, headingRow, avatar, trustBadges, ratingSummary, reviewRow, photoTile, infoCard, priceRow, metaRow,
-  cta, actionBar, banner, toast, esc,
+  cta, actionBar, banner, toast, returnsRows, readOnlyBanner, esc,
 } from '../components.js';
 import { cents, fmt } from '../money.js';
 import { SERVICES, ZIP_INFO, itemsLabel } from '../data.js';
@@ -102,11 +102,8 @@ function where(t, job) {
 }
 
 function gettingItBack(t) {
-  const rows = [];
-  if (t.returns?.pickup) rows.push(metaRow('', 'In-store pickup — free', { icon: 'bag' }));
-  if (t.returns?.dropoff) rows.push(metaRow('', 'Home drop-off — free', { icon: 'home' }));
-  if (t.returns?.courier) rows.push(metaRow('', 'Taily courier — priced when your order is ready, before you pay', { icon: 'truck' }));
-  return rows.length ? section('Getting it back', `<div class="c-tailor__returns">${rows.join('')}</div>`) : '';
+  const rows = returnsRows(t.returns);   // shared with to-returns' preview (R2-2-T-04)
+  return rows ? section('Getting it back', rows) : '';
 }
 
 function reviews(t) {
@@ -120,8 +117,14 @@ function reviews(t) {
     <button type="button" class="c-tailor__link t-body w-600" data-act="all-reviews">See all ${count} reviews</button>`);
 }
 
+/** The tailor looking at her own profile from to-done (D-71): no booking stepper, no action bar, nothing to start. */
+/* view() runs before the router pushes this screen: then the screen we came from is currentScreen(); on a re-render it is previousScreen() */
+const cameFrom = () => (currentScreen() === ID ? previousScreen() : currentScreen());
+const isPreview = () => !!ui().preview && cameFrom() === 'to-done';
+
 function view(s) {
   const job = s.job;
+  const preview = isPreview();
   const t = chosen();
   const q = { ...estimateNext(t, job), tailorFirst: (t.name || 'The tailor').split(' ')[0] };
   const el = eligible(t, job);
@@ -129,12 +132,13 @@ function view(s) {
   const declined = el.reason === 'declined';
   const first = q.tailorFirst;
   const lead = `<span>Est. <b data-money>${fmt(q.total)}</b> · ${itemsLabel(job.garments.length, 'item')}</span>`;
-  return `${chrome('home')}<main class="body body--with-bar ${ID}">
-  ${bookingSteps(3)}
+  return `${chrome('home')}<main class="body ${preview ? '' : 'body--with-bar '}${ID}">
+  ${preview ? '' : bookingSteps(3)}
   ${headingRow('')}
+  ${preview ? `<div class="c-tailor__preview">${readOnlyBanner({ text: 'You’re viewing your own profile', ctaLabel: 'Back to Taily for tailors', ctaAct: 'exit-preview' })}</div>` : ''}
   ${hero(t, declined ? null : next, job, declined)}
   ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} can’t take this job`, text: `Your job details are saved. You can book ${esc(first)} for a different job.` })}</div>` : ''}
-  ${declined ? '' : `<div class="c-tailor__ask">${cta('Ask a question', { variant: 'secondary', attrs: 'data-act="ask"' })}</div>`}
+  ${declined || preview ? '' : `<div class="c-tailor__ask">${cta('Ask a question', { variant: 'secondary', attrs: 'data-act="ask"' })}</div>`}
   ${about(t)}
   ${estimateCard(q, job)}
   ${prices(t)}
@@ -142,7 +146,8 @@ function view(s) {
   ${gettingItBack(t)}
   ${reviews(t)}
 </main>
-${declined
+${preview ? ''
+  : declined
     ? actionBar({ ctaLabel: 'Start a different job', ctaAct: 'new-job', note: `${esc(first)} can’t take this job` })
     : actionBar({ lead, ctaLabel: 'Pick a time', ctaAct: 'pick-time', disabled: !el.ok, note: el.ok ? '' : reasonNote(el, job) })}`;
 }
@@ -156,6 +161,7 @@ function wire(root) {
     if (!el || el.disabled) return;
     switch (el.dataset.act) {
       case 'ask': go('c-thread'); break;
+      case 'exit-preview': ui().preview = false; back() || go('to-done'); break;
       case 'pick-time': go('c-book'); break;
       case 'all-prices': {
         const y = window.scrollY;

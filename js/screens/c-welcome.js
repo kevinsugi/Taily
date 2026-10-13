@@ -36,6 +36,7 @@ function view(s) {
   <div class="${ID}__gap"></div>
   ${btn('google', 'secondary')}
   <p class="t-small c-600 ${ID}__legal">By continuing you agree to Taily’s <button type="button" class="${ID}__link" data-act="terms" data-hit="inline">Terms</button> and <button type="button" class="${ID}__link" data-act="privacy" data-hit="inline">Privacy Policy</button>.</p>
+  <p class="t-small c-600 ${ID}__tailor">Are you a tailor? <button type="button" class="${ID}__link" data-act="tailor" data-hit="inline">Join Taily</button></p>
 </main>`;
 }
 
@@ -45,6 +46,7 @@ function wire(root) {
     const a = e.target.closest('[data-act]');
     if (!a || a.disabled || ui().busy) return;
     if (a.dataset.act === 'phone') return go('c-phone');
+    if (a.dataset.act === 'tailor') return go('t-phone', { fresh: true });
     if (a.dataset.act === 'terms' || a.dataset.act === 'privacy') return toast('Not built yet');
     if (a.dataset.act === 'apple' || a.dataset.act === 'google') {
       const provider = a.dataset.act;

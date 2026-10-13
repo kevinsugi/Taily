@@ -7,12 +7,12 @@
    the decline recovery of D-40). Every fn returns
    { ok, … } | { ok: false, error } (field forms: errors { field: code }).
    ============================================================ */
-import { state, now } from './state.js';
+import { state, now, blankTailor, nextSection } from './state.js';
 import { POLICY } from './money-config.js';
 
 const WRONG_CODE = '000000';
 
-const session = () => state.session.customer;
+const session = (who = 'customer') => state.session[who];
 const fail = (error) => ({ ok: false, error });
 
 /** The 10 national digits of whatever was typed (strips +1, spaces, punctuation). */
@@ -37,23 +37,24 @@ export function validatePhone(raw) {
   return d.length === 10 && !/^[01]/.test(d) ? { ok: true } : fail('phone-invalid');
 }
 
-export function signOut() {
-  state.session.customer = { signedIn: false, pending: null };
+export function signOut(who = 'customer') {
+  state.session[who] = { signedIn: false, pending: null };
   return { ok: true };
 }
 
 /** Text a code: remembers the number, when it was sent and whether the account is new. */
-export function sendCode(raw) {
+export function sendCode(raw, who = 'customer') {
   const v = validatePhone(raw);
   if (!v.ok) return v;
-  const isNew = phoneDigits(raw) !== phoneDigits(state.customer.phone);
-  session().pending = { phone: formatPhone(raw), sentAt: now(), isNew };
-  return { ok: true, phone: session().pending.phone, isNew };
+  const known = who === 'tailor' ? state.tailors[0].phone : state.customer.phone;   // D-55: the seed number is the existing account
+  const isNew = phoneDigits(raw) !== phoneDigits(known);
+  session(who).pending = { phone: formatPhone(raw), sentAt: now(), isNew };
+  return { ok: true, phone: session(who).pending.phone, isNew };
 }
 
 /** { phone, isNew, msToResend, expired } for the code in flight; null without one. */
-export function codeStatus() {
-  const p = session().pending;
+export function codeStatus(who = 'customer') {
+  const p = session(who).pending;
   if (!p) return null;
   return {
     phone: p.phone,
@@ -63,23 +64,34 @@ export function codeStatus() {
   };
 }
 
-export function resendCode() {
-  const st = codeStatus();
+export function resendCode(who = 'customer') {
+  const st = codeStatus(who);
   if (!st) return fail('no-code');
   if (st.msToResend > 0) return fail('too-soon');
-  session().pending.sentAt = now();
+  session(who).pending.sentAt = now();
   return { ok: true };
 }
 
 /** 'no-code' · 'code-format' · 'code-expired' · 'code-wrong' (000000) · else ok.
     Existing account → signed in; new account → { isNew: true }, signed in after saveName. */
-export function verifyCode(code) {
-  const st = codeStatus();
+export function verifyCode(code, who = 'customer') {
+  const st = codeStatus(who);
   if (!st) return fail('no-code');
   const digits = String(code ?? '').replace(/\s/g, '');
   if (!/^\d{6}$/.test(digits)) return fail('code-format');
   if (st.expired) return fail('code-expired');
   if (digits === WRONG_CODE) return fail('code-wrong');
+  if (who === 'tailor') {                      // D-55: a new tailor has no name step — the Profile step asks
+    if (!st.isNew) {
+      state.session.tailor = { signedIn: true, pending: null };
+      return { ok: true, isNew: false, next: nextSection() };
+    }
+    const phone = st.phone;
+    blankTailor();                              // D-20
+    state.tailors[0].phone = phone;
+    state.session.tailor = { signedIn: true, pending: null };
+    return { ok: true, isNew: true, next: 'profile' };
+  }
   if (!st.isNew) {
     state.session.customer = { signedIn: true, pending: null };
     return { ok: true, isNew: false };

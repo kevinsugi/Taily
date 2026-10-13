@@ -20,7 +20,7 @@ export const MILESTONES = [
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1'];
+export const BUILT = ['M0', 'M1', 'M2'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
@@ -178,6 +178,7 @@ export const SCREENS = [
   { id: 't-phone', m: 'M2', persona: 'tailor', title: 'Tailor sign-up: phone', states: [
     { key: 't-phone', m: 'M2', kind: 'frame' },
     { key: 't-phone--invalid', m: 'M2', kind: 'state' },
+    { key: 't-phone--saved', m: 'M2', kind: 'state' },
   ] },
   { id: 't-code', m: 'M2', persona: 'tailor', title: 'SMS code (same errors as `c-code`)', states: [
     { key: 't-code', m: 'M2', kind: 'frame' },
@@ -227,6 +228,7 @@ export const SCREENS = [
   ] },
   { id: 't-shop', m: 'M2', persona: 'tailor', title: 'T7 Shop: every onboarding section with its summary, Edit each, Rush fees row', states: [
     { key: 't-shop', m: 'M2', kind: 'frame' },
+    { key: 't-shop--incomplete', m: 'M2', kind: 'state' },
   ] },
   { id: 't-rush', m: 'M2', persona: 'tailor', title: 'T7 Rush fees editor (≤1 / 2 / 3 days → $; 4+ days free)', states: [
     { key: 't-rush', m: 'M2', kind: 'frame' },

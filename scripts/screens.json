@@ -2,7 +2,7 @@
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
     "syncedAt": "2026-10-13",
-    "milestone": "M1",
+    "milestone": "M2",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -17,7 +17,8 @@
       "flow/request-states": "818:4829",
       "explorations/v5-components-m0": "816:4904",
       "components/section-v5-m0": "817:5596",
-      "user/section-m1-customer-booking": "821:4345"
+      "user/section-m1-customer-booking": "821:4345",
+      "tailor-onboarding/section-m2-tailor-onboarding-shop": "829:4344"
     },
     "components": {
       "avatar": "816:4919",
@@ -63,7 +64,18 @@
       "c-book--no-slots": "823:4883",
       "c-pay": "824:4407",
       "c-request": "824:4527",
-      "c-thread--new": "824:4638"
+      "c-thread--new": "824:4638",
+      "t-phone": "829:4345",
+      "t-code": "829:4390",
+      "to-profile": "829:4420",
+      "to-services": "829:4526",
+      "to-where": "829:4715",
+      "to-returns": "829:4848",
+      "to-availability": "830:4432",
+      "to-payouts": "830:4561",
+      "to-done": "830:4660",
+      "t-shop": "830:4731",
+      "t-rush": "830:4907"
     },
     "variables": {
       "semantic/warning-ink": "VariableID:821:4344"

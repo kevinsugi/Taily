@@ -7,6 +7,8 @@ import {
   state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt,
 } from '../state.js';
 import { addMinutes, isoMinute } from '../dates.js';
+import { TAILORS } from '../data.js';
+import * as A from '../account.js';
 
 export const TARGETS = [
   'requested', 'suggested', 'declined', 'expired', 'expired-2', 'expired-final', 'confirmed', 'cancelled-early',
@@ -88,4 +90,34 @@ export function driveTo(target, opts = {}) {
   must(T.markCompleted(id), 'markCompleted');
   if (target === 'completed') return getAppt(id);
   return must(T.leaveReview(id, { stars: 5, text: 'Perfect fit, and she was on time.', photos: 0 }), 'leaveReview');
+}
+
+export const NEW_TAILOR_PHONE = '(646) 555-0127';
+const STEPS = ['profile', 'services', 'where', 'returns', 'availability', 'payouts', 'done'];
+
+/** reset → blank tailor (D-20) signed in with `phone` → every section BEFORE `step` saved with the seed's values (D-66).
+    step: 'profile' | 'services' | 'where' | 'returns' | 'availability' | 'payouts' | 'done'. Returns the tailor. */
+export function onboardTo(step, { phone = NEW_TAILOR_PHONE } = {}) {
+  const upTo = STEPS.indexOf(step);
+  if (upTo < 0) throw new Error(`onboardTo: unknown step "${step}"`);
+  reset();
+  const sent = A.sendCode(phone, 'tailor');
+  if (!sent.ok) throw new Error(`onboardTo: sendCode failed (${sent.error})`);
+  const verified = A.verifyCode('123456', 'tailor');
+  if (!verified.ok) throw new Error(`onboardTo: verifyCode failed (${verified.error})`);
+  const seed = TAILORS[0];
+  const pick = (o, keys) => Object.fromEntries(keys.map((k) => [k, structuredClone(o[k])]));
+  const saves = {
+    profile: () => T.setTailorSection('profile', pick(seed, ['name', 'shopName', 'initials', 'bio', 'years', 'photo', 'workPhotos'])),
+    services: () => T.setTailorSection('services', { prices: structuredClone(seed.prices) }),
+    where: () => T.setTailorSection('where', pick(seed, ['shop', 'home'])),
+    returns: () => T.setTailorSection('returns', { returns: structuredClone(seed.returns) }),
+    availability: () => T.setTailorSection('availability', { availability: structuredClone(seed.availability) }),
+    payouts: () => T.setPayouts({ holder: seed.payouts.holder, routing: seed.payouts.routing, account: '000123456789' }),
+  };
+  STEPS.slice(0, upTo).forEach((id) => {
+    const r = saves[id]();
+    if (!r.ok || r.valid === false) throw new Error(`onboardTo: ${id} did not validate (${JSON.stringify(r.errors)})`);
+  });
+  return state.tailors[0];
 }

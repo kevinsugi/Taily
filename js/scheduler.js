@@ -20,7 +20,7 @@
    ============================================================ */
 
 import { strip, addDays, dayDiff, dayStamp, dayLabel } from './dates.js';
-import { wheelCol, wheelRows, markWheelRow } from './components.js';
+import { wheelCol, wheelRows, markWheelRow, wireWheel } from './components.js';
 export { strip, addDays, dayDiff, dayStamp, dayLabel };   // v5 (M0 A1): one date implementation, in dates.js
 
 export const SCHED_ROW = 36;
@@ -55,13 +55,23 @@ export function timeLabel(mins) {
 /** The nearest time inside opening hours. */
 export const clampTime = (time) => timeLabel(timeMinutes(time) ?? 12 * 60);
 
+/** Rows each column may offer given the period (and, for the minute column, the hour):
+    9:00 AM – 9:00 PM on :00 / :30 only — the wheel never offers a time it would reject. */
+const AM_HOURS = ['9', '10', '11'];
+const PM_HOURS = ['12', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+const hoursFor = (period) => (period === 'AM' ? AM_HOURS : PM_HOURS);
+const minsFor = (period, hour) => (period === 'PM' && hour === '9' ? ['00'] : MINS);
 /** The three time columns settled on `time` (default 12:00 PM). */
 export function timeColumns(time = '12:00 PM') {
   const m = RE_TIME.exec(clampTime(time));
+  const period = m[3].toUpperCase();
+  const hour = String(Number(m[1]));
+  const hours = hoursFor(period);
+  const mins = minsFor(period, hour);
   return [
-    { width: 56, rows: HOURS, sel: HOURS.indexOf(String(Number(m[1]))), label: 'Hour' },
-    { width: 56, rows: MINS, sel: Math.max(0, MINS.indexOf(m[2])), label: 'Minute' },
-    { width: 64, rows: PERIODS, sel: PERIODS.indexOf(m[3].toUpperCase()), label: 'AM/PM' },
+    { width: 56, rows: hours, sel: Math.max(0, hours.indexOf(hour)), label: 'Hour' },
+    { width: 56, rows: mins, sel: Math.max(0, mins.indexOf(m[2])), label: 'Minute' },
+    { width: 64, rows: PERIODS, sel: PERIODS.indexOf(period), label: 'AM/PM' },
   ];
 }
 /** The date column for a list of day rows, settled on index `sel`. */
@@ -105,14 +115,33 @@ export function settle(col, idx) {
   markWheelRow(col, idx);
   col.scrollTop = idx * SCHED_ROW;
 }
-/** "6:30 PM" from the three time columns (the last three of the card),
-    snapped back inside opening hours — the wheel follows the snap. */
+const rowTexts = (col) => [...col.querySelectorAll('.wheel__row')].map((r) => r.textContent.trim());
+/** Re-row the hour and minute wheels for the period / hour just settled, keeping the nearest value.
+    Call from the wheel's onChange (wireTimeWheel does). */
+export function syncTimeColumns(root) {
+  const cols = [...root.querySelectorAll('[data-scheduler] .wheel__col--scroll')].slice(-3);
+  if (cols.length < 3) return;
+  const period = rowTexts(cols[2])[Number(cols[2].dataset.sel)];
+  const hours = hoursFor(period);
+  const curHour = rowTexts(cols[0])[Number(cols[0].dataset.sel)];
+  const hourSel = hours.includes(curHour) ? hours.indexOf(curHour) : (period === 'AM' ? hours.length - 1 : 0);
+  const mins = minsFor(period, hours[hourSel]);
+  const curMin = rowTexts(cols[1])[Number(cols[1].dataset.sel)];
+  const minSel = Math.max(0, mins.indexOf(curMin));
+  [[cols[0], hours, hourSel], [cols[1], mins, minSel]].forEach(([col, rows, sel]) => {
+    if (rowTexts(col).join('|') !== rows.join('|')) col.innerHTML = wheelRows({ rows, sel });
+    settle(col, sel);
+  });
+}
+/** Wire the time wheels so the hour / minute rows follow the period and hour. */
+export function wireTimeWheel(root, rowH = SCHED_ROW) {
+  wireWheel(root, () => syncTimeColumns(root), rowH);
+}
+/** "6:30 PM" from the three time columns (the last three of the card). Always inside 9:00 AM – 9:00 PM. */
 export function readTime(root) {
   const cols = [...root.querySelectorAll('[data-scheduler] .wheel__col--scroll')].slice(-3);
-  const raw = `${HOURS[Number(cols[0].dataset.sel)]}:${MINS[Number(cols[1].dataset.sel)]} ${PERIODS[Number(cols[2].dataset.sel)]}`;
-  const ok = clampTime(raw);
-  if (ok !== raw) timeColumns(ok).forEach((c, i) => settle(cols[i], c.sel));
-  return ok;
+  const [hour, min, period] = cols.map((c) => rowTexts(c)[Number(c.dataset.sel)]);
+  return `${hour}:${min} ${period}`;
 }
 
 /* ============================================================

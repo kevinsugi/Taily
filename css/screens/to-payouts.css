@@ -1,0 +1,18 @@
+/* to-payouts — O6 Payouts. Tokens only; strokes are inset shadows. */
+.to-payouts .banner { margin-top: var(--space-16); }
+.to-payouts .stepper + .heading-row, .to-payouts .banner + .heading-row { margin-top: var(--space-24); }
+.to-payouts__lead { margin: var(--space-8) 0 0; }
+.to-payouts__fee { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-24); padding: var(--space-20); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
+.to-payouts__fee > p { margin: 0; }
+.to-payouts__sentence { margin-bottom: var(--space-4); }
+.to-payouts__points { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-4); }
+.to-payouts__points .meta-row { align-items: flex-start; font-size: var(--size-12); line-height: 16px; font-weight: 500; color: var(--neutral-700); }
+.to-payouts__points .meta-row__glyph { color: var(--success); font-size: var(--size-12); }
+.to-payouts__h2 { margin: var(--space-32) 0 var(--space-16); }
+.to-payouts--edit .to-payouts__h2 { margin-top: var(--space-24); }
+.to-payouts__current { display: flex; flex-direction: column; gap: var(--space-4); margin: 0 0 var(--space-24); padding: var(--space-12) var(--space-16); border-radius: var(--radius-lg); background: var(--neutral-100); }
+.to-payouts__current p { margin: 0; }
+.to-payouts__current .tabular { font-variant-numeric: tabular-nums; }
+.to-payouts__change { margin: 0 0 var(--space-12); }
+.to-payouts__fields { display: flex; flex-direction: column; gap: var(--space-16); }
+.to-payouts__only4 { margin: var(--space-12) 0 0; }

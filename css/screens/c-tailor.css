@@ -31,10 +31,11 @@
 .c-tailor__rush { display: flex; flex-direction: column; gap: var(--space-4); }
 
 .c-tailor__place { display: flex; flex-direction: column; gap: var(--space-4); }
-.c-tailor__place .meta-row, .c-tailor__returns .meta-row { color: var(--ink); align-items: flex-start; }
-.c-tailor__place .meta-row__glyph, .c-tailor__returns .meta-row__glyph { height: 21px; line-height: 21px; color: var(--neutral-600); }   /* R1-2-C-04: the 16px line icon centres on the first text line */
+.c-tailor__place .meta-row { color: var(--ink); align-items: flex-start; }
+.c-tailor__place .meta-row__glyph { height: 21px; line-height: 21px; color: var(--neutral-600); }   /* R1-2-C-04: the 16px line icon centres on the first text line */
 .c-tailor__place > .t-small { padding-left: calc(var(--space-8) + 20px); }
-.c-tailor__returns { display: flex; flex-direction: column; gap: var(--space-12); }
 .c-tailor__reviews { display: flex; flex-direction: column; }
 .c-tailor__tier { white-space: nowrap; }
 .c-tailor__rush p:last-child { text-wrap: pretty; }
+/* the tailor viewing her own profile (from to-done): a read-only banner where the booking stepper would be */
+.c-tailor__preview { margin: var(--space-8) 0 var(--space-16); }

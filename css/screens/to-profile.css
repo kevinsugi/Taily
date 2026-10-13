@@ -1,0 +1,25 @@
+/* to-profile — layout only; fields, text area, stepper, banner, preview and action bar are shared components. */
+.to-profile__resume { margin-top: var(--space-16); }
+.to-profile__title { margin-top: var(--space-24); }
+.to-profile .stepper + .to-profile__title { margin-top: var(--space-24); }
+.to-profile__lead { margin: var(--space-8) 0 var(--space-24); }
+.to-profile__photo { display: flex; align-items: center; gap: var(--space-16); }
+.to-profile__photo-side { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); min-width: 0; }
+.to-profile__photo-side p { margin: 0; }
+.to-profile__group { margin-top: var(--space-24); }
+.to-profile__group + .to-profile__group { margin-top: var(--space-16); }
+.to-profile__work-block { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-24); }
+.to-profile__work-block p { margin: 0; }
+.to-profile__tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: var(--space-8); }
+.to-profile__work { display: block; width: 100%; min-width: 64px; aspect-ratio: 1; padding: 0; border: 0; background: none; border-radius: var(--radius-sm); }
+.to-profile__work .photo-tile { display: block; width: 100%; height: 100%; border-radius: var(--radius-sm); }
+.to-profile__work .photo-tile--add .icon-camera { inset: 0; margin: auto; width: 24px; height: 24px; }
+.to-profile__viewer { aspect-ratio: 4 / 3; margin-bottom: var(--space-12); border-radius: var(--radius-md); background: linear-gradient(135deg, #E2DCD1 0%, var(--neutral-300) 71.43%); }
+.to-profile__work:active { opacity: 0.6; }
+.to-profile__preview { margin-top: var(--space-32); }
+.to-profile__sheet-list { display: flex; flex-direction: column; border-radius: var(--radius-md); background: var(--white); padding-inline: var(--space-16); margin-bottom: var(--space-12); }
+.screen-sheet[data-s^="to-profile"] .sheet__cancel,
+.screen-sheet[data-s^="to-profile"] .sheet__confirm { min-width: 44px; min-height: 44px; }
+.to-profile__photo-side .cta-small { flex: 0 0 auto; padding-inline: var(--space-16); }
+/* no name yet: a quiet neutral disc, not an empty ink tile */
+.to-profile .avatar:empty { background: var(--neutral-200); }

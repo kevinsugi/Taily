@@ -9,7 +9,7 @@
 import * as C from './components.js';
 import { scheduler, slotColumns } from './scheduler.js';
 import { TAILORS, DEMO_NOW } from './data.js';
-import { quote, fmt } from './money.js';
+import { quote, fmt, cents, payoutFor } from './money.js';
 import { ICON_CARD } from './icons.js';
 
 /** The gallery's HTML (a string of labelled blocks). */
@@ -104,7 +104,7 @@ export function galleryHtml() {
   /* ---------------- v5 ---------------- */
   h2('Avatar — sm 40 · md 56 · lg 80 · photo');
   row(C.avatar({ initials: 'AR', size: 'sm' }), C.avatar({ initials: 'AR', size: 'md' }), C.avatar({ initials: 'AR', size: 'lg' }),
-      C.avatar({ initials: 'AR', size: 'md', photo: 'assets/garments/tile-suit-jacket.png' }));
+      C.avatar({ initials: 'AR', size: 'md', photo: 'assets/garments/tile-suit-jacket.png' }), C.avatar({ size: 'md', photo: true }), C.avatar({ size: 'lg', photo: true }));
 
   h2('Tailor Row');
   const trow = { id: 'amara', name: amara.name, initials: amara.initials, verified: true, rating: amara.rating, distanceMi: 0.6, nextOpening: '2026-10-15T17:00' };
@@ -183,7 +183,7 @@ export function galleryHtml() {
   col(C.toggle({ id: 'g-t1', label: 'Home visits', checked: true, helper: 'Customers in your ZIP list can book you.' }), C.toggle({ id: 'g-t2', label: 'Shop visits' }), C.toggle({ id: 'g-t3', label: 'Taily courier', disabled: true, helper: 'Not available yet' }));
 
   h2('Check row');
-  col(C.checkRow({ id: 'g-c1', label: 'Pickup at the shop', checked: true }), C.checkRow({ id: 'g-c2', label: 'Home drop-off', caption: 'You bring it back' }), C.checkRow({ id: 'g-c3', label: 'I agree to the cancellation terms', error: 'Please agree to continue.' }));
+  col(C.checkRow({ id: 'g-c1', label: 'Pickup at the shop', checked: true }), C.checkRow({ id: 'g-c2', label: 'Home drop-off', caption: 'You bring it back' }), C.checkRow({ id: 'g-c3', label: 'I agree to the cancellation terms', error: 'Please agree to continue.' }), C.checkRow({ id: 'g-c4', label: 'Taily courier', caption: 'Not available in your ZIP yet', disabled: true }));
 
   h2('Chip group · segmented');
   col(
@@ -230,6 +230,64 @@ export function galleryHtml() {
     { label: 'Default', cents: 4500 }, { label: 'Subtotal', cents: 9000, kind: 'subtotal' }, { label: 'Negative', cents: 1250, kind: 'negative' },
     { label: 'Muted', cents: 3000, kind: 'muted', caption: 'Not part of this order' }, { label: 'Changed', cents: 5000, kind: 'changed', status: 'Price change' },
     { label: 'Total', cents: 14750, kind: 'total' }]));
+
+  /* ---------------- M2 · tailor onboarding + Shop ---------------- */
+  const hdr = (inner) => s.push(`<div style="position:relative;height:100px;width:390px;margin-inline:-20px">${inner}</div>`);
+  const take = (dollars) => payoutFor({ services: cents(dollars) });                 // what she keeps of a whole-dollar price
+  const MINI_ROW = { id: 'amara', name: amara.name, initials: amara.initials, verified: true, rating: amara.rating, distanceMi: 0.6, nextOpening: '2026-10-15T17:00' };
+
+  h2('Onboarding steps · "Step n of 6 · label"');
+  v('step 1'); col(C.onboardingSteps('profile'));
+  v('step 4 · steps 1–3 done'); col(C.onboardingSteps('returns', ['profile', 'services', 'where']));
+
+  h2('Onboarding header');
+  v('onboarding (Back · Finish later)'); hdr(C.onboardingHeader());
+  v('onboarding step 1 (no Back)'); hdr(C.onboardingHeader({ back: false }));
+  v('editing (tailor chrome, Shop active)'); hdr(C.onboardingHeader({ editing: true }));
+
+  h2('Text area');
+  const BIO = 'I have hemmed, taken in and let out suits and dresses in Williamsburg for twenty years.';
+  col(
+    C.textArea({ id: 'g-bio0', label: 'About your work', max: 280, helper: 'A line or two: what you do best.' }),
+    C.textArea({ id: 'g-bio1', label: 'About your work', max: 280, value: BIO, helper: 'A line or two: what you do best.' }),
+    C.textArea({ id: 'g-bio2', label: 'About your work', max: 40, value: BIO }),
+    C.textArea({ id: 'g-bio3', label: 'About your work', max: 280, error: 'Tell customers a little about your work.' }));
+
+  h2('Service row');
+  col(
+    C.serviceRow({ id: 'g-hem', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans' }),
+    C.serviceRow({ id: 'g-hem1', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true }),
+    C.serviceRow({ id: 'g-hem2', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true, price: '25', payoutCents: take(25) }),
+    C.serviceRow({ id: 'g-hem3', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true, price: 'abc', error: 'Enter a price in whole dollars.' }));
+
+  h2('ZIP list');
+  const ZIPS = ['11211', '11222', '11206', '11237'];
+  v('empty (with suggestions)'); col(C.zipList({ suggestions: ZIPS }));
+  v('4 zips'); col(C.zipList({ zips: ZIPS, suggestions: [...ZIPS, '11201'] }));
+  v('input error'); col(C.zipList({ zips: ZIPS.slice(0, 2), input: '1121', inputError: 'Enter a 5-digit ZIP code.' }));
+  v('list error'); col(C.zipList({ error: 'Add at least one ZIP code you cover.' }));
+
+  h2('Day hours');
+  v('closed · open · error');
+  s.push(`<div class="info-card">${
+    C.dayHours({ sched: 'shop', day: 'mon', label: 'Monday' }) +
+    C.dayHours({ sched: 'shop', day: 'tue', label: 'Tuesday', open: '10:00 AM', close: '6:00 PM' }) +
+    C.dayHours({ sched: 'shop', day: 'wed', label: 'Wednesday', open: '10:00 AM', close: '9:00 AM', error: 'Closing time must be after opening time.' })}</div>`);
+
+  h2('Customer preview · "What customers see"');
+  v('with a tailor row'); col(C.customerPreview({ html: C.tailorRow({ ...MINI_ROW, quote: seed, visitType: 'home' }), caption: 'For the sample job: Suit Pant hem · Home visit' }));
+  v('with a mini profile');
+  col(C.customerPreview({ html: `<div class="row">${C.avatar({ initials: 'AR', size: 'md', photo: true })}<div><p class="t-body w-600">Amara Reyes</p><p class="t-small c-600">Reyes Tailoring</p></div></div><p class="t-body">${BIO}</p>` }));
+  v('with a text line'); col(C.customerPreview({ title: 'On your profile', html: '<p class="t-body">Return options: Pickup at the shop · Taily courier</p>' }));
+
+  h2('Rush ladder');
+  v('3 tiers'); col(`<p class="t-small c-600">${C.rushLadder(amara.rush)}</p>`);
+  v('1 tier'); col(`<p class="t-small c-600">${C.rushLadder(amara.rush.slice(0, 1))}</p>`);
+  v('empty'); col(`<p class="t-small c-600">${C.rushLadder([])}</p>`);
+
+  h2('Leave modal');
+  s.push(`<div class="row"><div style="position:relative;width:390px;height:300px;margin-inline:-20px;background:var(--neutral-100)">${
+    C.leaveModal().replace('class="modal modal--leave"', 'class="modal modal--leave" style="position:absolute"')}</div></div>`);
   return s.join('\n');
 }
 

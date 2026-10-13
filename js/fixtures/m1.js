@@ -12,7 +12,7 @@ import * as A from '../account.js';
 export const FLOWS_c_welcome = [
   { key: 'c-welcome', screen: 'c-welcome', group: 'M1 · Sign in', title: 'Welcome', note: 'Signed out: phone first, Apple / Google quieter',
     setup: () => { A.signOut(); },
-    expect: { has: ['Continue with phone', 'Continue with Apple', 'Continue with Google', 'held, not charged'], not: 'Bookings', sel: '[data-act="phone"]' } },
+    expect: { has: ['Continue with phone', 'Continue with Apple', 'Continue with Google', 'held, not charged', 'Join Taily'], not: 'Bookings', sel: '[data-act="phone"]' } },
 ];
 export const FLOWS_c_phone = [
   { key: 'c-phone', screen: 'c-phone', group: 'M1 · Sign in', title: 'Your phone number', note: 'Empty field, Send code enabled',

@@ -40,6 +40,15 @@ export const ZIP_INFO = {                               // mock geography: neigh
   '11206': { hood: 'East Williamsburg', miles: 1.5 }, '11237': { hood: 'Bushwick', miles: 2.3 },
   '11201': { hood: 'Brooklyn Heights', miles: 3.9 },   // the "zip outside" toggle
 };
+export const TAILOR_LIMITS = { BIO_MAX: 300, WORK_PHOTOS_MAX: 6, PRICE_MAX: 999, FEE_MAX: 200, RUSH_MAX: 200 };  // whole dollars (D-58, D-59)
+export const RUSH_TIERS = [1, 2, 3];                       // days after the visit; 4+ days is always free (D-64)
+export const SHOP_CITY = { city: 'Brooklyn', state: 'NY' }; // prototype geography (D-60)
+export const DEFAULT_WEEK = {                              // a new tailor's starting hours (D-62); no overlap
+  shop: { tue: ['10:00', '18:00'], wed: ['10:00', '18:00'], thu: ['10:00', '18:00'], fri: ['10:00', '18:00'], sat: ['10:00', '18:00'] },
+  home: { mon: ['18:00', '20:00'], thu: ['18:00', '20:00'] } };
+export const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];   // availability day order
+export const DAY_LABEL = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+export const ROUTING_BANKS = { '021000021': 'Chase', '026009593': 'Bank of America', '021000089': 'Citibank', '026013673': 'TD Bank', '021000322': 'Bank of America' };   // mock routing table (D-63)
 export const SHOP_RADIUS_MI = 5;                        // shop visits list shops within this distance (D-19)
 
 const ALL = Object.keys(GARMENT_TYPES);
@@ -63,6 +72,7 @@ export const servicesForType = (type) => Object.keys(SERVICES).filter((id) => SE
 export const TAILORS = [
   {
     id: 'amara', name: 'Amara Reyes', shopName: 'Reyes Tailoring', initials: 'AR', photo: null, workPhotos: 4, years: 12,
+    phone: '(347) 555-0118', live: true,
     bio: 'Tailoring in Williamsburg since 2014. I fit at my shop on Metropolitan Ave or at your place, and I show you every pin before I cut.',
     verified: true, badges: TRUST_BADGES,
     shop: { enabled: true, street: '312 Metropolitan Ave', city: 'Brooklyn', state: 'NY', zip: '11211', hood: 'Williamsburg' },
@@ -84,7 +94,7 @@ export const TAILORS = [
       { id: 'r3', name: 'Jenna L.', initials: 'JL', stars: 4, date: '2026-08-30', photos: 0, text: 'Great work on a dress hem. The return took a day longer than planned, but she messaged ahead.' },
       { id: 'r4', name: 'Dev R.', initials: 'DR', stars: 5, date: '2026-08-11', photos: 0, text: 'Fast zipper replacement at a fair price. Easy to book.' },
     ],
-    payouts: { bank: 'Chase', last4: '6789', holder: 'Amara Reyes' },
+    payouts: { bank: 'Chase', last4: '6789', holder: 'Amara Reyes', routing: '021000021' },
     onboarding: { profile: true, services: true, where: true, returns: true, availability: true, payouts: true },
   },
 ];
@@ -108,7 +118,7 @@ export const SEED_JOB = {
 
 /** A tailor with every section empty — the onboarding flows overwrite `amara` with it (D-20). */
 export const BLANK_TAILOR = {
-  id: 'amara', name: '', shopName: '', initials: '', photo: null, workPhotos: 0, years: 0, bio: '',
+  id: 'amara', name: '', shopName: '', initials: '', photo: null, workPhotos: 0, years: 0, bio: '', phone: '', live: false,
   verified: false, badges: [],
   shop: { enabled: false, street: '', city: '', state: '', zip: '', hood: '' },
   home: { enabled: false, zips: [], fee: 0 },
@@ -116,6 +126,6 @@ export const BLANK_TAILOR = {
   returns: { pickup: false, dropoff: false, courier: false },
   availability: { shop: {}, home: {} },
   rating: { avg: 0, count: 0 }, reviews: [],
-  payouts: { bank: '', last4: '', holder: '' },
+  payouts: { bank: '', last4: '', holder: '', routing: '' },
   onboarding: { profile: false, services: false, where: false, returns: false, availability: false, payouts: false },
 };

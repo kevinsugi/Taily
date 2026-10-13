@@ -50,3 +50,19 @@ export const ICON_CAL_CLOCK = `<svg class="calendar__icon" aria-hidden="true" vi
 export const ICON_CAL_PIN = `<svg class="calendar__icon" aria-hidden="true" viewBox="0.5 2.5 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.91319 17.8494C10.1919 16.6449 14 12.7449 14 9.00007C14 7.40876 13.4205 5.88261 12.3891 4.75738C11.3576 3.63215 9.95869 3 8.5 3C7.04131 3 5.64236 3.63215 4.61091 4.75738C3.57946 5.88261 3 7.40876 3 9.00007C3 12.7449 6.80806 16.6449 8.08681 17.8494C8.20594 17.9472 8.35095 18 8.5 18C8.64905 18 8.79406 17.9472 8.91319 17.8494Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 export const ICON_CAL_PREV = `<svg class="calendar__arrow" aria-hidden="true" viewBox="0 0 7 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 1L1 6L6 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 export const ICON_CAL_NEXT = `<svg class="calendar__arrow" aria-hidden="true" viewBox="0 0 7 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1L6 6L1 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+/* R1-2-C-04: meta-row line icons — 16 x 16, 1.5 stroke, currentColor (the c-pay hold explainer's set) */
+const LINE16 = (paths) => `<svg class="icon-16" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+export const META_ICONS = {
+  /* storefront: awning over a shop with a door */
+  shop: LINE16('<path d="M2.5 6.2V13.5h11V6.2"/><path d="M1.8 3h12.4l.9 2.4a1.8 1.8 0 0 1-3.5.6 1.8 1.8 0 0 1-3.6 0 1.8 1.8 0 0 1-3.6 0 1.8 1.8 0 0 1-3.5-.6L1.8 3z"/><path d="M6.5 13.5v-3.5h3v3.5"/>'),
+  /* home: roof + walls + door */
+  home: LINE16('<path d="M2.2 7.2 8 2.5l5.8 4.7"/><path d="M3.5 6.2v7.3h9V6.2"/><path d="M6.6 13.5v-3.6h2.8v3.6"/>'),
+  /* bag: shopping bag with handles (in-store pickup) */
+  bag: LINE16('<path d="M3 5.5h10l-.7 8H3.7L3 5.5z"/><path d="M5.8 5.5V4.3a2.2 2.2 0 0 1 4.4 0v1.2"/>'),
+  /* truck: courier van */
+  truck: LINE16('<path d="M1.5 4h8v7.5h-8z"/><path d="M9.5 6.5h2.8l2.2 2.4v2.6h-5"/><circle cx="4.5" cy="12" r="1.3"/><circle cx="11.8" cy="12" r="1.3"/>'),
+};
+
+/* a small pencil — "change this" on a pill that opens another screen (filter-pill `edit`) */
+export const ICON_EDIT = `<svg class="select-time__chevron filter-pill__edit" aria-hidden="true" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 10L2.4 8L8.2 2.2C8.6 1.8 9.2 1.8 9.6 2.2L9.8 2.4C10.2 2.8 10.2 3.4 9.8 3.8L4 9.6L2 10Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`;

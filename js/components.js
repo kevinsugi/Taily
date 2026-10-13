@@ -80,16 +80,22 @@ export function chrome(active = 'home', { persona = 'customer', time = '9:41' } 
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, ICON_CAMERA, ICON_CANCEL, TILE_CHEVRON, CHEVRON_RIGHT, ICON_CARD } from './icons.js';
+import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS } from './icons.js';
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE } from './data.js';
 import { fmt, fmtExact, fmtNeg } from './money.js';
 import { fmtShort, fmtWhen, fmtCountdown } from './dates.js';
 import { POLICY } from './money-config.js';
 
-/** CTA — variant: 'default' | 'secondary'. */
-export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
-  const cls = ['cta', variant === 'secondary' ? 'cta--secondary' : '', disabled ? 'cta--disabled' : ''].filter(Boolean).join(' ');
-  return `<button type="button" class="${cls}" ${attrs}>${label}</button>`;
+/**
+ * CTA — variant: 'default' | 'secondary'.
+ * `disabled` emits `disabled aria-disabled="true"`. `busy` = a spinner + `busyLabel` (else the label),
+ * `aria-busy="true"` and disabled; the spinner does not rotate under reduced motion / html.is-test.
+ */
+export function cta(label, { variant = 'default', disabled = false, busy = false, busyLabel = '', attrs = '' } = {}) {
+  const cls = ['cta', variant === 'secondary' ? 'cta--secondary' : '', disabled ? 'cta--disabled' : '', busy ? 'cta--busy' : ''].filter(Boolean).join(' ');
+  const off = disabled || busy ? ` disabled aria-disabled="true"${busy ? ' aria-busy="true"' : ''}` : '';
+  const inner = busy ? `<span class="cta__spinner" aria-hidden="true"></span><span>${busyLabel || label}</span>` : label;
+  return `<button type="button" class="${cls}"${off} ${attrs}>${inner}</button>`;
 }
 
 /**
@@ -137,14 +143,14 @@ export function selectTime(label = 'Select Time', { attrs = '' } = {}) {
 
 /** Filter Pill — Figma Shape=Default | Open. `error` (UX-LOOP R1-U-11,
     live-only): paints the value semantic/error and adds a helper line. */
-export function filterPill(caption, value, { open = false, options = [], attrs = '', error = '' } = {}) {
+export function filterPill(caption, value, { open = false, options = [], attrs = '', error = '', edit = false } = {}) {
   const dropdown = open
     ? `<div class="filter-pill__dropdown">${options.map((o, i) =>
         `<button type="button" class="filter-pill__option${i === 0 ? ' is-selected' : ''}">${o}</button>`).join('')}</div>`
     : '';
-  return `<div class="filter-pill${open ? ' filter-pill--open' : ''}${error ? ' filter-pill--error' : ''}">
+  return `<div class="filter-pill${open ? ' filter-pill--open' : ''}${edit ? ' filter-pill--edit' : ''}${error ? ' filter-pill--error' : ''}">
   <span class="filter-pill__label">${caption}</span>
-  <button type="button" class="filter-pill__box" ${attrs}>${value}${CHEVRON_DOWN}</button>
+  <button type="button" class="filter-pill__box" ${attrs}><span class="filter-pill__value">${value}</span>${edit ? ICON_EDIT : CHEVRON_DOWN}</button>
   <span class="filter-pill__help" data-pill-help>${error}</span>
   ${dropdown}
 </div>`;
@@ -177,7 +183,9 @@ const TILE_ART = {
    at six, the label keeps counting), and the label "3 Suit Jackets".
    The tile keeps the grid's width (the master draws 110). */
 export const TILE_MAX_ICONS = 6;
-export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
+const TILE_PLUS = '<svg class="garment-tile__glyph" aria-hidden="true" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>';
+const TILE_MINUS = '<svg class="garment-tile__glyph" aria-hidden="true" viewBox="0 0 14 14" fill="none"><path d="M2 7h10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>';
+export function garmentTile(type, { qty = 0, attrs = '', addDisabled = false } = {}) {
   if (!(qty > 0)) {
     const art = TILE_ART[type]
       ? `<img class="garment-tile__art" src="assets/garments/tile-${TILE_ART[type]}.png" alt="">`
@@ -194,12 +202,16 @@ export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
   const icon = src ? `<span class="garment-tile__icon"><img src="${src}" alt=""></span>` : '<span class="garment-tile__icon"></span>';
   const icons = Array.from({ length: Math.min(qty, TILE_MAX_ICONS) }, () => icon).join('');
   const label = qty === 1 ? `1 ${type}` : `${qty} ${GARMENT_TYPES[type]?.plural ?? type}`;
-  return `<button type="button" class="garment-tile garment-tile--selected garment-tile--${size}" ${attrs}>
-  <span class="garment-tile__zone garment-tile__zone--add" data-hit="inline" data-plus role="button" aria-label="Add another ${type}">${TILE_CHEVRON}</span>
+  /* R1-1-C-05: a container with two SIBLING buttons (− and +, 44 px tall), never a button inside a button;
+     `attrs` rides on both so the screen's delegate reads data-act / data-type, the − one adds data-minus */
+  return `<div class="garment-tile garment-tile--selected garment-tile--${size}" role="group" aria-label="${label}">
   <span class="garment-tile__icons">${icons}</span>
   <span class="garment-tile__label">${label}</span>
-  <span class="garment-tile__zone garment-tile__zone--remove" data-hit="inline" data-minus role="button" aria-label="Remove one ${type}">${TILE_CHEVRON}</span>
-</button>`;
+  <span class="garment-tile__ctl">
+    <button type="button" class="garment-tile__step" ${attrs} data-minus aria-label="Remove one ${type}">${TILE_MINUS}</button>
+    <button type="button" class="garment-tile__step" ${attrs} data-plus${addDisabled ? ' disabled aria-disabled="true"' : ''} aria-label="Add another ${type}">${TILE_PLUS}</button>
+  </span>
+</div>`;
 }
 
 /* ============================================================
@@ -274,8 +286,13 @@ export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [],
     time / need-by rows. `rows` come from apptRows(a) (customer) or the
     tailor's jobView rows. */
 /* round 16: `title` — 03 / Delivery Scheduled's "Delivery Details" */
-export function visitBlock(rows = [], { title = 'Visit Details' } = {}) {
-  return `<div class="visit-block"><span class="visit-block__title">${title}</span>${rows.map((r) => `<span class="visit-block__row">${r}</span>`).join('')}</div>`;
+/* R1-1-C-08: `flush` sits the block at the screen's 20 px gutter (no side padding, rows wrap at full width);
+   `action` = HTML for a 44 px text button in the title row (c-pay's "Change time"). */
+export function visitBlock(rows = [], { title = 'Visit Details', flush = false, action = '' } = {}) {
+  const head = action
+    ? `<div class="visit-block__head"><span class="visit-block__title">${title}</span>${action}</div>`
+    : `<span class="visit-block__title">${title}</span>`;
+  return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${head}${rows.map((r) => `<span class="visit-block__row">${r}</span>`).join('')}</div>`;
 }
 
 /** The Back control (308:3820) — "‹" 28 Regular ink in a 36-tall, 8-padded
@@ -348,11 +365,14 @@ export function selector(type, value, options = [], { attrs = '', chevron = true
    delivery windows, info/receipt cards, meta rows, fee rows.
    ============================================================ */
 
-/** Sheet chassis. `open` = null renders static (gallery/diff). */
-export function sheet(contentHtml, { open = null, header = null, grabber = true, variant = '' } = {}) {
+/** Sheet chassis. `open` = null renders static (gallery/diff). `confirm: false` drops the header ✓ (R1-1-C-02):
+    keep the ✓ only where it is the sole commit; a sheet with its own CTAs gets one dismiss (✕) and its own buttons. */
+export function sheet(contentHtml, { open = null, header = null, grabber = true, variant = '', confirm = true } = {}) {
   const hostAttr = open === null ? '' : ` data-open="${open}"`;
   const head = header
-    ? `<div class="sheet__header"><button type="button" class="sheet__cancel" data-act="sheet-cancel">✕</button><span class="sheet__title">${header}</span><button type="button" class="sheet__confirm" data-act="sheet-confirm">✓</button></div>`
+    ? `<div class="sheet__header"><button type="button" class="sheet__cancel" data-act="sheet-cancel" aria-label="Close">✕</button><span class="sheet__title">${header}</span>${confirm
+      ? '<button type="button" class="sheet__confirm" data-act="sheet-confirm" aria-label="Done">✓</button>'
+      : '<span class="sheet__spacer" aria-hidden="true"></span>'}</div>`
     : '';
   return `<div class="sheet-host"${hostAttr}>
   <div class="sheet-scrim" data-act="sheet-cancel"></div>
@@ -434,7 +454,7 @@ function freezePage(doc) {
 /** Is an overlay (sheet / modal / viewer) currently mounted? */
 export const overlayOpen = () => activeOverlay !== null;
 
-export function sheetOverlay(contentHtml, { header = null, variant = '', dataS = '' } = {}, wireFn) {
+export function sheetOverlay(contentHtml, { header = null, variant = '', dataS = '', confirm = true } = {}, wireFn) {
   const screenEl = document.getElementById('screen');
   // one overlay at a time (a closing one, mid slide-out, doesn't count)
   if (screenEl.querySelector('.screen-sheet--overlay:not(.is-closing)')) return () => {};
@@ -442,7 +462,7 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
   const holder = document.createElement('div');
   holder.className = 'screen-sheet screen-sheet--overlay';
   if (dataS) holder.dataset.s = dataS;
-  holder.innerHTML = sheet(contentHtml, { header, variant, open: false });
+  holder.innerHTML = sheet(contentHtml, { header, variant, open: false, confirm });
 
   /* Pin the overlay to the VISIBLE part of the screen column
      (viewport ∩ screen). Absolute inset-0 would anchor the sheet to the
@@ -579,32 +599,63 @@ export function wheel(columns) {
 /**
  * Scrollable wheel (v3 wheelScrolled parity) — used by the live overlay;
  * the static wheel() above stays frame-exact for the diff harness.
- * columns: [{ width, rows: [strings], sel }] — 40px rows, 80px pads so
+ * columns: [{ width, rows: [strings], sel, label }] — 40px rows, 80px pads so
  * every row can reach the selection band. Call wireWheel() after mount.
+ *
+ * R1-2-C-01: each column is a keyboard-operable listbox — `role="listbox"`,
+ * `tabindex="0"`, `aria-label` (the column's `label`: Day / Hour / Minute /
+ * AM/PM), rows are `role="option"` with an id and `aria-selected`, and the
+ * column points `aria-activedescendant` at the settled row. wireWheel() moves
+ * the selection with ArrowUp / ArrowDown / PageUp / PageDown / Home / End.
  */
-export function wheelScroll(columns) {
-  const cols = columns.map(({ width, rows, sel }) => `<div class="wheel__col wheel__col--scroll" style="width:${width}px" data-sel="${sel}">
-    <span class="wheel__pad" aria-hidden="true"></span>
+let wheelSeq = 0;
+/** The rows of one scroll column (pads + options) — also used to re-row a live column. */
+export function wheelRows({ rows, sel }, base = `wheel-${++wheelSeq}`) {
+  return `<span class="wheel__pad" aria-hidden="true"></span>
     ${rows.map((r, i) => {
       const d = Math.abs(i - sel);
       const cls = d === 0 ? 'wheel__row wheel__row--selected' : d >= 2 ? 'wheel__row wheel__row--edge' : 'wheel__row';
-      return `<span class="${cls}" style="width:100%">${r}</span>`;
+      return `<span class="${cls}" style="width:100%" role="option" id="${base}-${i}" aria-selected="${d === 0}">${r}</span>`;
     }).join('')}
-    <span class="wheel__pad" aria-hidden="true"></span>
-  </div>`).join('');
-  return `<div class="wheel"><div class="wheel__band"></div>${cols}</div>`;
+    <span class="wheel__pad" aria-hidden="true"></span>`;
 }
+/** One scroll column (a listbox). */
+export function wheelCol({ width, rows, sel, label = 'Options' }) {
+  const base = `wheel-${++wheelSeq}`;
+  return `<div class="wheel__col wheel__col--scroll" style="width:${width}px" data-sel="${sel}" role="listbox" tabindex="0" aria-label="${esc(label)}" aria-activedescendant="${base}-${sel}">
+    ${wheelRows({ rows, sel }, base)}
+  </div>`;
+}
+export function wheelScroll(columns) {
+  return `<div class="wheel"><div class="wheel__band"></div>${columns.map(wheelCol).join('')}</div>`;
+}
+
+/** Mark row `idx` of a scroll column as settled: classes, aria-selected, aria-activedescendant, data-sel. */
+export function markWheelRow(col, idx) {
+  const rows = [...col.querySelectorAll('.wheel__row')];
+  col.dataset.sel = idx;
+  rows.forEach((r, i) => {
+    r.classList.toggle('wheel__row--selected', i === idx);
+    r.classList.toggle('wheel__row--edge', Math.abs(i - idx) >= 2);
+    r.setAttribute('aria-selected', String(i === idx));
+  });
+  if (rows[idx]?.id) col.setAttribute('aria-activedescendant', rows[idx].id);
+}
+
+const WHEEL_KEYS = { ArrowUp: -1, ArrowDown: 1, PageUp: -5, PageDown: 5 };
 
 /**
  * Wire a wheelScroll(): set initial positions, restyle rows as they
  * settle (v3's 80ms debounce), report changes. Selection is read back
- * from each column's data-sel.
+ * from each column's data-sel. Keys move the selection one row (PageUp /
+ * PageDown five, Home / End to the ends) and report it at once.
  */
 /* round 17: `rowH` — the Scheduler's wheel runs a 36px pitch */
 export function wireWheel(root, onChange, rowH = 40) {
   root.querySelectorAll('.wheel__col--scroll').forEach((col) => {
     col.scrollTop = Number(col.dataset.sel) * rowH;
     let timer;
+    let keyed = -1;   // the row a key just settled — its own scroll event must not report it twice
     col.addEventListener('scroll', () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
@@ -612,13 +663,31 @@ export function wireWheel(root, onChange, rowH = 40) {
            open (setWheelRows: the proposal wheel's need-by hour cap) */
         const rows = [...col.querySelectorAll('.wheel__row')];
         const idx = Math.max(0, Math.min(rows.length - 1, Math.round(col.scrollTop / rowH)));
-        col.dataset.sel = idx;
-        rows.forEach((r, i) => {
-          r.classList.toggle('wheel__row--selected', i === idx);
-          r.classList.toggle('wheel__row--edge', Math.abs(i - idx) >= 2);
-        });
+        const wasKeyed = keyed === idx;
+        keyed = -1;
+        if (wasKeyed && Number(col.dataset.sel) === idx) return;
+        markWheelRow(col, idx);
         onChange?.();
       }, 80);
+    });
+    col.addEventListener('keydown', (e) => {
+      const rows = col.querySelectorAll('.wheel__row');
+      const last = rows.length - 1;
+      const cur = Number(col.dataset.sel) || 0;
+      let idx;
+      if (e.key in WHEEL_KEYS) idx = cur + WHEEL_KEYS[e.key];
+      else if (e.key === 'Home') idx = 0;
+      else if (e.key === 'End') idx = last;
+      else return;
+      e.preventDefault();
+      idx = Math.max(0, Math.min(last, idx));
+      if (idx === cur) return;
+      markWheelRow(col, idx);
+      keyed = idx;
+      col.scrollTo({ top: idx * rowH, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      onChange?.();
+      /* onChange may snap / re-row the column (readSlot) — keep aria-activedescendant on what it settled */
+      markWheelRow(col, Number(col.dataset.sel));
     });
   });
 }
@@ -662,8 +731,10 @@ export function infoRow(label, value, { small = false, total = false } = {}) {
 }
 
 /** Glyph-prefixed meta row (◉ ▤ ✂). */
-export function metaRow(glyph, text) {
-  return `<div class="meta-row"><span class="meta-row__glyph">${glyph}</span><span>${text}</span></div>`;
+/* R1-2-C-04: `{ icon }` — a line icon from META_ICONS (shop · home · bag · truck) in place of the text glyph */
+export function metaRow(glyph, text, { icon = '' } = {}) {
+  const lead = icon && META_ICONS[icon] ? META_ICONS[icon] : glyph;
+  return `<div class="meta-row${icon ? ' meta-row--icon' : ''}"><span class="meta-row__glyph">${lead}</span><span>${text}</span></div>`;
 }
 
 /** Fee row — price + caption (03/Confirmed · Tailoring, 04, 06). Long descriptions wrap.
@@ -719,17 +790,18 @@ export function tailorRow({ id, name, initials, photo = null, verified = false, 
     distanceMi != null ? `${Number(distanceMi).toFixed(1)} mi` : '',
   ].filter(Boolean).join(' · ');
   const attrs = declined ? ' aria-disabled="true"' : ` data-act="open-tailor" data-id="${esc(id)}"`;
+  /* the estimate is the focal element (R1-1-C-17): right-aligned on the name row at 24 / 600 tabular; the full badge list lives on the profile */
+  const est = declined ? '' : `<span class="tailor-row__quote" data-money><span class="tailor-row__est">Est. ${fmt(q.total ?? 0)}</span></span>`;
   return `<button type="button" class="tailor-row info-card${declined ? ' tailor-row--declined' : ''}${q.rush > 0 ? ' tailor-row--rush' : ''}"${attrs}>
   <span class="tailor-row__who">
     ${avatar({ initials, photo, size: 'md' })}
     <span class="tailor-row__info">
-      <span class="tailor-row__name-row"><span class="tailor-row__name">${esc(name)}</span>${verified ? '<span class="tailor-row__check" aria-label="Verified">✓</span>' : ''}</span>
-      ${verified ? trustBadges(TRUST_BADGES) : ''}
+      <span class="tailor-row__name-row"><span class="tailor-row__name">${esc(name)}</span>${est}</span>
+      ${verified ? '<span class="tailor-row__chip"><span aria-hidden="true">✓</span> Verified</span>' : ''}
       ${meta ? `<span class="tailor-row__meta">${meta}</span>` : ''}
     </span>
   </span>
-  <span class="tailor-row__quote" data-money><span class="tailor-row__est">Est. ${fmt(q.total ?? 0)}</span>${captions.map((c) => `<span class="tailor-row__caption">${c}</span>`).join('')}</span>
-  ${nextOpening ? `<span class="tailor-row__next">Next opening ${fmtWhen(nextOpening)}</span>` : ''}
+  ${!declined && (captions.length || nextOpening) ? `<span class="tailor-row__lower">${captions.length ? `<span class="tailor-row__captions" data-money>${captions.map((c) => `<span class="tailor-row__caption">${c}</span>`).join('')}</span>` : ''}${nextOpening ? `<span class="tailor-row__next">Next opening ${fmtWhen(nextOpening)}</span>` : ''}</span>` : ''}
   ${declined ? '<span class="tailor-row__note">Declined this job</span>' : ''}
 </button>`;
 }
@@ -889,24 +961,68 @@ export function chipGroup({ name, label = '', options = [], value = null, multi 
 </div>`;
 }
 /**
- * Stepper — "Step 2 of 6 · Services prices" over progress segments.
+ * Stepper — `variant: 'default'` is "Step 2 of 6 · Services prices" over progress segments (tailor onboarding);
+ * `'compact'` is the booking progress: one non-interactive row of segments (done ink / current accent-ink /
+ * todo neutral-200) with sr-only labels, `aria-current="step"` on the current one and a right-aligned "2 of 5".
  * `steps`: labels or { id, label }; `current` an index or id; `done` indices or ids.
  */
-export function stepper({ steps = [], current = 0, done = [] } = {}) {
+export function stepper({ steps = [], current = 0, done = [], variant = 'default' } = {}) {
   const ids = steps.map((s, i) => s?.id ?? i);
   const labels = steps.map((s) => s?.label ?? s);
   const ci = typeof current === 'number' ? current : Math.max(0, ids.indexOf(current));
   const state = (i) => (i === ci ? 'current' : (done.includes(i) || done.includes(ids[i])) ? 'done' : 'todo');
+  if (variant === 'compact') {
+    return `<nav class="stepper stepper--compact" aria-label="Booking progress">
+  <ol class="stepper__bar">${steps.map((_, i) => `<li class="stepper__seg stepper__seg--${state(i)}"${i === ci ? ' aria-current="step"' : ''}><span class="sr-only">${esc(labels[i])}</span></li>`).join('')}</ol>
+  <span class="stepper__count t-small c-600 w-600">${ci + 1} of ${steps.length}</span>
+</nav>`;
+  }
   return `<div class="stepper">
   <p class="stepper__text">Step ${ci + 1} of ${steps.length} · ${esc(labels[ci] ?? '')}</p>
   <div class="stepper__bar" role="img" aria-label="Step ${ci + 1} of ${steps.length}">${steps.map((_, i) => `<span class="stepper__seg stepper__seg--${state(i)}"></span>`).join('')}</div>
 </div>`;
 }
 
+/** The five booking steps, shown as the first thing in .body on c-job → c-where → c-tailors → c-tailor → c-book / c-pay. */
+export const BOOKING_STEPS = ['What needs work', 'Where and when', 'Tailors near you', 'Tailor', 'Book'];
+/** bookingSteps(current) — `current` is 0-based; every earlier step reads as done. */
+export function bookingSteps(current = 0) {
+  return stepper({ steps: BOOKING_STEPS, current, done: BOOKING_STEPS.slice(0, current).map((_, i) => i), variant: 'compact' });
+}
+
+/**
+ * Action bar — the sticky white bottom bar of every booking step and sign-in form. Render it as a SIBLING of
+ * main.body inside #screen (never inside .body) and give the body `.body--with-bar`.
+ * `lead` is an HTML line above the button (text + a data-money amount); `note` sits under the buttons and, when
+ * `disabled`, is linked to the CTA with aria-describedby (the reason it is off). `busy` locks both buttons.
+ */
+export function actionBar({ ctaLabel = '', ctaAct = '', disabled = false, busy = false, busyLabel = '', lead = '', note = '', secondaryLabel = '', secondaryAct = '' } = {}) {
+  const noteId = `action-bar-note-${ctaAct || 'cta'}`;
+  const describe = disabled && note ? ` aria-describedby="${noteId}"` : '';
+  return `<div class="action-bar${busy ? ' action-bar--busy' : ''}">
+  ${lead ? `<p class="action-bar__lead t-small c-600">${lead}</p>` : ''}
+  ${cta(ctaLabel, { disabled, busy, busyLabel, attrs: `data-act="${ctaAct}"${describe}` })}
+  ${secondaryLabel ? cta(secondaryLabel, { variant: 'secondary', disabled: busy, attrs: `data-act="${secondaryAct}"` }) : ''}
+  ${note ? `<p class="action-bar__note t-small c-600" id="${noteId}">${note}</p>` : ''}
+</div>`;
+}
+
+/**
+ * Option row — one row of a single-select sheet (sort, payment method). Wrap a group in role="radiogroup".
+ * `lead` is an icon / card badge (HTML); the check ring on the right fills ink with a ✓ when checked.
+ */
+export function optionRow({ name = '', value = '', title = '', sub = '', checked = false, lead = '', act = 'option' } = {}) {
+  return `<button type="button" class="option-row${checked ? ' is-checked' : ''}" role="radio" aria-checked="${checked}" data-act="${esc(act)}" data-name="${esc(name)}" data-value="${esc(value)}">
+  ${lead ? `<span class="option-row__lead" aria-hidden="true">${lead}</span>` : ''}
+  <span class="option-row__text"><span class="option-row__title t-body w-600">${title}</span>${sub ? `<span class="option-row__sub t-small c-600">${sub}</span>` : ''}</span>
+  <span class="option-row__check" aria-hidden="true">${checked ? '✓' : ''}</span>
+</button>`;
+}
+
 /* ---------- lists, loading, empty ---------- */
-/** List row — title (+ sub) left, value (+ chevron) right. A button when `act` is set. */
-export function listRow({ title, sub = '', right = '', act = '', chevron = true } = {}) {
-  const inner = `<span class="list-row__text"><span class="list-row__title">${title}</span>${sub ? `<span class="list-row__sub">${sub}</span>` : ''}</span>${right ? `<span class="list-row__right">${right}</span>` : ''}${act && chevron ? CHEVRON_RIGHT.replace('method-row__chevron', 'list-row__chevron') : ''}`;
+/** List row — [lead] title (+ sub) left, value (+ chevron) right. A button when `act` is set. `lead` (HTML) takes the same 32 px column as optionRow's, so titles line up. */
+export function listRow({ title, sub = '', right = '', act = '', chevron = true, lead = '' } = {}) {
+  const inner = `${lead ? `<span class="list-row__lead" aria-hidden="true">${lead}</span>` : ''}<span class="list-row__text"><span class="list-row__title">${title}</span>${sub ? `<span class="list-row__sub">${sub}</span>` : ''}</span>${right ? `<span class="list-row__right">${right}</span>` : ''}${act && chevron ? CHEVRON_RIGHT.replace('method-row__chevron', 'list-row__chevron') : ''}`;
   return act
     ? `<button type="button" class="list-row" data-act="${act}">${inner}</button>`
     : `<div class="list-row list-row--static">${inner}</div>`;
@@ -915,7 +1031,7 @@ export function listRow({ title, sub = '', right = '', act = '', chevron = true 
 export function skeleton({ kind = 'line', count = 1 } = {}) {
   const one = {
     line: '<span class="skeleton__line"></span>',
-    'tailor-row': '<div class="skeleton__card skeleton__card--row"><span class="skeleton__dot"></span><span class="skeleton__lines"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w40"></span><span class="skeleton__line skeleton__line--w80"></span></span></div>',
+    'tailor-row': '<div class="skeleton__card skeleton__card--row"><span class="skeleton__who"><span class="skeleton__dot"></span><span class="skeleton__lines"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w40"></span><span class="skeleton__line skeleton__line--w80"></span></span></span><span class="skeleton__lower"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w80"></span></span></div>',
     card: '<div class="skeleton__card"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line"></span><span class="skeleton__line skeleton__line--w80"></span></div>',
     thread: '<div class="skeleton__thread"><span class="skeleton__bubble skeleton__bubble--them"></span><span class="skeleton__bubble skeleton__bubble--me"></span><span class="skeleton__bubble skeleton__bubble--them skeleton__bubble--short"></span></div>',
   }[kind] ?? '';
@@ -955,15 +1071,17 @@ export function moneyRows(rows = []) {
   return `<div class="money-rows" data-money>${html}</div>`;
 }
 /** Deposit status words by the appointment's deposit state (payments.deposit.state). */
-const DEPOSIT_STATUS = { authorized: 'On hold', captured: 'Paid', released: 'Released', refunded: 'Refunded', kept: 'Kept' };
+const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', captured: 'Paid', released: 'Released', refunded: 'Refunded', kept: 'Kept' };
 /**
  * The customer's breakdown by stage — estimate | booked | ready | paid. Zero rows are omitted.
  * `q` is the quote() object in cents. `tailorFirst` names whose prices the services are.
- * `depositState` (authorized | captured | released | refunded | kept) takes the deposit status from the
+ * `depositState` (to-hold | authorized | captured | released | refunded | kept) takes the deposit status from the
  * appointment instead of the stage: a pending request is only a hold ("On hold"), accepted money is "Paid".
  * Without it, estimate reads "Due today" and every later stage reads "Paid".
+ * The total reads "Estimated total" for `estimate` AND `booked` (D-49) until `confirmed` (the fitting or an approved price change).
  */
-export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '' } = {}) {
+export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '', confirmed = false } = {}) {
+  const est = (stage === 'estimate' || stage === 'booked') && !confirmed;   // D-49: still an estimate until the fitting (or a price change) confirms it
   const deposit = depositState ? (DEPOSIT_STATUS[depositState] ?? 'Paid') : stage === 'estimate' ? 'Due today' : 'Paid';
   const balance = stage === 'paid' ? 'Paid' : stage === 'ready' ? 'Due now' : 'Due when ready';
   const rows = [
@@ -971,7 +1089,7 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
     q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush, caption: `Need-by ${q.rushDays ?? 1} day${(q.rushDays ?? 1) === 1 ? '' : 's'} after the visit` },
     q.courier > 0 && { label: 'Taily courier', cents: q.courier },
-    { label: stage === 'estimate' ? 'Estimated total' : 'Total', cents: q.total, kind: 'total' },
+    { label: est ? 'Estimated total' : 'Total', cents: q.total, kind: 'total' },
     { label: 'Deposit', cents: q.deposit, status: deposit },
     { label: 'Balance', cents: q.balance, status: balance },
     (stage === 'ready' || stage === 'paid') && q.refund > 0 && { label: 'Refund to your card', cents: q.refund },

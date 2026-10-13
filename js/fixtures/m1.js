@@ -4,15 +4,213 @@
    Entry shape: see docs/v5/CONTEXT.md (FLOWS / EXPECT contract).
    ============================================================ */
 
-export const FLOWS_c_welcome = [];
-export const FLOWS_c_phone = [];
-export const FLOWS_c_code = [];
-export const FLOWS_c_name = [];
-export const FLOWS_c_job = [];
-export const FLOWS_c_where = [];
-export const FLOWS_c_tailors = [];
-export const FLOWS_c_tailor = [];
-export const FLOWS_c_book = [];
-export const FLOWS_c_pay = [];
-export const FLOWS_c_request = [];
-export const FLOWS_c_thread = [];
+import { SCENARIOS } from './money-scenarios.js';
+import { fmt, fmtExact } from '../money.js';
+
+import * as A from '../account.js';
+
+export const FLOWS_c_welcome = [
+  { key: 'c-welcome', screen: 'c-welcome', group: 'M1 · Sign in', title: 'Welcome', note: 'Signed out: phone first, Apple / Google quieter',
+    setup: () => { A.signOut(); },
+    expect: { has: ['Continue with phone', 'Continue with Apple', 'Continue with Google', 'held, not charged'], not: 'Bookings', sel: '[data-act="phone"]' } },
+];
+export const FLOWS_c_phone = [
+  { key: 'c-phone', screen: 'c-phone', group: 'M1 · Sign in', title: 'Your phone number', note: 'Empty field, Send code enabled',
+    setup: () => { A.signOut(); },
+    expect: { has: ['Your phone number', 'Mobile number', '+1', 'Send code'], sel: '#phone' } },
+  { key: 'c-phone--invalid', screen: 'c-phone', group: 'M1 · Sign in', title: 'Your phone number — invalid', note: '718555 then Send code',
+    setup: (S) => { A.signOut(); S.state.ui['c-phone'] = { phone: '718555' }; },
+    click: ['[data-act="send-code"]'],
+    expect: { has: 'Enter a 10-digit US number', sel: '#phone[aria-invalid="true"]' } },
+  { key: 'c-phone--sending', screen: 'c-phone', group: 'M1 · Sign in', title: 'Your phone number — sending', note: 'Latency held: Send code busy, field disabled',
+    setup: (S) => { A.signOut(); S.state.ui['c-phone'] = { phone: '7185550142' }; S.sim.latency = 'hold'; },
+    click: ['[data-act="send-code"]'],
+    expect: { has: 'Sending code', sel: '[data-act="send-code"][aria-busy="true"]' } },
+];
+export const FLOWS_c_code = [
+  { key: 'c-code', screen: 'c-code', group: 'M1 · Sign in', title: 'Enter the code', note: 'Resend countdown frozen at 0:30',
+    setup: () => { A.signOut(); A.sendCode('(718) 555-0142'); },
+    expect: { has: ['Enter the code', '(718) 555-0142', 'Resend code in 0:30'], sel: '#code' } },
+  { key: 'c-code--wrong', screen: 'c-code', group: 'M1 · Sign in', title: 'Enter the code — wrong', note: '000000 then Verify',
+    setup: (S) => { A.signOut(); A.sendCode('(718) 555-0142'); S.state.ui['c-code'] = { code: '000000' }; },
+    click: ['[data-act="verify"]'],
+    expect: { has: 'Check your texts', sel: '#code[aria-invalid="true"]' } },
+  { key: 'c-code--expired', screen: 'c-code', group: 'M1 · Sign in', title: 'Enter the code — expired', note: '11 minutes later: Resend on, Verify off',
+    setup: (S) => { A.signOut(); A.sendCode('(718) 555-0142'); S.advanceClock(11); },
+    expect: { has: 'This code expired', sel: '[data-act="resend"]:not([disabled])' } },
+  { key: 'c-code--resend', screen: 'c-code', group: 'M1 · Sign in', title: 'Enter the code — resend ready', note: 'A minute later: Resend code enabled',
+    setup: (S) => { A.signOut(); A.sendCode('(718) 555-0142'); S.advanceClock(1); },
+    expect: { has: 'Resend code', not: 'Resend code in', sel: '[data-act="resend"]:not([disabled])' } },
+];
+export const FLOWS_c_name = [
+  { key: 'c-name', screen: 'c-name', group: 'M1 · Sign in', title: 'What should we call you?', note: 'New account (917) 555-0186 after a verified code',
+    setup: () => { A.signOut(); A.sendCode('(917) 555-0186'); A.verifyCode('123456'); },
+    expect: { has: ['What should we call you', 'First name', 'Last name'], sel: '#first' } },
+  { key: 'c-name--error', screen: 'c-name', group: 'M1 · Sign in', title: 'What should we call you? — error', note: 'Continue with both names empty',
+    setup: () => { A.signOut(); A.sendCode('(917) 555-0186'); A.verifyCode('123456'); },
+    click: ['[data-act="save-name"]'],
+    expect: { has: ['Enter your first name', 'Enter your last name'], sel: '#first[aria-invalid="true"]' } },
+];
+export const FLOWS_c_job = [
+  { key: 'c-job--empty', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — empty',
+    note: 'No garments yet: the grid is the focus and Next is off with its reason',
+    setup: (S) => { S.T.newJob(); },
+    expect: { has: ['What needs work', 'Tap a garment to add it'], sel: '[data-act="next"][aria-disabled="true"]' } },
+  { key: 'c-job', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — Sarah’s items',
+    note: 'Suit pant + suit jacket, services chosen',
+    expect: { has: ['Suit Pant', 'Suit Jacket', 'Hem pants', 'Shorten sleeves · Take in jacket sides', '2 items', '1 of 5'] } },
+  { key: 'c-job--max', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — ten items',
+    note: 'At the cap: the grid is off and says so',
+    setup: (S) => { for (let i = 0; i < 8; i += 1) { const r = S.T.addGarment('Pants / Jeans'); S.T.setServices(r.garment.id, ['hem-pants']); } },
+    expect: { has: 'You can add up to 10 items per visit', sel: '[data-max="true"]' } },
+  { key: 'c-job--no-service', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — service missing',
+    note: 'A skirt with no service, Next pressed',
+    setup: (S) => { S.T.addGarment('Skirt'); },
+    click: ['[data-act="next"]'],
+    expect: { has: 'Choose at least one service', sel: '[data-error="service"]' } },
+  { key: 'c-job--services', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — services sheet',
+    note: 'Pick all that apply, no prices',
+    click: ['[data-act="pick-services"][data-id="g1"]'],
+    expect: { has: ['Suit Pant', 'Hem pants', 'Taper legs', 'Replace zipper'], not: '$' } },
+  { key: 'c-job--photo', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — add a photo',
+    note: 'Take photo / Choose from library',
+    click: ['[data-act="add-photo"][data-id="g1"]'],
+    expect: { has: ['Add a photo', 'Take photo', 'Choose from library'] } },
+];
+export const FLOWS_c_where = [
+  { key: 'c-where', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — at my place',
+    note: 'Sarah’s address and the need-by date',
+    expect: { has: ['Where and when', 'At my place', '145 N 7th St, 2R', 'Fri, Oct 23', '2 of 5'] } },
+  { key: 'c-where--shop', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — at the shop',
+    note: 'ZIP field instead of the address',
+    setup: (S) => { S.T.setJob({ visitType: 'shop' }); },
+    expect: { has: ['Your ZIP code', 'within 5 miles'], not: '145 N 7th St' } },
+  { key: 'c-where--zip-invalid', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — ZIP invalid',
+    note: 'Four digits, See tailors pressed',
+    setup: (S) => { S.T.setJob({ visitType: 'shop', zip: '1121' }); },
+    click: ['[data-act="next"]'],
+    expect: { has: 'Enter a 5-digit ZIP code', sel: '#zip[aria-invalid="true"]' } },
+  { key: 'c-where--address-required', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — address missing',
+    note: 'No street, See tailors pressed',
+    setup: (S) => { S.T.setJob({ address: null }); },
+    click: ['[data-act="next"]'],
+    expect: { has: ['Add your address', 'Add your street address'] } },
+  { key: 'c-where--needby-past', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — need-by passed',
+    note: 'Stale date, flagged on arrival',
+    setup: (S) => { S.T.setJob({ needBy: '2026-10-12' }); },
+    expect: { has: 'That date has passed' } },
+  { key: 'c-where--rush', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — rush warning',
+    note: 'Need-by in three days: rush fees may apply',
+    setup: (S) => { S.T.setJob({ needBy: '2026-10-16' }); },
+    expect: { has: ['Fri, Oct 16', 'Rush fees may apply'] } },
+  { key: 'c-where--address-sheet', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — address sheet',
+    note: 'Street, unit, city, ZIP',
+    click: ['[data-act="edit-address"]'],
+    expect: { has: ['Street address', 'Apt, suite or unit', 'Save address'] } },
+  { key: 'c-where--needby-sheet', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — need-by sheet',
+    note: 'The Scheduler wheel, days from tomorrow',
+    click: ['[data-act="edit-needby"]'],
+    expect: { has: ['Need it by', 'Pick the day you need it back'], sel: '.screen-sheet [data-scheduler] [role="listbox"][aria-label="Day"] [role="option"][aria-selected="true"]' } },
+];
+export const FLOWS_c_tailors = [
+  { key: 'c-tailors--loading', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — loading',
+    note: 'Skeleton rows while the list loads',
+    setup: (S) => { S.sim.latency = 'hold'; },
+    expect: { has: 'Tailors near you', sel: '.skeleton--tailor-row' } },
+  { key: 'c-tailors', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you',
+    note: 'Amara, home visit, seed job',
+    expect: { has: ['Tailors near you', `Est. ${fmt(SCENARIOS.seed.total)}`, `Includes ${fmt(SCENARIOS.seed.homeFee)} home-visit fee`, '0.6 mi', 'Next opening Thu, Oct 15 · 5:00 PM', '3 of 5'] } },
+  { key: 'c-tailors--rush', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — rush fee',
+    note: 'Need-by Fri Oct 16: the row adds the rush fee',
+    setup: (S) => { S.T.setJob({ needBy: '2026-10-16' }); },
+    expect: { has: [`Est. ${fmt(SCENARIOS.rush.total)}`, `+ ${fmt(SCENARIOS.rush.rush)} rush fee`] } },
+  { key: 'c-tailors--empty-zip', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — ZIP outside',
+    note: 'Sarah in 11201: no tailor visits',
+    setup: (S) => { S.T.setJob({ zip: '11201', address: { ...S.job.address, zip: '11201' } }); },
+    expect: { has: 'No tailors visit 11201 yet', not: 'Est.', sel: '[data-empty="zip"]' } },
+  { key: 'c-tailors--empty-shop', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — no shops',
+    note: 'At the shop, Amara\u2019s shop switched off',
+    setup: (S) => { S.T.setTailorSection('where', { shop: { enabled: false } }); S.T.setJob({ visitType: 'shop' }); },
+    expect: { has: 'No shops near 11211', sel: '[data-empty="shop"]' } },
+  { key: 'c-tailors--nothing-open', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — nothing open',
+    note: 'Need-by Thu Oct 15: before the first opening',
+    setup: (S) => { S.T.setJob({ needBy: '2026-10-15' }); },
+    expect: { has: 'Nothing open before Thu, Oct 15', sel: '[data-empty="nothing-open"]' } },
+  { key: 'c-tailors--declined', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — declined',
+    note: 'Amara declined this job; her row is dimmed',
+    setup: (S) => { S.driveTo('declined'); },
+    expect: { has: ['Declined this job', 'Your job details are saved', 'Start a different job'], not: ['Est.', 'Next opening'], sel: '.tailor-row--declined' } },
+  { key: 'c-tailors--sort', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — sort sheet',
+    note: 'Sort by: four options',
+    click: ['[data-act="sort"]'],
+    expect: { has: ['Sort by', 'Recommended', 'Lowest price', 'Nearest', 'Soonest opening'] } },
+];
+export const FLOWS_c_tailor = [
+  { key: 'c-tailor', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile',
+    note: 'Amara, shop + home, 4 reviews',
+    expect: { has: ['Amara Reyes', 'Reyes Tailoring', 'Ask a question', 'Your estimate', `Est. ${fmt(SCENARIOS.seed.total)}`, '312 Metropolitan Ave', 'Taily courier', 'Priya S.', '4 of 5'] } },
+  { key: 'c-tailor--no-reviews', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — no reviews',
+    note: 'New on Taily',
+    setup: (S) => { S.T.setTailorSection('profile', { reviews: [], rating: { avg: 0, count: 0 } }); },
+    expect: { has: ['No reviews yet', 'New on Taily'], not: 'Priya' } },
+  { key: 'c-tailor--home-only', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — home visits only',
+    note: 'No shop address block',
+    setup: (S) => { S.T.setTailorSection('where', { shop: { enabled: false } }); },
+    expect: { has: 'Comes to you in', not: '312 Metropolitan Ave' } },
+  { key: 'c-tailor--shop-only', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — shop only',
+    note: 'Job at the shop; no home block, no home-visit fee',
+    setup: (S) => { S.T.setTailorSection('where', { home: { enabled: false } }); S.T.setJob({ visitType: 'shop' }); },
+    expect: { has: ['312 Metropolitan Ave', `Est. ${fmt(SCENARIOS.shop.total)}`], not: 'Home-visit fee' } },
+  { key: 'c-tailor--declined', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — declined',
+    note: 'Amara can’t take this job; the way forward is a different job',
+    setup: (S) => { S.driveTo('declined'); },
+    expect: { has: ['Amara can’t take this job', 'Start a different job'], not: ['Ask a question', 'Pick a time'], sel: '[data-act="new-job"]' } },
+];
+export const FLOWS_c_book = [
+  { key: 'c-book', screen: 'c-book', group: 'M1 · Booking', title: 'Pick a time', note: 'Scheduler on Amara’s open times; first slot Thu, Oct 15',
+    expect: { has: ['Pick a time', 'Thu, Oct 15', '60-minute visit', 'Continue', '5 of 5'], sel: '[data-scheduler] [role="listbox"][aria-label="AM/PM"][aria-activedescendant] [role="option"][aria-selected="true"]' } },
+  { key: 'c-book--no-slots', screen: 'c-book', group: 'M1 · Booking', title: 'Pick a time — nothing before the need-by', note: 'Need-by Thu, Oct 15: no visit a day earlier is open',
+    setup: (S) => { S.T.setJob({ needBy: '2026-10-15' }); },
+    expect: { has: ['No open times before Thu, Oct 15', 'Change need-by date', 'Message Amara'], sel: '[data-empty="no-slots"]' } },
+];
+export const FLOWS_c_pay = [
+  { key: 'c-pay', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request', note: 'Seed job: the deposit is held, not charged',
+    expect: { has: ['Review and send request', fmtExact(SCENARIOS.seed.services), fmtExact(SCENARIOS.seed.homeFee), fmtExact(SCENARIOS.seed.total), 'Held today', `Hold ${fmtExact(SCENARIOS.seed.deposit)} and send request`, 'Visa •••• 4242', 'released in full'] } },
+  { key: 'c-pay--rush', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — rush', note: 'Need-by Fri, Oct 16: a rush fee row, same deposit',
+    setup: (S) => { S.T.setJob({ needBy: '2026-10-16' }); },
+    expect: { has: ['Rush fee', fmtExact(SCENARIOS.rush.rush), fmtExact(SCENARIOS.rush.total), `Hold ${fmtExact(SCENARIOS.rush.deposit)}`] } },
+  { key: 'c-pay--shop', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — at the shop', note: 'No home-visit fee',
+    setup: (S) => { S.T.setJob({ visitType: 'shop' }); },
+    expect: { has: ['At the shop', 'Tue, Oct 13 · 1:00 PM', fmtExact(SCENARIOS.shop.total), `Hold ${fmtExact(SCENARIOS.shop.deposit)}`, 'This visit is less than', `the ${fmtExact(SCENARIOS.shop.deposit)} deposit is kept`], not: ['Home-visit fee', 'Free cancellation'] } },
+  { key: 'c-pay--method', screen: 'c-pay', group: 'M1 · Booking', title: 'Pay with — sheet', note: 'Saved card, Apple Pay, add a card',
+    click: ['[data-act="change-method"]'],
+    expect: { has: ['Pay with', 'Visa •••• 4242', 'Apple Pay', 'Add a card'] } },
+  { key: 'c-pay--add-card', screen: 'c-pay', group: 'M1 · Booking', title: 'Add a card — sheet', note: 'Card number, expiry, security code, ZIP',
+    click: ['[data-act="change-method"]', '[data-act="add-card"]'],
+    expect: { has: ['Add a card', 'Card number', 'Expiry', 'Security code', 'Save card'] } },
+  { key: 'c-pay--declined', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — card declined', note: 'Pay with a declining card: nothing is held, the card stays selected',
+    setup: (S) => { S.sim.card = 'declined'; },
+    click: ['[data-act="pay"]'],
+    expect: { has: ['Your card was declined', 'nothing was held'], sel: '.banner--error' } },
+  { key: 'c-pay--3ds', screen: 'c-pay', group: 'M1 · Booking', title: 'Confirm with your bank — sheet', note: 'Pay with a card that asks for 3-D Secure',
+    setup: (S) => { S.sim.card = '3ds'; },
+    click: ['[data-act="pay"]'],
+    expect: { has: ['Confirm with your bank', `Hold ${fmtExact(SCENARIOS.seed.deposit)}`] } },
+  { key: 'c-pay--processing', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — sending', note: 'Latency held: Pay is busy, the form is locked',
+    setup: (S) => { S.sim.latency = 'hold'; },
+    click: ['[data-act="pay"]'],
+    expect: { has: 'Sending request', sel: '[data-act="pay"][aria-busy="true"]' } },
+];
+export const FLOWS_c_request = [
+  { key: 'c-request', screen: 'c-request', group: 'M1 · Booking', title: 'Request sent', note: 'Waiting for Amara: 2 hours on the clock, deposit on hold',
+    setup: (S) => { S.driveTo('requested'); },
+    expect: { has: ['Request sent', 'Waiting for Amara', '2h left', 'Reply by 12:00 PM', 'On hold', fmtExact(SCENARIOS.seed.deposit), 'Message Amara'] } },
+  { key: 'c-request--withdraw', screen: 'c-request', group: 'M1 · Booking', title: 'Withdraw this request? — sheet', note: 'Releases the hold right away',
+    setup: (S) => { S.driveTo('requested'); },
+    click: ['[data-act="withdraw"]'],
+    expect: { has: ['Withdraw this request?', `The ${fmtExact(SCENARIOS.seed.deposit)} hold is released`] } },
+];
+export const FLOWS_c_thread = [
+  { key: 'c-thread--new', screen: 'c-thread', group: 'M1 · Booking', title: 'Ask a question', note: 'No messages yet: suggestions and composer',
+    expect: { has: ['Ask Amara a question', 'Phone numbers and emails stay private on Taily.'], sel: '.composer' } },
+];

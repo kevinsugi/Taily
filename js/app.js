@@ -8,7 +8,7 @@
 
 import { state } from './state.js';
 import { toast, closeOverlay } from './components.js';
-import { ALL_FLOWS } from './flows.js';
+import { ALL_FLOWS, setBootLatency, primaryFlow } from './flows.js';
 import { initFlowMenu, runFlow } from './flow-menu.js';
 
 /* Screens are loaded dynamically in boot() — a static import here would run
@@ -18,6 +18,9 @@ const SCREEN_MODULES = [
   /* M0 · System */
   'sys-index', 'sys-components',
   /* M1 · Customer booking */
+  'c-welcome', 'c-phone', 'c-code', 'c-name', 'c-thread',
+  'c-job', 'c-where', 'c-tailors', 'c-tailor',
+  'c-book', 'c-pay', 'c-request',
   /* M2 · Tailor onboarding + Shop */
   /* M3 · Request loop */
   /* M4 · Fitting to completion */
@@ -60,6 +63,17 @@ const history = [];
 
 const mount = () => document.getElementById('screen');
 
+/* Every render hands wire() a FRESH #screen node (same id, attributes, position). The element used to persist, so a
+   screen's `root.addEventListener('click', …)` stacked a listener per render and a same-id go() doubled every handler
+   (M1 integration). Replacing the node drops them all; nothing else holds a reference across renders. */
+function freshMount() {
+  const old = mount();
+  if (!old) return null;
+  const el = old.cloneNode(false);
+  old.replaceWith(el);
+  return el;
+}
+
 /** Register a screen module. Called by js/screens/<id>.js. */
 export function register(id, render, wire) {
   if (typeof render !== 'function') {
@@ -101,7 +115,7 @@ function syncHistory(id, replace) {
  */
 export function render(id, opts = {}) {
   const entry = screens.get(id);
-  const el = mount();
+  let el = mount();
   if (!el) throw new Error('render(): #screen is missing from index.html');
 
   if (!entry) {
@@ -118,6 +132,7 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
      it NOW so the page unfreezes and the next popstate steps back
      instead of running a stale close. */
   closeOverlay({ instant: true });
+  el = freshMount();
   const prevPersona = state.persona;
   syncPersona(id);
   /* a toast raised by one persona does not survive the flip */
@@ -233,15 +248,16 @@ function revealOnFirstInput() {
 
 /**
  * Boot. `?flow=<key>` runs that Test-flows entry; else `?screen=<id>`
- * renders that screen; else sys-index. `?test=1` makes the demo
+ * renders that screen in its PRIMARY state (primaryFlow: its ◆ entry's setup, so it never opens on an empty model);
+ * a screen with no entry renders on the seed; else sys-index. `?test=1` makes the demo
  * deterministic (instant latency, no transitions or caret).
  */
 async function boot() {
   const params = new URLSearchParams(location.search);
   if (params.get('test')) {
     document.documentElement.classList.add('is-test');
-    state.sim.latency = 'instant';
   }
+  setBootLatency(params.get('test') ? 'instant' : 'normal');
   await Promise.all(SCREEN_MODULES.map((m) => import(`./screens/${m}.js`)));
   wireDragScroll();
   wireTopNav();
@@ -253,7 +269,10 @@ async function boot() {
   initFlowMenu(render, { home: personaHome });
   const flow = params.get('flow');
   if (flow && !params.get('screen') && runFlow(flow)) return;
-  render(params.get('screen') || 'sys-index');
+  const screen = params.get('screen');
+  const primary = screen && primaryFlow(screen);
+  if (primary && runFlow(primary.key, { keepUrl: true })) return;
+  render(screen || 'sys-index');
 }
 
 /* Handy at the console, and the harness's entry point. `ready` resolves when boot() has painted. */

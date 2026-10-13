@@ -40,13 +40,26 @@ export const ALL_FLOWS = [M0, M1, M2, M3, M4, M5, M6]
 
 export const findFlow = (key) => ALL_FLOWS.find((f) => f.key === key) ?? null;
 
+/** A screen's PRIMARY state (the ◆ entry): the flow keyed exactly by the screen id, else the screen's first entry.
+    A cold `?screen=<id>` boots into it (app.js) so no screen ever opens on an empty model. */
+export const primaryFlow = (screenId) => ALL_FLOWS.find((f) => f.key === screenId) ?? ALL_FLOWS.find((f) => f.screen === screenId) ?? null;
+
 /** The persona a screen id belongs to; `sys-` screens keep the current one. */
 export const personaForScreen = (id) => (id.startsWith('c-') ? 'customer' : /^(t|to)-/.test(id) ? 'tailor' : null);
 
-/** Back to the app's boot state: the seed, no screen-local UI flags, customer persona. */
+/** The latency the app booted with (instant under ?test=1, else normal). resetDemo restores it, so a flow that
+    set `sim.latency = 'hold'` for a loading / busy state never leaks into the next one (D-35). */
+let bootLatency = 'normal';
+export function setBootLatency(v) {
+  bootLatency = v;
+  state.sim.latency = v;
+}
+
+/** Back to the app's boot state: the seed, no screen-local UI flags, the boot latency, customer persona. */
 export function resetDemo() {
   reset();
   state.ui = {};
+  state.sim.latency = bootLatency;
 }
 
 /** The toolkit every setup composes. Getters, so a `driveTo` inside a setup (which resets) is seen by later reads. */

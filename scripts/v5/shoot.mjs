@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 const [out, ...ids] = process.argv.slice(2);
-const PORT = 4190;
+const PORT = Number(process.env.SHOOT_PORT) || 4200 + Math.floor(Math.random() * 700); // random: concurrent shooters never share a server
 const srv = spawn(process.execPath, ['scripts/serve.mjs'], { env: { ...process.env, PORT: String(PORT) }, stdio: 'ignore' });
 await new Promise((r) => setTimeout(r, 600));
 const b = await chromium.launch();

@@ -55,17 +55,25 @@ const { check } = R;
 /* what an open page shows: #screen + overlays outside it, one line */
 const landing = () => page.evaluate(({ OVERLAY_SEL }) => {
   const screen = document.getElementById('screen');
-  const overlays = [...document.querySelectorAll(OVERLAY_SEL)]
-    .filter((o) => !screen.contains(o) && !o.closest('.stage-caption, #flow-menu') && !o.hidden && o.getClientRects().length);
+  /* sheetOverlay / modalOverlay mount INSIDE #screen (their text is already in screen.innerText); count them,
+     and add only the ones outside #screen to the text */
+  const open = [...document.querySelectorAll(OVERLAY_SEL)]
+    .filter((o) => !o.closest('.stage-caption, #flow-menu, .is-closing') && !o.hidden && o.getClientRects().length);
+  const overlays = open.filter((o) => !screen.contains(o));
   return {
     screen: screen?.dataset.screen ?? null,
     persona: document.documentElement.dataset.persona ?? null,
     text: [screen?.innerText ?? '', ...overlays.map((o) => o.innerText)].join('\n'),
-    overlays: overlays.length,
+    overlays: open.length,
     missing: !!document.querySelector('.screen-missing'),
     url: new URL(location.href).searchParams.get('flow'),
   };
 }, { OVERLAY_SEL });
+
+/* inventory kinds: only a state marked `overlay` must open one (a `click` can also press an inline control) */
+const OVERLAY_KEYS = new Set(await page.evaluate(async () => {
+  try { const m = await import('/js/inventory.js'); return m.SCREENS.flatMap((s) => s.states.filter((st) => st.kind === 'overlay').map((st) => st.key)); } catch { return []; }
+}));
 
 const lints = () => page.evaluate(({ OVERLAY_SEL, MIN }) => {
   const screen = document.getElementById('screen');
@@ -151,7 +159,7 @@ for (const f of all.filter((e) => matches(e.key))) {
     for (const s of arr(exp.not)) if (text.includes(norm(s))) problems.push(`should not show "${s}"`);
     if (exp.sel && !(await page.evaluate((q) => { const el = document.querySelector(q); return !!el && el.getClientRects().length > 0; }, exp.sel))) problems.push(`no visible ${exp.sel}`);
   }
-  if (f.click.length && !r.overlays) problems.push('click set but no overlay open');
+  if (f.click.length && OVERLAY_KEYS.has(f.key) && !r.overlays) problems.push('click set but no overlay open');
   if (r.url !== f.key) problems.push(`?flow=${r.url}`);
   if (h.errors.length) problems.push(`console: ${h.errors.slice(0, 2).join(' | ')}`);
   if (h.warnings.length) problems.push(h.warnings.join(' | '));

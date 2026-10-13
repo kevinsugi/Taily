@@ -119,7 +119,7 @@ function close({ focusTrigger = false } = {}) {
  * fresh history, then press the entry's `click` selectors (overlays).
  * Returns true when the key exists.
  */
-export function runFlow(key) {
+export function runFlow(key, { keepUrl = false } = {}) {
   if (!render || !findFlow(key)) return false;
   document.querySelectorAll('.toast').forEach((t) => t.remove());
   const entry = prepareFlow(key);
@@ -131,11 +131,13 @@ export function runFlow(key) {
     el.click();
   }
   lastKey = key;
-  /* ?flow=<key> makes the state bookmarkable / shareable */
-  const url = new URL(location.href);
-  url.searchParams.delete('screen');
-  url.searchParams.set('flow', key);
-  history.replaceState(history.state, '', url);
+  /* ?flow=<key> makes the state bookmarkable / shareable (a cold ?screen= boot keeps its own link) */
+  if (!keepUrl) {
+    const url = new URL(location.href);
+    url.searchParams.delete('screen');
+    url.searchParams.set('flow', key);
+    history.replaceState(history.state, '', url);
+  }
   paintLabels();
   return true;
 }

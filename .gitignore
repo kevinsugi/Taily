@@ -18,3 +18,4 @@ diff/
 # any env file, wherever it is named
 *.env
 .env
+.shots/

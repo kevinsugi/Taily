@@ -9,7 +9,9 @@ Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.m
 
 | path | what | writer |
 |---|---|---|
-| `js/money-config.js` | `MONEY` rates + `POLICY` timers — the ONLY place rates / windows live | spec-approved edits only |
+| `js/money-config.js` | `MONEY` rates + `POLICY` timers (incl. `CODE_TTL_MIN` 10, `CODE_RESEND_S` 30) — the ONLY place rates / windows live | spec-approved edits only |
+| `js/sim.js` | `withLatency(done) → cancel()` — every simulated network wait: `state.sim.latency` instant → sync, normal → `LATENCY_MS` 700, hold → never (D-35). Set the busy flag first | component builder |
+| `js/account.js` | DOM-free sign-in model (D-33): `phoneDigits formatPhone validatePhone signOut sendCode codeStatus resendCode verifyCode saveName signInWith addCard useOtherMethod` | component builder |
 | `js/money.js` | money fns, integer cents in/out, `fmt / fmtExact / fmtNeg` | model |
 | `js/dates.js` | ISO date helpers + formatters | model |
 | `js/data.js` | catalog (`GARMENT_TYPES`, `GARMENT_ICONS`, `SERVICES`), seed (`TAILORS` = Amara, `CUSTOMER` = Sarah, `SEED_JOB`, `BLANK_TAILOR`), `DEMO_NOW`, `ZIP_INFO`, labels | model |
@@ -21,12 +23,19 @@ Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.m
 | `js/fixtures/m#.js` | that milestone's `FLOWS_<screen_id>` arrays (one per screen, pre-scaffolded) | each builder: own array only |
 | `js/fixtures/common.js` | `driveTo(target, opts)` | model |
 | `js/fixtures/money-scenarios.js` · `scripts/v5/money.mjs` | `SCENARIOS` (seed, rush, shop, courier, priceAdded, priceRemoved, lateCancel, earlyCancel, noShow) computed from `estimate()` / `quote()` on the seed; fixture `expect`s import the first, Node scripts the second. Never type a dollar amount | model |
-| `js/flows.js` · `js/flow-menu.js` | Test-flows registry + menu | integrator |
+| `js/flows.js` · `js/flow-menu.js` | Test-flows registry + menu; `setBootLatency(v)` (app.js boot) — `resetDemo()` restores `sim.latency` to it, so a `'hold'` flow never leaks (D-35) | integrator |
 | `js/app.js` | router, `SCREEN_MODULES`, persona gate | integrator |
 | `js/inventory.js` | `MILESTONES`, `BUILT`, `SCREENS` (mirror of SCREENS.md; generated: `node scripts/v5/lib/gen-inventory.mjs`) | integrator |
 | `index.html` | CSS links | integrator |
 | `scripts/v5/*.mjs` | `check` → model test → flows (+ journeys) → visual → hygiene | integrator |
 | `ref/v5/<flow-key>.png` | self-baselines | integrator (`--accept-new` / `--accept`) |
+
+## Cold links
+
+`?screen=<id>` boots that screen in its PRIMARY state: `primaryFlow(id)` (`js/flows.js`) = the FLOWS entry keyed exactly `<id>`
+(the ◆ entry), else the screen's first entry; `app.js` runs its `setup` (and `click`s) through `runFlow(key, { keepUrl: true })`, so the
+link stays `?screen=`. A screen with no entry renders on the seed. Consequence for every milestone: each screen's FIRST / ◆ entry must be its
+meaningful default state (`?screen=c-request` shows the request, not "No open requests"). `?flow=<key>` is unchanged.
 
 ## Rules
 
@@ -44,6 +53,8 @@ Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.m
   register(ID, view, wire);
   ```
   `view` is pure (reads `state`, returns HTML); `wire` attaches listeners and calls transitions, then `go(nextId)`.
+  `render()` gives `wire` a fresh `#screen` node every time (D-47), so `root.addEventListener` is safe and never stacks. A
+  timer or async callback started in `wire` must re-render with `go()`, not hold `root` across renders.
   Screens never import another screen, never call `Date.now()` (use `now()`), never hard-code money.
 - **Money**: dollar amounts only, never percentages, in every rendered string (lint fails on `%` in `[data-money]`
   or near fee/deposit/payout copy). Amounts come from `js/money.js` on `appt.money` / `estimate()`; print with
@@ -98,15 +109,26 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   10:00 AM. Seed job: Suit Pant hem $25 + Suit Jacket sleeves $45 + sides $55 → services $125.00, home fee $35.00,
   total $160.00, deposit $16.00, balance $144.00, Taily fee −$12.50, payout $147.50.
 
+## Sign-in + sim (M1; `js/account.js`, `js/sim.js` — import as `import * as A from '../account.js'`)
+
+- `phoneDigits(raw)` 10 national digits · `formatPhone(raw)` `(718) 555-0142` (progressive) · `validatePhone(raw)` → `{ ok } | error 'phone-invalid'`
+  · `signOut()` · `sendCode(raw) → { ok, phone, isNew } | phone-invalid` (isNew = number ≠ Sarah's) · `codeStatus() → { phone, isNew,
+  msToResend, expired } | null` · `resendCode()` (`too-soon` | `no-code`) · `verifyCode(code)` (`no-code` `code-format` `code-expired`
+  `code-wrong` for `000000`; ok → `{ ok, isNew }`, existing signs in, new waits for `saveName`) · `saveName({ first, last })` →
+  `{ ok } | { ok: false, errors: { first: 'first-required', last: 'last-required' } }` · `signInWith('apple'|'google')` ·
+  `addCard({ number, exp, cvc, zip })` → `{ ok, card } | { ok: false, errors: { number: 'card-number', exp: 'card-exp', cvc:
+  'card-cvc', zip: 'card-zip' } }` (also clears `sim.card` 'declined', D-40) · `useOtherMethod()`.
+- `withLatency(done) → cancel()` — `'instant'` runs `done` synchronously, `'normal'` after `LATENCY_MS` (700), `'hold'` never.
+
 ## Components (M0; `js/components.js`, scheduler in `js/scheduler.js`) — every fn returns an HTML string
 
 Signatures (options all optional unless shown). Shell: `statusBar(time)` `topNav(active, items)` `chrome(active, { persona, time })`
-`headingRow(innerHtml)` `backButton()` `esc(v)`. Buttons/links: `cta(label, { variant: default|secondary, disabled, attrs })`
+`headingRow(innerHtml)` `backButton()` `esc(v)`. Buttons/links: `cta(label, { variant: default|secondary, disabled, busy, busyLabel, attrs })` (disabled → `disabled aria-disabled="true"`; busy = spinner + busyLabel, `aria-busy`, disabled)
 `ctaSmall(label, { attrs })` `linkRow(label, { attrs })` `timeChip(label, { selected, attrs })` `selectTime(label, { attrs })`
-`filterPill(caption, value, { open, options, attrs, error })` `statusPill(status, label)`. Tiles/cards: `garmentTile(type, { qty, attrs })`
+`filterPill(caption, value, { open, options, attrs, error, edit })` (`edit` = pencil glyph, for a pill that opens another screen) `statusPill(status, label)`. Tiles/cards: `garmentTile(type, { qty, attrs })`
 `photoTile(kind: add|photo, { removable })` `selector(type, value, options, { attrs, chevron })` `summaryCard({ initials, name, rows,
 verified, badges, tag, user, attrs })` `visitBlock(rows, { title })` `trustBadges(list, { wide, user })` `trustCard(p, { popup })`
-`infoCard(rowsHtml, { heading })` `infoRow(label, value, { small, total })` `metaRow(glyph, text)` `methodRow(label, icon)`
+`infoCard(rowsHtml, { heading })` `infoRow(label, value, { small, total })` `metaRow(glyph, text, { icon: shop|home|bag|truck })` `methodRow(label, icon)`
 `timeline(steps)` `progressBar(stage)` `statusHero({ variant, pill, pillLabel, title, titleLine2, body, rowLabel, rowValue, extra })`
 `feeRow(price, desc, { line, info, muted, caption })`. People: `avatar({ initials, photo, size })`
 `tailorRow({ id, name, initials, photo, verified, rating, distanceMi, quote, nextOpening, visitType, declined })`
@@ -116,14 +138,14 @@ verified, badges, tag, user, attrs })` `visitBlock(rows, { title })` `trustBadge
 `composer({ value, disabled, placeholder })`. Forms: `field({ id, label, value, type, inputmode, autocomplete, placeholder, helper,
 error, prefix, suffix, maxlength, disabled, attrs })` `codeInput({ id, length, value, error, label })` `toggle({ id, label, checked,
 disabled, helper })` `checkRow({ id, label, checked, caption, error, attrs })` `chipGroup({ name, label, options, value, multi, variant:
-chips|segmented, error })` `stepper({ steps, current, done })` `listRow({ title, sub, right, act, chevron })`. States: `skeleton({ kind,
+chips|segmented, error })` `stepper({ steps, current, done, variant: default|compact })` `bookingSteps(current)` (`BOOKING_STEPS`, 0-based; the compact 5-segment "n of 5" row, first in `.body` on the booking path) `actionBar({ ctaLabel, ctaAct, disabled, busy, busyLabel, lead, note, secondaryLabel, secondaryAct })` (sticky bottom bar — a SIBLING of `main.body` inside `#screen`, body gets `.body--with-bar`; `lead` = HTML with a `data-money` amount; `note` is `aria-describedby` of a disabled CTA; CTA is `[data-act=ctaAct]`) `optionRow({ name, value, title, sub, checked, lead, act })` (single-select `role=radio` row for sheets; wrap rows in `role="radiogroup"`; emits `data-act=act data-name data-value`) `listRow({ title, sub, right, act, chevron, lead })`. States: `skeleton({ kind,
 count })` `emptyState({ title, body, ctaLabel, ctaAct, secondaryLabel, secondaryAct })` `banner({ tone, title, text, actionLabel,
 actionAct, dismissible })` `toast(msg, { tone })`. Money (print dollars only, `data-money`): `moneyRows([{ label, cents, caption,
 status, kind: default|negative|subtotal|total|muted|changed }])` `customerBreakdown(q, { stage: estimate|booked|ready|paid, tailorFirst,
-depositState })` — pass `depositState: appt.payments.deposit.state` so a pending request reads "On hold", not "Paid" —
+depositState })` — pass `depositState: appt.payments.deposit.state` so a pending request reads "On hold", not "Paid" (`'to-hold'` → "Held today", c-pay before the request is sent, D-38) —
 `tailorBreakdown(q)`. Overlays: `sheet(html, { open, header, grabber, variant })` `sheetOverlay(html, { header, variant, dataS }, wireFn)`
-`modalOverlay(html, { dataS, instant }, wireFn)` `closeOverlay({ instant })` `overlayOpen()`. Wheel: `wheel(columns)` `wheelScroll(columns)`
-`wireWheel(root, onChange, rowH)`; scheduler.js: `scheduler({ title, sub, columns, note, cta, ctaAct, inline })` `slotColumns(slots,
+`modalOverlay(html, { dataS, instant }, wireFn)` `closeOverlay({ instant })` `overlayOpen()`. Wheel (columns are keyboard listboxes, `{ width, rows, sel, label }`): `wheel(columns)` `wheelScroll(columns)` `wheelCol` `wheelRows` `markWheelRow(col, idx)`
+`wireWheel(root, onChange, rowH)`; scheduler.js: `scheduler({ title, sub, columns, note, cta, ctaAct, inline, compact })` (`cta: ''` = no inline button; `compact` = 3-row wheel) `slotColumns(slots,
 selectedIso)` `readSlot(root, slots)` `readScheduler` `timeColumns` `readTime`.
 Wiring (call from a screen's `wire`): `wireStars(root)` `wireToggles(root)` (emits `toggle` { id, checked }) `wireChipGroups(root)` (emits
 `chip` { name, value, values }) `wireComposer(root, onSend)` `wireSheetA11y(root, dismiss)`.

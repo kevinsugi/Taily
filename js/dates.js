@@ -6,7 +6,7 @@
    ============================================================ */
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const pad = (n) => String(n).padStart(2, '0');
 const MS_DAY = 86400000;
 
@@ -41,16 +41,19 @@ export const fmtWhen = (iso) => { const d = toDate(iso); return `${DOW[d.getDay(
 export const fmtDay = (iso) => { const d = toDate(iso); return `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}`; };
 /** "5:00 PM" */
 export const fmtTime = (iso) => clock(toDate(iso));
+/** Keep a formatted date / time together on one line (R1-1-C-06): non-breaking spaces inside each part, normal ones around the " · ". */
+export const nb = (s) => String(s).split(' · ').map((p) => p.replace(/ /g, '\u00A0')).join(' · ');
 /** "Oct 15" */
 export const fmtShort = (iso) => { const d = toDate(iso); return `${MON[d.getMonth()]} ${d.getDate()}`; };
 /** "10/15/26" */
 export const fmtMdy = (iso) => { const d = toDate(iso); return `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`; };
-/** "2h 0m" / "52m" / "Expired" */
+/** "2h" / "2h 5m" / "52m" / "Expired" — a zero minutes part is dropped */
 export function fmtCountdown(ms) {
   if (ms <= 0) return 'Expired';
   const total = Math.ceil(ms / 60000);
   const h = Math.floor(total / 60);
-  return h > 0 ? `${h}h ${total % 60}m` : `${total}m`;
+  const m = total % 60;
+  return h > 0 ? (m ? `${h}h ${m}m` : `${h}h`) : `${total}m`;
 }
 /** Scheduler labels: "Oct 15" / "Thu, Oct 15". */
 export const dayStamp = (d) => fmtShort(d);

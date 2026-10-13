@@ -20,4 +20,6 @@ export const POLICY = Object.freeze({
   EXPIRING_SOON_MIN: 15,    // countdown turns to the warning state
   NO_SHOW_WAIT_MIN: 15,     // tailor can mark a no-show this long after the start
   MIN_LEAD_H: 3,            // earliest bookable slot from now (D-17)
+  CODE_TTL_MIN: 10,         // a sign-in SMS code works for 10 min, then it expires (D-33)
+  CODE_RESEND_S: 30,        // "Resend code" unlocks 30 s after the last send (D-33)
 });

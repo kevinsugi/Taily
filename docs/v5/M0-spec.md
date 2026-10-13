@@ -100,10 +100,10 @@ Every function returns **integer cents**; only `fmt*` return strings. Round half
 ### A4. `js/dates.js` — ISO date helpers (D-09)
 
 Visit times are local ISO strings `'2026-10-15T17:00'`; need-by is `'2026-10-23'`. Month names keep the v4 table
-(`Sept`). Exports: `toDate(iso)`, `isoMinute(date)`, `isoDay(date)`, `addDays(d, n)`, `addMinutes(d, n)`, `strip(d)`,
+(`Sep`). Exports: `toDate(iso)`, `isoMinute(date)`, `isoDay(date)`, `addDays(d, n)`, `addMinutes(d, n)`, `strip(d)`,
 `dayDiff(a, b)` (calendar days), `weekdayKey(d)` (`'mon'…'sun'`), `minutesOf('17:30')`, `fmtWhen(iso)` →
 "Thu, Oct 15 · 5:00 PM", `fmtDay(iso)` → "Thu, Oct 15", `fmtTime(iso)` → "5:00 PM", `fmtShort(iso)` → "Oct 15",
-`fmtMdy(iso)` → "10/15/26", `fmtCountdown(ms)` → "2h 0m" / "52m" / "Expired", `dayStamp / dayLabel` (scheduler).
+`fmtMdy(iso)` → "10/15/26", `fmtCountdown(ms)` → "2h" / "2h 5m" / "52m" / "Expired", `dayStamp / dayLabel` (scheduler).
 **Nothing calls `Date.now()` or `new Date()` without an argument** except `state.js`'s clock init — screens read
 `now()` from `state.js`.
 

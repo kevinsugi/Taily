@@ -88,7 +88,7 @@
 .pill--requested,
 .pill--new-request {
   background: var(--warning-bg);
-  color: var(--warning);
+  color: var(--warning-ink);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 35%, transparent);
 }
 .pill--confirmed {
@@ -334,39 +334,29 @@
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
-.garment-tile__zone {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 25%;
-  padding-block: var(--space-4);
-  color: var(--neutral-700);
-  flex-shrink: 0;
-}
-.garment-tile__chevron { width: 22px; height: 5px; overflow: visible; display: block; }
-.garment-tile__zone--add .garment-tile__chevron { transform: rotate(180deg); }
 .garment-tile__icons {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: var(--space-4);
+  height: 40px;
+  overflow: hidden;
   min-height: 0;
 }
 .garment-tile__icon { position: relative; display: block; overflow: hidden; flex-shrink: 0; }
 .garment-tile__icon img { position: absolute; max-width: none; }
-/* one item: a 56x44 icon, the art covering it */
-.garment-tile--one .garment-tile__icon { width: 56px; height: 44px; }
+/* one item: a 52x40 icon, the art covering it (R1-1-C-04: the icon band is 40 px, clipped, so nothing paints over the label) */
+.garment-tile--one .garment-tile__icon { width: 52px; height: 40px; }
 .garment-tile--one .garment-tile__icon img { inset: 0; width: 100%; height: 100%; object-fit: cover; }
 /* 2–3 items: a row of 30x40 icons, the art zoomed 127% and shifted as
    the master's fill (left −36.87%, top −13.64%, 169.7% wide) */
 .garment-tile--row .garment-tile__icon { width: 30px; height: 40px; }
 .garment-tile--row .garment-tile__icon img,
 .garment-tile--grid .garment-tile__icon img { left: -36.87%; top: -13.64%; width: 169.7%; height: 127.27%; }
-/* 4–6 items: two rows of three 25x33 icons */
-.garment-tile--grid .garment-tile__icons { width: 83px; }
-.garment-tile--grid .garment-tile__icon { width: 25px; height: 33px; }
+/* 4+ items: a fixed 2x3 grid of 15x19 icons inside the 40 px band (six icons at most; the label keeps counting) */
+.garment-tile--grid .garment-tile__icons { width: 53px; margin-inline: auto; row-gap: 2px; column-gap: 4px; }
+.garment-tile--grid .garment-tile__icon { width: 15px; height: 19px; }
 /* the master draws Selected_One's label neutral-700, the multi states' ink (raised) */
 .garment-tile--one .garment-tile__label { color: var(--neutral-700); }
 .garment-tile--selected .garment-tile__label { transform: none; }
@@ -548,7 +538,7 @@
   font-size: var(--size-16);
   line-height: 21px;
   font-weight: 500;
-  color: var(--neutral-500);
+  color: var(--neutral-600);   /* R1-1-C-09: 6.4:1 on neutral-50 (neutral-500 was 3.75:1) */
   margin: 0;
   width: 100%;
 }
@@ -1664,7 +1654,7 @@
 button.scheduler__sub { cursor: pointer; }
 .scheduler__title { font-family: var(--font-serif); font-size: var(--size-24); line-height: 29px; font-weight: 600; color: var(--ink); }
 .wheel--sched { height: 180px; width: 100%; }
-.wheel--sched .wheel__band { top: 70px; right: calc(-1 * var(--space-20)); border-radius: 10px 0 0 10px; background: var(--neutral-50); }
+.wheel--sched .wheel__band { top: 70px; border-radius: var(--radius-md); background: var(--neutral-50); }   /* R1-1-C-14: inset equally on both sides (was flush to the card's right edge) */
 .wheel--sched .wheel__col--scroll { height: 180px; }
 .wheel--sched .wheel__col--scroll .wheel__row { flex: 0 0 36px; height: 36px; color: var(--neutral-500); }
 .wheel--sched .wheel__col--scroll .wheel__row--edge { color: var(--neutral-300); }
@@ -1683,7 +1673,10 @@ button.scheduler__sub { cursor: pointer; }
   text-align: center;
   color: var(--ink);
 }
-.scheduler__note[hidden] { display: none; }
+.scheduler { position: relative; }
+/* R1-2-C-01: the note is an aria-live region — an empty note leaves the layout (absolute, 1px, clipped)
+   but stays in the accessibility tree, so the rush fee is announced when it appears */
+.scheduler__note[hidden] { display: block; position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .scheduler__cta {
   display: flex;
   align-items: center;

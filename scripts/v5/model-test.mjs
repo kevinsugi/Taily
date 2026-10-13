@@ -11,6 +11,8 @@ import * as TD from '../../js/tailor-data.js';
 import { driveTo, TARGETS } from '../../js/fixtures/common.js';
 import { SCENARIOS, SEED_SLOT } from './money.mjs';
 import * as C from '../../js/components.js';
+import * as A from '../../js/account.js';
+import { withLatency, LATENCY_MS } from '../../js/sim.js';
 
 const { state, T } = S;
 let pass = 0;
@@ -47,8 +49,8 @@ section('dates');
 eq(D.fmtWhen('2026-10-15T17:00'), 'Thu, Oct 15 · 5:00 PM', 'fmtWhen');
 eq([D.fmtDay('2026-10-23'), D.fmtTime('2026-10-15T09:30'), D.fmtShort('2026-10-15'), D.fmtMdy('2026-10-15'), D.fmtTime('2026-10-15T00:05'), D.fmtTime('2026-10-15T12:00')],
   ['Fri, Oct 23', '9:30 AM', 'Oct 15', '10/15/26', '12:05 AM', '12:00 PM'], 'fmtDay / fmtTime / fmtShort / fmtMdy');
-eq(D.fmtDay('2026-09-03'), 'Thu, Sept 3', 'September keeps the v4 "Sept" abbreviation');
-eq([D.fmtCountdown(2 * 3600000), D.fmtCountdown(52 * 60000), D.fmtCountdown(0), D.fmtCountdown(-5), D.fmtCountdown(61 * 60000)], ['2h 0m', '52m', 'Expired', 'Expired', '1h 1m'], 'fmtCountdown');
+eq(D.fmtDay('2026-09-03'), 'Thu, Sep 3', 'September is the three-letter "Sep"');
+eq([D.fmtCountdown(2 * 3600000), D.fmtCountdown(52 * 60000), D.fmtCountdown(0), D.fmtCountdown(-5), D.fmtCountdown(61 * 60000)], ['2h', '52m', 'Expired', 'Expired', '1h 1m'], 'fmtCountdown');
 eq([D.dayDiff('2026-10-15T17:00', '2026-10-16'), D.dayDiff('2026-10-15T23:59', '2026-10-15'), D.dayDiff('2026-10-31', '2026-11-02'), D.dayDiff('2026-03-07', '2026-03-09')], [1, 0, 2, 2], 'dayDiff counts calendar days (DST-safe)');
 eq([D.weekdayKey('2026-10-13'), D.weekdayKey('2026-10-18'), D.minutesOf('17:30'), D.isoMinute(D.addMinutes('2026-10-15T23:30', 60)), D.isoDay(D.addDays('2026-10-31', 1))],
   ['tue', 'sun', 1050, '2026-10-16T00:30', '2026-11-01'], 'weekdayKey / minutesOf / addMinutes / addDays');
@@ -694,7 +696,77 @@ section('components');
   eq(deposit({ stage: 'estimate' }), 'Due today', 'customerBreakdown: estimate deposit is "Due today"');
   eq(deposit({ stage: 'booked' }), 'Paid', 'customerBreakdown: booked stage without a deposit state reads "Paid"');
   eq(['authorized', 'captured', 'released', 'refunded', 'kept'].map((d) => deposit({ stage: 'booked', depositState: d })), ['On hold', 'Paid', 'Released', 'Refunded', 'Kept'], 'customerBreakdown: depositState drives the deposit word (a pending request is "On hold")');
+  eq(deposit({ stage: 'estimate', depositState: 'to-hold' }), 'Held today', 'customerBreakdown: to-hold reads "Held today" (D-38)');
   ok(!/%/.test(C.customerBreakdown(seedQ, { stage: 'booked', depositState: 'authorized' })), 'customerBreakdown: no percent sign');
+}
+
+/* ================= account (sign-in model, D-33) + sim + M1 components ================= */
+section('account + sim');
+{
+  S.reset();
+  eq([POLICY.CODE_TTL_MIN, POLICY.CODE_RESEND_S], [10, 30], 'POLICY: code TTL 10 min, resend 30 s');
+  eq([A.phoneDigits('+1 (718) 555-0142'), A.phoneDigits('718.555.0142'), A.phoneDigits('17185550142')], ['7185550142', '7185550142', '7185550142'], 'phoneDigits strips +1 and punctuation');
+  eq(['', '7', '718', '71855', '7185550', '7185550142'].map(A.formatPhone), ['', '(7', '(718', '(718) 55', '(718) 555-0', '(718) 555-0142'], 'formatPhone formats progressively');
+  eq([A.validatePhone('7185550142').ok, A.validatePhone('718555').error, A.validatePhone('0185550142').error, A.validatePhone('1185550142').error], [true, 'phone-invalid', 'phone-invalid', 'phone-invalid'], 'validatePhone: 10 digits, area code not 0/1');
+  A.signOut();
+  eq(state.session.customer, { signedIn: false, pending: null }, 'signOut clears the session');
+  guard(A.sendCode('718555'), 'phone-invalid', 'sendCode validates the number');
+  eq(A.codeStatus(), null, 'codeStatus is null without a code');
+  guard(A.verifyCode('123456'), 'no-code', 'verifyCode without a code');
+  eq(A.sendCode('(718) 555-0142').isNew, false, 'sendCode: Sarah is an existing account');
+  eq(A.codeStatus(), { phone: '(718) 555-0142', isNew: false, msToResend: POLICY.CODE_RESEND_S * 1000, expired: false }, 'codeStatus: resend countdown at 30 s');
+  guard(A.resendCode(), 'too-soon', 'resendCode too soon');
+  S.advanceClock(1);
+  eq([A.codeStatus().msToResend, A.resendCode().ok], [0, true], 'resend unlocks after 30 s');
+  guard(A.verifyCode('12345'), 'code-format', 'verifyCode: 5 digits');
+  guard(A.verifyCode('000000'), 'code-wrong', 'verifyCode: 000000 is the wrong code');
+  S.advanceClock(11);
+  eq(A.codeStatus().expired, true, 'a code expires after 10 min');
+  guard(A.verifyCode('123456'), 'code-expired', 'verifyCode: expired');
+  A.resendCode();
+  eq([A.verifyCode('123456'), state.session.customer.signedIn], [{ ok: true, isNew: false }, true], 'verifyCode: existing account signs in');
+  S.reset(); A.signOut();
+  eq(A.sendCode('(917) 555-0186').isNew, true, 'sendCode: another number is a new account');
+  eq([A.verifyCode('123456'), state.session.customer.signedIn], [{ ok: true, isNew: true }, false], 'verifyCode: a new account waits for the name');
+  eq(A.saveName({ first: ' ', last: '' }).errors, { first: 'first-required', last: 'last-required' }, 'saveName: both names required');
+  A.saveName({ first: 'Jo', last: 'Park' });
+  eq([state.customer.first, state.customer.last, state.customer.initials, state.customer.phone, state.session.customer.signedIn, state.customer.cards.length], ['Jo', 'Park', 'JP', '(917) 555-0186', true, 1], 'saveName: names the customer, keeps the seed card');
+  S.reset(); A.signOut();
+  eq([A.signInWith('apple').ok, state.session.customer.signedIn, A.signInWith('x').ok], [true, true, false], 'signInWith: apple / google only');
+  eq(A.addCard({ number: '4242', exp: '13/28', cvc: '1', zip: '1121' }).errors, { number: 'card-number', exp: 'card-exp', cvc: 'card-cvc', zip: 'card-zip' }, 'addCard: per-field errors');
+  eq(A.addCard({ number: '4000 0000 0000 0002', exp: '09/26', cvc: '123', zip: '11211' }).errors, { exp: 'card-exp' }, 'addCard: expiry before Oct 2026 is invalid');
+  state.sim.card = 'declined';
+  const added = A.addCard({ number: '5555 5555 5555 4444', exp: '10/26', cvc: '123', zip: '11211' });
+  eq([added.ok, added.card, state.customer.cards.length, state.sim.card], [true, { id: 'card-4444', brand: 'Mastercard', last4: '4444', exp: '10/26', default: false }, 2, 'ok'], 'addCard: saves the card and clears a decline');
+  state.sim.card = 'declined'; A.useOtherMethod();
+  eq(state.sim.card, 'ok', 'useOtherMethod clears a decline');
+  S.reset();
+  let ran = 0;
+  state.sim.latency = 'instant'; withLatency(() => { ran += 1; });
+  eq(ran, 1, 'withLatency: instant runs synchronously');
+  state.sim.latency = 'hold'; withLatency(() => { ran += 1; })();
+  eq([ran, LATENCY_MS], [1, 700], 'withLatency: hold never runs');
+  state.sim.latency = 'normal'; const cancel = withLatency(() => { ran += 1; }); cancel();
+  eq(ran, 1, 'withLatency: normal can be cancelled');
+  S.reset();
+}
+
+section('M1 components');
+{
+  const bar = C.bookingSteps(1);
+  ok(bar.includes('stepper--compact') && (bar.match(/stepper__seg--/g) ?? []).length === 5 && bar.includes('2 of 5') && (bar.match(/aria-current="step"/g) ?? []).length === 1, 'bookingSteps: 5 segments, "2 of 5", one aria-current');
+  eq(C.BOOKING_STEPS.length, 5, 'BOOKING_STEPS has 5 steps');
+  ok(/disabled aria-disabled="true"/.test(C.cta('X', { disabled: true })), 'cta: disabled emits disabled + aria-disabled');
+  const busy = C.cta('X', { busy: true, busyLabel: 'Working…' });
+  ok(busy.includes('aria-busy="true"') && busy.includes('disabled') && busy.includes('Working…') && busy.includes('cta__spinner'), 'cta: busy = spinner + busyLabel + aria-busy + disabled');
+  const off = C.actionBar({ ctaLabel: 'Next', ctaAct: 'next', disabled: true, note: 'Why not' });
+  ok(off.includes('aria-describedby="action-bar-note-next"') && off.includes('id="action-bar-note-next"') && off.includes('aria-disabled="true"'), 'actionBar: a disabled CTA is described by its note');
+  ok(!C.actionBar({ ctaLabel: 'Next', ctaAct: 'next', note: 'hi' }).includes('aria-describedby'), 'actionBar: no describedby when enabled');
+  const full = C.actionBar({ ctaLabel: 'Go', ctaAct: 'go', lead: 'Est. <b data-money>$1</b>', secondaryLabel: 'Other', secondaryAct: 'other' });
+  ok(full.includes('action-bar__lead') && full.includes('data-act="other"') && full.includes('cta--secondary'), 'actionBar: lead + secondary');
+  const opt = C.optionRow({ name: 'sort', value: 'near', title: 'Nearest', sub: 'Closest first', checked: true, lead: 'L' });
+  ok(opt.includes('role="radio"') && opt.includes('aria-checked="true"') && opt.includes('data-name="sort"') && opt.includes('data-value="near"') && opt.includes('✓'), 'optionRow: radio, checked, data hooks');
+  ok(C.optionRow({ title: 'A' }).includes('aria-checked="false"'), 'optionRow: unchecked');
 }
 
 /* ================= reset ================= */

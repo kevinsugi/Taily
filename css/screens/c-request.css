@@ -1,0 +1,14 @@
+/* c-request — C6 Request sent. Layout only; hero, countdown, timeline and money rows are shared components. */
+.c-request { gap: 0; padding-bottom: var(--space-40); }
+.c-request__head { align-items: flex-start; }
+.c-request__clock { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-24); }
+.c-request__clock .countdown { font-family: var(--font-serif); font-size: var(--size-32); line-height: 38px; font-weight: 600; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.c-request__clock .countdown--soon { color: var(--warning-ink); }
+.c-request__clock .countdown--expired { color: var(--error); }
+.c-request__block { margin-top: var(--space-24); }
+.c-request__h2 { margin: var(--space-24) 0 var(--space-8); }
+.c-request__note { margin: var(--space-12) 0 0; }
+.c-request__actions { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-24); }
+.c-request__empty { margin-top: var(--space-24); }
+.c-request-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
+.c-request-sheet p { margin: 0; }

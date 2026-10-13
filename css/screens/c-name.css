@@ -1,0 +1,4 @@
+/* c-name — layout only; fields, heading row and action bar are shared components. */
+.c-name { padding-top: calc(44px + var(--space-32)); }
+.c-name__lead { margin: var(--space-8) 0 var(--space-24); }
+.c-name__fields { display: flex; flex-direction: column; gap: var(--space-16); }

@@ -14,3 +14,8 @@
 .gal .row { display: flex; gap: var(--space-8); flex-wrap: wrap; align-items: flex-start; }
 .gal .col { display: flex; flex-direction: column; gap: var(--space-12); width: 100%; }
 .gal .sheet-demo { position: relative; height: 430px; overflow: hidden; border-radius: var(--radius-md); outline: 1px solid var(--neutral-200); }
+.gal .action-bar-demo { margin-inline: calc(-1 * var(--space-20)); }
+.gal .action-bar-demo .action-bar { position: static; }
+.gal .stepper-demo { display: flex; flex-direction: column; gap: var(--space-12); width: 100%; }
+.gal .stepper-demo .stepper { margin-bottom: 0; }
+.gal .option-demo { display: flex; flex-direction: column; width: 100%; padding-inline: var(--space-16); border-radius: var(--radius-lg); background: var(--white); }

@@ -1,0 +1,345 @@
+/* ============================================================
+   c-pay — C5b Review and send request (booking step 5 of 5; holds the deposit and sends the request; title per D-52).
+   Focal: the CTA "Hold $16.00 and send request". The deposit is only HELD
+   here (authorized) and charged when the tailor accepts (D-38).
+   Booking draft: state.ui.booking { tailorId, slot, cardId } (D-36).
+   Screen-local flags: state.ui['c-pay'] { busy, error, info, focus }.
+   ============================================================ */
+import { register, render as go, back } from '../app.js';
+import { state, T, tailorById, openSlots, now } from '../state.js';
+import {
+  chrome, bookingSteps, headingRow, visitBlock, customerBreakdown, infoCard, metaRow, methodRow, actionBar, banner,
+  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc,
+} from '../components.js';
+import * as A from '../account.js';
+import { withLatency } from '../sim.js';
+import { fmtExact, estimate, cancelTerms } from '../money.js';
+import { fmtWhen, addMinutes } from '../dates.js';
+import { VISIT_LABEL } from '../data.js';
+import { POLICY } from '../money-config.js';
+
+const ID = 'c-pay';
+
+const ui = () => (state.ui[ID] ??= {});
+const booking = () => (state.ui.booking ??= {});
+const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
+const money = (cents) => `<span data-money>${fmtExact(cents)}</span>`;
+
+const CARD_GLYPH = '<svg width="28" height="20" viewBox="0 0 28 20" fill="none" aria-hidden="true"><rect x="0.75" y="0.75" width="26.5" height="18.5" rx="3.25" stroke="currentColor" stroke-width="1.5"/><path d="M1 6.5h26" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 14h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+const GLYPH = {
+  lock: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.5"/></svg>',
+  clock: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5V8l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  check: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8.2l1.8 1.8 3.2-3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  warn: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.2l6.2 11H1.8L8 2.2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.6v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.6" r="0.9" fill="currentColor"/></svg>',
+};
+
+/** The cancellation promise for THIS slot, from the model (D-50): free until the cutoff, or already inside the late window. */
+function cancelRow(slot, depositCents, first) {
+  const terms = cancelTerms({ slot: { start: slot }, payments: { deposit: { cents: depositCents } } }, now());
+  if (terms.window === 'late') {
+    return metaRow(GLYPH.warn, `This visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel after ${esc(first)} accepts, the ${money(depositCents)} deposit is kept.`);
+  }
+  const cutoff = addMinutes(slot, -POLICY.CANCEL_WINDOW_H * 60);
+  return metaRow(GLYPH.check, `Free cancellation until ${fmtWhen(cutoff)}. After that, the ${money(depositCents)} deposit is kept.`);
+}
+
+/* ---------- data ---------- */
+function read() {
+  const t = tailorById(state.ui.booking?.tailorId) ?? state.tailors[0];
+  const job = state.job;
+  const slots = openSlots(t.id, job.visitType, { until: job.needBy });
+  const slot = state.ui.booking?.slot ?? slots[0] ?? null;
+  const q = slot ? estimate(t, job, slot) : null;
+  const c = state.customer;
+  const methods = [
+    ...c.cards.map((x) => ({ id: x.id, label: `${x.brand} •••• ${x.last4}`, sub: `Expires ${x.exp}`, kind: 'card' })),
+    ...(c.applePay ? [{ id: 'apple-pay', label: 'Apple Pay', sub: '', kind: 'apple' }] : []),
+  ];
+  const def = c.cards.find((x) => x.default) ?? c.cards[0];
+  const wanted = state.ui.booking?.cardId ?? def?.id ?? 'apple-pay';
+  const method = methods.find((m) => m.id === wanted) ?? methods[0];
+  return { t, job, slot, q, methods, method };
+}
+
+function visitRows({ t, job, slot }) {
+  const home = job.visitType === 'home';
+  const a = job.address ?? state.customer.address;
+  const where = home
+    ? [a.street, a.unit, a.city].filter(Boolean).join(', ')
+    : [t.shopName, t.shop?.street].filter(Boolean).join(', ');
+  const items = job.garments.length;
+  const services = job.garments.reduce((n, g) => n + g.services.length, 0);
+  return [
+    esc(t.name),
+    `${fmtWhen(slot)} · ${VISIT_LABEL.customer[job.visitType]}`,
+    esc(where),
+    `${items} ${items === 1 ? 'item' : 'items'} · ${services} ${services === 1 ? 'service' : 'services'}`,
+  ];
+}
+
+/* ---------- view ---------- */
+function alertHtml(r) {
+  const u = ui();
+  if (u.error === 'declined') {
+    return banner({ tone: 'error', title: 'Your card was declined', text: `${r.method.label} didn’t go through, and nothing was held. Try another card.`, actionLabel: 'Change card', actionAct: 'change-method' });
+  }
+  if (u.error === 'taken') {
+    return banner({ tone: 'error', text: 'That time was just taken. Pick another time.', actionLabel: 'Pick a time', actionAct: 'pick-time' });
+  }
+  if (u.error === 'generic') {
+    return banner({ tone: 'error', text: 'Something went wrong. Nothing was held. Try again.' });
+  }
+  if (u.info === '3ds-cancelled') {
+    return banner({ tone: 'info', text: 'Verification cancelled. Nothing was held.' });
+  }
+  return '';
+}
+
+function view() {
+  const r = read();
+  const { t, q, method } = r;
+  const first = firstOf(t);
+  const head = `${chrome('home')}`;
+  if (!q) {
+    return `${head}<main class="body ${ID}" data-s="${ID}">
+  ${bookingSteps(4)}
+  ${headingRow('<h1 class="t-title">Review and send request</h1>')}
+  <div class="c-pay__empty">${emptyState({ title: 'Pick a time first', body: `Choose one of ${first}’s open times, then come back to review the price.`, ctaLabel: 'Pick a time', ctaAct: 'pick-time' })}</div>
+</main>`;
+  }
+  const u = ui();
+  const busy = !!u.busy;
+  const alert = alertHtml(r);
+  const methodBtn = methodRow(`<span class="c-pay__method-name">${esc(method.label)}</span>${method.sub ? `<span class="c-pay__method-sub">${esc(method.sub)}</span>` : ''}`, method.kind)
+    .replace('<button type="button" class="method-row"', `<button type="button" class="method-row c-pay__method" data-act="change-method"${busy ? ' disabled aria-disabled="true"' : ''}`);
+
+  return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
+  ${bookingSteps(4)}
+  ${headingRow('<h1 class="t-title">Review and send request</h1>')}
+  <div class="c-pay__visit">
+    ${visitBlock(visitRows(r), { title: 'Your visit', flush: true, action: `<button type="button" class="c-pay__link" data-act="back"${busy ? ' disabled aria-disabled="true"' : ''}>Change time</button>` })}
+  </div>
+  <h2 class="t-h2 c-pay__h2">Price</h2>
+  ${customerBreakdown(q, { stage: 'estimate', tailorFirst: first, depositState: 'to-hold' })}
+  <div class="c-pay__hold">${infoCard([
+    metaRow(GLYPH.lock, `We hold ${money(q.deposit)} on your card now. You’re only charged if ${esc(first)} accepts.`),
+    metaRow(GLYPH.clock, `No reply within ${POLICY.REQUEST_EXPIRY_H} hours, or a decline? The hold is released in full.`),
+    cancelRow(r.slot, q.deposit, first),
+  ].join(''))}</div>
+  <h2 class="t-h2 c-pay__h2">Pay with</h2>
+  ${methodBtn}
+  <div class="c-pay__alert" tabindex="-1">${alert}</div>
+</main>
+${actionBar({
+    ctaLabel: `Hold ${fmtExact(q.deposit)} and send request`, ctaAct: 'pay', busy, busyLabel: 'Sending request…',
+    note: `You pay the ${money(q.balance)} balance when your order is ready.`,
+  })}`;
+}
+
+/* ---------- sheets ---------- */
+const CARD_ERR = {
+  number: 'Enter the full card number.',
+  exp: 'Enter a valid expiry, like 08/28.',
+  cvc: 'Enter the 3 or 4 digit code.',
+  zip: 'Enter a 5-digit ZIP code.',
+};
+
+/* a dashed card outline with a plus — the add row's lead, the same 32 px column as the option rows' glyphs */
+const ADD_CARD_GLYPH = '<svg width="28" height="20" viewBox="0 0 28 20" fill="none" aria-hidden="true"><rect x="0.75" y="0.75" width="26.5" height="18.5" rx="3.25" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2.5"/><path d="M14 6v8M10 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
+function methodSheetHtml({ methods, method }) {
+  return `<div class="c-pay-sheet" data-view="method">
+  <div class="c-pay-sheet__group" role="radiogroup" aria-label="Pay with">${methods.map((m) => optionRow({
+    name: 'method', value: m.id, title: esc(m.label), sub: esc(m.sub), checked: m.id === method.id, act: 'method',
+    lead: m.kind === 'apple' ? '<span class="pay-badge">Pay</span>' : CARD_GLYPH,
+  })).join('')}</div>
+  ${listRow({ title: 'Add a card', act: 'add-card', lead: ADD_CARD_GLYPH })}
+</div>`;
+}
+
+function addCardHtml(v = {}, errors = {}) {
+  return `<form class="c-pay-sheet c-pay-sheet--card" data-view="add-card" novalidate>
+  ${field({ id: 'cc-number', label: 'Card number', value: v.number ?? '', inputmode: 'numeric', autocomplete: 'cc-number', placeholder: '1234 1234 1234 1234', maxlength: 19, error: errors.number ? CARD_ERR.number : '' })}
+  <div class="c-pay-sheet__pair">
+    ${field({ id: 'cc-exp', label: 'Expiry', value: v.exp ?? '', inputmode: 'numeric', autocomplete: 'cc-exp', placeholder: 'MM/YY', maxlength: 5, error: errors.exp ? CARD_ERR.exp : '' })}
+    ${field({ id: 'cc-csc', label: 'Security code', value: v.cvc ?? '', inputmode: 'numeric', autocomplete: 'cc-csc', maxlength: 4, helper: '3 or 4 digits on the back', error: errors.cvc ? CARD_ERR.cvc : '' })}
+  </div>
+  ${field({ id: 'cc-zip', label: 'ZIP code', value: v.zip ?? '', inputmode: 'numeric', autocomplete: 'postal-code', maxlength: 5, error: errors.zip ? CARD_ERR.zip : '' })}
+  <p class="t-small c-600 c-pay-sheet__note">Your card is stored by our payment provider, not by Taily.</p>
+  ${cta('Save card', { attrs: 'data-act="save-card"' })}
+</form>`;
+}
+
+function threeDsHtml({ q, method }, busy = false) {
+  return `<div class="c-pay-sheet" data-view="3ds">
+  <p class="t-body">Your bank asks you to confirm this hold.</p>
+  <div class="c-pay-sheet__bank">
+    <span class="t-small c-600 w-600">Taily</span>
+    <span class="t-h2" data-money>Hold ${fmtExact(q.deposit)}</span>
+    <span class="t-small c-600">${esc(method.label)}</span>
+  </div>
+  ${cta('Confirm', { busy, busyLabel: 'Confirming…', attrs: 'data-act="3ds-ok"' })}
+  ${cta('Cancel', { variant: 'secondary', disabled: busy, attrs: 'data-act="3ds-cancel"' })}
+</div>`;
+}
+
+const digits = (s) => String(s).replace(/\D/g, '');
+function formatCardInput(el) {
+  const d = digits(el.value).slice(0, 16);
+  if (el.id === 'cc-number') el.value = d.replace(/(.{4})/g, '$1 ').trim();
+  else if (el.id === 'cc-exp') el.value = d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2, 4)}` : d;
+  else if (el.id === 'cc-csc') el.value = d.slice(0, 4);
+  else if (el.id === 'cc-zip') el.value = d.slice(0, 5);
+}
+
+function openMethodSheet() {
+  sheetOverlay(methodSheetHtml(read()), { header: 'Pay with', dataS: 'c-pay--method', confirm: false }, (holder, close) => {
+    const title = holder.querySelector('.sheet__title');
+    const swap = (html, header, view) => {
+      holder.querySelector('.c-pay-sheet').outerHTML = html;
+      title.textContent = header;
+      holder.dataset.view = view;
+    };
+    const saveCard = () => {
+      const f = holder.querySelector('form');
+      const v = { number: f.querySelector('#cc-number').value, exp: f.querySelector('#cc-exp').value, cvc: f.querySelector('#cc-csc').value, zip: f.querySelector('#cc-zip').value };
+      const res = A.addCard(v);
+      if (!res.ok) {
+        swap(addCardHtml(v, res.errors), 'Add a card', 'add-card');
+        holder.querySelector('[aria-invalid="true"]')?.focus();
+        return;
+      }
+      booking().cardId = res.card.id;
+      if (ui().error === 'declined') ui().error = null;
+      close();
+      go(ID);
+      toast('Card added');
+    };
+    holder.dataset.view = 'method';
+    holder.addEventListener('input', (e) => { if (e.target.matches('#cc-number, #cc-exp, #cc-csc, #cc-zip')) formatCardInput(e.target); });
+    holder.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-act]');
+      if (!a) return;
+      switch (a.dataset.act) {
+        case 'method': {
+          const prev = read().method.id;
+          const id = a.dataset.value;
+          booking().cardId = id;
+          if (ui().error === 'declined' && id !== prev) { A.useOtherMethod(); ui().error = null; }
+          close();
+          go(ID);
+          break;
+        }
+        case 'add-card': swap(addCardHtml(), 'Add a card', 'add-card'); holder.querySelector('#cc-number')?.focus(); break;
+        case 'save-card': saveCard(); break;
+        default:
+      }
+    });
+    holder.addEventListener('submit', (e) => { e.preventDefault(); saveCard(); });
+  });
+}
+
+/* ---------- paying ---------- */
+let cancelWait = null;
+const onScreen = () => document.getElementById('screen')?.dataset.screen === ID;
+
+/** The request went through: clear the draft and leave the booking behind (Back can't return to a paid form). */
+function sent() {
+  state.ui.booking = {};
+  delete state.ui[ID];
+  go('c-request', { fresh: true });
+}
+
+/** Ask the model to send the request. `done(res)` runs after the simulated wait. */
+function attempt({ threeDS = false } = {}, done) {
+  const { t, slot, method } = read();
+  const res = T.requestBooking({ tailorId: t.id, slotStart: slot, cardId: method.id, ...(threeDS ? { threeDS: true } : {}) });
+  done(res);
+}
+
+function fail(res) {
+  const u = ui();
+  u.busy = false;
+  u.focus = true;
+  if (res.error === 'card-declined') u.error = 'declined';
+  else if (res.error === 'slot-unavailable') u.error = 'taken';
+  else u.error = 'generic';
+  go(ID);
+}
+
+function openThreeDs() {
+  const r = read();
+  const cancel = () => { const u = ui(); u.busy = false; u.error = null; u.info = '3ds-cancelled'; u.focus = true; go(ID); };
+  sheetOverlay(threeDsHtml(r), { header: 'Confirm with your bank', dataS: 'c-pay--3ds', confirm: false }, (holder, close) => {
+    let working = false;
+    const confirm = () => {
+      if (working) return;
+      working = true;
+      holder.querySelector('.c-pay-sheet').outerHTML = threeDsHtml(r, true);
+      cancelWait = withLatency(() => {
+        attempt({ threeDS: true }, (res) => {
+          close();
+          if (res.ok) sent(); else fail(res);
+        });
+      });
+    };
+    holder.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-act]');
+      if (!a || working) return;
+      if (a.dataset.act === '3ds-ok') confirm();
+      else if (a.dataset.act === '3ds-cancel' || a.dataset.act === 'sheet-cancel') { close(); cancel(); }
+    });
+  });
+}
+
+function pay() {
+  const u = ui();
+  if (u.busy) return;
+  u.busy = true; u.error = null; u.info = null;
+  go(ID);
+  cancelWait?.();
+  cancelWait = withLatency(() => {
+    if (!onScreen()) { u.busy = false; return; }
+    attempt({}, (res) => {
+      if (res.ok) { sent(); return; }
+      if (res.error === 'needs-3ds') { u.busy = false; go(ID); openThreeDs(); return; }
+      fail(res);
+    });
+  });
+}
+
+/* ---------- wire ---------- */
+/* #screen is the same element on every render — drop the previous render's delegate before adding ours */
+let offClick = null;
+
+function wire(root) {
+  const u = ui();
+  /* Back → the time picker (steps history when there is one) */
+  const backBtn = root.querySelector('.back[data-act="back"]');
+  if (backBtn) {
+    backBtn.dataset.wired = '1';
+    if (u.busy) { backBtn.disabled = true; backBtn.setAttribute('aria-disabled', 'true'); }
+    backBtn.addEventListener('click', () => { if (!back()) go('c-book'); });
+  }
+  if (u.focus) {
+    u.focus = false;
+    root.querySelector('.c-pay__alert')?.focus({ preventScroll: false });
+  }
+
+  offClick?.();
+  const onClick = (e) => {
+    const a = e.target.closest('[data-act]');
+    if (!a || a.classList.contains('back') || e.target.closest('.screen-sheet--overlay')) return;
+    switch (a.dataset.act) {
+      case 'back': if (!back()) go('c-book'); break;
+      case 'change-method': if (!ui().busy) openMethodSheet(); break;
+      case 'pay': pay(); break;
+      case 'pick-time': go('c-book', { replace: true }); break;
+      default:
+    }
+  };
+  root.addEventListener('click', onClick);
+  offClick = () => root.removeEventListener('click', onClick);
+}
+
+register(ID, view, wire);

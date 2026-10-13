@@ -1,0 +1,3 @@
+/* c-phone — layout only; the field, heading row and action bar are shared components. */
+.c-phone { padding-top: calc(44px + var(--space-32)); }
+.c-phone__lead { margin: var(--space-8) 0 var(--space-24); }

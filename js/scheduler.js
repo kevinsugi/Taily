@@ -20,6 +20,7 @@
    ============================================================ */
 
 import { strip, addDays, dayDiff, dayStamp, dayLabel } from './dates.js';
+import { wheelCol, wheelRows, markWheelRow } from './components.js';
 export { strip, addDays, dayDiff, dayStamp, dayLabel };   // v5 (M0 A1): one date implementation, in dates.js
 
 export const SCHED_ROW = 36;
@@ -58,25 +59,16 @@ export const clampTime = (time) => timeLabel(timeMinutes(time) ?? 12 * 60);
 export function timeColumns(time = '12:00 PM') {
   const m = RE_TIME.exec(clampTime(time));
   return [
-    { width: 56, rows: HOURS, sel: HOURS.indexOf(String(Number(m[1]))) },
-    { width: 56, rows: MINS, sel: Math.max(0, MINS.indexOf(m[2])) },
-    { width: 64, rows: PERIODS, sel: PERIODS.indexOf(m[3].toUpperCase()) },
+    { width: 56, rows: HOURS, sel: HOURS.indexOf(String(Number(m[1]))), label: 'Hour' },
+    { width: 56, rows: MINS, sel: Math.max(0, MINS.indexOf(m[2])), label: 'Minute' },
+    { width: 64, rows: PERIODS, sel: PERIODS.indexOf(m[3].toUpperCase()), label: 'AM/PM' },
   ];
 }
 /** The date column for a list of day rows, settled on index `sel`. */
-export const dateColumn = (rows, sel = 0, width = 140) => ({ width, rows: rows.map((r) => r.label ?? r), sel: Math.max(0, Math.min(rows.length - 1, sel)) });
+export const dateColumn = (rows, sel = 0, width = 140, label = 'Day') => ({ width, rows: rows.map((r) => r.label ?? r), sel: Math.max(0, Math.min(rows.length - 1, sel)), label });
 
-function columnHtml({ width, rows, sel }) {
-  return `<div class="wheel__col wheel__col--scroll" style="width:${width}px" data-sel="${sel}">
-      <span class="wheel__pad" aria-hidden="true"></span>
-      ${rows.map((r, i) => {
-    const d = Math.abs(i - sel);
-    const cls = d === 0 ? 'wheel__row wheel__row--selected' : d >= 2 ? 'wheel__row wheel__row--edge' : 'wheel__row';
-    return `<span class="${cls}" style="width:100%">${r}</span>`;
-  }).join('')}
-      <span class="wheel__pad" aria-hidden="true"></span>
-    </div>`;
-}
+/* R1-2-C-01: the shared listbox column (role, label, options, aria-activedescendant) */
+const columnHtml = wheelCol;
 
 /**
  * The Scheduler card.
@@ -85,20 +77,22 @@ function columnHtml({ width, rows, sel }) {
  *             makes it a button (02's way back to the pickup step)
  *   columns   [{ width, rows, sel }] — dateColumn() + timeColumns()
  *   note      the caps rush note ('' hides it; the node stays for live updates)
- *   cta       the button label; `ctaAct` its data-act
+ *   cta       the button label; `ctaAct` its data-act ('' → no button: the screen's action bar carries it)
+ *   compact   a 3-row wheel (108 tall, the settled row centred) — for a screen whose action lives in its action bar
  *   inline    05's in-page card (350 wide, the date column 134)
  */
-export function scheduler({ title, sub = '', subAct = '', columns = [], note = '', cta = 'Next', ctaAct = 'sched-next', inline = false, attrs = '' } = {}) {
+export function scheduler({ title, sub = '', subAct = '', columns = [], note = '', cta = 'Next', ctaAct = 'sched-next', inline = false, compact = false, attrs = '' } = {}) {
   const subHtml = !sub ? '' : subAct
     ? `<button type="button" class="scheduler__sub" data-act="${subAct}">${sub}</button>`
     : `<span class="scheduler__sub">${sub}</span>`;
-  return `<div class="scheduler${inline ? ' scheduler--inline' : ''}" data-scheduler ${attrs}>
-  <div class="scheduler__heading">${subHtml}<span class="scheduler__title">${title}</span></div>
+  const heading = subHtml || title ? `<div class="scheduler__heading">${subHtml}${title ? `<span class="scheduler__title">${title}</span>` : ''}</div>` : '';
+  return `<div class="scheduler${inline ? ' scheduler--inline' : ''}${compact ? ' scheduler--compact' : ''}" data-scheduler ${attrs}>
+  ${heading}
   <div class="wheel wheel--sched"><div class="wheel__band"></div>
     ${columns.map(columnHtml).join('\n    ')}
   </div>
-  <p class="scheduler__note" data-sched-note${note ? '' : ' hidden'}>${note}</p>
-  <button type="button" class="scheduler__cta" data-act="${ctaAct}">${cta}</button>
+  <p class="scheduler__note" data-sched-note aria-live="polite"${note ? '' : ' hidden'}>${note}</p>
+  ${cta ? `<button type="button" class="scheduler__cta" data-act="${ctaAct}">${cta}</button>` : ''}
 </div>`;
 }
 
@@ -108,12 +102,8 @@ export function readScheduler(root, columns) {
 }
 /** Settle one column on a row (dataset, scroll position, row styles). */
 export function settle(col, idx) {
-  col.dataset.sel = idx;
+  markWheelRow(col, idx);
   col.scrollTop = idx * SCHED_ROW;
-  col.querySelectorAll('.wheel__row').forEach((r, i) => {
-    r.classList.toggle('wheel__row--selected', i === idx);
-    r.classList.toggle('wheel__row--edge', Math.abs(i - idx) >= 2);
-  });
 }
 /** "6:30 PM" from the three time columns (the last three of the card),
     snapped back inside opening hours — the wheel follows the snap. */
@@ -158,9 +148,9 @@ function timeColumnsFor(times, iso) {
   const mins = uniq(c.map((t) => t.min));
   const periods = uniq(c.map((t) => t.period));
   return [
-    { width: 56, rows: hourKeys.map((k) => k.split(' ')[0]), sel: Math.max(0, hourKeys.indexOf(`${cur.hour} ${cur.period}`)) },
-    { width: 56, rows: mins, sel: Math.max(0, mins.indexOf(cur.min)) },
-    { width: 64, rows: periods, sel: Math.max(0, periods.indexOf(cur.period)) },
+    { width: 56, rows: hourKeys.map((k) => k.split(' ')[0]), sel: Math.max(0, hourKeys.indexOf(`${cur.hour} ${cur.period}`)), label: 'Hour' },
+    { width: 56, rows: mins, sel: Math.max(0, mins.indexOf(cur.min)), label: 'Minute' },
+    { width: 64, rows: periods, sel: Math.max(0, periods.indexOf(cur.period)), label: 'AM/PM' },
   ];
 }
 /** The four Scheduler columns for a list of open slots, settled on `selectedIso` (default: the first slot). */
@@ -191,7 +181,7 @@ export function readSlot(root, slots) {
   next.forEach((c, k) => {
     const col = cols[k + 1];
     if (rowsOf(col).join('|') !== c.rows.join('|')) {
-      col.innerHTML = columnHtml(c).replace(/^<div[^>]*>|<\/div>\s*$/g, '');
+      col.innerHTML = wheelRows(c);
     }
     settle(col, c.sel);
   });

@@ -1,0 +1,40 @@
+/* c-tailor — C4 Tailor profile. Tokens only; strokes are inset shadows. */
+.c-tailor__hero { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-12); margin-top: var(--space-8); }
+.c-tailor__who { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); width: 100%; }
+.c-tailor__name-row { display: flex; align-items: center; gap: var(--space-8); }
+.c-tailor__name-row .t-title { margin: 0; }
+.c-tailor__check { font-size: var(--size-16); line-height: 21px; font-weight: 700; color: var(--success); }
+.c-tailor__sub, .c-tailor__new, .c-tailor__next { margin: 0; }
+.c-tailor__ask { margin-top: var(--space-16); }
+.c-tailor__ask .cta { width: 100%; }
+.c-tailor__banner { margin-top: var(--space-16); }
+
+.c-tailor__sec { display: flex; flex-direction: column; gap: var(--space-12); margin-top: var(--space-32); }
+.c-tailor__sec > .t-h2 { margin: 0; }
+.c-tailor__sec p { margin: 0; }
+.c-tailor__photos { display: flex; gap: var(--space-8); }
+.c-tailor__work { display: block; width: 72px; height: 72px; flex-shrink: 0; }
+.c-tailor__photos .photo-tile { display: block; width: 72px; height: 72px; border-radius: var(--radius-md); }
+
+.c-tailor__sec .info-card { gap: 0; padding-block: var(--space-8); }
+.c-tailor__total { box-shadow: inset 0 1px 0 var(--neutral-200); }
+.c-tailor__total .price-row { box-shadow: none; }
+.c-tailor__total .price-row__label { font-weight: 600; }
+.c-tailor__total .price-row__value { font-weight: 700; }
+.c-tailor__caption { color: var(--neutral-600); }
+
+.c-tailor__prices { display: flex; flex-direction: column; }
+.c-tailor__link {
+  display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; padding-inline: 0;
+  color: var(--accent-ink); text-align: left;
+}
+.c-tailor__rush { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.c-tailor__place { display: flex; flex-direction: column; gap: var(--space-4); }
+.c-tailor__place .meta-row, .c-tailor__returns .meta-row { color: var(--ink); align-items: flex-start; }
+.c-tailor__place .meta-row__glyph, .c-tailor__returns .meta-row__glyph { height: 21px; line-height: 21px; color: var(--neutral-600); }   /* R1-2-C-04: the 16px line icon centres on the first text line */
+.c-tailor__place > .t-small { padding-left: calc(var(--space-8) + 20px); }
+.c-tailor__returns { display: flex; flex-direction: column; gap: var(--space-12); }
+.c-tailor__reviews { display: flex; flex-direction: column; }
+.c-tailor__tier { white-space: nowrap; }
+.c-tailor__rush p:last-child { text-wrap: pretty; }

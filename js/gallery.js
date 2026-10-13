@@ -9,7 +9,8 @@
 import * as C from './components.js';
 import { scheduler, slotColumns } from './scheduler.js';
 import { TAILORS, DEMO_NOW } from './data.js';
-import { quote } from './money.js';
+import { quote, fmt } from './money.js';
+import { ICON_CARD } from './icons.js';
 
 /** The gallery's HTML (a string of labelled blocks). */
 export function galleryHtml() {
@@ -31,6 +32,8 @@ export function galleryHtml() {
   /* ---------------- kept from v4 ---------------- */
   h2('CTA — 229:5030');
   v('Default · Secondary · disabled');   col(C.cta('Start Booking'), C.cta('Find another tailor', { variant: 'secondary' }), C.cta('Send request', { disabled: true }));
+  v('Busy (spinner + busyLabel, aria-busy) · default · secondary');
+  col(C.cta('Send code', { busy: true, busyLabel: 'Sending code…' }), C.cta('Sign in', { variant: 'secondary', busy: true, busyLabel: 'Signing in…' }));
 
   h2('CTA_Small — 302:1656');
   row(C.ctaSmall('Message'), C.ctaSmall('Reschedule'));
@@ -51,6 +54,8 @@ export function galleryHtml() {
   h2('Garment Tile — 252:1235');
   v('Default ×2 · Selected');
   s.push(`<div class="tile-grid">${C.garmentTile('Suit Jacket')}${C.garmentTile('Suit Pant')}${C.garmentTile('Formal Dress', { qty: 1 })}</div>`);
+  v('Selected · 3 · 4 · 8');
+  s.push(`<div class="tile-grid">${C.garmentTile('Suit Pant', { qty: 3 })}${C.garmentTile('Suit Pant', { qty: 4 })}${C.garmentTile('Pants / Jeans', { qty: 8 })}</div>`);
 
   h2('Progress Bar — 473:7627');
   ['confirmed','tailoring','ready','complete'].forEach((st) => { v(st); s.push(C.progressBar(st)); });
@@ -86,6 +91,15 @@ export function galleryHtml() {
   const slots = ['2026-10-15T17:00', '2026-10-15T17:30', '2026-10-15T18:30', '2026-10-17T09:00', '2026-10-17T10:30'];
   const cols = slotColumns(slots, '2026-10-15T17:30');
   s.push(`<div class="row">${scheduler({ title: 'Choose a time', sub: 'Open times only', columns: cols, cta: 'Confirm', ctaAct: 'confirm-slot' })}</div>`);
+  /* R1-2-C-01: every column is a listbox (Day · Hour · Minute · AM/PM) — Tab focuses it, arrows / Home / End move the pick */
+  v('keyboard focus on the Day listbox · rush note (aria-live)');
+  const focused = scheduler({ title: '', columns: cols, note: `RUSH FEE ${fmt(rush.rush)} · VISIT 1 DAY BEFORE YOUR NEED-BY`, cta: 'Continue', ctaAct: 'gallery-slot', inline: true })
+    .replace('wheel__col wheel__col--scroll"', 'wheel__col wheel__col--scroll wheel__col--focus"');
+  s.push(`<div class="row">${focused}</div>`);
+
+  h2('Meta row — line icons (shop · home · bag · truck)');
+  col(C.metaRow('', 'Reyes Tailoring, 312 Metropolitan Ave', { icon: 'shop' }), C.metaRow('', 'Comes to you in 11211', { icon: 'home' }),
+      C.metaRow('', 'In-store pickup — free', { icon: 'bag' }), C.metaRow('', 'Taily courier — priced when your order is ready', { icon: 'truck' }));
 
   /* ---------------- v5 ---------------- */
   h2('Avatar — sm 40 · md 56 · lg 80 · photo');
@@ -145,6 +159,26 @@ export function galleryHtml() {
   h2('Stepper');
   col(C.stepper({ steps: ['Profile', 'Services prices', 'Where you work', 'Returns', 'Availability', 'Payouts'], current: 1, done: [0] }));
 
+  v('compact · booking progress — step 1 · 3 · 5');
+  s.push(`<div class="stepper-demo">${C.bookingSteps(0)}${C.bookingSteps(2)}${C.bookingSteps(4)}</div>`);
+
+  h2('Action bar');
+  const bar = (inner) => s.push(`<div class="action-bar-demo">${inner}</div>`);
+  v('default');                 bar(C.actionBar({ ctaLabel: 'Send code', ctaAct: 'send-code' }));
+  v('disabled + note');         bar(C.actionBar({ ctaLabel: 'Next: where and when', ctaAct: 'next', disabled: true, note: 'Add at least one garment to continue.' }));
+  v('busy');                    bar(C.actionBar({ ctaLabel: 'Send code', ctaAct: 'send-code', busy: true, busyLabel: 'Sending code…' }));
+  v('with lead');               bar(C.actionBar({ ctaLabel: 'Pick a time', ctaAct: 'pick-time', lead: `<span>Est. <b data-money>${fmt(seed.total)}</b> · 2 items</span>` }));
+  v('with secondary');          bar(C.actionBar({ ctaLabel: 'Pick a time', ctaAct: 'pick-time', disabled: true, note: 'Not available for this job', secondaryLabel: 'Start a different job', secondaryAct: 'new-job' }));
+
+  h2('Option row');
+  v('unchecked · checked · with sub · with lead');
+  s.push(`<div class="option-demo" role="radiogroup" aria-label="Pay with">${
+    C.optionRow({ name: 'g-opt', value: 'a', title: 'Lowest price' }) +
+    C.optionRow({ name: 'g-opt', value: 'b', title: 'Recommended', sub: 'Rating, distance and price together', checked: true }) +
+    C.optionRow({ name: 'g-opt', value: 'c', title: 'Visa •••• 4242', sub: 'Expires 08/28', lead: ICON_CARD }) +
+    C.optionRow({ name: 'g-opt', value: 'd', title: 'Apple Pay', lead: '<span class="pay-badge">Pay</span>', checked: true })
+  }</div>`);
+
   h2('Toggle');
   col(C.toggle({ id: 'g-t1', label: 'Home visits', checked: true, helper: 'Customers in your ZIP list can book you.' }), C.toggle({ id: 'g-t2', label: 'Shop visits' }), C.toggle({ id: 'g-t3', label: 'Taily courier', disabled: true, helper: 'Not available yet' }));
 
@@ -180,8 +214,10 @@ export function galleryHtml() {
   h2('Money rows — customer breakdown by stage');
   v('estimate'); col(C.customerBreakdown(seed, { stage: 'estimate', tailorFirst: 'Amara' }));
   v('booked'); col(C.customerBreakdown(seed, { stage: 'booked', tailorFirst: 'Amara' }));
+  v('booked, price confirmed at the fitting'); col(C.customerBreakdown(seed, { stage: 'booked', tailorFirst: 'Amara', depositState: 'captured', confirmed: true }));
   v('ready (with rush + courier)'); col(C.customerBreakdown({ ...rush, courier: 1045, total: rush.total + 1045, balance: rush.balance + 1045 }, { stage: 'ready' }));
   v('paid'); col(C.customerBreakdown(seed, { stage: 'paid' }));
+  v('to hold (before the request is sent)'); col(C.customerBreakdown(seed, { stage: 'estimate', tailorFirst: 'Amara', depositState: 'to-hold' }));
   v('requested (deposit on hold)'); col(C.customerBreakdown(seed, { stage: 'booked', tailorFirst: 'Amara', depositState: 'authorized' }));
   v('confirmed (deposit captured)'); col(C.customerBreakdown(seed, { stage: 'booked', tailorFirst: 'Amara', depositState: 'captured' }));
   v('released (declined / expired / withdrawn)'); col(C.customerBreakdown(seed, { stage: 'booked', tailorFirst: 'Amara', depositState: 'released' }));
@@ -201,5 +237,5 @@ export function galleryHtml() {
 export function wireGallery(root) {
   C.wireStars(root); C.wireToggles(root); C.wireChipGroups(root); C.wireComposer(root);
   root.addEventListener('click', (e) => { const b = e.target.closest('[data-toast]'); if (b) C.toast(`A ${b.dataset.toast} toast`, { tone: b.dataset.toast }); });
-  root.querySelector('.scheduler')?.querySelectorAll('.wheel__col--scroll').forEach((c) => { c.scrollTop = Number(c.dataset.sel) * 36; });
+  root.querySelectorAll('.scheduler').forEach((sc) => C.wireWheel(sc, null, 36));   // positions + keyboard (R1-2-C-01)
 }

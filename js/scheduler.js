@@ -19,20 +19,13 @@
    36px pitch — `wireWheel(root, onChange, SCHED_ROW)`.
    ============================================================ */
 
-import { fmtDay } from './data.js';
+import { strip, addDays, dayDiff, dayStamp, dayLabel } from './dates.js';
+export { strip, addDays, dayDiff, dayStamp, dayLabel };   // v5 (M0 A1): one date implementation, in dates.js
 
 export const SCHED_ROW = 36;
-const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export const strip = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
-export const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-export const dayDiff = (a, b) => Math.round((strip(b) - strip(a)) / 86400000);
-/** "Jul 17" — the pill / state grammar's day (Phase R3). */
-export const dayStamp = (d) => `${MON[d.getMonth()]} ${d.getDate()}`;
 /** "Jul 17, 6:30 PM". */
 export const stamp = (d, time) => `${dayStamp(d)}${time ? `, ${time}` : ''}`;
-/** "Fri, Jul 17" — a date row's label (the app's day grammar). */
-export const dayLabel = (d) => fmtDay(dayStamp(d), dayStamp(d));
 
 /** `count` consecutive days from `start`: [{ date, label }]. */
 export const dayRows = (start, count = 60) => Array.from({ length: count }, (_, i) => { const date = addDays(strip(start), i); return { date, label: dayLabel(date) }; });
@@ -130,4 +123,77 @@ export function readTime(root) {
   const ok = clampTime(raw);
   if (ok !== raw) timeColumns(ok).forEach((c, i) => settle(cols[i], c.sel));
   return ok;
+}
+
+/* ============================================================
+   v5 — slot-limited columns (M0 §B). The day column lists only days
+   that have open slots; the hour / minute / period columns list only
+   what that day's slots use. readSlot() snaps whatever the wheels
+   settled on to the nearest open slot and re-rows the time columns
+   when the day changed. Slots are local ISO strings
+   ("2026-10-15T17:00") or { start } objects.
+   ============================================================ */
+import { fmtDay as fmtSlotDay } from './dates.js';
+
+const slotStart = (s) => (typeof s === 'string' ? s : s.start);
+const clock12 = (iso) => {
+  const h = Number(iso.slice(11, 13)); const m = iso.slice(14, 16);
+  return { hour: String(((h + 11) % 12) + 1), min: m, period: h >= 12 ? 'PM' : 'AM', mins: h * 60 + Number(m) };
+};
+/** [{ day: '2026-10-15', label: 'Thu, Oct 15', times: [iso, …] }] — days with open slots, ascending. */
+function slotDays(slots) {
+  const byDay = new Map();
+  [...slots].map(slotStart).sort().forEach((iso) => {
+    const day = iso.slice(0, 10);
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push(iso);
+  });
+  return [...byDay].map(([day, times]) => ({ day, label: fmtSlotDay(times[0]), times }));
+}
+const uniq = (list) => [...new Set(list)];
+function timeColumnsFor(times, iso) {
+  const c = times.map(clock12);
+  const cur = clock12(iso);
+  const hourKeys = uniq(c.map((t) => `${t.hour} ${t.period}`));
+  const mins = uniq(c.map((t) => t.min));
+  const periods = uniq(c.map((t) => t.period));
+  return [
+    { width: 56, rows: hourKeys.map((k) => k.split(' ')[0]), sel: Math.max(0, hourKeys.indexOf(`${cur.hour} ${cur.period}`)) },
+    { width: 56, rows: mins, sel: Math.max(0, mins.indexOf(cur.min)) },
+    { width: 64, rows: periods, sel: Math.max(0, periods.indexOf(cur.period)) },
+  ];
+}
+/** The four Scheduler columns for a list of open slots, settled on `selectedIso` (default: the first slot). */
+export function slotColumns(slots, selectedIso = null) {
+  const days = slotDays(slots);
+  if (!days.length) return [];
+  const want = selectedIso ? selectedIso.slice(0, 16) : null;
+  const di = Math.max(0, days.findIndex((d) => want && d.day === want.slice(0, 10)));
+  const times = days[di].times;
+  const iso = times.includes(want) ? want : times[0];
+  return [dateColumn(days.map((d) => d.label), di), ...timeColumnsFor(times, iso)];
+}
+/**
+ * Read the Scheduler's four wheels back as an open slot (ISO string). A combination that is not
+ * open snaps to the nearest slot of the chosen day, and the time wheels are re-rowed for that day.
+ */
+export function readSlot(root, slots) {
+  const days = slotDays(slots);
+  const cols = [...root.querySelectorAll('[data-scheduler] .wheel__col--scroll')].slice(-4);
+  if (!days.length || cols.length < 4) return null;
+  const rowsOf = (col) => [...col.querySelectorAll('.wheel__row')].map((r) => r.textContent.trim());
+  const pick = (i) => rowsOf(cols[i])[Number(cols[i].dataset.sel)];
+  const day = days[Math.max(0, Math.min(days.length - 1, Number(cols[0].dataset.sel)))];
+  const h = Number(pick(1)) % 12 + (pick(3) === 'PM' ? 12 : 0);
+  const want = h * 60 + Number(pick(2));
+  const iso = day.times.reduce((best, t) => (Math.abs(clock12(t).mins - want) < Math.abs(clock12(best).mins - want) ? t : best), day.times[0]);
+  const next = timeColumnsFor(day.times, iso);
+  next.forEach((c, k) => {
+    const col = cols[k + 1];
+    if (rowsOf(col).join('|') !== c.rows.join('|')) {
+      col.innerHTML = columnHtml(c).replace(/^<div[^>]*>|<\/div>\s*$/g, '');
+    }
+    settle(col, c.sel);
+  });
+  return iso;
 }

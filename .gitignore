@@ -8,8 +8,9 @@ node_modules
 diff/
 .env
 
-# ref/ holds Figma ground-truth exports — keep these despite *.png above
-!ref/*.png
+# ref/v4 holds the archived Figma ground-truth exports; ref/v5 the self-baselines — keep both despite *.png above
+!ref/v4/*.png
+!ref/v5/*.png
 
 # stray design-app lock files
 *.idlk

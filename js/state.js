@@ -1,765 +1,708 @@
 /* ============================================================
-   Taily v4 — appointment state machine
-   Ported from taily-prototype-v3.html. v3 is the source of truth
-   for behaviour: transitions below preserve v3 semantics exactly,
-   including its quirks (see advanceStatus).
+   Taily v5 — state, appointment machine, selectors. DOM-free.
+   (v4's state.js is archived in js/v4/state.js.)
 
-   The one deliberate change from v3: v3 mutated state and painted
-   the DOM in the same function (toast(...), renderTracking(), ...).
-   Here the transitions are pure — they mutate state and RETURN what
-   happened, so the caller decides what to render or announce.
+   One `state` object, mutated in place. Transitions are pure with
+   respect to the DOM: they take an appointment id, mutate `state`
+   and return `{ ok: true, appt }` or `{ ok: false, error }` — a
+   guard failure never throws; an unknown id throws. Every success
+   pushes `history` and, where it matters, a system message into
+   the customer–tailor thread. Nothing here reads the real clock:
+   `state.clock.now` is frozen (D-09) and moves only through
+   setClock / advanceClock.
 
-   ---------- UX-LOOP round 2 substrate: the two lists ----------
-   state.upcoming   live appointments, newest first: searching →
-                    confirmed → awaiting-approval → tailoring →
-                    ready-for-pickup → delivered (09 partitions the
-                    delivered ones under Past by status).
-   state.past       SEED_PAST (two delivered store visits) + every
-                    TERMINAL appointment, newest FIRST. cancelAppointment /
-                    declineAppointment / expireAppointment / tailorCancels
-                    MOVE the entry here (splice from upcoming, unshift
-                    onto past). The moved entry is the same object — it
-                    keeps every card field (mine, name, month/day, when,
-                    needBy, visit, count, items, itemLines, garments,
-                    totals, bring …) and gains:
-                      status       'cancelled' | 'declined' | 'expired'
-                      cancelledBy  'customer' | 'tailor' | 'none'
-                                   (customer cancel = customer, decline /
-                                   cant-make-it / no-show = tailor,
-                                   expiry = none)
-                      reason       'customer' | 'declined' | 'expired' |
-                                   'cant-make-it' | 'no-show' | 'unconfirmed'
-                      cancelledAt  "Wed, Sept 9" (fmtDay of today)
-                      wasRequested true when it was still searching
-                                   (nothing was ever charged — the fee
-                                   hold is released)
-                      refund       the Concierge fee going back (0 kept)
-                      feeKept      true only when a CHARGED fee is kept
-                                   (round 7: the customer confirmed the
-                                   visit, then cancelled / no-showed)
-   state.lastCancelled  the SAME object as the most recently moved
-                    entry (=== state.past[0] right after the move); null
-                    at boot, after reset() and after requestTailor().
-   state.currentAppt {list, index} — repointed to {list:'past',
-                    index:0} when it referenced the moved entry, so
-                    apptEntry() / 03-status-cancelled keep resolving.
+   Money is integer cents (money.js); rates and timers come from
+   money-config.js. Decisions: D-03 … D-27 in docs/v5/DECISIONS.md.
+
+   Status machine:
+     requested → confirmed → fitting → price-change → in-progress → ready → returning → completed
+     requested → suggested → confirmed | cancelled(switched | withdrawn)
+     requested → declined (terminal) · expired → requested (Try again) · confirmed → cancelled(...)
    ============================================================ */
-
+import { POLICY } from './money-config.js';
 import {
-  TAILORS,
-  JOB_TYPES,
-  APPT_DEFAULT,
-  SEED_UPCOMING,
-  SEED_PAST,
-  SEED_FINAL_ORDER,
-  visitFee,
-  visitFeeNote,
-  rushFee,
-  apptTotals,
-  payout,
-  noShowComp,
-  itemCount,
-  fmtDay,
-  shiftDay,
-  parseWhen,
-  mdy,
-  isAfterDay,
-  nextOrderId,
-  fmtPill,
+  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout,
+} from './money.js';
+import {
+  toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen,
+} from './dates.js';
+import {
+  CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
+  SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
 } from './data.js';
 
-/* ---------- UX-LOOP round 7 substrate: money model v2 (Kevin) ----------
-   THE VISITATION FEE IS THE DEPOSIT. No 10% anything, on either side.
-     a.totals = { alterations, items, visitFee, visitFeeCharged,
-                  visitFeeAdded, delivery, total } (data.js apptTotals;
-                  `subtotal` = alterations, deprecated alias)
-     requestTailor()        visitFee from the booked item count (tiers in
-                            data.js), `feeHeld: true` — held, not charged
-     tailorAccepts(a)       charges it: `feeChargedOn` (receipt date),
-                            feeHeld false. acceptProposedTime() likewise.
-     confirmAppointment(a)  the 24-hour prompt's Confirm: `confirmedAt`,
-                            `feeLocked = true` → the fee is non-refundable
-                            from here (no-show included)
-     cancelAppointment(a)   refund = feeLocked ? 0 : visitFee; a request
-                            never accepted charged nothing (hold released)
-     tailorCancels(a, r)    'cant-make-it' → full refund always;
-                            'no-show' → kept only if feeLocked; stamps
-                            `a.noShowComp` (round 8: the tailor's trip
-                            compensation, data.js noShowComp) either way
-     declineAppointment / expireAppointment → full refund (never charged)
-     autoCancelUnconfirmed(a)  12 hours before the visit with no
-                            confirmation: terminal `cancelled`,
-                            cancelledBy 'none', reason 'unconfirmed',
-                            full refund, moved to past like the others
-     writeFinalOrder / draftFinalOrder re-tier the fee from the final
-                            item count (apptTotals): `visitFeeAdded` is
-                            owed at handoff with the alterations; the
-                            charged fee never shrinks.
-   Every terminal entry stamps `refund` + `feeKept`. The old deposit /
-   depositOn / depositKept fields are gone. The tailor side reads
-   payout(garments) = 100% of the alteration prices and never the
-   customer's fee / delivery / total.
-   ---------- round 6 (kept) ----------
-   NO TAILOR NAME BEFORE MATCHING: requestTailor() leaves name /
-   initials / tailorId null and sets `matching: true`; tailorAccepts()
-   (and acceptProposedTime()) assign Marco and clear it. Screens read
-   data.js tailorName() / tailorInitials() / tailorFirst().
-   RESCHEDULE = cancel + resubmit the same job for a new tailor:
-   rescheduleAppointment(a) cancels (round 7: the feeLocked rule),
-   copies the items into the booking form + Home selection
-   (copyItemsOver) and restores the requested time / need-by / visit
-   type; 03.1 then lands on 02, whose Request Tailor creates a new
-   matching request.
-   ---------------------------------------------------------------- */
+export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed', 'cancelled'];
+export const TERMINAL = ['declined', 'cancelled', 'completed'];
+export const SECTIONS = ['profile', 'services', 'where', 'returns', 'availability', 'payouts'];
 
-/** Marco — the one tailor the prototype matches with. */
-const MATCHED_TAILOR = { name: 'Marco Tailor', initials: 'MT', tailorId: 'marco' };
-/* round 16 (Kevin): a tailor who declined is skipped — the next one in
-   TAILORS takes the request */
-function assignTailor(a) {
-  if (!a) return;
-  const declined = a.declinedBy ?? [];
-  const next = declined.includes(MATCHED_TAILOR.tailorId) ? TAILORS.find((t) => !declined.includes(t.id)) : null;
-  const pick = next ? { name: next.name, initials: next.initials, tailorId: next.id } : MATCHED_TAILOR;
-  a.name ??= pick.name;
-  a.initials ??= pick.initials;
-  a.tailorId ??= pick.tailorId;
-  a.matching = false;
+const clone = (x) => structuredClone(x);
+const MIN_MS = 60000;
+const HOUR_MS = 3600000;
+
+function freshSim() {
+  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', push: 'default', send: 'ok', session: 'valid' };
+}
+function fresh() {
+  return {
+    persona: 'customer',                       // 'customer' | 'tailor' (D-21)
+    clock: { now: toDate(DEMO_NOW).getTime() }, // frozen demo clock (D-09)
+    session: { customer: { signedIn: true }, tailor: { signedIn: true } },
+    customer: clone(CUSTOMER),
+    tailors: clone(TAILORS),
+    job: clone(SEED_JOB),
+    appts: [],                                 // every appointment; both personas read the same objects
+    threads: {},                               // { [tailorId]: { tailorId, customerId, messages: [] } }
+    payouts: [],                               // { apptId, cents, state: 'pending'|'paid'|'failed', date, kind }
+    sim: freshSim(),
+    ui: {},                                    // screen-local transient UI only; the model never reads it
+  };
 }
 
-/* The happy path — extended for the v4 flow (Kevin-approved):
-     searching -> confirmed -> awaiting-approval -> tailoring
-       -> ready-for-pickup -> delivered
-   v3's names are aliases so seeds, pills and the 4A screens keep
-   working: requested=searching, ready=ready-for-pickup,
-   completed=delivered. declined / cancelled / expired sit outside. */
-export const STATUS_ORDER = ['searching', 'confirmed', 'awaiting-approval', 'tailoring', 'ready-for-pickup', 'delivered'];
-export const STATUS_ALIASES = { requested: 'searching', ready: 'ready-for-pickup', completed: 'delivered' };
-/* Round 16 (Kevin): a decline is no longer terminal — the request goes
-   back to matching (declineAppointment). */
-export const TERMINAL_STATUSES = ['cancelled', 'expired'];
-/* Statuses after the appointment happened — the order on file is the
-   tailor's reviewed final order, not the booking estimate. */
-export const POST_STATUSES = ['awaiting-approval', 'tailoring', 'ready-for-pickup', 'delivered'];
+export const state = fresh();
 
-/** Normalise a v3 alias onto the v4 chain. */
-export const canonicalStatus = (s) => STATUS_ALIASES[String(s ?? '').toLowerCase()] ?? String(s ?? '').toLowerCase();
-export const isPostAppointment = (a) => POST_STATUSES.includes(canonicalStatus(a?.status));
-export const isTerminal = (a) => TERMINAL_STATUSES.includes(canonicalStatus(a?.status));
+let apptSeq = 1000;
+let msgSeq = 0;
+let garmentSeq = 0;
 
-const clone = (v) => JSON.parse(JSON.stringify(v));
-
-/* ---------- App state (v3 module-level `let`s, gathered) ---------- */
-export const state = {
-  garments: [],            // { id, type, jobs, photos } — one garment = one item (round 12)
-  selection: null,         // { tailor, time, origin }
-  lastBooking: null,       // rendered on the success screen
-  /* UX-LOOP R1: the appointment the user last cancelled (03/Cancelled
-     renders it; the tailor's T01 shows it as a Cancelled job). */
-  lastCancelled: null,
-  userLoc: 'New York, NY',
-  appt: { ...APPT_DEFAULT },
-  contact: {
-    phone: '(212) 555-0148',
-    email: 'kevin@example.com',
-    updates: true,
-    /* Round 12 (Kevin): no address until the customer enters one —
-       01 / 02 read "Please Enter Address" (addressLine) and 02's
-       Reserve stays inert (requestBlocker) until it is saved. The
-       02.2 frame's filled form is FIXTURE_CONTACT below. */
-    street: '',
-    unit: '',
-    zip: '',
-    notes: '',
-    saveHome: true,
-  },
-  payMethod: 'card',
-  upcoming: clone(SEED_UPCOMING),
-  past: clone(SEED_PAST),
-  currentAppt: { list: 'upcoming', index: 0 },
-};
-
-/** The 02.2 frame's filled form (538:1382) and the seed booking's
-    home address — the harness deep link and the Test flows menu use it. */
-export const FIXTURE_CONTACT = { street: '88 Leonard St', unit: '4B', zip: '10013', notes: 'Buzz 4B — entrance is on Leonard St', saveHome: true };
-/* ---------- Address (round 12, Kevin) ---------- */
-export const ADDRESS_PLACEHOLDER = 'Please Enter Address';
-/** Has the customer entered a street address yet? */
-export const hasAddress = (c = state.contact) => !!(c?.street && String(c.street).trim());
-/** The 01 / 02 heading line: "88 Leonard St, New York, NY" or the placeholder. */
-export const addressLine = (c = state.contact) => (hasAddress(c) ? `${c.street}, ${state.userLoc}` : ADDRESS_PLACEHOLDER);
-/** "88 Leonard St, 4B" — the home address an appointment reads; the
-    appointment's own `place` (the seed's) when nothing was entered. */
-export const homeAddress = (a = null, c = state.contact) => (hasAddress(c) ? `${c.street}${c.unit ? `, ${c.unit}` : ''}` : (a?.place ?? `${FIXTURE_CONTACT.street}, ${FIXTURE_CONTACT.unit}`));
-
-/** Restore the seeded starting state. */
+/** Restore every field to the seed. Keeps `sim.latency`. */
 export function reset() {
-  state.garments = [];
-  state.selection = null;
-  state.lastBooking = null;
-  state.lastCancelled = null;
-  state.userLoc = 'New York, NY';
-  state.appt = { ...APPT_DEFAULT };
-  state.payMethod = 'card';
-  state.upcoming = clone(SEED_UPCOMING);
-  state.past = clone(SEED_PAST);
-  state.currentAppt = { list: 'upcoming', index: 0 };
+  const latency = state.sim.latency;
+  const f = fresh();
+  for (const k of Object.keys(f)) state[k] = f[k];
+  state.sim.latency = latency;
+  apptSeq = 1000; msgSeq = 0; garmentSeq = 0;
   return state;
 }
 
-/* ---------- Selection ---------- */
+const fail = (error, extra = {}) => ({ ok: false, error, ...extra });
+const succeed = (appt, extra = {}) => ({ ok: true, appt, ...extra });
 
-/** The appointment currently being viewed. */
-export function apptEntry() {
-  const list = state.currentAppt.list === 'past' ? state.past : state.upcoming;
-  return list[state.currentAppt.index];
-}
-
-export function openAppt(list, index) {
-  state.currentAppt = { list, index };
-  return apptEntry();
-}
-
-/** Requested time / place the user is asking for. */
-export function setAppt(key, val) {
-  state.appt[key] = val;
-  return state.appt;
-}
-
-/* ---------- Transitions ---------- */
-
-/**
- * Step one place along STATUS_ORDER.
- *
- * Ported verbatim from v3, quirk included: a status outside STATUS_ORDER
- * (e.g. the seeded 'Delivered' on past appointments) gives indexOf === -1,
- * so the next status becomes the chain's start. v3 relied on this to restart a
- * past appointment, so it is preserved rather than "fixed".
- */
-export function advanceStatus() {
-  const a = apptEntry();
-  if (!a) return null;
-  const prev = a.status || 'delivered';
-  const canon = canonicalStatus(prev);
-  const next = STATUS_ORDER[Math.min(STATUS_ORDER.indexOf(canon) + 1, STATUS_ORDER.length - 1)];
-  a.status = next;
-  return {
-    appointment: a,
-    prev,
-    next,
-    // v3 charged the hold exactly on requested/searching -> confirmed
-    // (round 7: the hold is the Concierge fee)
-    feeCharged: canon === 'searching' && next === 'confirmed',
-    visitFee: a.totals ? a.totals.visitFee : null,
-  };
-}
-
-/* ---------- v4 flow transitions (Kevin-approved diagram) ---------- */
-
-/* ---------- Garment identity (UX-LOOP R2-T-08) ----------
-   Every garment carries a stable `id` so the tailor's at-visit editor
-   can match its draft against the booking by identity (never by
-   index). Seeds use g1…g7 (data.js); live garments count from g101. */
-let garmentSeq = 100;
-/** A fresh garment id ("g101", "g102", …). */
-export const nextGarmentId = () => `g${++garmentSeq}`;
-/** Stamp ids on any garments that lack one (in place). */
-export function ensureGarmentIds(garments = []) {
-  garments.forEach((g) => { if (g && !g.id) g.id = nextGarmentId(); });
-  return garments;
-}
-
-/**
- * Recompute an appointment's card summary from its garments
- * (UX-LOOP R2-U-08): `count` (qty-aware), `items` ("3 items ·
- * Alterations" — the seed's grammar) and `itemLines` ("1 Suit Jacket -
- * Hem / Adjust Length, Sleeve / Adjust Length" — requestTailor's).
- * Called by whoever rewrites `a.garments` (draftFinalOrder here, the
- * tailor's writeFinalOrder). NOT run on the seed at boot — the 01/09
- * frames' card copy ("3 Items Total", two lines) stays until revised.
- */
-export function refreshItemSummary(a) {
-  if (!a || !Array.isArray(a.garments)) return a;
-  const n = a.garments.length;   // round 12: one garment = one item
-  a.count = n;
-  a.items = `${n} item${n === 1 ? '' : 's'} · Alterations`;
-  a.itemLines = a.garments.map((g) => `1 ${g.type} - ${(g.jobs ?? []).join(', ')}`);
-  return a;
-}
-
-/** Send the built request to a tailor: creates the searching appointment. */
-export function requestTailor() {
-  const totals = bookingLines(null);
-  /* badge from the requested time ("Jul 12, 7:00 PM" → JUL / 12) */
-  const m = String(state.appt.when ?? '').match(/^([A-Za-z]+)\s+(\d+)/);
-  const { contact } = state;
-  const home = state.appt.where === 'Home Visit';
-  ensureGarmentIds(state.garments);
-  const a = {
-    /* `mine`: the appointment both personas share (R1-T-01) */
-    mine: true,
-    /* R6: no tailor until one accepts — tailorAccepts() assigns Marco */
-    name: null, initials: null, tailorId: null, matching: true,
-    where: home ? 'home' : 'shop',
-    place: home ? `${contact.street}${contact.unit ? ', ' + contact.unit : ''}` : '1025 Broadway, Midtown West',
-    when: state.appt.when, needBy: state.appt.needBy, status: 'searching',
-    visit: state.appt.where, count: state.garments.length,
-    month: (m?.[1] ?? 'JUL').slice(0, 3).toUpperCase(), day: m?.[2] ?? '12',
-    itemLines: state.garments.map((g) => `1 ${g.type} - ${g.jobs.join(', ')}`),
-    garments: JSON.parse(JSON.stringify(state.garments)),
-    bring: ['Your garments', 'The shoes you plan to wear with them.'],
-    totals,
-    /* R7: the Concierge fee is HELD at booking (its tier from the
-       booked count is already in `totals`), charged on acceptance */
-    feeHeld: true,
-    /* R3-T-04: one order number per booking (the seed keeps 4417) */
-    orderId: nextOrderId(),
-    /* R4-U-02: the method this booking paid with — 03/Cancelled's refund
-       line reads it, not whatever a later booking chose */
-    payMethod: state.payMethod,
-  };
-  state.upcoming.unshift(a);
-  state.currentAppt = { list: 'upcoming', index: 0 };
-  state.lastCancelled = null;
-  /* R3-U-01: the appointment owns the garments now — the booking form
-     and the Home tile selection start empty (a duplicate request is no
-     longer one tap away; copyItemsOver / + Additional Garment rebuild
-     the selection from garments when they need it). */
-  state.garments = [];
-  state.ui ??= {};
-  state.ui.homeSelection = {};
-  return a;
-}
-
-/** Today, in the prototype's day grammar ("Wed, Sept 9"). */
-const today = () => fmtDay(new Date().toDateString());
-
-/**
- * Step `a` from one status to another (UX-LOOP R2-T-02: every
- * transition names its appointment; the default is still the one the
- * customer is viewing). Returns true when the step happened, false
- * when there is no appointment or it is not at `from`.
- */
-export function step(from, to, extra = {}, a = apptEntry()) {
-  if (!a) return false;
-  if (from && canonicalStatus(a.status) !== from) return false;
-  a.status = to;
-  Object.assign(a, extra);
-  return true;
-}
-
-/** The receipt date of the fee charge ("9/10/26"; the seed's fiction
-    says 7/7/26). */
-const chargeDate = () => mdy(new Date().toDateString(), '7/7/26');
-/** Charge the held Concierge fee (R7): stamps `feeChargedOn`, clears
-    the hold. Idempotent — a fee already charged keeps its date. */
-function chargeFee(a) {
-  if (!a) return;
-  a.feeChargedOn ??= chargeDate();
-  a.feeHeld = false;
-}
-
-/** Tailor accepts the request — the held Concierge fee is charged now
-    (Kevin, R7): `feeChargedOn` dates the receipt rows. A pending time
-    proposal is moot once the request is accepted as booked. */
-export function tailorAccepts(a = apptEntry()) {
-  const ok = step('searching', 'confirmed', {}, a);
-  if (ok) { chargeFee(a); a.proposed = null; assignTailor(a); }   // R6: the tailor is named on acceptance (round 16: never one who declined)
-  return ok;
-}
-/**
- * The 24-hour prompt's Confirm (R7): the customer confirms the visit —
- * `confirmedAt` + `feeLocked = true`: from here the Concierge fee is
- * non-refundable (a no-show keeps it too). Only a confirmed, not yet
- * happened appointment can be confirmed; returns true when it was.
- * 03.2's Confirm calls this before completeAppointment().
- */
-export function confirmAppointment(a = apptEntry()) {
-  if (!a || canonicalStatus(a.status) !== 'confirmed') return false;
-  a.confirmedAt = today();
-  a.feeLocked = true;
-  return true;
-}
-/** The appointment happened; tailor drafts the final order. */
-export const completeAppointment = (a = apptEntry()) => step('confirmed', 'awaiting-approval', {}, a);
-/** User approves the final order (stamps approvedAt — the order on
-    file is already the reviewed one, nothing is copied). */
-export const approveOrder = (a = apptEntry()) => step('awaiting-approval', 'tailoring', { approvedAt: fmtDay(a?.when, 'Sun, Jul 12') }, a);
-/** Garments finished — stamps readyAt (the fiction's Thu, Jul 16: the
-    day before need-by, never before the appointment itself). */
-export function markReady(a = apptEntry()) {
-  if (!a) return false;
-  const dayBefore = shiftDay(a.needBy, -1);
-  const apptDay = parseWhen(a.when)?.date;
-  const beforeDay = parseWhen(dayBefore)?.date;
-  const readyAt = (dayBefore && (!apptDay || !beforeDay || beforeDay > apptDay)) ? dayBefore : fmtDay(a.needBy, 'Thu, Jul 16');
-  return step('tailoring', 'ready-for-pickup', { readyAt }, a);
-}
-/** 05: the delivery the customer scheduled (round 16, Kevin: delivery
-    is the only handoff and the concierge fee covers it — nothing is
-    added to the totals). `window` is the label the screens print
-    ("Thu, Jul 23 · 5:00 PM"), `date` its calendar day ("Jul 23") so
-    receipts and the delivered stamp can name it; `address` the delivery
-    address line. The `method` argument is kept for the round-3..15
-    callers and is always 'delivery'. */
-export function chooseFulfilment(method, window, date = null, a = apptEntry(), address = null) {
-  if (!a) return false;
-  a.fulfilment = { method: 'delivery', window, date, address: address ?? a.fulfilment?.address ?? null };
-  if (a.totals) a.totals = { ...a.totals, delivery: 0 };
-  return true;
-}
-/** Garments back with the customer — stamps deliveredAt from the
-    chosen window's day. */
-export function deliver(a = apptEntry()) {
-  if (!a) return false;
-  /* round 16: the delivered stamp is the scheduled window itself ("Thu,
-     Jul 23 · 5:00 PM" — 06 prints "Delivered: …"), else the day */
-  const day = a.fulfilment?.window ?? a.fulfilment?.date ?? a.readyAt ?? a.needBy;
-  return step('ready-for-pickup', 'delivered', { deliveredAt: a.fulfilment?.window ?? fmtDay(day, a.readyAt ?? 'Fri, Jul 17') }, a);
-}
-
-/* ---------- Proposed time (UX-LOOP R2-U-03 / R2-T-04) ---------- */
-
-/** The tailor proposes another time for a request. Status stays
-    searching; `a.proposed = { when, by: 'tailor', at }`. Only a
-    searching appointment can receive a proposal, and only for a day
-    no later than the need-by day (R3-U-02 / R3-T-01 — day-level, the
-    rule markReady uses; `proposalDays(a)` in data.js is the wheel's
-    matching bound). R4-U-03 / R4-T-01: ON the need-by day the slot
-    must also be strictly before the need-by time (when it has one) —
-    `proposalHours` caps the wheel the same way. Returns false otherwise. */
-export function proposeTime(a, when) {
-  if (!a || !when || canonicalStatus(a.status) !== 'searching') return false;
-  if (isAfterDay(when, a.needBy)) return false;
-  const w = parseWhen(when); const nb = parseWhen(a.needBy);
-  if (w && nb && nb.hour != null && w.date.toDateString() === nb.date.toDateString() && w.date >= nb.date) return false;
-  a.proposed = { when, by: 'tailor', at: today() };
-  a.proposalDeclined = null;
-  return true;
-}
-
-/** The customer accepts a proposed time (or the tailor confirms a
-    time): `a.when = when`, proposal cleared, status confirmed, the held
-    Concierge fee charged (feeChargedOn, R7). `when` first keeps the v3
-    signature; omitted, it falls back to the pending proposal. */
-export function acceptProposedTime(when, a = apptEntry()) {
-  if (!a) return null;
-  const at = when ?? a.proposed?.when;
-  if (at) a.when = at;
-  a.proposed = null;
-  a.status = 'confirmed';
-  chargeFee(a);
-  assignTailor(a);   // R6: accepting the proposal books the proposing tailor
-  return { appointment: a, when: a.when, visitFee: a.totals ? a.totals.visitFee : null };
-}
-
-/** The proposal is dropped: by the customer (Keep Looking, the
-    default) or by the tailor withdrawing it (`by = 'tailor'`, R3-T-02).
-    Cleared and remembered as `a.proposalDeclined = { when, by }`;
-    status stays searching. */
-export function declineProposedTime(a = apptEntry(), by = 'customer') {
-  if (!a) return false;
-  const when = a.proposed?.when ?? a.proposalDeclined?.when ?? null;
-  a.proposalDeclined = when ? { when, by } : null;
-  a.proposed = null;
-  return true;
-}
-
-/* Round 12 (Kevin): 04.1's Sounds Good only closes the popup — the
-   round-2 requestChanges() trace ("Sarah has questions") is gone. */
-
-/* ---------- Terminal transitions → state.past (R2-U-06/07, R2-T-01) ---------- */
-
-/**
- * Close an appointment: stamp the terminal facts, move it from
- * state.upcoming to the FRONT of state.past, point state.lastCancelled
- * at it, and keep state.currentAppt resolving. Returns wasRequested.
- */
-function terminate(a, status, cancelledBy, reason) {
-  const wasRequested = canonicalStatus(a.status || 'confirmed') === 'searching';
-  Object.assign(a, { status, cancelledBy, reason, cancelledAt: today(), wasRequested });
-  const i = state.upcoming.indexOf(a);
-  const c = state.currentAppt ?? { list: 'upcoming', index: 0 };
-  if (i >= 0) {
-    state.upcoming.splice(i, 1);
-    state.past.unshift(a);
-    if (c.list === 'upcoming' && c.index === i) state.currentAppt = { list: 'past', index: 0 };
-    else if (c.list === 'upcoming' && c.index > i) c.index -= 1;
-    else if (c.list === 'past') c.index += 1;
-  } else if (!state.past.includes(a)) {
-    state.past.unshift(a);
-    if (c.list === 'past') c.index += 1;
+/* ---------- clock ---------- */
+export const now = () => state.clock.now;
+export const nowIso = () => isoMinute(new Date(state.clock.now));
+export function setClock(iso) { state.clock.now = toDate(iso).getTime(); return state.clock.now; }
+/** Expire every `requested` appointment whose reply window has passed. Returns the expired ids. */
+export function tick() {
+  const expired = [];
+  for (const a of state.appts) {
+    if (a.status === 'requested' && toDate(a.expiresAt).getTime() <= state.clock.now) {
+      if (expireRequest(a.id).ok) expired.push(a.id);
+    }
   }
-  state.lastCancelled = a;
-  return wasRequested;
+  return expired;
 }
-
-/** The Concierge fee on file for an appointment (charged or held). */
-const feeOf = (a) => a?.totals?.visitFeeCharged ?? a?.totals?.visitFee ?? 0;
-/** Stamp the fee outcome on a terminal entry (R7): `refund` (the fee
-    going back — the hold released when it was never charged) and
-    `feeKept` (a charged fee stays with Taily). */
-function settleFee(a, { kept = false } = {}) {
-  const fee = feeOf(a);
-  a.refund = kept ? 0 : fee;
-  a.feeKept = kept && fee > 0;
-  return { refund: a.refund, kept: a.feeKept };
+export function advanceClock(minutes) {
+  state.clock.now += minutes * MIN_MS;
+  return { now: state.clock.now, expired: tick() };
 }
+/** ms left of the reply window (0 when passed). */
+export const msLeft = (appt) => Math.max(0, toDate(appt.expiresAt).getTime() - state.clock.now);
 
-/** The tailor declines the request (round 16, Kevin): the request is
-    NOT closed — it goes back to matching with the next tailor, the hold
-    intact, and the customer sees nothing. The declining tailor is
-    remembered on `a.declinedBy` so the tailor side can close its copy
-    (T03A) and the next match skips them. Returns the appointment. */
-export function declineAppointment(a = apptEntry()) {
-  if (!a) return null;
-  a.declinedBy = [...(a.declinedBy ?? []), a.tailorId ?? 'marco'];
-  a.declinedAt = fmtDay(new Date().toDateString(), 'Sun, Jul 12');
-  Object.assign(a, { status: 'searching', name: null, initials: null, tailorId: null, matching: true, feeHeld: true });
-  a.proposed = null;
-  delete a.tailor;
-  return { appointment: a, visitFee: feeOf(a) };
-}
-
-/** No tailor accepted in time (cancelledBy 'none', reason 'expired').
-    A proposal still pending is kept on `a.lapsedProposal` (R3-T-02:
-    "Marco proposed … but the request lapsed before you answered").
-    The fee hold is released. */
-export function expireAppointment(a = apptEntry()) {
-  if (!a) return null;
-  if (a.proposed) { a.lapsedProposal = a.proposed; a.proposed = null; }
-  terminate(a, 'expired', 'none', 'expired');
-  const { refund } = settleFee(a);
-  return { appointment: a, refund };
-}
-
-/** The tailor cancels a confirmed visit (R2-U-05 / R2-T-05):
-    reason 'cant-make-it' | 'no-show'. Status 'cancelled', cancelledBy
-    'tailor'. R7 fee policy: the tailor cancelling refunds the fee,
-    always (`feeLocked` ignored); a no-show keeps it ONLY once the
-    customer had confirmed the visit (`feeLocked`) — before that it
-    is refunded too. Round 8 (Kevin): a no-show pays the tailor
-    `noShowComp(a.totals.visitFee)` for the trip — stamped on
-    `a.noShowComp` whenever the tailor marks a no-show (Taily pays it
-    from the kept fee, and absorbs it if the visit was unlocked);
-    nothing changes on the customer's record. */
-export function tailorCancels(a = apptEntry(), reason = 'cant-make-it') {
-  if (!a) return null;
-  const wasRequested = terminate(a, 'cancelled', 'tailor', reason);
-  const { refund, kept } = settleFee(a, { kept: reason === 'no-show' && !wasRequested && a.feeLocked === true });
-  /* round 12: the compensation is the tailor's cut of the fee for the booked count */
-  if (reason === 'no-show') a.noShowComp = noShowComp(itemCount(a));
-  return { appointment: a, wasRequested, reason, refund, kept, noShowComp: a.noShowComp };
-}
-
-/**
- * The customer cancels (a request withdrawn, or a confirmed visit).
- * v3: a request that was never confirmed charges nothing. R7: a
- * confirmed appointment refunds the Concierge fee in full until the
- * customer confirmed the visit on the 24-hour prompt (`feeLocked`,
- * confirmAppointment) — after that the fee is kept. `aOrIndex` may be
- * the appointment, its index in state.upcoming, or nothing (the one
- * being viewed — v3 read state.upcoming[currentAppt.index]). The entry
- * moves to state.past[0] with status 'cancelled', cancelledBy
- * 'customer', reason 'customer', and state.lastCancelled points at it.
- * R4-U-01: once the appointment has happened (awaiting-approval →
- * delivered) the order is the tailor's measured work — it cannot be
- * cancelled from here; returns null and leaves the entry untouched
- * (03.1 toasts "message Marco").
- */
-export function cancelAppointment(aOrIndex) {
-  let a;
-  if (aOrIndex && typeof aOrIndex === 'object') a = aOrIndex;
-  else a = state.upcoming[aOrIndex == null ? state.currentAppt.index : aOrIndex];
-  if (!a) return null;
-  if (isPostAppointment(a)) return null;
-  const wasRequested = terminate(a, 'cancelled', 'customer', 'customer');
-  const { refund, kept } = settleFee(a, { kept: !wasRequested && a.feeLocked === true });
-  return { appointment: a, wasRequested, refund, kept };
-}
-
-/**
- * R7: 12 hours before the visit with no confirmation on the 24-hour
- * prompt — Taily cancels the appointment for the customer: terminal
- * `cancelled`, cancelledBy 'none', reason 'unconfirmed', the fee
- * refunded in full (it was never locked), the tailor's slot reopened
- * (T01 renders the closed row). Only a confirmed, unconfirmed
- * (`!feeLocked`), not yet happened appointment qualifies; returns null
- * otherwise. The customer-side demo is 03/Reminder's title tap.
- */
-export function autoCancelUnconfirmed(a = apptEntry()) {
-  if (!a || canonicalStatus(a.status) !== 'confirmed' || a.feeLocked) return null;
-  terminate(a, 'cancelled', 'none', 'unconfirmed');
-  const { refund } = settleFee(a);
-  return { appointment: a, refund };
-}
-
-/**
- * The cancelled order's garments become the next booking's starting
- * point — 02's cards and 01's tile badges (R1-U-09). Moved here from
- * 03.1 in round 6 so rescheduleAppointment() can call it; the screen
- * re-exports it for 03/Cancelled's re-request CTAs.
- */
-export function copyItemsOver(a) {
-  const garments = clone(a?.garments ?? []);
-  garments.forEach((g) => { delete g.added; delete g.addedJobs; delete g.displayPrice; delete g.id; });
-  state.garments = garments;
-  state.ui ??= {};
-  state.ui.homeSelection = garments.reduce((m, g) => { m[g.type] = (m[g.type] ?? 0) + 1; return m; }, {});
-  return garments;
-}
-
-/**
- * R6 "reschedule" = cancel + resubmit the same job for a new tailor at
- * the same time (Kevin): runs cancelAppointment(a) (R7: the feeLocked
- * rule, same terminal placement — null when the visit already happened),
- * copies the items into the booking form + Home selection and restores
- * the requested time / need-by / visit type on state.appt, so 02 opens
- * pre-filled and its Request Tailor creates a fresh matching request.
- * Returns the cancel result ({ appointment, wasRequested, refund, kept }).
- */
-export function rescheduleAppointment(a = apptEntry()) {
-  const res = cancelAppointment(a);
-  if (!res) return null;
-  copyItemsOver(a);
-  if (a.when) state.appt.when = fmtPill(a.when);
-  if (a.needBy) state.appt.needBy = fmtPill(a.needBy);
-  if (a.visit) state.appt.where = a.visit;
-  return res;
-}
-
-/** Re-send the same request to a different tailor. */
-export function rebookWith(tailorId) {
-  const a = apptEntry();
-  const t = TAILORS.find((x) => x.id === tailorId);
-  if (!a || !t) return null;
-  const { contact } = state;
-  a.name = t.name;
-  a.initials = t.initials;
-  a.tailorId = t.id;
-  a.where = (a.where === 'home' && t.home) ? 'home' : 'shop';
-  a.place = a.where === 'home'
-    ? `Your address · ${contact.street}${contact.unit ? ' ' + contact.unit : ''}`
-    : `${t.address.split(',')[0]}, ${t.hood}`;
-  a.visit = a.where === 'home' ? 'Home Visit' : 'Store Visit';
-  a.status = 'requested';
-  return { appointment: a, tailor: t };
-}
-
-/* ---------- Garments ---------- */
-
-export function addGarment(g) {
-  if (g && !g.id) g.id = nextGarmentId();   // R2-T-08: stable identity
-  state.garments.push(g);
-  return state.garments;
-}
-
-export function removeGarment(i) {
-  state.garments.splice(i, 1);
-  return state.garments;
-}
-
-export function clearGarments() {
-  state.garments = [];
-  return state.garments;
-}
-
-/* ---------- Estimates ---------- */
-
-/**
- * The booking form's pricing (02's fee card + CTA, 03/Requested's
- * estimate row): per-tailor minimums ("$N+") for the alterations and
- * the Concierge fee tier for the item count (R7) — the same shape
- * apptTotals() returns, plus `note` (the tier's supporting line, ''
- * on the $25 tier). Ported from v3 bookingLines(), reading `state`.
- */
-export function bookingLines(tailor) {
-  const mult = tailor ? tailor.mult : 1;
-  const rows = state.garments.map((g) => ({
-    label: `${g.type} — ${g.jobs.join(', ')}`,
-    amount: Math.round(g.jobs.reduce((s, j) => s + JOB_TYPES[j].price * mult, 0)),
-  }));
-  const alterations = rows.reduce((s, r) => s + r.amount, 0);
-  const items = state.garments.length;   // round 12: one garment = one item
-  const fee = visitFee(items);
-  const rush = rushFee(state.appt?.when, state.appt?.needBy);   // round 15 (Kevin): $150 when need-by is within 24h of the visit
-  return {
-    rows, alterations, items,
-    visitFee: fee, visitFeeCharged: fee, visitFeeAdded: 0,
-    delivery: 0, rush, total: alterations + fee + rush,
-    note: visitFeeNote(items),
-    subtotal: alterations,   // deprecated alias
-  };
-}
-
-/* ---------- The final order (UX-LOOP round 1) ---------- */
-
-/* apptTotals() / payout() live in data.js since round 7 (the tailor
-   side imports them from either module); re-exported here for the
-   round 1–6 import paths. */
-export { apptTotals, payout };
-
-/**
- * The order to draw on post-appointment screens (03/Tailoring, 04, 05A/B,
- * 06, 03/Summary): the appointment's own garments/totals once the
- * appointment happened; before that (a harness deep link with the seed
- * still 'confirmed') the frames' SEED_FINAL_ORDER fixture.
- */
-export function finalOrder(a) {
-  if (a && isPostAppointment(a) && a.garments?.length) {
-    /* R2-T-08: booked garments the tailor dropped at the visit ride
-       along so 04 can list them ("Removed at the visit — …") */
-    return { garments: a.garments, totals: a.totals ?? apptTotals(a.garments), removed: a.removed ?? [] };
-  }
-  return SEED_FINAL_ORDER;
-}
-
-/** Has the order been changed at the appointment (04 Default vs
-    Modified)? Added garments / services, or a booked garment removed
-    at the visit (R2-T-08). */
-export const orderModified = (order) => (order?.garments ?? []).some((g) => g.added || g.addedJobs?.length) || (order?.removed?.length ?? 0) > 0;
-
-/**
- * Which screen an appointment opens from its card, and where the 03
- * family's guards hand over to (round 10, Kevin): the 03 variant for
- * its status — and, while the final order awaits approval, 04 Review &
- * Approve ITSELF (one approve screen; the Modified route when the visit
- * changed the booking). Terminal entries → 03/Cancelled.
- */
-export function statusScreen(a) {
-  const s = canonicalStatus(a?.status);
-  if (isTerminal(a)) return '03-status-cancelled';
-  if (s === 'searching') return '03-status-requested';
-  if (s === 'confirmed') return '03-status-confirmed';
-  if (s === 'awaiting-approval') return orderModified(finalOrder(a)) ? '04-review-approve-modified' : '04-review-approve';
-  if (s === 'delivered') return '03-status-summary';
-  /* round 16 (Kevin): a scheduled delivery has its own status screen */
-  if (s === 'ready-for-pickup' && a?.fulfilment?.window) return '03-status-delivery-scheduled';
-  return '03-status-tailoring';   // tailoring / ready (delivery not scheduled yet)
-}
-
-/**
- * DEMO (user side, 03.2's Confirm): the tailor's at-visit review, as the
- * frames tell it — one extra service on the first garment and one more
- * of the same garment. Writes a.garments / a.totals (the shared final
- * order) and stamps revisedAt; a no-op once the tailor's own T05 Send
- * has written the order. From the $200 seed this yields the $360 06B
- * fiction exactly.
- */
-export function draftFinalOrder(a = apptEntry()) {
-  if (!a || a.revisedAt || !a.garments?.length) return null;
-  ensureGarmentIds(a.garments);
-  a.booked ??= clone(a.garments);   // the order as booked (the tailor side reads it)
-  const garments = clone(a.garments).map((g) => { delete g.displayPrice; return g; });
-  const first = garments[0];
-  const extra = ['Sleeve / Adjust Length', 'Hem / Adjust Length', 'Taper / Slim Fit'].find((j) => !first.jobs.includes(j));
-  if (extra) { first.jobs.push(extra); first.addedJobs = [...(first.addedJobs ?? []), extra]; }
-  garments.push({ id: nextGarmentId(), type: first.type, jobs: ['Sleeve / Adjust Length'], photos: 2, added: true });
-  a.garments = garments;
-  a.totals = apptTotals(garments, a.totals ?? {});   // R7: re-tiers the fee, never below the charged one
-  a.revisedAt = fmtDay(a.when, 'Sun, Jul 12');
-  refreshItemSummary(a);   // R2-U-08: cards follow the final order
+/* ---------- lookups ---------- */
+export const getAppt = (id) => state.appts.find((a) => a.id === id);
+function must(id) {
+  const a = getAppt(id);
+  if (!a) throw new Error(`Unknown appointment id "${id}"`);
   return a;
 }
+export const tailorById = (id) => state.tailors.find((t) => t.id === id);
+const firstName = (t) => (t?.name || 'The tailor').split(' ')[0];
 
-export { TAILORS, JOB_TYPES };
+/** Newest first. */
+export function apptsFor(persona = state.persona) {
+  const mine = persona === 'tailor'
+    ? state.appts.filter((a) => a.tailorId === state.tailors[0].id)
+    : state.appts.filter((a) => a.customerId === state.customer.id);
+  return mine.slice().reverse();
+}
+const isFinalExpiry = (a) => a.status === 'expired' && a.retries >= POLICY.MAX_RETRIES;
+/** Newest non-terminal appointment of the customer's (an expired-for-good request is not active). */
+export function activeAppt() {
+  return apptsFor('customer').find((a) => !TERMINAL.includes(a.status) && !isFinalExpiry(a)) ?? null;
+}
+
+export function threadFor(tailorId) {
+  return state.threads[tailorId] ?? { tailorId, customerId: state.customer.id, messages: [] };
+}
+function ensureThread(tailorId) {
+  if (!state.threads[tailorId]) state.threads[tailorId] = { tailorId, customerId: state.customer.id, messages: [] };
+  return state.threads[tailorId];
+}
+/** Read-only after a decline, until the customer books this tailor again. */
+export function threadReadOnly(tailorId) {
+  const latest = state.appts.filter((a) => a.tailorId === tailorId).pop();
+  return !!latest && latest.status === 'declined';
+}
+function post(tailorId, from, text, extra = {}) {
+  const msg = { id: `m${++msgSeq}`, from, text, photos: 0, at: nowIso(), masked: false, ...extra };
+  ensureThread(tailorId).messages.push(msg);
+  return msg;
+}
+const say = (appt, text) => post(appt.tailorId, 'system', text);
+function setStatus(appt, status) {
+  appt.status = status;
+  appt.history.push({ status, at: nowIso() });
+}
+
+/* ---------- contact masking ---------- */
+const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+const PHONE_RE = /(\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g;
+export function maskContact(text) {
+  const src = String(text ?? '');
+  const out = src.replace(EMAIL_RE, '[email hidden]').replace(PHONE_RE, '[phone hidden]');
+  return { text: out, masked: out !== src };
+}
+
+/* ---------- the job draft ---------- */
+export function setJob(patch) { Object.assign(state.job, patch); return { ok: true, job: state.job }; }
+/** A fresh draft for a different job: no garments yet, same place, empty declined / hidden lists. */
+export function newJob() {
+  state.job = { garments: [], visitType: 'home', zip: state.customer.address.zip, address: { ...state.customer.address }, needBy: state.job.needBy, declinedBy: [], hiddenTailors: [] };
+  return { ok: true, job: state.job };
+}
+export function addGarment(type) {
+  if (state.job.garments.length >= MAX_ITEMS) return fail('max-items');
+  if (!GARMENT_TYPES[type]) return fail('unknown-type');
+  garmentSeq = Math.max(garmentSeq, ...state.job.garments.map((g) => Number(String(g.id).slice(1)) || 0)) + 1;
+  const garment = { id: `g${garmentSeq}`, type, services: [], photos: 0 };
+  state.job.garments.push(garment);
+  return { ok: true, garment, job: state.job };
+}
+export function removeGarment(id) {
+  const i = state.job.garments.findIndex((g) => g.id === id);
+  if (i < 0) return fail('unknown-garment');
+  state.job.garments.splice(i, 1);
+  return { ok: true, job: state.job };
+}
+export function setServices(garmentId, ids) {
+  const g = state.job.garments.find((x) => x.id === garmentId);
+  if (!g) return fail('unknown-garment');
+  if (ids.some((id) => !SERVICES[id]?.garments.includes(g.type))) return fail('service-not-for-type');
+  g.services = [...ids];
+  return { ok: true, garment: g, job: state.job };
+}
+/** step: 'what' | 'where' | omitted (both). → { ok, errors: { field: code } } */
+export function validateJob(job = state.job, step = null) {
+  const errors = {};
+  if (step !== 'where') {
+    if (!job.garments?.length) errors.garments = 'no-garments';
+    for (const g of job.garments ?? []) if (!g.services?.length) errors[`service:${g.id}`] = `no-service:${g.id}`;
+  }
+  if (step !== 'what') {
+    if (!/^\d{5}$/.test(String(job.zip ?? ''))) errors.zip = 'zip-invalid';
+    if (job.visitType === 'home' && !String(job.address?.street ?? '').trim()) errors.address = 'address-required';
+    const tomorrow = isoDay(addDays(strip(new Date(state.clock.now)), 1));
+    if (!job.needBy) errors.needBy = 'needby-required';
+    else if (job.needBy < tomorrow) errors.needBy = 'needby-past';
+  }
+  return { ok: Object.keys(errors).length === 0, errors };
+}
+
+/* ---------- tailor sections (M2 fills in the screens) ---------- */
+export const bookable = (tailor) => !!tailor && SECTIONS.every((s) => tailor.onboarding?.[s]);
+const hasWindow = (avail) => Object.values(avail ?? {}).some((w) => (w ?? []).length > 0);
+const SECTION_RULES = {
+  profile: (d) => ({ ...(d.name?.trim() ? {} : { name: 'name-required' }), ...(d.bio?.trim() ? {} : { bio: 'bio-required' }) }),
+  services: (d) => (Object.values(d.prices ?? {}).some((p) => typeof p === 'number' && p > 0) ? {} : { prices: 'no-services' }),
+  where: (d) => {
+    const e = {};
+    if (!d.shop?.enabled && !d.home?.enabled) e.where = 'where-required';
+    if (d.shop?.enabled && !String(d.shop.street ?? '').trim()) e.street = 'street-required';
+    if (d.shop?.enabled && !/^\d{5}$/.test(String(d.shop.zip ?? ''))) e.shopZip = 'zip-invalid';
+    if (d.home?.enabled && !(d.home.zips ?? []).length) e.zips = 'zips-required';
+    if (d.home?.enabled && !(typeof d.home.fee === 'number' && d.home.fee >= 0)) e.fee = 'fee-invalid';
+    return e;
+  },
+  returns: (d) => (Object.values(d.returns ?? {}).some(Boolean) ? {} : { returns: 'return-required' }),
+  availability: (d) => {
+    const e = {};
+    if (d.shop?.enabled && !hasWindow(d.availability?.shop)) e.shop = 'hours-required';
+    if (d.home?.enabled && !hasWindow(d.availability?.home)) e.home = 'hours-required';
+    if (!d.shop?.enabled && !d.home?.enabled && !hasWindow(d.availability?.shop) && !hasWindow(d.availability?.home)) e.hours = 'hours-required';
+    return e;
+  },
+  payouts: (d) => {
+    const e = {};
+    if (!String(d.payouts?.bank ?? '').trim()) e.bank = 'bank-required';
+    if (!/^\d{4}$/.test(String(d.payouts?.last4 ?? ''))) e.last4 = 'last4-invalid';
+    if (!String(d.payouts?.holder ?? '').trim()) e.holder = 'holder-required';
+    return e;
+  },
+};
+/** `data` is tailor-shaped (the fields of that section; the whole tailor works too). */
+export function validateSection(section, data = state.tailors[0]) {
+  const rule = SECTION_RULES[section];
+  if (!rule) return { ok: false, errors: { section: 'unknown-section' } };
+  const errors = rule(data ?? {});
+  return { ok: Object.keys(errors).length === 0, errors };
+}
+const isPlain = (v) => v && typeof v === 'object' && !Array.isArray(v);
+function deepMerge(target, patch) {
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === undefined) delete target[k];
+    else if (isPlain(v) && isPlain(target[k])) deepMerge(target[k], v);
+    else target[k] = clone(v);
+  }
+  return target;
+}
+/** Merge `patch` into the (only) tailor and re-derive that section's onboarding flag. */
+export function setTailorSection(section, patch) {
+  if (!SECTIONS.includes(section)) return fail('unknown-section');
+  const t = state.tailors[0];
+  deepMerge(t, patch);
+  const v = validateSection(section, t);
+  t.onboarding[section] = v.ok;
+  return { ok: true, tailor: t, valid: v.ok, errors: v.errors, bookable: bookable(t) };
+}
+/** Onboarding flows start from a blank profile with the same id (D-20). */
+export function blankTailor() { state.tailors[0] = clone(BLANK_TAILOR); return state.tailors[0]; }
+
+/* ---------- slots ---------- */
+function busyIntervals(tailorId, exclude) {
+  const out = [];
+  for (const a of state.appts) {
+    if (a.tailorId !== tailorId || a.id === exclude) continue;
+    let start = null;
+    if (a.status === 'requested' || a.status === 'confirmed') start = a.slot.start;
+    else if (a.status === 'suggested') start = a.suggested.start;
+    if (!start) continue;
+    const from = toDate(start).getTime();
+    out.push([from, from + VISIT_MINUTES[a.job.visitType] * MIN_MS]);
+  }
+  return out;
+}
+/** Open visit starts (ISO strings) for one tailor: the tailor's own weekly hours, 9 AM–9 PM, on :00 / :30,
+    at least MIN_LEAD_H ahead, on a day before `until` (the need-by, D-18), clear of that tailor's other bookings. */
+export function openSlots(tailorId, visitType, { until = null, exclude = null } = {}) {
+  const t = tailorById(tailorId);
+  if (!t || !t[visitType]?.enabled) return [];
+  const windows = t.availability?.[visitType] ?? {};
+  const dur = VISIT_MINUTES[visitType];
+  const earliest = state.clock.now + POLICY.MIN_LEAD_H * HOUR_MS;
+  const today = strip(new Date(state.clock.now));
+  const horizon = addDays(today, SLOT_HORIZON_DAYS);
+  const busy = busyIntervals(tailorId, exclude);
+  const slots = [];
+  for (let d = today; d < horizon; d = addDays(d, 1)) {
+    if (until && dayDiff(d, until) < 1) break;
+    for (const [open, close] of windows[weekdayKey(d)] ?? []) {
+      const from = Math.max(minutesOf(open), DAY_START_MIN);
+      const to = Math.min(minutesOf(close), DAY_END_MIN);
+      for (let m = Math.ceil(from / SLOT_STEP_MIN) * SLOT_STEP_MIN; m + dur <= to; m += SLOT_STEP_MIN) {
+        const start = new Date(d); start.setHours(Math.floor(m / 60), m % 60, 0, 0);   // wall-clock, so a DST changeover day keeps its hours
+        const s = start.getTime();
+        if (s < earliest) continue;
+        if (busy.some(([a, b]) => s < b && a < s + dur * MIN_MS)) continue;
+        slots.push(isoMinute(start));
+      }
+    }
+  }
+  return slots;
+}
+export const nextOpening = (tailorId, visitType, opts) => openSlots(tailorId, visitType, opts)[0] ?? null;
+const slotEnd = (startIso, visitType) => isoMinute(addMinutes(startIso, VISIT_MINUTES[visitType]));
+
+/* ---------- eligibility + the list ---------- */
+const areaReason = (tailor, job) => {
+  if (!bookable(tailor)) return job.visitType === 'shop' ? 'shop-off' : 'zip';   // D-27
+  if (job.visitType === 'home') return tailor.home?.enabled && tailor.home.zips.includes(job.zip) ? null : 'zip';
+  if (!tailor.shop?.enabled) return 'shop-off';
+  return (ZIP_INFO[job.zip]?.miles ?? Infinity) <= SHOP_RADIUS_MI ? null : 'zip';   // D-19
+};
+/** → { ok, reason: 'zip' | 'shop-off' | 'hidden' | 'declined' | 'nothing-open' } */
+export function eligible(tailor, job = state.job) {
+  const area = areaReason(tailor, job);
+  if (area) return { ok: false, reason: area };
+  if ((job.hiddenTailors ?? []).includes(tailor.id)) return { ok: false, reason: 'hidden' };
+  if ((job.declinedBy ?? []).includes(tailor.id)) return { ok: false, reason: 'declined' };
+  if (!nextOpening(tailor.id, job.visitType, { until: job.needBy })) return { ok: false, reason: 'nothing-open' };
+  return { ok: true, reason: null };
+}
+/** Quote for a draft job with the tailor's next opening deciding the rush tier. */
+export function estimateNext(tailor, job = state.job) {
+  return estimate(tailor, job, nextOpening(tailor.id, job.visitType, { until: job.needBy }));
+}
+/** → { rows: [{ tailor, quote, distanceMi, nextOpening, declined }], empty: null | 'zip' | 'shop' | 'nothing-open' | 'none-left' }
+    precedence: area filter → hidden → open slots. A declined tailor stays as a row (D-08). */
+export function tailorsFor(job = state.job) {
+  const inArea = [];
+  let area = null;
+  for (const t of state.tailors) {
+    const r = areaReason(t, job);
+    if (r) area = area ?? r; else inArea.push(t);
+  }
+  if (!inArea.length) return { rows: [], empty: area === 'shop-off' ? 'shop' : 'zip' };
+  const shown = inArea.filter((t) => !(job.hiddenTailors ?? []).includes(t.id));
+  if (!shown.length) return { rows: [], empty: 'none-left' };
+  const rows = [];
+  for (const t of shown) {
+    const next = nextOpening(t.id, job.visitType, { until: job.needBy });
+    if (!next) continue;
+    rows.push({
+      tailor: t, quote: estimate(t, job, next), distanceMi: ZIP_INFO[job.zip]?.miles ?? null,
+      nextOpening: next, declined: (job.declinedBy ?? []).includes(t.id),
+    });
+  }
+  return { rows, empty: rows.length ? null : 'nothing-open' };
+}
+
+/* ---------- the booking machine ---------- */
+const jobCopy = (job) => ({ garments: clone(job.garments), visitType: job.visitType, zip: job.zip, address: job.address ? clone(job.address) : null, needBy: job.needBy });
+/** Put an appointment's job back as the draft, keeping the declined / hidden lists. */
+function restoreDraft(appt) {
+  state.job = { ...clone(appt.job), declinedBy: state.job.declinedBy ?? [], hiddenTailors: state.job.hiddenTailors ?? [] };
+}
+function payoutDate(ms) {
+  const d = new Date(ms);
+  const delta = (5 - d.getDay() + 7) % 7 || 7;                 // the following Friday (D-24)
+  return isoDay(addDays(d, delta));
+}
+function addPayout(appt, centsAmount, kind) {
+  state.payouts.push({ apptId: appt.id, cents: centsAmount, state: 'pending', date: payoutDate(state.clock.now), kind });
+}
+const expiryIso = () => isoMinute(new Date(state.clock.now + POLICY.REQUEST_EXPIRY_H * HOUR_MS));
+
+export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = false } = {}) {
+  const job = state.job;
+  const v = validateJob(job);
+  if (!v.ok) return fail('job-invalid', { errors: v.errors });
+  const tailor = tailorById(tailorId);
+  if (!tailor) return fail('unknown-tailor');
+  const el = eligible(tailor, job);
+  if (!el.ok) return fail(el.reason);
+  if (!openSlots(tailorId, job.visitType, { until: job.needBy }).includes(slotStart)) return fail('slot-unavailable');
+  const lines = linesFor(tailor, job.garments);
+  if (lines.missing.length) return fail('service-not-offered', { missing: lines.missing });
+  if (state.sim.card === 'declined') return fail('card-declined');
+  if (state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
+
+  const homeFee = job.visitType === 'home' ? cents(tailor.home.fee) : 0;
+  const rush = rushFor(tailor, slotStart, job.needBy);
+  const money = quote({ lines, homeFee, rush: rush.cents });
+  money.rushDays = rush.days;
+  const appt = {
+    id: `A-${++apptSeq}`, customerId: state.customer.id, tailorId,
+    job: jobCopy(job), lines,
+    slot: { start: slotStart, end: slotEnd(slotStart, job.visitType) },
+    status: 'requested', requestedAt: nowIso(), expiresAt: expiryIso(), retries: 0,
+    suggested: null, declineReason: '', cardId,
+    money,
+    payments: { deposit: { cents: money.deposit, state: 'authorized' }, balance: { cents: money.balance, state: 'pending' } },
+    priceChange: null, returnOption: null, courier: null, cancel: null, review: null,
+    history: [{ status: 'requested', at: nowIso() }],
+  };
+  state.appts.push(appt);
+  say(appt, 'Request sent');
+  return succeed(appt);
+}
+
+export function withdrawRequest(id) {
+  const a = must(id);
+  if (a.status !== 'requested' && a.status !== 'suggested') return fail('not-pending');
+  setStatus(a, 'cancelled');
+  a.cancel = { by: 'customer', reason: 'withdrawn', at: nowIso(), refund: 0, kept: 0, tailorPaid: 0 };
+  a.payments.deposit.state = 'released';
+  restoreDraft(a);
+  say(a, 'Request withdrawn');
+  return succeed(a);
+}
+
+export function tailorAccept(id) {
+  const a = must(id);
+  if (a.status === 'expired' || (a.status === 'requested' && toDate(a.expiresAt).getTime() <= state.clock.now)) return fail('expired');
+  if (a.status !== 'requested') return fail('not-requested');
+  setStatus(a, 'confirmed');
+  a.payments.deposit.state = 'captured';
+  say(a, `${firstName(tailorById(a.tailorId))} accepted`);
+  return succeed(a);
+}
+
+export function tailorSuggest(id, slotStart) {
+  const a = must(id);
+  if (a.status !== 'requested') return fail('not-requested');
+  if (toDate(a.expiresAt).getTime() <= state.clock.now) return fail('expired');
+  if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(slotStart)) return fail('slot-unavailable');
+  a.suggested = { start: slotStart, at: nowIso() };
+  setStatus(a, 'suggested');
+  say(a, `${firstName(tailorById(a.tailorId))} suggested ${fmtWhen(slotStart)}`);
+  return succeed(a);
+}
+
+export function acceptSuggestion(id) {
+  const a = must(id);
+  if (a.status !== 'suggested') return fail('not-suggested');
+  a.slot = { start: a.suggested.start, end: slotEnd(a.suggested.start, a.job.visitType) };
+  setStatus(a, 'confirmed');
+  a.payments.deposit.state = 'captured';
+  say(a, `Booked ${fmtWhen(a.slot.start)}`);
+  return succeed(a);
+}
+
+export function findAnotherTailor(id) {
+  const a = must(id);
+  if (!(a.status === 'declined' || a.status === 'suggested' || isFinalExpiry(a))) return fail('not-allowed');
+  if (a.status === 'suggested') {
+    setStatus(a, 'cancelled');
+    a.cancel = { by: 'customer', reason: 'switched', at: nowIso(), refund: 0, kept: 0, tailorPaid: 0 };
+    a.payments.deposit.state = 'released';
+    say(a, 'Looking for another tailor');
+  }
+  restoreDraft(a);
+  return succeed(a);
+}
+
+export function tailorDecline(id, reason = '') {
+  const a = must(id);
+  if (a.status !== 'requested') return fail('not-requested');
+  setStatus(a, 'declined');
+  a.declineReason = reason;
+  a.payments.deposit.state = 'released';
+  if (!state.job.declinedBy.includes(a.tailorId)) state.job.declinedBy.push(a.tailorId);
+  restoreDraft(a);
+  say(a, `${firstName(tailorById(a.tailorId))} declined`);
+  return succeed(a);
+}
+
+export function expireRequest(id) {
+  const a = must(id);
+  if (a.status !== 'requested') return fail('not-requested');
+  setStatus(a, 'expired');
+  a.payments.deposit.state = 'released';
+  if (a.retries >= POLICY.MAX_RETRIES && !state.job.hiddenTailors.includes(a.tailorId)) state.job.hiddenTailors.push(a.tailorId);   // D-07
+  say(a, 'Request expired');
+  return succeed(a);
+}
+
+export function tryAgain(id) {
+  const a = must(id);
+  if (a.status !== 'expired') return fail('not-expired');
+  if (a.retries >= POLICY.MAX_RETRIES) return fail('no-retries');
+  if (toDate(a.slot.start).getTime() <= state.clock.now) return fail('slot-passed');
+  if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(a.slot.start)) return fail('slot-unavailable');   // someone else may have taken it since
+  if (state.sim.card === 'declined') return fail('card-declined');
+  a.retries += 1;
+  a.expiresAt = expiryIso();
+  a.payments.deposit.state = 'authorized';                    // D-15
+  setStatus(a, 'requested');
+  say(a, 'Request sent again');
+  return succeed(a);
+}
+
+export function cancelBooking(id) {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  const terms = cancelTerms(a, state.clock.now);
+  setStatus(a, 'cancelled');
+  if (terms.window === 'early') {
+    a.payments.deposit.state = 'refunded';
+    a.cancel = { by: 'customer', reason: 'customer-early', at: nowIso(), refund: terms.refund, kept: 0, tailorPaid: 0 };
+  } else {
+    a.payments.deposit.state = 'kept';
+    a.cancel = { by: 'customer', reason: 'customer-late', at: nowIso(), refund: 0, kept: terms.kept, tailorPaid: terms.kept };   // D-05
+    addPayout(a, terms.kept, 'kept-deposit');
+  }
+  say(a, 'Booking cancelled');
+  return succeed(a, { terms });
+}
+
+export function rescheduleBooking(id, slotStart) {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  if (cancelTerms(a, state.clock.now).window !== 'early') return fail('too-late');   // D-12
+  if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(slotStart)) return fail('slot-unavailable');
+  a.slot = { start: slotStart, end: slotEnd(slotStart, a.job.visitType) };           // price stays as booked (D-25)
+  a.history.push({ status: 'rescheduled', at: nowIso() });
+  say(a, `Moved to ${fmtWhen(slotStart)}`);
+  return succeed(a);
+}
+
+export function tailorCantMakeIt(id, reason = '') {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  setStatus(a, 'cancelled');
+  a.payments.deposit.state = 'refunded';
+  a.cancel = { by: 'tailor', reason: 'tailor-cant-make-it', note: reason, at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
+  restoreDraft(a);
+  say(a, `${firstName(tailorById(a.tailorId))} can't make it`);
+  return succeed(a);
+}
+
+export function markNoShow(id) {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  if (state.clock.now < toDate(a.slot.start).getTime() + POLICY.NO_SHOW_WAIT_MIN * MIN_MS) return fail('too-early');
+  const pay = noShowPayout(a.payments.deposit.cents);                                // D-06
+  setStatus(a, 'cancelled');
+  a.payments.deposit.state = 'kept';
+  a.cancel = { by: 'tailor', reason: 'no-show', at: nowIso(), refund: 0, kept: a.payments.deposit.cents, tailorPaid: pay };
+  addPayout(a, pay, 'no-show');
+  say(a, 'Marked as a no-show');
+  return succeed(a);
+}
+
+export function startFitting(id) {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  if (state.clock.now < toDate(a.slot.start).getTime()) return fail('too-early');
+  setStatus(a, 'fitting');
+  return succeed(a);
+}
+
+const lineKey = (l) => `${l.garmentId}:${l.serviceId}`;
+function priceMarks(oldLines, newLines) {
+  const before = new Map(oldLines.map((l) => [lineKey(l), l]));
+  const after = new Map(newLines.map((l) => [lineKey(l), l]));
+  const marks = [];
+  for (const [k, l] of after) {
+    const old = before.get(k);
+    if (!old) marks.push({ garmentId: l.garmentId, serviceId: l.serviceId, kind: 'added', from: null, to: l.cents });
+    else if (old.cents !== l.cents) marks.push({ garmentId: l.garmentId, serviceId: l.serviceId, kind: 'repriced', from: old.cents, to: l.cents });
+  }
+  for (const [k, l] of before) if (!after.has(k)) marks.push({ garmentId: l.garmentId, serviceId: l.serviceId, kind: 'removed', from: l.cents, to: null });
+  return marks;
+}
+export function sendPriceChange(id, lines) {
+  const a = must(id);
+  if (a.status !== 'fitting') return fail('not-fitting');
+  if (!Array.isArray(lines) || !lines.length || lines.some((l) => !(l.cents > 0))) return fail('price-missing');
+  a.priceChange = { lines: clone(lines), marks: priceMarks(a.lines, lines), sentAt: nowIso(), state: 'pending' };
+  setStatus(a, 'price-change');
+  say(a, `${firstName(tailorById(a.tailorId))} sent an updated price`);
+  return succeed(a);
+}
+export function confirmNoChange(id) {
+  const a = must(id);
+  if (a.status !== 'fitting') return fail('not-fitting');
+  setStatus(a, 'in-progress');
+  return succeed(a);
+}
+/** Allowed while pending, and after the customer messaged (disputes settle in chat, then she approves) — D-26. */
+export function approvePriceChange(id) {
+  const a = must(id);
+  if (a.status !== 'price-change' || a.priceChange?.state === 'approved') return fail('not-pending');
+  a.lines = clone(a.priceChange.lines);
+  a.money = repriceMoney(a);
+  a.payments.balance.cents = a.money.balance;
+  a.priceChange.state = 'approved';
+  setStatus(a, 'in-progress');
+  say(a, 'Updated price approved');
+  return succeed(a);
+}
+export function messageAboutPriceChange(id) {
+  const a = must(id);
+  if (a.status !== 'price-change' || a.priceChange?.state !== 'pending') return fail('not-pending');
+  a.priceChange.state = 'messaged';
+  return succeed(a);
+}
+/** Quote from the booked appointment's own lines; the captured deposit never changes (D-23). */
+function repriceMoney(a) {
+  const q = quote({
+    lines: a.lines, homeFee: a.money.homeFee, rush: a.money.rush,
+    courier: a.courier?.state === 'ready' ? a.courier.cents : 0, deposit: a.payments.deposit.cents,
+  });
+  q.rushDays = a.money.rushDays;
+  return q;
+}
+
+export function markReady(id) {
+  const a = must(id);
+  if (a.status !== 'in-progress') return fail('not-in-progress');
+  setStatus(a, 'ready');
+  a.payments.balance = { cents: a.money.balance, state: 'due' };
+  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'refunded' };   // D-23
+  say(a, 'Ready — choose how to get it back');
+  return succeed(a);
+}
+
+export function chooseReturn(id, option) {
+  const a = must(id);
+  if (a.status !== 'ready') return fail('not-ready');
+  const tailor = tailorById(a.tailorId);
+  if (!RETURN_LABEL[option] || !tailor.returns?.[option]) return fail('not-offered');
+  a.returnOption = option;
+  if (option === 'courier') {
+    const quoted = courierQuote(ZIP_INFO[a.job.zip]?.miles ?? 0);
+    const s = state.sim.courier;
+    a.courier = { miles: quoted.miles, cents: s === 'ok' ? quoted.cents : 0, state: s === 'fail' ? 'failed' : s === 'loading' ? 'loading' : 'ready' };
+  } else {
+    a.courier = null;
+  }
+  a.money = repriceMoney(a);
+  a.payments.balance.cents = a.money.balance;
+  return succeed(a);
+}
+
+export function payBalance(id, cardId = null, { threeDS = false } = {}) {
+  const a = must(id);
+  if (a.status !== 'ready') return fail('not-ready');
+  if (!a.returnOption) return fail('return-required');
+  if (a.returnOption === 'courier' && a.courier?.state !== 'ready') return fail('courier-unavailable');
+  if (state.sim.card === 'declined') { a.payments.balance.state = 'failed'; return fail('card-declined'); }
+  if (state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
+  a.payments.balance = { cents: a.money.balance, state: 'paid' };
+  a.balanceCardId = cardId;
+  setStatus(a, 'returning');
+  say(a, 'Balance paid');
+  return succeed(a);
+}
+
+export function markCompleted(id) {
+  const a = must(id);
+  if (a.status !== 'returning') return fail('not-returning');
+  setStatus(a, 'completed');
+  addPayout(a, a.money.payout, 'job');                               // pending until the weekly run (D-24)
+  say(a, 'Completed');
+  return succeed(a);
+}
+
+export function leaveReview(id, { stars, text = '', photos = 0 } = {}) {
+  const a = must(id);
+  if (a.status !== 'completed') return fail('not-completed');
+  if (a.review) return fail('already-reviewed');
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) return fail('stars-required');
+  const count = Array.isArray(photos) ? photos.length : photos;
+  if (count > 3) return fail('too-many-photos');
+  const tailor = tailorById(a.tailorId);
+  a.review = { stars, text, photos: count, date: isoDay(new Date(state.clock.now)) };
+  const total = tailor.rating.avg * tailor.rating.count + stars;
+  tailor.rating = { avg: Math.round((total / (tailor.rating.count + 1)) * 10) / 10, count: tailor.rating.count + 1 };
+  tailor.reviews.unshift({
+    id: `r-${a.id}`, name: `${state.customer.first} ${state.customer.last[0]}.`, initials: state.customer.initials,
+    stars, date: a.review.date, photos: count, text,
+  });
+  return succeed(a);
+}
+
+export function sendMessage(tailorId, from, { text = '', photos = 0 } = {}) {
+  if (!tailorById(tailorId)) return fail('unknown-tailor');
+  if (threadReadOnly(tailorId)) return fail('read-only');
+  const count = Array.isArray(photos) ? photos.length : photos;
+  if (!String(text).trim() && !count) return fail('empty');
+  if (state.sim.send === 'fail') return fail('send-failed');
+  const m = maskContact(text);
+  const message = post(tailorId, from, m.text, { photos: count, masked: m.masked });
+  return { ok: true, masked: m.masked, message };
+}
+
+/* ---------- status → screen (table in SCREENS.md) ---------- */
+export function statusScreen(appt, persona = state.persona) {
+  if (!appt) return null;
+  const s = appt.status;
+  if (persona === 'tailor') return ['requested', 'suggested', 'declined', 'expired'].includes(s) ? 't-request' : 't-job';
+  if (['requested', 'suggested', 'declined', 'expired'].includes(s)) return 'c-request';
+  if (s === 'price-change') return 'c-price-change';
+  if (s === 'ready' && appt.payments.balance.state !== 'paid') return 'c-ready';
+  if (s === 'completed' && !appt.review) return 'c-complete';
+  return 'c-booking';
+}
+
+/** Every transition and clock move, in one object, so screens and flow setups call `T.tailorAccept(id)`. */
+export const T = {
+  setJob, newJob, addGarment, removeGarment, setServices, validateJob,
+  requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, findAnotherTailor,
+  tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow,
+  startFitting, sendPriceChange, confirmNoChange, approvePriceChange, messageAboutPriceChange, markReady,
+  chooseReturn, payBalance, markCompleted, leaveReview, sendMessage, maskContact,
+  setTailorSection, validateSection, blankTailor,
+  now, setClock, advanceClock, tick,
+};

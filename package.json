@@ -1,13 +1,17 @@
 {
-  "name": "taily-v4-prototype",
+  "name": "taily-v5-prototype",
   "version": "1.0.0",
-  "description": "Taily v4 prototype — plain HTML/CSS/JS rebuilt from Figma. No build step.",
+  "description": "Taily v5 prototype — plain HTML/CSS/JS. No build step.",
   "scripts": {
-    "refs": "node scripts/export-refs.mjs",
-    "refs:check": "node scripts/refs-check.mjs",
-    "diff": "node scripts/diff.mjs",
-    "check": "node scripts/check.mjs",
-    "figma:find": "node scripts/figma-find.mjs"
+    "serve": "node scripts/serve.mjs",
+    "check": "node scripts/v5/check.mjs",
+    "diff": "node scripts/v5/diff.mjs",
+    "model": "node scripts/v5/model-test.mjs",
+    "test:model": "node scripts/v5/model-test.mjs",
+    "flows": "node scripts/v5/clickthrough-flows.mjs",
+    "visual": "node scripts/v5/diff.mjs",
+    "lint": "node scripts/v5/lint.mjs",
+    "hygiene": "node scripts/v5/lint.mjs"
   },
   "repository": {
     "type": "git",

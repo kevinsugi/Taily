@@ -1,11 +1,13 @@
 /* ============================================================
-   Taily v4 — components
-   One export per Figma component variant. Phase 2 seeds only the two
-   chrome pieces (V2/Status Bar 122:114, Top Nav 197:437); Phase 3 fills
-   in the rest of the library.
+   Taily v5 — components
+   Pure render functions: plain data in, an HTML string out. Nothing in
+   this file imports state (screens pass plain params); behaviour lives
+   in the wire* helpers. Styles: css/components.css (v4 pieces that v5
+   keeps) + css/components-v5.css (everything new).
 
-   Every value comes from css/components.css or css/base.css — never
-   inline styles, never literal colours here.
+   Every value comes from the css files — never inline styles, never
+   literal colours here. Money prints through fmt* only and the element
+   carries data-money.
    ============================================================ */
 
 /**
@@ -46,11 +48,11 @@ const LOGO = `<svg class="top-nav__logo" viewBox="0 0 131.5 60.74" width="74" he
 
 /** Top Nav — 390x56, absolute at 0,44. `active` is home | bookings | profile.
     The tailor flow passes its own items (Home / Calendar / Shop). */
-export function topNav(active = 'home', items = [
-  ['home', 'Home'],
-  ['bookings', 'Bookings'],
-  ['profile', 'Profile'],
-]) {
+export const NAV = {
+  customer: [['home', 'Home'], ['bookings', 'Bookings'], ['messages', 'Messages'], ['account', 'Account']],
+  tailor: [['home', 'Home'], ['shop', 'Shop'], ['earnings', 'Earnings'], ['messages', 'Messages']],
+};
+export function topNav(active = 'home', items = NAV.customer) {
 
   const links = items.map(([key, label]) => {
     const isActive = key === active;
@@ -68,8 +70,8 @@ export function topNav(active = 'home', items = [
 }
 
 /** Both chrome pieces, in the order screens use them. */
-export function chrome(active = 'home', time = '9:41') {
-  return statusBar(time) + '\n' + topNav(active);
+export function chrome(active = 'home', { persona = 'customer', time = '9:41' } = {}) {
+  return statusBar(time) + '\n' + topNav(active, NAV[persona] ?? NAV.customer);
 }
 
 /* ============================================================
@@ -78,8 +80,11 @@ export function chrome(active = 'home', time = '9:41') {
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, CHEVRON_10, ICON_CAMERA, ICON_CANCEL, TILE_CHEVRON, CHEVRON_RIGHT, ICON_CARD, ICON_ADD } from './icons.js';
-import { GARMENT_ICONS, GARMENT_TYPES, JOB_TYPES, ADD_SERVICES, money, rowPrice, fmtWhen, fmtDay, mdy, visitFee, itemsLabel, TRUST_BADGES, VISIT_FEE_CAPTION, ALTERATIONS_EST_CAPTION, ALTERATIONS_FINAL_CAPTION, HANDOFF_CAPTION, RUSH_LADDER, rushCaption, FEE_LABEL, feeTierLabel } from './data.js';
+import { PILL_ICONS, CHEVRON_DOWN, ICON_CAMERA, ICON_CANCEL, TILE_CHEVRON, CHEVRON_RIGHT, ICON_CARD } from './icons.js';
+import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE } from './data.js';
+import { fmt, fmtExact, fmtNeg } from './money.js';
+import { fmtShort, fmtWhen, fmtCountdown } from './dates.js';
+import { POLICY } from './money-config.js';
 
 /** CTA — variant: 'default' | 'secondary'. */
 export function cta(label, { variant = 'default', disabled = false, attrs = '' } = {}) {
@@ -88,8 +93,8 @@ export function cta(label, { variant = 'default', disabled = false, attrs = '' }
 }
 
 /**
- * Status Pill — all 9 Figma variants. `status` is the state-machine id
- * or the Figma variant name; label defaults to the Figma variant label.
+ * Status Pill — the 9 Figma variants plus the v5 keys. `status` is the
+ * state-machine id or the Figma variant name; label defaults to the Figma variant label.
  */
 const PILL_VARIANTS = {
   'requested':             { cls: 'pill--requested',         icon: 'requested',   label: 'Requested' },
@@ -101,11 +106,13 @@ const PILL_VARIANTS = {
   'new-request':           { cls: 'pill--new-request',       icon: 'new_request', label: 'New Request' },
   'awaiting-customer':     { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Awaiting Customer' },
   'tailoring':             { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'Tailoring' },
-  // v4 chain names (state.js) map onto the same Figma variants
-  'searching':             { cls: 'pill--requested',         icon: 'requested',   label: 'Requested' },
-  'awaiting-approval':     { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Awaiting Approval' },
-  'ready-for-pickup':      { cls: 'pill--ready',             icon: 'ready',       label: 'Ready' },
-  'delivered':             { cls: 'pill--completed',         icon: 'completed',   label: 'Completed' },
+  /* v5 statuses (state machine ids) map onto the same Figma variants */
+  'suggested':             { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'New time' },
+  'fitting':               { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'Fitting' },
+  'price-change':          { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Price change' },
+  'in-progress':           { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'In progress' },
+  'returning':             { cls: 'pill--ready',             icon: 'ready',       label: 'On its way' },
+  'withdrawn':             { cls: 'pill--cancelled',         icon: 'declined',    label: 'Withdrawn' },
   /* UX-LOOP R2-U-04: a request nobody accepted in time — declined
      styling, its own label */
   'expired':               { cls: 'pill--declined',          icon: 'declined',    label: 'Expired' },
@@ -188,10 +195,10 @@ export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
   const icons = Array.from({ length: Math.min(qty, TILE_MAX_ICONS) }, () => icon).join('');
   const label = qty === 1 ? `1 ${type}` : `${qty} ${GARMENT_TYPES[type]?.plural ?? type}`;
   return `<button type="button" class="garment-tile garment-tile--selected garment-tile--${size}" ${attrs}>
-  <span class="garment-tile__zone garment-tile__zone--add" data-plus role="button" aria-label="Add another ${type}">${TILE_CHEVRON}</span>
+  <span class="garment-tile__zone garment-tile__zone--add" data-hit="inline" data-plus role="button" aria-label="Add another ${type}">${TILE_CHEVRON}</span>
   <span class="garment-tile__icons">${icons}</span>
   <span class="garment-tile__label">${label}</span>
-  <span class="garment-tile__zone garment-tile__zone--remove" data-minus role="button" aria-label="Remove one ${type}">${TILE_CHEVRON}</span>
+  <span class="garment-tile__zone garment-tile__zone--remove" data-hit="inline" data-minus role="button" aria-label="Remove one ${type}">${TILE_CHEVRON}</span>
 </button>`;
 }
 
@@ -200,22 +207,6 @@ export function garmentTile(type, { qty = 0, attrs = '' } = {}) {
    207:2087, Tailor Summary Card 67:196, User - Garment Card 57:197,
    CTA_Small 302:1656, Progress Bar 473:7627.
    ============================================================ */
-
-/** The appointment-card variant an appointment renders as: v4 chain
-    names normalise onto the Figma card keys (requested / confirmed /
-    tailoring / ready / completed); the terminal statuses — cancelled,
-    declined, expired — are card variants of their own (R1-U-20, R2-U-04)
-    and never throw. Accepts a status string or an appointment. */
-const CARD_STATUS = {
-  searching: 'requested', 'awaiting-approval': 'tailoring', 'ready-for-pickup': 'ready', delivered: 'completed',
-};
-export function cardStatus(aOrStatus) {
-  const raw = typeof aOrStatus === 'string' ? aOrStatus : aOrStatus?.status;
-  const s = String(raw ?? '').toLowerCase();
-  return CARD_STATUS[s] ?? s;
-}
-export const TERMINAL_CARD_STATUSES = ['cancelled', 'expired'];   // round 16: a decline re-matches, it is not terminal
-export const isTerminalStatus = (aOrStatus) => TERMINAL_CARD_STATUSES.includes(cardStatus(aOrStatus));
 
 /** CTA_Small — outline action inside cards. */
 export function ctaSmall(label, { attrs = '' } = {}) {
@@ -227,61 +218,6 @@ export function progressBar(stage = 'confirmed') {
   return `<div class="progress progress--${stage}" role="img" aria-label="Order progress: ${stage}">
   <span class="progress__seg"></span><span class="progress__seg"></span><span class="progress__seg"></span><span class="progress__seg"></span>
 </div>`;
-}
-
-/** Bold title + bulleted 12px list (order summary / please prepare). */
-export function cardList(title, items) {
-  return `<div class="card-list">
-  <span class="card-list__title">${title}</span>
-  <div class="card-list__items">${items.map((i) => `<span>•&nbsp;&nbsp;${i}</span>`).join('')}</div>
-</div>`;
-}
-
-/**
- * Appointment Card — Figma Status=Confirmed|Tailoring|Ready|Completed.
- * `a` mirrors a state.js appointment entry; extras fill the gaps.
- */
-export function apptCard(a) {
-  const {
-    status = 'confirmed', month = 'AUG', day = '29', name = 'Marco Tailor',
-    meta = 'Appt Date: Aug 29, 7PM', items = [], prepare = [], actions = [],
-    itemsTitle = null,
-  } = a;
-  const searching = status === 'searching' || status === 'requested';
-  /* Requested (Phase R5, 571:9099) draws the confirmed-style bar;
-     v4 chain names normalise onto the four progress variants */
-  const STAGE = {
-    completed: 'complete', delivered: 'complete',
-    'ready-for-pickup': 'ready',
-    'awaiting-approval': 'confirmed', searching: 'confirmed', requested: 'confirmed',
-    /* terminal cards (R1-U-20 / R2-U-04): an unfilled bar, no throw */
-    expired: 'declined',
-  };
-  const stage = STAGE[status] ?? status;
-  const lists = [];
-  /* Requested's matching note sits between the bar and the items —
-     not once a tailor has answered with a time (R3-U-07) */
-  if (searching && !/^New time proposed/.test(String(meta))) lists.push('<p class="appt-card__note">We will match you with a tailor within the next 2 hours.</p>');
-  if (items.length) lists.push(cardList(itemsTitle ?? `${items.length} Items Total:`, items));
-  if (prepare.length && (status === 'confirmed' || status === 'tailoring')) lists.push(cardList('Please Prepare:', prepare));
-  const actionRow = actions.length
-    ? `<div class="appt-card__actions">${actions.map((l) => ctaSmall(l)).join('')}</div>`
-    : '';
-  return `<article class="appt-card${status === 'completed' ? ' appt-card--completed' : ''}">
-  <div class="appt-card__top">
-    <div class="appt-card__date"><span class="appt-card__month">${month}</span><span class="appt-card__day">${day}</span></div>
-    <div class="appt-card__info">
-      <div class="appt-card__meta-row"><span class="appt-card__name">${name}</span></div>
-      <div class="appt-card__meta-row">
-        <span class="appt-card__meta">${meta}</span>
-        ${statusPill(status)}
-      </div>
-    </div>
-  </div>
-  ${progressBar(stage)}
-  ${lists.join('\n  ')}
-  ${actionRow}
-</article>`;
 }
 
 /**
@@ -346,7 +282,7 @@ export function visitBlock(rows = [], { title = 'Visit Details' } = {}) {
     box. `headingRow` seats it left of a screen's heading block (gap 4,
     centred), round 15: every heading but Home's. The router wires every
     `.back` to step the prototype's history (app.js wireBackButtons). */
-export const backButton = () => '<button type="button" class="back" data-act="back" aria-label="Back">‹</button>';
+export const backButton = () => '<button type="button" class="back" data-act="back" data-hit="inline" aria-label="Back">‹</button>';
 /* round 16 (Kevin): the Back sits beside the pill + title only; the
    explanation block (statusHero's notes, or a screen's own
    `<!--notes-->…<!--/notes-->` block) follows the row at the padding. */
@@ -361,10 +297,8 @@ export function headingRow(inner) {
 export function trustBadges(list = [], { wide = false, user = false } = {}) {
   /* `wide`: 03/Requested's chips pad 4/12 where the summary card's pad 4/8;
      `user` (round 15): the User Summary's neutral-100 / accent-ink chips, no ✓ */
-  return `<div class="trust-badges${wide ? ' trust-badges--wide' : ''}${user ? ' trust-badges--user' : ''}">${list.map((b) => `<span class="trust-badge">${user ? '' : '✓ '}${b}</span>`).join('')}</div>`;
+  return `<span class="trust-badges${wide ? ' trust-badges--wide' : ''}${user ? ' trust-badges--user' : ''}">${list.map((b) => `<span class="trust-badge">${user ? '' : '✓ '}${b}</span>`).join('')}</span>`;
 }
-/** What the customer's 03 cards pass for a booked tailor (nothing while matching). */
-export const tailorTrust = (a) => (a?.name ? { verified: true, badges: TRUST_BADGES } : {});
 
 /**
  * Trust Card — "Meet Marco" (round 14, Kevin): the 03/Confirmed profile
@@ -393,11 +327,6 @@ export function photoTile(kind = 'add', { removable = false } = {}) {
   return `<span class="photo-tile photo-tile--photo">${cancel}</span>`;
 }
 
-/**
- * User - Garment Card — Figma Property 1 = Default | WithPhoto |
- * ViewOnly | PostAppt. Editable variants get chevrons, the add-service
- * button, editable photo tiles and the ✕ remove control.
- */
 /* ============================================================
    Selector — Figma 535:1582. Inline dropdown selector used in garment
    cards. Type = Quantity / Item / Job (Job renders accent Medium; the
@@ -411,102 +340,6 @@ export function selector(type, value, options = [], { attrs = '', chevron = true
   const menu = `<div class="selector__menu">${options.map((o) =>
     `<button type="button" class="selector__option${o === value ? ' is-selected' : ''}" data-option="${o}">${o}${o === value ? '<span>✓</span>' : ''}</button>`).join('')}</div>`;
   return `<span class="selector selector--${type}"><button type="button" class="selector__trigger" ${attrs}>${value}${chevron ? SELECTOR_CHEVRON : ''}</button>${menu}</span>`;
-}
-
-/**
- * Selector Type=Additional (541:1951/1975/1983). Without `value`: the
- * "⊕ Additional Service" trigger. With `value`: the added-service row —
- * accent label + chevron + ✕ remove. Both open the priced ADD A SERVICE
- * menu (prices from JOB_TYPES).
- */
-export function additionalSelector({ value = null, attrs = '' } = {}) {
-  const rows = ADD_SERVICES.map((s) =>
-    `<button type="button" class="selector__option" data-option="${s}">${s}<span class="selector__price">+$${JOB_TYPES[s].price}</span></button>`).join('');
-  const menu = `<div class="selector__menu"><span class="selector__menu-header">ADD A SERVICE</span>${rows}</div>`;
-  const trigger = value === null
-    ? `<button type="button" class="selector__trigger selector__trigger--add" ${attrs}>${ICON_ADD}<span>Add Service</span></button>`
-    : `<button type="button" class="selector__trigger" ${attrs}>${value}${SELECTOR_CHEVRON}</button><button type="button" class="selector__remove" data-remove ${attrs} aria-label="Remove ${value}">✕</button>`;
-  return `<span class="selector selector--job selector--additional${value !== null ? ' selector--added' : ''}">${trigger}${menu}</span>`;
-}
-
-export function garmentCard({
-  variant = 'Default', type = 'Suit Jacket', qty = 1, price = null,
-  services = ['Hem / Adjust Length'], photos = 0, beforePhotos = 0, pinnedPhotos = 0,
-  index = null,
-  /* Phase R0 (06B): items added/changed at order confirmation render
-     semantic/info. added=true paints the whole card (new garment);
-     a services entry may be { label, added } for one added service;
-     priceInfo=true paints just the price (a total that changed). */
-  added = false, priceInfo = false,
-  /* Round 10 (Kevin): an editable card drawn as a flat row inside one
-     white garments card (02's new frame) — no chassis of its own. */
-  flat = false,
-} = {}) {
-  const editable = variant === 'Default' || variant === 'WithPhoto';
-  // Card art: ref-rendered raster when we have one (matches Figma's
-  // 127% zoomed fills pixel-for-pixel); else the v3 WebP zoomed 127.27%
-  // per the master's transform.
-  const CARD_ART = { 'Suit Jacket': 'assets/garments/card-suit-jacket.png' };
-  const art = CARD_ART[type]
-    ? `<span class="garment-card__artbox"><img class="garment-card__art garment-card__art--exact" src="${CARD_ART[type]}" alt="${type}"></span>`
-    : GARMENT_ICONS[type]
-      ? `<span class="garment-card__artbox"><img class="garment-card__art" src="${GARMENT_ICONS[type]}" alt="${type}"></span>`
-      : '';
-  const chip = `<div class="garment-card__chip">${art}${price != null ? `<span class="garment-card__price${(priceInfo || added) ? ' garment-card__price--new' : ''}">${price}</span>` : ''}</div>`;
-
-  let rows;
-  if (editable) {
-    const gi = index === null ? '' : ` data-gi="${index}"`;
-    const [primary, ...added] = services;
-    /* round 12 (Kevin, 02 657:4875): no quantity selector — one card per garment */
-    rows = `<div class="garment-card__row">
-      ${selector('item', type, Object.keys(GARMENT_TYPES), { attrs: `data-sel="item"${gi}` })}
-    </div>
-    <div class="garment-card__service">${selector('job', primary, Object.keys(JOB_TYPES), { attrs: `data-sel="job" data-ji="0"${gi}` })}</div>
-    ${added.map((s, j) => `<div class="garment-card__service">${additionalSelector({ value: s, attrs: `data-sel="added" data-ji="${j + 1}"${gi}` })}</div>`).join('')}
-    ${additionalSelector({ attrs: `data-sel="add"${gi}` })}`;
-  } else {
-    /* round 13 (Kevin): items added at the visit carry a NEW sticker and
-       paint semantic/success — the whole garment when `added`, one service
-       when its entry is { label, added } (frame: 04 / Modified, variant
-       'Additional' 687:7388 + the detached added-garment card). */
-    /* round 15 (Kevin, 04 / Modified): the title is the garment alone —
-       each item is its own card, so no count */
-    rows = `<div class="garment-card__row garment-card__row--tight${added ? ' garment-card__row--new' : ''}">
-      ${added ? '<span class="new-badge">NEW</span>' : ''}<span>${type}</span>
-    </div>
-    ${services.map((s) => { const isNew = !!(s.added || added); return `<div class="garment-card__service${isNew ? ' garment-card__service--new' : ''}">${isNew ? '<span class="new-badge">NEW</span>' : ''}${s.label ?? s}</div>`; }).join('')}`;
-  }
-
-  let tiles = '';
-  if (editable) {
-    const shot = Array.from({ length: photos }, () => photoTile('photo', { removable: true })).join('');
-    tiles = `<div class="photo-tiles">${shot}${photoTile('add')}</div>`;
-  } else if (variant === 'ViewOnly' && photos > 0) {
-    tiles = `<div class="photo-tiles">${Array.from({ length: photos }, () => photoTile('photo')).join('')}</div>`;
-  } else if (variant === 'PostAppt') {
-    const shots = (n) => Array.from({ length: n }, () => photoTile('photo')).join('');
-    /* round 15 (Kevin, 04 / Modified): EVERY post-visit card draws the
-       Photo_Row — a Before / Pinned label pair (active ink, idle
-       neutral-200) over ONE tile row; tapping a label swaps the set,
-       tapping a tile opens the 03.3 viewer (wirePhotoViewer). */
-    tiles = `<div class="photo-row photo-row--tabs" data-photo-tabs>
-      <span class="photo-tabs"><span class="photo-tiles__label is-active" data-photo-tab="before">Before</span><span class="photo-tiles__label" data-photo-tab="pinned">Pinned</span></span>
-      <div class="photo-tiles" data-photo-set="before">${shots(beforePhotos)}</div>
-      <div class="photo-tiles" data-photo-set="pinned" hidden>${shots(pinnedPhotos)}</div>
-    </div>`;
-  }
-
-  const close = editable ? `<button type="button" class="garment-card__close" data-act="remove-garment"${index === null ? '' : ` data-gi="${index}"`} aria-label="Remove garment">✕</button>` : '';
-
-  return `<article class="garment-card${editable ? '' : ' garment-card--view'}${flat ? ' garment-card--flat' : ''}${added ? ' garment-card--new' : ''}">
-  ${chip}
-  <div class="garment-card__content">
-    ${rows}
-    ${tiles}
-  </div>
-  ${close}
-</article>`;
 }
 
 /* ============================================================
@@ -717,11 +550,11 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
  * prototype's scope (calendar, profile, reviews). Ink pill, bottom of
  * the viewport, auto-dismisses.
  */
-export function toast(msg) {
+export function toast(msg, { tone = 'neutral' } = {}) {
   document.querySelector('.toast')?.remove();
   const el = document.createElement('div');
-  el.className = 'toast';
-  el.setAttribute('role', 'status');
+  el.className = tone === 'neutral' ? 'toast' : `toast toast--${tone}`;   // v5: neutral | success | warning | error | info
+  el.setAttribute('role', tone === 'error' ? 'alert' : 'status');
   el.textContent = msg;
   document.body.appendChild(el);
   document.documentElement.classList.add('has-toast');   // the persona toggle steps aside
@@ -817,14 +650,6 @@ export function timeline(steps) {
   return `<div class="timeline">${rows}</div>`;
 }
 
-/** Delivery window — day label + time chips (chips may carry attrs). */
-export function deliveryWindow(day, chips) {
-  return `<div class="delivery-window">
-  <span class="delivery-window__day">${day}</span>
-  <div class="delivery-window__chips">${chips.map((c) => timeChip(c.label, { selected: !!c.selected, attrs: c.attrs ?? '' })).join('')}</div>
-</div>`;
-}
-
 /** White r16 p16 card of rows (07b summary, 08 receipt, 03 request). */
 export function infoCard(rowsHtml, { heading = '' } = {}) {
   return `<div class="info-card">${heading ? `<span class="info-card__heading">${heading}</span>` : ''}${rowsHtml}</div>`;
@@ -839,17 +664,6 @@ export function infoRow(label, value, { small = false, total = false } = {}) {
 /** Glyph-prefixed meta row (◉ ▤ ✂). */
 export function metaRow(glyph, text) {
   return `<div class="meta-row"><span class="meta-row__glyph">${glyph}</span><span>${text}</span></div>`;
-}
-
-/** 03/Requested's request card (UX-LOOP round 6): the info card with a
-    who-row on top — small avatar + name. Before a tailor accepts the
-    name is "Matching you with a tailor" and the avatar the ✂ glyph
-    (data.js tailorName / tailorInitials); the meta rows follow. */
-export function requestCard({ name, initials, rows = [] } = {}) {
-  return `<div class="info-card request-card">
-  <div class="request-card__who"><span class="avatar avatar--sm">${initials}</span><span class="request-card__name">${name}</span></div>
-  ${rows.join('')}
-</div>`;
 }
 
 /** Fee row — price + caption (03/Confirmed · Tailoring, 04, 06). Long descriptions wrap.
@@ -867,151 +681,359 @@ export function feeRow(price, desc, { line = false, info = false, muted = false,
 }
 
 /* ============================================================
-   Order helpers (UX-LOOP round 1) — shared by every screen that draws
-   an appointment's order, and reusable by the tailor side.
+   v5 — new components (css/components-v5.css)
+   Every function returns an HTML string from plain params. Behaviour
+   lives in the wire* helpers at the end. Money elements carry
+   data-money and print through fmt / fmtExact / fmtNeg only.
    ============================================================ */
 
-/** Garment cards for an order ({ garments, totals }). `variant` is the
-    User - Garment Card variant; PostAppt cards draw the Before/Pinned
-    rows. With `marks` (04/Modified only — the other frames draw the
-    final order plain), added garments / added services written at the
-    appointment render semantic/info like 06B. */
-export function orderCards(order, { variant = 'ViewOnly', beforePhotos = 4, pinnedPhotos = 4, marks = false } = {}) {
-  const t = order?.totals ?? {};
-  return (order?.garments ?? []).map((g, i) => garmentCard({
-    variant, type: g.type,
-    price: rowPrice(g, t.rows, i),
-    services: (g.jobs ?? []).map((j) => (marks && g.addedJobs?.includes(j) ? { label: j, added: true } : j)),
-    added: marks && !!g.added,
-    priceInfo: marks && !!(g.addedJobs?.length),
-    photos: g.photos ?? 0,
-    beforePhotos, pinnedPhotos,
-  })).join('\n    ');
+const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+/** Escape user-typed text (messages, review text, field values). */
+export const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ESC[c]);
+const toMs = (v) => (typeof v === 'number' ? v : Date.parse(v));
+const noPercent = (label, where) => {
+  if (String(label ?? '').includes('%')) throw new Error(`${where}: money copy is dollar amounts, never percentages ("${label}")`);
+};
+
+/* ---------- avatar ---------- */
+/** Avatar — size 'sm' 40 | 'md' 56 | 'lg' 80. Photo wins over initials. Decorative (the name sits beside it). */
+export function avatar({ initials = '', photo = null, size = 'sm' } = {}) {
+  const inner = photo ? `<img class="avatar__img" src="${esc(photo)}" alt="">` : esc(initials);
+  return `<span class="avatar avatar--${size}${photo ? ' avatar--photo' : ''}" aria-hidden="true">${inner}</span>`;
 }
 
-/** The tailor summary card's rows for an appointment: place, when,
-    need-by — one grammar ("Sun, Jul 12 · 7:00 PM" / "Need by: Fri,
-    Jul 17"), R1-U-08. */
-export function apptRows(a) {
-  return [
-    `◉&nbsp;&nbsp;${a?.place ?? '88 Leonard Street'} `,
-    `▤&nbsp;&nbsp;${fmtWhen(a?.when, 'Sun, Jul 12 · 7:00 PM')}`,
-    `▤&nbsp;&nbsp;Need by: ${fmtDay(a?.needBy, 'Fri, Jul 17')}`,
-  ];
-}
-
-/** Receipt dates for an appointment — the frames' fiction when the
-    appointment carries no dates of its own. `fee` = the day the
-    Concierge fee was charged (tailorAccepts stamps feeChargedOn, R7). */
-export function receiptDates(a) {
-  /* R2-U-10: a delivered order with no handoff facts of its own is
-     received on its appointment day, not the Jul 17 fixture */
-  const done = ['delivered', 'completed'].includes(String(a?.status ?? '').toLowerCase());
-  return {
-    confirmed: mdy(a?.when, '7/12/26'),
-    fee: a?.feeChargedOn ?? '7/7/26',
-    handoff: mdy(a?.fulfilment?.date ?? a?.fulfilment?.window ?? a?.deliveredAt ?? (done ? a?.when : null), '7/17/26'),
-  };
-}
-
-/* ============================================================
-   Money rows (UX-LOOP round 7 — Kevin's money model v2). The customer
-   sees Alterations / Concierge fee / (Additional Concierge fee when
-   the final order re-tiered it) / (Delivery) / Total, and what is due
-   at handoff: the alterations (+ the added fee, + delivery) — the
-   Concierge fee itself was charged when the tailor accepted. Nothing
-   here mentions a deposit, a percentage or a Taily fee.
-   ============================================================ */
-
-/** What the customer still owes at handoff BEFORE a handoff method is
-    chosen: alterations + any re-tiered fee (05A/05B add delivery
-    themselves). */
-export const dueBase = (t) => (t?.alterations ?? t?.subtotal ?? 0) + (t?.visitFeeAdded ?? 0) + (t?.rush ?? 0);   // round 15: + the rush fee
-/** What is charged at delivery for the order as it stands (round 16:
-    delivery itself is inside the concierge fee — nothing is added). */
-export const dueAtHandoff = (t) => dueBase(t);
-/** The rush row's caption from the fee on the totals (the ladder step it
-    sits on — RUSH_LADDER is strictly decreasing, so the fee names the day). */
-export const rushCaptionFor = (t) => rushCaption(t?.rushDays ?? (RUSH_LADDER.indexOf(t?.rush ?? 0) + 1 || 1));
-/** "Concierge fee (5+ items)" for an order's item count (tier suffix from data.js). */
-export const feeLabelFor = (t) => feeTierLabel(t?.items ?? 0);
-
+/* ---------- tailor row ---------- */
 /**
- * The pricing rows of an order (03/Confirmed · Reminder · Tailoring,
- * 04, 03/Cancelled): Alterations / Concierge fee / [Additional
- * Concierge fee] / Total / [due line]. `est` marks the alterations as
- * an estimate (pre-visit), `feeDesc` is the fee row's caption
- * ("Concierge fee — charged 7/7/26", "… — paid", "… — Refunded
- * 9/10/26", "… — Kept"), `due` adds the last row ("Due at handoff"),
- * `info` paints the rows the final order touched semantic/info (04
- * Modified). The added fee row is always info — it is new money.
- * `tier` (R7-U-02: 04 and 03/Tailoring, where the re-tiered fee first
- * appears) captions the added row with its reason — "Additional
- * Concierge fee — 5 items now, $50 tier"; receipts keep the short
- * label. `total: false` (R7-U-04: 03/Cancelled) drops the Total row —
- * on a visit that ended, the sum is nothing the customer paid or owes.
- * Every row but the last carries the hairline.
+ * Tailor Row — one card per tailor in "Tailors near you".
+ * `quote` is the quote() object in cents ({ total, homeFee, rush }) or a bare total.
+ * States: default · rush (adds the "+ $40 rush fee" caption) · declined (dimmed,
+ * "Declined this job", aria-disabled, no action). Skeleton: skeleton({ kind: 'tailor-row' }).
  */
-/* Round 15 (Kevin): the visitation row always carries its caption ("Helps
-   cover the cost of transport."); `captions` (02) also captions
-   Alterations ("Price is finalized at the appointment.") and Total
-   ("Alterations are paid at pickup or delivery."). A rush order adds a
-   "Rush fee" row (+ its caption) after the Concierge fee — paid at handoff. */
-/* Round 16 (Kevin, Fee Row 745:5889): "Concierge fee" everywhere, its tier
-   in the title ("Concierge fee (5+ items) - Paid 7/7/26"), one caption
-   rule — pre-visit (`est`) rows caption all three lines, post-visit rows
-   caption Alterations ("Finalized at the appointment.") and the fee; a
-   refunded / kept fee row carries no caption (`feeCaption: false`); a
-   re-tiered fee's caption is the explanation itself (the frame's
-   Re-tiered row). `feeDesc` is the fee row's STATUS suffix ("Due Today",
-   "Paid 7/7/26", "Refunded", "Kept") — the tier label is prepended. */
-export function orderRows(t, { est = false, feeDesc = 'Paid', due = null, info = false, tier = false, total = true, captions = null, feeCaption = true } = {}) {
-  const alterations = t?.alterations ?? t?.subtotal ?? 0;
-  const fee = t?.visitFeeCharged ?? t?.visitFee ?? 0;
-  const added = t?.visitFeeAdded ?? 0;
-  const rush = t?.rush ?? 0;
-  const caps = captions ?? est;
-  const rows = [
-    [money(alterations), est ? 'Alterations (est.)' : 'Alterations', { info, caption: est ? ALTERATIONS_EST_CAPTION : ALTERATIONS_FINAL_CAPTION }],
-    added > 0
-      ? [money(fee + added), feeLabelFor(t), { info: true, caption: tier ? feeTierNote(t) : VISIT_FEE_CAPTION }]
-      : [money(fee), feeDesc ? `${feeLabelFor(t)} - ${feeDesc}` : feeLabelFor(t), { caption: feeCaption ? VISIT_FEE_CAPTION : '' }],
-  ];
-  if (rush > 0) rows.push([money(rush), 'Rush fee', { caption: rushCaptionFor(t) }]);
-  if (total) rows.push([money(alterations + fee + added + rush), 'Total', { info, caption: caps ? HANDOFF_CAPTION : '' }]);
-  if (due) rows.push([money(dueAtHandoff(t)), due, { info }]);
-  return rows.map(([p, d, o], i) => feeRow(p, d, { ...o, line: i < rows.length - 1 })).join('\n      ');
+export function tailorRow({ id, name, initials, photo = null, verified = false, rating = null, distanceMi = null, quote = 0, nextOpening = null, visitType = 'home', declined = false } = {}) {
+  const q = typeof quote === 'number' ? { total: quote } : (quote ?? {});
+  const captions = [];
+  if (visitType === 'home' && q.homeFee > 0) captions.push(`Includes ${fmt(q.homeFee)} home-visit fee`);
+  if (q.rush > 0) captions.push(`+ ${fmt(q.rush)} rush fee`);
+  const meta = [
+    rating ? `★ ${rating.avg} (${rating.count})` : '',
+    distanceMi != null ? `${Number(distanceMi).toFixed(1)} mi` : '',
+  ].filter(Boolean).join(' · ');
+  const attrs = declined ? ' aria-disabled="true"' : ` data-act="open-tailor" data-id="${esc(id)}"`;
+  return `<button type="button" class="tailor-row info-card${declined ? ' tailor-row--declined' : ''}${q.rush > 0 ? ' tailor-row--rush' : ''}"${attrs}>
+  <span class="tailor-row__who">
+    ${avatar({ initials, photo, size: 'md' })}
+    <span class="tailor-row__info">
+      <span class="tailor-row__name-row"><span class="tailor-row__name">${esc(name)}</span>${verified ? '<span class="tailor-row__check" aria-label="Verified">✓</span>' : ''}</span>
+      ${verified ? trustBadges(TRUST_BADGES) : ''}
+      ${meta ? `<span class="tailor-row__meta">${meta}</span>` : ''}
+    </span>
+  </span>
+  <span class="tailor-row__quote" data-money><span class="tailor-row__est">Est. ${fmt(q.total ?? 0)}</span>${captions.map((c) => `<span class="tailor-row__caption">${c}</span>`).join('')}</span>
+  ${nextOpening ? `<span class="tailor-row__next">Next opening ${fmtWhen(nextOpening)}</span>` : ''}
+  ${declined ? '<span class="tailor-row__note">Declined this job</span>' : ''}
+</button>`;
 }
 
-/** The re-tiered fee's explanation (round 16: the fee row's own caption on
-    04 / Re-tiered — "Your order grew to 5 items, so the Concierge fee is
-    now $90. The extra $40 is charged with your alterations at handoff.").
-    Empty when the final order did not re-tier the fee. */
-export function feeTierNote(t) {
-  const added = t?.visitFeeAdded ?? 0;
-  if (!(added > 0)) return '';
-  return `Your order grew to ${itemsLabel(t?.items ?? 0, 'item')}, so the ${FEE_LABEL} is now ${money(visitFee(t?.items ?? 0))}. The extra ${money(added)} is charged with your alterations at handoff.`;
+/* ---------- price row ---------- */
+/** Price Row — label left, price right, hairline between rows. `muted`: "Not offered". */
+export function priceRow({ label, cents = 0, note = '', muted = false } = {}) {
+  noPercent(label, 'priceRow');
+  return `<div class="price-row${muted ? ' price-row--muted' : ''}" data-money>
+  <span class="price-row__text"><span class="price-row__label">${esc(label)}</span>${note ? `<span class="price-row__note">${esc(note)}</span>` : ''}</span>
+  <span class="price-row__value">${muted ? 'Not offered' : fmt(cents)}</span>
+</div>`;
 }
 
-/** The receipt of a settled order (06 / 03/Summary, R1-U-07 → R7):
-    Alterations / Concierge fee — paid <date> / [Delivery] / Total /
-    Paid at pickup|delivery <date>, following `a.fulfilment`. No
-    fulfilment (harness deep link) keeps the frames' delivery fixture
-    ($360 + $25 + $20 = $405, $380 paid at delivery). */
-/* round 16 (Kevin): delivery only, no delivery charge — Alterations /
-   Concierge fee - Paid <date> / [Rush fee] / Total / Paid at delivery <date> */
-export function receiptRows(a, t) {
-  const d = receiptDates(a);
-  const alterations = t?.alterations ?? t?.subtotal ?? 0;
-  const fee = t?.visitFeeCharged ?? t?.visitFee ?? 0;
-  const added = t?.visitFeeAdded ?? 0;
-  const rush = t?.rush ?? 0;   // round 15
+/* ---------- ratings ---------- */
+const STAR_PATH = '★';
+/**
+ * Stars — display (5 glyphs, `value` filled) or input (5 radio buttons, 44 px each).
+ * Input: `<input type="radio" name aria-label="4 stars">`; wireStars() paints the fill.
+ */
+export function stars({ value = 0, input = false, name = 'stars' } = {}) {
+  const v = Math.round(Number(value) || 0);
+  if (!input) {
+    return `<span class="stars" role="img" aria-label="${v} out of 5 stars">${[1, 2, 3, 4, 5].map((n) => `<span class="stars__star${n <= v ? ' is-filled' : ''}" aria-hidden="true">${STAR_PATH}</span>`).join('')}</span>`;
+  }
+  return `<span class="stars stars--input" role="radiogroup" aria-label="Your rating" data-stars>${[1, 2, 3, 4, 5].map((n) => `<label class="stars__opt${n <= v ? ' is-filled' : ''}"><input class="stars__input" type="radio" name="${esc(name)}" value="${n}" aria-label="${n} star${n === 1 ? '' : 's'}"${n === v ? ' checked' : ''}><span class="stars__star" aria-hidden="true">${STAR_PATH}</span></label>`).join('')}</span>`;
+}
+/** Rating summary — "4.9 ★★★★★ 37 reviews". */
+export function ratingSummary({ avg = 0, count = 0 } = {}) {
+  return `<div class="rating-summary"><span class="rating-summary__avg">${Number(avg).toFixed(1)}</span>${stars({ value: avg })}<span class="rating-summary__count">${count} review${count === 1 ? '' : 's'}</span></div>`;
+}
+/** Review row — avatar, name, date, stars, text, up to 3 photo thumbs. */
+export function reviewRow({ name, initials, stars: rating = 0, date, text = '', photos = 0 } = {}) {
+  return `<article class="review-row">
+  <div class="review-row__head">
+    ${avatar({ initials, size: 'sm' })}
+    <div class="review-row__who"><span class="review-row__name">${esc(name)}</span><span class="review-row__date">${date ? fmtShort(date) : ''}</span></div>
+    ${stars({ value: rating })}
+  </div>
+  ${text ? `<p class="review-row__text">${esc(text)}</p>` : ''}
+  ${photos > 0 ? `<div class="review-row__photos">${Array.from({ length: Math.min(photos, 3) }, () => photoTile('photo')).join('')}</div>` : ''}
+</article>`;
+}
+
+/* ---------- countdown ---------- */
+/**
+ * Countdown — time left on a request. No interval (D-09): the text is drawn from
+ * the demo clock the screen passes in. normal · soon (<= EXPIRING_SOON_MIN, warning) · expired (error).
+ */
+export function countdown({ expiresAt, now, suffix = 'left' } = {}) {
+  const ms = toMs(expiresAt) - toMs(now);
+  const state = ms <= 0 ? 'expired' : ms <= POLICY.EXPIRING_SOON_MIN * 60000 ? 'soon' : 'normal';
+  const text = state === 'expired' ? 'Expired' : `${fmtCountdown(ms)}${suffix ? ` ${suffix}` : ''}`;
+  return `<span class="countdown countdown--${state}" role="timer" data-countdown data-state="${state}">${text}</span>`;
+}
+
+/* ---------- chat ---------- */
+/**
+ * Chat Bubble — sent · sending · failed ("Not sent · Retry") · masked (privacy note under a
+ * `me` bubble) · photo. Text is escaped here; `time` is the caption ("10:02 AM").
+ */
+export function chatBubble({ text = '', side = 'them', time = '', photos = 0, status = 'sent', masked = false } = {}) {
+  const me = side === 'me';
+  const body = `${text ? `<span class="chat-bubble__text">${esc(text)}</span>` : ''}${photos > 0 ? `<span class="chat-bubble__photos">${Array.from({ length: Math.min(photos, 3) }, () => photoTile('photo')).join('')}</span>` : ''}`;
+  const meta = [];
+  if (status === 'sending') meta.push('<span class="chat-msg__status">Sending…</span>');
+  else if (status === 'failed') meta.push('<button type="button" class="chat-msg__retry" data-act="retry">Not sent · Retry</button>');
+  else if (time) meta.push(`<span class="chat-msg__time">${esc(time)}</span>`);
+  if (masked && me) meta.push(`<span class="chat-msg__note">${PRIVACY_NOTE}</span>`);
+  return `<div class="chat-msg chat-msg--${me ? 'me' : 'them'} chat-msg--${status}">
+  <div class="bubble-row${me ? ' bubble-row--me' : ''}"><div class="bubble chat-bubble${me ? ' bubble--me' : ''}">${body}</div></div>
+  ${meta.length ? `<div class="chat-msg__meta">${meta.join('')}</div>` : ''}
+</div>`;
+}
+/** The standing privacy note above a thread. */
+export function privacyNote() {
+  return `<p class="privacy-note"><span class="privacy-note__glyph" aria-hidden="true">i</span>${PRIVACY_NOTE}</p>`;
+}
+/** Read-only thread footer (a declined request): banner + one CTA. */
+export function readOnlyBanner({ text = '', ctaLabel = 'Find another tailor', ctaAct = 'find-another' } = {}) {
+  return `<div class="read-only">${banner({ tone: 'info', text })}${cta(ctaLabel, { attrs: `data-act="${ctaAct}"` })}</div>`;
+}
+/** Message composer — empty (send disabled) · typing · disabled (read-only). */
+export function composer({ value = '', disabled = false, placeholder = 'Message' } = {}) {
+  const empty = !String(value).trim();
+  return `<form class="composer${disabled ? ' composer--disabled' : ''}" data-composer novalidate>
+  <button type="button" class="composer__attach" data-act="attach-photo" aria-label="Add photo"${disabled ? ' disabled' : ''}>${ICON_CAMERA}</button>
+  <label class="sr-only" for="composer-input">Message</label>
+  <input class="composer__input" id="composer-input" type="text" autocomplete="off" placeholder="${esc(placeholder)}" value="${esc(value)}"${disabled ? ' disabled' : ''}>
+  <button type="submit" class="composer__send" data-act="send" aria-label="Send"${disabled || empty ? ' disabled' : ''}>Send</button>
+</form>`;
+}
+
+/* ---------- forms ---------- */
+/**
+ * Field — label above, input, then helper OR error (the error replaces the helper,
+ * sits next to the field and wires aria-invalid / aria-describedby).
+ * `prefix` / `suffix` render inside the box ("$", "mi").
+ */
+export function field({ id, label, value = '', type = 'text', inputmode, autocomplete, placeholder = '', helper = '', error = '', prefix = '', suffix = '', maxlength, disabled = false, attrs = '' } = {}) {
+  const msg = error || helper;
+  const msgId = `${id}-msg`;
+  return `<div class="field${error ? ' field--error' : ''}${disabled ? ' field--disabled' : ''}">
+  <label class="field__label" for="${id}">${esc(label)}</label>
+  <div class="field__box">
+    ${prefix ? `<span class="field__affix" aria-hidden="true">${esc(prefix)}</span>` : ''}
+    <input class="field__input" id="${id}" name="${id}" type="${type}" value="${esc(value)}"${inputmode ? ` inputmode="${inputmode}"` : ''}${autocomplete ? ` autocomplete="${autocomplete}"` : ''}${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}${maxlength ? ` maxlength="${maxlength}"` : ''}${disabled ? ' disabled' : ''}${error ? ' aria-invalid="true"' : ''}${msg ? ` aria-describedby="${msgId}"` : ''} ${attrs}>
+    ${suffix ? `<span class="field__affix" aria-hidden="true">${esc(suffix)}</span>` : ''}
+  </div>
+  ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : ''}
+</div>`;
+}
+/** Code input — one numeric one-time-code field, `length` digits, spaced for reading. */
+export function codeInput({ id, length = 6, value = '', error = '', label = 'Verification code' } = {}) {
+  const msgId = `${id}-msg`;
+  return `<div class="field field--code${error ? ' field--error' : ''}">
+  <label class="field__label" for="${id}">${esc(label)}</label>
+  <div class="field__box"><input class="field__input" id="${id}" name="${id}" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="${length}" pattern="[0-9]*" value="${esc(value)}" placeholder="${'•'.repeat(length)}"${error ? ' aria-invalid="true"' : ''} aria-describedby="${msgId}"></div>
+  <p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(error || `Enter the ${length}-digit code we sent you.`)}</p>
+</div>`;
+}
+/** Toggle — a switch row (>= 44 px). */
+export function toggle({ id, label, checked = false, disabled = false, helper = '' } = {}) {
+  return `<div class="toggle-row${disabled ? ' toggle-row--disabled' : ''}">
+  <span class="toggle-row__text"><span class="toggle-row__label" id="${id}-label">${esc(label)}</span>${helper ? `<span class="toggle-row__helper" id="${id}-help">${esc(helper)}</span>` : ''}</span>
+  <button type="button" class="toggle" id="${id}" role="switch" aria-checked="${checked}" aria-labelledby="${id}-label"${helper ? ` aria-describedby="${id}-help"` : ''} data-toggle="${id}"${disabled ? ' disabled' : ''}><span class="toggle__knob"></span></button>
+</div>`;
+}
+/** Check row — a 44 px row with an inset-stroke box. checked · unchecked · error. */
+export function checkRow({ id, label, checked = false, caption = '', error = '', attrs = '' } = {}) {
+  return `<div class="check-row-wrap${error ? ' check-row-wrap--error' : ''}">
+  <label class="check-row" for="${id}">
+    <input class="check-row__input" type="checkbox" id="${id}" name="${id}"${checked ? ' checked' : ''}${error ? ` aria-invalid="true" aria-describedby="${id}-msg"` : ''} ${attrs}>
+    <span class="check-row__box" aria-hidden="true">✓</span>
+    <span class="check-row__text"><span class="check-row__label">${esc(label)}</span>${caption ? `<span class="check-row__caption">${esc(caption)}</span>` : ''}</span>
+  </label>
+  ${error ? `<p class="field__msg field__msg--error" id="${id}-msg" role="alert">${esc(error)}</p>` : ''}
+</div>`;
+}
+/**
+ * Chip group — selectable chips (single = radiogroup, multi = aria-pressed) or a
+ * segmented control (visit type: "At my place" / "At the shop").
+ * options: [{ value, label, disabled, caption }]; `value` is a string (or an array when multi).
+ */
+export function chipGroup({ name, label = '', options = [], value = null, multi = false, variant = 'chips', error = '' } = {}) {
+  const picked = (v) => (multi ? (value ?? []).includes(v) : value === v);
+  const labelId = `${name}-label`;
+  const items = options.map((o) => {
+    const on = picked(o.value);
+    const a11y = multi ? `aria-pressed="${on}"` : `role="radio" aria-checked="${on}"`;
+    return `<button type="button" class="${variant === 'segmented' ? 'segmented__opt' : 'chip chip-group__chip'}${on ? (variant === 'segmented' ? ' is-selected' : ' chip--selected') : ''}" ${a11y} data-act="chip" data-name="${esc(name)}" data-value="${esc(o.value)}"${o.disabled ? ' disabled' : ''}><span class="chip-group__text">${esc(o.label)}</span>${o.caption ? `<span class="chip-group__caption">${esc(o.caption)}</span>` : ''}</button>`;
+  }).join('');
+  return `<div class="chip-group chip-group--${variant}${error ? ' chip-group--error' : ''}" data-chip-group="${esc(name)}" data-multi="${multi}">
+  ${label ? `<span class="chip-group__label" id="${labelId}">${esc(label)}</span>` : ''}
+  <div class="${variant === 'segmented' ? 'segmented' : 'chip-group__options'}"${multi ? ` role="group"` : ' role="radiogroup"'}${label ? ` aria-labelledby="${labelId}"` : ` aria-label="${esc(name)}"`}>${items}</div>
+  ${error ? `<p class="field__msg field__msg--error" role="alert">${esc(error)}</p>` : ''}
+</div>`;
+}
+/**
+ * Stepper — "Step 2 of 6 · Services prices" over progress segments.
+ * `steps`: labels or { id, label }; `current` an index or id; `done` indices or ids.
+ */
+export function stepper({ steps = [], current = 0, done = [] } = {}) {
+  const ids = steps.map((s, i) => s?.id ?? i);
+  const labels = steps.map((s) => s?.label ?? s);
+  const ci = typeof current === 'number' ? current : Math.max(0, ids.indexOf(current));
+  const state = (i) => (i === ci ? 'current' : (done.includes(i) || done.includes(ids[i])) ? 'done' : 'todo');
+  return `<div class="stepper">
+  <p class="stepper__text">Step ${ci + 1} of ${steps.length} · ${esc(labels[ci] ?? '')}</p>
+  <div class="stepper__bar" role="img" aria-label="Step ${ci + 1} of ${steps.length}">${steps.map((_, i) => `<span class="stepper__seg stepper__seg--${state(i)}"></span>`).join('')}</div>
+</div>`;
+}
+
+/* ---------- lists, loading, empty ---------- */
+/** List row — title (+ sub) left, value (+ chevron) right. A button when `act` is set. */
+export function listRow({ title, sub = '', right = '', act = '', chevron = true } = {}) {
+  const inner = `<span class="list-row__text"><span class="list-row__title">${title}</span>${sub ? `<span class="list-row__sub">${sub}</span>` : ''}</span>${right ? `<span class="list-row__right">${right}</span>` : ''}${act && chevron ? CHEVRON_RIGHT.replace('method-row__chevron', 'list-row__chevron') : ''}`;
+  return act
+    ? `<button type="button" class="list-row" data-act="${act}">${inner}</button>`
+    : `<div class="list-row list-row--static">${inner}</div>`;
+}
+/** Skeleton — loading placeholders (static under reduced motion). kind: line | tailor-row | card | thread. */
+export function skeleton({ kind = 'line', count = 1 } = {}) {
+  const one = {
+    line: '<span class="skeleton__line"></span>',
+    'tailor-row': '<div class="skeleton__card skeleton__card--row"><span class="skeleton__dot"></span><span class="skeleton__lines"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w40"></span><span class="skeleton__line skeleton__line--w80"></span></span></div>',
+    card: '<div class="skeleton__card"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line"></span><span class="skeleton__line skeleton__line--w80"></span></div>',
+    thread: '<div class="skeleton__thread"><span class="skeleton__bubble skeleton__bubble--them"></span><span class="skeleton__bubble skeleton__bubble--me"></span><span class="skeleton__bubble skeleton__bubble--them skeleton__bubble--short"></span></div>',
+  }[kind] ?? '';
+  return `<div class="skeleton skeleton--${kind}" aria-busy="true"><span class="sr-only">Loading</span>${one.repeat(Math.max(1, count))}</div>`;
+}
+/** Empty state — serif title, body, optional primary + secondary CTA. */
+export function emptyState({ title, body = '', ctaLabel = '', ctaAct = '', secondaryLabel = '', secondaryAct = '' } = {}) {
+  return `<div class="empty-state">
+  <h2 class="t-h2 empty-state__title">${title}</h2>
+  ${body ? `<p class="t-body c-600 empty-state__body">${body}</p>` : ''}
+  ${ctaLabel || secondaryLabel ? `<div class="empty-state__actions">${ctaLabel ? cta(ctaLabel, { attrs: `data-act="${ctaAct}"` }) : ''}${secondaryLabel ? cta(secondaryLabel, { variant: 'secondary', attrs: `data-act="${secondaryAct}"` }) : ''}</div>` : ''}
+</div>`;
+}
+/** Banner — info | success | warning | error. Error uses role="alert". */
+export function banner({ tone = 'info', title = '', text = '', actionLabel = '', actionAct = '', dismissible = false } = {}) {
+  return `<div class="banner banner--${tone}" role="${tone === 'error' ? 'alert' : 'status'}">
+  <div class="banner__body">${title ? `<span class="banner__title">${title}</span>` : ''}<span class="banner__text">${text}</span>${actionLabel ? `<button type="button" class="banner__action" data-act="${actionAct}">${actionLabel}</button>` : ''}</div>
+  ${dismissible ? '<button type="button" class="banner__close" data-act="dismiss" aria-label="Dismiss">✕</button>' : ''}
+</div>`;
+}
+
+/* ---------- money ---------- */
+/**
+ * Money Rows — { label, cents, caption, status, kind }. kind: default | negative | subtotal
+ * | total | muted | changed. Breakdown rows print exact cents; `negative` prints "−$12.50".
+ * Throws when copy contains "%" (dollar amounts only).
+ */
+export function moneyRows(rows = []) {
+  const html = rows.map(({ label, cents = null, caption = '', status = '', kind = 'default' }) => {
+    noPercent(label, 'moneyRows'); noPercent(caption, 'moneyRows');
+    const amt = cents == null ? '' : kind === 'negative' ? fmtNeg(cents) : fmtExact(cents);
+    return `<div class="money-row money-row--${kind}">
+    <span class="money-row__text"><span class="money-row__label">${esc(label)}</span>${caption ? `<span class="money-row__caption">${esc(caption)}</span>` : ''}</span>
+    <span class="money-row__right">${amt ? `<span class="money-row__amt">${amt}</span>` : ''}${status ? `<span class="money-row__status">${esc(status)}</span>` : ''}</span>
+  </div>`;
+  }).join('');
+  return `<div class="money-rows" data-money>${html}</div>`;
+}
+/** Deposit status words by the appointment's deposit state (payments.deposit.state). */
+const DEPOSIT_STATUS = { authorized: 'On hold', captured: 'Paid', released: 'Released', refunded: 'Refunded', kept: 'Kept' };
+/**
+ * The customer's breakdown by stage — estimate | booked | ready | paid. Zero rows are omitted.
+ * `q` is the quote() object in cents. `tailorFirst` names whose prices the services are.
+ * `depositState` (authorized | captured | released | refunded | kept) takes the deposit status from the
+ * appointment instead of the stage: a pending request is only a hold ("On hold"), accepted money is "Paid".
+ * Without it, estimate reads "Due today" and every later stage reads "Paid".
+ */
+export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '' } = {}) {
+  const deposit = depositState ? (DEPOSIT_STATUS[depositState] ?? 'Paid') : stage === 'estimate' ? 'Due today' : 'Paid';
+  const balance = stage === 'paid' ? 'Paid' : stage === 'ready' ? 'Due now' : 'Due when ready';
   const rows = [
-    feeRow(money(alterations), 'Alterations', { line: true, caption: ALTERATIONS_FINAL_CAPTION }),
-    feeRow(money(fee + added), `${feeLabelFor(t)} - Paid ${d.fee}`, { line: true, caption: VISIT_FEE_CAPTION }),
-  ];
-  if (rush > 0) rows.push(feeRow(money(rush), 'Rush fee', { line: true, caption: rushCaptionFor(t) }));
-  rows.push(feeRow(money(alterations + fee + added + rush), 'Total', { line: true }));
-  rows.push(feeRow(money(alterations + added + rush), `Paid at delivery ${d.handoff}`));
-  return rows.join('\n    ');
+    { label: 'Services', cents: q.services, caption: tailorFirst ? `${tailorFirst}’s prices` : '' },
+    q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
+    q.rush > 0 && { label: 'Rush fee', cents: q.rush, caption: `Need-by ${q.rushDays ?? 1} day${(q.rushDays ?? 1) === 1 ? '' : 's'} after the visit` },
+    q.courier > 0 && { label: 'Taily courier', cents: q.courier },
+    { label: stage === 'estimate' ? 'Estimated total' : 'Total', cents: q.total, kind: 'total' },
+    { label: 'Deposit', cents: q.deposit, status: deposit },
+    { label: 'Balance', cents: q.balance, status: balance },
+    (stage === 'ready' || stage === 'paid') && q.refund > 0 && { label: 'Refund to your card', cents: q.refund },
+  ].filter(Boolean);
+  return moneyRows(rows);
+}
+/** The tailor's breakdown — no courier row (D-04); the Taily fee is a negative row. */
+export function tailorBreakdown(q) {
+  return moneyRows([
+    { label: 'Services', cents: q.services },
+    q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
+    q.rush > 0 && { label: 'Rush fee', cents: q.rush },
+    { label: 'Taily fee', cents: q.tailyFee, kind: 'negative' },
+    { label: 'Your payout', cents: q.payout, kind: 'total' },
+  ].filter(Boolean));
+}
+
+/* ---------- wiring ---------- */
+/** Star input: paint the fill up to the checked star (click delegation). */
+export function wireStars(root) {
+  root.querySelectorAll('[data-stars]').forEach((group) => {
+    group.addEventListener('change', () => {
+      const v = Number(group.querySelector('input:checked')?.value ?? 0);
+      group.querySelectorAll('.stars__opt').forEach((o, i) => o.classList.toggle('is-filled', i < v));
+    });
+  });
+}
+/** Toggle switches: flip aria-checked and announce a `toggle` CustomEvent { id, checked }. */
+export function wireToggles(root) {
+  root.addEventListener('click', (e) => {
+    const t = e.target.closest('[role="switch"]');
+    if (!t || t.disabled) return;
+    const on = t.getAttribute('aria-checked') !== 'true';
+    t.setAttribute('aria-checked', String(on));
+    t.dispatchEvent(new CustomEvent('toggle', { bubbles: true, detail: { id: t.id, checked: on } }));
+  });
+}
+/** Chip groups: single = radio behaviour, multi = toggle. Announces `chip` { name, value, values }. */
+export function wireChipGroups(root) {
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act="chip"]');
+    if (!b || b.disabled) return;
+    const group = b.closest('[data-chip-group]');
+    const multi = group.dataset.multi === 'true';
+    const on = (el, v) => { el.classList.toggle(el.classList.contains('segmented__opt') ? 'is-selected' : 'chip--selected', v); el.setAttribute(multi ? 'aria-pressed' : 'aria-checked', String(v)); };
+    const all = [...group.querySelectorAll('[data-act="chip"]')];
+    if (multi) on(b, b.getAttribute('aria-pressed') !== 'true'); else all.forEach((el) => on(el, el === b));
+    const values = all.filter((el) => (multi ? el.getAttribute('aria-pressed') : el.getAttribute('aria-checked')) === 'true').map((el) => el.dataset.value);
+    group.dispatchEvent(new CustomEvent('chip', { bubbles: true, detail: { name: group.dataset.chipGroup, value: b.dataset.value, values } }));
+  });
+}
+/** Composer: enable Send only while there is text; Enter submits via the form. */
+export function wireComposer(root, onSend) {
+  root.querySelectorAll('[data-composer]').forEach((form) => {
+    const input = form.querySelector('.composer__input'); const send = form.querySelector('.composer__send');
+    input.addEventListener('input', () => { send.disabled = !input.value.trim(); });
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text || input.disabled) return;
+      onSend?.(text);
+      input.value = ''; send.disabled = true;
+    });
+  });
 }

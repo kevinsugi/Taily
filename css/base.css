@@ -224,6 +224,27 @@ a {
    explicit 110% line-height instead of AUTO -> 30.8px. */
 .t-title--tight { line-height: 30.8px; }
 
+/* v5 serif scale (the Figma type scale: 10 / 12 / 16 / 24 / 28 / 32 / 36).
+   .t-display = screen / index title, .t-h2 = section header. v5 code never
+   uses .t-section (size 20, off the scale). */
+.t-display {
+  font-family: var(--font-serif);
+  font-size: var(--size-32);
+  line-height: 38px;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.t-h2 {
+  font-family: var(--font-serif);
+  font-size: var(--size-24);
+  line-height: 29px;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 0;
+}
+
 /* Serif section header — "Upcoming Header" on 01/01a (532:958):
    Cormorant SemiBold, literal 20px in Figma (OFF the type scale, no
    size/20 variable exists — kept verbatim like the 14px chat bubble).
@@ -305,3 +326,12 @@ a {
 .c-warning { color: var(--warning); }
 .c-error { color: var(--error); }
 .c-info { color: var(--info); }
+
+/* ---------- test mode (/?test=1, js/app.js adds html.is-test) ----------
+   The harness screenshots must be deterministic: nothing animates, no caret. */
+html.is-test *, html.is-test *::before, html.is-test *::after {
+  transition: none !important;
+  animation: none !important;
+  caret-color: transparent !important;
+  scroll-behavior: auto !important;
+}

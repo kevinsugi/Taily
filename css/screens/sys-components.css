@@ -1,0 +1,16 @@
+/* sys-components — the component gallery. Gallery chrome only (labels, rows);
+   the components themselves are never restyled here. Also linked by /components.html. */
+
+.gal { display: flex; flex-direction: column; gap: var(--space-12); padding-bottom: var(--space-40); }
+.gal > h2 {
+  font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px;
+  font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+  color: var(--neutral-500); margin: var(--space-24) 0 0;
+}
+.gal .vname {
+  font-family: var(--font-sans); font-size: var(--size-10); line-height: 13px;
+  font-weight: 600; color: var(--neutral-400); margin: var(--space-4) 0 0;
+}
+.gal .row { display: flex; gap: var(--space-8); flex-wrap: wrap; align-items: flex-start; }
+.gal .col { display: flex; flex-direction: column; gap: var(--space-12); width: 100%; }
+.gal .sheet-demo { position: relative; height: 430px; overflow: hidden; border-radius: var(--radius-md); outline: 1px solid var(--neutral-200); }

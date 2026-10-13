@@ -7,22 +7,23 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- Exactly the families and weights used across the 17 screens:
-     Cormorant Garamond 500/600 (titles) · Hanken Grotesk 400/500/600/700. -->
+<!-- Cormorant Garamond 500/600 (titles) · Hanken Grotesk 400/500/600/700. -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
-<link rel="stylesheet" href="css/screens.css">
-<link rel="stylesheet" href="css/tailor.css">
+<link rel="stylesheet" href="css/components-v5.css">
 <link rel="stylesheet" href="css/flow-menu.css">
+<!-- one stylesheet per screen (css/screens/<id>.css); add a link when a screen lands -->
+<link rel="stylesheet" href="css/screens/sys-index.css">
+<link rel="stylesheet" href="css/screens/sys-components.css">
 </head>
 <body>
 
 <div class="stage">
   <div class="screen" id="screen"></div>
-  <!-- Test flows menu (js/flow-menu.js): jump to any step of either flow, or flip persona.
+  <!-- Test flows menu (js/flow-menu.js): jump to any state, or flip persona.
        Outside .screen and hidden until the first input, so pixel diffs never see it. -->
   <div class="stage-caption"></div>
 </div>

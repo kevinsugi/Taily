@@ -1,55 +1,56 @@
 /* ============================================================
-   Taily v4 — router
-   render(screenId) + a history stack. No screens are registered yet;
-   Phase 4+ adds them via register() from js/screens/<id>.js.
+   Taily v5 — router
+   render(screenId) + a history stack. Screens self-register via
+   register() from js/screens/<id>.js; SCREEN_MODULES lists them (one
+   line per screen id, grouped by milestone). The v4 screens live in
+   js/screens/v4/ and are never loaded.
    ============================================================ */
 
 import { state } from './state.js';
 import { toast, closeOverlay } from './components.js';
+import { ALL_FLOWS } from './flows.js';
+import { initFlowMenu, runFlow } from './flow-menu.js';
 
-/* Screens self-register via register(). They are loaded dynamically in
-   boot() — a static import here would run the screen module before this
-   module body (imports hoist), hitting the `screens` map in its TDZ.
-   The list grows as Phase 4 lands each screen. */
+/* Screens are loaded dynamically in boot() — a static import here would run
+   the screen module before this module body (imports hoist), hitting the
+   `screens` map in its TDZ. Add a screen = add its id on its milestone's line. */
 const SCREEN_MODULES = [
-  '01-home', '01a-home-selected', '02-appointment-details', '02-appointment-details-rush', '02.1-date-time-sheet', '02.2-address-sheet', '09-bookings',
-  '02.3-payment-sheet', '02.4-add-card-sheet', '03-status-confirmed', '03-status-tailoring', '03-status-summary',
-  '03-status-requested', '03-status-reminder', '10-messages',
-  '04-review-approve', '04-review-approve-modified', '05-items-ready', '06-journey-complete',
-  '03.1-reschedule-popup', '03-status-cancelled', '03.2-appointment-confirmed', '03.3-photo-viewer', '04.1-request-changes',
-  '06.1-leave-review',
-  /* Round 16 (Kevin): delivery only — 05 → 05.1 Confirm Delivery → 05.2 Delivery Confirmed; 03 / Delivery Scheduled is the status screen */
-  '05.1-confirm-delivery', '05.2-delivery-confirmed', '03-status-delivery-scheduled',
-  /* UX-LOOP round 3 Figma sync: sibling frames for the round-2 live-only states (fixture routes) */
-  '03-status-expired', '03-status-tailor-cancelled', '03-status-no-show', '03-status-new-time',
-  '04-review-approve-removed', '09-bookings-closed',
-  /* UX-LOOP round 8 Figma money sync: sibling frames for the round-7 live-only states (fixture routes) */
-  '03-status-reminder-locked', '03-status-confirmed-locked', '03-status-unconfirmed', '04-review-approve-retiered',
-  /* UX-LOOP round 9: 03/Confirmed's booking photos open the viewer (sibling frame, fixture route) */
-  '03.3-photo-viewer-booking',
-  /* Round 14: the tailor profile popup (03.4) */
-  '03.4-tailor-details',
-  /* Round 12: the Leave Review sheet's "Review Submitted" state (sibling frame; registered by 06.1's module) */
-  /* Round 10: the tailor's Edit Details → resend (sibling frames, fixture routes) */
-  't06-awaiting', 't05-resend',
-  /* Tailor flow (Phase T) — Marco's view of the same appointment */
-  't01-home', 't02-appointment-request', 't03-request-accepted', 't03a-decline-request', 't03b-job-cancelled',
-  't04-appointment-details', 't05-confirm-final-pricing', 't06-appointment-status', 't07-job-ready', 't08-job-complete',
-  't01-home-closed', 't02-accepted', 't02-expired', 't03-upcoming-visit', 't03.1-cant-make-it', 't03a-suggest-time', 't03a-other',
-  't03b-by-you', 't03b-no-show', 't03b-withdrawn', 't05-removed', 't07-waiting', 't10-messages',
+  /* M0 · System */
+  'sys-index', 'sys-components',
+  /* M1 · Customer booking */
+  /* M2 · Tailor onboarding + Shop */
+  /* M3 · Request loop */
+  /* M4 · Fitting to completion */
+  /* M5 · Messaging, accounts, earnings, system */
 ];
 
-/* Persona gate (Phase T5, throwaway until onboarding sets it): tailor
-   screens are t-prefixed; opening one flips the persona, the shared
-   messages screen keeps whichever persona opened it (its tailor-side
-   fixture route `t10-messages` flips it like any t-screen). */
-const isTailorScreen = (id) => /^t\d/.test(id);   // t01…t08, t10-messages (round 3)
+/* Where Back at the root and the persona flip land; sys-index until those screens are registered. */
+const PERSONA_HOME = { customer: 'c-job', tailor: 't-home' };
+
+/* Persona comes from the id: c- customer, t- / to- tailor, sys- keeps the current one. */
+export function personaOfScreen(id) {
+  if (id.startsWith('c-')) return 'customer';
+  if (/^(t|to)-/.test(id)) return 'tailor';
+  return null;
+}
 function syncPersona(id) {
-  if (isTailorScreen(id)) state.persona = 'tailor';
-  else if (id !== '10-messages') state.persona = 'user';
+  state.persona = personaOfScreen(id) ?? state.persona ?? 'customer';
+  document.documentElement.dataset.persona = state.persona;
   /* the Test flows menu (flow-menu.js) repaints its persona labels */
   document.dispatchEvent(new CustomEvent('taily:persona'));
 }
+
+/** The landing screen for a persona (falls back to sys-index while that screen is unregistered). */
+export function personaHome(persona = state.persona) {
+  const id = PERSONA_HOME[persona];
+  return id && screens.has(id) ? id : 'sys-index';
+}
+
+/* Top-nav destinations per persona; an unregistered target says so instead of doing nothing. */
+const NAV_ROUTES = {
+  customer: { home: 'c-job', bookings: 'c-bookings', messages: 'c-messages', account: 'c-account' },
+  tailor: { home: 't-home', shop: 't-shop', earnings: 't-earnings', messages: 't-messages' },
+};
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */
 const screens = new Map();
@@ -92,7 +93,7 @@ function syncHistory(id, replace) {
 
 /**
  * Paint a screen.
- * @param {string} id      screen id from scripts/screens.json
+ * @param {string} id      screen id (js/inventory.js)
  * @param {object} [opts]
  * @param {boolean} [opts.replace]  replace the top of the history stack
  * @param {boolean} [opts.fresh]    start a new history at this screen
@@ -119,13 +120,12 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   closeOverlay({ instant: true });
   const prevPersona = state.persona;
   syncPersona(id);
-  /* R2-U-12: a toast raised by one persona does not survive the flip */
+  /* a toast raised by one persona does not survive the flip */
   if (prevPersona !== state.persona) document.querySelectorAll('.toast').forEach((t) => t.remove());
   el.innerHTML = entry.view(state);
   el.dataset.screen = id;
   entry.wire?.(el);
   wireBackButtons(el);
-  window.__tailyNavigated = true;   // first render sets it AFTER wire ran
 
   if (opts.fresh) history.length = 0;
   const same = currentScreen() === id;
@@ -137,16 +137,15 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   return true;
 }
 
-/* Round 15 (Kevin): the Back control beside every heading (components.js
-   backButton) — steps the prototype's history; at the root (a cold
-   `?screen=` link) it goes Home for the persona showing. Screens that
-   wire their own `[data-act="back"]` (the tailor's backHeader, the chat
-   heads) are left alone. */
+/* The Back control beside every heading (components.js backButton) — steps
+   the prototype's history; at the root (a cold `?screen=` link) it goes Home
+   for the persona showing. Screens that wire their own `[data-act="back"]`
+   are left alone. */
 function wireBackButtons(root) {
   root.querySelectorAll('.back[data-act="back"]').forEach((btn) => {
     if (btn.dataset.wired) return;
     btn.dataset.wired = '1';
-    btn.addEventListener('click', () => back() || render(state.persona === 'tailor' ? 't01-home' : '01-home'));
+    btn.addEventListener('click', () => back() || render(personaHome()));
   });
 }
 
@@ -212,38 +211,59 @@ function wireDragScroll() {
   }, true);
 }
 
+/* Top-nav links (components.js topNav): jump to the persona's destination when it is built. */
+function wireTopNav() {
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('[data-nav]');
+    if (!link) return;
+    e.preventDefault();
+    const target = NAV_ROUTES[state.persona]?.[link.dataset.nav];
+    if (target && screens.has(target)) { if (currentScreen() !== target) render(target); }
+    else toast('Not built yet');
+  });
+}
+
+/* The pinned Test-flows control (outside .screen) stays hidden until the first input,
+   so a screenshot of #screen never sees it. */
+function revealOnFirstInput() {
+  const reveal = () => document.documentElement.classList.add('has-input');
+  ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((ev) =>
+    document.addEventListener(ev, reveal, { once: true, passive: true }));
+}
+
 /**
- * Boot. `?screen=<id>` wins so scripts/diff.mjs can open one screen
- * directly; otherwise fall back to the first registered screen.
+ * Boot. `?flow=<key>` runs that Test-flows entry; else `?screen=<id>`
+ * renders that screen; else sys-index. `?test=1` makes the demo
+ * deterministic (instant latency, no transitions or caret).
  */
 async function boot() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('test')) {
+    document.documentElement.classList.add('is-test');
+    state.sim.latency = 'instant';
+  }
   await Promise.all(SCREEN_MODULES.map((m) => import(`./screens/${m}.js`)));
   wireDragScroll();
+  wireTopNav();
+  revealOnFirstInput();
   window.addEventListener('popstate', onPopState);
-  /* UX-004: Profile has no screen — acknowledge instead of ignoring */
-  document.addEventListener('click', (e) => {
-    const profile = e.target.closest('[data-nav="profile"]');
-    if (profile) { e.preventDefault(); toast('Profile is outside this prototype'); }
-  });
-  state.persona ??= 'user';
-  /* Test flows menu (bottom-right): every step of both flows, plus the
-     persona flip. Loaded after the screens — its jumps press their buttons. */
-  const { initFlowMenu, runFlow } = await import('./flow-menu.js');
-  initFlowMenu(render);
-  const params = new URLSearchParams(location.search);
+  state.persona ??= 'customer';
+  document.documentElement.dataset.persona = state.persona;
+  /* Test flows menu (bottom-right): every state, plus the persona flip. */
+  initFlowMenu(render, { home: personaHome });
   const flow = params.get('flow');
   if (flow && !params.get('screen') && runFlow(flow)) return;
-  const wanted = params.get('screen');
-  const first = registered()[0];
-  const id = wanted || first;
-  if (id) render(id);
+  render(params.get('screen') || 'sys-index');
 }
 
+/* Handy at the console, and the harness's entry point. `ready` resolves when boot() has painted. */
+let markReady;
+const ready = new Promise((resolve) => { markReady = resolve; });
+window.Taily = { render, back, register, registered, currentScreen, state, runFlow, flows: ALL_FLOWS, personaHome, ready };
+
+const start = () => boot().finally(markReady);
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', boot, { once: true });
+  document.addEventListener('DOMContentLoaded', start, { once: true });
 } else {
-  boot();
+  start();
 }
-
-// Handy at the console while building screens.
-window.Taily = { render, back, register, registered, currentScreen, state };

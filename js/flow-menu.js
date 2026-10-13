@@ -1,40 +1,58 @@
 /* ============================================================
    "Test flows" menu — the bottom-right dev control (Kevin, Sep 2026).
-   Replaces the lone "View as Tailor" pill: the pill now opens a panel
-   listing every step of the Customer flow and the Tailor flow (the
-   registry is js/flows.js). Choosing a step resets the demo, drives
-   the shared appointment there through the real transitions and opens
-   the screen live; the footer keeps the old persona flip
-   (#persona-toggle), which switches sides WITHOUT resetting anything.
+   A trigger opens a panel listing every Test-flows entry (the registry
+   is js/flows.js) under three tabs: Customer, Tailor, System. Choosing
+   an entry resets the demo, runs the entry's setup through the real
+   transitions and opens the screen live; the footer flip switches
+   persona WITHOUT resetting anything.
 
    Lives in .stage-caption, OUTSIDE .screen, and stays hidden until the
    first input (html.has-input) — the diff harness never sees it.
-   Loaded by app.js after the screen modules (it presses screen
-   buttons, so the screens must be registered first).
+   Initialised by app.js after the screen modules (an entry's `click`
+   presses screen buttons, so the screens must be registered first).
    ============================================================ */
 
 import { state } from './state.js';
-import { FLOWS, findFlow, prepareFlow } from './flows.js';
+import { ALL_FLOWS, findFlow, prepareFlow, personaForScreen } from './flows.js';
 
 let render = null;
+let homeFor = () => 'sys-index';
 let lastKey = null;
 let tab = null;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const personaTab = () => (state.persona === 'tailor' ? 'tailor' : 'customer');
-const TABS = [['customer', 'Customer flow'], ['tailor', 'Tailor flow']];
+const TABS = [['customer', 'Customer'], ['tailor', 'Tailor'], ['system', 'System']];
+/** Which tab an entry belongs to: its persona, or System for sys-* screens. */
+const tabOf = (f) => (f.screen.startsWith('sys-') ? 'system' : (f.persona ?? personaForScreen(f.screen) ?? 'customer'));
+/** The tab to open on: System while a sys-* screen shows, else the persona's. */
+const currentTab = () => {
+  const id = document.getElementById('screen')?.dataset.screen ?? '';
+  return id.startsWith('sys-') ? 'system' : state.persona === 'tailor' ? 'tailor' : 'customer';
+};
+
+/** Entries of a tab as groups, in registry order: [{ title, items }]. */
+function groupsOf(which) {
+  const groups = [];
+  for (const f of ALL_FLOWS.filter((e) => tabOf(e) === which)) {
+    let g = groups.find((x) => x.title === f.group);
+    if (!g) groups.push(g = { title: f.group, items: [] });
+    g.items.push(f);
+  }
+  return groups;
+}
 
 function listHtml(which) {
-  return FLOWS[which].map((g) => `
+  const groups = groupsOf(which);
+  if (!groups.length) return `<p class="flow-menu__empty">Nothing built on this side yet.</p>`;
+  return groups.map((g) => `
     <section class="flow-menu__group" aria-label="${esc(g.title)}">
       <h3 class="flow-menu__heading">${esc(g.title)}</h3>
       ${g.items.map((f) => `
-      <button type="button" class="flow-menu__item" data-flow="${f.key}"${f.key === lastKey ? ' aria-current="true"' : ''}>
-        <span class="flow-menu__code">${esc(f.code)}</span>
+      <button type="button" class="flow-menu__item" data-flow="${esc(f.key)}"${f.key === lastKey ? ' aria-current="true"' : ''}>
         <span class="flow-menu__text">
           <span class="flow-menu__title">${esc(f.title)}</span>
-          ${f.note ? `<span class="flow-menu__note">${esc(f.note)}</span>` : ''}
+          <span class="flow-menu__note">${esc(f.key)}${f.note ? ` · ${esc(f.note)}` : ''}</span>
         </span>
       </button>`).join('')}
     </section>`).join('');
@@ -80,7 +98,7 @@ function paintLabels() {
 function open() {
   const menu = $('#flow-menu');
   if (!menu) return;
-  paintTab(personaTab());
+  paintTab(currentTab());
   menu.hidden = false;
   $('#flow-trigger').setAttribute('aria-expanded', 'true');
   const current = menu.querySelector('[aria-current="true"]');
@@ -97,16 +115,14 @@ function close({ focusTrigger = false } = {}) {
 }
 
 /**
- * Jump to a flow step: reset + set up the state, render the screen live
- * with a fresh history, then press the step's buttons (overlays).
+ * Run a Test-flows entry: reset + setup, render the screen live with a
+ * fresh history, then press the entry's `click` selectors (overlays).
  * Returns true when the key exists.
  */
 export function runFlow(key) {
-  const entry = findFlow(key);
-  if (!entry || !render) return false;
+  if (!render || !findFlow(key)) return false;
   document.querySelectorAll('.toast').forEach((t) => t.remove());
-  prepareFlow(key);
-  window.__tailyNavigated = true;   // live render, never the frame fixture
+  const entry = prepareFlow(key);
   render(entry.screen, { fresh: true });
   window.scrollTo(0, 0);
   for (const sel of entry.click ?? []) {
@@ -115,7 +131,7 @@ export function runFlow(key) {
     el.click();
   }
   lastKey = key;
-  /* ?flow=<key> makes the step bookmarkable / shareable */
+  /* ?flow=<key> makes the state bookmarkable / shareable */
   const url = new URL(location.href);
   url.searchParams.delete('screen');
   url.searchParams.set('flow', key);
@@ -125,8 +141,9 @@ export function runFlow(key) {
 }
 
 /** Mount the trigger + panel into .stage-caption and wire them. */
-export function initFlowMenu(renderFn) {
+export function initFlowMenu(renderFn, { home } = {}) {
   render = renderFn;
+  if (home) homeFor = home;
   const host = $('.stage-caption');
   if (!host) return;
   host.innerHTML = `${panelHtml()}
@@ -146,10 +163,12 @@ export function initFlowMenu(renderFn) {
     close();
     runFlow(item.dataset.flow);
   });
-  /* the old pill's behaviour: flip sides, state untouched */
+  /* flip sides, state untouched: render the other persona's home */
   $('#persona-toggle').addEventListener('click', () => {
     close();
-    render(state.persona === 'tailor' ? '01-home' : 't01-home');
+    const next = state.persona === 'tailor' ? 'customer' : 'tailor';
+    state.persona = next;                      // sys-index (the fallback home) keeps the persona it is given
+    render(homeFor(next), { fresh: true });
   });
   /* arrow keys walk the list; Escape closes; a click outside closes */
   $('#flow-menu').addEventListener('keydown', (e) => {

@@ -8,8 +8,10 @@ import * as D from '../../js/dates.js';
 import * as DATA from '../../js/data.js';
 import * as S from '../../js/state.js';
 import * as TD from '../../js/tailor-data.js';
-import { driveTo, TARGETS } from '../../js/fixtures/common.js';
+import { driveTo, TARGETS, addRequest } from '../../js/fixtures/common.js';
 import { SCENARIOS, SEED_SLOT } from './money.mjs';
+import { SUGGESTED_SLOT, SECOND_SLOT_AFTER } from '../../js/fixtures/money-scenarios.js';
+import { setFocus, focusAppt, redirectIfMoved } from '../../js/focus.js';
 import * as C from '../../js/components.js';
 import * as A from '../../js/account.js';
 import { withLatency, LATENCY_MS } from '../../js/sim.js';
@@ -48,9 +50,10 @@ eq([M.cents(12.5), M.cents(0.07), M.cents(19.99), M.cents(25)], [1250, 7, 1999, 
 
 /* ================= dates ================= */
 section('dates');
-eq(D.fmtWhen('2026-10-15T17:00'), 'Thu, Oct 15 · 5:00 PM', 'fmtWhen');
+ok(!/\d [AP]M/.test(D.fmtWhen('2026-10-15T17:30')), 'R3-2-C-03: time and AM/PM are joined by a no-break space');
+eq(D.fmtWhen('2026-10-15T17:00'), 'Thu, Oct 15 · 5:00\u00a0PM', 'fmtWhen');
 eq([D.fmtDay('2026-10-23'), D.fmtTime('2026-10-15T09:30'), D.fmtShort('2026-10-15'), D.fmtMdy('2026-10-15'), D.fmtTime('2026-10-15T00:05'), D.fmtTime('2026-10-15T12:00')],
-  ['Fri, Oct 23', '9:30 AM', 'Oct 15', '10/15/26', '12:05 AM', '12:00 PM'], 'fmtDay / fmtTime / fmtShort / fmtMdy');
+  ['Fri, Oct 23', '9:30\u00a0AM', 'Oct 15', '10/15/26', '12:05\u00a0AM', '12:00\u00a0PM'], 'fmtDay / fmtTime / fmtShort / fmtMdy');
 eq(D.fmtDay('2026-09-03'), 'Thu, Sep 3', 'September is the three-letter "Sep"');
 eq([D.fmtCountdown(2 * 3600000), D.fmtCountdown(52 * 60000), D.fmtCountdown(0), D.fmtCountdown(-5), D.fmtCountdown(61 * 60000)], ['2h', '52m', 'Expired', 'Expired', '1h 1m'], 'fmtCountdown');
 eq([D.dayDiff('2026-10-15T17:00', '2026-10-16'), D.dayDiff('2026-10-15T23:59', '2026-10-15'), D.dayDiff('2026-10-31', '2026-11-02'), D.dayDiff('2026-03-07', '2026-03-09')], [1, 0, 2, 2], 'dayDiff counts calendar days (DST-safe)');
@@ -60,7 +63,7 @@ eq([D.weekdayKey('2026-10-13'), D.weekdayKey('2026-10-18'), D.minutesOf('17:30')
 /* ================= seed + clock ================= */
 section('seed');
 S.reset();
-eq(D.fmtWhen(D.isoMinute(new Date(S.now()))), 'Tue, Oct 13 · 10:00 AM', 'frozen demo clock: Tue Oct 13, 10:00 AM');
+eq(D.fmtWhen(D.isoMinute(new Date(S.now()))), 'Tue, Oct 13 · 10:00\u00a0AM', 'frozen demo clock: Tue Oct 13, 10:00 AM');
 eq([state.persona, state.tailors.length, state.appts.length, state.job.garments.length], ['customer', 1, 0, 2], 'seed: customer persona, 1 tailor, no appts, 2 garments');
 eq([amara().id, amara().shop.zip, amara().home.zips, amara().home.fee, amara().rush], ['amara', '11211', ['11211', '11222', '11206', '11237'], 35, [{ days: 1, fee: 40 }, { days: 2, fee: 25 }, { days: 3, fee: 15 }]], 'Amara: Brooklyn shop + home zips + $35 + rush ladder');
 eq(Object.keys(amara().prices).length, 10, 'Amara prices 10 of the 11 catalog services');
@@ -271,7 +274,8 @@ S.reset();
   const a = r.appt;
   eq([a.id, a.status, a.retries, a.slot.start, a.slot.end, a.expiresAt, a.payments.deposit], ['A-1001', 'requested', 0, '2026-10-15T17:00', '2026-10-15T18:00', '2026-10-13T12:00', { cents: 1600, state: 'authorized' }], 'new request: id, 60-minute slot, 2 h expiry, $16.00 hold authorized');
   eq(a.history.map((h) => h.status), ['requested'], 'history starts with requested');
-  eq(S.threadFor('amara').messages.map((m) => m.text), ['Request sent'], 'system message "Request sent"');
+  eq(S.threadFor('amara').messages.map((m) => m.text), ['You sent a request'], 'system message "You sent a request" (customer reader)');
+  eq(S.threadFor('amara').messages.map((m) => m.tailorText), ['Sarah sent a request'], 'system message read by the tailor: "Sarah sent a request" (D-98)');
   eq(S.msLeft(a), 2 * 3600000, 'two hours left on the clock');
   guard(T.requestBooking({ tailorId: 'amara', slotStart: '2026-10-15T17:30' }), 'slot-unavailable', 'an overlapping slot is no longer open (60-minute visit)');
   ok(!S.openSlots('amara', 'home', { until: '2026-10-23' }).includes('2026-10-15T17:30') && !S.openSlots('amara', 'shop').includes('2026-10-15T17:00'), 'a pending request blocks that tailor\'s overlapping slots, for both visit types');
@@ -289,7 +293,8 @@ S.reset();
   const a = driveTo('requested');
   const acc = T.tailorAccept(a.id);
   eq([acc.appt.status, acc.appt.payments.deposit.state], ['confirmed', 'captured'], 'tailorAccept: confirmed, deposit captured');
-  eq(S.threadFor('amara').messages.map((m) => m.text), ['Request sent', 'Amara accepted'], 'system message "Amara accepted"');
+  eq(S.threadFor('amara').messages.map((m) => m.text), ['You sent a request', 'Amara accepted'], 'system message "Amara accepted"');
+  eq(S.threadFor('amara').messages.map((m) => m.tailorText), ['Sarah sent a request', 'You accepted'], 'system message read by the tailor: "You accepted" (D-98)');
   guard(T.tailorAccept(a.id), 'not-requested', 'tailorAccept twice fails');
   guard(T.tailorSuggest(a.id, '2026-10-15T18:00'), 'not-requested', 'tailorSuggest needs requested');
   guard(T.tailorDecline(a.id), 'not-requested', 'tailorDecline needs requested');
@@ -316,6 +321,7 @@ function getStatus(id) { return S.getAppt(id).status; }
   S.setClock('2026-10-13T10:00');
   const acc = T.acceptSuggestion(a.id);
   eq([acc.appt.status, acc.appt.slot.start, acc.appt.slot.end, acc.appt.payments.deposit.state], ['confirmed', '2026-10-15T18:00', '2026-10-15T19:00', 'captured'], 'acceptSuggestion: confirmed at the suggested time, deposit captured');
+  eq(acc.appt.confirmedVia, 'suggestion', 'acceptSuggestion stamps confirmedVia (R3-1-C-08)');
   guard(T.acceptSuggestion(a.id), 'not-suggested', 'acceptSuggestion needs suggested');
 }
 {
@@ -357,6 +363,7 @@ function getStatus(id) { return S.getAppt(id).status; }
   ok(!S.activeAppt() || S.activeAppt().id === id, 'an expired request with retries left is still active');
   const t1 = T.tryAgain(id);
   eq([t1.appt.status, t1.appt.retries, t1.appt.payments.deposit.state, t1.appt.expiresAt], ['requested', 1, 'authorized', '2026-10-13T14:01'], 'tryAgain 1: requested again, retries 1, hold re-authorized, new 2 h window');
+  eq([t1.appt.sentAt, t1.appt.requestedAt === t1.appt.sentAt], ['2026-10-13T12:01', false], 'tryAgain stamps sentAt (the resend time) and keeps requestedAt (R3-1-C-02)');
   S.advanceClock(121);
   const t2 = T.tryAgain(id);
   eq([t2.appt.status, t2.appt.retries], ['requested', 2], 'tryAgain 2: retries 2');
@@ -685,7 +692,7 @@ section('tailor-data');
   eq([TD.inbox().requests.map((x) => x.id), TD.inbox().upcoming.length], [[a.id], 0], 'inbox: a pending request is in requests');
   eq(TD.jobAddress(a), 'Williamsburg · 11211', 'jobAddress before accepting: neighborhood + zip');
   const v = TD.requestView(a);
-  eq([v.visitLabel, v.place, v.when, v.needBy, v.estimate, v.tailyFee, v.payout, v.expiresAt], ['Home visit', 'Williamsburg · 11211', 'Thu, Oct 15 · 5:00 PM', 'Fri, Oct 23', 12500, 1250, 14750, '2026-10-13T12:00'], 'requestView: visit label, place, when, need-by, estimate, Taily fee, payout, expiry');
+  eq([v.visitLabel, v.place, v.when, v.needBy, v.estimate, v.tailyFee, v.payout, v.expiresAt], ['Home visit', 'Williamsburg · 11211', 'Thu, Oct 15 · 5:00\u00a0PM', 'Fri, Oct 23', 12500, 1250, 14750, '2026-10-13T12:00'], 'requestView: visit label, place, when, need-by, estimate, Taily fee, payout, expiry');
   eq(v.garments.map((g) => [g.type, g.services.map((s) => s.label)]), [['Suit Pant', ['Hem pants']], ['Suit Jacket', ['Shorten sleeves', 'Take in jacket sides']]], 'requestView: garments with their service labels');
   T.tailorAccept(a.id);
   eq(TD.jobAddress(S.getAppt(a.id)), '145 N 7th St, 2R, Brooklyn, NY 11211', 'jobAddress after accepting: full street + unit');
@@ -816,6 +823,53 @@ section('reset');
   S.reset();
   eq([state.appts.length, state.payouts.length, state.sim.latency, state.sim.card, state.job.garments.length, S.now()], [0, 0, 'hold', 'ok', 2, D.toDate(DATA.DEMO_NOW).getTime()], 'reset(): restores everything, keeps sim.latency');
   eq(T.requestBooking({ tailorId: 'amara', slotStart: '2026-10-15T17:00' }).appt.id, 'A-1001', 'reset() restarts the appointment ids');
+  S.reset();
+}
+section('M3 request loop helpers (D-72…D-88)');
+{
+  eq(POLICY.JUST_BOOKED_MIN, 60, 'POLICY.JUST_BOOKED_MIN is 60 (D-73)');
+  eq([DATA.DECLINE_REASONS[0], DATA.CANT_MAKE_IT_REASONS[0]], ['Fully booked that week', 'Family emergency'], 'reason lists lead with what driveTo passes (D-76)');
+  let a = driveTo('confirmed');
+  ok(S.justConfirmed(a), 'justConfirmed is true right after the accept');
+  S.advanceClock(POLICY.JUST_BOOKED_MIN);
+  ok(!S.justConfirmed(S.getAppt(a.id)), 'justConfirmed is false once JUST_BOOKED_MIN has passed');
+  ok(!S.justConfirmed(driveTo('requested')), 'justConfirmed is false for a request');
+  a = driveTo('suggested');
+  eq([a.suggested.start, SUGGESTED_SLOT], [SUGGESTED_SLOT, '2026-10-15T18:00'], "driveTo('suggested') suggests SUGGESTED_SLOT");
+  const slots = TD.suggestSlots(a);
+  ok(slots.length > 0 && slots[0] === SUGGESTED_SLOT, 'suggestSlots: the first offer is SUGGESTED_SLOT');
+  ok(slots.every((s) => s >= a.slot.end || D.addMinutes(s, DATA.VISIT_MINUTES.home).getTime() <= D.toDate(a.slot.start).getTime()), 'suggestSlots never overlaps the requested visit');
+  eq(TD.suggestSlots(a, { limit: 2 }).length, 2, 'suggestSlots honours limit');
+  a = driveTo('requested');
+  eq([TD.customerName(a), TD.customerInitials(), TD.requestView(a).customer.name], ['Sarah C.', 'SC', 'Sarah C.'], 'customerName hides the surname before the accept (D-74)');
+  ok(TD.jobAddress(a).startsWith('Williamsburg'), 'jobAddress: neighborhood + zip before the accept');
+  a = driveTo('confirmed');
+  eq(TD.customerName(a), 'Sarah Chen', 'customerName after the accept');
+  ok(TD.jobAddress(a).includes('145 N 7th St'), 'jobAddress: the full address once confirmed');
+  const v = TD.requestView(a);
+  eq([v.items, v.serviceCount, v.minutes, v.whenEnd, v.retries, v.suggested, v.needByDays], [2, 3, 60, '6:00\u00a0PM', 0, null, 8], 'requestView carries the M3 fields');
+  ok(!TD.jobAddress(driveTo('cant-make-it')).includes('145 N 7th St'), 'jobAddress hides the street on a cancelled home visit (D-88)');
+  ok(!TD.jobAddress(driveTo('cancelled-early')).includes('145 N 7th St'), 'jobAddress hides the street after a customer cancel (D-88)');
+  ok(TD.jobAddress(driveTo('confirmed', { visitType: 'shop' })).includes('312 Metropolitan'), 'a shop visit keeps the shop address');
+  eq(TD.payoutOf(driveTo('no-show')).cents, SCENARIOS.noShow.paid, 'payoutOf(no-show) is the no-show comp');
+  eq(TD.payoutOf(driveTo('confirmed')), null, 'payoutOf is null before anything is paid out');
+  driveTo('confirmed');
+  const second = addRequest({ after: SECOND_SLOT_AFTER });
+  eq([state.appts.length, second.status, second.slot.start], [2, 'requested', '2026-10-17T09:00'], 'addRequest({ after }) adds a second request at SECOND_SLOT_AFTER');
+  eq(addRequest({ accept: true, after: SECOND_SLOT_AFTER }).status, 'confirmed', 'addRequest({ accept }) confirms it');
+  throws(() => addRequest({ after: '2099-01-01T00:00' }), 'addRequest throws when nothing is open');
+  /* focus (D-72) */
+  driveTo('declined'); const dec = state.appts[0];
+  setFocus(dec.id);
+  eq([focusAppt('t-request', 'tailor')?.id, focusAppt('c-request', 'customer')?.id, focusAppt('c-booking', 'customer')], [dec.id, dec.id, null], 'focusAppt: a declined request lands on its request screens, not c-booking');
+  const wentTo = [];
+  ok(redirectIfMoved('c-booking', (id, o) => wentTo.push([id, o])) && wentTo[0][0] === 'c-request' && wentTo[0][1].replace, 'redirectIfMoved forwards a screen whose appointment moved on');
+  ok(!redirectIfMoved('c-request', () => { throw new Error('should not go'); }), 'redirectIfMoved is quiet on the right screen');
+  driveTo('requested'); const req = state.appts[0];
+  state.ui.apptId = null;
+  eq(focusAppt('c-request')?.id, req.id, 'focusAppt falls back to the newest appointment for that screen');
+  T.tailorAccept(req.id); setFocus(req.id);
+  eq([focusAppt('c-request'), focusAppt('c-booking')?.id], [null, req.id], 'after the accept the focus resolves to c-booking');
   S.reset();
 }
 

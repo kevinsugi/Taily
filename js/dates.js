@@ -34,7 +34,9 @@ export const minutesOf = (hhmm) => { const [h, m] = String(hhmm).split(':'); ret
 /** Minutes since midnight of an ISO string / Date. */
 export const minuteOfDay = (d) => { const x = toDate(d); return x.getHours() * 60 + x.getMinutes(); };
 
-const clock = (d) => `${((d.getHours() + 11) % 12) + 1}:${pad(d.getMinutes())} ${d.getHours() >= 12 ? 'PM' : 'AM'}`;
+/* R3-2-C-03: the time and its AM / PM are joined by a no-break space (U+00A0), so "5:30 PM" never splits
+   across lines in a toast, a note or a heading. Text checks normalise whitespace (\s matches U+00A0). */
+const clock = (d) => `${((d.getHours() + 11) % 12) + 1}:${pad(d.getMinutes())}\u00a0${d.getHours() >= 12 ? 'PM' : 'AM'}`;
 /** "Thu, Oct 15 · 5:00 PM" */
 export const fmtWhen = (iso) => { const d = toDate(iso); return `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()} · ${clock(d)}`; };
 /** "Thu, Oct 15" */

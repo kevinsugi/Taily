@@ -20,7 +20,7 @@ export const MILESTONES = [
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
@@ -101,6 +101,7 @@ export const SCREENS = [
     { key: 'c-request--expired', m: 'M3', kind: 'frame' },
     { key: 'c-request--expired-2', m: 'M3', kind: 'state' },
     { key: 'c-request--expired-final', m: 'M3', kind: 'state' },
+    { key: 'c-request--expired-passed', m: 'M3', kind: 'state' },
     { key: 'c-request--withdraw', m: 'M3', kind: 'overlay' },
   ] },
   { id: 'c-thread', m: 'M1', persona: 'customer', title: 'Chat with one tailor. M1 = "Ask a question" stub; M5 = full rules', states: [
@@ -291,8 +292,8 @@ export const SCREENS = [
     { key: 't-messages', m: 'M5', kind: 'frame' },
     { key: 't-messages--empty', m: 'M5', kind: 'state' },
   ] },
-  { id: 't-thread', m: 'M5', persona: 'tailor', title: 'T9 the same thread the customer sees', states: [
-    { key: 't-thread', m: 'M5', kind: 'frame' },
+  { id: 't-thread', m: 'M3', persona: 'tailor', title: 'T9 the same thread the customer sees (M3 stub, D-81; full rules M5)', states: [
+    { key: 't-thread', m: 'M3', kind: 'frame' },
     { key: 't-thread--masked', m: 'M5', kind: 'state' },
     { key: 't-thread--failed', m: 'M5', kind: 'state' },
     { key: 't-thread--photo', m: 'M5', kind: 'state' },

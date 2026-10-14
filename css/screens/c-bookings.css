@@ -1,0 +1,7 @@
+/* c-bookings — the Bookings tab. Layout only; rows are the shared apptRow. */
+.c-bookings { gap: 0; padding-bottom: var(--space-40); }
+.c-bookings__section { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-24); }
+.c-bookings__section + .c-bookings__section { margin-top: var(--space-32); }
+.c-bookings__section > h2 { margin: 0; }
+.c-bookings__rows { display: flex; flex-direction: column; gap: var(--space-12); }
+.c-bookings__empty { margin-top: var(--space-24); }

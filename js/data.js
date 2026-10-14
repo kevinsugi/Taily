@@ -32,6 +32,9 @@ export const DAY_START_MIN = 9 * 60;                    // earliest visit start
 export const DAY_END_MIN = 21 * 60;                     // latest visit end
 export const SLOT_STEP_MIN = 30;
 export const SLOT_HORIZON_DAYS = 28;                    // how far ahead slots are generated when there is no need-by
+/** Optional single-choice reasons (D-76). The first entry of each is what driveTo('declined' | 'cant-make-it') passes. */
+export const DECLINE_REASONS = ['Fully booked that week', 'Not work I take on', 'Too far for a home visit', 'Can’t finish by the need-by date'];
+export const CANT_MAKE_IT_REASONS = ['Family emergency', 'I’m unwell', 'Shop closed unexpectedly', 'Something came up'];
 export const VISIT_LABEL = { customer: { home: 'At my place', shop: 'At the shop' }, tailor: { home: 'Home visit', shop: 'Shop visit' } };
 export const RETURN_LABEL = { pickup: 'In-store pickup', dropoff: 'Home drop-off', courier: 'Taily courier' };
 export const PRIVACY_NOTE = 'Phone numbers and emails stay private on Taily.';

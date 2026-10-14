@@ -139,7 +139,9 @@ function post(tailorId, from, text, extra = {}) {
   ensureThread(tailorId).messages.push(msg);
   return msg;
 }
-const say = (appt, text) => post(appt.tailorId, 'system', text);
+/** A system line is written from the READER's point of view (R3-2-T-05): `text` is what Sarah reads, `tailorText` what Amara reads
+    (same string when the line is neutral). Thread screens print `m.tailorText ?? m.text` on the tailor side (D-98). */
+const say = (appt, text, tailorText = text) => post(appt.tailorId, 'system', text, { tailorText });
 function setStatus(appt, status) {
   appt.status = status;
   appt.history.push({ status, at: nowIso() });
@@ -485,7 +487,7 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
     history: [{ status: 'requested', at: nowIso() }],
   };
   state.appts.push(appt);
-  say(appt, 'Request sent');
+  say(appt, 'You sent a request', `${state.customer.first} sent a request`);
   return succeed(appt);
 }
 
@@ -496,7 +498,7 @@ export function withdrawRequest(id) {
   a.cancel = { by: 'customer', reason: 'withdrawn', at: nowIso(), refund: 0, kept: 0, tailorPaid: 0 };
   a.payments.deposit.state = 'released';
   restoreDraft(a);
-  say(a, 'Request withdrawn');
+  say(a, 'You withdrew the request', `${state.customer.first} withdrew the request`);
   return succeed(a);
 }
 
@@ -506,7 +508,7 @@ export function tailorAccept(id) {
   if (a.status !== 'requested') return fail('not-requested');
   setStatus(a, 'confirmed');
   a.payments.deposit.state = 'captured';
-  say(a, `${firstName(tailorById(a.tailorId))} accepted`);
+  say(a, `${firstName(tailorById(a.tailorId))} accepted`, 'You accepted');
   return succeed(a);
 }
 
@@ -517,7 +519,7 @@ export function tailorSuggest(id, slotStart) {
   if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(slotStart)) return fail('slot-unavailable');
   a.suggested = { start: slotStart, at: nowIso() };
   setStatus(a, 'suggested');
-  say(a, `${firstName(tailorById(a.tailorId))} suggested ${fmtWhen(slotStart)}`);
+  say(a, `${firstName(tailorById(a.tailorId))} suggested ${fmtWhen(slotStart)}`, `You suggested ${fmtWhen(slotStart)}`);
   return succeed(a);
 }
 
@@ -526,6 +528,7 @@ export function acceptSuggestion(id) {
   if (a.status !== 'suggested') return fail('not-suggested');
   a.slot = { start: a.suggested.start, end: slotEnd(a.suggested.start, a.job.visitType) };
   setStatus(a, 'confirmed');
+  a.confirmedVia = 'suggestion';                              // R3-1-C-08: the customer accepted the tailor's new time
   a.payments.deposit.state = 'captured';
   say(a, `Booked ${fmtWhen(a.slot.start)}`);
   return succeed(a);
@@ -538,7 +541,7 @@ export function findAnotherTailor(id) {
     setStatus(a, 'cancelled');
     a.cancel = { by: 'customer', reason: 'switched', at: nowIso(), refund: 0, kept: 0, tailorPaid: 0 };
     a.payments.deposit.state = 'released';
-    say(a, 'Looking for another tailor');
+    say(a, 'You’re looking for another tailor', `${state.customer.first} is looking for another tailor`);
   }
   restoreDraft(a);
   return succeed(a);
@@ -552,7 +555,7 @@ export function tailorDecline(id, reason = '') {
   a.payments.deposit.state = 'released';
   if (!state.job.declinedBy.includes(a.tailorId)) state.job.declinedBy.push(a.tailorId);
   restoreDraft(a);
-  say(a, `${firstName(tailorById(a.tailorId))} declined`);
+  say(a, `${firstName(tailorById(a.tailorId))} declined`, 'You declined');
   return succeed(a);
 }
 
@@ -574,10 +577,11 @@ export function tryAgain(id) {
   if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(a.slot.start)) return fail('slot-unavailable');   // someone else may have taken it since
   if (state.sim.card === 'declined') return fail('card-declined');
   a.retries += 1;
+  a.sentAt = nowIso();                                        // R3-1-C-02: the resend time; requestedAt stays the first send
   a.expiresAt = expiryIso();
   a.payments.deposit.state = 'authorized';                    // D-15
   setStatus(a, 'requested');
-  say(a, 'Request sent again');
+  say(a, 'You sent the request again', `${state.customer.first} sent the request again`);
   return succeed(a);
 }
 
@@ -594,7 +598,7 @@ export function cancelBooking(id) {
     a.cancel = { by: 'customer', reason: 'customer-late', at: nowIso(), refund: 0, kept: terms.kept, tailorPaid: terms.kept };   // D-05
     addPayout(a, terms.kept, 'kept-deposit');
   }
-  say(a, 'Booking cancelled');
+  say(a, 'You cancelled the booking', `${state.customer.first} cancelled the booking`);
   return succeed(a, { terms });
 }
 
@@ -603,9 +607,10 @@ export function rescheduleBooking(id, slotStart) {
   if (a.status !== 'confirmed') return fail('not-confirmed');
   if (cancelTerms(a, state.clock.now).window !== 'early') return fail('too-late');   // D-12
   if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(slotStart)) return fail('slot-unavailable');
+  const from = a.slot.start;
   a.slot = { start: slotStart, end: slotEnd(slotStart, a.job.visitType) };           // price stays as booked (D-25)
-  a.history.push({ status: 'rescheduled', at: nowIso() });
-  say(a, `Moved to ${fmtWhen(slotStart)}`);
+  a.history.push({ status: 'rescheduled', at: nowIso(), from });                     // R3-1-T-10: t-job says what it moved from
+  say(a, `You moved the visit to ${fmtWhen(slotStart)}`, `${state.customer.first} moved the visit to ${fmtWhen(slotStart)}`);
   return succeed(a);
 }
 
@@ -616,7 +621,7 @@ export function tailorCantMakeIt(id, reason = '') {
   a.payments.deposit.state = 'refunded';
   a.cancel = { by: 'tailor', reason: 'tailor-cant-make-it', note: reason, at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
   restoreDraft(a);
-  say(a, `${firstName(tailorById(a.tailorId))} can't make it`);
+  say(a, `${firstName(tailorById(a.tailorId))} can't make it`, 'You can’t make it');
   return succeed(a);
 }
 
@@ -629,7 +634,7 @@ export function markNoShow(id) {
   a.payments.deposit.state = 'kept';
   a.cancel = { by: 'tailor', reason: 'no-show', at: nowIso(), refund: 0, kept: a.payments.deposit.cents, tailorPaid: pay };
   addPayout(a, pay, 'no-show');
-  say(a, 'Marked as a no-show');
+  say(a, `${firstName(tailorById(a.tailorId))} marked the visit as a no-show`, `You marked ${state.customer.first} as a no-show`);
   return succeed(a);
 }
 
@@ -660,7 +665,7 @@ export function sendPriceChange(id, lines) {
   if (!Array.isArray(lines) || !lines.length || lines.some((l) => !(l.cents > 0))) return fail('price-missing');
   a.priceChange = { lines: clone(lines), marks: priceMarks(a.lines, lines), sentAt: nowIso(), state: 'pending' };
   setStatus(a, 'price-change');
-  say(a, `${firstName(tailorById(a.tailorId))} sent an updated price`);
+  say(a, `${firstName(tailorById(a.tailorId))} sent an updated price`, 'You sent an updated price');
   return succeed(a);
 }
 export function confirmNoChange(id) {
@@ -678,7 +683,7 @@ export function approvePriceChange(id) {
   a.payments.balance.cents = a.money.balance;
   a.priceChange.state = 'approved';
   setStatus(a, 'in-progress');
-  say(a, 'Updated price approved');
+  say(a, 'You approved the updated price', `${state.customer.first} approved the updated price`);
   return succeed(a);
 }
 export function messageAboutPriceChange(id) {
@@ -735,7 +740,7 @@ export function payBalance(id, cardId = null, { threeDS = false } = {}) {
   a.payments.balance = { cents: a.money.balance, state: 'paid' };
   a.balanceCardId = cardId;
   setStatus(a, 'returning');
-  say(a, 'Balance paid');
+  say(a, 'You paid the balance', `${state.customer.first} paid the balance`);
   return succeed(a);
 }
 
@@ -775,6 +780,15 @@ export function sendMessage(tailorId, from, { text = '', photos = 0 } = {}) {
   const m = maskContact(text);
   const message = post(tailorId, from, m.text, { photos: count, masked: m.masked });
   return { ok: true, masked: m.masked, message };
+}
+
+/** D-73: a confirmed booking is "just confirmed" for POLICY.JUST_BOOKED_MIN minutes after the LAST accept
+    (tailorAccept and acceptSuggestion both write `confirmed`). */
+export function justConfirmed(appt) {
+  if (!appt || appt.status !== 'confirmed') return false;
+  const last = appt.history.filter((h) => h.status === 'confirmed').pop();
+  if (!last) return false;
+  return state.clock.now - toDate(last.at).getTime() < POLICY.JUST_BOOKED_MIN * 60000;
 }
 
 /* ---------- status → screen (table in SCREENS.md) ---------- */

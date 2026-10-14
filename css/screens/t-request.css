@@ -1,0 +1,31 @@
+/* t-request — T2/T3 the request card. Tokens only; strokes are inset shadows. */
+.t-request { padding-bottom: var(--space-40); }
+.t-request.body--with-bar { padding-bottom: var(--space-32); }
+.t-request__empty { margin-top: var(--space-24); }
+.t-request__gap { margin-top: var(--space-24); }
+.t-request__h2 { margin: var(--space-32) 0 var(--space-8); }
+
+/* the expiry strip */
+.t-request__strip { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); min-height: 44px; margin-top: var(--space-16); padding: var(--space-8) var(--space-16); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
+.t-request__strip--soon { background: var(--warning-bg); box-shadow: inset 0 0 0 1px var(--warning); }
+.t-request__strip--soon .t-small { color: var(--warning-ink); }
+
+/* the take-home card: the focal element */
+.t-request__take { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-20); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
+.t-request__take p { margin: 0; }
+.t-request__amount { font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
+.t-request__take--muted .t-request__amount { color: var(--neutral-500); font-weight: 400; }
+
+/* the visit */
+.t-request__visit .visit-block { padding-block: 0; box-shadow: none; }   /* nothing follows the last row (R3-1-T-09) */
+.t-request__place, .t-request__cap { display: block; }
+.t-request__cap { margin-top: 2px; margin-bottom: var(--space-4); }
+
+/* the work (shared .work-list) */
+.t-request__adjust { margin: var(--space-4) 0 0; }
+
+
+/* the decline sheet */
+.t-request-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
+.t-request-sheet p { margin: 0; }
+.t-request-sheet__actions { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-8); }

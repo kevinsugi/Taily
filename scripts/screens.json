@@ -2,7 +2,7 @@
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
     "syncedAt": "2026-10-13",
-    "milestone": "M2",
+    "milestone": "M3",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -18,7 +18,9 @@
       "explorations/v5-components-m0": "816:4904",
       "components/section-v5-m0": "817:5596",
       "user/section-m1-customer-booking": "821:4345",
-      "tailor-onboarding/section-m2-tailor-onboarding-shop": "829:4344"
+      "tailor-onboarding/section-m2-tailor-onboarding-shop": "829:4344",
+      "user/section-m3-request-loop": "837:4437",
+      "tailor/section-m3-request-loop": "836:4344"
     },
     "components": {
       "avatar": "816:4919",
@@ -75,7 +77,22 @@
       "to-payouts": "830:4561",
       "to-done": "830:4660",
       "t-shop": "830:4731",
-      "t-rush": "830:4907"
+      "t-rush": "830:4907",
+      "c-request--suggested": "837:4438",
+      "c-request--declined": "837:4519",
+      "c-request--expired": "837:4572",
+      "c-booking--confirmed": "837:4628",
+      "c-bookings": "837:4724",
+      "c-booking": "837:4778",
+      "c-booking--cant-make-it": "837:4872",
+      "t-home": "836:4345",
+      "t-home--empty": "836:4403",
+      "t-request": "836:4436",
+      "t-suggest": "836:4529",
+      "t-request--expired": "836:4574",
+      "t-job--accepted": "836:4635",
+      "t-job": "836:4725",
+      "t-thread": "836:4813"
     },
     "variables": {
       "semantic/warning-ink": "VariableID:821:4344"

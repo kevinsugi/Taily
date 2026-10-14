@@ -25,6 +25,7 @@ const SCREEN_MODULES = [
   't-phone', 't-code', 'to-profile', 'to-services', 'to-where', 'to-returns', 'to-availability',
   'to-payouts', 'to-done', 't-shop', 't-rush',
   /* M3 · Request loop */
+  't-home', 't-request', 't-suggest', 't-job', 't-thread', 'c-bookings', 'c-booking',
   /* M4 · Fitting to completion */
   /* M5 · Messaging, accounts, earnings, system */
 ];
@@ -151,6 +152,10 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   el.dataset.screen = id;
   entry.wire?.(el);
   wireBackButtons(el);
+  /* R3-2-C-01: a new screen opens at its top (its pill + title are what it says first); a re-render of the
+     SAME screen keeps its scroll, so a sheet, a toast or a busy repaint never jumps the page. A wire()
+     that forwarded elsewhere (redirectIfMoved) already rendered — and reset — the destination. */
+  if (prevScreen !== id && el.isConnected && el.dataset.screen === id) window.scrollTo(0, 0);
 
   if (opts.fresh) history.length = 0;
   const same = currentScreen() === id;

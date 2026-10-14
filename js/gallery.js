@@ -9,7 +9,7 @@
 import * as C from './components.js';
 import { scheduler, slotColumns } from './scheduler.js';
 import { TAILORS, DEMO_NOW } from './data.js';
-import { quote, fmt, cents, payoutFor } from './money.js';
+import { quote, fmt, fmtExact, cents, payoutFor } from './money.js';
 import { ICON_CARD } from './icons.js';
 
 /** The gallery's HTML (a string of labelled blocks). */
@@ -34,6 +34,10 @@ export function galleryHtml() {
   v('Default · Secondary · disabled');   col(C.cta('Start Booking'), C.cta('Find another tailor', { variant: 'secondary' }), C.cta('Send request', { disabled: true }));
   v('Busy (spinner + busyLabel, aria-busy) · default · secondary');
   col(C.cta('Send code', { busy: true, busyLabel: 'Sending code…' }), C.cta('Sign in', { variant: 'secondary', busy: true, busyLabel: 'Signing in…' }));
+
+  h2('CTA — danger variant (destructive confirm sheets, D-79)');
+  v('default · busy · disabled');
+  col(C.cta(`Cancel and get ${fmtExact(seed.deposit)} back`, { variant: 'danger' }), C.cta('Declining', { variant: 'danger', busy: true, busyLabel: 'Declining…' }), C.cta('Decline request', { variant: 'danger', disabled: true }));
 
   h2('CTA_Small — 302:1656');
   row(C.ctaSmall('Message'), C.ctaSmall('Reschedule'));
@@ -170,6 +174,13 @@ export function galleryHtml() {
   v('with lead');               bar(C.actionBar({ ctaLabel: 'Pick a time', ctaAct: 'pick-time', lead: `<span>Est. <b data-money>${fmt(seed.total)}</b> · 2 items</span>` }));
   v('with secondary');          bar(C.actionBar({ ctaLabel: 'Pick a time', ctaAct: 'pick-time', disabled: true, note: 'Not available for this job', secondaryLabel: 'Start a different job', secondaryAct: 'new-job' }));
 
+  v('with split row (secondary + tertiary)');
+  bar(C.actionBar({ ctaLabel: 'Accept', ctaAct: 'accept', busyLabel: 'Accepting…', secondaryLabel: 'Suggest time', secondaryAct: 'suggest', tertiaryLabel: 'Decline', tertiaryAct: 'decline', tertiaryTone: 'danger' }));
+  v('split row · busy (both outline buttons locked)');
+  bar(C.actionBar({ ctaLabel: 'Accept', ctaAct: 'accept', busy: true, busyLabel: 'Accepting…', secondaryLabel: 'Suggest time', secondaryAct: 'suggest', tertiaryLabel: 'Decline', tertiaryAct: 'decline', tertiaryTone: 'danger' }));
+  v('split row · default tone');
+  bar(C.actionBar({ ctaLabel: 'Send suggestion', ctaAct: 'send', secondaryLabel: 'Back', secondaryAct: 'back', tertiaryLabel: 'Not now', tertiaryAct: 'later' }));
+
   h2('Option row');
   v('unchecked · checked · with sub · with lead');
   s.push(`<div class="option-demo" role="radiogroup" aria-label="Pay with">${
@@ -288,6 +299,22 @@ export function galleryHtml() {
   h2('Leave modal');
   s.push(`<div class="row"><div style="position:relative;width:390px;height:300px;margin-inline:-20px;background:var(--neutral-100)">${
     C.leaveModal().replace('class="modal modal--leave"', 'class="modal modal--leave" style="position:absolute"')}</div></div>`);
+  /* ---------------- M3 · request loop ---------------- */
+  h2('Request card — the tailor’s inbox ticket (D-75)');
+  const rc = { id: 'A-1001', name: 'Sarah C.', initials: 'SC', visitLabel: 'Home visit', place: 'Williamsburg · 11211', when: 'Thu, Oct 15 · 5:00 PM', items: 2, services: 3, payoutCents: seed.payout, feeCents: seed.tailyFee, expiresAt: '2026-10-13T12:00', now: NOW };
+  v('requested (2h left)');          col(C.requestCard(rc));
+  v('soon (15 min or less → warning ring)'); col(C.requestCard({ ...rc, expiresAt: '2026-10-13T10:12' }));
+  v('suggested (muted money, waiting on Sarah)'); col(C.requestCard({ ...rc, status: 'suggested', waitingOn: 'Sarah' }));
+  v('retried (Sent again) · one item, one service'); col(C.requestCard({ ...rc, retries: 1, items: 1, services: 1 }));
+
+  h2('Appt row — one line of an appointment list');
+  const ar = { id: 'A-1001', name: 'Amara Reyes', initials: 'AR', when: 'Thu, Oct 15 · 5:00 PM', place: 'At my place', status: 'confirmed' };
+  v('default · long pill');
+  col(C.apptRow(ar), C.apptRow({ ...ar, status: 'suggested', pillLabel: 'New time suggested' }));
+  v('with amount (deposit held)');
+  col(C.apptRow({ ...ar, status: 'requested', pillLabel: 'Request sent', amountText: fmtExact(seed.deposit), amountCaption: 'on hold' }));
+  v('muted (past)');
+  col(C.apptRow({ ...ar, status: 'cancelled', pillLabel: 'Cancelled', amountText: fmtExact(seed.deposit), amountCaption: 'refunded', muted: true }), C.apptRow({ ...ar, status: 'completed', muted: true }));
   return s.join('\n');
 }
 

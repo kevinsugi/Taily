@@ -1,0 +1,8 @@
+/* t-suggest — T3 Suggest another time. Tokens only. */
+.t-suggest { padding-bottom: var(--space-32); }
+.t-suggest__lead { margin: var(--space-8) 0 0; }
+.t-suggest__error { margin-top: var(--space-16); }
+.t-suggest__sched { margin-top: var(--space-24); }
+.t-suggest__same { margin: var(--space-16) 0 0; }
+.t-suggest__by { margin: var(--space-4) 0 0; }
+.t-suggest__empty { margin-top: var(--space-24); }

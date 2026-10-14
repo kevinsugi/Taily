@@ -9,6 +9,7 @@ import {
   chrome, bookingSteps, headingRow, filterPill, tailorRow, skeleton, emptyState, banner, sheetOverlay, optionRow, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
+import { fmtColumn } from '../money.js';
 import { itemsLabel, VISIT_LABEL } from '../data.js';
 import { fmtDay, nb } from '../dates.js';
 
@@ -67,9 +68,13 @@ function empty(kind, job) {
       ctaLabel: 'Pick a later date', ctaAct: 'later',
       ...(home ? { secondaryLabel: 'Try a visit at the shop', secondaryAct: 'try-shop' } : {}) })}</div>`;
   }
-  /* none-left (M3: every tailor hidden after the last expiry) */
-  return `<div data-empty="none-left">${emptyState({ title: 'You have seen every tailor near you', body: 'Change your ZIP or need-by date to see more.',
-    ctaLabel: 'Change details', ctaAct: 'edit-where' })}</div>`;
+  /* none-left (M3, D-83): every tailor is hidden for this job after the last expiry */
+  const hidden = tailorById((job.hiddenTailors ?? [])[0]);
+  const hf = esc((hidden?.name || 'The tailor').split(' ')[0]);
+  return `<div data-empty="none-left">${emptyState({ title: 'No other tailors for this job yet',
+    body: `${hf} didn’t reply in time. We’ll let you know when more tailors join near ${esc(job.zip)}.`,
+    ctaLabel: 'Change need-by date', ctaAct: 'later',
+    secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>`;
 }
 
 function declinedBanner(job) {
@@ -96,15 +101,16 @@ function view(s) {
       body = empty(res.empty, job);
     } else {
       const rows = sorted(res.rows, u.sort);
+      const fmtAmt = fmtColumn(rows.flatMap((r) => (r.declined ? [] : [r.quote.total, r.quote.homeFee, r.quote.rush])));   // D-98: one precision across the list
       body = `${declinedBanner(job)}
   <div class="c-tailors__bar">
-    <span class="t-small c-600">${itemsLabel(rows.length, 'tailor')}</span>
+    <span class="t-small c-600">${rows.some((r) => !r.declined) ? itemsLabel(rows.filter((r) => !r.declined).length, 'tailor') : 'No tailors available for this job'}</span>
     <button type="button" class="c-tailors__sort t-small w-600" data-act="sort" aria-haspopup="dialog">Sort: ${sortLabel(u.sort)}</button>
   </div>
   <div class="c-tailors__rows">${rows.map((r) => tailorRow({
         id: r.tailor.id, name: r.tailor.name, initials: r.tailor.initials, photo: r.tailor.photo, verified: r.tailor.verified,
         rating: r.tailor.rating?.count > 0 ? r.tailor.rating : null, distanceMi: r.distanceMi, quote: r.quote,
-        nextOpening: r.nextOpening, visitType: job.visitType, declined: r.declined })).join('')}</div>
+        nextOpening: r.nextOpening, visitType: job.visitType, declined: r.declined, format: fmtAmt })).join('')}</div>
   <p class="t-small c-600 c-tailors__note">Estimates come from each tailor’s own price list. Your tailor confirms the price at the fitting.</p>`;
     }
   }
@@ -145,6 +151,10 @@ function wire(root) {
         go('c-tailor');
         break;
       case 'edit-where': go('c-where'); break;
+      case 'message-hidden':
+        state.ui.booking = { ...state.ui.booking, tailorId: (state.job.hiddenTailors ?? [])[0] };
+        go('c-thread');
+        break;
       case 'new-job': T.newJob(); go('c-job', { fresh: true }); break;
       case 'sort': openSort(root); break;
       case 'try-shop': T.setJob({ visitType: 'shop' }); go(ID); break;

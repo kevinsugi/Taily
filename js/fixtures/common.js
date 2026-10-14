@@ -7,8 +7,10 @@ import {
   state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt,
 } from '../state.js';
 import { addMinutes, isoMinute } from '../dates.js';
-import { TAILORS } from '../data.js';
+import { TAILORS, DECLINE_REASONS, CANT_MAKE_IT_REASONS } from '../data.js';
+import { suggestSlots } from '../tailor-data.js';
 import * as A from '../account.js';
+import { POLICY } from '../money-config.js';
 
 export const TARGETS = [
   'requested', 'suggested', 'declined', 'expired', 'expired-2', 'expired-final', 'confirmed', 'cancelled-early',
@@ -47,14 +49,14 @@ export function driveTo(target, opts = {}) {
   if (target === 'requested') return appt;
 
   if (target === 'suggested') {
-    const alt = openSlots(tailorId, visitType, { until: state.job.needBy, exclude: id }).find((s) => s !== slotStart);
-    return must(T.tailorSuggest(id, alt), 'tailorSuggest');
+    return must(T.tailorSuggest(id, suggestSlots(appt)[0]), 'tailorSuggest');   // D-77: SUGGESTED_SLOT on the seed
   }
-  if (target === 'declined') return must(T.tailorDecline(id, 'Fully booked that week'), 'tailorDecline');
+  if (target === 'declined') return must(T.tailorDecline(id, DECLINE_REASONS[0]), 'tailorDecline');
   if (target === 'expired' || target === 'expired-2' || target === 'expired-final') {
     const tries = { expired: 0, 'expired-2': 1, 'expired-final': 2 }[target];
-    advanceClock(121);
-    for (let i = 0; i < tries; i += 1) { must(T.tryAgain(id), 'tryAgain'); advanceClock(121); }
+    const wait = POLICY.REQUEST_EXPIRY_H * 60;                 // to the exact expiry, so every deadline reads on :00 / :30 (R3-2-T-10)
+    advanceClock(wait);
+    for (let i = 0; i < tries; i += 1) { must(T.tryAgain(id), 'tryAgain'); advanceClock(wait); }
     return getAppt(id);
   }
 
@@ -65,7 +67,7 @@ export function driveTo(target, opts = {}) {
     setClock(isoMinute(addMinutes(getAppt(id).slot.start, -8 * 60)));         // inside the 24 h window
     return must(T.cancelBooking(id), 'cancelBooking');
   }
-  if (target === 'cant-make-it') return must(T.tailorCantMakeIt(id, 'Family emergency'), 'tailorCantMakeIt');
+  if (target === 'cant-make-it') return must(T.tailorCantMakeIt(id, CANT_MAKE_IT_REASONS[0]), 'tailorCantMakeIt');
   if (target === 'no-show') {
     setClock(isoMinute(addMinutes(getAppt(id).slot.start, 20)));
     return must(T.markNoShow(id), 'markNoShow');
@@ -90,6 +92,17 @@ export function driveTo(target, opts = {}) {
   must(T.markCompleted(id), 'markCompleted');
   if (target === 'completed') return getAppt(id);
   return must(T.leaveReview(id, { stars: 5, text: 'Perfect fit, and she was on time.', photos: 0 }), 'leaveReview');
+}
+
+/** addRequest({ accept = false, after = null }) → appt. A second request for the CURRENT draft job (D-86): the first open slot
+    >= `after` (ISO) through the real requestBooking (and tailorAccept when `accept`). Does NOT reset; throws on failure. */
+export function addRequest({ accept = false, after = null } = {}) {
+  const tailorId = state.tailors[0].id;
+  const { visitType, needBy } = state.job;
+  const slotStart = openSlots(tailorId, visitType, { until: needBy }).find((s) => !after || s >= after);
+  if (!slotStart) throw new Error(`addRequest: no open slot${after ? ` after ${after}` : ''}`);
+  const appt = must(T.requestBooking({ tailorId, slotStart, cardId: 'visa-4242' }), 'requestBooking');
+  return accept ? must(T.tailorAccept(appt.id), 'tailorAccept') : appt;
 }
 
 export const NEW_TAILOR_PHONE = '(646) 555-0127';

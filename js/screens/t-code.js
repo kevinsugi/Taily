@@ -6,9 +6,9 @@
    is frozen, so the resend countdown reads 0:30 until a flow
    advances it. New number → the blank profile (D-20); a returning
    tailor resumes at her first incomplete step, or lands on her
-   shop (D-67).
+   home, t-home (D-84).
    ============================================================ */
-import { register, render as go, back, currentScreen } from '../app.js';
+import { register, render as go, back, currentScreen, personaHome } from '../app.js';
 import { state } from '../state.js';
 import { statusBar, headingRow, codeInput, actionBar, toast, esc, ONBOARDING_STEPS } from '../components.js';
 import { withLatency } from '../sim.js';
@@ -102,7 +102,7 @@ function wire(root) {
       if (r.ok) {
         state.ui[ID] = {};
         if (r.isNew) return go('to-profile', { fresh: true });          // the blank profile (D-20)
-        if (r.next == null) return go('t-shop', { fresh: true });       // live: her shop (t-home from M3, D-67)
+        if (r.next == null) return go(personaHome(), { fresh: true });  // live: her home, t-home (D-84)
         state.ui.onboarding = { resumed: true };
         return go(ONBOARDING_STEPS.find((s) => s.id === r.next).screen, { fresh: true });
       }

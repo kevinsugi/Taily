@@ -4,9 +4,9 @@
    (state.appts), through these adapters. v4's tailor-data.js is
    archived in js/v4/tailor-data.js.
    ============================================================ */
-import { state, apptsFor, tailorById } from './state.js';
-import { SERVICES, VISIT_LABEL, ZIP_INFO } from './data.js';
-import { toDate, fmtWhen, fmtDay } from './dates.js';
+import { state, apptsFor, tailorById, openSlots } from './state.js';
+import { SERVICES, VISIT_LABEL, VISIT_MINUTES, ZIP_INFO } from './data.js';
+import { toDate, fmtWhen, fmtDay, fmtTime, dayDiff } from './dates.js';
 
 export const MY_TAILOR_ID = 'amara';
 export const myTailor = () => tailorById(MY_TAILOR_ID);
@@ -26,14 +26,21 @@ export function inbox() {
 
 const wasAccepted = (appt) => appt.history.some((h) => h.status === 'confirmed');
 
-/** Neighborhood + zip until the tailor accepts; full address after (shop visits: the shop). */
+/** "Sarah C." until the appointment was ever accepted, "Sarah Chen" after (D-74). */
+export function customerName(appt) {
+  const { first, last } = state.customer;
+  return wasAccepted(appt) ? `${first} ${last}` : `${first} ${last.charAt(0)}.`;
+}
+export const customerInitials = () => state.customer.initials;
+
+/** Neighborhood + zip until the tailor accepts; full address after (shop visits: the shop). A cancelled home visit hides the street again (D-88). */
 export function jobAddress(appt) {
   const { visitType, zip, address } = appt.job;
   if (visitType === 'shop') {
     const s = tailorById(appt.tailorId).shop;
     return `${s.street}, ${s.city}, ${s.state} ${s.zip}`;
   }
-  if (!wasAccepted(appt)) return `${ZIP_INFO[zip]?.hood ?? 'Brooklyn'} · ${zip}`;
+  if (!wasAccepted(appt) || appt.status === 'cancelled') return `${ZIP_INFO[zip]?.hood ?? 'Brooklyn'} · ${zip}`;
   const unit = address?.unit ? `, ${address.unit}` : '';
   return `${address.street}${unit}, ${address.city}, ${address.state} ${address.zip}`;
 }
@@ -56,7 +63,30 @@ export function requestView(appt) {
     payout: m.payout,
     expiresAt: appt.expiresAt,
     money: m,
+    customer: { name: customerName(appt), initials: customerInitials() },
+    whenEnd: fmtTime(appt.slot.end),
+    minutes: VISIT_MINUTES[appt.job.visitType],
+    needByDays: dayDiff(appt.slot.start, appt.job.needBy),
+    retries: appt.retries,
+    suggested: appt.suggested ? fmtWhen(appt.suggested.start) : null,
+    items: appt.job.garments.length,
+    serviceCount: appt.lines.length,
   };
 }
+
+/** Times Amara can offer instead (D-77): her open slots before the need-by date, minus any that overlap the requested visit. */
+export function suggestSlots(appt, { limit = null } = {}) {
+  const { start, end } = appt.slot;
+  const free = openSlots(appt.tailorId, appt.job.visitType, { until: appt.job.needBy, exclude: appt.id })
+    .filter((s) => {
+      const a = toDate(s).getTime();
+      const b = a + VISIT_MINUTES[appt.job.visitType] * 60000;
+      return b <= toDate(start).getTime() || a >= toDate(end).getTime();
+    });
+  return limit ? free.slice(0, limit) : free;
+}
+
+/** The payout entry for this appointment ({ cents, state, date, kind }) or null. */
+export const payoutOf = (appt) => state.payouts.find((p) => p.apptId === appt.id) ?? null;
 
 export const currentCustomer = () => state.customer;

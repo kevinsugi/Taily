@@ -87,12 +87,12 @@ import { fmtShort, fmtWhen, fmtCountdown } from './dates.js';
 import { POLICY } from './money-config.js';
 
 /**
- * CTA — variant: 'default' | 'secondary'.
+ * CTA — variant: 'default' | 'secondary' | 'danger' (error fill + white text: the ONE filled button of a destructive confirm sheet, D-79).
  * `disabled` emits `disabled aria-disabled="true"`. `busy` = a spinner + `busyLabel` (else the label),
  * `aria-busy="true"` and disabled; the spinner does not rotate under reduced motion / html.is-test.
  */
 export function cta(label, { variant = 'default', disabled = false, busy = false, busyLabel = '', attrs = '' } = {}) {
-  const cls = ['cta', variant === 'secondary' ? 'cta--secondary' : '', disabled ? 'cta--disabled' : '', busy ? 'cta--busy' : ''].filter(Boolean).join(' ');
+  const cls = ['cta', variant === 'secondary' ? 'cta--secondary' : '', variant === 'danger' ? 'cta--danger' : '', disabled ? 'cta--disabled' : '', busy ? 'cta--busy' : ''].filter(Boolean).join(' ');
   const off = disabled || busy ? ` disabled aria-disabled="true"${busy ? ' aria-busy="true"' : ''}` : '';
   const inner = busy ? `<span class="cta__spinner" aria-hidden="true"></span><span>${busyLabel || label}</span>` : label;
   return `<button type="button" class="${cls}"${off} ${attrs}>${inner}</button>`;
@@ -113,11 +113,16 @@ const PILL_VARIANTS = {
   'awaiting-customer':     { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Awaiting Customer' },
   'tailoring':             { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'Tailoring' },
   /* v5 statuses (state machine ids) map onto the same Figma variants */
-  'suggested':             { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'New time' },
+  /* R3-2-C-05 (D-95): the one state that waits on the CUSTOMER is the loudest pill — accent fill, action glyph;
+     the tailor's side of it ("Waiting on Sarah") is the same accent family, outlined, with the clock */
+  'suggested':             { cls: 'pill--action',            icon: 'new_request', label: 'New time' },
+  'waiting':               { cls: 'pill--waiting',           icon: 'awaiting',    label: 'Waiting on customer' },
   'fitting':               { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'Fitting' },
   'price-change':          { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Price change' },
   'in-progress':           { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'In progress' },
   'returning':             { cls: 'pill--ready',             icon: 'ready',       label: 'On its way' },
+  /* R3-1-C-12: a no-fault outcome (Sarah cancelled early, a plain no reply) — the same glyph, a neutral tone */
+  'calm':                  { cls: 'pill--calm',              icon: 'declined',    label: 'Cancelled' },
   'withdrawn':             { cls: 'pill--cancelled',         icon: 'declined',    label: 'Withdrawn' },
   /* UX-LOOP R2-U-04: a request nobody accepted in time — declined
      styling, its own label */
@@ -303,10 +308,16 @@ export const backButton = () => '<button type="button" class="back" data-act="ba
 /* round 16 (Kevin): the Back sits beside the pill + title only; the
    explanation block (statusHero's notes, or a screen's own
    `<!--notes-->…<!--/notes-->` block) follows the row at the padding. */
-export function headingRow(inner, { back = true } = {}) {
+/* `backRow` (R3-2-C-02, D-93): the detail-screen header — the Back on its own 44 px row (the M1 c-tailor
+   pattern), then the pill, the title and the notes all flush at the screen padding. One anatomy for c-request,
+   c-booking, t-request and t-job; `back: false` keeps the same stack with no Back row. */
+export function headingRow(inner, { back = true, backRow = false } = {}) {
   const m = /<!--notes-->([\s\S]*?)<!--\/notes-->/.exec(inner);
   const notes = m ? m[1] : '';
   const head = m ? inner.replace(m[0], '') : inner;
+  if (backRow) {
+    return `${back ? `<div class="heading-row heading-row--back">${backButton()}</div>` : ''}<div class="heading-stack">${head}</div>${notes}`;
+  }
   return `<div class="heading-row">${back ? backButton() : ''}<div class="heading-row__body">${head}</div></div>${notes}`;
 }
 
@@ -797,18 +808,18 @@ export function avatar({ initials = '', photo = null, size = 'sm' } = {}) {
  * States: default · rush (adds the "+ $40 rush fee" caption) · declined (dimmed,
  * "Declined this job", aria-disabled, no action). Skeleton: skeleton({ kind: 'tailor-row' }).
  */
-export function tailorRow({ id, name, initials, photo = null, verified = false, rating = null, distanceMi = null, quote = 0, nextOpening = null, visitType = 'home', declined = false } = {}) {
+export function tailorRow({ id, name, initials, photo = null, verified = false, rating = null, distanceMi = null, quote = 0, nextOpening = null, visitType = 'home', declined = false, format = fmt } = {}) {
   const q = typeof quote === 'number' ? { total: quote } : (quote ?? {});
   const captions = [];
-  if (visitType === 'home' && q.homeFee > 0) captions.push(`Includes ${fmt(q.homeFee)} home-visit fee`);
-  if (q.rush > 0) captions.push(`+ ${fmt(q.rush)} rush fee`);
+  if (visitType === 'home' && q.homeFee > 0) captions.push(`Includes ${format(q.homeFee)} home-visit fee`);
+  if (q.rush > 0) captions.push(`+ ${format(q.rush)} rush fee`);
   const meta = [
     rating ? `★ ${rating.avg} (${rating.count})` : '',
     distanceMi != null ? `${Number(distanceMi).toFixed(1)} mi` : '',
   ].filter(Boolean).join(' · ');
   const attrs = declined ? ' aria-disabled="true"' : ` data-act="open-tailor" data-id="${esc(id)}"`;
   /* the estimate is the focal element (R1-1-C-17): right-aligned on the name row at 24 / 600 tabular; the full badge list lives on the profile */
-  const est = declined ? '' : `<span class="tailor-row__quote" data-money><span class="tailor-row__est">Est. ${fmt(q.total ?? 0)}</span></span>`;
+  const est = declined ? '' : `<span class="tailor-row__quote" data-money><span class="tailor-row__est">Est. ${format(q.total ?? 0)}</span></span>`;
   return `<button type="button" class="tailor-row info-card${declined ? ' tailor-row--declined' : ''}${q.rush > 0 ? ' tailor-row--rush' : ''}"${attrs}>
   <span class="tailor-row__who">
     ${avatar({ initials, photo, size: 'md' })}
@@ -825,11 +836,11 @@ export function tailorRow({ id, name, initials, photo = null, verified = false, 
 
 /* ---------- price row ---------- */
 /** Price Row — label left, price right, hairline between rows. `muted`: "Not offered". */
-export function priceRow({ label, cents = 0, note = '', muted = false } = {}) {
+export function priceRow({ label, cents = 0, note = '', muted = false, format = fmt } = {}) {
   noPercent(label, 'priceRow');
   return `<div class="price-row${muted ? ' price-row--muted' : ''}" data-money>
   <span class="price-row__text"><span class="price-row__label">${esc(label)}</span>${note ? `<span class="price-row__note">${esc(note)}</span>` : ''}</span>
-  <span class="price-row__value">${muted ? 'Not offered' : fmt(cents)}</span>
+  <span class="price-row__value">${muted ? 'Not offered' : format(cents)}</span>
 </div>`;
 }
 
@@ -1011,16 +1022,20 @@ export function bookingSteps(current = 0) {
 /**
  * Action bar — the sticky white bottom bar of every booking step and sign-in form. Render it as a SIBLING of
  * main.body inside #screen (never inside .body) and give the body `.body--with-bar`.
+ * `secondaryLabel` + `tertiaryLabel` render as a two-column outline row under the primary (`tertiaryTone: 'danger'` = error text + stroke).
  * `lead` is an HTML line above the button (text + a data-money amount); `note` sits under the buttons and, when
  * `disabled`, is linked to the CTA with aria-describedby (the reason it is off). `busy` locks both buttons.
  */
-export function actionBar({ ctaLabel = '', ctaAct = '', disabled = false, busy = false, busyLabel = '', lead = '', note = '', secondaryLabel = '', secondaryAct = '' } = {}) {
+export function actionBar({ ctaLabel = '', ctaAct = '', disabled = false, busy = false, busyLabel = '', lead = '', note = '', secondaryLabel = '', secondaryAct = '', tertiaryLabel = '', tertiaryAct = '', tertiaryTone = 'default' } = {}) {
   const noteId = `action-bar-note-${ctaAct || 'cta'}`;
   const describe = disabled && note ? ` aria-describedby="${noteId}"` : '';
+  const second = secondaryLabel ? cta(secondaryLabel, { variant: 'secondary', disabled: busy, attrs: `data-act="${secondaryAct}"` }) : '';
+  /* D-80: with a tertiary the two outline buttons sit side by side under the primary; a danger tertiary is outline with error text */
+  const third = tertiaryLabel ? cta(tertiaryLabel, { variant: 'secondary', disabled: busy, attrs: `data-act="${tertiaryAct}"${tertiaryTone === 'danger' ? ' data-tone="danger"' : ''}` }).replace('cta cta--secondary', `cta cta--secondary${tertiaryTone === 'danger' ? ' cta--secondary-danger' : ''}`) : '';
   return `<div class="action-bar${busy ? ' action-bar--busy' : ''}">
   ${lead ? `<p class="action-bar__lead t-small c-600">${lead}</p>` : ''}
   ${cta(ctaLabel, { disabled, busy, busyLabel, attrs: `data-act="${ctaAct}"${describe}` })}
-  ${secondaryLabel ? cta(secondaryLabel, { variant: 'secondary', disabled: busy, attrs: `data-act="${secondaryAct}"` }) : ''}
+  ${second && third ? `<div class="action-bar__row">${second}${third}</div>` : second || third}
   ${note ? `<p class="action-bar__note t-small c-600" id="${noteId}">${note}</p>` : ''}
 </div>`;
 }
@@ -1362,4 +1377,97 @@ export function leaveModal({ title = 'Leave without saving?', body = 'Your chang
     ${cta('Discard changes', { variant: 'secondary', attrs: 'data-act="discard"' })}
   </div>
 </div>`;
+}
+
+/* ============================================================
+   M3 — request loop components (D-75, D-80, D-87)
+   ============================================================ */
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/**
+ * Request Card — the tailor's inbox ticket (t-home "New requests"). One <button>: avatar + name + "<visit> · <place>" with
+ * a countdown (requested) or a "Waiting on <name>" pill (suggested), then the visit time + "n items · n services", then
+ * the focal take-home: YOU TAKE HOME / `fmtExact(payoutCents)` / "after the $Y Taily fee". Amounts are cents.
+ * States: requested · soon (countdown <= EXPIRING_SOON_MIN → warning ring) · suggested (muted money) · retried ("Sent again").
+ */
+export function requestCard({ id = '', act = 'open-request', name = '', initials = '', visitLabel = '', place = '', when = '', items = 0, services = 0, payoutCents = 0, feeCents = 0, expiresAt = null, now = null, status = 'requested', waitingOn = '', retries = 0, asked = '' } = {}) {
+  const suggested = status === 'suggested';
+  const ms = suggested || expiresAt == null ? null : toMs(expiresAt) - toMs(now);
+  const soon = ms != null && ms > 0 && ms <= POLICY.EXPIRING_SOON_MIN * 60000;
+  const waiting = `Waiting on ${waitingOn || 'customer'}`;
+  const pill = suggested ? statusPill('waiting', esc(waiting)) : '';
+  const right = suggested ? '' : countdown({ expiresAt, now });
+  const label = `${name}, ${suggested ? `you suggested ${when}` : when}, you take home ${fmtExact(payoutCents)}, ${suggested ? waiting : right.replace(/<[^>]+>/g, '')}`;
+  return `<button type="button" class="request-card info-card${soon ? ' request-card--soon' : ''}${suggested ? ' request-card--suggested' : ''}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">
+  <span class="request-card__top">
+    ${avatar({ initials, size: 'sm' })}
+    <span class="request-card__who">
+      <span class="request-card__name t-body w-600">${esc(name)}${retries > 0 ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}</span>
+      <span class="request-card__where t-small c-600">${esc(visitLabel)} · ${esc(place)}</span>
+    </span>
+    ${right ? `<span class="request-card__status">${right}</span>` : ''}
+  </span>
+  <span class="request-card__work t-small c-700">${pill ? `<span class="request-card__pill">${pill}</span>` : ''}<span class="request-card__when w-600">${suggested ? 'You suggested ' : ''}${esc(when)}</span>${asked ? `<span class="c-600">${esc(asked)}</span>` : ''}<span>${plural(items, 'item')} · ${plural(services, 'service')}</span></span>
+  <span class="request-card__pay" data-money>
+    <span class="t-caps c-600">You take home</span>
+    <span class="request-card__take"><span class="request-card__amount t-h2">${fmtExact(payoutCents)}</span><span class="request-card__fee t-small c-600">after the ${fmtExact(feeCents)} Taily fee</span></span>
+  </span>
+</button>`;
+}
+
+/** "The work" list (R3-1-T-05): garments with their services and the estimate. One render for t-request and t-job.
+    `v` = requestView(appt). Every amount prints with cents (D-98): the screen's payout breakdown below is exact, and one figure
+    keeps one precision per screen. A garment with photos shows a tappable 44 px thumbnail + count after its name
+    (`data-act="view-photo"`, wired by `wirePhotoViewer`, R3-2-T-11). */
+export function workList(v, { estimateLabel = 'Estimate from your prices' } = {}) {
+  const groups = v.garments.map((g) => `<div class="work-list__garment">
+    <div class="work-list__top"><p class="t-body w-600 work-list__head">${esc(g.type)}</p>
+    ${g.photos ? `<button type="button" class="work-list__photo" data-act="view-photo" data-type="${esc(g.type)}" data-count="${g.photos}" aria-label="View ${g.photos === 1 ? '1 photo' : `${g.photos} photos`} of the ${esc(g.type)}">${photoTile('photo')}<span class="t-small c-700">${g.photos} ${g.photos === 1 ? 'photo' : 'photos'}</span></button>` : ''}</div>
+    ${g.services.map((sv) => priceRow({ label: sv.label, cents: sv.cents, format: fmtExact })).join('')}
+  </div>`).join('');
+  return `<div class="work-list">${groups}<div class="work-list__estimate">${priceRow({ label: estimateLabel, cents: v.estimate, format: fmtExact })}</div></div>`;
+}
+
+/** Photo viewer (R3-2-T-11): a sheet showing one prototype placeholder per photo — the prototype has no real image files. */
+export function openPhotoViewer({ title = 'Photos', count = 1 } = {}) {
+  const items = Array.from({ length: Math.max(1, count) }, (_, i) =>
+    `<figure class="photo-viewer__item"><div class="photo-viewer__img" role="img" aria-label="Photo ${i + 1} of ${count}: ${esc(title)} (placeholder)"></div><figcaption class="t-small c-600">${i + 1} of ${count}</figcaption></figure>`).join('');
+  return sheetOverlay(`<div class="photo-viewer">${items}</div>`, { header: esc(title), dataS: 'photo-viewer', confirm: false });
+}
+/** Wire `[data-act="view-photo"]` buttons (workList) to the viewer. Call from a screen's `wire`. */
+export function wirePhotoViewer(root) {
+  root.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-act="view-photo"]');
+    if (!el || e.target.closest('.screen-sheet--overlay')) return;
+    openPhotoViewer({ title: `${el.dataset.type} · ${el.dataset.count === '1' ? 'photo' : 'photos'}`, count: Number(el.dataset.count) });
+  });
+}
+
+/** A tailor's note (R3-1-C-09): the one quote card both c-request--declined and c-booking--cant-make-it use. */
+export function noteQuote({ label, text }) {
+  return `<figure class="note-quote">
+    <figcaption class="t-small c-600">${esc(label)}</figcaption>
+    <blockquote class="t-body">“${esc(text)}”</blockquote>
+  </figure>`;
+}
+
+/**
+ * Appt Row — one 72 px line of an appointment list (c-bookings, t-home "Upcoming"): avatar, name / when / place,
+ * a status pill above an optional amount (+ caption), chevron. `muted` dims a past row.
+ * States: default · with amount (`amountText` "$16.00", `amountCaption` "held") · muted.
+ * `captionTone: 'action'` = the caption asks the viewer to act ("Reply needed"): accent ink, 600 (R3-2-C-05).
+ */
+export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', when = '', place = '', status = 'confirmed', pillLabel, amountText = '', amountCaption = '', captionTone = 'default', muted = false, kept = false } = {}) {
+  noPercent(amountText, 'apptRow'); noPercent(amountCaption, 'apptRow');
+  const chev = CHEVRON_RIGHT.replace('method-row__chevron', 'appt-row__chevron');
+  return `<button type="button" class="appt-row${muted ? ' appt-row--muted' : ''}${kept ? ' appt-row--kept' : ''}${amountText || amountCaption ? '' : ' appt-row--bare'}" data-act="${esc(act)}" data-id="${esc(id)}">
+  <span class="appt-row__avatar">${avatar({ initials, size: 'sm' })}</span>
+  <span class="appt-row__name t-body w-600">${esc(name)}</span>
+  <span class="appt-row__pill">${statusPill(status, pillLabel == null ? undefined : esc(pillLabel))}</span>
+  <span class="appt-row__when t-small c-700">${esc(when)}</span>
+  <span class="appt-row__amount t-body w-600"${amountText ? ' data-money' : ''}>${esc(amountText)}</span>
+  <span class="appt-row__place t-small c-600">${esc(place)}</span>
+  <span class="appt-row__caption t-small ${captionTone === 'action' ? 'appt-row__caption--action' : 'c-600'}">${esc(amountCaption)}</span>
+  ${chev}
+</button>`;
 }

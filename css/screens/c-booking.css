@@ -1,0 +1,23 @@
+/* c-booking — C8 booking detail. Layout only; hero, visit block, timeline, money rows and sheets are shared. */
+.c-booking { gap: 0; padding-bottom: var(--space-40); }
+.c-booking .status-hero__body { color: var(--neutral-700); font-weight: 400; }
+.c-booking__block { margin-top: var(--space-24); }
+.c-booking__h2 { margin: var(--space-32) 0 var(--space-8); }
+.c-booking__policy { margin: var(--space-12) 0 0; text-wrap: pretty; }
+/* R3-2-C-03: the small notes never leave one word alone on the last line */
+.c-booking__late, .c-booking__actions > p { text-wrap: pretty; }
+.c-booking__actions { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-24); }
+.c-booking__actions > p { margin: 0; }
+.c-booking__late { margin: 0; }
+.c-booking__cancel {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 var(--space-16);
+  background: none; border: 0; font: inherit; font-weight: 600; color: var(--error); cursor: pointer; border-radius: var(--radius-md);
+}
+.c-booking__cancel:focus-visible { outline: 2px solid var(--error); outline-offset: 2px; }
+.c-booking__empty { margin-top: var(--space-24); }
+/* a cancelled visit: the old time stays, dimmed */
+.c-booking--cancelled .visit-block__row { color: var(--neutral-600); }
+.c-booking--cancelled .visit-block__title { color: var(--neutral-700); }
+.c-booking-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
+.c-booking-sheet p { margin: 0; }
+.c-booking-sheet__wheel { display: flex; justify-content: center; }

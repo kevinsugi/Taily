@@ -1,0 +1,26 @@
+/* t-job — T4 upcoming job. Layout only; hero, visit block, rows, money and sheets are shared components. Tokens only. */
+.t-job { gap: 0; padding-bottom: var(--space-40); }
+.t-job__note { margin: 0; }
+.t-job__banner { margin-top: var(--space-16); }
+.t-job__banner .banner__text { text-wrap: pretty; }
+.t-job__nb { white-space: nowrap; }
+.t-job__visit { margin-top: var(--space-24); }
+.t-job__money { margin-top: var(--space-16); }
+.t-job__money .money-rows { padding: var(--space-20); }   /* as the take-home card (R3-1-T-07) */
+.t-job__money .money-row:only-child { padding-block: 0; min-height: 0; box-shadow: none; }   /* a single total row has nothing above it to rule off */
+.t-job__who { display: flex; flex-direction: column; gap: var(--space-16); margin-top: var(--space-16); }
+.t-job__customer { display: flex; align-items: center; gap: var(--space-12); min-height: 44px; }
+.t-job__customer-text { display: flex; flex-direction: column; min-width: 0; }
+.t-job__h2 { margin: var(--space-32) 0 var(--space-8); }
+.t-job__fine { margin: var(--space-12) 0 0; }
+.t-job__actions { margin-top: var(--space-32); }
+.t-job__group { margin: 0 0 var(--space-4); }
+.t-job__danger .list-row__title { color: var(--error); }
+.t-job__wait { margin: 0; padding-block: var(--space-8); }
+.t-job__back { margin-top: var(--space-32); }
+.t-job__empty { margin-top: var(--space-24); }
+
+/* sheets */
+.t-job-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
+.t-job-sheet p { margin: 0; }
+.t-job-sheet__actions { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-8); }

@@ -34,7 +34,7 @@
 .sheet__cancel:focus-visible, .sheet__confirm:focus-visible { border-radius: var(--radius-full); }
 /* visual box stays put; an invisible pseudo-element carries the 44 px target (data-hit="inline") */
 .back { position: relative; }
-.back::after { content: ''; position: absolute; inset: calc(-1 * var(--space-4)) calc(-1 * var(--space-8)); }
+.back::after { content: ''; position: absolute; inset: calc(-1 * var(--space-4)) -11px; }   /* R3-1-C-14: 23x36 glyph box + 4 / 11 => a 45x44 target, glyph stays on the gutter */
 /* selected garment tile: icons (40) · label (16) · a 44 px row of two sibling buttons, − and + (R1-1-C-04, C-05) */
 .garment-tile--selected { justify-content: flex-start; padding: var(--space-4) 0 0; }
 .garment-tile--selected:active { transform: none; }
@@ -474,3 +474,103 @@ button.list-row:active { opacity: 0.6; }
   text-decoration: underline; text-underline-offset: 3px; cursor: pointer; border-radius: var(--radius-full);
 }
 .toast__action:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
+
+/* ============================================================
+   M3 — request loop (D-75, D-79, D-80, D-87)
+   ============================================================ */
+
+/* ---------- cta: danger (the one filled button of a destructive confirm sheet) ---------- */
+.cta--danger { background: var(--error); color: var(--white); }
+@media (hover: hover) { .cta--danger:hover:not(:disabled) { filter: brightness(0.94); } }
+.cta--danger:active:not(:disabled) { filter: brightness(0.94); }
+.cta--danger.cta--busy, .cta--danger:disabled { filter: none; }
+
+/* ---------- action bar: primary + a split row of two outline buttons ---------- */
+.action-bar__row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); }
+.action-bar__row .cta { height: 48px; min-width: 0; padding-inline: var(--space-8); }
+.cta--secondary-danger { color: var(--error); border: 0; box-shadow: inset 0 0 0 1px var(--error); }
+
+/* ---------- request card: the tailor's inbox ticket ---------- */
+.request-card {
+  align-items: stretch; justify-content: flex-start; gap: var(--space-12); min-height: 44px; text-align: left;
+  box-shadow: inset 0 0 0 1px var(--neutral-200); transition: transform 160ms var(--ease-out);
+}
+.request-card:active { transform: scale(0.98); }
+.request-card--soon { box-shadow: inset 0 0 0 2px var(--warning); }
+.request-card__top { display: flex; align-items: flex-start; gap: var(--space-12); }
+.request-card__top .avatar { flex-shrink: 0; }
+.request-card__who { display: flex; flex-direction: column; align-items: stretch; gap: 2px; flex: 1 1 0; min-width: 0; }
+.request-card__name { display: flex; align-items: baseline; gap: var(--space-8); min-width: 0; color: var(--ink); }
+.request-card__again { flex-shrink: 0; white-space: nowrap; }
+.request-card__where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.request-card__status { flex: 0 0 auto; display: inline-flex; align-items: center; min-height: 20px; }
+.request-card__work { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-variant-numeric: tabular-nums; }
+.request-card__when { color: var(--ink); }
+.request-card__pill { display: inline-flex; margin-bottom: var(--space-4); }   /* the suggested pill sits in its own row (R3-1-T-03) */
+.request-card__pay { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-8); padding-top: var(--space-12); box-shadow: inset 0 1px 0 var(--neutral-100); }
+.request-card__take { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.request-card__amount { color: var(--ink); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.request-card--suggested .request-card__amount { color: var(--neutral-600); }
+@media (prefers-reduced-motion: reduce) { .request-card { transition: none; } .request-card:active { transform: none; } }
+
+/* ---------- appt row: one 72 px list line ---------- */
+.appt-row {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto var(--size-12); column-gap: var(--space-8); row-gap: 2px; align-items: center;
+  width: 100%; min-height: 72px; padding: var(--space-12) var(--space-16); text-align: left;
+  border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200);
+  font-variant-numeric: tabular-nums; transition: transform 160ms var(--ease-out);
+}
+.appt-row:active { transform: scale(0.98); }
+.appt-row__avatar { grid-column: 1; grid-row: 1 / span 3; align-self: start; display: inline-flex; margin-right: var(--space-4); }
+.appt-row__name { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.appt-row__pill { grid-column: 3; grid-row: 1; justify-self: end; display: inline-flex; }
+.appt-row__when { grid-column: 2; grid-row: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.appt-row__amount { grid-column: 3; grid-row: 2; justify-self: end; color: var(--ink); white-space: nowrap; }
+.appt-row__place { grid-column: 2; grid-row: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.appt-row__caption { grid-column: 3; grid-row: 3; justify-self: end; white-space: nowrap; }
+.appt-row__caption--action { color: var(--accent-ink); font-weight: 600; }
+.appt-row__chevron { grid-column: 4; grid-row: 1 / span 3; width: var(--size-12); height: var(--size-16); justify-self: end; color: var(--neutral-500); }
+.appt-row--bare .appt-row__when, .appt-row--bare .appt-row__place { grid-column: 2 / span 2; }   /* no amount: the time and place may use the amount's column */
+.appt-row--muted .appt-row__name { color: var(--neutral-700); }
+/* R3-1-C-12: the neutral status pill (cancelled early, no reply) */
+.pill--calm { background: var(--neutral-100); color: var(--neutral-700); box-shadow: none; }
+/* R3-1-C-12 / R3-2-C-06: a muted (past) row reads calm — its pill keeps the glyph and label but loses the alarm colour,
+   except where money was kept (.appt-row--kept) */
+.appt-row--muted:not(.appt-row--kept) .pill { background: var(--neutral-100); color: var(--neutral-700); box-shadow: none; }
+.appt-row--muted .avatar { background: var(--neutral-100); color: var(--neutral-600); }
+@media (prefers-reduced-motion: reduce) { .appt-row { transition: none; } .appt-row:active { transform: none; } }
+
+/* ---------- tailor's note (R3-1-C-09): one quote card for c-request--declined and c-booking--cant-make-it ---------- */
+.note-quote { display: flex; flex-direction: column; gap: var(--space-4); margin: var(--space-24) 0 0; padding: var(--space-12); border-radius: var(--radius-md); background: var(--neutral-100); }
+.note-quote blockquote { margin: 0; color: var(--ink); }
+
+/* ---------- the work list (R3-1-T-05): shared by t-request and t-job ---------- */
+.work-list { padding-top: var(--space-8); }   /* the h2's own 8 + this 8 = 16 to the first garment */
+.work-list__garment { margin-bottom: var(--space-12); }
+.work-list__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); }
+.work-list__head { margin: 0; min-width: 0; }
+.work-list__photo { display: inline-flex; align-items: center; gap: var(--space-8); min-height: 44px; padding: 0; margin: 0; background: none; border: 0; cursor: pointer; text-align: left; }
+.work-list__photo:active { opacity: .7; }
+.work-list__photo:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; border-radius: var(--radius-sm); }
+/* the photo viewer sheet (R3-2-T-11): one placeholder per photo */
+.photo-viewer { display: flex; flex-direction: column; gap: var(--space-16); padding: var(--space-8) var(--space-20) var(--space-24); max-height: 70vh; overflow-y: auto; }
+.photo-viewer__item { margin: 0; display: flex; flex-direction: column; gap: var(--space-8); align-items: center; }
+.photo-viewer__img { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-md); background: linear-gradient(135deg, #E2DCD1 0%, var(--neutral-300) 71.43%); }
+.work-list__estimate { margin-top: var(--space-4); box-shadow: inset 0 1px 0 var(--neutral-200); }
+.work-list__estimate .price-row__label, .work-list__estimate .price-row__value { font-weight: 600; }
+
+/* ---------- the notes block under a heading row: one 8 px gap on every screen (R3-1-T-02) ---------- */
+.heading-row + .status-hero__notes { margin-top: var(--space-8); }
+
+/* ---------- the detail header (R3-2-C-02, D-93): headingRow(…, { backRow: true }) ----------
+   Back alone on a 44 px row, then pill · title · notes flush at the 20 px padding (one left edge). */
+.heading-row--back { min-height: 44px; }
+.heading-row--back + .heading-stack { margin-top: var(--space-4); }
+.heading-stack { display: flex; flex-direction: column; align-items: flex-start; width: 100%; }
+.heading-stack > * { width: 100%; }
+.heading-stack .t-title, .heading-stack .status-hero__title { text-wrap: balance; }
+.heading-stack + .status-hero__notes { margin-top: var(--space-8); }
+.heading-stack + .status-hero__notes p { text-wrap: pretty; }
+
+/* R3-2-T-07: a date or time that must not break across lines */
+.nb { white-space: nowrap; }

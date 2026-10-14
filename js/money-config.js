@@ -23,4 +23,5 @@ export const POLICY = Object.freeze({
   MIN_LEAD_H: 3,            // earliest bookable slot from now (D-17)
   CODE_TTL_MIN: 10,         // a sign-in SMS code works for 10 min, then it expires (D-33)
   CODE_RESEND_S: 30,        // "Resend code" unlocks 30 s after the last send (D-33)
+  JUST_BOOKED_MIN: 60,      // a booking reads as just confirmed (You’re booked / You accepted) this long after the accept (D-73)
 });

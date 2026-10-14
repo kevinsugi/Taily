@@ -10,9 +10,10 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 | M3 Request loop | **done** | see git log | M3 sections on both pages (t-request/t-job/c-bookings re-sync in M4) | review r2 fixed + director fixes | | | |
 | M4 Fitting → completion | **done** (07fb6b4) + K-01 done | | M4 frames; M3 re-synced | 25 P3s in .shots/M4-p3.json → M6 | | | |
 | M5 Messaging, accounts, earnings, system | committed (140b2a4, `npm run check` green); no milestone review — covered by the M6 audit, findings in `M6-fixlist.md` | 140b2a4 | not synced | 8 new screens + M5 states on c-thread / t-thread / hosts, journeys J7–J9; re-accepted on purpose: c-thread--new, t-thread (header + context row), sys-components (M5 gallery), sys-index (new screens listed); t-thread--declined removed (now t-thread--read-only) |
+| M7 World-class polish | in progress | | | K-03 calls |
 | M6 Final pass | in progress: audit triaged into `docs/v5/M6-fixlist.md`, fix batches running (decisions D-154…D-174 logged) | | | |
 
-**Next action:** K-02 workflow running (fitting documentation: Before/Pinned photos + per-garment comment, garment icons on every card). Script taily-v5-k02-fitting-documentation-wf_28f0ab56-3f0.js, run wf_e62f0a73-f82 (restarted: photos required). Then commit + push.
+**Next action:** M7 workflow running (script taily-v5-m7-world-class-polish-wf_3b6fe733-330.js, run wf_3b6fe733-330). Before set in .shots/M7/before. Then: commit + push, before/after page for Kevin. K-02 done (766759c).
 
 ## Open findings carried forward
 (none)

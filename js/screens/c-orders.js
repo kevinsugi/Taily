@@ -7,7 +7,7 @@
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
 import { state, apptsFor, tailorById, statusScreen } from '../state.js';
-import { chrome, headingRow, apptRow, emptyState, skeleton } from '../components.js';
+import { chrome, headingRow, apptRow, emptyState, skeleton, heroGarment } from '../components.js';
 import { withLatency } from '../sim.js';
 import { fmtColumn } from '../money.js';
 import { fmtDay, toDate } from '../dates.js';
@@ -30,7 +30,7 @@ function row(a, fmtAmt) {
   const items = new Set(a.lines.map((l) => l.garmentId)).size || a.job.garments.length;
   const w = statusWord(a, 'customer', { short: true });
   const base = {
-    id: a.id, name: t.name, initials: t.initials, when: fmtDay(a.slot.start),
+    id: a.id, name: t.name, initials: t.initials, when: fmtDay(a.slot.start), garment: heroGarment(a.job),   // M7-2-A-03
     place: `${plural(items, 'item')} · ${plural(a.lines.length, 'service')}`,
     status: w.pill, pillLabel: w.label, muted: true,
   };
@@ -53,14 +53,13 @@ function view() {
   if (!list.length) {
     return `${head}
   <div class="${ID}__empty" data-empty="orders">${emptyState({
-    title: 'No past orders yet', body: 'Finished orders and their receipts show up here.', ctaLabel: 'Start a booking', ctaAct: 'home',
+    title: 'No past orders yet', body: 'Finished orders and their receipts show up here.', ctaLabel: 'Start a booking', ctaAct: 'home', art: 'Formal Dress',
   })}</div>
 </main>`;
   }
   const fmtAmt = fmtColumn(list.map(amountOf));                    // C-10: one precision down the list
   return `${head}
   <div class="${ID}__rows">${list.map((a) => row(a, fmtAmt)).join('')}</div>
-  <p class="t-small c-600 ${ID}__note">Tap an order to see its receipt.</p>
 </main>`;
 }
 

@@ -53,17 +53,18 @@ export const NAV = {
   tailor: [['home', 'Home'], ['shop', 'Shop'], ['earnings', 'Earnings'], ['messages', 'Messages']],
 };
 /**
- * Top nav. `badges` (D-164): `{ home: 2, messages: 1 }` — a count above 0 draws an 8 px accent dot after the label and a spoken
- * ", n unread" (messages) / ", n new" (anything else). The dot hangs off the label, so the four links never shift.
+ * Top nav (M7 A5.2, D-187): the logo and four 44 x 44 ICON links. The label is the link's aria-label + title. `badges` (D-164):
+ * `{ home: 2, messages: 1 }` — a count above 0 draws an 8 px accent dot on the icon and a spoken ", n unread" (messages) /
+ * ", n new" (anything else). The active link is ink at 1.75 stroke with an accent stitch under it.
  */
 export function topNav(active = 'home', items = NAV.customer, { badges = {} } = {}) {
-
   const links = items.map(([key, label]) => {
     const isActive = key === active;
     const n = Number(badges[key]) || 0;
-    const mark = n > 0 ? `<span class="top-nav__dot" aria-hidden="true"></span><span class="sr-only">, ${n} ${key === 'messages' ? 'unread' : 'new'}</span>` : '';
-    return `<a class="top-nav__link${isActive ? ' is-active' : ''}" href="#" data-nav="${key}"${isActive ? ' aria-current="page"' : ''}>
-      <span class="top-nav__label">${label}${mark}</span>${isActive ? '<span class="top-nav__stitch"></span>' : ''}
+    const dot = n > 0 ? '<span class="top-nav__dot" aria-hidden="true"></span>' : '';
+    const name = `${label}${n > 0 ? `, ${n} ${key === 'messages' ? 'unread' : 'new'}` : ''}`;
+    return `<a class="top-nav__link${isActive ? ' is-active' : ''}" href="#" data-nav="${key}" aria-label="${name}" title="${label}"${isActive ? ' aria-current="page"' : ''}>
+      <span class="top-nav__icon">${NAV_ICONS[key] ?? NAV_ICONS.home}${dot}</span>
     </a>`;
   }).join('\n    ');
 
@@ -105,13 +106,14 @@ export function navBadges(persona = 'customer') {
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, ICON_HANGER, ICON_PIN } from './icons.js';
+import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, ICON_HANGER, ICON_PIN, NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR } from './icons.js';
+export { NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR };
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
 import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
 import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay } from './dates.js';
 import { POLICY } from './money-config.js';
-import { state, apptsFor, threadsFor } from './state.js';
+import { state, apptsFor, threadsFor, priceChangeView } from './state.js';
 import { inbox } from './tailor-data.js';
 import { statusWord } from './focus.js';
 
@@ -120,51 +122,54 @@ import { statusWord } from './focus.js';
  * `disabled` emits `disabled aria-disabled="true"`. `busy` = a spinner + `busyLabel` (else the label),
  * `aria-busy="true"` and disabled; the spinner does not rotate under reduced motion / html.is-test.
  */
-export function cta(label, { variant = 'default', disabled = false, busy = false, busyLabel = '', attrs = '' } = {}) {
-  const cls = ['cta', variant === 'secondary' ? 'cta--secondary' : '', variant === 'danger' ? 'cta--danger' : '', disabled ? 'cta--disabled' : '', busy ? 'cta--busy' : ''].filter(Boolean).join(' ');
-  const off = disabled || busy ? ` disabled aria-disabled="true"${busy ? ' aria-busy="true"' : ''}` : '';
+export function cta(label, { variant = 'default', disabled = false, busy = false, busyLabel = '', attrs = '', softDisabled = false } = {}) {
+  const cls = ['cta', variant === 'secondary' ? 'cta--secondary' : '', variant === 'danger' ? 'cta--danger' : '', disabled || softDisabled ? 'cta--disabled' : '', busy ? 'cta--busy' : ''].filter(Boolean).join(' ');
+  /* M7 (D-196): `softDisabled` looks disabled and says so (aria-disabled) but has no `disabled` attribute, so a tap reaches the screen */
+  const off = disabled || busy ? ` disabled aria-disabled="true"${busy ? ' aria-busy="true"' : ''}` : softDisabled ? ' aria-disabled="true"' : '';
   const inner = busy ? `<span class="cta__spinner" aria-hidden="true"></span><span>${busyLabel || label}</span>` : label;
   return `<button type="button" class="${cls}"${off} ${attrs}>${inner}</button>`;
 }
 
 /**
- * Status Pill — the 9 Figma variants plus the v5 keys. `status` is the
- * state-machine id or the Figma variant name; label defaults to the Figma variant label.
+ * Status (M7 A5.6, D-188) — `statusPill` keeps its name, keys and labels but renders a dot + a word:
+ * `<span class="status status--{tone}">`. Tones: action · pending · progress · done · stop · calm (no blue anywhere).
+ * `status` is the state-machine id or the Figma variant name; label defaults to the variant label.
  */
 const PILL_VARIANTS = {
-  'requested':             { cls: 'pill--requested',         icon: 'requested',   label: 'Requested' },
-  'confirmed':             { cls: 'pill--confirmed',         icon: 'confirmed',   label: 'Confirmed' },
-  'ready':                 { cls: 'pill--ready',             icon: 'ready',       label: 'Ready' },
-  'completed':             { cls: 'pill--completed',         icon: 'completed',   label: 'Completed' },
-  'declined':              { cls: 'pill--declined',          icon: 'declined',    label: 'Declined' },
-  'cancelled':             { cls: 'pill--cancelled',         icon: 'declined',    label: 'Cancelled' },
-  'new-request':           { cls: 'pill--new-request',       icon: 'new_request', label: 'New Request' },
-  'awaiting-customer':     { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Awaiting Customer' },
-  'tailoring':             { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'Tailoring' },
-  /* v5 statuses (state machine ids) map onto the same Figma variants */
-  /* R3-2-C-05 (D-95): the one state that waits on the CUSTOMER is the loudest pill — accent fill, action glyph;
-     the tailor's side of it ("Waiting on Sarah") is the same accent family, outlined, with the clock */
-  'suggested':             { cls: 'pill--action',            icon: 'new_request', label: 'New time' },
-  /* M4 (D-108): the generic "your move" pill — same accent fill; the label says what the move is */
-  'action':                { cls: 'pill--action',            icon: 'new_request', label: 'Your move' },
-  'waiting':               { cls: 'pill--waiting',           icon: 'awaiting',    label: 'Waiting on customer' },
-  'fitting':               { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'Fitting' },
-  'price-change':          { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Price change' },
-  'in-progress':           { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'In progress' },
-  'returning':             { cls: 'pill--ready',             icon: 'ready',       label: 'On its way' },
-  /* R3-1-C-12: a no-fault outcome (Sarah cancelled early, a plain no reply) — the same glyph, a neutral tone */
-  'calm':                  { cls: 'pill--calm',              icon: 'declined',    label: 'Cancelled' },
-  'withdrawn':             { cls: 'pill--cancelled',         icon: 'declined',    label: 'Withdrawn' },
-  /* UX-LOOP R2-U-04: a request nobody accepted in time — declined
-     styling, its own label */
-  'expired':               { cls: 'pill--declined',          icon: 'declined',    label: 'Expired' },
+  'requested':             { tone: 'pending',  label: 'Requested' },
+  'confirmed':             { tone: 'progress', label: 'Confirmed' },
+  'ready':                 { tone: 'done',     label: 'Ready' },
+  'completed':             { tone: 'done',     label: 'Completed' },
+  'declined':              { tone: 'stop',     label: 'Declined' },
+  'cancelled':             { tone: 'stop',     label: 'Cancelled' },
+  'new-request':           { tone: 'pending',  label: 'New Request' },
+  'awaiting-customer':     { tone: 'pending',  label: 'Awaiting Customer' },
+  'tailoring':             { tone: 'progress', label: 'Tailoring' },
+  /* v5 statuses (state machine ids) map onto the same tones */
+  /* R3-2-C-05 (D-95): the one state that waits on the CUSTOMER is the loudest — an accent dot with a halo and a bold word */
+  'suggested':             { tone: 'action',   label: 'New time' },
+  /* M4 (D-108): the generic "your move" status — the label says what the move is */
+  'action':                { tone: 'action',   label: 'Your move' },
+  'waiting':               { tone: 'pending',  label: 'Waiting on customer' },
+  'fitting':               { tone: 'progress', label: 'Fitting' },
+  'price-change':          { tone: 'pending',  label: 'Price change' },
+  'in-progress':           { tone: 'progress', label: 'In progress' },
+  'returning':             { tone: 'done',     label: 'On its way' },
+  /* R3-1-C-12: a no-fault outcome (Sarah cancelled early, a plain no reply) — the neutral tone */
+  'calm':                  { tone: 'calm',     label: 'Cancelled' },
+  'withdrawn':             { tone: 'stop',     label: 'Withdrawn' },
+  /* UX-LOOP R2-U-04: a request nobody accepted in time */
+  'expired':               { tone: 'stop',     label: 'Expired' },
+  /* M7: t-shop's "Bookable" / "Paused" */
+  'bookable':              { tone: 'done',     label: 'Bookable' },
+  'paused':                { tone: 'pending',  label: 'Paused' },
 };
 
 export function statusPill(status, label) {
   const key = String(status).toLowerCase().replace(/\s+/g, '-').replace('tailoring-in-progress', 'tailoring');
   const v = PILL_VARIANTS[key];
   if (!v) throw new Error(`statusPill: unknown status "${status}"`);
-  return `<span class="pill ${v.cls}">${PILL_ICONS[v.icon]}<span>${label ?? v.label}</span></span>`;
+  return `<span class="status status--${v.tone}"><span class="status__dot" aria-hidden="true"></span><span class="status__word">${label ?? v.label}</span></span>`;
 }
 
 /** Time Chip — Figma State=Default | Selected. */
@@ -290,7 +295,7 @@ export function statusHero({ variant = 'requested', pill, pillLabel, title, titl
      padding, not under the title (the markers are its handle) */
   const notes = [];
   if (body) notes.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
-  if (rowLabel) parts.push(`<div class="status-hero__row"><span>${rowLabel}</span><span>${rowValue ?? ''}</span></div>`);
+  if (rowLabel) parts.push(`<div class="status-hero__row"><span class="t-caps c-600">${rowLabel}</span><span class="t-figure">${rowValue ?? ''}</span></div>`);
   if (extra) notes.push(extra);   // round 14: 03/Requested's "All Taily-verified tailors are:" + badges
   if (notes.length) parts.push(`<!--notes--><div class="status-hero__notes">${notes.join('\n  ')}</div><!--/notes-->`);
   /* `new-times` (R2-U-03): pill Requested + a custom title/body — the
@@ -310,10 +315,10 @@ export function statusHero({ variant = 'requested', pill, pillLabel, title, titl
 export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [], verified = false, badges = [], tag = '', user = false, attrs = '' } = {}) {
   return `<article class="summary-card${user ? ' summary-card--user' : ''}"${badges.length && !user ? ' role="button" tabindex="0"' : ''} ${attrs}>
   <div class="summary-card__who">
-    <span class="avatar">${initials}</span>
+    <span class="avatar avatar--md">${initials}</span>
     <div class="summary-card__info">
-      <span class="summary-card__name-row"><span class="summary-card__name">${name}</span>${verified ? '<span class="summary-card__check">✓</span>' : ''}${tag ? `<span class="summary-card__tag">✓ ${tag}</span>` : ''}</span>
-      ${badges.length ? trustBadges(badges, { user }) : ''}
+      <span class="summary-card__name-row"><span class="summary-card__name">${name}</span>${verified ? verifiedMark({ inert: true }) : ''}${tag ? `<span class="summary-card__tag">${tag}</span>` : ''}</span>
+      ${badges.length && user ? trustBadges(badges, { user }) : ''}
       ${rows.map((r) => `<span class="summary-card__row">${r}</span>`).join('\n      ')}
     </div>
   </div>
@@ -328,10 +333,8 @@ export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [],
 /* R1-1-C-08: `flush` sits the block at the screen's 20 px gutter (no side padding, rows wrap at full width);
    `action` = HTML for a 44 px text button in the title row (c-pay's "Change time"). */
 export function visitBlock(rows = [], { title = 'Visit Details', flush = false, action = '' } = {}) {
-  const head = action
-    ? `<div class="visit-block__head"><span class="visit-block__title">${title}</span>${action}</div>`
-    : `<span class="visit-block__title">${title}</span>`;
-  return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${head}${rows.map((r) => `<span class="visit-block__row">${r}</span>`).join('')}</div>`;
+  /* M7 (A5.5): the title is a small caps section head (`action` = HTML aside, e.g. a "Change time" text link); rows sit flat under it */
+  return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${sectionHead(title, { aside: action })}${rows.map((r) => `<span class="visit-block__row">${r}</span>`).join('')}</div>`;
 }
 
 /** The Back control (308:3820) — "‹" 28 Regular ink in a 36-tall, 8-padded
@@ -372,21 +375,21 @@ export function trustBadges(list = [], { wide = false, user = false } = {}) {
    opens the popup. */
 export function trustCard(p, { popup = false } = {}) {
   return `<article class="trust-card${popup ? ' trust-card--popup' : ''}"${popup ? ` role="dialog" aria-label="${p.name}" tabindex="0"` : ''}>
-  <div class="trust-card__photo" aria-hidden="true"></div>
+  <div class="trust-card__photo" aria-hidden="true">${photoStub({ type: 'Suit Jacket', size: 'stage' })}</div>
   <div class="trust-card__head">
-    <div class="trust-card__name-row"><span class="trust-card__name">${p.name}</span>${p.verified ? '<span class="trust-card__verified">✓ Taily-verified</span>' : ''}</div>
-    ${trustBadges(p.badges ?? [])}
+    <div class="trust-card__name-row"><span class="trust-card__name">${p.name}</span>${p.verified ? verifiedMark({ inert: true }) : ''}</div>
   </div>
   <p class="trust-card__sub">Tailor for ${p.years} years · ${p.area}, ${p.distance} away</p>
   <p class="trust-card__bio">${p.bio}</p>
 </article>`;
 }
 
-/** 44px photo tile — kind: 'add' | 'photo' (photo gets a cancel badge when removable). */
-export function photoTile(kind = 'add', { removable = false } = {}) {
+/** Photo tile — kind: 'add' | 'photo'. M7 (A5.12, D-194): a photo is the garment drawn on a soft tint (photoStub), never a grey tile;
+    `type` is the garment, `tone` the tint (0-3). The host sizes `.photo-tile` (default 44). `removable` adds the cancel badge. */
+export function photoTile(kind = 'add', { removable = false, type = '', tone = 0 } = {}) {
   if (kind === 'add') return `<span class="photo-tile photo-tile--add">${ICON_CAMERA}</span>`;
   const cancel = removable ? `<span class="photo-tile__cancel">${ICON_CANCEL}</span>` : '';
-  return `<span class="photo-tile photo-tile--photo">${cancel}</span>`;
+  return `<span class="photo-tile photo-tile--photo">${photoStub({ type, tone, size: 'fill' })}${cancel}</span>`;
 }
 
 /* ============================================================
@@ -817,9 +820,9 @@ export function timeline(steps) {
   return `<ol class="timeline">${rows}</ol>`;
 }
 
-/** White r16 p16 card of rows (07b summary, 08 receipt, 03 request). */
+/** M7 (A4): a FLAT group of rows (no background, ring or padding) with an optional caps heading. The white card is `.card`. */
 export function infoCard(rowsHtml, { heading = '' } = {}) {
-  return `<div class="info-card">${heading ? `<span class="info-card__heading">${heading}</span>` : ''}${rowsHtml}</div>`;
+  return `<div class="info-block">${heading ? sectionHead(heading) : ''}${rowsHtml}</div>`;
 }
 
 /** Money row — size: '16' | '12'; total rows go ink/semibold. */
@@ -881,11 +884,175 @@ export const ICON_WIFI_OFF = GLYPH('<path d="M1.6 6.2a9.6 9.6 0 0 1 3-1.9M14.4 6
 /** Alert triangle (a failed courier price, M6-P-09). */
 export const ICON_ALERT = GLYPH('<path d="M8 2.4l6 10.4H2z"/><path d="M8 6.6v3M8 11.4h.01"/>');
 
+/* ============================================================
+   M7 (K-03) — polish components. Spec: docs/v5/M7-spec.md §A5.
+   ============================================================ */
+
+/** Section heading (A5.5): a small sans-caps label above a group. `aside` is HTML (an infoButton, a "See all" link); `count` a plain number/text. */
+export function sectionHead(title, { id = '', count = null, aside = '' } = {}) {
+  const right = [count != null && count !== '' ? `<span class="t-small c-600 tabular">${esc(count)}</span>` : '', aside].filter(Boolean).join('');
+  return `<div class="sec-head"><h2 class="t-caps c-600 sec-head__title"${id ? ` id="${esc(id)}"` : ''}>${title}</h2>${right ? `<span class="sec-head__aside">${right}</span>` : ''}</div>`;
+}
+
+/**
+ * Text link (A5.9, D-195) — the secondary action everywhere an outline button used to be. tone: default (accent) | danger | muted.
+ * `icon` is HTML before the label. `disabled` greys it out and sets the attribute. `href` renders an anchor instead (a map / .ics download), same markup.
+ */
+export function textLink(label, { act = '', tone = 'default', icon = '', attrs = '', disabled = false, href = '' } = {}) {
+  if (href) return `<a class="text-link text-link--${tone}" href="${esc(href)}"${act ? ` data-act="${esc(act)}"` : ''}${attrs ? ` ${attrs}` : ''}>${icon}<span>${label}</span></a>`;
+  return `<button type="button" class="text-link text-link--${tone}"${act ? ` data-act="${esc(act)}"` : ''}${disabled ? ' disabled aria-disabled="true"' : ''}${attrs ? ` ${attrs}` : ''}>${icon}<span>${label}</span></button>`;
+}
+
+/** The stitched dash (A5.10, signature 2): a perforation above a total. Used by moneyRows and the receipt only. */
+export function stitchDivider() {
+  return '<hr class="stitch" aria-hidden="true">';
+}
+
+/**
+ * Booking flow bar (A5.3, D-186) — replaces the top nav on booking steps 2-5: status bar + a 56 px bar with Back · the
+ * compact "n of 5" stepper · ✕ Leave booking. `step` is 0-based like bookingSteps(). The ✕ is handled by app.js
+ * (`[data-act="exit-booking"]` → c-job, the draft job is kept). Pass `busy: true` to disable both while a request is in flight.
+ */
+export function flowBar({ step = 1, total = BOOKING_STEPS.length, back = true, exitAct = 'exit-booking', exitLabel = 'Leave booking', busy = false, time = '9:41' } = {}) {
+  const steps = Array.from({ length: total }, (_, i) => BOOKING_STEPS[i] ?? `Step ${i + 1}`);
+  const stepsHtml = stepper({ steps, current: step, done: steps.slice(0, step).map((_, i) => i), variant: 'compact' });
+  const dis = busy ? ' disabled aria-disabled="true"' : '';
+  return `${statusBar(time)}
+<div class="flow-bar" role="navigation" aria-label="Booking">
+  ${back ? `<button type="button" class="back" data-act="back" aria-label="Back"${dis}>‹</button>` : '<span class="flow-bar__spacer"></span>'}
+  <div class="flow-bar__steps">${stepsHtml}</div>
+  <button type="button" class="flow-bar__exit" data-act="${esc(exitAct)}" aria-label="${esc(exitLabel)}" title="${esc(exitLabel)}"${dis}>${ICON_CLOSE}</button>
+</div>`;
+}
+
+/** Verified mark (A5.7, D-189) — one seal + word. A button that opens the "Verified by Taily" sheet; `inert` inside a button host (tailorRow). */
+export function verifiedMark({ act = 'verified', inert = false } = {}) {
+  const inner = `${ICON_VERIFIED}<span>Verified</span>`;
+  return inert
+    ? `<span class="verified verified--inert">${inner}</span>`
+    : `<button type="button" class="verified" data-act="${esc(act)}" data-hit="inline" aria-haspopup="dialog">${inner}</button>`;   /* M7-2-C-03: 20 px visible, a ::before carries the 44 px target */
+}
+/** "Verified by Taily" sheet: ID verified · Background check · Insured, one line each (labels = TRUST_BADGES). */
+const VERIFIED_LINES = ['Taily checked a government ID.', 'Cleared before the first booking.', 'Covered while working on your garments.'];
+/** The sheet's body (also the gallery's static specimen). */
+export function verifiedSheetHtml() {
+  const rows = TRUST_BADGES.map((label, i) => `<li class="verified-item"><span class="verified-item__icon">${ICON_VERIFIED}</span><span class="verified-item__text"><span class="t-body w-600">${esc(label)}</span><span class="t-small c-600">${VERIFIED_LINES[i] ?? ''}</span></span></li>`).join('');
+  return `<ul class="verified-list">${rows}</ul>`;
+}
+export function openVerifiedSheet() {
+  return sheetOverlay(verifiedSheetHtml(), { header: 'Verified by Taily', dataS: 'verified', confirm: false });
+}
+/** Delegated: `[data-act="verified"]` opens the sheet. app.js calls this on every screen; screens never need to. */
+export function wireVerified(root) {
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('[data-act="verified"]')) openVerifiedSheet();
+  });
+}
+
+/** Rating (A5.8, D-190) — "★ 4.9 (37)" once. With `anchor` ('#reviews') it is a 44 px link that scrolls to that section. */
+export function ratingLine({ avg = 0, count = 0, anchor = '' } = {}) {
+  const label = `Rated ${Number(avg).toFixed(1)} out of 5 from ${count} review${count === 1 ? '' : 's'}`;
+  const inner = `<span class="rating-line__star" aria-hidden="true">★</span> <span class="tabular w-600">${Number(avg).toFixed(1)}</span> <span class="c-600">(${count})</span>`;
+  return anchor
+    ? `<a class="rating-line rating-line--link t-small" data-hit="inline" href="${esc(anchor)}" data-anchor="${esc(anchor.replace(/^#/, ''))}" aria-label="${label}">${inner}</a>`
+    : `<span class="rating-line t-small" aria-label="${label}">${inner}</span>`;
+}
+
+/* ---------- ⓘ info sheets (A5.11, D-191) ---------- */
+const INFO = {
+  pricing: () => ({ title: 'How pricing works', lines: [
+    'Estimates use each tailor’s own price list.',
+    'At the fitting, the tailor sends you the final order. Nothing changes until you approve it.',
+    'You pay the balance when your order is ready.'] }),
+  deposit: () => ({ title: 'About the deposit', lines: [
+    'The deposit is held on your card, and charged only when the tailor accepts.',
+    'It comes off your final total.',
+    `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the deposit is kept.`] }),
+  fitting: (c) => ({ title: 'At the fitting', lines: [
+    'You can add or remove items and services, and change prices.',
+    `${c.first || 'The customer'} approves the final order before you start.`] }),
+  fee: () => ({ title: 'The Taily fee', lines: [
+    'Taily’s fee comes only from your service prices.',
+    'Home-visit and rush fees are yours in full.',
+    'Customers pay for the courier. It never comes out of your payout.',
+    `If a customer cancels within ${POLICY.CANCEL_WINDOW_H} hours, you keep their deposit, with no fee.`] }),
+  payouts: () => ({ title: 'When you get paid', lines: [
+    'Taily pays out every Friday for jobs you completed before that day.',
+    'Job payouts are after the Taily fee. Kept deposits and no-show pay have no fee.'] }),
+  privacy: () => ({ title: 'Your privacy', lines: [
+    'Phone numbers and emails stay private on Taily.',
+    'Only your neighborhood is shared until a tailor accepts.'] }),
+};
+export const INFO_KEYS = Object.keys(INFO);
+/** A 44 px ⓘ button; `first` (a tailor or customer first name) feeds the copy that names someone. */
+export function infoButton(key, { label = '', first = '' } = {}) {
+  const name = label || INFO[key]?.({ first: '' }).title || 'More info';
+  return `<button type="button" class="info-btn" data-info="${esc(key)}"${first ? ` data-first="${esc(first)}"` : ''} aria-label="${esc(name)}" title="${esc(name)}" aria-haspopup="dialog">${ICON_INFO}</button>`;
+}
+/** Open one info sheet (dataS `info-<key>`); rows are metaRows with a 16 px info bullet. */
+export function infoSheetHtml(key, ctx = {}) {
+  const def = INFO[key]?.(ctx);
+  return def ? { title: def.title, html: `<div class="info-sheet">${def.lines.map((l) => metaRow(ICON_INFO, esc(l))).join('')}</div>` } : null;
+}
+export function openInfoSheet(key, ctx = {}) {
+  const sh = infoSheetHtml(key, ctx);
+  if (!sh) return () => {};
+  return sheetOverlay(sh.html, { header: sh.title, dataS: `info-${key}`, confirm: false });
+}
+/** Delegated: `[data-info]` opens its sheet. app.js calls this on every screen; screens never need to. */
+export function wireInfo(root) {
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-info]');
+    if (b) openInfoSheet(b.dataset.info, { first: b.dataset.first ?? '' });
+  });
+}
+
+/* ---------- ••• more menu (A5.9, D-195) ---------- */
+/** A 44 x 44 ••• button. The screen opens the menu with openMoreMenu() when `[data-act="more"]` is pressed. */
+export function moreMenu({ label = 'More actions', act = 'more' } = {}) {
+  return `<button type="button" class="more-btn" data-act="${esc(act)}" aria-label="${esc(label)}" title="${esc(label)}" aria-haspopup="dialog">${ICON_MORE}</button>`;
+}
+/**
+ * The ••• menu sheet: one row per `{ label, act, sub, tone }`; `tone: 'danger'` = error-ink title, no chevron. Choosing a row closes the
+ * menu and presses `[data-act=act]` on the screen — the screen's existing handler then opens its own sheet.
+ */
+export function openMoreMenu(items = [], { title = 'More' } = {}) {
+  const rows = items.map((it) => listRow({
+    title: it.tone === 'danger' ? `<span class="more-item--danger">${esc(it.label)}</span>` : esc(it.label),
+    sub: it.sub ? esc(it.sub) : '', act: it.act, chevron: it.tone !== 'danger',
+  })).join('');
+  return sheetOverlay(`<div class="more-menu" role="group" aria-label="${esc(title)}">${rows}</div>`, { header: title, dataS: 'more', confirm: false }, (holder, close) => {
+    holder.addEventListener('click', (e) => {
+      const row = e.target.closest('.more-menu [data-act]');
+      if (!row) return;
+      const act = row.dataset.act;
+      close({ instant: true });
+      const screenEl = document.getElementById('screen');
+      const press = document.createElement('button');
+      press.hidden = true; press.dataset.act = act;
+      screenEl.appendChild(press); press.click(); press.remove();
+    });
+  });
+}
+
+/* ---------- photo stub (A5.12, D-194): the garment drawn on a soft tint, tilted — every photo placeholder ---------- */
+/** `size`: thumb 56 · tile 72 · stage (fills its box) · fill (fills a host tile). `seed` (id or number) picks the tilt, else the tone. */
+export function photoStub({ type = '', tone = 0, size = 'thumb', kind = 'photo', alt = '', seed = null } = {}) {
+  const src = GARMENT_ICONS[type];
+  const n = Number(String(seed ?? tone).replace(/\D/g, '')) || 0;
+  const tilt = n % 2 === 0 ? 'even' : 'odd';
+  const a11y = alt ? ` role="img" aria-label="${esc(alt)}"` : ' aria-hidden="true"';
+  return `<span class="doc-photo doc-photo--${size} doc-photo--t${(Number(tone) || 0) % 4} doc-photo--${kind} doc-photo--${tilt}"${a11y}>${src ? `<img src="${src}" alt="">` : ICON_HANGER}${kind === 'pinned' ? `<span class="doc-photo__pin">${ICON_PIN}</span>` : ''}</span>`;
+}
+
 /* ---------- avatar ---------- */
-/** Avatar — size 'sm' 40 | 'md' 56 | 'lg' 80. Photo wins over initials; `photo: true` = a placeholder photo circle (no <img>). Decorative (the name sits beside it). */
+/** Avatar (M7 A5.4, D-199) — a circle: initials on the warm tint. size 'sm' 40 | 'md' 56 | 'lg' 80. A real photo wins over initials;
+    `photo: true` = the prototype's "added photo": the same tinted circle with the initials (a camera glyph when there are none yet). Decorative. */
 export function avatar({ initials = '', photo = null, size = 'sm' } = {}) {
-  /* photo === true: the prototype's "added photo" — a --media-placeholder circle, no <img> (D-58) */
-  if (photo === true) return `<span class="avatar avatar--${size} avatar--photo avatar--placeholder" aria-hidden="true"></span>`;
+  if (photo === true) {
+    const inner = initials ? esc(initials) : ICON_CAMERA;
+    return `<span class="avatar avatar--${size} avatar--photo avatar--placeholder" aria-hidden="true">${inner}</span>`;
+  }
   const inner = photo ? `<img class="avatar__img" src="${esc(photo)}" alt="">` : esc(initials);
   return `<span class="avatar avatar--${size}${photo ? ' avatar--photo' : ''}" aria-hidden="true">${inner}</span>`;
 }
@@ -911,13 +1078,12 @@ export function tailorRow({ id, name, initials, photo = null, verified = false, 
   const attrs = declined ? ' aria-disabled="true"' : ` data-act="open-tailor" data-id="${esc(id)}"`;
   /* the estimate is the focal element (R1-1-C-17): right-aligned on the name row at 24 / 600 tabular; the full badge list lives on the profile */
   const est = declined ? '' : `<span class="tailor-row__quote" data-money><span class="tailor-row__est">Est. ${format(q.total ?? 0)}</span></span>`;
-  return `<button type="button" class="tailor-row info-card${declined ? ' tailor-row--declined' : ''}${q.rush > 0 ? ' tailor-row--rush' : ''}"${attrs}>
+  return `<button type="button" class="tailor-row card${declined ? ' tailor-row--declined' : ''}${q.rush > 0 ? ' tailor-row--rush' : ''}"${attrs}>
   <span class="tailor-row__who">
     ${avatar({ initials, photo, size: 'md' })}
     <span class="tailor-row__info">
       <span class="tailor-row__name-row"><span class="tailor-row__name">${esc(name)}</span>${est}</span>
-      ${verified ? '<span class="tailor-row__chip"><span aria-hidden="true">✓</span> Verified</span>' : ''}
-      ${meta ? `<span class="tailor-row__meta">${meta}</span>` : ''}
+      ${meta || verified ? `<span class="tailor-row__meta">${meta}${verified ? `${meta ? ' ' : ''}${verifiedMark({ inert: true })}` : ''}</span>` : ''}
     </span>
   </span>
   ${!declined && (captions.length || nextOpening) ? `<span class="tailor-row__lower">${captions.length ? `<span class="tailor-row__captions" data-money>${captions.map((c) => `<span class="tailor-row__caption">${c}</span>`).join('')}</span>` : ''}${nextOpening ? `<span class="tailor-row__next">Next opening ${fmtWhen(nextOpening)}</span>` : ''}</span>` : ''}
@@ -949,12 +1115,17 @@ export function stars({ value = 0, input = false, name = 'stars' } = {}) {
   }
   return `<span class="stars stars--input" role="radiogroup" aria-label="Your rating" data-stars>${[1, 2, 3, 4, 5].map((n) => `<label class="stars__opt${n <= v ? ' is-filled' : ''}"><input class="stars__input" type="radio" name="${esc(name)}" value="${n}" aria-label="${n} star${n === 1 ? '' : 's'}"${n === v ? ' checked' : ''}><span class="stars__star" aria-hidden="true">${STAR_PATH}</span></label>`).join('')}</span>`;
 }
-/** Rating summary — "4.9 ★★★★★ 37 reviews". */
+/** @deprecated M7 (D-190) — the rating prints once, as ratingLine(). Kept so unmigrated screens still render. */
 export function ratingSummary({ avg = 0, count = 0 } = {}) {
-  return `<div class="rating-summary"><span class="rating-summary__avg">${Number(avg).toFixed(1)}</span>${stars({ value: avg })}<span class="rating-summary__count">${count} review${count === 1 ? '' : 's'}</span></div>`;
+  return ratingLine({ avg, count });
+}
+/** A review photo is always a garment (D-194): when the review names none, cycle the catalog so the hanger never shows. */
+function reviewPhotoType(i) {
+  const keys = Object.keys(GARMENT_TYPES);
+  return keys[i % keys.length] ?? '';
 }
 /** Review row — avatar, name, date, stars, text, up to 3 photo thumbs. */
-export function reviewRow({ name, initials, stars: rating = 0, date, text = '', photos = 0 } = {}) {
+export function reviewRow({ name, initials, stars: rating = 0, date, text = '', photos = 0, photoType = '' } = {}) {
   return `<article class="review-row">
   <div class="review-row__head">
     ${avatar({ initials, size: 'sm' })}
@@ -962,7 +1133,7 @@ export function reviewRow({ name, initials, stars: rating = 0, date, text = '', 
     ${stars({ value: rating })}
   </div>
   ${text ? `<p class="review-row__text">${esc(text)}</p>` : ''}
-  ${photos > 0 ? `<div class="review-row__photos">${Array.from({ length: Math.min(photos, 3) }, () => photoTile('photo')).join('')}</div>` : ''}
+  ${photos > 0 ? `<div class="review-row__photos">${Array.from({ length: Math.min(photos, 3) }, (_, i) => photoTile('photo', { type: photoType || reviewPhotoType(i), tone: i })).join('')}</div>` : ''}
 </article>`;
 }
 
@@ -983,14 +1154,14 @@ export function countdown({ expiresAt, now, suffix = 'left' } = {}) {
  * Chat Bubble — sent · sending · failed ("Not sent · Retry") · masked (privacy note under a
  * `me` bubble) · photo. Text is escaped here; `time` is the caption ("10:02 AM").
  */
-export function chatBubble({ text = '', side = 'them', time = '', photos = 0, status = 'sent', masked = false, id = '', photoLabel = 'Photo', peer = '' } = {}) {
+export function chatBubble({ text = '', side = 'them', time = '', photos = 0, status = 'sent', masked = false, id = '', photoLabel = 'Photo', photoType = '', peer = '' } = {}) {
   const me = side === 'me';
   const n = Math.min(photos, CHAT_PHOTO_CAP());
   /* M5: [phone hidden] / [email hidden] print as a masked-token pill (the text is escaped first, then the tokens are swapped in) */
   const textHtml = esc(text).replace(/\[(phone|email) hidden\]/g, (_, kind) => `<span class="masked-token">${ICON_LOCK}${kind} hidden</span>`);
   /* M5: photos are one 64 px view-photo button (the placeholder viewer opens through wirePhotoViewer) */
   const photoTitle = n === 1 ? photoLabel : photoLabel.replace(/\bphoto\b/i, (m) => `${m}s`);   // R5-1-C-01: the viewer's ready-made title
-  const photoBtn = n > 0 ? `<button type="button" class="chat-bubble__photo" data-act="view-photo" data-type="${esc(photoLabel)}" data-title="${esc(photoTitle)}" data-count="${n}" aria-label="View ${n === 1 ? '1 photo' : `${n} photos`}">${Array.from({ length: n }, () => '<span class="chat-bubble__tile"></span>').join('')}</button>` : '';
+  const photoBtn = n > 0 ? `<button type="button" class="chat-bubble__photo" data-act="view-photo" data-type="${esc(photoLabel)}" data-garment="${esc(photoType)}" data-title="${esc(photoTitle)}" data-count="${n}" aria-label="View ${n === 1 ? '1 photo' : `${n} photos`}">${Array.from({ length: n }, (_, i) => `<span class="chat-bubble__tile">${photoStub({ type: photoType, tone: i, size: 'fill' })}</span>`).join('')}</button>` : '';
   const body = `${text ? `<span class="chat-bubble__text">${textHtml}</span>` : ''}${photoBtn}`;
   const meta = [];
   if (status === 'sending') meta.push('<span class="chat-msg__status">Sending…</span>');
@@ -1005,11 +1176,11 @@ export function chatBubble({ text = '', side = 'them', time = '', photos = 0, st
 }
 /** The standing privacy note above a thread. */
 export function privacyNote() {
-  return `<p class="privacy-note"><span class="privacy-note__glyph" aria-hidden="true">i</span>${PRIVACY_NOTE}</p>`;
+  return `<p class="privacy-note t-small c-600">${ICON_INFO}<span>${PRIVACY_NOTE}</span></p>`;
 }
 /** Read-only thread footer (a declined request): banner + one CTA, optionally an outline secondary under it (M5). */
 export function readOnlyBanner({ text = '', ctaLabel = 'Find another tailor', ctaAct = 'find-another', secondaryLabel = '', secondaryAct = '' } = {}) {
-  return `<div class="read-only">${banner({ tone: 'info', text })}${cta(ctaLabel, { attrs: `data-act="${ctaAct}"` })}${secondaryLabel ? cta(secondaryLabel, { variant: 'secondary', attrs: `data-act="${secondaryAct}"` }) : ''}</div>`;
+  return `<div class="read-only">${banner({ tone: 'info', text })}${cta(ctaLabel, { attrs: `data-act="${ctaAct}"` })}${secondaryLabel ? textLink(secondaryLabel, { act: secondaryAct }) : ''}</div>`;
 }
 /**
  * Message composer — empty (send disabled) · typing · disabled (read-only).
@@ -1017,12 +1188,12 @@ export function readOnlyBanner({ text = '', ctaLabel = 'Find another tailor', ct
  * 64 px placeholder tiles with 44 px remove buttons, and Send is enabled by text OR a photo; at `max` the camera is disabled.
  * The form carries `data-photos` so wireComposer can submit a photo-only message.
  */
-export function composer({ value = '', disabled = false, placeholder = 'Message', hint = '', photos = 0, max = CHAT_PHOTO_CAP() } = {}) {
+export function composer({ value = '', disabled = false, placeholder = 'Message', hint = '', photos = 0, max = CHAT_PHOTO_CAP(), photoType = '' } = {}) {
   const empty = !String(value).trim() && !(photos > 0);
   const full = photos >= max;
-  const tray = photos > 0 ? `<div class="composer__tray" role="list" aria-label="Photos to send">${Array.from({ length: photos }, (_, i) => `<span class="composer__thumb" role="listitem"><span class="composer__thumb-tile" aria-hidden="true"></span><button type="button" class="composer__remove" data-act="remove-attachment" data-index="${i}" aria-label="Remove photo ${i + 1}"${disabled ? ' disabled' : ''}>${ICON_CLOSE}</button></span>`).join('')}</div>` : '';
+  const tray = photos > 0 ? `<div class="composer__tray" role="list" aria-label="Photos to send">${Array.from({ length: photos }, (_, i) => `<span class="composer__thumb" role="listitem"><span class="composer__thumb-tile" aria-hidden="true">${photoStub({ type: photoType, tone: i, size: 'fill' })}</span><button type="button" class="composer__remove" data-act="remove-attachment" data-index="${i}" aria-label="Remove photo ${i + 1}"${disabled ? ' disabled' : ''}>${ICON_CLOSE}</button></span>`).join('')}</div>` : '';
   return `<form class="composer${disabled ? ' composer--disabled' : ''}" data-composer data-photos="${photos}" novalidate>
-  <p class="composer__hint t-small c-700" id="composer-hint" aria-live="polite">${hint ? `<span class="privacy-note__glyph" aria-hidden="true">i</span><span>${esc(hint)}</span>` : ''}</p>
+  <p class="composer__hint t-small c-700" id="composer-hint" aria-live="polite">${hint ? `${ICON_INFO}<span>${esc(hint)}</span>` : ''}</p>
   ${tray}
   <button type="button" class="composer__attach" data-act="attach-photo" aria-label="${full ? `${max} photos added, the most per message` : 'Add photo'}"${disabled || full ? ' disabled' : ''}>${ICON_CAMERA}</button>
   <label class="sr-only" for="composer-input">Message</label>
@@ -1133,19 +1304,20 @@ export function bookingSteps(current = 0) {
  * Action bar — the sticky white bottom bar of every booking step and sign-in form. Render it as a SIBLING of
  * main.body inside #screen (never inside .body) and give the body `.body--with-bar`.
  * `secondaryLabel` + `tertiaryLabel` render as a two-column outline row under the primary (`tertiaryTone: 'danger'` = error text + stroke).
- * `lead` is an HTML line above the button (text + a data-money amount); `note` sits under the buttons and, when
+ * `lead` is an HTML line above the button: at most TWO top-level flex children — a label (text or <span>) on the
+ * left and one <b data-money> amount on the right; never trailing text after the <b> (it becomes a third item). `note` sits under the buttons and, when
  * `disabled`, is linked to the CTA with aria-describedby (the reason it is off). `busy` locks both buttons.
  */
-export function actionBar({ ctaLabel = '', ctaAct = '', disabled = false, busy = false, busyLabel = '', lead = '', note = '', secondaryLabel = '', secondaryAct = '', tertiaryLabel = '', tertiaryAct = '', tertiaryTone = 'default' } = {}) {
+export function actionBar({ ctaLabel = '', ctaAct = '', disabled = false, softDisabled = false, busy = false, busyLabel = '', lead = '', note = '', secondaryLabel = '', secondaryAct = '', tertiaryLabel = '', tertiaryAct = '', tertiaryTone = 'default' } = {}) {
   const noteId = `action-bar-note-${ctaAct || 'cta'}`;
-  const describe = disabled && note ? ` aria-describedby="${noteId}"` : '';
-  const second = secondaryLabel ? cta(secondaryLabel, { variant: 'secondary', disabled: busy, attrs: `data-act="${secondaryAct}"` }) : '';
-  /* D-80: with a tertiary the two outline buttons sit side by side under the primary; a danger tertiary is outline with error text */
-  const third = tertiaryLabel ? cta(tertiaryLabel, { variant: 'secondary', disabled: busy, attrs: `data-act="${tertiaryAct}"${tertiaryTone === 'danger' ? ' data-tone="danger"' : ''}` }).replace('cta cta--secondary', `cta cta--secondary${tertiaryTone === 'danger' ? ' cta--secondary-danger' : ''}`) : '';
+  const describe = (disabled || softDisabled) && note ? ` aria-describedby="${noteId}"` : '';
+  /* M7 (A5.9, D-195): the secondary and tertiary are text links under the one filled primary, in one centred row */
+  const second = secondaryLabel ? textLink(secondaryLabel, { act: secondaryAct, disabled: busy }) : '';
+  const third = tertiaryLabel ? textLink(tertiaryLabel, { act: tertiaryAct, tone: tertiaryTone === 'danger' ? 'danger' : 'default', disabled: busy }) : '';
   return `<div class="action-bar${busy ? ' action-bar--busy' : ''}">
   ${lead ? `<p class="action-bar__lead t-small c-600">${lead}</p>` : ''}
-  ${cta(ctaLabel, { disabled, busy, busyLabel, attrs: `data-act="${ctaAct}"${describe}` })}
-  ${second && third ? `<div class="action-bar__row">${second}${third}</div>` : second || third}
+  ${cta(ctaLabel, { disabled, softDisabled, busy, busyLabel, attrs: `data-act="${ctaAct}"${describe}` })}
+  ${second || third ? `<div class="action-bar__links">${second}${third}</div>` : ''}
   ${note ? `<p class="action-bar__note t-small c-600" id="${noteId}">${note}</p>` : ''}
 </div>`;
 }
@@ -1183,12 +1355,16 @@ export function skeleton({ kind = 'line', count = 1 } = {}) {
   }[kind] ?? '';
   return `<div class="skeleton skeleton--${kind}" aria-busy="true"><span class="sr-only">Loading</span>${one.repeat(Math.max(1, count))}</div>`;
 }
-/** Empty state — serif title, body, optional primary + secondary CTA. */
-export function emptyState({ title, body = '', ctaLabel = '', ctaAct = '', secondaryLabel = '', secondaryAct = '' } = {}) {
+/**
+ * Empty state — sans title (M7-2-A-04: the page title stays the only serif), body, optional primary + secondary. M7: the secondary is a text link (A5.9); `art` = a garment
+ * type → its 96 px illustration in a 120 px accent-bg circle above the title (A5.12).
+ */
+export function emptyState({ title, body = '', ctaLabel = '', ctaAct = '', secondaryLabel = '', secondaryAct = '', art = '' } = {}) {
   return `<div class="empty-state">
-  <h2 class="t-h2 empty-state__title">${title}</h2>
+  ${art ? `<span class="empty-state__art" aria-hidden="true">${garmentIcon(art, { size: 'hero' })}</span>` : ''}
+  <h2 class="t-body w-600 empty-state__title">${title}</h2>
   ${body ? `<p class="t-body c-600 empty-state__body">${body}</p>` : ''}
-  ${ctaLabel || secondaryLabel ? `<div class="empty-state__actions">${ctaLabel ? cta(ctaLabel, { attrs: `data-act="${ctaAct}"` }) : ''}${secondaryLabel ? cta(secondaryLabel, { variant: 'secondary', attrs: `data-act="${secondaryAct}"` }) : ''}</div>` : ''}
+  ${ctaLabel || secondaryLabel ? `<div class="empty-state__actions">${ctaLabel ? cta(ctaLabel, { attrs: `data-act="${ctaAct}"` }) : ''}${secondaryLabel ? textLink(secondaryLabel, { act: secondaryAct }) : ''}</div>` : ''}
 </div>`;
 }
 /** Banner — info | success | warning | error. Error uses role="alert". */
@@ -1206,10 +1382,14 @@ export function banner({ tone = 'info', title = '', text = '', actionLabel = '',
  * Throws when copy contains "%" (dollar amounts only).
  */
 export function moneyRows(rows = []) {
-  const html = rows.map(({ label, cents = null, caption = '', status = '', kind = 'default' }) => {
+  let stitched = false;
+  const html = rows.map(({ label, cents = null, caption = '', status = '', kind = 'default' }, i) => {
     noPercent(label, 'moneyRows'); noPercent(caption, 'moneyRows');
     const amt = cents == null ? '' : kind === 'negative' ? fmtNeg(cents) : fmtExact(cents);
-    return `<div class="money-row money-row--${kind}">
+    /* M7 (A5.10, D-197): the stitched dash sits directly above the first total row — exactly one per breakdown, and only when a row precedes the total (M7-1-C-04) */
+    const stitch = kind === 'total' && !stitched && i > 0 ? stitchDivider() : '';
+    if (kind === 'total') stitched = true;
+    return `${stitch}<div class="money-row money-row--${kind}">
     <span class="money-row__text"><span class="money-row__label">${esc(label)}</span>${caption ? `<span class="money-row__caption">${esc(caption)}</span>` : ''}</span>
     <span class="money-row__right">${amt ? `<span class="money-row__amt">${amt}</span>` : ''}${status ? `<span class="money-row__status">${esc(status)}</span>` : ''}</span>
   </div>`;
@@ -1259,7 +1439,11 @@ export function receiptBlock(a, tailorFirst = '') {
   const refund = a.payments.refund?.cents ?? 0;
   const cardLine = paid > 0 ? `Balance paid with ${balanceCardLabel(a)}.`
     : refund > 0 ? `${fmtExact(refund)} refunded to ${balanceCardLabel(a, a.cardId)}.` : '';
+  /* M7-1-C-05: what was paid for — the approved lines with their garments — between the return line and the totals */
+  const order = a.lines?.length ? `<div class="receipt__order">${changeList({ garments: priceChangeView(a, a.lines).garments })}</div>` : '';
   return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', dropoff: 'home', courier: 'truck' }[how] })}</div>
+  ${stitchDivider()}
+  ${order}
   ${customerBreakdown(a.money, { stage: 'paid', tailorFirst, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '' })}
   ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}`;
 }
@@ -1543,10 +1727,11 @@ export function returnsRows(returns = {}, { empty = '' } = {}) {
 export function rushLadder(rush = []) {
   const ladder = [...(rush ?? [])].sort((a, b) => a.days - b.days);
   if (!ladder.length) return '<span class="rush-ladder" data-money>No rush fees.</span>';
-  const tier = (text) => `<span class="rush-tier">${text}</span>`;
-  const parts = ladder.map((r, i) => tier(`${i === 0 ? `ready within ${r.days} day${r.days === 1 ? '' : 's'} of the visit` : `${r.days} day${r.days === 1 ? '' : 's'}`} +${fmt(cents(r.fee))}`));
-  parts.push(tier(`${ladder[ladder.length - 1].days + 1}+ days no rush fee`));
-  return `<span class="rush-ladder" data-money>${parts.join(' · ')}</span>`;
+  /* M7 (A5.15): a flat two-column list — the window left, the fee right — never a "·" chain */
+  const tier = (left, right) => `<span class="rush-tier"><span class="rush-tier__when">${left}</span><span class="rush-tier__fee">${right}</span></span>`;
+  const rows = ladder.map((r, i) => tier(i === 0 ? `Ready within ${r.days} day${r.days === 1 ? '' : 's'}` : `Within ${r.days} day${r.days === 1 ? '' : 's'}`, `+${fmt(cents(r.fee))}`));
+  rows.push(tier(`${ladder[ladder.length - 1].days + 1}+ days`, 'No rush fee'));
+  return `<span class="rush-ladder" data-money>${rows.join('')}</span>`;
 }
 
 /**
@@ -1575,7 +1760,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
  * the focal take-home: YOU TAKE HOME / `fmtExact(payoutCents)` / "after the $Y Taily fee". Amounts are cents.
  * States: requested · soon (countdown <= EXPIRING_SOON_MIN → warning ring) · suggested (muted money) · retried ("Sent again").
  */
-export function requestCard({ id = '', act = 'open-request', name = '', initials = '', visitLabel = '', place = '', when = '', items = 0, services = 0, payoutCents = 0, feeCents = 0, expiresAt = null, now = null, status = 'requested', waitingOn = '', retries = 0, asked = '', lapseAt = null } = {}) {
+export function requestCard({ id = '', act = 'open-request', name = '', initials = '', visitLabel = '', place = '', when = '', items = 0, services = 0, payoutCents = 0, feeCents = 0, expiresAt = null, now = null, status = 'requested', waitingOn = '', retries = 0, asked = '', lapseAt = null, garment = '' } = {}) {
   const suggested = status === 'suggested';
   const ms = suggested || expiresAt == null ? null : toMs(expiresAt) - toMs(now);
   const soon = ms != null && ms > 0 && ms <= POLICY.EXPIRING_SOON_MIN * 60000;
@@ -1584,16 +1769,16 @@ export function requestCard({ id = '', act = 'open-request', name = '', initials
   /* D-154: a suggested time lapses (`lapseAt`) — the same clock a request has, so she sees how long Sarah has */
   const right = suggested ? (lapseAt ? countdown({ expiresAt: lapseAt, now }) : '') : countdown({ expiresAt, now });
   const label = `${name}, ${suggested ? `you suggested ${when}` : when}, you take home ${fmtExact(payoutCents)}, ${suggested ? `${waiting}${right ? `, ${right.replace(/<[^>]+>/g, '')}` : ''}` : right.replace(/<[^>]+>/g, '')}`;
-  return `<button type="button" class="request-card info-card${soon ? ' request-card--soon' : ''}${suggested ? ' request-card--suggested' : ''}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">
+  return `<button type="button" class="request-card card${soon ? ' request-card--soon' : ''}${suggested ? ' request-card--suggested' : ''}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">
   <span class="request-card__top">
     ${avatar({ initials, size: 'sm' })}
     <span class="request-card__who">
       <span class="request-card__name t-body w-600">${esc(name)}${retries > 0 ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}</span>
-      <span class="request-card__where t-small c-600">${esc(visitLabel)} · ${esc(place)}</span>
+      <span class="request-card__where t-small c-600"><span class="request-card__visit">${esc(visitLabel)}</span><span class="request-card__place">${esc(String(place).replace(/\s·\s/g, '\u2009'))}</span></span>
     </span>
     ${right ? `<span class="request-card__status">${right}</span>` : ''}
   </span>
-  <span class="request-card__work t-small c-700">${pill ? `<span class="request-card__pill">${pill}</span>` : ''}<span class="request-card__when w-600">${suggested ? 'You suggested ' : ''}${esc(when)}</span>${asked ? `<span class="c-600">${esc(asked)}</span>` : ''}<span>${plural(items, 'item')} · ${plural(services, 'service')}</span></span>
+  <span class="request-card__work t-small c-700">${pill ? `<span class="request-card__pill">${pill}</span>` : ''}<span class="request-card__when w-600">${suggested ? 'You suggested ' : ''}${esc(when)}</span>${asked ? `<span class="c-600">${esc(asked)}</span>` : ''}<span class="request-card__count">${garment ? garmentIcon(garment, { size: 'row' }) : ''}<span>${plural(items, 'item')} · ${plural(services, 'service')}</span></span></span>
   <span class="request-card__pay" data-money>
     <span class="t-caps c-600">You take home</span>
     <span class="request-card__take"><span class="request-card__amount t-h2">${fmtExact(payoutCents)}</span><span class="request-card__fee t-small c-600">after the ${fmtExact(feeCents)} Taily fee</span></span>
@@ -1613,7 +1798,7 @@ export function workList(v, { final = false, estimateLabel = 'Estimate from your
   const showEstimate = !final && estimateLabel !== null;
   const groups = v.garments.map((g) => `<div class="work-list__garment">
     <div class="work-list__top"><span class="work-list__title">${garmentIcon(g.type)}<p class="t-body w-600 work-list__head">${esc(g.type)}</p></span>
-    ${g.photos ? `<button type="button" class="work-list__photo" data-act="view-photo" data-type="${esc(g.type)}" data-count="${g.photos}" aria-label="View ${g.photos === 1 ? '1 photo' : `${g.photos} photos`} of the ${esc(g.type)}">${photoTile('photo')}<span class="t-small c-700">${g.photos} ${g.photos === 1 ? 'photo' : 'photos'}</span></button>` : ''}</div>
+    ${g.photos ? `<button type="button" class="work-list__photo" data-act="view-photo" data-type="${esc(g.type)}" data-count="${g.photos}" aria-label="View ${g.photos === 1 ? '1 photo' : `${g.photos} photos`} of the ${esc(g.type)}">${photoTile('photo', { type: g.type })}<span class="t-small c-700">${g.photos} ${g.photos === 1 ? 'photo' : 'photos'}</span></button>` : ''}</div>
     ${g.services.map((sv) => priceRow({ label: sv.label, cents: sv.cents, format: fmtExact })).join('')}
     ${docs && g.docs ? garmentDocs({ garmentId: g.id, type: g.type, docs: g.docs, commentLabel, idPrefix: 'work' }) : ''}
   </div>`).join('');
@@ -1621,9 +1806,9 @@ export function workList(v, { final = false, estimateLabel = 'Estimate from your
 }
 
 /** Photo viewer (R3-2-T-11): a sheet showing one prototype placeholder per photo — the prototype has no real image files. */
-export function openPhotoViewer({ title = 'Photos', count = 1 } = {}) {
+export function openPhotoViewer({ title = 'Photos', count = 1, type = '' } = {}) {
   const items = Array.from({ length: Math.max(1, count) }, (_, i) =>
-    `<figure class="photo-viewer__item"><div class="photo-viewer__img" role="img" aria-label="Photo ${i + 1} of ${count}: ${esc(title)} (placeholder)"></div><figcaption class="t-small c-600">${i + 1} of ${count}</figcaption></figure>`).join('');
+    `<figure class="photo-viewer__item"><div class="photo-viewer__img" role="img" aria-label="Photo ${i + 1} of ${count}: ${esc(title)} (placeholder)">${photoStub({ type, tone: i, size: 'stage' })}</div><figcaption class="t-small c-600">${i + 1} of ${count}</figcaption></figure>`).join('');
   return sheetOverlay(`<div class="photo-viewer">${items}</div>`, { header: esc(title), dataS: 'photo-viewer', confirm: false });
 }
 /** Wire `[data-act="view-photo"]` buttons (workList) to the viewer. Call from a screen's `wire`. */
@@ -1632,7 +1817,7 @@ export function wirePhotoViewer(root) {
     const el = e.target.closest('[data-act="view-photo"]');
     if (!el || e.target.closest('.screen-sheet--overlay')) return;
     /* chat bubbles carry a ready-made data-title; garment thumbnails build "<type> · photos" */
-    openPhotoViewer({ title: el.dataset.title || `${el.dataset.type} · ${el.dataset.count === '1' ? 'photo' : 'photos'}`, count: Number(el.dataset.count) });
+    openPhotoViewer({ title: el.dataset.title || `${el.dataset.type} · ${el.dataset.count === '1' ? 'photo' : 'photos'}`, count: Number(el.dataset.count), type: el.dataset.garment || el.dataset.type });
   });
 }
 
@@ -1649,15 +1834,16 @@ export function noteQuote({ label, text }) {
  * a status pill above an optional amount (+ caption), chevron. `muted` dims a past row.
  * States: default · with amount (`amountText` "$16.00", `amountCaption` "held") · muted.
  * `captionTone: 'action'` = the caption asks the viewer to act ("Reply needed"): accent ink, 600 (R3-2-C-05).
+ * `garment` (M7-2-A-03, D-202) = heroGarment(job): a 24 px illustration before the time (customer lists).
  */
-export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', when = '', place = '', status = 'confirmed', pillLabel, amountText = '', amountCaption = '', captionTone = 'default', muted = false, kept = false } = {}) {
+export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', when = '', place = '', status = 'confirmed', pillLabel, amountText = '', amountCaption = '', captionTone = 'default', muted = false, kept = false, garment = '' } = {}) {
   noPercent(amountText, 'apptRow'); noPercent(amountCaption, 'apptRow');
   const chev = CHEVRON_RIGHT.replace('method-row__chevron', 'appt-row__chevron');
   return `<button type="button" class="appt-row${muted ? ' appt-row--muted' : ''}${kept ? ' appt-row--kept' : ''}${amountText || amountCaption ? '' : ' appt-row--bare'}" data-act="${esc(act)}" data-id="${esc(id)}">
   <span class="appt-row__avatar">${avatar({ initials, size: 'sm' })}</span>
   <span class="appt-row__name t-body w-600">${esc(name)}</span>
   <span class="appt-row__pill">${statusPill(status, pillLabel == null ? undefined : esc(pillLabel))}</span>
-  <span class="appt-row__when t-small c-700">${esc(when)}</span>
+  <span class="appt-row__when t-small c-700">${garment ? `<span class="appt-row__garment">${garmentIcon(garment, { size: 'inline' })}</span>` : ''}<span class="appt-row__when-text">${esc(when)}</span></span>
   <span class="appt-row__amount t-body w-600"${amountText ? ' data-money' : ''}>${esc(amountText)}</span>
   <span class="appt-row__place t-small c-600">${esc(place)}</span>
   <span class="appt-row__caption t-small ${captionTone === 'action' ? 'appt-row__caption--action' : captionTone === 'error' ? 'appt-row__caption--error' : 'c-600'}">${esc(amountCaption)}</span>
@@ -1673,10 +1859,10 @@ export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', 
  * Change List — "the correction mark" (M4 signature, K-01 / D-122). The booked rows with what moved: `garments` is
  * `priceChangeView(appt).garments` (`[{ id, type, kind?, rows: [{ key, label, kind, from, to }] }]`). Row kinds:
  *   same      → label · amount
- *   added     → success tint + "New" tag · amount
+ *   added     → "New" tag · amount (M7-2-C-06: one accent tag style for New / New price / New item, no green)
  *   repriced  → "New price" tag · the old amount struck in neutral-500 (sr-only "was") then the new amount
  *   removed   → label and amount struck + "Removed" tag
- * Garment `kind` (K-01): 'added' → one success panel, type + "New item" tag, plain rows (the item tag says it once);
+ * Garment `kind` (K-01): 'added' → one light accent panel, type + "New item" tag, plain rows (the item tag says it once);
  * 'removed' → type struck + "Removed" tag, rows struck with no per-row tag; anything else (or no kind) renders as before.
  * `newItem: true` on a plain garment (an approved order, D-127) = the "New item" tag on the type line only, no panel.
  * Every change carries a text tag, never colour alone. One precision per list: `format` defaults to fmtExact.
@@ -1747,7 +1933,9 @@ export function changeSummary(counts = {}) {
     ...part(n('servicesRemoved'), 'service removed', 'services removed'),
     ...part(n('repriced'), 'new price', 'new prices'),
   ];
-  return `<p class="t-small c-700 change-summary" data-summary>${parts.length ? parts.join(' · ') : 'No changes. Same items, same price as booked.'}</p>`;
+  /* M7 (A5.15): three or more parts print one per line, never a "·" chain */
+  const body = !parts.length ? 'No changes. Same items, same price as booked.' : parts.length >= 3 ? parts.map((x) => `<span class="change-summary__part">${x}</span>`).join('') : parts.join(' · ');
+  return `<p class="t-small c-700 change-summary${parts.length >= 3 ? ' change-summary--lines' : ''}" data-summary>${body}</p>`;
 }
 
 /**
@@ -1805,7 +1993,7 @@ export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: tot
  * `peer` (optional) = the other person's first name, for the photo button's label ("Photo from Amara"; own photos read "Your photo").
  * `sending` / `failed[i]` = { text, photos = 0, masked = false, id }.
  */
-export function threadMessages(messages = [], { reader = 'customer', now = null, failed = [], sending = null, peer = '' } = {}) {
+export function threadMessages(messages = [], { reader = 'customer', now = null, failed = [], sending = null, peer = '', photoType = '' } = {}) {
   const today = now ? isoDay(now) : '';
   const them = reader === 'tailor' ? 'customer' : 'tailor';
   const parts = [];
@@ -1824,11 +2012,11 @@ export function threadMessages(messages = [], { reader = 'customer', now = null,
     const mine = m.from === reader;
     parts.push(chatBubble({
       text: m.text, side: mine ? 'me' : 'them', time: fmtTime(m.at), photos: m.photos ?? 0, masked: !!m.masked,
-      photoLabel: mine ? 'Your photo' : (peer && m.from === them ? `Photo from ${peer}` : 'Photo'), peer,
+      photoLabel: mine ? 'Your photo' : (peer && m.from === them ? `Photo from ${peer}` : 'Photo'), photoType, peer,
     }));
   }
-  if (sending) parts.push(chatBubble({ text: sending.text ?? '', side: 'me', photos: sending.photos ?? 0, masked: !!sending.masked, status: 'sending', photoLabel: 'Your photo', peer }));
-  for (const f of failed) parts.push(chatBubble({ text: f.text ?? '', side: 'me', photos: f.photos ?? 0, masked: !!f.masked, status: 'failed', id: f.id ?? '', photoLabel: 'Your photo', peer }));
+  if (sending) parts.push(chatBubble({ text: sending.text ?? '', side: 'me', photos: sending.photos ?? 0, masked: !!sending.masked, status: 'sending', photoLabel: 'Your photo', photoType, peer }));
+  for (const f of failed) parts.push(chatBubble({ text: f.text ?? '', side: 'me', photos: f.photos ?? 0, masked: !!f.masked, status: 'failed', id: f.id ?? '', photoLabel: 'Your photo', photoType, peer }));
   return `<div class="thread" aria-live="polite">${parts.join('')}</div>`;
 }
 
@@ -1844,26 +2032,28 @@ export function threadHead({ initials = '', photo = null, name = '', sub = '' } 
  * Thread context row (the signature, D-128) — the job a thread is pinned to: status pill + visit time on one line, a sub line, and a
  * chevron. A `<button data-act data-id>` when `act` is set, else a static `<div>`. At least 56 px tall.
  */
-export function threadContext({ pill = '', pillLabel = '', title = '', sub = '', act = '', id = '' } = {}) {
-  const inner = `<span class="thread-context__text">
+export function threadContext({ pill = '', pillLabel = '', title = '', sub = '', act = '', id = '', garment = '' } = {}) {
+  /* D-201 (K-03): the booking's first garment leads the card, a 32 px well; no booking, no garment */
+  const lead = garment ? `<span class="thread-context__garment">${garmentIcon(garment, { size: 'row' })}</span>` : '';
+  const inner = `${lead}<span class="thread-context__text">
     <span class="thread-context__line">${pill ? `<span class="thread-context__pill">${statusPill(pill, pillLabel ? esc(pillLabel) : undefined)}</span>` : ''}<span class="thread-context__title t-body w-600">${esc(title)}</span></span>
     ${sub ? `<span class="thread-context__sub t-small c-600">${esc(sub)}</span>` : ''}
   </span>${act ? CHEVRON_RIGHT.replace('method-row__chevron', 'thread-context__chevron') : ''}`;
   return act
-    ? `<button type="button" class="thread-context" data-act="${esc(act)}" data-id="${esc(id)}">${inner}</button>`
-    : `<div class="thread-context thread-context--static">${inner}</div>`;
+    ? `<button type="button" class="thread-context card" data-act="${esc(act)}" data-id="${esc(id)}">${inner}</button>`
+    : `<div class="thread-context thread-context--static card">${inner}</div>`;
 }
 
 /**
- * Thread row — one 72 px line of the Messages list (both personas): avatar, name (+ status pill) · time, one-line preview, and an unread
+ * Thread row — one 72 px line of the Messages list (both personas): avatar (the linked booking's hero garment, `garment` = heroGarment(job), leads the preview in a 32 px well, D-201 / M7-2-C-05), name (+ status pill) · time, one-line preview, and an unread
  * badge. Unread bolds the name and the preview and prints a count badge with an sr-only "n unread"; `closed` shows a calm "Closed" pill.
  */
-export function threadRow({ id = '', act = 'open-thread', name = '', initials = '', photo = null, preview = '', time = '', unread = 0, pill = '', pillLabel = '', closed = false } = {}) {
+export function threadRow({ id = '', act = 'open-thread', name = '', initials = '', photo = null, preview = '', time = '', unread = 0, pill = '', pillLabel = '', closed = false, garment = '' } = {}) {
   const pillHtml = closed ? statusPill('calm', 'Closed') : pill ? statusPill(pill, pillLabel ? esc(pillLabel) : undefined) : '';
   return `<button type="button" class="thread-row${unread > 0 ? ' thread-row--unread' : ''}${closed ? ' thread-row--closed' : ''}" data-act="${esc(act)}" data-id="${esc(id)}">
   <span class="thread-row__avatar">${avatar({ initials, photo, size: 'sm' })}</span>
   <span class="thread-row__head"><span class="thread-row__name t-body ${unread > 0 ? 'w-700' : 'w-600'}">${esc(name)}</span>${pillHtml ? `<span class="thread-row__pill">${pillHtml}</span>` : ''}<span class="thread-row__time t-small c-600">${esc(time)}</span></span>
-  <span class="thread-row__foot"><span class="thread-row__preview t-small ${unread > 0 ? 'c-700 w-600' : 'c-600'}">${esc(preview)}</span>${unread > 0 ? `<span class="thread-row__badge t-micro w-700" aria-hidden="true">${unread}</span><span class="sr-only">${unread} unread</span>` : ''}</span>
+  <span class="thread-row__foot">${garment ? `<span class="thread-row__garment">${garmentIcon(garment, { size: 'row' })}</span>` : ''}<span class="thread-row__preview t-small ${unread > 0 ? 'c-700 w-600' : 'c-600'}">${esc(preview)}</span>${unread > 0 ? `<span class="thread-row__badge t-micro w-700" aria-hidden="true">${unread}</span><span class="sr-only">${unread} unread</span>` : ''}</span>
 </button>`;
 }
 
@@ -1925,9 +2115,26 @@ const lowerKind = (kind) => kindLabel(kind).toLowerCase();
 
 /**
  * Garment icon (D-181) — the ONE helper every garment title uses. size 'card' 40 (a well, identical to c-job's tile) · 'row' 32
- * (sheet rows) · 'inline' 24 (no well). Decorative (`alt=""`, aria-hidden) wherever the name is printed next to it; pass `alt`
+ * (sheet rows) · 'inline' 24 (no well) · 'hero' 96 (no well: welcome, done, empty states). Decorative (`alt=""`, aria-hidden) wherever the name is printed next to it; pass `alt`
  * where it stands alone. A type with no illustration gets a hanger in the same well, never a broken image.
  */
+/** M7-2-C-05: the garment that stands for a booking in small wells (inbox row, thread card, booking lists): a broad
+    silhouette (jacket, dress, shirt) reads at 32 px where a pant or skirt is a sliver. '' when the job has no garments. */
+const HERO_ORDER = ['Suit Jacket', 'Jacket', 'Formal Dress', 'Dress / Jumpsuit', 'Shirt / Blouse', 'Accessories', 'Skirt', 'Pants / Jeans', 'Suit Pant'];
+export function heroGarment(job) {
+  const types = (job?.garments ?? []).map((g) => g.type).filter(Boolean);
+  if (!types.length) return '';
+  const rank = (t) => { const i = HERO_ORDER.indexOf(t); return i < 0 ? HERO_ORDER.length : i; };
+  return types.reduce((best, t) => (rank(t) < rank(best) ? t : best), types[0]);
+}
+
+/** M7-2-C-04 (D-202): the booked order as a strip — each garment's illustration in a 32 px well, then "2 items · 3 services". */
+export function garmentStrip(types = [], label = '') {
+  const shown = types.slice(0, 5);
+  const more = types.length - shown.length;
+  return `<span class="garment-strip"><span class="garment-strip__icons">${shown.map((t) => garmentIcon(t, { size: 'row' })).join('')}${more > 0 ? `<span class="garment-strip__more t-small w-600 c-700">+${more}</span>` : ''}</span>${label ? `<span class="garment-strip__label t-small c-600">${label}</span>` : ''}</span>`;
+}
+
 export function garmentIcon(type, { size = 'card', alt = '' } = {}) {
   const src = GARMENT_ICONS[type];
   const hidden = alt ? '' : ' aria-hidden="true"';
@@ -1935,11 +2142,9 @@ export function garmentIcon(type, { size = 'card', alt = '' } = {}) {
   return `<span class="garment-icon garment-icon--${size} garment-icon--fallback"${alt ? ` role="img" aria-label="${esc(alt)}"` : hidden}>${ICON_HANGER}</span>`;
 }
 
-/** The simulated photo (D-177): a token-tone gradient with the garment's illustration, tilted by the photo id; Pinned adds a pin. */
+/** The simulated photo (D-177): a thin wrapper of photoStub (M7 A5.12) — Pinned adds a pin. */
 export function docPhoto(photo, { type = '', size = 'thumb' } = {}) {
-  const src = GARMENT_ICONS[type];
-  const tilt = (Number(String(photo.id).replace(/\D/g, '')) || 0) % 2 === 0 ? 'even' : 'odd';
-  return `<span class="doc-photo doc-photo--${size} doc-photo--t${photo.tone ?? 0} doc-photo--${photo.kind} doc-photo--${tilt}" aria-hidden="true">${src ? `<img src="${src}" alt="">` : ICON_HANGER}${photo.kind === 'pinned' ? `<span class="doc-photo__pin">${ICON_PIN}</span>` : ''}</span>`;
+  return photoStub({ type, tone: photo.tone ?? 0, size, kind: photo.kind, seed: photo.id });
 }
 
 const photoLabel = (kind, i, n, type) => `${kindLabel(kind)} photo ${i + 1} of ${n}, ${type}. Open`;
@@ -1949,7 +2154,7 @@ const photoLabel = (kind, i, n, type) => `${kindLabel(kind)} photo ${i + 1} of $
  * `missing` = { before, pinned } booleans (true = this kind still needs a photo); the line says so in error ink with a glyph.
  * `commentDraft` !== null = the comment is being edited. `busy` disables every button.
  */
-export function docsEditor({ garmentId, type, docs, missing = { before: false, pinned: false }, commentDraft = null, commentError = '', busy = false, first = 'Sarah' } = {}) {
+export function docsEditor({ garmentId, type, docs, missing = { before: false, pinned: false }, commentDraft = null, commentError = '', busy = false, first = 'Sarah', tried = false } = {}) {
   const max = DOC_MAX();
   const dis = busy ? ' disabled' : '';
   const g = esc(garmentId);
@@ -1962,21 +2167,23 @@ export function docsEditor({ garmentId, type, docs, missing = { before: false, p
       ? `<button type="button" class="docs-editor__add" data-act="add-doc" data-garment="${g}" data-kind="${kind}" aria-label="Add a ${lowerKind(kind)} photo of the ${esc(type)}${n ? `, ${n} added` : ''}"${dis}>${ICON_CAMERA}</button>`
       : '';
     const miss = missing?.[kind] && n === 0;
-    return `<div class="docs-editor__row" data-kind="${kind}" data-missing="${miss ? 'true' : 'false'}">
-      <div class="docs-editor__head"><span class="t-small w-600 c-700">${label}</span>${n ? `<span class="t-small c-600">${n} of ${max}</span>` : ''}</div>
+    /* M7 (D-196): pristine = a quiet "Required" where "n of 4" shows; once she has tried to send or leave (`tried`) it becomes the error line + a red camera ring */
+    const req = miss && !tried;
+    return `<div class="docs-editor__row" data-kind="${kind}" data-missing="${miss ? 'true' : 'false'}"${miss && tried ? ' data-tried="true"' : ''}>
+      <div class="docs-editor__head"><span class="t-small w-600 c-700">${label}</span>${n ? `<span class="t-small c-600">${n} of ${max}</span>` : req ? `<span class="t-small w-600 c-600 docs-editor__req" data-missing-msg="${kind}" tabindex="-1">Required</span>` : ''}</div>
       <div class="photo-tiles docs-editor__tiles">${thumbs}${add}</div>
       ${n >= max ? `<p class="t-small c-600 docs-editor__max">Up to ${max} ${lowerKind(kind)} photos.</p>` : ''}
-      ${miss ? `<p class="docs-editor__missing t-small" data-missing-msg="${kind}">${ICON_ALERT} Add at least one ${lowerKind(kind)} photo.</p>` : ''}
+      ${miss && tried ? `<p class="docs-editor__missing t-small" data-missing-msg="${kind}" role="alert" tabindex="-1">${ICON_ALERT} Add at least one ${lowerKind(kind)} photo.</p>` : ''}
     </div>`;
   };
   const d = docs ?? {};
   let comment;
   if (commentDraft !== null) {
-    comment = `<div class="docs-editor__edit">${textArea({ id: `comment-${garmentId}`, label: `Comment for ${first}`, value: commentDraft, rows: 3, max: DOC_COMMENT_MAX(), helper: 'What you pinned and why. Phone numbers and emails are hidden.', error: commentError })}
+    comment = `<div class="docs-editor__edit">${textArea({ id: `comment-${garmentId}`, label: `Comment for ${first}`, value: commentDraft, rows: 3, max: DOC_COMMENT_MAX(), helper: 'Phone numbers and emails are hidden.', error: commentError })}
       <div class="docs-editor__actions">${ctaSmall('Save', { filled: true, attrs: `data-act="save-comment" data-garment="${g}"${dis}` })}<button type="button" class="docs-editor__text t-small w-600" data-act="cancel-comment" data-garment="${g}"${dis}>Cancel</button></div></div>`;
   } else if (d.comment) {
     comment = `<figure class="docs-editor__comment"><figcaption class="t-small c-600">Your comment</figcaption><blockquote class="t-body">“${esc(d.comment)}”</blockquote></figure>
-      <button type="button" class="docs-editor__text t-body w-600" data-act="edit-comment" data-garment="${g}"${dis}>Edit comment</button>
+      <span class="docs-editor__edit-link">${textLink('Edit comment', { act: 'edit-comment', disabled: !!dis, attrs: `data-garment="${g}"` })}</span>
       ${d.commentMasked ? `<p class="t-small c-600 docs-editor__masked">Phone numbers and emails are hidden from ${esc(first)}.</p>` : ''}`;
   } else {
     comment = `<div class="docs-editor__optional"><button type="button" class="docs-editor__text docs-editor__text--add t-body w-600" data-act="add-comment" data-garment="${g}"${dis}>+ Add comment</button><span class="t-small c-600">Optional</span></div>`;

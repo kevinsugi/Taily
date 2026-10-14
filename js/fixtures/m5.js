@@ -44,7 +44,7 @@ export const FLOWS_t_earnings = [
   { key: 't-earnings', screen: 't-earnings', group: 'M5 · Earnings', title: 'Earnings', note: 'Next payout on the second Friday, the first Friday paid; every amount after the Taily fee',
     setup: () => { TE_C.earningsTo('paid'); },
     get expect() {
-      return { has: ['Earnings', TE_exact(TE_SC().shop.payout), TE_day(TE_DAYS().second), 'Paid', TE_exact(TE_SC().seed.payout), TE_day(TE_DAYS().first), TE_bank(), 'after the Taily fee'], sel: '.list-row' };
+      return { has: ['Earnings', TE_exact(TE_SC().shop.payout), TE_day(TE_DAYS().second), 'PAID', TE_exact(TE_SC().seed.payout), TE_day(TE_DAYS().first), TE_bank(), 'after the Taily fee'], sel: '.list-row' };
     } },
   { key: 't-earnings--empty', screen: 't-earnings', group: 'M5 · Earnings', title: 'Earnings — nothing yet', note: 'No completed job: when payouts arrive, and a way back Home',
     expect: { has: ['No earnings yet', 'every Friday', 'Go to Home'], not: 'Next payout', sel: '[data-empty="earnings"]' } },
@@ -72,7 +72,7 @@ export const FLOWS_t_earnings = [
   { key: 't-earnings--kept', screen: 't-earnings', group: 'M5 · Earnings', title: 'Earnings — a kept deposit', note: 'A late cancellation is the only payout: it says "no Taily fee", not "after the Taily fee" (D-172)',
     setup: () => { TE_C.earningsTo('kept'); },
     get expect() {
-      return { has: [TE_exact(TE_SC().lateCancel.tailorPaid), '1 job · no Taily fee', 'Kept deposits and no-show pay have no fee'], not: '1 job · after the Taily fee' };
+      return { has: [TE_exact(TE_SC().lateCancel.tailorPaid), '1 job · no Taily fee'], not: '1 job · after the Taily fee' };
     } },
   { key: 't-earnings--loading', screen: 't-earnings', group: 'M5 · Earnings', title: 'Earnings — loading', note: 'Latency held: skeleton in place of the figure and rows',
     setup: (S) => { TE_C.earningsTo('pending'); S.sim.latency = 'hold'; },
@@ -104,7 +104,7 @@ export const FLOWS_t_payout = [
 export const FLOWS_c_messages = [
   { key: 'c-messages', screen: 'c-messages', group: CM_GROUP, title: 'Messages — a booked conversation', note: 'Amara’s closing line is unread',
     setup: (S) => { CM_booked(S); S.T.sendMessage('amara', 'tailor', { text: CM_CHAT.after }); },
-    expect: { has: ['Messages', 'Amara Reyes', 'See you on Thursday', 'Confirmed', '1 unread'], sel: '.thread-row' } },
+    expect: { has: ['Messages', 'Amara Reyes', 'See you on Thursday', 'Confirmed', '1 unread'], sel: '.thread-row', also: '[data-nav="messages"][aria-label="Messages, 1 unread"]' } },
   { key: 'c-messages--empty', screen: 'c-messages', group: CM_GROUP, title: 'Messages — none yet', note: 'Seed: no tailor has been messaged',
     expect: { has: ['No messages yet', 'Find a tailor'], not: ['Amara Reyes'], sel: '[data-empty="messages"]' } },
   { key: 'c-messages--loading', screen: 'c-messages', group: CM_GROUP, title: 'Messages — loading', note: 'Skeleton rows while the list loads (latency held)',
@@ -264,7 +264,7 @@ export const FLOWS_sys_offline = [
 export const FLOWS_sys_offline_tailor = [
   { key: 'sys-offline-tailor', screen: 't-home', group: 'M5 · System', title: 'Offline — tailor', note: 'Same banner on Amara’s Home; her requests are still listed',
     setup: (S) => { S.driveTo('requested'); S.sim.network = 'offline'; },
-    expect: { has: ['offline', 'Retry', 'New requests'], sel: '[data-sys="offline"]' } },
+    expect: { has: ['offline', 'Retry', 'NEW REQUESTS'], sel: '[data-sys="offline"]' } },
 ];
 export const FLOWS_sys_session_expired = [
   { key: 'sys-session-expired', screen: 'c-bookings', group: 'M5 · System', title: 'Session expired', note: 'A locked re-auth sheet: code to her own number, Verify, Sign out',

@@ -17,8 +17,10 @@ import {
   chrome, headingRow, privacyNote, emptyState, chipGroup, composer, readOnlyBanner, countdown,
   threadHead, threadContext, threadMessages, openAttachSheet,
   wireChipGroups, wireComposer, wirePhotoViewer, toast, esc,
+  heroGarment,
 } from '../components.js';
 import { fmtWhen } from '../dates.js';
+import { ICON_INFO } from '../icons.js';
 
 const ID = 'c-thread';
 const SUGGESTIONS = ['Can you work with silk?', 'Can you take in a jacket at the shoulders?', 'How long does a hem take?'];
@@ -55,6 +57,7 @@ function contextRow(t, a) {
   const link = REQUEST_STATUSES.includes(a.status) ? 'View request' : 'View booking';
   return threadContext({
     pill: w.pill, pillLabel: w.label, title: fmtWhen(a.slot.start), sub: [visit, link].filter(Boolean).join(' · '), act: 'open-appt', id: a.id,
+    garment: heroGarment(a.job),
   });
 }
 
@@ -76,10 +79,11 @@ function view(s) {
   const draft = u.draft ?? '';
   const sending = u.sending ? shown(u.sending) : null;
   const failed = (u.failed ?? []).map(shown);
+  const photoType = a?.job?.garments?.[0]?.type ?? '';   // photo placeholders draw the booking's first garment (no booking → hanger)
   const head = threadHead({ initials: t.initials, photo: t.photo, name: t.name, sub: headerSub(t, a) });
 
   const body = messages.length || sending || failed.length
-    ? threadMessages(messages, { reader: 'customer', now: now(), failed, sending, peer: first })
+    ? threadMessages(messages, { reader: 'customer', now: now(), failed, sending, peer: first, photoType })
     : emptyBlock(t);
   const foot = closed
     ? readOnlyBanner({
@@ -88,7 +92,7 @@ function view(s) {
       secondaryLabel: `Start a different job with ${first}`, secondaryAct: 'new-job',
     })
     : composer({
-      value: draft, placeholder: `Message ${first}`, hint: maskContact(draft).masked ? HINT : '', photos: u.photos ?? 0, max: MAX_PHOTOS(), disabled: !!u.sending,
+      value: draft, placeholder: `Message ${first}`, hint: maskContact(draft).masked ? HINT : '', photos: u.photos ?? 0, max: MAX_PHOTOS(), disabled: !!u.sending, photoType,
     });
   return `${chrome('messages')}
 <main class="body ${ID}">
@@ -132,7 +136,7 @@ function wire(root) {
     const hint = foot.querySelector('#composer-hint');
     if (!hint || !input) return;
     const on = maskContact(input.value).masked;
-    hint.innerHTML = on ? `<span class="privacy-note__glyph" aria-hidden="true">i</span><span>${HINT}</span>` : '';
+    hint.innerHTML = on ? `${ICON_INFO}<span>${HINT}</span>` : '';
     if (on) input.setAttribute('aria-describedby', 'composer-hint'); else input.removeAttribute('aria-describedby');
   };
 

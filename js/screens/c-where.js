@@ -6,7 +6,7 @@
 import { register, render as go } from '../app.js';
 import { state, T, now, tailorsFor } from '../state.js';
 import {
-  chrome, bookingSteps, headingRow, chipGroup, field, actionBar, cta, sheetOverlay, wireChipGroups, wireWheel, esc,
+  flowBar, headingRow, chipGroup, field, actionBar, cta, sheetOverlay, wireChipGroups, wireWheel, esc, ICON_ALERT,
 } from '../components.js';
 import { scheduler, dateColumn, dayRows, readScheduler, SCHED_ROW } from '../scheduler.js';
 import { addDays, strip, dayDiff, isoDay, fmtDay } from '../dates.js';
@@ -68,7 +68,7 @@ function needByBlock(job, err) {
     <span class="where__card-action t-body w-600 c-accent-ink">Change</span>
   </button>
   ${err ? `<p class="field__msg field__msg--error" id="needby-msg" role="alert">${err}</p>` : ''}
-  <p class="where__rush t-small w-600" data-rush${hasRush() ? '' : ' hidden'}><span aria-hidden="true">⚑</span> Rush fees may apply for this date. You’ll see them on each tailor before you book.</p>
+  <p class="where__rush t-small w-600" data-rush${hasRush() ? '' : ' hidden'}><span class="where__rush-icon" aria-hidden="true">${ICON_ALERT}</span><span>Rush fees may apply for this date.</span></p>
 </div>`;
 }
 
@@ -81,9 +81,8 @@ function view() {
       helper: `We’ll show shops within ${SHOP_RADIUS_MI} miles.`, error: err.zip ?? '',
     })
     : addressBlock(job, err.address ?? err.zip ?? '');
-  return `${chrome('home')}<main class="body body--with-bar ${ID}">
-  ${bookingSteps(1)}
-  ${headingRow('<h1 class="t-title">Where and when</h1>')}
+  return `${flowBar({ step: 1 })}<main class="body body--with-bar ${ID}">
+  ${headingRow('<h1 class="t-title">Where and when</h1>', { back: false })}
   <div class="where__form">
     ${chipGroup({
     name: 'visit', label: 'Visit', variant: 'segmented', value: job.visitType,
@@ -152,7 +151,7 @@ function openNeedBy() {
   const sel = state.job.needBy ? Math.max(0, Math.min(NEEDBY_DAYS - 1, dayDiff(start, state.job.needBy))) : 0;
   const columns = [dateColumn(rows, sel)];
   /* R1-2-C-03: header (title + ✕) → caption → wheel → Done, like every other M1 sheet; the card drops its own title */
-  const html = `<p class="t-small c-600">Pick the day you need it back. The visit is at least a day before.</p>
+  const html = `<p class="t-small c-600">Pick the day you need it back.</p>
 ${scheduler({ title: '', columns, cta: 'Done', ctaAct: 'needby-done', inline: true })}`;
   sheetOverlay(html, { header: 'Need it by', dataS: `${ID}-needby`, confirm: false }, (holder, close) => {
     wireWheel(holder, null, SCHED_ROW);

@@ -17,21 +17,42 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
   outline: 2px solid var(--accent-ink);
   outline-offset: 2px;
 }
+/* A programmatic focus target (a message or heading focused for screen readers) is not a control: no UA ring. */
+[tabindex="-1"]:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) {
-  .tailor-row, .toggle::before, .toggle__knob, .chip-group__chip, .segmented__opt, .composer__send,
+  .toggle::before, .toggle__knob, .chip-group__chip, .segmented__opt, .composer__send,
   .check-row__box, .option-row, .skeleton__line, .skeleton__dot, .skeleton__bubble, .skeleton__card { transition: none; animation: none; }
-  .tailor-row:active { transform: none; }
 }
 
-/* ---------- top nav: four links, each a >= 44 px hit area ---------- */
+/* ============================================================
+   M7 (K-03) — the one container, the rhythm utilities and the section head. Placed early so a component's own rules win.
+   ============================================================ */
+/* A4 (D-193): ONE depth strategy — an interactive group is tissue white with a chalk ring; reference content is flat on the linen */
+.card { width: 100%; padding: var(--space-16); border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: inset 0 0 0 1px var(--card-ring); }
+.card--list { padding: 0 var(--space-16); }
+.info-block { display: flex; flex-direction: column; gap: var(--rhythm-tight); width: 100%; }
+.tabular { font-variant-numeric: tabular-nums lining-nums; }
+
+/* A3 (K-03 #9): space is the separator — 8 inside a group, 32 between, 40 around the hero and the page actions */
+.sec { display: flex; flex-direction: column; gap: var(--rhythm-tight); margin-top: var(--rhythm-section); }
+.sec--first, .heading-stack + .sec, .heading-row + .sec { margin-top: var(--rhythm-major); }
+.sec__body { display: flex; flex-direction: column; gap: var(--rhythm-tight); }
+.sec-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); min-height: 16px; margin-bottom: var(--space-4); }
+.sec-head__title { margin: 0; }
+.sec-head__aside { display: inline-flex; align-items: center; gap: var(--space-4); }
+.page-actions { display: flex; flex-direction: column; align-items: stretch; gap: var(--rhythm-group); margin-top: var(--rhythm-major); }
+.page-actions__links { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-24); }
+
+/* ---------- top nav: four icon links, each a 44 x 44 hit area (M7 A5.2; base.css owns the box + active stitch) ---------- */
 .top-nav__links { gap: var(--space-4); margin-right: calc(-1 * var(--space-8)); }
-.top-nav__link { min-width: 44px; min-height: 44px; justify-content: center; padding-inline: var(--space-8); }
-/* D-164: count dot — hangs off the label's right edge so no link ever shifts */
-.top-nav__label { position: relative; display: inline-block; }
-.top-nav__dot { position: absolute; top: 4px; left: calc(100% + 2px); width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--accent-base); }
+.nav-icon { display: block; width: 24px; height: 24px; flex-shrink: 0; }
+.top-nav__icon { position: relative; display: inline-flex; }
+/* D-164 / D-187: count dot hangs off the icon's corner so no link ever shifts */
+.top-nav__dot { position: absolute; top: -2px; right: -3px; width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--accent-base); box-shadow: 0 0 0 2px var(--white); }
+@media (hover: hover) {
+  .top-nav__link:not(.is-active):hover { color: var(--ink); background: var(--neutral-50); }
+}
 @media (max-width: 359px) {
-  .top-nav__links { gap: 0; }
-  .top-nav__link { padding-inline: var(--space-4); }
   .top-nav__logo { width: 60px; height: 28px; }
 }
 
@@ -54,7 +75,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .back { position: relative; }
 .back::after { content: ''; position: absolute; inset: calc(-1 * var(--space-4)) -11px; }   /* R3-1-C-14: 23x36 glyph box + 4 / 11 => a 45x44 target, glyph stays on the gutter */
 /* selected garment tile: icons (40) · label (16) · a 44 px row of two sibling buttons, − and + (R1-1-C-04, C-05) */
-.garment-tile--selected { justify-content: flex-start; padding: var(--space-4) 0 0; }
+.garment-tile--selected { justify-content: flex-start; padding: var(--space-4) 0 0; border: 0; box-shadow: inset 0 0 0 1.5px var(--ink); }   /* M7-2-C-02: inside stroke, no v4 drop shadow (D-193) */
 .garment-tile--selected:active { transform: none; }
 .garment-tile--selected .garment-tile__icons { width: 100%; flex: 0 0 40px; align-content: center; }
 .garment-tile--selected.garment-tile--grid .garment-tile__icons { width: 53px; }
@@ -67,10 +88,11 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .garment-tile__glyph { width: 14px; height: 14px; display: block; }
 
 /* ---------- avatar: sm 40 · md 56 · lg 80 ---------- */
-.avatar--sm { width: 40px; height: 40px; border-radius: var(--radius-md); font-size: var(--size-16); line-height: 21px; }
-.avatar--md { width: 56px; height: 56px; border-radius: var(--radius-lg); font-size: var(--size-16); line-height: 21px; }
-.avatar--lg { width: 80px; height: 80px; border-radius: var(--radius-xl); font-size: var(--size-24); line-height: 29px; font-weight: 600; }   /* R1-2-C-11: initials are Hanken sans at every size */
-.avatar--photo { overflow: hidden; background: var(--media-placeholder); }
+.avatar--sm { width: 40px; height: 40px; font-size: var(--size-16); line-height: 21px; }
+.avatar--md { width: 56px; height: 56px; font-size: var(--size-16); line-height: 21px; }
+.avatar--lg { width: 80px; height: 80px; font-size: var(--size-24); line-height: 29px; font-weight: 600; }   /* R1-2-C-11: initials are Hanken sans at every size */
+.avatar--photo { overflow: hidden; }
+.avatar--placeholder .icon-camera { width: var(--size-24); height: var(--size-24); }
 .avatar__img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ---------- tailor row ---------- */
@@ -81,16 +103,12 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
   gap: var(--space-12);
   min-height: 44px;
   text-align: left;
-  box-shadow: inset 0 0 0 1px var(--neutral-200);
-  transition: transform 160ms var(--ease-out);
 }
-.tailor-row:active:not([aria-disabled="true"]) { transform: scale(0.98); }
 .tailor-row__who { display: flex; align-items: flex-start; gap: var(--space-12); }
 .tailor-row__info { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 1 0; min-width: 0; }
 .tailor-row__name-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-8); }
 .tailor-row__name { flex: 1 1 0; min-width: 0; font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--ink); }
-.tailor-row__chip { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--space-4); padding: 1px var(--space-8); border-radius: var(--radius-full); background: var(--success-bg); font-size: var(--size-12); line-height: 16px; font-weight: 600; color: var(--success-ink); }
-.tailor-row__meta { font-size: var(--size-12); line-height: 16px; font-weight: 500; color: var(--neutral-600); }
+.tailor-row__meta { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--space-8); font-size: var(--size-12); line-height: 16px; font-weight: 500; color: var(--neutral-600); }
 /* the estimate is the focal element: 24 / 600 tabular, right-aligned on the name row (R1-1-C-17) */
 .tailor-row__quote { flex: 0 0 auto; display: inline-flex; }
 .tailor-row__est { font-size: var(--size-24); line-height: 29px; font-weight: 600; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
@@ -117,7 +135,12 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .stars__star.is-filled, .stars__opt.is-filled .stars__star { color: var(--accent-ink); }
 .stars--input { letter-spacing: 0; }
 .stars__opt { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; cursor: pointer; }
-.stars--input .stars__star { font-size: var(--size-24); line-height: 29px; color: var(--neutral-500); }
+/* M7-1-A-06: an unrated star is an OUTLINE (it never reads as a grey 5-star rating); it fills accent when chosen or hovered up to the pointer */
+.stars--input .stars__star { font-size: var(--size-24); line-height: 29px; color: transparent; -webkit-text-stroke: 1.5px var(--neutral-500); }
+.stars--input .stars__opt.is-filled .stars__star { color: var(--accent-ink); -webkit-text-stroke-color: var(--accent-ink); }
+@media (hover: hover) {
+  .stars--input .stars__opt:hover .stars__star, .stars--input .stars__opt:has(~ .stars__opt:hover) .stars__star { color: var(--accent-ink); -webkit-text-stroke-color: var(--accent-ink); }
+}
 .stars__input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .stars__opt:has(.stars__input:focus-visible) { outline: 2px solid var(--accent-ink); outline-offset: -2px; border-radius: var(--radius-md); }
 .rating-summary { display: flex; align-items: center; gap: var(--space-8); }
@@ -274,7 +297,6 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
   text-align: left; box-shadow: inset 0 -1px 0 var(--neutral-100);
 }
 .option-row:last-child { box-shadow: none; }
-.option-row:active { opacity: 0.6; }
 .option-row__lead { display: inline-flex; align-items: center; justify-content: flex-start; flex-shrink: 0; min-width: var(--size-32); }
 .option-row__text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
 .option-row__check {
@@ -288,13 +310,12 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 /* ---------- list row ---------- */
 .list-row { display: flex; align-items: center; gap: var(--space-12); width: 100%; min-height: 56px; padding-block: var(--space-8); text-align: left; }
 .list-row + .list-row { box-shadow: inset 0 1px 0 var(--bottom-border); }
-button.list-row:active { opacity: 0.6; }
 .list-row__lead { display: inline-flex; align-items: center; justify-content: flex-start; flex-shrink: 0; min-width: var(--size-32); }
 .list-row__text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
 .list-row__title { font-size: var(--size-16); line-height: 21px; font-weight: 500; color: var(--ink); }
 .list-row__sub { font-size: var(--size-12); line-height: 16px; font-weight: 500; color: var(--neutral-500-ink); text-wrap: pretty; }
 .list-row__right { font-size: var(--size-16); line-height: 21px; font-weight: 400; color: var(--neutral-600); }
-.list-row__chevron { width: 16px; height: 16px; flex-shrink: 0; color: var(--neutral-400); }
+.list-row__chevron { width: 16px; height: 16px; flex-shrink: 0; color: var(--neutral-500); }
 
 /* ---------- skeleton ---------- */
 .skeleton { display: flex; flex-direction: column; gap: var(--space-12); width: 100%; }
@@ -321,10 +342,10 @@ button.list-row:active { opacity: 0.6; }
 /* ---------- empty state ---------- */
 .empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--space-12); padding: var(--space-40) var(--space-20); text-align: center; }
 .empty-state__title, .empty-state__body { max-width: 320px; }
-.empty-state__title { text-wrap: balance; }
+.empty-state__title { text-wrap: balance; color: var(--ink); }
 /* R1-1-C-12: Cormorant draws old-style figures by default ("11201" reads "IIzoI", "$16.00" reads "$I6.oo");
    money, ZIPs and ratings in serif always use lining figures */
-.t-display, .t-title, .t-h2, .status-hero__title, .empty-state__title, .rating-summary__avg, .visit-block__title,
+.t-display, .t-title, .t-h2, .status-hero__title, .rating-summary__avg, .visit-block__title,
 .trust-card__name, .scheduler__title, .avatar--lg { font-variant-numeric: lining-nums; }
 .meta-row__glyph svg { width: var(--size-16); height: var(--size-16); flex: 0 0 auto; }   /* R1-2-C-04: line icons, one set */
 .meta-row__glyph { flex: 0 0 20px; display: inline-flex; align-items: center; justify-content: center; }   /* R1-1-C-13: one glyph column, so every text line starts at the same x */
@@ -337,7 +358,7 @@ button.list-row:active { opacity: 0.6; }
 
 /* ---------- banner ---------- */
 .banner { display: flex; align-items: flex-start; gap: var(--space-12); width: 100%; padding: var(--space-12) var(--space-16); border-radius: var(--radius-md); }
-.banner--info { background: var(--info-bg); color: var(--info); }
+.banner--info { background: var(--accent-bg); color: var(--accent-ink); }   /* M7: no blue anywhere */
 .banner--success { background: var(--success-bg); color: var(--success); }
 .banner--warning { background: var(--warning-bg); color: var(--warning-ink); }
 .banner--error { background: var(--error-bg); color: var(--error-ink); }
@@ -354,12 +375,11 @@ button.list-row:active { opacity: 0.6; }
 .toast--success { background: var(--success); color: var(--white); }
 .toast--warning { background: var(--warning); color: var(--white); }
 .toast--error { background: var(--error); color: var(--white); }
-.toast--info { background: var(--info); color: var(--white); }
+.toast--info { background: var(--ink); color: var(--white); }
 
 /* ---------- money rows ---------- */
-.money-rows { display: flex; flex-direction: column; width: 100%; padding: var(--space-4) var(--space-16); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); font-variant-numeric: tabular-nums; }
-.money-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); min-height: 44px; padding-block: var(--space-12); }
-.money-row + .money-row { box-shadow: inset 0 1px 0 var(--neutral-100); }
+.money-rows { display: flex; flex-direction: column; width: 100%; font-variant-numeric: tabular-nums; }   /* M7 (A4): flat on the linen — no card, ring or side padding */
+.money-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); min-height: 44px; padding-block: var(--space-8); }
 .money-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .money-row__label { font-size: var(--size-16); line-height: 21px; font-weight: 500; color: var(--ink); }
 .money-row__caption { font-size: var(--size-12); line-height: 16px; font-weight: 500; color: var(--neutral-500-ink); }
@@ -367,14 +387,11 @@ button.list-row:active { opacity: 0.6; }
 .money-row__amt { font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--ink); white-space: nowrap; }
 .money-row__status { font-size: var(--size-12); line-height: 16px; font-weight: 600; color: var(--neutral-600); }
 .money-row--subtotal .money-row__label, .money-row--subtotal .money-row__amt { font-weight: 600; }
-.money-row.money-row--total { box-shadow: inset 0 1px 0 var(--neutral-300); }
 .money-row--total .money-row__label, .money-row--total .money-row__amt { font-weight: 700; }
 /* R4-1-C-06: a total that is the only row (the pay sheet's Balance) has nothing above it to rule off */
-.money-row.money-row--total:first-child { box-shadow: none; }
-.money-row.money-row--total + .money-row { box-shadow: inset 0 1px 0 var(--neutral-300); }
 .money-row--negative .money-row__amt { color: var(--neutral-700); }
 .money-row--muted .money-row__label, .money-row--muted .money-row__amt { color: var(--neutral-500-ink); font-weight: 400; }
-.money-row--changed .money-row__amt { color: var(--info); }
+.money-row--changed .money-row__amt { color: var(--accent-ink); }
 
 /* ---------- overlay chassis (sheetOverlay / modalOverlay holders; moved from the v4 screens.css) ---------- */
 .screen-sheet { position: absolute; inset: 0; }
@@ -389,13 +406,17 @@ button.list-row:active { opacity: 0.6; }
 .scheduler--compact .wheel--sched .wheel__band { top: 44px; }
 .scheduler--compact .wheel--sched .wheel__col--scroll { height: 132px; }
 .scheduler--compact .wheel--sched .wheel__pad { flex: 0 0 44px; }
+/* M7-2-C-07 / A-05 (c-book): the band is the top row — no blank lead pad; two rows show under it and the tail pad lets the last row reach it */
+.scheduler--top .wheel--sched .wheel__band { top: 0; }
+.scheduler--top .wheel--sched .wheel__pad:first-child { flex: 0 0 0; }
+.scheduler--top .wheel--sched .wheel__pad:last-child { flex: 0 0 88px; }
+.scheduler--top .wheel--sched .wheel__col--scroll .wheel__row { scroll-snap-align: start; }
 
 /* ============================================================
    M2 — tailor onboarding + Shop components (M2-spec §A6)
    ============================================================ */
 
 /* ---------- avatar: placeholder photo (D-58) ---------- */
-.avatar--placeholder { border-radius: var(--radius-full); background: var(--media-placeholder); }
 
 /* ---------- check row: disabled ---------- */
 .check-row-wrap--disabled .check-row, .check-row-wrap--disabled .check-row__input { cursor: not-allowed; }
@@ -467,7 +488,7 @@ button.list-row:active { opacity: 0.6; }
 /* ---------- customer preview ---------- */
 .customer-preview { display: flex; flex-direction: column; gap: var(--space-8); }
 .customer-preview__title { margin: 0; }
-.customer-preview__body { display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-12); border-radius: var(--radius-xl); background: var(--neutral-100); pointer-events: none; }
+.customer-preview__body { display: flex; flex-direction: column; gap: var(--space-8); pointer-events: none; }   /* M7-1-T-04: no slab — the preview card keeps its one ring, the caps title and caption frame it */
 .customer-preview__caption { margin: 0; text-wrap: pretty; }
 
 /* ---------- mini profile (the tailor's own card, inside a customer preview) ---------- */
@@ -511,24 +532,23 @@ button.list-row:active { opacity: 0.6; }
 .cta--danger:active:not(:disabled) { filter: brightness(0.94); }
 .cta--danger.cta--busy, .cta--danger:disabled { filter: none; }
 
-/* ---------- action bar: primary + a split row of two outline buttons ---------- */
-.action-bar__row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); }
-.action-bar__row .cta { height: 48px; min-width: 0; padding-inline: var(--space-8); }
-.cta--secondary-danger { color: var(--error); border: 0; box-shadow: inset 0 0 0 1px var(--error); }
+/* ---------- action bar: one primary, secondary / tertiary as text links (M7 A5.9) ---------- */
+.action-bar__links { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-24); }
 
 /* ---------- request card: the tailor's inbox ticket ---------- */
 .request-card {
+  display: flex; flex-direction: column;   /* M7-2-T-01: the shared .card is block; the 12 px gap between top / work / pay needs flex */
   align-items: stretch; justify-content: flex-start; gap: var(--space-12); min-height: 44px; text-align: left;
-  box-shadow: inset 0 0 0 1px var(--neutral-200); transition: transform 160ms var(--ease-out);
 }
-.request-card:active { transform: scale(0.98); }
 .request-card--soon { box-shadow: inset 0 0 0 2px var(--warning); }
 .request-card__top { display: flex; align-items: flex-start; gap: var(--space-12); }
 .request-card__top .avatar { flex-shrink: 0; }
 .request-card__who { display: flex; flex-direction: column; align-items: stretch; gap: 2px; flex: 1 1 0; min-width: 0; }
 .request-card__name { display: flex; align-items: baseline; gap: var(--space-8); min-width: 0; color: var(--ink); }
 .request-card__again { flex-shrink: 0; white-space: nowrap; }
-.request-card__where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.request-card__where { display: flex; flex-direction: column; min-width: 0; }
+.request-card__visit, .request-card__place { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.request-card__count { display: inline-flex; align-items: center; gap: var(--space-8); }
 .request-card__status { flex: 0 0 auto; display: inline-flex; align-items: center; min-height: 20px; }
 .request-card__work { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-variant-numeric: tabular-nums; }
 .request-card__when { color: var(--ink); }
@@ -537,21 +557,21 @@ button.list-row:active { opacity: 0.6; }
 .request-card__take { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
 .request-card__amount { color: var(--ink); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
 .request-card--suggested .request-card__amount { color: var(--neutral-600); }
-@media (prefers-reduced-motion: reduce) { .request-card { transition: none; } .request-card:active { transform: none; } }
 
 /* ---------- appt row: one 72 px list line ---------- */
 .appt-row {
   display: grid; grid-template-columns: 40px minmax(0, 1fr) auto var(--size-12); column-gap: var(--space-8); row-gap: 2px; align-items: center;
   width: 100%; min-height: 72px; padding: var(--space-12) var(--space-16); text-align: left;
   border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200);
-  font-variant-numeric: tabular-nums; transition: transform 160ms var(--ease-out);
+  font-variant-numeric: tabular-nums;
 }
-.appt-row:active { transform: scale(0.98); }
 .appt-row__avatar { grid-column: 1; grid-row: 1 / span 3; align-self: start; display: inline-flex; margin-right: var(--space-4); }
 .appt-row__name { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .appt-row__pill { grid-column: 3; grid-row: 1; justify-self: end; display: inline-flex; }
 /* R4-2-T-01: the time line is the row's news — it wraps to a second line rather than losing its end to an ellipsis */
-.appt-row__when { grid-column: 2; grid-row: 2; min-width: 0; text-wrap: pretty; }
+.appt-row__when { grid-column: 2; grid-row: 2; min-width: 0; text-wrap: pretty; display: flex; align-items: center; gap: var(--space-4); }
+.appt-row__garment { display: inline-flex; flex-shrink: 0; margin-block: -4px; }   /* M7-2-A-03: the 24 px glyph does not grow the 21 px line */
+.appt-row__when-text { min-width: 0; }
 .appt-row__amount { grid-column: 3; grid-row: 2; justify-self: end; color: var(--ink); white-space: nowrap; }
 .appt-row__place { grid-column: 2; grid-row: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .appt-row__caption { grid-column: 3; grid-row: 3; justify-self: end; white-space: nowrap; }
@@ -560,13 +580,10 @@ button.list-row:active { opacity: 0.6; }
 .appt-row__chevron { grid-column: 4; grid-row: 1 / span 3; width: var(--size-12); height: var(--size-16); justify-self: end; color: var(--neutral-500); }
 .appt-row--bare .appt-row__when, .appt-row--bare .appt-row__place { grid-column: 2 / span 2; }   /* no amount: the time and place may use the amount's column */
 .appt-row--muted .appt-row__name { color: var(--neutral-700); }
-/* R3-1-C-12: the neutral status pill (cancelled early, no reply) */
-.pill--calm { background: var(--neutral-100); color: var(--neutral-700); box-shadow: none; }
-/* R3-1-C-12 / R3-2-C-06: a muted (past) row reads calm — its pill keeps the glyph and label but loses the alarm colour,
-   except where money was kept (.appt-row--kept) */
-.appt-row--muted:not(.appt-row--kept) .pill { background: var(--neutral-100); color: var(--neutral-700); box-shadow: none; }
-.appt-row--muted .avatar { background: var(--neutral-100); color: var(--neutral-600); }
-@media (prefers-reduced-motion: reduce) { .appt-row { transition: none; } .appt-row:active { transform: none; } }
+/* R3-1-C-12 / R3-2-C-06 (M7): a muted (past) row reads calm — its status keeps the word but loses the alarm colour, except where money was kept (.appt-row--kept) */
+.appt-row--muted:not(.appt-row--kept) .status { color: var(--status-calm-ink); }
+.appt-row--muted:not(.appt-row--kept) .status__dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--status-calm); }
+.appt-row--muted .avatar { background: var(--neutral-100); color: var(--neutral-600); box-shadow: none; }
 
 /* ---------- tailor's note (R3-1-C-09): one quote card for c-request--declined and c-booking--cant-make-it ---------- */
 .note-quote { display: flex; flex-direction: column; gap: var(--space-4); margin: var(--space-24) 0 0; padding: var(--space-12); border-radius: var(--radius-md); background: var(--neutral-100); }
@@ -585,7 +602,8 @@ button.list-row:active { opacity: 0.6; }
 /* the photo viewer sheet (R3-2-T-11): one placeholder per photo */
 .photo-viewer { display: flex; flex-direction: column; gap: var(--space-16); padding: var(--space-8) var(--space-20) var(--space-24); max-height: 70vh; overflow-y: auto; }
 .photo-viewer__item { margin: 0; display: flex; flex-direction: column; gap: var(--space-8); align-items: center; }
-.photo-viewer__img { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-md); background: linear-gradient(135deg, #E2DCD1 0%, var(--neutral-300) 71.43%); }
+.photo-viewer__img { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius-md); overflow: hidden; }
+.photo-viewer__img .doc-photo { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; }
 .work-list__estimate { margin-top: var(--space-4); box-shadow: inset 0 1px 0 var(--neutral-200); }
 .work-list__estimate .price-row__label, .work-list__estimate .price-row__value { font-weight: 600; }
 
@@ -619,19 +637,19 @@ button.list-row:active { opacity: 0.6; }
 .change-list__was { color: var(--neutral-600); text-decoration: line-through; }
 /* the tag: sentence case on purpose (the word is searched and read as written); 10 / 600 with the caps tracking */
 .change-list__tag.t-micro { display: inline-block; padding: 2px var(--space-8); border-radius: var(--radius-full); letter-spacing: 1px; white-space: nowrap; }
-.change-list__tag--added, .change-list__tag--new-item { color: var(--white); background: var(--success); }   /* D-122: v4's green NEW badge; white on #4F7A5B = 4.9:1 */
-.change-list__tag--repriced { color: var(--ink); background: var(--neutral-100); }
+/* M7-2-C-06: one "changed" tag for New / New price / New item — accent ground, accent ink (no green: an added charge is not a success) */
+.change-list__tag--added, .change-list__tag--new-item, .change-list__tag--repriced { color: var(--accent-ink); background: var(--accent-bg); font-weight: 600; }
 .change-list__tag--removed { color: var(--neutral-600); background: var(--neutral-100); }
 /* R4-1-C-09: the tint bleeds outward, so label and amount stay on the same columns as the rows around it */
-.change-list__row--added { background: var(--success-bg); border-radius: var(--radius-sm); padding-inline: var(--space-12); box-shadow: none; }
+/* .change-list__row--added: no row tint (M7-2-C-06); the tag says it */
 .change-list__row--removed .change-list__label { color: var(--neutral-600); }
 .change-list__row--removed .change-list__amt { color: var(--neutral-600); }
 .change-list__row s, .change-list__type s { text-decoration-thickness: 1px; }
 .change-list__type--new, .change-list__type--gone { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); }
 .change-list__type--gone { color: var(--neutral-600); }
 /* K-01: a new item is one green panel; its rows read as plain rows inside it */
-.change-list__garment--new { background: var(--success-bg); border-radius: var(--radius-md); padding: var(--space-12); }
-.change-list__garment--new .change-list__row + .change-list__row { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--success) 25%, transparent); }
+.change-list__garment--new { background: color-mix(in srgb, var(--accent-bg) 45%, transparent); border-radius: var(--radius-md); padding: var(--space-12); }   /* M7-2-C-06: a light accent panel, not success green */
+.change-list__garment--new .change-list__row + .change-list__row { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent-base) 20%, transparent); }
 .change-list__garment--new .change-list__label { color: var(--ink); font-weight: 600; }
 .change-list__garment--gone .change-list__row--removed .change-list__label { color: var(--neutral-600); }
 .change-summary { margin: 0; text-wrap: pretty; }
@@ -670,7 +688,7 @@ button.list-row:active { opacity: 0.6; }
 .masked-token svg { width: var(--size-12); height: var(--size-12); flex-shrink: 0; color: var(--neutral-600); }
 .chat-bubble__photo { display: flex; gap: var(--space-8); align-self: flex-start; min-width: 44px; min-height: 44px; padding: 0; border-radius: var(--radius-sm); text-align: left; }
 .chat-bubble__photo:active { opacity: 0.6; }
-.chat-bubble__tile { display: block; flex-shrink: 0; width: 64px; height: 64px; border-radius: var(--radius-sm); background: var(--media-placeholder); }
+.chat-bubble__tile { display: block; flex-shrink: 0; width: 64px; height: 64px; border-radius: var(--radius-sm); position: relative; overflow: hidden; }
 .bubble--me .chat-bubble__photo:focus-visible { outline-color: var(--white); }
 
 /* ---------- thread header + context row ---------- */
@@ -679,8 +697,7 @@ button.list-row:active { opacity: 0.6; }
 .thread-head__text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 0; }
 .thread-head__name, .thread-head__sub { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .thread-head__sub .countdown { font-weight: 600; }
-.thread-context { display: flex; align-items: center; gap: var(--space-12); width: 100%; min-height: 56px; padding: var(--space-8) var(--space-16); border-radius: var(--radius-md); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); text-align: left; }
-button.thread-context:active { opacity: 0.6; }
+.thread-context { display: flex; align-items: center; gap: var(--space-12); width: 100%; min-height: 56px; padding: var(--space-8) var(--space-16); border-radius: var(--radius-md); text-align: left; }
 .thread-context__text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
 .thread-context__line { display: flex; align-items: center; gap: var(--space-8); min-width: 0; }
 .thread-context__pill { display: inline-flex; flex-shrink: 0; }
@@ -688,23 +705,22 @@ button.thread-context:active { opacity: 0.6; }
 .thread-context__sub { text-wrap: pretty; }
 .thread-context + .privacy-note { margin-top: var(--space-8); }
 .thread-head + .thread-context { margin-top: var(--space-12); }
-.thread-context__chevron { width: 16px; height: 16px; flex-shrink: 0; color: var(--neutral-400); }
+.thread-context__chevron { width: 16px; height: 16px; flex-shrink: 0; color: var(--neutral-500); }
 
 /* ---------- thread row (Messages list) ---------- */
 .thread-list { display: flex; flex-direction: column; padding-inline: var(--space-16); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
 .thread-row { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: var(--space-12); row-gap: 2px; align-items: center; align-content: center; width: 100%; min-height: 72px; padding-block: var(--space-8); text-align: left; }
 .thread-row + .thread-row { box-shadow: inset 0 1px 0 var(--bottom-border); }
-.thread-row:active { opacity: 0.6; }
 .thread-row__avatar { grid-column: 1; grid-row: 1 / span 2; display: inline-flex; }
 .thread-row__head { grid-column: 2; grid-row: 1; display: flex; align-items: center; gap: var(--space-8); min-width: 0; }
 .thread-row__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .thread-row__pill { display: inline-flex; flex-shrink: 0; }
 .thread-row__time { margin-left: auto; flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.thread-row__foot { grid-column: 2; grid-row: 2; display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); min-width: 0; }
-.thread-row__preview { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.thread-row__badge { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 20px; height: 20px; padding-inline: var(--space-4); border-radius: var(--radius-full); background: var(--accent-ink); color: var(--white); font-variant-numeric: tabular-nums; }
+.thread-row__foot { grid-column: 2; grid-row: 2; display: flex; align-items: center; justify-content: flex-start; gap: var(--space-8); min-width: 0; }
+.thread-row__preview { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thread-row__badge { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 20px; height: 20px; padding-inline: var(--space-4); border-radius: var(--radius-full); background: var(--accent-ink); color: var(--white); font-variant-numeric: tabular-nums; }
 .thread-row--closed .thread-row__name { color: var(--neutral-700); }
-.thread-row--closed .avatar { background: var(--neutral-100); color: var(--neutral-600); }
+.thread-row--closed .avatar { background: var(--neutral-100); color: var(--neutral-600); box-shadow: none; }
 .thread-row--unread .thread-row__time { color: var(--ink); font-weight: 600; }
 
 /* ---------- composer: live hint, photo tray ---------- */
@@ -713,7 +729,7 @@ button.thread-context:active { opacity: 0.6; }
 .composer__hint:empty { display: block; height: 0; margin: 0; }
 .composer__tray { display: flex; gap: var(--space-8); flex: 0 0 100%; margin-bottom: var(--space-8); }
 .composer__thumb { position: relative; display: block; width: 64px; height: 64px; flex-shrink: 0; }
-.composer__thumb-tile { display: block; width: 100%; height: 100%; border-radius: var(--radius-sm); background: var(--media-placeholder); }
+.composer__thumb-tile { display: block; width: 100%; height: 100%; border-radius: var(--radius-sm); position: relative; overflow: hidden; }
 .composer__remove { position: absolute; top: 0; right: 0; display: inline-flex; align-items: flex-start; justify-content: flex-end; width: 44px; height: 44px; padding: var(--space-4); color: var(--white); }
 .composer__remove svg { box-sizing: content-box; width: var(--size-10); height: var(--size-10); padding: var(--space-4); border-radius: var(--radius-full); background: var(--ink); }
 .composer__remove:disabled { opacity: 0.4; }
@@ -791,6 +807,14 @@ a.cta-small { text-decoration: none; }
 .garment-icon--card { flex: 0 0 var(--space-40); width: var(--space-40); height: var(--space-40); border-radius: var(--radius-sm); background: var(--neutral-50); }
 .garment-icon--row { width: var(--size-32); height: var(--size-32); border-radius: var(--radius-sm); background: var(--neutral-50); }
 .garment-icon--inline { width: var(--size-24); height: var(--size-24); }
+/* M7-2-C-04: garment strip — the booked order before the fitting (c-request, c-booking): 32 px wells 8 apart, then the count */
+.garment-strip { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-8) var(--space-12); padding-block: var(--space-4); white-space: normal; }
+.garment-strip__icons { display: flex; align-items: center; gap: var(--space-8); }
+.garment-strip .garment-icon--row { background: var(--white); box-shadow: inset 0 0 0 1px var(--card-ring); }
+.garment-strip__more { display: inline-flex; align-items: center; }
+/* a garment that leads a line of text (thread preview) sits in a 24 px well, drawn at 20 */
+.thread-row__garment { display: inline-flex; flex-shrink: 0; }   /* M7-2-C-05: a 32 px well (garmentIcon 'row'), the hero garment of the booking */
+.thread-context__garment { display: inline-flex; flex-shrink: 0; }
 .garment-icon--fallback svg { width: 60%; height: 60%; color: var(--neutral-500); }
 
 /* ---------- the simulated photo: a token tone, the garment's illustration, a pin on Pinned ---------- */
@@ -828,7 +852,7 @@ a.cta-small { text-decoration: none; }
 .docs-editor__comment-block { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); }
 .docs-editor__optional { display: flex; align-items: center; gap: var(--space-4); }
 .docs-editor__text { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 var(--space-8); margin-left: calc(-1 * var(--space-8)); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--ink); font-family: var(--font-sans); cursor: pointer; }
-.docs-editor__text:not(.docs-editor__text--add) { text-decoration: underline; text-underline-offset: 3px; }
+.docs-editor__edit-link { display: flex; margin-left: calc(-1 * var(--space-8)); }   /* the shared textLink, flush with the comment above */
 .docs-editor__edit { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 .docs-editor__actions { display: flex; align-items: center; gap: var(--space-8); }
 /* K2-1-03: Save is the primary action — sized to its label; Cancel is the quiet secondary at the same 12 px weight */
@@ -873,3 +897,96 @@ a.cta-small { text-decoration: none; }
 .docs-viewer .cta { width: 100%; }
 @media (prefers-reduced-motion: reduce) { .doc-tab, .docs-viewer__nav, .docs-editor__add { transition: none; } }
 .docs-demo .docs-editor { margin: 0; padding: 0; box-shadow: none; }
+
+/* ============================================================
+   M7 (K-03) — polish: text link, stitch, flow bar, info + verified sheets, rating line, more menu, photo stubs, motion.
+   ============================================================ */
+
+/* ---------- text link (A5.9, D-195): the secondary action everywhere an outline button used to be ---------- */
+.text-link { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-8); min-height: 44px; padding-inline: var(--space-8); font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--accent-ink); background: none; border: 0; }
+.text-link svg { flex-shrink: 0; }
+.text-link--danger { color: var(--error-ink); }
+.text-link--muted { color: var(--neutral-700); }
+.text-link:disabled { color: var(--neutral-400); cursor: not-allowed; }
+
+/* ---------- stitched dash (A5.10, signature 2): a perforation above a total ---------- */
+.stitch { display: block; width: 100%; height: var(--stitch-w); margin: var(--space-8) 0; border: 0; background: repeating-linear-gradient(90deg, var(--stitch-ink) 0 var(--stitch-dash), transparent var(--stitch-dash) calc(var(--stitch-dash) + var(--stitch-gap))); }
+
+/* ---------- booking flow bar (A5.3, D-186): Back · n of 5 · ✕ ---------- */
+.flow-bar { position: absolute; inset: 44px auto auto 0; z-index: 2; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; gap: var(--space-8); width: 100%; max-width: 390px; height: 56px; padding-inline: var(--space-12); background: var(--white); box-shadow: inset 0 -1px 0 var(--bottom-border); }
+.flow-bar .back { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; font-size: var(--size-28); line-height: 34px; }
+.flow-bar .back::after { inset: 0; }
+.flow-bar__spacer { display: block; width: 44px; height: 44px; }
+.flow-bar__steps { min-width: 0; }
+.flow-bar__steps .stepper--compact { margin-bottom: 0; }
+.flow-bar__exit { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: var(--radius-md); color: var(--neutral-700); }
+.flow-bar__exit svg { width: var(--size-16); height: var(--size-16); }
+.flow-bar__exit:disabled, .flow-bar .back:disabled { color: var(--neutral-400); cursor: not-allowed; }
+
+/* ---------- ⓘ info button + sheets (A5.11, D-191) ---------- */
+.info-btn { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 44px; height: 44px; margin-block: calc(-1 * var(--space-12)); color: var(--neutral-600); border-radius: var(--radius-full); }
+.sec-head__aside .info-btn { margin-right: calc(-1 * var(--space-12)); }
+.info-btn .icon-16 { width: var(--size-16); height: var(--size-16); }
+.info-sheet { display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-12) var(--space-20) var(--space-24); }
+.info-sheet .meta-row { align-items: flex-start; }
+.info-sheet .meta-row__glyph { color: var(--neutral-600); padding-top: 2px; }
+
+/* ---------- verified mark + sheet (A5.7, D-189) ---------- */
+.verified { position: relative; display: inline-flex; align-items: center; gap: var(--space-4); min-height: 20px; font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px; font-weight: 600; color: var(--success-ink); }
+.verified .icon-16 { width: var(--size-16); height: var(--size-16); }
+.verified--inert { min-height: auto; }
+/* M7-2-C-03: the proof row's controls stay 20 px tall; an invisible ::before carries the 44 px target (data-hit="inline") */
+.verified:not(.verified--inert)::before, .rating-line--link::before { content: ''; position: absolute; inset: -12px calc(-1 * var(--space-8)); }
+.verified-list { display: flex; flex-direction: column; gap: var(--space-16); margin: 0; padding: var(--space-12) var(--space-20) var(--space-24); list-style: none; }
+.verified-item { display: flex; align-items: flex-start; gap: var(--space-12); }
+.verified-item__icon { display: inline-flex; flex-shrink: 0; padding-top: 2px; color: var(--success); }
+.verified-item__icon .icon-16 { width: var(--size-16); height: var(--size-16); }
+.verified-item__text { display: flex; flex-direction: column; gap: 2px; }
+
+/* ---------- rating line (A5.8, D-190) ---------- */
+.rating-line { display: inline-flex; align-items: center; gap: var(--space-4); }
+.rating-line__star { color: var(--accent-base); }
+.rating-line--link { position: relative; min-height: 20px; }
+
+/* ---------- ••• more menu (A5.9) ---------- */
+.more-btn { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: var(--radius-md); color: var(--ink); }
+.more-menu { display: flex; flex-direction: column; padding: var(--space-4) var(--space-20) var(--space-24); }
+.more-item--danger { color: var(--error-ink); }
+
+/* ---------- photo stubs, garment hero, empty-state art (A5.12, D-194) ---------- */
+.doc-photo > svg { color: var(--neutral-600); }
+.doc-photo--tile { width: 72px; height: 72px; border-radius: var(--radius-md); }
+.doc-photo--fill { width: 100%; height: 100%; border-radius: inherit; }
+.garment-icon--hero { width: 96px; height: 96px; }
+.garment-icon--hero.garment-icon--fallback svg { width: 60%; height: 60%; }
+.empty-state__art { display: inline-flex; align-items: center; justify-content: center; width: 120px; height: 120px; margin-bottom: var(--space-8); border-radius: var(--radius-full); background: var(--accent-bg); }
+.empty-state__art .garment-icon--hero { transform: rotate(-4deg); }
+
+/* ---------- fitting photo rows: Required until she tries (A5.13, D-196) ---------- */
+.docs-editor__req { flex-shrink: 0; }
+.docs-editor__row[data-missing="true"][data-tried="true"] .docs-editor__add { border-color: var(--error); }
+
+/* ---------- misc shared changes (A5.15) ---------- */
+.privacy-note { align-items: flex-start; }
+.privacy-note .icon-16, .composer__hint .icon-16 { flex-shrink: 0; margin-top: 0; }
+.change-summary--lines { display: flex; flex-direction: column; gap: 2px; }
+.rush-ladder { display: flex; flex-direction: column; gap: 2px; }
+.rush-tier { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-12); }
+.rush-tier__fee { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.status-hero__row { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); margin-top: var(--space-8); }
+.status-hero__row .t-figure { color: var(--ink); }
+.courier-card--ready, .courier-card--loading, .courier-card--tailor { padding: 0; background: none; box-shadow: none; border-radius: 0; }
+.courier-card--failed { /* a Try again lives in it: the one courier card that stays a card */ }
+
+/* ---------- press (A5.14): one rule for every tappable surface — transform only, never `all` ---------- */
+.text-link, .top-nav__link, .more-btn, .info-btn, .tailor-row, .request-card, .appt-row, .thread-row, .thread-context, .list-row, .option-row, .where__card, .docs-editor__add, .photo-tile--add, .flow-bar__exit, .flow-bar .back, .verified { transition: transform var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
+:is(.cta, .text-link, .top-nav__link, .more-btn, .info-btn, .tailor-row, .request-card, .appt-row, .thread-row, .thread-context, .list-row, .option-row, .garment-tile:not(.garment-tile--selected), .chip, .time-chip, .where__card, .docs-editor__add, .photo-tile--add, .select-time, .cta-small, .method-row, .scheduler__cta, .flow-bar__exit):active:not(:disabled):not([aria-disabled="true"]) { transform: scale(var(--press-scale)); }
+/* the push banner uses the sheet-in duration */
+.push-banner { transition-duration: var(--dur-sheet-in); }
+
+/* reduced motion (and html.is-test): transforms off for press, sheets and modals; opacity / colour transitions stay short */
+@media (prefers-reduced-motion: reduce) {
+  :is(.cta, .text-link, .top-nav__link, .more-btn, .info-btn, .tailor-row, .request-card, .appt-row, .thread-row, .thread-context, .list-row, .option-row, .garment-tile, .chip, .time-chip, .where__card, .docs-editor__add, .photo-tile--add, .select-time, .cta-small, .method-row, .scheduler__cta, .flow-bar__exit):active { transform: none; }
+  .text-link, .top-nav__link, .more-btn, .info-btn, .tailor-row, .request-card, .appt-row, .thread-row, .thread-context, .list-row, .where__card, .flow-bar__exit, .flow-bar .back, .verified { transition: color 150ms ease, background-color 150ms ease; }
+  .modal-host:not([data-open="true"]) .modal, .modal-host:not([data-open="true"]) .scheduler-popup { transform: none; }
+}

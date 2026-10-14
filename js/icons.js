@@ -72,3 +72,29 @@ export const ICON_HANGER = `<svg class="icon-hanger" aria-hidden="true" focusabl
 
 /* K-02 (D-177): the pin on a Pinned photo — a map-pin-free sewing pin: a round head and a slanted shaft, 16 viewBox, currentColor */
 export const ICON_PIN = `<svg class="icon-pin" aria-hidden="true" focusable="false" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.6" cy="5.4" r="2.6" stroke="currentColor" stroke-width="1.5"/><path d="M8.8 7.2L2.6 13.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+
+/* ============================================================
+   M7 (K-03, D-187): top-nav icons (24 viewBox, 1.5 stroke, currentColor) and the 16 px line glyphs of the same family
+   ============================================================ */
+const NAV24 = (d) => `<svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
+export const NAV_ICONS = {
+  /* house: roof, walls, door */
+  home: NAV24('<path d="M3.75 10.5 12 3.75l8.25 6.75"/><path d="M5.75 9v11.25h12.5V9"/><path d="M10 20.25v-5.5h4v5.5"/>'),
+  /* calendar page with a tick */
+  bookings: NAV24('<rect x="3.75" y="5.25" width="16.5" height="15" rx="2.5"/><path d="M3.75 9.75h16.5"/><path d="M8.25 3v4.5M15.75 3v4.5"/><path d="m9.25 15 2 2 3.5-3.75"/>'),
+  /* speech bubble with a tail */
+  messages: NAV24('<path d="M6.75 16.5A2.25 2.25 0 0 1 4.5 14.25v-7.5A2.25 2.25 0 0 1 6.75 4.5h10.5a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25H10.5l-3.75 3.75z"/>'),
+  /* head and shoulders */
+  account: NAV24('<circle cx="12" cy="8.25" r="3.75"/><path d="M4.5 20.25c.75-3.75 3.75-6 7.5-6s6.75 2.25 7.5 6"/>'),
+  /* storefront: scalloped awning, walls, door */
+  shop: NAV24('<path d="M4.5 10.5v9.75h15V10.5"/><path d="M3 8.25 4.5 3.75h15L21 8.25a2.25 2.25 0 0 1-4.5 0 2.25 2.25 0 0 1-4.5 0 2.25 2.25 0 0 1-4.5 0 2.25 2.25 0 0 1-4.5 0z"/><path d="M10 20.25V15h4v5.25"/>'),
+  /* banknote */
+  earnings: NAV24('<rect x="3" y="6" width="18" height="12" rx="2.25"/><circle cx="12" cy="12" r="2.75"/><path d="M6.75 9.75h.01M17.25 14.25h.01"/>'),
+};
+/* 16 px line glyphs (same family, 1.5 stroke) */
+export const ICON_INFO = `<svg class="icon-16" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.25v4M8 4.9h.01"/></svg>`;
+export const ICON_VERIFIED = `<svg class="icon-16" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 1.75 9.6 2.95l2-.1.6 1.9 1.6 1.2-.7 1.95.7 1.95-1.6 1.2-.6 1.9-2-.1L8 14.25 6.4 13.05l-2 .1-.6-1.9-1.6-1.2.7-1.95-.7-1.95 1.6-1.2.6-1.9 2 .1z"/><path d="m5.75 8.1 1.5 1.5 3-3.1"/></svg>`;
+export const ICON_MORE = `<svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="6" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="18" cy="12" r="1.5"/></svg>`;
+export const ICON_CHAT = /* 16 px bubble for "Message Sarah" links */ `<svg class="icon-16" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4.5 11A1.5 1.5 0 0 1 3 9.5v-5A1.5 1.5 0 0 1 4.5 3h7A1.5 1.5 0 0 1 13 4.5v5a1.5 1.5 0 0 1-1.5 1.5H7l-2.5 2.5z"/></svg>`;
+export const ICON_DIRECTIONS = `<svg class="icon-16" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.5 7.4 13.5 2.5 8.6 13.5 7.4 8.6z"/></svg>`;
+export const ICON_CALENDAR = `<svg class="icon-16" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false"><rect x="2.5" y="3.5" width="11" height="10" rx="1.75"/><path d="M2.5 6.5h11M5.5 2v2.5M10.5 2v2.5"/></svg>`;

@@ -5,7 +5,7 @@
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { state, apptsFor, tailorById, statusScreen, now, priceChangeView } from '../state.js';
-import { chrome, headingRow, apptRow, emptyState, banner, toast, esc } from '../components.js';
+import { chrome, headingRow, apptRow, emptyState, banner, toast, esc, sectionHead, heroGarment } from '../components.js';
 import { fmtColumn } from '../money.js';
 import { fmtWhen, fmtCountdown, toDate } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
@@ -62,6 +62,7 @@ function rowFor(a, kind, fmtAmt) {
   const [status, pillLabel] = pillFor(a);
   const row = {
     id: a.id,
+    garment: heroGarment(a.job),   // M7-2-A-03
     name: t.name,
     initials: t.initials,
     when: kind === 'progress' ? (['ready', 'in-progress'].includes(a.status) ? sinceCap(a) : stepLine(a)) : fmtWhen(a.status === 'suggested' && a.suggested ? a.suggested.start : a.slot.start),
@@ -118,7 +119,7 @@ function view() {
   if (!groups.requests.length && !groups.progress.length && !groups.upcoming.length && !groups.past.length) {
     return `${head}
   <div class="${ID}__empty" data-empty="bookings">${emptyState({
-    title: 'No bookings yet', body: 'When you book a tailor, your requests and visits show up here.', ctaLabel: 'Start a booking', ctaAct: 'home',
+    title: 'No bookings yet', body: 'When you book a tailor, your requests and visits show up here.', ctaLabel: 'Start a booking', ctaAct: 'home', art: 'Formal Dress',
   })}</div>
 </main>`;
   }
@@ -132,8 +133,8 @@ function view() {
     ...groups.past.map((a) => (a.status === 'completed' ? a.money.total : a.payments.deposit.cents)),
   ]);
   const TITLES = { requests: 'Requests', progress: 'In progress', upcoming: 'Upcoming', past: 'Past' };
-  const blocks = Object.entries(groups).filter(([, list]) => list.length).map(([kind, list]) => `<section class="${ID}__section" data-section="${kind}" aria-labelledby="${ID}-${kind}">
-    <h2 class="t-h2" id="${ID}-${kind}">${TITLES[kind]}</h2>
+  const blocks = Object.entries(groups).filter(([, list]) => list.length).map(([kind, list]) => `<section class="sec ${ID}__section" data-section="${kind}" aria-labelledby="${ID}-${kind}">
+    ${sectionHead(TITLES[kind], { id: `${ID}-${kind}` })}
     <div class="${ID}__rows">${list.map((a) => rowFor(a, kind, fmtAmt)).join('')}</div>
   </section>`).join('\n  ');
   /* M6-X-11: notifications off while a request waits — the reply is the thing she would miss (the tailor's Home has the same banner, D-85) */

@@ -10,12 +10,18 @@ import { VISIT_LABEL, RETURN_LABEL } from '../data.js';
 import { cents, fmt } from '../money.js';
 import * as A from '../account.js';
 import {
-  chrome, headingRow, banner, customerPreview, tailorRow, miniProfile, listRow, cta, toggle, wireToggles, toast, ONBOARDING_STEPS, esc,
+  chrome, headingRow, banner, customerPreview, tailorRow, miniProfile, listRow, textLink, sectionHead, statusPill, toggle, wireToggles, toast, ONBOARDING_STEPS, esc,
 } from '../components.js';
 
 const ID = 't-shop';
 const SCREEN_OF = { ...Object.fromEntries(ONBOARDING_STEPS.map((s) => [s.id, s.screen])), rush: 't-rush' };
 
+/** "suit pant and suit jacket" — names in running text, no "·" chain (M7). */
+const nameList = (types) => {
+  const n = types.map((x) => x.toLowerCase());
+  return n.length < 3 ? n.join(' and ') : `${n.slice(0, -1).join(', ')} and ${n.at(-1)}`;
+};
+const lowerFirst = (x) => x.charAt(0).toLowerCase() + x.slice(1);
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 /** Her row as `tailorsFor(state.job)` gives it to a customer (D-65); null when she is not bookable or the demo job doesn't fit. */
@@ -40,7 +46,7 @@ const SUMMARY = {
   },
   rush: (t) => {
     const ladder = [...(t.rush ?? [])].sort((a, b) => a.days - b.days);
-    return ladder.length ? ladder.map((r) => `${plural(r.days, 'day', 'days')} +${fmt(cents(r.fee))}`).join(' · ') : 'Off — add a fee for quick turnarounds';
+    return ladder.length ? ladder.map((r) => `${plural(r.days, 'day', 'days')} +${fmt(cents(r.fee))}`).join(', ') : 'Off — add a fee for quick turnarounds';
   },
   where: (t) => {
     const parts = [];
@@ -79,19 +85,17 @@ function view(s) {
   /* D-161: "Taking requests" sits with the Bookable chip; off, the chip says customers can't send requests */
   const taking = t.takingRequests !== false;
   const status = ok
-    ? `<div class="${ID}__live">
-    <p class="${ID}__status">${taking
-    ? `<span class="${ID}__chip t-small w-600"><span aria-hidden="true">●</span> Bookable</span><span class="t-small c-600">Customers can find and book you.</span>`
-    : `<span class="${ID}__chip ${ID}__chip--paused t-small w-600"><span aria-hidden="true">●</span> Paused · customers can’t send requests</span>`}</p>
+    ? `<div class="card ${ID}__live">
+    <p class="${ID}__status">${taking ? statusPill('bookable') : statusPill('paused', 'Paused · customers can’t send requests')}</p>
     ${toggle({ id: 'taking-requests', label: 'Taking requests', checked: taking, helper: taking ? '' : 'Jobs you already booked are not affected.' })}
   </div>`
     : banner({ tone: 'warning', title: 'Customers can’t book you right now', text: `Finish ${finishLabel} to show up again.`, actionLabel: 'Fix it', actionAct: 'fix' });
   const row = previewRow();
   const caption = !ok
     ? `Customers can’t find you until ${finishLabel} is finished.`
-    : !taking ? 'Customers can’t send you requests while Taking requests is off.'
+    : !taking ? ''   /* M7-2-T-04: the Paused pill already says it */
     : row
-      ? `For the sample job: ${job.garments.map((g) => g.type).join(' · ')} · ${VISIT_LABEL.tailor[job.visitType]}`
+      ? `Sample job: ${nameList(job.garments.map((g) => g.type))}, ${lowerFirst(VISIT_LABEL.tailor[job.visitType])}`
       : 'Your estimate shows when a customer picks something you price.';
   const rows = ROWS.map((r) => listRow({
     title: r.label,
@@ -102,11 +106,13 @@ function view(s) {
   return `${chrome('shop', { persona: 'tailor' })}
 <main class="body ${ID}">
   ${headingRow('<h1 class="t-title">Your shop</h1>', { back: false })}
-  <div class="${ID}__state">${status}</div>
-  <div class="${ID}__preview">${customerPreview({ title: ok && taking ? 'What customers see' : 'What customers will see', html: row ?? miniProfile({ name: t.name, initials: t.initials, photo: t.photo, shopName: t.shopName, bio: t.bio ?? '' }), caption })}</div>
-  <h2 class="t-h2 ${ID}__h2">Your setup</h2>
-  <div class="${ID}__setup">${rows}</div>
-  <div class="${ID}__out">${cta('Sign out', { variant: 'secondary', attrs: 'data-act="sign-out"' })}</div>
+  <div class="sec ${ID}__state">${status}</div>
+  <div class="sec ${ID}__preview">${customerPreview({ title: ok && taking ? 'What customers see' : 'What customers will see', html: row ?? miniProfile({ name: t.name, initials: t.initials, photo: t.photo, shopName: t.shopName, bio: t.bio ?? '' }), caption })}</div>
+  <section class="sec" aria-labelledby="${ID}-setup-h">
+    ${sectionHead('Your setup', { id: `${ID}-setup-h` })}
+    <div class="card card--list ${ID}__setup">${rows}</div>
+  </section>
+  <div class="${ID}__out">${textLink('Sign out', { act: 'sign-out', tone: 'muted' })}</div>
 </main>`;
 }
 

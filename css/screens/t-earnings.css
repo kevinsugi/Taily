@@ -1,33 +1,33 @@
-/* t-earnings — T8 Earnings. Layout only; figure, rows, pills, banner and skeleton are shared. Tokens only. */
+/* t-earnings — T8 Earnings. Layout only; figure, rows, status words, banner and skeleton are shared. Tokens only. M7: flat hero, tappable rows in one card. */
 .t-earnings { gap: 0; padding-bottom: var(--space-40); }
 .t-earnings__alert { margin-top: var(--space-16); }
 .t-earnings__alert .banner__text { text-wrap: pretty; }
 .t-earnings__alert [data-money] { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.t-earnings__alert + .sec { margin-top: var(--rhythm-section); }
 
-/* the next Friday: one white card, the figure first, its jobs under it */
-.t-earnings__next, .t-earnings__group { margin-top: var(--space-24); padding: var(--space-20); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
-.t-earnings__next--none { display: flex; flex-direction: column; gap: var(--space-8); }
-.t-earnings__next--none p, .t-earnings__next--none h2 { margin: 0; }
-.t-earnings__after { margin: var(--space-8) 0 0; font-variant-numeric: tabular-nums; }
-.t-earnings__rows { margin-top: var(--space-12); box-shadow: inset 0 1px 0 var(--neutral-200); }
+/* the next Friday: a flat hero (caps label, display figure, caption), its jobs in one card under it */
+.t-earnings__hero { display: flex; flex-direction: column; gap: var(--space-4); }
+.t-earnings__hero p, .t-earnings__next p { margin: 0; }
+.t-earnings__label { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); min-height: 16px; }
+.t-earnings__label .info-btn { margin-right: calc(-1 * var(--space-12)); }
+.t-earnings__amt-hero { font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
+.t-earnings__next--none { gap: var(--space-8); }
+.t-earnings__after { font-variant-numeric: tabular-nums; }
 .t-earnings__rows .list-row { min-height: 56px; }
 .t-earnings__amt { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink); }
-.t-earnings__h2 { margin: var(--space-32) 0 0; }
-.t-earnings__h2 + .t-earnings__after { margin-top: var(--space-4); }
-.t-earnings__h2 + .t-earnings__group { margin-top: var(--space-12); }
-.t-earnings__h2 + .t-earnings__after + .t-earnings__rows { margin-top: var(--space-8); padding-inline: var(--space-20); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
 
-/* a Paid Friday: date + bank left, amount over the Paid pill right */
-.t-earnings__group + .t-earnings__group { margin-top: var(--space-12); }
+/* a Paid Friday: date + bank left, the day's total right, its jobs in a card */
+.t-earnings__group { display: flex; flex-direction: column; gap: var(--space-8); }
+.t-earnings__group + .t-earnings__group { margin-top: var(--rhythm-group); }
 .t-earnings__ghead { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); }
 .t-earnings__gtext { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
 .t-earnings__gtext p, .t-earnings__gright span { margin: 0; }
 .t-earnings__gright { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-4); font-variant-numeric: tabular-nums; }
-.t-earnings__foot { margin: var(--space-24) 0 0; text-wrap: pretty; }
 .t-earnings__loading { margin-top: var(--space-24); }
 .t-earnings__empty { margin-top: var(--space-24); }
 
-/* M6-T-18: sent back + next in one card — the headline carries the date and the whole amount, the Fix button closes the card */
-.t-earnings__merged { margin: var(--space-4) 0 0; font-variant-numeric: tabular-nums; text-wrap: balance; }
+/* M6-T-18: sent back + next in one section — the headline carries the date and the whole amount, the Fix button closes it */
+.t-earnings__merged { font-variant-numeric: tabular-nums; text-wrap: balance; }
 .t-earnings__tag { display: inline-block; margin-left: var(--space-8); padding: 2px var(--space-8); border-radius: var(--radius-full); background: var(--error-bg); color: var(--error-ink); font-weight: 600; vertical-align: 2px; }
-.t-earnings__fix { margin-top: var(--space-16); }
+.t-earnings__fix { margin-top: var(--rhythm-group); }
+.t-earnings__subline { display: block; }

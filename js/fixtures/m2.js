@@ -126,7 +126,7 @@ export const FLOWS_to_availability = [
 export const FLOWS_to_payouts = [
   { key: 'to-payouts', screen: 'to-payouts', group: 'M2 · Onboarding', title: 'Payouts', note: 'Step 6 of 6: the fee sentence in dollars, then the bank fields',
     setup: () => { onboardTo('payouts'); },
-    expect: { has: ['Step 6 of 6', 'How you get paid', `On ${fmtExact(cents(MONEY.FEE_EXAMPLE_SERVICES))} of services, Taily keeps ${fmtExact(tailyFeeFor(cents(MONEY.FEE_EXAMPLE_SERVICES)))} and you take home ${fmtExact(payoutFor({ services: cents(MONEY.FEE_EXAMPLE_SERVICES) }))}`, `Your ${fmt(cents(AMARA.home.fee))} home-visit fee is yours in full`, 'Finish and go live'] } },
+    expect: { has: ['Step 6 of 6', 'How you get paid', `On ${fmtExact(cents(MONEY.FEE_EXAMPLE_SERVICES))} of services, Taily keeps ${fmtExact(tailyFeeFor(cents(MONEY.FEE_EXAMPLE_SERVICES)))} and you take home ${fmtExact(payoutFor({ services: cents(MONEY.FEE_EXAMPLE_SERVICES) }))}`, 'Home-visit and rush fees are yours in full', 'Finish and go live'] } },
   { key: 'to-payouts--invalid', screen: 'to-payouts', group: 'M2 · Onboarding', title: 'Payouts — invalid', note: 'Empty name, 5-digit routing, 2-digit account, then Finish',
     setup: (S) => { onboardTo('payouts'); S.state.ui['to-payouts'] = { draft: { holder: '', routing: '02100', account: '12' } }; },
     click: ['[data-act="next"]'],
@@ -142,7 +142,7 @@ export const FLOWS_to_payouts = [
 export const FLOWS_to_done = [
   { key: 'to-done', screen: 'to-done', group: 'M2 · Onboarding', title: 'You’re bookable', note: 'Live: her row as a customer sees it, what happens next',
     setup: () => { onboardTo('done'); },
-    expect: { has: ['bookable', 'HOW A CUSTOMER IN WILLIAMSBURG SEES YOU', `Est. ${fmt(SCENARIOS.seed.total)}`, 'What happens next', 'Go to my shop'], sel: '.customer-preview .tailor-row' } },
+    expect: { has: ['bookable', 'HOW A CUSTOMER IN WILLIAMSBURG SEES YOU', `Est. ${fmt(SCENARIOS.seed.total)}`, 'WHAT HAPPENS NEXT', 'Go to my shop'], sel: '.customer-preview .tailor-row' } },
 ];
 export const FLOWS_t_shop = [
   { key: 't-shop', screen: 't-shop', group: 'M2 · Shop', title: 'Your shop', note: 'Bookable: preview of her row, seven setup rows with summaries',

@@ -1,45 +1,24 @@
-/* c-request — C6 Request sent. Layout only; hero, countdown, timeline and money rows are shared components. */
+/* c-request — C6/C7 every outcome of a request. M7: sections via .sec / .page-actions; the clock is a .t-figure. */
 .c-request { gap: 0; padding-bottom: var(--space-40); }
-.c-request__clock { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-24); }
-.c-request__clock .countdown { font-family: var(--font-serif); font-size: var(--size-32); line-height: 38px; font-weight: 600; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.c-request__clock { gap: var(--space-4); }
+.c-request__clock .countdown { font: inherit; color: var(--ink); letter-spacing: inherit; font-variant-numeric: tabular-nums lining-nums; }
 .c-request__clock .countdown--soon { color: var(--warning-ink); }
-.c-request__clock .countdown--expired { color: var(--error); }
-.c-request__block { margin-top: var(--space-24); }
-.c-request__h2 { margin: var(--space-24) 0 var(--space-8); }
-.c-request__note { margin: var(--space-12) 0 0; }
-/* R3-2-C-03: the countdown caption, the hold note and the try-again hint never leave one word alone */
+.c-request__clock .countdown--expired { color: var(--error-ink); }
+.c-request__note { margin: var(--space-4) 0 0; }
+/* the countdown caption, the hold note and the try-again hint never leave one word alone */
 .c-request__clock .t-small, .c-request__note, .c-request__try .t-small, .c-request__passed { text-wrap: pretty; }
-.c-request__actions { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-24); }
-.c-request__empty { margin-top: var(--space-24); }
+.c-request__empty { margin-top: var(--rhythm-section); }
 .c-request-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
 .c-request-sheet p { margin: 0; }
 
-/* M3 outcomes */
 .c-request__soon { color: var(--warning-ink); font-weight: 500; }
-.c-request__title { margin: var(--space-8) 0 0; }
-.c-request__time {
-  display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-24); padding: var(--space-20);
-  border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200);
-}
-.c-request__when { font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
-.c-request__same { margin: var(--space-16) 0 0; }
-.c-request__passed { margin: 0 0 var(--space-4); }
+/* the suggested time: the one focal fact, flat on the linen */
+.c-request__time { gap: var(--space-4); }
+.c-request__when { font-variant-numeric: lining-nums tabular-nums; }
+.c-request__same { margin: var(--space-12) 0 0; }
+.c-request__passed { margin: 0; }
 .c-request__try { display: flex; flex-direction: column; gap: var(--space-8); }
 .c-request__try .t-small { text-align: center; }
 .c-request__alert { margin-bottom: var(--space-4); }
-.c-request__link {
-  min-height: 44px; padding-inline: var(--space-8); font-size: var(--size-16); line-height: 21px; font-weight: 600;
-  color: var(--accent-ink); text-align: center;
-}
-.c-request__link:active { opacity: 0.6; }
-.c-request__link:disabled { color: var(--neutral-400); }
-
-/* M6-X-01: the suggested time's hold line, under the focal card */
-.c-request__holding { margin: var(--space-12) 0 0; text-wrap: pretty; }
+.c-request__holding { margin: var(--space-8) 0 0; text-wrap: pretty; }
 .c-request__alert--top { margin: var(--space-12) 0 0; }
-/* M6-P-06: Withdraw request is the same 44 px error text button as c-booking's Cancel booking, centred under Message */
-.c-request__withdraw {
-  align-self: center; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 var(--space-16);
-  background: none; border: 0; font: inherit; font-weight: 600; color: var(--error-ink); cursor: pointer; border-radius: var(--radius-md);
-}
-.c-request__withdraw:focus-visible { outline: 2px solid var(--error); outline-offset: 2px; }

@@ -17,7 +17,7 @@ import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, statusHero, countdown, visitBlock, workList, tailorBreakdown, actionBar, cta, emptyState,
-  chipGroup, sheetOverlay, toast, esc, wirePhotoViewer,
+  chipGroup, sheetOverlay, toast, esc, wirePhotoViewer, sectionHead, infoButton,
 } from '../components.js';
 
 const ID = 't-request';
@@ -27,7 +27,7 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 /* ---------- blocks ---------- */
 function takeHome(v, { muted = false, note = '', cents = v.payout } = {}) {
   return `<section class="${ID}__take${muted ? ` ${ID}__take--muted` : ''}" aria-label="What you take home">
-  <p class="t-caps c-600">${muted ? 'You would have taken home' : 'You take home'}</p>
+  <div class="${ID}__take-head"><p class="t-caps c-600">${muted ? 'You would have taken home' : 'You take home'}</p>${muted ? '' : infoButton('fee', { label: 'The Taily fee' })}</div>
   <p class="${ID}__amount t-display w-600" data-money>${fmtExact(cents)}</p>
   ${muted ? '' : `<p class="t-body c-700" data-money>after the ${fmtExact(v.tailyFee)} Taily fee</p>`}
   ${note ? `<p class="t-small c-600">${note}</p>` : ''}
@@ -35,26 +35,28 @@ function takeHome(v, { muted = false, note = '', cents = v.payout } = {}) {
 }
 
 /** "Your take-home" (R3-1-T-04, D-172): the breakdown sits after the work, as on t-job, so the visit is above the fold. */
-const payoutSection = (v, money = v.money) => `<h2 class="t-h2 ${ID}__h2">Your take-home</h2>
-${tailorBreakdown(money)}`;
+const payoutSection = (v, money = v.money) => `<section class="sec" aria-labelledby="${ID}-payout">
+  ${sectionHead('Your take-home', { id: `${ID}-payout` })}
+  ${tailorBreakdown(money)}
+</section>`;
 
 function visitSection(a, v, { title, asked = '', addressNote = '', start = a.slot.start, end = v.whenEnd } = {}) {
-  const rows = [];
+  const rows = [`<span class="t-figure">${esc(title)}</span>`];
   if (asked) rows.push(asked);
   const days = dayDiff(start, a.job.needBy);
   rows.push(`${esc(v.visitLabel)} · ${v.minutes} min, until ${esc(end)}`);
   rows.push(`<span class="${ID}__place">${esc(v.place)}</span>${addressNote ? `<span class="${ID}__cap t-small c-600">${esc(addressNote)}</span>` : ''}`);
   rows.push(`Needed by <span class="nb">${esc(v.needBy)}</span> · ${plural(days, 'day', 'days')} after the visit`);
-  return `<h2 class="t-caps c-600 ${ID}__label">The visit</h2>
-<div class="${ID}__visit">${visitBlock(rows, { title: esc(title), flush: true })}</div>`;
+  return `<section class="sec ${ID}__visit">${visitBlock(rows, { title: 'The visit', flush: true })}</section>`;
 }
 
 /** `final` = the request is over (declined, expired): no estimate row and nothing left to adjust (M6-P-07). `breakdown` = the payout
     breakdown follows on this screen, so the estimate row would only repeat its Services line. */
 function workSection(v, { final = false, breakdown = false } = {}) {
-  return `<h2 class="t-h2 ${ID}__h2">The work</h2>
-${workList(v, { final, estimateLabel: breakdown ? null : undefined })}
-${final ? '' : `<p class="t-small c-600 ${ID}__adjust">At the fitting you can add or remove items and services. ${esc(state.customer.first)} approves the final order before you start.</p>`}`;
+  return `<section class="sec" aria-labelledby="${ID}-work">
+  ${sectionHead('The work', { id: `${ID}-work`, aside: final ? '' : infoButton('fitting', { label: 'At the fitting', first: state.customer.first }) })}
+  ${workList(v, { final, estimateLabel: breakdown ? null : undefined })}
+</section>`;
 }
 
 /** The expiry strip of an open request: the clock on the left, the deadline on the right (warning when soon). */
@@ -83,7 +85,7 @@ function view(s) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}">
   ${headingRow('<h1 class="t-title">Request</h1>')}
   <div class="${ID}__empty" data-empty="no-request">${emptyState({
-    title: 'No open requests', body: 'New requests show up on Home.', ctaLabel: 'Go to Home', ctaAct: 'home',
+    title: 'No open requests', body: 'New requests show up on Home.', art: 'Suit Pant', ctaLabel: 'Go to Home', ctaAct: 'home',
   })}</div>
 </main>`;
   }
@@ -101,8 +103,7 @@ function view(s) {
     variant: 'requested', pill: 'waiting', pillLabel: `Waiting on ${esc(sarah)}`, title: esc(v.customer.name),
     body: `You suggested ${esc(v.suggested)}. ${esc(sarah)} can accept it or choose another tailor.`,
   }))}
-  <div class="${ID}__gap">${takeHome(v, { note, cents: price.payout })}</div>
-  ${lapseStrip(a)}
+  <div class="${ID}__hero">${takeHome(v, { note, cents: price.payout })}${lapseStrip(a)}</div>
   ${visitSection(a, v, {
     title: v.suggested, asked: `${esc(sarah)} asked for ${esc(fmtWhen(a.slot.start))}`, addressNote: `Full address once ${sarah} accepts`,
     start: a.suggested.start, end: fmtTime(isoMinute(addMinutes(a.suggested.start, v.minutes))),   // R3-1-T-01: the end follows the NEW start
@@ -125,7 +126,7 @@ ${actionBar({ ctaLabel: `Message ${esc(sarah)}`, ctaAct: 'message', secondaryLab
         : { pill: 'expired', pillLabel: 'Expired', title: 'This request expired', body: `You didn’t answer within ${hours} hours, so ${esc(sarah)}’s hold was released.${again}` };
     return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--expired"${ended ? ` data-suggestion-ended="${ended}"` : ''}>
   ${detailHead(statusHero({ variant: 'declined', ...hero }))}
-  <div class="${ID}__gap">${takeHome(v, { muted: true })}</div>
+  <div class="${ID}__hero">${takeHome(v, { muted: true })}</div>
   ${visitSection(a, v, { title: v.when })}
   ${workSection(v, { final })}
 </main>
@@ -139,7 +140,7 @@ ${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
     body: `${esc(sarah)} has been told and her hold released.`,
     extra: a.declineReason ? `<p class="t-small c-600">Your reason: ${esc(a.declineReason)}</p>` : '',
   }))}
-  <div class="${ID}__gap">${takeHome(v, { muted: true })}</div>
+  <div class="${ID}__hero">${takeHome(v, { muted: true })}</div>
   ${visitSection(a, v, { title: v.when })}
   ${workSection(v, { final })}
 </main>
@@ -153,8 +154,7 @@ ${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
     variant: 'requested', pill: 'new-request', pillLabel: 'New request', title: esc(v.customer.name),
     body: v.retries > 0 ? `${esc(sarah)} sent this again after it expired.` : '',
   }))}
-  <div class="${ID}__gap">${takeHome(v)}</div>
-  ${strip(a)}
+  <div class="${ID}__hero">${takeHome(v)}${strip(a)}</div>
   ${visitSection(a, v, { title: v.when, addressNote: a.job.visitType === 'home' ? 'Full address after you accept' : '' })}
   ${workSection(v, { final, breakdown: true })}
   ${payoutSection(v)}
@@ -170,7 +170,7 @@ const REASON_OPTIONS = DECLINE_REASONS.map((r) => ({ value: r, label: r }));
 
 function sheetBody(a, busy) {
   const sarah = state.customer.first;
-  return `<p class="t-body c-700">${esc(sarah)} is told right away and her hold is released. A reason helps her — it’s shown to her.</p>
+  return `<p class="t-body c-700">${esc(sarah)} is told right away and her hold is released. She sees your reason.</p>
   ${chipGroup({ name: 'reason', label: 'Reason (optional)', options: REASON_OPTIONS.map((o) => ({ ...o, disabled: busy })), value: ui().reason ?? null })}
   <div class="${ID}-sheet__actions">
     ${cta('Decline request', { variant: 'danger', busy, busyLabel: 'Declining…', attrs: 'data-act="decline-ok"' })}

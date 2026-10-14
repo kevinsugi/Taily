@@ -9,7 +9,7 @@ import { state, T, SECTIONS } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, toggle, field, zipList, customerPreview, miniProfile,
-  actionBar, wireToggles, toast, modalOverlay, leaveModal, esc,
+  actionBar, wireToggles, toast, modalOverlay, leaveModal, esc, infoButton,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -35,7 +35,7 @@ const MSG = {
   'fee-missing': 'Enter your home-visit fee, or 0 for none.',
   'fee-invalid': `Enter a whole-dollar fee up to ${fmt(cents(TAILOR_LIMITS.FEE_MAX))}.`,
 };
-const FEE_HELP = 'Added to every home visit and paid to you in full. If a customer cancels within 24 hours, you keep their deposit instead.';
+const FEE_HELP = 'Paid to you in full.';
 const hoodLine = (zip) => (ZIP_INFO[zip]?.hood ? `${ZIP_INFO[zip].hood}, ${SHOP_CITY.city}, ${SHOP_CITY.state}` : `${SHOP_CITY.city}, ${SHOP_CITY.state}`);
 const HELP = { shopZip: (d) => hoodLine(String(d.shop.zip ?? '').trim()), fee: () => FEE_HELP };
 
@@ -88,7 +88,7 @@ function feeCaption(raw) {
 function feePreview(raw) {
   const text = feeCaption(raw);
   return `<div class="to-where__fee-preview" data-fee-preview${text ? '' : ' hidden'}>${customerPreview({
-    html: `<div class="to-where__card info-card">${miniProfile({ name: myTailor().name, initials: myTailor().initials, photo: myTailor().photo, shopName: myTailor().shopName, bio: null })}<div class="to-where__card-foot t-small c-600" data-money data-fee-caption>${esc(text)}</div></div>`,
+    html: `<div class="card to-where__pv">${miniProfile({ name: myTailor().name, initials: myTailor().initials, photo: myTailor().photo, shopName: myTailor().shopName, bio: null })}<div class="to-where__card-foot t-small c-600" data-money data-fee-caption>${esc(text)}</div></div>`,
   })}</div>`;
 }
 
@@ -98,7 +98,7 @@ const pickupGoesOff = (d) => !d.shop.enabled && !!myTailor().returns?.pickup;
 
 function shopCard(d) {
   const s = d.shop;
-  return `<section class="to-where__card" aria-label="Shop">
+  return `<section class="card to-where__card" aria-label="Shop">
   ${toggle({ id: 'shop-on', label: 'Customers come to my shop', helper: `${VISIT_MINUTES.shop}-minute visits at your shop.`, checked: !!s.enabled })}
   ${s.enabled ? `<div class="to-where__fields">
     ${field({ id: 'street', label: 'Shop street address', autocomplete: 'address-line1', value: s.street ?? '', error: errOf('street') })}
@@ -110,13 +110,11 @@ ${pickupGoesOff(d) ? `<p class="to-where__pickup-note t-small c-600" data-pickup
 
 function homeCard(d) {
   const h = d.home;
-  return `<section class="to-where__card" aria-label="Home visits">
+  return `<section class="card to-where__card" aria-label="Home visits">
   ${toggle({ id: 'home-on', label: 'I visit customers at home', helper: `${VISIT_MINUTES.home}-minute visits at the customer’s place.`, checked: !!h.enabled })}
   ${h.enabled ? `<div class="to-where__fields">
     ${zipList({ zips: h.zips, input: ui().zipInput ?? '', inputError: ui().zipError ?? '', error: errOf('zips'), suggestions: Object.keys(ZIP_INFO) })}
-    <p class="to-where__note t-small c-600">Customers in these ZIP codes can book a home visit.</p>
-    ${field({ id: 'fee', label: 'Home-visit fee', prefix: '$', inputmode: 'numeric', maxlength: 4, autocomplete: 'off', value: h.fee == null ? '' : String(h.fee), helper: FEE_HELP, error: errOf('fee') })}
-    ${feePreview(h.fee)}
+    <div class="to-where__fee-field">${field({ id: 'fee', label: 'Home-visit fee', prefix: '$', inputmode: 'numeric', maxlength: 4, autocomplete: 'off', value: h.fee == null ? '' : String(h.fee), helper: FEE_HELP, error: errOf('fee') })}<span class="to-where__fee-info">${infoButton('fee', { label: 'The Taily fee' })}</span></div>
   </div>` : ''}
 </section>`;
 }
@@ -153,11 +151,12 @@ function view() {
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
   ${mode ? headingRow(title, { backRow: true }) : `<div class="${ID}__title">${title}</div>`}
-  <p class="to-where__lead t-body c-600">Turn on one or both. Customers only see the visit types you offer.</p>
+  <p class="to-where__lead t-body c-600">Turn on one or both.</p>
   <div class="to-where__cards">
     ${shopCard(d)}
     ${homeCard(d)}
   </div>
+  ${d.home.enabled ? feePreview(d.home.fee) : ''}
   ${errOf('where') ? `<p class="field__msg field__msg--error to-where__error" id="where-msg" role="alert">${esc(errOf('where'))}</p>` : ''}
 </main>${barHtml()}`;
 }

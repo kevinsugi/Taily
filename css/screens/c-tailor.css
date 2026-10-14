@@ -1,42 +1,42 @@
-/* c-tailor — C4 Tailor profile. Tokens only; strokes are inset shadows. */
-.c-tailor__hero { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-12); margin-top: var(--space-8); }
-.c-tailor__who { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); width: 100%; }
-.c-tailor__name-row { display: flex; align-items: center; gap: var(--space-8); }
-.c-tailor__name-row .t-title { margin: 0; }
-.c-tailor__check { font-size: var(--size-16); line-height: 21px; font-weight: 700; color: var(--success); }
-.c-tailor__sub, .c-tailor__new, .c-tailor__next { margin: 0; }
-.c-tailor__ask { margin-top: var(--space-16); }
-.c-tailor__ask .cta { width: 100%; }
+/* c-tailor — C4 Tailor profile. Tokens only; strokes are inset shadows. M7: flat groups, caps headings, one stitch above the total. */
+/* M7-1-C-08 / M7-2-C-03: identity group (avatar + name + shop, place · years, rating + Verified, 4–8 apart), 24, action group (Next opening + Ask), the estimate below */
+.c-tailor__hero { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); margin-top: var(--space-8); }
+.c-tailor__id { display: flex; align-items: center; gap: var(--space-12); width: 100%; min-width: 0; }
+.c-tailor__who { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; flex: 1 1 0; min-width: 0; }
+.c-tailor__meta { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); width: 100%; }
+/* M7-2-C-03: the action group (Next opening + Ask) sits 24 under the identity group */
+.c-tailor__act { display: flex; flex-direction: column; align-items: flex-start; gap: 0; margin-top: var(--space-24); }
+.c-tailor__name { margin: 0; }
+.c-tailor__shop, .c-tailor__sub, .c-tailor__new, .c-tailor__next { margin: 0; }
+.c-tailor__proof { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-16); }
+.c-tailor__proof .rating-line, .c-tailor__proof .verified { align-self: center; }
+.c-tailor__ask { display: flex; margin-left: calc(-1 * var(--space-8)); }   /* the link's own 8 px padding makes the visible gap ~12 */
 .c-tailor__banner { margin-top: var(--space-16); }
+.c-tailor__hero + .c-tailor__banner { margin-top: var(--space-24); }
 
-.c-tailor__sec { display: flex; flex-direction: column; gap: var(--space-12); margin-top: var(--space-32); }
-.c-tailor__sec > .t-h2 { margin: 0; }
+/* groups: spacing comes from .sec (components-v5); the first group sits 40 under the head block */
+.c-tailor__hero ~ .sec:first-of-type, .c-tailor__act + .sec, .c-tailor__banner + .sec, .c-tailor__hero + .sec { margin-top: var(--rhythm-section); }
 .c-tailor__sec p { margin: 0; }
-.c-tailor__photos { display: flex; gap: var(--space-8); overflow-x: auto; }
-.c-tailor__work { display: block; width: 72px; height: 72px; flex-shrink: 0; overflow-x: auto; }
-.c-tailor__photos .photo-tile { display: block; width: 72px; height: 72px; border-radius: var(--radius-md); }
+.c-tailor__photos { display: flex; gap: var(--space-8); overflow-x: auto; padding-top: var(--space-4); }
+.c-tailor__work { display: block; width: 72px; height: 72px; flex-shrink: 0; }
 
-.c-tailor__sec .info-card { gap: 0; padding-block: var(--space-8); }
-.c-tailor__total { box-shadow: inset 0 1px 0 var(--neutral-200); }
-.c-tailor__total .price-row { box-shadow: none; }
+/* the estimate: flat rows, a stitch, the total */
+.c-tailor__estimate { display: flex; flex-direction: column; }
+.c-tailor__estimate .price-row + .price-row, .c-tailor__estimate .c-tailor__total .price-row { box-shadow: none; }
 .c-tailor__total .price-row__label { font-weight: 600; }
 .c-tailor__total .price-row__value { font-weight: 700; }
-.c-tailor__caption { color: var(--neutral-600); }
 
 .c-tailor__prices { display: flex; flex-direction: column; }
-.c-tailor__link {
-  display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; padding-inline: 0;
-  color: var(--accent-ink); text-align: left;
-}
-.c-tailor__rush { display: flex; flex-direction: column; gap: var(--space-4); }
+/* "See all …" is a text link: flush with the gutter, not floating in its own 8 px padding */
+.c-tailor__more { display: flex; margin-left: calc(-1 * var(--space-8)); }
+.c-tailor__rush { display: flex; flex-direction: column; gap: var(--rhythm-tight); margin-top: var(--rhythm-group); }
 
 .c-tailor__place { display: flex; flex-direction: column; gap: var(--space-4); }
 .c-tailor__place .meta-row { color: var(--ink); align-items: flex-start; }
 .c-tailor__place .meta-row__glyph { height: 21px; line-height: 21px; color: var(--neutral-600); }   /* R1-2-C-04: the 16px line icon centres on the first text line */
 .c-tailor__place > .t-small { padding-left: calc(var(--space-8) + 20px); }
 .c-tailor__reviews { display: flex; flex-direction: column; }
-.c-tailor__tier { white-space: nowrap; }
-.c-tailor__rush p:last-child { text-wrap: pretty; }
+.c-tailor__sec .sec__body { gap: var(--rhythm-tight); }
 /* the tailor viewing her own profile (from to-done): a read-only banner where the booking stepper would be */
 .c-tailor__preview { margin: var(--space-8) 0 var(--space-16); }
 /* X-13: the 4th work tile is a "+N" button when there are more photos */
@@ -44,5 +44,5 @@
   display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-md);
   background: var(--neutral-100); color: var(--ink); box-shadow: inset 0 0 0 1px var(--neutral-200);
 }
-.c-tailor__work--more:active { opacity: 0.6; }
+.c-tailor__work--more:active { background: var(--neutral-200); }
 .c-tailor__work--more:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

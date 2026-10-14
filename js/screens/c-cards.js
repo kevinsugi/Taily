@@ -7,7 +7,7 @@
 import { register, render as go } from '../app.js';
 import { state, tailorById } from '../state.js';
 import {
-  chrome, headingRow, listRow, actionBar, emptyState, banner, cardFields, cta, sheetOverlay, toast, esc,
+  chrome, headingRow, listRow, actionBar, emptyState, banner, cardFields, cta, textLink, sectionHead, sheetOverlay, toast, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import { fmtWhen } from '../dates.js';
@@ -29,16 +29,16 @@ function view() {
     right: c.default ? `<span class="${ID}__tag t-micro w-700">Default</span>` : '',
   })).join('');
   const cardsBlock = list.length
-    ? `<div class="${ID}__list">${rows}</div>`
+    ? `<div class="${ID}__list card card--list">${rows}</div>`
     : `<div class="${ID}__empty" data-empty="cards">${emptyState({
-      title: 'No cards saved', body: 'Add a card to pay deposits and balances. Apple Pay works too.', ctaLabel: 'Add a card', ctaAct: 'add',
+      title: 'No cards saved', body: 'Add a card to pay deposits and balances. Apple Pay works too.', ctaLabel: 'Add a card', ctaAct: 'add', art: 'Accessories',
     })}</div>`;
-  const apple = state.customer.applePay === false ? '' : `<h2 class="t-body w-600 ${ID}__section">Other ways to pay</h2>
-  <div class="${ID}__list">${listRow({ title: 'Apple Pay', sub: 'Set up in Wallet on this phone', lead: '<span class="pay-badge">Pay</span>', chevron: false })}</div>`;
+  const apple = state.customer.applePay === false ? '' : `<section class="sec">${sectionHead('Other ways to pay')}
+  <div class="${ID}__list card card--list">${listRow({ title: 'Apple Pay', sub: 'Set up in Wallet on this phone', lead: '<span class="pay-badge">Pay</span>', chevron: false })}</div></section>`;
   return `${chrome('account')}<main class="body${list.length ? ' body--with-bar' : ''} ${ID}" data-s="${ID}">
   ${headingRow('<h1 class="t-title">Payment methods</h1>', { backRow: true })}
-  <h2 class="t-body w-600 ${ID}__section ${ID}__section--first">Cards</h2>
-  ${cardsBlock}
+  <section class="sec sec--first">${sectionHead('Cards')}
+  ${cardsBlock}</section>
   ${apple}
 </main>${list.length ? actionBar({ ctaLabel: 'Add a card', ctaAct: 'add' }) : ''}`;
 }
@@ -60,11 +60,11 @@ function cardHtml(c, { busy = false, error = '' } = {}) {
   <p class="t-body c-600 ${ID}-sheet__sub">Expires ${esc(c.exp)}</p>
   ${u.appt ? `<p class="t-body ${ID}-sheet__use">Paying for your booking with ${esc(u.who)} on <span class="${ID}-sheet__when">${esc(u.when)}</span>.</p>` : ''}
   ${stuck ? `${banner({ tone: 'info', text: 'You need a card on file while a booking is open. Add another card first, then you can remove this one.' })}
-  ${cta('Add a card', { variant: 'secondary', attrs: 'data-act="add-from-sheet"' })}` : ''}
+  <div class="${ID}-sheet__links">${textLink('Add a card', { act: 'add-from-sheet' })}</div>` : ''}
   ${error ? banner({ tone: 'error', title: error, text: 'Nothing changed.' }) : ''}
-  <div class="${ID}-sheet__actions">
-    ${c.default ? '' : cta('Make default', { variant: 'secondary', busy, busyLabel: 'Updating…', attrs: 'data-act="make-default"' })}
-    ${stuck ? '' : `<button type="button" class="${ID}-sheet__remove t-body w-600 c-error" data-act="remove"${busy ? ' disabled aria-disabled="true"' : ''}>Remove card</button>`}
+  <div class="${ID}-sheet__links">
+    ${c.default ? '' : textLink(busy ? 'Updating…' : 'Make default', { act: 'make-default', disabled: busy })}
+    ${stuck ? '' : textLink('Remove card', { act: 'remove', tone: 'danger', disabled: busy })}
   </div>
 </div>`;
 }

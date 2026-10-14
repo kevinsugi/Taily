@@ -11,7 +11,7 @@ import { RUSH_TIERS, TAILOR_LIMITS } from '../data.js';
 import { cents, fmt } from '../money.js';
 import { withLatency } from '../sim.js';
 import {
-  chrome, headingRow, toggle, field, customerPreview, rushLadder, actionBar, modalOverlay, leaveModal, toast, wireToggles,
+  chrome, headingRow, toggle, field, customerPreview, rushLadder, sectionHead, actionBar, modalOverlay, leaveModal, toast, wireToggles,
 } from '../components.js';
 
 const ID = 't-rush';
@@ -43,7 +43,7 @@ function draftLadder(d) {
 const draftOk = (d) => validateRush(d).ok;
 const shownLadder = (d) => (draftOk(d) ? draftLadder(d) : (myTailor().rush ?? []));
 const invalidNote = (d) => (draftOk(d) ? '' : 'Showing your saved rush fees. Fix the errors to preview your changes.');
-const previewHtml = (d) => `<div class="${ID}__ladder"><p class="t-small w-600 c-700">Rush fees</p><p class="t-small c-600" data-ladder>${rushLadder(shownLadder(d))}</p><p class="t-small c-600 ${ID}__ladder-note" data-ladder-note${draftOk(d) ? ' hidden' : ''}>${invalidNote(d)}</p></div>`;
+const previewHtml = (d) => `<div class="${ID}__ladder">${sectionHead('Rush fees')}<p class="t-small c-600" data-ladder>${rushLadder(shownLadder(d))}</p><p class="t-small c-600 ${ID}__ladder-note" data-ladder-note${draftOk(d) ? ' hidden' : ''}>${invalidNote(d)}</p></div>`;
 
 function errorCopy(code, tier, d) {
   if (code === 'fee-missing') return 'Enter an amount, or 0 for no fee.';
@@ -58,7 +58,7 @@ function view(s) {
   const errs = u.errors ?? {};
   const busy = !!u.busy;
   const dirty = isDirty();
-  const tiers = d.on ? `<div class="${ID}__card">
+  const tiers = d.on ? `<div class="card ${ID}__card">
     ${RUSH_TIERS.map((n) => field({ id: `rush-${n}`, label: TIER_LABEL[n], prefix: '$', inputmode: 'numeric', autocomplete: 'off', value: d.fees[n], error: errorCopy(errs[`d${n}`], n, d), disabled: busy })).join('')}
     <div class="${ID}__free"><span class="t-body w-600">4 days or more</span><span class="t-body c-600">No rush fee</span></div>
   </div>` : '';
@@ -68,7 +68,7 @@ function view(s) {
   <p class="t-body c-600 ${ID}__lead">Charge extra when a customer needs it back soon after the visit. 4 days or more is always free.</p>
   <div class="${ID}__toggle">${toggle({ id: 'rush-on', label: 'Charge rush fees', checked: d.on, disabled: busy })}</div>
   ${tiers}
-  <p class="t-small c-600 ${ID}__note">Rush fees are yours in full — Taily takes no fee on them.</p>
+  <p class="t-small c-600 ${ID}__note">Rush fees are yours in full.</p>
   <div class="${ID}__preview">${customerPreview({ html: previewHtml(d) })}</div>
 </main>
 ${actionBar({ ctaLabel: 'Save rush fees', ctaAct: 'save', disabled: !dirty && !busy, note: dirty || busy ? '' : 'No changes yet.', busy, busyLabel: 'Saving…' })}`;

@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { state } from './state.js';
-import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows } from './components.js';
+import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wireVerified } from './components.js';
 import { SCREENS } from './inventory.js';
 import { ALL_FLOWS, setBootLatency, primaryFlow } from './flows.js';
 import { initFlowMenu, runFlow } from './flow-menu.js';
@@ -157,13 +157,15 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   const sys = systemBanner(state);
   if (sys) {
     /* M6-A-18: right after the top nav in the reading order (a screen without one gets it first) */
-    const nav = el.querySelector('.top-nav');
+    const nav = el.querySelector('.top-nav, .flow-bar');   // M7: the booking flow bar sits where the nav does
     if (nav) nav.insertAdjacentHTML('afterend', sys); else el.insertAdjacentHTML('afterbegin', sys);
   }
   el.dataset.screen = id;
   entry.wire?.(el);
   /* M6-A-11: radio groups (chips, segmented, option rows) are one tab stop with arrow keys */
   if (el.isConnected && el.dataset.screen === id) wireRadioRows(el);
+  /* M7: the ⓘ info sheets (infoButton) and the Verified sheet (verifiedMark) open from any screen; screens never wire them */
+  if (el.isConnected && el.dataset.screen === id) { wireInfo(el); wireVerified(el); }
   /* a wire() that forwarded elsewhere (redirectIfMoved) already rendered the destination with its own system layer */
   if (el.isConnected && el.dataset.screen === id) wireSystem(el, id, { go: render });
   wireBackButtons(el);
@@ -280,6 +282,23 @@ function wireDragScroll() {
 
 /* Top-nav links (components.js topNav): jump to the persona's destination when it is built. */
 function wireTopNav() {
+  /* M7 (D-186): the booking flow bar (components.js flowBar) replaces the top nav on steps 2-5; its ✕ "Leave booking" goes
+     Home (c-job). The draft job lives in state.job, so nothing is lost and nothing is asked — nothing was sent. */
+  document.addEventListener('click', (e) => {
+    const exit = e.target.closest('[data-act="exit-booking"]');
+    if (!exit || exit.disabled) return;
+    e.preventDefault();
+    render(screens.has('c-job') ? 'c-job' : personaHome('customer'));
+  });
+  /* M7 (ratingLine): an in-page anchor scrolls to its section; no hash is written, so the router's history is untouched */
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-anchor]');
+    if (!a) return;
+    e.preventDefault();
+    const target = document.getElementById(a.dataset.anchor);
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('is-test');
+    target?.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
+  });
   document.addEventListener('click', (e) => {
     const link = e.target.closest('[data-nav]');
     if (!link) return;

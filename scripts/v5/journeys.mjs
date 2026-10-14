@@ -209,7 +209,7 @@ await journey('J6', 'edit the job -> Sarah approves -> tailoring, both sides rea
   await click('[data-garment="g1"] [data-act="view-doc"][data-kind="before"]');
   await at('J6 the viewer', 't-adjust', { has: ['Suit Pant · Before', 'Remove photo'] });
   await click('[data-act="doc-remove"]');
-  await at('J6 removing the only Before photo turns Send off again', 't-adjust', { has: ['Add at least one before photo', 'Add before and pinned photos for 1 item'] });
+  await at('J6 removing the only Before photo turns Send off again', 't-adjust', { has: ['Required', 'Add before and pinned photos for 1 item'] });
   await click('[data-garment="g1"] [data-act="add-doc"][data-kind="before"]');
   await click('[data-garment="g2"] [data-act="add-comment"]');
   await page.fill('#comment-g2', FITTING_COMMENTS.g2);
@@ -218,7 +218,7 @@ await journey('J6', 'edit the job -> Sarah approves -> tailoring, both sides rea
   await click('[data-act="remove-line"][data-key="g2:jacket-sides"]');
   await press('[data-act="send"]');
   await at('J6 tailor: waiting on Sarah with what she sent', 't-job', {
-    has: ['Waiting on Sarah', 'The order you sent', 'New item', 'Pants / Jeans', '1 item added', fmtExact(S.priceItem.total), fmtExact(S.priceItem.payout),
+    has: ['Waiting on Sarah', 'THE ORDER YOU SENT', 'New item', 'Pants / Jeans', '1 item added', fmtExact(S.priceItem.total), fmtExact(S.priceItem.payout),
       'Before', 'Pinned', 'Your comment', FITTING_COMMENTS.g2],
   });
   await flip();
@@ -227,13 +227,13 @@ await journey('J6', 'edit the job -> Sarah approves -> tailoring, both sides rea
   await click('.appt-row');
   await at('J6 customer: review the final order', 'c-price-change', {
     has: ['Review your final order', 'New item', 'Pants / Jeans', 'Removed', 'Take in jacket sides', '1 item added', fmtExact(S.priceItem.total),
-      fmtExact(S.priceItem.balance), fmtExact(S.seed.deposit), 'Stays the same', 'Before', 'Pinned', 'Amara’s comment', FITTING_COMMENTS.g2, 'photographed each item'],
+      fmtExact(S.priceItem.balance), fmtExact(S.seed.deposit), 'Stays the same', 'Before', 'Pinned', 'Amara’s comment', FITTING_COMMENTS.g2],
   });
   await click('[data-docs="n1"] [data-act="docs-tab"][data-kind="pinned"]');
   await at('J6 customer: the new item’s Pinned tab works', 'c-price-change', { has: ['Pants / Jeans'] });
   await click('[data-act="approve"]');
   await at('J6 customer: in progress', 'c-booking', {
-    has: ['In progress', 'approved the order', fmtExact(S.priceItem.balance), 'Your order', 'Pants / Jeans', 'New item', 'Hem pants', 'Amara’s comment', FITTING_COMMENTS.g2],
+    has: ['In progress', 'approved the order', fmtExact(S.priceItem.balance), 'YOUR ORDER', 'Pants / Jeans', 'New item', 'Hem pants', 'Amara’s comment', FITTING_COMMENTS.g2],
   });
   await flip();
   await click('.appt-row');

@@ -9,7 +9,7 @@ import { register, render as go } from '../app.js';
 import { state, T, tailorById, returnOffer, returnAddress, priceChangeView } from '../state.js';
 import {
   chrome, headingRow, statusHero, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
-  sheetOverlay, cta, toast, esc, changeList, linkRow,
+  sheetOverlay, cta, toast, esc, changeList, textLink, sectionHead,
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
@@ -69,8 +69,8 @@ function read() {
 function subOf(k, r) {
   const { t, first, c, courierState } = r;
   /* nowrap segments (D-69(4)): a line breaks between them, never inside one, so "Free" or "it" can't be left alone */
-  if (k === 'pickup') return `${nb(t.shopName)} ${nb(`· ${t.shop?.street ?? ''} · Free`)}`;
-  if (k === 'dropoff') return `${esc(first)} brings it to ${nb(`${streetOf()} · Free`)}`;
+  if (k === 'pickup') return `${nb(`${t.shopName}, ${t.shop?.street ?? ''}`)}`;
+  if (k === 'dropoff') return `${esc(first)} brings it to ${nb(streetOf())}`;
   if (r.sel === 'courier' && courierState === 'ready') return `${money(c.cents)} · delivered today`;
   if (r.sel === 'courier' && courierState === 'loading') return 'Getting a price…';
   if (r.sel === 'courier' && courierState === 'failed') return 'Price unavailable';
@@ -90,8 +90,8 @@ function orderSection(a) {
   if (!a.lines?.length) return '';
   const added = new Set(a.job.garments.filter((g) => g.added).map((g) => g.id));
   const garments = priceChangeView(a, a.lines).garments.map((g) => (added.has(g.id) ? { ...g, newItem: true } : g));
-  return `<h2 class="t-h2 ${ID}__h2 ${ID}__h2--order">Your order</h2>
-  <div class="${ID}__order">${changeList({ garments })}</div>`;
+  return `<section class="sec">${sectionHead('Your order')}
+  <div class="${ID}__order">${changeList({ garments })}</div></section>`;
 }
 
 function view() {
@@ -127,8 +127,9 @@ function view() {
     ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Your card was declined', text: `${esc(pillCard)} didn’t go through, and nothing was charged.`, actionLabel: 'Use another card', actionAct: 'pay' })}</div>`
     : '';
   const sameCard = failed && r.method?.id === r.failedId;                 // the failed card is still the one selected
+  /* "Free" sits in the row's value slot (right-aligned, t-body w-600) */
   const rows = offered.map((k) => optionRow({
-    name: 'return', value: k, title: esc(RETURN_LABEL[k]), sub: subOf(k, r), checked: sel === k, lead: ICON[k], act: 'return',
+    name: 'return', value: k, title: `<span class="${ID}__opt">${esc(RETURN_LABEL[k])}${k === 'courier' ? '' : `<span class="${ID}__opt-val">Free</span>`}</span>`, sub: subOf(k, r), checked: sel === k, lead: ICON[k], act: 'return',
   })).join('');
   const single = offered.length === 1
     ? `<p class="t-small c-600 ${ID}__single">${esc(first)} offers ${esc(RETURN_LABEL[offered[0]].toLowerCase())} for this order.</p>` : '';
@@ -136,16 +137,16 @@ function view() {
     ? `<div class="${ID}__courier">${courierCard({
       state: courierState, ...(courierState === 'ready' ? c : { miles: c?.miles ?? ZIP_INFO[a.job.zip]?.miles ?? 0 }),   // the distance is known before the price
       from: t.shopName, to: streetOf(), note: 'Added to your balance.',
-    })}${courierState === 'failed' && offered.length === 1 ? linkRow(`Message ${first}`, { attrs: 'data-act="message"' }) : ''}</div>` : '';
+    })}${courierState === 'failed' && offered.length === 1 ? textLink(`Message ${first}`, { act: 'message' }) : ''}</div>` : '';
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${hero}
-  <h2 class="t-h2 ${ID}__h2" id="ready-ways">${only ? 'Getting it back' : 'How do you want it back?'}</h2>
-  <div class="${ID}__group" role="radiogroup" aria-labelledby="ready-ways">${rows}</div>
+  <section class="sec">${sectionHead(only ? 'Getting it back' : 'How do you want it back?', { id: 'ready-ways' })}
+  <div class="${ID}__group card card--list" role="radiogroup" aria-labelledby="ready-ways">${rows}</div>
   ${single}
-  ${courier}
+  ${courier}</section>
   ${orderSection(a)}
-  <h2 class="t-h2 ${ID}__h2 ${ID}__h2--price">Price</h2>
-  ${customerBreakdown(a.money, { stage: 'ready', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true })}
+  <section class="sec">${sectionHead('Price')}
+  ${customerBreakdown(a.money, { stage: 'ready', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true })}</section>
   ${alert}
 </main>
 ${actionBar({
@@ -166,7 +167,7 @@ function sheetHtml(r, { cardId, busy = false } = {}) {
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   ${moneyRows([{ label: 'Balance', cents: a.money.balance, kind: 'total' }])}
   <p class="t-small c-600">Your ${money(a.payments.deposit.cents)} deposit is already taken off.</p>
-  <p class="t-small w-600 c-600">Pay with</p>
+  <p class="t-caps c-600">Pay with</p>
   <div class="${ID}-sheet__group" role="radiogroup" aria-label="Pay with"${busy ? ' aria-disabled="true"' : ''}>${rows}</div>
   ${cta(`Pay ${fmtExact(a.money.balance)}`, { busy, busyLabel: 'Paying…', attrs: 'data-act="pay-ok"' })}
 </div>`;

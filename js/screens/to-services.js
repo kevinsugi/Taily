@@ -14,8 +14,8 @@ import { SERVICES, GARMENT_TYPES, TAILOR_LIMITS } from '../data.js';
 import { cents, fmt, fmtExact, payoutFor, tailyFeeFor, fmtColumn } from '../money.js';
 import { MONEY } from '../money-config.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, serviceRow, priceRow, customerPreview,
-  actionBar, modalOverlay, leaveModal, toast, esc, takeHtml,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, serviceRow, priceRow,
+  actionBar, modalOverlay, leaveModal, toast, esc, takeHtml, sectionHead, infoButton,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -37,7 +37,8 @@ const sig = (d) => JSON.stringify(ticked(d).map((id) => [id, d.prices[id] ?? nul
 const isDirty = () => sig(draftOf()) !== sig(fromTailor(myTailor()));
 const okPrice = (p) => Number.isInteger(p) && p > 0;
 const goodPrice = (p) => okPrice(p) && p <= PRICE_MAX;
-const caption = (id) => (SERVICES[id].garments.length >= ALL_TYPES ? 'Any garment' : [...SERVICES[id].garments]);   // a list → one nowrap span per garment (R2-2-T-05)
+/* M7: names joined by commas, each name kept whole with no-break spaces, so a line only breaks after a comma (R2-2-T-05) */
+const caption = (id) => (SERVICES[id].garments.length >= ALL_TYPES ? 'Any garment' : SERVICES[id].garments.map((g) => g.replace(/ /g, '\u00a0')).join(', '));
 const takeCents = (p) => (okPrice(p) ? payoutFor({ services: cents(p) }) : null);
 const feeCents = (p) => (okPrice(p) ? tailyFeeFor(cents(p)) : null);
 
@@ -103,12 +104,17 @@ function view() {
   return `${onboardingHeader({ editing })}
 <main class="body body--with-bar ${ID}">
   ${editing ? headingRow(title, { backRow: true }) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="${ID}__title">${title}</div>`}
-  <p class="t-body c-600 ${ID}__lead">Tick what you do and set your usual price. At the fitting you can add or remove items and services. The customer approves the final order before you start.</p>
-  <p class="t-small c-600 ${ID}__take-note" data-money>${feeLine()}</p>
-  <div class="${ID}__head"><span class="t-caps c-600" id="${ID}-list-label">Services</span><span class="t-small c-600" data-selected>${selectedText(d)}</span></div>
-  <p class="field__msg field__msg--error ${ID}__list-error" role="alert" data-list-error${listErr ? '' : ' hidden'}>${esc(listErr)}</p>
-  <div class="${ID}__card" role="group" aria-labelledby="${ID}-list-label">${IDS.map((id) => rowHtml(id, d)).join('')}</div>
-  <div class="${ID}__preview">${customerPreview({ title: 'On your profile', html: previewBody(d) })}</div>
+  <p class="t-body c-600 ${ID}__lead">Tick what you do and set your usual price.</p>
+  <div class="${ID}__fee"><p class="t-small c-600 ${ID}__take-note" data-money>${feeLine()}</p>${infoButton('fee', { label: 'The Taily fee' })}</div>
+  <section class="sec" aria-labelledby="${ID}-list-label">
+    ${sectionHead('Services', { id: `${ID}-list-label`, aside: `<span class="t-small c-600 tabular" data-selected>${selectedText(d)}</span>` })}
+    <p class="field__msg field__msg--error ${ID}__list-error" role="alert" data-list-error${listErr ? '' : ' hidden'}>${esc(listErr)}</p>
+    <div class="card card--list ${ID}__card" role="group" aria-labelledby="${ID}-list-label">${IDS.map((id) => rowHtml(id, d)).join('')}</div>
+  </section>
+  <section class="sec ${ID}__preview" aria-labelledby="${ID}-preview-label">
+    ${sectionHead('On your profile', { id: `${ID}-preview-label` })}
+    <div class="${ID}__preview-body">${previewBody(d)}</div>
+  </section>
 </main>
 ${editing
     ? actionBar({ ctaLabel: 'Save changes', ctaAct: 'save', lead: leadText(d), disabled: !busy && (zero || !dirty), note: busy ? '' : zero ? NONE_NOTE : dirty ? '' : 'No changes yet.', busy, busyLabel: 'Saving…' })
@@ -164,7 +170,7 @@ function wire(root) {
   };
   const paintSummary = () => {
     root.querySelector('[data-selected]').textContent = selectedText(d);
-    root.querySelector('.customer-preview__body').innerHTML = previewBody(d);
+    root.querySelector(`.${ID}__preview-body`).innerHTML = previewBody(d);
     paintTakes();
     paintBar();
   };

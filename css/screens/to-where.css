@@ -2,13 +2,18 @@
 .to-where .banner { margin-top: var(--space-16); }
 .to-where__title { margin-top: var(--space-24); }
 .to-where .stepper + .to-where__title { margin-top: var(--space-24); }
-.to-where__lead { margin: var(--space-8) 0 0; }
-.to-where__cards { display: flex; flex-direction: column; gap: var(--space-16); margin-top: var(--space-24); }
-.to-where__card { padding: var(--space-4) var(--space-16); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
-.to-where__fields { display: flex; flex-direction: column; gap: var(--space-16); margin-inline: calc(-1 * var(--space-16)); padding: var(--space-16); box-shadow: inset 0 1px 0 var(--neutral-100); }
-.to-where__note { margin: calc(-1 * var(--space-4)) 0 0; }
-.to-where__pickup-note { margin: calc(-1 * var(--space-8)) 0 0; padding-inline: var(--space-4); text-wrap: pretty; }
+.to-where__lead { margin: var(--rhythm-tight) 0 0; }
+.to-where__cards { display: flex; flex-direction: column; gap: var(--rhythm-group); margin-top: var(--rhythm-section); }
+.to-where .to-where__card { padding: var(--space-4) var(--space-16); }
+.to-where__fields { display: flex; flex-direction: column; gap: var(--space-16); margin-inline: calc(-1 * var(--space-16)); padding: var(--space-16); box-shadow: inset 0 1px 0 var(--hairline); }
+.to-where__fee-field { position: relative; }
+.to-where__fee-info { position: absolute; top: calc(-1 * var(--space-12)); right: calc(-1 * var(--space-12)); }
+.to-where__fee-info .info-btn { margin-block: 0; }
+.to-where__pickup-note { margin: calc(-1 * var(--space-4)) 0 0; padding-inline: var(--space-4); text-wrap: pretty; }
 .to-where__error { margin: var(--space-8) 0 0; }
+.to-where__fee-preview { margin-top: var(--rhythm-section); }   /* M7-1-T-04: reference content sits at page level, not inside the toggle card */
 .to-where__fee-preview[hidden] { display: none; }
-.to-where__card { display: flex; flex-direction: column; padding: var(--space-16); }   /* the white inner card a customer's row sits in (M6-P-21) */
-.to-where__card-foot { display: block; padding-top: var(--space-12); border-top: 1px solid var(--neutral-100); }
+.to-where .to-where__pv { display: flex; flex-direction: column; padding: var(--space-16); }   /* the white card a customer's row sits in (M6-P-21) */
+.to-where__card-foot { display: block; padding-top: var(--space-12); border-top: 1px solid var(--hairline); }
+/* M7-1-T-04: the preview is ONE card; the mini profile inside it carries no ring of its own */
+.to-where__pv .mini-profile { padding: 0; box-shadow: none; border-radius: 0; background: none; }

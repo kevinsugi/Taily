@@ -4,20 +4,14 @@
 .t-job__banner { margin-top: var(--space-16); }
 .t-job__banner .banner__text { text-wrap: pretty; }
 .t-job__nb { white-space: nowrap; }
-.t-job__visit { margin-top: var(--space-24); }
-.t-job__money { margin-top: var(--space-16); }
-.t-job__money .money-rows { padding: var(--space-20); }   /* as the take-home card (R3-1-T-07) */
-.t-job__money .money-row:only-child { padding-block: 0; min-height: 0; box-shadow: none; }   /* a single total row has nothing above it to rule off */
-.t-job__who { display: flex; flex-direction: column; gap: var(--space-16); margin-top: var(--space-16); }
+.t-job .heading-row--back { justify-content: space-between; }   /* Back left, ••• right (D-195) */
+.t-job .heading-row--back .more-btn { margin-right: calc(-1 * var(--space-12)); }
+.t-job__money { margin-top: var(--rhythm-section); }
+.t-job__money .money-row:only-child { padding-block: 0; min-height: 0; }   /* a single total row has nothing above it */
+.t-job__money .money-row:only-child + .stitch, .t-job__money .stitch:first-child { display: none; }
 .t-job__customer { display: flex; align-items: center; gap: var(--space-12); min-height: 44px; }
 .t-job__customer-text { display: flex; flex-direction: column; min-width: 0; }
-.t-job__h2 { margin: var(--space-32) 0 var(--space-8); }
-.t-job__fine { margin: var(--space-12) 0 0; }
-.t-job__actions { margin-top: var(--space-32); }
-.t-job__group { margin: 0 0 var(--space-4); }
-.t-job__danger .list-row__title { color: var(--error); }
-.t-job__wait { margin: 0; padding-block: var(--space-8); }
-.t-job__back { margin-top: var(--space-32); }
+.t-job__fine { margin: var(--space-8) 0 0; }
 .t-job__empty { margin-top: var(--space-24); }
 
 /* sheets */
@@ -31,33 +25,31 @@
 .t-job__newtotal { margin: 0; font-variant-numeric: tabular-nums; }
 .t-job__quote .note-quote { margin-top: var(--space-16); }
 .t-job__delta + .t-job__quote .note-quote { margin-top: var(--space-24); }
-.t-job__visit > .courier-card { margin: 0; }
+.t-job .sec > .courier-card { margin: 0; }
 /* R4-2-T-09: a return block's address sits on the place name's text edge (glyph column 20 + gap 8), regular weight */
 .t-job__addr { display: block; padding-left: calc(var(--space-20) + var(--space-8)); color: var(--neutral-700); font-weight: 400; }
-.t-job__payout { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-24); padding: var(--space-20); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
+.t-job__payout { gap: var(--space-4); }   /* flat hero: YOU TAKE HOME, the figure, its state, then the breakdown */
 .t-job__payout p { margin: 0; }
+.t-job__payout-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); min-height: 16px; }
+.t-job__payout-head .info-btn { margin-right: calc(-1 * var(--space-12)); }
 .t-job__payout-amt { font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
-/* R4-2-T-06: the breakdown lives inside the payout card — one card, one stroke */
-.t-job__payout-rows { margin-top: var(--space-16); }
-.t-job__payout-rows .money-rows { padding: 0; background: none; border-radius: 0; box-shadow: none; }
+.t-job__payout-link { margin-left: calc(-1 * var(--space-8)); }
+.t-job__payout-rows { margin-top: var(--rhythm-group); }
 .t-job__payout .t-job__fine { margin-top: var(--space-8); }
-.t-job__review { margin-top: var(--space-32); }
-.t-job__review .t-h2 { margin: 0 0 var(--space-8); }
-.t-job__review > .t-small { margin: 0; }
+.t-job__review { margin: var(--rhythm-section) 0 0; }
 
 /* mark-ready sheet */
 .t-job-sheet__ways { display: flex; flex-direction: column; gap: var(--space-4); margin: 0; padding: 0; border: 0; min-width: 0; }
 .t-job-sheet__ways legend { padding: 0; margin-bottom: var(--space-8); }
 .t-job__summary { margin: 0 0 var(--space-8); }
 
-/* D-173: Directions + Add to calendar sit under the visit block, two equal outline buttons */
-.t-job__links { display: flex; gap: var(--space-8); margin-top: var(--space-12); }
-.t-job__links .cta-small { flex: 1 1 0; }
+/* D-173: Directions + Add to calendar sit under the visit block, two text links */
+.t-job__links { display: flex; flex-wrap: wrap; gap: var(--space-8); margin-top: var(--space-4); margin-left: calc(-1 * var(--space-8)); }
 /* D-169: the due date leads once the visit is behind her; within a day it turns warning ink */
 .t-job__due--soon { color: var(--warning-ink); }
 /* D-172: the transfer's state under the take-home figure — a pill, then its line (error ink when the bank sent it back) */
 .t-job__payout-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); margin-top: var(--space-4); }
 .t-job__err { color: var(--error-ink); font-weight: 600; }
-.t-job__returned { margin-top: var(--space-16); padding-top: var(--space-12); box-shadow: inset 0 1px 0 var(--neutral-100); }
+.t-job__returned { margin-top: var(--rhythm-group); }
 .t-job-sheet__intro { text-wrap: pretty; }
-.t-job__unsent { margin: calc(-1 * var(--space-4)) 0 var(--space-12); text-wrap: pretty; }
+.t-job__unsent { margin: 0; text-wrap: pretty; }

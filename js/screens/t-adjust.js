@@ -22,7 +22,7 @@ import { SERVICES, GARMENT_TYPES, servicesForType, TAILOR_LIMITS, MAX_ITEMS, FIT
 import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, banner, emptyState, listRow, optionRow, textArea, deltaFigure, tailorBreakdown, actionBar, changeSummary,
-  sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, docsEditor, wireGarmentDocs,
+  sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, docsEditor, wireGarmentDocs, sectionHead, textLink,
 } from '../components.js';
 
 const ID = 't-adjust';
@@ -192,7 +192,7 @@ function rowHtml(r, errors, busy, inNewItem) {
     return `<div class="${ID}__row ${ID}__row--removed" data-key="${esc(r.key)}">
     <div class="${ID}__label"><span class="t-body c-600"><s>${label}</s></span><span class="${ID}__mark" data-live="mark-${esc(r.key)}">${markHtml(r, inNewItem)}</span></div>
     <s class="${ID}__was t-body" data-money>${fmtExact(r.startCents)}</s>
-    <button type="button" class="${ID}__btn t-body w-600" data-act="undo-line" data-key="${esc(r.key)}"${busy ? ' disabled' : ''} aria-label="Undo remove ${label}">Undo</button>
+    ${textLink('Undo', { act: 'undo-line', disabled: busy, attrs: `data-key="${esc(r.key)}" aria-label="Undo remove ${label}"` })}
     <div class="${ID}__err" data-live="err-${esc(r.key)}"></div>
   </div>`;
   }
@@ -218,22 +218,22 @@ function garmentHtml(g, errors, busy, ctx) {
   const dis = busy ? ' disabled' : '';
   if (g.gone) {
     return `<section class="${ID}__garment" aria-label="${esc(g.type)}, removed" data-garment="${esc(g.id)}" data-kind="removed">
-    <div class="${ID}__card ${ID}__card--gone">
+    <div class="card ${ID}__card ${ID}__card--gone">
       <div class="${ID}__head">${garmentIcon(g.type)}<h2 class="t-body w-600 ${ID}__type c-600"><s>${esc(g.type)}</s></h2>${tag('Removed', 'removed')}
-        <button type="button" class="${ID}__btn ${ID}__btn--text t-body w-600" data-act="undo-item" data-garment="${esc(g.id)}"${dis} aria-label="Undo remove ${esc(g.type)}">Undo</button></div>
+        ${textLink('Undo', { act: 'undo-item', disabled: busy, attrs: `data-garment="${esc(g.id)}" aria-label="Undo remove ${esc(g.type)}"` })}</div>
       <ul class="${ID}__gone-list">${g.rows.map((r) => `<li class="t-small c-600" data-money><s>${esc(r.label)} · ${fmtExact(r.startCents ?? r.fallback)}</s></li>`).join('')}</ul>
     </div>
   </section>`;
   }
   const more = addable(g).length > 0;
   return `<section class="${ID}__garment" aria-label="${esc(g.type)}" data-garment="${esc(g.id)}" data-kind="${g.isNew ? 'added' : 'kept'}">
-    <div class="${ID}__card${g.isNew ? ` ${ID}__card--new` : ''}">
+    <div class="card ${ID}__card${g.isNew ? ` ${ID}__card--new` : ''}">
       <div class="${ID}__head">${garmentIcon(g.type)}<h2 class="t-body w-600 ${ID}__type">${esc(g.type)}</h2>${g.isNew ? tag('New item', 'new-item') : ''}
-        <button type="button" class="${ID}__btn ${ID}__btn--text t-small w-600" data-act="remove-item" data-garment="${esc(g.id)}"${dis} aria-label="Remove item: ${esc(g.type)}">Remove item</button></div>
+        ${textLink('Remove item', { act: 'remove-item', tone: 'danger', disabled: busy, attrs: `data-garment="${esc(g.id)}" aria-label="Remove item: ${esc(g.type)}"` })}</div>
       ${g.rows.map((r) => rowHtml(r, errors, busy, g.isNew)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: '+ Add a service', act: 'add-service' }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${dis}`)}</div>` : ''}
       ${docsEditor({
     garmentId: g.id, type: g.type, docs: docsOf(ctx.a, g.id), missing: ctx.missing.get(g.id) ?? { before: false, pinned: false },
-    commentDraft: ctx.d.comments[g.id] ?? null, commentError: ctx.d.commentErrors[g.id] ? `Keep the comment under ${FITTING_LIMITS.COMMENT_MAX} characters.` : '', busy, first: ctx.first,
+    commentDraft: ctx.d.comments[g.id] ?? null, commentError: ctx.d.commentErrors[g.id] ? `Keep the comment under ${FITTING_LIMITS.COMMENT_MAX} characters.` : '', busy, first: ctx.first, tried: ctx.d.tried,
   })}
     </div>
   </section>`;
@@ -247,7 +247,7 @@ function view() {
   const chromeHtml = chrome('home', { persona: 'tailor' });
   if (!a) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}--none">
-  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'Nothing to edit', body: 'You can edit the job during a fitting.', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
+  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'Nothing to edit', body: 'You can edit the job during a fitting.', art: 'Suit Jacket', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
 </main>`;
   }
   const d = ensureDraft(a);
@@ -263,46 +263,52 @@ function view() {
   /* M6-T-04: a price that can't be read means no honest total — the figures show a dash until every price is fixed (none left → the booked figures, above) */
   const bad = liveRows(garments).filter((r) => r.parsed.error).length;
   const fix = `Fix ${bad} price${bad > 1 ? 's' : ''} to see the new total`;
+  /* M7-2-T-03: nothing moved → the summary line and the breakdown say it once; the two-up figures only when an amount moved */
+  const same = !bad && !none && Object.values(real.counts ?? {}).every((v) => !v);
   const busy = !!d.busy;
   const deposit = pv.after.deposit;
   const edited = isEdited(a, d, garments);
   const atMax = garments.length >= MAX_ITEMS;
   const hero = `<p class="t-caps c-600 ${ID}__eyebrow">At the fitting</p><h1 class="t-title">${revise ? 'Edit the order you sent' : 'Edit the job'}</h1>`
-    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Take a before photo and a pinned photo of each item. Add or remove items and services with ${esc(first)}, then send ${esc(first)} the final order. You start the work once ${esc(first)} approves.</p></div><!--/notes-->`;
+    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Photograph each item before and after pinning, then send ${esc(first)} the final order.</p></div><!--/notes-->`;
   /* K-02 (D-178): the card says what is missing, the bar says how many items still need photos */
   const gaps = docsMissing(a, liveIds(garments));
   const missing = new Map(gaps.map((m) => [m.garmentId, m]));
   const missingN = gaps.length;
-  const sendDisabled = !busy && (missingN > 0 || (revise && !edited));
+  /* D-196: missing photos = a soft-disabled Send (a tap tells her what is missing); only "nothing to resend" is a hard disable */
+  const softDisabled = !busy && missingN > 0;
+  const sendDisabled = !busy && missingN === 0 && revise && !edited;
   const ctx = { a, d, missing, first };
   /* D-126: the bar carries both figures, the customer's first, so the total moves in view while the cards are edited */
-  const pair = `<span class="${ID}__lead-pair">${esc(first)} pays <b data-money>${fmtExact(pv.after.total)}</b></span> · <span class="${ID}__lead-pair">You take home <b data-money>${fmtExact(pv.after.payout)}</b></span>`;
+  const pair = `<span class="${ID}__lead-pair">${esc(first)} pays <b data-money>${fmtExact(pv.after.total)}</b></span><span class="${ID}__lead-pair">You take home <b data-money>${fmtExact(pv.after.payout)}</b></span>`;
   const lead = none ? 'Add an item or service to see the new total'
     : bad ? fix
-      : `<span>${real.changed ? '' : 'No changes · '}${pair}</span>`;
-  return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${revise ? '--revise' : ''}" data-appt="${esc(a.id)}">
+      : `<span class="${ID}__lead">${pair}</span>`;
+  return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${revise ? '--revise' : ''}" data-appt="${esc(a.id)}"${d.tried ? ' data-tried="true"' : ''}>
   ${headingRow(hero, { backRow: true })}
   <div class="${ID}__content"${busy ? ' inert aria-busy="true"' : ''}>
   ${revise ? `<div class="${ID}__info">${banner({ tone: 'info', text: `${esc(first)} hasn’t approved yet. Sending again replaces the order ${esc(first)} is looking at.` })}</div>` : ''}
   <div class="${ID}__garments">${garments.map((g) => garmentHtml(g, errors, busy, ctx)).join('')}
-    <div class="${ID}__card ${ID}__card--add">${listRow({ title: '+ Add an item', act: 'add-item' }).replace('data-act="add-item"', `data-act="add-item"${atMax || busy ? ' disabled aria-disabled="true"' : ''}`)}${atMax ? `<p class="t-small c-600 ${ID}__max">Up to ${MAX_ITEMS} items on one job.</p>` : ''}</div>
+    <div class="card ${ID}__card ${ID}__card--add">${listRow({ title: '+ Add an item', act: 'add-item' }).replace('data-act="add-item"', `data-act="add-item"${atMax || busy ? ' disabled aria-disabled="true"' : ''}`)}${atMax ? `<p class="t-small c-600 ${ID}__max">Up to ${MAX_ITEMS} items on one job.</p>` : ''}</div>
   </div>
   <div class="${ID}__empty-err" data-live="empty">${errors.empty ? banner({ tone: 'error', text: 'Keep at least one item with a service on this job.' }) : ''}</div>
-  <div class="${ID}__note">${textArea({ id: 'adjust-note', label: `Note to ${first} (optional)`, value: d.note, rows: 3, max: TAILOR_LIMITS.NOTE_MAX, helper: 'Say what you found at the fitting. Phone numbers and emails are hidden.', error: errors.note })}</div>
-  <h2 class="t-h2 ${ID}__h2">What changes</h2>
+  <section class="sec ${ID}__note">${textArea({ id: 'adjust-note', label: `Note to ${first} (optional)`, value: d.note, rows: 3, max: TAILOR_LIMITS.NOTE_MAX, helper: 'Phone numbers and emails are hidden.', error: errors.note })}</section>
+  <section class="sec" aria-labelledby="${ID}-changes">
+  ${sectionHead('What changes', { id: `${ID}-changes` })}
   <div class="${ID}__summary" data-live="summary">${bad ? '' : changeSummary(real.counts)}</div>
-  <div class="${ID}__figures" data-live="figures">
+  <div class="${ID}__figures${same ? ` ${ID}__figures--none` : ''}" data-live="figures">${same ? '' : `
     ${bad ? dashFigure(`${first} pays`) : none ? deltaFigure({ label: `${first} pays`, cents: frozen.after.total }) : deltaFigure({ label: `${first} pays`, cents: pv.after.total, was: pv.before.total })}
     ${bad ? dashFigure('You take home') : none ? deltaFigure({ label: 'You take home', cents: frozen.after.payout }) : deltaFigure({ label: 'You take home', cents: pv.after.payout, was: pv.before.payout })}
-    ${none ? `<p class="t-small c-600 ${ID}__frozen">Add an item or service to see the new total</p>` : bad ? `<p class="t-small c-600 ${ID}__frozen">${fix}</p>` : ''}
+    ${none ? `<p class="t-small c-600 ${ID}__frozen">Add an item or service to see the new total</p>` : bad ? `<p class="t-small c-600 ${ID}__frozen">${fix}</p>` : ''}`}
   </div>
   <div class="${ID}__breakdown" data-live="breakdown">${bad ? '' : tailorBreakdown(pv.after)}</div>
-  <p class="t-small c-600 ${ID}__fine" data-money>${esc(first)}’s ${fmtExact(deposit)} deposit stays the same. The balance is due when the order is ready.</p>
+  <p class="t-small c-600 ${ID}__fine" data-money>${esc(first)}’s ${fmtExact(deposit)} deposit stays the same.</p>
+  </section>
   </div>
 </main>
 ${actionBar({
-    ctaLabel: revise ? 'Send the updated order' : `Send to ${first} for approval`, ctaAct: 'send', disabled: sendDisabled, busy, busyLabel: 'Sending…',
-    note: !sendDisabled ? '' : missingN > 0 ? `Add before and pinned photos for ${missingN} item${missingN > 1 ? 's' : ''}.` : 'Change something to send it again.',
+    ctaLabel: revise ? 'Send the updated order' : `Send to ${first} for approval`, ctaAct: 'send', disabled: sendDisabled, softDisabled, busy, busyLabel: 'Sending…',
+    note: !(sendDisabled || softDisabled) ? '' : missingN > 0 ? `Add before and pinned photos for ${missingN} item${missingN > 1 ? 's' : ''}.` : 'Change something to send it again.',
     lead,
   })}`;
 }
@@ -397,7 +403,7 @@ function openAddItem() {
   const typeStep = () => `<div role="radiogroup" aria-label="Item type">${itemTypes().map(({ type, sub }) => optionRow({
     name: 'type', value: type, title: esc(type), sub, act: 'pick-type', lead: garmentIcon(type, { size: 'row' }),
   })).join('')}</div>`;
-  const serviceStep = (type) => `<button type="button" class="${ID}__btn ${ID}__btn--text t-body w-600 ${ID}__back" data-act="pick-back">Choose another item</button>
+  const serviceStep = (type) => `<div class="${ID}__back">${textLink('Choose another item', { act: 'pick-back' })}</div>
     <div>${servicesForType(type).filter((id) => typeof prices[id] === 'number').map((id) => serviceRow(id, prices)).join('')}</div>`;
   sheetOverlay(`<div class="${ID}-sheet" data-step="type">${typeStep()}</div>`,
     { header: 'Add an item', confirm: false, dataS: `${ID}-add-item` }, (holder, close) => {
@@ -555,6 +561,13 @@ function send(a) {
     if (errors.empty) document.querySelector('#screen [data-live="empty"]')?.scrollIntoView({ block: 'center' });
     return;
   }
+  /* D-196: Send is only soft-disabled while photos are missing — the tap lands here and names what is missing */
+  const gaps = docsMissing(a, liveIds(garments));
+  if (gaps.length) {
+    rerender('[data-missing-msg]');
+    document.querySelector('#screen [data-missing-msg]')?.scrollIntoView({ block: 'center' });
+    return;
+  }
   const lines = liveRows(garments).map((r) => ({
     garmentId: r.garmentId, garmentType: r.garmentType, serviceId: r.serviceId, label: r.label, cents: r.parsed.cents,
   }));
@@ -601,7 +614,11 @@ function wire(root) {
     btn.dataset.wired = '1';
     btn.addEventListener('click', () => {
       if (ui().busy) return;
-      if (isEdited(a, ui(), build(a, ui()))) openLeave(a); else leave(a);
+      if (isEdited(a, ui(), build(a, ui()))) {
+        /* D-196: leaving with photos missing shows what is missing, behind the modal */
+        if (docsMissing(a, liveIds(build(a, ui()))).length && !ui().tried) { ui().tried = true; rerender(); }
+        openLeave(a);
+      } else leave(a);
     });
   });
 

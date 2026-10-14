@@ -1,15 +1,10 @@
-/* c-complete — C11 receipt + review prompt. Hero, stars, meta row, money rows and action bar are shared. */
+/* c-complete — C11 receipt + review prompt. Hero, stars, meta row, money rows and action bar are shared. M7: the rating block is the one .card (interactive); the receipt is flat. */
 .c-complete { gap: 0; }
 .c-complete .status-hero__body { color: var(--neutral-700); font-weight: 400; }
-.c-complete__rate {
-  display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8);
-  margin-top: var(--space-24); padding: var(--space-20);
-  background: var(--white); border-radius: var(--radius-lg); box-shadow: inset 0 0 0 1px var(--neutral-200);
-}
+.c-complete__rate { align-items: flex-start; gap: var(--space-8); padding: var(--space-20); }
 .c-complete__rate h2 { margin: 0 0 var(--space-4); text-wrap: balance; }
 .c-complete__rate .stars--input { margin-left: calc(var(--space-12) * -1 + 2px); }
 .c-complete__word { font-weight: 500; }
 .c-complete__word:empty { display: none; }
 .c-complete__rate p { margin: 0; text-wrap: pretty; }
-.c-complete__h2 { margin: var(--space-32) 0 var(--space-8); }
-.c-complete__empty { margin-top: var(--space-24); }
+.c-complete__empty { margin-top: var(--rhythm-section); }

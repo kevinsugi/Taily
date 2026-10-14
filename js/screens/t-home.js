@@ -14,7 +14,8 @@ import { fmtColumn } from '../money.js';
 import { fmtWhen, fmtTime, fmtDay, toDate } from '../dates.js';
 import { POLICY } from '../money-config.js';
 import {
-  chrome, headingRow, banner, emptyState, requestCard, apptRow, toast, esc,
+  chrome, headingRow, banner, emptyState, requestCard, apptRow, toast, esc, sectionHead, textLink,
+  heroGarment,
 } from '../components.js';
 import { openPushPrompt } from '../system.js';
 
@@ -55,7 +56,7 @@ function view(s) {
   const hello = headingRow(`<p class="t-caps c-600 ${ID}__date">${dateLine()}</p><h1 class="t-title">Hi, ${esc(first)}</h1>`, { back: false });
   /* D-161: the shop is paused — one line with the way back on */
   const paused = t.takingRequests === false
-    ? `<p class="t-small c-600 ${ID}__sum ${ID}__paused">Paused · <button type="button" class="${ID}__resume w-600" data-act="resume" data-hit="inline">Turn back on</button></p>` : '';
+    ? `<p class="t-small c-600 ${ID}__sum ${ID}__paused">Paused ${textLink('Turn back on', { act: 'resume' })}</p>` : '';
 
   if (!apptsFor('tailor').length) {
     return `${head}<main class="body ${ID}">
@@ -65,6 +66,7 @@ function view(s) {
   <div class="${ID}__empty" data-empty="home">${emptyState({
     title: 'No requests yet',
     body: `When a customer books you, the request shows up here. You’ll have ${POLICY.REQUEST_EXPIRY_H} hours to answer each one.`,
+    art: 'Suit Jacket',
     ctaLabel: 'Check your hours', ctaAct: 'hours',
   })}</div>
 </main>`;
@@ -88,6 +90,7 @@ function view(s) {
       asked: sug ? `${s.customer.first} asked for ${sameDay(a.slot.start, a.suggested.start) ? fmtTime(a.slot.start) : v.when}` : '',
       items: v.items, services: v.serviceCount, payoutCents: sug ? suggestPrice(a, a.suggested.start).payout : v.payout, feeCents: v.tailyFee,   // D-155: a suggested time never raises the rush
       expiresAt: a.expiresAt, now: now(), status: a.status, waitingOn: s.customer.first, retries: a.retries,
+      garment: heroGarment(v),   // M7-2-C-05: a broad silhouette reads at 32 px
       lapseAt: sug ? suggestLapseAt(a) : null,   // D-154: her suggested time stays open until then
     });
   };
@@ -118,23 +121,23 @@ function view(s) {
     });
   }).join('');
 
+  const group = (title, id, count, inner) => `<section class="sec" aria-labelledby="${ID}-${id}">
+    ${sectionHead(title, { id: `${ID}-${id}`, count })}
+    ${inner}
+  </section>`;
   return `${head}<main class="body ${ID}">
   ${hello}
   ${paused}
   <p class="t-small c-600 ${ID}__sum">${summary.join(' · ')}</p>
   ${s.sim.push === 'denied' ? `<div class="${ID}__push">${pushBanner()}</div>` : ''}
-  <div class="${ID}__head"><h2 class="t-h2">New requests</h2>${fresh.length ? `<span class="t-small c-600">${fresh.length}</span>` : ''}</div>
-  ${fresh.length
+  ${group('New requests', 'new', fresh.length || null, fresh.length
     ? `<div class="${ID}__list">${cards}</div>`
-    : `<p class="t-body c-600 ${ID}__none">No new requests right now. You’ll get a notification when one comes in.</p>`}
-  ${waiting.length ? `<div class="${ID}__head ${ID}__head--up"><h2 class="t-h2">Waiting on ${esc(s.customer.first)}</h2><span class="t-small c-600">${waiting.length}</span></div>
-  <div class="${ID}__list">${waitCards}</div>` : ''}
-  ${upcoming.length || !progress.length ? `<div class="${ID}__head ${ID}__head--up"><h2 class="t-h2">Upcoming</h2>${upcoming.length ? `<span class="t-small c-600">${upcoming.length}</span>` : ''}</div>
-  ${upcoming.length ? `<div class="${ID}__list">${rows}</div>` : `<p class="t-body c-600 ${ID}__none">${apptsFor('tailor').length ? 'Nothing upcoming.' : 'Nothing booked yet.'}</p>`}` : ''}
-  ${progress.length ? `<div class="${ID}__head ${ID}__head--up"><h2 class="t-h2">In progress</h2><span class="t-small c-600">${progress.length}</span></div>
-  <div class="${ID}__list">${progressRows}</div>` : ''}
-  ${recent.length ? `<div class="${ID}__head ${ID}__head--up"><h2 class="t-h2">Recent</h2></div>
-  <div class="${ID}__list">${recentRows}</div>` : ''}
+    : `<p class="t-body c-600 ${ID}__none">No new requests right now.</p>`)}
+  ${waiting.length ? group(`Waiting on ${esc(s.customer.first)}`, 'waiting', waiting.length, `<div class="${ID}__list">${waitCards}</div>`) : ''}
+  ${upcoming.length || !progress.length ? group('Upcoming', 'upcoming', upcoming.length || null,
+    upcoming.length ? `<div class="${ID}__list">${rows}</div>` : `<p class="t-body c-600 ${ID}__none">${apptsFor('tailor').length ? 'Nothing upcoming.' : 'Nothing booked yet.'}</p>`) : ''}
+  ${progress.length ? group('In progress', 'progress', progress.length, `<div class="${ID}__list">${progressRows}</div>`) : ''}
+  ${recent.length ? group('Recent', 'recent', null, `<div class="${ID}__list">${recentRows}</div>`) : ''}
 </main>`;
 }
 

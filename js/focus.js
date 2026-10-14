@@ -61,7 +61,7 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
     case 'expired': return { pill: 'expired', label: 'No reply' };
     case 'cancelled': return { pill: 'cancelled', label: appt.cancel?.reason === 'no-show' ? 'No-show' : 'Cancelled' };
     case 'confirmed': return { pill: 'confirmed', label: !customer && justConfirmed(appt) ? 'Accepted' : 'Confirmed' };
-    case 'fitting': return { pill: 'fitting', label: 'Fitting' };
+    case 'fitting': return customer ? { pill: 'fitting', label: 'Fitting' } : { pill: 'action', label: 'Fitting' };   // M7-1-T-03: photographing and sending is Amara's move (D-95)
     case 'price-change':
       if (customer) return { pill: 'action', label: pick('Approve order', 'Approve') };
       if (appt.priceChange?.state !== 'messaged') return waiting;

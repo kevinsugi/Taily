@@ -5,7 +5,7 @@
    ============================================================ */
 import { register, render as go, back } from '../app.js';
 import { state, tailorById, openSlots, nextOpening } from '../state.js';
-import { chrome, bookingSteps, headingRow, emptyState, actionBar, wireWheel } from '../components.js';
+import { flowBar, headingRow, emptyState, actionBar, wireWheel } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW } from '../scheduler.js';
 import { fmt, estimate } from '../money.js';
 import { fmtDay, fmtWhen, nb } from '../dates.js';
@@ -40,9 +40,8 @@ const estLead = (t, job, slot) => `<span>Est. <b data-money>${fmt(estimate(t, jo
 function view() {
   const { t, job, slots, selected } = read();
   const first = firstOf(t);
-  const open = (bar) => `${chrome('home')}<main class="body${bar ? ' body--with-bar' : ''} ${ID}" data-s="${ID}">
-  ${bookingSteps(3)}
-  ${headingRow('<h1 class="t-title">Pick a time</h1>')}`;
+  const open = (bar) => `${flowBar({ step: 3 })}<main class="body${bar ? ' body--with-bar' : ''} ${ID}" data-s="${ID}">
+  ${headingRow('<h1 class="t-title">Pick a time</h1>', { back: false })}`;
 
   if (!slots.length) {
     const next = nextOpening(t.id, job.visitType);
@@ -53,6 +52,7 @@ function view() {
   <div class="c-book__empty" data-empty="no-slots">${emptyState({
     title: `No open times before ${nb(fmtDay(job.needBy))}`,
     body,
+    art: 'Suit Jacket',
     ctaLabel: 'Change need-by date', ctaAct: 'later',
     secondaryLabel: `Message ${first}`, secondaryAct: 'ask',
   })}</div>
@@ -60,13 +60,13 @@ function view() {
   }
 
   return `${open(true)}
-  <p class="t-body c-600 c-book__who">${t.name} · ${VISIT_LABEL.customer[job.visitType]} · ${VISIT_MINUTES[job.visitType]}-minute visit</p>
-  <p class="t-small c-600 c-book__only">Only ${first}’s open times before ${nb(fmtDay(job.needBy))} are shown.</p>
+  <p class="t-body w-600 c-book__who">${t.name}</p>
+  <p class="t-small c-600 c-book__where">${VISIT_LABEL.customer[job.visitType]} · ${VISIT_MINUTES[job.visitType]}-minute visit</p>
   <div class="c-book__sched">${scheduler({
     title: '', columns: slotColumns(slots, selected), note: rushNote(t, job, selected),
-    cta: '', inline: true, compact: slots.length <= 3,
+    cta: '', inline: true, compact: true, top: true,   // M7-2-C-07 / A-05: always the 3-row wheel, the settled row on top — no blank card above it
   })}</div>
-  <p class="t-small c-600 c-book__free">You won’t be charged yet. Next you’ll see the full price and the deposit.</p>
+  <p class="t-small c-600 c-book__free">Nothing is charged yet.</p>
 </main>
 ${actionBar({ lead: estLead(t, job, selected), ctaLabel: 'Next: review and send', ctaAct: 'slot-next' })}`;
 }

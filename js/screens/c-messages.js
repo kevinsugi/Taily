@@ -8,7 +8,7 @@ import { register, render as go, currentScreen } from '../app.js';
 import { state, tailorById, threadsFor, threadPreview, now } from '../state.js';
 import { statusWord } from '../focus.js';
 import { withLatency } from '../sim.js';
-import { chrome, headingRow, threadRow, emptyState, skeleton } from '../components.js';
+import { chrome, headingRow, threadRow, emptyState, skeleton, heroGarment } from '../components.js';
 import { fmtTime, fmtShort, isoDay } from '../dates.js';
 
 const ID = 'c-messages';
@@ -24,14 +24,13 @@ function rowFor(r) {
   return threadRow({
     id: r.tailorId, name: t.name, initials: t.initials, photo: t.photo,
     preview: threadPreview(r.last, 'customer'), time: stamp(r.last.at), unread: r.unread,
-    pill: w.pill, pillLabel: w.label, closed: r.readOnly,
+    pill: w.pill, pillLabel: w.label, closed: r.readOnly, garment: heroGarment(r.appt?.job),
   });
 }
 
 function view(s) {
   const head = `${chrome('messages')}<main class="body ${ID}" data-s="${ID}">
-  ${headingRow('<h1 class="t-title">Messages</h1>', { back: false })}
-  <p class="t-small c-600 ${ID}__sub">One conversation per tailor, from your first question to the review.</p>`;
+  ${headingRow('<h1 class="t-title">Messages</h1>', { back: false })}`;
   if (!(s.ui[ID] ?? {}).loaded) {
     return `${head}
   <div class="${ID}__list" aria-busy="true"><div class="thread-list">${skeleton({ kind: 'thread-row', count: 3 })}</div></div>
@@ -41,7 +40,7 @@ function view(s) {
   if (!threads.length) {
     return `${head}
   <div class="${ID}__empty" data-empty="messages">${emptyState({
-    title: 'No messages yet', body: 'Ask a tailor a question from their profile. No booking needed.', ctaLabel: 'Find a tailor', ctaAct: 'home',
+    title: 'No messages yet', body: 'Ask a tailor a question from their profile. No booking needed.', ctaLabel: 'Find a tailor', ctaAct: 'home', art: 'Shirt / Blouse',
   })}</div>
 </main>`;
   }

@@ -23,7 +23,8 @@ import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime, dayDiff } from
 import {
   chrome, headingRow, statusHero, visitBlock, avatar, cta, listRow, banner, tailorBreakdown, moneyRows, workList,
   emptyState, sheetOverlay, chipGroup, wireChipGroups, toast, esc, wirePhotoViewer,
-  actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, changeSummary, deltaFigure, courierCard, ctaSmall, statusPill, linkRow, wireGarmentDocs,
+  actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, changeSummary, deltaFigure, courierCard, statusPill, wireGarmentDocs,
+  sectionHead, textLink, infoButton, moreMenu, openMoreMenu, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR,
 } from '../components.js';
 
 const ID = 't-job';
@@ -82,7 +83,7 @@ function cancelMoney(a) {
 }
 
 /* ---------- blocks ---------- */
-/** D-173: Directions (home visits only; the street is hers to see once accepted) and Add to calendar (an .ics data link). */
+/** D-173: Directions (home visits only; the street is hers to see once accepted) and Add to calendar (an .ics data link). M7: two quiet links. */
 function visitLinks(a, v) {
   if (a.status !== 'confirmed') return '';
   const where = jobAddress(a);
@@ -90,19 +91,22 @@ function visitLinks(a, v) {
   const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Taily//Prototype//EN', 'BEGIN:VEVENT', `UID:${a.id}@taily.example`,
     `DTSTAMP:${stamp(isoMinute(new Date(now())))}00`, `DTSTART:${stamp(a.slot.start)}00`, `DTEND:${stamp(a.slot.end)}00`,
     `SUMMARY:${v.visitLabel} with ${v.customer.name}`, `LOCATION:${where.replace(/,/g, '\\,')}`, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  /* a link that opens a map / downloads the .ics: textLink() with `href` */
+  const link = (label, icon, href, attrs) => textLink(label, { icon, href, attrs });
   const maps = a.job.visitType === 'home'
-    ? ctaSmall('Directions', { href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(where)}`, attrs: 'target="_blank" rel="noopener" data-act="directions"' }) : '';
-  const cal = ctaSmall('Add to calendar', { href: `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`, attrs: 'download="taily-visit.ics" data-act="add-to-calendar"' });
+    ? link('Directions', ICON_DIRECTIONS, `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(where)}`, 'target="_blank" rel="noopener" data-act="directions"') : '';
+  const cal = link('Add to calendar', ICON_CALENDAR, `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`, 'download="taily-visit.ics" data-act="add-to-calendar"');
   return `<div class="${ID}__links">${maps}${cal}</div>`;
 }
 
 function visitCard(a, v) {
   const rows = [
+    `<span class="t-figure">${esc(fmtWhen(a.slot.start))}</span>`,
     `${esc(v.visitLabel)} · ${v.minutes} min, until ${v.whenEnd}`,
     `<span class="w-600">${esc(jobAddress(a))}</span>`,
     `Needed by ${v.needBy}`,
   ];
-  return `${visitBlock(rows, { title: fmtWhen(a.slot.start), flush: true })}${visitLinks(a, v)}`;
+  return `${visitBlock(rows, { title: 'Visit', flush: true })}${visitLinks(a, v)}`;
 }
 
 /** D-169: from the fitting on, the visit time is behind her. The block leads with the due date and how long she has;
@@ -110,15 +114,16 @@ function visitCard(a, v) {
 function dueCard(a, v) {
   const days = dayDiff(now(), a.job.needBy);
   const when = days < 0 ? `${plural(-days, 'day')} ago` : days === 0 ? 'today' : `in ${plural(days, 'day')}`;
-  const title = `<span class="${ID}__due${days <= 1 ? ` ${ID}__due--soon` : ''}">Due ${fmtDay(a.job.needBy)} · ${when}</span>`;
-  return visitBlock([`<span class="t-small c-600">Fitting was ${fmtDay(a.slot.start)}</span>`], { title, flush: true });
+  const fig = `<span class="t-figure ${ID}__due${days <= 1 ? ` ${ID}__due--soon` : ''}">Due ${fmtDay(a.job.needBy)} · ${when}</span>`;
+  return visitBlock([fig, `<span class="t-small c-600">Fitting was ${fmtDay(a.slot.start)}</span>`], { title: 'Timing', flush: true });
 }
 
-function customerRow(v, { message }) {
+/** The customer, flat: a circle avatar, the name and "Customer". */
+function customerRow(v) {
   return `<div class="${ID}__customer">
     ${avatar({ initials: v.customer.initials, size: 'sm' })}
     <div class="${ID}__customer-text"><span class="t-body w-600">${esc(v.customer.name)}</span><span class="t-small c-600">Customer</span></div>
-  </div>${message ? cta(`Message ${esc(firstOf())}`, { attrs: 'data-act="message"' }) : ''}`;
+  </div>`;
 }
 
 /** K-02: "The work" always carries the garment icons; from the fitting on it carries the photos and Your comment (read-only). */
@@ -126,23 +131,27 @@ const workHtml = (v, opts) => workList(v, { docs: true, commentLabel: 'Your comm
 /** The work is over (declined, cancelled, completed, expired): the list drops its estimate row (M6-P-07). */
 const workOver = (a) => TERMINAL.includes(a.status) || a.status === 'expired';
 
-/** Visit-day actions: "I can’t make it" before the start, a wait note until +15 min, then "didn’t show up". */
-function dayActions(a) {
-  if (a.status !== 'confirmed') return '';
+/** A grouped section: head + content on the rhythm (`first` = directly under the hero notes). */
+const sec = (inner, { first = false, id = '' } = {}) => `<section class="sec${first ? ' sec--first' : ''}"${id ? ` aria-labelledby="${id}"` : ''}>${inner}</section>`;
+const workSec = (a, v) => sec(`${sectionHead('The work', { id: `${ID}-work` })}${workHtml(v, { final: workOver(a), estimateLabel: null })}`, { id: `${ID}-work` });   // the payout breakdown follows: no estimate row (M6-P-07)
+const payoutSec = (a, v, fineHtml = '') => sec(`${sectionHead('Your take-home', { id: `${ID}-take`, aside: infoButton('payouts', { label: 'When you get paid' }) })}${tailorBreakdown(v.money)}${fineHtml}`, { id: `${ID}-take` });
+
+/** ••• menu (D-195): "I can’t make it" before the visit starts, "Mark as no-show" once it has (its row says when). Null once neither applies. */
+function moreItems(a) {
+  if (a.status !== 'confirmed') return null;
   const startMs = toDate(a.slot.start).getTime();
   const wait = POLICY.NO_SHOW_WAIT_MIN;
   const t = now();
-  let body;
-  if (t < startMs) {
-    body = `<div class="${ID}__danger">${listRow({ title: 'I can’t make it', sub: `Cancel this visit and refund ${esc(firstOf())}`, act: 'cant-make-it' })}</div>`;
-  } else if (t < startMs + wait * 60000) {
-    const from = fmtTime(isoMinute(addMinutes(a.slot.start, wait)));
-    body = `<p class="t-small c-600 ${ID}__wait">If ${esc(firstOf())} isn’t there by ${from}, you can mark a no-show.</p>`;
-  } else {
-    body = listRow({ title: `${esc(firstOf())} didn’t show up`, sub: `You’re paid ${fmtExact(noShowPayout(a.payments.deposit.cents))} for your time`, act: 'no-show' });
-  }
-  return `<!-- M4: start fitting -->
-  <section class="${ID}__actions" aria-labelledby="${ID}-wrong"><p class="t-small w-600 c-600 ${ID}__group" id="${ID}-wrong">Something wrong?</p>${body}</section>`;
+  const from = fmtTime(isoMinute(addMinutes(a.slot.start, wait)));
+  const items = [];
+  if (t < startMs) items.push({ label: 'I can’t make it', sub: `Cancel this visit and refund ${firstOf()}`, act: 'cant-make-it', tone: 'danger' });
+  items.push({ label: 'Mark as no-show', sub: t < startMs + wait * 60000 ? `If ${firstOf()} isn’t there by ${from}` : `You’re paid ${fmtExact(noShowPayout(a.payments.deposit.cents))} for your time`, act: 'no-show', tone: 'danger' });
+  return items;
+}
+/** headingRow's Back row with the ••• at its right end (shown only while an action is available). */
+function backHead(hero, a) {
+  const html = headingRow(hero, { backRow: true });
+  return moreItems(a) ? html.replace('</button></div><div class="heading-stack">', `</button>${moreMenu()}</div><div class="heading-stack">`) : html;
 }
 
 /* ============================================================
@@ -186,7 +195,7 @@ function copyFor(key, a, t, v, pv) {
       note: note(`It’s time for the fitting. Start it when you’re with ${first}.`),
       bar: { ctaLabel: 'Start fitting', ctaAct: 'start-fitting', busy: busy === 'start', busyLabel: 'Starting…', ...msg } };
     case 'fitting': return { ...base, title: `Fitting with ${esc(v.customer.name)}`,
-      note: note(`Go through each piece with ${first}. Take a before and a pinned photo of each, add or remove items and services, then send ${first} the final order. You start the work once ${first} approves.`),
+      note: note(`Take a before and a pinned photo of each item, then send ${first} the final order.`),
       bar: { lead: `You take home <b data-money>${fmtExact(a.money.payout)}</b>`, ctaLabel: 'Review the order', ctaAct: 'edit-order', ...msg } };
     case 'waiting': return { ...base, title: `Waiting for ${first} to approve`,
       note: note(`You sent the final order at ${fmtTime(pv.sentAt)}. Start the work once ${first} approves.`),
@@ -200,11 +209,11 @@ function copyFor(key, a, t, v, pv) {
           bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
       }
       return { ...base, title: `${first} wants to talk about the order`,
-      note: note(`${first} messaged you instead of approving. Reply in chat. ${first} can approve once you’ve talked, or you can edit the order.`),
+      note: note(`${first} messaged you instead of approving. Reply in chat, or edit the order.`),
       bar: { ctaLabel: `Reply to ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
     }
     case 'in-progress': return { ...base, title: 'Work in progress',
-      note: note(`${first} approved the order. Mark it ready when the work is done. ${first} then picks how to get it back and pays the balance.`),
+      note: note(`${first} approved the order. Mark it ready when the work is done.`),
       bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', ...msg } };
     case 'ready': return { ...base, title: `Ready. Waiting for ${first}`,
       note: note(`${first} is choosing how to get it back, then pays the balance (${fmtExact(a.money.balance)}, plus the courier if she picks it). You’ll see the choice here.`),
@@ -215,11 +224,11 @@ function copyFor(key, a, t, v, pv) {
       note: note(`${first} paid the balance. Agree a time in chat, then mark the job completed when it’s delivered.`), bar: done };
     /* R4-2-T-07: the same "today" the customer reads ("Delivered by Uber today") */
     case 'courier': return { ...base, title: 'A courier picks it up today',
-      note: note(`${first} paid the balance and booked a Taily courier. Have the order ready at ${esc(t.shopName)}, then tap Handed to courier when it leaves with them.`),
+      note: note(`${first} paid and booked a Taily courier. Tap Handed to courier when it leaves your shop.`),
       bar: { ...done, ctaLabel: 'Handed to courier', busyLabel: 'Saving…' } };
     default: { // completed — R4-2-T-05: the record names whose job it was
       const at = a.history.filter((h) => h.status === 'completed').pop()?.at ?? a.history[a.history.length - 1]?.at;
-      return { ...base, title: 'Job completed', note: note(`${esc(v.customer.name)}’s order, completed ${fmtDay(at)}. Thanks for the careful work.`), bar: null };
+      return { ...base, title: 'Job completed', note: note(`${first}’s order, ${fmtDay(at)}.`), bar: null };
     }
   }
 }
@@ -246,12 +255,12 @@ function priceBlocks(a, pv, key) {
   return `<div class="${ID}__delta">${deltaFigure({ label: 'You’ll take home', cents: pv.after.payout, was: pv.before.payout })}
     <p class="t-small c-600 ${ID}__newtotal" data-money>${total}</p></div>
   ${theirs ? `<div class="${ID}__quote">${theirs}</div>` : ''}${mine ? `<div class="${ID}__quote">${mine}</div>` : ''}
-  <h2 class="t-h2 ${ID}__h2 ${ID}__h2--lead">The order you sent</h2>
+  ${sec(`${sectionHead('The order you sent', { id: `${ID}-sent` })}
   <div class="${ID}__summary">${changeSummary(pv.counts)}</div>
   ${unsent}
-  ${changeList({ garments: pv.garments, docs: a.priceChange?.docs ?? null, commentLabel: 'Your comment' })}
-  <h2 class="t-h2 ${ID}__h2">Your take-home if approved</h2>
-  ${tailorBreakdown(pv.after)}`;
+  ${changeList({ garments: pv.garments, docs: a.priceChange?.docs ?? null, commentLabel: 'Your comment' })}`, { first: true, id: `${ID}-sent` })}
+  ${sec(`${sectionHead('Your take-home if approved', { id: `${ID}-take` })}
+  ${tailorBreakdown(pv.after)}`, { id: `${ID}-take` })}`;
 }
 
 /** The payout card of a completed job: the one display figure ("You take home", D-172), the transfer's state and date, then the
@@ -261,13 +270,14 @@ function payoutCard(a, t, extra = '') {
   const p = payoutOf(a);
   const w = p ? payoutLine(p, t.payouts) : null;
   const pill = p ? { pending: ['waiting', 'Pending'], paid: ['completed', 'Paid'], failed: ['declined', 'Didn’t go through'] }[p.state] : ['waiting', 'Pending'];
-  const line = w ? w.text : 'Arrives the Friday after you mark it completed';
-  const link = p?.state === 'failed' ? linkRow('See the payout', { attrs: 'data-act="open-payout"' }) : '';
+  /* M7-1-T-07: the pill already says Paid, so the line is the date and the bank */
+  const line = w ? (p?.state === 'paid' ? w.text.replace(/^Paid\s+/, '') : w.text) : 'Arrives the Friday after you mark it completed';
+  const link = p?.state === 'failed' ? `<div class="${ID}__payout-link">${textLink('See the payout', { act: 'open-payout' })}</div>` : '';
   const how = a.returnOption ?? 'pickup';
   const at = a.history.filter((h) => h.status === 'completed').pop()?.at ?? a.history[a.history.length - 1]?.at;
   const returned = `${how === 'dropoff' ? `${RETURN_DONE.dropoff}${firstOf()}’s` : RETURN_DONE[how]} · ${fmtDay(at)}`;
-  return `<section class="${ID}__payout" aria-label="You take home">
-  <p class="t-caps c-600">YOU TAKE HOME</p>
+  return `<section class="sec sec--first ${ID}__payout" aria-label="You take home">
+  <div class="${ID}__payout-head"><p class="t-caps c-600">YOU TAKE HOME</p>${infoButton('payouts', { label: 'When you get paid' })}</div>
   <p class="t-display ${ID}__payout-amt" data-money>${fmtExact(a.money.payout)}</p>
   <div class="${ID}__payout-state">${statusPill(...pill)}<p class="t-small ${w?.tone === 'error' ? `${ID}__err` : 'c-700'}">${esc(line)}</p></div>${link}
   <div class="${ID}__payout-rows">${tailorBreakdown(a.money, { total: false })}</div>
@@ -284,18 +294,17 @@ function m4View(a, v, key) {
   const c = copyFor(key, a, t, v, pv);
   const hero = statusHero({ variant: key === 'completed' ? 'ready' : 'confirmed', pill: c.pill, pillLabel: c.label, title: c.title, body: '', extra: c.note });
   const updated = approved ? `<p class="t-small c-600 ${ID}__fine">Price updated after the fitting.</p>` : '';
-  const who = `<div class="${ID}__who">${customerRow(v, { message: false })}</div>`;
-  const work = `<h2 class="t-h2 ${ID}__h2">The work</h2>\n  ${workHtml(v, { final: workOver(a), estimateLabel: null })}`;   // the payout breakdown follows: no estimate row (M6-P-07)
+  const who = sec(customerRow(v));
+  const work = workSec(a, v);
   /* R4-2-T-04: every live state says when the money arrives; "can change" only until the price is settled */
-  const before = key === 'visit' || key === 'fitting';
-  const fine = `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after you mark the job completed.${before ? ' The order can change at the fitting.' : approved ? ' Price updated after the fitting.' : ''}</p>`;
-  const payout = `<h2 class="t-h2 ${ID}__h2">Your take-home</h2>\n  ${tailorBreakdown(v.money)}${fine}`;
+  const fine = `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after you mark the job completed.${approved ? ' Price updated after the fitting.' : ''}</p>`;
+  const payout = payoutSec(a, v, fine);
   const banners = key === 'in-progress' && approved
     ? `<div class="${ID}__banner">${banner({ tone: 'success', text: `${first} approved your changes. You take home ${fmtExact(a.money.payout)}.` })}</div>` : '';
-  const block = (inner) => `<div class="${ID}__visit">${inner}</div>`;
+  const block = (inner) => sec(inner, { first: true });
   let body;
   switch (key) {
-    case 'visit': body = `${block(visitCard(a, v))}${who}${work}${payout}${dayActions(a)}`; break;
+    case 'visit': body = `${block(visitCard(a, v))}${who}${work}${payout}`; break;
     case 'fitting': body = `${block(dueCard(a, v))}${who}${work}${payout}`; break;
     case 'waiting':
     case 'messaged': body = `${priceBlocks(a, pv, key)}${fine}`; break;
@@ -312,17 +321,16 @@ function m4View(a, v, key) {
       const r = a.review;
       const reviewer = `${state.customer.first} ${state.customer.last.charAt(0)}.`;
       body = `${payoutCard(a, t, updated)}
-  <h2 class="t-h2 ${ID}__h2">The work</h2>
-  ${workHtml(v, { final: true, estimateLabel: null })}
-  <section class="${ID}__review">${r
-    ? `<h2 class="t-h2 ${ID}__h2">${first}’s review</h2>${reviewRow({ name: reviewer, initials: state.customer.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos })}`
-    : `<p class="t-small c-600">${first} can leave a review now.</p>`}</section>
-  <div class="${ID}__back">${cta('Back to Home', { variant: 'secondary', attrs: 'data-act="home"' })}</div>`;
+  ${workSec(a, v)}
+  ${r
+    ? sec(`${sectionHead(`${first}’s review`, { id: `${ID}-review` })}${reviewRow({ name: reviewer, initials: state.customer.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos, photoType: r.photoType ?? a.job.garments[0]?.type ?? '' })}`, { id: `${ID}-review` })
+    : `<p class="t-small c-600 ${ID}__review">${first} can leave a review now.</p>`}
+  <div class="page-actions">${textLink('Back to Home', { act: 'home' })}</div>`;
     }
   }
   return `${chrome('home', { persona: 'tailor' })}
 <main class="body${c.bar ? ' body--with-bar' : ''} ${ID}" data-appt="${esc(a.id)}" data-s="${ID}--${key}">
-  ${headingRow(hero, { backRow: true })}
+  ${backHead(hero, a)}
   ${body}
 </main>${c.bar ? actionBar(c.bar) : ''}`;
 }
@@ -336,7 +344,7 @@ function view() {
     return `${chrome('home', { persona: 'tailor' })}
 <main class="body ${ID}">
   ${headingRow('<h1 class="t-title">Job</h1>')}
-  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No upcoming jobs', body, ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
+  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No upcoming jobs', body, art: 'Suit Pant', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
 </main>`;
   }
   const v = requestView(a);
@@ -353,18 +361,14 @@ function view() {
   const hero = statusHero({ variant: cancelled ? 'declined' : 'confirmed', pill: h.pill, pillLabel: h.label, title: h.title, body: '', extra: h.note });
   return `${chrome('home', { persona: 'tailor' })}
 <main class="body ${ID}" data-appt="${esc(a.id)}">
-  ${headingRow(hero, { backRow: true })}
+  ${backHead(hero, a)}
   ${moved}
-  <div class="${ID}__visit">${visitCard(a, v)}</div>
+  ${sec(visitCard(a, v), { first: true })}
   ${cancelled ? cancelMoney(a) : ''}
-  <div class="${ID}__who">${customerRow(v, { message: !cancelled })}</div>
-  <h2 class="t-h2 ${ID}__h2">The work</h2>
-  ${workHtml(v, { final: workOver(a), estimateLabel: null })}
-  ${cancelled ? '' : `<h2 class="t-h2 ${ID}__h2">Your take-home</h2>
-  ${tailorBreakdown(v.money)}
-  <p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after you mark the job completed. The order can change at the fitting.</p>
-  ${dayActions(a)}`}
-  ${cancelled ? `<div class="${ID}__back">${cta('Back to Home', { variant: 'secondary', attrs: 'data-act="home"' })}</div>` : ''}
+  ${sec(customerRow(v))}
+  ${workSec(a, v)}
+  ${cancelled ? '' : payoutSec(a, v, `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after you mark the job completed.</p>`)}
+  <div class="page-actions">${cancelled ? textLink('Back to Home', { act: 'home' }) : cta(`Message ${esc(firstOf())}`, { attrs: 'data-act="message"' })}</div>
 </main>`;
 }
 
@@ -559,8 +563,14 @@ function wire(root) {
         else failToast();
       });
     }
+    else if (act === 'more' && a) openMoreMenu(moreItems(a) ?? [], { title: 'More' });
     else if (act === 'cant-make-it' && a) openCantMakeIt(a);
-    else if (act === 'no-show' && a) openNoShow(a);
+    else if (act === 'no-show' && a) {
+      /* the menu lists it from the start; the sheet itself opens once the wait is over */
+      const from = isoMinute(addMinutes(a.slot.start, POLICY.NO_SHOW_WAIT_MIN));
+      if (now() < toDate(from).getTime()) toast(`You can mark a no-show from ${fmtTime(from)}.`);
+      else openNoShow(a);
+    }
   });
 }
 

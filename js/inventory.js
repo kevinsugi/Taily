@@ -17,10 +17,11 @@ export const MILESTONES = [
   { id: 'M4', name: 'Fitting to completion' },
   { id: 'M5', name: 'Messaging, accounts, earnings, system' },
   { id: 'M6', name: 'Final pass' },
+  { id: 'M7', name: 'Polish' },
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
@@ -80,6 +81,7 @@ export const SCREENS = [
     { key: 'c-tailor--shop-only', m: 'M1', kind: 'state' },
     { key: 'c-tailor--declined', m: 'M1', kind: 'state' },
     { key: 'c-tailor--reviewed', m: 'M4', kind: 'state' },
+    { key: 'c-tailor--verified', m: 'M7', kind: 'overlay' },
   ] },
   { id: 'c-book', m: 'M1', persona: 'customer', title: 'C5a Pick a time: Scheduler limited to the tailor\'s open slots before the need-by', states: [
     { key: 'c-book', m: 'M1', kind: 'frame' },
@@ -336,6 +338,10 @@ export const SCREENS = [
     { key: 't-job--completed-paid', m: 'M6', kind: 'state' },
     { key: 't-job--completed-failed', m: 'M6', kind: 'state' },
     { key: 't-job--docs', m: 'M4', kind: 'state' },
+    { key: 't-job--docs-pinned', m: 'M4', kind: 'state' },
+    { key: 't-job--fitting-docs', m: 'M4', kind: 'state' },
+    { key: 't-job--docs-unsent', m: 'M4', kind: 'state' },
+    { key: 't-job--more', m: 'M7', kind: 'overlay' },
   ] },
   { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Edit the job at the fitting: add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },
@@ -357,6 +363,7 @@ export const SCREENS = [
     { key: 't-adjust--comment-masked', m: 'M4', kind: 'state' },
     { key: 't-adjust--photo-viewer', m: 'M4', kind: 'overlay' },
     { key: 't-adjust--revise-docs', m: 'M4', kind: 'state' },
+    { key: 't-adjust--photos-required', m: 'M7', kind: 'state' },
   ] },
   { id: 't-earnings', m: 'M5', persona: 'tailor', title: 'T8 payouts: upcoming, history', states: [
     { key: 't-earnings', m: 'M5', kind: 'frame' },
@@ -387,7 +394,7 @@ export const SCREENS = [
     { key: 't-thread--photo', m: 'M5', kind: 'state' },
     { key: 't-thread--read-only', m: 'M5', kind: 'state' },
   ] },
-  { id: 'sys-index', m: 'M0', persona: 'system', title: 'Boot screen: milestones M0–M6 and every built screen / state as a deep link', states: [
+  { id: 'sys-index', m: 'M0', persona: 'system', title: 'Boot screen: milestones M0–M7 and every built screen / state as a deep link', states: [
     { key: 'sys-index', m: 'M0', kind: 'frame' },
   ] },
   { id: 'sys-components', m: 'M0', persona: 'system', title: 'Component gallery (every v5 component in each state) — visual baseline for the component layer', states: [

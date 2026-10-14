@@ -2,7 +2,7 @@
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
     "syncedAt": "2026-10-14",
-    "milestone": "M6",
+    "milestone": "M7",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -32,7 +32,6 @@
       "tailorRow": "816:4992",
       "priceRow": "816:5007",
       "stars": "816:5029",
-      "ratingSummary": "816:5041",
       "reviewRow": "816:5076",
       "countdown": "816:5088",
       "chatBubble": "816:5136",
@@ -52,7 +51,23 @@
       "skeleton": "816:5462",
       "emptyState": "816:5485",
       "moneyRow": "816:5538",
-      "moneyBreakdown": "816:5600"
+      "moneyBreakdown": "816:5600",
+      "garmentIcons": "865:8219",
+      "ratingLine": "816:5041",
+      "status": "873:5062",
+      "verifiedMark": "873:5063",
+      "button": "873:5080",
+      "textLink": "873:5089",
+      "infoButton": "873:5090",
+      "moreButton": "873:5094",
+      "stitchDivider": "873:5099",
+      "navLink": "873:5175",
+      "topNav": "874:8504",
+      "sectionHeading": "873:5191",
+      "flowBar": "873:5262",
+      "logo": "874:8432",
+      "statusBarIcons": "874:8441",
+      "garmentTileArt": "876:5096"
     },
     "screens": {
       "c-welcome": "822:4347",
@@ -121,7 +136,13 @@
       "c-orders": "851:5000",
       "t-messages": "852:4513",
       "t-earnings": "852:4553",
-      "t-payout": "852:4606"
+      "t-payout": "852:4606",
+      "c-price-change--docs": "867:5419",
+      "c-price-change--photo-viewer": "866:4665",
+      "c-booking--docs": "866:4760",
+      "t-adjust--docs": "869:4824",
+      "t-adjust--photo-viewer": "869:5010",
+      "t-job--docs": "869:5124"
     },
     "variables": {
       "semantic/warning-ink": "VariableID:821:4344",

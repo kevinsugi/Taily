@@ -12,7 +12,7 @@
 import { register, render as go, registered, currentScreen } from '../app.js';
 import { state, T, tailorById, priceChangeView } from '../state.js';
 import {
-  chrome, headingRow, statusHero, banner, emptyState, deltaFigure, noteQuote, changeList, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs,
+  chrome, headingRow, statusHero, banner, emptyState, deltaFigure, noteQuote, changeList, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs, sectionHead,
 } from '../components.js';
 import { fmtExact } from '../money.js';
 import { fmtTime } from '../dates.js';
@@ -45,8 +45,8 @@ function view() {
   const hero = statusHero({
     variant: 'requested', pill: 'action', pillLabel: 'Approve order', title: 'Review your final order',
     body: changed
-      ? `${esc(first)} updated your order at the fitting. Approve it and ${esc(first)} starts the work. Nothing more is charged until it’s ready.`
-      : `${esc(first)} checked everything at the fitting and nothing changed. Approve it and ${esc(first)} starts the work. Nothing more is charged until it’s ready.`,
+      ? `${esc(first)} updated your order at the fitting. Approve it and ${esc(first)} starts the work.`
+      : `${esc(first)} checked everything at the fitting. Nothing changed.`,
   });
   const rows = [
     { label: 'Services', cents: after.services, ...(changed ? { caption: `${first}’s final prices` } : {}) },
@@ -61,20 +61,18 @@ function view() {
   ${headingRow(hero, { backRow: true })}
   ${messaged ? `<div class="${ID}__banner">${banner({ tone: 'info', text: `You messaged ${esc(first)} about the order. Approve when you’re ready, or keep talking in chat.` })}</div>` : ''}
   ${pv.revisions > 0 ? `<p class="t-small c-600 ${ID}__again">${esc(first)} updated the order again at <span class="nb">${esc(fmtTime(pv.sentAt))}</span>.</p>` : ''}
-  <div class="${ID}__figure">${deltaFigure({ label: changed ? 'New total' : 'Total', cents: after.total, was: pv.before.total })}</div>
+  <div class="sec sec--first ${ID}__figure">${deltaFigure({ label: changed ? 'New total' : 'Total', cents: after.total, was: pv.before.total })}</div>
   ${pv.note ? `<div class="${ID}__quote">${noteQuote({ label: `${first}’s note`, text: pv.note })}${pv.noteMasked ? `<p class="t-small c-600 ${ID}__masked">Phone numbers and emails in this note are hidden.</p>` : ''}</div>` : ''}
-  <h2 class="t-h2 ${ID}__h2 ${ID}__h2--lead">${changed ? 'What changed' : 'Your order'}</h2>
+  <section class="sec">${sectionHead(changed ? 'What changed' : 'Your order')}
   <div class="${ID}__summary">${changeSummary(pv.counts)}</div>
-  ${Object.keys(a.priceChange.docs ?? {}).length ? `<p class="t-small c-600 ${ID}__photos">${esc(first)} photographed each item before and after pinning.</p>` : ''}
-  ${changeList({ garments: pv.garments, docs: a.priceChange.docs ?? null, commentLabel: `${first}’s comment` })}
-  <h2 class="t-h2 ${ID}__h2">Price</h2>
-  ${moneyRows(rows)}
-  <p class="t-small c-600 ${ID}__fine">If something doesn’t look right, message ${esc(first)} before you approve.</p>
+  ${changeList({ garments: pv.garments, docs: a.priceChange.docs ?? null, commentLabel: `${first}’s comment` })}</section>
+  <section class="sec">${sectionHead('Price')}
+  ${moneyRows(rows)}</section>
   ${ui().error ? `<div class="${ID}__fail" role="alert">${banner({ tone: 'error', title: 'Couldn’t approve the order', text: 'Nothing changed, and nothing was charged. Try again.' })}</div>` : ''}
 </main>
 ${actionBar({
     ctaLabel: 'Approve and start', ctaAct: 'approve', busy, busyLabel: 'Approving…',
-    lead: `${changed ? 'New balance' : 'Balance'} <b data-money>${fmtExact(after.balance)}</b>`,
+    lead: `<span>${changed ? 'New balance' : 'Balance'}, charged when ready</span><b data-money>${fmtExact(after.balance)}</b>`,
     secondaryLabel: messaged ? 'Open chat' : `Message ${first}`, secondaryAct: 'message',
   })}`;
 }

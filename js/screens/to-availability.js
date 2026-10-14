@@ -9,7 +9,7 @@ import { state, T, SECTIONS } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, chipGroup, dayHours, actionBar,
-  wireToggles, wireChipGroups, sheetOverlay, toast, modalOverlay, leaveModal,
+  wireToggles, wireChipGroups, sheetOverlay, toast, modalOverlay, leaveModal, sectionHead,
 } from '../components.js';
 import { scheduler, timeColumns, readTime, wireTimeWheel, timeLabel, timeMinutes } from '../scheduler.js';
 import { withLatency } from '../sim.js';
@@ -35,7 +35,7 @@ const enabledScheds = () => SCHEDS.filter((s) => myTailor()[s]?.enabled);
 const NAME = { shop: 'shop', home: 'home-visit' };
 const NOTE = {
   shop: `Shop visits are ${VISIT_MINUTES.shop} minutes.`,
-  home: `Home visits are ${VISIT_MINUTES.home} minutes. Leave time to travel between them.`,
+  home: `Home visits are ${VISIT_MINUTES.home} minutes.`,
 };
 const HEAD = { shop: 'Shop hours', home: 'Home-visit hours' };
 const hhmm = (mins) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
@@ -137,9 +137,9 @@ function body(list, seg) {
   let week = weekHtml(seg);
   if (e) week = week.replace('role="switch"', 'role="switch" aria-describedby="avail-msg"');
   return `${segmented}
-  <p class="to-availability__caps t-caps c-600">${HEAD[seg]}</p>
+  <div class="to-availability__head">${sectionHead(HEAD[seg])}</div>
   <p class="to-availability__note t-small c-600">${NOTE[seg]}</p>
-  <section class="to-availability__card" aria-label="${HEAD[seg]}">
+  <section class="card to-availability__card" aria-label="${HEAD[seg]}">
     ${week}
   </section>
   ${e ? `<p class="field__msg field__msg--error to-availability__error" id="avail-msg" role="alert">Add at least one day of ${NAME[seg]} hours.</p>` : ''}`;
@@ -155,7 +155,7 @@ function view() {
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
   ${mode ? headingRow(TITLE, { backRow: true }) : `<div class="${ID}__title">${TITLE}</div>`}
-  <p class="to-availability__lead t-body c-600">Set your usual week. Each request still needs your OK, and you have ${POLICY.REQUEST_EXPIRY_H} hours to reply.</p>
+  <p class="to-availability__lead t-body c-600">Set your usual week. You have ${POLICY.REQUEST_EXPIRY_H} hours to reply to each request.</p>
   <div class="to-availability__body">${body(list, seg)}</div>
 </main>${barHtml()}`;
 }

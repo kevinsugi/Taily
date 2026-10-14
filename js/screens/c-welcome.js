@@ -4,16 +4,11 @@
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
 import { state } from '../state.js';
-import { statusBar, cta, metaRow, toast, esc } from '../components.js';
+import { statusBar, cta, toast, garmentIcon } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 
 const ID = 'c-welcome';
-const TRUST = [
-  'Every tailor is ID verified and background checked',
-  'Prices up front, from the tailor’s own list',
-  'Your deposit is held, not charged, until the tailor accepts',
-];
 const PROVIDERS = { apple: 'Apple', google: 'Google' };
 
 const ui = () => state.ui[ID] ?? {};
@@ -26,12 +21,12 @@ function view(s) {
   return `${statusBar()}
 <main class="body ${ID}">
   <span class="${ID}__logo" role="img" aria-label="Taily"></span>
+  <div class="${ID}__hero" aria-hidden="true">${garmentIcon('Suit Jacket', { size: 'hero' })}</div>
   <h1 class="t-display ${ID}__title">A tailor near you, booked in five steps.</h1>
-  <p class="t-body c-600 ${ID}__lead">See each tailor’s own prices, pick a time that suits you, and hold a small deposit to send a request.</p>
-  <div class="${ID}__trust">${TRUST.map((t) => metaRow('✓', esc(t))).join('')}</div>
+  <p class="t-body c-600 ${ID}__lead">Real prices up front. Your deposit is held, not charged, until the tailor accepts.</p>
   <div class="${ID}__spacer"></div>
   ${cta('Continue with phone', { disabled: !!busy, attrs: 'data-act="phone"' })}
-  <div class="${ID}__or" role="separator"><span class="t-small c-500">or</span></div>
+  <div class="${ID}__or" role="separator"><span class="t-small c-600">or</span></div>
   ${btn('apple', 'secondary')}
   <div class="${ID}__gap"></div>
   ${btn('google', 'secondary')}

@@ -7,7 +7,7 @@ import { register, render as go } from '../app.js';
 import { state, T, activeAppt, statusScreen, tailorById, priceChangeView } from '../state.js';
 import {
   chrome, bookingSteps, garmentTile, photoTile, actionBar, checkRow, cta, listRow, apptRow,
-  sheetOverlay, toast, esc, garmentIcon,
+  sheetOverlay, toast, esc, garmentIcon, sectionHead, textLink,
 } from '../components.js';
 import { GARMENT_TYPES, SERVICES, MAX_ITEMS, itemsLabel, servicesForType } from '../data.js';
 import { CHEVRON_RIGHT } from '../icons.js';
@@ -22,16 +22,20 @@ const MAX_PHOTOS = 3;   // per garment (D-42)
 /* ---------- typed / transient UI: which garments show the "choose a service" error ---------- */
 const ui = () => (state.ui[ID] ??= { errors: {} });
 
-const serviceText = (g) => g.services.map((id) => SERVICES[id]?.label).filter(Boolean).join(' · ');
+/* two services: "A · B"; three or more: "A, B +n more" (M7 B: no long "·" chain) */
+const serviceText = (g) => {
+  const labels = g.services.map((id) => SERVICES[id]?.label).filter(Boolean);
+  return labels.length > 2 ? `${labels[0]}, ${labels[1]} +${labels.length - 2} more` : labels.join(' · ');
+};
 
 function itemCard(g) {
   const hasErr = !!ui().errors[g.id];
   const errId = `svc-err-${g.id}`;
-  const thumbs = Array.from({ length: g.photos }, () => photoTile('photo')).join('');
+  const thumbs = Array.from({ length: g.photos }, (_, i) => photoTile('photo', { type: g.type, tone: i })).join('');
   const addPhoto = g.photos < MAX_PHOTOS
     ? `<button type="button" class="job-item__add" data-act="add-photo" data-id="${g.id}" aria-label="Add a photo of the ${esc(g.type)}">${photoTile('add')}</button>`
     : '';
-  return `<article class="job-item" data-id="${g.id}">
+  return `<article class="card job-item" data-id="${g.id}">
   <div class="job-item__head">
     ${garmentIcon(g.type)}
     <span class="job-item__type t-body w-600">${esc(g.type)}</span>
@@ -44,7 +48,7 @@ function itemCard(g) {
   ${hasErr ? `<p class="field__msg field__msg--error" id="${errId}" data-error="service" role="alert">Choose at least one service.</p>` : ''}
   <div class="job-item__photos">
     <div class="photo-tiles">${thumbs}${addPhoto}</div>
-    <p class="job-item__caption t-small c-600">Photos help the tailor quote (optional)</p>
+    <p class="job-item__caption t-small c-600">Optional</p>
   </div>
 </article>`;
 }
@@ -80,16 +84,16 @@ function view() {
   }).join('');
   const helper = full ? `You can add up to ${MAX_ITEMS} items per visit.` : '';
   const items = garments.length
-    ? `<section class="job__items" aria-labelledby="job-items-h">
-    <div class="job__items-head"><h2 class="t-h2" id="job-items-h">Your items</h2><span class="t-small c-600 job__count">${itemsLabel(garments.length, 'item')}</span></div>
-    ${garments.map(itemCard).join('')}
+    ? `<section class="sec job__items" aria-labelledby="job-items-h">
+    ${sectionHead('Your items', { id: 'job-items-h', count: itemsLabel(garments.length, 'item') })}
+    <div class="sec__body job__items-list">${garments.map(itemCard).join('')}</div>
   </section>`
     : '';
   return `${chrome('home')}<main class="body body--with-bar ${ID}">
   ${activeRow()}
   ${bookingSteps(0)}
   <h1 class="t-title job__title">What needs work?</h1>
-  <p class="t-body c-600 job__lead">Tap a garment to add it. You’ll choose what to do with each one.</p>
+  <p class="t-body c-600 job__lead">Tap a garment to add it.</p>
   <div class="tile-grid job__grid"${full ? ' data-max="true"' : ''}>${tiles}</div>
   ${helper ? `<p class="t-small c-600 job__helper" data-helper>${helper}</p>` : ''}
   ${items}
@@ -106,7 +110,7 @@ function openServices(root, id) {
   const rows = servicesForType(g.type).map((sid) => checkRow({
     id: `svc-${sid}`, label: SERVICES[sid].label, checked: g.services.includes(sid), attrs: `data-service="${sid}"`,
   })).join('');
-  const html = `<p class="t-small c-600">Pick all that apply. Each tailor prices these on their profile.</p>
+  const html = `<p class="t-small c-600">Pick all that apply.</p>
 <div class="job-svc__list">${rows}</div>
 <div class="job-svc__cta">${cta('Done', { attrs: 'data-act="services-done"' })}</div>`;
   sheetOverlay(html, { header: `${esc(g.type)} — what needs doing?`, dataS: `${ID}-services`, confirm: false }, (holder, close) => {
@@ -126,7 +130,7 @@ function openPhoto(root, id) {
   const g = state.job.garments.find((x) => x.id === id);
   if (!g || g.photos >= MAX_PHOTOS) return;
   const html = `<div class="job-photo__list">${listRow({ title: 'Take photo', act: 'photo-take' })}${listRow({ title: 'Choose from library', act: 'photo-library' })}</div>
-${cta('Cancel', { variant: 'secondary', attrs: 'data-act="photo-cancel"' })}`;
+<div class="job-photo__cancel">${textLink('Cancel', { act: 'photo-cancel', tone: 'muted' })}</div>`;
   sheetOverlay(html, { header: 'Add a photo', dataS: `${ID}-photo`, confirm: false }, (holder, close) => {
     const add = () => {
       T.setJob({ garments: state.job.garments.map((x) => (x.id === id ? { ...x, photos: Math.min(MAX_PHOTOS, x.photos + 1) } : x)) });

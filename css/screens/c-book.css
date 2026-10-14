@@ -1,7 +1,7 @@
 /* c-book — C5a Pick a time. Layout only; the Scheduler, empty state and chrome are shared components. */
 .c-book { gap: 0; }
-.c-book__who { margin: var(--space-8) 0 0; }
-.c-book__only { margin: var(--space-4) 0 0; }
-.c-book__sched { margin-top: var(--space-16); }
-.c-book__free { margin: var(--space-16) 0 0; text-align: center; text-wrap: balance; }
-.c-book__empty { margin-top: var(--space-24); }
+.c-book__who { margin: var(--space-8) 0 0; color: var(--ink); }
+.c-book__where { margin: var(--space-4) 0 0; }
+.c-book__sched { margin-top: var(--rhythm-group); }
+.c-book__free { margin: var(--rhythm-group) 0 0; text-align: center; text-wrap: balance; }
+.c-book__empty { margin-top: var(--rhythm-section); }

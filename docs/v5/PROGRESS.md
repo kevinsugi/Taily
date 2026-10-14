@@ -13,7 +13,15 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 | M7 World-class polish | in progress | | | K-03 calls |
 | M6 Final pass | in progress: audit triaged into `docs/v5/M6-fixlist.md`, fix batches running (decisions D-154…D-174 logged) | | | |
 
-**Next action:** M7 workflow running (script taily-v5-m7-world-class-polish-wf_3b6fe733-330.js, run wf_3b6fe733-330). Before set in .shots/M7/before. Then: commit + push, before/after page for Kevin. K-02 done (766759c).
+**Next action:** M7 workflow running (script taily-v5-m7-world-class-polish-wf_3b6fe733-330.js, run wf_3b6fe733-330). Before set in .shots/M7/before. When it lands: commit + push, before/after page for Kevin, THEN the queued impeccable pass (below).
+
+## Queued after M7 — impeccable (Kevin, Oct 14) — REVIEW GATE
+Run `/impeccable:impeccable` (Operate mode; launcher binary download approved by Kevin's "yes"):
+1. `document` → write DESIGN.md from the polished code (doc only).
+2. `critique` (both personas) → report only, docs/v5/IMPECCABLE-CRITIQUE.md.
+3. `audit` (a11y / perf / responsive) → report only, docs/v5/IMPECCABLE-AUDIT.md.
+4. `clarify` → PROPOSED copy changes only, as a before → after table in docs/v5/IMPECCABLE-COPY.md. Do NOT edit screens.
+**Gate:** Kevin reviews the critique, audit and revised copy BEFORE any change is applied. Do not apply until he approves.
 
 ## Open findings carried forward
 (none)

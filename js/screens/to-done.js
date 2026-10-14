@@ -9,7 +9,7 @@ import { state, tailorsFor, eligible } from '../state.js';
 import { myTailor, MY_TAILOR_ID } from '../tailor-data.js';
 import { ZIP_INFO, VISIT_LABEL, CUSTOMER } from '../data.js';
 import { POLICY } from '../money-config.js';
-import { statusBar, customerPreview, tailorRow, miniProfile, actionBar } from '../components.js';
+import { statusBar, customerPreview, tailorRow, miniProfile, actionBar, garmentIcon, sectionHead } from '../components.js';
 
 const ID = 'to-done';
 
@@ -42,8 +42,15 @@ function whyNotShown(t, job) {
 const STEPS = [
   'A customer sends a request with their garments and a time.',
   'Accept, suggest another time, or decline.',
-  'At the fitting you can add or remove items and services. The customer approves the final order before you start.',
+  'At the fitting, send the final order. You start once the customer approves.',
 ];
+
+/** "suit pant and suit jacket" / "a, b and c" — names in running text, no "·" chain (M7). */
+const nameList = (types) => {
+  const n = types.map((x) => x.toLowerCase());
+  return n.length < 3 ? n.join(' and ') : `${n.slice(0, -1).join(', ')} and ${n.at(-1)}`;
+};
+const lowerFirst = (x) => x.charAt(0).toLowerCase() + x.slice(1);
 
 function view(s) {
   const t = myTailor();
@@ -51,7 +58,7 @@ function view(s) {
   const row = previewRow();
   const hood = ZIP_INFO[job.zip]?.hood ?? 'Brooklyn';
   const caption = row
-    ? `Example job: ${job.garments.map((g) => g.type).join(' · ')} · ${VISIT_LABEL.tailor[job.visitType]}`
+    ? `Example job: ${nameList(job.garments.map((g) => g.type))}, ${lowerFirst(VISIT_LABEL.tailor[job.visitType])}`
     : whyNotShown(t, job);
   /* a row → "How a customer in <hood> sees you"; no row → that customer wouldn't see her at all, so the neutral title (as t-shop) */
   const title = row ? `How a customer in ${hood} sees you` : 'What customers will see';
@@ -59,12 +66,14 @@ function view(s) {
   const hours = POLICY.REQUEST_EXPIRY_H;
   return `${statusBar()}
 <main class="body body--with-bar ${ID}">
-  <span class="${ID}__check" aria-hidden="true">✓</span>
+  <span class="${ID}__art" aria-hidden="true">${garmentIcon('Suit Jacket', { size: 'hero' })}</span>
   <h1 class="t-display ${ID}__title">You’re bookable</h1>
-  <p class="t-body c-600 ${ID}__lead">Customers near you can find you and send requests now. We’ll text you each one — you have ${hours} hour${hours === 1 ? '' : 's'} to reply.</p>
+  <p class="t-body c-600 ${ID}__lead">Customers near you can book you now. You have ${hours} hour${hours === 1 ? '' : 's'} to reply to each request.</p>
   <div class="${ID}__preview">${customerPreview({ title, html: row ?? mini, caption })}</div>
-  <h2 class="t-h2 ${ID}__h2">What happens next</h2>
-  <ol class="${ID}__steps">${STEPS.map((txt, i) => `<li class="${ID}__step"><span class="${ID}__num t-small w-600" aria-hidden="true">${i + 1}</span><span class="t-body">${txt}</span></li>`).join('')}</ol>
+  <section class="sec" aria-labelledby="${ID}-next-h">
+    ${sectionHead('What happens next', { id: `${ID}-next-h` })}
+    <ol class="${ID}__steps">${STEPS.map((txt, i) => `<li class="${ID}__step"><span class="${ID}__num t-small w-600" aria-hidden="true">${i + 1}</span><span class="t-body">${txt}</span></li>`).join('')}</ol>
+  </section>
   <p class="t-small c-600 ${ID}__rush">Want extra for quick turnarounds? <button type="button" class="${ID}__link" data-act="rush" data-hit="inline">Add rush fees</button> in your shop.</p>
 </main>
 ${actionBar({ ctaLabel: 'Go to my shop', ctaAct: 'shop', secondaryLabel: 'See my profile as a customer', secondaryAct: 'as-customer' })}`;

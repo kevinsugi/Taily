@@ -14,7 +14,8 @@ import { withLatency } from '../sim.js';
 import { CHAT_LIMITS } from '../data.js';
 import {
   chrome, headingRow, privacyNote, composer, readOnlyBanner, emptyState, threadHead, threadContext,
-  threadMessages, countdown, openAttachSheet, wireComposer, wirePhotoViewer, toast, esc,
+  threadMessages, countdown, openAttachSheet, wireComposer, wirePhotoViewer, toast, esc, ICON_INFO,
+  heroGarment,
 } from '../components.js';
 import { fmtWhen } from '../dates.js';
 
@@ -47,6 +48,7 @@ function contextRow(a) {
     title: fmtWhen(a.slot.start),
     sub: link ? `${v.visitLabel} · ${link}` : v.visitLabel,
     act: link ? 'open-appt' : '', id: a.id,
+    garment: heroGarment(a.job),
   });
 }
 
@@ -57,7 +59,7 @@ function view(s) {
     return `${chrome('messages', { persona: 'tailor' })}
 <main class="body ${ID}">
   ${headingRow('<h1 class="t-title">Messages</h1>', { back: false })}
-  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No conversation yet', body: 'Messages with a customer show up here once she has sent a request.', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
+  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No conversation yet', body: 'Messages with a customer show up here once she has sent a request.', art: 'Shirt / Blouse', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
 </main>`;
   }
   const u = ui();
@@ -66,13 +68,14 @@ function view(s) {
   const draft = u.draft ?? '';
   const hint = maskContact(draft).masked ? HINT : '';
   const busy = !!u.sending;
+  const gType = a?.job?.garments?.[0]?.type || '';   // chat photos are drawn as this booking's first garment (no booking → hanger)
   const head = threadHead({ initials: customerInitials(), name: threadCustomerName(), sub: subLine(a) });
   const body = thread.messages.length || u.sending || (u.failed ?? []).length
-    ? threadMessages(thread.messages, { reader: 'tailor', now: now(), failed: u.failed ?? [], sending: u.sending ?? null, peer: first })
+    ? threadMessages(thread.messages, { reader: 'tailor', now: now(), failed: u.failed ?? [], sending: u.sending ?? null, peer: first, photoType: gType })
     : `<p class="t-body c-600 ${ID}__empty-text">No messages yet. Say hello or ask about the fit.</p>`;
   const foot = closed
-    ? readOnlyBanner({ text: `You declined this request, so the conversation is closed. ${first} can send you a new request for a different job.`, ctaLabel: 'Back to Home', ctaAct: 'home' })
-    : composer({ value: draft, placeholder: `Message ${first}`, hint, photos: u.photos ?? 0, max: maxPhotos(), disabled: busy });
+    ? readOnlyBanner({ text: 'You declined this request, so the conversation is closed.', ctaLabel: 'Back to Home', ctaAct: 'home' })
+    : composer({ value: draft, placeholder: `Message ${first}`, hint, photos: u.photos ?? 0, max: maxPhotos(), disabled: busy, photoType: gType });
   return `${chrome('messages', { persona: 'tailor' })}
 <main class="body ${ID}"${busy ? ' aria-busy="true"' : ''}>
   ${headingRow(head, { back: true })}
@@ -130,7 +133,7 @@ function wire(root) {
       if (!hintEl) return;
       const has = !!hintEl.textContent.trim();
       if (on && !has) {
-        hintEl.innerHTML = `<span class="privacy-note__glyph" aria-hidden="true">i</span><span>${HINT}</span>`;
+        hintEl.innerHTML = `${ICON_INFO}<span>${HINT}</span>`;
         input.setAttribute('aria-describedby', 'composer-hint');
       } else if (!on && has) {
         hintEl.textContent = '';

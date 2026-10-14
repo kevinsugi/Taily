@@ -95,7 +95,7 @@ export const TAILORS = [
     rating: { avg: 4.9, count: 37 },
     reviews: [                                          // newest first; shown on the profile with the average + count
       { id: 'r1', name: 'Priya S.', initials: 'PS', stars: 5, date: '2026-09-28', photos: 0, text: 'Hemmed three pairs of work pants in two days. She pinned everything at my place so the length was right with my shoes.' },
-      { id: 'r2', name: 'Marcus T.', initials: 'MT', stars: 5, date: '2026-09-14', photos: 1, text: 'Took in a suit jacket I had given up on. It fits like it was made for me.' },
+      { id: 'r2', name: 'Marcus T.', initials: 'MT', stars: 5, date: '2026-09-14', photos: 1, photoType: 'Suit Jacket', text: 'Took in a suit jacket I had given up on. It fits like it was made for me.' },
       { id: 'r3', name: 'Jenna L.', initials: 'JL', stars: 4, date: '2026-08-30', photos: 0, text: 'Great work on a dress hem. The return took a day longer than planned, but she messaged ahead.' },
       { id: 'r4', name: 'Dev R.', initials: 'DR', stars: 5, date: '2026-08-11', photos: 0, text: 'Fast zipper replacement at a fair price. Easy to book.' },
     ],

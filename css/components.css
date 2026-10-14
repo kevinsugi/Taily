@@ -25,8 +25,6 @@
    ============================================================ */
 
 :root {
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -47,7 +45,7 @@
   line-height: 21px;
   font-weight: 600;
   /* press feedback: transform only, retargetable */
-  transition: transform 160ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 
 .cta--secondary {
@@ -56,82 +54,43 @@
   border: 1px solid var(--neutral-300);
 }
 
-.cta:active { transform: scale(0.97); }
 
 /* Figma 04b: the Next CTA sits at 55% node opacity (disabled look).
    Clicks stay live — this is a prototype. */
 .cta--disabled { opacity: 0.55; }
 
 
-/* ============================================================
-   Status Pill — Figma 312:826. 9 variants. gap4 pl8 pr12 py4 r20.
-   Icon + text share one colour; border is that colour at 35%.
-   ============================================================ */
-.pill {
+/* M7 (A5.6, D-188): status = an 8 px dot + a 12/600 word; .pill and .pill--* are retired */
+.status {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-12) var(--space-4) var(--space-8);
-  border-radius: var(--radius-20);
-  /* Figma strokes are INSIDE — a CSS border would add 2px of height,
-     so every ring on a hug-sized control is an inset shadow instead. */
-  box-shadow: inset 0 0 0 1px transparent;
+  gap: var(--space-8);
   font-family: var(--font-sans);
   font-size: var(--size-12);
   line-height: 16px;
   font-weight: 600;
   white-space: nowrap;
+  color: var(--status-calm-ink);
 }
-
-.pill__icon { width: 14px; height: 14px; flex-shrink: 0; }
-
-.pill--requested,
-.pill--new-request {
-  background: var(--warning-bg);
-  color: var(--warning-ink);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 35%, transparent);
+.status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--status-calm);
+  flex-shrink: 0;
 }
-.pill--confirmed {
-  background: var(--info-bg);
-  color: var(--info);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 35%, transparent);
-}
-.pill--ready {
-  background: var(--success-bg);
-  color: var(--success);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success) 35%, transparent);
-}
-.pill--completed {
-  background: var(--ink);
-  color: var(--white);
-}
-.pill--declined,
-.pill--cancelled {
-  background: var(--error-bg);
-  color: var(--error);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--error) 35%, transparent);
-}
-.pill--awaiting-customer {
-  background: var(--neutral-100);
-  color: var(--neutral-600);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--neutral-600) 35%, transparent);
-}
-/* R3-2-C-05 (D-95): your move — the filled accent pill outranks every passive state */
-.pill--action {
-  background: var(--accent-ink);
-  color: var(--white);
-}
-/* …and the other side of it: waiting on the customer, same accent family, outlined */
-.pill--waiting {
-  background: var(--accent-bg);
-  color: var(--accent-ink);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-ink) 45%, transparent);
-}
-.pill--tailoring {
-  background: var(--accent-bg);
-  color: var(--accent-ink);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-ink) 35%, transparent);
-}
+.status--action { color: var(--status-action-ink); font-weight: 700; }
+.status--action .status__dot { background: var(--status-action); box-shadow: 0 0 0 3px var(--status-action-halo); }
+.status--pending { color: var(--status-pending-ink); }
+.status--pending .status__dot { background: var(--status-pending); }
+.status--progress { color: var(--status-progress-ink); }
+.status--progress .status__dot { background: var(--status-progress); }
+.status--done { color: var(--status-done-ink); }
+.status--done .status__dot { background: var(--status-done); }
+.status--stop { color: var(--status-stop-ink); }
+.status--stop .status__dot { background: var(--status-stop); }
+/* calm = a HOLLOW dot, so closed / cancelled differ from the filled progress dot by shape as well as hue (M7-1-T-03) */
+.status--calm .status__dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--status-calm); }
 
 /* ============================================================
    Time Chip — Figma 501:1039. Default | Selected. p12/16 r12.
@@ -150,7 +109,7 @@
   line-height: 21px;
   font-weight: 600;
   white-space: nowrap;
-  transition: transform 140ms var(--ease-out),
+  transition: transform var(--dur-press) var(--ease-out),
               background-color 150ms ease,
               box-shadow 150ms ease,
               color 150ms ease;
@@ -162,7 +121,6 @@
   color: var(--neutral-50);
 }
 
-.chip:active { transform: scale(0.96); }
 
 /* ============================================================
    Select Time — Figma 502:1035. p8/12 gap8 r8, label + chevron.
@@ -180,9 +138,8 @@
   font-size: var(--size-16);
   line-height: 21px;
   font-weight: 600;
-  transition: transform 140ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
-.select-time:active { transform: scale(0.97); }
 .select-time__chevron { width: 12px; height: 12px; flex-shrink: 0; }
 
 /* ============================================================
@@ -297,11 +254,10 @@
   border-radius: var(--radius-lg);
   background: var(--white);
   border: 1px solid var(--neutral-200);
-  transition: transform 140ms var(--ease-out),
+  transition: transform var(--dur-press) var(--ease-out),
               border-color 150ms ease,
               box-shadow 150ms ease;
 }
-.garment-tile:active { transform: scale(0.96); }
 
 .garment-tile__art {
   /* Art is cropped straight from the ref render (185x148 @2x) and drawn
@@ -340,9 +296,9 @@
   justify-content: space-between;
   gap: 0;
   padding: 0;
-  border: 1px solid var(--neutral-700);
+  border: 0;
   background: var(--white);
-  box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 0 0 1.5px var(--ink);   /* M7-2-C-02 (D-193): an inside ink stroke, no drop shadow */
   overflow: hidden;
 }
 .garment-tile__icons {
@@ -375,7 +331,6 @@
 /* ---------- shared motion accessibility ---------- */
 @media (prefers-reduced-motion: reduce) {
   .cta, .chip, .select-time, .garment-tile { transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
-  .cta:active, .chip:active, .select-time:active, .garment-tile:active { transform: none; }
   .filter-pill__dropdown { transition: opacity 180ms ease; }
   .filter-pill__box .select-time__chevron { transition: none; }
 }
@@ -400,9 +355,8 @@
   line-height: 16px;
   font-weight: 600;
   white-space: nowrap;
-  transition: transform 140ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
-.cta-small:active { transform: scale(0.97); }
 
 /* ============================================================
    Progress Bar — Figma 473:7627. Four flex-1 segments, h5.
@@ -416,8 +370,8 @@
 }
 .progress__seg { flex: 1 0 0; min-width: 1px; height: 5px; background: var(--neutral-100); }
 
-.progress--confirmed { box-shadow: inset 0 0 0 1px var(--info); }
-.progress--confirmed .progress__seg:nth-child(1) { background: var(--info); }
+.progress--confirmed { box-shadow: inset 0 0 0 1px var(--accent-base); }
+.progress--confirmed .progress__seg:nth-child(1) { background: var(--accent-base); }
 .progress--tailoring .progress__seg:nth-child(-n+2) { background: var(--accent-ink); }
 .progress--ready .progress__seg:nth-child(-n+3) { background: var(--success); }
 .progress--complete .progress__seg { background: var(--ink); }
@@ -434,10 +388,10 @@
   padding: var(--space-20);
   border-radius: var(--radius-lg);
   background: var(--white);
-  box-shadow: 0 6px 8px rgba(28, 27, 24, 0.07), 0 2px 3px rgba(28, 27, 24, 0.06);
+  box-shadow: inset 0 0 0 1px var(--card-ring);   /* M7-2-C-02: v4 rule, unused in v5 — flat (D-193) */
 }
 .appt-card--completed {
-  box-shadow: 0 6px 16px rgba(28, 27, 24, 0.07), 0 2px 6px rgba(28, 27, 24, 0.06);
+  box-shadow: inset 0 0 0 1px var(--card-ring);
 }
 
 .appt-card__top { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
@@ -586,23 +540,26 @@
   padding: var(--space-12) var(--space-20);
   cursor: pointer;
   border-radius: var(--radius-lg);
-  background: var(--white);
-  box-shadow: 0 6px 16px rgba(28, 27, 24, 0.07), 0 2px 6px rgba(28, 27, 24, 0.06);
+  background: var(--card-bg);
+  box-shadow: inset 0 0 0 1px var(--card-ring);
 }
 .summary-card__who { display: flex; align-items: center; gap: var(--space-12); width: 100%; }
 .avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: var(--radius-20);
-  background: var(--ink);
-  color: var(--neutral-50);
+  /* M7 (A5.4, D-199): a circle — initials on the warm tint, never a black square */
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--avatar-bg);
+  color: var(--avatar-ink);
+  box-shadow: inset 0 0 0 1px var(--avatar-ring);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-sans);
   font-size: var(--size-16);
   line-height: 21px;
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   flex-shrink: 0;
 }
 .summary-card__info {
@@ -616,7 +573,6 @@
 .summary-card__name-row { display: flex; align-items: center; gap: var(--space-4); }
 .summary-card__name { font-weight: 600; color: var(--ink); }
 /* round 14 (Kevin): ✓ after the name + verification badges under the who row */
-.summary-card__check { font-size: var(--size-12); line-height: 16px; font-weight: 600; color: var(--success); }
 .trust-badges { display: flex; flex-wrap: wrap; gap: var(--space-8); width: 100%; }
 .trust-badge {
   display: inline-flex;
@@ -648,20 +604,19 @@
   width: 100%;
   padding: var(--space-20);
   border-radius: var(--radius-lg);
-  background: var(--white);
-  box-shadow: 0 6px 16px rgba(28, 27, 24, 0.07), 0 2px 6px rgba(28, 27, 24, 0.06);
+  background: var(--card-bg);
+  box-shadow: inset 0 0 0 1px var(--card-ring);
 }
 .trust-card--popup { position: absolute; z-index: 3; left: var(--space-20); top: 194.5px; width: 350px; }
-.trust-card__photo { width: 100%; height: 180px; border-radius: var(--radius-md); background: var(--media-placeholder); }
+.trust-card__photo { width: 100%; height: 180px; border-radius: var(--radius-md); overflow: hidden; }
+.trust-card__photo .doc-photo { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; }
 .trust-card__head { display: flex; flex-direction: column; gap: var(--space-8); }
 .trust-card__name-row { display: flex; align-items: center; gap: var(--space-8); }
 .trust-card__name { font-family: var(--font-serif); font-size: var(--size-24); line-height: 29px; font-weight: 600; color: var(--ink); }
-.trust-card__verified { font-family: var(--font-sans); font-size: var(--size-12); line-height: 16px; font-weight: 600; color: var(--success); }
 .trust-card__sub { margin: 0; font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 500; color: var(--neutral-600); }
 .trust-card__bio { margin: 0; font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 400; color: var(--neutral-700); }
 /* 03/Confirmed's Visit Details block at the top of the garments card */
-.visit-block { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-12) var(--space-8); box-shadow: inset 0 -1px 0 var(--neutral-100); }
-.visit-block__title { font-family: var(--font-serif); font-size: var(--size-24); line-height: 29px; font-weight: 600; color: var(--ink); }
+.visit-block { display: flex; flex-direction: column; gap: var(--rhythm-tight); }   /* M7: flat — the title is a sectionHead */
 .visit-block__row { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 400; color: var(--ink); white-space: pre; }   /* round 16: Kevin's frames draw the rows Regular ink */
 /* Round 15 (Kevin): the Back control (308:3820) beside a heading — a
    36-tall, 8-padded box around "‹" 28 Regular ink; the row centres it
@@ -698,7 +653,7 @@
   background: var(--white);
   padding: var(--space-16) var(--space-12) var(--space-16) var(--space-16);
   border-radius: var(--radius-lg);
-  box-shadow: 0 6px 8px rgba(28, 27, 24, 0.07), 0 2px 3px rgba(28, 27, 24, 0.06);
+  box-shadow: inset 0 0 0 1px var(--card-ring);   /* M7-2-C-02: v4 rule, unused in v5 — flat (D-193) */
 }
 .garment-card--view {
   padding: var(--space-16) 0;
@@ -938,7 +893,8 @@
 }
 .photo-tile--add { border: 1.5px dashed var(--neutral-300); color: var(--neutral-600); }
 .photo-tile--add .icon-camera { position: absolute; inset: 11.5px; width: 18px; height: 18px; }
-.photo-tile--photo { background: linear-gradient(135deg, #E2DCD1 0%, var(--neutral-300) 71.43%); }
+.photo-tile--photo { overflow: hidden; }
+.photo-tile--photo > .doc-photo { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; border-radius: inherit; }
 .photo-tile__cancel {
   position: absolute;
   top: -2px;
@@ -1024,10 +980,11 @@
 /* Open/close driven by [data-open] on a .sheet-host wrapper. */
 .sheet-host .sheet-scrim,
 .sheet-host .sheet {
-  transition: opacity 300ms var(--ease-drawer), transform 300ms var(--ease-drawer);
+  transition: opacity var(--dur-sheet-out) var(--ease-out), transform var(--dur-sheet-out) var(--ease-out);
 }
 .sheet-host[data-open="true"] .sheet-scrim { opacity: 0.4; }
-.sheet-host[data-open="true"] .sheet { transform: translateY(0); transition-duration: 400ms; }
+.sheet-host[data-open="true"] .sheet { transform: translateY(0); }
+.sheet-host[data-open="true"] .sheet-scrim, .sheet-host[data-open="true"] .sheet { transition-duration: var(--dur-sheet-in); }
 .sheet-host[data-open="false"] .sheet-scrim { opacity: 0; pointer-events: none; }
 .sheet-host[data-open="false"] .sheet { transform: translateY(100%); }
 
@@ -1116,9 +1073,8 @@
   line-height: 21px;
   font-weight: 600;
   color: var(--ink);
-  transition: transform 140ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
-.method-row:active { transform: scale(0.98); }
 .method-row__label { flex: 1 0 0; min-width: 1px; text-align: left; }
 .method-row__chevron { width: 16px; height: 16px; color: var(--neutral-500); flex-shrink: 0; }
 
@@ -1173,9 +1129,7 @@
   width: 100%;
   margin: 0;
   list-style: none;
-  padding: var(--space-16);
-  border-radius: var(--radius-lg);
-  background: var(--white);
+  padding: 0;   /* M7 (A4): flat on the linen */
 }
 .step { display: flex; gap: var(--space-12); padding-block: var(--space-8); align-items: center; }
 .step__dot {
@@ -1283,7 +1237,6 @@
    a 40px avatar (the ✂ glyph until a tailor accepts) beside the name
    "Matching you with a tailor" — above the glyph rows. */
 .request-card__who { display: flex; align-items: center; gap: var(--space-12); width: 100%; padding-bottom: var(--space-4); }
-.avatar--sm { width: 40px; height: 40px; border-radius: 12px; font-size: var(--size-16); line-height: 21px; }
 .request-card__name {
   font-family: var(--font-sans);
   font-size: var(--size-16);
@@ -1548,9 +1501,9 @@
 .review-sheet__input::placeholder { color: var(--neutral-400); }
 .review-sheet__fixture { margin: 0; width: 100%; }
 /* enter/exit: scrim fades, card rises a touch (drawer-family motion) */
-.modal-host .modal-scrim, .modal-host .modal { transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); }
+.modal-host .modal-scrim, .modal-host .modal { transition: opacity var(--dur-modal) var(--ease-out), transform var(--dur-modal) var(--ease-out); }
 .modal-host:not([data-open="true"]) .modal-scrim { opacity: 0; }
-.modal-host:not([data-open="true"]) .modal { opacity: 0; transform: translateY(12px); }
+.modal-host:not([data-open="true"]) .modal { opacity: 0; transform: translateY(8px) scale(0.98); }   /* K-03 #11: never from scale 0 */
 
 /* ============================================================
    Toast (UX-004) — prototype-scope acknowledgment. Ink pill fixed to
@@ -1596,11 +1549,10 @@
 
 /* ---------- motion accessibility for this slab ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .sheet-host .sheet { transition: opacity 300ms ease; transform: none; }
+  .sheet-host .sheet { transition: opacity 150ms ease; transform: none; }
   .sheet-host[data-open="false"] .sheet { opacity: 0; }
-  .method-row:active, .cta-small:active { transform: none; }
   .method-row, .cta-small { transition: none; }
-  .modal-host .modal { transition: opacity 300ms ease; transform: none; }
+  .modal-host .modal { transition: opacity 150ms ease; transform: none; }
   .toast { transition: opacity 200ms ease; transform: translate(-50%, 0); }
 }
 
@@ -1710,12 +1662,11 @@ button.scheduler__sub { cursor: pointer; }
   font-weight: 600;
   cursor: pointer;
 }
-.scheduler__cta:active { transform: scale(0.97); }
 /* the popup over a screen (02.1 - Date & Time Sheet 756:7291): the card
    floats at 10 / 263 over the scrim */
 .scheduler-popup { position: absolute; left: 10px; top: 263px; z-index: 3; }
-.modal-host .scheduler-popup { transition: opacity 300ms var(--ease-out), transform 300ms var(--ease-out); }
-.modal-host:not([data-open="true"]) .scheduler-popup { opacity: 0; transform: translateY(12px); }
+.modal-host .scheduler-popup { transition: opacity var(--dur-modal) var(--ease-out), transform var(--dur-modal) var(--ease-out); }
+.modal-host:not([data-open="true"]) .scheduler-popup { opacity: 0; transform: translateY(8px) scale(0.98); }
 /* 05: the delivery address under the inline card — icon + label left,
    the address (neutral-500) right; tapping opens the 02.2 sheet */
 .address-row {

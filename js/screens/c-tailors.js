@@ -6,7 +6,7 @@
 import { register, render as go, currentScreen } from '../app.js';
 import { state, T, tailorsFor, tailorById, apptsFor, TERMINAL } from '../state.js';
 import {
-  chrome, bookingSteps, headingRow, filterPill, tailorRow, skeleton, emptyState, banner, sheetOverlay, optionRow, esc,
+  flowBar, headingRow, filterPill, tailorRow, skeleton, emptyState, banner, sheetOverlay, optionRow, infoButton, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import { fmtColumn } from '../money.js';
@@ -54,13 +54,13 @@ function empty(kind, job) {
   const home = job.visitType === 'home';
   if (kind === 'zip') {
     return `<div data-empty="zip">${emptyState(home
-      ? { title: `No tailors visit ${esc(job.zip)} yet`, body: 'Taily is growing across Brooklyn. Shops within 5 miles of you may still fit you in.',
+      ? { art: 'Suit Pant', title: `No tailors visit ${esc(job.zip)} yet`, body: 'Taily is growing across Brooklyn. Shops within 5 miles of you may still fit you in.',
           ctaLabel: 'Try a visit at the shop', ctaAct: 'try-shop', secondaryLabel: 'Change address', secondaryAct: 'edit-where' }
-      : { title: `No shops near ${esc(job.zip)} yet`, body: 'Taily is growing across Brooklyn. A tailor who comes to you may still fit you in.',
+      : { art: 'Suit Pant', title: `No shops near ${esc(job.zip)} yet`, body: 'Taily is growing across Brooklyn. A tailor who comes to you may still fit you in.',
           ctaLabel: 'Switch to At my place', ctaAct: 'try-home', secondaryLabel: 'Change address', secondaryAct: 'edit-where' })}</div>`;
   }
   if (kind === 'shop') {
-    return `<div data-empty="shop">${emptyState({ title: `No shops near ${esc(job.zip)} right now`, body: 'Tailors near you are doing home visits instead.',
+    return `<div data-empty="shop">${emptyState({ art: 'Suit Pant', title: `No shops near ${esc(job.zip)} right now`, body: 'Tailors near you are doing home visits instead.',
       ctaLabel: 'Switch to At my place', ctaAct: 'try-home', secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>`;
   }
   if (kind === 'nothing-open') {
@@ -72,7 +72,7 @@ function empty(kind, job) {
   /* none-left (M3, D-83): every tailor is hidden for this job after the last expiry */
   const hidden = tailorById((job.hiddenTailors ?? [])[0]);
   const hf = esc((hidden?.name || 'The tailor').split(' ')[0]);
-  return `<div data-empty="none-left">${emptyState({ title: 'No other tailors for this job yet',
+  return `<div data-empty="none-left">${emptyState({ art: 'Suit Pant', title: 'No other tailors for this job yet',
     body: `${hf} didn’t reply in time. We’ll let you know when more tailors join near ${esc(job.zip)}.`,
     ctaLabel: 'Change need-by date', ctaAct: 'later',
     secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>`;
@@ -115,20 +115,18 @@ function view(s) {
       const noneLeft = rows.every((r) => r.declined);                 // C-14: nothing to sort, nothing to open
       body = `${declinedBanner(job)}
   <div class="c-tailors__bar">
-    <span class="t-small c-600">${noneLeft ? 'No tailors available for this job' : itemsLabel(rows.filter((r) => !r.declined).length, 'tailor')}</span>
+    <span class="c-tailors__count t-small c-600">${noneLeft ? 'No tailors available for this job' : `${itemsLabel(rows.filter((r) => !r.declined).length, 'tailor')}${infoButton('pricing', { label: 'How pricing works' })}`}</span>
     ${noneLeft ? '' : `<button type="button" class="c-tailors__sort t-small w-600" data-act="sort" aria-haspopup="dialog">Sort: ${sortLabel(u.sort)}</button>`}
   </div>
   <div class="c-tailors__rows">${rows.map((r) => tailorRow({
         id: r.tailor.id, name: r.tailor.name, initials: r.tailor.initials, photo: r.tailor.photo, verified: r.tailor.verified,
         rating: r.tailor.rating?.count > 0 ? r.tailor.rating : null, distanceMi: r.distanceMi, quote: r.quote,
         nextOpening: r.nextOpening, visitType: job.visitType, declined: r.declined, format: fmtAmt, booked: bookedNote(r.tailor) })).join('')}</div>
-  ${noneLeft ? `<div data-empty="none-left">${emptyState({ title: 'No other tailors for this job yet', body: `We’ll let you know when more tailors join near ${esc(job.zip)}.`, ctaLabel: 'Change need-by date', ctaAct: 'later', secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>` : ''}
-  ${noneLeft ? '' : `<p class="t-small c-600 c-tailors__note">Estimates come from each tailor’s own price list. You approve the final order at the fitting.</p>`}`;
+  ${noneLeft ? `<div data-empty="none-left">${emptyState({ art: 'Suit Pant', title: 'No other tailors for this job yet', body: `We’ll let you know when more tailors join near ${esc(job.zip)}.`, ctaLabel: 'Change need-by date', ctaAct: 'later', secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>` : ''}`;
     }
   }
-  return `${chrome('home')}<main class="body ${ID}">
-  ${bookingSteps(2)}
-  ${headingRow('<h1 class="t-title">Tailors near you</h1>')}
+  return `${flowBar({ step: 2 })}<main class="body ${ID}">
+  ${headingRow('<h1 class="t-title">Tailors near you</h1>', { back: false })}
   ${filters(job)}
   ${body}
 </main>`;

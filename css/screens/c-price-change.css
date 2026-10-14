@@ -1,17 +1,13 @@
-/* c-price-change — C9 review your final order (K-01). Layout only; hero, figure, change list, money rows and bar are shared. Tokens only. */
+/* c-price-change — C9 review your final order (K-01). Layout only; hero, figure, change list, money rows and bar are shared. M7: groups are .sec. */
 .c-price-change { padding-bottom: var(--space-40); }
 .c-price-change__banner { margin-top: var(--space-16); }
 .c-price-change__banner .banner__text { text-wrap: pretty; }
 .c-price-change__again { margin: var(--space-12) 0 0; }
-.c-price-change__figure { margin-top: var(--space-24); }
-.c-price-change__quote { margin-top: var(--space-16); }
+.c-price-change__figure { gap: 0; }
+.c-price-change__quote { margin-top: var(--rhythm-section); }
 .c-price-change__masked { margin: var(--space-8) 0 0; }
-.c-price-change__h2 { margin: var(--space-32) 0 var(--space-16); }
-.c-price-change__fine { margin: var(--space-12) 0 0; text-wrap: pretty; }
-.c-price-change__empty { margin-top: var(--space-24); }
+.c-price-change__empty { margin-top: var(--rhythm-section); }
 .c-price-change .nb { white-space: nowrap; }
 .c-price-change__quote .note-quote { margin-top: 0; }
-.c-price-change__h2--lead { margin-bottom: var(--space-8); }
-.c-price-change__summary { margin-bottom: var(--space-12); }
+.c-price-change__summary { margin-bottom: var(--space-4); }
 .c-price-change__fail { margin-top: var(--space-16); }
-.c-price-change__photos { margin: calc(-1 * var(--space-4)) 0 var(--space-12); text-wrap: pretty; }

@@ -163,36 +163,28 @@ a {
   gap: var(--space-20);
 }
 
-/* Inactive links are plain text; the active one is a column with the
-   2px accent "stitch" beneath it, so it sits slightly higher. That is
-   how Figma builds it — do not equalise them. */
+/* M7 (A5.2, D-187): four 44 x 44 icon links. Inactive = graphite, active = ink + a 16 px accent stitch under the icon.
+   Labels live in aria-label / title. */
 .top-nav__link {
-  font-family: var(--font-sans);
-  font-size: var(--size-12);
-  line-height: 16px;
-  font-weight: 500;
-  color: var(--neutral-600);
-  display: flex;
-  flex-direction: column;
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  color: var(--neutral-600);
 }
-
-/* Raster alignment: Chromium sets these labels 1px right of where
-   Figma rasterised them (narrower glyph advances in a right-aligned
-   group). Position shim only — no layout effect. */
-.top-nav__link > span:first-child { transform: translateX(-1px); }
-
-.top-nav__link.is-active {
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.top-nav__stitch {
-  /* tracks the label width (+3px overhang): Home 35, Bookings ~53 —
-     a fixed 35 was Home-only and broke the Bookings-active variant */
-  width: calc(100% + 3px);
+.top-nav__link.is-active { color: var(--ink); }
+.top-nav__link.is-active .nav-icon { stroke-width: 1.75; }
+.top-nav__link.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 16px;
   height: 2px;
+  margin-left: -8px;
   border-radius: 1px;
   background: var(--accent-base);
 }
@@ -246,6 +238,18 @@ a {
   line-height: 29px;
   font-weight: 600;
   letter-spacing: 0;
+  margin: 0;
+}
+
+/* M7 (A2): the non-money hero fact — a visit time, "2h left" — sans, not serif */
+.t-figure {
+  font-family: var(--font-sans);
+  font-size: var(--size-24);
+  line-height: 29px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums lining-nums;
   margin: 0;
 }
 
@@ -329,7 +333,7 @@ a {
 .c-success { color: var(--success); }
 .c-warning { color: var(--warning); }
 .c-error { color: var(--error); }
-.c-info { color: var(--info); }
+.c-info { color: var(--accent-ink); }   /* M7: no blue anywhere */
 
 /* ---------- test mode (/?test=1, js/app.js adds html.is-test) ----------
    The harness screenshots must be deterministic: nothing animates, no caret. */

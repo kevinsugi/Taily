@@ -6,7 +6,7 @@
    entry it runs window.Taily.runFlow(key) and asserts:
      · #screen[data-screen] is the entry's screen, html[data-persona]
        is the right persona (c-* customer, t-* / to-* tailor, sys-* any)
-     · `expect` holds — { has, not, sel } against the visible text of
+     · `expect` holds — { has, not, sel, also, inView } against the visible text of
        #screen + any open overlay (`has` / `not` = string | string[])
      · no console error, no "nothing to click" warning
      · money lint: no `%` inside [data-money]; no "fee … 10%" prose
@@ -158,6 +158,8 @@ for (const f of all.filter((e) => matches(e.key))) {
     for (const s of arr(exp.has)) if (!text.includes(norm(s))) problems.push(`missing "${s}"`);
     for (const s of arr(exp.not)) if (text.includes(norm(s))) problems.push(`should not show "${s}"`);
     if (exp.sel && !(await page.evaluate((q) => { const el = document.querySelector(q); return !!el && el.getClientRects().length > 0; }, exp.sel))) problems.push(`no visible ${exp.sel}`);
+    /* also (M7-1-C-02): extra selectors that must all match a visible element (e.g. an aria-label) */
+    for (const q of arr(exp.also)) if (!(await page.evaluate((s) => { const el = document.querySelector(s); return !!el && el.getClientRects().length > 0; }, q))) problems.push(`no visible ${q}`);
     /* inView (R5-1-C-02): the `sel` element sits inside the viewport and nothing (a sticky foot, a toast) covers its centre */
     if (exp.inView && exp.sel && !(await page.evaluate((q) => {
       const el = document.querySelector(q); if (!el) return false;

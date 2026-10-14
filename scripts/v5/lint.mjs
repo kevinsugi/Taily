@@ -78,6 +78,32 @@ for (const f of cssFiles) {
 rule('css: no literal hex / px font-size outside tokens.css + base.css', hexOff);
 rule('css (v5): font-size only from the scale tokens', sizeOff);
 
+/* M7 (D-193, D-194): no --info / --media-placeholder colour tokens outside tokens.css; a blurred box-shadow only on overlays */
+const tokenOff = [];
+const shadowOff = [];
+const OVERLAY_SEL = /\.(sheet|modal|toast|push-banner|scheduler-popup|filter-pill__dropdown|selector__menu)\b/;
+/* M7-2-C-02: the blurred-shadow scan also covers the shared v4 sheet css/components.css (the --info scan stays v5-only) */
+for (const f of cssFiles.filter((f) => V5_CSS(f) || /css\/components\.css$/.test(f))) {
+  const src = stripComments(lines(f));
+  let sel = '';
+  const v5 = V5_CSS(f);
+  src.forEach((code, i) => {
+    if (v5 && /var\(--(info|media-placeholder)\b/.test(code)) tokenOff.push(`${rel(f)}:${i + 1}  ${code.trim().slice(0, 80)}`);
+    const open = code.match(/^([^{}]*)\{/);
+    if (open) sel = open[1].trim() || sel;
+    const sh = code.match(/box-shadow:\s*([^;}]+)/);
+    if (sh && !OVERLAY_SEL.test(sel) && !/^(none|inherit|unset|initial)\b/.test(sh[1].trim())) {
+      /* a blur radius = a layer with at least three lengths (x y blur) that is not `inset 0 0 0 Npx` */
+      for (const layer of sh[1].split(/,(?![^(]*\))/)) {
+        const nums = layer.replace(/\([^)]*\)/g, '').match(/-?\d*\.?\d+(px)?(?=\s|$)/g) ?? [];
+        if (nums.length >= 3 && parseFloat(nums[2]) > 0) shadowOff.push(`${rel(f)}:${i + 1}  blurred shadow on ${sel.slice(0, 40)}`);
+      }
+    }
+  });
+}
+rule('css (M7): no --info / --media-placeholder outside tokens.css', tokenOff);
+rule('css (M7): no blurred box-shadow outside overlays', shadowOff);
+
 /* ---------- JS ---------- */
 const walk = (dir) => {
   const d = resolve(ROOT, dir);

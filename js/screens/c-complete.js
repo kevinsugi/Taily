@@ -7,7 +7,7 @@
 import { register, render as go } from '../app.js';
 import { state, tailorById } from '../state.js';
 import {
-  chrome, headingRow, statusHero, receiptBlock, actionBar, emptyState, stars, wireStars, esc,
+  chrome, headingRow, statusHero, receiptBlock, actionBar, emptyState, stars, wireStars, esc, sectionHead,
 } from '../components.js';
 import { STAR_WORDS } from '../data.js';
 import { focusAppt, setFocus, bookingTab } from '../focus.js';
@@ -16,32 +16,32 @@ const ID = 'c-complete';
 
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
 
+
 function view() {
   const a = focusAppt(ID);
   if (!a) {
     return `${chrome(bookingTab())}<main class="body ${ID}" data-s="${ID}">
   <div class="${ID}__empty" data-empty="no-booking">${emptyState({
-    title: 'Nothing to review', body: 'Completed orders show up in Bookings.', ctaLabel: 'Go to Bookings', ctaAct: 'done',
+    title: 'Nothing to review', body: 'Completed orders show up in Bookings.', ctaLabel: 'Go to Bookings', ctaAct: 'done', art: 'Formal Dress',
   })}</div>
 </main>`;
   }
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const first = firstOf(t);
-  /* C-21: c-review's star layout — the group is labelled "Your rating", left-aligned, the word under it */
+  /* M7-1-A-06: the heading is the group's visible label; a star tap carries the rating into c-review (D-107) */
   const rating = stars({ input: true, name: 'rate', value: 0 }).replace('aria-label="Your rating"', 'aria-labelledby="rate-label"');
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${headingRow(statusHero({ pill: 'completed', title: 'All done', body: `${esc(first)} marked your order completed. Thanks for booking with Taily.` }), { backRow: true })}
-  <section class="${ID}__rate">
-    <h2 class="t-h2">How did ${esc(first)} do?</h2>
-    <p class="t-body w-600" id="rate-label">Your rating</p>
+  <section class="sec sec--first card ${ID}__rate">
+    <h2 class="t-body w-600" id="rate-label">How did ${esc(first)} do?</h2>
     ${rating}
     <p class="t-small c-700 ${ID}__word" id="rate-word" aria-live="polite">${esc(STAR_WORDS[0])}</p>
-    <p class="t-small c-600 ${ID}__hint">Tap a star to rate. Reviews show on ${esc(first)}’s profile.</p>
+    <p class="t-small c-600 ${ID}__hint">Tap a star. Shown on ${esc(first)}’s profile.</p>
   </section>
-  <h2 class="t-h2 ${ID}__h2">Receipt</h2>
-  ${receiptBlock(a, first)}
+  <section class="sec">${sectionHead('Receipt')}
+  ${receiptBlock(a, first)}</section>
 </main>
-${actionBar({ ctaLabel: 'Leave a review', ctaAct: 'leave-review', secondaryLabel: 'Done', secondaryAct: 'done', tertiaryLabel: `Message ${esc(first)}`, tertiaryAct: 'message' })}`;
+${actionBar({ ctaLabel: 'Leave a review', ctaAct: 'leave-review', secondaryLabel: `Message ${esc(first)}`, secondaryAct: 'message' })}`;
 }
 
 function wire(root) {

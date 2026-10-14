@@ -1,5 +1,4 @@
 /* t-messages — layout only. Rows are the shared threadRow inside .thread-list; loading is the shared skeleton. */
 .t-messages { gap: 0; padding-bottom: var(--space-40); }
-.t-messages__lede { margin: var(--space-4) 0 0; text-wrap: pretty; }
 .t-messages__list { margin-top: var(--space-24); }
 .t-messages__empty { margin-top: var(--space-24); }

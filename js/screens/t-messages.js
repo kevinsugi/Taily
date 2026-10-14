@@ -8,7 +8,7 @@ import { state, now, threadsFor, threadPreview } from '../state.js';
 import { statusWord } from '../focus.js';
 import { threadCustomerName, customerInitials } from '../tailor-data.js';
 import { withLatency } from '../sim.js';
-import { chrome, headingRow, threadRow, skeleton, emptyState } from '../components.js';
+import { chrome, headingRow, threadRow, skeleton, emptyState, heroGarment } from '../components.js';
 import { fmtTime, fmtShort, isoDay } from '../dates.js';
 
 const ID = 't-messages';
@@ -25,7 +25,7 @@ function rowsHtml() {
     return threadRow({
       id: r.tailorId, act: 'open-thread', name, initials,
       preview: threadPreview(r.last, 'tailor'), time: stamp(r.last.at), unread: r.unread,
-      pill: w?.pill ?? '', pillLabel: w?.label ?? '', closed: r.readOnly,
+      pill: w?.pill ?? '', pillLabel: w?.label ?? '', closed: r.readOnly, garment: heroGarment(r.appt?.job),
     });
   }).join('');
 }
@@ -36,12 +36,11 @@ function view(s) {
   let body;
   if (!loaded) body = `<div class="${ID}__list" data-loading="true"><div class="thread-list">${skeleton({ kind: 'thread-row', count: 3 })}</div></div>`;
   else if (!threads.length) {
-    body = `<div class="${ID}__empty" data-empty="no-threads">${emptyState({ title: 'No messages yet', body: 'When a customer asks a question or sends a request, the conversation shows up here.', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>`;
+    body = `<div class="${ID}__empty" data-empty="no-threads">${emptyState({ title: 'No messages yet', art: 'Shirt / Blouse', body: 'When a customer asks a question or sends a request, the conversation shows up here.', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>`;
   } else body = `<div class="thread-list ${ID}__list">${rowsHtml()}</div>`;
   return `${chrome('messages', { persona: 'tailor' })}
 <main class="body ${ID}">
   ${headingRow('<h1 class="t-title">Messages</h1>', { back: false })}
-  ${loaded && !threads.length ? '' : `<p class="t-small c-600 ${ID}__lede">One conversation per customer, linked to its request or job.</p>`}
   ${body}
 </main>`;
 }

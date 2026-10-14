@@ -9,8 +9,8 @@
 import { register, render as go } from '../app.js';
 import { state, T, tailorById, apptsFor } from '../state.js';
 import {
-  chrome, headingRow, statusHero, stars, textArea, photoTile, actionBar, emptyState, cta, ratingSummary, reviewRow,
-  wireStars, toast, esc,
+  chrome, headingRow, statusHero, stars, textArea, photoStub, actionBar, emptyState, cta, ratingLine, reviewRow,
+  textLink, wireStars, toast, esc,
 } from '../components.js';
 import { REVIEW_LIMITS, STAR_WORDS } from '../data.js';
 import { withLatency } from '../sim.js';
@@ -34,10 +34,10 @@ function target() {
 const CAMERA = '<svg class="c-review__camera" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>';
 const CLOSE = '<svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>';
 
-function photoRow(d) {
+function photoRow(d, type = '') {
   const n = d.photos || 0;
   const max = REVIEW_LIMITS.PHOTOS_MAX;
-  const tiles = Array.from({ length: n }, (_, i) => `<span class="c-review__photo">${photoTile('photo')}<button type="button" class="c-review__remove" data-act="remove-photo" aria-label="Remove photo ${i + 1} of ${n}"><span class="c-review__x" aria-hidden="true">${CLOSE}</span></button></span>`).join('');
+  const tiles = Array.from({ length: n }, (_, i) => `<span class="c-review__photo">${photoStub({ type, tone: i, size: 'fill', seed: i })}<button type="button" class="c-review__remove" data-act="remove-photo" aria-label="Remove photo ${i + 1} of ${n}"><span class="c-review__x" aria-hidden="true">${CLOSE}</span></button></span>`).join('');
   const add = n < max ? `<button type="button" class="c-review__add" data-act="add-photo" aria-label="Add a photo">${CAMERA}</button>` : '';
   const note = n >= max ? `You’ve added ${max} photos, the most a review can have.` : `Up to ${max} photos.`;
   return `<div class="c-review__photos" role="group" aria-labelledby="photos-label">${tiles}${add}</div>
@@ -61,12 +61,12 @@ function formView(a, t, first) {
   </section>
   <div class="${ID}__text">${textArea({
     id: 'review-text', label: 'Tell others about it (optional)', value: d.text ?? '', rows: 5, max: REVIEW_LIMITS.TEXT_MAX,
-    helper: 'The work, the fit, how it went. Phone numbers and emails are hidden.',
+    helper: 'Phone numbers and emails are hidden.',
     error: d.error === 'text-long' ? `Keep it under ${REVIEW_LIMITS.TEXT_MAX} characters.` : '',
   })}</div>
   <section class="${ID}__photosec">
     <p class="t-body w-600" id="photos-label">Photos (optional)</p>
-    ${photoRow(d)}
+    ${photoRow(d, a.job.garments[0]?.type ?? '')}
   </section>
 </main>
 ${actionBar({ ctaLabel: 'Post review', ctaAct: 'post', busy, busyLabel: 'Posting…' })}`;
@@ -77,13 +77,13 @@ function submittedView(a, t, first) {
   const me = `${state.customer.first} ${state.customer.last[0]}.`;
   return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--submitted" data-s="${ID}">
   ${headingRow(statusHero({ pill: 'completed', pillLabel: 'Posted', title: `Thanks, ${esc(state.customer.first)}`, body: `Your review is now on ${esc(first)}’s profile.` }), { backRow: true })}
-  <div class="${ID}__posted">
-    ${ratingSummary(t.rating)}
-    ${reviewRow({ name: me, initials: state.customer.initials, stars: mine.stars, date: mine.date, text: mine.text, photos: mine.photos })}
-  </div>
-  <div class="${ID}__actions">
+  <section class="sec sec--first ${ID}__posted">
+    ${ratingLine(t.rating)}
+    ${reviewRow({ name: me, initials: state.customer.initials, stars: mine.stars, date: mine.date, text: mine.text, photos: mine.photos, photoType: a.job.garments[0]?.type ?? '' })}
+  </section>
+  <div class="page-actions">
     ${cta(`See ${esc(first)}’s profile`, { attrs: 'data-act="see-profile"' })}
-    ${cta('Back to Bookings', { variant: 'secondary', attrs: 'data-act="bookings"' })}
+    <div class="page-actions__links">${textLink('Back to Bookings', { act: 'bookings' })}</div>
   </div>
 </main>`;
 }
@@ -93,7 +93,7 @@ function view() {
   if (!a) {
     return `${chrome(bookingTab())}<main class="body ${ID}" data-s="${ID}">
   <div class="${ID}__empty" data-empty="no-booking">${emptyState({
-    title: 'Nothing to review yet', body: 'Once a tailor completes your order, you can review it here.', ctaLabel: 'Go to Bookings', ctaAct: 'bookings',
+    title: 'Nothing to review yet', body: 'Once a tailor completes your order, you can review it here.', ctaLabel: 'Go to Bookings', ctaAct: 'bookings', art: 'Skirt',
   })}</div>
 </main>`;
   }
@@ -171,7 +171,7 @@ function wire(root) {
       field.classList.remove('field--error');
       text.removeAttribute('aria-invalid');
       const msg = field.querySelector('.field__msg');
-      if (msg) { msg.classList.remove('field__msg--error'); msg.removeAttribute('role'); msg.textContent = 'The work, the fit, how it went. Phone numbers and emails are hidden.'; }
+      if (msg) { msg.classList.remove('field__msg--error'); msg.removeAttribute('role'); msg.textContent = 'Phone numbers and emails are hidden.'; }
     }
   });
 

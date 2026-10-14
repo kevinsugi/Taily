@@ -8,8 +8,8 @@
 import { register, render as go, back } from '../app.js';
 import { state, T, tailorById, openSlots, now, priceChangeView } from '../state.js';
 import {
-  chrome, bookingSteps, headingRow, visitBlock, customerBreakdown, infoCard, metaRow, methodRow, actionBar, banner,
-  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList,
+  flowBar, headingRow, visitBlock, customerBreakdown, infoCard, metaRow, methodRow, actionBar, banner,
+  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList, sectionHead, textLink, infoButton,
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
@@ -69,9 +69,11 @@ function visitRows({ t, job, slot }) {
     : [t.shopName, t.shop?.street].filter(Boolean).join(', ');
   const items = job.garments.length;
   const services = job.garments.reduce((n, g) => n + g.services.length, 0);
+  /* the visit time is the one focal fact (t-figure); the "·" chain is broken into lines (M7 B) */
   return [
-    esc(t.name),
-    `${fmtWhen(slot)} · ${VISIT_LABEL.customer[job.visitType]}`,
+    `<span class="t-figure">${fmtWhen(slot)}</span>`,
+    `<span class="w-600">${esc(t.name)}</span>`,
+    VISIT_LABEL.customer[job.visitType],
     esc(where),
     `${items} ${items === 1 ? 'item' : 'items'} · ${services} ${services === 1 ? 'service' : 'services'}`,
   ];
@@ -82,8 +84,8 @@ function orderBlock({ job }, q) {
   if (!q.lines?.length) return '';
   const pseudo = { lines: q.lines, money: q, payments: { deposit: { cents: q.deposit } }, job };
   const garments = priceChangeView(pseudo, q.lines).garments;
-  return `<h2 class="t-h2 c-pay__h2">Your order</h2>
-  <div class="c-pay__order">${changeList({ garments })}</div>`;
+  return `<section class="sec" aria-labelledby="pay-h-order">${sectionHead('Your order', { id: 'pay-h-order' })}
+  <div class="c-pay__order">${changeList({ garments })}</div></section>`;
 }
 
 /* ---------- view ---------- */
@@ -108,42 +110,42 @@ function view() {
   const r = read();
   const { t, q, method } = r;
   const first = firstOf(t);
-  const head = `${chrome('home')}`;
+  const busy = !!ui().busy;
+  const head = flowBar({ step: 4, busy });
   if (!q) {
     return `${head}<main class="body ${ID}" data-s="${ID}">
-  ${bookingSteps(4)}
-  ${headingRow('<h1 class="t-title">Review and send request</h1>')}
+  ${headingRow('<h1 class="t-title">Review and send request</h1>', { back: false })}
   <div class="c-pay__empty">${emptyState({ title: 'Pick a time first', body: `Choose one of ${first}’s open times, then come back to review the price.`, ctaLabel: 'Pick a time', ctaAct: 'pick-time' })}</div>
 </main>`;
   }
   const u = ui();
-  const busy = !!u.busy;
   const alert = alertHtml(r);
   const methodBtn = methodRow(`<span class="c-pay__method-name">${esc(method.label)}</span>${method.sub ? `<span class="c-pay__method-sub">${esc(method.sub)}</span>` : ''}`, method.kind)
     .replace('<button type="button" class="method-row"', `<button type="button" class="method-row c-pay__method" data-act="change-method"${busy ? ' disabled aria-disabled="true"' : ''}`);
 
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
-  ${bookingSteps(4)}
-  ${headingRow('<h1 class="t-title">Review and send request</h1>')}
-  <div class="c-pay__visit">
-    ${visitBlock(visitRows(r), { title: 'Your visit', flush: true, action: `<button type="button" class="c-pay__link" data-act="back"${busy ? ' disabled aria-disabled="true"' : ''}>Change time</button>` })}
-  </div>
+  ${headingRow('<h1 class="t-title">Review and send request</h1>', { back: false })}
+  <section class="sec c-pay__visit" aria-label="Your visit">
+    ${visitBlock(visitRows(r), { title: 'Your visit', flush: true, action: textLink('Change time', { act: 'back', disabled: busy }) })}
+  </section>
   ${orderBlock(r, q)}
-  <h2 class="t-h2 c-pay__h2">Price</h2>
-  ${customerBreakdown(q, { stage: 'estimate', tailorFirst: first, depositState: 'to-hold' })}
-  <div class="c-pay__hold">${infoCard([
-    metaRow(GLYPH.lock, `We hold ${money(q.deposit)} on your card now. You’re only charged if ${esc(first)} accepts.`),
-    metaRow(GLYPH.clock, `No reply within ${POLICY.REQUEST_EXPIRY_H} hours, or a decline? The hold is released in full.`),
+  <section class="sec" aria-labelledby="pay-h-price">
+    ${sectionHead('Price', { id: 'pay-h-price', aside: infoButton('deposit', { label: 'About the deposit' }) })}
+    ${customerBreakdown(q, { stage: 'estimate', tailorFirst: first, depositState: 'to-hold' })}
+  </section>
+  <section class="sec c-pay__hold" aria-label="The deposit hold">${infoCard([
+    metaRow(GLYPH.lock, `We hold ${money(q.deposit)} now. You’re only charged if ${esc(first)} accepts. If ${esc(first)} declines or doesn’t reply, it’s released in full.`),
     cancelRow(r.slot, q.deposit, first),
-  ].join(''))}</div>
-  <h2 class="t-h2 c-pay__h2">Pay with</h2>
-  ${methodBtn}
+  ].join(''))}</section>
+  <section class="sec" aria-labelledby="pay-h-method">
+    ${sectionHead('Pay with', { id: 'pay-h-method' })}
+    ${methodBtn}
+  </section>
   <div class="c-pay__alert" tabindex="-1">${alert}</div>
 </main>
 ${actionBar({
     /* C-11: after a decline the failed card is still the one selected — the bar offers another card, never a silent retry */
     ctaLabel: u.error === 'declined' ? 'Use another card' : `Hold ${fmtExact(q.deposit)} and send request`, ctaAct: u.error === 'declined' ? 'change-method' : 'pay', busy, busyLabel: 'Sending request…',
-    note: `You pay the ${money(q.balance)} balance when your order is ready.`,
   })}`;
 }
 

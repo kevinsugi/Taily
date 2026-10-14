@@ -46,7 +46,10 @@ const PC_MAX = 10;
 export const FLOWS_t_adjust = [
   { key: 't-adjust', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job', note: 'At the fitting: every item and service as booked, no photos yet, so Send is off and says why (K-02: Before and Pinned photos are required)',
     setup: (S) => { S.driveTo('fitting'); },
-    expect: { has: ['Edit the job', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', 'Add a service', 'Add an item', 'No changes', 'Send to Sarah for approval', PC_fmtExact(PC_sc.seed.payout), 'Before photos', 'Pinned photos', 'Add at least one before photo', 'Add before and pinned photos for 2 items'], sel: '[data-act="send"][disabled]' } },
+    expect: { has: ['Edit the job', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', 'Add a service', 'Add an item', 'No changes', 'Send to Sarah for approval', PC_fmtExact(PC_sc.seed.payout), 'Before photos', 'Pinned photos', 'Required', 'Add before and pinned photos for 2 items'], not: 'Add at least one', sel: '[data-act="send"][aria-disabled="true"]:not([disabled])' } },
+  { key: 't-adjust--photos-required', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — photos still required', note: 'D-196: nothing tried yet, so a quiet Required where the count goes and a soft-disabled Send; no red',
+    setup: (S) => { S.driveTo('fitting'); },
+    expect: { has: ['Required', 'Add before and pinned photos for 2 items'], not: 'Add at least one', sel: '[data-act="send"][aria-disabled="true"]:not([disabled])' } },
   { key: 't-adjust--edited', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — edited', note: 'Sleeves repriced, Taper legs added: the marks, the new total and what Amara takes home',
     setup: (S) => { PC_edited(S); },
     expect: { has: ['New', 'New price', 'Taper legs', PC_fmtExact(PC_sc.priceAdded.total), PC_fmtExact(PC_sc.priceAdded.payout), PC_fmtNeg(PC_sc.priceAdded.tailyFee), 'up', '1 service added'], not: 'Added' } },
@@ -109,6 +112,7 @@ export const FLOWS_t_adjust = [
       const a = S.driveTo('fitting');
       S.T.addFittingPhoto(a.id, 'g1', 'before'); S.T.addFittingPhoto(a.id, 'g1', 'pinned'); S.T.addFittingPhoto(a.id, 'g2', 'pinned');
     },
+    click: ['[data-act="send"]'],
     expect: { has: ['Add at least one before photo', 'Add before and pinned photos for 1 item'], not: 'Add at least one pinned photo', sel: '[data-garment="g2"] [data-missing-msg="before"]' } },
   { key: 't-adjust--item-docs', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — a new item needs photos too', note: 'K-02: the Suit Jacket and Suit Pant are photographed, the added Pants / Jeans is not: its card is flagged and Send stays off',
     setup: (S) => { PC_itemAdded(S, 'min'); },
@@ -144,7 +148,7 @@ export const FLOWS_t_adjust = [
 export const FLOWS_c_price_change = [
   { key: 'c-price-change', screen: 'c-price-change', group: PC_GROUP_C, title: 'Review your final order', note: 'Taper added, Sleeves repriced: the marks, the new total, the unchanged deposit, two choices',
     setup: (S) => { S.driveTo('price-change'); },
-    expect: { has: ['Review your final order', 'Approve order', 'What changed', '1 service added', 'Taper legs', 'New', 'New price', PC_fmtExact(PC_sc.priceAdded.total), PC_fmtExact(PC_sc.priceAdded.balance), PC_fmtExact(PC_sc.seed.total), PC_fmtExact(PC_sc.seed.deposit), 'Stays the same', 'Approve and start', 'Message Amara', 'note'], not: ['Reject', 'Decline', 'Added'] } },
+    expect: { has: ['Review your final order', 'Approve order', 'WHAT CHANGED', '1 service added', 'Taper legs', 'New', 'New price', PC_fmtExact(PC_sc.priceAdded.total), PC_fmtExact(PC_sc.priceAdded.balance), PC_fmtExact(PC_sc.seed.total), PC_fmtExact(PC_sc.seed.deposit), 'Stays the same', 'charged when ready', 'Approve and start', 'Message Amara', 'note'], not: ['Reject', 'Decline', 'Added'] } },
   { key: 'c-price-change--item-added', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — item added', note: 'Pants / Jeans as a green New item, Take in jacket sides struck: lower total and balance, deposit unchanged',
     setup: (S) => { S.driveTo('price-change', { priceChange: 'item' }); },
     expect: { has: ['New item', 'Pants / Jeans', 'Hem pants', 'Removed', 'Take in jacket sides', '1 item added', '1 service removed', 'down', PC_fmtExact(PC_sc.priceItem.total), PC_fmtExact(PC_sc.priceItem.balance), PC_fmtExact(PC_sc.seed.deposit)], sel: '[data-docs="n1"]' } },
@@ -162,11 +166,11 @@ export const FLOWS_c_price_change = [
     expect: { has: ['You messaged Amara', 'Open chat', 'Approve and start'] } },
   { key: 'c-price-change--unchanged', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — no changes', note: 'Amara sent the order as booked: "No changes", the booked total, still one tap to approve',
     setup: (S) => { S.driveTo('price-change', { priceChange: 'unchanged' }); },
-    expect: { has: ['Review your final order', 'Your order', 'No changes', 'Same as booked', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', PC_fmtExact(PC_sc.seed.total), PC_fmtExact(PC_sc.seed.balance), 'Approve and start'], not: ['New total', 'New balance', 'Removed', 'New price'] } },
+    expect: { has: ['Review your final order', 'YOUR ORDER', 'No changes', 'Same as booked', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', PC_fmtExact(PC_sc.seed.total), PC_fmtExact(PC_sc.seed.balance), 'Approve and start'], not: ['New total', 'New balance', 'Removed', 'New price'] } },
   /* ---- K-02 · the tailor's photos on the order ---- */
   { key: 'c-price-change--docs', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — with the fitting photos', note: 'K-02: each garment’s icon, Before | Pinned tabs with counts, the thumbnails and Amara’s comment',
     setup: (S) => { S.driveTo('price-change', { docs: 'full' }); },
-    expect: { has: ['Before', 'Pinned', 'Amara’s comment', PC_FC.g2, 'photographed each item'], sel: '[data-docs="g2"] [data-act="view-doc"]' } },
+    expect: { has: ['Before', 'Pinned', 'Amara’s comment', PC_FC.g2], sel: '[data-docs="g2"] [data-act="view-doc"]' } },
   { key: 'c-price-change--docs-pinned', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — the Pinned photos', note: 'K-02: the Pinned tab selected on the Suit Jacket',
     setup: (S) => { S.driveTo('price-change', { docs: 'full' }); },
     click: ['[data-docs="g2"] [data-act="docs-tab"][data-kind="pinned"]'],
@@ -191,7 +195,7 @@ const CR_GROUP = 'M4 · Ready';
 export const FLOWS_c_ready = [
   { key: 'c-ready', screen: 'c-ready', group: CR_GROUP, title: 'Your order is ready', note: 'Three ways back, nothing chosen: Pay waits for a choice',
     setup: (S) => { S.driveTo('ready'); },
-    expect: { has: ['Your order is ready', 'How do you want it back?', 'In-store pickup', 'Home drop-off', 'Taily courier', 'Free', 'Due now', CR_fmtExact(CR_SC.seed.balance), 'Choose how to get it back first', 'Your order', 'Suit Pant', 'Message Amara'], sel: '[data-act="pay"][disabled]' } },
+    expect: { has: ['Your order is ready', 'HOW DO YOU WANT IT BACK?', 'In-store pickup', 'Home drop-off', 'Taily courier', 'Free', 'Due now', CR_fmtExact(CR_SC.seed.balance), 'Choose how to get it back first', 'YOUR ORDER', 'Suit Pant', 'Message Amara'], sel: '[data-act="pay"][disabled]' } },
   { key: 'c-ready--pickup-only', screen: 'c-ready', group: CR_GROUP, title: 'Ready — pickup is the only way back', note: 'One offer: pre-chosen, named in a line, Pay is on',
     setup: (S) => { const a = S.driveTo('in-progress'); S.T.markReady(a.id, { returns: ['pickup'] }); },
     expect: { has: ['In-store pickup', 'for this order', `Pay ${CR_fmtExact(CR_SC.seed.balance)}`], not: ['Home drop-off', 'Taily courier'] } },
@@ -240,7 +244,7 @@ export const FLOWS_c_ready = [
 export const FLOWS_c_complete = [
   { key: 'c-complete', screen: 'c-complete', group: 'M4 · Completed', title: 'All done — receipt and review prompt', note: 'Amara completed it: the receipt matches what Sarah paid, five stars to start a review',
     setup: (S) => { S.driveTo('completed'); },
-    expect: { has: ['All done', 'How did Amara do?', 'Your rating', 'Receipt', 'Paid', ccExact(CC_SC.seed.total), ccExact(CC_SC.seed.balance), 'Leave a review', 'Message Amara'], sel: '[data-stars]' } },
+    expect: { has: ['All done', 'How did Amara do?', 'Tap a star', 'RECEIPT', 'Paid', ccExact(CC_SC.seed.total), ccExact(CC_SC.seed.balance), 'Leave a review', 'Message Amara'], sel: '[data-stars]' } },
 ];
 export const FLOWS_c_review = [
   { key: 'c-review', screen: 'c-review', group: 'M4 · Completed', title: 'Review Amara', note: 'Stars first, then optional words and photos',
@@ -258,7 +262,7 @@ export const FLOWS_c_review = [
     expect: { has: ['Great', 'the most a review can have'], not: 'Add a photo' } },
   { key: 'c-review--submitted', screen: 'c-review', group: 'M4 · Completed', title: 'Thanks, Sarah — review posted', note: 'Her review on Amara’s profile, the count one higher',
     setup: (S) => { S.driveTo('reviewed'); },
-    expect: { has: ['Thanks, Sarah', 'Sarah C.', 'Perfect fit', `${CC_AMARA.rating.count + 1} reviews`, 'See Amara'] } },
+    expect: { has: ['Thanks, Sarah', 'Sarah C.', 'Perfect fit', `(${CC_AMARA.rating.count + 1})`, 'See Amara'] } },
 ];
 
 /* ---------- C2 · Tailor job loop (t-job M4 states) ---------- */
@@ -266,16 +270,16 @@ const TJ4 = { group: 'M4 · Job', screen: 't-job' };
 export const FLOWS_t_job = [
   { ...TJ4, key: 't-job--visit', title: 'Job — visit time, start the fitting', note: 'Clock at the visit start: Start fitting, Message Sarah, no-show wait note',
     setup: (S) => { S.driveTo('confirmed'); S.setClock(TJ4_SLOT); },
-    expect: { has: ['time for the fitting', 'Start fitting', 'Message Sarah', 'Something wrong?'], not: 'You accepted', sel: '.action-bar' } },
+    expect: { has: ['time for the fitting', 'Start fitting', 'Message Sarah'], not: 'You accepted', sel: '[data-act="more"]' } },
   { ...TJ4, key: 't-job--fitting', title: 'Job — fitting', note: 'Reached by Back from the editor: Fitting pill, take-home in the bar, Review the order (no shortcut past Sarah)',
     setup: (S) => { S.driveTo('fitting'); },
-    expect: { has: ['Fitting', 'Review the order', 'Message Sarah', TJ4_exact(TJ4_SC.seed.payout), 'Due Fri, Oct 23 · in 8 days', 'Fitting was Thu, Oct 15', 'Take a before and a pinned photo of each'], not: ['No changes, start the work', 'Adjust price', 'make it'] } },
+    expect: { has: ['Fitting', 'Review the order', 'Message Sarah', TJ4_exact(TJ4_SC.seed.payout), 'Due Fri, Oct 23 · in 8 days', 'Fitting was Thu, Oct 15', 'Take a before and a pinned photo of each item'], not: ['No changes, start the work', 'Adjust price', 'make it'] } },
   { ...TJ4, key: 't-job--fitting-docs', title: 'Job — fitting, photographed', note: 'K-02: Back from the editor after photographing: The work shows each item’s Before | Pinned photos',
     setup: (S) => { S.driveTo('fitting', { docs: 'min' }); },
     expect: { has: ['Fitting', 'Before', 'Pinned', 'Review the order'] } },
   { ...TJ4, key: 't-job--waiting', title: 'Job — waiting for Sarah to approve', note: 'Take-home with the old figure, "The order you sent" with the same marks Sarah sees, Edit the order',
     setup: (S) => { S.driveTo('price-change'); },
-    expect: { has: ['Waiting on Sarah', 'The order you sent', 'Taper legs', 'New', TJ4_exact(TJ4_SC.priceAdded.payout), TJ4_exact(TJ4_SC.priceAdded.total), 'Edit the order'], sel: '.change-list' } },
+    expect: { has: ['Waiting on Sarah', 'THE ORDER YOU SENT', 'Taper legs', 'New', TJ4_exact(TJ4_SC.priceAdded.payout), TJ4_exact(TJ4_SC.priceAdded.total), 'Edit the order'], sel: '.change-list' } },
   { ...TJ4, key: 't-job--waiting-unchanged', title: 'Job — waiting, order sent as booked', note: 'Nothing changed: "No changes", Same as booked, every booked row plain, still waiting for Sarah',
     setup: (S) => { S.driveTo('price-change', { priceChange: 'unchanged' }); },
     expect: { has: ['Waiting on Sarah', 'No changes', 'Same as booked', TJ4_exact(TJ4_SC.seed.total), 'Edit the order'], not: ['Removed', 'New price'] } },
@@ -305,7 +309,7 @@ export const FLOWS_t_job = [
     expect: { has: ['In progress', 'Work in progress', 'approved the order', 'Mark ready'], not: 'approved your changes' } },
   { ...TJ4, key: 't-job--docs', title: 'Job — the work, documented', note: 'K-02: The work with each item’s icon, Before | Pinned tabs and Your comment (the approved record)',
     setup: (S) => { S.driveTo('in-progress', { docs: 'full' }); },
-    expect: { has: ['The work', 'Before', 'Pinned', 'Your comment', TJ4_FC.g2, TJ4_FC.g1], sel: '[data-docs="g2"] [role="tab"][aria-selected="true"][data-kind="before"]' } },
+    expect: { has: ['THE WORK', 'Before', 'Pinned', 'Your comment', TJ4_FC.g2, TJ4_FC.g1], sel: '[data-docs="g2"] [role="tab"][aria-selected="true"][data-kind="before"]' } },
   { ...TJ4, key: 't-job--docs-pinned', title: 'Job — the Pinned photos', note: 'K-02: the Pinned tab selected on the Suit Jacket',
     setup: (S) => { S.driveTo('in-progress', { docs: 'full' }); },
     click: ['[data-docs="g2"] [data-act="docs-tab"][data-kind="pinned"]'],
@@ -316,7 +320,7 @@ export const FLOWS_t_job = [
     expect: { has: ['Mark the order ready?', 'In-store pickup', 'Home drop-off', 'Taily courier', 'not taken from your payout', TJ4_exact(TJ4_SC.seed.balance)], not: 'Not yet', sel: '[data-act="ready-ok"]' } },
   { ...TJ4, key: 't-job--ready', title: 'Job — ready, waiting for Sarah', note: 'Ways back you offered, balance due, Message only',
     setup: (S) => { S.driveTo('ready'); },
-    expect: { has: ['Waiting on Sarah', 'Ways back you offered', TJ4_exact(TJ4_SC.seed.balance), 'plus the courier if she picks it'] } },
+    expect: { has: ['Waiting on Sarah', 'WAYS BACK YOU OFFERED', TJ4_exact(TJ4_SC.seed.balance), 'plus the courier if she picks it'] } },
   { ...TJ4, key: 't-job--returning-pickup', title: 'Job — Sarah picks it up', note: 'In-store pickup at the shop, Mark completed',
     setup: (S) => { S.driveTo('returning'); },
     expect: { has: ['Ready for pickup', 'pick it up', 'Reyes Tailoring', 'Mark completed'] } },
@@ -328,10 +332,10 @@ export const FLOWS_t_job = [
     expect: { has: ['Courier booked', 'Courier arrives', '145 N 7th St', 'Paid by Sarah · nothing comes out of your payout', 'Handed to courier', TJ4_exact(TJ4_SC.seed.payout)], not: [TJ4_exact(TJ4_SC.courierQuote.quote), TJ4_exact(TJ4_SC.courierQuote.markup), TJ4_exact(TJ4_SC.courierQuote.cents), 'Mark completed'], sel: '.courier-card--tailor' } },
   { ...TJ4, key: 't-job--completed', title: 'Job — completed, payout', note: 'You take home, Pending with the Friday it arrives and the bank, how it went back, review prompt',
     setup: (S) => { S.driveTo('completed'); },
-    expect: { has: ['Job completed', 'YOU TAKE HOME', 'The work', TJ4_exact(TJ4_SC.seed.payout), TJ4_neg(TJ4_SC.seed.tailyFee), 'Pending', 'Arrives Fri, Oct 16 · to Chase ••6789', 'Picked up at your shop · ', 'can leave a review'], not: ['Mark completed', 'Scheduled', 'YOUR PAYOUT'] } },
+    expect: { has: ['Job completed', 'YOU TAKE HOME', 'THE WORK', TJ4_exact(TJ4_SC.seed.payout), TJ4_neg(TJ4_SC.seed.tailyFee), 'Pending', 'Arrives Fri, Oct 16 · to Chase ••6789', 'Picked up at your shop · ', 'can leave a review'], not: ['Mark completed', 'Scheduled', 'YOUR PAYOUT'] } },
   { ...TJ4, key: 't-job--completed-paid', title: 'Job — completed, paid', note: 'The Friday run paid it: Paid with the date and the bank (D-172)',
     setup: (S) => { TJ4_C.earningsTo('paid'); TJ4_setFocus(S.state.appts[0].id); },
-    expect: { has: ['Job completed', 'YOU TAKE HOME', 'Paid', 'Paid Fri, Oct 16 · to Chase ••6789'], not: ['Pending', 'Arrives'] } },
+    expect: { has: ['Job completed', 'YOU TAKE HOME', 'Paid', 'Fri, Oct 16 · to Chase ••6789'], not: ['Pending', 'Arrives', 'Completed Thu'] } },
   { ...TJ4, key: 't-job--completed-failed', title: 'Job — completed, payout didn’t go through', note: 'The bank sent it back: error words and a way to the payout (D-172)',
     setup: (S) => { TJ4_C.earningsTo('failed'); TJ4_setFocus(S.state.appts[0].id); },
     expect: { has: ['Job completed', 'YOU TAKE HOME', 'Didn’t go through · sends again once your bank details are updated', 'See the payout'], not: ['Pending', 'Arrives'] } },

@@ -111,6 +111,49 @@
      without checking with Kevin first — see the note at the bottom.        */
   --bottom-border: #E9E5DE;      /* unnamed "Variable collection", ALL_SCOPES */
   --component: #8A38F5;          /* Taily / Colors, ALL_SCOPES — Figma's default new-variable purple */
+
+  /* ---------- M7 (K-03) — not Figma variables; tokenised so screens never use literals ---------- */
+  /* rhythm: tight inside a group, air between groups */
+  --rhythm-tight: var(--space-8);      /* label → value, row → row inside one group */
+  --rhythm-group: var(--space-12);     /* section heading → its first row; stacked controls */
+  --rhythm-section: var(--space-32);   /* between sections on a page */
+  --rhythm-major: var(--space-40);     /* hero block → first section; last section → page actions */
+
+  /* text roles */
+  --text-footnote: var(--neutral-600); /* 6.5:1 on --neutral-50, 7.0:1 on --white (K-03 #12) */
+
+  /* status: dot colour + word ink (K-03 #7 — no blue anywhere) */
+  --status-action: var(--accent-base);    --status-action-ink: var(--accent-ink);   --status-action-halo: var(--accent-bg);
+  --status-pending: var(--warning);       --status-pending-ink: var(--warning-ink);
+  --status-progress: var(--sage);         --status-progress-ink: var(--neutral-700);
+  --status-done: var(--success);          --status-done-ink: var(--success-ink);
+  --status-stop: var(--error);            --status-stop-ink: var(--error-ink);
+  --status-calm: var(--neutral-500);      --status-calm-ink: var(--neutral-700);
+
+  /* surfaces: ONE depth strategy — interactive containers are tissue white with a chalk ring, nothing else lifts */
+  --card-bg: var(--white);
+  --card-ring: var(--neutral-200);
+  --hairline: var(--neutral-100);
+
+  /* avatar: initials on a warm tint (K-03 — no black squares) */
+  --avatar-bg: var(--accent-bg);
+  --avatar-ink: var(--accent-ink);
+  --avatar-ring: color-mix(in srgb, var(--accent-base) 22%, transparent);
+
+  /* the stitched dash (signature 2) */
+  --stitch-ink: var(--neutral-400);
+  --stitch-dash: 6px;
+  --stitch-gap: 4px;
+  --stitch-w: 1.5px;
+
+  /* motion (K-03 #11) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-press: 120ms;
+  --dur-sheet-in: 280ms;
+  --dur-sheet-out: 200ms;
+  --dur-modal: 220ms;
+  --press-scale: 0.97;
 }
 
 /* ============================================================

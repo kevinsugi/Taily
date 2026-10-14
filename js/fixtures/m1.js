@@ -157,7 +157,10 @@ export const FLOWS_c_tailors = [
 export const FLOWS_c_tailor = [
   { key: 'c-tailor', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile',
     note: 'Amara, shop + home, 4 reviews',
-    expect: { has: ['Amara Reyes', 'Reyes Tailoring', 'Ask a question', 'Your estimate', `Est. ${fmt(SCENARIOS.seed.total)}`, '312 Metropolitan Ave', 'Taily courier', 'Priya S.', '3 of 5'] } },
+    expect: { has: ['Amara Reyes', 'Reyes Tailoring', 'Ask a question', 'YOUR ESTIMATE', `Est. ${fmt(SCENARIOS.seed.total)}`, '312 Metropolitan Ave', 'Taily courier', 'Priya S.', '3 of 5'] } },
+  { key: 'c-tailor--verified', screen: 'c-tailor', group: 'M7 · Polish', title: 'Tailor profile — Verified by Taily', note: 'Tap the Verified mark: ID verified, background check, insured (D-189)',
+    click: ['[data-act="verified"]'],
+    expect: { has: ['Verified by Taily', 'ID verified', 'Background check', 'Insured'], sel: '[data-s="verified"]' } },
   { key: 'c-tailor--no-reviews', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — no reviews',
     note: 'New on Taily',
     setup: (S) => { S.T.setTailorSection('profile', { reviews: [], rating: { avg: 0, count: 0 } }); },
@@ -177,7 +180,7 @@ export const FLOWS_c_tailor = [
   { key: 'c-tailor--reviewed', screen: 'c-tailor', group: 'M4 · Completed', title: 'Tailor profile — with Sarah’s new review',
     note: 'After a 5-star review: Sarah C. first, the count is one higher',
     setup: (S) => { const a = S.driveTo('reviewed'); S.state.ui.booking = { tailorId: a.tailorId, from: 'review' }; },
-    expect: { has: ['Sarah C.', 'Perfect fit', `${AMARA.rating.count + 1} reviews`, 'Book Amara again'], not: ['Pick a time', 'Your estimate', '5 of 5', '4 of 5'], sel: '.review-row' } },
+    expect: { has: ['Sarah C.', 'Perfect fit', `${AMARA.rating.count + 1} reviews`, 'Book Amara again'], not: ['Pick a time', 'YOUR ESTIMATE', '5 of 5', '4 of 5'], sel: '.review-row' } },
 ];
 export const FLOWS_c_book = [
   { key: 'c-book', screen: 'c-book', group: 'M1 · Booking', title: 'Pick a time', note: 'Scheduler on Amara’s open times; first slot Thu, Oct 15',

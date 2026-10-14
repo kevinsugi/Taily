@@ -9,10 +9,10 @@
 import { register, render as go, back, currentScreen } from '../app.js';
 import { state, T, SECTIONS, validateSection } from '../state.js';
 import { myTailor } from '../tailor-data.js';
-import { TAILOR_LIMITS } from '../data.js';
+import { TAILOR_LIMITS, GARMENT_TYPES } from '../data.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, field, textArea, avatar, ctaSmall, photoTile,
-  customerPreview, miniProfile, actionBar, sheetOverlay, modalOverlay, leaveModal, listRow, cta, toast, esc,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, field, textArea, avatar, textLink, photoTile, photoStub,
+  customerPreview, miniProfile, actionBar, sheetOverlay, modalOverlay, leaveModal, listRow, toast, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -23,9 +23,11 @@ const LABEL = 'Profile';
 const { BIO_MAX, WORK_PHOTOS_MAX } = TAILOR_LIMITS;
 const HELPERS = {
   name: 'Customers see your full name.',
-  shopName: 'Shown under your name, like a shop sign.',
   bio: 'A line or two: what you’re best at and how you work.',
 };
+/* work photos are drawn as garments, cycling the catalog (M7 A5.12) */
+const GARMENTS = Object.keys(GARMENT_TYPES);
+const workType = (i) => GARMENTS[i % GARMENTS.length];
 const bioLen = (v) => [...String(v ?? '')].length;
 const ui = () => (state.ui[ID] ??= {});
 
@@ -63,7 +65,7 @@ function previewHtml(d) {
 
 function workPhotos(d) {
   /* a tile opens a small sheet (View / Remove) — a tap never deletes (D-71) */
-  const tiles = Array.from({ length: d.workPhotos }, (_, i) => `<button type="button" class="${ID}__work" data-act="work-open" data-i="${i}" aria-label="Photo ${i + 1} of ${d.workPhotos}: view or remove" aria-haspopup="dialog">${photoTile('photo')}</button>`).join('');
+  const tiles = Array.from({ length: d.workPhotos }, (_, i) => `<button type="button" class="${ID}__work" data-act="work-open" data-i="${i}" aria-label="Photo ${i + 1} of ${d.workPhotos}: view or remove" aria-haspopup="dialog">${photoTile('photo', { type: workType(i), tone: i % 4 })}</button>`).join('');
   const add = d.workPhotos < WORK_PHOTOS_MAX
     ? `<button type="button" class="${ID}__work" data-act="work-add" aria-label="Add a photo of your work">${photoTile('add')}</button>` : '';
   return `<div class="photo-tiles ${ID}__tiles">${tiles}${add}</div>`;
@@ -81,12 +83,12 @@ function view(s) {
   return `${onboardingHeader({ editing, back: editing })}
 <main class="body body--with-bar ${ID}">
   ${editing ? headingRow(title, { backRow: true }) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="${ID}__title">${title}</div>`}
-  <p class="t-body c-600 ${ID}__lead">This is the first thing customers see. Keep it short and personal.</p>
+  <p class="t-body c-600 ${ID}__lead">This is the first thing customers see.</p>
   <div class="${ID}__photo">
-    ${avatar({ initials: initialsOf(d.name), photo: d.photo || null, size: 'lg' })}
+    ${initialsOf(d.name) ? avatar({ initials: initialsOf(d.name), photo: d.photo || null, size: 'lg' }) : avatar({ photo: true, size: 'lg' })}
     <div class="${ID}__photo-side">
-      ${ctaSmall(d.photo ? 'Change photo' : 'Add a photo', { attrs: 'data-act="photo"' })}
-      <p class="t-small c-600">Optional. Helps customers recognise you at the door.</p>
+      ${textLink(d.photo ? 'Change photo' : 'Add a photo', { act: 'photo' })}
+      <p class="t-small c-600">Optional.</p>
     </div>
   </div>
   <div class="${ID}__group">${field({ id: 'name', label: 'Your name', value: d.name, autocomplete: 'name', helper: HELPERS.name, error: errorCopy(errors.name, d) })}</div>
@@ -95,7 +97,7 @@ function view(s) {
   <div class="${ID}__work-block">
     <p class="t-small w-600 c-700" id="${ID}-work-label">Photos of your work (optional)</p>
     ${workPhotos(d)}
-    <p class="t-small c-600">Up to ${WORK_PHOTOS_MAX}. Before-and-after shots work well.</p>
+    <p class="t-small c-600">Up to ${WORK_PHOTOS_MAX}.</p>
   </div>
   <div class="${ID}__preview">${customerPreview({ html: previewHtml(d) })}</div>
 </main>
@@ -105,9 +107,10 @@ ${editing
 }
 
 /* ---------- wiring ---------- */
+const cameraGlyph = () => { const t = document.createElement('template'); t.innerHTML = avatar({ photo: true }); return t.content.firstChild.innerHTML; };
 function openPhoto(header, onAdd) {
   const html = `<div class="${ID}__sheet-list">${listRow({ title: 'Take photo', act: 'photo-take' })}${listRow({ title: 'Choose from library', act: 'photo-library' })}</div>
-${cta('Cancel', { variant: 'secondary', attrs: 'data-act="photo-cancel"' })}`;
+<div class="${ID}__sheet-foot">${textLink('Cancel', { act: 'photo-cancel' })}</div>`;
   sheetOverlay(html, { header, dataS: `${ID}-photo`, confirm: false }, (holder, close) => {
     const add = () => { onAdd(); close(); go(ID); toast('Photo added'); };
     holder.querySelector('[data-act="photo-take"]').addEventListener('click', add);
@@ -119,9 +122,9 @@ ${cta('Cancel', { variant: 'secondary', attrs: 'data-act="photo-cancel"' })}`;
 /** The View / Remove sheet for one work photo. View shows it larger in place; Remove lets go of it with an Undo toast. */
 function openWorkPhoto(i, onRemove) {
   const n = draftOf().workPhotos;
-  const html = `<div class="${ID}__viewer" role="img" aria-label="Photo ${i + 1} of ${n}" hidden></div>
+  const html = `<div class="${ID}__viewer" role="img" aria-label="Photo ${i + 1} of ${n}" hidden>${photoStub({ type: workType(i), tone: i % 4, size: 'stage' })}</div>
 <div class="${ID}__sheet-list">${listRow({ title: 'View photo', act: 'work-view' })}${listRow({ title: 'Remove photo', act: 'work-remove' })}</div>
-${cta('Close', { variant: 'secondary', attrs: 'data-act="photo-cancel"' })}`;
+<div class="${ID}__sheet-foot">${textLink('Close', { act: 'photo-cancel' })}</div>`;
   sheetOverlay(html, { header: `Photo ${i + 1} of ${n}`, dataS: `${ID}-work`, confirm: false }, (holder, close) => {
     holder.querySelector('[data-act="work-view"]').addEventListener('click', (e) => {
       holder.querySelector(`.${ID}__viewer`).hidden = false;
@@ -161,7 +164,11 @@ function wire(root) {
   };
   const paintPreview = () => {
     const ini = initialsOf(d.name);
-    root.querySelectorAll('.avatar:not(.avatar--photo)').forEach((a) => { a.textContent = ini; });
+    root.querySelectorAll('.avatar').forEach((a) => {
+      if (ini) a.textContent = ini;
+      else if (a.classList.contains('avatar--placeholder')) a.innerHTML = cameraGlyph();
+      else a.textContent = '';
+    });
     const pn = root.querySelector('[data-pv="name"]');
     pn.textContent = d.name.trim() || 'Your name';
     pn.classList.toggle('c-500', !d.name.trim());

@@ -21,7 +21,7 @@ function view(s) {
   return `${statusBar()}
 <main class="body body--with-bar ${ID}">
   ${headingRow(`<p class="t-caps c-600 ${ID}__eyebrow">For tailors</p><h1 class="t-title">Get booked by customers nearby</h1>`, { backRow: true })}
-  <p class="t-body c-600 ${ID}__lead">Set your own prices and hours. We’ll text you a code — no passwords.</p>
+  <p class="t-body c-600 ${ID}__lead">Set your own prices and hours.</p>
   ${d.saved && d.phone ? `<div class="${ID}__saved">${banner({
     tone: 'success', title: 'Your progress is saved',
     text: `Sign in with ${esc(A.formatPhone(d.phone))} to pick up where you left off.`,
@@ -31,7 +31,7 @@ function view(s) {
     placeholder: '(718) 555-0142', value: A.formatPhone(d.phone ?? ''), helper: HELPER,
     error: ERRORS[d.error] ?? '', disabled: !!d.busy,
   })}</div>
-  <p class="t-small c-600 ${ID}__steps">Next: six short steps — profile, services and prices, where you work, return options, hours and payouts. About 10 minutes, and you can finish later.</p>
+  <p class="t-small c-600 ${ID}__steps">Next: six short steps, about 10 minutes. You can finish later.</p>
   <p class="t-small c-600 ${ID}__other">Looking for a tailor? <button type="button" class="${ID}__link" data-act="customer" data-hit="inline">Book one</button></p>
 </main>
 ${actionBar({ ctaLabel: 'Send code', ctaAct: 'send-code', busy: !!d.busy, busyLabel: 'Sending code…' })}`;

@@ -10,7 +10,7 @@ import { register, render as go, currentScreen, previousScreen } from '../app.js
 import { state, T, tailorById, now, msLeft, suggestLapseAt } from '../state.js';
 import {
   chrome, headingRow, statusHero, countdown, visitBlock, timeline, customerBreakdown, moneyRows, banner, cta,
-  emptyState, sheetOverlay, toast, esc, noteQuote,
+  emptyState, sheetOverlay, toast, esc, noteQuote, sectionHead, infoButton, textLink, garmentStrip,
 } from '../components.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 import { withLatency } from '../sim.js';
@@ -42,9 +42,11 @@ function visitRows(a, t) {
   const items = a.job.garments.length;
   const services = a.job.garments.reduce((n, g) => n + g.services.length, 0);
   return [
-    `${fmtWhen(a.slot.start)} · ${VISIT_LABEL.customer[a.job.visitType]}`,
+    fmtWhen(a.slot.start),
+    VISIT_LABEL.customer[a.job.visitType],
     esc(where),
-    `${items} ${items === 1 ? 'item' : 'items'} · ${services} ${services === 1 ? 'service' : 'services'}`,
+    /* M7-2-C-04 (D-202): the booked garments as illustrations, then the count */
+    garmentStrip(a.job.garments.map((g) => g.type), `${items} ${items === 1 ? 'item' : 'items'} · ${services} ${services === 1 ? 'service' : 'services'}`),
   ];
 }
 
@@ -55,11 +57,15 @@ const RETRY_ERRORS = {
   'card-declined': { text: 'Your card was declined. Choose another way to pay.', actionLabel: 'Pay another way', actionAct: 'pay-another' },
 };
 
-const link = (label, act, busy) => `<button type="button" class="c-request__link" data-act="${act}"${busy ? ' disabled aria-disabled="true"' : ''}>${label}</button>`;
+const link = (label, act, busy, tone) => textLink(label, { act, tone, disabled: !!busy });
+/** A group on the page: <section class="sec"> with a visit block / timeline / price inside. */
+const yourRequest = (rows) => `<section class="sec">${visitBlock(rows, { title: 'Your request', flush: true })}</section>`;
+const priceSection = (a, first, { info = true } = {}) => `<section class="sec">${sectionHead('Price', { aside: info ? infoButton('deposit') : '' })}
+  ${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}</section>`;
 
 /** One released-hold line (declined / expired): nothing is owed any more. */
-const releasedRow = (a) => `<h2 class="t-h2 c-request__h2">Price</h2>
-  ${moneyRows([{ label: 'Deposit hold', cents: a.payments.deposit.cents, status: 'Released' }])}`;
+const releasedRow = (a) => `<section class="sec">${sectionHead('Price')}
+  ${moneyRows([{ label: 'Deposit hold', cents: a.payments.deposit.cents, status: 'Released' }])}</section>`;
 
 /* ---------- the states ---------- */
 
@@ -71,27 +77,25 @@ function requestedBody(a, t, first) {
     body: `We’ll text you the moment ${esc(first)} replies.`,
   });
   const caption = soon
-    ? `<span class="t-small c-request__soon">${esc(first)} has ${fmtCountdown(msLeft(a))} left to reply. If there’s no reply, your hold is released.</span>`
+    ? `<span class="t-small c-request__soon">${esc(first)} has ${fmtCountdown(msLeft(a))} left to reply.</span>`
     : `<span class="t-small c-600">Reply by ${fmtTime(a.expiresAt)}</span>`;
   return `${heroRow(hero)}
-  <div class="c-request__clock">
-    ${countdown({ expiresAt: a.expiresAt, now: now() })}
+  <section class="sec sec--first c-request__clock" aria-label="Time left to reply">
+    <span class="t-figure">${countdown({ expiresAt: a.expiresAt, now: now() })}</span>
     ${caption}
-    ${state.sim.push === 'denied' ? `<span class="t-small c-600" data-push-off>Notifications are off, so we’ll text you when ${esc(first)} replies.</span>` : ''}
-  </div>
-  <div class="c-request__block">${visitBlock(visitRows(a, t), { title: 'Your request', flush: true })}</div>
-  <h2 class="t-h2 c-request__h2">What happens next</h2>
+  </section>
+  ${yourRequest(visitRows(a, t))}
+  <section class="sec">${sectionHead('What happens next')}
   ${timeline([
     { state: 'done', title: a.retries > 0 ? 'Request sent again' : 'Request sent', sub: fmtWhen(a.sentAt ?? a.requestedAt) },
     { state: 'current', title: `${esc(first)} replies`, sub: 'Usually within the hour' },
     { state: 'todo', title: 'You’re booked', sub: `The ${money(a.payments.deposit.cents)} deposit is charged when ${esc(first)} accepts` },
   ])}
-  <p class="t-small c-600 c-request__note">If ${esc(first)} declines or doesn’t reply, the hold is released and your job stays saved.${late ? ` This visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel after ${esc(first)} accepts, the ${money(a.payments.deposit.cents)} deposit is kept.` : ''}</p>
-  <h2 class="t-h2 c-request__h2">Price</h2>
-  ${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}
-  <div class="c-request__actions">
+  <p class="t-small c-600 c-request__note">If ${esc(first)} declines or doesn’t reply, your hold is released.${late ? ` This visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel after ${esc(first)} accepts, the ${money(a.payments.deposit.cents)} deposit is kept.` : ''}</p></section>
+  ${priceSection(a, first)}
+  <div class="page-actions">
     ${cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' })}
-    <button type="button" class="c-request__withdraw" data-act="withdraw">Withdraw request</button>
+    <div class="page-actions__links">${textLink('Withdraw request', { act: 'withdraw', tone: 'danger' })}</div>
   </div>`;
 }
 
@@ -99,21 +103,19 @@ function suggestedBody(a, t, first, busy) {
   const deposit = a.payments.deposit.cents;
   const hero = statusHero({ variant: 'new-times', pill: 'suggested', pillLabel: 'New time suggested', title: `${esc(first)} suggested a new time` });
   return `${heroRow(hero)}
-  <section class="c-request__time" data-new-time aria-label="Suggested time">
+  <section class="sec sec--first c-request__time" data-new-time aria-label="Suggested time">
     <span class="t-caps c-600">NEW TIME</span>
-    <span class="t-h2 c-request__when">${fmtWhen(a.suggested.start)}</span>
+    <span class="t-figure c-request__when">${fmtWhen(a.suggested.start)}</span>
     <span class="t-small c-600">You asked for ${fmtWhen(a.slot.start)}</span>
     <p class="t-body c-700 c-request__same">Same price. If you accept, your ${money(deposit)} deposit is charged and you’re booked.</p>
   </section>
   <p class="t-small c-600 c-request__holding">${esc(first)} is holding this time until ${fmtWhen(suggestLapseAt(a))}</p>
   ${ui().error === 'slot-passed' ? `<div class="c-request__alert c-request__alert--top">${banner({ tone: 'error', text: RETRY_ERRORS['slot-passed'].text })}</div>` : ''}
-  <div class="c-request__block">${visitBlock([esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`), ...visitRows(a, t).slice(1)], { title: 'Your request', flush: true })}</div>
-  <h2 class="t-h2 c-request__h2">Price</h2>
-  ${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}
-  <div class="c-request__actions">
+  ${yourRequest([esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`), ...visitRows(a, t).slice(2)])}
+  ${priceSection(a, first)}
+  <div class="page-actions">
     ${cta('Accept new time', { busy: busy === 'accept-time', busyLabel: 'Booking…', disabled: !!busy && busy !== 'accept-time', attrs: 'data-act="accept-time"' })}
-    ${cta('Find another tailor', { variant: 'secondary', disabled: !!busy, attrs: 'data-act="find-another"' })}
-    ${link(`Message ${esc(first)}`, 'message', busy)}
+    <div class="page-actions__links">${link('Find another tailor', 'find-another', busy)}${link(`Message ${esc(first)}`, 'message', busy)}</div>
   </div>`;
 }
 
@@ -125,11 +127,11 @@ function declinedBody(a, t, first, busy) {
   });
   return `${heroRow(hero)}
   ${a.declineReason ? noteQuote({ label: `${first}’s note`, text: a.declineReason }) : ''}
-  <div class="c-request__block">${visitBlock(visitRows(a, t), { title: 'Your request', flush: true })}</div>
+  ${yourRequest(visitRows(a, t))}
   ${releasedRow(a)}
-  <div class="c-request__actions">
+  <div class="page-actions">
     ${cta('Find another tailor', { busy: busy === 'find-another', busyLabel: 'One moment…', disabled: !!busy && busy !== 'find-another', attrs: 'data-act="find-another"' })}
-    ${link('View messages', 'message', busy)}
+    <div class="page-actions__links">${link('View messages', 'message', busy)}</div>
   </div>`;
 }
 
@@ -143,11 +145,11 @@ function suggestionEndedBody(a, t, first, busy) {
     body: `Your ${money(deposit)} hold is released. ${esc(first)} is hidden for this job, so you can choose someone else.`,
   });
   return `${heroRow(hero)}
-  <div class="c-request__block">${visitBlock(visitRows(a, t), { title: 'Your request', flush: true })}</div>
+  ${yourRequest(visitRows(a, t))}
   ${releasedRow(a)}
-  <div class="c-request__actions" data-suggestion-ended="${withdrawn ? 'withdrawn' : 'lapsed'}">
+  <div class="page-actions" data-suggestion-ended="${withdrawn ? 'withdrawn' : 'lapsed'}">
     ${cta('Find another tailor', { busy: busy === 'find-another', busyLabel: 'One moment…', disabled: !!busy && busy !== 'find-another', attrs: 'data-act="find-another"' })}
-    ${cta(`Message ${esc(first)}`, { variant: 'secondary', disabled: !!busy, attrs: 'data-act="message"' })}
+    <div class="page-actions__links">${link(`Message ${esc(first)}`, 'message', busy)}</div>
   </div>`;
 }
 
@@ -180,24 +182,22 @@ function expiredBody(a, t, first, busy, u) {
   if (lapsed) {
     actions = `<p class="t-small c-600 c-request__passed" data-lapsed="${passed ? 'passed' : 'too-soon'}">Your ${fmtWhen(a.slot.start)} time ${passed ? 'has passed' : `is too soon for another ${hours}-hour wait`}.</p>
     ${cta('Pick a new time', { disabled: !!busy, attrs: 'data-act="pick-time"' })}
-    ${cta(`Message ${esc(first)}`, { variant: 'secondary', disabled: !!busy, attrs: 'data-act="message"' })}
-    ${link('Find another tailor', 'see-others', busy)}`;
+    <div class="page-actions__links">${link(`Message ${esc(first)}`, 'message', busy)}${link('Find another tailor', 'see-others', busy)}</div>`;
   } else if (final) {
     actions = `${cta('Find another tailor', { busy: busy === 'find-another', busyLabel: 'One moment…', disabled: !!busy && busy !== 'find-another', attrs: 'data-act="find-another"' })}
-    ${cta(`Message ${esc(first)}`, { variant: 'secondary', disabled: !!busy, attrs: 'data-act="message"' })}`;
+    <div class="page-actions__links">${link(`Message ${esc(first)}`, 'message', busy)}</div>`;   // M7-1-A-04: one filled button; the second path is a text link (D-195)
   } else {
     actions = `${err ? `<div class="c-request__alert">${banner({ tone: 'error', text: err.text, actionLabel: err.actionLabel, actionAct: err.actionAct })}</div>` : ''}
     <div class="c-request__try">
       ${cta(`Try again (${a.retries + 1} of ${max})`, { busy: busy === 'try-again', busyLabel: 'Sending…', disabled: !!busy && busy !== 'try-again', attrs: 'data-act="try-again"' })}
       <span class="t-small c-600">Holds ${money(deposit)} again · ${esc(first)} has until ${newBy} to reply</span>
     </div>
-    ${cta(`Message ${esc(first)}`, { variant: 'secondary', disabled: !!busy, attrs: 'data-act="message"' })}
-    ${link('Find another tailor', 'see-others', busy)}`;
+    <div class="page-actions__links">${link(`Message ${esc(first)}`, 'message', busy)}${link('Find another tailor', 'see-others', busy)}</div>`;
   }
   return `${heroRow(hero)}
-  <div class="c-request__block">${visitBlock(visitRows(a, t), { title: 'Your request', flush: true })}</div>
+  ${yourRequest(visitRows(a, t))}
   ${releasedRow(a)}
-  <div class="c-request__actions">
+  <div class="page-actions">
     ${actions}
   </div>`;
 }
@@ -208,7 +208,7 @@ function view() {
   if (!a) {
     return `${head}<main class="body ${ID}" data-s="${ID}">
   <div class="c-request__empty" data-empty="no-request">${emptyState({
-    title: 'No open requests', body: 'When you send a request, you can follow it here.', ctaLabel: 'Start a booking', ctaAct: 'home',
+    title: 'No open requests', body: 'When you send a request, you can follow it here.', ctaLabel: 'Start a booking', ctaAct: 'home', art: 'Suit Jacket',
   })}</div>
 </main>`;
   }

@@ -91,15 +91,16 @@ const columnHtml = wheelCol;
  *   columns   [{ width, rows, sel }] — dateColumn() + timeColumns()
  *   note      the caps rush note ('' hides it; the node stays for live updates)
  *   cta       the button label; `ctaAct` its data-act ('' → no button: the screen's action bar carries it)
- *   compact   a 3-row wheel (108 tall, the settled row centred) — for a screen whose action lives in its action bar
+ *   compact   a 3-row wheel (132 tall, the settled row centred) — for a screen whose action lives in its action bar
+ *   top       with compact: the settled row is the FIRST visible row (no blank lead row, M7-2-C-07 / A-05) — c-book
  *   inline    05's in-page card (350 wide, the date column 134)
  */
-export function scheduler({ title, sub = '', subAct = '', columns = [], note = '', cta = 'Next', ctaAct = 'sched-next', inline = false, compact = false, attrs = '' } = {}) {
+export function scheduler({ title, sub = '', subAct = '', columns = [], note = '', cta = 'Next', ctaAct = 'sched-next', inline = false, compact = false, top = false, attrs = '' } = {}) {
   const subHtml = !sub ? '' : subAct
     ? `<button type="button" class="scheduler__sub" data-act="${subAct}">${sub}</button>`
     : `<span class="scheduler__sub">${sub}</span>`;
   const heading = subHtml || title ? `<div class="scheduler__heading">${subHtml}${title ? `<span class="scheduler__title">${title}</span>` : ''}</div>` : '';
-  return `<div class="scheduler${inline ? ' scheduler--inline' : ''}${compact ? ' scheduler--compact' : ''}" data-scheduler ${attrs}>
+  return `<div class="scheduler${inline ? ' scheduler--inline' : ''}${compact ? ' scheduler--compact' : ''}${compact && top ? ' scheduler--top' : ''}" data-scheduler ${attrs}>
   ${heading}
   <div class="wheel wheel--sched"><div class="wheel__band"></div>
     ${columns.map(columnHtml).join('\n    ')}

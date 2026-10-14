@@ -5,7 +5,7 @@
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { apptsFor } from '../state.js';
-import { chrome, headingRow, avatar, listRow, cta, modalOverlay, esc } from '../components.js';
+import { chrome, headingRow, avatar, listRow, cta, textLink, modalOverlay, esc } from '../components.js';
 import * as A from '../account.js';
 
 const ID = 'c-account';
@@ -32,23 +32,22 @@ function view(s) {
   return `${chrome('account')}
 <main class="body ${ID}" data-s="${ID}">
   ${headingRow('<h1 class="t-title">Account</h1>', { back: false })}
-  <section class="${ID}__profile" aria-label="Your profile">
+  <section class="sec sec--first ${ID}__profile" aria-label="Your profile">
     <div class="${ID}__who">
       ${avatar({ initials: c.initials, size: 'lg' })}
       <div class="${ID}__text">
-        <h2 class="t-h2 ${ID}__name">${esc(c.first)} ${esc(c.last)}</h2>
+        <h2 class="t-body w-700 ${ID}__name">${esc(c.first)} ${esc(c.last)}</h2>
         <p class="t-body ${ID}__phone">${esc(c.phone)}</p>
-        <p class="t-small c-600 ${ID}__caption">You sign in with this number.</p>
         <p class="t-small c-600 ${ID}__email">${esc(c.email)}</p>
       </div>
     </div>
   </section>
-  <nav class="${ID}__list" aria-label="Your account">
+  <nav class="sec ${ID}__list card card--list" aria-label="Your account">
     ${listRow({ title: 'Saved addresses', sub: addrSub, act: 'addresses' })}
     ${listRow({ title: 'Payment methods', sub: cardSub, act: 'cards' })}
     ${listRow({ title: 'Past orders', sub: orderSub, act: 'orders' })}
   </nav>
-  <div class="${ID}__out">${cta('Sign out', { variant: 'secondary', attrs: 'data-act="sign-out"' })}</div>
+  <div class="page-actions ${ID}__out"><div class="page-actions__links">${textLink('Sign out', { act: 'sign-out', tone: 'muted' })}</div></div>
   <p class="t-micro c-600 ${ID}__version">Taily prototype · v5</p>
 </main>`;
 }

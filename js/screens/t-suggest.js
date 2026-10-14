@@ -41,7 +41,7 @@ function view() {
   if (!a) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}">
   <div class="${ID}__empty" data-empty="no-request">${emptyState({
-    title: 'No open requests', body: 'New requests show up on Home.', ctaLabel: 'Go to Home', ctaAct: 'home',
+    title: 'No open requests', body: 'New requests show up on Home.', art: 'Suit Pant', ctaLabel: 'Go to Home', ctaAct: 'home',
   })}</div>
 </main>`;
   }
@@ -54,7 +54,7 @@ function view() {
   <div class="${ID}__empty" data-empty="no-slots">${emptyState({
     title: `No open times before ${fmtDay(a.job.needBy)}`,
     body: 'Add hours to your week, or decline this request.',
-    ctaLabel: 'Edit availability', ctaAct: 'hours', secondaryLabel: 'Back to the request', secondaryAct: 'back-request',
+    art: 'Suit Jacket', ctaLabel: 'Edit availability', ctaAct: 'hours', secondaryLabel: 'Back to the request', secondaryAct: 'back-request',
   })}</div>
 </main>`;
   }

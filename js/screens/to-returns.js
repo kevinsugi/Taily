@@ -9,7 +9,7 @@ import { state, T, SECTIONS } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, checkRow, customerPreview,
-  actionBar, toast, modalOverlay, leaveModal, returnsRows, esc,
+  actionBar, toast, modalOverlay, leaveModal, returnsRows, sectionHead, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -64,8 +64,8 @@ const errText = () => MSG[ui().errors?.returns ?? ui().errors?.pickup] ?? '';
 
 /** The customer's own "Getting it back" rows from c-tailor (shared `returnsRows`), updated in place as boxes are ticked. */
 function previewHtml(d) {
-  return `<div class="to-returns__preview" data-ret-preview>
-    <p class="t-body w-600">Getting it back</p>
+  return `<div class="card to-returns__preview" data-ret-preview>
+    ${sectionHead('Getting it back')}
     ${returnsRows(effective(d), { empty: 'No return options yet.' })}
   </div>`;
 }
@@ -110,8 +110,8 @@ function view() {
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
   ${mode ? headingRow(TITLE, { backRow: true }) : `<div class="${ID}__title">${TITLE}</div>`}
-  <p class="to-returns__lead t-body c-600">Pick every option you offer. The customer chooses one when the order is ready.</p>
-  <div class="to-returns__card${err ? ' to-returns__card--error' : ''}" role="group" aria-label="Return options"${err ? ' aria-describedby="returns-msg"' : ''}>${rows}</div>
+  <p class="to-returns__lead t-body c-600">Pick every option you offer.</p>
+  <div class="card to-returns__card${err ? ' to-returns__card--error' : ''}" role="group" aria-label="Return options"${err ? ' aria-describedby="returns-msg"' : ''}>${rows}</div>
   <p class="field__msg field__msg--error to-returns__error" id="returns-msg" role="alert"${err ? '' : ' hidden'}>${esc(err)}</p>
   ${customerPreview({ html: previewHtml(d) })}
 </main>${barHtml()}`;

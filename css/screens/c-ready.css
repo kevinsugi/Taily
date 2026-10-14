@@ -1,20 +1,20 @@
-/* c-ready — C10 pick a way back, then pay the balance. Layout only; hero, option rows, courier card, money rows, banner, action bar and sheet are shared. */
+/* c-ready — C10 pick a way back, then pay the balance. Layout only; hero, option rows, courier card, money rows, banner, action bar and sheet are shared. M7: groups are .sec; the radio rows are one .card--list. */
 .c-ready { gap: 0; padding-bottom: var(--space-40); }
 .c-ready .status-hero__body { color: var(--neutral-700); font-weight: 400; text-wrap: pretty; }
+.c-ready > .sec:first-of-type { margin-top: var(--rhythm-major); }
 .c-ready__alert { margin-top: var(--space-16); }
-.c-ready__h2 { margin: var(--space-24) 0 var(--space-8); }
-.c-ready__h2--price, .c-ready__h2--order { margin-top: var(--space-32); }
-/* the radio rows sit on a white card so the group reads as one choice */
-.c-ready__group {
-  display: flex; flex-direction: column; padding-inline: var(--space-16);
-  background: var(--white); border-radius: var(--radius-lg); box-shadow: inset 0 0 0 1px var(--neutral-200);
-}
+.c-ready__group { display: flex; flex-direction: column; }
 .c-ready__group .option-row { min-height: 64px; }
+.c-ready__group .option-row__text { flex: 1; min-width: 0; }
+.c-ready__group .option-row__title { display: block; }
 .c-ready__group .option-row__sub { text-wrap: pretty; }
 .c-ready__group .option-row:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: var(--radius-md); }
-.c-ready__single { margin: var(--space-8) 0 0; }
-.c-ready__courier { margin-top: var(--space-16); }
-.c-ready__empty { margin-top: var(--space-24); }
+/* the title row: the way back left, its price right (the row's value slot) */
+.c-ready__opt { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-12); }
+.c-ready__opt-val { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.c-ready__single { margin: 0; }
+.c-ready__courier { margin-top: var(--space-8); display: flex; flex-direction: column; gap: var(--space-8); }
+.c-ready__empty { margin-top: var(--rhythm-section); }
 
 /* pay sheet */
 .c-ready-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }

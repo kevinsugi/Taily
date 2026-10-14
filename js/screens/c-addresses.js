@@ -49,8 +49,8 @@ function view() {
   ${title}
   <div class="${ID}__empty" data-empty="addresses">${emptyState({
     title: 'No saved addresses',
-    body: 'Add the address where you’d like tailors to visit. You can also type one in when you book.',
-    ctaLabel: 'Add an address', ctaAct: 'add',
+    body: 'Add where you’d like tailors to visit.',
+    ctaLabel: 'Add an address', ctaAct: 'add', art: 'Accessories',
   })}</div>
 </main>`;
   }
@@ -58,7 +58,7 @@ function view() {
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
   ${title}
   <div class="${ID}__cards">${rows.map((a) => card(a, busy)).join('')}</div>
-  <p class="t-small c-600 ${ID}__note">New bookings start from your default address. Changing it doesn’t move a booking you’ve already made.</p>
+  <p class="t-small c-600 ${ID}__note">New bookings start from your default address.</p>
 </main>
 ${actionBar({ ctaLabel: 'Add an address', ctaAct: 'add', busy: false })}`;
 }

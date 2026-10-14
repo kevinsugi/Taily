@@ -49,8 +49,8 @@ export function galleryHtml() {
   h2('CTA_Small — 302:1656');
   row(C.ctaSmall('Message'), C.ctaSmall('Reschedule'));
 
-  h2('Status Pill — 312:826 + v5 keys (17)');
-  row(...['requested','confirmed','ready','completed','declined','cancelled','new-request','awaiting-customer','tailoring','suggested','fitting','price-change','in-progress','returning','withdrawn','expired','action'].map((k) => C.statusPill(k)));
+  h2('Status dot + word — 312:826 + v5 keys (19, M7 A5.6)');
+  row(...['requested','confirmed','ready','completed','declined','cancelled','new-request','awaiting-customer','tailoring','suggested','fitting','price-change','in-progress','returning','withdrawn','expired','action','bookable','paused'].map((k) => C.statusPill(k)));
 
   h2('Top nav — customer · tailor');
   v('NAV.customer (Bookings active)');
@@ -136,7 +136,7 @@ export function galleryHtml() {
 
   h2('Stars · Rating summary · Review row');
   v('display 4 · input 3 (tap to try)'); row(C.stars({ value: 4 }), C.stars({ value: 3, input: true, name: 'demo-stars' }));
-  v('rating summary'); row(C.ratingSummary(amara.rating));
+  v('ratingLine (M7): plain · as the Reviews anchor'); row(C.ratingLine(amara.rating), C.ratingLine({ ...amara.rating, anchor: '#reviews' }));
   v('review: text · no text · photos');
   s.push(card(
     C.reviewRow({ name: 'Priya S.', initials: 'PS', stars: 5, date: '2026-09-28', text: 'Hemmed three pairs of work pants in two days.' }) +
@@ -380,7 +380,7 @@ export function galleryHtml() {
   row(C.garmentIcon('Suit Jacket'), C.garmentIcon('Suit Pant', { size: 'row' }), C.garmentIcon('Skirt', { size: 'inline' }), C.garmentIcon('Spaceship'), C.garmentIcon('Dress / Jumpsuit', { alt: 'Dress / Jumpsuit' }));
   v('docPhoto · tones t0 t1 t2 t3 (Before) · a Pinned photo (pin badge)');
   row(...[0, 1, 2, 3].map((t) => C.docPhoto({ id: `p${t + 1}`, kind: 'before', at: NOW, tone: t }, { type: 'Suit Jacket' })), C.docPhoto({ id: 'p6', kind: 'pinned', at: NOW, tone: 1 }, { type: 'Suit Jacket' }));
-  v('docsEditor · empty (both rows missing, the comment optional)');
+  v('docsEditor · empty, pristine (both rows say "Required" quietly, the comment optional)');
   s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e1', type: 'Suit Jacket', docs: none, missing: { before: true, pinned: true } })}</div>`);
   v('docsEditor · 2 Before + 1 Pinned, a saved comment');
   s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e2', type: 'Suit Jacket', docs: docsFull })}</div>`);
@@ -474,6 +474,54 @@ export function galleryHtml() {
   s.push(`<div class="row"><div class="push-demo">${pushPromptHtml({ title: 'Don’t miss a request', body: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications to reply in time.` })}</div></div>`);
   v('in-app push card (D-167): a new request, over the status bar');
   s.push(`<div class="push-banner-demo">${pushBannerHtml({ title: 'New request · Sarah C.', body: `Home visit Thu, Oct 15 · You take home ${fmtExact(seed.payout)} · 2h to reply` })}</div>`);
+  /* ---------------- M7 · polish (K-03) ---------------- */
+  h2('M7 · polish — nav icons, flow bar');
+  const navDemo = (html) => s.push(`<div style="position:relative;height:56px;width:390px;margin-inline:-20px">${html.replace('<nav class="top-nav"', '<nav class="top-nav" style="top:0"')}</div>`);
+  v('customer nav: Home active · Messages with an unread dot'); navDemo(C.topNav('home', C.NAV.customer, { badges: { messages: 2 } }));
+  v('tailor nav: Earnings active · Home with a dot'); navDemo(C.topNav('earnings', C.NAV.tailor, { badges: { home: 1 } }));
+  v('flowBar: step 2 of 5 · busy (Back and ✕ locked)');
+  s.push(`<div style="position:relative;height:100px;width:390px;margin-inline:-20px">${C.flowBar({ step: 1 })}</div>`);
+  s.push(`<div style="position:relative;height:100px;width:390px;margin-inline:-20px">${C.flowBar({ step: 4, busy: true })}</div>`);
+
+  h2('M7 · avatar, section head, hero fact');
+  v('avatar sm 40 · md 56 · lg 80 · muted (past row) · photo placeholder (initials) · no initials yet');
+  row(C.avatar({ initials: 'AR', size: 'sm' }), C.avatar({ initials: 'AR', size: 'md' }), C.avatar({ initials: 'AR', size: 'lg' }),
+    `<span class="appt-row--muted">${C.avatar({ initials: 'SC', size: 'md' })}</span>`, C.avatar({ initials: 'AR', photo: true, size: 'md' }), C.avatar({ photo: true, size: 'md' }));
+  v('sectionHead · with a count · with ⓘ · with a link');
+  col(C.sectionHead('Your items', { count: '2 items' }), C.sectionHead('Price', { aside: C.infoButton('deposit') }), C.sectionHead('Reviews', { aside: C.textLink('See all 37', { act: 'noop' }) }));
+  v('.t-figure (hero fact) · .t-display (hero money)');
+  col(`<p class="t-figure">Thu, Oct 15 · 5:00 PM</p>`, `<p class="t-display" data-money>${fmtExact(seed.payout)}</p>`);
+
+  h2('M7 · text links, action bar, more menu');
+  v('textLink: default · danger · muted · with icon · disabled');
+  row(C.textLink('Ask a question', { act: 'a', icon: C.ICON_CHAT }), C.textLink('Withdraw request', { act: 'b', tone: 'danger' }), C.textLink('Not now', { act: 'c', tone: 'muted' }), C.textLink('Unavailable', { act: 'd', disabled: true }));
+  v('actionBar: primary + two links (tertiary danger) · primary + one link · soft-disabled Send');
+  bar(C.actionBar({ ctaLabel: 'Book Amara again', ctaAct: 'rebook', secondaryLabel: 'Message Amara', secondaryAct: 'message', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' }));
+  bar(C.actionBar({ ctaLabel: 'Accept new time', ctaAct: 'accept', secondaryLabel: 'Find another tailor', secondaryAct: 'find' }));
+  bar(C.actionBar({ ctaLabel: 'Send final order', ctaAct: 'send', softDisabled: true, note: 'Add before and pinned photos for 1 item.' }));
+  v('moreMenu button · the menu sheet');
+  row(C.moreMenu());
+  s.push(`<div class="sheet-demo">${C.sheet(`<div class="more-menu">${C.listRow({ title: 'I can’t make it', act: 'x' })}${C.listRow({ title: '<span class="more-item--danger">Mark as no-show</span>', act: 'y', chevron: false })}</div>`, { header: 'More', open: true, confirm: false })}</div>`);
+
+  h2('M7 · stitched dash, status, verified, info');
+  v('a breakdown: the stitch sits directly above the total');
+  col(C.customerBreakdown(seed, { stage: 'estimate', tailorFirst: 'Amara' }));
+  v('verifiedMark · inert');
+  row(C.verifiedMark(), C.verifiedMark({ inert: true }));
+  v('Verified by Taily sheet');
+  s.push(`<div class="sheet-demo">${C.sheet(C.verifiedSheetHtml(), { header: 'Verified by Taily', open: true, confirm: false })}</div>`);
+  v('infoButton · the "About the deposit" sheet');
+  row(C.infoButton('deposit'), C.infoButton('pricing'));
+  { const sh = C.infoSheetHtml('deposit'); s.push(`<div class="sheet-demo">${C.sheet(sh.html, { header: sh.title, open: true, confirm: false })}</div>`); }
+
+  h2('M7 · photo stubs, empty state art, required vs error');
+  v('photoStub tones 0-3 (thumb) · tile · hanger fallback');
+  row(...[0, 1, 2, 3].map((t) => C.photoStub({ type: 'Suit Pant', tone: t, size: 'thumb' })), C.photoStub({ type: 'Suit Jacket', tone: 1, size: 'tile' }), C.photoStub({ type: '', tone: 2 }));
+  v('emptyState with art');
+  col(C.emptyState({ title: 'No bookings yet', body: 'Start with a garment.', ctaLabel: 'Start a booking', ctaAct: 'start', secondaryLabel: 'See how it works', secondaryAct: 'how', art: 'Formal Dress' }));
+  v('docsEditor · pristine (Required) · tried (error line + red camera ring)');
+  s.push(`<div class="card docs-demo">${C.docsEditor({ garmentId: 'm7a', type: 'Suit Jacket', docs: none, missing: { before: true, pinned: true } })}</div>`);
+  s.push(`<div class="card docs-demo">${C.docsEditor({ garmentId: 'm7b', type: 'Suit Jacket', docs: none, missing: { before: true, pinned: true }, tried: true })}</div>`);
   /* the page has one h1 (its title, spoken only); a hero or thread-head demo is a specimen, so its title steps down to an h2 here */
   return `<h1 class="sr-only">Component gallery</h1>\n${s.join('\n').replace(/<h1( class="(?:status-hero__title|thread-head__name)[^>]*)>([\s\S]*?)<\/h1>/g, '<h2$1>$2</h2>')}`;
 }

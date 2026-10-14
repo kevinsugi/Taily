@@ -1,6 +1,6 @@
 /* ============================================================
    c-booking — C8 booking detail. The appointment, its money, and the
-   ways to change it. Focal: the visit time (visitBlock title, .t-h2).
+   ways to change it. Focal: the visit time (the first row of the Visit group, .t-figure).
    States: just confirmed · upcoming · cancel sheets (early / late) ·
    reschedule sheet · cancelled (early / late) · Amara can't make it ·
    no-show · M4: fitting · in progress · returning (pickup / drop-off /
@@ -12,7 +12,7 @@ import {
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList, receiptBlock, wireGarmentDocs,
+  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList, receiptBlock, wireGarmentDocs, garmentStrip,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
@@ -44,11 +44,16 @@ function visitRows(a, t) {
   const items = lines ? new Set(lines.map((l) => l.garmentId)).size : a.job.garments.length;
   const services = lines ? lines.length : a.job.garments.reduce((n, g) => n + g.services.length, 0);
   return [
+    `<span class="t-figure">${esc(fmtWhen(a.slot.start))}</span>`,
     esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`),
     esc(whereOf(a, t)),
-    `${plural(items, 'item')} · ${plural(services, 'service')}`,
+    /* M7-2-C-04 (D-202): the booked garments as illustrations, then the count */
+    garmentStrip(lines ? [...new Map(lines.map((l) => [l.garmentId, l.garmentType])).values()] : a.job.garments.map((g) => g.type), `${plural(items, 'item')} · ${plural(services, 'service')}`),
   ];
 }
+/** A group on the page (A3): `<section class="sec">`. */
+const sec = (inner, cls = '') => `<section class="sec${cls ? ` ${cls}` : ''}">${inner}</section>`;
+const visitSection = (a, t) => sec(visitBlock(visitRows(a, t), { title: 'Visit', flush: true }));
 
 /** The shared detail header (D-93, supersedes R3-1-C-04's pill-above-Back): Back on its own row, then the pill,
     the title and the notes, all flush at the screen padding. */
@@ -93,22 +98,20 @@ function cancelledView(a, t, first) {
   let actions;
   if (reason === 'tailor-cant-make-it') {
     actions = `${cta('Find another tailor', { attrs: 'data-act="find-another"' })}
-    ${cta(`Message ${esc(first)}`, { variant: 'secondary', attrs: 'data-act="message"' })}`;
+    <div class="page-actions__links">${textLink(`Message ${esc(first)}`, { act: 'message' })}</div>`;
   } else if (reason === 'no-show') {
-    actions = `<p class="t-small c-600">Think this is a mistake? Message ${esc(first)}.</p>
-    ${cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' })}
-    ${cta('Find another tailor', { variant: 'secondary', attrs: 'data-act="other-tailors"' })}`;
+    actions = `${cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' })}
+    <div class="page-actions__links">${textLink('Find another tailor', { act: 'other-tailors' })}</div>`;
   } else {
     actions = `${cta(`Book ${esc(first)} again`, { attrs: 'data-act="book-again"' })}
-    ${cta('Find another tailor', { variant: 'secondary', attrs: 'data-act="other-tailors"' })}`;
+    <div class="page-actions__links">${textLink('Find another tailor', { act: 'other-tailors' })}</div>`;
   }
   return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--cancelled" data-s="${ID}">
   ${head(a, { pill: cfg.pill, pillLabel: cfg.label, title: cfg.title, body: esc(cfg.body), variant: 'declined' })}
   ${note}
-  <div class="${ID}__block">${visitBlock(visitRows(a, t), { title: fmtWhen(a.slot.start), flush: true })}</div>
-  <h2 class="t-h2 ${ID}__h2">Price</h2>
-  ${moneyRows([{ label: 'Deposit', cents: dep, status: cfg.status }])}
-  <div class="${ID}__actions">
+  ${visitSection(a, t)}
+  ${sec(`${sectionHead('Price')}${moneyRows([{ label: 'Deposit', cents: dep, status: cfg.status }])}`)}
+  <div class="page-actions">
     ${actions}
   </div>
 </main>`;
@@ -141,22 +144,18 @@ function liveView(a, t, first) {
   const policy = early
     ? `Free cancellation until ${cutoff}. After that, the ${money(deposit)} deposit is kept.`
     : `Less than ${POLICY.CANCEL_WINDOW_H} hours to go: cancelling now keeps the ${money(deposit)} deposit.`;
-  const change = !confirmed ? '' : `${early
-    ? cta('Reschedule', { variant: 'secondary', attrs: 'data-act="reschedule"' })
-    : `<p class="t-small c-600 ${ID}__late">To change the time now, message ${esc(first)}.</p>`}
-    <button type="button" class="${ID}__cancel" data-act="cancel">Cancel booking</button>`;
+  const links = !confirmed ? '' : `<div class="page-actions__links">${early ? textLink('Reschedule', { act: 'reschedule' }) : ''}${textLink('Cancel booking', { act: 'cancel', tone: 'danger' })}</div>`;
+  const late = confirmed && !early ? `<p class="t-small c-600 ${ID}__late">To change the time now, message ${esc(first)}.</p>` : '';
 
   return `${chrome(bookingTab())}<main class="body ${ID}" data-s="${ID}">
   ${hero}
-  <div class="${ID}__block">${visitBlock(visitRows(a, t), { title: fmtWhen(a.slot.start), flush: true })}</div>
-  <h2 class="t-h2 ${ID}__h2">What happens next</h2>
-  ${steps}
-  <h2 class="t-h2 ${ID}__h2">Price</h2>
-  ${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}
-  ${confirmed ? `<p class="t-small c-600 ${ID}__policy">${policy}</p>` : ''}
-  <div class="${ID}__actions">
+  ${visitSection(a, t)}
+  ${sec(`${sectionHead('What happens next')}${steps}`)}
+  ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}${confirmed ? `<p class="t-small c-600 ${ID}__policy">${policy}</p>` : ''}`)}
+  <div class="page-actions">
     ${cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' })}
-    ${change}
+    ${late}
+    ${links}
   </div>
 </main>`;
 }
@@ -218,16 +217,16 @@ function dropoffAddress() {
 function returnBlock(a, t, first) {
   const shopName = esc(t.shopName);
   if (a.returnOption === 'dropoff') {
-    return `<div class="${ID}__block">${visitBlock([esc(dropoffAddress())], { title: 'Home drop-off', flush: true })}</div>`;
+    return sec(visitBlock([esc(dropoffAddress())], { title: 'Home drop-off', flush: true }));
   }
   if (a.returnOption === 'courier' && a.courier) {
-    return `<div class="${ID}__block">${courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: returnAddress(), note: `Included in the ${fmtExact(a.payments.balance.cents)} you paid when it was ready.` })}</div>`;
+    return sec(courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: returnAddress(), note: `Included in the ${fmtExact(a.payments.balance.cents)} you paid when it was ready.` }));
   }
   const hours = shopHoursLine(t);
   const rows = [metaRow('', shopName, { icon: 'bag' }), esc(`${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim()), ...(hours ? [esc(hours)] : [])];
   const f = esc(first);
-  return `<div class="${ID}__block">${visitBlock(rows, { title: 'In-store pickup', flush: true })}</div>
-  <p class="t-small c-600 ${ID}__policy">Message ${f} if you’re coming outside shop hours. ${f} marks the order completed when you have it.</p>`;
+  return `${sec(visitBlock(rows, { title: 'In-store pickup', flush: true }))}
+  <p class="t-small c-600 ${ID}__policy">${f} marks the order completed when you have it.</p>`;
 }
 
 /** "Your order" (K-2-01, D-127): the approved order as plain rows, the same garment / service strings as Amara's "The work".
@@ -235,8 +234,7 @@ function returnBlock(a, t, first) {
 function orderSection(a, first = 'Amara') {
   const added = new Set(a.job.garments.filter((g) => g.added).map((g) => g.id));
   const garments = priceChangeView(a, a.lines).garments.map((g) => (added.has(g.id) ? { ...g, newItem: true } : g));
-  return `<h2 class="t-h2 ${ID}__h2">Your order</h2>
-  <div class="${ID}__order">${changeList({ garments, docs: a.priceChange?.docs ?? null, commentLabel: `${first}’s comment` })}</div>`;
+  return sec(`${sectionHead('Your order')}<div class="${ID}__order">${changeList({ garments, docs: a.priceChange?.docs ?? null, commentLabel: `${first}’s comment` })}</div>`);
 }
 
 function m4View(a, t, first) {
@@ -245,14 +243,14 @@ function m4View(a, t, first) {
   const shopName = esc(t.shopName);
   const how = a.returnOption ?? 'pickup';
   const cfg = {
-    fitting: { title: `Fitting with ${f}`, body: `${f} is going through the order with you. You’ll approve the final order here before any work starts.` },
+    fitting: { title: `Fitting with ${f}`, body: `${f} is going through the order with you.` },
     'price-change': { title: 'Review your final order', body: 'Approve the final order before any work starts.' },
     'in-progress': { title: `${f} is working on it`, body: `You approved the order. You’ll pay the ${fmtExact(a.money.balance)} balance when it’s ready.` },
     ready: { title: `${f} finished your order`, body: `Pay the ${fmtExact(a.money.balance)} balance to choose how to get it back.` },
     completed: { title: `All done with ${f}`, body: `${f} completed your order on ${fmtDay(completedAt(a))}.` },
     returning: {
       pickup: { title: 'Ready for pickup', body: `Pick it up at ${shopName}. You’ve paid in full.` },
-      dropoff: { title: `${f} will drop it off`, body: `${f} will bring it to your door and message you to agree a time. You’ve paid in full.` },
+      dropoff: { title: `${f} will drop it off`, body: `${f} will bring it to your door. You’ve paid in full.` },
       courier: { title: 'On its way to you', body: `A Taily courier is bringing it from ${shopName} today. You’ve paid in full.` },
     }[how],
   }[a.status];
@@ -270,21 +268,21 @@ function m4View(a, t, first) {
   /* D-169: from the fitting onward the past visit time is demoted — one small line, no count line */
   const fitted = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status)
     ? `<p class="t-small c-600 ${ID}__fitted">Fitted ${fmtDay(a.slot.start)} · ${esc(VISIT_LABEL.customer[a.job.visitType])}</p>` : '';
-  if (early && !fitted) middle = `<div class="${ID}__block">${visitBlock(visitRows(a, t), { title: fmtWhen(a.slot.start), flush: true })}</div>`;
+  if (early && !fitted) middle = visitSection(a, t);
   if (a.status === 'returning') {
     middle = returnBlock(a, t, first);
   }
   if (a.status === 'completed') {
     const r = (t.reviews ?? []).find((x) => x.id === `r-${a.id}`);
-    const mine = r ? reviewRow({ name: r.name, initials: r.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos })
-      : a.review ? reviewRow({ name: `${state.customer.first} ${state.customer.last[0]}.`, initials: state.customer.initials, stars: a.review.stars, date: a.review.date, text: a.review.text, photos: a.review.photos }) : '';
-    middle = `<h2 class="t-h2 ${ID}__h2 ${ID}__h2--first">Your review</h2><div class="${ID}__review">${mine}</div>`;
+    const mine = r ? reviewRow({ name: r.name, initials: r.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos, photoType: r.photoType ?? a.job.garments[0]?.type ?? '' })
+      : a.review ? reviewRow({ name: `${state.customer.first} ${state.customer.last[0]}.`, initials: state.customer.initials, stars: a.review.stars, date: a.review.date, text: a.review.text, photos: a.review.photos, photoType: a.job.garments[0]?.type ?? '' }) : '';
+    middle = sec(`${sectionHead('Your review')}<div class="${ID}__review">${mine}</div>`, 'sec--first');
   }
-  const steps = a.status === 'completed' ? '' : `<h2 class="t-h2 ${ID}__h2">What happens next</h2>${m4Timeline(a, first)}`;
+  const steps = a.status === 'completed' ? '' : sec(`${sectionHead('What happens next')}${m4Timeline(a, first)}`);
   const order = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status) && a.lines?.length ? orderSection(a, first) : '';
   const actions = a.status === 'completed'
     ? `${cta(`Book ${f} again`, { attrs: 'data-act="book-again"' })}
-    ${cta(`Message ${f}`, { variant: 'secondary', attrs: 'data-act="message"' })}`
+    <div class="page-actions__links">${textLink(`Message ${f}`, { act: 'message' })}</div>`
     : cta(`Message ${f}`, { attrs: 'data-act="message"' });
 
   return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--${a.status}" data-s="${ID}">
@@ -293,9 +291,8 @@ function m4View(a, t, first) {
   ${middle}
   ${steps}
   ${order}
-  <h2 class="t-h2 ${ID}__h2">${a.status === 'completed' ? 'Receipt' : 'Price'}</h2>
-  ${breakdown}
-  <div class="${ID}__actions">
+  ${sec(`${sectionHead(a.status === 'completed' ? 'Receipt' : 'Price', { aside: a.status === 'completed' ? '' : infoButton('deposit') })}${breakdown}`)}
+  <div class="page-actions">
     ${actions}
   </div>
 </main>`;
@@ -306,7 +303,7 @@ function view() {
   if (!a || dropped(a)) {
     return `${chrome(bookingTab())}<main class="body ${ID}" data-s="${ID}">
   <div class="${ID}__empty" data-empty="no-booking">${emptyState({
-    title: 'No booking to show', body: 'Your requests and visits are in Bookings.', ctaLabel: 'Go to Bookings', ctaAct: 'bookings',
+    title: 'No booking to show', body: 'Your requests and visits are in Bookings.', ctaLabel: 'Go to Bookings', ctaAct: 'bookings', art: 'Formal Dress',
   })}</div>
 </main>`;
   }

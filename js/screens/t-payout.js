@@ -14,7 +14,8 @@ import { POLICY } from '../money-config.js';
 import { fmtDay, fmtWhen } from '../dates.js';
 import { payoutsView } from '../tailor-data.js';
 import {
-  chrome, headingRow, banner, emptyState, statusPill, deltaFigure, moneyRows, tailorBreakdown, linkRow, actionBar, cta, esc,
+  chrome, headingRow, banner, emptyState, statusPill, deltaFigure, moneyRows, tailorBreakdown, listRow, actionBar, cta, esc, sectionHead, garmentIcon,
+  heroGarment,
 } from '../components.js';
 
 const ID = 't-payout';
@@ -50,7 +51,7 @@ function view() {
   if (!d) {
     return `${head}<main class="body ${ID}">
   ${headingRow('<h1 class="t-title">Payout</h1>', { backRow: true })}
-  <div class="${ID}__empty" data-empty="payout">${emptyState({ title: 'No payout to show', body: 'Payouts show up here once you complete a job.', ctaLabel: 'Go to Earnings', ctaAct: 'earnings' })}</div>
+  <div class="${ID}__empty" data-empty="payout">${emptyState({ title: 'No payout to show', body: 'Payouts show up here once you complete a job.', art: 'Accessories', ctaLabel: 'Go to Earnings', ctaAct: 'earnings' })}</div>
 </main>`;
   }
   const { payout: p, appt: a, view: v } = d;
@@ -66,11 +67,18 @@ function view() {
     text: `We’ll send <span data-money>${fmtExact(p.cents)}</span> again on ${fmtDay(payoutsView().failed?.retryDate ?? p.date)} after you save them.`,
   })}</div>` : '';   // the one "Fix bank details" is the sticky bar's
 
-  const job = `<section class="${ID}__job" aria-label="The job">
-    <p class="t-body w-600">${esc(customerName(a))}</p>
-    <p class="t-small c-600">${esc(fmtWhen(a.slot.start))} · ${esc(v.visitLabel)}</p>
-    ${kept ? keptLine(a, p) : `<p class="t-small c-600">${plural(v.items, 'item', 'items')} · ${plural(v.serviceCount, 'service', 'services')}</p>`}
-    ${linkRow('Open the job', { attrs: 'data-act="open-job"' })}
+  /* the job: one tappable card — the row is the "Open the job" action */
+  const lines = [
+    esc(fmtWhen(a.slot.start)),
+    esc(v.visitLabel),
+    kept ? '' : `${plural(v.items, 'item', 'items')} · ${plural(v.serviceCount, 'service', 'services')}`,
+  ].filter(Boolean).map((x) => `<span class="${ID}__jline">${x}</span>`).join('');
+  const job = `<section class="sec sec--first" aria-label="The job">
+    <div class="card card--list ${ID}__job">${listRow({
+    lead: garmentIcon(heroGarment(a.job), { size: 'row' }),
+    title: `${esc(customerName(a))}<span class="sr-only">. Open the job</span>`, sub: lines, act: 'open-job',
+  })}</div>
+    ${kept ? keptLine(a, p) : ''}
   </section>`;
 
   let sum;
@@ -83,15 +91,17 @@ function view() {
     <p class="t-small c-600 ${ID}__fine">${noShow ? 'No Taily fee on no-show pay.' : 'No Taily fee on a kept deposit.'}</p>`;
   } else {
     sum = `${tailorBreakdown(a.money)}
-    ${a.courier?.cents > 0 ? `<p class="t-small c-600 ${ID}__fine">The courier was paid by ${esc(state.customer.first)}. It isn’t part of your payout.</p>` : ''}`;
+    ${a.courier?.cents > 0 ? `<p class="t-small c-600 ${ID}__fine">${esc(state.customer.first)} paid the courier. It isn’t part of your payout.</p>` : ''}`;
   }
 
   return `${head}<main class="body ${failed ? 'body--with-bar ' : ''}${ID}" data-appt="${esc(a.id)}">
   ${headingRow(hero, { backRow: true })}
   ${alert}
   ${job}
-  <h2 class="t-h2 ${ID}__h2">How it adds up</h2>
-  <div class="${ID}__sum">${sum}</div>
+  <section class="sec" aria-labelledby="${ID}-sum">
+    ${sectionHead('How it adds up', { id: `${ID}-sum` })}
+    <div class="${ID}__sum">${sum}</div>
+  </section>
 </main>${failed ? actionBar({ ctaLabel: 'Fix bank details', ctaAct: 'fix-bank' }) : ''}`;
 }
 

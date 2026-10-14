@@ -1,5 +1,5 @@
 /* ============================================================
-   sys-index — the boot route. One section per milestone M0-M6
+   sys-index — the boot route. One section per milestone M0-M7
    (js/inventory.js): a built / todo badge, and for built milestones
    every screen as a deep link (?screen=<id>) with its states as
    links (?flow=<key>). Unbuilt milestones show their counts only.
@@ -43,10 +43,10 @@ function milestone(ms) {
     <div class="idx-milestone__head">
       <div class="idx-milestone__name">
         <span class="idx-milestone__code">${ms.id}</span>
-        <h2 class="t-h2">${esc(ms.name)}</h2>
+        <h2 class="t-body w-600">${esc(ms.name)}</h2>
         <p class="idx-milestone__count">${counts}</p>
       </div>
-      <span class="idx-badge idx-badge--${built ? 'built' : 'todo'}">${built ? 'Built' : 'To do'}</span>
+      <span class="status status--${built ? 'done' : 'calm'} idx-badge"><span class="status__dot" aria-hidden="true"></span><span class="status__word">${built ? 'Built' : 'To do'}</span></span>
     </div>${body}
   </section>`;
 }

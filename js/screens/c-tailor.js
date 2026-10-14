@@ -6,11 +6,12 @@
 import { register, render as go, back, currentScreen, previousScreen } from '../app.js';
 import { state, T, tailorById, estimateNext, eligible, nextOpening } from '../state.js';
 import {
-  chrome, bookingSteps, headingRow, avatar, trustBadges, ratingSummary, reviewRow, photoTile, infoCard, priceRow, metaRow,
-  cta, actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, esc,
+  chrome, flowBar, headingRow, avatar, ratingLine, verifiedMark, reviewRow, photoStub, priceRow, metaRow,
+  sectionHead, textLink, infoButton, rushLadder, stitchDivider, ICON_CHAT,
+  actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, esc,
 } from '../components.js';
 import { cents, fmtColumn } from '../money.js';
-import { SERVICES, ZIP_INFO, itemsLabel, TAILOR_LIMITS } from '../data.js';
+import { SERVICES, ZIP_INFO, GARMENT_TYPES, itemsLabel, TAILOR_LIMITS } from '../data.js';
 import { fmtWhen, fmtDay, nb } from '../dates.js';
 
 const ID = 'c-tailor';
@@ -35,23 +36,35 @@ function reasonNote(el, job) {
   }[el.reason] ?? 'Not available for this job';
 }
 
-const section = (title, inner, cls = '') => `<section class="c-tailor__sec${cls ? ` ${cls}` : ''}"><h2 class="t-h2">${title}</h2>${inner}</section>`;
+/** One group (A3, A5.5): a caps heading over flat rows, 32 apart. `key` names the heading id; `domId` lets a link scroll to it. */
+const section = (title, inner, { key = '', aside = '', domId = '', cls = '' } = {}) => {
+  const hid = `c-tailor-h-${key || title.toLowerCase().replace(/\W+/g, '-')}`;
+  return `<section class="sec c-tailor__sec${cls ? ` ${cls}` : ''}"${domId ? ` id="${domId}"` : ''} aria-labelledby="${hid}">${sectionHead(title, { id: hid, aside })}<div class="sec__body">${inner}</div></section>`;
+};
 
-function hero(t, next, job, declined = false) {
+/* M7-2-C-03: identity only (name, shop, place · years, rating + Verified, tight); the action group renders after it */
+function hero(t) {
   const area = t.shop?.hood || ZIP_INFO[t.shop?.zip]?.hood || '';
-  const sub = [t.shopName, area, t.years ? `${t.years} years` : ''].filter(Boolean).join(' · ');
-  const nextLine = next ? `Next opening ${nb(fmtWhen(next))}` : `Nothing open before ${nb(fmtDay(job.needBy))}`;
+  const line2 = [area, t.years ? `${t.years} years` : ''].filter(Boolean).join(' · ');
+  const rated = t.rating?.count > 0;
+  const proof = [rated ? ratingLine({ ...t.rating, anchor: '#reviews' }) : '<span class="t-small c-600 c-tailor__new">New on Taily</span>', t.verified ? verifiedMark() : ''].filter(Boolean).join('');
   return `<div class="c-tailor__hero">
-    ${avatar({ initials: t.initials, photo: t.photo, size: 'lg' })}
-    <div class="c-tailor__who">
-      <div class="c-tailor__name-row"><h1 class="t-title">${esc(t.name)}</h1>${t.verified ? '<span class="c-tailor__check" aria-label="Verified">✓</span>' : ''}</div>
-      <p class="t-body c-600 c-tailor__sub">${esc(sub)}</p>
-      ${t.rating?.count > 0 ? ratingSummary(t.rating) : '<p class="t-small c-600 c-tailor__new">New on Taily</p>'}
-      ${t.verified ? trustBadges(t.badges ?? []) : ''}
-      ${declined ? '' : `<p class="t-small w-600 c-700 c-tailor__next">${nextLine}</p>`}
+    <div class="c-tailor__id">
+      ${avatar({ initials: t.initials, photo: t.photo, size: 'md' })}
+      <div class="c-tailor__who">
+        <h1 class="t-title c-tailor__name">${esc(t.name)}</h1>
+        ${t.shopName ? `<p class="t-body w-600 c-700 c-tailor__shop">${esc(t.shopName)}</p>` : ''}
+      </div>
+    </div>
+    <div class="c-tailor__meta">
+      ${line2 ? `<p class="t-small c-600 c-tailor__sub">${esc(line2)}</p>` : ''}
+      <div class="c-tailor__proof">${proof}</div>
     </div>
   </div>`;
 }
+
+/* portfolio placeholders cycle the garment drawings in catalogue order */
+const TYPES = Object.keys(GARMENT_TYPES);
 
 function about(t) {
   const total = Math.min(t.workPhotos ?? 0, TAILOR_LIMITS.WORK_PHOTOS_MAX);
@@ -60,7 +73,7 @@ function about(t) {
   const first = (t.name || 'The tailor').split(' ')[0];
   const tiles = Array.from({ length: n }, (_, i) => (more && i === n - 1
     ? `<button type="button" class="c-tailor__work c-tailor__work--more t-body w-600" data-act="more-work" data-count="${total}" aria-label="See all ${total} photos of ${esc(first)}’s work">+${total - (n - 1)}</button>`
-    : `<span class="c-tailor__work" role="img" aria-label="Work photo ${i + 1} of ${total}">${photoTile('photo')}</span>`)).join('');
+    : `<span class="c-tailor__work" role="img" aria-label="Work photo ${i + 1} of ${total}">${photoStub({ type: TYPES[i % TYPES.length], tone: i % 4, size: 'tile' })}</span>`)).join('');
   return section('About', `${t.bio ? `<p class="t-body c-700">${esc(t.bio)}</p>` : ''}${n ? `<div class="c-tailor__photos">${tiles}</div>` : ''}`);
 }
 
@@ -76,19 +89,8 @@ function estimateCard(q, job) {
   const rows = q.lines.map((l) => priceRow({ label: `${l.garmentType} · ${l.label}`, cents: l.cents, format: F }));
   if (job.visitType === 'home' && q.homeFee > 0) rows.push(priceRow({ label: 'Home-visit fee', cents: q.homeFee, format: F }));
   if (q.rush > 0) rows.push(priceRow({ label: 'Rush fee', cents: q.rush, note: `Need-by ${q.rushDays} day${q.rushDays === 1 ? '' : 's'} after the visit`, format: F }));
-  const total = `<div class="c-tailor__total w-600">${priceRow({ label: 'Estimated total', cents: q.total, format: F })}</div>`;
-  return section('Your estimate', `${infoCard(rows.join('') + total)}
-    <p class="t-small c-600 c-tailor__caption">You approve the final order at the fitting before any work starts.</p>`);
-}
-
-/** Each tier is a nowrap span, so the line breaks between tiers, never inside one (R1-2-C-08, R1-1-C-19). */
-const TIER_OPEN = '<span class="c-tailor__tier">';
-function rushText(t) {
-  const ladder = [...(t.rush ?? [])].sort((a, b) => a.days - b.days);
-  if (!ladder.length) return 'No rush fees.';
-  const parts = ladder.map((r, i) => `${TIER_OPEN}${i === 0 ? `ready within ${r.days} day${r.days === 1 ? '' : 's'} of the visit` : `${r.days} day${r.days === 1 ? '' : 's'}`} +${F(cents(r.fee))}</span>`);
-  parts.push(`${TIER_OPEN}${ladder[ladder.length - 1].days + 1}+ days no rush fee</span>`);
-  return parts.join(' · ');
+  const total = `${stitchDivider()}<div class="c-tailor__total w-600">${priceRow({ label: 'Estimated total', cents: q.total, format: F })}</div>`;
+  return section('Your estimate', `<div class="c-tailor__estimate">${rows.join('')}${total}</div>`, { key: 'estimate', aside: infoButton('pricing', { label: 'How pricing works' }) });
 }
 
 function prices(t) {
@@ -97,9 +99,9 @@ function prices(t) {
   const shown = all ? offered : offered.slice(0, PRICES_SHOWN);
   const rows = shown.map((id) => priceRow({ label: SERVICES[id].label, cents: cents(t.prices[id]), format: F })).join('');
   const toggle = offered.length > PRICES_SHOWN
-    ? `<button type="button" class="c-tailor__link t-body w-600" data-act="all-prices" aria-expanded="${all}">${all ? 'Show fewer prices' : `See all ${offered.length} prices`}</button>` : '';
+    ? `<div class="c-tailor__more">${textLink(all ? 'Show fewer prices' : `See all ${offered.length} prices`, { act: 'all-prices', attrs: `aria-expanded="${all}"` })}</div>` : '';
   return section('Prices', `<div class="c-tailor__prices">${rows}</div>${toggle}
-    <div class="c-tailor__rush"><p class="t-small w-600 c-700">Rush fees</p><p class="t-small c-600" data-money>${rushText(t)}</p></div>`);
+    <div class="c-tailor__rush"><p class="t-caps c-600">Rush fees</p><div class="t-small c-600" data-money>${rushLadder(t.rush)}</div></div>`);
 }
 
 function where(t, job) {
@@ -121,13 +123,11 @@ function gettingItBack(t) {
 
 function reviews(t) {
   const count = t.rating?.count ?? 0;
-  if (!count && !(t.reviews ?? []).length) {
-    return section('Reviews', '<p class="t-body c-600">No reviews yet. Every Taily tailor is ID verified and background checked.</p>');
-  }
+  if (!count && !(t.reviews ?? []).length) return section('Reviews', '<p class="t-body c-600">No reviews yet.</p>', { key: 'reviews', domId: 'reviews' });
   const list = (t.reviews ?? []).slice(0, REVIEWS_SHOWN)
-    .map((r) => reviewRow({ name: r.name, initials: r.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos })).join('');
-  return section('Reviews', `${ratingSummary(t.rating)}<div class="c-tailor__reviews">${list}</div>
-    <button type="button" class="c-tailor__link t-body w-600" data-act="all-reviews">See all ${count} reviews</button>`);
+    .map((r) => reviewRow({ name: r.name, initials: r.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos, photoType: r.photoType })).join('');
+  return section('Reviews', `<div class="c-tailor__reviews">${list}</div>
+    <div class="c-tailor__more">${textLink(`See all ${count} reviews`, { act: 'all-reviews' })}</div>`, { key: 'reviews', domId: 'reviews' });
 }
 
 /** The tailor looking at her own profile from to-done (D-71): no booking stepper, no action bar, nothing to start. */
@@ -151,15 +151,18 @@ function view(s) {
   const declined = el.reason === 'declined';
   const first = q.tailorFirst;
   const lead = `<span>Est. <b data-money>${F(q.total)}</b> · ${itemsLabel(job.garments.length, 'item')}</span>`;
-  return `${chrome(profile ? 'bookings' : 'home')}<main class="body ${preview ? '' : 'body--with-bar '}${ID}${profile ? ` ${ID}--profile` : ''}">
-  ${preview || profile ? '' : bookingSteps(2)}
-  ${headingRow('')}
+  const booking = !preview && !profile;   // opened from c-tailors: the flow bar owns Back and the exit (D-186)
+  return `${booking ? flowBar({ step: 2 }) : chrome(profile ? 'bookings' : 'home')}<main class="body ${preview ? '' : 'body--with-bar '}${ID}${profile ? ` ${ID}--profile` : ''}">
+  ${booking ? '' : headingRow('')}
   ${preview ? `<div class="c-tailor__preview">${readOnlyBanner({ text: 'You’re viewing your own profile', ctaLabel: 'Back to Taily for tailors', ctaAct: 'exit-preview' })}</div>` : ''}
-  ${hero(t, declined ? null : next, job, declined)}
+  ${hero(t)}
   ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} can’t take this job`, text: `Your job details are saved. You can book ${esc(first)} for a different job.` })}</div>` : ''}
-  ${declined || preview ? '' : `<div class="c-tailor__ask">${cta('Ask a question', { variant: 'secondary', attrs: 'data-act="ask"' })}</div>`}
-  ${about(t)}
+  ${declined ? '' : `<div class="c-tailor__act">
+    <p class="t-small w-600 c-700 c-tailor__next">${next ? `Next opening ${nb(fmtWhen(next))}` : `Nothing open before ${nb(fmtDay(job.needBy))}`}</p>
+    ${preview ? '' : `<div class="c-tailor__ask">${textLink('Ask a question', { act: 'ask', icon: ICON_CHAT })}</div>`}
+  </div>`}
   ${profile ? '' : estimateCard(q, job)}
+  ${about(t)}
   ${prices(t)}
   ${where(t, job)}
   ${gettingItBack(t)}

@@ -15,7 +15,7 @@ import { cents, fmt, fmtExact, tailyFeeFor, payoutFor } from '../money.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, field, metaRow,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, field, sectionHead, infoButton,
   actionBar, modalOverlay, leaveModal, toast, esc,
 } from '../components.js';
 
@@ -64,18 +64,13 @@ function resumeBanner(t) {
   return banner({ tone: 'info', title: 'Pick up where you left off', text: `${names} ${left} step${left === 1 ? '' : 's'} to go before customers can book you.`, dismissible: true });
 }
 
-function feeCard(t) {
+function feeCard() {
   const c = cents(MONEY.FEE_EXAMPLE_SERVICES);
-  const lines = [
-    'The fee comes only from your service prices.',
-    t.home?.enabled ? `Your ${fmt(cents(t.home.fee))} home-visit fee is yours in full.` : '',
-    'Rush fees are yours in full.',
-    'Customers pay for the courier. It never comes out of your payout.',
-  ].filter(Boolean);
-  return `<section class="${ID}__fee" aria-labelledby="${ID}-fee-h">
-  <p class="t-caps c-600" id="${ID}-fee-h">The Taily fee</p>
-  <p class="t-h2 ${ID}__sentence" data-money>On ${fmtExact(c)} of services, Taily keeps ${fmtExact(tailyFeeFor(c))} and you take home ${fmtExact(payoutFor({ services: c }))}.</p>
-  <div class="${ID}__points t-small c-700">${lines.map((l) => metaRow('✓', esc(l))).join('')}</div>
+  /* M7: flat. The sentence leads; the other three points live in the fee sheet (ⓘ), one line stays */
+  return `<section class="sec ${ID}__fee" aria-labelledby="${ID}-fee-h">
+  ${sectionHead('The Taily fee', { id: `${ID}-fee-h`, aside: infoButton('fee', { label: 'The Taily fee' }) })}
+  <p class="t-body w-600 ${ID}__sentence" data-money>On ${fmtExact(c)} of services, Taily keeps ${fmtExact(tailyFeeFor(c))} and you take home ${fmtExact(payoutFor({ services: c }))}.</p>
+  <p class="t-small c-700 ${ID}__points">Home-visit and rush fees are yours in full.</p>
 </section>`;
 }
 
@@ -106,14 +101,16 @@ function view(s) {
   const head = editing ? headingRow(title, { backRow: true }) : `<div class="heading-row"><div class="heading-row__body">${title}</div></div>`;
   const current = editing && t.payouts?.bank
     ? `<div class="${ID}__current"><p class="t-caps c-600">Current account</p><p class="t-body w-600 tabular">${esc(t.payouts.bank)} ••${esc(t.payouts.last4)}</p><p class="t-small c-600">Paid every Friday</p></div><p class="t-small w-600 ${ID}__change">Change account</p>` : '';
-  const fields = `<h2 class="t-h2 ${ID}__h2">Your bank account</h2>
+  const fields = `<section class="sec ${ID}__bank" aria-labelledby="${ID}-bank-h">
+  ${sectionHead('Your bank account', { id: `${ID}-bank-h` })}
   ${current}
   <div class="${ID}__fields">
     ${field({ id: 'holder', label: 'Name on the account', autocomplete: 'name', value: d.holder, error: ERRORS[errs.holder] ?? '', disabled: busy })}
     ${field({ id: 'routing', label: 'Routing number', inputmode: 'numeric', maxlength: 9, autocomplete: 'off', value: d.routing, helper: bank || ROUTING_HELP, error: ERRORS[errs.routing] ?? '', disabled: busy })}
     ${field({ id: 'account', label: 'Account number', inputmode: 'numeric', maxlength: 17, autocomplete: 'off', value: d.account, helper: accountHelp, error: accountErrorFor(errs.account, d), disabled: busy })}
   </div>
-  <p class="t-small c-600 ${ID}__only4">Only the last 4 digits are shown in the app.</p>`;
+  <p class="t-small c-600 ${ID}__only4">Only the last 4 digits are shown in the app.</p>
+  </section>`;
   const bar = editing
     ? actionBar({ ctaLabel: 'Save changes', ctaAct: 'save', disabled: !dirty && !busy, note: dirty || busy ? '' : 'No changes yet.', busy, busyLabel: 'Saving…' })
     : actionBar({ ctaLabel: 'Finish and go live', ctaAct: 'next', busy, busyLabel: 'Setting up payouts…' });
@@ -124,7 +121,7 @@ function view(s) {
   ${head}
   ${editing ? returnedBanner() : ''}
   <p class="t-body c-600 ${ID}__lead">Every Friday, Taily pays you for the jobs you completed before that day.</p>
-  ${editing ? '' : feeCard(t)}
+  ${editing ? '' : feeCard()}
   ${fields}
 </main>
 ${bar}`;

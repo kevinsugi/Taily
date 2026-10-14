@@ -307,6 +307,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 }
 .option-row:last-child { box-shadow: none; }
 .option-row__lead { display: inline-flex; align-items: center; justify-content: flex-start; flex-shrink: 0; min-width: var(--size-32); }
+.option-row__lead .garment-icon--card { background: none; box-shadow: none; border-radius: 0; overflow: visible; }   /* K-05: the add-item sheet row shows the bare 40 px illustration, no well */
 .option-row__text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
 .option-row__check {
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -885,17 +886,16 @@ a.cta-small { text-decoration: none; }
 .garment-docs__comment { margin-top: var(--space-4); }
 .change-list__garment--new .garment-docs__comment { background: var(--white); }
 
-/* ---------- the garment head (K-04, D-206): name (underlined) → icon in a white well → tag … photo stack / trailing control ---------- */
+/* ---------- the garment head (K-04, D-206): bare 40 px icon → name (underlined) → tag … photo stack / trailing control (K-05, D-220) ---------- */
 
-.garment-head { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: var(--space-8); min-width: 0; margin-bottom: var(--space-4); }
+.garment-head { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--space-8); min-width: 0; margin-bottom: var(--space-4); }
 .garment-head__who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); flex: 1 1 auto; min-width: 0; }
 .garment-head__name { margin: 0; min-width: 0; color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-skip-ink: auto; }   /* decoration only: not a link, no hover, no pointer */
 .garment-head--gone .garment-head__name { color: var(--neutral-600); text-decoration: none; }
 .garment-head--gone .garment-head__name s { text-decoration-thickness: 1px; }
-.garment-head .garment-icon--card { background: var(--white); box-shadow: inset 0 0 0 1px var(--card-ring); }   /* the white well (critique Issue 6) */
+.garment-head .garment-icon--card { background: none; box-shadow: none; border-radius: 0; overflow: visible; }   /* K-05: the bare illustration, no well / ring / radius box */
 .garment-head--gone .garment-icon { opacity: .5; filter: grayscale(1); }
 .garment-head__end { display: inline-flex; align-items: center; gap: var(--space-8); flex: 0 0 auto; margin-left: auto; }
-.garment-head--end .garment-head__who { min-height: 44px; }   /* the 44 px end group sets the row; the name group centres in it, and a wrapped tag line grows it from the top */
 
 /* ---------- the photo stack (K-04, D-207): up to three overlapping 32 px stubs + "n photos", one 44 px button at the row's end ---------- */
 .photo-stack { display: inline-flex; align-items: center; gap: var(--space-8); min-height: 44px; min-width: 44px; padding: 0 0 0 var(--space-4); margin: 0; background: none; border: 0; cursor: pointer; text-align: left; color: var(--neutral-700); }

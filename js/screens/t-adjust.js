@@ -401,7 +401,7 @@ function openAddItem() {
   const d = ui();
   const prices = myTailor().prices ?? {};
   const typeStep = () => `<div role="radiogroup" aria-label="Item type">${itemTypes().map(({ type, sub }) => optionRow({
-    name: 'type', value: type, title: esc(type), sub, act: 'pick-type', lead: garmentIcon(type, { size: 'row' }),
+    name: 'type', value: type, title: esc(type), sub, act: 'pick-type', lead: garmentIcon(type),   /* K-05: bare 40 px icon first, then the name */
   })).join('')}</div>`;
   const serviceStep = (type) => `<div class="${ID}__back">${textLink('Choose another item', { act: 'pick-back' })}</div>
     <div>${servicesForType(type).filter((id) => typeof prices[id] === 'number').map((id) => serviceRow(id, prices)).join('')}</div>`;

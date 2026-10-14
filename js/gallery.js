@@ -389,7 +389,7 @@ export function galleryHtml() {
   s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e4', type: 'Suit Jacket', docs: docsMasked })}</div>`);
   v('docsEditor · the comment editor with an error');
   s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e5', type: 'Suit Jacket', docs: docsFull, commentDraft: 'x'.repeat(FITTING_LIMITS.COMMENT_MAX + 1), commentError: `Keep the comment under ${FITTING_LIMITS.COMMENT_MAX} characters.` })}</div>`);
-  v('garmentHead (K-04) · name underlined, then the icon in a white well, then the tag · with a photo stack · removed (struck, no underline)');
+  v('garmentHead (K-05) · bare 40 px icon first, then the name underlined, then the tag · with a photo stack · removed (struck, no underline)');
   col(C.garmentHead({ type: 'Suit Jacket', photos: C.photoStack({ garmentId: 'h1', type: 'Suit Jacket', source: 'customer', count: 2, owner: 'Your' }) }),
       C.garmentHead({ type: 'Pants / Jeans', tag: '<span class="change-list__tag change-list__tag--new-item t-small w-600">New item</span>' }),
       C.garmentHead({ type: 'Suit Pant', kind: 'removed', tag: '<span class="change-list__tag change-list__tag--removed t-small w-600">Removed</span>' }));

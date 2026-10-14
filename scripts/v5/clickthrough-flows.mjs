@@ -169,11 +169,12 @@ for (const f of all.filter((e) => matches(e.key))) {
       return !!hit && (el === hit || el.contains(hit));
     }, exp.sel))) problems.push(`${exp.sel} is outside the viewport or covered`);
   }
-  /* rowFit (K4-1-02, D-207): every item row that has a photo stack keeps it on the name's line — at 390 and at 320 */
+  /* rowFit (K4-1-02, D-207): every item row that has a photo stack keeps it on the icon / name line — at 390 and at 320 */
   if (exp?.rowFit) {
     const measure = () => page.evaluate(() => [...document.querySelectorAll('.garment-head')].filter((hd) => hd.querySelector('.photo-stack')).map((hd) => {
-      const who = hd.querySelector('.garment-head__who').getBoundingClientRect(); const st = hd.querySelector('.photo-stack').getBoundingClientRect();
-      return { name: hd.querySelector('.garment-head__name')?.textContent, drop: Math.round(st.top - who.top) };
+      const ic = hd.querySelector('.garment-icon').getBoundingClientRect(); const st = hd.querySelector('.photo-stack').getBoundingClientRect();
+      /* K-05 (D-220): the row is [icon] [name + tag] … [stack], all centred on one line; the stack is on that line when its centre meets the icon's */
+      return { name: hd.querySelector('.garment-head__name')?.textContent, drop: Math.round(Math.abs((st.top + st.height / 2) - (ic.top + ic.height / 2))) };
     }));
     for (const w of [390, 320]) {
       await page.setViewportSize({ width: w, height: 844 });

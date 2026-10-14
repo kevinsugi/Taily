@@ -1886,7 +1886,7 @@ export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', 
  * 'removed' → type struck + "Removed" tag, rows struck with no per-row tag; anything else (or no kind) renders as before.
  * `newItem: true` on a plain garment (an approved order, D-127) = the "New item" tag on the type line only, no panel.
  * Every change carries a text tag, never colour alone. One precision per list: `format` defaults to fmtExact.
- * K-04 (D-206 / D-207): every garment head is `garmentHead` (name underlined, then the icon, then the tag) with the photo stack at its right
+ * K-04 (D-206 / D-207): every garment head is `garmentHead` (icon, then the name underlined, then the tag) with the photo stack at its right
  * end: `docs` = { [garmentId]: entry } (the sent snapshot) puts the fitting photos there, else the garment's own `photos` (the customer's, a
  * count the caller maps from `a.job.garments`; `photoOwner` 'Your' | 'Sarah’s' names them in the viewer). A kept entry's comment follows the rows.
  */
@@ -2167,8 +2167,8 @@ export function garmentIcon(type, { size = 'card', alt = '' } = {}) {
 }
 
 /**
- * Garment head (K-04, D-206) — the one item row of every garment card, both personas (changeList, workList, the t-adjust card, c-job's card):
- * the item NAME first (t-body 600, underlined so it reads apart from the service rows under it), then the 40 px icon in a white well,
+ * Garment head (K-04 D-206, reversed by K-05 D-220) — the one item row of every garment card, both personas (changeList, workList, the t-adjust card, c-job's card):
+ * the bare 40 px garment illustration FIRST (no well, ring or radius; aria-hidden), then the item NAME (t-body 600, underlined so it reads apart from the service rows under it),
  * then any `tag` (HTML), then, pushed right, `photos` (a `photoStack`) and / or `trailing` (the card's own control, e.g. c-job's ✕).
  * `kind: 'removed'` strikes the name (no underline) and dims the icon. `as` = the name's element ('p', or 'h2' where the card is a heading).
  */
@@ -2176,8 +2176,8 @@ export function garmentHead({ type = '', kind = '', tag = '', photos = '', trail
   const gone = kind === 'removed';
   const name = gone ? `<s>${esc(type)}</s>` : esc(type);
   const end = photos || trailing ? `<span class="garment-head__end">${photos}${trailing}</span>` : '';
-  /* K4-1-02: name, icon and tag form one group that wraps inside itself; the end group (photo stack / ✕) never leaves the first line */
-  return `<div class="garment-head${gone ? ' garment-head--gone' : ''}${end ? ' garment-head--end' : ''}"><span class="garment-head__who"><${as} class="garment-head__name t-body w-600">${name}</${as}>${garmentIcon(type)}${tag}</span>${end}</div>`;
+  /* K-05 (D-220): the bare 40 px icon comes FIRST (aria-hidden, the visible name beside it names the item), then name + tag in one group that wraps inside itself; the end group (photo stack / ✕) never leaves the first line */
+  return `<div class="garment-head${gone ? ' garment-head--gone' : ''}${end ? ' garment-head--end' : ''}">${garmentIcon(type)}<span class="garment-head__who"><${as} class="garment-head__name t-body w-600">${name}</${as}>${tag}</span>${end}</div>`;
 }
 
 /**

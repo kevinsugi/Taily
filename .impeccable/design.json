@@ -1,0 +1,743 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-14T13:45:00.000Z",
+  "title": "Design System: Taily",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "Pencil Graphite",
+        "canonical": "#1C1B18",
+        "oklch": "oklch(22.2% 0.006 91.6)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "Tissue",
+        "canonical": "#FFFFFF",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "neutral-50": {
+        "role": "neutral",
+        "displayName": "Unbleached Linen",
+        "canonical": "#F7F4EF",
+        "oklch": "oklch(96.8% 0.007 80.7)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "neutral-100": {
+        "role": "neutral",
+        "displayName": "Oat",
+        "canonical": "#EFEAE2",
+        "oklch": "oklch(93.9% 0.012 79.8)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "neutral-200": {
+        "role": "neutral",
+        "displayName": "Chalk",
+        "canonical": "#E2DBD0",
+        "oklch": "oklch(89.4% 0.017 79.3)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "neutral-300": {
+        "role": "neutral",
+        "displayName": "Bisque",
+        "canonical": "#C9C1B4",
+        "oklch": "oklch(81.4% 0.020 80.1)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "neutral-400": {
+        "role": "neutral",
+        "displayName": "Dust",
+        "canonical": "#ABA294",
+        "oklch": "oklch(71.6% 0.022 79.0)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "neutral-500": {
+        "role": "neutral",
+        "displayName": "Control Taupe",
+        "canonical": "#857C6F",
+        "oklch": "oklch(59.1% 0.022 77.2)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "neutral-500-ink": {
+        "role": "neutral",
+        "displayName": "Caption Taupe",
+        "canonical": "#6E665A",
+        "oklch": "oklch(51.4% 0.021 78.1)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "neutral-600": {
+        "role": "neutral",
+        "displayName": "Graphite Soft",
+        "canonical": "#5F584E",
+        "oklch": "oklch(46.4% 0.018 76.9)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "neutral-700": {
+        "role": "neutral",
+        "displayName": "Graphite Deep",
+        "canonical": "#443F38",
+        "oklch": "oklch(37.0% 0.014 76.4)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "bottom-border": {
+        "role": "neutral",
+        "displayName": "Row Rule (legacy)",
+        "canonical": "#E9E5DE",
+        "oklch": "oklch(92.3% 0.010 81.8)",
+        "tonalRamp": [
+          "#1C1B18",
+          "#443F38",
+          "#5F584E",
+          "#857C6F",
+          "#ABA294",
+          "#C9C1B4",
+          "#E2DBD0",
+          "#F7F4EF"
+        ]
+      },
+      "accent-base": {
+        "role": "primary",
+        "displayName": "Basting Thread",
+        "canonical": "#A17C4E",
+        "oklch": "oklch(61.2% 0.078 71.6)",
+        "tonalRamp": [
+          "#1D0200",
+          "#3A1B00",
+          "#593803",
+          "#795628",
+          "#9D784B",
+          "#C39D6E",
+          "#EBC393",
+          "#FCECD8"
+        ]
+      },
+      "accent-ink": {
+        "role": "primary",
+        "displayName": "Thread Ink",
+        "canonical": "#7C5D34",
+        "oklch": "oklch(50.1% 0.070 72.8)",
+        "tonalRamp": [
+          "#1B0400",
+          "#381D00",
+          "#56390D",
+          "#76572E",
+          "#9A7A50",
+          "#C09E74",
+          "#E7C498",
+          "#FAECDB"
+        ]
+      },
+      "accent-bg": {
+        "role": "primary",
+        "displayName": "Tissue Wash",
+        "canonical": "#F3ECE0",
+        "oklch": "oklch(94.5% 0.018 81.3)",
+        "tonalRamp": [
+          "#0F0A04",
+          "#28231A",
+          "#453F35",
+          "#635D53",
+          "#867F75",
+          "#AAA498",
+          "#D0CABE",
+          "#F1EEE9"
+        ]
+      },
+      "sage": {
+        "role": "secondary",
+        "displayName": "Pin-Cushion Sage",
+        "canonical": "#5E6B60",
+        "oklch": "oklch(51.3% 0.023 149.8)",
+        "tonalRamp": [
+          "#050E06",
+          "#1C271E",
+          "#374339",
+          "#556257",
+          "#778479",
+          "#9BA99D",
+          "#C0CFC3",
+          "#EAF0EB"
+        ]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Seam Green",
+        "canonical": "#4F7A5B",
+        "oklch": "oklch(53.9% 0.068 152.4)",
+        "tonalRamp": [
+          "#001200",
+          "#002D13",
+          "#204A2E",
+          "#3E694B",
+          "#618C6C",
+          "#84B190",
+          "#AAD8B5",
+          "#E2F4E6"
+        ]
+      },
+      "success-ink": {
+        "role": "tertiary",
+        "displayName": "Seam Green Ink",
+        "canonical": "#456E50",
+        "oklch": "oklch(49.9% 0.067 151.9)",
+        "tonalRamp": [
+          "#001200",
+          "#022D13",
+          "#214A2E",
+          "#40694B",
+          "#628C6D",
+          "#86B190",
+          "#ABD8B5",
+          "#E2F4E6"
+        ]
+      },
+      "success-bg": {
+        "role": "tertiary",
+        "displayName": "Seam Green Wash",
+        "canonical": "#E9F0EA",
+        "oklch": "oklch(94.8% 0.011 149.9)",
+        "tonalRamp": [
+          "#080C09",
+          "#202621",
+          "#3C413D",
+          "#595F5A",
+          "#7C827D",
+          "#A0A7A1",
+          "#C6CDC7",
+          "#ECEFED"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Tag Ochre",
+        "canonical": "#B7852F",
+        "oklch": "oklch(65.1% 0.117 77.1)",
+        "tonalRamp": [
+          "#230000",
+          "#411500",
+          "#613400",
+          "#825200",
+          "#A7761A",
+          "#CD9A47",
+          "#F5C06E",
+          "#FFEBCC"
+        ]
+      },
+      "warning-ink": {
+        "role": "tertiary",
+        "displayName": "Tag Ochre Ink",
+        "canonical": "#7A5A1E",
+        "oklch": "oklch(48.9% 0.086 79.6)",
+        "tonalRamp": [
+          "#1D0300",
+          "#391C00",
+          "#573900",
+          "#77571B",
+          "#9C7A40",
+          "#C19F65",
+          "#E9C58A",
+          "#FBECD5"
+        ]
+      },
+      "warning-bg": {
+        "role": "tertiary",
+        "displayName": "Tag Ochre Wash",
+        "canonical": "#F6EEDD",
+        "oklch": "oklch(95.1% 0.024 85.8)",
+        "tonalRamp": [
+          "#100A02",
+          "#292316",
+          "#453F31",
+          "#645D4E",
+          "#877F70",
+          "#ABA494",
+          "#D2CAB9",
+          "#F1EEE7"
+        ]
+      },
+      "error": {
+        "role": "tertiary",
+        "displayName": "Brick",
+        "canonical": "#B0553F",
+        "oklch": "oklch(55.7% 0.124 34.8)",
+        "tonalRamp": [
+          "#2E0000",
+          "#500000",
+          "#731D06",
+          "#973E29",
+          "#BE624B",
+          "#E7866F",
+          "#FFAC93",
+          "#FFE3D9"
+        ]
+      },
+      "error-ink": {
+        "role": "tertiary",
+        "displayName": "Brick Ink",
+        "canonical": "#9A4632",
+        "oklch": "oklch(49.9% 0.117 34.7)",
+        "tonalRamp": [
+          "#2D0000",
+          "#4E0000",
+          "#71200C",
+          "#94412D",
+          "#BB644F",
+          "#E48872",
+          "#FFAE97",
+          "#FFE4DA"
+        ]
+      },
+      "error-bg": {
+        "role": "tertiary",
+        "displayName": "Brick Wash",
+        "canonical": "#F4E4DF",
+        "oklch": "oklch(93.0% 0.019 38.1)",
+        "tonalRamp": [
+          "#120806",
+          "#2C211D",
+          "#493D39",
+          "#685A56",
+          "#8B7D78",
+          "#B0A19C",
+          "#D6C7C2",
+          "#F3EDEB"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display (hero money)",
+        "purpose": "The one focal money figure on a screen; serif only because it is money."
+      },
+      "title": {
+        "displayName": "Page Title",
+        "purpose": "The single h1 per screen, sheet / modal titles, empty-state titles."
+      },
+      "h2": {
+        "displayName": "Serif Money",
+        "purpose": "Serif amounts inside cards (request card take-home) and overlay titles. Never a section heading."
+      },
+      "figure": {
+        "displayName": "Hero Fact",
+        "purpose": "Non-money focal fact: a visit time, \"2h left\", the tailor-row estimate."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Paragraphs and row labels (500 for labels and inputs)."
+      },
+      "body-strong": {
+        "displayName": "Body Strong",
+        "purpose": "Buttons, text links, chips, row titles, amounts."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Captions, meta lines, helpers; the status word at 600."
+      },
+      "caps": {
+        "displayName": "Section Heading",
+        "purpose": "sectionHead(): 12 px sans caps +1 px in neutral-600; labels like YOU TAKE HOME."
+      },
+      "micro": {
+        "displayName": "Tag",
+        "purpose": "Change tags (New, New price, Removed), sentence case with caps tracking."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-ring",
+        "value": "inset 0 0 0 1px var(--card-ring)",
+        "purpose": "The only depth for in-page content: an inside chalk ring on tissue for touchable groups."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid var(--accent-ink); outline-offset: 2px",
+        "purpose": "Every focus-visible control."
+      },
+      {
+        "name": "action-halo",
+        "value": "0 0 0 3px var(--status-action-halo)",
+        "purpose": "Halo around the \"your move\" status dot."
+      },
+      {
+        "name": "unread-ring",
+        "value": "0 0 0 2px var(--white)",
+        "purpose": "Separates the 8 px unread dot from the nav icon."
+      },
+      {
+        "name": "modal-lift",
+        "value": "0 16px 40px rgba(0, 0, 0, 0.18)",
+        "purpose": "Centred modals (untokenised literal in components.css)."
+      },
+      {
+        "name": "toast-lift",
+        "value": "0 6px 16px rgba(28, 27, 24, 0.25)",
+        "purpose": "The ink toast pill."
+      },
+      {
+        "name": "push-lift",
+        "value": "0 8px 24px rgba(0, 0, 0, 0.24)",
+        "purpose": "In-app push banner over the status bar."
+      },
+      {
+        "name": "menu-lift",
+        "value": "0 4px 12px rgba(28, 27, 24, 0.08)",
+        "purpose": "Filter-pill dropdown (selector menu uses 0 6px 18px rgba(0,0,0,.08))."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Default for press, sheets, modals, toasts."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.77, 0, 0.175, 1)",
+        "purpose": "Reserved for on-screen movement between two states."
+      },
+      {
+        "name": "dur-press",
+        "value": "120ms",
+        "purpose": "Press feedback on every tappable surface."
+      },
+      {
+        "name": "press-scale",
+        "value": "0.97",
+        "purpose": "Press transform: scale(0.97); transform only, never transition: all."
+      },
+      {
+        "name": "dur-sheet-in",
+        "value": "280ms",
+        "purpose": "Bottom sheet and push banner entering."
+      },
+      {
+        "name": "dur-sheet-out",
+        "value": "200ms",
+        "purpose": "Bottom sheet leaving."
+      },
+      {
+        "name": "dur-modal",
+        "value": "220ms",
+        "purpose": "Modal enter from translateY(8px) scale(0.98) + opacity; never from scale 0."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce | html.is-test",
+        "purpose": "Transforms off for press, sheets, modals; colour / opacity transitions stay at 150 ms or less."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "390px",
+        "purpose": "The only layout width; the stage is max-width 390."
+      },
+      {
+        "name": "desktop-backdrop",
+        "value": "391px",
+        "purpose": "Above this the body turns neutral-100 around the centred phone stage."
+      }
+    ],
+    "statusMap": {
+      "action": [
+        "suggested",
+        "action"
+      ],
+      "pending": [
+        "requested",
+        "new-request",
+        "awaiting-customer",
+        "waiting",
+        "price-change",
+        "paused"
+      ],
+      "progress": [
+        "confirmed",
+        "fitting",
+        "in-progress",
+        "tailoring"
+      ],
+      "done": [
+        "ready",
+        "returning",
+        "completed",
+        "bookable"
+      ],
+      "stop": [
+        "declined",
+        "cancelled",
+        "withdrawn",
+        "expired"
+      ],
+      "calm": [
+        "calm"
+      ]
+    },
+    "signatures": {
+      "garmentIllustrations": "garmentIcon(type, { size: hero 96 | card 40 | row 32 | inline 24 }); photoStub tones t0-t3 with the garment at 70% tilted -4 / +3 deg; hanger fallback.",
+      "stitchedDash": "hr.stitch: 1.5px tall, 6px neutral-400 dashes, 4px gaps, 8px margin; only above the first money total and on the completed receipt."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "THE one filled action per screen; lives in the sticky action bar or page actions.",
+      "html": "<button class=\"ds-cta\">Next: where and when</button>",
+      "css": ".ds-cta { display:flex; align-items:center; justify-content:center; width:100%; height:54px; border:0; border-radius:var(--radius-20); background:var(--ink); color:var(--neutral-50); font-family:var(--font-sans); font-size:var(--size-16); line-height:21px; font-weight:600; cursor:pointer; transition: transform var(--dur-press) var(--ease-out); } .ds-cta:active { transform:scale(var(--press-scale)); } .ds-cta:focus-visible { outline:2px solid var(--accent-ink); outline-offset:2px; } .ds-cta[aria-disabled=\"true\"] { opacity:.55; }"
+    },
+    {
+      "name": "Text Link",
+      "kind": "button",
+      "refersTo": "text-link",
+      "description": "Every secondary action; danger tone only for leaving or cancelling.",
+      "html": "<div class=\"ds-links\"><button class=\"ds-link\">Message Amara</button><button class=\"ds-link ds-link--danger\">Cancel booking</button></div>",
+      "css": ".ds-links { display:flex; justify-content:center; gap:var(--space-24); } .ds-link { display:inline-flex; align-items:center; gap:var(--space-8); min-height:44px; padding:0 var(--space-8); border:0; background:none; font-family:var(--font-sans); font-size:var(--size-16); line-height:21px; font-weight:600; color:var(--accent-ink); cursor:pointer; transition: transform var(--dur-press) var(--ease-out); } .ds-link--danger { color:var(--error-ink); } .ds-link:active { transform:scale(var(--press-scale)); } .ds-link:focus-visible { outline:2px solid var(--accent-ink); outline-offset:2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Label above, tissue box with an inside 1 px control-taupe ring, helper or error directly below.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field__label\">ZIP code</span><input class=\"ds-field__input\" value=\"11211\" inputmode=\"numeric\"><span class=\"ds-field__msg\">We use it to find tailors near you.</span></label>",
+      "css": ".ds-field { display:flex; flex-direction:column; gap:var(--space-4); width:280px; font-family:var(--font-sans); } .ds-field__label { font-size:var(--size-12); line-height:16px; font-weight:600; color:var(--neutral-700); } .ds-field__input { min-height:48px; padding:0 var(--space-16); border:0; border-radius:var(--radius-md); background:var(--white); box-shadow:inset 0 0 0 1px var(--neutral-500); font-family:var(--font-sans); font-size:var(--size-16); line-height:21px; font-weight:500; color:var(--ink); } .ds-field__input:focus-visible { outline:2px solid var(--accent-ink); outline-offset:2px; } .ds-field__msg { font-size:var(--size-12); line-height:16px; font-weight:500; color:var(--neutral-600); }"
+    },
+    {
+      "name": "Top Nav",
+      "kind": "nav",
+      "refersTo": "top-nav",
+      "description": "White 56 px bar: script logo left, four 44 px icon links right; active = ink + accent stitch; unread = accent dot.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Primary\"><span class=\"ds-nav__logo\">Taily</span><div class=\"ds-nav__links\"><a href=\"#\" class=\"ds-nav__link is-active\" aria-label=\"Home\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M3.75 10.5 12 3.75l8.25 6.75\"/><path d=\"M5.75 9v11.25h12.5V9\"/><path d=\"M10 20.25v-5.5h4v5.5\"/></svg></a><a href=\"#\" class=\"ds-nav__link\" aria-label=\"Bookings\"><span class=\"ds-nav__icon\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3.75\" y=\"5.25\" width=\"16.5\" height=\"15\" rx=\"2.5\"/><path d=\"M3.75 9.75h16.5\"/><path d=\"M8.25 3v4.5M15.75 3v4.5\"/><path d=\"m9.25 15 2 2 3.5-3.75\"/></svg><span class=\"ds-nav__dot\"></span></span></a><a href=\"#\" class=\"ds-nav__link\" aria-label=\"Messages\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M6.75 16.5A2.25 2.25 0 0 1 4.5 14.25v-7.5A2.25 2.25 0 0 1 6.75 4.5h10.5a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25H10.5l-3.75 3.75z\"/></svg></a><a href=\"#\" class=\"ds-nav__link\" aria-label=\"Account\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"8.25\" r=\"3.75\"/><path d=\"M4.5 20.25c.75-3.75 3.75-6 7.5-6s6.75 2.25 7.5 6\"/></svg></a></div></nav>",
+      "css": ".ds-nav { display:flex; align-items:center; justify-content:space-between; width:390px; height:56px; padding:0 var(--space-20); background:var(--white); box-shadow:inset 0 -1px 0 var(--bottom-border); box-sizing:border-box; } .ds-nav__logo { font-family:var(--font-serif); font-style:italic; font-size:var(--size-28); font-weight:600; color:var(--ink); } .ds-nav__links { display:flex; gap:var(--space-4); margin-right:calc(-1 * var(--space-8)); } .ds-nav__link { position:relative; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:var(--radius-md); color:var(--neutral-600); transition: transform var(--dur-press) var(--ease-out); } .ds-nav__link:hover { color:var(--ink); background:var(--neutral-50); } .ds-nav__link.is-active { color:var(--ink); } .ds-nav__link.is-active svg { stroke-width:1.75; } .ds-nav__link.is-active::after { content:''; position:absolute; bottom:4px; left:50%; width:16px; height:2px; margin-left:-8px; border-radius:1px; background:var(--accent-base); } .ds-nav__link:active { transform:scale(var(--press-scale)); } .ds-nav__link:focus-visible { outline:2px solid var(--accent-ink); outline-offset:2px; } .ds-nav__icon { position:relative; display:inline-flex; } .ds-nav__dot { position:absolute; top:-2px; right:-3px; width:8px; height:8px; border-radius:var(--radius-full); background:var(--accent-base); box-shadow:0 0 0 2px var(--white); }"
+    },
+    {
+      "name": "Status Dot",
+      "kind": "chip",
+      "refersTo": "status-action",
+      "description": "Status is a fact, not a sticker: an 8 px warm dot and a 12/600 word. Action is loudest (halo + bold).",
+      "html": "<div class=\"ds-statuses\"><span class=\"ds-status ds-status--action\"><i></i>Your move</span><span class=\"ds-status ds-status--pending\"><i></i>Requested</span><span class=\"ds-status ds-status--progress\"><i></i>Confirmed</span><span class=\"ds-status ds-status--done\"><i></i>Completed</span><span class=\"ds-status ds-status--stop\"><i></i>Declined</span><span class=\"ds-status ds-status--calm\"><i></i>No reply</span></div>",
+      "css": ".ds-statuses { display:flex; flex-wrap:wrap; gap:var(--space-16); } .ds-status { display:inline-flex; align-items:center; gap:var(--space-8); font-family:var(--font-sans); font-size:var(--size-12); line-height:16px; font-weight:600; white-space:nowrap; } .ds-status i { width:8px; height:8px; border-radius:var(--radius-full); flex-shrink:0; } .ds-status--action { color:var(--accent-ink); font-weight:700; } .ds-status--action i { background:var(--accent-base); box-shadow:0 0 0 3px var(--accent-bg); } .ds-status--pending { color:var(--warning-ink); } .ds-status--pending i { background:var(--warning); } .ds-status--progress { color:var(--neutral-700); } .ds-status--progress i { background:var(--sage); } .ds-status--done { color:var(--success-ink); } .ds-status--done i { background:var(--success); } .ds-status--stop { color:var(--error-ink); } .ds-status--stop i { background:var(--error); } .ds-status--calm { color:var(--neutral-700); } .ds-status--calm i { box-shadow:inset 0 0 0 1.5px var(--neutral-500); }"
+    },
+    {
+      "name": "Tailor Row Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The one container: tissue white, 16 radius, inside chalk ring, only for something you can tap.",
+      "html": "<button class=\"ds-card\"><span class=\"ds-card__who\"><span class=\"ds-avatar\">AR</span><span class=\"ds-card__info\"><span class=\"ds-card__name\">Amara Reyes</span><span class=\"ds-card__meta\">★ 4.9 (37) · 0.6 mi <span class=\"ds-verified\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M8 1.75 9.6 2.95l2-.1.6 1.9 1.6 1.2-.7 1.95.7 1.95-1.6 1.2-.6 1.9-2-.1L8 14.25 6.4 13.05l-2 .1-.6-1.9-1.6-1.2.7-1.95-.7-1.95 1.6-1.2.6-1.9 2 .1z\"/><path d=\"m5.75 8.1 1.5 1.5 3-3.1\"/></svg>Verified</span></span></span><span class=\"ds-card__est\">Est. $160</span></span><span class=\"ds-card__lower\"><span class=\"ds-card__cap\">Includes $35 home-visit fee</span><span class=\"ds-card__next\">Next opening Thu, Oct 15 · 5:00 PM</span></span></button>",
+      "css": ".ds-card { display:flex; flex-direction:column; gap:var(--space-12); width:350px; padding:var(--space-16); border:0; border-radius:var(--radius-lg); background:var(--white); box-shadow:inset 0 0 0 1px var(--neutral-200); text-align:left; font-family:var(--font-sans); cursor:pointer; transition: transform var(--dur-press) var(--ease-out); } .ds-card:active { transform:scale(var(--press-scale)); } .ds-card:focus-visible { outline:2px solid var(--accent-ink); outline-offset:2px; } .ds-card__who { display:flex; align-items:flex-start; gap:var(--space-12); } .ds-card__info { display:flex; flex-direction:column; gap:var(--space-4); flex:1; } .ds-card__name { font-size:var(--size-16); line-height:21px; font-weight:600; color:var(--ink); } .ds-card__meta { display:inline-flex; align-items:center; gap:var(--space-8); font-size:var(--size-12); line-height:16px; font-weight:500; color:var(--neutral-600); } .ds-card__est { font-size:var(--size-24); line-height:29px; font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; } .ds-card__lower { display:flex; flex-direction:column; gap:var(--space-4); padding-top:var(--space-12); border-top:1px solid var(--neutral-100); } .ds-card__cap { font-size:var(--size-12); line-height:16px; font-weight:500; color:var(--neutral-600); } .ds-card__next { font-size:var(--size-12); line-height:16px; font-weight:600; color:var(--accent-ink); } .ds-avatar { display:inline-flex; align-items:center; justify-content:center; width:56px; height:56px; flex-shrink:0; border-radius:var(--radius-full); background:var(--accent-bg); color:var(--accent-ink); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent-base) 22%, transparent); font-size:var(--size-16); font-weight:600; letter-spacing:.02em; } .ds-verified { display:inline-flex; align-items:center; gap:var(--space-4); color:var(--success-ink); font-weight:600; }"
+    },
+    {
+      "name": "Money Breakdown with Stitch",
+      "kind": "custom",
+      "refersTo": "stitch",
+      "description": "Signature 2: flat money rows on the linen, one stitched dash directly above the total.",
+      "html": "<div class=\"ds-money\"><div class=\"ds-money__row\"><span>Services</span><b>$125.00</b></div><div class=\"ds-money__row\"><span>Home-visit fee</span><b>$35.00</b></div><hr class=\"ds-stitch\"><div class=\"ds-money__row ds-money__row--total\"><span>Total</span><b>$160.00</b></div></div>",
+      "css": ".ds-money { display:flex; flex-direction:column; width:350px; font-family:var(--font-sans); font-variant-numeric:tabular-nums; } .ds-money__row { display:flex; justify-content:space-between; gap:var(--space-12); min-height:44px; padding:var(--space-8) 0; box-sizing:border-box; font-size:var(--size-16); line-height:21px; font-weight:500; color:var(--ink); } .ds-money__row b { font-weight:600; } .ds-money__row--total, .ds-money__row--total b { font-weight:700; } .ds-stitch { display:block; width:100%; height:1.5px; margin:var(--space-8) 0; border:0; background:repeating-linear-gradient(90deg, var(--neutral-400) 0 6px, transparent 6px 10px); }"
+    },
+    {
+      "name": "Garment Empty State",
+      "kind": "custom",
+      "refersTo": "empty-state-art",
+      "description": "Signature 1: the garment illustration, tilted, in a tissue-wash disc above a serif title and one action.",
+      "html": "<div class=\"ds-empty\"><span class=\"ds-empty__art\"><svg width=\"64\" height=\"64\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.25\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 6.5a1.75 1.75 0 1 1 1.75-1.75\"/><path d=\"M12 6.5v1.25L3.5 13.5a1 1 0 0 0 .55 1.85h15.9a1 1 0 0 0 .55-1.85L12 7.75\"/></svg></span><h3 class=\"ds-empty__title\">No bookings yet</h3><button class=\"ds-cta-s\">Find a tailor</button></div>",
+      "css": ".ds-empty { display:flex; flex-direction:column; align-items:center; gap:var(--space-12); padding:var(--space-40) var(--space-20); text-align:center; } .ds-empty__art { display:inline-flex; align-items:center; justify-content:center; width:120px; height:120px; margin-bottom:var(--space-8); border-radius:var(--radius-full); background:var(--accent-bg); color:var(--neutral-600); transform:rotate(-4deg); } .ds-empty__title { margin:0; font-family:var(--font-serif); font-size:var(--size-28); line-height:34px; font-weight:500; color:var(--ink); } .ds-cta-s { min-height:54px; width:280px; border:0; border-radius:var(--radius-20); background:var(--ink); color:var(--neutral-50); font-family:var(--font-sans); font-size:var(--size-16); font-weight:600; }"
+    },
+    {
+      "name": "Time Chip",
+      "kind": "chip",
+      "refersTo": "time-chip",
+      "description": "Selectable time slot: tissue with a bisque ring; ink fill when selected.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip\">9:00 AM</button><button class=\"ds-chip is-selected\" aria-pressed=\"true\">5:00 PM</button></div>",
+      "css": ".ds-chips { display:flex; gap:var(--space-8); } .ds-chip { display:inline-flex; align-items:center; padding:var(--space-12) var(--space-16); border:0; border-radius:var(--radius-md); background:var(--white); box-shadow:inset 0 0 0 1px var(--neutral-300); color:var(--ink); font-family:var(--font-sans); font-size:var(--size-16); line-height:21px; font-weight:600; cursor:pointer; transition:transform var(--dur-press) var(--ease-out), background-color 150ms ease, color 150ms ease; } .ds-chip.is-selected { background:var(--ink); box-shadow:inset 0 0 0 1px var(--ink); color:var(--neutral-50); } .ds-chip:active { transform:scale(var(--press-scale)); } .ds-chip:focus-visible { outline:2px solid var(--accent-ink); outline-offset:2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Tailor's Counter",
+    "overview": "Taily should feel like standing at a good tailor's counter: unbleached linen under your hands, a receipt book written in pencil, the garment on the hanger in front of you. Sarah books between meetings; Amara answers between fittings with pins in her mouth. Both glance, decide, and put the phone down. So the surface is calm and warm, the hierarchy is legible at a squint, and nothing competes with the one decision on the screen. It is an app for running an errand, not a dashboard. Every screen reads in the same order: a serif title, then one focal fact or figure, then quiet groups of rows separated by air, then one black button. Depth is almost absent. The page is linen (`neutral-50`), and only things you can touch are lifted onto tissue-white cards with a chalk ring. Colour is rationed: graphite ink does the work, basting-thread brown (`accent-*`) marks \"your move\", and warm semantic tones (sage, ochre, green, brick) speak only through small status dots and money states. There is no blue anywhere. Personality comes from exactly two signatures, both locked by Kevin in K-03: **the garment illustrations** (wherever a garment appears, including photo placeholders and empty states) and **the stitched dash** (a perforation above every money total, like the tear line on a ticket stub). Everything else stays out of the way. The product is a 390 px phone web app with no bottom tab bar: an icon-only top nav, a focused flow bar during booking, and a sticky action bar for the one primary action.",
+    "keyCharacteristics": [
+      "Linen page, tissue cards with an inside chalk ring, and only for interactive groups.",
+      "Serif (Cormorant Garamond) only for page titles, overlay titles and the one hero money figure. Everything else is Hanken Grotesk.",
+      "Section headings whisper: 12 px sans caps in graphite, never serif.",
+      "Status = an 8 px warm dot plus a 12 px word. No coloured chips, no blue.",
+      "One filled ink button per screen; every other action is an accent text link.",
+      "Two signatures only: garment illustrations and the stitched dash.",
+      "Space separates groups (8 inside, 32 between, 40 around the hero); lines separate only rows inside a list.",
+      "Money prints as dollar amounts only, never percentages, with one precision per group."
+    ],
+    "rules": [
+      {
+        "name": "The No-Blue Rule",
+        "body": "Nothing ships in blue. `--info`, `--info-bg` and `--media-placeholder` stay defined (they are Figma variables) but no screen or component may reference them; `.c-info` and `.banner--info` resolve to Thread Ink on Tissue Wash.",
+        "section": "colors"
+      },
+      {
+        "name": "The Base-Is-For-Glyphs Rule (D-163)",
+        "body": "Each semantic colour has a base (dots, glyphs, strokes, fills under white text) and an `-ink` (text). Text in a semantic tone always uses the `-ink` token; `neutral-500` is a stroke colour and `neutral-500-ink` is its text twin.",
+        "section": "colors"
+      },
+      {
+        "name": "The Your-Move Rule (D-95)",
+        "body": "Accent marks whose turn it is. The action status is the loudest on any list (bold word, accent dot with a 3 px Tissue Wash halo). An added charge is not a success, so \"New\" tags are accent, not green.",
+        "section": "colors"
+      },
+      {
+        "name": "The Serif-Is-A-Name Rule (K-03)",
+        "body": "Cormorant appears only for a page or overlay title and for hero money. A serif section heading, serif row, serif button or serif number in a list is wrong. `.t-section` (serif 20) is retired in v5.",
+        "section": "typography"
+      },
+      {
+        "name": "The Whisper Heading Rule",
+        "body": "Section headings are `h2.t-caps.c-600`: small, graphite, uppercase. The content under them leads.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Money Rule",
+        "body": "Every amount, time and count sets `font-variant-numeric: tabular-nums` (`.tabular`) so columns align and figures do not jitter as they change. Never let Cormorant render numbers in running text (its old-style figures read \"IIzoI\").",
+        "section": "typography"
+      },
+      {
+        "name": "The Space-Is-The-Separator Rule",
+        "body": "Groups are separated by air, not lines or boxes. A screen stylesheet may not invent another vertical gap between groups. Lines exist only between rows inside one list.",
+        "section": "layout"
+      },
+      {
+        "name": "The Squint Rule",
+        "body": "At a squint each screen reads: serif title, one focal fact or figure, quiet groups, one black button. If two things shout, one is wrong.",
+        "section": "layout"
+      },
+      {
+        "name": "The Tissue-Under-A-Finger Rule",
+        "body": "White plus a chalk ring means \"you can touch this\". Never put reference content in a card, and never give a card a drop shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** take every colour, space, radius and size from `css/tokens.css`; screens contain no hex, no rgba and no literal px font size.",
+      "**Do** keep one filled ink button per screen and make every other action a Thread Ink text link (44 px tall).",
+      "**Do** put a garment illustration wherever a garment is named as a title, and a photo stub (tone gradient + tilted garment) wherever a photo would be.",
+      "**Do** put exactly one stitched dash above a money total, and nowhere except the two sanctioned places.",
+      "**Do** use `sectionHead()` (12 px sans caps, Graphite Soft) for every section heading, and `.t-figure` for a non-money hero fact.",
+      "**Do** print status as `statusPill()`: an 8 px warm dot plus a 12/600 word.",
+      "**Do** use `.card` (Tissue, 16 radius, inside Chalk ring, 16 padding) only for groups the user can touch.",
+      "**Do** separate groups with the 8 / 12 / 32 / 40 rhythm and draw lines only between rows inside one list.",
+      "**Do** use the `-ink` variant for any text in a semantic or accent colour (D-163), and `neutral-600` for footnotes.",
+      "**Do** animate press with `scale(0.97)` over 120 ms `--ease-out`, sheets 280 / 200 ms, modals 220 ms, and turn transforms off under `prefers-reduced-motion` and `html.is-test`.",
+      "**Do** print money as dollar amounts only (`fmt / fmtExact / fmtNeg / fmtColumn`), one precision per group, tabular figures."
+    ],
+    "donts": [
+      "**Don't** use blue: no `--info`, `--info-bg` or `--media-placeholder` anywhere, and never `--component` (Figma's default purple).",
+      "**Don't** set serif type for section headings, rows, buttons or list numbers; never use `.t-section` (20 px) or an off-scale size.",
+      "**Don't** add a bottom tab bar, text labels in the top nav, or photo / black-square avatars.",
+      "**Don't** add a third signature: no extra ornaments, illustrations in non-garment contexts, textures or decorative dividers.",
+      "**Don't** give cards drop shadows or put reference content (prices, breakdowns, visit details, reviews) in a card.",
+      "**Don't** use coloured chip badges for status, or green for an added charge (it is accent, \"your move\").",
+      "**Don't** show percentages in any money copy (\"Taily fee −$12.50\", never \"10 %\").",
+      "**Don't** use outline secondary buttons outside a confirm sheet / modal or a two-path empty state.",
+      "**Don't** use `transition: all`, or animate an overlay in from `scale(0)`.",
+      "**Don't** use a base semantic colour (`--error`, `--success`, `--warning`) or `--neutral-500` / `--accent-base` for text.",
+      "**Don't** call `--bottom-border` in new work; it is an unsorted Figma variable. New row rules use `--hairline`."
+    ]
+  }
+}

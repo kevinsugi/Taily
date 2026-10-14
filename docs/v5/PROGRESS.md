@@ -13,7 +13,7 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 | M7 World-class polish | **done** (f81baad) | | V5 masters + all frames re-synced | before/after: https://claude.ai/artifact/DaSb9aAmGFEF2RSJAJ4SDa |
 | M6 Final pass | in progress: audit triaged into `docs/v5/M6-fixlist.md`, fix batches running (decisions D-154…D-174 logged) | | | |
 
-**Next action:** impeccable review workflow running (run wf_674cffb3-ddc): DESIGN.md + IMPECCABLE-CRITIQUE/AUDIT/COPY reports. Then STOP at the review gate below.
+**Next action:** WAITING ON KEVIN — review docs/v5/IMPECCABLE-CRITIQUE.md, IMPECCABLE-AUDIT.md, IMPECCABLE-COPY.md. Apply nothing until he approves (and says which items).
 
 ## Queued after M7 — impeccable (Kevin, Oct 14) — REVIEW GATE
 Run `/impeccable:impeccable` (Operate mode; launcher binary download approved by Kevin's "yes"):

@@ -169,6 +169,32 @@ for (const f of all.filter((e) => matches(e.key))) {
       return !!hit && (el === hit || el.contains(hit));
     }, exp.sel))) problems.push(`${exp.sel} is outside the viewport or covered`);
   }
+  /* rowFit (K4-1-02, D-207): every item row that has a photo stack keeps it on the name's line — at 390 and at 320 */
+  if (exp?.rowFit) {
+    const measure = () => page.evaluate(() => [...document.querySelectorAll('.garment-head')].filter((hd) => hd.querySelector('.photo-stack')).map((hd) => {
+      const who = hd.querySelector('.garment-head__who').getBoundingClientRect(); const st = hd.querySelector('.photo-stack').getBoundingClientRect();
+      return { name: hd.querySelector('.garment-head__name')?.textContent, drop: Math.round(st.top - who.top) };
+    }));
+    for (const w of [390, 320]) {
+      await page.setViewportSize({ width: w, height: 844 });
+      const rows = await measure();
+      if (!rows.length) problems.push(`rowFit@${w}: no item row with a photo stack`);
+      for (const row of rows) if (row.drop > 8) problems.push(`rowFit@${w}: the photo stack of "${row.name}" sits ${row.drop}px below the name`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
+  /* noClip (K4-2-01, D-219): none of these elements is cut short by an ellipsis or wraps past one line — at 390 and at 320 */
+  if (exp?.noClip) {
+    for (const w of [390, 320]) {
+      await page.setViewportSize({ width: w, height: 844 });
+      const cut = await page.evaluate((qs) => qs.flatMap((q) => [...document.querySelectorAll(q)].filter((el) => {
+        const lh = parseFloat(getComputedStyle(el).lineHeight) || 16;
+        return el.scrollWidth > el.clientWidth + 1 || el.getBoundingClientRect().height > lh * 1.5;
+      }).map((el) => `${q} "${el.textContent.trim()}"`)), arr(exp.noClip));
+      for (const c of cut) problems.push(`noClip@${w}: ${c} is cut or wraps`);
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+  }
   if (f.click.length && OVERLAY_KEYS.has(f.key) && !r.overlays) problems.push('click set but no overlay open');
   if (r.url !== f.key) problems.push(`?flow=${r.url}`);
   if (h.errors.length) problems.push(`console: ${h.errors.slice(0, 2).join(' | ')}`);

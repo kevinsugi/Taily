@@ -5,7 +5,6 @@
 .t-adjust__info { margin-bottom: var(--space-24); }
 .t-adjust__info .banner__text { text-wrap: pretty; }
 .t-adjust__garments { display: flex; flex-direction: column; gap: var(--rhythm-group); }
-.t-adjust__type { margin: 0; color: var(--ink); min-width: 0; }
 .t-adjust__card.card { padding-block: var(--space-4); }   /* the shared .card: tissue + chalk ring */
 
 /* one adjust row: label | $ input | remove-or-undo, the error under the pair */
@@ -49,9 +48,10 @@
 @media (max-width: 340px) { .t-adjust__figures { grid-template-columns: minmax(0, 1fr); } }
 
 /* K-01: the card head (type · tag · Remove item), the new-item / removed-item cards, Add an item */
-.t-adjust__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); min-height: 44px; padding-top: var(--space-4); box-shadow: inset 0 -1px 0 var(--neutral-100); }
+.t-adjust__head { min-height: 44px; padding-top: var(--space-4); box-shadow: inset 0 -1px 0 var(--neutral-100); }   /* K-04: the head is the shared garmentHead (name, icon, tag … Remove item) */
+.t-adjust__head .garment-head { margin-bottom: 0; }
 /* the head's link is the shared textLink (M7-1-T-05): pushed to the right edge, drawn at the small size */
-.t-adjust__head .text-link { margin-left: auto; margin-right: calc(-1 * var(--space-8)); font-size: var(--size-12); line-height: 16px; }
+.t-adjust__head .text-link { margin-right: calc(-1 * var(--space-8)); font-size: var(--size-12); line-height: 16px; }
 .t-adjust__card--new.card { box-shadow: inset 0 0 0 1px var(--success); }
 .t-adjust__card--gone { padding-bottom: var(--space-12); }
 .t-adjust__card--gone .t-adjust__head { box-shadow: none; }
@@ -69,8 +69,6 @@
 
 /* K-02: the garment icon leads the card head; a removed card dims it; the docs block closes the card */
 .t-adjust__head { padding-bottom: var(--space-8); }
-.t-adjust__head .garment-icon { margin-right: var(--space-4); }
-.t-adjust__card--gone .garment-icon { opacity: .5; filter: grayscale(1); }
 .t-adjust__card .docs-editor { margin-bottom: 0; }
 
 /* M7: the bar lead is two columns (what Sarah pays | what you take home); the figures, not a dotted sentence */
@@ -78,3 +76,7 @@
 .t-adjust__lead-pair b { color: var(--ink); font-weight: 600; }
 /* D-196: the bar note is a footnote until she has tried to send or leave, then error ink */
 .t-adjust[data-tried="true"] + .action-bar .action-bar__note { color: var(--error-ink); }
+
+/* CR-5: Remove item is the card's last row, a red text link at the left under + Add comment */
+.t-adjust__remove { display: flex; padding-top: var(--space-4); }
+.t-adjust__remove .text-link { margin-left: calc(-1 * var(--space-8)); min-height: 44px; }

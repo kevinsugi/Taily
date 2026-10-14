@@ -66,14 +66,14 @@ function empty(kind, job) {
   if (kind === 'nothing-open') {
     return `<div data-empty="nothing-open">${emptyState({ title: `Nothing open before ${nb(fmtDay(job.needBy))}`,
       body: 'Tailors near you are booked until after your need-by date. A later date opens more times.',
-      ctaLabel: 'Pick a later date', ctaAct: 'later',
+      ctaLabel: 'Change need-by date', ctaAct: 'later',
       ...(home ? { secondaryLabel: 'Try a visit at the shop', secondaryAct: 'try-shop' } : {}) })}</div>`;
   }
   /* none-left (M3, D-83): every tailor is hidden for this job after the last expiry */
   const hidden = tailorById((job.hiddenTailors ?? [])[0]);
   const hf = esc((hidden?.name || 'The tailor').split(' ')[0]);
-  return `<div data-empty="none-left">${emptyState({ art: 'Suit Pant', title: 'No other tailors for this job yet',
-    body: `${hf} didn’t reply in time. We’ll let you know when more tailors join near ${esc(job.zip)}.`,
+  return `<div data-empty="none-left">${emptyState({ art: 'Suit Pant', title: 'No other tailors for this request yet',
+    body: `${hf} didn’t reply in time, and no other tailors cover ${esc(job.zip)} yet. A later need-by date or another ZIP may open more.`,
     ctaLabel: 'Change need-by date', ctaAct: 'later',
     secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>`;
 }
@@ -87,14 +87,20 @@ function bookedNote(tailor) {
   return `You have a ${live ? 'request' : 'booking'} with ${first} on ${fmtDay(a.slot.start)}`;
 }
 
+/** The first names of the tailors who declined this request ("Amara", "Amara and Joon"). */
+function declinedFirst(job) {
+  const names = (job.declinedBy ?? []).map((id) => tailorById(id)?.name?.split(' ')[0]).filter(Boolean).map(esc);
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] || 'The tailor';
+}
+
 function declinedBanner(job) {
   const names = (job.declinedBy ?? []).map((id) => tailorById(id)?.name?.split(' ')[0]).filter(Boolean);
   if (!names.length) return '';
   return `<div class="c-tailors__banner">${banner({
     tone: 'warning',
-    title: names.length === 1 ? `${esc(names[0])} can’t take this job` : `${names.length} tailors can’t take this job`,
-    text: `Your job details are saved. You can still book ${names.length === 1 ? esc(names[0]) : 'them'} for a different job.`,
-    actionLabel: 'Start a different job', actionAct: 'new-job',
+    title: names.length === 1 ? `${esc(names[0])} declined this request` : `${names.length} tailors declined this request`,
+    text: `Your items and services are saved. You can still book ${names.length === 1 ? esc(names[0]) : 'them'} for other work.`,
+    actionLabel: 'Start a new request', actionAct: 'new-job',
   })}</div>`;
 }
 
@@ -114,15 +120,15 @@ function view(s) {
       const fmtAmt = fmtColumn(rows.flatMap((r) => (r.declined ? [] : [r.quote.total, r.quote.homeFee, r.quote.rush])));   // D-98: one precision across the list
       const noneLeft = rows.every((r) => r.declined);                 // C-14: nothing to sort, nothing to open
       body = `${declinedBanner(job)}
-  <div class="c-tailors__bar">
-    <span class="c-tailors__count t-small c-600">${noneLeft ? 'No tailors available for this job' : `${itemsLabel(rows.filter((r) => !r.declined).length, 'tailor')}${infoButton('pricing', { label: 'How pricing works' })}`}</span>
-    ${noneLeft ? '' : `<button type="button" class="c-tailors__sort t-small w-600" data-act="sort" aria-haspopup="dialog">Sort: ${sortLabel(u.sort)}</button>`}
-  </div>
+  ${noneLeft ? '' : `<div class="c-tailors__bar">
+    <span class="c-tailors__count t-small c-600">${itemsLabel(rows.filter((r) => !r.declined).length, 'tailor')}${infoButton('pricing', { label: 'How pricing works' })}</span>
+    <button type="button" class="c-tailors__sort t-small w-600" data-act="sort" aria-haspopup="dialog">Sort: ${sortLabel(u.sort)}</button>
+  </div>`}
   <div class="c-tailors__rows">${rows.map((r) => tailorRow({
         id: r.tailor.id, name: r.tailor.name, initials: r.tailor.initials, photo: r.tailor.photo, verified: r.tailor.verified,
         rating: r.tailor.rating?.count > 0 ? r.tailor.rating : null, distanceMi: r.distanceMi, quote: r.quote,
         nextOpening: r.nextOpening, visitType: job.visitType, declined: r.declined, format: fmtAmt, booked: bookedNote(r.tailor) })).join('')}</div>
-  ${noneLeft ? `<div data-empty="none-left">${emptyState({ art: 'Suit Pant', title: 'No other tailors for this job yet', body: `We’ll let you know when more tailors join near ${esc(job.zip)}.`, ctaLabel: 'Change need-by date', ctaAct: 'later', secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>` : ''}`;
+  ${noneLeft ? `<div data-empty="none-left">${emptyState({ art: 'Suit Pant', title: 'No other tailors for this request yet', body: `${declinedFirst(job)} declined this request, and no other tailors cover ${esc(job.zip)} yet. A later need-by date or another ZIP may open more.`, ctaLabel: 'Change need-by date', ctaAct: 'later', secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>` : ''}`;
     }
   }
   return `${flowBar({ step: 2 })}<main class="body ${ID}">

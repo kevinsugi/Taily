@@ -389,11 +389,16 @@ export function galleryHtml() {
   s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e4', type: 'Suit Jacket', docs: docsMasked })}</div>`);
   v('docsEditor · the comment editor with an error');
   s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e5', type: 'Suit Jacket', docs: docsFull, commentDraft: 'x'.repeat(FITTING_LIMITS.COMMENT_MAX + 1), commentError: `Keep the comment under ${FITTING_LIMITS.COMMENT_MAX} characters.` })}</div>`);
-  v('garmentDocs · Before selected · Pinned selected');
-  s.push(`<div class="info-card">${C.garmentDocs({ garmentId: 'a1', type: 'Suit Jacket', docs: docsFull, commentLabel: 'Amara’s comment', idPrefix: 'gal-before' })}</div>`);
-  s.push(`<div class="info-card">${C.garmentDocs({ garmentId: 'a2', type: 'Suit Jacket', docs: docsFull, commentLabel: 'Amara’s comment', idPrefix: 'gal-pinned', tab: 'pinned' })}</div>`);
-  v('garmentDocs · a masked comment');
-  s.push(`<div class="info-card">${C.garmentDocs({ garmentId: 'a3', type: 'Suit Jacket', docs: docsMasked, commentLabel: 'Amara’s comment', idPrefix: 'gal-masked' })}</div>`);
+  v('garmentHead (K-04) · name underlined, then the icon in a white well, then the tag · with a photo stack · removed (struck, no underline)');
+  col(C.garmentHead({ type: 'Suit Jacket', photos: C.photoStack({ garmentId: 'h1', type: 'Suit Jacket', source: 'customer', count: 2, owner: 'Your' }) }),
+      C.garmentHead({ type: 'Pants / Jeans', tag: '<span class="change-list__tag change-list__tag--new-item t-small w-600">New item</span>' }),
+      C.garmentHead({ type: 'Suit Pant', kind: 'removed', tag: '<span class="change-list__tag change-list__tag--removed t-small w-600">Removed</span>' }));
+  v('photoStack (K-04) · 1 photo · 2 photos · 4 photos from the fitting (Before, then Pinned) · the tap opens the viewer');
+  row(C.photoStack({ garmentId: 'h2', type: 'Suit Jacket', source: 'customer', count: 1 }), C.photoStack({ garmentId: 'h3', type: 'Suit Jacket', source: 'customer', count: 2 }),
+      C.photoStack({ garmentId: 'a1', type: 'Suit Jacket', source: 'fitting', photos: [...docsFull.before, ...docsFull.pinned] }));
+  v('garmentDocs · the comment only (the photos live in the item row and the viewer) · a masked comment');
+  s.push(`<div class="info-card">${C.garmentDocs({ garmentId: 'a1', type: 'Suit Jacket', docs: docsFull, commentLabel: 'Amara’s comment' })}</div>`);
+  s.push(`<div class="info-card">${C.garmentDocs({ garmentId: 'a3', type: 'Suit Jacket', docs: docsMasked, commentLabel: 'Amara’s comment' })}</div>`);
   v('changeList with icons and docs · a kept garment · a New item · a Removed garment');
   col(C.changeList({
     garments: [
@@ -530,6 +535,7 @@ export function galleryHtml() {
 export function wireGallery(root) {
   C.wireStars(root); C.wireToggles(root); C.wireChipGroups(root); C.wireComposer(root);
   C.wireGarmentDocs(root, { lookup: (gid) => GALLERY_DOCS[gid] ?? null, by: 'Taken by Amara' });
+  C.wirePhotoViewer(root);
   root.addEventListener('click', (e) => { const b = e.target.closest('[data-toast]'); if (b) C.toast(`A ${b.dataset.toast} toast`, { tone: b.dataset.toast }); });
   root.querySelectorAll('.scheduler').forEach((sc) => C.wireWheel(sc, null, 44));   // positions + keyboard (R1-2-C-01)
 }

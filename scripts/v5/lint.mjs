@@ -12,6 +12,12 @@
      5. Date.now() / argument-less new Date() in js/screens/ and
         js/components.js — time comes from the demo clock
      6. a screen file importing another screen file
+     7. (K-04) base glyph colours (--neutral-500, --success, --error,
+        --warning, --accent-base) set as a TEXT colour in v5 CSS + the
+        shared css/components.css — text uses the -ink twins; glyph /
+        icon / chevron / star / close selectors are exempt
+     8. (K-04) the retired --bottom-border token in v5 CSS (row rules
+        use --hairline)
    Skips js/v4/, js/screens/v4/, css/v4/, js/garment-icons.js,
    js/icons.js (SVG matrices). Prints PASS/FAIL per rule, offenders
    with file:line. Exit 1 on any offender.
@@ -103,6 +109,23 @@ for (const f of cssFiles.filter((f) => V5_CSS(f) || /css\/components\.css$/.test
 }
 rule('css (M7): no --info / --media-placeholder outside tokens.css', tokenOff);
 rule('css (M7): no blurred box-shadow outside overlays', shadowOff);
+
+/* K-04 (AU-pat-2, DR-2): base glyph colours never set text; the retired --bottom-border token */
+const glyphColorOff = [];
+const bottomBorderOff = [];
+const BASE_GLYPH = /(^|[\s;{])color:\s*var\(--(neutral-500|success|error|warning|accent-base)\)/;
+const GLYPH_SEL = /chevron|icon|glyph|svg|star|dot|close|remove|stroke/i;
+for (const f of cssFiles.filter((f) => V5_CSS(f) || /css\/components\.css$/.test(f))) {
+  let sel = '';
+  stripComments(lines(f)).forEach((code, i) => {
+    const open = code.match(/^([^{}]*)\{/);
+    if (open) sel = open[1].trim() || sel;
+    if (BASE_GLYPH.test(code) && !GLYPH_SEL.test(sel)) glyphColorOff.push(`${rel(f)}:${i + 1}  ${sel.slice(0, 50)}  ${code.trim().slice(0, 60)}`);
+    if (V5_CSS(f) && /var\(--bottom-border\)/.test(code)) bottomBorderOff.push(`${rel(f)}:${i + 1}  --bottom-border (use --hairline)`);
+  });
+}
+rule('css (K-04): base glyph colours never set text (use the -ink twins)', glyphColorOff);
+rule('css (K-04): no --bottom-border in v5 CSS', bottomBorderOff);
 
 /* ---------- JS ---------- */
 const walk = (dir) => {

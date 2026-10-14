@@ -1,6 +1,6 @@
 /* ============================================================
    t-rush — T7 Rush fees editor (M2-spec §C3). Charge extra for
-   quick turnarounds. Tiers are 1 / 2 / 3 days after the visit;
+   rush jobs. Tiers are 1 / 2 / 3 days after the visit;
    4+ days is always free. Focal: the three tier fields. The
    preview reads exactly like the c-tailor ladder, live.
    ============================================================ */
@@ -64,7 +64,7 @@ function view(s) {
   </div>` : '';
   return `${chrome('shop', { persona: 'tailor' })}
 <main class="body body--with-bar ${ID}">
-  ${headingRow('<h1 class="t-title">Rush fees</h1>', { backRow: true })}
+  ${headingRow('<h1 class="t-title">Rush fees</h1>')}
   <p class="t-body c-600 ${ID}__lead">Charge extra when a customer needs it back soon after the visit. 4 days or more is always free.</p>
   <div class="${ID}__toggle">${toggle({ id: 'rush-on', label: 'Charge rush fees', checked: d.on, disabled: busy })}</div>
   ${tiers}
@@ -75,11 +75,9 @@ ${actionBar({ ctaLabel: 'Save rush fees', ctaAct: 'save', disabled: !dirty && !b
 }
 
 function wire(root) {
-  const isTest = document.documentElement.classList.contains('is-test');
   const first = root.querySelector('[aria-invalid="true"]');
   if (ui().focus) first?.focus();
-  else if (!isTest && !ui().busy && ui().focusTier) root.querySelector('#rush-1')?.focus();
-  ui().focus = false; ui().focusTier = false;
+  ui().focus = false;
 
   wireToggles(root);
   root.addEventListener('toggle', (e) => {
@@ -87,7 +85,6 @@ function wire(root) {
     const d = draftOf();
     d.on = e.detail.checked;
     ui().errors = {};
-    ui().focusTier = d.on;
     go(ID);
   });
 

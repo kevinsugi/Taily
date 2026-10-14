@@ -9,7 +9,7 @@ import { register, render as go } from '../app.js';
 import { state, T, tailorById, returnOffer, returnAddress, priceChangeView } from '../state.js';
 import {
   chrome, headingRow, statusHero, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
-  sheetOverlay, cta, toast, esc, changeList, textLink, sectionHead,
+  sheetOverlay, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, wireGarmentDocs, textLink, sectionHead,
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
@@ -77,21 +77,26 @@ function subOf(k, r) {
   return `${nb('Uber, today')} · ${nb('priced when you choose it')}`;
 }
 
-function disabledNote(r) {
+/** CR-1b: the action-bar lead — why Pay waits, and once it can go, what was chosen. */
+function barLead(r) {
   if (!r.sel) return 'Choose how to get it back first.';
   if (r.sel === 'courier' && r.courierState === 'loading') return 'Waiting for the courier price.';
-  if (r.sel === 'courier' && r.courierState === 'failed') return 'Try the courier price again, or pick another way back.';
-  return '';
+  if (r.sel === 'courier' && r.courierState === 'failed') return 'Get a courier price, or pick another way back.';
+  if (r.sel === 'courier') return `Courier · ${money(r.c.cents)}`;
+  return `${esc(RETURN_LABEL[r.sel])} · Free`;
 }
+const noLonger = (a) => `${firstOf(tailorById(a.tailorId) ?? state.tailors[0])} no longer offers that option. Pick another way back.`;
+/** CP-C47: the way back, as a word in a sentence ("Confirm pickup and get $6.50 back"). */
+const CHOICE_WORD = { pickup: 'pickup', dropoff: 'drop-off', courier: 'courier' };
 
 /* ---------- view ---------- */
 /** "Your order" (K-2-01, D-127): what the balance pays for — the approved lines, plain rows, as on c-booking and Amara's "The work". */
 function orderSection(a) {
   if (!a.lines?.length) return '';
   const added = new Set(a.job.garments.filter((g) => g.added).map((g) => g.id));
-  const garments = priceChangeView(a, a.lines).garments.map((g) => (added.has(g.id) ? { ...g, newItem: true } : g));
+  const garments = withPhotos(priceChangeView(a, a.lines).garments, a.job).map((g) => (added.has(g.id) ? { ...g, newItem: true } : g));
   return `<section class="sec">${sectionHead('Your order')}
-  <div class="${ID}__order">${changeList({ garments })}</div></section>`;
+  <div class="${ID}__order">${changeList({ garments, docs: a.priceChange?.docs ?? null, commentLabel: `${firstOf(tailorById(a.tailorId) ?? state.tailors[0])}’s comment` })}</div></section>`;
 }
 
 function view() {
@@ -99,7 +104,7 @@ function view() {
   const r = read();
   if (!r) {
     return `${head}<main class="body ${ID}" data-s="${ID}">
-  ${headingRow('<h1 class="t-title">Your order</h1>', { backRow: true })}
+  ${headingRow('<h1 class="t-title">Your order</h1>')}
   <div class="${ID}__empty" data-empty="ready">${emptyState({ title: 'Nothing to pay right now', body: 'When a tailor finishes your order, it shows up here.', ctaLabel: 'Back to Bookings', ctaAct: 'bookings' })}</div>
 </main>`;
   }
@@ -121,7 +126,7 @@ function view() {
         : only
           ? `${esc(first)} finished the work. Pay the balance, then ${LINE_FOR[only]}.`
           : `${esc(first)} finished the work. Choose how to get it back, then pay the balance.`,
-  }), { backRow: true });
+  }));
   /* C-11: one decline pattern (D-140) — the banner sits directly above the action bar, the way forward is another card */
   const alert = failed && !zero
     ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Your card was declined', text: `${esc(pillCard)} didn’t go through, and nothing was charged.`, actionLabel: 'Use another card', actionAct: 'pay' })}</div>`
@@ -150,8 +155,8 @@ function view() {
   ${alert}
 </main>
 ${actionBar({
-    ctaLabel: zero ? (refund > 0 ? `Confirm and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : `Pay ${fmtExact(a.money.balance)}`,
-    ctaAct: zero ? 'confirm' : 'pay', disabled: off, busy: confirming, busyLabel: 'Confirming…', note: off ? disabledNote(r) : '',
+    ctaLabel: zero ? (refund > 0 ? `Confirm${sel ? ` ${CHOICE_WORD[sel]}` : ''} and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : `Pay ${fmtExact(a.money.balance)}`,
+    ctaAct: zero ? 'confirm' : 'pay', disabled: off, busy: confirming, busyLabel: 'Confirming…', lead: barLead(r),
     secondaryLabel: `Message ${first}`, secondaryAct: 'message',
   })}`;
 }
@@ -187,19 +192,18 @@ function quoteCourier(a) {
     u.quoting = false;
     const res = T.chooseReturn(a.id, 'courier');
     if (!onScreen()) return;
-    if (!res.ok) toast('That way back is no longer offered.');
+    if (!res.ok) toast(noLonger(a));
     go(ID);
   });
 }
 
 function choose(a, k) {
   const u = ui(a);
-  u.refocus = k;
   if (k === 'courier') { quoteCourier(a); return; }
   cancelWait?.();
   u.quoting = false;
   const res = T.chooseReturn(a.id, k);
-  if (!res.ok) toast('That way back is no longer offered.');
+  if (!res.ok) toast(noLonger(a));
   go(ID);
 }
 
@@ -300,6 +304,18 @@ function openPay(r) {
 function wire(root) {
   if (redirectIfMoved(ID, go)) return;
   const r = read();
+  /* K-04 (D-207): the item rows' photo stacks — the fitting photos once Amara documented the fitting, else the customer's own */
+  wirePhotoViewer(root);
+  if (r) {
+    wireGarmentDocs(root, {
+      by: `Taken by ${r.first}`,
+      lookup: (gid) => {
+        const docs = r.a.priceChange?.docs?.[gid];
+        const type = priceChangeView(r.a, r.a.lines).garments.find((g) => g.id === gid)?.type ?? '';
+        return docs ? { type, docs } : null;
+      },
+    });
+  }
 
   const backBtn = root.querySelector('.back[data-act="back"]');
   if (backBtn) {
@@ -314,12 +330,7 @@ function wire(root) {
 
   /* a single courier offer with no price yet: ask for it */
   if (r.sel === 'courier' && !a.courier && !u.quoting) { quoteCourier(a); return; }
-  /* keep keyboard focus on the row just chosen */
-  if (u.refocus) {
-    const row = root.querySelector(`[data-act="return"][data-value="${u.refocus}"]`);
-    u.refocus = null;
-    row?.focus({ preventScroll: true });
-  }
+  /* keyboard focus stays on the row just chosen: the router restores it across the re-renders (AU-P1-2a) */
 
   root.addEventListener('click', (e) => {
     if (e.target.closest('.screen-sheet--overlay')) return;

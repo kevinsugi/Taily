@@ -52,7 +52,7 @@ function formView(a, t, first) {
     .replace('aria-label="Your rating"', `aria-labelledby="stars-label"${noStars ? ' aria-describedby="stars-error" aria-invalid="true"' : ''}`);
   const busy = !!d.busy;
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
-  ${headingRow(`<h1 class="t-title">Review ${esc(first)}</h1><!--notes--><p class="t-body c-700">Shown on ${esc(first)}’s profile as ${esc(state.customer.first)} ${esc(state.customer.last[0])}.</p><!--/notes-->`, { backRow: true })}
+  ${headingRow(`<h1 class="t-title">Review ${esc(first)}</h1><!--notes--><p class="t-body c-700">Shown on ${esc(first)}’s profile as ${esc(state.customer.first)} ${esc(state.customer.last[0])}.</p><!--/notes-->`)}
   <section class="${ID}__rating">
     <p class="t-body w-600" id="stars-label">Your rating</p>
     ${rating}
@@ -76,7 +76,7 @@ function submittedView(a, t, first) {
   const mine = a.review;
   const me = `${state.customer.first} ${state.customer.last[0]}.`;
   return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--submitted" data-s="${ID}">
-  ${headingRow(statusHero({ pill: 'completed', pillLabel: 'Posted', title: `Thanks, ${esc(state.customer.first)}`, body: `Your review is now on ${esc(first)}’s profile.` }), { backRow: true })}
+  ${headingRow(statusHero({ pill: 'completed', pillLabel: 'Posted', title: `Thanks, ${esc(state.customer.first)}`, body: `Your review is now on ${esc(first)}’s profile.` }))}
   <section class="sec sec--first ${ID}__posted">
     ${ratingLine(t.rating)}
     ${reviewRow({ name: me, initials: state.customer.initials, stars: mine.stars, date: mine.date, text: mine.text, photos: mine.photos, photoType: a.job.garments[0]?.type ?? '' })}

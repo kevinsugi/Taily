@@ -46,11 +46,11 @@ const SUMMARY = {
   },
   rush: (t) => {
     const ladder = [...(t.rush ?? [])].sort((a, b) => a.days - b.days);
-    return ladder.length ? ladder.map((r) => `${plural(r.days, 'day', 'days')} +${fmt(cents(r.fee))}`).join(', ') : 'Off — add a fee for quick turnarounds';
+    return ladder.length ? ladder.map((r) => `${plural(r.days, 'day', 'days')} +${fmt(cents(r.fee))}`).join(', ') : 'Off — add a fee for rush jobs';
   },
   where: (t) => {
     const parts = [];
-    if (t.shop?.enabled) parts.push(`Shop on ${t.shop.street}`);
+    if (t.shop?.enabled) parts.push(`Shop at ${t.shop.street}`);
     if (t.home?.enabled) parts.push(`Home visits in ${plural(t.home.zips.length, 'ZIP code', 'ZIP codes')}, ${t.home.fee > 0 ? `${fmt(cents(t.home.fee))} fee` : 'no fee'}`);
     return parts.join(' · ') || 'Not set up yet';
   },
@@ -63,7 +63,7 @@ const SUMMARY = {
     if (t.home?.enabled) parts.push(days('home') ? `Home visits ${plural(days('home'), 'day', 'days')}` : 'Home visits: none set');
     return parts.join(' · ') || 'Not set up yet';
   },
-  payouts: (t) => (t.payouts?.bank && t.payouts?.last4 ? `${t.payouts.bank} ••${t.payouts.last4} · paid Fridays` : 'Not set up yet'),
+  payouts: (t) => (t.payouts?.bank && t.payouts?.last4 ? `${t.payouts.bank} •••• ${t.payouts.last4} · paid Fridays` : 'Not set up yet'),
 };
 const ROWS = [
   { id: 'profile', label: 'Profile' },
@@ -74,14 +74,16 @@ const ROWS = [
   { id: 'availability', label: 'Availability' },
   { id: 'payouts', label: 'Payouts' },
 ];
-const STEP_LABEL = Object.fromEntries(ONBOARDING_STEPS.map((s) => [s.id, s.label]));
+/* CP-T33: what the banner asks her to finish — "Finish your availability …" / the action "Finish availability" */
+const FINISH = { profile: ['your profile', 'profile'], services: ['your services', 'services'], where: ['where you work', 'where you work'],
+  returns: ['your return options', 'return options'], availability: ['your availability', 'availability'], payouts: ['your payouts', 'payouts'] };
 
 function view(s) {
   const t = myTailor();
   const job = s.job;
   const ok = bookable(t);
   const missing = ONBOARDING_STEPS.find((st) => !t.onboarding?.[st.id]);
-  const finishLabel = missing ? STEP_LABEL[missing.id] : 'your setup';
+  const finish = FINISH[missing?.id] ?? ['your setup', 'setup'];
   /* D-161: "Taking requests" sits with the Bookable chip; off, the chip says customers can't send requests */
   const taking = t.takingRequests !== false;
   const status = ok
@@ -89,13 +91,12 @@ function view(s) {
     <p class="${ID}__status">${taking ? statusPill('bookable') : statusPill('paused', 'Paused · customers can’t send requests')}</p>
     ${toggle({ id: 'taking-requests', label: 'Taking requests', checked: taking, helper: taking ? '' : 'Jobs you already booked are not affected.' })}
   </div>`
-    : banner({ tone: 'warning', title: 'Customers can’t book you right now', text: `Finish ${finishLabel} to show up again.`, actionLabel: 'Fix it', actionAct: 'fix' });
+    : banner({ tone: 'warning', title: 'Customers can’t book you right now', text: `Finish ${finish[0]} so customers can book you again.`, actionLabel: `Finish ${finish[1]}`, actionAct: 'fix' });
   const row = previewRow();
-  const caption = !ok
-    ? `Customers can’t find you until ${finishLabel} is finished.`
+  const caption = !ok ? ''   /* CP-T33: the banner above says it */
     : !taking ? ''   /* M7-2-T-04: the Paused pill already says it */
     : row
-      ? `Sample job: ${nameList(job.garments.map((g) => g.type))}, ${lowerFirst(VISIT_LABEL.tailor[job.visitType])}`
+      ? `Example: ${nameList(job.garments.map((g) => g.type))}, ${lowerFirst(VISIT_LABEL.tailor[job.visitType])}`
       : 'Your estimate shows when a customer picks something you price.';
   const rows = ROWS.map((r) => listRow({
     title: r.label,

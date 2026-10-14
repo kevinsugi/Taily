@@ -1,6 +1,6 @@
 /* ============================================================
    to-services — O2 Services and prices (M2-spec §C1). Focal: the
-   service list with the live "You take home $X · Taily fee $Y" under each price (the
+   service list with the live "You take home $X · Taily fee −$Y" under each price (the
    M2 signature: what she takes home after the Taily fee). Two
    modes (D-56): onboarding (stepper + Next) and edit (Shop chrome
    + Save changes). Draft = state.ui['to-services'].draft (D-34);
@@ -22,7 +22,6 @@ import * as A from '../account.js';
 
 const ID = 'to-services';
 const STEP = 'services';
-const LABEL = 'Services and prices';
 const { PRICE_MAX } = TAILOR_LIMITS;
 const IDS = Object.keys(SERVICES);               // catalog order
 const ALL_TYPES = Object.keys(GARMENT_TYPES).length;
@@ -53,7 +52,7 @@ const selectedText = (d) => `${ticked(d).length} selected`;
 /* the lead counts exactly what the preview lists (ticked AND validly priced); at 0 there is no lead (D-71) */
 const listed = (d) => ticked(d).filter((id) => goodPrice(d.prices[id]));
 const leadText = (d) => { const n = listed(d).length; return n ? `${n} ${n === 1 ? 'service' : 'services'} on your profile` : ''; };
-const NONE_NOTE = 'Pick at least one service to continue';
+const NONE_NOTE = 'Pick at least one service to continue.';
 /** One precision for every "You take home" and "Taily fee" in the list (D-70). */
 const takeFmt = (d) => fmtColumn(ticked(d).flatMap((id) => [takeCents(d.prices[id]), feeCents(d.prices[id])]));
 
@@ -103,7 +102,7 @@ function view() {
   const title = '<h1 class="t-title">Services and prices</h1>';
   return `${onboardingHeader({ editing })}
 <main class="body body--with-bar ${ID}">
-  ${editing ? headingRow(title, { backRow: true }) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="${ID}__title">${title}</div>`}
+  ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="${ID}__title">${title}</div>`}
   <p class="t-body c-600 ${ID}__lead">Tick what you do and set your usual price.</p>
   <div class="${ID}__fee"><p class="t-small c-600 ${ID}__take-note" data-money>${feeLine()}</p>${infoButton('fee', { label: 'The Taily fee' })}</div>
   <section class="sec" aria-labelledby="${ID}-list-label">
@@ -249,7 +248,7 @@ function wire(root) {
       ui().busy = false;
       T.setTailorSection(STEP, { prices: cleaned(false) });
       if (state.ui.onboarding) state.ui.onboarding.resumed = false;
-      if (editing) { state.ui[ID] = {}; back() || go('t-shop'); toast(`${LABEL} saved`, { tone: 'success' }); return; }
+      if (editing) { state.ui[ID] = {}; back() || go('t-shop'); toast('Saved. Customers see the change now.', { tone: 'success' }); return; }
       go(ONBOARDING_STEPS[ONBOARDING_STEPS.findIndex((s) => s.id === STEP) + 1].screen);
     });
   }

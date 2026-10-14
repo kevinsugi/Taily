@@ -20,7 +20,6 @@ import {
 } from '../components.js';
 
 const ID = 'to-payouts';
-const LABEL = 'Payouts';
 const ERRORS = {
   'holder-required': 'Enter the name on the account.',
   'routing-invalid': 'Enter the 9-digit routing number.',
@@ -80,10 +79,10 @@ function returnedBanner() {
   if (!failed) return '';
   const first = state.payouts.find((p) => p.state === 'failed');
   const mine = myTailor().payouts;
-  const bank = `${first?.bank || mine?.bank || 'Your bank'} ••${first?.last4 || mine?.last4 || ''}`;
+  const bank = `${first?.bank || mine?.bank || 'Your bank'} •••• ${first?.last4 || mine?.last4 || ''}`;
   return `<div class="${ID}__returned">${banner({
-    tone: 'error', title: `Your <span data-money>${fmtExact(failed.cents)}</span> payout came back`,
-    text: `${esc(bank)} sent it back. Update the account below and we’ll send it again on ${fmtDay(failed.retryDate)}.`,
+    tone: 'error', title: `Your <span data-money>${fmtExact(failed.cents)}</span> payout didn’t go through`,
+    text: `${esc(bank)} returned it. Update the account below and we’ll send it again on ${fmtDay(failed.retryDate)}.`,
   })}</div>`;
 }
 
@@ -98,9 +97,9 @@ function view(s) {
   const bank = bankFor(d.routing);
   const accountHelp = accountHelpFor(d.routing);
   const title = '<h1 class="t-title">How you get paid</h1>';
-  const head = editing ? headingRow(title, { backRow: true }) : `<div class="heading-row"><div class="heading-row__body">${title}</div></div>`;
+  const head = headingRow(title, { back: editing });
   const current = editing && t.payouts?.bank
-    ? `<div class="${ID}__current"><p class="t-caps c-600">Current account</p><p class="t-body w-600 tabular">${esc(t.payouts.bank)} ••${esc(t.payouts.last4)}</p><p class="t-small c-600">Paid every Friday</p></div><p class="t-small w-600 ${ID}__change">Change account</p>` : '';
+    ? `<div class="${ID}__current"><p class="t-caps c-600">Current account</p><p class="t-body w-600 tabular">${esc(t.payouts.bank)} •••• ${esc(t.payouts.last4)}</p><p class="t-small c-600">Paid every Friday</p></div><p class="t-small w-600 ${ID}__change">Change account</p>` : '';
   const fields = `<section class="sec ${ID}__bank" aria-labelledby="${ID}-bank-h">
   ${sectionHead('Your bank account', { id: `${ID}-bank-h` })}
   ${current}
@@ -226,7 +225,7 @@ function wire(root) {
       delete state.ui[ID];
       if (editing) {
         back() || go('t-shop');
-        toast(r.requeued ? `Saved · sending again ${fmtDay(payoutDay(nowIso()))}` : `${LABEL} saved`, { tone: 'success' });
+        toast(r.requeued ? `Saved. Sending again ${fmtDay(payoutDay(nowIso()))}.` : 'Saved. Payouts go to this account.', { tone: 'success' });
       } else if (r.live) {
         go('to-done', { fresh: true });
       } else {

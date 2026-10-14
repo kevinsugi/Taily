@@ -18,11 +18,10 @@ import { RETURN_LABEL } from '../data.js';
 const ID = 'to-returns';
 const SECTION = 'returns';
 const STEP = ONBOARDING_STEPS.findIndex((s) => s.id === SECTION);
-const LABEL = ONBOARDING_STEPS[STEP].label;
 const PREV = ONBOARDING_STEPS[STEP - 1]?.screen ?? 't-phone';
 const NEXT = ONBOARDING_STEPS[STEP + 1]?.screen ?? 'to-done';
 
-const TITLE = '<h1 class="t-title">How do orders get back?</h1>';
+const TITLE = '<h1 class="t-title">How do customers get their orders back?</h1>';
 const KEYS = ['pickup', 'dropoff', 'courier'];
 const ui = () => (state.ui[ID] ??= {});
 const editing = () => !!myTailor().live;
@@ -35,7 +34,7 @@ const ROWS = {
 };
 const NEEDS_SHOP = 'Needs a shop. Turn it on in Where you work.';
 const MSG = {
-  'return-required': 'Pick at least one way to get orders back.',
+  'return-required': 'Pick at least one return option.',
   'pickup-needs-shop': NEEDS_SHOP,
 };
 
@@ -109,7 +108,7 @@ function view() {
   return `${onboardingHeader({ editing: mode })}<main class="body body--with-bar ${ID} ${ID}--${mode ? 'edit' : 'onboarding'}">
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
-  ${mode ? headingRow(TITLE, { backRow: true }) : `<div class="${ID}__title">${TITLE}</div>`}
+  ${mode ? headingRow(TITLE) : `<div class="${ID}__title">${TITLE}</div>`}
   <p class="to-returns__lead t-body c-600">Pick every option you offer.</p>
   <div class="card to-returns__card${err ? ' to-returns__card--error' : ''}" role="group" aria-label="Return options"${err ? ' aria-describedby="returns-msg"' : ''}>${rows}</div>
   <p class="field__msg field__msg--error to-returns__error" id="returns-msg" role="alert"${err ? '' : ' hidden'}>${esc(err)}</p>
@@ -183,7 +182,7 @@ function submit() {
     if (state.ui.onboarding) state.ui.onboarding.resumed = false;
     if (wasEditing) {
       back() || go('t-shop');
-      toast(`${LABEL} saved`, { tone: 'success' });
+      toast('Saved. Customers see the change now.', { tone: 'success' });
     } else {
       go(NEXT);
     }

@@ -4,9 +4,8 @@
    every screen as a deep link (?screen=<id>) with its states as
    links (?flow=<key>). Unbuilt milestones show their counts only.
    ============================================================ */
-import { register, render as go } from '../app.js';
+import { register, render as go, runFlow } from '../app.js';
 import { nowIso } from '../state.js';
-import { runFlow } from '../flow-menu.js';
 import { statusBar, esc } from '../components.js';
 import { fmtWhen } from '../dates.js';
 import { MILESTONES, BUILT, SCREENS } from '../inventory.js';

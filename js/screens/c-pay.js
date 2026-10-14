@@ -9,7 +9,7 @@ import { register, render as go, back } from '../app.js';
 import { state, T, tailorById, openSlots, now, priceChangeView } from '../state.js';
 import {
   flowBar, headingRow, visitBlock, customerBreakdown, infoCard, metaRow, methodRow, actionBar, banner,
-  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList, sectionHead, textLink, infoButton,
+  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, sectionHead, textLink, infoButton,
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
@@ -37,10 +37,10 @@ const GLYPH = {
 function cancelRow(slot, depositCents, first) {
   const terms = cancelTerms({ slot: { start: slot }, payments: { deposit: { cents: depositCents } } }, now());
   if (terms.window === 'late') {
-    return metaRow(GLYPH.warn, `This visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel after ${esc(first)} accepts, the ${money(depositCents)} deposit is kept.`);
+    return metaRow(GLYPH.warn, `This visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel after ${esc(first)} accepts, ${esc(first)} keeps the ${money(depositCents)} deposit.`);
   }
   const cutoff = addMinutes(slot, -POLICY.CANCEL_WINDOW_H * 60);
-  return metaRow(GLYPH.check, `Free cancellation until ${fmtWhen(cutoff)}. After that, the ${money(depositCents)} deposit is kept.`);
+  return metaRow(GLYPH.check, `Free cancellation until ${fmtWhen(cutoff)}. After that, ${esc(first)} keeps the ${money(depositCents)} deposit.`);
 }
 
 /* ---------- data ---------- */
@@ -83,7 +83,7 @@ function visitRows({ t, job, slot }) {
 function orderBlock({ job }, q) {
   if (!q.lines?.length) return '';
   const pseudo = { lines: q.lines, money: q, payments: { deposit: { cents: q.deposit } }, job };
-  const garments = priceChangeView(pseudo, q.lines).garments;
+  const garments = withPhotos(priceChangeView(pseudo, q.lines).garments, job);
   return `<section class="sec" aria-labelledby="pay-h-order">${sectionHead('Your order', { id: 'pay-h-order' })}
   <div class="c-pay__order">${changeList({ garments })}</div></section>`;
 }
@@ -92,7 +92,7 @@ function orderBlock({ job }, q) {
 function alertHtml(r) {
   const u = ui();
   if (u.error === 'declined') {
-    return banner({ tone: 'error', title: 'Your card was declined', text: `${esc(r.method.label)} didn’t go through, and nothing was held.`, actionLabel: 'Use another card', actionAct: 'change-method' });
+    return banner({ tone: 'error', title: 'Your card was declined', text: `${esc(r.method.label)} didn’t go through, and nothing was held.` });
   }
   if (u.error === 'taken') {
     return banner({ tone: 'error', text: 'That time was just taken. Pick another time.', actionLabel: 'Pick a time', actionAct: 'pick-time' });
@@ -329,6 +329,7 @@ let offClick = null;
 
 function wire(root) {
   const u = ui();
+  wirePhotoViewer(root);   // the item rows' customer-photo stacks (K-04)
   /* Back → the time picker (steps history when there is one) */
   const backBtn = root.querySelector('.back[data-act="back"]');
   if (backBtn) {

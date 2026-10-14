@@ -12,8 +12,7 @@
 
 /* item card */
 .job-item { display: flex; flex-direction: column; gap: var(--space-12); }
-.job-item__head { display: flex; align-items: center; gap: var(--space-12); }
-.job-item__type { flex: 1 1 0; min-width: 0; color: var(--ink); }
+.job-item__head .garment-head { margin-bottom: 0; }   /* K-04: name (underlined) → icon, the ✕ at the right (D-206, D-208) */
 .job-item__remove {
   display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; height: 44px;
   margin-right: calc(-1 * var(--space-8)); border-radius: var(--radius-full);

@@ -12,7 +12,7 @@ import {
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList, receiptBlock, wireGarmentDocs, garmentStrip,
+  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
@@ -58,7 +58,7 @@ const visitSection = (a, t) => sec(visitBlock(visitRows(a, t), { title: 'Visit',
 /** The shared detail header (D-93, supersedes R3-1-C-04's pill-above-Back): Back on its own row, then the pill,
     the title and the notes, all flush at the screen padding. */
 function head(a, { pill, pillLabel, title, body = '', variant = 'requested' }) {
-  return headingRow(statusHero({ variant, pill, pillLabel, title, body }), { backRow: true });
+  return headingRow(statusHero({ variant, pill, pillLabel, title, body }));
 }
 
 /* ---------- views ---------- */
@@ -76,17 +76,17 @@ function cancelledView(a, t, first) {
     },
     'customer-late': {
       pill: 'cancelled', label: 'Cancelled', title: 'Booking cancelled',
-      body: `The ${fmtExact(kept)} deposit was kept because you cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit. Nothing else is charged.`,
+      body: `${first} kept the ${fmtExact(kept)} deposit because you cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit. Nothing else is charged.`,
       status: 'Kept',
     },
     'tailor-cant-make-it': {
       pill: 'cancelled', label: `Cancelled by ${first}`, title: `${esc(first)} can’t make it`,
-      body: `${first} cancelled your ${fmtWhen(a.slot.start)} visit. Your ${fmtExact(refund)} deposit is refunded in full, and your job is saved.`,
+      body: `${first} cancelled your ${fmtWhen(a.slot.start)} visit. Your ${fmtExact(refund)} deposit is refunded in full, and your items and services are saved so you can book someone else.`,
       status: 'Refunded',
     },
     'no-show': {
       pill: 'cancelled', label: 'No-show', title: 'Marked as a no-show',
-      body: `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}, ${Math.max(0, Math.round((toDate(a.cancel.at).getTime() - toDate(a.slot.start).getTime()) / 60000))} minutes after the start. The ${fmtExact(kept)} deposit is kept. Nothing else is charged.`,
+      body: `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}, ${Math.max(0, Math.round((toDate(a.cancel.at).getTime() - toDate(a.slot.start).getTime()) / 60000))} minutes after the start. ${first} keeps your ${fmtExact(kept)} deposit. Nothing else is charged. If you were there, message ${first}.`,
       status: 'Kept',
     },
   }[reason] ?? {
@@ -142,8 +142,8 @@ function liveView(a, t, first) {
     { state: 'todo', title: 'Back with you' },
   ]);
   const policy = early
-    ? `Free cancellation until ${cutoff}. After that, the ${money(deposit)} deposit is kept.`
-    : `Less than ${POLICY.CANCEL_WINDOW_H} hours to go: cancelling now keeps the ${money(deposit)} deposit.`;
+    ? `Free cancellation until ${cutoff}. After that, ${esc(first)} keeps the ${money(deposit)} deposit.`
+    : `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel now, ${esc(first)} keeps your ${money(deposit)} deposit.`;
   const links = !confirmed ? '' : `<div class="page-actions__links">${early ? textLink('Reschedule', { act: 'reschedule' }) : ''}${textLink('Cancel booking', { act: 'cancel', tone: 'danger' })}</div>`;
   const late = confirmed && !early ? `<p class="t-small c-600 ${ID}__late">To change the time now, message ${esc(first)}.</p>` : '';
 
@@ -233,7 +233,7 @@ function returnBlock(a, t, first) {
     Every row is 'same' once approved; a garment added at the fitting keeps a small "New item" tag. */
 function orderSection(a, first = 'Amara') {
   const added = new Set(a.job.garments.filter((g) => g.added).map((g) => g.id));
-  const garments = priceChangeView(a, a.lines).garments.map((g) => (added.has(g.id) ? { ...g, newItem: true } : g));
+  const garments = withPhotos(priceChangeView(a, a.lines).garments, a.job).map((g) => (added.has(g.id) ? { ...g, newItem: true } : g));
   return sec(`${sectionHead('Your order')}<div class="${ID}__order">${changeList({ garments, docs: a.priceChange?.docs ?? null, commentLabel: `${first}’s comment` })}</div>`);
 }
 
@@ -249,7 +249,7 @@ function m4View(a, t, first) {
     ready: { title: `${f} finished your order`, body: `Pay the ${fmtExact(a.money.balance)} balance to choose how to get it back.` },
     completed: { title: `All done with ${f}`, body: `${f} completed your order on ${fmtDay(completedAt(a))}.` },
     returning: {
-      pickup: { title: 'Ready for pickup', body: `Pick it up at ${shopName}. You’ve paid in full.` },
+      pickup: { title: `Pick it up at ${shopName}`, body: `It’s ready, and you’ve paid in full.` },
       dropoff: { title: `${f} will drop it off`, body: `${f} will bring it to your door. You’ve paid in full.` },
       courier: { title: 'On its way to you', body: `A Taily courier is bringing it from ${shopName} today. You’ve paid in full.` },
     }[how],
@@ -279,7 +279,8 @@ function m4View(a, t, first) {
     middle = sec(`${sectionHead('Your review')}<div class="${ID}__review">${mine}</div>`, 'sec--first');
   }
   const steps = a.status === 'completed' ? '' : sec(`${sectionHead('What happens next')}${m4Timeline(a, first)}`);
-  const order = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status) && a.lines?.length ? orderSection(a, first) : '';
+  /* D-218: a completed booking's Receipt carries the order (with its photo stacks), so "Your order" is not shown twice */
+  const order = ['in-progress', 'ready', 'returning'].includes(a.status) && a.lines?.length ? orderSection(a, first) : '';
   const actions = a.status === 'completed'
     ? `${cta(`Book ${f} again`, { attrs: 'data-act="book-again"' })}
     <div class="page-actions__links">${textLink(`Message ${f}`, { act: 'message' })}</div>`
@@ -321,11 +322,11 @@ function cancelSheetHtml(a, terms, first, busy = false, error = '') {
   const deposit = a.payments.deposit.cents;
   const rows = early
     ? [{ label: 'Deposit paid', cents: deposit }, { label: 'Refund to your card', cents: terms.refund, kind: 'total' }]
-    : [{ label: 'Deposit paid', cents: deposit }, { label: 'Refund', cents: 0 }, { label: 'Kept', cents: terms.kept, kind: 'total' }];
+    : [{ label: 'Deposit paid', cents: deposit }, { label: 'Refund', cents: 0 }, { label: `Kept by ${first}`, cents: terms.kept, kind: 'total' }];
   const text = early
     ? `You’re cancelling more than ${POLICY.CANCEL_WINDOW_H} hours before the visit, so your ${money(terms.refund)} deposit comes back in full.`
-    : `This visit is less than ${POLICY.CANCEL_WINDOW_H} hours away, so the ${money(terms.kept)} deposit is kept. It pays ${esc(first)} for the time set aside. Nothing else is charged.`;
-  const label = early ? `Cancel and get ${fmtExact(terms.refund)} back` : `Cancel booking (${fmtExact(terms.kept)} not refunded)`;
+    : `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel now, ${esc(first)} keeps your ${money(terms.kept)} deposit for the time set aside. Nothing else is charged.`;
+  const label = early ? `Cancel and get ${fmtExact(terms.refund)} back` : `Cancel and lose the ${fmtExact(terms.kept)} deposit`;
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   <p class="t-body c-700">${text}</p>
   ${moneyRows(rows)}
@@ -433,6 +434,7 @@ function openReschedule(a, first) {
 function wire(root) {
   if (redirectIfMoved(ID, go, { has: (id) => registered().includes(id) })) return;
   const a = focusAppt(ID);
+  wirePhotoViewer(root);   // the customer-photo stack of an item with no fitting photos (K-04)
 
   const backBtn = root.querySelector('.back[data-act="back"]');
   if (backBtn) {

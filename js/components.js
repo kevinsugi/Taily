@@ -50,7 +50,7 @@ const LOGO = `<svg class="top-nav__logo" viewBox="0 0 131.5 60.74" width="74" he
     The tailor flow passes its own items (Home / Calendar / Shop). */
 export const NAV = {
   customer: [['home', 'Home'], ['bookings', 'Bookings'], ['messages', 'Messages'], ['account', 'Account']],
-  tailor: [['home', 'Home'], ['shop', 'Shop'], ['earnings', 'Earnings'], ['messages', 'Messages']],
+  tailor: [['home', 'Home'], ['shop', 'Shop'], ['messages', 'Messages'], ['earnings', 'Earnings']],   // K-04 / CR-6b: Messages before Earnings
 };
 /**
  * Top nav (M7 A5.2, D-187): the logo and four 44 x 44 ICON links. The label is the link's aria-label + title. `badges` (D-164):
@@ -120,12 +120,13 @@ import { statusWord } from './focus.js';
 /**
  * CTA — variant: 'default' | 'secondary' | 'danger' (error fill + white text: the ONE filled button of a destructive confirm sheet, D-79).
  * `disabled` emits `disabled aria-disabled="true"`. `busy` = a spinner + `busyLabel` (else the label),
- * `aria-busy="true"` and disabled; the spinner does not rotate under reduced motion / html.is-test.
+ * `aria-busy="true"` and `aria-disabled` (not `disabled`, AU-P1-2c: handlers guard on [aria-busy]); the spinner does not rotate under reduced motion / html.is-test.
  */
 export function cta(label, { variant = 'default', disabled = false, busy = false, busyLabel = '', attrs = '', softDisabled = false } = {}) {
   const cls = ['cta', variant === 'secondary' ? 'cta--secondary' : '', variant === 'danger' ? 'cta--danger' : '', disabled || softDisabled ? 'cta--disabled' : '', busy ? 'cta--busy' : ''].filter(Boolean).join(' ');
   /* M7 (D-196): `softDisabled` looks disabled and says so (aria-disabled) but has no `disabled` attribute, so a tap reaches the screen */
-  const off = disabled || busy ? ` disabled aria-disabled="true"${busy ? ' aria-busy="true"' : ''}` : softDisabled ? ' aria-disabled="true"' : '';
+  /* AU-P1-2c: a busy button stays focusable (aria-disabled + aria-busy, NOT `disabled`) so keyboard focus survives the repaint; every handler guards on [aria-busy] */
+  const off = busy ? ' aria-disabled="true" aria-busy="true"' : disabled ? ' disabled aria-disabled="true"' : softDisabled ? ' aria-disabled="true"' : '';
   const inner = busy ? `<span class="cta__spinner" aria-hidden="true"></span><span>${busyLabel || label}</span>` : label;
   return `<button type="button" class="${cls}"${off} ${attrs}>${inner}</button>`;
 }
@@ -142,8 +143,9 @@ const PILL_VARIANTS = {
   'completed':             { tone: 'done',     label: 'Completed' },
   'declined':              { tone: 'stop',     label: 'Declined' },
   'cancelled':             { tone: 'stop',     label: 'Cancelled' },
-  'new-request':           { tone: 'pending',  label: 'New Request' },
-  'awaiting-customer':     { tone: 'pending',  label: 'Awaiting Customer' },
+  /* K-04 / CR-4a (D-211): a request waiting on the tailor is her move, so it takes the action tone */
+  'new-request':           { tone: 'action',   label: 'New request' },
+  'awaiting-customer':     { tone: 'pending',  label: 'Awaiting customer' },
   'tailoring':             { tone: 'progress', label: 'Tailoring' },
   /* v5 statuses (state machine ids) map onto the same tones */
   /* R3-2-C-05 (D-95): the one state that waits on the CUSTOMER is the loudest — an accent dot with a halo and a bold word */
@@ -177,8 +179,8 @@ export function timeChip(label, { selected = false, attrs = '' } = {}) {
   return `<button type="button" class="chip${selected ? ' chip--selected' : ''}" ${attrs}>${label}</button>`;
 }
 
-/** Select Time trigger — label + chevron. */
-export function selectTime(label = 'Select Time', { attrs = '' } = {}) {
+/** Select time trigger — label + chevron. */
+export function selectTime(label = 'Select time', { attrs = '' } = {}) {
   return `<button type="button" class="select-time" ${attrs}>${label}${CHEVRON_DOWN}</button>`;
 }
 
@@ -288,10 +290,11 @@ export function statusHero({ variant = 'requested', pill, pillLabel, title, titl
   const parts = [];
   /* `pillLabel` (R7): a custom pill caption on the same variant —
      03/Reminder's "Confirmed · fee non-refundable" once the visit is confirmed */
-  if (pill !== false) parts.push(statusPill(pill ?? PILL_FOR[variant], pillLabel));
+  /* K-04 / D-203: the pill is wrapped in a <!--status--> marker so headingRow() can lift it onto its own line ABOVE the Back + title row */
+  if (pill !== false) parts.push(`<!--status-->${statusPill(pill ?? PILL_FOR[variant], pillLabel)}<!--/status-->`);
   if (title) parts.push(`<h1 class="status-hero__title${titleWeight === 600 ? ' w-600' : ''}${titleColor ? ` c-${titleColor}` : ''}">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h1>`);
   /* round 16 (Kevin): the explanation (body + extra) is its own block —
-     headingRow() lifts it out of the Back row so it sits at the screen
+     headingRow() lifts it out of the Back + title row so it sits at the screen
      padding, not under the title (the markers are its handle) */
   const notes = [];
   if (body) notes.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
@@ -332,7 +335,7 @@ export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [],
 /* round 16: `title` — 03 / Delivery Scheduled's "Delivery Details" */
 /* R1-1-C-08: `flush` sits the block at the screen's 20 px gutter (no side padding, rows wrap at full width);
    `action` = HTML for a 44 px text button in the title row (c-pay's "Change time"). */
-export function visitBlock(rows = [], { title = 'Visit Details', flush = false, action = '' } = {}) {
+export function visitBlock(rows = [], { title = 'Visit details', flush = false, action = '' } = {}) {
   /* M7 (A5.5): the title is a small caps section head (`action` = HTML aside, e.g. a "Change time" text link); rows sit flat under it */
   return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${sectionHead(title, { aside: action })}${rows.map((r) => `<span class="visit-block__row">${r}</span>`).join('')}</div>`;
 }
@@ -342,20 +345,33 @@ export function visitBlock(rows = [], { title = 'Visit Details', flush = false, 
     centred), round 15: every heading but Home's. The router wires every
     `.back` to step the prototype's history (app.js wireBackButtons). */
 export const backButton = () => '<button type="button" class="back" data-act="back" data-hit="inline" aria-label="Back">‹</button>';
-/* round 16 (Kevin): the Back sits beside the pill + title only; the
-   explanation block (statusHero's notes, or a screen's own
-   `<!--notes-->…<!--/notes-->` block) follows the row at the padding. */
-/* `backRow` (R3-2-C-02, D-93): the detail-screen header — the Back on its own 44 px row (the M1 c-tailor
-   pattern), then the pill, the title and the notes all flush at the screen padding. One anatomy for c-request,
-   c-booking, t-request and t-job; `back: false` keeps the same stack with no Back row. */
-export function headingRow(inner, { back = true, backRow = false } = {}) {
-  const m = /<!--notes-->([\s\S]*?)<!--\/notes-->/.exec(inner);
-  const notes = m ? m[1] : '';
-  const head = m ? inner.replace(m[0], '') : inner;
-  if (backRow) {
-    return `${back ? `<div class="heading-row heading-row--back">${backButton()}</div>` : ''}<div class="heading-stack">${head}</div>${notes}`;
-  }
-  return `<div class="heading-row">${back ? backButton() : ''}<div class="heading-row__body">${head}</div></div>${notes}`;
+/* K-04 (Kevin, D-203): the heading anatomy on every screen that has one.
+     1. the status line (the 8 px dot + word) on its own line, when the screen has one — `statusHero` hands its pill up through
+        a <!--status--> marker, any other screen passes `status`;
+     2. ONE row = the Back chevron + the `h1`. The chevron's 44 px hit box is pulled 12 px into the gutter so the glyph sits on the
+        20 px text edge; the title starts 4 px after the box and wraps beside it; the chevron is centred on the title's FIRST line;
+     3. the notes (statusHero's body + extra, or a screen's own <!--notes-->…<!--/notes--> block) at the screen padding, full width.
+   `back: false` keeps the title alone (tab roots, the booking path whose Back is in the flow bar, D-205). `trailing` = HTML at the
+   row's right end (t-job's •••). `sticky` pins the row to the top while the page scrolls (the thread screens, AU-P2-4). Anything
+   between the status and the `h1` (an eyebrow) rides with the status line; anything after the `h1` (statusHero's figure row) follows
+   the row at the padding. A head whose `h1` is nested in a larger block (`threadHead`, c-tailor's avatar + name) takes `whole: true` (the
+   thread head is detected): the block is the row's body and the chevron centres on all of it. */
+export function headingRow(inner, { back = true, status = '', trailing = '', sticky = false, whole = false } = {}) {
+  const n = /<!--notes-->([\s\S]*?)<!--\/notes-->/.exec(inner);
+  const notes = n ? n[1] : '';
+  let head = n ? inner.replace(n[0], '') : inner;
+  const st = /<!--status-->([\s\S]*?)<!--\/status-->/.exec(head);
+  const statusHtml = `${status}${st ? st[1] : ''}`;
+  if (st) head = head.replace(st[0], '');
+  const wrap = /^\s*<div class="status-hero[^"]*">([\s\S]*)<\/div>\s*$/.exec(head);   // statusHero's own column: its parts become the row's parts
+  if (wrap) head = wrap[1];
+  let lead = ''; let body = head; let after = '';
+  const h1 = /<h1\b[\s\S]*?<\/h1>/.exec(head);
+  const wholeHead = whole || /class="thread-head"/.test(head);
+  if (h1 && !wholeHead) { lead = head.slice(0, h1.index); body = h1[0]; after = head.slice(h1.index + h1[0].length); }
+  const top = `${statusHtml}${lead}`.trim();
+  const cls = `heading-row${back ? '' : ' heading-row--solo'}${wholeHead ? ' heading-row--head' : ''}${sticky ? ' heading-row--sticky' : ''}`;
+  return `${top ? `<div class="heading-lead">${top}</div>` : ''}<div class="${cls}">${back ? backButton() : ''}<div class="heading-row__body">${body}</div>${trailing ? `<div class="heading-row__trail">${trailing}</div>` : ''}</div>${after.trim() ? `<div class="heading-after">${after}</div>` : ''}${notes}`;
 }
 
 /** ✓ badges (round 14): success-bg pills, 12/16 SemiBold success. */
@@ -933,7 +949,7 @@ export function verifiedMark({ act = 'verified', inert = false } = {}) {
     : `<button type="button" class="verified" data-act="${esc(act)}" data-hit="inline" aria-haspopup="dialog">${inner}</button>`;   /* M7-2-C-03: 20 px visible, a ::before carries the 44 px target */
 }
 /** "Verified by Taily" sheet: ID verified · Background check · Insured, one line each (labels = TRUST_BADGES). */
-const VERIFIED_LINES = ['Taily checked a government ID.', 'Cleared before the first booking.', 'Covered while working on your garments.'];
+const VERIFIED_LINES = ['Taily checked a government ID.', 'Passed a background check before their first booking.', 'Covered while working on your garments.'];
 /** The sheet's body (also the gallery's static specimen). */
 export function verifiedSheetHtml() {
   const rows = TRUST_BADGES.map((label, i) => `<li class="verified-item"><span class="verified-item__icon">${ICON_VERIFIED}</span><span class="verified-item__text"><span class="t-body w-600">${esc(label)}</span><span class="t-small c-600">${VERIFIED_LINES[i] ?? ''}</span></span></li>`).join('');
@@ -967,7 +983,7 @@ const INFO = {
   deposit: () => ({ title: 'About the deposit', lines: [
     'The deposit is held on your card, and charged only when the tailor accepts.',
     'It comes off your final total.',
-    `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the deposit is kept.`] }),
+    `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the tailor keeps the deposit.`] }),
   fitting: (c) => ({ title: 'At the fitting', lines: [
     'You can add or remove items and services, and change prices.',
     `${c.first || 'The customer'} approves the final order before you start.`] }),
@@ -1048,7 +1064,9 @@ export function photoStub({ type = '', tone = 0, size = 'thumb', kind = 'photo',
 /* ---------- avatar ---------- */
 /** Avatar (M7 A5.4, D-199) — a circle: initials on the warm tint. size 'sm' 40 | 'md' 56 | 'lg' 80. A real photo wins over initials;
     `photo: true` = the prototype's "added photo": the same tinted circle with the initials (a camera glyph when there are none yet). Decorative. */
-export function avatar({ initials = '', photo = null, size = 'sm' } = {}) {
+export function avatar({ initials = '', photo = null, size = 'sm', glyph = false } = {}) {
+  /* `glyph` (CR-m4): an empty well shows the hanger until initials exist (the customer preview of a profile being written) */
+  if (glyph && !photo) return `<span class="avatar avatar--${size} avatar--glyph" aria-hidden="true">${initials ? esc(initials) : ICON_HANGER}</span>`;
   if (photo === true) {
     const inner = initials ? esc(initials) : ICON_CAMERA;
     return `<span class="avatar avatar--${size} avatar--photo avatar--placeholder" aria-hidden="true">${inner}</span>`;
@@ -1062,7 +1080,7 @@ export function avatar({ initials = '', photo = null, size = 'sm' } = {}) {
  * Tailor Row — one card per tailor in "Tailors near you".
  * `quote` is the quote() object in cents ({ total, homeFee, rush }) or a bare total.
  * States: default · rush (adds the "+ $40 rush fee" caption) · declined (dimmed,
- * "Declined this job", aria-disabled, no action). Skeleton: skeleton({ kind: 'tailor-row' }).
+ * "Declined this request", aria-disabled, no action). Skeleton: skeleton({ kind: 'tailor-row' }).
  */
 export function tailorRow({ id, name, initials, photo = null, verified = false, rating = null, distanceMi = null, quote = 0, nextOpening = null, visitType = 'home', declined = false, format = fmt, booked = '' } = {}) {
   const q = typeof quote === 'number' ? { total: quote } : (quote ?? {});
@@ -1087,7 +1105,7 @@ export function tailorRow({ id, name, initials, photo = null, verified = false, 
     </span>
   </span>
   ${!declined && (captions.length || nextOpening) ? `<span class="tailor-row__lower">${captions.length ? `<span class="tailor-row__captions" data-money>${captions.map((c) => `<span class="tailor-row__caption">${c}</span>`).join('')}</span>` : ''}${nextOpening ? `<span class="tailor-row__next">Next opening ${fmtWhen(nextOpening)}</span>` : ''}</span>` : ''}
-  ${declined ? '<span class="tailor-row__note">Declined this job</span>' : ''}
+  ${declined ? '<span class="tailor-row__note">Declined this request</span>' : ''}
   ${!declined && booked ? `<span class="tailor-row__booked">${booked}</span>` : ''}
 </button>`;
 }
@@ -1115,10 +1133,6 @@ export function stars({ value = 0, input = false, name = 'stars' } = {}) {
   }
   return `<span class="stars stars--input" role="radiogroup" aria-label="Your rating" data-stars>${[1, 2, 3, 4, 5].map((n) => `<label class="stars__opt${n <= v ? ' is-filled' : ''}"><input class="stars__input" type="radio" name="${esc(name)}" value="${n}" aria-label="${n} star${n === 1 ? '' : 's'}"${n === v ? ' checked' : ''}><span class="stars__star" aria-hidden="true">${STAR_PATH}</span></label>`).join('')}</span>`;
 }
-/** @deprecated M7 (D-190) — the rating prints once, as ratingLine(). Kept so unmigrated screens still render. */
-export function ratingSummary({ avg = 0, count = 0 } = {}) {
-  return ratingLine({ avg, count });
-}
 /** A review photo is always a garment (D-194): when the review names none, cycle the catalog so the hanger never shows. */
 function reviewPhotoType(i) {
   const keys = Object.keys(GARMENT_TYPES);
@@ -1142,11 +1156,12 @@ export function reviewRow({ name, initials, stars: rating = 0, date, text = '', 
  * Countdown — time left on a request. No interval (D-09): the text is drawn from
  * the demo clock the screen passes in. normal · soon (<= EXPIRING_SOON_MIN, warning) · expired (error).
  */
-export function countdown({ expiresAt, now, suffix = 'left' } = {}) {
+export function countdown({ expiresAt, now, suffix = 'left', tail = '', line = false } = {}) {
   const ms = toMs(expiresAt) - toMs(now);
   const state = ms <= 0 ? 'expired' : ms <= POLICY.EXPIRING_SOON_MIN * 60000 ? 'soon' : 'normal';
-  const text = state === 'expired' ? 'Expired' : `${fmtCountdown(ms)}${suffix ? ` ${suffix}` : ''}`;
-  return `<span class="countdown countdown--${state}" role="timer" data-countdown data-state="${state}">${text}</span>`;
+  const text = state === 'expired' ? 'Expired' : `${fmtCountdown(ms)}${suffix ? ` ${suffix}` : ''}${tail ? ` · ${esc(tail)}` : ''}`;
+  /* `line` (CR-4b): the countdown as the screen's one deadline line, "2h left · answer by 12:00 PM" (t-body 600, accent ink) */
+  return `<span class="countdown countdown--${state}${line ? ' countdown--line' : ''}" role="timer" data-countdown data-state="${state}">${text}</span>`;
 }
 
 /* ---------- chat ---------- */
@@ -1273,7 +1288,7 @@ export function chipGroup({ name, label = '', options = [], value = null, multi 
 /**
  * Stepper — `variant: 'default'` is "Step 2 of 6 · Services prices" over progress segments (tailor onboarding);
  * `'compact'` is the booking progress: one non-interactive row of segments (done ink / current accent-ink /
- * todo neutral-200) with sr-only labels, `aria-current="step"` on the current one and a right-aligned "2 of 5".
+ * todo neutral-200) with sr-only labels, `aria-current="step"` on the current one, under a "Step 2 of 5 · Where and when" label (K-04 / CR-6a, D-211).
  * `steps`: labels or { id, label }; `current` an index or id; `done` indices or ids.
  */
 export function stepper({ steps = [], current = 0, done = [], variant = 'default' } = {}) {
@@ -1283,8 +1298,8 @@ export function stepper({ steps = [], current = 0, done = [], variant = 'default
   const state = (i) => (i === ci ? 'current' : (done.includes(i) || done.includes(ids[i])) ? 'done' : 'todo');
   if (variant === 'compact') {
     return `<nav class="stepper stepper--compact" aria-label="Booking progress">
+  <p class="stepper__count t-small c-700 w-600">Step ${ci + 1} of ${steps.length} · ${esc(labels[ci] ?? '')}</p>
   <ol class="stepper__bar">${steps.map((_, i) => `<li class="stepper__seg stepper__seg--${state(i)}"${i === ci ? ' aria-current="step"' : ''}><span class="sr-only">${esc(labels[i])}</span></li>`).join('')}</ol>
-  <span class="stepper__count t-small c-600 w-600">${ci + 1} of ${steps.length}</span>
 </nav>`;
   }
   return `<div class="stepper">
@@ -1310,13 +1325,14 @@ export function bookingSteps(current = 0) {
  */
 export function actionBar({ ctaLabel = '', ctaAct = '', disabled = false, softDisabled = false, busy = false, busyLabel = '', lead = '', note = '', secondaryLabel = '', secondaryAct = '', tertiaryLabel = '', tertiaryAct = '', tertiaryTone = 'default' } = {}) {
   const noteId = `action-bar-note-${ctaAct || 'cta'}`;
-  const describe = (disabled || softDisabled) && note ? ` aria-describedby="${noteId}"` : '';
+  const leadId = `action-bar-lead-${ctaAct || 'cta'}`;
+  const describe = (disabled || softDisabled) && (note || lead) ? ` aria-describedby="${note ? noteId : leadId}"` : '';
   /* M7 (A5.9, D-195): the secondary and tertiary are text links under the one filled primary, in one centred row */
   const second = secondaryLabel ? textLink(secondaryLabel, { act: secondaryAct, disabled: busy }) : '';
   const third = tertiaryLabel ? textLink(tertiaryLabel, { act: tertiaryAct, tone: tertiaryTone === 'danger' ? 'danger' : 'default', disabled: busy }) : '';
   return `<div class="action-bar${busy ? ' action-bar--busy' : ''}">
-  ${lead ? `<p class="action-bar__lead t-small c-600">${lead}</p>` : ''}
-  ${cta(ctaLabel, { disabled, softDisabled, busy, busyLabel, attrs: `data-act="${ctaAct}"${describe}` })}
+  ${lead ? `<p class="action-bar__lead t-small c-600" id="${leadId}">${lead}</p>` : ''}
+  ${ctaLabel ? cta(ctaLabel, { disabled, softDisabled, busy, busyLabel, attrs: `data-act="${ctaAct}"${describe}` }) : ''}
   ${second || third ? `<div class="action-bar__links">${second}${third}</div>` : ''}
   ${note ? `<p class="action-bar__note t-small c-600" id="${noteId}">${note}</p>` : ''}
 </div>`;
@@ -1440,7 +1456,7 @@ export function receiptBlock(a, tailorFirst = '') {
   const cardLine = paid > 0 ? `Balance paid with ${balanceCardLabel(a)}.`
     : refund > 0 ? `${fmtExact(refund)} refunded to ${balanceCardLabel(a, a.cardId)}.` : '';
   /* M7-1-C-05: what was paid for — the approved lines with their garments — between the return line and the totals */
-  const order = a.lines?.length ? `<div class="receipt__order">${changeList({ garments: priceChangeView(a, a.lines).garments })}</div>` : '';
+  const order = a.lines?.length ? `<div class="receipt__order">${changeList({ garments: withPhotos(priceChangeView(a, a.lines).garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: `${tailorFirst || 'Tailor'}’s comment` })}</div>` : '';
   return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', dropoff: 'home', courier: 'truck' }[how] })}</div>
   ${stitchDivider()}
   ${order}
@@ -1617,8 +1633,8 @@ export function textArea({ id, label, value = '', rows = 4, max, helper = '', er
  * line on its own full-width line under the row, aligned with the service name (`data-take`; hidden while null; M6-V-01). `payoutText` = the amount already formatted for its column (money.js `fmtColumn`, D-70); default `fmt(payoutCents)`.
  * states: unchecked · checked, empty · checked with price + payout · error.
  */
-/** "You take home $22.50 · Taily fee $2.50" — two nowrap halves, so a narrow column breaks at the dot, never inside an amount (D-172). */
-export const takeHtml = (take, fee = '') => `<span class="service-row__part">You take home ${take}${fee ? '\u00a0·' : ''}</span>${fee ? ` <span class="service-row__part">Taily fee ${fee}</span>` : ''}`;
+/** "You take home $22.50 · Taily fee −$2.50" (CP-S03; the fee is a deduction, as fmtNeg prints it) — two nowrap halves, so a narrow column breaks at the dot, never inside an amount (D-172). */
+export const takeHtml = (take, fee = '') => `<span class="service-row__part">You take home ${take}${fee ? '\u00a0·' : ''}</span>${fee ? ` <span class="service-row__part">Taily fee −${fee}</span>` : ''}`;
 export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', feeText = '', error = '' } = {}) {
   const takeHidden = payoutCents == null;
   /* caption as a list (garment types) → one nowrap span per item with its " ·" kept inside (no-break space), and a plain
@@ -1699,7 +1715,7 @@ export function miniProfile({ name = '', initials = '', photo = null, shopName =
   const n = String(name ?? '').trim();
   const sh = String(shopName ?? '').trim();
   return `<div class="mini-profile${bio == null ? '' : ' mini-profile--bio'}">
-  ${avatar({ initials, photo, size: 'md' })}
+  ${avatar({ initials, photo, size: 'md', glyph: true })}
   <div class="mini-profile__text">
     <p class="t-body w-600${n ? '' : ' c-500'}" data-pv="name">${esc(n || 'Your name')}</p>
     <p class="t-small c-600" data-pv="shop"${sh ? '' : ' hidden'}>${esc(sh)}</p>
@@ -1712,16 +1728,16 @@ export function miniProfile({ name = '', initials = '', photo = null, shopName =
     dropoff, courier }. `empty` (string) renders when nothing is ticked; '' renders nothing. */
 export function returnsRows(returns = {}, { empty = '' } = {}) {
   const rows = [];
-  if (returns?.pickup) rows.push(metaRow('', 'In-store pickup — free', { icon: 'bag' }));
-  if (returns?.dropoff) rows.push(metaRow('', 'Home drop-off — free', { icon: 'home' }));
+  if (returns?.pickup) rows.push(metaRow('', 'In-store pickup · Free', { icon: 'bag' }));
+  if (returns?.dropoff) rows.push(metaRow('', 'Home drop-off · Free', { icon: 'home' }));
   if (returns?.courier) rows.push(metaRow('', 'Taily courier — priced when your order is ready, before you pay', { icon: 'truck' }));
   if (!rows.length) return empty ? `<p class="returns-rows returns-rows--empty t-body c-600">${esc(empty)}</p>` : '';
   return `<div class="returns-rows">${rows.join('')}</div>`;
 }
 
 /**
- * Rush ladder — the one-line rush-fee ladder ("ready within 1 day of the visit +$40 · 2 days +$25 · … · 4+ days no
- * rush fee"). One nowrap span per tier, so the line breaks between tiers, never inside one. `rush` = [{ days, fee }]
+ * Rush ladder — the one-line rush-fee ladder ("need-by 1 day after the visit +$40 · 2 days after +$25 · … · 4+ days after no
+ * rush fee", CP-S02). One nowrap span per tier, so the line breaks between tiers, never inside one. `rush` = [{ days, fee }]
  * (fee in whole dollars). Empty → "No rush fees."
  */
 export function rushLadder(rush = []) {
@@ -1729,8 +1745,8 @@ export function rushLadder(rush = []) {
   if (!ladder.length) return '<span class="rush-ladder" data-money>No rush fees.</span>';
   /* M7 (A5.15): a flat two-column list — the window left, the fee right — never a "·" chain */
   const tier = (left, right) => `<span class="rush-tier"><span class="rush-tier__when">${left}</span><span class="rush-tier__fee">${right}</span></span>`;
-  const rows = ladder.map((r, i) => tier(i === 0 ? `Ready within ${r.days} day${r.days === 1 ? '' : 's'}` : `Within ${r.days} day${r.days === 1 ? '' : 's'}`, `+${fmt(cents(r.fee))}`));
-  rows.push(tier(`${ladder[ladder.length - 1].days + 1}+ days`, 'No rush fee'));
+  const rows = ladder.map((r, i) => tier(i === 0 ? `Need-by ${r.days} day${r.days === 1 ? '' : 's'} after the visit` : `${r.days} day${r.days === 1 ? '' : 's'} after`, `+${fmt(cents(r.fee))}`));
+  rows.push(tier(`${ladder[ladder.length - 1].days + 1}+ days after`, 'No rush fee'));
   return `<span class="rush-ladder" data-money>${rows.join('')}</span>`;
 }
 
@@ -1766,8 +1782,9 @@ export function requestCard({ id = '', act = 'open-request', name = '', initials
   const soon = ms != null && ms > 0 && ms <= POLICY.EXPIRING_SOON_MIN * 60000;
   const waiting = `Waiting on ${waitingOn || 'customer'}`;
   const pill = suggested ? statusPill('waiting', esc(waiting)) : '';
-  /* D-154: a suggested time lapses (`lapseAt`) — the same clock a request has, so she sees how long Sarah has */
-  const right = suggested ? (lapseAt ? countdown({ expiresAt: lapseAt, now }) : '') : countdown({ expiresAt, now });
+  /* D-154: a suggested time lapses (`lapseAt`) — the same clock a request has, so she sees how long Sarah has.
+     K4-2-01 (D-219): the long "… for Sarah to answer" clock takes its own line under the visit and place, so it never squeezes them at 320 */
+  const right = suggested ? (lapseAt ? countdown({ expiresAt: lapseAt, now, suffix: `for ${esc(waitingOn || 'the customer')} to answer` }) : '') : countdown({ expiresAt, now });
   const label = `${name}, ${suggested ? `you suggested ${when}` : when}, you take home ${fmtExact(payoutCents)}, ${suggested ? `${waiting}${right ? `, ${right.replace(/<[^>]+>/g, '')}` : ''}` : right.replace(/<[^>]+>/g, '')}`;
   return `<button type="button" class="request-card card${soon ? ' request-card--soon' : ''}${suggested ? ' request-card--suggested' : ''}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">
   <span class="request-card__top">
@@ -1775,8 +1792,9 @@ export function requestCard({ id = '', act = 'open-request', name = '', initials
     <span class="request-card__who">
       <span class="request-card__name t-body w-600">${esc(name)}${retries > 0 ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}</span>
       <span class="request-card__where t-small c-600"><span class="request-card__visit">${esc(visitLabel)}</span><span class="request-card__place">${esc(String(place).replace(/\s·\s/g, '\u2009'))}</span></span>
+      ${suggested && right ? `<span class="request-card__lapse">${right}</span>` : ''}
     </span>
-    ${right ? `<span class="request-card__status">${right}</span>` : ''}
+    ${!suggested && right ? `<span class="request-card__status">${right}</span>` : ''}
   </span>
   <span class="request-card__work t-small c-700">${pill ? `<span class="request-card__pill">${pill}</span>` : ''}<span class="request-card__when w-600">${suggested ? 'You suggested ' : ''}${esc(when)}</span>${asked ? `<span class="c-600">${esc(asked)}</span>` : ''}<span class="request-card__count">${garment ? garmentIcon(garment, { size: 'row' }) : ''}<span>${plural(items, 'item')} · ${plural(services, 'service')}</span></span></span>
   <span class="request-card__pay" data-money>
@@ -1788,17 +1806,17 @@ export function requestCard({ id = '', act = 'open-request', name = '', initials
 
 /** "The work" list (R3-1-T-05): garments with their services and the estimate. One render for t-request and t-job.
     `v` = requestView(appt). Every amount prints with cents (D-98): the screen's payout breakdown below is exact, and one figure
-    keeps one precision per screen. A garment with photos shows a tappable 44 px thumbnail + count after its name
-    (`data-act="view-photo"`, wired by `wirePhotoViewer`, R3-2-T-11). */
-export function workList(v, { final = false, estimateLabel = 'Estimate from your prices', docs = false, commentLabel = 'Your comment' } = {}) {
+    keeps one precision per screen. K-04 (D-206 / D-207): each garment head is `garmentHead` (name, underlined, then the icon) with the
+    photo stack at its right end: the fitting photos once the garment has them (`docs: true`, `g.docs`), else the customer's own
+    (`g.photos`), tapped through `wirePhotoViewer` / `wireGarmentDocs`. */
+export function workList(v, { final = false, estimateLabel = 'Estimate from your prices', docs = false, commentLabel = 'Your comment', photoOwner = '' } = {}) {
   /* M6-P-07: a `final` list (the work is over: declined, cancelled, completed, expired) has no estimate row; `estimateLabel: null`
      drops it too, for a screen whose payout breakdown follows (Services and the total are printed there).
-     K-02: every garment head carries its illustration (garmentIcon); `docs: true` adds the Before | Pinned photos and the comment
-     from `g.docs` after the garment's service rows. */
+     K-02: `docs: true` adds the tailor's comment from `g.docs` after the garment's service rows. */
   const showEstimate = !final && estimateLabel !== null;
-  const groups = v.garments.map((g) => `<div class="work-list__garment">
-    <div class="work-list__top"><span class="work-list__title">${garmentIcon(g.type)}<p class="t-body w-600 work-list__head">${esc(g.type)}</p></span>
-    ${g.photos ? `<button type="button" class="work-list__photo" data-act="view-photo" data-type="${esc(g.type)}" data-count="${g.photos}" aria-label="View ${g.photos === 1 ? '1 photo' : `${g.photos} photos`} of the ${esc(g.type)}">${photoTile('photo', { type: g.type })}<span class="t-small c-700">${g.photos} ${g.photos === 1 ? 'photo' : 'photos'}</span></button>` : ''}</div>
+  const owner = photoOwner || `${String(v.customer?.name || 'The customer').split(' ')[0]}’s`;
+  const groups = v.garments.map((g) => `<div class="work-list__garment" data-garment="${esc(g.id)}">
+    ${garmentHead({ type: g.type, photos: stackFor(g, { docs: docs ? g.docs : null, owner }) })}
     ${g.services.map((sv) => priceRow({ label: sv.label, cents: sv.cents, format: fmtExact })).join('')}
     ${docs && g.docs ? garmentDocs({ garmentId: g.id, type: g.type, docs: g.docs, commentLabel, idPrefix: 'work' }) : ''}
   </div>`).join('');
@@ -1811,13 +1829,15 @@ export function openPhotoViewer({ title = 'Photos', count = 1, type = '' } = {})
     `<figure class="photo-viewer__item"><div class="photo-viewer__img" role="img" aria-label="Photo ${i + 1} of ${count}: ${esc(title)} (placeholder)">${photoStub({ type, tone: i, size: 'stage' })}</div><figcaption class="t-small c-600">${i + 1} of ${count}</figcaption></figure>`).join('');
   return sheetOverlay(`<div class="photo-viewer">${items}</div>`, { header: esc(title), dataS: 'photo-viewer', confirm: false });
 }
-/** Wire `[data-act="view-photo"]` buttons (workList) to the viewer. Call from a screen's `wire`. */
+/** Wire the placeholder photo viewer. Call from a screen's `wire`. Routes `[data-act="view-photo"]` (a chat photo, a "more work" tile) and the
+    customer-photos `photoStack` (`[data-act="view-photos"][data-source="customer"]`, K-04 / D-207); the fitting stack goes to `wireGarmentDocs`. */
 export function wirePhotoViewer(root) {
   root.addEventListener('click', (e) => {
-    const el = e.target.closest('[data-act="view-photo"]');
+    const stack = e.target.closest('[data-act="view-photos"][data-source="customer"]');
+    const el = stack ?? e.target.closest('[data-act="view-photo"]');
     if (!el || e.target.closest('.screen-sheet--overlay')) return;
-    /* chat bubbles carry a ready-made data-title; garment thumbnails build "<type> · photos" */
-    openPhotoViewer({ title: el.dataset.title || `${el.dataset.type} · ${el.dataset.count === '1' ? 'photo' : 'photos'}`, count: Number(el.dataset.count), type: el.dataset.garment || el.dataset.type });
+    /* chat bubbles and the stack carry a ready-made data-title; a garment thumbnail builds "<type> · photos" */
+    openPhotoViewer({ title: el.dataset.title || `${el.dataset.type} · ${el.dataset.count === '1' ? 'photo' : 'photos'}`, count: Number(el.dataset.count), type: stack ? el.dataset.type : el.dataset.garment || el.dataset.type });
   });
 }
 
@@ -1866,11 +1886,12 @@ export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', 
  * 'removed' → type struck + "Removed" tag, rows struck with no per-row tag; anything else (or no kind) renders as before.
  * `newItem: true` on a plain garment (an approved order, D-127) = the "New item" tag on the type line only, no panel.
  * Every change carries a text tag, never colour alone. One precision per list: `format` defaults to fmtExact.
- * K-02: every garment head leads with its illustration (`garmentIcon`; a removed garment's is dimmed). `docs` = { [garmentId]: entry }
- * (the sent snapshot): a garment that is not removed and has an entry gets its Before | Pinned photos and comment after the rows.
+ * K-04 (D-206 / D-207): every garment head is `garmentHead` (name underlined, then the icon, then the tag) with the photo stack at its right
+ * end: `docs` = { [garmentId]: entry } (the sent snapshot) puts the fitting photos there, else the garment's own `photos` (the customer's, a
+ * count the caller maps from `a.job.garments`; `photoOwner` 'Your' | 'Sarah’s' names them in the viewer). A kept entry's comment follows the rows.
  */
-export function changeList({ garments = [], format = fmtExact, docs = null, commentLabel = 'Comment' } = {}) {
-  const tag = (text, tone) => `<span class="change-list__tag change-list__tag--${tone} t-micro">${text}</span>`;
+export function changeList({ garments = [], format = fmtExact, docs = null, commentLabel = 'Comment', photoOwner = 'Your' } = {}) {
+  const tag = (text, tone) => `<span class="change-list__tag change-list__tag--${tone} t-small w-600">${text}</span>`;
   const rowHtml = (r, g) => {
     noPercent(r.label, 'changeList');
     const label = esc(r.label);
@@ -1900,23 +1921,26 @@ export function changeList({ garments = [], format = fmtExact, docs = null, comm
     return `<div class="change-list__row change-list__row--${kind}" role="listitem" data-kind="${wholeNew ? 'added' : kind}"><span class="change-list__text">${text}</span>${amt}</div>`;
   };
   const groups = garments.map((g) => {
-    const title = g.kind === 'added'
-      ? `<p class="t-body w-600 change-list__type change-list__type--new">${esc(g.type)}${tag('New item', 'new-item')}</p>`
-      : g.kind === 'removed'
-        ? `<p class="t-body w-600 change-list__type change-list__type--gone"><s>${esc(g.type)}</s>${tag('Removed', 'removed')}</p>`
-        : g.newItem
-          ? `<p class="t-body w-600 change-list__type change-list__type--new">${esc(g.type)}${tag('New item', 'new-item')}</p>`
-          : `<p class="t-body w-600 change-list__type">${esc(g.type)}</p>`;
-    const head = `<div class="change-list__head${g.kind === 'removed' ? ' change-list__head--gone' : ''}">${garmentIcon(g.type)}${title}</div>`;
+    /* K-04 (D-206 / D-207): name (underlined) → icon → tag, the photo stack at the right end. A removed item is struck, not underlined, and shows no photos. */
+    const newItem = g.kind === 'added' || (g.newItem && g.kind !== 'removed');
+    const headTag = g.kind === 'removed' ? tag('Removed', 'removed') : newItem ? tag('New item', 'new-item') : '';
+    const photos = g.kind === 'removed' ? '' : stackFor(g, { docs: docs?.[g.id] ?? null, owner: photoOwner });
+    const head = garmentHead({ type: g.type, kind: g.kind === 'removed' ? 'removed' : '', tag: headTag, photos });
     const docsHtml = docs && g.kind !== 'removed' && docs[g.id]
       ? garmentDocs({ garmentId: g.id, type: g.type, docs: docs[g.id], commentLabel }) : '';
-    return `<div class="change-list__garment${g.kind === 'added' ? ' change-list__garment--new' : ''}${g.kind === 'removed' ? ' change-list__garment--gone' : ''}"${g.kind ? ` data-garment-kind="${g.kind}"` : ''}>
+    return `<div class="change-list__garment${g.kind === 'added' ? ' change-list__garment--new' : ''}${g.kind === 'removed' ? ' change-list__garment--gone' : ''}" data-garment="${esc(g.id)}"${g.kind ? ` data-garment-kind="${g.kind}"` : ''}>
     ${head}
     <div class="change-list__rows" role="list" aria-label="${esc(g.type)}" data-money>${g.rows.map((r) => rowHtml(r, g)).join('')}</div>
     ${docsHtml}
   </div>`;
   }).join('');
   return `<div class="change-list">${groups}</div>`;
+}
+
+/** changeList takes the customer's photo counts through each garment's `photos` (D-207): map them from the booking's `job.garments` (new items have none). */
+export function withPhotos(garments = [], job = null) {
+  const own = new Map((job?.garments ?? []).map((g) => [g.id, g.photos ?? 0]));
+  return garments.map((g) => ({ ...g, photos: own.get(g.id) ?? g.photos ?? 0 }));
 }
 
 /**
@@ -1953,7 +1977,7 @@ export function deltaFigure({ label = '', cents: amount = 0, was = null, caption
       : `<p class="t-small c-700 delta-figure__was">Was ${fmtExact(was)} · ${d > 0 ? `up ${fmtExact(d)}` : `down ${fmtExact(-d)}`}</p>`;
   }
   return `<div class="delta-figure" data-money>
-  <p class="t-caps c-600 delta-figure__label">${esc(label)}</p>
+  ${label ? `<p class="t-caps c-600 delta-figure__label">${esc(label)}</p>` : ''}
   <p class="t-display delta-figure__amt">${fmtExact(amount)}</p>
   ${delta}${caption ? `<p class="t-small c-600 delta-figure__caption">${esc(caption)}</p>` : ''}
 </div>`;
@@ -2142,6 +2166,46 @@ export function garmentIcon(type, { size = 'card', alt = '' } = {}) {
   return `<span class="garment-icon garment-icon--${size} garment-icon--fallback"${alt ? ` role="img" aria-label="${esc(alt)}"` : hidden}>${ICON_HANGER}</span>`;
 }
 
+/**
+ * Garment head (K-04, D-206) — the one item row of every garment card, both personas (changeList, workList, the t-adjust card, c-job's card):
+ * the item NAME first (t-body 600, underlined so it reads apart from the service rows under it), then the 40 px icon in a white well,
+ * then any `tag` (HTML), then, pushed right, `photos` (a `photoStack`) and / or `trailing` (the card's own control, e.g. c-job's ✕).
+ * `kind: 'removed'` strikes the name (no underline) and dims the icon. `as` = the name's element ('p', or 'h2' where the card is a heading).
+ */
+export function garmentHead({ type = '', kind = '', tag = '', photos = '', trailing = '', as = 'p' } = {}) {
+  const gone = kind === 'removed';
+  const name = gone ? `<s>${esc(type)}</s>` : esc(type);
+  const end = photos || trailing ? `<span class="garment-head__end">${photos}${trailing}</span>` : '';
+  /* K4-1-02: name, icon and tag form one group that wraps inside itself; the end group (photo stack / ✕) never leaves the first line */
+  return `<div class="garment-head${gone ? ' garment-head--gone' : ''}${end ? ' garment-head--end' : ''}"><span class="garment-head__who"><${as} class="garment-head__name t-body w-600">${name}</${as}>${garmentIcon(type)}${tag}</span>${end}</div>`;
+}
+
+/**
+ * Photo stack (K-04, D-207) — up to 3 overlapping 32 px photo stubs and "n photos" as ONE button (≥ 44 px) at the end of the item row.
+ * `source: 'fitting'` = the tailor's Before + Pinned photos (`photos` = that list, Before first; opens the docs viewer with its tabs, on Pinned
+ * when there is no Before); `source: 'customer'` = the customer's own (`count`; opens the photo viewer titled "<type> · <owner> photos").
+ * Wired by `wireGarmentDocs` (fitting) and `wirePhotoViewer` (customer). No photos → ''.
+ */
+export function photoStack({ garmentId = '', type = '', source = 'customer', count = 0, photos = [], owner = 'Your' } = {}) {
+  const n = source === 'fitting' ? photos.length : Number(count) || 0;
+  if (!n) return '';
+  const shown = Array.from({ length: Math.min(3, n) }, (_, i) => {
+    const ph = source === 'fitting' ? photos[i] : null;
+    return `<span class="photo-stack__thumb">${photoStub({ type, tone: ph?.tone ?? i, size: 'mini', seed: ph?.id ?? i })}</span>`;
+  }).join('');
+  const label = `${n} ${n === 1 ? 'photo' : 'photos'}`;
+  const title = source === 'fitting' ? `${type} · photos` : `${type} · ${owner} photos`;
+  return `<button type="button" class="photo-stack" data-act="view-photos" data-garment="${esc(garmentId)}" data-source="${source}" data-type="${esc(type)}" data-count="${n}" data-title="${esc(title)}" aria-label="View ${label} of the ${esc(type)}"><span class="photo-stack__thumbs" aria-hidden="true">${shown}</span><span class="photo-stack__count t-small w-600">${label}</span></button>`;
+}
+
+/** The photos an item row shows (D-207): the fitting photos (Before, then Pinned) when the snapshot has any for the garment, else the customer's own `g.photos`. */
+function stackFor(g, { docs = null, owner = 'Your' } = {}) {
+  const fit = docs ? DOC_KIND_LIST().flatMap((k) => docs[k] ?? []) : [];
+  return fit.length
+    ? photoStack({ garmentId: g.id, type: g.type, source: 'fitting', photos: fit })
+    : photoStack({ garmentId: g.id, type: g.type, source: 'customer', count: g.photos ?? 0, owner });
+}
+
 /** The simulated photo (D-177): a thin wrapper of photoStub (M7 A5.12) — Pinned adds a pin. */
 export function docPhoto(photo, { type = '', size = 'thumb' } = {}) {
   return photoStub({ type, tone: photo.tone ?? 0, size, kind: photo.kind, seed: photo.id });
@@ -2194,32 +2258,17 @@ export function docsEditor({ garmentId, type, docs, missing = { before: false, p
 const docTab = ({ kind, count, active, id, controls, attrs }) => `<button type="button" class="doc-tab${active ? ' is-active' : ''}" role="tab" id="${id}-tab" aria-controls="${controls}" aria-selected="${active}" tabindex="${active ? 0 : -1}" ${attrs}><span class="t-body w-600">${kindLabel(kind)}</span><span class="t-small c-600">${count}</span></button>`;
 
 /**
- * Garment docs — the read-only block (v4 `Photo_Row`): a Before | Pinned tablist, a row of thumbnails per kind (the inactive
- * panel `hidden`) and the comment. Renders nothing when there are no photos and no comment. `tab` picks the selected one
- * (default Before). `idPrefix` keeps ids unique when two blocks of one garment share a page.
+ * Garment docs — the read-only comment under a garment's rows (K-04 / D-207: the Before | Pinned tab strip and thumbnails are gone;
+ * the photos live in the item row's `photoStack` and the viewer's tabs). Renders nothing when there is no comment. `tab` / `idPrefix` are
+ * accepted and ignored (older call sites).
  */
-export function garmentDocs({ garmentId, type, docs, commentLabel = 'Comment', idPrefix = 'docs', tab = 'before' } = {}) {
+export function garmentDocs({ garmentId, type, docs, commentLabel = 'Comment' } = {}) {
   const d = docs ?? {};
-  const kinds = DOC_KIND_LIST();
-  const total = kinds.reduce((n, k) => n + (d[k]?.length ?? 0), 0);
-  if (!total && !d.comment) return '';
+  if (!d.comment) return '';
   const g = esc(garmentId);
-  const pid = (kind) => `${idPrefix}-${garmentId}-${kind}`;
-  const tabs = kinds.map((kind) => docTab({
-    kind, count: d[kind]?.length ?? 0, active: kind === tab, id: pid(kind), controls: pid(kind), attrs: `data-act="docs-tab" data-garment="${g}" data-kind="${kind}"`,
-  })).join('');
-  const panels = kinds.map((kind) => {
-    const list = d[kind] ?? [];
-    const body = list.length
-      ? `<div class="garment-docs__thumbs">${list.map((p, i) => `<button type="button" class="garment-docs__thumb" data-act="view-doc" data-garment="${g}" data-kind="${kind}" data-index="${i}" aria-label="${esc(photoLabel(kind, i, list.length, type))}">${docPhoto(p, { type })}</button>`).join('')}</div>`
-      : `<p class="t-small c-600 garment-docs__none">No ${lowerKind(kind)} photos.</p>`;
-    return `<div class="garment-docs__panel" role="tabpanel" id="${pid(kind)}" aria-labelledby="${pid(kind)}-tab"${kind === tab ? '' : ' hidden'}>${body}</div>`;
-  }).join('');
-  const comment = d.comment
-    ? `<figure class="garment-docs__comment"><figcaption class="t-small c-600">${esc(commentLabel)}</figcaption><blockquote class="t-body">“${esc(d.comment)}”</blockquote></figure>
-       ${d.commentMasked ? '<p class="t-small c-600 garment-docs__masked">Phone numbers and emails in this comment are hidden.</p>' : ''}`
-    : '';
-  return `<div class="garment-docs" data-docs="${g}"><div class="garment-docs__tabs" role="tablist" aria-label="${esc(type)} photos">${tabs}</div>${panels}${comment}</div>`;
+  const comment = `<figure class="garment-docs__comment"><figcaption class="t-small c-600">${esc(commentLabel)}</figcaption><blockquote class="t-body">“${esc(d.comment)}”</blockquote></figure>
+       ${d.commentMasked ? '<p class="t-small c-600 garment-docs__masked">Phone numbers and emails in this comment are hidden.</p>' : ''}`;
+  return `<div class="garment-docs" data-docs="${g}">${comment}</div>`;
 }
 
 /** ←/→/Home/End between the two tabs of a tablist; `pick(tabEl)` selects it. Returns true when handled. */
@@ -2251,7 +2300,7 @@ export function openDocsViewer({ garmentId, type, docs, kind = 'before', index =
     const n = photos.length;
     const photo = photos[cur.index];
     const tabs = kinds.map((k) => docTab({ kind: k, count: docs?.[k]?.length ?? 0, active: k === cur.kind, id: `viewer-${garmentId}-${k}`, controls: 'docs-viewer-stage', attrs: `data-act="docs-tab" data-kind="${k}"` })).join('');
-    const sub = photo ? `<p class="t-small c-600 docs-viewer__sub">${esc(by ? `${by} · ` : '')}${fmtDay(photo.at)}, ${fmtTime(photo.at)}</p>` : '';
+    const sub = photo ? `<p class="t-small c-600 docs-viewer__sub">${esc(by ? `${by} on ` : '')}${fmtDay(photo.at)} · ${fmtTime(photo.at)}</p>` : '';
     const stage = photo
       ? `<div class="docs-viewer__stage" id="docs-viewer-stage" role="tabpanel" aria-labelledby="viewer-${garmentId}-${cur.kind}-tab" tabindex="0"><div class="docs-viewer__photo" role="img" aria-label="${kindLabel(cur.kind)} photo ${cur.index + 1} of ${n}, ${esc(type)} (placeholder)">${docPhoto(photo, { type, size: 'stage' })}</div></div>
         <div class="docs-viewer__controls"><button type="button" class="docs-viewer__nav" data-act="doc-prev" aria-label="Previous photo"${cur.index === 0 ? ' disabled' : ''}>‹</button><span class="t-body w-600" aria-live="polite">${cur.index + 1} of ${n}</span><button type="button" class="docs-viewer__nav" data-act="doc-next" aria-label="Next photo"${cur.index === n - 1 ? ' disabled' : ''}>›</button></div>
@@ -2300,26 +2349,20 @@ export function openDocsViewer({ garmentId, type, docs, kind = 'before', index =
 }
 
 /**
- * Wire the read-only blocks (`garmentDocs`) and the editor's thumbnails: tab switches in place (no re-render, ←/→/Home/End),
- * and a photo tap opens the viewer at that kind and index. `lookup(garmentId) → { type, docs }`.
+ * Wire the fitting photos: the item row's `photoStack` (`[data-act="view-photos"][data-source="fitting"]`) opens the viewer on Before (Pinned when
+ * there is no Before), and the editor's thumbnails (`view-doc`) open it at that kind and index. `lookup(garmentId) → { type, docs }`.
  */
 export function wireGarmentDocs(root, { lookup, by = '', editable = false, onRemove = null } = {}) {
-  const select = (tab) => {
-    const block = tab.closest('.garment-docs');
-    if (!block) return;
-    block.querySelectorAll('[role="tab"]').forEach((t) => {
-      const on = t === tab;
-      t.setAttribute('aria-selected', String(on));
-      t.tabIndex = on ? 0 : -1;
-      t.classList.toggle('is-active', on);
-      const panel = document.getElementById(t.getAttribute('aria-controls'));
-      if (panel) panel.hidden = !on;
-    });
-  };
   root.addEventListener('click', (e) => {
     if (e.target.closest('.screen-sheet--overlay')) return;
-    const tab = e.target.closest('[data-act="docs-tab"]');
-    if (tab) { select(tab); return; }
+    const stack = e.target.closest('[data-act="view-photos"][data-source="fitting"]');
+    if (stack) {
+      const info = lookup?.(stack.dataset.garment);
+      if (!info) return;
+      const kind = (info.docs?.before?.length ?? 0) > 0 ? 'before' : 'pinned';
+      openDocsViewer({ garmentId: stack.dataset.garment, type: info.type, docs: info.docs, kind, index: 0, by, editable, onRemove });
+      return;
+    }
     const photo = e.target.closest('[data-act="view-doc"]');
     if (!photo || photo.disabled) return;
     const info = lookup?.(photo.dataset.garment);
@@ -2328,5 +2371,4 @@ export function wireGarmentDocs(root, { lookup, by = '', editable = false, onRem
       garmentId: photo.dataset.garment, type: info.type, docs: info.docs, kind: photo.dataset.kind, index: Number(photo.dataset.index) || 0, by, editable, onRemove,
     });
   });
-  root.addEventListener('keydown', (e) => { if (!e.target.closest('.screen-sheet--overlay')) tabKeys(e, select); });
 }

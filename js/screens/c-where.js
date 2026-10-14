@@ -22,7 +22,7 @@ const tomorrow = () => addDays(strip(new Date(now())), 1);
 const MSG = {
   zip: 'Enter a 5-digit ZIP code.',
   address: 'Add your street address so the tailor can find you.',
-  needByPast: 'That date has passed. Pick a date from tomorrow on.',
+  needByPast: 'That date has passed. Pick tomorrow or later.',
   needByMissing: 'Pick a date.',
 };
 
@@ -68,7 +68,7 @@ function needByBlock(job, err) {
     <span class="where__card-action t-body w-600 c-accent-ink">Change</span>
   </button>
   ${err ? `<p class="field__msg field__msg--error" id="needby-msg" role="alert">${err}</p>` : ''}
-  <p class="where__rush t-small w-600" data-rush${hasRush() ? '' : ' hidden'}><span class="where__rush-icon" aria-hidden="true">${ICON_ALERT}</span><span>Rush fees may apply for this date.</span></p>
+  <p class="where__rush t-small w-600" data-rush${hasRush() ? '' : ' hidden'}><span class="where__rush-icon" aria-hidden="true">${ICON_ALERT}</span><span>A date this soon can add a rush fee. Each tailor’s price includes it.</span></p>
 </div>`;
 }
 

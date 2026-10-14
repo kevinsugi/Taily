@@ -91,7 +91,7 @@ export function tick() {
     if (a.status === 'requested' && toDate(a.expiresAt).getTime() <= state.clock.now) {
       if (expireRequest(a.id).ok) expired.push(a.id);
     } else if (a.status === 'suggested' && state.clock.now >= suggestLapseAt(a)) {
-      endSuggestion(a, 'Amara’s suggested time passed', 'Your suggested time passed', 'lapsed');   // D-154
+      endSuggestion(a, `${firstName(tailorById(a.tailorId))}’s suggested time passed`, 'Your suggested time passed', 'lapsed');   // D-154
       expired.push(a.id);
     }
   }
@@ -656,7 +656,7 @@ function endSuggestion(a, text, tailorText, ended = 'lapsed') {
 export function withdrawSuggestion(id) {
   const a = must(id);
   if (a.status !== 'suggested') return fail('not-suggested');
-  endSuggestion(a, `${firstName(tailorById(a.tailorId))} withdrew her suggested time`, 'You withdrew your suggested time', 'withdrawn');
+  endSuggestion(a, `${firstName(tailorById(a.tailorId))} withdrew the suggested time`, 'You withdrew your suggested time', 'withdrawn');
   return succeed(a);
 }
 
@@ -692,7 +692,7 @@ export function expireRequest(id) {
   a.payments.deposit.state = 'released';
   restoreDraftIfEmpty(a);
   if (a.retries >= POLICY.MAX_RETRIES && !state.job.hiddenTailors.includes(a.tailorId)) state.job.hiddenTailors.push(a.tailorId);   // D-07
-  say(a, 'Request expired');
+  say(a, 'Request expired. Your hold was released.', 'Request expired');
   return succeed(a);
 }
 
@@ -750,7 +750,7 @@ export function tailorCantMakeIt(id, reason = '') {
   a.payments.deposit.state = 'refunded';
   a.cancel = { by: 'tailor', reason: 'tailor-cant-make-it', note: reason, at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
   restoreDraft(a);
-  say(a, `${firstName(tailorById(a.tailorId))} can't make it`, 'You can’t make it');
+  say(a, `${firstName(tailorById(a.tailorId))} can’t make it`, 'You can’t make it');
   return succeed(a);
 }
 
@@ -992,7 +992,7 @@ export function markReady(id, { returns } = {}) {
   setStatus(a, 'ready');
   a.payments.balance = { cents: a.money.balance, state: 'due' };
   if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-23, D-156: settled by payBalance
-  say(a, 'Ready — choose how to get it back');
+  say(a, 'Ready. Choose how to get it back.', `You marked it ready. Waiting for ${state.customer.first} to choose how to get it back.`);
   return succeed(a);
 }
 

@@ -59,22 +59,20 @@ function workSection(v, { final = false, breakdown = false } = {}) {
 </section>`;
 }
 
-/** The expiry strip of an open request: the clock on the left, the deadline on the right (warning when soon). */
+/** The deadline line of an open request (CR-4b): one line, "2h left · answer by 12:00 PM" (warning ink when soon). */
 function strip(a) {
-  const cd = countdown({ expiresAt: a.expiresAt, now: now() });
-  const isSoon = /data-state="soon"/.test(cd);
-  return `<div class="${ID}__strip${isSoon ? ` ${ID}__strip--soon` : ''}">${cd}<span class="t-small ${isSoon ? 'w-600' : 'c-700'}">${isSoon ? 'Expires soon · answer by' : 'Answer by'} ${fmtTime(a.expiresAt)}</span></div>`;
+  return countdown({ expiresAt: a.expiresAt, now: now(), tail: `answer by ${fmtTime(a.expiresAt)}`, line: true });
 }
 
 /** The same strip for a suggested time (D-154): how long Sarah has to accept it. */
 function lapseStrip(a) {
-  const cd = countdown({ expiresAt: suggestLapseAt(a), now: now() });
+  const cd = countdown({ expiresAt: suggestLapseAt(a), now: now(), suffix: `for ${esc(state.customer.first)} to answer` });
   const isSoon = /data-state="soon"/.test(cd);
   return `<div class="${ID}__strip${isSoon ? ` ${ID}__strip--soon` : ''}">${cd}<span class="t-small ${isSoon ? 'w-600' : 'c-700'}">${isSoon ? 'Closing soon · open until' : 'Open until'} ${fmtWhen(suggestLapseAt(a))}</span></div>`;
 }
 
-/** The shared detail header (D-93): Back on its own row, then pill · title · notes flush at the padding. */
-const detailHead = (html) => headingRow(html, { backRow: true });
+/** The shared detail header (K-04, D-203): status line, then Back + title on one row, then the notes at the padding. */
+const detailHead = (html) => headingRow(html);
 
 /* ---------- view ---------- */
 function view(s) {
@@ -118,11 +116,11 @@ ${actionBar({ ctaLabel: `Message ${esc(sarah)}`, ctaAct: 'message', secondaryLab
     const ended = a.suggested?.ended;                            // D-154: a suggested time that lapsed or that she withdrew
     const again = a.retries < POLICY.MAX_RETRIES
       ? ` ${esc(sarah)} can send it again — it will show up here as a new request.`
-      : ' This job has gone to other tailors.';
+      : ` ${esc(sarah)} can now book another tailor.`;
     const hero = ended === 'withdrawn'
-      ? { pill: 'withdrawn', pillLabel: 'Withdrawn', title: 'You withdrew your suggestion', body: `${esc(sarah)} has been told and her hold released. This job has gone to other tailors.` }
+      ? { pill: 'withdrawn', pillLabel: 'Withdrawn', title: 'You withdrew your suggestion', body: `${esc(sarah)} has been told, and her ${fmtExact(a.payments.deposit.cents)} hold is released. ${esc(sarah)} can now book another tailor.` }
       : ended
-        ? { pill: 'expired', pillLabel: 'Expired', title: 'Your suggested time passed', body: `${esc(sarah)} didn’t accept in time, so her hold was released. This job has gone to other tailors.` }
+        ? { pill: 'expired', pillLabel: 'Expired', title: 'Your suggested time passed', body: `${esc(sarah)} didn’t accept in time, so her ${fmtExact(a.payments.deposit.cents)} hold is released. ${esc(sarah)} can now book another tailor.` }
         : { pill: 'expired', pillLabel: 'Expired', title: 'This request expired', body: `You didn’t answer within ${hours} hours, so ${esc(sarah)}’s hold was released.${again}` };
     return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--expired"${ended ? ` data-suggestion-ended="${ended}"` : ''}>
   ${detailHead(statusHero({ variant: 'declined', ...hero }))}
@@ -137,7 +135,7 @@ ${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
     return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--declined">
   ${detailHead(statusHero({
     variant: 'declined', pill: 'declined', pillLabel: 'Declined', title: 'You declined this request',
-    body: `${esc(sarah)} has been told and her hold released.`,
+    body: `${esc(sarah)} has been told, and her ${fmtExact(a.payments.deposit.cents)} hold is released.`,
     extra: a.declineReason ? `<p class="t-small c-600">Your reason: ${esc(a.declineReason)}</p>` : '',
   }))}
   <div class="${ID}__hero">${takeHome(v, { muted: true })}</div>
@@ -152,9 +150,9 @@ ${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${detailHead(statusHero({
     variant: 'requested', pill: 'new-request', pillLabel: 'New request', title: esc(v.customer.name),
-    body: v.retries > 0 ? `${esc(sarah)} sent this again after it expired.` : '',
+    body: v.retries > 0 ? `${esc(sarah)} sent this again after it expired.` : '', extra: strip(a),
   }))}
-  <div class="${ID}__hero">${takeHome(v)}${strip(a)}</div>
+  <div class="${ID}__hero">${takeHome(v)}</div>
   ${visitSection(a, v, { title: v.when, addressNote: a.job.visitType === 'home' ? 'Full address after you accept' : '' })}
   ${workSection(v, { final, breakdown: true })}
   ${payoutSection(v)}
@@ -218,7 +216,7 @@ function openDecline(a) {
 /* ---------- withdraw sheet (D-79: danger + Keep …) ---------- */
 function openWithdraw(a) {
   const sarah = state.customer.first;
-  const body = (busy) => `<p class="t-body c-700 ${ID}-sheet__intro">${esc(sarah)} is told right away and her hold is released. This job then goes to other tailors, so she can’t accept this time.</p>
+  const body = (busy) => `<p class="t-body c-700 ${ID}-sheet__intro">${esc(sarah)} is told right away and her ${fmtExact(a.payments.deposit.cents)} hold is released. She can’t accept this time anymore, and can book another tailor.</p>
   <div class="${ID}-sheet__actions">
     ${cta('Withdraw suggestion', { variant: 'danger', busy, busyLabel: 'Withdrawing…', attrs: 'data-act="withdraw-ok"' })}
     ${cta('Keep suggestion', { variant: 'secondary', disabled: busy, attrs: 'data-act="withdraw-keep"' })}
@@ -286,7 +284,7 @@ function accept(a) {
       toast('This request expired before you accepted.', { tone: 'error' });
     } else {
       go(ID);
-      toast('Something went wrong. Try again.', { tone: 'error' });
+      toast('Couldn’t accept the request. Try again.', { tone: 'error' });
     }
   });
 }

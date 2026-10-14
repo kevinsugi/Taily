@@ -21,14 +21,14 @@ const ui = () => (state.ui[ID] ??= {});
 
 /** The request this screen is about: it is still a request (status `requested`). */
 const request = () => { const a = focusAppt('t-request'); return a && a.status === 'requested' ? a : null; };
-/** The price block under the wheel for one slot (D-155): her live take-home, "Sarah pays $X less" when the rush drops, and the turnaround
+/** The price block under the wheel for one slot (D-155): her live take-home, "Sarah pays $X less" when the rush drops, and the rush-window
     tag when the slot sits inside her rush window (the rush fee is not charged on this request). */
 function priceLines(a, iso) {
   const sarah = state.customer.first;
   const p = suggestPrice(a, iso);
   const less = p.less > 0 ? ` · ${esc(sarah)} pays ${fmtExact(p.less)} less` : '';
   const turn = p.tier > 0
-    ? `${p.days <= 0 ? 'Same-day' : `${p.days}-day`} turnaround · ${p.rush > 0 ? `rush fee ${fmtExact(p.rush)} as booked` : 'no rush fee on this request'}`
+    ? `${p.days <= 0 ? 'The same day as' : `${p.days} ${p.days === 1 ? 'day' : 'days'} before`} ${sarah}’s need-by date. ${p.rush > 0 ? `The ${fmtExact(p.rush)} rush fee stays as booked.` : 'No rush fee is added to this request.'}`
     : '';
   return `<p class="t-small c-600 ${ID}__same" data-money>You take home ${fmtExact(p.payout)}${less}.</p>${turn ? `<p class="t-small w-600 c-700 ${ID}__turn">${esc(turn)}</p>` : ''}`;
 }
@@ -133,7 +133,7 @@ function send(a, slots, store) {
       toast('This request expired.', { tone: 'error' });
     } else {
       go('t-request', { replace: true });
-      toast('Something went wrong. Try again.', { tone: 'error' });
+      toast('Couldn’t send your suggestion. Try again.', { tone: 'error' });
     }
   });
 }

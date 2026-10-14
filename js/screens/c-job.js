@@ -7,7 +7,7 @@ import { register, render as go } from '../app.js';
 import { state, T, activeAppt, statusScreen, tailorById, priceChangeView } from '../state.js';
 import {
   chrome, bookingSteps, garmentTile, photoTile, actionBar, checkRow, cta, listRow, apptRow,
-  sheetOverlay, toast, esc, garmentIcon, sectionHead, textLink,
+  sheetOverlay, toast, esc, garmentHead, sectionHead, textLink,
 } from '../components.js';
 import { GARMENT_TYPES, SERVICES, MAX_ITEMS, itemsLabel, servicesForType } from '../data.js';
 import { CHEVRON_RIGHT } from '../icons.js';
@@ -36,11 +36,7 @@ function itemCard(g) {
     ? `<button type="button" class="job-item__add" data-act="add-photo" data-id="${g.id}" aria-label="Add a photo of the ${esc(g.type)}">${photoTile('add')}</button>`
     : '';
   return `<article class="card job-item" data-id="${g.id}">
-  <div class="job-item__head">
-    ${garmentIcon(g.type)}
-    <span class="job-item__type t-body w-600">${esc(g.type)}</span>
-    <button type="button" class="job-item__remove" data-act="remove-garment" data-id="${g.id}" aria-label="Remove ${esc(g.type)}"><span aria-hidden="true">✕</span></button>
-  </div>
+  <div class="job-item__head">${garmentHead({ type: g.type, trailing: `<button type="button" class="job-item__remove" data-act="remove-garment" data-id="${g.id}" aria-label="Remove ${esc(g.type)}"><span aria-hidden="true">✕</span></button>` })}</div>
   <button type="button" class="job-item__services${hasErr ? ' job-item__services--error' : ''}" data-act="pick-services" data-id="${g.id}"${hasErr ? ` aria-invalid="true" aria-describedby="${errId}"` : ''}>
     <span class="job-item__services-text t-body ${g.services.length ? 'c-700' : 'c-accent-ink'}">${g.services.length ? esc(serviceText(g)) : 'Choose what needs doing'}</span>
     ${CHEVRON_RIGHT.replace('method-row__chevron', 'job-item__chevron')}
@@ -48,7 +44,7 @@ function itemCard(g) {
   ${hasErr ? `<p class="field__msg field__msg--error" id="${errId}" data-error="service" role="alert">Choose at least one service.</p>` : ''}
   <div class="job-item__photos">
     <div class="photo-tiles">${thumbs}${addPhoto}</div>
-    <p class="job-item__caption t-small c-600">Optional</p>
+    <p class="job-item__caption t-small c-600">Photo (optional)</p>
   </div>
 </article>`;
 }
@@ -150,7 +146,6 @@ function openPhoto(root, id) {
 function wire(root) {
   const main = root.querySelector('main');
   const bar = root.querySelector('.action-bar');
-  const refocus = (sel) => requestAnimationFrame(() => root.querySelector(sel)?.focus({ preventScroll: true }));
 
   main.addEventListener('click', (e) => {
     const tile = e.target.closest('[data-act="add-garment"]');
@@ -163,10 +158,7 @@ function wire(root) {
       } else if (state.job.garments.length < MAX_ITEMS) {
         T.addGarment(type);
       }
-      go(ID);
-      const side = e.target.closest('[data-minus]') ? '[data-minus]' : '[data-plus]';
-      const sel = `[data-act="add-garment"][data-type="${CSS.escape(type)}"]`;
-      refocus(root.querySelector(sel + side) ? sel + side : sel);
+      go(ID);   // the router puts focus back on the same tile / − / + (AU-P1-2a)
       return;
     }
     const open = e.target.closest('[data-act="open-appt"]');

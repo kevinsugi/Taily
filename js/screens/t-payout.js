@@ -20,7 +20,7 @@ import {
 
 const ID = 't-payout';
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const bankOf = (b) => `${b?.bank ?? 'Your bank'} ••${b?.last4 ?? ''}`;
+const bankOf = (b) => `${b?.bank ?? 'Your bank'} •••• ${b?.last4 ?? ''}`;
 
 /** The detail to show: the focused appointment's payout, else the newest payout (fallback). */
 function detail() {
@@ -50,15 +50,16 @@ function view() {
   const d = detail();
   if (!d) {
     return `${head}<main class="body ${ID}">
-  ${headingRow('<h1 class="t-title">Payout</h1>', { backRow: true })}
+  ${headingRow('<h1 class="t-title">Payout</h1>')}
   <div class="${ID}__empty" data-empty="payout">${emptyState({ title: 'No payout to show', body: 'Payouts show up here once you complete a job.', art: 'Accessories', ctaLabel: 'Go to Earnings', ctaAct: 'earnings' })}</div>
 </main>`;
   }
   const { payout: p, appt: a, view: v } = d;
   const w = words(p);
   const failed = p.state === 'failed';
-  const hero = `<div class="${ID}__pill">${statusPill(...w.pill)}</div><h1 class="sr-only">Payout</h1>
-  ${deltaFigure({ label: 'Your payout', cents: p.cents, caption: w.line })}`;
+  /* K-04 / D-203 (K4-1-01): the status line above, then ONE row = Back + a visible title; the figure follows without a repeated caps label */
+  const hero = `<h1 class="t-title">Your payout</h1>
+  ${deltaFigure({ cents: p.cents, caption: w.line })}`;
   const kept = p.kind === 'kept-deposit' || p.kind === 'no-show';
 
   /* R5-1-T-04: the pill and the caption already say "didn't go through"; the banner looks forward: what to do and when it sends */
@@ -95,7 +96,7 @@ function view() {
   }
 
   return `${head}<main class="body ${failed ? 'body--with-bar ' : ''}${ID}" data-appt="${esc(a.id)}">
-  ${headingRow(hero, { backRow: true })}
+  ${headingRow(hero, { status: statusPill(...w.pill) })}
   ${alert}
   ${job}
   <section class="sec" aria-labelledby="${ID}-sum">

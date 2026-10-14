@@ -58,7 +58,7 @@ function view(s) {
   const row = previewRow();
   const hood = ZIP_INFO[job.zip]?.hood ?? 'Brooklyn';
   const caption = row
-    ? `Example job: ${nameList(job.garments.map((g) => g.type))}, ${lowerFirst(VISIT_LABEL.tailor[job.visitType])}`
+    ? `Example: ${nameList(job.garments.map((g) => g.type))}, ${lowerFirst(VISIT_LABEL.tailor[job.visitType])}`
     : whyNotShown(t, job);
   /* a row → "How a customer in <hood> sees you"; no row → that customer wouldn't see her at all, so the neutral title (as t-shop) */
   const title = row ? `How a customer in ${hood} sees you` : 'What customers will see';
@@ -74,7 +74,7 @@ function view(s) {
     ${sectionHead('What happens next', { id: `${ID}-next-h` })}
     <ol class="${ID}__steps">${STEPS.map((txt, i) => `<li class="${ID}__step"><span class="${ID}__num t-small w-600" aria-hidden="true">${i + 1}</span><span class="t-body">${txt}</span></li>`).join('')}</ol>
   </section>
-  <p class="t-small c-600 ${ID}__rush">Want extra for quick turnarounds? <button type="button" class="${ID}__link" data-act="rush" data-hit="inline">Add rush fees</button> in your shop.</p>
+  <p class="t-small c-600 ${ID}__rush">Want extra for rush jobs? <button type="button" class="${ID}__link" data-act="rush" data-hit="inline">Add rush fees</button> in your shop.</p>
 </main>
 ${actionBar({ ctaLabel: 'Go to my shop', ctaAct: 'shop', secondaryLabel: 'See my profile as a customer', secondaryAct: 'as-customer' })}`;
 }

@@ -1,6 +1,6 @@
 /* c-welcome — entry. Layout only; buttons, rows and type come from the shared components. */
 .c-welcome {
-  min-height: 844px;
+  min-height: 100dvh;
   padding-top: calc(44px + var(--space-32) * 2);
   padding-bottom: var(--space-24);
 }
@@ -11,10 +11,10 @@
 }
 /* signature 1: the garment drawn on a warm tint, tilted */
 .c-welcome__hero {
-  display: flex; align-items: center; justify-content: center; width: 160px; height: 160px;
+  display: flex; align-items: center; justify-content: center; width: min(160px, 22dvh); height: min(160px, 22dvh);
   margin: var(--rhythm-section) auto var(--rhythm-section); border-radius: var(--radius-full); background: var(--accent-bg);
 }
-.c-welcome__hero .garment-icon--hero { width: 128px; height: 128px; transform: rotate(-4deg); }
+.c-welcome__hero .garment-icon--hero { width: min(128px, 17.6dvh); height: min(128px, 17.6dvh); transform: rotate(-4deg); }
 .c-welcome__title { text-wrap: balance; }
 .c-welcome__lead { margin: var(--rhythm-group) 0 0; text-wrap: pretty; }
 .c-welcome__spacer { flex: 1 1 auto; min-height: var(--space-32); }
@@ -29,3 +29,9 @@
 }
 /* M6-A-02: where the padded hit areas of Terms / Privacy and Join Taily meet, the legal links win (no dead strip on Terms) */
 .c-welcome__legal .c-welcome__link { position: relative; z-index: 1; }
+/* AU-P2-4: short viewports (390 × 664): the hero is capped by min(…, 22dvh) above; the top and hero margins tighten so Phone, Apple and Google all show */
+@media (max-height: 760px) {
+  .c-welcome { padding-top: calc(44px + var(--space-16)); }
+  .c-welcome__hero { margin-block: var(--space-16); }
+  .c-welcome__spacer { min-height: var(--space-16); }
+}

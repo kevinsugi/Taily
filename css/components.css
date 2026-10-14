@@ -24,10 +24,6 @@
    skill's curve table, not invented.
    ============================================================ */
 
-:root {
-  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-}
-
 /* ============================================================
    CTA — Figma 229:5030. Default | Secondary. h54, r20, 16 SemiBold.
    ============================================================ */
@@ -55,9 +51,7 @@
 }
 
 
-/* Figma 04b: the Next CTA sits at 55% node opacity (disabled look).
-   Clicks stay live — this is a prototype. */
-.cta--disabled { opacity: 0.55; }
+/* The disabled look (K-04 / CR-1a) is in components-v5.css: a flat neutral-200 button, never a dimmed ink one. */
 
 
 /* M7 (A5.6, D-188): status = an 8 px dot + a 12/600 word; .pill and .pill--* are retired */
@@ -188,7 +182,7 @@
 }
 
 .filter-pill__box .select-time__chevron {
-  transition: transform 180ms var(--ease-out);
+  transition: transform var(--dur-press) var(--ease-out);
 }
 .filter-pill--open .filter-pill__box .select-time__chevron {
   transform: rotate(180deg);
@@ -203,7 +197,7 @@
   border-radius: var(--radius-sm);
   background: var(--white);
   border: 1px solid var(--neutral-200);
-  box-shadow: 0 4px 12px rgba(28, 27, 24, 0.08);
+  box-shadow: var(--shadow-float);
   transform-origin: top;
 }
 @supports (transition-behavior: allow-discrete) {
@@ -496,8 +490,8 @@
 .status-hero__title.w-600 { font-weight: 600; }
 /* Colour utilities restated so they survive the cascade (as .w-600
    does): success = ready hero, error = cancelled hero (Phase R8). */
-.status-hero__title.c-success { color: var(--success); }
-.status-hero__title.c-error { color: var(--error); }
+.status-hero__title.c-success { color: var(--success-ink); }
+.status-hero__title.c-error { color: var(--error-ink); }
 .status-hero__body {
   font-family: var(--font-sans);
   font-size: var(--size-16);
@@ -633,10 +627,7 @@
   color: var(--ink);
   flex-shrink: 0;
 }
-/* round 16 (Kevin): the heading column starts 28px in (Back 23 + 5) */
-.heading-row { display: flex; align-items: center; gap: 5px; width: 100%; }
-.heading-row__body { flex: 1 1 0; min-width: 0; }
-.heading-row__body > * { width: 100%; }
+/* the heading row (Back + title) lives in components-v5.css, K-04 / D-203 */
 .summary-card__row { font-weight: 500; color: var(--neutral-600); white-space: pre; }
 
 /* ============================================================
@@ -754,9 +745,9 @@
   font-weight: 500;
   flex-shrink: 0;
 }
-.garment-card__row--new { gap: var(--space-4); color: var(--success); }
-.garment-card--view .garment-card__service--new { display: flex; align-items: center; gap: var(--space-4); color: var(--success); }
-.garment-card__price--new { color: var(--success); }
+.garment-card__row--new { gap: var(--space-4); color: var(--success-ink); }
+.garment-card--view .garment-card__service--new { display: flex; align-items: center; gap: var(--space-4); color: var(--success-ink); }
+.garment-card__price--new { color: var(--success-ink); }
 /* the Additional variant's Photo_Row: Before / Pinned labels over one tile row */
 .photo-row--tabs { flex-direction: column; overflow: visible; margin-right: 0; }
 .photo-tabs { display: flex; gap: var(--space-4); }
@@ -782,7 +773,7 @@
   color: var(--ink);
 }
 .selector--job .selector__trigger { font-weight: 500; color: var(--accent-ink); }
-.selector__chevron { width: 12px; height: 12px; flex-shrink: 0; transition: transform 180ms var(--ease-out); }
+.selector__chevron { width: 12px; height: 12px; flex-shrink: 0; transition: transform var(--dur-press) var(--ease-out); }
 .selector--open .selector__chevron { transform: rotate(180deg); }
 .selector__menu {
   display: none;
@@ -797,7 +788,7 @@
   background: var(--white);
   border: 1px solid var(--neutral-200);
   border-radius: var(--radius-md);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-float);
 }
 .selector--quantity .selector__menu { width: 96px; }
 .selector--open .selector__menu { display: flex; }
@@ -956,10 +947,7 @@
 }
 .sheet__grabber-row { display: flex; justify-content: center; width: 100%; }
 
-/* 02a's picker sheet: pad 8/20/20 and a 40x4 grabber (04a/04b: 12/20/32, 36x4).
-   The 358-tall frame overflows 02a's 844 bottom by 4px — reproduce the clip. */
-.sheet--picker { padding: var(--space-8) var(--space-20) var(--space-20); bottom: -4px; }
-.sheet--picker .sheet__grabber { width: 40px; }
+.sheet__grabber { width: 40px; }
 /* Picker title went serif in the Aug 2026 frames: Cormorant SemiBold 20/24
    (277:2921 — literal 20px, off the scale; see tokens.css --size-20). */
 .sheet--picker .sheet__title {
@@ -1023,7 +1011,7 @@
   border-radius: var(--radius-md);
   background: var(--neutral-100);
 }
-.wheel__col { position: relative; display: flex; flex-direction: column; }
+.wheel__col { position: relative; display: flex; flex-direction: column; min-width: 44px; }   /* AU-P3-6: a narrow column never drops under a touch target */
 .wheel__row {
   height: 44px;   /* M6-V-02: rows are tap targets — 44 px pitch everywhere */
   display: flex;
@@ -1033,9 +1021,9 @@
   font-size: var(--size-12);
   line-height: 16px;
   font-weight: 500;
-  color: var(--neutral-500-ink);
+  color: var(--neutral-600);
 }
-.wheel__row--edge { color: var(--neutral-500); }
+.wheel__row--edge { color: var(--neutral-500-ink); }   /* K-04 / AU-P2-1: both read at 4.5:1 or better */
 .wheel__row--selected {
   font-size: var(--size-16);
   line-height: 21px;
@@ -1081,7 +1069,7 @@
 .pay-badge {
   width: 46px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--white);
   border: 1px solid var(--ink);
   display: flex;
@@ -1285,7 +1273,7 @@
 }
 /* Phase R0: rows above the last carry a bottom hairline — inset so the
    41/62 row heights hold (the stroke is not in Figma's layout). */
-.fee-row--line { box-shadow: inset 0 -1px 0 var(--bottom-border); }
+.fee-row--line { box-shadow: inset 0 -1px 0 var(--hairline); }
 /* UX-LOOP R2-T-08 (04, live only): a booked garment the tailor removed
    at the visit — "Removed at the visit — …" with the struck price
    (type via .t-small / .c-500; layout only here) */
@@ -1300,7 +1288,7 @@
 .removed-row s { flex-shrink: 0; color: var(--neutral-500-ink); }
 /* Phase R0 (06B): totals touched by the modified order */
 /* round 13 (Kevin): money that changed at the visit is green like the items */
-.fee-row--changed .fee-row__price { color: var(--success); }
+.fee-row--changed .fee-row__price { color: var(--success-ink); }
 /* UX-LOOP R7-T-02 (T02 expired): money no longer on offer — the closed
    rows' muted colour on price and caption ("Payout offered") */
 .fee-row--muted .fee-row__price, .fee-row--muted .fee-row__desc { color: var(--neutral-500-ink); }
@@ -1322,9 +1310,9 @@
   flex-direction: column;
   gap: var(--space-12);
   padding: var(--space-24) var(--space-20) var(--space-20);
-  border-radius: 24px;
+  border-radius: var(--radius-xl);
   background: var(--white);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-overlay);
 }
 .modal--center { align-items: center; text-align: center; }
 .modal__title {
@@ -1352,7 +1340,7 @@
 .modal__row > :last-child { width: 250px; }
 .modal__glyph { font-weight: 700; flex-shrink: 0; font-size: var(--size-14); line-height: 18px; }
 /* 05C: success-green SemiBold title + a real bulleted prepare list */
-.modal__title--success { font-weight: 600; color: var(--success); }
+.modal__title--success { font-weight: 600; color: var(--success-ink); }
 .modal__list { margin: 0; padding-left: var(--space-24); }
 .modal__badge {
   width: 48px;
@@ -1482,7 +1470,7 @@
   font-size: var(--size-24);
   line-height: 31px;
   font-weight: 600;
-  color: var(--success);
+  color: var(--success-ink);
 }
 .review-sheet__input {
   width: 100%;
@@ -1527,9 +1515,9 @@
   line-height: 16px;
   font-weight: 600;
   text-align: center;
-  box-shadow: 0 6px 16px rgba(28, 27, 24, 0.25);
+  box-shadow: var(--shadow-overlay);
   opacity: 0;
-  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  transition: opacity var(--dur-modal) var(--ease-out), transform var(--dur-modal) var(--ease-out);
   pointer-events: none;
 }
 .toast--in { opacity: 1; transform: translate(-50%, 0); }
@@ -1569,9 +1557,9 @@
   font-size: var(--size-12);
   line-height: 16px;
   font-weight: 500;
-  color: var(--error);
+  color: var(--error-ink);
 }
-.filter-pill--error .filter-pill__box { color: var(--error); border-color: var(--error); }
+.filter-pill--error .filter-pill__box { color: var(--error-ink); border-color: var(--error); }
 .filter-pill--error .filter-pill__help { display: block; }
 
 .link-row {
@@ -1624,8 +1612,8 @@ button.scheduler__sub { cursor: pointer; }
 .wheel--sched { height: 220px; width: 100%; }   /* M6-V-02: 5 rows × 44 (SCHED_ROW) */
 .wheel--sched .wheel__band { top: 88px; height: 44px; border-radius: var(--radius-md); background: var(--neutral-50); }   /* R1-1-C-14: inset equally on both sides (was flush to the card's right edge) */
 .wheel--sched .wheel__col--scroll { height: 220px; }
-.wheel--sched .wheel__col--scroll .wheel__row { flex: 0 0 44px; height: 44px; color: var(--neutral-500-ink); }
-.wheel--sched .wheel__col--scroll .wheel__row--edge { color: var(--neutral-500); }
+.wheel--sched .wheel__col--scroll .wheel__row { flex: 0 0 44px; height: 44px; color: var(--neutral-600); }
+.wheel--sched .wheel__col--scroll .wheel__row--edge { color: var(--neutral-500-ink); }
 .wheel--sched .wheel__col--scroll .wheel__row--selected { font-weight: 600; color: var(--ink); }
 .wheel--sched .wheel__pad { flex: 0 0 88px; }
 .scheduler--inline .wheel--sched .wheel__col:first-of-type { flex: 1 1 0; min-width: 0; }

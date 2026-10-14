@@ -21,6 +21,12 @@
 html.has-input .stage-caption { visibility: visible; }
 /* step above a toast (toast sits at bottom 24 + ~36 tall) */
 html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) + var(--space-8)); transition: bottom 200ms var(--ease-out); }
+/* K-04 / AU-P1-2: on a phone the pill docks at the TOP so it never covers a sticky CTA or a toast; the panel opens below it */
+@media (max-width: 430px) {
+  .stage-caption { top: var(--space-4); bottom: auto; right: var(--space-8); flex-direction: column-reverse; }
+  html.has-toast .stage-caption { bottom: auto; }
+  .stage-caption .flow-menu { top: calc(100% + var(--space-8)); bottom: auto; }
+}
 .persona-toggle {
   padding: var(--space-8) var(--space-16);
   background: var(--white);

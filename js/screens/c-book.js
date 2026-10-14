@@ -35,7 +35,7 @@ function rushNote(t, job, slot) {
 }
 
 /** The action bar's lead: the estimate for the settled slot (a rush slot raises it). */
-const estLead = (t, job, slot) => `<span>Est. <b data-money>${fmt(estimate(t, job, slot).total)}</b> · ${itemsLabel(job.garments.length, 'item')}</span>`;
+const estLead = (t, job, slot) => `<span class="lead-stack"><span>Est. <b data-money>${fmt(estimate(t, job, slot).total)}</b> · ${itemsLabel(job.garments.length, 'item')}</span><span class="lead-stack__note">Nothing is charged yet.</span></span>`;
 
 function view() {
   const { t, job, slots, selected } = read();
@@ -46,11 +46,11 @@ function view() {
   if (!slots.length) {
     const next = nextOpening(t.id, job.visitType);
     const body = next
-      ? `${first}’s next opening is ${nb(fmtWhen(next))}, too close to your need-by date. The visit has to be at least a day before.`
+      ? `${first}’s first opening is ${nb(fmtWhen(next))}. A visit has to be at least a day before your need-by date, ${nb(fmtDay(job.needBy))}. Pick a later date or message ${first}.`
       : `${first} has no open times in the next ${Math.round(SLOT_HORIZON_DAYS / 7)} weeks.`;
     return `${open(false)}
   <div class="c-book__empty" data-empty="no-slots">${emptyState({
-    title: `No open times before ${nb(fmtDay(job.needBy))}`,
+    title: 'No times before your need-by date',
     body,
     art: 'Suit Jacket',
     ctaLabel: 'Change need-by date', ctaAct: 'later',
@@ -61,12 +61,11 @@ function view() {
 
   return `${open(true)}
   <p class="t-body w-600 c-book__who">${t.name}</p>
-  <p class="t-small c-600 c-book__where">${VISIT_LABEL.customer[job.visitType]} · ${VISIT_MINUTES[job.visitType]}-minute visit</p>
+  <p class="t-small c-600 c-book__where">${VISIT_LABEL.customer[job.visitType]} · ${VISIT_MINUTES[job.visitType]} min</p>
   <div class="c-book__sched">${scheduler({
     title: '', columns: slotColumns(slots, selected), note: rushNote(t, job, selected),
     cta: '', inline: true, compact: true, top: true,   // M7-2-C-07 / A-05: always the 3-row wheel, the settled row on top — no blank card above it
   })}</div>
-  <p class="t-small c-600 c-book__free">Nothing is charged yet.</p>
 </main>
 ${actionBar({ lead: estLead(t, job, selected), ctaLabel: 'Next: review and send', ctaAct: 'slot-next' })}`;
 }

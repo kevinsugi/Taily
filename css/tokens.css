@@ -70,7 +70,6 @@
   --radius-full: 999px;
 
   /* ---------- Type sizes · Taily / Type ---------- */
-  --size-8: 8px;    /* round 16: the calendar cell sublabel (Calendar / Cell 764:4597) */
   --size-10: 10px;
   /* size/11 arrived with the Selector's ADD A SERVICE menu header and
      the 02B field labels (541:1959, 538:1516) — a Figma variable. */
@@ -81,10 +80,6 @@
      binds here too instead of a literal. */
   --size-14: 14px;
   --size-16: 16px;
-  /* NOT a Figma variable — PV3's ✕ ‹ › glyphs (559:2114/2120/2122)
-     carry literal 18px, off the type scale. Raised; tokenised here so
-     no literal size leaks outside tokens.css. */
-  --size-18: 18px;
   /* NOT a Figma variable — the Aug 2026 serif headers (Upcoming Header
      532:958, Date & Time title 277:2921) carry literal 20px, off the
      type scale. Raised as an inconsistency; tokenised here so no
@@ -109,7 +104,6 @@
      These exist in the file and are emitted for completeness, but they do
      not look like intentional design tokens. Do not use them in screens
      without checking with Kevin first — see the note at the bottom.        */
-  --bottom-border: #E9E5DE;      /* unnamed "Variable collection", ALL_SCOPES */
   --component: #8A38F5;          /* Taily / Colors, ALL_SCOPES — Figma's default new-variable purple */
 
   /* ---------- M7 (K-03) — not Figma variables; tokenised so screens never use literals ---------- */
@@ -140,11 +134,18 @@
   --avatar-ink: var(--accent-ink);
   --avatar-ring: color-mix(in srgb, var(--accent-base) 22%, transparent);
 
+  /* depth for things that float above the page (menus, dropdowns vs modals, toasts, banners) — K-04 / D-213 */
+  --shadow-float: 0 4px 12px color-mix(in srgb, var(--ink) 8%, transparent);
+  --shadow-overlay: 0 12px 32px color-mix(in srgb, var(--ink) 20%, transparent);
+
   /* the stitched dash (signature 2) */
   --stitch-ink: var(--neutral-400);
   --stitch-dash: 6px;
   --stitch-gap: 4px;
   --stitch-w: 1.5px;
+
+  /* the content top: nav bottom (100) + --space-16, K-04 / D-204 */
+  --body-top: 116px;
 
   /* motion (K-03 #11) */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);

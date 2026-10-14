@@ -25,9 +25,9 @@ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct
 
 const firstOf = (t) => (t?.name || 'there').split(' ')[0];
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const dateLine = () => { const d = toDate(now()); return `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}`.toUpperCase(); };
+const dateLine = () => { const d = toDate(now()); return `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}`; };   // CR-m3: folded into the summary line, no kicker
 
-/** The row's pill: the §B2 word for every status (M4, D-108) — "Accepted" for the first hour, then "Confirmed" (D-73). */
+/** The row's pill: the §B2 word for every status (M4, D-108) — always "Confirmed" (K-04 CR-6d; D-73 is only about the just-booked banner). */
 function pillOf(a) {
   const w = statusWord(a, 'tailor', { short: true });
   return { status: w.pill, label: w.label };
@@ -40,7 +40,7 @@ const shortPlace = (p) => { const parts = p.split(', '); return parts.length > 2
     itself is behind her, so the line leads with the need-by date. A returning order names how it goes back (D-106). */
 const STEP = { fitting: 'Started', 'price-change': 'Order sent', 'in-progress': 'Tailoring', ready: 'Ready' };
 const stepOf = (a) => (a.status === 'returning' ? returnStep(a, 'tailor') : STEP[a.status]);
-const sinceLine = (a) => `${stepOf(a)} · due ${fmtDay(a.job.needBy)}`;
+const sinceLine = (a) => `${stepOf(a)} · needed by ${fmtDay(a.job.needBy)}`;
 /** Confirmed and not started = Upcoming; the visit itself and everything after = In progress. */
 const started = (a) => a.status !== 'confirmed' || now() >= toDate(a.slot.start).getTime();
 
@@ -53,10 +53,10 @@ function view(s) {
     .sort((a, b) => toDate(b.history[b.history.length - 1].at) - toDate(a.history[a.history.length - 1].at)).slice(0, 1);
   const first = firstOf(t);
   const head = `${chrome('home', { persona: 'tailor' })}`;
-  const hello = headingRow(`<p class="t-caps c-600 ${ID}__date">${dateLine()}</p><h1 class="t-title">Hi, ${esc(first)}</h1>`, { back: false });
+  const hello = headingRow(`<h1 class="t-title">Hi, ${esc(first)}</h1>`, { back: false });
   /* D-161: the shop is paused — one line with the way back on */
   const paused = t.takingRequests === false
-    ? `<p class="t-small c-600 ${ID}__sum ${ID}__paused">Paused ${textLink('Turn back on', { act: 'resume' })}</p>` : '';
+    ? `<p class="t-small c-600 ${ID}__sum ${ID}__paused">You’re paused, so customers can’t send new requests. ${textLink('Take requests again', { act: 'resume' })}</p>` : '';
 
   if (!apptsFor('tailor').length) {
     return `${head}<main class="body ${ID}">
@@ -128,7 +128,7 @@ function view(s) {
   return `${head}<main class="body ${ID}">
   ${hello}
   ${paused}
-  <p class="t-small c-600 ${ID}__sum">${summary.join(' · ')}</p>
+  <p class="t-small c-600 ${ID}__sum">${dateLine()} · ${summary.join(', ')}</p>
   ${s.sim.push === 'denied' ? `<div class="${ID}__push">${pushBanner()}</div>` : ''}
   ${group('New requests', 'new', fresh.length || null, fresh.length
     ? `<div class="${ID}__list">${cards}</div>`

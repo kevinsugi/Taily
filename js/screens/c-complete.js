@@ -5,15 +5,17 @@
    Tapping a star carries the rating into c-review (D-107).
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, tailorById } from '../state.js';
+import { state, tailorById, priceChangeView } from '../state.js';
 import {
-  chrome, headingRow, statusHero, receiptBlock, actionBar, emptyState, stars, wireStars, esc, sectionHead,
+  chrome, headingRow, statusHero, receiptBlock, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, sectionHead, garmentStrip,
 } from '../components.js';
 import { STAR_WORDS } from '../data.js';
 import { focusAppt, setFocus, bookingTab } from '../focus.js';
 
 const ID = 'c-complete';
 
+/** How a review names Sarah on Amara’s profile: first name and last initial. */
+const customerShort = () => `${state.customer.first} ${(state.customer.last ?? '').charAt(0)}.`.replace(/ \.$/, '');
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
 
 
@@ -29,19 +31,22 @@ function view() {
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const first = firstOf(t);
   /* M7-1-A-06: the heading is the group's visible label; a star tap carries the rating into c-review (D-107) */
+  /* CR-3: what came back, under the hero (count from the approved lines once they exist, as c-booking does) */
+  const types = a.lines?.length ? [...new Map(a.lines.map((l) => [l.garmentId, l.garmentType])).values()] : a.job.garments.map((g) => g.type);
   const rating = stars({ input: true, name: 'rate', value: 0 }).replace('aria-label="Your rating"', 'aria-labelledby="rate-label"');
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}">
-  ${headingRow(statusHero({ pill: 'completed', title: 'All done', body: `${esc(first)} marked your order completed. Thanks for booking with Taily.` }), { backRow: true })}
-  <section class="sec sec--first card ${ID}__rate">
+  ${headingRow(statusHero({ pill: 'completed', title: 'All done', body: `${esc(first)} marked your order completed. Thanks for booking with Taily.` }))}
+  <section class="sec sec--first ${ID}__order">${garmentStrip(types, `${types.length} ${types.length === 1 ? 'item' : 'items'} · back with you`)}</section>
+  <section class="sec card ${ID}__rate">
     <h2 class="t-body w-600" id="rate-label">How did ${esc(first)} do?</h2>
     ${rating}
     <p class="t-small c-700 ${ID}__word" id="rate-word" aria-live="polite">${esc(STAR_WORDS[0])}</p>
-    <p class="t-small c-600 ${ID}__hint">Tap a star. Shown on ${esc(first)}’s profile.</p>
+    <p class="t-small c-600 ${ID}__hint">Tap a star to rate. Reviews show on ${esc(first)}’s profile as ${esc(customerShort())}${customerShort().endsWith('.') ? '' : '.'}</p>
   </section>
   <section class="sec">${sectionHead('Receipt')}
   ${receiptBlock(a, first)}</section>
 </main>
-${actionBar({ ctaLabel: 'Leave a review', ctaAct: 'leave-review', secondaryLabel: `Message ${esc(first)}`, secondaryAct: 'message' })}`;
+${actionBar({ secondaryLabel: `Message ${esc(first)}`, secondaryAct: 'message' })}`;
 }
 
 function wire(root) {
@@ -52,6 +57,19 @@ function wire(root) {
     backBtn.addEventListener('click', () => go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings'));
   }
   wireStars(root);
+  /* K4-1-03: the receipt's item rows carry the same photo stacks as "Your order" */
+  wirePhotoViewer(root);
+  if (a) {
+    const by = firstOf(tailorById(a.tailorId) ?? state.tailors[0]);
+    wireGarmentDocs(root, {
+      by: `Taken by ${by}`,
+      lookup: (gid) => {
+        const docs = a.priceChange?.docs?.[gid];
+        const type = priceChangeView(a, a.lines).garments.find((g) => g.id === gid)?.type ?? '';
+        return docs ? { type, docs } : null;
+      },
+    });
+  }
 
   /* a star tap is the start of the review: carry the rating over (D-107) */
   root.addEventListener('change', (e) => {
@@ -65,7 +83,6 @@ function wire(root) {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (!act || e.target.closest('.screen-sheet--overlay')) return;
     if (act === 'message') { if (a) setFocus(a.id, { keepFrom: true }); go('c-thread'); }
-    else if (act === 'leave-review' && a) { setFocus(a.id, { keepFrom: true }); state.ui['c-review'] = { apptId: a.id }; go('c-review'); }
     else if (act === 'done') go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings', { fresh: true });
   });
 }

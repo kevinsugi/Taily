@@ -28,12 +28,12 @@ const chosen = () => tailorById(state.ui.booking?.tailorId ?? state.tailors[0].i
 /** Why the Pick a time button is off. */
 function reasonNote(el, job) {
   return {
-    declined: 'Not available for this job',
-    hidden: 'Not available for this job',
+    declined: 'Not available for this request',
+    hidden: 'Not available for this request',
     'nothing-open': `Nothing open before ${nb(fmtDay(job.needBy))}`,
     zip: job.visitType === 'home' ? `Doesn’t visit ${job.zip}` : `No shop within 5 miles of ${job.zip}`,
     'shop-off': 'Doesn’t take shop visits',
-  }[el.reason] ?? 'Not available for this job';
+  }[el.reason] ?? 'Not available for this request';
 }
 
 /** One group (A3, A5.5): a caps heading over flat rows, 32 apart. `key` names the heading id; `domId` lets a link scroll to it. */
@@ -43,19 +43,21 @@ const section = (title, inner, { key = '', aside = '', domId = '', cls = '' } = 
 };
 
 /* M7-2-C-03: identity only (name, shop, place · years, rating + Verified, tight); the action group renders after it */
-function hero(t) {
+function hero(t, { back = false } = {}) {
   const area = t.shop?.hood || ZIP_INFO[t.shop?.zip]?.hood || '';
-  const line2 = [area, t.years ? `${t.years} years` : ''].filter(Boolean).join(' · ');
+  const line2 = [area, t.years ? `${t.years} years tailoring` : ''].filter(Boolean).join(' · ');
   const rated = t.rating?.count > 0;
   const proof = [rated ? ratingLine({ ...t.rating, anchor: '#reviews' }) : '<span class="t-small c-600 c-tailor__new">New on Taily</span>', t.verified ? verifiedMark() : ''].filter(Boolean).join('');
-  return `<div class="c-tailor__hero">
-    <div class="c-tailor__id">
+  /* K-04 / D-205: opened from Bookings (profile) or previewed by the tailor, the Back sits inline with the tailor's name, not on its own row */
+  const id = `<div class="c-tailor__id">
       ${avatar({ initials: t.initials, photo: t.photo, size: 'md' })}
       <div class="c-tailor__who">
         <h1 class="t-title c-tailor__name">${esc(t.name)}</h1>
         ${t.shopName ? `<p class="t-body w-600 c-700 c-tailor__shop">${esc(t.shopName)}</p>` : ''}
       </div>
-    </div>
+    </div>`;
+  return `<div class="c-tailor__hero">
+    ${back ? headingRow(id, { whole: true }) : id}
     <div class="c-tailor__meta">
       ${line2 ? `<p class="t-small c-600 c-tailor__sub">${esc(line2)}</p>` : ''}
       <div class="c-tailor__proof">${proof}</div>
@@ -101,7 +103,14 @@ function prices(t) {
   const toggle = offered.length > PRICES_SHOWN
     ? `<div class="c-tailor__more">${textLink(all ? 'Show fewer prices' : `See all ${offered.length} prices`, { act: 'all-prices', attrs: `aria-expanded="${all}"` })}</div>` : '';
   return section('Prices', `<div class="c-tailor__prices">${rows}</div>${toggle}
-    <div class="c-tailor__rush"><p class="t-caps c-600">Rush fees</p><div class="t-small c-600" data-money>${rushLadder(t.rush)}</div></div>`);
+    <div class="c-tailor__rush"><p class="t-caps c-600">Rush fees</p><div class="t-body" data-money>${rushLadder(t.rush)}</div></div>`);
+}
+
+/** CP-C13: "Williamsburg, Greenpoint, East Williamsburg and Bushwick" — each neighbourhood once, in ZIP order. */
+function hoodList(zips = []) {
+  const names = [...new Set(zips.map((z) => ZIP_INFO[z]?.hood).filter(Boolean))];
+  if (!names.length) return zips.join(', ');
+  return names.length < 2 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
 function where(t, job) {
@@ -111,7 +120,7 @@ function where(t, job) {
     blocks.push(`<div class="c-tailor__place">${metaRow('', esc(`${t.shopName}, ${t.shop.street}, ${t.shop.city}, ${t.shop.state} ${t.shop.zip}`), { icon: 'shop' })}${miles != null ? `<p class="t-small c-600">${miles.toFixed(1)} mi from you</p>` : ''}</div>`);
   }
   if (t.home?.enabled) {
-    blocks.push(`<div class="c-tailor__place">${metaRow('', esc(`Comes to you in ${t.home.zips.join(', ')}`), { icon: 'home' })}<p class="t-small c-600" data-money>${F(cents(t.home.fee))} home-visit fee</p></div>`);
+    blocks.push(`<div class="c-tailor__place">${metaRow('', esc(`Comes to you in ${hoodList(t.home.zips)}`), { icon: 'home' })}<p class="t-small c-600">${esc(t.home.zips.join(', '))}</p><p class="t-small c-600" data-money>${F(cents(t.home.fee))} home-visit fee</p></div>`);
   }
   return blocks.length ? section('Where', blocks.join('')) : '';
 }
@@ -153,10 +162,9 @@ function view(s) {
   const lead = `<span>Est. <b data-money>${F(q.total)}</b> · ${itemsLabel(job.garments.length, 'item')}</span>`;
   const booking = !preview && !profile;   // opened from c-tailors: the flow bar owns Back and the exit (D-186)
   return `${booking ? flowBar({ step: 2 }) : chrome(profile ? 'bookings' : 'home')}<main class="body ${preview ? '' : 'body--with-bar '}${ID}${profile ? ` ${ID}--profile` : ''}">
-  ${booking ? '' : headingRow('')}
+  ${hero(t, { back: !booking })}
   ${preview ? `<div class="c-tailor__preview">${readOnlyBanner({ text: 'You’re viewing your own profile', ctaLabel: 'Back to Taily for tailors', ctaAct: 'exit-preview' })}</div>` : ''}
-  ${hero(t)}
-  ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} can’t take this job`, text: `Your job details are saved. You can book ${esc(first)} for a different job.` })}</div>` : ''}
+  ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} declined this request`, text: `Your items and services are saved. You can still book ${esc(first)} for other work.` })}</div>` : ''}
   ${declined ? '' : `<div class="c-tailor__act">
     <p class="t-small w-600 c-700 c-tailor__next">${next ? `Next opening ${nb(fmtWhen(next))}` : `Nothing open before ${nb(fmtDay(job.needBy))}`}</p>
     ${preview ? '' : `<div class="c-tailor__ask">${textLink('Ask a question', { act: 'ask', icon: ICON_CHAT })}</div>`}
@@ -172,7 +180,7 @@ ${preview ? ''
   : profile
     ? actionBar({ ctaLabel: `Book ${esc(first)} again`, ctaAct: 'book-again' })
     : declined
-    ? actionBar({ ctaLabel: 'Start a different job', ctaAct: 'new-job', note: `${esc(first)} can’t take this job` })
+    ? actionBar({ ctaLabel: 'Start a new request', ctaAct: 'new-job', note: `${esc(first)} declined this request` })
     : actionBar({ lead, ctaLabel: 'Pick a time', ctaAct: 'pick-time', disabled: !el.ok, note: el.ok ? '' : reasonNote(el, job) })}`;
 }
 

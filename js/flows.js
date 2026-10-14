@@ -49,7 +49,7 @@ export const personaForScreen = (id) => (id.startsWith('c-') ? 'customer' : /^(t
 
 /** The latency the app booted with (instant under ?test=1, else normal). resetDemo restores it, so a flow that
     set `sim.latency = 'hold'` for a loading / busy state never leaks into the next one (D-35). */
-let bootLatency = 'normal';
+let bootLatency = state.sim.latency ?? 'normal';   // app.js sets state.sim.latency before it loads this module (D-212)
 export function setBootLatency(v) {
   bootLatency = v;
   state.sim.latency = v;

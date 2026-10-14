@@ -141,18 +141,18 @@ export function payoutDetail(apptId) {
 
 /** D-172: one payout's words, the same on t-job, t-home, t-payout and cancelled rows. `bank` = the tailor's `payouts` ({ bank, last4 });
     a paid or failed payout reads the bank snapshotted on it. `{ text, short, tone, label }`: `short` drops the bank (a list row's caption),
-    `tone` 'error' for a payout the bank sent back, `label` the Pending / Paid / Didn’t go through word of the pill. */
+    `tone` 'error' for a payout the bank returned, `label` the Pending / Paid / Didn’t go through word of the pill. */
 export function payoutLine(p, bank = myTailor()?.payouts) {
   const b = p.state === 'pending' ? bank : { bank: p.bank ?? bank?.bank, last4: p.last4 ?? bank?.last4 };
-  const to = `${b?.bank ?? 'Your bank'} ••${b?.last4 ?? ''}`;
+  const to = `${b?.bank ?? 'Your bank'} •••• ${b?.last4 ?? ''}`;
   const day = fmtDay(p.date);
   if (p.state === 'paid') return { text: `Paid ${day} · to ${to}`, short: `Paid ${day}`, tone: '', label: 'Paid' };
   if (p.state === 'failed') {
-    const text = 'Didn’t go through · sends again once your bank details are updated';
+    const text = 'Sends again once you update your bank details.';
     return { text, short: 'Didn’t go through', tone: 'error', label: 'Didn’t go through' };
   }
   if (state.payouts.some((x) => x.state === 'failed')) {   // R5-2-T-02: the same account can't be promised the next one
-    return { text: `Sends ${day} once your bank details are updated`, short: `Sends ${day}`, tone: '', label: 'Pending' };
+    return { text: `Sends ${day} once you update your bank details`, short: `Sends ${day}`, tone: '', label: 'Pending' };
   }
   const verb = p.retried ? 'Sending again' : 'Arrives';
   return { text: `${verb} ${day} · to ${to}`, short: `${verb} ${day}`, tone: '', label: 'Pending' };

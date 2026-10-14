@@ -42,7 +42,7 @@ function card(a, busy) {
 
 function view() {
   const head = `${chrome('account')}`;
-  const title = headingRow('<h1 class="t-title">Saved addresses</h1>', { backRow: true });
+  const title = headingRow('<h1 class="t-title">Saved addresses</h1>');
   const rows = sorted();
   if (!rows.length) {
     return `${head}<main class="body ${ID}" data-s="${ID}">
@@ -152,7 +152,7 @@ function remove(id) {
     if (!res.ok) {                                                   // D-140 / A-14: the banner sits on the address, the toast only echoes it
       ui().error = { id, title: 'Couldn’t remove this address', text: 'Nothing changed. Try again.' };
       go(ID);
-      toast('Couldn’t remove it', { tone: 'error' });
+      toast('Couldn’t remove the address', { tone: 'error' });
       return;
     }
     const nid = typeof res.newDefault === 'object' ? res.newDefault?.id : res.newDefault;   // the promoted address (id or the address itself)

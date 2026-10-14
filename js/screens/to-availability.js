@@ -16,12 +16,10 @@ import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 import { minutesOf } from '../dates.js';
 import { itemsLabel, DAY_KEYS, DAY_LABEL, DEFAULT_WEEK, VISIT_MINUTES } from '../data.js';
-import { POLICY } from '../money-config.js';
 
 const ID = 'to-availability';
 const SECTION = 'availability';
 const STEP = ONBOARDING_STEPS.findIndex((s) => s.id === SECTION);
-const LABEL = ONBOARDING_STEPS[STEP].label;
 const PREV = ONBOARDING_STEPS[STEP - 1]?.screen ?? 't-phone';
 const NEXT = ONBOARDING_STEPS[STEP + 1]?.screen ?? 'to-done';
 
@@ -154,8 +152,8 @@ function view() {
   return `${onboardingHeader({ editing: mode })}<main class="body body--with-bar ${ID} ${ID}--${mode ? 'edit' : 'onboarding'}">
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
-  ${mode ? headingRow(TITLE, { backRow: true }) : `<div class="${ID}__title">${TITLE}</div>`}
-  <p class="to-availability__lead t-body c-600">Set your usual week. You have ${POLICY.REQUEST_EXPIRY_H} hours to reply to each request.</p>
+  ${mode ? headingRow(TITLE) : `<div class="${ID}__title">${TITLE}</div>`}
+  <p class="to-availability__lead t-body c-600">Set your usual week.</p>
   <div class="to-availability__body">${body(list, seg)}</div>
 </main>${barHtml()}`;
 }
@@ -244,7 +242,7 @@ function submit() {
     if (state.ui.onboarding) state.ui.onboarding.resumed = false;
     if (wasEditing) {
       back() || go('t-shop');
-      toast(`${LABEL} saved`, { tone: 'success' });
+      toast('Saved. Customers see the change now.', { tone: 'success' });
     } else {
       go(NEXT);
     }

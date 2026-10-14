@@ -87,16 +87,16 @@ function view(s) {
     : emptyBlock(t);
   const foot = closed
     ? readOnlyBanner({
-      text: `${first} declined this request, so this chat is closed. Send ${first} a new request for a different job to chat again.`,
+      text: `${first} declined this request, so this chat is closed. To talk again, send ${first} a new request.`,
       ctaLabel: 'Find another tailor', ctaAct: 'find-another',
-      secondaryLabel: `Start a different job with ${first}`, secondaryAct: 'new-job',
+      secondaryLabel: `New request to ${first}`, secondaryAct: 'new-job',
     })
     : composer({
       value: draft, placeholder: `Message ${first}`, hint: maskContact(draft).masked ? HINT : '', photos: u.photos ?? 0, max: MAX_PHOTOS(), disabled: !!u.sending, photoType,
     });
   return `${chrome('messages')}
 <main class="body ${ID}">
-  ${headingRow(head)}
+  ${headingRow(head, { sticky: true })}
   <div class="${ID}__context">${contextRow(t, a)}</div>
   <div class="${ID}__note">${privacyNote()}</div>
   <div class="${ID}__messages">${body}</div>

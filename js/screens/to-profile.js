@@ -19,7 +19,6 @@ import * as A from '../account.js';
 
 const ID = 'to-profile';
 const STEP = 'profile';
-const LABEL = 'Profile';
 const { BIO_MAX, WORK_PHOTOS_MAX } = TAILOR_LIMITS;
 const HELPERS = {
   name: 'Customers see your full name.',
@@ -82,7 +81,7 @@ function view(s) {
   const title = `<h1 class="t-title">Your profile</h1>`;
   return `${onboardingHeader({ editing, back: editing })}
 <main class="body body--with-bar ${ID}">
-  ${editing ? headingRow(title, { backRow: true }) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="${ID}__title">${title}</div>`}
+  ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="${ID}__title">${title}</div>`}
   <p class="t-body c-600 ${ID}__lead">This is the first thing customers see.</p>
   <div class="${ID}__photo">
     ${initialsOf(d.name) ? avatar({ initials: initialsOf(d.name), photo: d.photo || null, size: 'lg' }) : avatar({ photo: true, size: 'lg' })}
@@ -108,6 +107,7 @@ ${editing
 
 /* ---------- wiring ---------- */
 const cameraGlyph = () => { const t = document.createElement('template'); t.innerHTML = avatar({ photo: true }); return t.content.firstChild.innerHTML; };
+const hangerGlyph = () => { const t = document.createElement('template'); t.innerHTML = avatar({ glyph: true }); return t.content.firstChild.innerHTML; };
 function openPhoto(header, onAdd) {
   const html = `<div class="${ID}__sheet-list">${listRow({ title: 'Take photo', act: 'photo-take' })}${listRow({ title: 'Choose from library', act: 'photo-library' })}</div>
 <div class="${ID}__sheet-foot">${textLink('Cancel', { act: 'photo-cancel' })}</div>`;
@@ -167,6 +167,7 @@ function wire(root) {
     root.querySelectorAll('.avatar').forEach((a) => {
       if (ini) a.textContent = ini;
       else if (a.classList.contains('avatar--placeholder')) a.innerHTML = cameraGlyph();
+      else if (a.classList.contains('avatar--glyph')) a.innerHTML = hangerGlyph();   // CR-m4: the preview's empty well
       else a.textContent = '';
     });
     const pn = root.querySelector('[data-pv="name"]');
@@ -238,7 +239,7 @@ function wire(root) {
       ui().busy = false;
       T.setTailorSection(STEP, patch());
       if (state.ui.onboarding) state.ui.onboarding.resumed = false;
-      if (editing) { state.ui[ID] = {}; back() || go('t-shop'); toast(`${LABEL} saved`, { tone: 'success' }); return; }
+      if (editing) { state.ui[ID] = {}; back() || go('t-shop'); toast('Saved. Customers see the change now.', { tone: 'success' }); return; }
       go(ONBOARDING_STEPS[ONBOARDING_STEPS.findIndex((s) => s.id === STEP) + 1].screen);
     });
   }

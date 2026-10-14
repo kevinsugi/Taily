@@ -36,7 +36,7 @@ function view() {
   const apple = state.customer.applePay === false ? '' : `<section class="sec">${sectionHead('Other ways to pay')}
   <div class="${ID}__list card card--list">${listRow({ title: 'Apple Pay', sub: 'Set up in Wallet on this phone', lead: '<span class="pay-badge">Pay</span>', chevron: false })}</div></section>`;
   return `${chrome('account')}<main class="body${list.length ? ' body--with-bar' : ''} ${ID}" data-s="${ID}">
-  ${headingRow('<h1 class="t-title">Payment methods</h1>', { backRow: true })}
+  ${headingRow('<h1 class="t-title">Payment methods</h1>')}
   <section class="sec sec--first">${sectionHead('Cards')}
   ${cardsBlock}</section>
   ${apple}

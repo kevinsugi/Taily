@@ -42,7 +42,7 @@ function wire(root) {
     if (!a || a.disabled || ui().busy) return;
     if (a.dataset.act === 'phone') return go('c-phone');
     if (a.dataset.act === 'tailor') return go('t-phone', { fresh: true });
-    if (a.dataset.act === 'terms' || a.dataset.act === 'privacy') return toast('Not built yet');
+    if (a.dataset.act === 'terms' || a.dataset.act === 'privacy') return toast('Terms and Privacy aren’t in this prototype yet.');
     if (a.dataset.act === 'apple' || a.dataset.act === 'google') {
       const provider = a.dataset.act;
       state.ui[ID] = { busy: provider };

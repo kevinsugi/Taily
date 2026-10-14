@@ -230,7 +230,7 @@ export function completeJob(id, { returnOption = 'pickup' } = {}) {
 
 /** earningsTo(kind) — kind: 'pending' | 'paid' | 'failed' | 'kept' (M5 A7).
     pending: one completed job, its payout scheduled for PAYOUT_DAYS.first · paid: that Friday's run paid it, then a second (shop) job is
-    completed on Sat, Oct 17 (next payout PAYOUT_DAYS.second) · failed: the Friday run sent it back · kept: a late cancellation's kept deposit. */
+    completed on Sat, Oct 17 (next payout PAYOUT_DAYS.second) · failed: the Friday run returned it · kept: a late cancellation's kept deposit. */
 export function earningsTo(kind) {
   if (kind === 'kept') return driveTo('cancelled-late');
   const first = driveTo('completed');

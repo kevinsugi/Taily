@@ -13,7 +13,6 @@ colors:
   neutral-500-ink: "#6E665A"
   neutral-600: "#5F584E"
   neutral-700: "#443F38"
-  bottom-border: "#E9E5DE"
   accent-base: "#A17C4E"
   accent-ink: "#7C5D34"
   accent-bg: "#F3ECE0"
@@ -106,7 +105,7 @@ spacing:
   rhythm-section: "32px"
   rhythm-major: "40px"
   gutter: "20px"
-  body-top: "128px"
+  body-top: "116px"
 components:
   button-primary:
     backgroundColor: "{colors.ink}"
@@ -351,8 +350,8 @@ that appear as dots and small ink, never as fields of colour.
 - **Caption Taupe** (`neutral-500-ink`): secondary text that must pass 4.5:1 (captions under rows, sheet Cancel, list subtitles).
 - **Graphite Soft** (`neutral-600`): `--text-footnote`. Section headings, footnotes, helpers, inactive nav icons, struck old amounts.
 - **Graphite Deep** (`neutral-700`): field labels, muted text links, the word next to progress / calm dots.
-- **Row Rule** (`bottom-border`): the nav / flow-bar bottom rule and, in practice, most in-list row separators. See Don'ts: it is an
-  unsorted Figma variable and should converge on `--hairline`.
+- **Row Rule** (`hairline`, `neutral-100`): the nav / flow-bar bottom rule and every in-list row separator (K-04 / D-213: one hairline,
+  the unsorted `--bottom-border` variable is deleted).
 
 ### Named Rules
 
@@ -390,7 +389,7 @@ does every working job (rows, money, buttons, fields) with tabular figures and q
   like "YOU TAKE HOME", "VISIT". Source copy stays sentence case; CSS uppercases it.
 - **Micro** (sans 600, 10 px / 13 px): change tags ("New", "Removed", +1 px tracking, sentence case on purpose).
 
-Line heights are the pixel values Figma renders for AUTO (Hanken about 1.31, Cormorant about 1.21), not ratios. The scale is the
+Line heights are unitless ratios (K-04: `calc(21 / 16)`, `calc(34 / 28)`, …) that equal the pixel values Figma renders for AUTO at 1x (Hanken about 1.31, Cormorant about 1.21), so text still scales with the user's font size. The scale is the
 Figma scale 10 / 12 / 16 / 24 / 28 / 32 / 36; hierarchy comes from weight and colour (`.w-400…700`, `.c-*`), never a new size.
 
 ### Named Rules
@@ -406,7 +405,7 @@ figures do not jitter as they change. Never let Cormorant render numbers in runn
 ## Layout
 
 A single 390 px phone column, centred on a `neutral-100` desktop backdrop above 391 px. Fixed chrome: status bar 0/0 h44 (white),
-top nav or flow bar 0/44 h56 (white, inside 1 px bottom rule). The content body starts at **128 px** with **20 px** side gutters and no
+top nav or flow bar 0/44 h56 (white, inside 1 px bottom rule). The content body starts at **116 px** (`--body-top`: nav bottom 100 + 16, K-04 / D-204) with **20 px** side gutters and no
 bottom padding; when a sticky action bar is present the body pads by the bar height plus 24.
 
 Spacing is on a 4 px base (4 / 8 / 12 / 16 / 20 / 24 / 28 / 32 / 40) with an **uneven rhythm** (K-03 #9):
@@ -437,10 +436,8 @@ because they are the only white. Strokes are always inside (Figma's INSIDE strok
 Drop shadows exist only on things that float above the page: sheets, modals, toasts, dropdown menus and the push banner.
 
 ### Shadow Vocabulary
-- **Modal lift** (`box-shadow: 0 16px 40px rgba(0,0,0,0.18)`): centred confirm modals.
-- **Toast lift** (`box-shadow: 0 6px 16px rgba(28,27,24,0.25)`): the ink toast pill.
-- **Push lift** (`box-shadow: 0 8px 24px rgba(0,0,0,0.24)`): the in-app push banner over the status bar.
-- **Menu lift** (`0 4px 12px rgba(28,27,24,0.08)` filter-pill dropdown; `0 6px 18px rgba(0,0,0,0.08)` selector menu).
+- **Overlay lift** (`--shadow-overlay`, `0 12px 32px` of `ink` at 20 %): centred confirm modals, the ink toast pill and the in-app push banner.
+- **Float lift** (`--shadow-float`, `0 4px 12px` of `ink` at 8 %): the filter-pill dropdown and the selector menu.
 - **Scrims**: sheet scrim `ink` at 0.4 opacity; modal scrim `ink` mixed to 45 %.
 
 ### Named Rules
@@ -512,6 +509,23 @@ ring, so closed reads differently by shape as well as hue). Muted past rows drop
 - **Onboarding bar:** linen, 56 px, Back left and "Finish later" text link right.
 - **No bottom tab bar** (K-03): Taily is a web app.
 
+### Heading (K-04)
+Every screen with a heading stacks three things (`headingRow(inner, { back, status })`): (1) the status line (8 px dot + word) on its
+own line when the screen has one; (2) ONE row holding the Back chevron and the `h1`: the chevron's 44 px hit box is pulled 12 px into
+the gutter so the glyph sits on the 20 px text edge, the title starts 4 px after it and wraps beside it (hanging indent), the chevron
+centred on the title's first line; (3) the notes / description below at the screen padding, full width. Tab roots (`back: false`)
+show the title alone. The booking flow bar and the onboarding bar keep their Back inside the 56 px bar (D-205). The body starts
+16 px under the nav rule (`--body-top`), so there is no separate Back row and no gap above the title.
+
+### Garment Item Row and Photo Stack (K-04)
+One shared `garmentHead` opens every item card (change list, work list, t-adjust, c-job): the item NAME first (16/600 ink, underlined
+1 px, offset 4 px, skip-ink) so it reads apart from the service rows under it, then the 40 px garment icon in its white well 8 px after
+the name, then a "New item" / "Removed" tag, and at the right end the photo stack (or the card's own control, c-job's ✕). The
+underline is decoration only (not a link); a removed item swaps it for a strike. `photoStack` is up to three overlapping 32 px photo
+stubs (-12 px overlap, 2 px Linen ring) then "1 photo" / "4 photos" (12/600 Graphite Deep), one 44 px-tall button; it opens the
+photo viewer. Before the fitting it counts the customer's photos; once the tailor has documented the fitting it counts Before +
+Pinned and the customer's photos are no longer shown on that card (c-job and t-adjust are editors and keep their photo tiles).
+
 ### Sheets, Modals, Toasts, Banners
 - **Sheet:** Linen, 24 px top corners, 36 x 4 grabber, 12/20/32 padding; header row ✕ · title · ✓. Enters with transform over 280 ms,
   leaves over 200 ms, both `--ease-out`; scrim ink at 0.4.
@@ -576,24 +590,22 @@ rows. Nowhere else.
 - **Don't** use outline secondary buttons outside a confirm sheet / modal or a two-path empty state.
 - **Don't** use `transition: all`, or animate an overlay in from `scale(0)`.
 - **Don't** use a base semantic colour (`--error`, `--success`, `--warning`) or `--neutral-500` / `--accent-base` for text.
-- **Don't** call `--bottom-border` in new work; it is an unsorted Figma variable. New row rules use `--hairline`.
+- **Don't** reintroduce `--bottom-border`; row rules use `--hairline` (the lint fails on it).
 
-## Drift found while documenting (not yet fixed)
+## Drift closed (K-04)
 
-This file describes the intended system; the shipped code departs from it in these places. Fix in a later polish pass (no code was
-changed while writing this).
+The five departures noted when this file was first written were all fixed in the K-04 pass (decisions D-203…D-217):
 
-1. **Semantic base colours used as text** (breaks the Base-Is-For-Glyphs Rule): `.field__msg--error`, `.text-area__count--over`,
-   `.countdown--expired`, `.chat-msg__retry`, `.c-review__error`, `.filter-pill__help` / `--error` box text, `.status-hero__title.c-error`
-   / `.c-success`, `.modal__title--success` (all `--error` / `--success`). `.banner--success` sets `--success` text on `--success-bg`
-   at **4.25:1**, below the 4.5:1 floor. `.toast--warning` (white on `--warning`) is **3.28:1** if ever used.
-2. **Two hairline colours.** In-list row rules (`price-row`, `review-row`, `list-row`, `change-list__row`, `thread-row`) use
-   `--bottom-border` (#E9E5DE, flagged "not intentional" in tokens.css) while the M7 token `--hairline` (`neutral-100`) is used in only
-   four onboarding / rush screen files.
-3. **Untokenised overlay depth and motion.** Five literal shadows (modal, toast, push, two menus) have no token; the toast animates
-   over 200 ms, the push banner declares 250 ms `ease-out`, toggles and selector chevrons use 180 ms, all outside the
-   `--dur-*` set. `.modal` uses a literal 24 px radius instead of `--radius-xl`. `--ease-drawer` is still declared but unused.
-4. **Dead or legacy serif.** `.rating-summary__avg` (serif 24) and `.sheet--picker .sheet__title` / `.t-section` (serif 20, off scale)
-   remain in CSS; `--size-8/11/14/18/20/30` exist outside the documented 7-step scale.
-5. **Docs lag code.** `docs/v5/CONTEXT.md` (K-01 section) still says the changeList "New" tag is a filled `--success` badge; the shipped
-   tag is accent (M7-2-C-06), as documented here.
+1. **Semantic base colours as text.** Error, success and warning copy now use the `-ink` twins (`.field__msg--error`,
+   `.text-area__count--over`, `.countdown--expired`, `.chat-msg__retry`, `.c-review__error`, `.filter-pill__help`,
+   `.modal__title--success`, `.banner--success`, `.toast--warning` as `--warning-ink` on `--warning-bg`). Base colours stay
+   for glyphs, strokes and fills. A lint rule fails a base glyph colour set as a text colour.
+2. **One hairline.** Every in-list row rule uses `--hairline`; `--bottom-border` is deleted and the lint fails on it.
+3. **Overlay depth and motion tokens.** `--shadow-float` and `--shadow-overlay` replace the five literals; the toast, push banner,
+   toggles and chevrons run on `--dur-modal` / `--dur-press` with `--ease-out`; `.modal` uses `--radius-xl`; `--ease-drawer` is gone.
+4. **Dead serif and sizes.** `.rating-summary*` (with `ratingSummary`), `.sheet--picker` and `.t-section` are deleted; `--size-8` and
+   `--size-18` are retired. `--size-11`, `--size-14`, `--size-20` and `--size-30` remain because shared overlay components (selector
+   menu, modal, review sheet) still render them; v5 screens use only the 7-step scale and the lint enforces it.
+5. **Docs lag code.** `docs/v5/CONTEXT.md` now describes the accent "New" tag and the K-04 anatomy.
+
+Open: nothing.

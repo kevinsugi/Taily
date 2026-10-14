@@ -22,7 +22,7 @@ import { SERVICES, GARMENT_TYPES, servicesForType, TAILOR_LIMITS, MAX_ITEMS, FIT
 import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, banner, emptyState, listRow, optionRow, textArea, deltaFigure, tailorBreakdown, actionBar, changeSummary,
-  sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, docsEditor, wireGarmentDocs, sectionHead, textLink,
+  sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, garmentHead, docsEditor, wireGarmentDocs, sectionHead, textLink,
 } from '../components.js';
 
 const ID = 't-adjust';
@@ -219,8 +219,8 @@ function garmentHtml(g, errors, busy, ctx) {
   if (g.gone) {
     return `<section class="${ID}__garment" aria-label="${esc(g.type)}, removed" data-garment="${esc(g.id)}" data-kind="removed">
     <div class="card ${ID}__card ${ID}__card--gone">
-      <div class="${ID}__head">${garmentIcon(g.type)}<h2 class="t-body w-600 ${ID}__type c-600"><s>${esc(g.type)}</s></h2>${tag('Removed', 'removed')}
-        ${textLink('Undo', { act: 'undo-item', disabled: busy, attrs: `data-garment="${esc(g.id)}" aria-label="Undo remove ${esc(g.type)}"` })}</div>
+      <div class="${ID}__head">${garmentHead({ type: g.type, kind: 'removed', tag: tag('Removed', 'removed'), as: 'h2',
+        trailing: textLink('Undo', { act: 'undo-item', disabled: busy, attrs: `data-garment="${esc(g.id)}" aria-label="Undo remove ${esc(g.type)}"` }) })}</div>
       <ul class="${ID}__gone-list">${g.rows.map((r) => `<li class="t-small c-600" data-money><s>${esc(r.label)} · ${fmtExact(r.startCents ?? r.fallback)}</s></li>`).join('')}</ul>
     </div>
   </section>`;
@@ -228,13 +228,13 @@ function garmentHtml(g, errors, busy, ctx) {
   const more = addable(g).length > 0;
   return `<section class="${ID}__garment" aria-label="${esc(g.type)}" data-garment="${esc(g.id)}" data-kind="${g.isNew ? 'added' : 'kept'}">
     <div class="card ${ID}__card${g.isNew ? ` ${ID}__card--new` : ''}">
-      <div class="${ID}__head">${garmentIcon(g.type)}<h2 class="t-body w-600 ${ID}__type">${esc(g.type)}</h2>${g.isNew ? tag('New item', 'new-item') : ''}
-        ${textLink('Remove item', { act: 'remove-item', tone: 'danger', disabled: busy, attrs: `data-garment="${esc(g.id)}" aria-label="Remove item: ${esc(g.type)}"` })}</div>
+      <div class="${ID}__head">${garmentHead({ type: g.type, tag: g.isNew ? tag('New item', 'new-item') : '', as: 'h2' })}</div>
       ${g.rows.map((r) => rowHtml(r, errors, busy, g.isNew)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: '+ Add a service', act: 'add-service' }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${dis}`)}</div>` : ''}
       ${docsEditor({
     garmentId: g.id, type: g.type, docs: docsOf(ctx.a, g.id), missing: ctx.missing.get(g.id) ?? { before: false, pinned: false },
     commentDraft: ctx.d.comments[g.id] ?? null, commentError: ctx.d.commentErrors[g.id] ? `Keep the comment under ${FITTING_LIMITS.COMMENT_MAX} characters.` : '', busy, first: ctx.first, tried: ctx.d.tried,
   })}
+      <div class="${ID}__remove">${textLink('Remove item', { act: 'remove-item', tone: 'danger', disabled: busy, attrs: `data-garment="${esc(g.id)}" aria-label="Remove item: ${esc(g.type)}"` })}</div>
     </div>
   </section>`;
 }
@@ -285,21 +285,21 @@ function view() {
     : bad ? fix
       : `<span class="${ID}__lead">${pair}</span>`;
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${revise ? '--revise' : ''}" data-appt="${esc(a.id)}"${d.tried ? ' data-tried="true"' : ''}>
-  ${headingRow(hero, { backRow: true })}
+  ${headingRow(hero)}
   <div class="${ID}__content"${busy ? ' inert aria-busy="true"' : ''}>
   ${revise ? `<div class="${ID}__info">${banner({ tone: 'info', text: `${esc(first)} hasn’t approved yet. Sending again replaces the order ${esc(first)} is looking at.` })}</div>` : ''}
   <div class="${ID}__garments">${garments.map((g) => garmentHtml(g, errors, busy, ctx)).join('')}
     <div class="card ${ID}__card ${ID}__card--add">${listRow({ title: '+ Add an item', act: 'add-item' }).replace('data-act="add-item"', `data-act="add-item"${atMax || busy ? ' disabled aria-disabled="true"' : ''}`)}${atMax ? `<p class="t-small c-600 ${ID}__max">Up to ${MAX_ITEMS} items on one job.</p>` : ''}</div>
   </div>
   <div class="${ID}__empty-err" data-live="empty">${errors.empty ? banner({ tone: 'error', text: 'Keep at least one item with a service on this job.' }) : ''}</div>
-  <section class="sec ${ID}__note">${textArea({ id: 'adjust-note', label: `Note to ${first} (optional)`, value: d.note, rows: 3, max: TAILOR_LIMITS.NOTE_MAX, helper: 'Phone numbers and emails are hidden.', error: errors.note })}</section>
+  <section class="sec ${ID}__note">${textArea({ id: 'adjust-note', label: `Note to ${first} about the whole order (optional)`, value: d.note, rows: 3, max: TAILOR_LIMITS.NOTE_MAX, helper: 'Phone numbers and emails are hidden.', error: errors.note })}</section>
   <section class="sec" aria-labelledby="${ID}-changes">
   ${sectionHead('What changes', { id: `${ID}-changes` })}
   <div class="${ID}__summary" data-live="summary">${bad ? '' : changeSummary(real.counts)}</div>
   <div class="${ID}__figures${same ? ` ${ID}__figures--none` : ''}" data-live="figures">${same ? '' : `
     ${bad ? dashFigure(`${first} pays`) : none ? deltaFigure({ label: `${first} pays`, cents: frozen.after.total }) : deltaFigure({ label: `${first} pays`, cents: pv.after.total, was: pv.before.total })}
     ${bad ? dashFigure('You take home') : none ? deltaFigure({ label: 'You take home', cents: frozen.after.payout }) : deltaFigure({ label: 'You take home', cents: pv.after.payout, was: pv.before.payout })}
-    ${none ? `<p class="t-small c-600 ${ID}__frozen">Add an item or service to see the new total</p>` : bad ? `<p class="t-small c-600 ${ID}__frozen">${fix}</p>` : ''}`}
+    ${none ? `<p class="t-small c-600 ${ID}__frozen">Add an item or service to see the new total</p>` : ''}`}
   </div>
   <div class="${ID}__breakdown" data-live="breakdown">${bad ? '' : tailorBreakdown(pv.after)}</div>
   <p class="t-small c-600 ${ID}__fine" data-money>${esc(first)}’s ${fmtExact(deposit)} deposit stays the same.</p>
@@ -485,14 +485,14 @@ const commentTrigger = (a, gid) => `[data-act="${docsOf(a, gid).comment ? 'edit-
 
 function addDoc(a, gid, kind) {
   const r = T.addFittingPhoto(a.id, gid, kind);
-  if (!r.ok) { toast('Something went wrong. Try again.', { tone: 'error' }); return; }
+  if (!r.ok) { toast('Couldn’t save the photo. Try again.', { tone: 'error' }); return; }
   const n = docsOf(a, gid)[kind].length;
   rerender(n < FITTING_LIMITS.PHOTOS_MAX ? addTile(gid, kind) : thumb(gid, kind, n - 1));   // at the max the add tile is gone
 }
 
 function removeDoc(a, gid, photo, kind, index) {
   const r = T.removeFittingPhoto(a.id, gid, photo.id);
-  if (!r.ok) { toast('Something went wrong. Try again.', { tone: 'error' }); return; }
+  if (!r.ok) { toast('Couldn’t remove the photo. Try again.', { tone: 'error' }); return; }
   rerender(addTile(gid, kind));
   toast(`${DOC_LABEL[kind]} photo removed.`, {
     action: 'Undo',
@@ -515,7 +515,7 @@ function saveComment(a, gid) {
     d.commentErrors[gid] = 'comment-long';
     rerender(`#comment-${q(gid)}`);
   } else {
-    toast('Something went wrong. Try again.', { tone: 'error' });
+    toast('Couldn’t save the comment. Try again.', { tone: 'error' });
   }
 }
 
@@ -594,7 +594,7 @@ function send(a) {
       toast(`${firstOf()} already answered this order.`, { tone: 'error' });
     } else {
       rerender();
-      toast('Something went wrong. Try again.', { tone: 'error' });
+      toast('Couldn’t send the order. Try again.', { tone: 'error' });
     }
   });
 }

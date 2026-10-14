@@ -52,19 +52,19 @@ export const FLOWS_to_profile = [
 export const FLOWS_to_services = [
   { key: 'to-services', screen: 'to-services', group: 'M2 · Onboarding', title: 'Services and prices', note: 'Step 2 of 6: three ticked, a live "You take home · Taily fee" under each price',
     setup: (S) => { onboardTo('services'); S.state.ui['to-services'] = { draft: { prices: { 'hem-pants': AMARA.prices['hem-pants'], sleeves: AMARA.prices.sleeves, repair: AMARA.prices.repair } } }; },
-    expect: { has: ['Step 2 of 6', 'Services and prices', '3 selected', `You take home ${fmtExact(payoutFor({ services: cents(AMARA.prices['hem-pants']) }))} · Taily fee ${fmtExact(tailyFeeFor(cents(AMARA.prices['hem-pants'])))}`, `Taily keeps ${fmtExact(tailyFeeFor(cents(MONEY.FEE_EXAMPLE_SERVICES)))} of every ${fmtExact(cents(MONEY.FEE_EXAMPLE_SERVICES))} of services. Home-visit and rush fees are yours in full.`, 'Bridal gown alterations'], sel: '#price-hem-pants' } },
+    expect: { has: ['Step 2 of 6', 'Services and prices', '3 selected', `You take home ${fmtExact(payoutFor({ services: cents(AMARA.prices['hem-pants']) }))} · Taily fee −${fmtExact(tailyFeeFor(cents(AMARA.prices['hem-pants'])))}`, `Taily keeps ${fmtExact(tailyFeeFor(cents(MONEY.FEE_EXAMPLE_SERVICES)))} of every ${fmtExact(cents(MONEY.FEE_EXAMPLE_SERVICES))} of services. Home-visit and rush fees are yours in full.`, 'Bridal gown alterations'], sel: '#price-hem-pants' } },
   { key: 'to-services--missing-price', screen: 'to-services', group: 'M2 · Onboarding', title: 'Services and prices — missing price', note: 'Hem pants ticked with no price, then Next',
     setup: (S) => { onboardTo('services'); S.state.ui['to-services'] = { draft: { prices: { 'hem-pants': null, sleeves: AMARA.prices.sleeves } } }; },
     click: ['[data-act="next"]'],
     expect: { has: 'Enter a price', sel: '#price-hem-pants[aria-invalid="true"]' } },
   { key: 'to-services--none', screen: 'to-services', group: 'M2 · Onboarding', title: 'Services and prices — none ticked', note: 'Nothing ticked: Next is disabled and says why',
     setup: () => { onboardTo('services'); },
-    expect: { has: 'Pick at least one service to continue', not: ['You take home', 'services on your profile'], sel: '[data-act="next"][disabled]' } },
+    expect: { has: 'Pick at least one service to continue.', not: ['You take home', 'services on your profile'], sel: '[data-act="next"][disabled]' } },
   { key: 'to-services--resume', screen: 'to-services', group: 'M2 · Onboarding', title: 'Services and prices — resumed', note: 'Signed back in: the pick-up-where-you-left-off banner',
     setup: (S) => { onboardTo('services'); S.state.ui.onboarding = { resumed: true }; },
     expect: { has: ['Pick up where you left off', 'Profile is done', '5 steps to go'] } },
   { key: 'to-services--edit', screen: 'to-services', group: 'M2 · Shop', title: 'Services and prices — edit', note: 'Live tailor: ten ticked, Save changes waits for a change',
-    expect: { has: ['Services and prices', 'Save changes', '10 selected', `You take home ${fmtExact(payoutFor({ services: cents(AMARA.prices['hem-pants']) }))} · Taily fee ${fmtExact(tailyFeeFor(cents(AMARA.prices['hem-pants'])))}`] } },
+    expect: { has: ['Services and prices', 'Save changes', '10 selected', `You take home ${fmtExact(payoutFor({ services: cents(AMARA.prices['hem-pants']) }))} · Taily fee −${fmtExact(tailyFeeFor(cents(AMARA.prices['hem-pants'])))}`] } },
   { key: 'to-services--unsaved', screen: 'to-services', group: 'M2 · Shop', title: 'Services and prices — leave without saving', note: 'Changed one price, then Back',
     setup: (S) => { onboardTo('done'); S.state.ui['to-services'] = { draft: { prices: { ...AMARA.prices, 'hem-pants': AMARA.prices['hem-pants'] + 5 } } }; },
     click: ['.back'],
@@ -75,7 +75,7 @@ const WHERE_DRAFT = () => ({ shop: { enabled: true, street: AMARA.shop.street, z
 export const FLOWS_to_where = [
   { key: 'to-where', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work', note: 'Step 3 of 6: shop and home visits on, ZIPs and home-visit fee',
     setup: (S) => { onboardTo('where'); S.state.ui['to-where'] = { draft: WHERE_DRAFT() }; },
-    expect: { has: ['Step 3 of 6', 'Where do you work', 'Customers come to my shop', 'I visit customers at home', 'Williamsburg', `Includes ${fmt(cents(AMARA.home.fee))} home-visit fee`], sel: '#home-on[aria-checked="true"]' } },
+    expect: { has: ['Step 3 of 6', 'Where do you work', 'Customers come to your shop', 'You visit customers at home', 'Williamsburg', `Includes ${fmt(cents(AMARA.home.fee))} home-visit fee`], sel: '#home-on[aria-checked="true"]' } },
   { key: 'to-where--home-only', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work — home visits only', note: 'Shop switched off: its fields disappear, ZIPs and fee stay',
     setup: (S) => { onboardTo('where'); const W = WHERE_DRAFT(); S.state.ui['to-where'] = { draft: { ...W, shop: { enabled: false, street: '', zip: '' } } }; },
     expect: { has: 'ZIP codes you cover', not: 'Shop street address', sel: '#shop-on[aria-checked="false"]' } },
@@ -97,11 +97,11 @@ export const FLOWS_to_where = [
 export const FLOWS_to_returns = [
   { key: 'to-returns', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options', note: 'Step 4 of 6: pickup and drop-off pre-ticked from what she offers, courier off',
     setup: () => { onboardTo('returns'); },
-    expect: { has: ['Step 4 of 6', 'How do orders get back', 'In-store pickup', 'Home drop-off', 'Taily courier', 'nothing comes out of your payout'], sel: '#ret-pickup:checked' } },
+    expect: { has: ['Step 4 of 6', 'How do customers get their orders back', 'In-store pickup', 'Home drop-off', 'Taily courier', 'nothing comes out of your payout'], sel: '#ret-pickup:checked' } },
   { key: 'to-returns--none', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options — none picked', note: 'All three off, then Next',
     setup: (S) => { onboardTo('returns'); S.state.ui['to-returns'] = { draft: { pickup: false, dropoff: false, courier: false } }; },
     click: ['[data-act="next"]'],
-    expect: { has: 'Pick at least one way to get orders back' } },
+    expect: { has: 'Pick at least one return option.' } },
   { key: 'to-returns--edit', screen: 'to-returns', group: 'M2 · Shop', title: 'Return options — edit', note: 'Live tailor: all three offered, Save changes waits for a change',
     expect: { has: ['Save changes', 'Taily courier'], not: 'Step 4 of 6', sel: '#ret-courier:checked' } },
 ];
@@ -132,11 +132,11 @@ export const FLOWS_to_payouts = [
     click: ['[data-act="next"]'],
     expect: { has: ['Enter the name on the account', 'Enter the 9-digit routing number', 'Account numbers are 4 to 17 digits'], sel: '#holder[aria-invalid="true"]' } },
   { key: 'to-payouts--edit', screen: 'to-payouts', group: 'M2 · Shop', title: 'Payouts — edit', note: 'Live tailor: current bank, account blank keeps it, Save changes waits for a change',
-    expect: { has: ['Save changes', `${AMARA.payouts.bank} ••${AMARA.payouts.last4}`, 'Leave blank to keep'], not: 'Step 6 of 6' } },
-  { key: 'to-payouts--returned', screen: 'to-payouts', group: 'M5 · Earnings', title: 'Payouts — a payout came back', note: 'Fix bank details from Earnings: the returned amount, the bank, and the Friday it sends again after a save',
+    expect: { has: ['Save changes', `${AMARA.payouts.bank} •••• ${AMARA.payouts.last4}`, 'Leave blank to keep'], not: 'Step 6 of 6' } },
+  { key: 'to-payouts--returned', screen: 'to-payouts', group: 'M5 · Earnings', title: 'Payouts — a payout didn’t go through', note: 'Fix bank details from Earnings: the returned amount, the bank, and the Friday it sends again after a save',
     setup: () => { earningsTo('failed'); },
     get expect() {
-      return { has: [`Your ${fmtExact(SCENARIOS.seed.payout)} payout came back`, `${AMARA.payouts.bank} ••${AMARA.payouts.last4} sent it back`, `we’ll send it again on ${fmtDay(PAYOUT_DAYS.second)}`, 'Save changes'], sel: '.banner--error' };
+      return { has: [`Your ${fmtExact(SCENARIOS.seed.payout)} payout didn’t go through`, `${AMARA.payouts.bank} •••• ${AMARA.payouts.last4} returned it`, `we’ll send it again on ${fmtDay(PAYOUT_DAYS.second)}`, 'Save changes'], sel: '.banner--error' };
     } },
 ];
 export const FLOWS_to_done = [
@@ -146,13 +146,13 @@ export const FLOWS_to_done = [
 ];
 export const FLOWS_t_shop = [
   { key: 't-shop', screen: 't-shop', group: 'M2 · Shop', title: 'Your shop', note: 'Bookable: preview of her row, seven setup rows with summaries',
-    expect: { has: ['Your shop', 'Bookable', 'Taking requests', 'WHAT CUSTOMERS SEE', `Est. ${fmt(SCENARIOS.seed.total)}`, 'Reyes Tailoring', `1 day +${fmt(cents(AMARA.rush[0].fee))}`, `${AMARA.payouts.bank} ••${AMARA.payouts.last4}`] } },
+    expect: { has: ['Your shop', 'Bookable', 'Taking requests', 'WHAT CUSTOMERS SEE', `Est. ${fmt(SCENARIOS.seed.total)}`, 'Reyes Tailoring', `1 day +${fmt(cents(AMARA.rush[0].fee))}`, `${AMARA.payouts.bank} •••• ${AMARA.payouts.last4}`] } },
   { key: 't-shop--paused', screen: 't-shop', group: 'M2 · Shop', title: 'Your shop — paused', note: 'Taking requests is off: the chip says customers can’t send requests; booked jobs are untouched (D-161)',
     setup: (S) => { S.T.setTakingRequests(false); },
     expect: { has: ['Paused · customers can’t send requests', 'Taking requests', 'already booked'], not: 'Bookable', sel: '#taking-requests[aria-checked="false"]' } },
   { key: 't-shop--incomplete', screen: 't-shop', group: 'M2 · Shop', title: 'Your shop — needs attention', note: 'Home visits on with no home hours: warning banner, row flagged, no estimate',
     setup: (S) => { S.T.setTailorSection('availability', { availability: { shop: AMARA.availability.shop, home: {} } }); },
-    expect: { has: ['Customers can', 'Finish Availability', 'Needs attention'], not: 'Est.', sel: '.banner--warning' } },
+    expect: { has: ['Customers can', 'Finish your availability so customers can book you again.', 'Finish availability', 'Needs attention'], not: 'Est.', sel: '.banner--warning' } },
 ];
 export const FLOWS_t_rush = [
   { key: 't-rush', screen: 't-rush', group: 'M2 · Shop', title: 'Rush fees', note: 'Three tiers filled, preview reads like the customer ladder',

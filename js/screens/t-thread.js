@@ -38,7 +38,7 @@ function subLine(a) {
 
 /** The context row (B2, tailor column): the job this thread belongs to. Neighborhood-only: no street is ever printed here. */
 function contextRow(a) {
-  if (!a) return threadContext({ title: 'No request yet', sub: 'Her request will show here when she books.' });
+  if (!a) return threadContext({ title: 'No request yet', sub: `The request shows here once ${esc(state.customer.first)} books.` });
   const w = statusWord(a, 'tailor', { short: true });
   const v = requestView(a);
   const link = a.status === 'declined' ? ''
@@ -59,7 +59,7 @@ function view(s) {
     return `${chrome('messages', { persona: 'tailor' })}
 <main class="body ${ID}">
   ${headingRow('<h1 class="t-title">Messages</h1>', { back: false })}
-  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No conversation yet', body: 'Messages with a customer show up here once she has sent a request.', art: 'Shirt / Blouse', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
+  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No conversation yet', body: 'Messages with a customer show up here once they send a request.', art: 'Shirt / Blouse', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
 </main>`;
   }
   const u = ui();
@@ -78,7 +78,7 @@ function view(s) {
     : composer({ value: draft, placeholder: `Message ${first}`, hint, photos: u.photos ?? 0, max: maxPhotos(), disabled: busy, photoType: gType });
   return `${chrome('messages', { persona: 'tailor' })}
 <main class="body ${ID}"${busy ? ' aria-busy="true"' : ''}>
-  ${headingRow(head, { back: true })}
+  ${headingRow(head, { sticky: true })}
   <div class="${ID}__context">${contextRow(a)}</div>
   <div class="${ID}__note">${privacyNote()}</div>
   <div class="${ID}__messages">${body}</div>

@@ -1,7 +1,6 @@
 /* t-payout — T8 one job's payout. Layout only; figure, status, rows, breakdown and bar are shared. Tokens only. */
 .t-payout { gap: 0; padding-bottom: var(--space-40); }
 .t-payout.body--with-bar { padding-bottom: var(--space-32); }
-.t-payout__pill { display: flex; margin-bottom: var(--space-12); }
 .t-payout__alert { margin-top: var(--space-16); }
 .t-payout__alert .banner__text { text-wrap: pretty; }
 .t-payout__alert [data-money] { font-variant-numeric: tabular-nums; white-space: nowrap; }

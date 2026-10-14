@@ -19,7 +19,6 @@ import { ZIP_INFO, SHOP_CITY, TAILOR_LIMITS, VISIT_MINUTES } from '../data.js';
 const ID = 'to-where';
 const SECTION = 'where';
 const STEP = ONBOARDING_STEPS.findIndex((s) => s.id === SECTION);
-const LABEL = ONBOARDING_STEPS[STEP].label;
 const PREV = ONBOARDING_STEPS[STEP - 1]?.screen ?? 't-phone';
 const NEXT = ONBOARDING_STEPS[STEP + 1]?.screen ?? 'to-done';
 
@@ -99,7 +98,7 @@ const pickupGoesOff = (d) => !d.shop.enabled && !!myTailor().returns?.pickup;
 function shopCard(d) {
   const s = d.shop;
   return `<section class="card to-where__card" aria-label="Shop">
-  ${toggle({ id: 'shop-on', label: 'Customers come to my shop', helper: `${VISIT_MINUTES.shop}-minute visits at your shop.`, checked: !!s.enabled })}
+  ${toggle({ id: 'shop-on', label: 'Customers come to your shop', helper: `${VISIT_MINUTES.shop}-minute visits at your shop.`, checked: !!s.enabled })}
   ${s.enabled ? `<div class="to-where__fields">
     ${field({ id: 'street', label: 'Shop street address', autocomplete: 'address-line1', value: s.street ?? '', error: errOf('street') })}
     ${field({ id: 'shopZip', label: 'ZIP code', inputmode: 'numeric', maxlength: 5, autocomplete: 'postal-code', value: s.zip ?? '', helper: HELP.shopZip(d), error: errOf('shopZip') })}
@@ -111,7 +110,7 @@ ${pickupGoesOff(d) ? `<p class="to-where__pickup-note t-small c-600" data-pickup
 function homeCard(d) {
   const h = d.home;
   return `<section class="card to-where__card" aria-label="Home visits">
-  ${toggle({ id: 'home-on', label: 'I visit customers at home', helper: `${VISIT_MINUTES.home}-minute visits at the customer’s place.`, checked: !!h.enabled })}
+  ${toggle({ id: 'home-on', label: 'You visit customers at home', helper: `${VISIT_MINUTES.home}-minute visits at the customer’s place.`, checked: !!h.enabled })}
   ${h.enabled ? `<div class="to-where__fields">
     ${zipList({ zips: h.zips, input: ui().zipInput ?? '', inputError: ui().zipError ?? '', error: errOf('zips'), suggestions: Object.keys(ZIP_INFO) })}
     <div class="to-where__fee-field">${field({ id: 'fee', label: 'Home-visit fee', prefix: '$', inputmode: 'numeric', maxlength: 4, autocomplete: 'off', value: h.fee == null ? '' : String(h.fee), helper: FEE_HELP, error: errOf('fee') })}<span class="to-where__fee-info">${infoButton('fee', { label: 'The Taily fee' })}</span></div>
@@ -150,7 +149,7 @@ function view() {
   return `${onboardingHeader({ editing: mode })}<main class="body body--with-bar ${ID} ${ID}--${mode ? 'edit' : 'onboarding'}">
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
-  ${mode ? headingRow(title, { backRow: true }) : `<div class="${ID}__title">${title}</div>`}
+  ${mode ? headingRow(title) : `<div class="${ID}__title">${title}</div>`}
   <p class="to-where__lead t-body c-600">Turn on one or both.</p>
   <div class="to-where__cards">
     ${shopCard(d)}
@@ -245,7 +244,7 @@ function submit() {
     if (state.ui.onboarding) state.ui.onboarding.resumed = false;
     if (wasEditing) {
       back() || go('t-shop');
-      toast(pickupOff ? `${LABEL} saved. In-store pickup is off.` : `${LABEL} saved`, { tone: 'success' });
+      toast(pickupOff ? 'Saved. In-store pickup is off. Customers see the change now.' : 'Saved. Customers see the change now.', { tone: 'success' });
     } else {
       go(NEXT);
     }

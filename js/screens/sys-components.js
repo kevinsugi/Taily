@@ -5,7 +5,8 @@
    ============================================================ */
 import { register } from '../app.js';
 import { chrome } from '../components.js';
-import { galleryHtml, wireGallery } from '../gallery.js';
+/* D-212: the gallery (and the fixtures it pulls) loads only when this screen does; it is left out of the idle preload */
+const { galleryHtml, wireGallery } = await import('../gallery.js');
 
 const ID = 'sys-components';
 

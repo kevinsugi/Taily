@@ -4,8 +4,7 @@
 .t-job__banner { margin-top: var(--space-16); }
 .t-job__banner .banner__text { text-wrap: pretty; }
 .t-job__nb { white-space: nowrap; }
-.t-job .heading-row--back { justify-content: space-between; }   /* Back left, ••• right (D-195) */
-.t-job .heading-row--back .more-btn { margin-right: calc(-1 * var(--space-12)); }
+.t-job .heading-row__trail .more-btn { margin-right: 0; }   /* the ••• sits at the title row's right end (D-195); the row pulls it 12 into the gutter */
 .t-job__money { margin-top: var(--rhythm-section); }
 .t-job__money .money-row:only-child { padding-block: 0; min-height: 0; }   /* a single total row has nothing above it */
 .t-job__money .money-row:only-child + .stitch, .t-job__money .stitch:first-child { display: none; }

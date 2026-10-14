@@ -43,7 +43,7 @@ function row(a, fmtAmt) {
 
 function view() {
   const head = `${chrome('account')}<main class="body ${ID}" data-s="${ID}">
-  ${headingRow('<h1 class="t-title">Past orders</h1>', { backRow: true })}`;
+  ${headingRow('<h1 class="t-title">Past orders</h1>')}`;
   if (!ui().loaded) {
     return `${head}
   <div class="${ID}__loading" role="status" aria-label="Loading your orders">${skeleton({ kind: 'appt-row', count: 2 })}</div>

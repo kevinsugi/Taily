@@ -37,7 +37,7 @@ import { CUSTOMER as TE_CUSTOMER } from '../data.js';
 
 const TE_SC = () => TE_M.SCENARIOS;
 const TE_DAYS = () => TE_M.PAYOUT_DAYS;
-const TE_bank = () => `${TE_M.AMARA.payouts.bank} ••${TE_M.AMARA.payouts.last4}`;
+const TE_bank = () => `${TE_M.AMARA.payouts.bank} •••• ${TE_M.AMARA.payouts.last4}`;
 const TE_first = (S) => { TE_setFocus(S.state.appts[0].id); };   // the payout of the first appointment
 
 export const FLOWS_t_earnings = [
@@ -53,12 +53,12 @@ export const FLOWS_t_earnings = [
     get expect() {
       return { has: [TE_exact(TE_SC().seed.payout), `Arrives ${TE_day(TE_DAYS().first)}`, TE_bank(), '1 job', 'after the Taily fee'], not: 'Paid to' };
     } },
-  { key: 't-earnings--failed', screen: 't-earnings', group: 'M5 · Earnings', title: 'Earnings — payout didn’t go through', note: 'The bank sent it back: amount, bank, the Friday it will be sent again, Fix bank details',
+  { key: 't-earnings--failed', screen: 't-earnings', group: 'M5 · Earnings', title: 'Earnings — payout didn’t go through', note: 'The bank returned it: amount, bank, the Friday it will be sent again, Fix bank details',
     setup: () => { TE_C.earningsTo('failed'); },
     get expect() {
-      return { has: ['go through', 'Fix bank details', TE_exact(TE_SC().seed.payout), TE_day(TE_DAYS().second), TE_bank(), 'once your bank details are updated'], not: 'Nothing scheduled', sel: '.banner--error' };
+      return { has: ['go through', 'Fix bank details', TE_exact(TE_SC().seed.payout), TE_day(TE_DAYS().second), TE_bank(), 'once you update your bank details'], not: 'Nothing scheduled', sel: '.banner--error' };
     } },
-  { key: 't-earnings--failed-and-next', screen: 't-earnings', group: 'M5 · Earnings', title: 'Earnings — sent back, another job scheduled', note: 'A payout came back and a second job is done: the next Friday is promised only once the bank details are fixed',
+  { key: 't-earnings--failed-and-next', screen: 't-earnings', group: 'M5 · Earnings', title: 'Earnings — returned, another job scheduled', note: 'A payout came back and a second job is done: the next Friday is promised only once the bank details are fixed',
     setup: (S) => {
       TE_C.earningsTo('failed');
       TE_C.draftAgain();                                      // D-158: sending spent the draft
@@ -67,7 +67,7 @@ export const FLOWS_t_earnings = [
       TE_C.completeJob(second.id);
     },
     get expect() {
-      return { has: ['go through', 'Fix bank details', TE_exact(TE_SC().shop.payout), TE_exact(TE_SC().seed.payout), TE_exact(TE_SC().shop.payout + TE_SC().seed.payout), `${TE_day(TE_DAYS().second)} · `, 'once your bank is fixed', 'Sent back'], not: ['Arrives', 'Sends '], sel: '.banner--error' };
+      return { has: ['go through', 'Fix bank details', TE_exact(TE_SC().shop.payout), TE_exact(TE_SC().seed.payout), TE_exact(TE_SC().shop.payout + TE_SC().seed.payout), `${TE_day(TE_DAYS().second)} · `, 'once you update your bank details', 'Returned'], not: ['Arrives', 'Sends '], sel: '.banner--error' };
     } },
   { key: 't-earnings--kept', screen: 't-earnings', group: 'M5 · Earnings', title: 'Earnings — a kept deposit', note: 'A late cancellation is the only payout: it says "no Taily fee", not "after the Taily fee" (D-172)',
     setup: () => { TE_C.earningsTo('kept'); },
@@ -83,7 +83,7 @@ export const FLOWS_t_payout = [
     setup: (S) => { TE_C.earningsTo('paid'); TE_first(S); },
     get expect() {
       const sc = TE_SC().seed;
-      return { has: ['YOUR PAYOUT', 'Paid', 'You take home', TE_exact(sc.payout), TE_exact(sc.services), TE_neg(sc.tailyFee), TE_exact(sc.homeFee), 'of services only', 'Open the job', TE_bank()], sel: '.money-rows' };
+      return { has: ['Your payout', 'Paid', 'You take home', TE_exact(sc.payout), TE_exact(sc.services), TE_neg(sc.tailyFee), TE_exact(sc.homeFee), 'of services only', 'Open the job', TE_bank()], sel: '.money-rows' };
     } },
   { key: 't-payout--kept', screen: 't-payout', group: 'M5 · Earnings', title: 'Payout — deposit kept', note: 'A late cancellation: the kept deposit is the whole payout, no Taily fee',
     setup: (S) => { TE_C.earningsTo('kept'); TE_first(S); },
@@ -95,10 +95,10 @@ export const FLOWS_t_payout = [
     get expect() {
       return { has: ['No-show pay', TE_exact(TE_SC().noShow.paid), 'No Taily fee on no-show pay', 'Pending', 'Arrives', 'didn’t show up'], not: ['Services', 'kept deposit', 'Scheduled'] };
     } },
-  { key: 't-payout--failed', screen: 't-payout', group: 'M5 · Earnings', title: 'Payout — didn’t go through', note: 'The bank sent it back: the banner and the sticky Fix bank details',
+  { key: 't-payout--failed', screen: 't-payout', group: 'M5 · Earnings', title: 'Payout — didn’t go through', note: 'The bank returned it: the banner and the sticky Fix bank details',
     setup: (S) => { TE_C.earningsTo('failed'); TE_first(S); },
     get expect() {
-      return { has: ['go through', 'Update your bank details to get paid', 'Fix bank details', TE_exact(TE_SC().seed.payout), TE_day(TE_DAYS().second), 'Didn’t go through · sends again once your bank details are updated'], sel: '.banner--error' };
+      return { has: ['go through', 'Update your bank details to get paid', 'Fix bank details', TE_exact(TE_SC().seed.payout), TE_day(TE_DAYS().second), 'Sends again once you update your bank details.'], sel: '.banner--error' };
     } },
 ];
 export const FLOWS_c_messages = [
@@ -141,9 +141,9 @@ export const FLOWS_c_thread = [
     setup: (S) => { S.driveTo('confirmed'); },
     click: ['[data-act="attach-photo"]'],
     expect: { has: ['Add a photo', 'Take a photo', 'Choose from library', 'Up to 3 per message'] } },
-  { key: 'c-thread--read-only', screen: 'c-thread', group: CM_GROUP, title: 'Thread — closed after a decline', note: 'No composer: find another tailor, or start a different job',
+  { key: 'c-thread--read-only', screen: 'c-thread', group: CM_GROUP, title: 'Thread — closed after a decline', note: 'No composer: find another tailor, or send a new request',
     setup: (S) => { S.driveTo('declined', { ask: true }); },
-    expect: { has: ['Amara declined', 'this chat is closed', 'Find another tailor', 'Start a different job with Amara'], sel: '.read-only' } },
+    expect: { has: ['Amara declined', 'this chat is closed', 'Find another tailor', 'New request to Amara'], sel: '.read-only' } },
   { key: 'c-thread--expired', screen: 'c-thread', group: CM_GROUP, title: 'Thread — no reply to the request', note: 'The request expired: the pill says No reply, the row opens it, the composer stays open',
     setup: (S) => { S.driveTo('expired', { ask: true }); S.state.ui.thread = { tailorId: S.state.tailors[0].id }; },
     expect: { has: ['No reply', 'View request'], sel: '.composer__input' } },
@@ -234,7 +234,7 @@ export const FLOWS_t_messages = [
 export const FLOWS_t_thread = [
   { key: 't-thread--question', screen: 't-thread', group: 'M5 · Tailor messages', title: 'Thread — a question before booking', note: 'Sarah C. asks about a jacket; no request yet; the context row is static',
     setup: (S) => { TM_askAmara({ reply: false }); },
-    expect: { has: ['Sarah C.', 'Asking before booking', 'No request yet', 'Her request will show here when she books.', 'Can you take in a jacket'], not: 'Sarah Chen', sel: '.thread-context' } },
+    expect: { has: ['Sarah C.', 'Asking before booking', 'No request yet', 'The request shows here once Sarah books.', 'Can you take in a jacket'], not: 'Sarah Chen', sel: '.thread-context' } },
   { key: 't-thread--pending', screen: 't-thread', group: 'M5 · Tailor messages', title: 'Thread — a request is waiting', note: 'Header shows the countdown only (D-171); the context row names New request and links to it',
     setup: (S) => { S.driveTo('requested', { ask: true }); },
     expect: { has: ['New request', '2h left to reply', 'Sarah sent a request', 'Sarah C.', 'View request'], not: ['Sarah Chen', 'New request ·'], sel: '.thread-head [data-countdown]' } },

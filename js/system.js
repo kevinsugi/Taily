@@ -60,7 +60,7 @@ export function wireSystem(root, screenId, { go } = {}) {
 
 /* ---------- re-auth ---------- */
 const REAUTH_ERRORS = {
-  'code-wrong': 'That code isn’t right. Check the text and try again.',
+  'code-wrong': 'That code doesn’t match. Check your texts and try again.',
   'code-expired': 'That code has expired. Send a new one.',
   'code-format': 'Enter all 6 digits.',
 };

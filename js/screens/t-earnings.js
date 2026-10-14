@@ -21,7 +21,7 @@ const ui = () => (state.ui[ID] ??= {});
 let cancelLoad = null;
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-const bankOf = (b) => `${b?.bank ?? 'Your bank'} ••${b?.last4 ?? ''}`;
+const bankOf = (b) => `${b?.bank ?? 'Your bank'} •••• ${b?.last4 ?? ''}`;
 const money = (c) => `<span data-money>${fmtExact(c)}</span>`;
 /** D-172, M6-P-01: a kept deposit or no-show pay has no Taily fee, so a list of only those says so instead of "after the Taily fee". */
 const feeNote = (items) => (items.length && items.every((i) => i.kind !== 'job') ? 'no Taily fee' : 'after the Taily fee');
@@ -79,7 +79,7 @@ function view() {
       ? { tone: 'error', title: 'Your Friday payout didn’t go through' }
       : {
         tone: 'error', title: 'Your Friday payout didn’t go through',
-        text: `${esc(bank)} sent back ${money(failed.cents)}. Update your bank details to get paid.`,
+        text: `${esc(bank)} returned ${money(failed.cents)}. Update your bank details to get paid.`,
         actionLabel: 'Fix bank details', actionAct: 'fix-bank',
       })}</div>` : '';
 
@@ -90,15 +90,15 @@ function view() {
     const day = next.date > failed.retryDate ? next.date : failed.retryDate;
     nextCard = `<section class="sec sec--first ${ID}__next ${ID}__next--merged" aria-label="Next payout">
     <p class="t-caps c-600">Next payout</p>
-    <p class="t-figure ${ID}__merged" data-money>${fmtDay(day)} · ${fmtExact(failed.cents + next.cents)} once your bank is fixed</p>
+    <p class="t-figure ${ID}__merged" data-money>${fmtDay(day)} · ${fmtExact(failed.cents + next.cents)} once you update your bank details</p>
     <p class="t-small c-600 ${ID}__after">${plural(all.length, 'job', 'jobs')} · ${feeNote(all)}</p>
-    ${listOf(`${failed.items.map((i) => jobRow(i, { tag: 'Sent back' })).join('')}${next.items.map((i) => jobRow(i)).join('')}`)}
+    ${listOf(`${failed.items.map((i) => jobRow(i, { tag: 'Returned' })).join('')}${next.items.map((i) => jobRow(i)).join('')}`)}
     <div class="${ID}__fix">${cta('Fix bank details', { attrs: 'data-act="fix-bank"' })}</div>
   </section>`;
   } else if (next) {
     const again = next.items.some((i) => i.retried);
     nextCard = `<section class="sec sec--first ${ID}__next" aria-label="Next payout">
-    ${hero({ label: 'Next payout', cents: next.cents, info: true, caption: failed ? `Sends ${fmtDay(next.date)} once your bank details are updated` : `${again ? 'Sending again' : 'Arrives'} ${fmtDay(next.date)} · to ${bank}` })}
+    ${hero({ label: 'Next payout', cents: next.cents, info: true, caption: failed ? `Sends ${fmtDay(next.date)} once you update your bank details` : `${again ? 'Sending again' : 'Arrives'} ${fmtDay(next.date)} · to ${bank}` })}
     <p class="t-small c-600 ${ID}__after">${plural(next.items.length, 'job', 'jobs')} · ${feeNote(next.items)}</p>
     ${rowsOf(next.items)}
   </section>`;
@@ -115,7 +115,7 @@ function view() {
   let sent = '';
   if (failed && !next) {
     sent = `<section class="sec sec--first ${ID}__next ${ID}__next--failed" aria-label="Didn’t go through">
-    ${hero({ label: 'Didn’t go through', cents: failed.cents, caption: `Sends ${fmtDay(failed.retryDate)} once your bank details are updated` })}
+    ${hero({ label: 'Didn’t go through', cents: failed.cents, caption: `Sends ${fmtDay(failed.retryDate)} once you update your bank details` })}
     <p class="t-small c-600 ${ID}__after">${plural(failed.items.length, 'job', 'jobs')} · ${feeNote(failed.items)}</p>
     ${rowsOf(failed.items)}
   </section>`;

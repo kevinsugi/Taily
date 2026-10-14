@@ -9,13 +9,13 @@
 import { state } from './state.js';
 import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wireVerified } from './components.js';
 import { SCREENS } from './inventory.js';
-import { ALL_FLOWS, setBootLatency, primaryFlow } from './flows.js';
-import { initFlowMenu, runFlow } from './flow-menu.js';
 import { systemBanner, wireSystem } from './system.js';
 
-/* Screens are loaded dynamically in boot() — a static import here would run
-   the screen module before this module body (imports hoist), hitting the
-   `screens` map in its TDZ. Add a screen = add its id on its milestone's line. */
+/* Screens are loaded dynamically — a static import here would run the screen module before this module body (imports hoist),
+   hitting the `screens` map in its TDZ. Add a screen = add its id on its milestone's line.
+   K-04 / D-212: boot imports only the core and the requested screen, paints, then idle-loads the rest; render() awaits a module that has not
+   loaded yet. The Test-flows registry, its fixtures, the menu and the component gallery (flows.js, flow-menu.js) load on demand — a
+   ?flow= / ?screen= / ?test=1 / sys- boot, or the first input — so a plain visit never pays for them. */
 const SCREEN_MODULES = [
   /* M0 · System */
   'sys-index', 'sys-components',
@@ -33,6 +33,9 @@ const SCREEN_MODULES = [
   /* M5 · Messaging, accounts, earnings, system */
   'c-messages', 'c-account', 'c-addresses', 'c-cards', 'c-orders', 't-earnings', 't-payout', 't-messages',
 ];
+
+/** Every screen id the router can load. A screen not yet imported is "known": render() loads it first. */
+const KNOWN = new Set(SCREEN_MODULES);
 
 /* Where Back at the root and the persona flip land; sys-index until those screens are registered. */
 const PERSONA_HOME = { customer: 'c-job', tailor: 't-home' };
@@ -53,9 +56,9 @@ function syncPersona(id) {
 /** The landing screen for a persona (falls back to sys-index while that screen is unregistered). */
 export function personaHome(persona = state.persona) {
   const id = PERSONA_HOME[persona];
-  if (id && screens.has(id)) return id;
+  if (id && KNOWN.has(id)) return id;
   /* D-67: until t-home exists a tailor's home is her shop; never the developer index */
-  if (persona === 'tailor' && screens.has('t-shop')) return 't-shop';
+  if (persona === 'tailor' && KNOWN.has('t-shop')) return 't-shop';
   return 'sys-index';
 }
 
@@ -92,8 +95,44 @@ export function register(id, render, wire) {
   screens.set(id, { view: render, wire });
 }
 
+/** Every screen the router can show: the ones registered so far plus the ones still to load (D-212). */
 export function registered() {
-  return [...screens.keys()].sort();
+  return [...new Set([...screens.keys(), ...KNOWN])].sort();
+}
+
+/* ---------- lazy loading (D-212) ---------- */
+const loading = new Map();    // id -> Promise of the module import
+const settled = new Set();    // ids whose import finished (registered, or failed)
+/** Import a screen's module (memoised). Resolves once it has called register(). */
+export function loadScreen(id) {
+  if (!loading.has(id)) {
+    loading.set(id, import(`./screens/${id}.js`).catch((e) => { console.error(`screen "${id}" failed to load`, e); }).finally(() => settled.add(id)));
+  }
+  return loading.get(id);
+}
+const loadAllScreens = () => Promise.all(SCREEN_MODULES.map(loadScreen));
+/* the component gallery pulls the fixtures: it loads on demand with sys-components, never in the background */
+const idleLoad = () => Promise.all(SCREEN_MODULES.filter((m) => m !== 'sys-components').map(loadScreen));
+const whenIdle = (fn) => ('requestIdleCallback' in window ? window.requestIdleCallback(fn, { timeout: 2000 }) : setTimeout(fn, 300));
+
+/** The Test-flows registry + fixtures + menu (flows.js, flow-menu.js), loaded on demand; mounts the menu once. */
+let tools = null;
+let toolsLoading = null;
+let bootLatency = 'normal';
+export function loadTools() {
+  return (toolsLoading ??= Promise.all([import('./flows.js'), import('./flow-menu.js')]).then(([flows, menu]) => {
+    tools = { flows, menu };
+    flows.setBootLatency(bootLatency);
+    window.Taily.flows = flows.ALL_FLOWS;
+    menu.initFlowMenu(render, { home: personaHome });
+    return tools;
+  }));
+}
+/** Run a Test-flows entry. Synchronous once the registry has loaded; before that it loads it (and every screen: a flow's setup may press buttons anywhere) and runs after. */
+export function runFlow(key, opts) {
+  if (tools) return tools.menu.runFlow(key, opts);
+  loadTools().then(() => loadAllScreens()).then(() => tools.menu.runFlow(key, opts));
+  return true;
 }
 
 export function currentScreen() {
@@ -132,6 +171,12 @@ export function render(id, opts = {}) {
   let el = mount();
   if (!el) throw new Error('render(): #screen is missing from index.html');
 
+  /* D-212: a known screen whose module has not loaded yet — load it, then paint (a loaded screen still paints synchronously) */
+  if (!entry && KNOWN.has(id) && !settled.has(id)) {
+    loadScreen(id).then(() => render(id, opts));
+    return true;
+  }
+
   if (!entry) {
     // Explicit and visible: a missing screen is a scaffold gap, not a blank page.
     el.innerHTML = `<pre class="screen-missing">No screen registered for "${id}".
@@ -145,8 +190,10 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
      (03.2 / 05.1 / 03.1 confirms) must not outlive its screen — close
      it NOW so the page unfreezes and the next popstate steps back
      instead of running a stale close. */
-  closeOverlay({ instant: true });
   const prevScreen = el.dataset.screen;
+  /* AU-P1-2a: a same-screen render replaces the node, so remember which control had focus (before an overlay closes and moves it) */
+  if (prevScreen === id) rememberFocus(el); else pendingFocus = null;
+  closeOverlay({ instant: true });
   el = freshMount();
   syncPersona(id);
   /* a toast never outlives its screen: any change of screen id (or persona) clears it.
@@ -169,6 +216,7 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   /* a wire() that forwarded elsewhere (redirectIfMoved) already rendered the destination with its own system layer */
   if (el.isConnected && el.dataset.screen === id) wireSystem(el, id, { go: render });
   wireBackButtons(el);
+  if (el.isConnected && el.dataset.screen === id) restoreFocus(el);
   /* R3-2-C-01: a new screen opens at its top (its pill + title are what it says first); a re-render of the
      SAME screen keeps its scroll, so a sheet, a toast or a busy repaint never jumps the page. A wire()
      that forwarded elsewhere (redirectIfMoved) already rendered — and reset — the destination. */
@@ -189,6 +237,53 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
     if (h1) { h1.tabIndex = -1; h1.focus({ preventScroll: true }); }
   }
   return true;
+}
+
+/* ---------- focus across same-screen renders (K-04 / AU-P1-2a) ----------
+   Every in-place state change goes through go(ID), which replaces #screen, so the focused control is gone. rememberFocus() keys the focused
+   control (id, data-act, data-type, data-value, data-id, data-garment, data-kind, data-key, data-name + minus / plus) and the list it
+   sits in; restoreFocus() runs after wire(): the same control, else its list, else the h1. A key that is present but disabled this
+   render (a held busy state) waits for the next render, for up to 4 s. A screen change drops it. */
+let pendingFocus = null;
+const FOCUS_ATTRS = ['act', 'type', 'value', 'id', 'garment', 'kind', 'key', 'name', 'index'];
+const LIST_SEL = '[role="list"], [role="listbox"], [role="radiogroup"], [role="group"], ul, ol, .thread-list, .photo-tiles';
+function rememberFocus(root) {
+  const ae = document.activeElement;
+  if (!ae || ae === document.body || !root.contains(ae) || ae.closest('.screen-sheet--overlay, .modal-host, .sheet-host')) return;
+  const data = {};
+  for (const k of FOCUS_ATTRS) if (ae.dataset[k] !== undefined) data[k] = ae.dataset[k];
+  const side = ae.matches('[data-minus]') ? 'minus' : ae.matches('[data-plus]') ? 'plus' : null;
+  const box = ae.closest(LIST_SEL);
+  const boxSel = box && box !== root ? (box.id ? `#${CSS.escape(box.id)}` : box.getAttribute('aria-label') ? `[aria-label="${CSS.escape(box.getAttribute('aria-label'))}"]` : box.classList[0] ? `.${CSS.escape(box.classList[0])}` : null) : null;
+  if (!ae.id && !Object.keys(data).length && !side) return;
+  pendingFocus = { id: ae.id, data, side, tag: ae.tagName, boxSel, until: performance.now() + 4000 };
+}
+function findFocus(root, f) {
+  if (f.id) { const byId = root.querySelector(`#${CSS.escape(f.id)}`); if (byId) return byId; }
+  const attrs = Object.entries(f.data).map(([k, v]) => `[data-${k}="${CSS.escape(v)}"]`).join('');
+  if (!attrs) return null;
+  const hits = [...root.querySelectorAll(`${f.tag.toLowerCase()}${attrs}`)];
+  const want = f.side === 'minus' ? '[data-minus]' : f.side === 'plus' ? '[data-plus]' : ':not([data-minus])';   // a tile that became a − / + pair: land on +
+  return hits.find((h) => h.matches(want)) ?? hits[0] ?? null;
+}
+function restoreFocus(root) {
+  const f = pendingFocus;
+  if (!f) return;
+  if (performance.now() > f.until) { pendingFocus = null; return; }
+  if (overlayOpen()) return;
+  const ae = document.activeElement;
+  if (ae && ae !== document.body && root.contains(ae)) { pendingFocus = null; return; }   // a wire() put focus somewhere on purpose
+  const hit = findFocus(root, f);
+  if (hit && hit.disabled) {
+    const sib = f.side && [...hit.parentElement.children].find((c) => c !== hit && c.matches('button') && !c.disabled);   // a − / + pair: the other half
+    if (sib) { pendingFocus = null; sib.focus({ preventScroll: true }); }
+    return;                                                                               // else it is held this render: try the next one
+  }
+  pendingFocus = null;
+  if (hit) { hit.focus({ preventScroll: true }); return; }
+  const box = (f.boxSel && root.querySelector(f.boxSel)) || null;
+  const target = box ?? root.querySelector('h1');
+  if (target) { target.tabIndex = -1; target.focus({ preventScroll: true }); }
 }
 
 let barObserver = null;
@@ -238,7 +333,7 @@ function onPopState(e) {
   if (history.length >= 2 && (!id || history[history.length - 2] === id)) {
     history.pop();                       // back
     render(history[history.length - 1], { replace: true });
-  } else if (id && screens.has(id) && id !== currentScreen()) {
+  } else if (id && KNOWN.has(id) && id !== currentScreen()) {
     history.push(id);                    // forward
     render(id, { replace: true });
   }
@@ -288,7 +383,7 @@ function wireTopNav() {
     const exit = e.target.closest('[data-act="exit-booking"]');
     if (!exit || exit.disabled) return;
     e.preventDefault();
-    render(screens.has('c-job') ? 'c-job' : personaHome('customer'));
+    render(KNOWN.has('c-job') ? 'c-job' : personaHome('customer'));
   });
   /* M7 (ratingLine): an in-page anchor scrolls to its section; no hash is written, so the router's history is untouched */
   document.addEventListener('click', (e) => {
@@ -304,7 +399,7 @@ function wireTopNav() {
     if (!link) return;
     e.preventDefault();
     const target = NAV_ROUTES[state.persona]?.[link.dataset.nav];
-    if (target && screens.has(target)) { if (currentScreen() !== target) render(target); }
+    if (target && KNOWN.has(target)) { if (currentScreen() !== target) render(target); }
     else toast('Not built yet');
   });
 }
@@ -312,9 +407,19 @@ function wireTopNav() {
 /* The pinned Test-flows control (outside .screen) stays hidden until the first input,
    so a screenshot of #screen never sees it. */
 function revealOnFirstInput() {
-  const reveal = () => document.documentElement.classList.add('has-input');
+  /* D-212: the first input also loads the Test-flows menu, so a plain visit pays for it only when someone is about to use it */
+  const reveal = () => { document.documentElement.classList.add('has-input'); loadTools(); };
   ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((ev) =>
     document.addEventListener(ev, reveal, { once: true, passive: true }));
+}
+
+/* AU-P1-2c (K-04): a busy button is aria-disabled + aria-busy, NOT `disabled` (so it keeps focus through the repaint). One capturing guard
+   keeps every screen's click handler from seeing a press on it. */
+function guardBusy() {
+  document.addEventListener('click', (e) => {
+    const busy = e.target.closest?.('button[aria-busy="true"], [role="button"][aria-busy="true"], a[aria-busy="true"]');
+    if (busy) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
 }
 
 /**
@@ -322,34 +427,43 @@ function revealOnFirstInput() {
  * renders that screen in its PRIMARY state (primaryFlow: its ◆ entry's setup, so it never opens on an empty model);
  * a screen with no entry renders on the seed; else sys-index. `?test=1` makes the demo
  * deterministic (instant latency, no transitions or caret).
+ * D-212: a plain visit imports the core + sys-index, paints, then idle-loads the other screens; the flows registry, menu and the
+ * other screens load up front only for ?flow= / ?screen= / ?test=1 (their setups press buttons on any screen), and on first input otherwise.
  */
 async function boot() {
   const params = new URLSearchParams(location.search);
-  if (params.get('test')) {
+  const test = !!params.get('test');
+  if (test) {
     document.documentElement.classList.add('is-test');
   }
-  setBootLatency(params.get('test') ? 'instant' : 'normal');
-  await Promise.all(SCREEN_MODULES.map((m) => import(`./screens/${m}.js`)));
+  bootLatency = test ? 'instant' : 'normal';
+  state.sim.latency = bootLatency;
+  const flow = params.get('flow');
+  const screen = params.get('screen');
+  const first = screen || 'sys-index';
+  const wantsTools = test || !!flow || !!screen;
+  if (wantsTools) await Promise.all([loadTools(), loadAllScreens()]);
+  else await loadScreen(first);
   wireDragScroll();
   wireTopNav();
+  guardBusy();
   revealOnFirstInput();
   window.addEventListener('popstate', onPopState);
   state.persona ??= 'customer';
   document.documentElement.dataset.persona = state.persona;
-  /* Test flows menu (bottom-right): every state, plus the persona flip. */
-  initFlowMenu(render, { home: personaHome });
-  const flow = params.get('flow');
-  if (flow && !params.get('screen') && runFlow(flow)) return;
-  const screen = params.get('screen');
-  const primary = screen && primaryFlow(screen);
-  if (primary && runFlow(primary.key, { keepUrl: true })) return;
-  render(screen || 'sys-index');
+  if (!wantsTools) whenIdle(() => idleLoad());
+  if (tools) {
+    if (flow && !screen && tools.menu.runFlow(flow)) return;
+    const primary = screen && tools.flows.primaryFlow(screen);
+    if (primary && tools.menu.runFlow(primary.key, { keepUrl: true })) return;
+  }
+  render(first);
 }
 
-/* Handy at the console, and the harness's entry point. `ready` resolves when boot() has painted. */
+/* Handy at the console, and the harness's entry point. `ready` resolves when boot() has painted. `flows` fills in when the registry loads. */
 let markReady;
 const ready = new Promise((resolve) => { markReady = resolve; });
-window.Taily = { render, back, register, registered, currentScreen, state, runFlow, flows: ALL_FLOWS, personaHome, ready };
+window.Taily = { render, back, register, registered, currentScreen, state, runFlow, flows: [], personaHome, ready, loadTools, loadScreen };
 
 const start = () => boot().finally(markReady);
 if (document.readyState === 'loading') {

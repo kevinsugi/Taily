@@ -74,9 +74,9 @@ function rowFor(a, kind, fmtAmt) {
   if (kind === 'requests') {
     if (a.status === 'requested') {
       const left = ms(a.expiresAt) - now();
-      row.amountCaption = left > 0 ? `${fmtCountdown(left)} to reply` : 'Reply overdue';
+      row.amountCaption = left > 0 ? `${fmtCountdown(left)} for ${(t.name || 'the tailor').split(' ')[0]} to reply` : 'No reply yet';
     } else if (a.status === 'suggested') { row.amountCaption = 'Reply needed'; row.captionTone = 'action'; }
-    else if (a.status === 'expired') row.amountCaption = `Try again (${a.retries + 1} of ${POLICY.MAX_RETRIES})`;   // R3-1-C-06: what Sarah can do
+    else if (a.status === 'expired') row.amountCaption = 'Send again';   // R3-1-C-06: what Sarah can do
   } else if (kind === 'upcoming' || kind === 'progress') {
     row.amountText = `Est. ${fmtAmt(a.money.total)}`;
     if (a.status === 'price-change') {

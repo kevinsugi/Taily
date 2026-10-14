@@ -11,7 +11,7 @@
 .c-booking__late { margin: 0; }
 .c-booking__cancel {
   display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 var(--space-16);
-  background: none; border: 0; font: inherit; font-weight: 600; color: var(--error); cursor: pointer; border-radius: var(--radius-md);
+  background: none; border: 0; font: inherit; font-weight: 600; color: var(--error-ink); cursor: pointer; border-radius: var(--radius-md);
 }
 .c-booking__cancel:focus-visible { outline: 2px solid var(--error); outline-offset: 2px; }
 .c-booking__empty { margin-top: var(--space-24); }
@@ -25,3 +25,5 @@
 .c-booking__h2--first { margin-top: var(--space-24); }
 .c-booking__review { background: var(--white); border-radius: var(--radius-lg); box-shadow: inset 0 0 0 1px var(--neutral-200); padding: var(--space-16); }
 .c-booking__review .review-row { padding: 0; }
+/* D-169: the demoted visit time after the fitting */
+.c-booking__fitted { margin: var(--space-12) 0 0; }

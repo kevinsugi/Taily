@@ -5,3 +5,5 @@
 .c-bookings__section > h2 { margin: 0; }
 .c-bookings__rows { display: flex; flex-direction: column; gap: var(--space-12); }
 .c-bookings__empty { margin-top: var(--space-24); }
+
+.c-bookings__push { margin-top: var(--space-16); }

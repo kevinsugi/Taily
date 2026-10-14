@@ -13,3 +13,4 @@
 .c-price-change__quote .note-quote { margin-top: 0; }
 .c-price-change__h2--lead { margin-bottom: var(--space-8); }
 .c-price-change__summary { margin-bottom: var(--space-12); }
+.c-price-change__fail { margin-top: var(--space-16); }

@@ -12,3 +12,4 @@
 .t-payout__sum .money-rows { padding: var(--space-20); }
 .t-payout__fine { margin: var(--space-12) 0 0; text-wrap: pretty; }
 .t-payout__empty { margin-top: var(--space-24); }
+.t-payout__why { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); }

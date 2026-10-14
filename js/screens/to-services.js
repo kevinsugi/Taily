@@ -1,6 +1,6 @@
 /* ============================================================
    to-services — O2 Services and prices (M2-spec §C1). Focal: the
-   service list with the live "You get $X" under each price (the
+   service list with the live "You take home $X · Taily fee $Y" under each price (the
    M2 signature: what she takes home after the Taily fee). Two
    modes (D-56): onboarding (stepper + Next) and edit (Shop chrome
    + Save changes). Draft = state.ui['to-services'].draft (D-34);
@@ -11,10 +11,11 @@ import { register, render as go, back } from '../app.js';
 import { state, T, SECTIONS, validateSection } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import { SERVICES, GARMENT_TYPES, TAILOR_LIMITS } from '../data.js';
-import { cents, fmt, payoutFor, fmtColumn } from '../money.js';
+import { cents, fmt, fmtExact, payoutFor, tailyFeeFor, fmtColumn } from '../money.js';
+import { MONEY } from '../money-config.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, serviceRow, priceRow, customerPreview,
-  actionBar, modalOverlay, leaveModal, toast, esc,
+  actionBar, modalOverlay, leaveModal, toast, esc, takeHtml,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -38,6 +39,7 @@ const okPrice = (p) => Number.isInteger(p) && p > 0;
 const goodPrice = (p) => okPrice(p) && p <= PRICE_MAX;
 const caption = (id) => (SERVICES[id].garments.length >= ALL_TYPES ? 'Any garment' : [...SERVICES[id].garments]);   // a list → one nowrap span per garment (R2-2-T-05)
 const takeCents = (p) => (okPrice(p) ? payoutFor({ services: cents(p) }) : null);
+const feeCents = (p) => (okPrice(p) ? tailyFeeFor(cents(p)) : null);
 
 /* ---------- copy ---------- */
 function errorCopy(code) {
@@ -51,8 +53,14 @@ const selectedText = (d) => `${ticked(d).length} selected`;
 const listed = (d) => ticked(d).filter((id) => goodPrice(d.prices[id]));
 const leadText = (d) => { const n = listed(d).length; return n ? `${n} ${n === 1 ? 'service' : 'services'} on your profile` : ''; };
 const NONE_NOTE = 'Pick at least one service to continue';
-/** One precision for every "You get" in the list (D-70). */
-const takeFmt = (d) => fmtColumn(ticked(d).map((id) => takeCents(d.prices[id])));
+/** One precision for every "You take home" and "Taily fee" in the list (D-70). */
+const takeFmt = (d) => fmtColumn(ticked(d).flatMap((id) => [takeCents(d.prices[id]), feeCents(d.prices[id])]));
+
+/** D-172, M6-T-07: the fee in dollars on a round example, said once under the lead; each row below spells out its own. */
+function feeLine() {
+  const c = cents(MONEY.FEE_EXAMPLE_SERVICES);
+  return `Taily keeps ${fmtExact(tailyFeeFor(c))} of every ${fmtExact(c)} of services. Home-visit and rush fees are yours in full.`;
+}
 
 function resumeBanner(t) {
   if (!state.ui.onboarding?.resumed) return '';
@@ -71,7 +79,7 @@ function rowHtml(id, d) {
   const p = d.prices[id];
   return serviceRow({
     id, label: SERVICES[id].label, caption: caption(id), checked: on, price: p == null ? '' : String(p),
-    payoutCents: on ? takeCents(p) : null, payoutText: on && takeCents(p) != null ? takeFmt(d)(takeCents(p)) : '', error: on ? errorCopy((ui().errors ?? {})[`price-${id}`]) : '',
+    payoutCents: on ? takeCents(p) : null, payoutText: on && takeCents(p) != null ? takeFmt(d)(takeCents(p)) : '', feeText: on && feeCents(p) != null ? takeFmt(d)(feeCents(p)) : '', error: on ? errorCopy((ui().errors ?? {})[`price-${id}`]) : '',
   });
 }
 function previewBody(d) {
@@ -94,9 +102,9 @@ function view() {
   const title = '<h1 class="t-title">Services and prices</h1>';
   return `${onboardingHeader({ editing })}
 <main class="body body--with-bar ${ID}">
-  ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="${ID}__title">${title}</div>`}
-  <p class="t-body c-600 ${ID}__lead">Tick what you do and set your usual price. If a job turns out bigger at the fitting, you can adjust it — the customer approves first.</p>
-  <p class="t-small c-600 ${ID}__take-note">Under each price is what you take home after the Taily fee.</p>
+  ${editing ? headingRow(title, { backRow: true }) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="${ID}__title">${title}</div>`}
+  <p class="t-body c-600 ${ID}__lead">Tick what you do and set your usual price. At the fitting you can add or remove items and services. The customer approves the final order before you start.</p>
+  <p class="t-small c-600 ${ID}__take-note" data-money>${feeLine()}</p>
   <div class="${ID}__head"><span class="t-caps c-600" id="${ID}-list-label">Services</span><span class="t-small c-600" data-selected>${selectedText(d)}</span></div>
   <p class="field__msg field__msg--error ${ID}__list-error" role="alert" data-list-error${listErr ? '' : ' hidden'}>${esc(listErr)}</p>
   <div class="${ID}__card" role="group" aria-labelledby="${ID}-list-label">${IDS.map((id) => rowHtml(id, d)).join('')}</div>
@@ -143,7 +151,7 @@ function wire(root) {
     }
     note.textContent = reason; btn.setAttribute('aria-describedby', note.id);
   };
-  /* every "You get" in the list shares one precision, so a change on one row repaints them all (D-70) */
+  /* every "You take home" and fee in the list shares one precision, so a change on one row repaints them all (D-70) */
   const paintTakes = () => {
     const f = takeFmt(d);
     ticked(d).forEach((id) => {
@@ -151,7 +159,7 @@ function wire(root) {
       if (!take) return;
       const c = takeCents(d.prices[id]);
       take.hidden = c == null;
-      take.textContent = c == null ? '' : `You get ${f(c)}`;
+      take.innerHTML = c == null ? '' : takeHtml(f(c), f(feeCents(d.prices[id])));
     });
   };
   const paintSummary = () => {

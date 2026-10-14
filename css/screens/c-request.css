@@ -33,3 +33,13 @@
 }
 .c-request__link:active { opacity: 0.6; }
 .c-request__link:disabled { color: var(--neutral-400); }
+
+/* M6-X-01: the suggested time's hold line, under the focal card */
+.c-request__holding { margin: var(--space-12) 0 0; text-wrap: pretty; }
+.c-request__alert--top { margin: var(--space-12) 0 0; }
+/* M6-P-06: Withdraw request is the same 44 px error text button as c-booking's Cancel booking, centred under Message */
+.c-request__withdraw {
+  align-self: center; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; padding: 0 var(--space-16);
+  background: none; border: 0; font: inherit; font-weight: 600; color: var(--error-ink); cursor: pointer; border-radius: var(--radius-md);
+}
+.c-request__withdraw:focus-visible { outline: 2px solid var(--error); outline-offset: 2px; }

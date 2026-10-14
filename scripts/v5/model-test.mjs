@@ -12,7 +12,7 @@ import { driveTo, TARGETS, addRequest } from '../../js/fixtures/common.js';
 import { SCENARIOS, SEED_SLOT } from './money.mjs';
 import { SUGGESTED_SLOT, SECOND_SLOT_AFTER, PAYOUT_DAYS } from '../../js/fixtures/money-scenarios.js';
 import * as EARN from '../../js/fixtures/common.js';
-import { setFocus, focusAppt, redirectIfMoved, statusWord } from '../../js/focus.js';
+import { setFocus, focusAppt, redirectIfMoved, statusWord, returnStep } from '../../js/focus.js';
 import * as C from '../../js/components.js';
 import * as A from '../../js/account.js';
 import { withLatency, LATENCY_MS } from '../../js/sim.js';
@@ -279,7 +279,11 @@ S.reset();
   eq(S.threadFor('amara').messages.map((m) => m.text), ['You sent a request'], 'system message "You sent a request" (customer reader)');
   eq(S.threadFor('amara').messages.map((m) => m.tailorText), ['Sarah sent a request'], 'system message read by the tailor: "Sarah sent a request" (D-98)');
   eq(S.msLeft(a), 2 * 3600000, 'two hours left on the clock');
+  /* D-158: sending spends the draft — empty, but the place (zip, address, visit type) and the who-said-no lists stay */
+  eq([state.job.garments.length, state.job.zip, state.job.visitType, state.job.address?.street, state.job.declinedBy, state.job.hiddenTailors], [0, a.job.zip, a.job.visitType, a.job.address.street, [], []], 'D-158: requestBooking resets the draft to an empty job, keeping zip / address / visit type');
+  state.job = { ...structuredClone(a.job), declinedBy: [], hiddenTailors: [] };
   guard(T.requestBooking({ tailorId: 'amara', slotStart: '2026-10-15T17:30' }), 'slot-unavailable', 'an overlapping slot is no longer open (60-minute visit)');
+  T.newJob();
   ok(!S.openSlots('amara', 'home', { until: '2026-10-23' }).includes('2026-10-15T17:30') && !S.openSlots('amara', 'shop').includes('2026-10-15T17:00'), 'a pending request blocks that tailor\'s overlapping slots, for both visit types');
   ok(S.openSlots('amara', 'home', { until: '2026-10-23', exclude: a.id }).includes('2026-10-15T17:00'), 'openSlots(exclude) frees the appointment\'s own slot');
   eq(S.activeAppt()?.id, a.id, 'activeAppt is the newest non-terminal appointment');
@@ -318,8 +322,8 @@ function getStatus(id) { return S.getAppt(id).status; }
   guard(T.tailorSuggest(a.id, '2026-10-16T09:00'), 'slot-unavailable', 'tailorSuggest: slot must be open');
   const s = T.tailorSuggest(a.id, '2026-10-15T18:00');
   eq([s.appt.status, s.appt.suggested.start, s.appt.slot.start, s.appt.payments.deposit.state], ['suggested', '2026-10-15T18:00', '2026-10-15T17:00', 'authorized'], 'tailorSuggest: suggested, hold stays authorized, no expiry (D-14)');
-  S.advanceClock(60 * 24);
-  eq(getStatus(a.id), 'suggested', 'a suggestion does not expire');
+  S.advanceClock(60 * 23);
+  eq(getStatus(a.id), 'suggested', 'a suggestion stays open inside its window (D-154)');
   S.setClock('2026-10-13T10:00');
   const acc = T.acceptSuggestion(a.id);
   eq([acc.appt.status, acc.appt.slot.start, acc.appt.slot.end, acc.appt.payments.deposit.state], ['confirmed', '2026-10-15T18:00', '2026-10-15T19:00', 'captured'], 'acceptSuggestion: confirmed at the suggested time, deposit captured');
@@ -413,7 +417,8 @@ section('cancellation');
   eq(M.cancelTerms(a, nowMs), { window: 'early', refund: 1600, kept: 0 }, 'cancelTerms: 55 h ahead -> early, full refund');
   const startMs = D.toDate(a.slot.start).getTime();
   eq(M.cancelTerms(a, startMs - 25 * 3600000).window, 'early', '25 h ahead -> early');
-  eq(M.cancelTerms(a, startMs - 24 * 3600000).window, 'late', 'exactly 24 h ahead -> late (must be MORE than 24 h)');
+  eq(M.cancelTerms(a, startMs - 24 * 3600000).window, 'early', 'exactly 24 h ahead -> early (the "until" is inclusive, M6-M-11)');
+  eq(M.cancelTerms(a, startMs - 24 * 3600000 + 60000).window, 'late', '23 h 59 m ahead -> late');
   eq(M.cancelTerms(a, startMs - 24 * 3600000 - 60000).window, 'early', '24 h 1 m ahead -> early');
   eq(M.cancelTerms(a, startMs - 23 * 3600000), { window: 'late', refund: 0, kept: 1600 }, '23 h ahead -> late, deposit $16.00 kept');
   const c = T.cancelBooking(a.id);
@@ -563,14 +568,146 @@ section('fitting -> completed');
   eq(a.priceChange.marks.map((m) => m.kind), ['repriced'], 'repriced mark');
   goldenRow(T.approvePriceChange(a.id).appt.money, [12500 + 500, 3500, 0, 0, 16500, 1600, 14900, 1300, 15200], 'repriced: Sleeves $45 -> $50');
 }
-// price change below the deposit -> refund (D-23)
+// a suggested time lapses or is withdrawn (D-154)
 {
+  const open = (id) => S.openSlots('amara', 'home', { until: S.getAppt(id).job.needBy }).includes(SUGGESTED_SLOT);
+  const seedSuggested = () => { S.reset(); const x = driveTo('suggested'); return x; };
+  let a = seedSuggested();
+  const lapse = S.suggestLapseAt(a);
+  eq(lapse, D.toDate('2026-10-14T10:00').getTime(), 'suggestLapseAt: min(start − MIN_LEAD_H, suggested-at + SUGGEST_EXPIRY_H) = 24 h after it was suggested');
+  ok(!open(a.id), 'a suggested time is held while it is open');
+  /* a lapse through the clock */
+  S.advanceClock(24 * 60 - 1);
+  eq(getStatus(a.id), 'suggested', 'one minute before the lapse it is still open');
+  eq(S.advanceClock(1).expired, [a.id], 'advanceClock reports the lapsed suggestion');
+  a = S.getAppt(a.id);
+  eq([a.status, a.retries, a.payments.deposit.state], ['expired', POLICY.MAX_RETRIES, 'released'], 'a lapsed suggestion is a final expiry with the deposit hold released (D-154)');
+  guard(T.acceptSuggestion(a.id), 'not-suggested', 'accept after the lapse has ticked: not suggested');
+  ok(open(a.id), 'the suggested time is back in openSlots');
+  eq(S.threadFor('amara').messages.slice(-1).map((m) => [m.text, m.tailorText])[0], ['Amara’s suggested time passed', 'Your suggested time passed'], 'the lapse writes the thread line from each side');
+  eq(S.activeAppt(), null, 'a lapsed suggestion is no longer the active appointment');
+  /* accept racing the tick */
+  a = seedSuggested();
+  state.clock.now = S.suggestLapseAt(a);                          // lapse reached, tick not run
+  guard(T.acceptSuggestion(a.id), 'slot-passed', 'acceptSuggestion at the lapse fails: slot-passed (D-154)');
+  /* the start-minus-lead edge: a time suggested for later today lapses MIN_LEAD_H before it starts, not 24 h after */
+  S.reset(); S.setClock('2026-10-15T12:00');
+  const near = T.requestBooking({ tailorId: 'amara', slotStart: SEED_SLOT, cardId: 'visa-4242' }).appt;
+  const sgn = T.tailorSuggest(near.id, SUGGESTED_SLOT);
+  eq([sgn.ok, S.suggestLapseAt(near)], [true, D.toDate('2026-10-15T15:00').getTime()], 'suggestLapseAt: start − MIN_LEAD_H when that comes first');
+  S.advanceClock(3 * 60);
+  eq(getStatus(near.id), 'expired', 'it lapsed MIN_LEAD_H before the suggested start');
+  /* withdraw */
+  a = seedSuggested();
+  guard(T.withdrawSuggestion(driveTo('requested').id), 'not-suggested', 'withdrawSuggestion only from suggested');
+  a = seedSuggested();
+  const w = T.withdrawSuggestion(a.id);
+  eq([w.ok, w.appt.status, w.appt.retries, w.appt.payments.deposit.state], [true, 'expired', POLICY.MAX_RETRIES, 'released'], 'withdrawSuggestion: final expiry, deposit released (D-154)');
+  guard(T.acceptSuggestion(a.id), 'not-suggested', 'accept after a withdraw fails');
+  ok(open(a.id), 'the withdrawn time is back in openSlots');
+  eq(S.threadFor('amara').messages.slice(-1).map((m) => [m.text, m.tailorText])[0], ['Amara withdrew her suggested time', 'You withdrew your suggested time'], 'the withdraw line from each side');
+  eq(state.job.garments.length, 2, 'withdraw/lapse bring the job back into the empty draft (D-158)');
+}
+// rush follows the new slot, never up (D-155)
+{
+  S.reset(); let a = driveTo('requested');
+  eq(a.money.rush, 0, 'seed request: no rush');
+  const sg = T.tailorSuggest(a.id, '2026-10-22T19:00');
+  eq([sg.ok, sg.appt.suggested.rush], [true, 0], 'D-155: the suggestion stores min(booked rush, rush for the new slot)');
+  const acc = T.acceptSuggestion(a.id).appt;
+  eq([acc.money.rush, acc.money.total, acc.money.deposit, acc.payments.balance.cents], [0, SCENARIOS.seed.total, SCENARIOS.seed.deposit, SCENARIOS.seed.balance], 'D-155: a later (rush-tier) slot does not add rush; total, deposit and balance are as booked');
+  /* an Oct 22 request is rush-priced; an earlier slot drops it */
+  S.reset(); T.setJob({ visitType: 'home' });
+  const late = T.requestBooking({ tailorId: 'amara', slotStart: '2026-10-22T19:00', cardId: 'visa-4242' }).appt;
+  ok(late.money.rush > 0, 'a request the day before the need-by carries rush');
+  const bookedRush = late.money.rush; const bookedTotal = late.money.total; const bookedBalance = late.money.balance; const dep = late.money.deposit;
+  const sg2 = T.tailorSuggest(late.id, SEED_SLOT);
+  eq([sg2.ok, sg2.appt.suggested.rush], [true, 0], 'D-155: the suggested earlier slot has no rush');
+  const acc2 = T.acceptSuggestion(late.id).appt;
+  eq([acc2.money.rush, acc2.money.total, acc2.money.balance, acc2.money.deposit, acc2.payments.balance.cents], [0, bookedTotal - bookedRush, bookedBalance - bookedRush, dep, bookedBalance - bookedRush], 'D-155: the rush is dropped, total and balance are lower by it, the deposit is unchanged');
+  eq(acc2.money.payout, SCENARIOS.seed.payout, 'D-155: the tailor payout follows (no rush fee)');
+  /* reschedule applies the same rule */
+  S.reset(); T.setJob({ visitType: 'home' });
+  const l2 = T.requestBooking({ tailorId: 'amara', slotStart: '2026-10-22T19:00', cardId: 'visa-4242' }).appt;
+  T.tailorAccept(l2.id);
+  const rs = T.rescheduleBooking(l2.id, SEED_SLOT);
+  eq([rs.ok, rs.appt.money.rush, rs.appt.money.total], [true, 0, bookedTotal - bookedRush], 'D-155: rescheduleBooking to an earlier slot drops the rush');
+  S.reset(); a = driveTo('confirmed');
+  const rs2 = T.rescheduleBooking(a.id, '2026-10-22T19:00');
+  eq([rs2.ok, rs2.appt.money.rush, rs2.appt.money.total], [true, 0, SCENARIOS.seed.total], 'D-155: rescheduleBooking to a later slot never adds rush');
+}
+// the spent draft comes back on a decline, an expiry and a customer cancel (D-158)
+{
+  for (const kind of ['declined', 'expired', 'cancelled-early', 'cant-make-it']) {
+    const x = driveTo(kind);
+    eq([state.job.garments.length, state.job.visitType, state.job.zip], [x.job.garments.length, x.job.visitType, x.job.zip], `D-158: after "${kind}" the job is back in the draft`);
+  }
+  /* but a new job she started in the meantime is left alone */
+  S.reset(); const x = driveTo('requested');
+  T.addGarment('Skirt');
+  S.advanceClock(2 * 60);
+  eq(state.job.garments.map((g) => g.type), ['Skirt'], 'D-158: an expiry never overwrites a new job already in the draft');
+  ok(x.job.garments.length === 2, 'the expired request keeps its own job');
+}
+// the customer's name once ANY appointment was accepted (D-159)
+{
+  S.reset(); const a = driveTo('requested');
+  eq(TD.customerName(a), 'Sarah C.', 'D-159: a first request is "Sarah C."');
+  T.tailorDecline(a.id, 'x');
+  eq(TD.customerName(a), 'Sarah C.', 'D-159: still "Sarah C." after a decline');
+  S.reset(); driveTo('confirmed');
+  const second = addRequest({ after: SECOND_SLOT_AFTER });
+  eq([second.status, TD.customerName(second), TD.requestView(second).customer.name], ['requested', 'Sarah Chen', 'Sarah Chen'], 'D-159: a new request from a customer she has already accepted shows the full name');
+  ok(!TD.jobAddress(second).includes('145 N 7th St') || second.history.some((h) => h.status === 'confirmed'), 'D-159: the address still waits for THIS appointment’s accept (D-88)');
+}
+// profile bio and shop name hide contact info (D-162)
+{
+  S.reset();
+  const v = S.validateSection('profile', { name: 'Amara', bio: 'Call me on 718-555-0199', shopName: 'Reyes — a@b.com' });
+  eq([v.ok, v.soft], [true, { bio: 'contact-hidden', shopName: 'contact-hidden' }], 'D-162: validateSection returns the soft code per field and stays ok');
+  const sv = T.setTailorSection('profile', { bio: 'Call me on 718-555-0199 or a@b.com', shopName: 'Reyes 718-555-0199' });
+  eq([sv.soft, amara().bio, amara().shopName], [{ bio: 'contact-hidden', shopName: 'contact-hidden' }, 'Call me on [phone hidden] or [email hidden]', 'Reyes [phone hidden]'], 'D-162: setTailorSection stores the masked text');
+  eq(T.setTailorSection('profile', { bio: 'Twelve years of suits.', shopName: 'Reyes Tailoring' }).soft, {}, 'D-162: clean text raises no soft code');
+}
+// the return step word (M6-M-14)
+{
+  const a = driveTo('returning', { returnOption: 'pickup' });
+  eq([returnStep(a, 'tailor'), returnStep(a, 'customer')], ['Ready for pickup', 'Ready for pickup'], 'returnStep: pickup');
+  const d = driveTo('returning', { returnOption: 'dropoff' });
+  eq([returnStep(d, 'tailor'), returnStep(d, 'customer')], ['To drop off', 'Drop-off'], 'returnStep: drop-off');
+  const c = driveTo('returning', { returnOption: 'courier' });
+  eq([returnStep(c, 'tailor'), returnStep(c, 'customer')], ['Courier booked', 'Out for delivery'], 'returnStep: courier');
+}
+// price change below the deposit -> refund (D-23, D-156)
+{
+  const P = SCENARIOS.priceBelowDeposit;
+  ok(P.total < P.deposit && P.refund === P.deposit - P.total && P.balance === 0, 'scenario priceBelowDeposit: total below the deposit, nothing to pay, the difference comes back');
   S.reset(); const b = driveTo('fitting', { visitType: 'shop' });
-  T.sendPriceChange(b.id, b.lines.slice(0, 1).map((l) => ({ ...l, cents: 500 })));
+  T.sendPriceChange(b.id, P.lines);
   const bp = T.approvePriceChange(b.id).appt;
-  eq([bp.money.total, bp.money.deposit, bp.money.balance, bp.money.refund], [500, 1250, 0, 750], 'total below the deposit: balance $0.00, $7.50 refunded at Ready (D-23)');
+  eq([bp.money.total, bp.money.deposit, bp.money.balance, bp.money.refund], [P.total, P.deposit, 0, P.refund], 'total below the deposit: balance $0.00, the difference is refunded (D-23)');
   T.markReady(b.id);
-  eq(S.getAppt(b.id).payments.refund, { cents: 750, state: 'refunded' }, 'markReady records the refund');
+  eq(S.getAppt(b.id).payments.refund, { cents: P.refund, state: 'pending' }, 'markReady records the refund as pending (D-156)');
+  ok(/After you choose/.test(C.customerBreakdown(S.getAppt(b.id).money, { stage: 'ready' })), 'D-156: the refund row reads "After you choose" while pending');
+  T.chooseReturn(b.id, 'pickup');
+  eq(S.getAppt(b.id).payments.refund, { cents: P.refund, state: 'pending' }, 'chooseReturn keeps the pending refund (D-156)');
+  const paid = T.payBalance(b.id, 'visa-4242');
+  eq([paid.ok, S.getAppt(b.id).payments.refund], [true, { cents: P.refund, state: 'refunded' }], 'payBalance settles the refund (D-156)');
+  ok(/Refunded/.test(C.customerBreakdown(S.getAppt(b.id).money, { stage: 'paid' })), 'D-156: the refund row reads "Refunded" once settled');
+}
+// refund + courier: the courier eats into the refund; the money still nets to the total (D-156)
+{
+  const P = SCENARIOS.priceBelowDeposit;
+  S.reset(); const b = driveTo('fitting', { visitType: 'shop' });
+  T.sendPriceChange(b.id, P.lines); T.approvePriceChange(b.id); T.markReady(b.id);
+  T.chooseReturn(b.id, 'courier');
+  const c = S.getAppt(b.id);
+  ok(c.money.courier > 0 && c.money.total === P.total + c.money.courier, 'courier is added to the total');
+  eq(c.payments.refund?.cents ?? 0, c.money.refund, 'chooseReturn re-prices the pending refund with the courier (D-156)');
+  ok(c.money.refund === 0 ? c.payments.refund === undefined : c.payments.refund.state === 'pending', 'a refund the courier wipes out has no entry left (D-156)');
+  eq(c.payments.deposit.cents + c.money.balance - c.money.refund, c.money.total, 'deposit + balance − refund === total (D-156)');
+  T.chooseReturn(b.id, 'pickup');
+  eq(S.getAppt(b.id).payments.refund, { cents: P.refund, state: 'pending' }, 'back to pickup: the full refund again');
 }
 // ready -> return -> pay -> complete -> review (no price change)
 {
@@ -1040,7 +1177,7 @@ section('M5 messaging');
   const tm = S.threadFor('amara').messages;
   eq([S.threadPreview(tm[0], 'customer'), S.threadPreview(tm[0], 'tailor')], ['You sent a request', 'Sarah sent a request'], 'threadPreview: system lines read from the reader side');
   const own = T.sendMessage('amara', 'customer', { text: 'See my number 718-555-0199' }).message;
-  eq([S.threadPreview(own, 'customer'), S.threadPreview(own, 'tailor')], ['You: See my number phone hidden', 'See my number phone hidden'], 'threadPreview: You: prefix, masked tokens without brackets');
+  eq([S.threadPreview(own, 'customer'), S.threadPreview(own, 'tailor')], ['You: See my number (phone hidden)', 'See my number (phone hidden)'], 'threadPreview: You: prefix, masked tokens in parentheses, no brackets (M6-P-17)');
   const ph = T.sendMessage('amara', 'customer', { text: '', photos: 2 }).message;
   const ph1 = T.sendMessage('amara', 'tailor', { text: '', photos: 1 }).message;
   const pt = T.sendMessage('amara', 'tailor', { text: 'Here', photos: 1 }).message;
@@ -1133,6 +1270,38 @@ section('M5 accounts');
   eq(state.sim.session, 'expired', 'expireSession marks the session expired');
   A.sendCode('(718) 555-0142'); A.reauth('123456');
   eq(state.sim.session, 'valid', 'reauth with a good code marks the session valid');
+  S.reset();
+}
+
+/* ================= M6 Batch 4: taking requests (D-161), payout words (D-172), suggested price (D-155) ================= */
+section('M6 batch 4');
+{
+  S.reset();
+  state.job = { ...state.job, garments: DATA.SEED_JOB.garments, visitType: 'home' };
+  eq([amara().takingRequests, S.eligible(amara(), state.job).ok], [true, true], 'D-161: taking requests defaults on and she is eligible');
+  T.setTakingRequests(false);
+  eq([S.eligible(amara(), state.job).reason, S.tailorsFor(state.job).empty], ['nothing-open', 'nothing-open'], 'D-161: paused -> eligible says nothing-open and she is off the list');
+  T.setTakingRequests(true);
+  eq(S.eligible(amara(), state.job).ok, true, 'D-161: turning it back on restores her');
+  S.reset();
+  const booked = driveTo('confirmed');
+  T.setTakingRequests(false);
+  eq(S.getAppt(booked.id).status, 'confirmed', 'D-161: a job already booked is untouched');
+  S.reset();
+  const done = EARN.earningsTo('pending');
+  const po = TD.payoutOf(S.getAppt(done.id));
+  eq(TD.payoutLine(po, amara().payouts).text, `Arrives ${D.fmtDay(po.date)} · to Chase ••6789`, 'D-172: a pending payout reads Arrives <Fri> · to <bank>');
+  S.reset();
+  const paidFirst = EARN.earningsTo('paid');
+  void paidFirst;
+  eq(TD.payoutLine(TD.payoutOf(S.getAppt(state.appts[0].id)), amara().payouts).short, `Paid ${D.fmtDay(PAYOUT_DAYS.first)}`, 'D-172: a paid payout reads Paid <Fri>');
+  S.reset();
+  const failedFirst = EARN.earningsTo('failed');
+  const fl = TD.payoutLine(TD.payoutOf(S.getAppt(failedFirst.id)), amara().payouts);
+  eq([fl.tone, fl.text], ['error', 'Didn’t go through · sends again once your bank details are updated'], 'D-172: a failed payout reads Didn’t go through in error tone');
+  S.reset();
+  const sug = driveTo('suggested');
+  eq(TD.suggestPrice(S.getAppt(sug.id), SUGGESTED_SLOT).less, 0, 'D-155: a suggested time inside a rush window on a non-rush request costs Sarah no rush');
   S.reset();
 }
 

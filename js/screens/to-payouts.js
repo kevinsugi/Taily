@@ -74,7 +74,7 @@ function feeCard(t) {
   ].filter(Boolean);
   return `<section class="${ID}__fee" aria-labelledby="${ID}-fee-h">
   <p class="t-caps c-600" id="${ID}-fee-h">The Taily fee</p>
-  <p class="t-h2 ${ID}__sentence" data-money>On a ${fmtExact(c)} order, Taily keeps ${fmtExact(tailyFeeFor(c))} and you get ${fmtExact(payoutFor({ services: c }))}.</p>
+  <p class="t-h2 ${ID}__sentence" data-money>On ${fmtExact(c)} of services, Taily keeps ${fmtExact(tailyFeeFor(c))} and you take home ${fmtExact(payoutFor({ services: c }))}.</p>
   <div class="${ID}__points t-small c-700">${lines.map((l) => metaRow('✓', esc(l))).join('')}</div>
 </section>`;
 }
@@ -103,7 +103,7 @@ function view(s) {
   const bank = bankFor(d.routing);
   const accountHelp = accountHelpFor(d.routing);
   const title = '<h1 class="t-title">How you get paid</h1>';
-  const head = editing ? headingRow(title) : `<div class="heading-row"><div class="heading-row__body">${title}</div></div>`;
+  const head = editing ? headingRow(title, { backRow: true }) : `<div class="heading-row"><div class="heading-row__body">${title}</div></div>`;
   const current = editing && t.payouts?.bank
     ? `<div class="${ID}__current"><p class="t-caps c-600">Current account</p><p class="t-body w-600 tabular">${esc(t.payouts.bank)} ••${esc(t.payouts.last4)}</p><p class="t-small c-600">Paid every Friday</p></div><p class="t-small w-600 ${ID}__change">Change account</p>` : '';
   const fields = `<h2 class="t-h2 ${ID}__h2">Your bank account</h2>
@@ -117,7 +117,7 @@ function view(s) {
   const bar = editing
     ? actionBar({ ctaLabel: 'Save changes', ctaAct: 'save', disabled: !dirty && !busy, note: dirty || busy ? '' : 'No changes yet.', busy, busyLabel: 'Saving…' })
     : actionBar({ ctaLabel: 'Finish and go live', ctaAct: 'next', busy, busyLabel: 'Setting up payouts…' });
-  return `${onboardingHeader({ editing })}
+  return `${onboardingHeader({ editing, active: u.from === 'earnings' ? 'earnings' : 'shop' })}
 <main class="body body--with-bar ${ID}${editing ? ` ${ID}--edit` : ''}">
   ${editing ? '' : onboardingSteps('payouts', ONBOARDING_STEPS.filter((st) => t.onboarding?.[st.id]).map((st) => st.id))}
   ${editing ? '' : resumeBanner(t)}

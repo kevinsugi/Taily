@@ -62,7 +62,8 @@ a {
 /* The phone sits on a tinted desktop backdrop; on a real phone the
    viewport is the stage, so the backdrop never shows. */
 .stage {
-  width: 390px;
+  width: 100%;
+  max-width: 390px;
   min-height: 100vh;
   margin-inline: auto;
   position: relative;
@@ -75,7 +76,8 @@ a {
 /* Frames in Figma grow taller than 844 — let the page scroll rather
    than clipping the screen. */
 .screen {
-  width: 390px;
+  width: 100%;
+  max-width: 390px;
   min-height: 844px;
   position: relative;
   background: var(--neutral-50);
@@ -95,7 +97,8 @@ a {
 .status-bar {
   position: absolute;
   inset: 0 auto auto 0;
-  width: 390px;
+  width: 100%;
+  max-width: 390px;
   height: 44px;
   z-index: 2;
   background: var(--white);
@@ -131,7 +134,8 @@ a {
 .top-nav {
   position: absolute;
   inset: 44px auto auto 0;
-  width: 390px;
+  width: 100%;
+  max-width: 390px;
   height: 56px;
   z-index: 2;
   background: var(--white);
@@ -316,7 +320,7 @@ a {
 .c-white { color: var(--white); }
 .c-700 { color: var(--neutral-700); }
 .c-600 { color: var(--neutral-600); }
-.c-500 { color: var(--neutral-500); }
+.c-500 { color: var(--neutral-500-ink); }
 .c-400 { color: var(--neutral-400); }
 .c-300 { color: var(--neutral-300); }
 .c-accent { color: var(--accent-base); }

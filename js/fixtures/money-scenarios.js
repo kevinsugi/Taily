@@ -47,6 +47,10 @@ const priceItem = repriced((lines) => [
   { garmentId: 'n1', garmentType: 'Pants / Jeans', serviceId: 'hem-pants', label: 'Hem pants', cents: cents(AMARA.prices['hem-pants']) },
 ]);
 const priceItemRemoved = repriced((lines) => lines.filter((l) => l.garmentId !== 'g1'));
+/* D-156: a shop visit whose order drops to ONE line worth about half the captured deposit (whole dollars, as a tailor prices), so the total is below the deposit and the
+   difference comes back to the card (refund = deposit − total, no balance) */
+const belowLines = [{ ...shop.lines[0], cents: Math.max(100, Math.floor(shop.deposit / 200) * 100) }];
+const priceBelowDeposit = { ...quote({ lines: belowLines, homeFee: shop.homeFee, deposit: shop.deposit }), lines: belowLines };
 
 /* a cancel / no-show on a booked seed appointment, two hours before the visit (inside the window) */
 const booked = { slot: { start: SEED_SLOT }, payments: { deposit: { cents: seed.deposit } } };
@@ -54,7 +58,7 @@ const lateCancel = cancelTerms(booked, toDate(addMinutes(SEED_SLOT, -120)).getTi
 const earlyCancel = cancelTerms(booked, toDate(addMinutes(SEED_SLOT, -72 * 60)).getTime());
 
 export const SCENARIOS = Object.freeze({
-  seed, rush, shop, courier, courierQuote: courierQuoted, priceAdded, priceRemoved, priceRepriced, priceItem, priceItemRemoved,
+  seed, rush, shop, courier, courierQuote: courierQuoted, priceAdded, priceRemoved, priceRepriced, priceItem, priceItemRemoved, priceBelowDeposit,
   lateCancel: { ...lateCancel, tailorPaid: lateCancel.kept },
   earlyCancel,
   noShow: { paid: noShowPayout(seed.deposit) },

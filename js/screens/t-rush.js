@@ -64,7 +64,7 @@ function view(s) {
   </div>` : '';
   return `${chrome('shop', { persona: 'tailor' })}
 <main class="body body--with-bar ${ID}">
-  ${headingRow('<h1 class="t-title">Rush fees</h1>')}
+  ${headingRow('<h1 class="t-title">Rush fees</h1>', { backRow: true })}
   <p class="t-body c-600 ${ID}__lead">Charge extra when a customer needs it back soon after the visit. 4 days or more is always free.</p>
   <div class="${ID}__toggle">${toggle({ id: 'rush-on', label: 'Charge rush fees', checked: d.on, disabled: busy })}</div>
   ${tiers}

@@ -6,7 +6,7 @@
    ============================================================ */
 import { register, render as go, personaHome } from '../app.js';
 import {
-  state, T, now, msLeft, threadFor, threadReadOnly, threadAppt, maskContact, statusScreen,
+  state, T, now, threadFor, threadReadOnly, threadAppt, maskContact, statusScreen,
 } from '../state.js';
 import { setFocus, statusWord } from '../focus.js';
 import { MY_TAILOR_ID, requestView, customerInitials, threadCustomerName, jobAddress } from '../tailor-data.js';
@@ -29,8 +29,7 @@ let failSeq = 0;
 function subLine(a) {
   if (!a) return 'Asking before booking';
   if (a.status === 'requested') {
-    const left = msLeft(a) > 0;
-    return `New request · ${countdown({ expiresAt: a.expiresAt, now: now() })}${left ? ' to reply' : ''}`;
+    return countdown({ expiresAt: a.expiresAt, now: now(), suffix: 'left to reply' });   // D-171: the countdown only; the context pill says "New request"
   }
   /* R5-1-T-07 (D-149): the context row owns the time and the pill; the header says where she is going */
   return esc(jobAddress(a));
@@ -38,7 +37,7 @@ function subLine(a) {
 
 /** The context row (B2, tailor column): the job this thread belongs to. Neighborhood-only: no street is ever printed here. */
 function contextRow(a) {
-  if (!a) return threadContext({ title: 'No request yet', sub: `${firstName()} is asking before booking` });
+  if (!a) return threadContext({ title: 'No request yet', sub: 'Her request will show here when she books.' });
   const w = statusWord(a, 'tailor', { short: true });
   const v = requestView(a);
   const link = a.status === 'declined' ? ''

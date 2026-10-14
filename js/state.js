@@ -90,9 +90,19 @@ export function tick() {
   for (const a of state.appts) {
     if (a.status === 'requested' && toDate(a.expiresAt).getTime() <= state.clock.now) {
       if (expireRequest(a.id).ok) expired.push(a.id);
+    } else if (a.status === 'suggested' && state.clock.now >= suggestLapseAt(a)) {
+      endSuggestion(a, 'Amara’s suggested time passed', 'Your suggested time passed', 'lapsed');   // D-154
+      expired.push(a.id);
     }
   }
   return expired;
+}
+/** When a suggested time stops being open (D-154): `MIN_LEAD_H` before it starts, or `SUGGEST_EXPIRY_H` after it was suggested,
+    whichever comes first. Epoch ms. */
+export function suggestLapseAt(a) {
+  const byStart = toDate(a.suggested.start).getTime() - POLICY.MIN_LEAD_H * HOUR_MS;
+  const bySent = toDate(a.suggested.at ?? a.requestedAt).getTime() + POLICY.SUGGEST_EXPIRY_H * HOUR_MS;
+  return Math.min(byStart, bySent);
 }
 export function advanceClock(minutes) {
   state.clock.now += minutes * MIN_MS;
@@ -153,7 +163,7 @@ export function unreadCount(tailorId, reader) {
 export function threadPreview(msg, reader = 'customer') {
   if (!msg) return '';
   if (msg.from === 'system') return reader === 'tailor' ? (msg.tailorText ?? msg.text) : msg.text;
-  const text = String(msg.text ?? '').replace(/\[(phone|email) hidden\]/g, '$1 hidden').trim();
+  const text = String(msg.text ?? '').replace(/\[(phone|email) hidden\]/g, '($1 hidden)').trim();
   const n = msg.photos || 0;
   const photo = n > 1 ? `${n} photos` : n === 1 ? 'Photo' : '';
   const body = photo && text ? `${photo} · ${text}` : photo || text;
@@ -324,8 +334,17 @@ export function validateSection(section, data = state.tailors[0]) {
   const rule = SECTION_RULES[section];
   if (!rule) return { ok: false, errors: { section: 'unknown-section' } };
   const errors = rule(data ?? {});
-  return { ok: Object.keys(errors).length === 0, errors };
+  return { ok: Object.keys(errors).length === 0, errors, soft: SECTION_SOFT[section]?.(data ?? {}) ?? {} };
 }
+/** Soft notes (D-162): never block a save. The profile's bio and shop name hide a phone number or email (`maskContact`) when saved. */
+const SECTION_SOFT = {
+  profile: (d) => {
+    const soft = {};
+    if (maskContact(d.bio).masked) soft.bio = 'contact-hidden';
+    if (maskContact(d.shopName).masked) soft.shopName = 'contact-hidden';
+    return soft;
+  },
+};
 const isPlain = (v) => v && typeof v === 'object' && !Array.isArray(v);
 function deepMerge(target, patch) {
   for (const [k, v] of Object.entries(patch)) {
@@ -348,10 +367,22 @@ export function setTailorSection(section, patch) {
     delete rest[k];
   }
   deepMerge(t, rest);
+  let soft = {};
+  if (section === 'profile') {
+    soft = validateSection(section, t).soft;                    // D-162: what she typed, before the mask
+    if ('bio' in soft) t.bio = maskContact(t.bio).text;
+    if ('shopName' in soft) t.shopName = maskContact(t.shopName).text;
+  }
   const v = validateSection(section, t);
   t.onboarding[section] = v.ok;
   if (bookable(t)) t.live = true;
-  return { ok: true, tailor: t, valid: v.ok, errors: v.errors, bookable: bookable(t), live: !!t.live };
+  return { ok: true, tailor: t, valid: v.ok, errors: v.errors, soft, bookable: bookable(t), live: !!t.live };
+}
+/** D-161: the shop's "Taking requests" switch. Off, eligible() answers nothing-open for new requests; booked jobs are untouched. */
+export function setTakingRequests(on) {
+  const t = state.tailors[0];
+  t.takingRequests = !!on;
+  return { ok: true, tailor: t, takingRequests: t.takingRequests };
 }
 /** Payouts: the full account number is validated here and never stored — only its last 4 (D-63). Blank account keeps
     the stored last4 (edit mode) only while the routing number is unchanged — a new bank needs its account number. */
@@ -461,6 +492,7 @@ export function eligible(tailor, job = state.job) {
   if (area) return { ok: false, reason: area };
   if ((job.hiddenTailors ?? []).includes(tailor.id)) return { ok: false, reason: 'hidden' };
   if ((job.declinedBy ?? []).includes(tailor.id)) return { ok: false, reason: 'declined' };
+  if (tailor.takingRequests === false) return { ok: false, reason: 'nothing-open' };   // D-161: paused from her shop; jobs already booked are untouched
   if (!nextOpening(tailor.id, job.visitType, { until: job.needBy })) return { ok: false, reason: 'nothing-open' };
   return { ok: true, reason: null };
 }
@@ -482,6 +514,7 @@ export function tailorsFor(job = state.job) {
   if (!shown.length) return { rows: [], empty: 'none-left' };
   const rows = [];
   for (const t of shown) {
+    if (t.takingRequests === false) continue;                    // D-161
     const next = nextOpening(t.id, job.visitType, { until: job.needBy });
     if (!next) continue;
     rows.push({
@@ -497,6 +530,11 @@ const jobCopy = (job) => ({ garments: clone(job.garments), visitType: job.visitT
 /** Put an appointment's job back as the draft, keeping the declined / hidden lists. */
 function restoreDraft(appt) {
   state.job = { ...clone(appt.job), declinedBy: state.job.declinedBy ?? [], hiddenTailors: state.job.hiddenTailors ?? [] };
+}
+/** Passive endings (expiry, a lapsed or withdrawn suggestion, a customer cancel) bring the job back only when the draft is still the
+    empty one left by sending the request, so they never overwrite a new job she has started since (D-158). */
+function restoreDraftIfEmpty(appt) {
+  if (!(state.job.garments ?? []).length) restoreDraft(appt);
 }
 function addPayout(appt, centsAmount, kind) {
   state.payouts.push({ apptId: appt.id, cents: centsAmount, state: 'pending', date: payoutDay(nowIso()), kind, createdAt: nowIso() });   // the following Friday (D-24)
@@ -550,6 +588,9 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
     history: [{ status: 'requested', at: nowIso() }],
   };
   state.appts.push(appt);
+  const { zip, address, visitType, declinedBy, hiddenTailors } = job;
+  newJob();                                                   // D-158: the draft is spent; a decline, expiry or cancel brings it back (restoreDraft)
+  Object.assign(state.job, { zip, address, visitType, declinedBy, hiddenTailors });   // the job's own who-said-no lists travel with it
   say(appt, 'You sent a request', `${state.customer.first} sent a request`);
   return succeed(appt);
 }
@@ -580,7 +621,8 @@ export function tailorSuggest(id, slotStart) {
   if (a.status !== 'requested') return fail('not-requested');
   if (toDate(a.expiresAt).getTime() <= state.clock.now) return fail('expired');
   if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(slotStart)) return fail('slot-unavailable');
-  a.suggested = { start: slotStart, at: nowIso() };
+  const rushNew = rushFor(tailorById(a.tailorId), slotStart, a.job.needBy).cents;
+  a.suggested = { start: slotStart, at: nowIso(), rush: Math.min(a.money.rush, rushNew) };   // D-155: the price never goes up
   setStatus(a, 'suggested');
   say(a, `${firstName(tailorById(a.tailorId))} suggested ${fmtWhen(slotStart)}`, `You suggested ${fmtWhen(slotStart)}`);
   return succeed(a);
@@ -589,11 +631,31 @@ export function tailorSuggest(id, slotStart) {
 export function acceptSuggestion(id) {
   const a = must(id);
   if (a.status !== 'suggested') return fail('not-suggested');
+  if (state.clock.now >= suggestLapseAt(a)) return fail('slot-passed');   // D-154
   a.slot = { start: a.suggested.start, end: slotEnd(a.suggested.start, a.job.visitType) };
+  repriceForSlot(a, a.slot.start);                            // D-155
   setStatus(a, 'confirmed');
   a.confirmedVia = 'suggestion';                              // R3-1-C-08: the customer accepted the tailor's new time
   a.payments.deposit.state = 'captured';
   say(a, `Booked ${fmtWhen(a.slot.start)}`);
+  return succeed(a);
+}
+
+/** A suggested time that lapsed or that Amara withdrew (D-154): the request ends as a final expiry, the deposit hold is released and the
+    time is open again (a non-`suggested` status holds no slot). */
+function endSuggestion(a, text, tailorText, ended = 'lapsed') {
+  setStatus(a, 'expired');
+  a.suggested = { ...a.suggested, ended };                    // 'lapsed' | 'withdrawn' — c-request words the two differently
+  a.retries = POLICY.MAX_RETRIES;
+  a.payments.deposit.state = 'released';
+  if (!state.job.hiddenTailors.includes(a.tailorId)) state.job.hiddenTailors.push(a.tailorId);   // D-07
+  restoreDraftIfEmpty(a);
+  say(a, text, tailorText);
+}
+export function withdrawSuggestion(id) {
+  const a = must(id);
+  if (a.status !== 'suggested') return fail('not-suggested');
+  endSuggestion(a, `${firstName(tailorById(a.tailorId))} withdrew her suggested time`, 'You withdrew your suggested time', 'withdrawn');
   return succeed(a);
 }
 
@@ -627,6 +689,7 @@ export function expireRequest(id) {
   if (a.status !== 'requested') return fail('not-requested');
   setStatus(a, 'expired');
   a.payments.deposit.state = 'released';
+  restoreDraftIfEmpty(a);
   if (a.retries >= POLICY.MAX_RETRIES && !state.job.hiddenTailors.includes(a.tailorId)) state.job.hiddenTailors.push(a.tailorId);   // D-07
   say(a, 'Request expired');
   return succeed(a);
@@ -661,6 +724,7 @@ export function cancelBooking(id) {
     a.cancel = { by: 'customer', reason: 'customer-late', at: nowIso(), refund: 0, kept: terms.kept, tailorPaid: terms.kept };   // D-05
     addPayout(a, terms.kept, 'kept-deposit');
   }
+  restoreDraftIfEmpty(a);
   say(a, 'You cancelled the booking', `${state.customer.first} cancelled the booking`);
   return succeed(a, { terms });
 }
@@ -671,7 +735,8 @@ export function rescheduleBooking(id, slotStart) {
   if (cancelTerms(a, state.clock.now).window !== 'early') return fail('too-late');   // D-12
   if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(slotStart)) return fail('slot-unavailable');
   const from = a.slot.start;
-  a.slot = { start: slotStart, end: slotEnd(slotStart, a.job.visitType) };           // price stays as booked (D-25)
+  a.slot = { start: slotStart, end: slotEnd(slotStart, a.job.visitType) };
+  repriceForSlot(a, slotStart);                                                      // D-155: rush = min(booked, new slot); the deposit stays
   a.history.push({ status: 'rescheduled', at: nowIso(), from });                     // R3-1-T-10: t-job says what it moved from
   say(a, `You moved the visit to ${fmtWhen(slotStart)}`, `${state.customer.first} moved the visit to ${fmtWhen(slotStart)}`);
   return succeed(a);
@@ -794,13 +859,23 @@ export function messageAboutPriceChange(id) {
   return succeed(a);
 }
 /** Quote from the booked appointment's own lines; the captured deposit never changes (D-23). */
-function repriceMoney(a) {
+function repriceMoney(a, rush = a.money.rush) {
   const q = quote({
-    lines: a.lines, homeFee: a.money.homeFee, rush: a.money.rush,
+    lines: a.lines, homeFee: a.money.homeFee, rush,
     courier: a.courier?.state === 'ready' ? a.courier.cents : 0, deposit: a.payments.deposit.cents,
   });
   q.rushDays = a.money.rushDays;
   return q;
+}
+
+/** A visit moved to `slotStart` (accepted suggestion, reschedule): rush = min(what was booked, the rush for the new slot), so the price never
+    goes up and never charges rush for non-rush work (D-155). The captured deposit excludes rush, so it does not move. */
+function repriceForSlot(a, slotStart) {
+  const r = rushFor(tailorById(a.tailorId), slotStart, a.job.needBy);
+  const q = repriceMoney(a, Math.min(a.money.rush, r.cents));
+  q.rushDays = r.days;
+  a.money = q;
+  a.payments.balance.cents = q.balance;
 }
 
 /** What the tailor offers for getting the order back: `returns` (a subset of her Shop returns), default every one that is on (D-99). */
@@ -815,7 +890,7 @@ export function markReady(id, { returns } = {}) {
   a.returnOffer = offer;
   setStatus(a, 'ready');
   a.payments.balance = { cents: a.money.balance, state: 'due' };
-  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'refunded' };   // D-23
+  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-23, D-156: settled by payBalance
   say(a, 'Ready — choose how to get it back');
   return succeed(a);
 }
@@ -853,6 +928,8 @@ export function chooseReturn(id, option) {
   }
   a.money = repriceMoney(a);
   a.payments.balance.cents = a.money.balance;
+  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-156: re-priced with the courier
+  else delete a.payments.refund;
   return succeed(a);
 }
 
@@ -861,9 +938,11 @@ export function payBalance(id, cardId = null, { threeDS = false } = {}) {
   if (a.status !== 'ready') return fail('not-ready');
   if (!a.returnOption) return fail('return-required');
   if (a.returnOption === 'courier' && a.courier?.state !== 'ready') return fail('courier-unavailable');
-  if (state.sim.card === 'declined') { a.payments.balance.state = 'failed'; a.payments.balance.failedCardId = cardId; return fail('card-declined'); }
-  if (state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
+  const charge = a.money.balance > 0;                                                         // M6-M-03: a $0 balance only settles the refund, nothing to decline
+  if (charge && state.sim.card === 'declined') { a.payments.balance.state = 'failed'; a.payments.balance.failedCardId = cardId; return fail('card-declined'); }
+  if (charge && state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
   a.payments.balance = { cents: a.money.balance, state: 'paid' };
+  if (a.payments.refund?.cents > 0) a.payments.refund.state = 'refunded';                   // D-156
   a.balanceCardId = cardId;
   setStatus(a, 'returning');
   say(a, 'You paid the balance', `${state.customer.first} paid the balance`);
@@ -1010,10 +1089,10 @@ export function priceChangeView(appt, lines = appt?.priceChange?.lines ?? appt?.
 /** Every transition and clock move, in one object, so screens and flow setups call `T.tailorAccept(id)`. */
 export const T = {
   setJob, newJob, addGarment, removeGarment, setServices, validateJob,
-  requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, findAnotherTailor,
+  requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, withdrawSuggestion, findAnotherTailor,
   tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow,
   startFitting, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
   chooseReturn, payBalance, markCompleted, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
-  setTailorSection, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
-  now, setClock, advanceClock, tick,
+  setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
+  now, setClock, advanceClock, tick, suggestLapseAt,
 };

@@ -15,8 +15,9 @@ export const MONEY = Object.freeze({
 });
 
 export const POLICY = Object.freeze({
-  CANCEL_WINDOW_H: 24,      // > 24 h before the visit → full refund; within → deposit kept
+  CANCEL_WINDOW_H: 24,      // 24 h or more before the visit → full refund; inside → deposit kept (the 'until' is inclusive, M6-M-11)
   REQUEST_EXPIRY_H: 2,      // tailor reply window
+  SUGGEST_EXPIRY_H: 24,     // a suggested time stays open this long, or until MIN_LEAD_H before it starts, whichever is first (D-154)
   MAX_RETRIES: 2,           // "Try again" count after an expiry
   EXPIRING_SOON_MIN: 15,    // countdown turns to the warning state
   NO_SHOW_WAIT_MIN: 15,     // tailor can mark a no-show this long after the start

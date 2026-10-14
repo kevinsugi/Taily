@@ -39,7 +39,8 @@ function shown(m) {
 
 function headerSub(t, a) {
   const where = [t.shopName, t.shop?.hood].filter(Boolean).join(' · ');
-  if (a?.status === 'requested') return `Request sent · ${countdown({ expiresAt: a.expiresAt, now: now() })}`;
+  /* D-171: the header sub is the countdown only — the context pill below already says "Request sent" */
+  if (a?.status === 'requested') return countdown({ expiresAt: a.expiresAt, now: now(), suffix: `left for ${firstName(t)} to reply` });
   return esc(where);
 }
 
@@ -191,7 +192,7 @@ function wire(root) {
       ui().failed = list.filter((x) => x !== f);
       deliver(f);
     } else if (act === 'attach-photo') {
-      openAttachSheet({ count: ui().photos ?? 0, max: MAX_PHOTOS() }, () => {
+      openAttachSheet({ count: ui().photos ?? 0, max: MAX_PHOTOS(), peer: firstName(t) }, () => {
         const end = nearEnd();
         ui().photos = Math.min(MAX_PHOTOS(), (ui().photos ?? 0) + 1);
         go(ID);

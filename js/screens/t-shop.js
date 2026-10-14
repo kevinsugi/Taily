@@ -4,13 +4,13 @@
    customers see" row. Summaries are dollars only.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, tailorsFor, bookable } from '../state.js';
+import { state, T, tailorsFor, bookable } from '../state.js';
 import { myTailor, MY_TAILOR_ID } from '../tailor-data.js';
 import { VISIT_LABEL, RETURN_LABEL } from '../data.js';
 import { cents, fmt } from '../money.js';
 import * as A from '../account.js';
 import {
-  chrome, headingRow, banner, customerPreview, tailorRow, miniProfile, listRow, cta, ONBOARDING_STEPS, esc,
+  chrome, headingRow, banner, customerPreview, tailorRow, miniProfile, listRow, cta, toggle, wireToggles, toast, ONBOARDING_STEPS, esc,
 } from '../components.js';
 
 const ID = 't-shop';
@@ -76,12 +76,20 @@ function view(s) {
   const ok = bookable(t);
   const missing = ONBOARDING_STEPS.find((st) => !t.onboarding?.[st.id]);
   const finishLabel = missing ? STEP_LABEL[missing.id] : 'your setup';
+  /* D-161: "Taking requests" sits with the Bookable chip; off, the chip says customers can't send requests */
+  const taking = t.takingRequests !== false;
   const status = ok
-    ? `<p class="${ID}__status"><span class="${ID}__chip t-small w-600"><span aria-hidden="true">●</span> Bookable</span><span class="t-small c-600">Customers can find and book you.</span></p>`
+    ? `<div class="${ID}__live">
+    <p class="${ID}__status">${taking
+    ? `<span class="${ID}__chip t-small w-600"><span aria-hidden="true">●</span> Bookable</span><span class="t-small c-600">Customers can find and book you.</span>`
+    : `<span class="${ID}__chip ${ID}__chip--paused t-small w-600"><span aria-hidden="true">●</span> Paused · customers can’t send requests</span>`}</p>
+    ${toggle({ id: 'taking-requests', label: 'Taking requests', checked: taking, helper: taking ? '' : 'Jobs you already booked are not affected.' })}
+  </div>`
     : banner({ tone: 'warning', title: 'Customers can’t book you right now', text: `Finish ${finishLabel} to show up again.`, actionLabel: 'Fix it', actionAct: 'fix' });
   const row = previewRow();
   const caption = !ok
     ? `Customers can’t find you until ${finishLabel} is finished.`
+    : !taking ? 'Customers can’t send you requests while Taking requests is off.'
     : row
       ? `For the sample job: ${job.garments.map((g) => g.type).join(' · ')} · ${VISIT_LABEL.tailor[job.visitType]}`
       : 'Your estimate shows when a customer picks something you price.';
@@ -95,7 +103,7 @@ function view(s) {
 <main class="body ${ID}">
   ${headingRow('<h1 class="t-title">Your shop</h1>', { back: false })}
   <div class="${ID}__state">${status}</div>
-  <div class="${ID}__preview">${customerPreview({ title: ok ? 'What customers see' : 'What customers will see', html: row ?? miniProfile({ name: t.name, initials: t.initials, photo: t.photo, shopName: t.shopName, bio: t.bio ?? '' }), caption })}</div>
+  <div class="${ID}__preview">${customerPreview({ title: ok && taking ? 'What customers see' : 'What customers will see', html: row ?? miniProfile({ name: t.name, initials: t.initials, photo: t.photo, shopName: t.shopName, bio: t.bio ?? '' }), caption })}</div>
   <h2 class="t-h2 ${ID}__h2">Your setup</h2>
   <div class="${ID}__setup">${rows}</div>
   <div class="${ID}__out">${cta('Sign out', { variant: 'secondary', attrs: 'data-act="sign-out"' })}</div>
@@ -103,6 +111,14 @@ function view(s) {
 }
 
 function wire(root) {
+  wireToggles(root);
+  root.addEventListener('toggle', (e) => {
+    if (e.detail.id !== 'taking-requests') return;
+    T.setTakingRequests(e.detail.checked);
+    go(ID);
+    document.getElementById('taking-requests')?.focus({ preventScroll: true });
+    toast(e.detail.checked ? 'You’re taking requests again' : 'Paused. Customers can’t send you requests.', { tone: 'success' });
+  });
   root.addEventListener('click', (e) => {
     const a = e.target.closest('[data-act]');
     if (!a) return;

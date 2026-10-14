@@ -35,7 +35,7 @@ function view(s) {
     : `<p class="t-small c-600 ${ID}__wait" role="timer">Resend code in ${mmss(st.msToResend)}</p>`;
   return `${statusBar()}
 <main class="body body--with-bar ${ID}">
-  ${headingRow('<h1 class="t-title">Enter the code</h1>')}
+  ${headingRow('<h1 class="t-title">Enter the code</h1>', { backRow: true })}
   <p class="t-body c-600 ${ID}__lead">We texted a 6-digit code to ${st ? `<b class="w-600 c-ink">${esc(st.phone)}</b>` : 'your phone'}. <button type="button" class="${ID}__change" data-act="change-number" data-hit="inline">Change number</button></p>
   ${codeInput({ id: 'code', length: LENGTH, value: d.code ?? '', error: ERRORS[err] ?? '' })}
   ${resend}

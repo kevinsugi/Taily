@@ -6,10 +6,10 @@
    Screen-local flags: state.ui['c-pay'] { busy, error, info, focus }.
    ============================================================ */
 import { register, render as go, back } from '../app.js';
-import { state, T, tailorById, openSlots, now } from '../state.js';
+import { state, T, tailorById, openSlots, now, priceChangeView } from '../state.js';
 import {
   chrome, bookingSteps, headingRow, visitBlock, customerBreakdown, infoCard, metaRow, methodRow, actionBar, banner,
-  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc,
+  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList,
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
@@ -77,11 +77,20 @@ function visitRows({ t, job, slot }) {
   ];
 }
 
+/** C-06: "Your order" — the same plain rows c-booking shows once the order is approved, here from the estimate's lines. */
+function orderBlock({ job }, q) {
+  if (!q.lines?.length) return '';
+  const pseudo = { lines: q.lines, money: q, payments: { deposit: { cents: q.deposit } }, job };
+  const garments = priceChangeView(pseudo, q.lines).garments;
+  return `<h2 class="t-h2 c-pay__h2">Your order</h2>
+  <div class="c-pay__order">${changeList({ garments })}</div>`;
+}
+
 /* ---------- view ---------- */
 function alertHtml(r) {
   const u = ui();
   if (u.error === 'declined') {
-    return banner({ tone: 'error', title: 'Your card was declined', text: `${r.method.label} didn’t go through, and nothing was held. Try another card.`, actionLabel: 'Change card', actionAct: 'change-method' });
+    return banner({ tone: 'error', title: 'Your card was declined', text: `${esc(r.method.label)} didn’t go through, and nothing was held.`, actionLabel: 'Use another card', actionAct: 'change-method' });
   }
   if (u.error === 'taken') {
     return banner({ tone: 'error', text: 'That time was just taken. Pick another time.', actionLabel: 'Pick a time', actionAct: 'pick-time' });
@@ -119,6 +128,7 @@ function view() {
   <div class="c-pay__visit">
     ${visitBlock(visitRows(r), { title: 'Your visit', flush: true, action: `<button type="button" class="c-pay__link" data-act="back"${busy ? ' disabled aria-disabled="true"' : ''}>Change time</button>` })}
   </div>
+  ${orderBlock(r, q)}
   <h2 class="t-h2 c-pay__h2">Price</h2>
   ${customerBreakdown(q, { stage: 'estimate', tailorFirst: first, depositState: 'to-hold' })}
   <div class="c-pay__hold">${infoCard([
@@ -131,7 +141,8 @@ function view() {
   <div class="c-pay__alert" tabindex="-1">${alert}</div>
 </main>
 ${actionBar({
-    ctaLabel: `Hold ${fmtExact(q.deposit)} and send request`, ctaAct: 'pay', busy, busyLabel: 'Sending request…',
+    /* C-11: after a decline the failed card is still the one selected — the bar offers another card, never a silent retry */
+    ctaLabel: u.error === 'declined' ? 'Use another card' : `Hold ${fmtExact(q.deposit)} and send request`, ctaAct: u.error === 'declined' ? 'change-method' : 'pay', busy, busyLabel: 'Sending request…',
     note: `You pay the ${money(q.balance)} balance when your order is ready.`,
   })}`;
 }

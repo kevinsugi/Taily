@@ -19,7 +19,7 @@ What this replaces: Taily-set pricing, no platform cut, and the auto-match "Find
 | Home-visit eligibility | A tailor appears for home visits only if the customer's zip is in their zip list. |
 | Pricing | Each tailor sets a per-service price list. Customers see estimates from it. |
 | Price changes | A tailor can adjust after seeing the garment. The customer approves before work starts. |
-| Home-visit fee | Set by each tailor. Added to home-visit orders only. Non-refundable if cancelled within 24 hours. |
+| Home-visit fee | Set by each tailor. Added to home-visit orders only. Paid to the tailor in full. |
 | Taily fee | 10% of the services subtotal (not the home-visit fee), taken from the tailor's payout and shown in dollars. The rate lives in an editable table under Money. |
 | Payments | Customer pays in the app: deposit at booking, balance at completion. Taily pays out the tailor. |
 | Accepting | Tailor approves each request: Accept, Suggest time or Decline. |
@@ -93,7 +93,7 @@ There is one thread per customer and tailor, and it lives inside Taily from the 
 
 The customer pays the tailor's prices plus any home-visit fee. Taily keeps 10% of the services subtotal, taken from the tailor's payout. The home-visit fee goes to the tailor in full. Courier delivery is charged to the customer at the Uber quote + 10%.
 
-**What the customer sees:** services subtotal + home-visit fee (if any) + courier (if chosen) = total. A 10% deposit is due at booking, refundable if cancelled more than 24 hours ahead; the balance is due when the order is ready.
+**What the customer sees:** services subtotal + home-visit fee (if any) + courier (if chosen) = total. A 10% deposit (of services plus the home-visit fee) is held at request and charged when the tailor accepts, refundable if cancelled 24 hours or more ahead; the balance is due when the order is ready.
 
 **What the tailor sees:** order total − Taily fee (10%) = your payout. The fee shows as a dollar amount on every job.
 
@@ -104,9 +104,9 @@ This table is the source of truth. Edit it here; the app should read fees from i
 | Setting | Value |
 | --- | --- |
 | Taily fee | 10% of services only (not the home-visit fee), from the tailor's payout |
-| Deposit | 10% of the total, due at booking; refundable if cancelled more than 24 hours ahead |
+| Deposit | Deposit: 10% of services + home-visit fee (not rush or courier), held at request, charged when the tailor accepts |
 | Courier price | Uber quote + 10%, paid by the customer |
-| Home-visit fee on cancellation | Non-refundable within 24 hours of the visit |
+| Late cancellation | Within 24 hours of the visit the deposit is kept and paid to the tailor |
 | Try again after expiry | Up to 2 times, then show other tailors |
 
 ## Request states

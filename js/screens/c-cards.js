@@ -11,6 +11,7 @@ import {
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import { fmtWhen } from '../dates.js';
+import { fmtExact } from '../money.js';
 import * as A from '../account.js';
 
 const ID = 'c-cards';
@@ -58,7 +59,8 @@ function cardHtml(c, { busy = false, error = '' } = {}) {
   return `<div class="${ID}-sheet" data-view="card">
   <p class="t-body c-600 ${ID}-sheet__sub">Expires ${esc(c.exp)}</p>
   ${u.appt ? `<p class="t-body ${ID}-sheet__use">Paying for your booking with ${esc(u.who)} on <span class="${ID}-sheet__when">${esc(u.when)}</span>.</p>` : ''}
-  ${stuck ? banner({ tone: 'info', text: 'You need a card on file while a booking is open. Add another card first, then you can remove this one.', actionLabel: 'Add a card', actionAct: 'add-from-sheet' }) : ''}
+  ${stuck ? `${banner({ tone: 'info', text: 'You need a card on file while a booking is open. Add another card first, then you can remove this one.' })}
+  ${cta('Add a card', { variant: 'secondary', attrs: 'data-act="add-from-sheet"' })}` : ''}
   ${error ? banner({ tone: 'error', title: error, text: 'Nothing changed.' }) : ''}
   <div class="${ID}-sheet__actions">
     ${c.default ? '' : cta('Make default', { variant: 'secondary', busy, busyLabel: 'Updating…', attrs: 'data-act="make-default"' })}
@@ -72,7 +74,7 @@ function confirmHtml(c, { busy = false, error = '' } = {}) {
   const nextLabel = u.next ? label(u.next) : '';
   const nb = (t) => `<span class="${ID}-sheet__nowrap">${esc(t)}</span>`;   // R5-1-C-05: never break inside a card name or a date
   const lines = [];
-  if (u.appt && u.next) lines.push(`Your booking with ${esc(u.who)} on ${nb(u.when)} will use ${nb(nextLabel)} instead.`);
+  if (u.appt && u.next) lines.push(`The <span class="${ID}-sheet__nowrap" data-money>${fmtExact(u.appt.money.balance)}</span> balance for your booking with ${esc(u.who)} on ${nb(u.when)} will be charged to ${nb(nextLabel)} instead.`);
   if (c.default && u.next) lines.push(`${nb(nextLabel)} becomes your default.`);
   lines.push('You can add it again any time.');
   return `<div class="${ID}-sheet" data-view="confirm">
@@ -145,14 +147,14 @@ function openSheet({ cardId = null } = {}) {
       if (holder.dataset.locked === 'true') return;
       const c = current();
       if (!c) { gone(); return; }
-      swap(confirmHtml(c, { busy: true }), null, 'confirm'); lock(true);
+      swap(confirmHtml(c, { busy: true }), 'Remove card', 'confirm'); lock(true);
       withLatency(() => {
         if (!holder.isConnected) return;
         const res = A.removeCard(c.id);
         lock(false);
         if (!res.ok) {                                                       // action failed: the banner sits above the buttons, the button stays on
           const why = res.error === 'in-use' ? 'This card is paying for your open booking' : 'Couldn’t remove this card';
-          swap(confirmHtml(c, { error: why }), null, 'confirm');
+          swap(confirmHtml(c, { error: why }), 'Remove card', 'confirm');
           return;
         }
         close({ instant: true });
@@ -183,9 +185,9 @@ function openSheet({ cardId = null } = {}) {
       if (!a) return;
       switch (a.dataset.act) {
         case 'make-default': makeDefault(); break;
-        case 'remove': { const c = current(); if (c) { swap(confirmHtml(c), null, 'confirm'); holder.querySelector('[data-act="remove-keep"]')?.focus(); } break; }
+        case 'remove': { const c = current(); if (c) { swap(confirmHtml(c), 'Remove card', 'confirm'); holder.querySelector('[data-act="remove-keep"]')?.focus(); } break; }
         case 'remove-ok': removeCard(); break;
-        case 'remove-keep': { const c = current(); if (c) { swap(cardHtml(c), null, 'card'); holder.querySelector('[data-act="remove"]')?.focus(); } break; }
+        case 'remove-keep': { const c = current(); if (c) { swap(cardHtml(c), label(c), 'card'); holder.querySelector('[data-act="remove"]')?.focus(); } break; }
         case 'add-from-sheet': swap(addHtml(), 'Add a card', 'add'); holder.querySelector('#cc-number')?.focus(); break;
         case 'save-card': e.preventDefault(); saveCard(); break;
         default:

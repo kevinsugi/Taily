@@ -5,13 +5,17 @@
      wireSystem(root, id, …)    Retry on that banner; the re-auth sheet when the session expired
      openReauth(who, …)         locked "Sign in again" sheet: code, Verify, Resend, Sign out
      openPushPrompt(…)          the soft "Turn on notifications" ask
+     pushBanner(…)              the in-app push card: a new request reaches the tailor (D-167)
    Every wait goes through withLatency; every failure says what happened and what did not.
    ============================================================ */
-import { state } from './state.js';
+import { state, now } from './state.js';
 import * as A from './account.js';
 import { withLatency } from './sim.js';
 import { POLICY } from './money-config.js';
-import { myTailor } from './tailor-data.js';
+import { myTailor, inbox, requestView } from './tailor-data.js';
+import { setFocus } from './focus.js';
+import { fmtExact } from './money.js';
+import { fmtDay, fmtCountdown, toDate } from './dates.js';
 import { sheetOverlay, modalOverlay, codeInput, cta, toast, esc, ICON_WIFI_OFF, ICON_BELL } from './components.js';
 
 /** Screens that run before / outside a signed-in session: no re-auth sheet on them (the offline banner still shows). */
@@ -51,6 +55,7 @@ export function wireSystem(root, screenId, { go } = {}) {
   });
 
   if (state.sim.session === 'expired' && !SYSTEM_EXEMPT.includes(screenId)) openReauth(state.persona, { go, screenId });
+  else if (state.persona === 'tailor' && !SYSTEM_EXEMPT.includes(screenId)) pushNewRequests(root, { go });
 }
 
 /* ---------- re-auth ---------- */
@@ -200,4 +205,56 @@ export function openPushPrompt({ title = '', body = '' } = {}, { onDone } = {}) 
       if (e.key === 'Escape') settle(false);
     });
   });
+}
+
+/* ---------- in-app push (D-167) ---------- */
+/** The push card's markup (also the gallery's): a button, so the whole card is one tap target. */
+export function pushBannerHtml({ title = '', body = '', act = 'push-open' } = {}) {
+  return `<button type="button" class="push-banner" data-act="${esc(act)}">
+  <span class="push-banner__glyph" aria-hidden="true">${ICON_BELL}</span>
+  <span class="push-banner__text"><span class="push-banner__title t-small w-700">${esc(title)}</span><span class="push-banner__body t-small" data-money>${esc(body)}</span></span>
+</button>`;
+}
+
+/**
+ * A notification card over the status bar of `root` (the screen). One at a time; it dismisses itself after 6 s (not under
+ * `html.is-test`, so a baseline is stable) and slides in only when motion is allowed. Tapping it dismisses it and runs `onOpen`.
+ */
+export function pushBanner({ title = '', body = '', act = 'push-open', onOpen } = {}, root = document.getElementById('screen')) {
+  if (!root) return null;
+  root.querySelector('.push-banner')?.remove();
+  root.insertAdjacentHTML('beforeend', pushBannerHtml({ title, body, act }));
+  const el = root.querySelector('.push-banner');
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('is-test');
+  if (calm) el.classList.add('push-banner--in'); else requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('push-banner--in')));
+  let timer = null;
+  const dismiss = () => {
+    clearTimeout(timer);
+    if (!el.isConnected) return;
+    el.classList.remove('push-banner--in');
+    if (calm) el.remove(); else setTimeout(() => el.remove(), 250);
+  };
+  el.addEventListener('click', () => { dismiss(); onOpen?.(); });
+  if (!document.documentElement.classList.contains('is-test')) timer = setTimeout(dismiss, 6000);
+  return dismiss;
+}
+
+/**
+ * Tailor persona, notifications on: a request she has not been told about arrives as a push card ("New request · Sarah C."),
+ * and tapping it opens that request. While notifications are off (or it is the customer's side) new requests are only
+ * remembered — they were seen on Home, so turning notifications on later never replays them.
+ */
+function pushNewRequests(root, { go } = {}) {
+  const seen = (state.ui.pushSeen ??= []);
+  const fresh = inbox().requests.filter((a) => a.status === 'requested' && !seen.includes(a.id));
+  fresh.forEach((a) => seen.push(a.id));
+  if (state.sim.push !== 'granted' || !fresh.length) return;
+  const a = fresh.reduce((x, y) => (x.requestedAt >= y.requestedAt ? x : y));
+  const v = requestView(a);
+  const left = fmtCountdown(toDate(a.expiresAt).getTime() - now());
+  pushBanner({
+    title: `New request · ${v.customer.name}`,
+    body: `${v.visitLabel} ${fmtDay(a.slot.start)} · You take home ${fmtExact(v.payout)} · ${left} to reply`,
+  }, root);
+  root.querySelector('.push-banner')?.addEventListener('click', () => { setFocus(a.id); go?.('t-request'); });
 }

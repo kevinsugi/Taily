@@ -20,7 +20,7 @@
 .job-item__remove {
   display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; height: 44px;
   margin-right: calc(-1 * var(--space-8)); border-radius: var(--radius-full);
-  font-size: var(--size-16); line-height: 21px; color: var(--neutral-500);
+  font-size: var(--size-16); line-height: 21px; color: var(--neutral-500-ink);
 }
 .job-item__remove:active { background: var(--neutral-100); }
 
@@ -48,3 +48,8 @@
 /* the sheet header's ✕ / ✓ are tap targets too */
 .screen-sheet[data-s^="c-job"] .sheet__cancel,
 .screen-sheet[data-s^="c-job"] .sheet__confirm { min-width: 44px; min-height: 44px; }
+
+/* D-168: the active booking leads Home; the wizard follows under a small label */
+.c-job__active { margin-top: var(--space-4); }
+.c-job__book-else { margin: var(--space-24) 0 var(--space-16); }
+.c-job__book-else + .stepper--compact, .c-job__book-else + .booking-steps { margin-top: 0; }

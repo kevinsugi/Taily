@@ -2,13 +2,14 @@
 .c-complete { gap: 0; }
 .c-complete .status-hero__body { color: var(--neutral-700); font-weight: 400; }
 .c-complete__rate {
-  display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-8);
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8);
   margin-top: var(--space-24); padding: var(--space-20);
   background: var(--white); border-radius: var(--radius-lg); box-shadow: inset 0 0 0 1px var(--neutral-200);
 }
 .c-complete__rate h2 { margin: 0 0 var(--space-4); text-wrap: balance; }
+.c-complete__rate .stars--input { margin-left: calc(var(--space-12) * -1 + 2px); }
+.c-complete__word { font-weight: 500; }
+.c-complete__word:empty { display: none; }
 .c-complete__rate p { margin: 0; text-wrap: pretty; }
 .c-complete__h2 { margin: var(--space-32) 0 var(--space-8); }
-.c-complete__how { margin-bottom: var(--space-8); }
-.c-complete__card { margin: var(--space-12) 0 0; }
 .c-complete__empty { margin-top: var(--space-24); }

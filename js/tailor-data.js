@@ -6,7 +6,8 @@
    ============================================================ */
 import { state, apptsFor, tailorById, openSlots, getAppt } from './state.js';
 import { SERVICES, VISIT_LABEL, VISIT_MINUTES, ZIP_INFO } from './data.js';
-import { toDate, fmtWhen, fmtDay, fmtTime, dayDiff, payoutDay, isoDay } from './dates.js';
+import { rushFor, payoutFor } from './money.js';
+import { toDate, fmtWhen, fmtDay, fmtTime, dayDiff, payoutDay, isoDay, addMinutes, isoMinute } from './dates.js';
 
 export const MY_TAILOR_ID = 'amara';
 export const myTailor = () => tailorById(MY_TAILOR_ID);
@@ -26,10 +27,10 @@ export function inbox() {
 
 const wasAccepted = (appt) => appt.history.some((h) => h.status === 'confirmed');
 
-/** "Sarah C." until the appointment was ever accepted, "Sarah Chen" after (D-74). */
-export function customerName(appt) {
-  const { first, last } = state.customer;
-  return wasAccepted(appt) ? `${first} ${last}` : `${first} ${last.charAt(0)}.`;
+/** "Sarah C." until ANY appointment of the pair was accepted, then "Sarah Chen" (D-74, amended by D-159: the same rule the thread uses,
+    so a second request from a customer she has already served shows the full name). The address stays per appointment (D-88). */
+export function customerName(_appt) {   // `_appt` kept for callers: the name no longer depends on which appointment
+  return threadCustomerName();
 }
 export const customerInitials = () => state.customer.initials;
 
@@ -136,4 +137,45 @@ export function payoutDetail(apptId) {
   const payout = state.payouts.find((p) => p.apptId === apptId);
   const appt = getAppt(apptId);
   return payout && appt ? { payout, appt, view: requestView(appt) } : null;
+}
+
+/** D-172: one payout's words, the same on t-job, t-home, t-payout and cancelled rows. `bank` = the tailor's `payouts` ({ bank, last4 });
+    a paid or failed payout reads the bank snapshotted on it. `{ text, short, tone, label }`: `short` drops the bank (a list row's caption),
+    `tone` 'error' for a payout the bank sent back, `label` the Pending / Paid / Didn’t go through word of the pill. */
+export function payoutLine(p, bank = myTailor()?.payouts) {
+  const b = p.state === 'pending' ? bank : { bank: p.bank ?? bank?.bank, last4: p.last4 ?? bank?.last4 };
+  const to = `${b?.bank ?? 'Your bank'} ••${b?.last4 ?? ''}`;
+  const day = fmtDay(p.date);
+  if (p.state === 'paid') return { text: `Paid ${day} · to ${to}`, short: `Paid ${day}`, tone: '', label: 'Paid' };
+  if (p.state === 'failed') {
+    const text = 'Didn’t go through · sends again once your bank details are updated';
+    return { text, short: 'Didn’t go through', tone: 'error', label: 'Didn’t go through' };
+  }
+  if (state.payouts.some((x) => x.state === 'failed')) {   // R5-2-T-02: the same account can't be promised the next one
+    return { text: `Sends ${day} once your bank details are updated`, short: `Sends ${day}`, tone: '', label: 'Pending' };
+  }
+  const verb = p.retried ? 'Sending again' : 'Arrives';
+  return { text: `${verb} ${day} · to ${to}`, short: `${verb} ${day}`, tone: '', label: 'Pending' };
+}
+
+/** D-160: the courier's pickup window on the tailor's job — the next half hour an hour after Sarah paid the balance, 30 minutes long.
+    `{ from, to }` as ISO minutes; null when no courier is booked. */
+export function courierWindow(appt) {
+  if (appt.returnOption !== 'courier' || !appt.courier) return null;
+  const paidAt = [...appt.history].reverse().find((h) => h.status === 'returning')?.at ?? appt.history[appt.history.length - 1]?.at;
+  if (!paidAt) return null;
+  const t = toDate(paidAt);
+  const m = t.getHours() * 60 + t.getMinutes() + 60;
+  const start = new Date(t); start.setHours(0, 0, 0, 0); start.setMinutes(Math.ceil(m / 30) * 30);
+  return { from: isoMinute(start), to: isoMinute(addMinutes(isoMinute(start), 30)) };
+}
+
+/** D-155: what a suggested time does to the price. Rush = min(as booked, the rush for the new slot): it never goes up. Returns
+    `{ days, tier, rush, payout, less }` in cents — `tier` the rush the slot would normally carry, `rush` what is charged on this request,
+    `payout` what she takes home at that slot, `less` what Sarah pays less than she booked (0 when the price is the same). */
+export function suggestPrice(appt, slotIso) {
+  const m = appt.money;
+  const r = rushFor(tailorById(appt.tailorId), slotIso, appt.job.needBy);
+  const rush = Math.min(m.rush, r.cents);
+  return { days: r.days, tier: r.cents, rush, payout: payoutFor({ services: m.services, homeFee: m.homeFee, rush }), less: m.rush - rush };
 }

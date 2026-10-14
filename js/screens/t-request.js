@@ -7,8 +7,8 @@
    accepts. Which appointment: focusAppt (D-72).
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
-import { state, T, now } from '../state.js';
-import { requestView } from '../tailor-data.js';
+import { state, T, now, TERMINAL, suggestLapseAt } from '../state.js';
+import { requestView, suggestPrice } from '../tailor-data.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 import { fmtExact } from '../money.js';
 import { fmtWhen, fmtTime, addMinutes, isoMinute, dayDiff } from '../dates.js';
@@ -25,18 +25,18 @@ const ui = () => (state.ui[ID] ??= {});
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 /* ---------- blocks ---------- */
-function takeHome(v, { muted = false, note = '' } = {}) {
+function takeHome(v, { muted = false, note = '', cents = v.payout } = {}) {
   return `<section class="${ID}__take${muted ? ` ${ID}__take--muted` : ''}" aria-label="What you take home">
   <p class="t-caps c-600">${muted ? 'You would have taken home' : 'You take home'}</p>
-  <p class="${ID}__amount t-display w-600" data-money>${fmtExact(v.payout)}</p>
+  <p class="${ID}__amount t-display w-600" data-money>${fmtExact(cents)}</p>
   ${muted ? '' : `<p class="t-body c-700" data-money>after the ${fmtExact(v.tailyFee)} Taily fee</p>`}
   ${note ? `<p class="t-small c-600">${note}</p>` : ''}
 </section>`;
 }
 
-/** "Your payout" (R3-1-T-04): the breakdown sits after the work, as on t-job, so the visit is above the fold. */
-const payoutSection = (v) => `<h2 class="t-h2 ${ID}__h2">Your payout</h2>
-${tailorBreakdown(v.money)}`;
+/** "Your take-home" (R3-1-T-04, D-172): the breakdown sits after the work, as on t-job, so the visit is above the fold. */
+const payoutSection = (v, money = v.money) => `<h2 class="t-h2 ${ID}__h2">Your take-home</h2>
+${tailorBreakdown(money)}`;
 
 function visitSection(a, v, { title, asked = '', addressNote = '', start = a.slot.start, end = v.whenEnd } = {}) {
   const rows = [];
@@ -45,14 +45,16 @@ function visitSection(a, v, { title, asked = '', addressNote = '', start = a.slo
   rows.push(`${esc(v.visitLabel)} · ${v.minutes} min, until ${esc(end)}`);
   rows.push(`<span class="${ID}__place">${esc(v.place)}</span>${addressNote ? `<span class="${ID}__cap t-small c-600">${esc(addressNote)}</span>` : ''}`);
   rows.push(`Needed by <span class="nb">${esc(v.needBy)}</span> · ${plural(days, 'day', 'days')} after the visit`);
-  return `<h2 class="t-h2 ${ID}__h2">The visit</h2>
+  return `<h2 class="t-caps c-600 ${ID}__label">The visit</h2>
 <div class="${ID}__visit">${visitBlock(rows, { title: esc(title), flush: true })}</div>`;
 }
 
-function workSection(v) {
+/** `final` = the request is over (declined, expired): no estimate row and nothing left to adjust (M6-P-07). `breakdown` = the payout
+    breakdown follows on this screen, so the estimate row would only repeat its Services line. */
+function workSection(v, { final = false, breakdown = false } = {}) {
   return `<h2 class="t-h2 ${ID}__h2">The work</h2>
-${workList(v)}
-<p class="t-small c-600 ${ID}__adjust">You can adjust the price after the fitting.</p>`;
+${workList(v, { final, estimateLabel: breakdown ? null : undefined })}
+${final ? '' : `<p class="t-small c-600 ${ID}__adjust">At the fitting you can add or remove items and services. ${esc(state.customer.first)} approves the final order before you start.</p>`}`;
 }
 
 /** The expiry strip of an open request: the clock on the left, the deadline on the right (warning when soon). */
@@ -60,6 +62,13 @@ function strip(a) {
   const cd = countdown({ expiresAt: a.expiresAt, now: now() });
   const isSoon = /data-state="soon"/.test(cd);
   return `<div class="${ID}__strip${isSoon ? ` ${ID}__strip--soon` : ''}">${cd}<span class="t-small ${isSoon ? 'w-600' : 'c-700'}">${isSoon ? 'Expires soon · answer by' : 'Answer by'} ${fmtTime(a.expiresAt)}</span></div>`;
+}
+
+/** The same strip for a suggested time (D-154): how long Sarah has to accept it. */
+function lapseStrip(a) {
+  const cd = countdown({ expiresAt: suggestLapseAt(a), now: now() });
+  const isSoon = /data-state="soon"/.test(cd);
+  return `<div class="${ID}__strip${isSoon ? ` ${ID}__strip--soon` : ''}">${cd}<span class="t-small ${isSoon ? 'w-600' : 'c-700'}">${isSoon ? 'Closing soon · open until' : 'Open until'} ${fmtWhen(suggestLapseAt(a))}</span></div>`;
 }
 
 /** The shared detail header (D-93): Back on its own row, then pill · title · notes flush at the padding. */
@@ -79,40 +88,48 @@ function view(s) {
 </main>`;
   }
   const v = requestView(a);
+  const final = TERMINAL.includes(a.status) || a.status === 'expired';   // M6-P-07: the work is over — no estimate row
   const sarah = s.customer.first;
   const hours = POLICY.REQUEST_EXPIRY_H;
 
   if (a.status === 'suggested') {
+    const price = suggestPrice(a, a.suggested.start);            // D-155: the rush never goes up, so the take-home can only drop
+    const money = { ...v.money, rush: price.rush, payout: price.payout };
+    const note = price.less > 0 ? `${esc(sarah)} pays ${fmtExact(price.less)} less at the new time, because it is not a rush.` : 'Same price for the new time.';
     return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--suggested">
   ${detailHead(statusHero({
     variant: 'requested', pill: 'waiting', pillLabel: `Waiting on ${esc(sarah)}`, title: esc(v.customer.name),
     body: `You suggested ${esc(v.suggested)}. ${esc(sarah)} can accept it or choose another tailor.`,
   }))}
+  <div class="${ID}__gap">${takeHome(v, { note, cents: price.payout })}</div>
+  ${lapseStrip(a)}
   ${visitSection(a, v, {
     title: v.suggested, asked: `${esc(sarah)} asked for ${esc(fmtWhen(a.slot.start))}`, addressNote: `Full address once ${sarah} accepts`,
     start: a.suggested.start, end: fmtTime(isoMinute(addMinutes(a.suggested.start, v.minutes))),   // R3-1-T-01: the end follows the NEW start
   })}
-  <div class="${ID}__gap">${takeHome(v, { note: 'Same price for the new time.' })}</div>
-  ${workSection(v)}
-  ${payoutSection(v)}
+  ${workSection(v, { final, breakdown: true })}
+  ${payoutSection(v, money)}
 </main>
-${actionBar({ ctaLabel: `Message ${esc(sarah)}`, ctaAct: 'message', secondaryLabel: 'Back to requests', secondaryAct: 'home' })}`;
+${actionBar({ ctaLabel: `Message ${esc(sarah)}`, ctaAct: 'message', secondaryLabel: 'Back to Home', secondaryAct: 'home', tertiaryLabel: 'Withdraw suggestion', tertiaryAct: 'withdraw', tertiaryTone: 'danger' })}`;
   }
 
   if (a.status === 'expired') {
+    const ended = a.suggested?.ended;                            // D-154: a suggested time that lapsed or that she withdrew
     const again = a.retries < POLICY.MAX_RETRIES
       ? ` ${esc(sarah)} can send it again — it will show up here as a new request.`
       : ' This job has gone to other tailors.';
-    return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--expired">
-  ${detailHead(statusHero({
-    variant: 'declined', pill: 'expired', pillLabel: 'Expired', title: 'This request expired',
-    body: `You didn’t answer within ${hours} hours, so ${esc(sarah)}’s hold was released.${again}`,
-  }))}
+    const hero = ended === 'withdrawn'
+      ? { pill: 'withdrawn', pillLabel: 'Withdrawn', title: 'You withdrew your suggestion', body: `${esc(sarah)} has been told and her hold released. This job has gone to other tailors.` }
+      : ended
+        ? { pill: 'expired', pillLabel: 'Expired', title: 'Your suggested time passed', body: `${esc(sarah)} didn’t accept in time, so her hold was released. This job has gone to other tailors.` }
+        : { pill: 'expired', pillLabel: 'Expired', title: 'This request expired', body: `You didn’t answer within ${hours} hours, so ${esc(sarah)}’s hold was released.${again}` };
+    return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--expired"${ended ? ` data-suggestion-ended="${ended}"` : ''}>
+  ${detailHead(statusHero({ variant: 'declined', ...hero }))}
   <div class="${ID}__gap">${takeHome(v, { muted: true })}</div>
   ${visitSection(a, v, { title: v.when })}
-  ${workSection(v)}
+  ${workSection(v, { final })}
 </main>
-${actionBar({ ctaLabel: 'Back to requests', ctaAct: 'home' })}`;
+${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
   }
 
   if (a.status === 'declined') {
@@ -124,9 +141,9 @@ ${actionBar({ ctaLabel: 'Back to requests', ctaAct: 'home' })}`;
   }))}
   <div class="${ID}__gap">${takeHome(v, { muted: true })}</div>
   ${visitSection(a, v, { title: v.when })}
-  ${workSection(v)}
+  ${workSection(v, { final })}
 </main>
-${actionBar({ ctaLabel: 'Back to requests', ctaAct: 'home' })}`;
+${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
   }
 
   /* requested (◆) */
@@ -136,10 +153,10 @@ ${actionBar({ ctaLabel: 'Back to requests', ctaAct: 'home' })}`;
     variant: 'requested', pill: 'new-request', pillLabel: 'New request', title: esc(v.customer.name),
     body: v.retries > 0 ? `${esc(sarah)} sent this again after it expired.` : '',
   }))}
-  ${strip(a)}
   <div class="${ID}__gap">${takeHome(v)}</div>
+  ${strip(a)}
   ${visitSection(a, v, { title: v.when, addressNote: a.job.visitType === 'home' ? 'Full address after you accept' : '' })}
-  ${workSection(v)}
+  ${workSection(v, { final, breakdown: true })}
   ${payoutSection(v)}
 </main>
 ${actionBar({
@@ -198,6 +215,38 @@ function openDecline(a) {
     });
 }
 
+/* ---------- withdraw sheet (D-79: danger + Keep …) ---------- */
+function openWithdraw(a) {
+  const sarah = state.customer.first;
+  const body = (busy) => `<p class="t-body c-700 ${ID}-sheet__intro">${esc(sarah)} is told right away and her hold is released. This job then goes to other tailors, so she can’t accept this time.</p>
+  <div class="${ID}-sheet__actions">
+    ${cta('Withdraw suggestion', { variant: 'danger', busy, busyLabel: 'Withdrawing…', attrs: 'data-act="withdraw-ok"' })}
+    ${cta('Keep suggestion', { variant: 'secondary', disabled: busy, attrs: 'data-act="withdraw-keep"' })}
+  </div>`;
+  sheetOverlay(`<div class="${ID}-sheet">${body(false)}</div>`, { header: 'Withdraw your suggestion?', dataS: `${ID}--withdraw`, confirm: false }, (holder, close) => {
+    const box = holder.querySelector(`.${ID}-sheet`);
+    let busy = false;
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (busy) return;
+      if (act === 'withdraw-keep') close();
+      else if (act === 'withdraw-ok') {
+        busy = true;
+        box.innerHTML = body(true);
+        box.setAttribute('aria-busy', 'true');
+        withLatency(() => {
+          const r = T.withdrawSuggestion(a.id);
+          close({ instant: true });
+          if (currentScreen() !== ID) return;
+          go(ID);
+          if (r.ok) toast(`Suggestion withdrawn. ${sarah} has been told.`);
+          else toast('That request has already changed.', { tone: 'error' });
+        });
+      }
+    });
+  });
+}
+
 /* ---------- wire ---------- */
 function wire(root) {
   if (T.tick().length) { go(ID); return; }              // her reply window passed while she was away
@@ -214,6 +263,7 @@ function wire(root) {
     else if (act === 'accept') accept(a);
     else if (act === 'suggest') { setFocus(a.id); go('t-suggest'); }
     else if (act === 'decline') openDecline(a);
+    else if (act === 'withdraw') openWithdraw(a);
     else if (act === 'message') { setFocus(a.id); go('t-thread'); }
   });
 }

@@ -285,3 +285,32 @@ Plain HTML/CSS/JS, no build step; deploys to GitHub Pages from `main`. Visual so
 ## Known Figma inconsistencies (raised, not fixed)
 
 Kept in `docs/HISTORY.md` ("Known Figma inconsistencies") and in each round's "Flags" list in `UX-LOOP.md`. Standing ones: 03/Requested's map is a placeholder and its hero overflows its Back row; three 03 hero groups carry scaled (squished) Status Pill instances; the T01 base frame's Sarah job card is un-overridden; 02's card 2 has no service line and its Additional Service selector is detached; the tailor T01 frames still say "Ready for Pickup" / "Pickup: Sept 1, 2PM"; the Time / Chip master is unused.
+
+
+---
+
+# Taily v5 build (Oct 2026)
+
+Branch `V5`, Oct 12-14, 2026. A ground-up rebuild of the prototype around the Core Journey v5 spec (`docs/v5/CORE-JOURNEY.md`): a real marketplace (the customer browses and books one tailor; no auto-match), both visit types (at my place / at the shop), per-tailor prices, and money shown in dollars only. Built autonomously by milestone, code first, Figma synced after. Plan: `docs/v5/MASTER-PLAN.md` (locked decisions in §2). Every call an agent had to make is in `docs/v5/DECISIONS.md` (D-01 to D-174); the ledger is `docs/v5/PROGRESS.md`. The v4 harness and screens are archived (`scripts/v4/`, `js/v4/`, `js/screens/v4/`) and v4 stays on `main` (D-01, D-02).
+
+## Milestones
+
+- **M0 Foundation.** Integer-cent money model and one rates file (`js/money-config.js`, D-03, D-16), the 12-status appointment model, a frozen demo clock (D-09), shared components, the Test-flows registry with one baseline per key (D-10), the screen inventory (D-13), and the new `npm run check` gate (D-01). Seed: Amara Reyes (tailor), Sarah Chen (customer), Brooklyn.
+- **M1 Customer booking** (16 screens). Phone + SMS sign-in simulated in `js/account.js` (D-33); What needs work, Where and when, Tailors near you, tailor profile, Pick a time, Review and send request (cards, 3-D Secure, declined, processing); the booking draft in `state.ui.booking` (D-36); simulated latency in `js/sim.js` (D-35).
+- **M2 Tailor onboarding + Shop** (11 screens). Six sections that double as edit screens (D-56), prices in whole dollars with the take-home shown under each (D-59), availability windows (D-62), payouts (D-63), rush ladder (D-64), previews built from the demo customer's job (D-65); one money precision per column (D-70).
+- **M3 Request loop.** Tailor inbox and one-tap Accept / Suggest time / Decline (D-75, D-77); customer outcomes (confirmed, suggested, declined, expired with Try again x2, D-07, D-94); Bookings; cancel (>24 h refund / <24 h kept) and reschedule (D-12); can't make it and no-show (D-82); detail screens keyed by `state.ui.apptId` (D-72); one status vocabulary and pill tone by whose move it is (D-87, D-95); the tailor sees "Sarah C." until accept (D-74).
+- **M4 Fitting to completion.** Tailor price adjust with a note (D-101, D-102), customer Approve / Message (D-26, D-112), in progress, mark ready and the offered return options (D-99), pickup / drop-off / Taily courier priced as quote + fee (D-100, D-105), balance payment (D-104), completed, reviews on the profile (D-107, D-114). Section "What happens next" grows to five steps (D-110).
+- **K-01 Edit the job at the fitting.** The tailor can add or remove items and services, then sends the final order for the customer's approval before tailoring begins (D-120, D-121); "New" markers (D-122); the deposit never moves, the balance does (D-124); the customer keeps seeing the approved order (D-127).
+- **M5 Messaging, accounts, earnings, system.** One thread per pair, contact info masked both ways, photos, failed send, read-only after a decline (D-128 to D-132); Account (addresses, cards, past orders; D-133 to D-135); tailor earnings and per-job payout with a weekly settle run (D-136, D-137, D-152); the system layer: offline banner, session expired, push soft ask, one error pattern (D-138 to D-141).
+- **M6 Final pass.** Audit by customer, tailor, model/money, accessibility and cross-cutting reviewers, triaged into `docs/v5/M6-fixlist.md` and fixed in batches (D-154 to D-174). Notable: a suggested time lapses (D-154); reschedule never raises the price (D-155); refunds below the deposit settle at balance (D-156); late cancel is deposit-only (D-157); text-ink tokens for contrast (D-163); nav count dots (D-164); in-app push card for a new request (D-167); the "Taking requests" switch (D-161); `docs/v5/REVIEW-GUIDE.md` and a rewritten README.
+
+## Key decisions by id
+
+- Money: dollars only on screen (§2, D-03, D-70, D-98); courier never in the tailor's side (D-04, D-100, D-160); late cancel keeps the deposit for the tailor with no Taily fee (D-05, D-157); no-show pays max(deposit, $25) (D-06); price fixed at request time, and a move only ever lowers rush (D-25, D-155); deposit unchanged after a price change (D-23, D-124).
+- Requests: Try again x2 and the hidden-tailor rule (D-07, D-08, D-83, D-94); suggested time lapses (D-14 superseded by D-154).
+- Model and harness: frozen clock (D-09); one baseline per flow key (D-10); `withLatency` for every simulated wait (D-35); a fresh `#screen` node per render (D-47); screen focus by appointment id (D-72).
+- Design rules: destructive sheets use the danger button (D-79); a toast never outlives its screen (D-71); one detail header (D-93); confirm sheets by weight (D-174).
+
+## State at hand-off
+
+M0 to M5 and K-01 are committed; M6 fix batches are logged in `docs/v5/M6-fixlist.md`. Figma frames exist for M1, M3 and M4; the sync for M0, M2, M5 and M6 and the `Flow v5` page are still to do. Open items for Kevin are listed in `docs/v5/REVIEW-GUIDE.md`.

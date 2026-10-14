@@ -9,7 +9,7 @@ import { register, render as go, currentScreen } from '../app.js';
 import { state, apptsFor, tailorById, statusScreen } from '../state.js';
 import { chrome, headingRow, apptRow, emptyState, skeleton } from '../components.js';
 import { withLatency } from '../sim.js';
-import { fmtExact } from '../money.js';
+import { fmtColumn } from '../money.js';
 import { fmtDay, toDate } from '../dates.js';
 import { setFocus, statusWord } from '../focus.js';
 
@@ -22,7 +22,10 @@ const orders = () => apptsFor('customer')
   .sort((x, y) => toDate(y.slot.start).getTime() - toDate(x.slot.start).getTime());
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-function row(a) {
+/** The amount an order row prints (D-135): the total paid, the refund, or the deposit kept. */
+const amountOf = (a) => (a.status === 'completed' ? a.money.total : (a.cancel?.refund ?? 0) > 0 ? a.cancel.refund : (a.cancel?.kept ?? 0));
+
+function row(a, fmtAmt) {
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const items = new Set(a.lines.map((l) => l.garmentId)).size || a.job.garments.length;
   const w = statusWord(a, 'customer', { short: true });
@@ -31,11 +34,11 @@ function row(a) {
     place: `${plural(items, 'item')} · ${plural(a.lines.length, 'service')}`,
     status: w.pill, pillLabel: w.label, muted: true,
   };
-  if (a.status === 'completed') return apptRow({ ...base, amountText: fmtExact(a.money.total), amountCaption: 'Paid' });
+  if (a.status === 'completed') return apptRow({ ...base, amountText: fmtAmt(a.money.total), amountCaption: 'Paid' });
   const { refund = 0, kept = 0 } = a.cancel ?? {};
   return refund > 0
-    ? apptRow({ ...base, amountText: fmtExact(refund), amountCaption: 'Refunded' })
-    : apptRow({ ...base, amountText: fmtExact(kept), amountCaption: 'Kept', kept: true });
+    ? apptRow({ ...base, amountText: fmtAmt(refund), amountCaption: 'Refunded' })
+    : apptRow({ ...base, amountText: fmtAmt(kept), amountCaption: 'Kept', kept: true });
 }
 
 function view() {
@@ -54,8 +57,9 @@ function view() {
   })}</div>
 </main>`;
   }
+  const fmtAmt = fmtColumn(list.map(amountOf));                    // C-10: one precision down the list
   return `${head}
-  <div class="${ID}__rows">${list.map(row).join('')}</div>
+  <div class="${ID}__rows">${list.map((a) => row(a, fmtAmt)).join('')}</div>
   <p class="t-small c-600 ${ID}__note">Tap an order to see its receipt.</p>
 </main>`;
 }
@@ -68,6 +72,7 @@ function wire(root) {
       const a = apptsFor('customer').find((x) => x.id === el.dataset.id);
       if (!a) return;
       setFocus(a.id);
+      state.ui.from = 'account';   // M6-T-20: the booking opened from Past orders keeps the Account tab lit
       go(statusScreen(a, 'customer'));
     } else if (el.dataset.act === 'home') go('c-job', { fresh: true });
   });

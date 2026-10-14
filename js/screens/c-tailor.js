@@ -7,10 +7,10 @@ import { register, render as go, back, currentScreen, previousScreen } from '../
 import { state, T, tailorById, estimateNext, eligible, nextOpening } from '../state.js';
 import {
   chrome, bookingSteps, headingRow, avatar, trustBadges, ratingSummary, reviewRow, photoTile, infoCard, priceRow, metaRow,
-  cta, actionBar, banner, toast, returnsRows, readOnlyBanner, esc,
+  cta, actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, esc,
 } from '../components.js';
 import { cents, fmtColumn } from '../money.js';
-import { SERVICES, ZIP_INFO, itemsLabel } from '../data.js';
+import { SERVICES, ZIP_INFO, itemsLabel, TAILOR_LIMITS } from '../data.js';
 import { fmtWhen, fmtDay, nb } from '../dates.js';
 
 const ID = 'c-tailor';
@@ -54,8 +54,13 @@ function hero(t, next, job, declined = false) {
 }
 
 function about(t) {
-  const n = Math.min(t.workPhotos ?? 0, WORK_PHOTOS_MAX);
-  const tiles = Array.from({ length: n }, (_, i) => `<span class="c-tailor__work" role="img" aria-label="Work photo ${i + 1} of ${n}">${photoTile('photo')}</span>`).join('');
+  const total = Math.min(t.workPhotos ?? 0, TAILOR_LIMITS.WORK_PHOTOS_MAX);
+  const n = Math.min(total, WORK_PHOTOS_MAX);
+  const more = total > WORK_PHOTOS_MAX;                                  // X-13: the 4th tile is "+N" and opens the rest
+  const first = (t.name || 'The tailor').split(' ')[0];
+  const tiles = Array.from({ length: n }, (_, i) => (more && i === n - 1
+    ? `<button type="button" class="c-tailor__work c-tailor__work--more t-body w-600" data-act="more-work" data-count="${total}" aria-label="See all ${total} photos of ${esc(first)}’s work">+${total - (n - 1)}</button>`
+    : `<span class="c-tailor__work" role="img" aria-label="Work photo ${i + 1} of ${total}">${photoTile('photo')}</span>`)).join('');
   return section('About', `${t.bio ? `<p class="t-body c-700">${esc(t.bio)}</p>` : ''}${n ? `<div class="c-tailor__photos">${tiles}</div>` : ''}`);
 }
 
@@ -73,7 +78,7 @@ function estimateCard(q, job) {
   if (q.rush > 0) rows.push(priceRow({ label: 'Rush fee', cents: q.rush, note: `Need-by ${q.rushDays} day${q.rushDays === 1 ? '' : 's'} after the visit`, format: F }));
   const total = `<div class="c-tailor__total w-600">${priceRow({ label: 'Estimated total', cents: q.total, format: F })}</div>`;
   return section('Your estimate', `${infoCard(rows.join('') + total)}
-    <p class="t-small c-600 c-tailor__caption">Confirmed at the fitting. If ${esc(q.tailorFirst)} changes a price, you approve it before work starts.</p>`);
+    <p class="t-small c-600 c-tailor__caption">You approve the final order at the fitting before any work starts.</p>`);
 }
 
 /** Each tier is a nowrap span, so the line breaks between tiers, never inside one (R1-2-C-08, R1-1-C-19). */
@@ -147,7 +152,7 @@ function view(s) {
   const first = q.tailorFirst;
   const lead = `<span>Est. <b data-money>${F(q.total)}</b> · ${itemsLabel(job.garments.length, 'item')}</span>`;
   return `${chrome(profile ? 'bookings' : 'home')}<main class="body ${preview ? '' : 'body--with-bar '}${ID}${profile ? ` ${ID}--profile` : ''}">
-  ${preview || profile ? '' : bookingSteps(3)}
+  ${preview || profile ? '' : bookingSteps(2)}
   ${headingRow('')}
   ${preview ? `<div class="c-tailor__preview">${readOnlyBanner({ text: 'You’re viewing your own profile', ctaLabel: 'Back to Taily for tailors', ctaAct: 'exit-preview' })}</div>` : ''}
   ${hero(t, declined ? null : next, job, declined)}
@@ -194,6 +199,7 @@ function wire(root) {
         document.querySelector('[data-act="all-prices"]')?.focus({ preventScroll: true });
         break;
       }
+      case 'more-work': openPhotoViewer({ title: `${(chosen().name || 'The tailor').split(' ')[0]}’s work`, count: Number(el.dataset.count) }); break;
       case 'all-reviews': toast('Not built yet'); break;
       case 'new-job': T.newJob(); go('c-job', { fresh: true }); break;
       default: break;

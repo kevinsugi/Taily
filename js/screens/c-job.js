@@ -4,13 +4,17 @@
    Focal: the garment grid while empty; the "Your items" list once filled.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T } from '../state.js';
+import { state, T, activeAppt, statusScreen, tailorById, priceChangeView } from '../state.js';
 import {
-  chrome, bookingSteps, garmentTile, photoTile, actionBar, checkRow, cta, listRow,
+  chrome, bookingSteps, garmentTile, photoTile, actionBar, checkRow, cta, listRow, apptRow,
   sheetOverlay, toast, esc,
 } from '../components.js';
 import { GARMENT_TYPES, GARMENT_ICONS, SERVICES, MAX_ITEMS, itemsLabel, servicesForType } from '../data.js';
 import { CHEVRON_RIGHT } from '../icons.js';
+import { fmtColumn } from '../money.js';
+import { fmtWhen } from '../dates.js';
+import { VISIT_LABEL } from '../data.js';
+import { setFocus, statusWord } from '../focus.js';
 
 const ID = 'c-job';
 const MAX_PHOTOS = 3;   // per garment (D-42)
@@ -46,6 +50,26 @@ function itemCard(g) {
 </article>`;
 }
 
+/** D-168: Home leads with the booking in flight — one appointment row, then the wizard under "Book something else". */
+function activeRow() {
+  const a = activeAppt();
+  if (!a) return '';
+  const t = tailorById(a.tailorId) ?? state.tailors[0];
+  const w = statusWord(a, 'customer', { short: true });
+  const row = {
+    id: a.id, name: t.name, initials: t.initials, status: w.pill, pillLabel: w.label,
+    when: fmtWhen(a.status === 'suggested' && a.suggested ? a.suggested.start : a.slot.start), place: VISIT_LABEL.customer[a.job.visitType],
+  };
+  let cents = a.money.total;
+  if (a.status === 'price-change') { cents = priceChangeView(a).after.total; row.amountCaption = 'Approve order'; row.captionTone = 'action'; }
+  else if (a.status === 'ready') { cents = a.money.balance; row.amountCaption = 'Pay now'; row.captionTone = 'action'; }
+  else if (a.status === 'suggested') { row.amountCaption = 'New time'; row.captionTone = 'action'; }
+  const fmtAmt = fmtColumn([cents]);
+  if (a.status !== 'requested' && a.status !== 'suggested' && a.status !== 'expired') row.amountText = ['confirmed', 'fitting'].includes(a.status) ? `Est. ${fmtAmt(cents)}` : fmtAmt(cents);
+  return `<section class="${ID}__active" data-active-appt aria-label="Your booking">${apptRow(row)}</section>
+  <p class="t-caps c-600 ${ID}__book-else">Book something else</p>`;
+}
+
 function view() {
   const { garments } = state.job;
   const count = (type) => garments.filter((g) => g.type === type).length;
@@ -55,7 +79,7 @@ function view() {
     const off = full && qty === 0 ? ' disabled aria-disabled="true"' : '';
     return garmentTile(type, { qty, attrs: `data-act="add-garment" data-type="${esc(type)}"${off}`, addDisabled: full });
   }).join('');
-  const helper = full ? `You can add up to ${MAX_ITEMS} items per visit.` : garments.length ? '' : 'Tap a garment to add it.';
+  const helper = full ? `You can add up to ${MAX_ITEMS} items per visit.` : '';
   const items = garments.length
     ? `<section class="job__items" aria-labelledby="job-items-h">
     <div class="job__items-head"><h2 class="t-h2" id="job-items-h">Your items</h2><span class="t-small c-600 job__count">${itemsLabel(garments.length, 'item')}</span></div>
@@ -63,6 +87,7 @@ function view() {
   </section>`
     : '';
   return `${chrome('home')}<main class="body body--with-bar ${ID}">
+  ${activeRow()}
   ${bookingSteps(0)}
   <h1 class="t-title job__title">What needs work?</h1>
   <p class="t-body c-600 job__lead">Tap a garment to add it. You’ll choose what to do with each one.</p>
@@ -139,6 +164,12 @@ function wire(root) {
       const side = e.target.closest('[data-minus]') ? '[data-minus]' : '[data-plus]';
       const sel = `[data-act="add-garment"][data-type="${CSS.escape(type)}"]`;
       refocus(root.querySelector(sel + side) ? sel + side : sel);
+      return;
+    }
+    const open = e.target.closest('[data-act="open-appt"]');
+    if (open) {
+      const a = activeAppt();
+      if (a) { setFocus(a.id); go(statusScreen(a, 'customer')); }
       return;
     }
     const rm = e.target.closest('[data-act="remove-garment"]');

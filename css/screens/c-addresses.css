@@ -14,7 +14,7 @@
 .c-addresses__btn[data-act="remove"] { margin-left: auto; }
 .c-addresses__btn { min-width: 44px; min-height: 44px; padding: 0 var(--space-12); border: 0; background: transparent; cursor: pointer; }
 .c-addresses__btn:active { opacity: 0.6; }
-.c-addresses__btn:disabled { color: var(--neutral-500); cursor: default; }
+.c-addresses__btn:disabled { color: var(--neutral-500-ink); cursor: default; }
 
 /* the add sheet */
 .c-addresses-sheet { display: flex; flex-direction: column; gap: var(--space-16); }

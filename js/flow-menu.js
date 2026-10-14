@@ -24,22 +24,36 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const TABS = [['customer', 'Customer'], ['tailor', 'Tailor'], ['system', 'System']];
 /** Which tab an entry belongs to: its persona, or System for sys-* screens. */
-const tabOf = (f) => (f.screen.startsWith('sys-') ? 'system' : (f.persona ?? personaForScreen(f.screen) ?? 'customer'));
+const personaTab = (f) => (f.screen.startsWith('sys-') ? 'system' : (f.persona ?? personaForScreen(f.screen) ?? 'customer'));
+/** An entry lists under its own tab; a sys-* key (hosted on a customer or tailor screen) ALSO lists under System (M6-X-09). */
+const inTab = (f, which) => personaTab(f) === which || (which === 'system' && f.key.startsWith('sys-'));
 /** The tab to open on: System while a sys-* screen shows, else the persona's. */
 const currentTab = () => {
   const id = document.getElementById('screen')?.dataset.screen ?? '';
   return id.startsWith('sys-') ? 'system' : state.persona === 'tailor' ? 'tailor' : 'customer';
 };
 
-/** Entries of a tab as groups, in registry order: [{ title, items }]. */
+/** Group order per tab (M6-X-09): a group's title is its registry `group` without the milestone prefix ("M3 · Tailor" → "Tailor").
+    A group not listed here follows the listed ones, in registry order. */
+const GROUP_ORDER = {
+  customer: ['Sign in', 'Booking', 'Request outcomes', 'Bookings', 'Final order', 'Ready', 'Completed', 'Messages', 'Account', 'System'],
+  tailor: ['Sign-up', 'Tailor sign-up', 'Onboarding', 'Shop', 'Tailor', 'Tailor job', 'Job', 'Edit job', 'Earnings', 'Tailor messages', 'System'],
+  system: ['System'],
+};
+const groupName = (g) => String(g ?? '').replace(/^M\d+\s·\s/, '');
+
+/** Entries of a tab as groups, in GROUP_ORDER: [{ title, items }]. */
 function groupsOf(which) {
   const groups = [];
-  for (const f of ALL_FLOWS.filter((e) => tabOf(e) === which)) {
-    let g = groups.find((x) => x.title === f.group);
-    if (!g) groups.push(g = { title: f.group, items: [] });
+  for (const f of ALL_FLOWS.filter((e) => inTab(e, which))) {
+    const title = groupName(f.group);
+    let g = groups.find((x) => x.title === title);
+    if (!g) groups.push(g = { title, items: [] });
     g.items.push(f);
   }
-  return groups;
+  const order = GROUP_ORDER[which] ?? [];
+  const rank = (g) => { const i = order.indexOf(g.title); return i < 0 ? order.length : i; };
+  return groups.map((g, i) => ({ g, i })).sort((a, b) => rank(a.g) - rank(b.g) || a.i - b.i).map((x) => x.g);
 }
 
 function listHtml(which) {

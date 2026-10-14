@@ -14,7 +14,7 @@ import {
 } from '../components.js';
 import { REVIEW_LIMITS, STAR_WORDS } from '../data.js';
 import { withLatency } from '../sim.js';
-import { setFocus } from '../focus.js';
+import { setFocus, bookingTab } from '../focus.js';
 
 const ID = 'c-review';
 
@@ -51,7 +51,7 @@ function formView(a, t, first) {
   const rating = stars({ input: true, name: 'stars', value: d.stars || 0 })
     .replace('aria-label="Your rating"', `aria-labelledby="stars-label"${noStars ? ' aria-describedby="stars-error" aria-invalid="true"' : ''}`);
   const busy = !!d.busy;
-  return `${chrome('bookings')}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
+  return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
   ${headingRow(`<h1 class="t-title">Review ${esc(first)}</h1><!--notes--><p class="t-body c-700">Shown on ${esc(first)}’s profile as ${esc(state.customer.first)} ${esc(state.customer.last[0])}.</p><!--/notes-->`, { backRow: true })}
   <section class="${ID}__rating">
     <p class="t-body w-600" id="stars-label">Your rating</p>
@@ -75,7 +75,7 @@ ${actionBar({ ctaLabel: 'Post review', ctaAct: 'post', busy, busyLabel: 'Posting
 function submittedView(a, t, first) {
   const mine = a.review;
   const me = `${state.customer.first} ${state.customer.last[0]}.`;
-  return `${chrome('bookings')}<main class="body ${ID} ${ID}--submitted" data-s="${ID}">
+  return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--submitted" data-s="${ID}">
   ${headingRow(statusHero({ pill: 'completed', pillLabel: 'Posted', title: `Thanks, ${esc(state.customer.first)}`, body: `Your review is now on ${esc(first)}’s profile.` }), { backRow: true })}
   <div class="${ID}__posted">
     ${ratingSummary(t.rating)}
@@ -91,7 +91,7 @@ function submittedView(a, t, first) {
 function view() {
   const a = target();
   if (!a) {
-    return `${chrome('bookings')}<main class="body ${ID}" data-s="${ID}">
+    return `${chrome(bookingTab())}<main class="body ${ID}" data-s="${ID}">
   <div class="${ID}__empty" data-empty="no-booking">${emptyState({
     title: 'Nothing to review yet', body: 'Once a tailor completes your order, you can review it here.', ctaLabel: 'Go to Bookings', ctaAct: 'bookings',
   })}</div>
@@ -141,7 +141,7 @@ function wire(root) {
     backBtn.dataset.wired = '1';
     backBtn.addEventListener('click', () => {
       if (d.busy) return;
-      if (a) setFocus(a.id);
+      if (a) setFocus(a.id, { keepFrom: true });
       go(a?.review ? 'c-bookings' : 'c-complete');
     });
     if (d.busy) { backBtn.disabled = true; backBtn.setAttribute('aria-disabled', 'true'); }

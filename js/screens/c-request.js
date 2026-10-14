@@ -7,7 +7,7 @@
    Screen-local flags: state.ui['c-request'] { busy, error }.
    ============================================================ */
 import { register, render as go, currentScreen, previousScreen } from '../app.js';
-import { state, T, tailorById, now, msLeft } from '../state.js';
+import { state, T, tailorById, now, msLeft, suggestLapseAt } from '../state.js';
 import {
   chrome, headingRow, statusHero, countdown, visitBlock, timeline, customerBreakdown, moneyRows, banner, cta,
   emptyState, sheetOverlay, toast, esc, noteQuote,
@@ -68,7 +68,7 @@ function requestedBody(a, t, first) {
   const late = cancelTerms(a, now()).window === 'late';
   const hero = statusHero({
     variant: 'requested', pill: 'requested', pillLabel: 'Request sent', title: `Waiting for ${esc(first)}`,
-    body: `${esc(first)} has until ${fmtTime(a.expiresAt)} to reply. We’ll text you the moment there’s a reply.`,
+    body: `We’ll text you the moment ${esc(first)} replies.`,
   });
   const caption = soon
     ? `<span class="t-small c-request__soon">${esc(first)} has ${fmtCountdown(msLeft(a))} left to reply. If there’s no reply, your hold is released.</span>`
@@ -79,11 +79,11 @@ function requestedBody(a, t, first) {
     ${caption}
     ${state.sim.push === 'denied' ? `<span class="t-small c-600" data-push-off>Notifications are off, so we’ll text you when ${esc(first)} replies.</span>` : ''}
   </div>
-  <div class="c-request__block">${visitBlock(visitRows(a, t), { title: 'Your visit', flush: true })}</div>
+  <div class="c-request__block">${visitBlock(visitRows(a, t), { title: 'Your request', flush: true })}</div>
   <h2 class="t-h2 c-request__h2">What happens next</h2>
   ${timeline([
     { state: 'done', title: a.retries > 0 ? 'Request sent again' : 'Request sent', sub: fmtWhen(a.sentAt ?? a.requestedAt) },
-    { state: 'current', title: `${esc(first)} replies`, sub: `By ${fmtTime(a.expiresAt)}` },
+    { state: 'current', title: `${esc(first)} replies`, sub: 'Usually within the hour' },
     { state: 'todo', title: 'You’re booked', sub: `The ${money(a.payments.deposit.cents)} deposit is charged when ${esc(first)} accepts` },
   ])}
   <p class="t-small c-600 c-request__note">If ${esc(first)} declines or doesn’t reply, the hold is released and your job stays saved.${late ? ` This visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel after ${esc(first)} accepts, the ${money(a.payments.deposit.cents)} deposit is kept.` : ''}</p>
@@ -91,7 +91,7 @@ function requestedBody(a, t, first) {
   ${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}
   <div class="c-request__actions">
     ${cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' })}
-    ${cta('Withdraw request', { variant: 'secondary', attrs: 'data-act="withdraw"' })}
+    <button type="button" class="c-request__withdraw" data-act="withdraw">Withdraw request</button>
   </div>`;
 }
 
@@ -105,7 +105,9 @@ function suggestedBody(a, t, first, busy) {
     <span class="t-small c-600">You asked for ${fmtWhen(a.slot.start)}</span>
     <p class="t-body c-700 c-request__same">Same price. If you accept, your ${money(deposit)} deposit is charged and you’re booked.</p>
   </section>
-  <div class="c-request__block">${visitBlock([esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`), ...visitRows(a, t).slice(1)], { title: 'Your visit', flush: true })}</div>
+  <p class="t-small c-600 c-request__holding">${esc(first)} is holding this time until ${fmtWhen(suggestLapseAt(a))}</p>
+  ${ui().error === 'slot-passed' ? `<div class="c-request__alert c-request__alert--top">${banner({ tone: 'error', text: RETRY_ERRORS['slot-passed'].text })}</div>` : ''}
+  <div class="c-request__block">${visitBlock([esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`), ...visitRows(a, t).slice(1)], { title: 'Your request', flush: true })}</div>
   <h2 class="t-h2 c-request__h2">Price</h2>
   ${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}
   <div class="c-request__actions">
@@ -131,7 +133,26 @@ function declinedBody(a, t, first, busy) {
   </div>`;
 }
 
+/** D-154: a suggested time that lapsed or that she withdrew — the D-94 lapsed pattern: hold released, find someone else. */
+function suggestionEndedBody(a, t, first, busy) {
+  const deposit = a.payments.deposit.cents;
+  const withdrawn = a.suggested.ended === 'withdrawn';
+  const hero = statusHero({
+    variant: 'requested', pill: 'calm', pillLabel: withdrawn ? 'Time withdrawn' : 'Time passed',
+    title: withdrawn ? `${esc(first)} withdrew her suggested time` : `${esc(first)}’s suggested time has passed`,
+    body: `Your ${money(deposit)} hold is released. ${esc(first)} is hidden for this job, so you can choose someone else.`,
+  });
+  return `${heroRow(hero)}
+  <div class="c-request__block">${visitBlock(visitRows(a, t), { title: 'Your request', flush: true })}</div>
+  ${releasedRow(a)}
+  <div class="c-request__actions" data-suggestion-ended="${withdrawn ? 'withdrawn' : 'lapsed'}">
+    ${cta('Find another tailor', { busy: busy === 'find-another', busyLabel: 'One moment…', disabled: !!busy && busy !== 'find-another', attrs: 'data-act="find-another"' })}
+    ${cta(`Message ${esc(first)}`, { variant: 'secondary', disabled: !!busy, attrs: 'data-act="message"' })}
+  </div>`;
+}
+
 function expiredBody(a, t, first, busy, u) {
+  if (a.suggested?.ended) return suggestionEndedBody(a, t, first, busy);
   const deposit = a.payments.deposit.cents;
   const max = POLICY.MAX_RETRIES;
   const final = a.retries >= max;
@@ -160,21 +181,21 @@ function expiredBody(a, t, first, busy, u) {
     actions = `<p class="t-small c-600 c-request__passed" data-lapsed="${passed ? 'passed' : 'too-soon'}">Your ${fmtWhen(a.slot.start)} time ${passed ? 'has passed' : `is too soon for another ${hours}-hour wait`}.</p>
     ${cta('Pick a new time', { disabled: !!busy, attrs: 'data-act="pick-time"' })}
     ${cta(`Message ${esc(first)}`, { variant: 'secondary', disabled: !!busy, attrs: 'data-act="message"' })}
-    ${link('See other tailors', 'see-others', busy)}`;
+    ${link('Find another tailor', 'see-others', busy)}`;
   } else if (final) {
-    actions = `${cta('See other tailors', { busy: busy === 'find-another', busyLabel: 'One moment…', disabled: !!busy && busy !== 'find-another', attrs: 'data-act="find-another"' })}
+    actions = `${cta('Find another tailor', { busy: busy === 'find-another', busyLabel: 'One moment…', disabled: !!busy && busy !== 'find-another', attrs: 'data-act="find-another"' })}
     ${cta(`Message ${esc(first)}`, { variant: 'secondary', disabled: !!busy, attrs: 'data-act="message"' })}`;
   } else {
     actions = `${err ? `<div class="c-request__alert">${banner({ tone: 'error', text: err.text, actionLabel: err.actionLabel, actionAct: err.actionAct })}</div>` : ''}
     <div class="c-request__try">
       ${cta(`Try again (${a.retries + 1} of ${max})`, { busy: busy === 'try-again', busyLabel: 'Sending…', disabled: !!busy && busy !== 'try-again', attrs: 'data-act="try-again"' })}
-      <span class="t-small c-600">Holds ${money(deposit)} again until ${newBy}</span>
+      <span class="t-small c-600">Holds ${money(deposit)} again · ${esc(first)} has until ${newBy} to reply</span>
     </div>
     ${cta(`Message ${esc(first)}`, { variant: 'secondary', disabled: !!busy, attrs: 'data-act="message"' })}
-    ${link('See other tailors', 'see-others', busy)}`;
+    ${link('Find another tailor', 'see-others', busy)}`;
   }
   return `${heroRow(hero)}
-  <div class="c-request__block">${visitBlock(visitRows(a, t), { title: final ? 'Your request' : 'Your visit', flush: true })}</div>
+  <div class="c-request__block">${visitBlock(visitRows(a, t), { title: 'Your request', flush: true })}</div>
   ${releasedRow(a)}
   <div class="c-request__actions">
     ${actions}
@@ -249,6 +270,7 @@ function run(kind, work) {
 function acceptTime(a) {
   run('accept-time', () => {
     const res = T.acceptSuggestion(a.id);
+    if (res.error === 'slot-passed') { T.tick(); ui().error = 'slot-passed'; go(ID); return; }   // D-154: the tap raced the lapse; the screen now shows the ended state
     if (!res.ok) { toast('Something went wrong. Try again.', { tone: 'error' }); go(ID); return; }
     setFocus(a.id);
     go('c-booking', { fresh: true });

@@ -13,9 +13,12 @@
      J5  tailor can't make it -> customer refunded
      J6  edit the job (new item, service off) -> Sarah approves -> tailoring (K-01)
      J6b no changes still needs Sarah's approval (K-01)
-     J7  courier return, money identical on both sides, never in the payout (D-143)
+     J7  courier return, money identical on both sides, never in the payout (D-143); the tailor sees no courier money (D-160)
      J8  completed -> review -> c-tailor shows it (D-143)
      J9  one thread from a question to a booking, masked on both sides (D-143)
+     J10 the expiry loop: no reply -> Try again (1 of 2) -> Sent again -> expire twice -> no tailors left (D-85, D-94)
+     J11 payout lifecycle: completed -> Pending (the Friday) -> the Friday run -> Paid, fee and payout in dollars (D-24, D-136)
+     J12 a suggested time lapses: both sides end it and the hold is released (D-154)
 
    node scripts/v5/journeys.mjs [J1 J2 ...]
    ============================================================ */
@@ -25,7 +28,9 @@ import { SCENARIOS, SEED_SLOT, fmtExact, fmtNeg } from './money.mjs';
 import { SUGGESTED_SLOT, AMARA } from '../../js/fixtures/money-scenarios.js';
 import { CHAT } from '../../js/fixtures/common.js';
 import { CUSTOMER } from '../../js/data.js';
-import { fmtWhen } from '../../js/dates.js';
+import { fmtWhen, fmtDay } from '../../js/dates.js';
+import { PAYOUT_DAYS } from '../../js/fixtures/money-scenarios.js';
+import { POLICY } from '../../js/money-config.js';
 
 const ONLY = process.argv.slice(2).filter((a) => !a.startsWith('-'));
 const want = (id) => !ONLY.length || ONLY.includes(id);
@@ -91,6 +96,10 @@ async function journey(id, title, fn) {
   const errs = h.errors.splice(0);
   check(`${id} no console or page errors`, !errs.length, errs.join(' | ').slice(0, 200));
 }
+
+/** Move the demo clock the way a real wait would (the model's own advanceClock, so expiries run), then repaint a screen. */
+const advance = (minutes) => page.evaluate(async (m) => { (await import('/js/state.js')).advanceClock(m); }, minutes);
+const paint = async (screen) => { await page.evaluate((id) => window.Taily.render(id), screen); await settle(page); };
 
 const S = SCENARIOS;
 const SEED_WHEN = fmtWhen(SEED_SLOT);
@@ -245,7 +254,8 @@ await journey('J7', 'courier return: the three courier amounts match on both sid
   await flip();
   await click('.appt-row');
   await at('J7 tailor: courier booked, not her money', 't-job', {
-    has: ['Courier booked', fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), 'Not taken from your payout', fmtExact(S.seed.payout)],
+    has: ['Courier booked', 'Courier arrives', 'Paid by Sarah · nothing comes out of your payout', 'Handed to courier', fmtExact(S.seed.payout)],
+    not: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents)],
   });
 });
 
@@ -321,6 +331,75 @@ await journey('J9', 'one thread from a question to a booking; a typed phone numb
   await click('[data-nav="messages"]');
   await click('.thread-row');
   await at('J9 customer: accepted line', 'c-thread', { has: ['Amara accepted', 'Confirmed'] });
+});
+
+/* ---------- J10 (D-85, D-94) ---------- */
+await journey('J10', 'the expiry loop: no reply, Try again, Sent again, expire twice, no tailors left', async () => {
+  const wait = POLICY.REQUEST_EXPIRY_H * 60;
+  await flow('c-pay');
+  await click('[data-act="pay"]');
+  await at('J10 request sent', 'c-request', { has: ['Waiting for Amara', 'On hold'] });
+  await advance(wait);
+  await paint('c-request');
+  await at('J10 no reply, hold released, first retry', 'c-request', { has: ['No reply', 'hold was released', 'Try again (1 of 2)'], not: 'On hold' });
+  await click('[data-act="try-again"]');
+  await at('J10 sent again', 'c-request', { has: ['Waiting for Amara', 'On hold'] });
+  await flip();
+  await at('J10 tailor home: Sent again', 't-home', { has: ['Sent again', fmtExact(S.seed.payout)] });
+  await flip();
+  await advance(wait);
+  await paint('c-request');
+  await at('J10 no reply again, last try', 'c-request', { has: ['No reply', 'Try again (2 of 2)', 'Last try'] });
+  await click('[data-act="try-again"]');
+  await advance(wait);
+  await paint('c-request');
+  await at('J10 no retries left', 'c-request', { has: ['didn’t reply again', 'Find another tailor'], not: 'Try again' });
+  await click('[data-act="find-another"]');
+  await at('J10 no tailors left', 'c-tailors', { has: ['No other tailors for this job yet'] });
+  await flip();
+  await paint('t-request');
+  await at('J10 tailor: expired for good', 't-request', { has: ['This request expired', 'This job has gone to other tailors'], not: 'send it again' });
+});
+
+/* ---------- J11 (D-24, D-136) ---------- */
+await journey('J11', 'payout lifecycle: scheduled for the Friday, then paid; the fee and the payout in dollars', async () => {
+  const friday = fmtDay(PAYOUT_DAYS.first);
+  await page.evaluate(async () => {
+    const c = await import('/js/fixtures/common.js');
+    c.completeJob(c.driveTo('confirmed').id);
+  });
+  await page.keyboard.press('Shift');                       // the Test-flows control appears on the first input
+  await flip();
+  await click('[data-nav="earnings"]');
+  await at('J11 earnings: pending, the Friday it arrives', 't-earnings', { has: [fmtExact(S.seed.payout), `Arrives ${friday}`, '1 job'], not: 'Paid to' });
+  await click('[data-act="open-payout"]');
+  await at('J11 payout: pending, fee and payout in dollars', 't-payout', { has: ['Pending', fmtNeg(S.seed.tailyFee), fmtExact(S.seed.payout), fmtExact(S.seed.services)] });
+  await page.evaluate(async (day) => {
+    const st = await import('/js/state.js');
+    st.setClock(`${day}T18:00`);
+    st.T.settlePayouts();
+  }, PAYOUT_DAYS.first);
+  await paint('t-earnings');
+  await at('J11 earnings: paid', 't-earnings', { has: ['Paid', friday, fmtExact(S.seed.payout)], not: 'Arrives' });
+  await click('[data-act="open-payout"]');
+  await at('J11 payout: paid, fee and payout in dollars', 't-payout', { has: ['Paid', fmtNeg(S.seed.tailyFee), fmtExact(S.seed.payout)], not: 'Pending' });
+});
+
+/* ---------- J12 (D-154) ---------- */
+await journey('J12', 'a suggested time lapses: both sides end it, the hold is released', async () => {
+  await flow('t-request');
+  await click('[data-act="suggest"]');
+  await click('[data-act="send-suggestion"]');
+  await at('J12 waiting on Sarah', 't-request', { has: ['Waiting on Sarah', SUGG_WHEN] });
+  await advance(24 * 60);
+  await paint('t-request');
+  await at('J12 tailor: the suggestion lapsed', 't-request', { has: ['Your suggested time passed', 'didn’t accept in time', 'Back to Home'], not: 'Withdraw suggestion' });
+  await flip();
+  await click('[data-nav="bookings"]');
+  await click('.appt-row');
+  await at('J12 customer: the time is no longer held, hold released', 'c-request', {
+    has: ['suggested time has passed', 'hold is released', 'Released', 'Find another tailor'], not: ['Accept new time', 'Try again'],
+  });
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

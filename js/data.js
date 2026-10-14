@@ -77,7 +77,7 @@ export const servicesForType = (type) => Object.keys(SERVICES).filter((id) => SE
 export const TAILORS = [
   {
     id: 'amara', name: 'Amara Reyes', shopName: 'Reyes Tailoring', initials: 'AR', photo: null, workPhotos: 4, years: 12,
-    phone: '(347) 555-0118', live: true,
+    phone: '(347) 555-0118', live: true, takingRequests: true,
     bio: 'Tailoring in Williamsburg since 2014. I fit at my shop on Metropolitan Ave or at your place, and I show you every pin before I cut.',
     verified: true, badges: TRUST_BADGES,
     shop: { enabled: true, street: '312 Metropolitan Ave', city: 'Brooklyn', state: 'NY', zip: '11211', hood: 'Williamsburg' },
@@ -131,7 +131,7 @@ export const SEED_JOB = {
 
 /** A tailor with every section empty — the onboarding flows overwrite `amara` with it (D-20). */
 export const BLANK_TAILOR = {
-  id: 'amara', name: '', shopName: '', initials: '', photo: null, workPhotos: 0, years: 0, bio: '', phone: '', live: false,
+  id: 'amara', name: '', shopName: '', initials: '', photo: null, workPhotos: 0, years: 0, bio: '', phone: '', live: false, takingRequests: true,
   verified: false, badges: [],
   shop: { enabled: false, street: '', city: '', state: '', zip: '', hood: '' },
   home: { enabled: false, zips: [], fee: 0 },

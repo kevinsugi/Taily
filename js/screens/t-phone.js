@@ -20,7 +20,7 @@ function view(s) {
   const d = s.ui[ID] ?? {};
   return `${statusBar()}
 <main class="body body--with-bar ${ID}">
-  ${headingRow(`<p class="t-caps c-600 ${ID}__eyebrow">For tailors</p><h1 class="t-title">Get booked by customers nearby</h1>`)}
+  ${headingRow(`<p class="t-caps c-600 ${ID}__eyebrow">For tailors</p><h1 class="t-title">Get booked by customers nearby</h1>`, { backRow: true })}
   <p class="t-body c-600 ${ID}__lead">Set your own prices and hours. We’ll text you a code — no passwords.</p>
   ${d.saved && d.phone ? `<div class="${ID}__saved">${banner({
     tone: 'success', title: 'Your progress is saved',

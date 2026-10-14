@@ -4,15 +4,15 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 
 | M | Status | Last green commit | Figma | Notes |
 |---|---|---|---|---|
-| M0 Foundation | code done (`npm run check` green) | — | — | model, components, harness, integration (sys-index + sys-components, Test-flows menu, ref/v5 baselines) landed. Figma pages not yet created |
+| M0 Foundation | code done (`npm run check` green) | 6105507 | **not started** — the 4 Figma pages, `Flow v5` and the new components do not exist yet | model, components, harness, integration (sys-index + sys-components, Test-flows menu, ref/v5 baselines) landed. Figma pages not yet created |
 | M1 Customer booking | **done** | see git log | 16 frames (3 screens re-sync in M2) | review r2 fixed + director polish | | | |
-| M2 Tailor onboarding + Shop | integrated (`npm run check` green; review pending) | — | — | 11 screens, 38 new baselines; c-welcome + sys-index re-accepted (intended: Join Taily line, new screens listed) |
+| M2 Tailor onboarding + Shop | committed (655cb6a, `npm run check` green); no milestone review — covered by the M6 audit, findings in `M6-fixlist.md` | 655cb6a | not synced | 11 screens, 38 new baselines; c-welcome + sys-index re-accepted (intended: Join Taily line, new screens listed) |
 | M3 Request loop | **done** | see git log | M3 sections on both pages (t-request/t-job/c-bookings re-sync in M4) | review r2 fixed + director fixes | | | |
 | M4 Fitting → completion | **done** (07fb6b4) + K-01 done | | M4 frames; M3 re-synced | 25 P3s in .shots/M4-p3.json → M6 | | | |
-| M5 Messaging, accounts, earnings, system | integrated (`npm run check` green; review pending) | — | — | 8 new screens + M5 states on c-thread / t-thread / hosts, journeys J7–J9; re-accepted on purpose: c-thread--new, t-thread (header + context row), sys-components (M5 gallery), sys-index (new screens listed); t-thread--declined removed (now t-thread--read-only) |
-| M6 Final pass | in progress | | | |
+| M5 Messaging, accounts, earnings, system | committed (140b2a4, `npm run check` green); no milestone review — covered by the M6 audit, findings in `M6-fixlist.md` | 140b2a4 | not synced | 8 new screens + M5 states on c-thread / t-thread / hosts, journeys J7–J9; re-accepted on purpose: c-thread--new, t-thread (header + context row), sys-components (M5 gallery), sys-index (new screens listed); t-thread--declined removed (now t-thread--read-only) |
+| M6 Final pass | in progress: audit triaged into `docs/v5/M6-fixlist.md`, fix batches running (decisions D-154…D-174 logged) | | | |
 
-**Next action:** M0 Figma pages (the 4 pages, `Flow v5`, new components on Explorations), then commit M0 and start M1 (customer booking).
+**Next action:** Build complete. Waiting on Kevin's review — start with docs/v5/REVIEW-GUIDE.md. Overrule anything via DECISIONS ids.
 
 ## Open findings carried forward
 (none)

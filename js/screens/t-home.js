@@ -7,9 +7,9 @@
    notifications on in the prototype.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, now, apptsFor, priceChangeView } from '../state.js';
-import { myTailor, inbox, requestView, customerName, customerInitials, payoutOf } from '../tailor-data.js';
-import { setFocus, statusWord, sinceText } from '../focus.js';
+import { state, T, now, apptsFor, priceChangeView, suggestLapseAt } from '../state.js';
+import { myTailor, inbox, requestView, customerName, customerInitials, payoutOf, payoutLine, suggestPrice } from '../tailor-data.js';
+import { setFocus, statusWord, returnStep } from '../focus.js';
 import { fmtColumn } from '../money.js';
 import { fmtWhen, fmtTime, fmtDay, toDate } from '../dates.js';
 import { POLICY } from '../money-config.js';
@@ -35,9 +35,11 @@ function pillOf(a) {
 /** "145 N 7th St, 2R, Brooklyn, NY 11211" → "145 N 7th St, 2R" (the list row is one line, R3-1-T-08); neighborhood forms pass through. */
 const shortPlace = (p) => { const parts = p.split(', '); return parts.length > 2 ? parts.slice(0, -2).join(', ') : p; };
 
-/** Where a job past its visit stands, as the row's time line (R4-1-T-06, D-113): the step, and since when. */
-const STEP = { fitting: 'Fitting', 'price-change': 'Order sent', 'in-progress': 'Tailoring', ready: 'Ready', returning: 'Handing back' };
-const sinceLine = (a) => `${STEP[a.status]} · ${sinceText(a)}`;
+/** Where a job past its visit stands, as the row's time line (R4-1-T-06, D-113, D-169): the step, and when it is due. The visit
+    itself is behind her, so the line leads with the need-by date. A returning order names how it goes back (D-106). */
+const STEP = { fitting: 'Started', 'price-change': 'Order sent', 'in-progress': 'Tailoring', ready: 'Ready' };
+const stepOf = (a) => (a.status === 'returning' ? returnStep(a, 'tailor') : STEP[a.status]);
+const sinceLine = (a) => `${stepOf(a)} · due ${fmtDay(a.job.needBy)}`;
 /** Confirmed and not started = Upcoming; the visit itself and everything after = In progress. */
 const started = (a) => a.status !== 'confirmed' || now() >= toDate(a.slot.start).getTime();
 
@@ -45,17 +47,20 @@ function view(s) {
   const t = myTailor();
   const { requests, upcoming: booked } = inbox();
   const upcoming = booked.filter((a) => !started(a));
-  const progress = booked.filter(started);
+  const progress = booked.filter(started).sort((a, b) => toDate(a.job.needBy) - toDate(b.job.needBy) || toDate(a.slot.start) - toDate(b.slot.start));   // D-169: soonest due first
   const recent = apptsFor('tailor').filter((a) => a.status === 'completed')
     .sort((a, b) => toDate(b.history[b.history.length - 1].at) - toDate(a.history[a.history.length - 1].at)).slice(0, 1);
   const first = firstOf(t);
   const head = `${chrome('home', { persona: 'tailor' })}`;
   const hello = headingRow(`<p class="t-caps c-600 ${ID}__date">${dateLine()}</p><h1 class="t-title">Hi, ${esc(first)}</h1>`, { back: false });
+  /* D-161: the shop is paused — one line with the way back on */
+  const paused = t.takingRequests === false
+    ? `<p class="t-small c-600 ${ID}__sum ${ID}__paused">Paused · <button type="button" class="${ID}__resume w-600" data-act="resume" data-hit="inline">Turn back on</button></p>` : '';
 
   if (!apptsFor('tailor').length) {
     return `${head}<main class="body ${ID}">
   ${hello}
-  <p class="t-small c-600 ${ID}__sum">No new requests</p>
+  ${paused}
   ${s.sim.push === 'denied' ? `<div class="${ID}__push">${pushBanner()}</div>` : ''}
   <div class="${ID}__empty" data-empty="home">${emptyState({
     title: 'No requests yet',
@@ -81,8 +86,9 @@ function view(s) {
       id: a.id, name: v.customer.name, initials: v.customer.initials, visitLabel: v.visitLabel, place: v.place,
       when: sug ? v.suggested : v.when,
       asked: sug ? `${s.customer.first} asked for ${sameDay(a.slot.start, a.suggested.start) ? fmtTime(a.slot.start) : v.when}` : '',
-      items: v.items, services: v.serviceCount, payoutCents: v.payout, feeCents: v.tailyFee,
+      items: v.items, services: v.serviceCount, payoutCents: sug ? suggestPrice(a, a.suggested.start).payout : v.payout, feeCents: v.tailyFee,   // D-155: a suggested time never raises the rush
       expiresAt: a.expiresAt, now: now(), status: a.status, waitingOn: s.customer.first, retries: a.retries,
+      lapseAt: sug ? suggestLapseAt(a) : null,   // D-154: her suggested time stays open until then
     });
   };
   const cards = fresh.map(card).join('');
@@ -108,12 +114,13 @@ function view(s) {
     return apptRow({
       id: a.id, name: customerName(a), initials: customerInitials(), when: `Completed ${fmtDay(a.history[a.history.length - 1].at)}`, place: shortPlace(requestView(a).place),
       status: w.pill, pillLabel: w.label, amountText: fmtColumn([a.money.payout])(a.money.payout),
-      amountCaption: po ? `${po.state === 'paid' ? 'Paid out' : 'Pays out'} ${fmtDay(po.date)}` : 'Payout pending', muted: true,
+      amountCaption: po ? payoutLine(po).short : 'Payout pending', captionTone: po?.state === 'failed' ? 'error' : 'default', muted: true,
     });
   }).join('');
 
   return `${head}<main class="body ${ID}">
   ${hello}
+  ${paused}
   <p class="t-small c-600 ${ID}__sum">${summary.join(' · ')}</p>
   ${s.sim.push === 'denied' ? `<div class="${ID}__push">${pushBanner()}</div>` : ''}
   <div class="${ID}__head"><h2 class="t-h2">New requests</h2>${fresh.length ? `<span class="t-small c-600">${fresh.length}</span>` : ''}</div>
@@ -123,7 +130,7 @@ function view(s) {
   ${waiting.length ? `<div class="${ID}__head ${ID}__head--up"><h2 class="t-h2">Waiting on ${esc(s.customer.first)}</h2><span class="t-small c-600">${waiting.length}</span></div>
   <div class="${ID}__list">${waitCards}</div>` : ''}
   ${upcoming.length || !progress.length ? `<div class="${ID}__head ${ID}__head--up"><h2 class="t-h2">Upcoming</h2>${upcoming.length ? `<span class="t-small c-600">${upcoming.length}</span>` : ''}</div>
-  ${upcoming.length ? `<div class="${ID}__list">${rows}</div>` : `<p class="t-body c-600 ${ID}__none">Nothing booked yet.</p>`}` : ''}
+  ${upcoming.length ? `<div class="${ID}__list">${rows}</div>` : `<p class="t-body c-600 ${ID}__none">${apptsFor('tailor').length ? 'Nothing upcoming.' : 'Nothing booked yet.'}</p>`}` : ''}
   ${progress.length ? `<div class="${ID}__head ${ID}__head--up"><h2 class="t-h2">In progress</h2><span class="t-small c-600">${progress.length}</span></div>
   <div class="${ID}__list">${progressRows}</div>` : ''}
   ${recent.length ? `<div class="${ID}__head ${ID}__head--up"><h2 class="t-h2">Recent</h2></div>
@@ -148,7 +155,11 @@ function wire(root) {
     const act = el.dataset.act;
     if (act === 'open-request') { setFocus(el.dataset.id); go('t-request'); }
     else if (act === 'open-appt') { setFocus(el.dataset.id); go('t-job'); }
-    else if (act === 'hours') { delete state.ui['to-availability']; go('to-availability'); }   // edit mode: a fresh draft from the saved week
+    else if (act === 'resume') {
+      T.setTakingRequests(true);
+      go(ID);
+      toast('You’re taking requests again', { tone: 'success' });
+    } else if (act === 'hours') { delete state.ui['to-availability']; go('to-availability'); }   // edit mode: a fresh draft from the saved week
     else if (act === 'push-settings') {
       state.sim.push = 'granted';                 // prototype stand-in for the OS toggle (D-85)
       go(ID);

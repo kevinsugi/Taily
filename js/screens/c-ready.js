@@ -9,7 +9,7 @@ import { register, render as go } from '../app.js';
 import { state, T, tailorById, returnOffer, returnAddress, priceChangeView } from '../state.js';
 import {
   chrome, headingRow, statusHero, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
-  sheetOverlay, cta, toast, esc, changeList,
+  sheetOverlay, cta, toast, esc, changeList, linkRow,
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
@@ -69,7 +69,7 @@ function read() {
 function subOf(k, r) {
   const { t, first, c, courierState } = r;
   /* nowrap segments (D-69(4)): a line breaks between them, never inside one, so "Free" or "it" can't be left alone */
-  if (k === 'pickup') return `${nb(t.shopName)} · ${nb(`${t.shop?.street ?? ''} · Free`)}`;
+  if (k === 'pickup') return `${nb(t.shopName)} ${nb(`· ${t.shop?.street ?? ''} · Free`)}`;
   if (k === 'dropoff') return `${esc(first)} brings it to ${nb(`${streetOf()} · Free`)}`;
   if (r.sel === 'courier' && courierState === 'ready') return `${money(c.cents)} · delivered today`;
   if (r.sel === 'courier' && courierState === 'loading') return 'Getting a price…';
@@ -106,18 +106,27 @@ function view() {
   const { a, t, first, offered, sel, c, courierState, failed } = r;
   const pillCard = r.methods.find((m) => m.id === r.failedId)?.label ?? 'card';
   const off = !sel || (sel === 'courier' && courierState !== 'ready');
+  const zero = a.money.balance === 0;                                     // D-156: the final order is worth less than the deposit
+  const refund = a.money.refund;
+  const confirming = !!r.u.confirming;
   /* one way back offered → nothing to choose (R4-1-C-05, D-113) */
   const only = offered.length === 1 ? offered[0] : null;
   const LINE_FOR = { pickup: `pick it up at ${esc(t.shopName)}`, dropoff: `${esc(first)} brings it to your door`, courier: 'a courier brings it today' };
   const hero = headingRow(statusHero({
     variant: 'ready', pill: 'action', pillLabel: 'Ready', title: 'Your order is ready',
-    body: only
-      ? `${esc(first)} finished the work. Pay the balance, then ${LINE_FOR[only]}.`
-      : `${esc(first)} finished the work. Choose how to get it back, then pay the balance.`,
+    body: zero && refund > 0
+      ? `${esc(first)} finished the work. Your final total is less than your deposit, so ${fmtExact(refund)} comes back to your card.`
+      : zero
+        ? (only ? `${esc(first)} finished the work. Nothing is left to pay, then ${LINE_FOR[only]}.` : `${esc(first)} finished the work. Choose how to get it back. Nothing is left to pay.`)
+        : only
+          ? `${esc(first)} finished the work. Pay the balance, then ${LINE_FOR[only]}.`
+          : `${esc(first)} finished the work. Choose how to get it back, then pay the balance.`,
   }), { backRow: true });
-  const alert = failed
-    ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Payment didn’t go through', text: `Your ${esc(pillCard)} was declined. Nothing was charged.`, actionLabel: 'Pay another way', actionAct: 'pay' })}</div>`
+  /* C-11: one decline pattern (D-140) — the banner sits directly above the action bar, the way forward is another card */
+  const alert = failed && !zero
+    ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Your card was declined', text: `${esc(pillCard)} didn’t go through, and nothing was charged.`, actionLabel: 'Use another card', actionAct: 'pay' })}</div>`
     : '';
+  const sameCard = failed && r.method?.id === r.failedId;                 // the failed card is still the one selected
   const rows = offered.map((k) => optionRow({
     name: 'return', value: k, title: esc(RETURN_LABEL[k]), sub: subOf(k, r), checked: sel === k, lead: ICON[k], act: 'return',
   })).join('');
@@ -127,10 +136,9 @@ function view() {
     ? `<div class="${ID}__courier">${courierCard({
       state: courierState, ...(courierState === 'ready' ? c : { miles: c?.miles ?? ZIP_INFO[a.job.zip]?.miles ?? 0 }),   // the distance is known before the price
       from: t.shopName, to: streetOf(), note: 'Added to your balance.',
-    })}</div>` : '';
+    })}${courierState === 'failed' && offered.length === 1 ? linkRow(`Message ${first}`, { attrs: 'data-act="message"' }) : ''}</div>` : '';
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${hero}
-  ${alert}
   <h2 class="t-h2 ${ID}__h2" id="ready-ways">${only ? 'Getting it back' : 'How do you want it back?'}</h2>
   <div class="${ID}__group" role="radiogroup" aria-labelledby="ready-ways">${rows}</div>
   ${single}
@@ -138,9 +146,12 @@ function view() {
   ${orderSection(a)}
   <h2 class="t-h2 ${ID}__h2 ${ID}__h2--price">Price</h2>
   ${customerBreakdown(a.money, { stage: 'ready', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true })}
+  ${alert}
 </main>
 ${actionBar({
-    ctaLabel: `Pay ${fmtExact(a.money.balance)}`, ctaAct: 'pay', disabled: off, note: off ? disabledNote(r) : '',
+    ctaLabel: zero ? (refund > 0 ? `Confirm and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : `Pay ${fmtExact(a.money.balance)}`,
+    ctaAct: zero ? 'confirm' : 'pay', disabled: off, busy: confirming, busyLabel: 'Confirming…', note: off ? disabledNote(r) : '',
+    secondaryLabel: `Message ${first}`, secondaryAct: 'message',
   })}`;
 }
 
@@ -191,6 +202,35 @@ function choose(a, k) {
   go(ID);
 }
 
+/** D-156: nothing to pay (the final order is worth less than the deposit) — no pay sheet; confirming settles the refund. */
+function confirmZero(r) {
+  const { a, u } = r;
+  if (u.confirming) return;
+  u.confirming = true;
+  go(ID);
+  cancelWait?.();
+  cancelWait = withLatency(() => {
+    u.confirming = false;
+    if (!a.returnOption && r.offered.length === 1 && r.offered[0] !== 'courier') T.chooseReturn(a.id, r.offered[0]);
+    const res = T.payBalance(a.id, a.cardId ?? r.method?.id ?? null, { threeDS: true });
+    if (!onScreen()) {
+      if (res.ok && res.appt.money.refund > 0) toast(`${fmtExact(res.appt.money.refund)} is on its way back to your card.`, { tone: 'success' });
+      return;
+    }
+    if (res.ok) {
+      const how = res.appt.returnOption;
+      const tail = how === 'pickup' ? ` Ready for pickup at ${r.t.shopName}.`
+        : how === 'dropoff' ? ` ${r.first} will drop it off.` : ' Your courier is on the way.';
+      setFocus(a.id);
+      go('c-booking', { fresh: true });
+      toast(res.appt.money.refund > 0 ? `${fmtExact(res.appt.money.refund)} is on its way back to your card.${tail}` : `Confirmed.${tail}`, { tone: 'success' });
+    } else {
+      go(ID);
+      toast('Choose how to get it back first.');
+    }
+  });
+}
+
 function openPay(r) {
   const { a } = r;
   const u = ui(a);
@@ -232,7 +272,7 @@ function openPay(r) {
           close();
           /* the router took the screen away mid-payment (browser Back): the charge still lands, say so */
           if (!onScreen()) {
-            if (res.ok) toast(`Paid ${fmtExact(res.appt.payments.balance.cents)}.`);
+            if (res.ok) toast(`Paid ${fmtExact(res.appt.payments.balance.cents)}.`, { tone: 'success' });
             else if (res.error === 'card-declined') toast('Your payment didn’t go through. Nothing was charged.', { tone: 'error' });
             return;
           }
@@ -242,7 +282,7 @@ function openPay(r) {
               : how === 'dropoff' ? ` ${r.first} will drop it off.` : ' Your courier is on the way.';
             setFocus(a.id);
             go('c-booking', { fresh: true });
-            toast(`Paid ${fmtExact(res.appt.payments.balance.cents)}.${tail}`);
+            toast(`Paid ${fmtExact(res.appt.payments.balance.cents)}.${tail}`, { tone: 'success' });
           } else if (res.error === 'card-declined') {
             go(ID);
           } else {
@@ -289,6 +329,8 @@ function wire(root) {
       case 'return': if (el.dataset.value !== r.sel) choose(a, el.dataset.value); break;
       case 'courier-retry': state.sim.courier = 'ok'; choose(a, 'courier'); break;   // D-105
       case 'pay': openPay(read()); break;
+      case 'confirm': confirmZero(read()); break;
+      case 'message': setFocus(a.id); go('c-thread'); break;
       default:
     }
   });

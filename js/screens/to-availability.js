@@ -132,13 +132,17 @@ function body(list, seg) {
     ],
   }) : '';
   const e = errs()[seg];
+  /* M6-P-04: the label sits outside the card, the visit-length note under it, then the card; the "add a day" error is directly under the
+     card and described-by the first day switch (the field that needs the fix) */
+  let week = weekHtml(seg);
+  if (e) week = week.replace('role="switch"', 'role="switch" aria-describedby="avail-msg"');
   return `${segmented}
+  <p class="to-availability__caps t-caps c-600">${HEAD[seg]}</p>
   <p class="to-availability__note t-small c-600">${NOTE[seg]}</p>
-  ${e ? `<p class="field__msg field__msg--error to-availability__error" id="avail-msg" role="alert">Add at least one day of ${NAME[seg]} hours.</p>` : ''}
-  <section class="to-availability__card" aria-label="${HEAD[seg]}"${e ? ' aria-describedby="avail-msg"' : ''}>
-    ${list.length === 1 ? `<p class="to-availability__caps t-small w-600 c-700">${HEAD[seg]}</p>` : ''}
-    ${weekHtml(seg)}
-  </section>`;
+  <section class="to-availability__card" aria-label="${HEAD[seg]}">
+    ${week}
+  </section>
+  ${e ? `<p class="field__msg field__msg--error to-availability__error" id="avail-msg" role="alert">Add at least one day of ${NAME[seg]} hours.</p>` : ''}`;
 }
 
 function view() {
@@ -150,7 +154,7 @@ function view() {
   return `${onboardingHeader({ editing: mode })}<main class="body body--with-bar ${ID} ${ID}--${mode ? 'edit' : 'onboarding'}">
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
-  ${mode ? headingRow(TITLE) : `<div class="${ID}__title">${TITLE}</div>`}
+  ${mode ? headingRow(TITLE, { backRow: true }) : `<div class="${ID}__title">${TITLE}</div>`}
   <p class="to-availability__lead t-body c-600">Set your usual week. Each request still needs your OK, and you have ${POLICY.REQUEST_EXPIRY_H} hours to reply.</p>
   <div class="to-availability__body">${body(list, seg)}</div>
 </main>${barHtml()}`;

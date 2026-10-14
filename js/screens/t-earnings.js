@@ -14,7 +14,7 @@ import { setFocus } from '../focus.js';
 import { fmtExact } from '../money.js';
 import { fmtDay } from '../dates.js';
 import { withLatency } from '../sim.js';
-import { chrome, headingRow, banner, emptyState, listRow, statusPill, skeleton, deltaFigure, esc } from '../components.js';
+import { chrome, headingRow, banner, emptyState, listRow, skeleton, deltaFigure, cta, esc } from '../components.js';
 
 const ID = 't-earnings';
 const ui = () => (state.ui[ID] ??= {});
@@ -23,15 +23,17 @@ let cancelLoad = null;
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const bankOf = (b) => `${b?.bank ?? 'Your bank'} ••${b?.last4 ?? ''}`;
 const money = (c) => `<span data-money>${fmtExact(c)}</span>`;
+/** D-172, M6-P-01: a kept deposit or no-show pay has no Taily fee, so a list of only those says so instead of "after the Taily fee". */
+const feeNote = (items) => (items.length && items.every((i) => i.kind !== 'job') ? 'no Taily fee' : 'after the Taily fee');
 
 /** One job under a payout: customer, what it was, what she takes home. A button into t-payout. */
-function jobRow(i) {
+function jobRow(i, { tag = '' } = {}) {
   return listRow({
-    title: esc(i.title), sub: esc(i.sub), right: `<span class="${ID}__amt t-body w-600" data-money>${fmtExact(i.cents)}</span>`,
+    title: `${esc(i.title)}${tag ? ` <span class="${ID}__tag t-micro">${esc(tag)}</span>` : ''}`, sub: esc(i.sub), right: `<span class="${ID}__amt t-body w-600" data-money>${fmtExact(i.cents)}</span>`,
     act: 'open-payout', attrs: `data-id="${esc(i.apptId)}"`,
   });
 }
-const rowsOf = (items) => `<div class="${ID}__rows">${items.map(jobRow).join('')}</div>`;
+const rowsOf = (items, tag = '') => `<div class="${ID}__rows">${items.map((i) => jobRow(i, { tag })).join('')}</div>`;
 
 function view() {
   const head = `${chrome('earnings', { persona: 'tailor' })}`;
@@ -57,20 +59,35 @@ function view() {
 </main>`;
   }
 
+  /* M6-T-18: sent back AND another job scheduled = one card below (it carries the Fix button), so the banner is only its title;
+     sent back alone keeps the sentence and the button */
+  const merged = !!(failed && next);
   const failBanner = failed
-    ? `<div class="${ID}__alert">${banner({
-      tone: 'error', title: 'Your Friday payout didn’t go through',
-      text: `${esc(bank)} sent back ${money(failed.cents)}. Update your bank details and we’ll send it again on ${fmtDay(failed.retryDate)}.`,
-      actionLabel: 'Fix bank details', actionAct: 'fix-bank',
-    })}</div>` : '';
+    ? `<div class="${ID}__alert">${banner(merged
+      ? { tone: 'error', title: 'Your Friday payout didn’t go through' }
+      : {
+        tone: 'error', title: 'Your Friday payout didn’t go through',
+        text: `${esc(bank)} sent back ${money(failed.cents)}. Update your bank details to get paid.`,
+        actionLabel: 'Fix bank details', actionAct: 'fix-bank',
+      })}</div>` : '';
 
   /* the next Friday: one figure, the jobs that add up to it */
   let nextCard = '';
-  if (next) {
+  if (merged) {
+    const all = [...failed.items, ...next.items];
+    const day = next.date > failed.retryDate ? next.date : failed.retryDate;
+    nextCard = `<section class="${ID}__next ${ID}__next--merged" aria-label="Next payout">
+    <p class="t-caps c-600">Next payout</p>
+    <h2 class="t-h2 ${ID}__merged" data-money>${fmtDay(day)} · ${fmtExact(failed.cents + next.cents)} once your bank is fixed</h2>
+    <p class="t-small c-600 ${ID}__after">${plural(all.length, 'job', 'jobs')} · ${feeNote(all)}</p>
+    <div class="${ID}__rows">${failed.items.map((i) => jobRow(i, { tag: 'Sent back' })).join('')}${next.items.map((i) => jobRow(i)).join('')}</div>
+    <div class="${ID}__fix">${cta('Fix bank details', { variant: 'secondary', attrs: 'data-act="fix-bank"' })}</div>
+  </section>`;
+  } else if (next) {
     const again = next.items.some((i) => i.retried);
     nextCard = `<section class="${ID}__next" aria-label="Next payout">
     ${deltaFigure({ label: 'Next payout', cents: next.cents, caption: failed ? `Sends ${fmtDay(next.date)} once your bank details are updated` : `${again ? 'Sending again' : 'Arrives'} ${fmtDay(next.date)} · to ${bank}` })}
-    <p class="t-small c-600 ${ID}__after">${plural(next.items.length, 'job', 'jobs')} · after the Taily fee</p>
+    <p class="t-small c-600 ${ID}__after">${plural(next.items.length, 'job', 'jobs')} · ${feeNote(next.items)}</p>
     ${rowsOf(next.items)}
   </section>`;
   } else if (!failed) {
@@ -87,20 +104,16 @@ function view() {
   if (failed && !next) {
     sent = `<section class="${ID}__next ${ID}__next--failed" aria-label="Didn’t go through">
     ${deltaFigure({ label: 'Didn’t go through', cents: failed.cents, caption: `Sends ${fmtDay(failed.retryDate)} once your bank details are updated` })}
-    <p class="t-small c-600 ${ID}__after">${plural(failed.items.length, 'job', 'jobs')} · after the Taily fee</p>
+    <p class="t-small c-600 ${ID}__after">${plural(failed.items.length, 'job', 'jobs')} · ${feeNote(failed.items)}</p>
     ${rowsOf(failed.items)}
   </section>`;
-  } else if (failed) {
-    sent = `<h2 class="t-h2 ${ID}__h2">Didn’t go through</h2>
-  <p class="t-small c-600 ${ID}__after">${plural(failed.items.length, 'job', 'jobs')} · ${money(failed.cents)} · after the Taily fee</p>
-  ${rowsOf(failed.items)}`;
   }
 
   const paid = history.length ? `<h2 class="t-h2 ${ID}__h2">Paid</h2>
   ${history.map((g) => `<section class="${ID}__group" aria-label="Paid ${esc(fmtDay(g.date))}">
     <div class="${ID}__ghead">
       <div class="${ID}__gtext"><p class="t-body w-600">${esc(fmtDay(g.date))}</p><p class="t-small c-600">Paid to ${esc(bankOf(g))}</p></div>
-      <div class="${ID}__gright"><span class="t-body w-600" data-money>${fmtExact(g.cents)}</span>${statusPill('completed', 'Paid')}</div>
+      ${g.items.length >= 2 ? `<div class="${ID}__gright"><span class="t-body w-600" data-money>${fmtExact(g.cents)}</span></div>` : ''}
     </div>
     ${rowsOf(g.items)}
   </section>`).join('')}` : '';
@@ -111,7 +124,7 @@ function view() {
   ${nextCard}
   ${sent}
   ${paid}
-  <p class="t-small c-600 ${ID}__foot">Every amount is after the Taily fee. Taily pays out every Friday.</p>
+  <p class="t-small c-600 ${ID}__foot">Job payouts are after the Taily fee. Kept deposits and no-show pay have no fee. Taily pays out every Friday.</p>
 </main>`;
 }
 
@@ -122,7 +135,7 @@ function wire(root) {
     if (!el) return;
     switch (el.dataset.act) {
       case 'open-payout': setFocus(el.dataset.id); go('t-payout'); break;
-      case 'fix-bank': go('to-payouts'); break;
+      case 'fix-bank': state.ui['to-payouts'] = { from: 'earnings' }; go('to-payouts'); break;
       case 'home': go(personaHome('tailor')); break;
       default: break;
     }

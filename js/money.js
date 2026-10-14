@@ -82,12 +82,12 @@ export function estimate(tailor, job, slotIso = null) {
   return q;
 }
 
-/** Cancel terms at `nowMs`: more than the window ahead → full refund; inside → the
+/** Cancel terms at `nowMs`: the window ahead or more (inclusive, M6-M-11) → full refund; inside → the
     deposit is kept and paid to the tailor in full, no Taily fee (D-05). */
 export function cancelTerms(appt, nowMs) {
   const deposit = appt.payments?.deposit?.cents ?? appt.money?.deposit ?? 0;
   const hoursAhead = (toDate(appt.slot.start).getTime() - nowMs) / 3600000;
-  return hoursAhead > POLICY.CANCEL_WINDOW_H
+  return hoursAhead >= POLICY.CANCEL_WINDOW_H
     ? { window: 'early', refund: deposit, kept: 0 }
     : { window: 'late', refund: 0, kept: deposit };
 }

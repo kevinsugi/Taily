@@ -50,7 +50,7 @@ function addressBlock(job, err) {
   const errId = 'address-msg';
   return `<div class="where__group">
   <span class="where__label t-small w-600 c-700" id="address-label">Your address</span>
-  <button type="button" class="where__card${err ? ' where__card--error' : ''}" data-act="edit-address" aria-labelledby="address-label"${err ? ` aria-invalid="true" aria-describedby="${errId}"` : ''}>
+  <button type="button" class="where__card${err ? ' where__card--error' : ''}" data-act="edit-address" id="address-card" aria-labelledby="address-label address-card"${err ? ` aria-invalid="true" aria-describedby="${errId}"` : ''}>
     <span class="where__card-text">${lines}</span>
     ${street ? '<span class="where__card-action t-body w-600 c-accent-ink">Change</span>' : CHEVRON_RIGHT.replace('method-row__chevron', 'where__chevron')}
   </button>

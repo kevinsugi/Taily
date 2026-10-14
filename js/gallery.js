@@ -7,10 +7,10 @@
    ============================================================ */
 
 import * as C from './components.js';
-import { scheduler, slotColumns } from './scheduler.js';
+import { scheduler, slotColumns, whenNote } from './scheduler.js';
 import { TAILORS, DEMO_NOW } from './data.js';
 import { POLICY } from './money-config.js';
-import { reauthHtml, pushPromptHtml, systemBanner } from './system.js';
+import { reauthHtml, pushPromptHtml, pushBannerHtml, systemBanner } from './system.js';
 import { quote, fmt, fmtExact, cents, payoutFor } from './money.js';
 import { ICON_CARD, ICON_CAMERA } from './icons.js';
 import { SCENARIOS, AMARA } from './fixtures/money-scenarios.js';
@@ -51,6 +51,10 @@ export function galleryHtml() {
   h2('Top nav — customer · tailor');
   v('NAV.customer (Bookings active)');
   s.push(`<div style="position:relative;height:56px;width:390px;margin-inline:-20px">${C.topNav('bookings', C.NAV.customer).replace('<nav class="top-nav"', '<nav class="top-nav" style="top:0"')}</div>`);
+  v('NAV.customer · count badges (D-164): Messages 2 unread, Bookings 1 new');
+  s.push(`<div style="position:relative;height:56px;width:390px;margin-inline:-20px">${C.topNav('home', C.NAV.customer, { badges: { messages: 2, bookings: 1 } }).replace('<nav class="top-nav"', '<nav class="top-nav" style="top:0"')}</div>`);
+  v('NAV.tailor · count badges (D-164): Home 3 new, Messages 1 unread');
+  s.push(`<div style="position:relative;height:56px;width:390px;margin-inline:-20px">${C.topNav('shop', C.NAV.tailor, { badges: { home: 3, messages: 1 } }).replace('<nav class="top-nav"', '<nav class="top-nav" style="top:0"')}</div>`);
   v('NAV.tailor (Earnings active)');
   s.push(`<div style="position:relative;height:56px;width:390px;margin-inline:-20px">${C.topNav('earnings', C.NAV.tailor).replace('<nav class="top-nav"', '<nav class="top-nav" style="top:0"')}</div>`);
 
@@ -98,6 +102,8 @@ export function galleryHtml() {
   const slots = ['2026-10-15T17:00', '2026-10-15T17:30', '2026-10-15T18:30', '2026-10-17T09:00', '2026-10-17T10:30'];
   const cols = slotColumns(slots, '2026-10-15T17:30');
   s.push(`<div class="row">${scheduler({ title: 'Choose a time', sub: 'Open times only', columns: cols, cta: 'Confirm', ctaAct: 'confirm-slot' })}</div>`);
+  v('compact wheel · the "when" note (a caps label + the time in sentence case)');
+  s.push(`<div class="row">${scheduler({ title: '', columns: cols, note: whenNote('Sarah sees', '2026-10-15T17:30'), cta: '', inline: true, compact: true })}</div>`);
   /* R1-2-C-01: every column is a listbox (Day · Hour · Minute · AM/PM) — Tab focuses it, arrows / Home / End move the pick */
   v('keyboard focus on the Day listbox · rush note (aria-live)');
   const focused = scheduler({ title: '', columns: cols, note: `RUSH FEE ${fmt(rush.rush)} · VISIT 1 DAY BEFORE YOUR NEED-BY`, cta: 'Continue', ctaAct: 'gallery-slot', inline: true })
@@ -220,7 +226,7 @@ export function galleryHtml() {
     C.banner({ tone: 'info', title: 'Heads up', text: 'Amara usually replies within an hour.' }),
     C.banner({ tone: 'success', text: 'Request sent. Your deposit is held, not charged.' }),
     C.banner({ tone: 'warning', title: 'Almost out of time', text: 'Amara has 12 minutes left to reply.', actionLabel: 'Message Amara', actionAct: 'message', dismissible: true }),
-    C.banner({ tone: 'error', title: 'Card declined', text: 'Try another card to send your request.', actionLabel: 'Change card', actionAct: 'change-card' }));
+    C.banner({ tone: 'error', title: 'Your card was declined', text: 'Visa •••• 4242 didn’t go through, and nothing was held.', actionLabel: 'Use another card', actionAct: 'change-card' }));
 
   h2('Toast tones (tap to fire)');
   row(...['neutral','success','warning','error','info'].map((t) => C.cta(t, { variant: 'secondary', attrs: `data-toast="${t}"` })).map((h) => `<div style="width:120px">${h}</div>`));
@@ -372,7 +378,7 @@ export function galleryHtml() {
 
   h2('Thread header · context row (M5)');
   v('threadHead · name + sub · with a countdown');
-  col(C.headingRow(C.threadHead({ initials: amara.initials, name: amara.name, sub: `Request sent · ${C.countdown({ expiresAt: '2026-10-13T12:00', now: NOW })}` })),
+  col(C.headingRow(C.threadHead({ initials: amara.initials, name: amara.name, sub: C.countdown({ expiresAt: '2026-10-13T12:00', now: NOW, suffix: 'left for Amara to reply' }) })),
       C.headingRow(C.threadHead({ initials: amara.initials, name: amara.name, sub: `${amara.shopName} · Williamsburg` })));
   v('threadContext · pill + time + chevron (button) · no pill · static · long');
   col(C.threadContext({ pill: 'requested', pillLabel: 'Requested', title: 'Thu, Oct 15, 6:00 PM', sub: 'At your place', act: 'open-request', id: 'a1' }),
@@ -404,7 +410,7 @@ export function galleryHtml() {
   col(C.readOnlyBanner({ text: 'Amara declined this request. You can’t reply here.', secondaryLabel: 'See Amara’s profile', secondaryAct: 'open-tailor' }));
 
   h2('Attach sheet (M5) — Add a photo');
-  s.push(`<div class="sheet-demo">${C.sheet(`<div class="attach-sheet"><p class="t-small c-600 attach-sheet__note">Photos of the garment help the tailor quote. Up to 3 per message.</p><div class="attach-sheet__rows">${
+  s.push(`<div class="sheet-demo">${C.sheet(`<div class="attach-sheet"><p class="t-small c-600 attach-sheet__note">Show Amara the garment. Up to 3&nbsp;per&nbsp;message.</p><div class="attach-sheet__rows">${
     C.listRow({ title: 'Take a photo', act: 'photo-camera', lead: ICON_CAMERA, chevron: false })}${C.listRow({ title: 'Choose from library', act: 'photo-library', lead: C.ICON_IMAGE, chevron: false })}</div></div>`, { header: 'Add a photo', open: true, confirm: false })}</div>`);
 
   h2('Card fields (M5) — add a card');
@@ -414,8 +420,8 @@ export function galleryHtml() {
   h2('List row — attrs (M5)');
   s.push(card(C.listRow({ title: 'Home', sub: '145 N 7th St 2R · Brooklyn 11211', right: 'Default', act: 'open-address', attrs: 'data-id="home"' }) + C.listRow({ title: 'Work', sub: '30 Wythe Ave · Brooklyn 11249', act: 'open-address', attrs: 'data-id="addr-2"' })));
 
-  h2('Money rows — payout breakdown (M5, fee under Services)');
-  col(C.tailorBreakdown(seed, { feeAfterServices: true, feeCaption: `Taily keeps ${fmtExact(seed.tailyFee)} of this job` }));
+  h2('Money rows — tailor breakdown with rush (D-165: one order everywhere)');
+  col(C.tailorBreakdown(rush));
 
   h2('System (M5) — offline banner · re-auth sheet · push ask');
   v('offline banner'); s.push(`<div class="sys-demo">${systemBanner({ sim: { network: 'offline' } })}</div>`);
@@ -424,12 +430,15 @@ export function galleryHtml() {
   s.push(`<div class="sheet-demo sheet-demo--tall" data-s="sys-reauth">${C.sheet(`<div class="reauth">${reauthHtml({ phone: '(718) 555-0142', code: '123456', error: 'code-wrong' })}</div>`, { header: 'Sign in again', open: true, confirm: false })}</div>`);
   v('push ask (soft ask before the OS prompt)');
   s.push(`<div class="row"><div class="push-demo">${pushPromptHtml({ title: 'Don’t miss a request', body: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications to reply in time.` })}</div></div>`);
-  return s.join('\n');
+  v('in-app push card (D-167): a new request, over the status bar');
+  s.push(`<div class="push-banner-demo">${pushBannerHtml({ title: 'New request · Sarah C.', body: `Home visit Thu, Oct 15 · You take home ${fmtExact(seed.payout)} · 2h to reply` })}</div>`);
+  /* the page has one h1 (its title, spoken only); a hero or thread-head demo is a specimen, so its title steps down to an h2 here */
+  return `<h1 class="sr-only">Component gallery</h1>\n${s.join('\n').replace(/<h1( class="(?:status-hero__title|thread-head__name)[^>]*)>([\s\S]*?)<\/h1>/g, '<h2$1>$2</h2>')}`;
 }
 
 /** Attach the gallery's interactions (stars, toggles, chips, composer, toast buttons, scheduler position). */
 export function wireGallery(root) {
   C.wireStars(root); C.wireToggles(root); C.wireChipGroups(root); C.wireComposer(root);
   root.addEventListener('click', (e) => { const b = e.target.closest('[data-toast]'); if (b) C.toast(`A ${b.dataset.toast} toast`, { tone: b.dataset.toast }); });
-  root.querySelectorAll('.scheduler').forEach((sc) => C.wireWheel(sc, null, 36));   // positions + keyboard (R1-2-C-01)
+  root.querySelectorAll('.scheduler').forEach((sc) => C.wireWheel(sc, null, 44));   // positions + keyboard (R1-2-C-01)
 }

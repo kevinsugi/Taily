@@ -7,7 +7,8 @@
    ============================================================ */
 
 import { state } from './state.js';
-import { toast, closeOverlay, clearToasts } from './components.js';
+import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows } from './components.js';
+import { SCREENS } from './inventory.js';
 import { ALL_FLOWS, setBootLatency, primaryFlow } from './flows.js';
 import { initFlowMenu, runFlow } from './flow-menu.js';
 import { systemBanner, wireSystem } from './system.js';
@@ -154,9 +155,15 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   el.innerHTML = entry.view(state);
   /* M5 system layer (D-138): the offline banner sits under the top bar of every screen */
   const sys = systemBanner(state);
-  if (sys) el.insertAdjacentHTML('afterbegin', sys);
+  if (sys) {
+    /* M6-A-18: right after the top nav in the reading order (a screen without one gets it first) */
+    const nav = el.querySelector('.top-nav');
+    if (nav) nav.insertAdjacentHTML('afterend', sys); else el.insertAdjacentHTML('afterbegin', sys);
+  }
   el.dataset.screen = id;
   entry.wire?.(el);
+  /* M6-A-11: radio groups (chips, segmented, option rows) are one tab stop with arrow keys */
+  if (el.isConnected && el.dataset.screen === id) wireRadioRows(el);
   /* a wire() that forwarded elsewhere (redirectIfMoved) already rendered the destination with its own system layer */
   if (el.isConnected && el.dataset.screen === id) wireSystem(el, id, { go: render });
   wireBackButtons(el);
@@ -171,8 +178,26 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   else if (!same) history.push(id);
   syncHistory(id, opts.replace || opts.fresh || same || history.length < 2);
 
+  /* M6-A-08: the sticky action bar's height (+16) is what the content must clear — scroll-padding and the body's bottom padding read it */
+  syncBarHeight(el);
   announce(id);
+  /* M6-A-04: a new screen moves focus to its h1 so a screen reader starts at the title; an open overlay keeps the focus it set */
+  if (prevScreen !== id && el.isConnected && !overlayOpen() && !el.contains(document.activeElement)) {   // a wire() that focused a field keeps it
+    const h1 = el.querySelector('h1');
+    if (h1) { h1.tabIndex = -1; h1.focus({ preventScroll: true }); }
+  }
   return true;
+}
+
+let barObserver = null;
+function syncBarHeight(el) {
+  const root = document.documentElement;
+  barObserver?.disconnect();
+  const bar = el.querySelector('.action-bar');
+  if (!bar) { root.style.removeProperty('--bar-h'); return; }
+  const set = () => root.style.setProperty('--bar-h', `${bar.offsetHeight + 16}px`);
+  set();
+  if (typeof ResizeObserver !== 'undefined') { barObserver = new ResizeObserver(set); barObserver.observe(bar); }
 }
 
 /* The Back control beside every heading (components.js backButton) — steps
@@ -217,9 +242,13 @@ function onPopState(e) {
   }
 }
 
+/* M6-A-04: the live region and the tab title carry the screen's name — its h1, else the inventory title, else the id */
 function announce(id) {
   const status = document.getElementById('route-status');
-  if (status) status.textContent = `${id} — screen`;
+  const h1 = document.querySelector('#screen h1')?.textContent.trim();
+  const name = h1 || SCREENS.find((s) => s.id === id)?.title || id;
+  if (status) status.textContent = name;
+  document.title = `${name} · Taily`;
 }
 
 /* Mobile-web feel (Phase R5, Kevin): mouse click-drag pans any screen

@@ -12,18 +12,18 @@
    is always in dollars; the courier is never her money.
    ============================================================ */
 import { register, render as go, registered, personaHome, currentScreen } from '../app.js';
-import { state, T, now, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress } from '../state.js';
-import { focusAppt, redirectIfMoved, statusWord } from '../focus.js';
-import { myTailor, requestView, jobAddress, payoutOf, inbox } from '../tailor-data.js';
+import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress } from '../state.js';
+import { focusAppt, redirectIfMoved, statusWord, setFocus } from '../focus.js';
+import { myTailor, requestView, jobAddress, payoutOf, inbox, payoutLine, courierWindow } from '../tailor-data.js';
 import { CANT_MAKE_IT_REASONS, RETURN_LABEL } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { fmtExact, noShowPayout } from '../money.js';
 import { withLatency } from '../sim.js';
-import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime } from '../dates.js';
+import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime, dayDiff } from '../dates.js';
 import {
   chrome, headingRow, statusHero, visitBlock, avatar, cta, listRow, banner, tailorBreakdown, moneyRows, workList,
   emptyState, sheetOverlay, chipGroup, wireChipGroups, toast, esc, wirePhotoViewer,
-  actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, changeSummary, deltaFigure, courierCard,
+  actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, changeSummary, deltaFigure, courierCard, ctaSmall, statusPill, linkRow,
 } from '../components.js';
 
 const ID = 't-job';
@@ -78,17 +78,40 @@ function cancelMoney(a) {
   const p = payoutOf(a);
   if (!p || !['no-show', 'customer-late'].includes(kind)) return '';
   const label = kind === 'no-show' ? 'No-show pay' : 'Kept deposit';
-  return `<div class="${ID}__money">${moneyRows([{ label, cents: a.cancel.tailorPaid, kind: 'total', status: `Paid out ${fmtDay(p.date)}` }])}</div>`;
+  return `<div class="${ID}__money">${moneyRows([{ label, cents: a.cancel.tailorPaid, kind: 'total', status: payoutLine(p).short }])}</div>`;
 }
 
 /* ---------- blocks ---------- */
+/** D-173: Directions (home visits only; the street is hers to see once accepted) and Add to calendar (an .ics data link). */
+function visitLinks(a, v) {
+  if (a.status !== 'confirmed') return '';
+  const where = jobAddress(a);
+  const stamp = (iso) => iso.replace(/[-:]/g, '').slice(0, 15);
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Taily//Prototype//EN', 'BEGIN:VEVENT', `UID:${a.id}@taily.example`,
+    `DTSTAMP:${stamp(isoMinute(new Date(now())))}00`, `DTSTART:${stamp(a.slot.start)}00`, `DTEND:${stamp(a.slot.end)}00`,
+    `SUMMARY:${v.visitLabel} with ${v.customer.name}`, `LOCATION:${where.replace(/,/g, '\\,')}`, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  const maps = a.job.visitType === 'home'
+    ? ctaSmall('Directions', { href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(where)}`, attrs: 'target="_blank" rel="noopener" data-act="directions"' }) : '';
+  const cal = ctaSmall('Add to calendar', { href: `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`, attrs: 'download="taily-visit.ics" data-act="add-to-calendar"' });
+  return `<div class="${ID}__links">${maps}${cal}</div>`;
+}
+
 function visitCard(a, v) {
   const rows = [
     `${esc(v.visitLabel)} · ${v.minutes} min, until ${v.whenEnd}`,
     `<span class="w-600">${esc(jobAddress(a))}</span>`,
     `Needed by ${v.needBy}`,
   ];
-  return visitBlock(rows, { title: fmtWhen(a.slot.start), flush: true });
+  return `${visitBlock(rows, { title: fmtWhen(a.slot.start), flush: true })}${visitLinks(a, v)}`;
+}
+
+/** D-169: from the fitting on, the visit time is behind her. The block leads with the due date and how long she has;
+    the fitting itself is one small line under it. Warning ink within a day. */
+function dueCard(a, v) {
+  const days = dayDiff(now(), a.job.needBy);
+  const when = days < 0 ? `${plural(-days, 'day')} ago` : days === 0 ? 'today' : `in ${plural(days, 'day')}`;
+  const title = `<span class="${ID}__due${days <= 1 ? ` ${ID}__due--soon` : ''}">Due ${fmtDay(a.job.needBy)} · ${when}</span>`;
+  return visitBlock([`<span class="t-small c-600">Fitting was ${fmtDay(a.slot.start)}</span>`], { title, flush: true });
 }
 
 function customerRow(v, { message }) {
@@ -99,8 +122,8 @@ function customerRow(v, { message }) {
 }
 
 const workHtml = (v, opts) => workList(v, opts);
-/** Once the price is settled (the work has started) the services line is the agreed price, not an estimate (R4-1-T-02). */
-const SETTLED = ['in-progress', 'ready', 'returning-pickup', 'returning-dropoff', 'courier', 'completed'];
+/** The work is over (declined, cancelled, completed, expired): the list drops its estimate row (M6-P-07). */
+const workOver = (a) => TERMINAL.includes(a.status) || a.status === 'expired';
 
 /** Visit-day actions: "I can’t make it" before the start, a wait note until +15 min, then "didn’t show up". */
 function dayActions(a) {
@@ -125,6 +148,14 @@ function dayActions(a) {
    M4 — the job after the visit starts (M4-spec §C2)
    ============================================================ */
 const RETURN_ICON = { pickup: 'bag', dropoff: 'home', courier: 'truck' };
+/** "2:00–2:30 PM" (D-160): the pickup window, one meridiem when both ends share it. */
+function courierWhen(a) {
+  const w = courierWindow(a);
+  if (!w) return '';
+  const [from, to] = [fmtTime(w.from), fmtTime(w.to)];
+  const mer = (x) => x.slice(-2);
+  return mer(from) === mer(to) ? `${from.slice(0, -3)}–${to}` : `${from}–${to}`;
+}
 const shopLine = (t) => `${t.shop.street}, ${t.shop.city}, ${t.shop.state} ${t.shop.zip}`;
 /** One return-address line on both sides (R4-2-C-06): street + unit, the same string c-ready and c-booking print. */
 const homeStreet = returnAddress;
@@ -175,7 +206,7 @@ function copyFor(key, a, t, v, pv) {
       note: note(`${first} approved the order. Mark it ready when the work is done. ${first} then picks how to get it back and pays the balance.`),
       bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', ...msg } };
     case 'ready': return { ...base, title: `Ready. Waiting for ${first}`,
-      note: note(`${first} is choosing how to get it back and paying the ${fmtExact(a.money.balance)} balance. You’ll see the choice here.`),
+      note: note(`${first} is choosing how to get it back, then pays the balance (${fmtExact(a.money.balance)}, plus the courier if she picks it). You’ll see the choice here.`),
       bar: { ctaLabel: `Message ${first}`, ctaAct: 'message' } };
     case 'returning-pickup': return { ...base, title: `${first} will pick it up`,
       note: note(`${first} paid the balance and will collect it at your shop. Mark the job completed when it’s handed over.`), bar: done };
@@ -183,7 +214,8 @@ function copyFor(key, a, t, v, pv) {
       note: note(`${first} paid the balance. Agree a time in chat, then mark the job completed when it’s delivered.`), bar: done };
     /* R4-2-T-07: the same "today" the customer reads ("Delivered by Uber today") */
     case 'courier': return { ...base, title: 'A courier picks it up today',
-      note: note(`${first} paid the balance and booked a Taily courier. Have the order ready at ${esc(t.shopName)} today, then mark it completed once it’s delivered.`), bar: done };
+      note: note(`${first} paid the balance and booked a Taily courier. Have the order ready at ${esc(t.shopName)}, then tap Handed to courier when it leaves with them.`),
+      bar: { ...done, ctaLabel: 'Handed to courier', busyLabel: 'Saving…' } };
     default: { // completed — R4-2-T-05: the record names whose job it was
       const at = a.history.filter((h) => h.status === 'completed').pop()?.at ?? a.history[a.history.length - 1]?.at;
       return { ...base, title: 'Job completed', note: note(`${esc(v.customer.name)}’s order, completed ${fmtDay(at)}. Thanks for the careful work.`), bar: null };
@@ -199,7 +231,10 @@ function priceBlocks(a, pv, key) {
     const latest = threadFor(a.tailorId).messages.filter((m) => m.from === 'customer' && (!pv.sentAt || m.at >= pv.sentAt)).pop();
     if (latest?.text) theirs = noteQuote({ label: `${firstOf()}’s latest message`, text: latest.text });
   }
-  const mine = pv.note ? noteQuote({ label: 'Your note', text: pv.note }) : '';
+  /* M6-T-21: once Amara has answered Sarah's message, the quote is her reply, not the note she sent with the order */
+  const last = key === 'messaged' ? lastSpeakerSince(a, pv.sentAt) : null;
+  const mine = last?.from === 'tailor' && last.text ? noteQuote({ label: 'Your reply', text: last.text })
+    : pv.note ? noteQuote({ label: 'Your note', text: pv.note }) : '';
   const total = pv.changed
     ? `${first} sees a new total of ${fmtExact(pv.after.total)} (was ${fmtExact(pv.before.total)}).`
     : `${first} sees the total as booked, ${fmtExact(pv.before.total)}.`;
@@ -209,19 +244,28 @@ function priceBlocks(a, pv, key) {
   <h2 class="t-h2 ${ID}__h2 ${ID}__h2--lead">The order you sent</h2>
   <div class="${ID}__summary">${changeSummary(pv.counts)}</div>
   ${changeList({ garments: pv.garments })}
-  <h2 class="t-h2 ${ID}__h2">Your payout if approved</h2>
+  <h2 class="t-h2 ${ID}__h2">Your take-home if approved</h2>
   ${tailorBreakdown(pv.after)}`;
 }
 
-/** The payout card of a completed job: the one display figure, then its breakdown inside the same card (R4-2-T-06). */
+/** The payout card of a completed job: the one display figure ("You take home", D-172), the transfer's state and date, then the
+    breakdown without its total (the figure above is the total, M6-P-33) and how it went back, inside the same card. */
+const RETURN_DONE = { pickup: 'Picked up at your shop', dropoff: 'Dropped off at ', courier: 'Delivered by Taily courier' };
 function payoutCard(a, t, extra = '') {
   const p = payoutOf(a);
-  const where = t.payouts?.bank ? ` to ${esc(t.payouts.bank)} •••• ${esc(t.payouts.last4)}` : '';
-  return `<section class="${ID}__payout" aria-label="Your payout">
-  <p class="t-caps c-600">YOUR PAYOUT</p>
+  const w = p ? payoutLine(p, t.payouts) : null;
+  const pill = p ? { pending: ['waiting', 'Pending'], paid: ['completed', 'Paid'], failed: ['declined', 'Didn’t go through'] }[p.state] : ['waiting', 'Pending'];
+  const line = w ? w.text : 'Arrives the Friday after you mark it completed';
+  const link = p?.state === 'failed' ? linkRow('See the payout', { attrs: 'data-act="open-payout"' }) : '';
+  const how = a.returnOption ?? 'pickup';
+  const at = a.history.filter((h) => h.status === 'completed').pop()?.at ?? a.history[a.history.length - 1]?.at;
+  const returned = `${how === 'dropoff' ? `${RETURN_DONE.dropoff}${firstOf()}’s` : RETURN_DONE[how]} · ${fmtDay(at)}`;
+  return `<section class="${ID}__payout" aria-label="You take home">
+  <p class="t-caps c-600">YOU TAKE HOME</p>
   <p class="t-display ${ID}__payout-amt" data-money>${fmtExact(a.money.payout)}</p>
-  <p class="t-small c-700">Pending · paid out ${p ? fmtDay(p.date) : 'the Friday after'}${where}</p>
-  <div class="${ID}__payout-rows">${tailorBreakdown(a.money)}</div>${extra}
+  <div class="${ID}__payout-state">${statusPill(...pill)}<p class="t-small ${w?.tone === 'error' ? `${ID}__err` : 'c-700'}">${esc(line)}</p></div>${link}
+  <div class="${ID}__payout-rows">${tailorBreakdown(a.money, { total: false })}</div>
+  <div class="${ID}__returned">${metaRow('', esc(returned), { icon: { pickup: 'bag', dropoff: 'home', courier: 'truck' }[how] })}</div>${extra}
 </section>`;
 }
 
@@ -235,21 +279,21 @@ function m4View(a, v, key) {
   const hero = statusHero({ variant: key === 'completed' ? 'ready' : 'confirmed', pill: c.pill, pillLabel: c.label, title: c.title, body: '', extra: c.note });
   const updated = approved ? `<p class="t-small c-600 ${ID}__fine">Price updated after the fitting.</p>` : '';
   const who = `<div class="${ID}__who">${customerRow(v, { message: false })}</div>`;
-  const work = `<h2 class="t-h2 ${ID}__h2">The work</h2>\n  ${workHtml(v, SETTLED.includes(key) ? { estimateLabel: 'Services total' } : undefined)}`;
+  const work = `<h2 class="t-h2 ${ID}__h2">The work</h2>\n  ${workHtml(v, { final: workOver(a), estimateLabel: null })}`;   // the payout breakdown follows: no estimate row (M6-P-07)
   /* R4-2-T-04: every live state says when the money arrives; "can change" only until the price is settled */
   const before = key === 'visit' || key === 'fitting';
-  const fine = `<p class="t-small c-600 ${ID}__fine">Paid out the Friday after you mark the job completed.${before ? ' The price can change after the fitting.' : approved ? ' Price updated after the fitting.' : ''}</p>`;
-  const payout = `<h2 class="t-h2 ${ID}__h2">Your payout</h2>\n  ${tailorBreakdown(v.money)}${fine}`;
+  const fine = `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after you mark the job completed.${before ? ' The order can change at the fitting.' : approved ? ' Price updated after the fitting.' : ''}</p>`;
+  const payout = `<h2 class="t-h2 ${ID}__h2">Your take-home</h2>\n  ${tailorBreakdown(v.money)}${fine}`;
   const banners = key === 'in-progress' && approved
     ? `<div class="${ID}__banner">${banner({ tone: 'success', text: `${first} approved your changes. You take home ${fmtExact(a.money.payout)}.` })}</div>` : '';
   const block = (inner) => `<div class="${ID}__visit">${inner}</div>`;
   let body;
   switch (key) {
     case 'visit': body = `${block(visitCard(a, v))}${who}${work}${payout}${dayActions(a)}`; break;
-    case 'fitting': body = `${block(visitCard(a, v))}${who}${work}${payout}`; break;
+    case 'fitting': body = `${block(dueCard(a, v))}${who}${work}${payout}`; break;
     case 'waiting':
     case 'messaged': body = `${priceBlocks(a, pv, key)}${fine}`; break;
-    case 'in-progress': body = `${banners}${block(visitCard(a, v))}${who}${work}${payout}`; break;
+    case 'in-progress': body = `${banners}${block(dueCard(a, v))}${who}${work}${payout}`; break;
     case 'ready':
       body = `${block(visitBlock(returnOffer(a).map((k) => metaRow('', RETURN_LABEL[k], { icon: RETURN_ICON[k] })), { title: 'Ways back you offered', flush: true }))}${who}${work}${payout}`; break;
     case 'returning-pickup':
@@ -257,7 +301,7 @@ function m4View(a, v, key) {
     case 'returning-dropoff':
       body = `${block(visitBlock(placeRows(`${firstOf()}’s home`, 'home', homeStreet()), { title: 'Home drop-off', flush: true }))}${who}${work}${payout}`; break;
     case 'courier':
-      body = `${block(courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: homeStreet(), note: `Paid by ${firstOf()}. Not taken from your payout.` }))}${who}${work}${payout}`; break;
+      body = `${block(courierCard({ variant: 'tailor', window: courierWhen(a), from: t.shopName, to: homeStreet(), note: `Paid by ${firstOf()} · nothing comes out of your payout` }))}${who}${work}${payout}`; break;
     default: { // completed
       const r = a.review;
       const reviewer = `${state.customer.first} ${state.customer.last.charAt(0)}.`;
@@ -307,10 +351,10 @@ function view() {
   ${cancelled ? cancelMoney(a) : ''}
   <div class="${ID}__who">${customerRow(v, { message: !cancelled })}</div>
   <h2 class="t-h2 ${ID}__h2">The work</h2>
-  ${workHtml(v)}
-  ${cancelled ? '' : `<h2 class="t-h2 ${ID}__h2">Your payout</h2>
+  ${workHtml(v, { final: workOver(a), estimateLabel: null })}
+  ${cancelled ? '' : `<h2 class="t-h2 ${ID}__h2">Your take-home</h2>
   ${tailorBreakdown(v.money)}
-  <p class="t-small c-600 ${ID}__fine">Paid out the Friday after you mark the job completed. The price can change after the fitting.</p>
+  <p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after you mark the job completed. The order can change at the fitting.</p>
   ${dayActions(a)}`}
   ${cancelled ? `<div class="${ID}__back">${cta('Back to Home', { variant: 'secondary', attrs: 'data-act="home"' })}</div>` : ''}
 </main>`;
@@ -418,7 +462,7 @@ function sheetReadyBody(a, keys, picked, { busy = false, error = false } = {}) {
   const first = esc(firstOf());
   const line = (k) => (k === 'pickup' ? `At ${t.shopName}, ${t.shop.street}` : k === 'dropoff' ? `You bring it to ${homeStreet()}` : `${firstOf()} pays the courier. It’s not taken from your payout.`);
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
-  <p class="t-body c-700">${first} is told right away, picks how to get it back from the options you tick, then pays the ${fmtExact(a.money.balance)} balance.</p>
+  <p class="t-body c-700 ${ID}-sheet__intro">${first} is told right away, picks how to get it back from the options you tick, then pays the ${fmtExact(a.money.balance)} balance.</p>
   <fieldset class="${ID}-sheet__ways" data-ways>
     <legend class="t-small w-600 c-600">Ways back for this order</legend>
     ${keys.map((k) => checkRow({ id: `ret-${k}`, label: RETURN_LABEL[k], caption: line(k), checked: picked[k] !== false, disabled: busy })).join('')}
@@ -426,7 +470,6 @@ function sheetReadyBody(a, keys, picked, { busy = false, error = false } = {}) {
   </fieldset>
   <div class="${ID}-sheet__actions">
     ${cta('Mark ready', { busy, busyLabel: 'Marking ready…', attrs: 'data-act="ready-ok"' })}
-    ${cta('Not yet', { variant: 'secondary', disabled: busy, attrs: 'data-act="ready-keep"' })}
   </div>
 </div>`;
 }
@@ -447,8 +490,7 @@ function openMarkReady(a) {
     holder.addEventListener('click', (e) => {
       const act = e.target.closest('[data-act]')?.dataset.act;
       if (busy) return;
-      if (act === 'ready-keep') close();
-      else if (act === 'ready-ok') {
+      if (act === 'ready-ok') {
         const returns = keys.filter((k) => picked[k]);
         if (!returns.length) { paint(true); return; }
         busy = true; paint();
@@ -476,6 +518,7 @@ function wire(root) {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'message') go('t-thread');
     else if (act === 'home') go(personaHome('tailor'));
+    else if (act === 'open-payout' && a) { setFocus(a.id); go('t-payout'); }
     else if (act === 'start-fitting' && a) {
       /* K-01 (B2): Start fitting lands straight on the editor */
       run('start', () => {

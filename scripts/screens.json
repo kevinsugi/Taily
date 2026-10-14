@@ -2,7 +2,7 @@
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
     "syncedAt": "2026-10-14",
-    "milestone": "M5",
+    "milestone": "M6",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -124,7 +124,10 @@
       "t-payout": "852:4606"
     },
     "variables": {
-      "semantic/warning-ink": "VariableID:821:4344"
+      "semantic/warning-ink": "VariableID:821:4344",
+      "neutral/500-ink": "VariableID:856:5018",
+      "semantic/success-ink": "VariableID:856:5019",
+      "semantic/error-ink": "VariableID:856:5020"
     }
   }
 }

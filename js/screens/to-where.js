@@ -8,7 +8,7 @@ import { register, render as go, back, currentScreen } from '../app.js';
 import { state, T, SECTIONS } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, toggle, field, zipList, customerPreview,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, toggle, field, zipList, customerPreview, miniProfile,
   actionBar, wireToggles, toast, modalOverlay, leaveModal, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
@@ -35,7 +35,7 @@ const MSG = {
   'fee-missing': 'Enter your home-visit fee, or 0 for none.',
   'fee-invalid': `Enter a whole-dollar fee up to ${fmt(cents(TAILOR_LIMITS.FEE_MAX))}.`,
 };
-const FEE_HELP = 'Added to every home visit and paid to you in full — Taily takes no fee on it.';
+const FEE_HELP = 'Added to every home visit and paid to you in full. If a customer cancels within 24 hours, you keep their deposit instead.';
 const hoodLine = (zip) => (ZIP_INFO[zip]?.hood ? `${ZIP_INFO[zip].hood}, ${SHOP_CITY.city}, ${SHOP_CITY.state}` : `${SHOP_CITY.city}, ${SHOP_CITY.state}`);
 const HELP = { shopZip: (d) => hoodLine(String(d.shop.zip ?? '').trim()), fee: () => FEE_HELP };
 
@@ -88,7 +88,7 @@ function feeCaption(raw) {
 function feePreview(raw) {
   const text = feeCaption(raw);
   return `<div class="to-where__fee-preview" data-fee-preview${text ? '' : ' hidden'}>${customerPreview({
-    html: `<span class="tailor-row__captions to-where__caption" data-money><span class="tailor-row__caption" data-fee-caption>${esc(text)}</span></span>`,
+    html: `<div class="to-where__card info-card">${miniProfile({ name: myTailor().name, initials: myTailor().initials, photo: myTailor().photo, shopName: myTailor().shopName, bio: null })}<div class="to-where__card-foot t-small c-600" data-money data-fee-caption>${esc(text)}</div></div>`,
   })}</div>`;
 }
 
@@ -152,7 +152,7 @@ function view() {
   return `${onboardingHeader({ editing: mode })}<main class="body body--with-bar ${ID} ${ID}--${mode ? 'edit' : 'onboarding'}">
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
-  ${mode ? headingRow(title) : `<div class="${ID}__title">${title}</div>`}
+  ${mode ? headingRow(title, { backRow: true }) : `<div class="${ID}__title">${title}</div>`}
   <p class="to-where__lead t-body c-600">Turn on one or both. Customers only see the visit types you offer.</p>
   <div class="to-where__cards">
     ${shopCard(d)}

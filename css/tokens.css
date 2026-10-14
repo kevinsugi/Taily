@@ -20,7 +20,8 @@
   --neutral-200: #E2DBD0;
   --neutral-300: #C9C1B4;
   --neutral-400: #ABA294;
-  --neutral-500: #857C6F;
+  --neutral-500: #857C6F;        /* glyphs, strokes and control boundaries (D-163) */
+  --neutral-500-ink: #6E665A;    /* secondary TEXT (D-163): 4.5:1+ on white and neutral-50 */
   --neutral-600: #5F584E;
   --neutral-700: #443F38;
 
@@ -31,12 +32,14 @@
   --sage: #5E6B60;               /* Figma: secondary/sage */
 
   --success: #4F7A5B;            /* Figma: semantic/success */
+  --success-ink: #456E50;        /* success TEXT (D-163): the base --success is for glyphs and strokes */
   --success-bg: #E9F0EA;
   --warning: #B7852F;
   --warning-bg: #F6EEDD;
   --warning-ink: #7A5A1E;        /* warning TEXT: 5.5:1 on warning-bg, 5.9:1 on neutral-50 (the base --warning is for glyphs and strokes) */
   --error: #B0553F;
   --error-bg: #F4E4DF;
+  --error-ink: #9A4632;          /* error TEXT (D-163): the base --error is for glyphs and strokes */
   --info: #47698C;
   --info-bg: #E6EDF3;
 

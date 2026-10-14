@@ -38,14 +38,14 @@ function view(s) {
       <div class="${ID}__text">
         <h2 class="t-h2 ${ID}__name">${esc(c.first)} ${esc(c.last)}</h2>
         <p class="t-body ${ID}__phone">${esc(c.phone)}</p>
+        <p class="t-small c-600 ${ID}__caption">You sign in with this number.</p>
         <p class="t-small c-600 ${ID}__email">${esc(c.email)}</p>
       </div>
     </div>
-    <p class="t-small c-600 ${ID}__caption">You sign in with this number.</p>
   </section>
   <nav class="${ID}__list" aria-label="Your account">
-    ${listRow({ title: 'Saved addresses', sub: addrSub, right: String(addrs.length), act: 'addresses' })}
-    ${listRow({ title: 'Payment methods', sub: cardSub, right: String(cards.length), act: 'cards' })}
+    ${listRow({ title: 'Saved addresses', sub: addrSub, act: 'addresses' })}
+    ${listRow({ title: 'Payment methods', sub: cardSub, act: 'cards' })}
     ${listRow({ title: 'Past orders', sub: orderSub, act: 'orders' })}
   </nav>
   <div class="${ID}__out">${cta('Sign out', { variant: 'secondary', attrs: 'data-act="sign-out"' })}</div>

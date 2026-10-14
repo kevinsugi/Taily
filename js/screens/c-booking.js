@@ -12,15 +12,15 @@ import {
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList,
+  sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList, receiptBlock,
 } from '../components.js';
-import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel } from '../scheduler.js';
+import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
 import { fmtWhen, fmtTime, fmtDay, addMinutes, toDate } from '../dates.js';
-import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
+import { VISIT_LABEL, VISIT_MINUTES, SHOP_CITY } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
-import { focusAppt, redirectIfMoved, statusWord } from '../focus.js';
+import { focusAppt, redirectIfMoved, statusWord, bookingTab } from '../focus.js';
 
 const ID = 'c-booking';
 
@@ -81,7 +81,7 @@ function cancelledView(a, t, first) {
     },
     'no-show': {
       pill: 'cancelled', label: 'No-show', title: 'Marked as a no-show',
-      body: `${first} waited until ${fmtTime(addMinutes(a.slot.start, POLICY.NO_SHOW_WAIT_MIN))} and marked the visit as missed. The ${fmtExact(kept)} deposit is kept. Nothing else is charged.`,
+      body: `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}, ${Math.max(0, Math.round((toDate(a.cancel.at).getTime() - toDate(a.slot.start).getTime()) / 60000))} minutes after the start. The ${fmtExact(kept)} deposit is kept. Nothing else is charged.`,
       status: 'Kept',
     },
   }[reason] ?? {
@@ -97,12 +97,12 @@ function cancelledView(a, t, first) {
   } else if (reason === 'no-show') {
     actions = `<p class="t-small c-600">Think this is a mistake? Message ${esc(first)}.</p>
     ${cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' })}
-    ${cta('See other tailors', { variant: 'secondary', attrs: 'data-act="other-tailors"' })}`;
+    ${cta('Find another tailor', { variant: 'secondary', attrs: 'data-act="other-tailors"' })}`;
   } else {
     actions = `${cta(`Book ${esc(first)} again`, { attrs: 'data-act="book-again"' })}
-    ${cta('See other tailors', { variant: 'secondary', attrs: 'data-act="other-tailors"' })}`;
+    ${cta('Find another tailor', { variant: 'secondary', attrs: 'data-act="other-tailors"' })}`;
   }
-  return `${chrome('bookings')}<main class="body ${ID} ${ID}--cancelled" data-s="${ID}">
+  return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--cancelled" data-s="${ID}">
   ${head(a, { pill: cfg.pill, pillLabel: cfg.label, title: cfg.title, body: esc(cfg.body), variant: 'declined' })}
   ${note}
   <div class="${ID}__block">${visitBlock(visitRows(a, t), { title: fmtWhen(a.slot.start), flush: true })}</div>
@@ -133,9 +133,10 @@ function liveView(a, t, first) {
 
   const steps = timeline([
     { state: 'done', title: 'Booked', sub: fmtWhen(confirmedAt(a)) },
-    { state: 'current', title: 'Visit and fitting', sub: `${esc(first)} confirms the final price` },
+    { state: 'current', title: 'Visit and fitting', sub: `You approve the final order` },
     { state: 'todo', title: 'Tailoring' },
     { state: 'todo', title: 'Ready', sub: `Pay the balance, est. ${money(a.money.balance)}` },
+    { state: 'todo', title: 'Back with you' },
   ]);
   const policy = early
     ? `Free cancellation until ${cutoff}. After that, the ${money(deposit)} deposit is kept.`
@@ -145,7 +146,7 @@ function liveView(a, t, first) {
     : `<p class="t-small c-600 ${ID}__late">To change the time now, message ${esc(first)}.</p>`}
     <button type="button" class="${ID}__cancel" data-act="cancel">Cancel booking</button>`;
 
-  return `${chrome('bookings')}<main class="body ${ID}" data-s="${ID}">
+  return `${chrome(bookingTab())}<main class="body ${ID}" data-s="${ID}">
   ${hero}
   <div class="${ID}__block">${visitBlock(visitRows(a, t), { title: fmtWhen(a.slot.start), flush: true })}</div>
   <h2 class="t-h2 ${ID}__h2">What happens next</h2>
@@ -207,14 +208,20 @@ function shopHoursLine(t) {
   return '';
 }
 
+/** P-27: the drop-off address in full — street, city, state and ZIP (Sarah's saved address, D-106). */
+function dropoffAddress() {
+  const ad = state.customer.address ?? {};
+  return [returnAddress(), ad.city ?? SHOP_CITY.city, `${ad.state ?? SHOP_CITY.state} ${ad.zip ?? ''}`.trim()].filter(Boolean).join(', ');
+}
+
 /** The "how it comes back" block per return option (B3). */
 function returnBlock(a, t, first) {
   const shopName = esc(t.shopName);
   if (a.returnOption === 'dropoff') {
-    return `<div class="${ID}__block">${visitBlock([esc(returnAddress())], { title: 'Home drop-off', flush: true })}</div>`;
+    return `<div class="${ID}__block">${visitBlock([esc(dropoffAddress())], { title: 'Home drop-off', flush: true })}</div>`;
   }
   if (a.returnOption === 'courier' && a.courier) {
-    return `<div class="${ID}__block">${courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: returnAddress(), note: 'Paid with your balance.' })}</div>`;
+    return `<div class="${ID}__block">${courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: returnAddress(), note: `Included in the ${fmtExact(a.payments.balance.cents)} you paid when it was ready.` })}</div>`;
   }
   const hours = shopHoursLine(t);
   const rows = [metaRow('', shopName, { icon: 'bag' }), esc(`${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim()), ...(hours ? [esc(hours)] : [])];
@@ -242,7 +249,7 @@ function m4View(a, t, first) {
     'price-change': { title: 'Review your final order', body: 'Approve the final order before any work starts.' },
     'in-progress': { title: `${f} is working on it`, body: `You approved the order. You’ll pay the ${fmtExact(a.money.balance)} balance when it’s ready.` },
     ready: { title: `${f} finished your order`, body: `Pay the ${fmtExact(a.money.balance)} balance to choose how to get it back.` },
-    completed: { title: 'Completed', body: `${f} completed your order on ${fmtDay(completedAt(a))}.` },
+    completed: { title: `All done with ${f}`, body: `${f} completed your order on ${fmtDay(completedAt(a))}.` },
     returning: {
       pickup: { title: 'Ready for pickup', body: `Pick it up at ${shopName}. You’ve paid in full.` },
       dropoff: { title: `${f} will drop it off`, body: `${f} will bring it to your door and message you to agree a time. You’ve paid in full.` },
@@ -254,13 +261,16 @@ function m4View(a, t, first) {
   const early = a.status === 'fitting' || a.status === 'price-change' || a.status === 'in-progress' || a.status === 'ready';
   const stage = a.status === 'returning' || a.status === 'completed' ? 'paid' : 'booked';
   const confirmed = a.status !== 'fitting' && a.status !== 'price-change';
-  const breakdown = customerBreakdown(a.money, { stage, tailorFirst: first, depositState: a.payments.deposit.state, confirmed });
-  const updated = a.status === 'in-progress' && a.priceChange?.changed && a.priceChange?.state === 'approved'
-    ? `<p class="t-small c-600 ${ID}__policy">Updated after the fitting</p>` : '';
+
+  const updated = a.status === 'in-progress' && a.priceChange?.changed && a.priceChange?.state === 'approved';   // P-30: the services row says so
+  const breakdown = a.status === 'completed' ? receiptBlock(a, first)
+    : customerBreakdown(a.money, { stage, tailorFirst: first, depositState: a.payments.deposit.state, confirmed, ...(updated ? { servicesCaption: `${first}’s final prices · updated at the fitting` } : {}) });
 
   let middle = '';
-  let after = '';
-  if (early) middle = `<div class="${ID}__block">${visitBlock(visitRows(a, t), { title: fmtWhen(a.slot.start), flush: true })}</div>`;
+  /* D-169: from the fitting onward the past visit time is demoted — one small line, no count line */
+  const fitted = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status)
+    ? `<p class="t-small c-600 ${ID}__fitted">Fitted ${fmtDay(a.slot.start)} · ${esc(VISIT_LABEL.customer[a.job.visitType])}</p>` : '';
+  if (early && !fitted) middle = `<div class="${ID}__block">${visitBlock(visitRows(a, t), { title: fmtWhen(a.slot.start), flush: true })}</div>`;
   if (a.status === 'returning') {
     middle = returnBlock(a, t, first);
   }
@@ -277,14 +287,14 @@ function m4View(a, t, first) {
     ${cta(`Message ${f}`, { variant: 'secondary', attrs: 'data-act="message"' })}`
     : cta(`Message ${f}`, { attrs: 'data-act="message"' });
 
-  return `${chrome('bookings')}<main class="body ${ID} ${ID}--${a.status}" data-s="${ID}">
+  return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--${a.status}" data-s="${ID}">
   ${hero}
+  ${fitted}
   ${middle}
   ${steps}
   ${order}
   <h2 class="t-h2 ${ID}__h2">${a.status === 'completed' ? 'Receipt' : 'Price'}</h2>
   ${breakdown}
-  ${updated}${after}
   <div class="${ID}__actions">
     ${actions}
   </div>
@@ -294,7 +304,7 @@ function m4View(a, t, first) {
 function view() {
   const a = focusAppt(ID);
   if (!a || dropped(a)) {
-    return `${chrome('bookings')}<main class="body ${ID}" data-s="${ID}">
+    return `${chrome(bookingTab())}<main class="body ${ID}" data-s="${ID}">
   <div class="${ID}__empty" data-empty="no-booking">${emptyState({
     title: 'No booking to show', body: 'Your requests and visits are in Bookings.', ctaLabel: 'Go to Bookings', ctaAct: 'bookings',
   })}</div>
@@ -309,7 +319,7 @@ function view() {
 /* ---------- sheets ---------- */
 
 /** A sheet body that is rebuilt as busy while the simulated network wait runs. */
-function cancelSheetHtml(a, terms, first, busy = false) {
+function cancelSheetHtml(a, terms, first, busy = false, error = '') {
   const early = terms.window === 'early';
   const deposit = a.payments.deposit.cents;
   const rows = early
@@ -322,6 +332,7 @@ function cancelSheetHtml(a, terms, first, busy = false) {
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   <p class="t-body c-700">${text}</p>
   ${moneyRows(rows)}
+  ${error ? banner({ tone: 'error', text: error }) : ''}
   ${cta(label, { variant: 'danger', busy, busyLabel: 'Cancelling…', attrs: 'data-act="cancel-ok"' })}
   ${cta('Keep booking', { variant: 'secondary', disabled: busy, attrs: 'data-act="cancel-keep"' })}
 </div>`;
@@ -334,7 +345,7 @@ function openCancel(a, first) {
   const early = terms.window === 'early';
   sheetOverlay(cancelSheetHtml(a, terms, first), { header: 'Cancel this booking?', dataS: `${ID}--${early ? 'cancel' : 'cancel-late'}`, confirm: false }, (holder, close) => {
     let busy = false;
-    const paint = () => { holder.querySelector(`.${ID}-sheet`).outerHTML = cancelSheetHtml(a, terms, first, busy); };
+    const paint = (error = '') => { holder.querySelector(`.${ID}-sheet`).outerHTML = cancelSheetHtml(a, terms, first, busy, error); };
     holder.addEventListener('click', (e) => {
       const act = e.target.closest('[data-act]')?.dataset.act;
       if (busy) return;
@@ -345,7 +356,7 @@ function openCancel(a, first) {
           if (gone(holder)) return;
           const res = T.cancelBooking(a.id);
           busy = false;
-          if (!res.ok) { paint(); toast('Something went wrong. Your booking is unchanged.', { tone: 'error' }); return; }
+          if (!res.ok) { paint('Something went wrong. Your booking is unchanged. Try again.'); toast('Couldn’t cancel your booking', { tone: 'error' }); return; }   // D-140: the banner carries it, the toast only echoes
           close();
           go(ID);
           toast(early ? `Booking cancelled. ${fmtExact(terms.refund)} refunded.` : 'Booking cancelled.');
@@ -374,8 +385,8 @@ function openReschedule(a, first) {
   let picked = slots[0];
   const sheetHtml = (busy = false, error = '') => `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   ${error ? banner({ tone: 'error', text: error }) : ''}
-  <p class="t-small c-600 ${ID}-sheet__now" data-now>Now: <span class="nb">${fmtWhen(a.slot.start)}</span></p>
-  <div class="${ID}-sheet__wheel">${scheduler({ columns: slotColumns(slots, picked), compact: true, cta: '', inline: true, note: `New time: ${fmtWhen(picked)}` })}</div>
+  <p class="t-small c-600 ${ID}-sheet__now" data-now>Booked for <span class="nb">${fmtWhen(a.slot.start)}</span></p>
+  <div class="${ID}-sheet__wheel">${scheduler({ columns: slotColumns(slots, picked), compact: true, cta: '', inline: true, note: whenNote('New time', picked) })}</div>
   <p class="t-small c-600">Same price. ${esc(first)} is told right away.</p>
   ${cta('Move my visit', { busy, busyLabel: 'Moving…', attrs: 'data-act="move-ok"' })}
   ${cta('Keep current time', { variant: 'secondary', disabled: busy, attrs: 'data-act="resched-keep"' })}
@@ -387,7 +398,7 @@ function openReschedule(a, first) {
       if (!iso) return;
       picked = iso;
       const note = holder.querySelector('[data-sched-note]');
-      if (note) { note.textContent = `New time: ${fmtWhen(iso)}`; note.hidden = false; }
+      if (note) { note.innerHTML = whenNote('New time', iso); note.hidden = false; }
     };
     const paint = (error = '') => {
       holder.querySelector(`.${ID}-sheet`).outerHTML = sheetHtml(busy, error);
@@ -429,7 +440,7 @@ function wire(root) {
   const backBtn = root.querySelector('.back[data-act="back"]');
   if (backBtn) {
     backBtn.dataset.wired = '1';
-    backBtn.addEventListener('click', () => go('c-bookings'));
+    backBtn.addEventListener('click', () => go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings'));
   }
 
   root.addEventListener('click', (e) => {

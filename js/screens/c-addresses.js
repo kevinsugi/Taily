@@ -7,7 +7,7 @@
 import { register, render as go, currentScreen } from '../app.js';
 import { state } from '../state.js';
 import {
-  chrome, headingRow, actionBar, emptyState, field, chipGroup, checkRow, cta, sheetOverlay, toast, wireChipGroups, esc,
+  chrome, headingRow, actionBar, emptyState, field, chipGroup, checkRow, cta, sheetOverlay, toast, wireChipGroups, banner, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import { ADDRESS_LABELS, SHOP_CITY } from '../data.js';
@@ -36,6 +36,7 @@ function card(a, busy) {
     ${a.default ? '' : `<button type="button" class="${ID}__btn t-body w-600 c-accent-ink" data-act="make-default" data-id="${esc(a.id)}"${lock}>${mine && busy.kind === 'make-default' ? verb : 'Make default'}</button>`}
     <button type="button" class="${ID}__btn t-body w-600 c-error" data-act="remove" data-id="${esc(a.id)}"${lock}>${mine && busy.kind === 'remove' ? verb : 'Remove'}</button>
   </div>
+  ${ui().error?.id === a.id ? `<div class="${ID}__error" role="alert">${banner({ tone: 'error', title: ui().error.title, text: ui().error.text })}</div>` : ''}
 </article>`;
 }
 
@@ -140,6 +141,7 @@ function openAdd() {
 /* ---------- remove · make default ---------- */
 function remove(id) {
   const label = list().find((a) => a.id === id)?.label ?? 'Address';
+  ui().error = null;
   ui().busy = { kind: 'remove', id };
   go(ID);
   withLatency(() => {
@@ -147,7 +149,12 @@ function remove(id) {
     if (!onScreen()) return;
     const res = A.removeAddress(id);
     go(ID);
-    if (!res.ok) { toast('Couldn’t remove it', { tone: 'error' }); return; }
+    if (!res.ok) {                                                   // D-140 / A-14: the banner sits on the address, the toast only echoes it
+      ui().error = { id, title: 'Couldn’t remove this address', text: 'Nothing changed. Try again.' };
+      go(ID);
+      toast('Couldn’t remove it', { tone: 'error' });
+      return;
+    }
     const nid = typeof res.newDefault === 'object' ? res.newDefault?.id : res.newDefault;   // the promoted address (id or the address itself)
     const promoted = nid ? list().find((a) => a.id === nid)?.label ?? '' : '';
     toast(`Address removed${promoted ? `. ${promoted} is now your default.` : ''}`, {

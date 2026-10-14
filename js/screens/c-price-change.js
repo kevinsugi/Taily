@@ -68,7 +68,8 @@ function view() {
   ${changeList({ garments: pv.garments })}
   <h2 class="t-h2 ${ID}__h2">Price</h2>
   ${moneyRows(rows)}
-  <p class="t-small c-600 ${ID}__fine">There’s no charge today. If something doesn’t look right, message ${esc(first)} before you approve.</p>
+  <p class="t-small c-600 ${ID}__fine">If something doesn’t look right, message ${esc(first)} before you approve.</p>
+  ${ui().error ? `<div class="${ID}__fail" role="alert">${banner({ tone: 'error', title: 'Couldn’t approve the order', text: 'Nothing changed, and nothing was charged. Try again.' })}</div>` : ''}
 </main>
 ${actionBar({
     ctaLabel: 'Approve and start', ctaAct: 'approve', busy, busyLabel: 'Approving…',
@@ -80,6 +81,7 @@ ${actionBar({
 function approve(a) {
   if (ui().busy) return;
   ui().busy = true;
+  ui().error = false;
   go(ID);
   withLatency(() => {
     ui().busy = false;
@@ -91,8 +93,9 @@ function approve(a) {
       go('c-booking', { fresh: true });
       toast(`Order approved. ${first} can start the work.`, { tone: 'success' });
     } else {
+      ui().error = true;                                            // D-140 / A-14: the banner above the bar carries it, the toast only echoes
       go(ID);
-      toast('Something went wrong. Try again.', { tone: 'error' });
+      toast('Couldn’t approve the order', { tone: 'error' });
     }
   });
 }

@@ -42,7 +42,7 @@ function whyNotShown(t, job) {
 const STEPS = [
   'A customer sends a request with their garments and a time.',
   'Accept, suggest another time, or decline.',
-  'After the fitting you can adjust the price. The customer approves it before you start.',
+  'At the fitting you can add or remove items and services. The customer approves the final order before you start.',
 ];
 
 function view(s) {

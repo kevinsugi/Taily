@@ -26,3 +26,8 @@
 .t-earnings__foot { margin: var(--space-24) 0 0; text-wrap: pretty; }
 .t-earnings__loading { margin-top: var(--space-24); }
 .t-earnings__empty { margin-top: var(--space-24); }
+
+/* M6-T-18: sent back + next in one card — the headline carries the date and the whole amount, the Fix button closes the card */
+.t-earnings__merged { margin: var(--space-4) 0 0; font-variant-numeric: tabular-nums; text-wrap: balance; }
+.t-earnings__tag { display: inline-block; margin-left: var(--space-8); padding: 2px var(--space-8); border-radius: var(--radius-full); background: var(--error-bg); color: var(--error-ink); font-weight: 600; vertical-align: 2px; }
+.t-earnings__fix { margin-top: var(--space-16); }

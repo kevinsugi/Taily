@@ -7,28 +7,19 @@
 import { register, render as go } from '../app.js';
 import { state, tailorById } from '../state.js';
 import {
-  chrome, headingRow, statusHero, metaRow, customerBreakdown, actionBar, emptyState, stars, wireStars, esc,
+  chrome, headingRow, statusHero, receiptBlock, actionBar, emptyState, stars, wireStars, esc,
 } from '../components.js';
-import { fmtDay } from '../dates.js';
-import { RETURN_LABEL } from '../data.js';
-import { focusAppt, setFocus } from '../focus.js';
+import { STAR_WORDS } from '../data.js';
+import { focusAppt, setFocus, bookingTab } from '../focus.js';
 
 const ID = 'c-complete';
 
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
-const completedAt = (a) => [...a.history].reverse().find((h) => h.status === 'completed')?.at ?? a.requestedAt;
-const RETURN_ICON = { pickup: 'bag', dropoff: 'home', courier: 'truck' };
-
-function cardLabel(a) {
-  const c = state.customer.cards.find((x) => x.id === a.balanceCardId);
-  if (c) return `${c.brand} •••• ${c.last4}`;
-  return a.balanceCardId === 'apple-pay' ? 'Apple Pay' : 'your card';
-}
 
 function view() {
   const a = focusAppt(ID);
   if (!a) {
-    return `${chrome('bookings')}<main class="body ${ID}" data-s="${ID}">
+    return `${chrome(bookingTab())}<main class="body ${ID}" data-s="${ID}">
   <div class="${ID}__empty" data-empty="no-booking">${emptyState({
     title: 'Nothing to review', body: 'Completed orders show up in Bookings.', ctaLabel: 'Go to Bookings', ctaAct: 'done',
   })}</div>
@@ -36,22 +27,21 @@ function view() {
   }
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const first = firstOf(t);
-  const how = a.returnOption ?? 'pickup';
-  /* the star group is labelled by the question above it (aria-labelledby), not the generic "Your rating" */
+  /* C-21: c-review's star layout — the group is labelled "Your rating", left-aligned, the word under it */
   const rating = stars({ input: true, name: 'rate', value: 0 }).replace('aria-label="Your rating"', 'aria-labelledby="rate-label"');
-  return `${chrome('bookings')}<main class="body body--with-bar ${ID}" data-s="${ID}">
+  return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${headingRow(statusHero({ pill: 'completed', title: 'All done', body: `${esc(first)} marked your order completed. Thanks for booking with Taily.` }), { backRow: true })}
-  <section class="${ID}__rate" aria-labelledby="rate-label">
-    <h2 class="t-h2" id="rate-label">How did ${esc(first)} do?</h2>
+  <section class="${ID}__rate">
+    <h2 class="t-h2">How did ${esc(first)} do?</h2>
+    <p class="t-body w-600" id="rate-label">Your rating</p>
     ${rating}
-    <p class="t-small c-600">Tap a star to rate. Reviews show on ${esc(first)}’s profile.</p>
+    <p class="t-small c-700 ${ID}__word" id="rate-word" aria-live="polite">${esc(STAR_WORDS[0])}</p>
+    <p class="t-small c-600 ${ID}__hint">Tap a star to rate. Reviews show on ${esc(first)}’s profile.</p>
   </section>
   <h2 class="t-h2 ${ID}__h2">Receipt</h2>
-  <div class="${ID}__how">${metaRow('', esc(`${RETURN_LABEL[how]} · ${fmtDay(completedAt(a))}`), { icon: RETURN_ICON[how] })}</div>
-  ${customerBreakdown(a.money, { stage: 'paid', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true })}
-  <p class="t-small c-600 ${ID}__card">Balance paid with ${esc(cardLabel(a))}.</p>
+  ${receiptBlock(a, first)}
 </main>
-${actionBar({ ctaLabel: 'Leave a review', ctaAct: 'leave-review', secondaryLabel: 'Done', secondaryAct: 'done' })}`;
+${actionBar({ ctaLabel: 'Leave a review', ctaAct: 'leave-review', secondaryLabel: 'Done', secondaryAct: 'done', tertiaryLabel: `Message ${esc(first)}`, tertiaryAct: 'message' })}`;
 }
 
 function wire(root) {
@@ -59,7 +49,7 @@ function wire(root) {
   const backBtn = root.querySelector('.back[data-act="back"]');
   if (backBtn) {
     backBtn.dataset.wired = '1';
-    backBtn.addEventListener('click', () => go('c-bookings'));
+    backBtn.addEventListener('click', () => go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings'));
   }
   wireStars(root);
 
@@ -67,15 +57,16 @@ function wire(root) {
   root.addEventListener('change', (e) => {
     const input = e.target.closest('input[name="rate"]');
     if (!input || !a) return;
-    setFocus(a.id);
+    setFocus(a.id, { keepFrom: true });
     state.ui['c-review'] = { apptId: a.id, stars: Number(input.value) };
     go('c-review');
   });
   root.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (!act || e.target.closest('.screen-sheet--overlay')) return;
-    if (act === 'leave-review' && a) { setFocus(a.id); state.ui['c-review'] = { apptId: a.id }; go('c-review'); }
-    else if (act === 'done') go('c-bookings', { fresh: true });
+    if (act === 'message') { if (a) setFocus(a.id, { keepFrom: true }); go('c-thread'); }
+    else if (act === 'leave-review' && a) { setFocus(a.id, { keepFrom: true }); state.ui['c-review'] = { apptId: a.id }; go('c-review'); }
+    else if (act === 'done') go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings', { fresh: true });
   });
 }
 

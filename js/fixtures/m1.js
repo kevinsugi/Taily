@@ -8,6 +8,7 @@ import { SCENARIOS, AMARA } from './money-scenarios.js';
 import { fmt, fmtExact } from '../money.js';
 
 import * as A from '../account.js';
+import { draftAgain as CT_draftAgain } from './common.js';
 
 export const FLOWS_c_welcome = [
   { key: 'c-welcome', screen: 'c-welcome', group: 'M1 · Sign in', title: 'Welcome', note: 'Signed out: phone first, Apple / Google quieter',
@@ -59,6 +60,10 @@ export const FLOWS_c_job = [
   { key: 'c-job', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — Sarah’s items',
     note: 'Suit pant + suit jacket, services chosen',
     expect: { has: ['Suit Pant', 'Suit Jacket', 'Hem pants', 'Shorten sleeves · Take in jacket sides', '2 items', '1 of 5'] } },
+  { key: 'c-job--active', screen: 'c-job', group: 'M1 · Booking', title: 'Home — a booking in flight',
+    note: 'Amara finished the order: its row leads (pill, balance, Pay now), the wizard waits under Book something else (D-168)',
+    setup: (S) => { S.driveTo('ready'); },
+    expect: { has: ['Amara Reyes', 'Ready', fmt(SCENARIOS.seed.balance), 'Pay now', 'BOOK SOMETHING ELSE', 'What needs work'], sel: '[data-active-appt] .appt-row' } },
   { key: 'c-job--max', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — ten items',
     note: 'At the cap: the grid is off and says so',
     setup: (S) => { for (let i = 0; i < 8; i += 1) { const r = S.T.addGarment('Pants / Jeans'); S.T.setServices(r.garment.id, ['hem-pants']); } },
@@ -120,10 +125,14 @@ export const FLOWS_c_tailors = [
   { key: 'c-tailors', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you',
     note: 'Amara, home visit, seed job',
     expect: { has: ['Tailors near you', `Est. ${fmt(SCENARIOS.seed.total)}`, `Includes ${fmt(SCENARIOS.seed.homeFee)} home-visit fee`, '0.6 mi', 'Next opening Thu, Oct 15 · 5:00 PM', '3 of 5'] } },
+  { key: 'c-tailors--booked', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — already booked',
+    note: 'Amara has a confirmed booking: her row says so (D-158)',
+    setup: (S) => { S.driveTo('confirmed'); CT_draftAgain(); },
+    expect: { has: ['You have a booking with Amara on Thu, Oct 15'], sel: '.tailor-row__booked' } },
   { key: 'c-tailors--rush', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — rush fee',
     note: 'Need-by Fri Oct 16: the row adds the rush fee',
     setup: (S) => { S.T.setJob({ needBy: '2026-10-16' }); },
-    expect: { has: [`Est. ${fmt(SCENARIOS.rush.total)}`, `+ ${fmt(SCENARIOS.rush.rush)} rush fee`] } },
+    expect: { has: [`Est. ${fmt(SCENARIOS.rush.total)}`, `Includes ${fmt(SCENARIOS.rush.homeFee)} home-visit fee and ${fmt(SCENARIOS.rush.rush)} rush fee`] } },
   { key: 'c-tailors--empty-zip', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — ZIP outside',
     note: 'Sarah in 11201: no tailor visits',
     setup: (S) => { S.T.setJob({ zip: '11201', address: { ...S.job.address, zip: '11201' } }); },
@@ -139,7 +148,7 @@ export const FLOWS_c_tailors = [
   { key: 'c-tailors--declined', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — declined',
     note: 'Amara declined this job; her row is dimmed',
     setup: (S) => { S.driveTo('declined'); },
-    expect: { has: ['Declined this job', 'Your job details are saved', 'Start a different job'], not: ['Est.', 'Next opening'], sel: '.tailor-row--declined' } },
+    expect: { has: ['Declined this job', 'Your job details are saved', 'Start a different job', 'Change need-by date', 'Change ZIP'], not: ['Est.', 'Next opening', 'Sort:'], sel: '.tailor-row--declined' } },
   { key: 'c-tailors--sort', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — sort sheet',
     note: 'Sort by: four options',
     click: ['[data-act="sort"]'],
@@ -148,7 +157,7 @@ export const FLOWS_c_tailors = [
 export const FLOWS_c_tailor = [
   { key: 'c-tailor', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile',
     note: 'Amara, shop + home, 4 reviews',
-    expect: { has: ['Amara Reyes', 'Reyes Tailoring', 'Ask a question', 'Your estimate', `Est. ${fmt(SCENARIOS.seed.total)}`, '312 Metropolitan Ave', 'Taily courier', 'Priya S.', '4 of 5'] } },
+    expect: { has: ['Amara Reyes', 'Reyes Tailoring', 'Ask a question', 'Your estimate', `Est. ${fmt(SCENARIOS.seed.total)}`, '312 Metropolitan Ave', 'Taily courier', 'Priya S.', '3 of 5'] } },
   { key: 'c-tailor--no-reviews', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — no reviews',
     note: 'New on Taily',
     setup: (S) => { S.T.setTailorSection('profile', { reviews: [], rating: { avg: 0, count: 0 } }); },
@@ -164,7 +173,7 @@ export const FLOWS_c_tailor = [
   { key: 'c-tailor--declined', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — declined',
     note: 'Amara can’t take this job; the way forward is a different job',
     setup: (S) => { S.driveTo('declined'); },
-    expect: { has: ['Amara can’t take this job', 'Start a different job'], not: ['Ask a question', 'Pick a time'], sel: '[data-act="new-job"]' } },
+    expect: { has: ['Amara can’t take this job', 'Start a different job'], not: ['Ask a question', 'Est. $'], sel: '[data-act="new-job"]' } },
   { key: 'c-tailor--reviewed', screen: 'c-tailor', group: 'M4 · Completed', title: 'Tailor profile — with Sarah’s new review',
     note: 'After a 5-star review: Sarah C. first, the count is one higher',
     setup: (S) => { const a = S.driveTo('reviewed'); S.state.ui.booking = { tailorId: a.tailorId, from: 'review' }; },
@@ -172,7 +181,7 @@ export const FLOWS_c_tailor = [
 ];
 export const FLOWS_c_book = [
   { key: 'c-book', screen: 'c-book', group: 'M1 · Booking', title: 'Pick a time', note: 'Scheduler on Amara’s open times; first slot Thu, Oct 15',
-    expect: { has: ['Pick a time', 'Thu, Oct 15', '60-minute visit', 'Continue', '5 of 5'], sel: '[data-scheduler] [role="listbox"][aria-label="AM/PM"][aria-activedescendant] [role="option"][aria-selected="true"]' } },
+    expect: { has: ['Pick a time', 'Thu, Oct 15', '60-minute visit', 'Next: review and send', '4 of 5'], sel: '[data-scheduler] [role="listbox"][aria-label="AM/PM"][aria-activedescendant] [role="option"][aria-selected="true"]' } },
   { key: 'c-book--no-slots', screen: 'c-book', group: 'M1 · Booking', title: 'Pick a time — nothing before the need-by', note: 'Need-by Thu, Oct 15: no visit a day earlier is open',
     setup: (S) => { S.T.setJob({ needBy: '2026-10-15' }); },
     expect: { has: ['No open times before Thu, Oct 15', 'Change need-by date', 'Message Amara'], sel: '[data-empty="no-slots"]' } },

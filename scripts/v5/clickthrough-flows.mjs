@@ -194,7 +194,7 @@ if (!DUMP && !ONLY.length) {
     if (!tabs.includes(t)) continue;
     await page.click(`.flow-menu__tab[data-tab="${t}"]`);
     const shown = await page.$$eval('[data-flow]', (els) => els.map((e) => e.dataset.flow));
-    const want = all.filter((f) => (t === 'system' ? /^sys-/.test(f.screen) : personaOf(f) === t)).map((f) => f.key);
+    const want = all.filter((f) => (t === 'system' ? /^sys-/.test(f.screen) || /^sys-/.test(f.key) : personaOf(f) === t)).map((f) => f.key);
     check(`menu: ${t} tab lists its entries`, shown.length === want.length && want.every((k) => shown.includes(k)), `shown=${shown.length} want=${want.length}`);
   }
   const tab = /^sys-/.test(first.screen) ? 'system' : personaOf(first) === 'tailor' ? 'tailor' : 'customer';

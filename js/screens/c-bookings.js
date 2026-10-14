@@ -5,7 +5,7 @@
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { state, apptsFor, tailorById, statusScreen, now, priceChangeView } from '../state.js';
-import { chrome, headingRow, apptRow, emptyState } from '../components.js';
+import { chrome, headingRow, apptRow, emptyState, banner, toast, esc } from '../components.js';
 import { fmtColumn } from '../money.js';
 import { fmtWhen, fmtCountdown, toDate } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
@@ -22,6 +22,8 @@ const PROGRESS = ['fitting', 'price-change', 'in-progress', 'ready', 'returning'
 const STEP = { fitting: 'Fitting', 'price-change': 'Final order', 'in-progress': 'Tailoring', ready: 'Ready' };
 /** An in-progress row's time line: the step and since when ("Out for delivery · since 5:00 PM"), never the past visit time. */
 const stepLine = (a) => `${STEP[a.status] ?? statusWord(a, 'customer').label} · ${sinceText(a)}`;
+/** The ready / in-progress rows: the pill already names the step, so the sub is only since when (C-19). */
+const sinceCap = (a) => { const t = sinceText(a); return t[0].toUpperCase() + t.slice(1); };
 const dropped = (a) => a.status === 'cancelled' && ['withdrawn', 'switched'].includes(a.cancel?.reason);
 const lastAt = (a) => ms(a.history[a.history.length - 1]?.at ?? a.requestedAt);
 
@@ -62,7 +64,7 @@ function rowFor(a, kind, fmtAmt) {
     id: a.id,
     name: t.name,
     initials: t.initials,
-    when: kind === 'progress' ? stepLine(a) : fmtWhen(a.status === 'suggested' && a.suggested ? a.suggested.start : a.slot.start),
+    when: kind === 'progress' ? (['ready', 'in-progress'].includes(a.status) ? sinceCap(a) : stepLine(a)) : fmtWhen(a.status === 'suggested' && a.suggested ? a.suggested.start : a.slot.start),
     place: VISIT_LABEL.customer[a.job.visitType],
     status,
     pillLabel,
@@ -90,7 +92,7 @@ function rowFor(a, kind, fmtAmt) {
   } else if (kind === 'past') {
     /* R3-2-C-06 / R3-1-C-13: say what happened to the deposit, in dollars, and who ended it */
     const dep = a.payments.deposit;
-    const word = { refunded: 'Refunded', kept: 'Deposit kept', released: 'Hold released' }[dep.state];
+    const word = { refunded: 'Refunded', kept: 'Kept', released: 'Hold released' }[dep.state];   // C-10: the D-135 words (Paid / Refunded / Kept)
     if (word) { row.amountText = fmtAmt(dep.cents); row.amountCaption = word; }
     if (a.status === 'cancelled') {
       const r = a.cancel?.reason;
@@ -134,7 +136,12 @@ function view() {
     <h2 class="t-h2" id="${ID}-${kind}">${TITLES[kind]}</h2>
     <div class="${ID}__rows">${list.map((a) => rowFor(a, kind, fmtAmt)).join('')}</div>
   </section>`).join('\n  ');
+  /* M6-X-11: notifications off while a request waits — the reply is the thing she would miss (the tailor's Home has the same banner, D-85) */
+  const waiting = groups.requests.find((a) => a.status === 'requested');
+  const push = state.sim.push === 'denied' && waiting
+    ? `<div class="${ID}__push">${banner({ tone: 'warning', title: 'Notifications are off', text: `Turn on notifications to hear the moment ${esc(firstOf(tailorById(waiting.tailorId)))} replies.`, actionLabel: 'Open Settings', actionAct: 'push-settings' })}</div>` : '';
   return `${head}
+  ${push}
   ${blocks}
 </main>`;
 }
@@ -148,6 +155,10 @@ function wire(root) {
       if (!a) return;
       setFocus(a.id);
       go(statusScreen(a, 'customer'));
+    } else if (el.dataset.act === 'push-settings') {
+      state.sim.push = 'granted';                 // prototype stand-in for the OS toggle (D-85)
+      go(ID);
+      toast('Notifications are on');
     } else if (el.dataset.act === 'home') go('c-job', { fresh: true });
   });
 }

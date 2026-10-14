@@ -19,7 +19,10 @@ function personaOf(screenId) {
 const dropped = (a) => a.status === 'cancelled' && ['withdrawn', 'switched'].includes(a.cancel?.reason);
 
 /** Name the appointment the next detail screen shows. */
-export function setFocus(id) { state.ui.apptId = id; }
+export function setFocus(id, { keepFrom = false } = {}) { state.ui.apptId = id; if (!keepFrom) delete state.ui.from; }
+/** Which top-nav tab a booking-detail screen (c-booking, c-complete, c-review) keeps lit: Account when it was opened from Past orders
+    (c-orders sets `state.ui.from = 'account'` after `setFocus`, M6-T-20), else Bookings. Any later `setFocus` clears it. */
+export const bookingTab = () => (state.ui.from === 'account' ? 'account' : 'bookings');
 
 /** The appointment for `screenId`: the focused one when it belongs to `persona` and lands on this screen,
     else the persona's newest appointment whose statusScreen is this screen, else null. */
@@ -68,7 +71,7 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
     case 'ready': return customer ? { pill: 'action', label: 'Ready' } : waiting;
     case 'returning': {
       const how = appt.returnOption ?? 'pickup';
-      if (how === 'dropoff') return customer ? { pill: 'returning', label: pick('Return scheduled', 'Drop-off') } : { pill: 'action', label: 'To drop off' };
+      if (how === 'dropoff') return customer ? { pill: 'returning', label: pick('Coming to you', 'Drop-off') } : { pill: 'action', label: 'To drop off' };
       if (how === 'courier') return customer ? { pill: 'returning', label: pick('Out for delivery', 'Courier') } : { pill: 'returning', label: pick('Courier booked', 'Courier') };
       return { pill: 'returning', label: pick('Ready for pickup', 'Pickup') };
     }
@@ -82,4 +85,14 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
 export function sinceText(appt) {
   const at = [...appt.history].reverse().find((h) => h.status === appt.status)?.at ?? appt.slot.start;
   return `since ${isoDay(at) === isoDay(now()) ? fmtTime(at) : fmtDay(at)}`;
+}
+
+/** The return step word on a returning order (D-106, D-170), one source for the t-home rows and the status words:
+    tailor — Ready for pickup · To drop off · Courier booked; customer — (pickup) Ready for pickup · Drop-off · Out for delivery. */
+export function returnStep(appt, persona = state.persona) {
+  const how = appt?.returnOption ?? 'pickup';
+  const customer = persona !== 'tailor';
+  if (how === 'dropoff') return customer ? 'Drop-off' : 'To drop off';
+  if (how === 'courier') return customer ? 'Out for delivery' : 'Courier booked';
+  return 'Ready for pickup';
 }

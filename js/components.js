@@ -52,12 +52,18 @@ export const NAV = {
   customer: [['home', 'Home'], ['bookings', 'Bookings'], ['messages', 'Messages'], ['account', 'Account']],
   tailor: [['home', 'Home'], ['shop', 'Shop'], ['earnings', 'Earnings'], ['messages', 'Messages']],
 };
-export function topNav(active = 'home', items = NAV.customer) {
+/**
+ * Top nav. `badges` (D-164): `{ home: 2, messages: 1 }` — a count above 0 draws an 8 px accent dot after the label and a spoken
+ * ", n unread" (messages) / ", n new" (anything else). The dot hangs off the label, so the four links never shift.
+ */
+export function topNav(active = 'home', items = NAV.customer, { badges = {} } = {}) {
 
   const links = items.map(([key, label]) => {
     const isActive = key === active;
+    const n = Number(badges[key]) || 0;
+    const mark = n > 0 ? `<span class="top-nav__dot" aria-hidden="true"></span><span class="sr-only">, ${n} ${key === 'messages' ? 'unread' : 'new'}</span>` : '';
     return `<a class="top-nav__link${isActive ? ' is-active' : ''}" href="#" data-nav="${key}"${isActive ? ' aria-current="page"' : ''}>
-      <span>${label}</span>${isActive ? '<span class="top-nav__stitch"></span>' : ''}
+      <span class="top-nav__label">${label}${mark}</span>${isActive ? '<span class="top-nav__stitch"></span>' : ''}
     </a>`;
   }).join('\n    ');
 
@@ -71,7 +77,26 @@ export function topNav(active = 'home', items = NAV.customer) {
 
 /** Both chrome pieces, in the order screens use them. */
 export function chrome(active = 'home', { persona = 'customer', time = '9:41' } = {}) {
-  return statusBar(time) + '\n' + topNav(active, NAV[persona] ?? NAV.customer);
+  return statusBar(time) + '\n' + topNav(active, NAV[persona] ?? NAV.customer, { badges: navBadges(persona) });
+}
+
+/**
+ * The top-nav counts (D-164), computed from the live model. Tailor: Home = requests waiting on her reply + price-change
+ * replies waiting on her; Messages = unread across her threads. Customer: Messages = unread; Bookings = bookings that
+ * need her ("action" status word).
+ */
+export function navBadges(persona = 'customer') {
+  if (persona === 'tailor') {
+    const replies = apptsFor('tailor').filter((a) => a.status === 'price-change' && statusWord(a, 'tailor').pill === 'action').length;
+    return {
+      home: inbox().requests.length + replies,
+      messages: threadsFor('tailor').reduce((n, t) => n + t.unread, 0),
+    };
+  }
+  return {
+    messages: threadsFor('customer').reduce((n, t) => n + t.unread, 0),
+    bookings: apptsFor('customer').filter((a) => statusWord(a, 'customer').pill === 'action').length,
+  };
 }
 
 /* ============================================================
@@ -86,6 +111,9 @@ import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
 import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay } from './dates.js';
 import { POLICY } from './money-config.js';
+import { state, apptsFor, threadsFor } from './state.js';
+import { inbox } from './tailor-data.js';
+import { statusWord } from './focus.js';
 
 /**
  * CTA — variant: 'default' | 'secondary' | 'danger' (error fill + white text: the ONE filled button of a destructive confirm sheet, D-79).
@@ -229,7 +257,9 @@ export function garmentTile(type, { qty = 0, attrs = '', addDisabled = false } =
    ============================================================ */
 
 /** CTA_Small — outline action inside cards. */
-export function ctaSmall(label, { attrs = '' } = {}) {
+export function ctaSmall(label, { attrs = '', href = '' } = {}) {
+  /* `href` = a link that looks the same (Directions, Add to calendar: D-173); extra `attrs` carry target / rel / download */
+  if (href) return `<a class="cta-small" href="${esc(href)}" ${attrs}>${label}</a>`;
   return `<button type="button" class="cta-small" ${attrs}>${label}</button>`;
 }
 
@@ -253,7 +283,7 @@ export function statusHero({ variant = 'requested', pill, pillLabel, title, titl
   /* `pillLabel` (R7): a custom pill caption on the same variant —
      03/Reminder's "Confirmed · fee non-refundable" once the visit is confirmed */
   if (pill !== false) parts.push(statusPill(pill ?? PILL_FOR[variant], pillLabel));
-  if (title) parts.push(`<h2 class="status-hero__title${titleWeight === 600 ? ' w-600' : ''}${titleColor ? ` c-${titleColor}` : ''}">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h2>`);
+  if (title) parts.push(`<h1 class="status-hero__title${titleWeight === 600 ? ' w-600' : ''}${titleColor ? ` c-${titleColor}` : ''}">${title}${titleLine2 ? `<br>${titleLine2}` : ''}</h1>`);
   /* round 16 (Kevin): the explanation (body + extra) is its own block —
      headingRow() lifts it out of the Back row so it sits at the screen
      padding, not under the title (the markers are its handle) */
@@ -381,16 +411,21 @@ export function selector(type, value, options = [], { attrs = '', chevron = true
 
 /** Sheet chassis. `open` = null renders static (gallery/diff). `confirm: false` drops the header ✓ (R1-1-C-02):
     keep the ✓ only where it is the sole commit; a sheet with its own CTAs gets one dismiss (✕) and its own buttons. */
-export function sheet(contentHtml, { open = null, header = null, grabber = true, variant = '', confirm = true } = {}) {
+let sheetSeq = 0;
+export function sheet(contentHtml, { open = null, header = null, grabber = true, variant = '', confirm = true, ariaLabel = '' } = {}) {
   const hostAttr = open === null ? '' : ` data-open="${open}"`;
+  /* M6-A-09: the dialog is named by its title (aria-labelledby); a headerless sheet is named by `ariaLabel`, or sheetOverlay
+     points it at the first h2 of its content */
+  const titleId = `sheet-title-${++sheetSeq}`;
+  const name = header ? ` aria-labelledby="${titleId}"` : ariaLabel ? ` aria-label="${esc(ariaLabel)}"` : '';
   const head = header
-    ? `<div class="sheet__header"><button type="button" class="sheet__cancel" data-act="sheet-cancel" aria-label="Close">✕</button><span class="sheet__title">${header}</span>${confirm
+    ? `<div class="sheet__header"><button type="button" class="sheet__cancel" data-act="sheet-cancel" aria-label="Close">✕</button><span class="sheet__title" id="${titleId}">${header}</span>${confirm
       ? '<button type="button" class="sheet__confirm" data-act="sheet-confirm" aria-label="Done">✓</button>'
       : '<span class="sheet__spacer" aria-hidden="true"></span>'}</div>`
     : '';
   return `<div class="sheet-host"${hostAttr}>
   <div class="sheet-scrim" data-act="sheet-cancel"></div>
-  <div class="sheet${variant ? ' sheet--' + variant : ''}" role="dialog" aria-modal="true">
+  <div class="sheet${variant ? ' sheet--' + variant : ''}" role="dialog" aria-modal="true"${name}>
     ${grabber ? '<div class="sheet__grabber-row"><span class="sheet__grabber"></span></div>' : ''}
     ${head}
     ${contentHtml}
@@ -411,7 +446,16 @@ export function wireSheetA11y(root, dismiss) {
   const items = () => [...panel.querySelectorAll(FOCUSABLE)].filter((e) => !e.disabled && e.offsetParent !== null);
   // preventScroll: focusing the ✕ must not scroll the sheet into view —
   // on windows shorter than the screen that pans the whole page.
-  items()[0]?.focus({ preventScroll: true });
+  const first = items()[0];
+  if (first) {
+    /* M6-C-25: programmatic focus shows no ring (data-pfocus), the first key press hands the ring back */
+    first.dataset.pfocus = '';
+    first.focus({ preventScroll: true });
+    const clear = () => { delete first.dataset.pfocus; root.ownerDocument.removeEventListener('keydown', clear, true); first.removeEventListener('blur', clear); };
+    root.ownerDocument.addEventListener('keydown', clear, true);
+    first.addEventListener('blur', clear);
+  }
+  wireRadioRows(root);
   root.ownerDocument.addEventListener('keydown', function onKey(e) {
     if (!root.isConnected) { root.ownerDocument.removeEventListener('keydown', onKey); return; }
     if (e.key === 'Escape') { e.preventDefault(); dismiss(); }
@@ -468,7 +512,7 @@ function freezePage(doc) {
 /** Is an overlay (sheet / modal / viewer) currently mounted? */
 export const overlayOpen = () => activeOverlay !== null;
 
-export function sheetOverlay(contentHtml, { header = null, variant = '', dataS = '', confirm = true } = {}, wireFn) {
+export function sheetOverlay(contentHtml, { header = null, variant = '', dataS = '', confirm = true, ariaLabel = '' } = {}, wireFn) {
   const screenEl = document.getElementById('screen');
   // one overlay at a time (a closing one, mid slide-out, doesn't count)
   if (screenEl.querySelector('.screen-sheet--overlay:not(.is-closing)')) return () => {};
@@ -477,7 +521,13 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
   const holder = document.createElement('div');
   holder.className = 'screen-sheet screen-sheet--overlay';
   if (dataS) holder.dataset.s = dataS;
-  holder.innerHTML = sheet(contentHtml, { header, variant, open: false, confirm });
+  holder.innerHTML = sheet(contentHtml, { header, variant, open: false, confirm, ariaLabel });
+  /* M6-A-09: a headerless sheet with no `ariaLabel` is named by its first h2 */
+  const panelEl = holder.querySelector('.sheet');
+  if (!header && !ariaLabel) {
+    const h = panelEl.querySelector('h2');
+    if (h) { h.id ||= `sheet-title-${++sheetSeq}`; panelEl.setAttribute('aria-labelledby', h.id); }
+  }
 
   /* Pin the overlay to the VISIBLE part of the screen column
      (viewport ∩ screen). Absolute inset-0 would anchor the sheet to the
@@ -588,7 +638,7 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
  * prototype's scope (calendar, profile, reviews). Ink pill, bottom of
  * the viewport, auto-dismisses.
  */
-export function toast(msg, { tone = 'neutral', action = '', onAction = null, ms = action ? 5000 : 2200 } = {}) {
+export function toast(msg, { tone = 'neutral', action = '', onAction = null, ms = action ? 5000 : tone === 'error' ? 6000 : 4000 } = {}) {
   document.querySelector('.toast')?.remove();
   const el = document.createElement('div');
   el.className = tone === 'neutral' ? 'toast' : `toast toast--${tone}`;   // v5: neutral | success | warning | error | info
@@ -632,7 +682,7 @@ export function wheel(columns) {
 /**
  * Scrollable wheel (v3 wheelScrolled parity) — used by the live overlay;
  * the static wheel() above stays frame-exact for the diff harness.
- * columns: [{ width, rows: [strings], sel, label }] — 40px rows, 80px pads so
+ * columns: [{ width, rows: [strings], sel, label }] — 44px rows, 88px pads so
  * every row can reach the selection band. Call wireWheel() after mount.
  *
  * R1-2-C-01: each column is a keyboard-operable listbox — `role="listbox"`,
@@ -683,8 +733,8 @@ const WHEEL_KEYS = { ArrowUp: -1, ArrowDown: 1, PageUp: -5, PageDown: 5 };
  * from each column's data-sel. Keys move the selection one row (PageUp /
  * PageDown five, Home / End to the ends) and report it at once.
  */
-/* round 17: `rowH` — the Scheduler's wheel runs a 36px pitch */
-export function wireWheel(root, onChange, rowH = 40) {
+/* `rowH` — every wheel runs a 44px pitch (rows are tap targets, M6-V-02); the Scheduler passes SCHED_ROW */
+export function wireWheel(root, onChange, rowH = 44) {
   root.querySelectorAll('.wheel__col--scroll').forEach((col) => {
     col.scrollTop = Number(col.dataset.sel) * rowH;
     let timer;
@@ -703,6 +753,15 @@ export function wireWheel(root, onChange, rowH = 40) {
         onChange?.();
       }, 80);
     });
+    /* keys and clicks settle a row the same way: mark it, scroll to it, report it once (the keyed guard) */
+    const settle = (idx) => {
+      markWheelRow(col, idx);
+      keyed = idx;
+      col.scrollTo({ top: idx * rowH, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      onChange?.();
+      /* onChange may snap / re-row the column (readSlot) — keep aria-activedescendant on what it settled */
+      markWheelRow(col, Number(col.dataset.sel));
+    };
     col.addEventListener('keydown', (e) => {
       const rows = col.querySelectorAll('.wheel__row');
       const last = rows.length - 1;
@@ -715,12 +774,15 @@ export function wireWheel(root, onChange, rowH = 40) {
       e.preventDefault();
       idx = Math.max(0, Math.min(last, idx));
       if (idx === cur) return;
-      markWheelRow(col, idx);
-      keyed = idx;
-      col.scrollTo({ top: idx * rowH, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-      onChange?.();
-      /* onChange may snap / re-row the column (readSlot) — keep aria-activedescendant on what it settled */
-      markWheelRow(col, Number(col.dataset.sel));
+      settle(idx);
+    });
+    /* M6-A-12: a tap on a row (pointer, or a screen reader's activate) moves the selection to it */
+    col.addEventListener('click', (e) => {
+      const row = e.target.closest('.wheel__row');
+      if (!row || !col.contains(row)) return;
+      const idx = [...col.querySelectorAll('.wheel__row')].indexOf(row);
+      if (idx < 0 || idx === (Number(col.dataset.sel) || 0)) return;
+      settle(idx);
     });
   });
 }
@@ -742,14 +804,16 @@ export function bubble(text, side = 'them') {
 
 /** Timeline of steps — steps: [{ state:'done'|'current'|'todo', title, sub }]. */
 export function timeline(steps) {
+  /* M6-A-15: an ordered list; the state is spoken ("Done: " / "Now: " / "Next: "), the dot glyph is decoration */
+  const SAY = { done: 'Done: ', current: 'Now: ', todo: 'Next: ' };
   const rows = steps.map(({ state, title, sub }) => {
     const glyph = state === 'done' ? '✓' : state === 'current' ? '●' : '';
-    return `<div class="step step--${state}">
-    <span class="step__dot">${glyph}</span>
-    <span class="step__labels"><span class="step__title">${title}</span>${sub ? `<span class="step__sub">${sub}</span>` : ''}</span>
-  </div>`;
+    return `<li class="step step--${state}"${state === 'current' ? ' aria-current="step"' : ''}>
+    <span class="step__dot" aria-hidden="true">${glyph}</span>
+    <span class="step__labels"><span class="step__title"><span class="sr-only">${SAY[state] ?? ''}</span>${title}</span>${sub ? `<span class="step__sub">${sub}</span>` : ''}</span>
+  </li>`;
   }).join('');
-  return `<div class="timeline">${rows}</div>`;
+  return `<ol class="timeline">${rows}</ol>`;
 }
 
 /** White r16 p16 card of rows (07b summary, 08 receipt, 03 request). */
@@ -813,6 +877,8 @@ export const ICON_IMAGE = GLYPH('<rect x="2" y="3" width="12" height="10" rx="2"
 export const ICON_BELL = GLYPH('<path d="M3.6 11.2h8.8l-1.1-1.6V6.8a3.3 3.3 0 0 0-6.6 0v2.8z"/><path d="M6.6 13.4a1.5 1.5 0 0 0 2.8 0"/>');
 /** Wi-Fi with a slash (the offline banner). */
 export const ICON_WIFI_OFF = GLYPH('<path d="M1.6 6.2a9.6 9.6 0 0 1 3-1.9M14.4 6.2a9.6 9.6 0 0 0-4.4-2.4M4 8.8a5.6 5.6 0 0 1 2-1.2M12 8.8a5.6 5.6 0 0 0-1.4-1M8 12.2h.01"/><path d="M2 2l12 12"/>');
+/** Alert triangle (a failed courier price, M6-P-09). */
+export const ICON_ALERT = GLYPH('<path d="M8 2.4l6 10.4H2z"/><path d="M8 6.6v3M8 11.4h.01"/>');
 
 /* ---------- avatar ---------- */
 /** Avatar — size 'sm' 40 | 'md' 56 | 'lg' 80. Photo wins over initials; `photo: true` = a placeholder photo circle (no <img>). Decorative (the name sits beside it). */
@@ -830,11 +896,13 @@ export function avatar({ initials = '', photo = null, size = 'sm' } = {}) {
  * States: default · rush (adds the "+ $40 rush fee" caption) · declined (dimmed,
  * "Declined this job", aria-disabled, no action). Skeleton: skeleton({ kind: 'tailor-row' }).
  */
-export function tailorRow({ id, name, initials, photo = null, verified = false, rating = null, distanceMi = null, quote = 0, nextOpening = null, visitType = 'home', declined = false, format = fmt } = {}) {
+export function tailorRow({ id, name, initials, photo = null, verified = false, rating = null, distanceMi = null, quote = 0, nextOpening = null, visitType = 'home', declined = false, format = fmt, booked = '' } = {}) {
   const q = typeof quote === 'number' ? { total: quote } : (quote ?? {});
-  const captions = [];
-  if (visitType === 'home' && q.homeFee > 0) captions.push(`Includes ${format(q.homeFee)} home-visit fee`);
-  if (q.rush > 0) captions.push(`+ ${format(q.rush)} rush fee`);
+  /* M6-M-07: one caption, "Includes $35 home-visit fee and $40 rush fee" — no "+" */
+  const incl = [];
+  if (visitType === 'home' && q.homeFee > 0) incl.push(`${format(q.homeFee)} home-visit fee`);
+  if (q.rush > 0) incl.push(`${format(q.rush)} rush fee`);
+  const captions = incl.length ? [`Includes ${incl.join(' and ')}`] : [];
   const meta = [
     rating ? `★ ${rating.avg} (${rating.count})` : '',
     distanceMi != null ? `${Number(distanceMi).toFixed(1)} mi` : '',
@@ -853,6 +921,7 @@ export function tailorRow({ id, name, initials, photo = null, verified = false, 
   </span>
   ${!declined && (captions.length || nextOpening) ? `<span class="tailor-row__lower">${captions.length ? `<span class="tailor-row__captions" data-money>${captions.map((c) => `<span class="tailor-row__caption">${c}</span>`).join('')}</span>` : ''}${nextOpening ? `<span class="tailor-row__next">Next opening ${fmtWhen(nextOpening)}</span>` : ''}</span>` : ''}
   ${declined ? '<span class="tailor-row__note">Declined this job</span>' : ''}
+  ${!declined && booked ? `<span class="tailor-row__booked">${booked}</span>` : ''}
 </button>`;
 }
 
@@ -1016,9 +1085,11 @@ export function checkRow({ id, label, checked = false, caption = '', captionHtml
 export function chipGroup({ name, label = '', options = [], value = null, multi = false, variant = 'chips', error = '' } = {}) {
   const picked = (v) => (multi ? (value ?? []).includes(v) : value === v);
   const labelId = `${name}-label`;
-  const items = options.map((o) => {
+  /* M6-A-11: a single-select group is one tab stop (roving tabindex): the checked chip, else the first enabled one */
+  const stop = multi ? -1 : Math.max(0, options.findIndex((o) => !o.disabled && picked(o.value)) >= 0 ? options.findIndex((o) => !o.disabled && picked(o.value)) : options.findIndex((o) => !o.disabled));
+  const items = options.map((o, i) => {
     const on = picked(o.value);
-    const a11y = multi ? `aria-pressed="${on}"` : `role="radio" aria-checked="${on}"`;
+    const a11y = multi ? `aria-pressed="${on}"` : `role="radio" aria-checked="${on}" tabindex="${i === stop ? 0 : -1}"`;
     return `<button type="button" class="${variant === 'segmented' ? 'segmented__opt' : 'chip chip-group__chip'}${on ? (variant === 'segmented' ? ' is-selected' : ' chip--selected') : ''}" ${a11y} data-act="chip" data-name="${esc(name)}" data-value="${esc(o.value)}"${o.disabled ? ' disabled' : ''}><span class="chip-group__text">${esc(o.label)}</span>${o.caption ? `<span class="chip-group__caption">${esc(o.caption)}</span>` : ''}</button>`;
   }).join('');
   return `<div class="chip-group chip-group--${variant}${error ? ' chip-group--error' : ''}" data-chip-group="${esc(name)}" data-multi="${multi}">
@@ -1051,7 +1122,7 @@ export function stepper({ steps = [], current = 0, done = [], variant = 'default
 }
 
 /** The five booking steps, shown as the first thing in .body on c-job → c-where → c-tailors → c-tailor → c-book / c-pay. */
-export const BOOKING_STEPS = ['What needs work', 'Where and when', 'Tailors near you', 'Tailor', 'Book'];
+export const BOOKING_STEPS = ['What needs work', 'Where and when', 'Choose a tailor', 'Pick a time', 'Review and send'];
 /** bookingSteps(current) — `current` is 0-based; every earlier step reads as done. */
 export function bookingSteps(current = 0) {
   return stepper({ steps: BOOKING_STEPS, current, done: BOOKING_STEPS.slice(0, current).map((_, i) => i), variant: 'compact' });
@@ -1154,34 +1225,53 @@ const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', capture
  * Without it, estimate reads "Due today" and every later stage reads "Paid".
  * The total reads "Estimated total" for `estimate` AND `booked` (D-49) until `confirmed` (the fitting or an approved price change).
  */
-export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '', confirmed = false } = {}) {
+export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '', confirmed = false, refundState = '', servicesCaption = '' } = {}) {
   const est = (stage === 'estimate' || stage === 'booked') && !confirmed;   // D-49: still an estimate until the fitting (or a price change) confirms it
   const deposit = depositState ? (DEPOSIT_STATUS[depositState] ?? 'Paid') : stage === 'estimate' ? 'Due today' : 'Paid';
-  const balance = stage === 'paid' ? 'Paid' : stage === 'ready' ? 'Due now' : 'Due when ready';
+  const balance = stage === 'ready' && q.balance === 0 ? 'Nothing to pay' : stage === 'paid' ? 'Paid' : stage === 'ready' ? 'Due now' : 'Due when ready';   // D-156
   const rows = [
-    { label: 'Services', cents: q.services, caption: tailorFirst ? `${tailorFirst}’s prices` : '' },
+    { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
     q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush, caption: `Need-by ${q.rushDays ?? 1} day${(q.rushDays ?? 1) === 1 ? '' : 's'} after the visit` },
     q.courier > 0 && { label: 'Taily courier', cents: q.courier },
     { label: est ? 'Estimated total' : 'Total', cents: q.total, kind: 'total' },
     { label: 'Deposit', cents: q.deposit, status: deposit },
     { label: 'Balance', cents: q.balance, status: balance },
-    (stage === 'ready' || stage === 'paid') && q.refund > 0 && { label: 'Refund to your card', cents: q.refund },
+    (stage === 'ready' || stage === 'paid') && q.refund > 0 && { label: 'Refund to your card', cents: q.refund, status: refundState === 'refunded' || (!refundState && stage === 'paid') ? 'Refunded' : 'After you choose' },   // D-156
   ].filter(Boolean);
   return moneyRows(rows);
 }
-/** The tailor's breakdown — no courier row (D-04); the Taily fee is a negative row. `feeAfterServices` (M5, D-137, t-payout only)
-    seats the fee row right under Services with `feeCaption`; the default order is unchanged. */
-export function tailorBreakdown(q, { feeAfterServices = false, feeCaption = '' } = {}) {
-  noPercent(feeCaption, 'tailorBreakdown');
-  const fee = { label: 'Taily fee', cents: q.tailyFee, kind: 'negative', caption: feeAfterServices ? feeCaption : '' };
+/** The balance card's label for a receipt ("Visa •••• 4242", "Apple Pay"). */
+function balanceCardLabel(a, id = a.balanceCardId) {
+  const c = state.customer.cards.find((x) => x.id === id);
+  if (c) return `${c.brand} •••• ${c.last4}`;
+  return id === 'apple-pay' ? 'Apple Pay' : 'your card';
+}
+/**
+ * The completed order's receipt, ONE block for c-booking--completed and c-complete (M6-P-11): how it came back and when
+ * (`RETURN_LABEL · Thu, Oct 15`), the paid breakdown, and what paid the balance (or where a refund went, D-156).
+ */
+export function receiptBlock(a, tailorFirst = '') {
+  const how = a.returnOption ?? 'pickup';
+  const done = [...a.history].reverse().find((h) => h.status === 'completed')?.at ?? a.requestedAt;
+  const paid = a.payments.balance?.cents ?? 0;
+  const refund = a.payments.refund?.cents ?? 0;
+  const cardLine = paid > 0 ? `Balance paid with ${balanceCardLabel(a)}.`
+    : refund > 0 ? `${fmtExact(refund)} refunded to ${balanceCardLabel(a, a.cardId)}.` : '';
+  return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', dropoff: 'home', courier: 'truck' }[how] })}</div>
+  ${customerBreakdown(a.money, { stage: 'paid', tailorFirst, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '' })}
+  ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}`;
+}
+/** The tailor's breakdown — no courier row (D-04). One order everywhere (D-165, amends D-137): Services, the Taily fee (a negative
+    row, "On the $125.00 of services only" — its base), Home-visit fee, Rush fee, then the total. */
+export function tailorBreakdown(q, { total = true } = {}) {
+  /* D-172: the per-job figure is "You take home"; "payout" is the bank transfer. `total: false` = the figure is already the card's hero (M6-P-33). */
   return moneyRows([
     { label: 'Services', cents: q.services },
-    feeAfterServices && fee,
+    { label: 'Taily fee', cents: q.tailyFee, kind: 'negative', caption: `On the ${fmtExact(q.services)} of services only` },
     q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush },
-    !feeAfterServices && fee,
-    { label: 'Your payout', cents: q.payout, kind: 'total' },
+    total && { label: 'You take home', cents: q.payout, kind: 'total' },
   ].filter(Boolean));
 }
 
@@ -1205,8 +1295,52 @@ export function wireToggles(root) {
     t.dispatchEvent(new CustomEvent('toggle', { bubbles: true, detail: { id: t.id, checked: on } }));
   });
 }
+/* ---------- radio groups: roving tabindex + arrow keys (M6-A-11) ---------- */
+const radiosOf = (group) => [...group.querySelectorAll('[role="radio"]')].filter((r) => r.closest('[role="radiogroup"]') === group);
+/** One tab stop per group: the checked radio, else the first enabled one. */
+function syncRoving(group) {
+  const all = radiosOf(group);
+  const live = all.filter((r) => !r.disabled);
+  const stop = live.find((r) => r.getAttribute('aria-checked') === 'true') ?? live[0];
+  all.forEach((r) => { r.tabIndex = r === stop ? 0 : -1; });
+}
+const ARROW = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+const rovingRoots = new WeakSet();
+/**
+ * Radio groups of buttons (chips, segmented options, `optionRow`s inside role="radiogroup"): one tab stop, and the arrow keys
+ * move focus AND selection to the neighbour, firing the same click the pointer does (so `chip` / the sheet's own handler runs).
+ * Idempotent per root; the router calls it for every screen and `wireSheetA11y` for every sheet.
+ */
+export function wireRadioRows(root) {
+  root.querySelectorAll('[role="radiogroup"]').forEach(syncRoving);
+  if (rovingRoots.has(root)) return;
+  rovingRoots.add(root);
+  root.addEventListener('keydown', (e) => {
+    const step = ARROW[e.key];
+    const cur = e.target.closest?.('[role="radio"]');
+    if (!step || !cur || e.defaultPrevented) return;
+    const group = cur.closest('[role="radiogroup"]');
+    if (!group) return;
+    const live = radiosOf(group).filter((r) => !r.disabled);
+    const i = live.indexOf(cur);
+    if (i < 0 || live.length < 2) return;
+    e.preventDefault();
+    const next = live[(i + step + live.length) % live.length];
+    next.focus({ preventScroll: true });
+    next.click();
+    /* a handler may re-render the screen: put focus back on the same radio in the new DOM */
+    if (!next.isConnected) {
+      const { name, value } = next.dataset;
+      const again = [...document.querySelectorAll('[role="radio"]')].find((r) => r.dataset.name === name && r.dataset.value === value);
+      again?.focus({ preventScroll: true });
+    }
+    const g = next.isConnected ? group : document.activeElement?.closest?.('[role="radiogroup"]');
+    if (g) syncRoving(g);
+  });
+}
 /** Chip groups: single = radio behaviour, multi = toggle. Announces `chip` { name, value, values }. */
 export function wireChipGroups(root) {
+  wireRadioRows(root);
   root.addEventListener('click', (e) => {
     const b = e.target.closest('[data-act="chip"]');
     if (!b || b.disabled) return;
@@ -1214,7 +1348,7 @@ export function wireChipGroups(root) {
     const multi = group.dataset.multi === 'true';
     const on = (el, v) => { el.classList.toggle(el.classList.contains('segmented__opt') ? 'is-selected' : 'chip--selected', v); el.setAttribute(multi ? 'aria-pressed' : 'aria-checked', String(v)); };
     const all = [...group.querySelectorAll('[data-act="chip"]')];
-    if (multi) on(b, b.getAttribute('aria-pressed') !== 'true'); else all.forEach((el) => on(el, el === b));
+    if (multi) on(b, b.getAttribute('aria-pressed') !== 'true'); else { all.forEach((el) => on(el, el === b)); const g = b.closest('[role="radiogroup"]'); if (g) syncRoving(g); }
     const values = all.filter((el) => (multi ? el.getAttribute('aria-pressed') : el.getAttribute('aria-checked')) === 'true').map((el) => el.dataset.value);
     group.dispatchEvent(new CustomEvent('chip', { bubbles: true, detail: { name: group.dataset.chipGroup, value: b.dataset.value, values } }));
   });
@@ -1260,8 +1394,8 @@ export function onboardingSteps(current = 'profile', done = []) {
  * Onboarding header — onboarding: status bar + a 56 px bar (Back ‹ left when `back`, a 44 px "Finish later" right);
  * editing: the tailor chrome with Shop active. The bar is absolute under the status bar, like the top nav it replaces.
  */
-export function onboardingHeader({ editing = false, back = true } = {}) {
-  if (editing) return chrome('shop', { persona: 'tailor' });
+export function onboardingHeader({ editing = false, back = true, active = 'shop' } = {}) {
+  if (editing) return chrome(active, { persona: 'tailor' });
   return `${statusBar()}
 <div class="ob-bar">
   ${back ? backButton() : '<span class="ob-bar__spacer" aria-hidden="true"></span>'}
@@ -1294,11 +1428,13 @@ export function textArea({ id, label, value = '', rows = 4, max, helper = '', er
 }
 
 /**
- * Service row — a checkbox row; when checked, a whole-dollar `$` price input (`#price-<id>`) with a live
- * "You get $X" caption under it (`data-take`; hidden while null). `payoutText` = the amount already formatted for its column (money.js `fmtColumn`, D-70); default `fmt(payoutCents)`.
+ * Service row — a checkbox row; when checked, a whole-dollar `$` price input (`#price-<id>`) and a live take-home
+ * line on its own full-width line under the row, aligned with the service name (`data-take`; hidden while null; M6-V-01). `payoutText` = the amount already formatted for its column (money.js `fmtColumn`, D-70); default `fmt(payoutCents)`.
  * states: unchecked · checked, empty · checked with price + payout · error.
  */
-export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', error = '' } = {}) {
+/** "You take home $22.50 · Taily fee $2.50" — two nowrap halves, so a narrow column breaks at the dot, never inside an amount (D-172). */
+export const takeHtml = (take, fee = '') => `<span class="service-row__part">You take home ${take}${fee ? '\u00a0·' : ''}</span>${fee ? ` <span class="service-row__part">Taily fee ${fee}</span>` : ''}`;
+export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', feeText = '', error = '' } = {}) {
   const takeHidden = payoutCents == null;
   /* caption as a list (garment types) → one nowrap span per item with its " ·" kept inside (no-break space), and a plain
      space between spans: a line only breaks between whole names and never starts with a "·" */
@@ -1312,9 +1448,9 @@ export function serviceRow({ id, label, caption = '', checked = false, price = '
         <span class="field__affix" aria-hidden="true">$</span>
         <input class="field__input" id="price-${esc(id)}" name="price-${esc(id)}" type="text" inputmode="numeric" autocomplete="off" value="${esc(price)}" aria-label="Price for ${esc(label)}"${error ? ` aria-invalid="true" aria-describedby="price-${esc(id)}-msg"` : ''}>
       </div>
-      <span class="service-row__take t-small w-600 c-700" data-money data-take${takeHidden ? ' hidden' : ''}>${takeHidden ? '' : `You get ${payoutText || fmt(payoutCents)}`}</span>
     </div>` : ''}
   </div>
+  ${checked ? `<span class="service-row__take t-small w-600 c-700" data-money data-take${takeHidden ? ' hidden' : ''}>${takeHidden ? '' : `${takeHtml(payoutText || fmt(payoutCents), feeText)}`}</span>` : ''}
   ${error ? `<p class="field__msg field__msg--error" id="price-${esc(id)}-msg" role="alert">${esc(error)}</p>` : ''}
 </div>`;
 }
@@ -1438,14 +1574,15 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
  * the focal take-home: YOU TAKE HOME / `fmtExact(payoutCents)` / "after the $Y Taily fee". Amounts are cents.
  * States: requested · soon (countdown <= EXPIRING_SOON_MIN → warning ring) · suggested (muted money) · retried ("Sent again").
  */
-export function requestCard({ id = '', act = 'open-request', name = '', initials = '', visitLabel = '', place = '', when = '', items = 0, services = 0, payoutCents = 0, feeCents = 0, expiresAt = null, now = null, status = 'requested', waitingOn = '', retries = 0, asked = '' } = {}) {
+export function requestCard({ id = '', act = 'open-request', name = '', initials = '', visitLabel = '', place = '', when = '', items = 0, services = 0, payoutCents = 0, feeCents = 0, expiresAt = null, now = null, status = 'requested', waitingOn = '', retries = 0, asked = '', lapseAt = null } = {}) {
   const suggested = status === 'suggested';
   const ms = suggested || expiresAt == null ? null : toMs(expiresAt) - toMs(now);
   const soon = ms != null && ms > 0 && ms <= POLICY.EXPIRING_SOON_MIN * 60000;
   const waiting = `Waiting on ${waitingOn || 'customer'}`;
   const pill = suggested ? statusPill('waiting', esc(waiting)) : '';
-  const right = suggested ? '' : countdown({ expiresAt, now });
-  const label = `${name}, ${suggested ? `you suggested ${when}` : when}, you take home ${fmtExact(payoutCents)}, ${suggested ? waiting : right.replace(/<[^>]+>/g, '')}`;
+  /* D-154: a suggested time lapses (`lapseAt`) — the same clock a request has, so she sees how long Sarah has */
+  const right = suggested ? (lapseAt ? countdown({ expiresAt: lapseAt, now }) : '') : countdown({ expiresAt, now });
+  const label = `${name}, ${suggested ? `you suggested ${when}` : when}, you take home ${fmtExact(payoutCents)}, ${suggested ? `${waiting}${right ? `, ${right.replace(/<[^>]+>/g, '')}` : ''}` : right.replace(/<[^>]+>/g, '')}`;
   return `<button type="button" class="request-card info-card${soon ? ' request-card--soon' : ''}${suggested ? ' request-card--suggested' : ''}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">
   <span class="request-card__top">
     ${avatar({ initials, size: 'sm' })}
@@ -1467,13 +1604,16 @@ export function requestCard({ id = '', act = 'open-request', name = '', initials
     `v` = requestView(appt). Every amount prints with cents (D-98): the screen's payout breakdown below is exact, and one figure
     keeps one precision per screen. A garment with photos shows a tappable 44 px thumbnail + count after its name
     (`data-act="view-photo"`, wired by `wirePhotoViewer`, R3-2-T-11). */
-export function workList(v, { estimateLabel = 'Estimate from your prices' } = {}) {
+export function workList(v, { final = false, estimateLabel = 'Estimate from your prices' } = {}) {
+  /* M6-P-07: a `final` list (the work is over: declined, cancelled, completed, expired) has no estimate row; `estimateLabel: null`
+     drops it too, for a screen whose payout breakdown follows (Services and the total are printed there). */
+  const showEstimate = !final && estimateLabel !== null;
   const groups = v.garments.map((g) => `<div class="work-list__garment">
     <div class="work-list__top"><p class="t-body w-600 work-list__head">${esc(g.type)}</p>
     ${g.photos ? `<button type="button" class="work-list__photo" data-act="view-photo" data-type="${esc(g.type)}" data-count="${g.photos}" aria-label="View ${g.photos === 1 ? '1 photo' : `${g.photos} photos`} of the ${esc(g.type)}">${photoTile('photo')}<span class="t-small c-700">${g.photos} ${g.photos === 1 ? 'photo' : 'photos'}</span></button>` : ''}</div>
     ${g.services.map((sv) => priceRow({ label: sv.label, cents: sv.cents, format: fmtExact })).join('')}
   </div>`).join('');
-  return `<div class="work-list">${groups}<div class="work-list__estimate">${priceRow({ label: estimateLabel, cents: v.estimate, format: fmtExact })}</div></div>`;
+  return `<div class="work-list">${groups}${showEstimate ? `<div class="work-list__estimate">${priceRow({ label: estimateLabel, cents: v.estimate, format: fmtExact })}</div>` : ''}</div>`;
 }
 
 /** Photo viewer (R3-2-T-11): a sheet showing one prototype placeholder per photo — the prototype has no real image files. */
@@ -1516,7 +1656,7 @@ export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', 
   <span class="appt-row__when t-small c-700">${esc(when)}</span>
   <span class="appt-row__amount t-body w-600"${amountText ? ' data-money' : ''}>${esc(amountText)}</span>
   <span class="appt-row__place t-small c-600">${esc(place)}</span>
-  <span class="appt-row__caption t-small ${captionTone === 'action' ? 'appt-row__caption--action' : 'c-600'}">${esc(amountCaption)}</span>
+  <span class="appt-row__caption t-small ${captionTone === 'action' ? 'appt-row__caption--action' : captionTone === 'error' ? 'appt-row__caption--error' : 'c-600'}">${esc(amountCaption)}</span>
   ${chev}
 </button>`;
 }
@@ -1626,14 +1766,18 @@ export function deltaFigure({ label = '', cents: amount = 0, was = null, caption
  * ready = Uber quote + Taily courier fee = Courier total + `note` ("Added to your balance." / "Paid by Sarah. Not taken from
  * your payout."); loading = skeleton + aria-live status; failed = role=alert + a secondary Try again (`retryAct`).
  */
-export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: total = 0, miles = 0, from = '', to = '', note = '', retryAct = 'courier-retry' } = {}) {
+export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: total = 0, miles = 0, from = '', to = '', note = '', retryAct = 'courier-retry', variant = 'customer', window: pickup = '' } = {}) {
   noPercent(note, 'courierCard');
+  /* D-160 (amends D-106): the tailor's variant is the pickup window, from → to and who pays. No quote, fee or total rows: none of it is her money. */
+  if (variant === 'tailor') {
+    return `<div class="courier-card courier-card--tailor" data-state="ready">${metaRow('', esc(pickup ? `Courier arrives ${pickup}` : 'A Taily courier is coming'), { icon: 'truck' })}<p class="t-small c-600 courier-card__route">${esc(from)} → ${esc(to)}</p>${note ? `<p class="t-small c-600 courier-card__note">${esc(note)}</p>` : ''}</div>`;
+  }
   const head = `${metaRow('', 'Taily courier', { icon: 'truck' })}<p class="t-small c-600 courier-card__route">${esc(miles)} mi · ${esc(from)} → ${esc(to)}</p>`;
   let body;
   if (state === 'loading') {
     body = `${skeleton({ kind: 'line', count: 3 })}<p class="t-small c-600 courier-card__status" role="status" aria-live="polite">Getting a price from Uber…</p>`;
   } else if (state === 'failed') {
-    body = `<div class="courier-card__error" role="alert"><p class="t-body w-600">Couldn’t get a courier price</p><p class="t-small c-600">Uber didn’t answer. Try again, or pick another way back.</p></div>${cta('Try again', { variant: 'secondary', attrs: `data-act="${esc(retryAct)}"` })}`;
+    body = `<div class="courier-card__error" role="alert"><p class="t-body w-600 courier-card__error-title"><span class="courier-card__error-glyph" aria-hidden="true">${ICON_ALERT}</span>Couldn’t get a courier price</p><p class="t-small c-600">Uber didn’t answer. Try again, or pick another way back.</p></div>${cta('Try again', { variant: 'secondary', attrs: `data-act="${esc(retryAct)}"` })}`;
   } else {
     body = `${moneyRows([{ label: 'Uber quote', cents: quote }, { label: 'Taily courier fee', cents: markup }, { label: 'Courier total', cents: total, kind: 'total' }])}${note ? `<p class="t-small c-600 courier-card__note">${esc(note)}</p>` : ''}`;
   }
@@ -1717,9 +1861,9 @@ export function threadRow({ id = '', act = 'open-thread', name = '', initials = 
  * Attach sheet — "Add a photo" with Take a photo / Choose from library (`[data-act="photo-camera"]` / `photo-library`, 56 px rows).
  * Either calls `onAdd()` then closes. `count` = photos already on the message; `max` defaults to CHAT_LIMITS.PHOTOS_MAX. dataS `attach`.
  */
-export function openAttachSheet({ count = 0, max = CHAT_PHOTO_CAP() } = {}, onAdd) {
+export function openAttachSheet({ count = 0, max = CHAT_PHOTO_CAP(), peer = '' } = {}, onAdd) {
   const body = `<div class="attach-sheet">
-  <p class="t-small c-600 attach-sheet__note">Photos of the garment help the tailor quote. Up to ${max}&nbsp;per&nbsp;message.${count > 0 ? ` ${count} added.` : ''}</p>
+  <p class="t-small c-600 attach-sheet__note">Show ${esc(peer || 'them')} the garment. Up to ${max}&nbsp;per&nbsp;message.${count > 0 ? ` ${count} added.` : ''}</p>
   <div class="attach-sheet__rows">
     ${listRow({ title: 'Take a photo', act: 'photo-camera', lead: ICON_CAMERA, chevron: false })}
     ${listRow({ title: 'Choose from library', act: 'photo-library', lead: ICON_IMAGE, chevron: false })}

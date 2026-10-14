@@ -16,14 +16,17 @@
    width (ink, radius 20, SemiBold 16 cream): "Next" / "Confirm".
 
    The wheel reuses the shared wheel classes (wheelScroll markup) at a
-   36px pitch — `wireWheel(root, onChange, SCHED_ROW)`.
+   44px pitch (rows are tap targets, M6-V-02) — `wireWheel(root, onChange, SCHED_ROW)`.
    ============================================================ */
 
-import { strip, addDays, dayDiff, dayStamp, dayLabel } from './dates.js';
-import { wheelCol, wheelRows, markWheelRow, wireWheel } from './components.js';
+import { strip, addDays, dayDiff, dayStamp, dayLabel, fmtWhen } from './dates.js';
+import { wheelCol, wheelRows, markWheelRow, wireWheel, esc } from './components.js';
 export { strip, addDays, dayDiff, dayStamp, dayLabel };   // v5 (M0 A1): one date implementation, in dates.js
 
-export const SCHED_ROW = 36;
+export const SCHED_ROW = 44;
+
+/** The "when" note under a wheel (M6-C-12): a caps label and the time in sentence case ("SARAH SEES  Thu, Oct 15 · 5:00 PM"). */
+export const whenNote = (label, iso) => `<span class="t-caps">${esc(label)}</span> <span class="t-small w-600">${esc(fmtWhen(iso))}</span>`;
 
 /** "Jul 17, 6:30 PM". */
 export const stamp = (d, time) => `${dayStamp(d)}${time ? `, ${time}` : ''}`;

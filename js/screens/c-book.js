@@ -9,7 +9,7 @@ import { chrome, bookingSteps, headingRow, emptyState, actionBar, wireWheel } fr
 import { scheduler, slotColumns, readSlot, SCHED_ROW } from '../scheduler.js';
 import { fmt, estimate } from '../money.js';
 import { fmtDay, fmtWhen, nb } from '../dates.js';
-import { VISIT_LABEL, VISIT_MINUTES, SLOT_HORIZON_DAYS } from '../data.js';
+import { VISIT_LABEL, VISIT_MINUTES, SLOT_HORIZON_DAYS, itemsLabel } from '../data.js';
 
 const ID = 'c-book';
 
@@ -35,13 +35,13 @@ function rushNote(t, job, slot) {
 }
 
 /** The action bar's lead: the estimate for the settled slot (a rush slot raises it). */
-const estLead = (t, job, slot) => `<span>Est. <b data-money>${fmt(estimate(t, job, slot).total)}</b></span>`;
+const estLead = (t, job, slot) => `<span>Est. <b data-money>${fmt(estimate(t, job, slot).total)}</b> · ${itemsLabel(job.garments.length, 'item')}</span>`;
 
 function view() {
   const { t, job, slots, selected } = read();
   const first = firstOf(t);
   const open = (bar) => `${chrome('home')}<main class="body${bar ? ' body--with-bar' : ''} ${ID}" data-s="${ID}">
-  ${bookingSteps(4)}
+  ${bookingSteps(3)}
   ${headingRow('<h1 class="t-title">Pick a time</h1>')}`;
 
   if (!slots.length) {
@@ -63,12 +63,12 @@ function view() {
   <p class="t-body c-600 c-book__who">${t.name} · ${VISIT_LABEL.customer[job.visitType]} · ${VISIT_MINUTES[job.visitType]}-minute visit</p>
   <p class="t-small c-600 c-book__only">Only ${first}’s open times before ${nb(fmtDay(job.needBy))} are shown.</p>
   <div class="c-book__sched">${scheduler({
-    title: 'Visit time', columns: slotColumns(slots, selected), note: rushNote(t, job, selected),
-    cta: '', inline: true, compact: true,
+    title: '', columns: slotColumns(slots, selected), note: rushNote(t, job, selected),
+    cta: '', inline: true, compact: slots.length <= 3,
   })}</div>
   <p class="t-small c-600 c-book__free">You won’t be charged yet. Next you’ll see the full price and the deposit.</p>
 </main>
-${actionBar({ lead: estLead(t, job, selected), ctaLabel: 'Continue', ctaAct: 'slot-next' })}`;
+${actionBar({ lead: estLead(t, job, selected), ctaLabel: 'Next: review and send', ctaAct: 'slot-next' })}`;
 }
 
 /* #screen is the same element on every render — drop the previous render's delegate before adding ours */

@@ -14,7 +14,7 @@ import { register, render as go, currentScreen } from '../app.js';
 import { state, T, getAppt, apptsFor, priceChangeView } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import { setFocus } from '../focus.js';
-import { fmt, fmtExact, cents } from '../money.js';
+import { fmt, fmtExact, fmtColumn, cents } from '../money.js';
 import { SERVICES, GARMENT_TYPES, servicesForType, TAILOR_LIMITS, MAX_ITEMS } from '../data.js';
 import { withLatency } from '../sim.js';
 import {
@@ -219,11 +219,14 @@ function garmentHtml(g, errors, busy) {
   return `<section class="${ID}__garment" aria-label="${esc(g.type)}" data-garment="${esc(g.id)}" data-kind="${g.isNew ? 'added' : 'kept'}">
     <div class="${ID}__card${g.isNew ? ` ${ID}__card--new` : ''}">
       <div class="${ID}__head"><h2 class="t-body w-600 ${ID}__type">${esc(g.type)}</h2>${g.isNew ? tag('New item', 'new-item') : ''}
-        <button type="button" class="${ID}__btn ${ID}__btn--text t-small w-600" data-act="remove-item" data-garment="${esc(g.id)}"${dis} aria-label="Remove ${esc(g.type)}">Remove item</button></div>
+        <button type="button" class="${ID}__btn ${ID}__btn--text t-small w-600" data-act="remove-item" data-garment="${esc(g.id)}"${dis} aria-label="Remove item: ${esc(g.type)}">Remove item</button></div>
       ${g.rows.map((r) => rowHtml(r, errors, busy, g.isNew)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: '+ Add a service', act: 'add-service' }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${dis}`)}</div>` : ''}
     </div>
   </section>`;
 }
+
+/** A figure with no amount yet (a price in the draft can't be read): the label and a dash. */
+const dashFigure = (label) => `<div class="delta-figure"><p class="t-caps c-600 delta-figure__label">${esc(label)}</p><p class="t-display delta-figure__amt" aria-label="not available">—</p></div>`;
 
 function view() {
   const a = target();
@@ -243,6 +246,9 @@ function view() {
   const real = priceChangeView(a, previewLines(garments));
   const frozen = none ? priceChangeView(a, a.lines) : null;
   const pv = none ? { ...frozen, delta: 0 } : real;
+  /* M6-T-04: a price that can't be read means no honest total — the figures show a dash until every price is fixed (none left → the booked figures, above) */
+  const bad = liveRows(garments).filter((r) => r.parsed.error).length;
+  const fix = `Fix ${bad} price${bad > 1 ? 's' : ''} to see the new total`;
   const busy = !!d.busy;
   const deposit = pv.after.deposit;
   const edited = isEdited(a, d, garments);
@@ -253,7 +259,8 @@ function view() {
   /* D-126: the bar carries both figures, the customer's first, so the total moves in view while the cards are edited */
   const pair = `<span class="${ID}__lead-pair">${esc(first)} pays <b data-money>${fmtExact(pv.after.total)}</b></span> · <span class="${ID}__lead-pair">You take home <b data-money>${fmtExact(pv.after.payout)}</b></span>`;
   const lead = none ? 'Add an item or service to see the new total'
-    : `<span>${real.changed ? '' : 'No changes · '}${pair}</span>`;
+    : bad ? fix
+      : `<span>${real.changed ? '' : 'No changes · '}${pair}</span>`;
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${revise ? '--revise' : ''}" data-appt="${esc(a.id)}">
   ${headingRow(hero, { backRow: true })}
   <div class="${ID}__content"${busy ? ' inert aria-busy="true"' : ''}>
@@ -264,13 +271,13 @@ function view() {
   <div class="${ID}__empty-err" data-live="empty">${errors.empty ? banner({ tone: 'error', text: 'Keep at least one item with a service on this job.' }) : ''}</div>
   <div class="${ID}__note">${textArea({ id: 'adjust-note', label: `Note to ${first} (optional)`, value: d.note, rows: 3, max: TAILOR_LIMITS.NOTE_MAX, helper: 'Say what you found at the fitting. Phone numbers and emails are hidden.', error: errors.note })}</div>
   <h2 class="t-h2 ${ID}__h2">What changes</h2>
-  <div class="${ID}__summary" data-live="summary">${changeSummary(real.counts)}</div>
+  <div class="${ID}__summary" data-live="summary">${bad ? '' : changeSummary(real.counts)}</div>
   <div class="${ID}__figures" data-live="figures">
-    ${none ? deltaFigure({ label: `${first} pays`, cents: frozen.after.total }) : deltaFigure({ label: `${first} pays`, cents: pv.after.total, was: pv.before.total })}
-    ${none ? deltaFigure({ label: 'You take home', cents: frozen.after.payout }) : deltaFigure({ label: 'You take home', cents: pv.after.payout, was: pv.before.payout })}
-    ${none ? `<p class="t-small c-600 ${ID}__frozen">Add an item or service to see the new total</p>` : ''}
+    ${bad ? dashFigure(`${first} pays`) : none ? deltaFigure({ label: `${first} pays`, cents: frozen.after.total }) : deltaFigure({ label: `${first} pays`, cents: pv.after.total, was: pv.before.total })}
+    ${bad ? dashFigure('You take home') : none ? deltaFigure({ label: 'You take home', cents: frozen.after.payout }) : deltaFigure({ label: 'You take home', cents: pv.after.payout, was: pv.before.payout })}
+    ${none ? `<p class="t-small c-600 ${ID}__frozen">Add an item or service to see the new total</p>` : bad ? `<p class="t-small c-600 ${ID}__frozen">${fix}</p>` : ''}
   </div>
-  <div class="${ID}__breakdown" data-live="breakdown">${tailorBreakdown(pv.after)}</div>
+  <div class="${ID}__breakdown" data-live="breakdown">${bad ? '' : tailorBreakdown(pv.after)}</div>
   <p class="t-small c-600 ${ID}__fine" data-money>${esc(first)}’s ${fmtExact(deposit)} deposit stays the same. The balance is due when the order is ready.</p>
   </div>
 </main>
@@ -323,15 +330,17 @@ function rerender(sel) {
 const q = (v) => CSS.escape(v);
 
 /* ---------- the two add sheets ---------- */
+/** A service she can add: one tap adds it, so it is a plain row with a "+", not a radio (M6-P-12). */
+const serviceRow = (id, prices) => listRow({
+  title: esc(SERVICES[id].label), sub: `Your price ${fmtExact(cents(prices[id]))}`, right: '+', act: 'pick-service', chevron: false, attrs: `data-value="${esc(id)}"`,
+});
 function openAdd(a, garmentId) {
   const d = ui();
   const g = build(a, d).find((x) => x.id === garmentId);
   if (!g) return;
   const prices = myTailor().prices ?? {};
-  const rows = addable(g).map((id) => optionRow({
-    name: 'service', value: id, title: esc(SERVICES[id].label), sub: `Your price ${fmtExact(cents(prices[id]))}`, act: 'pick-service',
-  })).join('');
-  sheetOverlay(`<div class="${ID}-sheet"><div role="radiogroup" aria-label="Services">${rows}</div></div>`,
+  const rows = addable(g).map((id) => serviceRow(id, prices)).join('');
+  sheetOverlay(`<div class="${ID}-sheet">${rows}</div>`,
     { header: `Add to ${esc(g.type)}`, confirm: false, dataS: `${ID}-add` }, (holder, close) => {
       holder.addEventListener('click', (e) => {
         const el = e.target.closest('[data-act="pick-service"]');
@@ -344,12 +353,21 @@ function openAdd(a, garmentId) {
     });
 }
 
-/** Types Amara prices at least one service for, catalog order, with the lowest price ("From $X"). */
+/** Types Amara prices at least one service for, catalog order, with how many services and their price range (M6-T-11). A service that
+    fits any garment ("Repair or patch") is on every type and says nothing about this one, so it is left out; a type with only that
+    one reads "Repair only". */
 function itemTypes() {
   const prices = myTailor().prices ?? {};
+  const everyType = Object.keys(GARMENT_TYPES).length;
   return Object.keys(GARMENT_TYPES).map((type) => {
     const list = servicesForType(type).filter((id) => typeof prices[id] === 'number');
-    return list.length ? { type, min: Math.min(...list.map((id) => prices[id])) } : null;
+    if (!list.length) return null;
+    const own = list.filter((id) => SERVICES[id].garments.length < everyType);
+    if (!own.length) return { type, sub: 'Repair only' };
+    const lo = Math.min(...own.map((id) => cents(prices[id])));
+    const hi = Math.max(...own.map((id) => cents(prices[id])));
+    const [from, to] = [lo, hi].map((c) => fmtColumn([lo, hi])(c));
+    return { type, sub: `${own.length} service${own.length > 1 ? 's' : ''} · ${lo === hi ? from : `${from}–${to}`}` };
   }).filter(Boolean);
 }
 
@@ -357,13 +375,11 @@ function itemTypes() {
 function openAddItem() {
   const d = ui();
   const prices = myTailor().prices ?? {};
-  const typeStep = () => `<div role="radiogroup" aria-label="Item type">${itemTypes().map(({ type, min }) => optionRow({
-    name: 'type', value: type, title: esc(type), sub: `From ${fmtExact(cents(min))}`, act: 'pick-type',
+  const typeStep = () => `<div role="radiogroup" aria-label="Item type">${itemTypes().map(({ type, sub }) => optionRow({
+    name: 'type', value: type, title: esc(type), sub, act: 'pick-type',
   })).join('')}</div>`;
   const serviceStep = (type) => `<button type="button" class="${ID}__btn ${ID}__btn--text t-body w-600 ${ID}__back" data-act="pick-back">Choose another item</button>
-    <div role="radiogroup" aria-label="Services">${servicesForType(type).filter((id) => typeof prices[id] === 'number').map((id) => optionRow({
-    name: 'service', value: id, title: esc(SERVICES[id].label), sub: `Your price ${fmtExact(cents(prices[id]))}`, act: 'pick-service',
-  })).join('')}</div>`;
+    <div>${servicesForType(type).filter((id) => typeof prices[id] === 'number').map((id) => serviceRow(id, prices)).join('')}</div>`;
   sheetOverlay(`<div class="${ID}-sheet" data-step="type">${typeStep()}</div>`,
     { header: 'Add an item', confirm: false, dataS: `${ID}-add-item` }, (holder, close) => {
       const box = holder.querySelector(`.${ID}-sheet`);
@@ -374,7 +390,7 @@ function openAddItem() {
         box.innerHTML = step === 'type' ? typeStep() : serviceStep(type);
         title.textContent = step === 'type' ? 'Add an item' : `What does the ${type} need?`;
         holder.dataset.s = step === 'type' ? `${ID}-add-item` : `${ID}-add-item-service`;
-        box.querySelector('[data-act="pick-back"], .option-row')?.focus({ preventScroll: true });
+        box.querySelector('[data-act="pick-back"], .list-row, .option-row')?.focus({ preventScroll: true });
       };
       holder.addEventListener('click', (e) => {
         const el = e.target.closest('[data-act]');

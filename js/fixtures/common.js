@@ -140,10 +140,19 @@ export function driveTo(target, opts = {}) {
   return must(T.leaveReview(id, { stars: 5, text: 'Perfect fit, and she was on time.', photos: 0 }), 'leaveReview');
 }
 
-/** addRequest({ accept = false, after = null }) → appt. A second request for the CURRENT draft job (D-86): the first open slot
+/** D-158: sending a request spent the draft (an empty job). A fixture that wants another request for the same job puts it back from the
+    last request. A draft that still has garments is left alone. */
+export function draftAgain() {
+  if ((state.job.garments ?? []).length) return;
+  const prev = state.appts.filter((x) => x.customerId === state.customer.id).pop();
+  if (prev) state.job = { ...structuredClone(prev.job), declinedBy: state.job.declinedBy ?? [], hiddenTailors: state.job.hiddenTailors ?? [] };
+}
+
+/** addRequest({ accept = false, after = null }) → appt. A second request for the CURRENT draft job (D-86; the draft is put back from the last request when sending emptied it, D-158): the first open slot
     >= `after` (ISO) through the real requestBooking (and tailorAccept when `accept`). Does NOT reset; throws on failure. */
 export function addRequest({ accept = false, after = null } = {}) {
   const tailorId = state.tailors[0].id;
+  draftAgain();
   const { visitType, needBy } = state.job;
   const slotStart = openSlots(tailorId, visitType, { until: needBy }).find((s) => !after || s >= after);
   if (!slotStart) throw new Error(`addRequest: no open slot${after ? ` after ${after}` : ''}`);
@@ -209,6 +218,7 @@ export function earningsTo(kind) {
   }
   if (kind !== 'paid') throw new Error(`earningsTo: unknown kind "${kind}"`);
   T.settlePayouts();
+  draftAgain();
   T.setJob({ visitType: 'shop' });
   const second = addRequest({ accept: true, after: SECOND_SLOT_AFTER });
   return completeJob(second.id);

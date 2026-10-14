@@ -6,12 +6,12 @@
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
 import { state, T } from '../state.js';
-import { suggestSlots } from '../tailor-data.js';
+import { suggestSlots, suggestPrice } from '../tailor-data.js';
 import { focusAppt, setFocus } from '../focus.js';
 import { fmtExact } from '../money.js';
 import { fmtWhen, fmtDay, fmtTime } from '../dates.js';
 import { withLatency } from '../sim.js';
-import { scheduler, slotColumns, readSlot, SCHED_ROW } from '../scheduler.js';
+import { scheduler, slotColumns, readSlot, SCHED_ROW, whenNote } from '../scheduler.js';
 import {
   chrome, headingRow, banner, emptyState, actionBar, wireWheel, toast, esc,
 } from '../components.js';
@@ -21,6 +21,17 @@ const ui = () => (state.ui[ID] ??= {});
 
 /** The request this screen is about: it is still a request (status `requested`). */
 const request = () => { const a = focusAppt('t-request'); return a && a.status === 'requested' ? a : null; };
+/** The price block under the wheel for one slot (D-155): her live take-home, "Sarah pays $X less" when the rush drops, and the turnaround
+    tag when the slot sits inside her rush window (the rush fee is not charged on this request). */
+function priceLines(a, iso) {
+  const sarah = state.customer.first;
+  const p = suggestPrice(a, iso);
+  const less = p.less > 0 ? ` · ${esc(sarah)} pays ${fmtExact(p.less)} less` : '';
+  const turn = p.tier > 0
+    ? `${p.days <= 0 ? 'Same-day' : `${p.days}-day`} turnaround · ${p.rush > 0 ? `rush fee ${fmtExact(p.rush)} as booked` : 'no rush fee on this request'}`
+    : '';
+  return `<p class="t-small c-600 ${ID}__same" data-money>You take home ${fmtExact(p.payout)}${less}.</p>${turn ? `<p class="t-small w-600 c-700 ${ID}__turn">${esc(turn)}</p>` : ''}`;
+}
 /** The picked slot, kept only while it is still one of her open times. */
 const pickedOf = (slots) => (slots.includes(ui().slot) ? ui().slot : slots[0] ?? null);
 
@@ -54,9 +65,9 @@ function view() {
   <p class="t-body c-700 ${ID}__lead">${esc(sarah)} asked for <span class="nb">${esc(fmtWhen(a.slot.start))}</span>. Pick one of your open times before her need-by date, <span class="nb">${esc(fmtDay(a.job.needBy))}</span>.</p>
   ${d.error === 'slot-unavailable' ? `<div class="${ID}__error">${banner({ tone: 'error', title: 'That time was just taken. Pick another.' })}</div>` : ''}
   <div class="${ID}__sched"${d.busy ? ' inert aria-busy="true"' : ''}>${scheduler({
-    columns: slotColumns(slots, picked), inline: true, compact: true, cta: '', note: `${sarah} sees: ${esc(fmtWhen(picked))}`,
+    columns: slotColumns(slots, picked), inline: true, compact: true, cta: '', note: whenNote(`${sarah} sees`, picked),
   })}</div>
-  <p class="t-small c-600 ${ID}__same" data-money>Same price — you take home ${fmtExact(a.money.payout)}.</p>
+  <div class="${ID}__price" data-sched-price aria-live="polite">${priceLines(a, picked)}</div>
   <p class="t-small c-600 ${ID}__by">Answer by ${fmtTime(a.expiresAt)}.</p>
 </main>
 ${actionBar({ ctaLabel: 'Send suggestion', ctaAct: 'send-suggestion', busy: !!d.busy, busyLabel: 'Sending…' })}`;
@@ -79,7 +90,9 @@ function wire(root) {
     ui().slot = iso;
     ui().error = null;
     const note = sched?.querySelector('[data-sched-note]');
-    if (note) { note.textContent = `${state.customer.first} sees: ${fmtWhen(iso)}`; note.hidden = false; }
+    if (note) { note.innerHTML = whenNote(`${state.customer.first} sees`, iso); note.hidden = false; }
+    const price = root.querySelector('[data-sched-price]');
+    if (price && a) price.innerHTML = priceLines(a, iso);
     return iso;
   };
   if (sched) wireWheel(root, store, SCHED_ROW);

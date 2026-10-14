@@ -8,12 +8,16 @@
 
 import * as C from './components.js';
 import { scheduler, slotColumns, whenNote } from './scheduler.js';
-import { TAILORS, DEMO_NOW } from './data.js';
+import { TAILORS, DEMO_NOW, FITTING_LIMITS } from './data.js';
+import { FITTING_COMMENTS } from './fixtures/common.js';
 import { POLICY } from './money-config.js';
 import { reauthHtml, pushPromptHtml, pushBannerHtml, systemBanner } from './system.js';
 import { quote, fmt, fmtExact, cents, payoutFor } from './money.js';
 import { ICON_CARD, ICON_CAMERA } from './icons.js';
 import { SCENARIOS, AMARA } from './fixtures/money-scenarios.js';
+
+/** Specimen garment id -> { type, docs } for the gallery's photo viewer (K-02). */
+const GALLERY_DOCS = {};
 
 /** The gallery's HTML (a string of labelled blocks). */
 export function galleryHtml() {
@@ -362,6 +366,44 @@ export function galleryHtml() {
   v('loading');                          col(C.courierCard({ state: 'loading', miles: cq.miles, from: cc.from, to: cc.to }));
   v('failed');                           col(C.courierCard({ state: 'failed', miles: cq.miles, from: cc.from, to: cc.to }));
 
+  /* ---------------- K-02 · fitting documentation ---------------- */
+  const ph = (n, kind, at = '2026-10-15T17:00') => ({ id: `p${n}`, kind, at, tone: (n - 1) % 4 });
+  const docsFull = { before: [ph(1, 'before'), ph(2, 'before')], pinned: [ph(3, 'pinned')], comment: FITTING_COMMENTS.g2, commentMasked: false };
+  const docsMasked = { before: [ph(1, 'before')], pinned: [ph(2, 'pinned')], comment: 'Call me at [phone hidden] if the pins move.', commentMasked: true };
+  const docsMax = { before: [1, 2, 3, 4].map((n) => ph(n, 'before')), pinned: [ph(5, 'pinned')], comment: '', commentMasked: false };
+  const none = { before: [], pinned: [], comment: '', commentMasked: false };
+  GALLERY_DOCS.a1 = { type: 'Suit Jacket', docs: docsFull };
+  GALLERY_DOCS.a2 = { type: 'Suit Jacket', docs: docsFull };
+  GALLERY_DOCS.a3 = { type: 'Suit Jacket', docs: docsMasked };
+  h2('K-02 · fitting documentation (D-175…D-183)');
+  v('garmentIcon · card 40 · row 32 · inline 24 · the hanger fallback (unknown type) · alt on a lone icon');
+  row(C.garmentIcon('Suit Jacket'), C.garmentIcon('Suit Pant', { size: 'row' }), C.garmentIcon('Skirt', { size: 'inline' }), C.garmentIcon('Spaceship'), C.garmentIcon('Dress / Jumpsuit', { alt: 'Dress / Jumpsuit' }));
+  v('docPhoto · tones t0 t1 t2 t3 (Before) · a Pinned photo (pin badge)');
+  row(...[0, 1, 2, 3].map((t) => C.docPhoto({ id: `p${t + 1}`, kind: 'before', at: NOW, tone: t }, { type: 'Suit Jacket' })), C.docPhoto({ id: 'p6', kind: 'pinned', at: NOW, tone: 1 }, { type: 'Suit Jacket' }));
+  v('docsEditor · empty (both rows missing, the comment optional)');
+  s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e1', type: 'Suit Jacket', docs: none, missing: { before: true, pinned: true } })}</div>`);
+  v('docsEditor · 2 Before + 1 Pinned, a saved comment');
+  s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e2', type: 'Suit Jacket', docs: docsFull })}</div>`);
+  v(`docsEditor · at the max (${FITTING_LIMITS.PHOTOS_MAX} Before, no add tile) · a masked comment`);
+  s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e3', type: 'Suit Jacket', docs: docsMax })}</div>`);
+  s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e4', type: 'Suit Jacket', docs: docsMasked })}</div>`);
+  v('docsEditor · the comment editor with an error');
+  s.push(`<div class="info-card docs-demo">${C.docsEditor({ garmentId: 'e5', type: 'Suit Jacket', docs: docsFull, commentDraft: 'x'.repeat(FITTING_LIMITS.COMMENT_MAX + 1), commentError: `Keep the comment under ${FITTING_LIMITS.COMMENT_MAX} characters.` })}</div>`);
+  v('garmentDocs · Before selected · Pinned selected');
+  s.push(`<div class="info-card">${C.garmentDocs({ garmentId: 'a1', type: 'Suit Jacket', docs: docsFull, commentLabel: 'Amara’s comment', idPrefix: 'gal-before' })}</div>`);
+  s.push(`<div class="info-card">${C.garmentDocs({ garmentId: 'a2', type: 'Suit Jacket', docs: docsFull, commentLabel: 'Amara’s comment', idPrefix: 'gal-pinned', tab: 'pinned' })}</div>`);
+  v('garmentDocs · a masked comment');
+  s.push(`<div class="info-card">${C.garmentDocs({ garmentId: 'a3', type: 'Suit Jacket', docs: docsMasked, commentLabel: 'Amara’s comment', idPrefix: 'gal-masked' })}</div>`);
+  v('changeList with icons and docs · a kept garment · a New item · a Removed garment');
+  col(C.changeList({
+    garments: [
+      { id: 'g2', type: byId('sleeves').garmentType, kind: 'same', rows: [rowOf(byId('sleeves'), 'same')] },
+      { id: 'n1', type: 'Pants / Jeans', kind: 'added', rows: [rowOf(hemPants, 'added')] },
+      { id: 'g1', type: byId('hem-pants').garmentType, kind: 'removed', rows: [rowOf(byId('hem-pants'), 'removed')] },
+    ],
+    docs: { g2: docsFull, n1: docsMasked, g1: docsFull }, commentLabel: 'Amara’s comment',
+  }));
+
   /* ---------------- M5 · messaging, accounts, earnings, system ---------------- */
   const thread = [
     { id: 'm1', from: 'system', at: '2026-10-12T16:40', text: 'You sent a request', tailorText: 'Sarah sent a request' },
@@ -439,6 +481,7 @@ export function galleryHtml() {
 /** Attach the gallery's interactions (stars, toggles, chips, composer, toast buttons, scheduler position). */
 export function wireGallery(root) {
   C.wireStars(root); C.wireToggles(root); C.wireChipGroups(root); C.wireComposer(root);
+  C.wireGarmentDocs(root, { lookup: (gid) => GALLERY_DOCS[gid] ?? null, by: 'Taken by Amara' });
   root.addEventListener('click', (e) => { const b = e.target.closest('[data-toast]'); if (b) C.toast(`A ${b.dataset.toast} toast`, { tone: b.dataset.toast }); });
   root.querySelectorAll('.scheduler').forEach((sc) => C.wireWheel(sc, null, 44));   // positions + keyboard (R1-2-C-01)
 }

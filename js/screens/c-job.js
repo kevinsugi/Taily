@@ -7,9 +7,9 @@ import { register, render as go } from '../app.js';
 import { state, T, activeAppt, statusScreen, tailorById, priceChangeView } from '../state.js';
 import {
   chrome, bookingSteps, garmentTile, photoTile, actionBar, checkRow, cta, listRow, apptRow,
-  sheetOverlay, toast, esc,
+  sheetOverlay, toast, esc, garmentIcon,
 } from '../components.js';
-import { GARMENT_TYPES, GARMENT_ICONS, SERVICES, MAX_ITEMS, itemsLabel, servicesForType } from '../data.js';
+import { GARMENT_TYPES, SERVICES, MAX_ITEMS, itemsLabel, servicesForType } from '../data.js';
 import { CHEVRON_RIGHT } from '../icons.js';
 import { fmtColumn } from '../money.js';
 import { fmtWhen } from '../dates.js';
@@ -27,14 +27,13 @@ const serviceText = (g) => g.services.map((id) => SERVICES[id]?.label).filter(Bo
 function itemCard(g) {
   const hasErr = !!ui().errors[g.id];
   const errId = `svc-err-${g.id}`;
-  const icon = GARMENT_ICONS[g.type];
   const thumbs = Array.from({ length: g.photos }, () => photoTile('photo')).join('');
   const addPhoto = g.photos < MAX_PHOTOS
     ? `<button type="button" class="job-item__add" data-act="add-photo" data-id="${g.id}" aria-label="Add a photo of the ${esc(g.type)}">${photoTile('add')}</button>`
     : '';
   return `<article class="job-item" data-id="${g.id}">
   <div class="job-item__head">
-    <span class="job-item__icon" aria-hidden="true">${icon ? `<img src="${icon}" alt="">` : ''}</span>
+    ${garmentIcon(g.type)}
     <span class="job-item__type t-body w-600">${esc(g.type)}</span>
     <button type="button" class="job-item__remove" data-act="remove-garment" data-id="${g.id}" aria-label="Remove ${esc(g.type)}"><span aria-hidden="true">✕</span></button>
   </div>

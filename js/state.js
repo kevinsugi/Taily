@@ -29,7 +29,7 @@ import {
 import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
-  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, servicesForType,
+  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType,
 } from './data.js';
 
 export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed', 'cancelled'];
@@ -585,6 +585,7 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
     money,
     payments: { deposit: { cents: money.deposit, state: 'authorized' }, balance: { cents: money.balance, state: 'pending' } },
     priceChange: null, returnOption: null, courier: null, cancel: null, review: null,
+    docs: {}, docSeq: 0,                                        // K-02 (D-175): the tailor's working fitting documentation
     history: [{ status: 'requested', at: nowIso() }],
   };
   state.appts.push(appt);
@@ -774,6 +775,102 @@ export function startFitting(id) {
   return succeed(a);
 }
 
+/* ---------- fitting documentation (K-02, D-175…D-183) ---------- */
+const emptyDoc = () => ({ before: [], pinned: [], comment: '', commentMasked: false });
+/** The revise window: at the fitting, or while the sent order is pending / messaged. After approval the record is locked (D-175). */
+export const docsEditable = (a) => a.status === 'fitting' || (a.status === 'price-change' && ['pending', 'messaged'].includes(a.priceChange?.state));
+/** A booked garment (job or lines) or a draft new item `n<k>` (K-01, D-121). */
+export function docGarment(a, garmentId) {
+  if (a.job?.garments?.some((g) => g.id === garmentId) || a.lines?.some((l) => l.garmentId === garmentId)) return true;
+  return /^n[1-9]\d*$/.test(String(garmentId));
+}
+const docEntry = (a, garmentId) => (a.docs[garmentId] ??= emptyDoc());
+/** The working entry (or the sent snapshot entry with `sent: true`), or an empty one. Never undefined. */
+export function docsOf(appt, garmentId, { sent = false } = {}) {
+  const src = sent ? appt.priceChange?.docs : appt.docs;
+  return src?.[garmentId] ?? emptyDoc();
+}
+/** What a reader sees: the customer only ever sees the sent snapshot; the tailor sees the working docs at the fitting. */
+export function docsFor(appt, reader) {
+  if (reader === 'tailor' && appt.status === 'fitting') return appt.docs ?? {};
+  return appt.priceChange?.docs ?? {};
+}
+/** The garments in `garmentIds` (in that order) that lack a Before or a Pinned photo, from the working docs. */
+export function docsMissing(appt, garmentIds) {
+  const out = [];
+  for (const garmentId of garmentIds) {
+    const d = docsOf(appt, garmentId);
+    const before = d.before.length < 1;
+    const pinned = d.pinned.length < 1;
+    if (before || pinned) out.push({ garmentId, before, pinned });
+  }
+  return out;
+}
+/** Working vs sent, for these ids: photo ids per kind and the comment text. */
+export function docsDiffer(appt, garmentIds) {
+  const ids = (list) => list.map((p) => p.id).join(',');
+  return garmentIds.some((gid) => {
+    const w = docsOf(appt, gid);
+    const s = docsOf(appt, gid, { sent: true });
+    return ids(w.before) !== ids(s.before) || ids(w.pinned) !== ids(s.pinned) || w.comment !== s.comment;
+  });
+}
+/** One more than the highest `n<k>` anywhere, so a new item never inherits a discarded item's photos (D-182). */
+export function nextItemId(appt) {
+  const found = [
+    ...Object.keys(appt.docs ?? {}), ...(appt.lines ?? []).map((l) => l.garmentId),
+    ...(appt.priceChange?.lines ?? []).map((l) => l.garmentId), ...(appt.job?.garments ?? []).map((g) => g.id),
+    ...Object.keys(appt.priceChange?.docs ?? {}),
+  ];
+  const top = found.reduce((n, id) => { const m = /^n([1-9]\d*)$/.exec(String(id)); return m ? Math.max(n, Number(m[1])) : n; }, 0);
+  return `n${top + 1}`;
+}
+export function addFittingPhoto(id, garmentId, kind) {
+  const a = must(id);
+  if (!docsEditable(a)) return fail('not-editable');
+  if (!docGarment(a, garmentId)) return fail('unknown-garment');
+  if (!DOC_KINDS.includes(kind)) return fail('photo-kind');
+  if (docsOf(a, garmentId)[kind].length >= FITTING_LIMITS.PHOTOS_MAX) return fail('too-many-photos');
+  a.docSeq += 1;
+  const photo = { id: `p${a.docSeq}`, kind, at: nowIso(), tone: (a.docSeq - 1) % 4 };
+  docEntry(a, garmentId)[kind].push(photo);
+  return succeed(a, { photo });
+}
+export function removeFittingPhoto(id, garmentId, photoId) {
+  const a = must(id);
+  if (!docsEditable(a)) return fail('not-editable');
+  const d = a.docs[garmentId];
+  const kind = d && DOC_KINDS.find((k) => d[k].some((p) => p.id === photoId));
+  if (!kind) return fail('not-found');
+  const index = d[kind].findIndex((p) => p.id === photoId);
+  const [photo] = d[kind].splice(index, 1);
+  return succeed(a, { photo, index });
+}
+export function restoreFittingPhoto(id, garmentId, photo, index) {
+  const a = must(id);
+  if (!docsEditable(a)) return fail('not-editable');
+  if (!docGarment(a, garmentId)) return fail('unknown-garment');
+  const d = docEntry(a, garmentId);
+  if (DOC_KINDS.some((k) => d[k].some((p) => p.id === photo?.id))) return fail('duplicate');
+  if (!DOC_KINDS.includes(photo?.kind)) return fail('photo-kind');
+  if (d[photo.kind].length >= FITTING_LIMITS.PHOTOS_MAX) return fail('too-many-photos');
+  const at = Math.max(0, Math.min(Number.isInteger(index) ? index : d[photo.kind].length, d[photo.kind].length));
+  d[photo.kind].splice(at, 0, clone(photo));
+  return succeed(a);
+}
+export function setFittingComment(id, garmentId, text) {
+  const a = must(id);
+  if (!docsEditable(a)) return fail('not-editable');
+  if (!docGarment(a, garmentId)) return fail('unknown-garment');
+  const t = String(text ?? '').trim();
+  if ([...t].length > FITTING_LIMITS.COMMENT_MAX) return fail('comment-long');
+  const m = maskContact(t);
+  const d = docEntry(a, garmentId);
+  d.comment = m.text;
+  d.commentMasked = m.masked;
+  return succeed(a, { masked: m.masked });
+}
+
 const lineKey = (l) => `${l.garmentId}:${l.serviceId}`;
 function priceMarks(oldLines, newLines) {
   const before = new Map(oldLines.map((l) => [lineKey(l), l]));
@@ -809,6 +906,9 @@ export function sendPriceChange(id, lines, { note = '' } = {}) {
   if (lines.some((l) => !booked.has(lineKey(l)) && typeof tailor?.prices?.[l.serviceId] !== 'number')) return fail('service-not-offered');
   if (new Set(lines.map(lineKey)).size !== lines.length) return fail('duplicate-line');
   if (new Set(lines.map((l) => l.garmentId)).size > MAX_ITEMS) return fail('max-items');
+  const sentIds = [...new Set(lines.map((l) => l.garmentId))];
+  const gaps = docsMissing(a, sentIds);
+  if (gaps.length) return fail('photos-missing', { missing: gaps });                    // K-02 (D-178)
   const text = String(note ?? '').trim();
   if (text.length > TAILOR_LIMITS.NOTE_MAX) return fail('note-long');
   const masked = maskContact(text);
@@ -817,6 +917,7 @@ export function sendPriceChange(id, lines, { note = '' } = {}) {
   a.priceChange = {
     lines: clone(lines), marks, changed: marks.length > 0, sentAt: nowIso(), state: 'pending',
     note: masked.text, noteMasked: masked.masked, revisions,
+    docs: Object.fromEntries(sentIds.map((gid) => [gid, clone(docsOf(a, gid))])),          // K-02 (D-175): the snapshot Sarah sees
   };
   const first = firstName(tailor);
   if (revising) {
@@ -1091,7 +1192,7 @@ export const T = {
   setJob, newJob, addGarment, removeGarment, setServices, validateJob,
   requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, withdrawSuggestion, findAnotherTailor,
   tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow,
-  startFitting, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
+  startFitting, addFittingPhoto, removeFittingPhoto, restoreFittingPhoto, setFittingComment, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
   chooseReturn, payBalance, markCompleted, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick, suggestLapseAt,

@@ -4,7 +4,7 @@
    (state.appts), through these adapters. v4's tailor-data.js is
    archived in js/v4/tailor-data.js.
    ============================================================ */
-import { state, apptsFor, tailorById, openSlots, getAppt } from './state.js';
+import { state, apptsFor, tailorById, openSlots, getAppt, docsFor } from './state.js';
 import { SERVICES, VISIT_LABEL, VISIT_MINUTES, ZIP_INFO } from './data.js';
 import { rushFor, payoutFor } from './money.js';
 import { toDate, fmtWhen, fmtDay, fmtTime, dayDiff, payoutDay, isoDay, addMinutes, isoMinute } from './dates.js';
@@ -51,7 +51,7 @@ export function requestView(appt) {
   const m = appt.money;
   return {
     garments: appt.job.garments.map((g) => ({
-      id: g.id, type: g.type, photos: g.photos,
+      id: g.id, type: g.type, photos: g.photos, docs: docsFor(appt, 'tailor')[g.id] ?? null,
       services: appt.lines.filter((l) => l.garmentId === g.id).map((l) => ({ id: l.serviceId, label: SERVICES[l.serviceId]?.label ?? l.label, cents: l.cents })),
     })),
     lines: appt.lines,

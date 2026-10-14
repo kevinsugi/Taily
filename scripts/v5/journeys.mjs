@@ -11,8 +11,8 @@
      J3  decline -> the job is kept
      J4  customer cancels late -> tailor keeps the deposit
      J5  tailor can't make it -> customer refunded
-     J6  edit the job (new item, service off) -> Sarah approves -> tailoring (K-01)
-     J6b no changes still needs Sarah's approval (K-01)
+     J6  edit the job (new item, service off) with before / pinned photos and a comment -> Sarah approves -> tailoring (K-01, K-02)
+     J6b no changes still needs Sarah's approval, and photos are required (K-01, K-02)
      J7  courier return, money identical on both sides, never in the payout (D-143); the tailor sees no courier money (D-160)
      J8  completed -> review -> c-tailor shows it (D-143)
      J9  one thread from a question to a booking, masked on both sides (D-143)
@@ -26,7 +26,7 @@
 import { open, reporter, settle } from './lib/browser.mjs';
 import { SCENARIOS, SEED_SLOT, fmtExact, fmtNeg } from './money.mjs';
 import { SUGGESTED_SLOT, AMARA } from '../../js/fixtures/money-scenarios.js';
-import { CHAT } from '../../js/fixtures/common.js';
+import { CHAT, FITTING_COMMENTS } from '../../js/fixtures/common.js';
 import { CUSTOMER } from '../../js/data.js';
 import { fmtWhen, fmtDay } from '../../js/dates.js';
 import { PAYOUT_DAYS } from '../../js/fixtures/money-scenarios.js';
@@ -59,6 +59,12 @@ async function at(desc, screen, { has = [], not = [] } = {}) {
   const ok = id === screen && !miss.length && !bad.length;
   check(desc, ok, `[${id}] ${id !== screen ? `expected ${screen}; ` : ''}${miss.length ? `missing ${JSON.stringify(miss)}; ` : ''}${bad.length ? `unexpected ${JSON.stringify(bad)}; ` : ''}`);
   return ok;
+}
+
+/** Press a control inside #screen from the page (the pinned Test-flows trigger appears on the first keystroke and covers the bar, see J9). */
+async function press(sel) {
+  await page.evaluate((q) => document.querySelector(`#screen ${q}`)?.click(), sel);
+  await settle(page);
 }
 
 async function click(sel) {
@@ -194,11 +200,26 @@ await journey('J6', 'edit the job -> Sarah approves -> tailoring, both sides rea
   await click('[data-act="add-item"]');
   await click('[data-act="pick-type"][data-value="Pants / Jeans"]');
   await click('[data-act="pick-service"][data-value="hem-pants"]');
-  await at('J6 new item card', 't-adjust', { has: ['New item', 'Pants / Jeans'] });
+  await at('J6 new item card', 't-adjust', { has: ['New item', 'Pants / Jeans', 'Add before and pinned photos for 3 items'] });
+  for (const g of ['g1', 'g2', 'n1']) {
+    await click(`[data-garment="${g}"] [data-act="add-doc"][data-kind="before"]`);
+    await click(`[data-garment="${g}"] [data-act="add-doc"][data-kind="pinned"]`);
+  }
+  await at('J6 every item photographed: Send is on', 't-adjust', { has: ['1 of 4'], not: 'Add before and pinned photos for' });
+  await click('[data-garment="g1"] [data-act="view-doc"][data-kind="before"]');
+  await at('J6 the viewer', 't-adjust', { has: ['Suit Pant · Before', 'Remove photo'] });
+  await click('[data-act="doc-remove"]');
+  await at('J6 removing the only Before photo turns Send off again', 't-adjust', { has: ['Add at least one before photo', 'Add before and pinned photos for 1 item'] });
+  await click('[data-garment="g1"] [data-act="add-doc"][data-kind="before"]');
+  await click('[data-garment="g2"] [data-act="add-comment"]');
+  await page.fill('#comment-g2', FITTING_COMMENTS.g2);
+  await click('[data-garment="g2"] [data-act="save-comment"]');
+  await at('J6 the comment is saved on the card', 't-adjust', { has: ['Your comment', FITTING_COMMENTS.g2] });
   await click('[data-act="remove-line"][data-key="g2:jacket-sides"]');
-  await click('[data-act="send"]');
+  await press('[data-act="send"]');
   await at('J6 tailor: waiting on Sarah with what she sent', 't-job', {
-    has: ['Waiting on Sarah', 'The order you sent', 'New item', 'Pants / Jeans', '1 item added', fmtExact(S.priceItem.total), fmtExact(S.priceItem.payout)],
+    has: ['Waiting on Sarah', 'The order you sent', 'New item', 'Pants / Jeans', '1 item added', fmtExact(S.priceItem.total), fmtExact(S.priceItem.payout),
+      'Before', 'Pinned', 'Your comment', FITTING_COMMENTS.g2],
   });
   await flip();
   await click('[data-nav="bookings"]');
@@ -206,23 +227,31 @@ await journey('J6', 'edit the job -> Sarah approves -> tailoring, both sides rea
   await click('.appt-row');
   await at('J6 customer: review the final order', 'c-price-change', {
     has: ['Review your final order', 'New item', 'Pants / Jeans', 'Removed', 'Take in jacket sides', '1 item added', fmtExact(S.priceItem.total),
-      fmtExact(S.priceItem.balance), fmtExact(S.seed.deposit), 'Stays the same'],
+      fmtExact(S.priceItem.balance), fmtExact(S.seed.deposit), 'Stays the same', 'Before', 'Pinned', 'Amara’s comment', FITTING_COMMENTS.g2, 'photographed each item'],
   });
+  await click('[data-docs="n1"] [data-act="docs-tab"][data-kind="pinned"]');
+  await at('J6 customer: the new item’s Pinned tab works', 'c-price-change', { has: ['Pants / Jeans'] });
   await click('[data-act="approve"]');
   await at('J6 customer: in progress', 'c-booking', {
-    has: ['In progress', 'approved the order', fmtExact(S.priceItem.balance), 'Your order', 'Pants / Jeans', 'New item', 'Hem pants'],
+    has: ['In progress', 'approved the order', fmtExact(S.priceItem.balance), 'Your order', 'Pants / Jeans', 'New item', 'Hem pants', 'Amara’s comment', FITTING_COMMENTS.g2],
   });
   await flip();
   await click('.appt-row');
-  await at('J6 tailor: approved your changes', 't-job', { has: ['approved your changes', fmtExact(S.priceItem.payout), 'Pants / Jeans', 'Mark ready'] });
+  await at('J6 tailor: approved your changes', 't-job', { has: ['approved your changes', fmtExact(S.priceItem.payout), 'Pants / Jeans', 'Mark ready', 'Your comment', FITTING_COMMENTS.g2] });
 });
 
 /* ---------- J6b (K-01) ---------- */
 await journey('J6b', 'no changes still needs approval', async () => {
   await flow('t-job--fitting');
   await click('[data-act="edit-order"]');
-  await at('J6b editor, nothing touched', 't-adjust', { has: ['Edit the job', 'No changes'] });
-  await click('[data-act="send"]');
+  await at('J6b editor, nothing touched', 't-adjust', { has: ['Edit the job', 'No changes', 'Add before and pinned photos for 2 items'] });
+  await press('[data-act="send"]');
+  await at('J6b Send is off until every item has photos', 't-adjust', { has: ['Edit the job', 'Add before and pinned photos for 2 items'] });
+  for (const g of ['g1', 'g2']) {
+    await click(`[data-garment="${g}"] [data-act="add-doc"][data-kind="before"]`);
+    await click(`[data-garment="${g}"] [data-act="add-doc"][data-kind="pinned"]`);
+  }
+  await press('[data-act="send"]');
   await at('J6b tailor: waiting on Sarah', 't-job', { has: ['Waiting on Sarah', 'No changes'] });
   await flip();
   await click('[data-nav="bookings"]');

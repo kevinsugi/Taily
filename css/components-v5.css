@@ -37,6 +37,9 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 
 /* ---------- v4 pieces v5 keeps, raised to a 44 px hit area (layout unchanged) ---------- */
 .cta-small { min-height: 44px; }
+.cta-small--filled { background: var(--ink); color: var(--white); box-shadow: none; }   /* K2-1-03: the primary small action */
+.cta-small--filled:disabled { opacity: .5; cursor: not-allowed; }
+.cta-small--filled:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 .select-time { min-height: 44px; }
 .filter-pill__box { min-height: 44px; }
 .filter-pill__option { min-height: 44px; }
@@ -572,6 +575,8 @@ button.list-row:active { opacity: 0.6; }
 /* ---------- the work list (R3-1-T-05): shared by t-request and t-job ---------- */
 .work-list { padding-top: var(--space-8); }   /* the h2's own 8 + this 8 = 16 to the first garment */
 .work-list__garment { margin-bottom: var(--space-12); }
+/* K2-1-01: each garment is one block (head, services, tabs, photos, comment); a hairline + 20 px separates it from the one above */
+.work-list__garment + .work-list__garment, .change-list__garment + .change-list__garment:not(.change-list__garment--new) { padding-top: var(--space-20); box-shadow: inset 0 1px 0 var(--neutral-200); }
 .work-list__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); }
 .work-list__head { margin: 0; min-width: 0; }
 .work-list__photo { display: inline-flex; align-items: center; gap: var(--space-8); min-height: 44px; padding: 0; margin: 0; background: none; border: 0; cursor: pointer; text-align: left; }
@@ -775,3 +780,96 @@ button.thread-context:active { opacity: 0.6; }
 
 /* D-173: Directions / Add to calendar are links that look like the small outline buttons */
 a.cta-small { text-decoration: none; }
+
+/* ============================================================
+   K-02 — garment icons, fitting documentation (D-175…D-183)
+   ============================================================ */
+
+/* ---------- garment icon: card 40 (the c-job tile) · row 32 · inline 24 ---------- */
+.garment-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+.garment-icon img { width: 100%; height: 100%; object-fit: contain; }
+.garment-icon--card { flex: 0 0 var(--space-40); width: var(--space-40); height: var(--space-40); border-radius: var(--radius-sm); background: var(--neutral-50); }
+.garment-icon--row { width: var(--size-32); height: var(--size-32); border-radius: var(--radius-sm); background: var(--neutral-50); }
+.garment-icon--inline { width: var(--size-24); height: var(--size-24); }
+.garment-icon--fallback svg { width: 60%; height: 60%; color: var(--neutral-500); }
+
+/* ---------- the simulated photo: a token tone, the garment's illustration, a pin on Pinned ---------- */
+.doc-photo { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+.doc-photo img, .doc-photo > svg { width: 70%; height: 70%; object-fit: contain; }
+.doc-photo--even img { transform: rotate(-4deg); }
+.doc-photo--odd img { transform: rotate(3deg); }
+.doc-photo--thumb { width: 56px; height: 56px; border-radius: var(--radius-sm); }
+.doc-photo--stage { width: 100%; aspect-ratio: 3 / 4; border-radius: var(--radius-md); }
+.doc-photo--t0 { background: linear-gradient(135deg, var(--neutral-200), var(--neutral-300)); }
+.doc-photo--t1 { background: linear-gradient(135deg, var(--accent-bg), var(--neutral-200)); }
+.doc-photo--t2 { background: linear-gradient(135deg, var(--neutral-100), var(--neutral-300)); }
+.doc-photo--t3 { background: linear-gradient(135deg, var(--success-bg), var(--neutral-200)); }
+.doc-photo__pin { position: absolute; right: var(--space-4); bottom: var(--space-4); display: inline-flex; align-items: center; justify-content: center; width: var(--space-20); height: var(--space-20); border-radius: var(--radius-full); background: var(--white); color: var(--ink); }
+.doc-photo__pin svg { width: 12px; height: 12px; }
+.doc-photo--stage .doc-photo__pin { right: var(--space-12); bottom: var(--space-12); width: var(--space-28); height: var(--space-28); }
+.doc-photo--stage .doc-photo__pin svg { width: var(--size-16); height: var(--size-16); }
+
+/* ---------- docs editor (t-adjust garment card) ---------- */
+.docs-editor { display: flex; flex-direction: column; gap: var(--space-16); margin: var(--space-4) calc(-1 * var(--space-16)) 0; padding: var(--space-16) var(--space-16) var(--space-12); box-shadow: inset 0 1px 0 var(--neutral-200); }
+.docs-editor__row { display: flex; flex-direction: column; gap: var(--space-8); }
+.docs-editor__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-8); }
+.docs-editor__tiles.photo-tiles { flex-wrap: wrap; gap: var(--space-8); }
+.docs-editor__thumb { padding: 0; border: 0; background: none; border-radius: var(--radius-sm); cursor: pointer; line-height: 0; }
+.docs-editor__thumb:active, .garment-docs__thumb:active, .docs-viewer__thumb:active { opacity: .7; }
+.docs-editor__add { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; padding: 0; border: 1.5px dashed var(--neutral-500); border-radius: var(--radius-sm); background: transparent; color: var(--neutral-600); cursor: pointer; }
+.docs-editor__add svg { position: static; width: var(--size-24); height: var(--size-24); }
+.docs-editor__add:active { background: var(--neutral-50); }
+.docs-editor__add:disabled, .docs-editor__thumb:disabled, .docs-editor__text:disabled { opacity: .5; cursor: not-allowed; }
+.docs-editor__thumb:focus-visible, .docs-editor__add:focus-visible, .docs-editor__text:focus-visible, .garment-docs__thumb:focus-visible,
+.doc-tab:focus-visible, .docs-viewer__thumb:focus-visible, .docs-viewer__nav:focus-visible, .docs-viewer__stage:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+.docs-editor__max { margin: 0; }
+.docs-editor__missing { display: flex; align-items: flex-start; gap: var(--space-4); margin: 0; color: var(--error-ink); }
+.docs-editor__missing svg { flex-shrink: 0; margin-top: 2px; color: var(--error); }
+.docs-editor__comment-block { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); }
+.docs-editor__optional { display: flex; align-items: center; gap: var(--space-4); }
+.docs-editor__text { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 var(--space-8); margin-left: calc(-1 * var(--space-8)); border: 0; border-radius: var(--radius-md); background: transparent; color: var(--ink); font-family: var(--font-sans); cursor: pointer; }
+.docs-editor__text:not(.docs-editor__text--add) { text-decoration: underline; text-underline-offset: 3px; }
+.docs-editor__edit { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
+.docs-editor__actions { display: flex; align-items: center; gap: var(--space-8); }
+/* K2-1-03: Save is the primary action — sized to its label; Cancel is the quiet secondary at the same 12 px weight */
+.docs-editor__actions .cta-small { flex: 0 0 auto; min-width: 88px; padding-inline: var(--space-20); }
+.docs-editor__actions .docs-editor__text { margin-left: 0; color: var(--neutral-600); text-decoration: none; }
+.docs-editor__comment, .garment-docs__comment { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; margin: 0; padding: var(--space-12); border-radius: var(--radius-md); background: var(--neutral-50); }
+.garment-docs__comment { background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }   /* K2-1-01: lists sit on the --neutral-50 page, so the comment is a visible white panel */
+.docs-editor__comment blockquote, .garment-docs__comment blockquote { margin: 0; color: var(--ink); text-wrap: pretty; }
+.docs-editor__masked, .garment-docs__masked { margin: 0; text-wrap: pretty; }
+
+/* ---------- garment docs (read-only): Before | Pinned tabs, thumbnails, the comment ---------- */
+.garment-docs { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-12); }
+.garment-docs__tabs { display: flex; gap: var(--space-24); box-shadow: inset 0 -1px 0 var(--neutral-200); }
+.doc-tab { display: inline-flex; align-items: center; gap: var(--space-4); min-height: 44px; padding: 0 var(--space-4); border: 0; background: transparent; color: var(--neutral-500-ink); font-family: var(--font-sans); cursor: pointer; }
+.doc-tab.is-active { color: var(--ink); box-shadow: inset 0 -2px 0 var(--ink); }
+.garment-docs__panel[hidden] { display: none; }
+.garment-docs__thumbs { display: flex; flex-wrap: wrap; gap: var(--space-8); padding-top: var(--space-4); }
+.garment-docs__thumb { padding: 0; border: 0; background: none; border-radius: var(--radius-sm); cursor: pointer; line-height: 0; }
+.garment-docs__none { margin: 0; min-height: 44px; display: flex; align-items: center; }
+.garment-docs__comment { margin-top: var(--space-4); }
+.change-list__garment--new .garment-docs__comment { background: var(--white); }
+
+/* ---------- change list + work list heads carry the garment icon ---------- */
+.change-list__head { display: flex; align-items: center; gap: var(--space-12); margin-bottom: var(--space-4); }
+.change-list__head .change-list__type { margin: 0; min-width: 0; }
+.change-list__head--gone .garment-icon { opacity: .5; filter: grayscale(1); }
+.work-list__title { display: flex; align-items: center; gap: var(--space-12); min-width: 0; }
+
+/* ---------- the fitting-photo viewer sheet ---------- */
+.docs-viewer { display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-8) var(--space-20) var(--space-24); max-height: 70vh; overflow-y: auto; }
+.docs-viewer__sub { margin: 0; }
+.docs-viewer__stage { display: flex; flex-direction: column; align-items: center; border-radius: var(--radius-md); }
+.docs-viewer__photo { width: auto; height: clamp(160px, calc(70vh - 330px), 320px); aspect-ratio: 3 / 4; max-width: 100%; }   /* K2-1-02: the stage takes the room left in the 70vh sheet (tabs, controls, strip and Remove photo are ~330 px), so nothing scrolls off at 667 or 844 */
+.docs-viewer__photo .doc-photo--stage { width: 100%; height: 100%; aspect-ratio: auto; }
+.docs-viewer__controls { display: flex; align-items: center; justify-content: center; gap: var(--space-16); }
+.docs-viewer__nav { width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-full); background: var(--neutral-50); color: var(--ink); font-family: var(--font-sans); font-size: var(--size-24); line-height: 1; cursor: pointer; }
+.docs-viewer__nav:disabled { opacity: .4; cursor: not-allowed; }
+.docs-viewer__strip { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-8); }
+.docs-viewer__thumb { padding: 0; border: 0; background: none; border-radius: var(--radius-sm); cursor: pointer; line-height: 0; }
+.docs-viewer__thumb[aria-current="true"] .doc-photo { box-shadow: inset 0 0 0 2px var(--ink); }
+.docs-viewer > * { flex-shrink: 0; }
+.docs-viewer .cta { width: 100%; }
+@media (prefers-reduced-motion: reduce) { .doc-tab, .docs-viewer__nav, .docs-editor__add { transition: none; } }
+.docs-demo .docs-editor { margin: 0; padding: 0; box-shadow: none; }

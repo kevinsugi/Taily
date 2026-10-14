@@ -12,7 +12,7 @@ import {
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList, receiptBlock,
+  sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList, receiptBlock, wireGarmentDocs,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
@@ -232,11 +232,11 @@ function returnBlock(a, t, first) {
 
 /** "Your order" (K-2-01, D-127): the approved order as plain rows, the same garment / service strings as Amara's "The work".
     Every row is 'same' once approved; a garment added at the fitting keeps a small "New item" tag. */
-function orderSection(a) {
+function orderSection(a, first = 'Amara') {
   const added = new Set(a.job.garments.filter((g) => g.added).map((g) => g.id));
   const garments = priceChangeView(a, a.lines).garments.map((g) => (added.has(g.id) ? { ...g, newItem: true } : g));
   return `<h2 class="t-h2 ${ID}__h2">Your order</h2>
-  <div class="${ID}__order">${changeList({ garments })}</div>`;
+  <div class="${ID}__order">${changeList({ garments, docs: a.priceChange?.docs ?? null, commentLabel: `${first}’s comment` })}</div>`;
 }
 
 function m4View(a, t, first) {
@@ -281,7 +281,7 @@ function m4View(a, t, first) {
     middle = `<h2 class="t-h2 ${ID}__h2 ${ID}__h2--first">Your review</h2><div class="${ID}__review">${mine}</div>`;
   }
   const steps = a.status === 'completed' ? '' : `<h2 class="t-h2 ${ID}__h2">What happens next</h2>${m4Timeline(a, first)}`;
-  const order = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status) && a.lines?.length ? orderSection(a) : '';
+  const order = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status) && a.lines?.length ? orderSection(a, first) : '';
   const actions = a.status === 'completed'
     ? `${cta(`Book ${f} again`, { attrs: 'data-act="book-again"' })}
     ${cta(`Message ${f}`, { variant: 'secondary', attrs: 'data-act="message"' })}`
@@ -443,6 +443,18 @@ function wire(root) {
     backBtn.addEventListener('click', () => go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings'));
   }
 
+  /* K-02: the tailor's Before | Pinned photos on "Your order" (read-only, the sent snapshot) */
+  if (a) {
+    const by = firstOf(tailorById(a.tailorId) ?? state.tailors[0]);
+    wireGarmentDocs(root, {
+      by: `Taken by ${by}`,
+      lookup: (gid) => {
+        const docs = a.priceChange?.docs?.[gid];
+        const type = priceChangeView(a, a.lines).garments.find((g) => g.id === gid)?.type ?? '';
+        return docs ? { type, docs } : null;
+      },
+    });
+  }
   root.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (!act || e.target.closest('.screen-sheet--overlay')) return;

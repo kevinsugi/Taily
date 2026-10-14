@@ -107,6 +107,10 @@ export const TAILORS = [
 /** Saved-address labels (M5, D-133) and chat limits (D-131), payout kind words (D-136). */
 export const ADDRESS_LABELS = ['Home', 'Work', 'Other'];
 export const CHAT_LIMITS = { PHOTOS_MAX: 3 };
+/** K-02 (D-176): fitting documentation. Up to 4 Before and 4 Pinned photos per garment, a comment of up to 200 characters. */
+export const FITTING_LIMITS = { PHOTOS_MAX: 4, COMMENT_MAX: 200 };
+export const DOC_KINDS = ['before', 'pinned'];
+export const DOC_LABEL = { before: 'Before', pinned: 'Pinned' };
 export const PAYOUT_KIND_LABEL = { job: 'Job', 'kept-deposit': 'Late cancellation', 'no-show': 'No-show' };
 
 const HOME_FIELDS = { street: '145 N 7th St', unit: '2R', city: 'Brooklyn', state: 'NY', zip: '11211' };

@@ -8,6 +8,7 @@ import { SCENARIOS as TJ4_SC, SEED_SLOT as TJ4_SLOT } from './money-scenarios.js
 import { fmtExact as TJ4_exact, fmtNeg as TJ4_neg } from '../money.js';
 import * as TJ4_C from './common.js';
 import { setFocus as TJ4_setFocus } from '../focus.js';
+import { FITTING_COMMENTS as TJ4_FC } from './common.js';
 
 import { SCENARIOS as CC_SC, AMARA as CC_AMARA } from './money-scenarios.js';
 import { fmtExact as ccExact } from '../money.js';
@@ -15,8 +16,8 @@ import { REVIEW_LIMITS as CV_LIMITS } from '../data.js';
 
 /* ---------- C1 · Price change (t-adjust, c-price-change) ---------- */
 import { SCENARIOS as PC_SCENARIOS, AMARA as PC_AMARA } from './money-scenarios.js';
-import { PRICE_NOTES as PC_PRICE_NOTES } from './common.js';
-import { TAILOR_LIMITS as PC_LIMITS } from '../data.js';
+import { PRICE_NOTES as PC_PRICE_NOTES, FITTING_COMMENTS as PC_FC } from './common.js';
+import { TAILOR_LIMITS as PC_LIMITS, FITTING_LIMITS as PC_FL } from '../data.js';
 import { fmtExact as PC_fmtExact, fmtNeg as PC_fmtNeg, cents as PC_cents } from '../money.js';
 
 const PC_GROUP = 'M4 · Edit job';
@@ -32,8 +33,8 @@ const PC_edited = (S) => {
   return a;
 };
 /** The J6 draft: a new Pants / Jeans item with Hem pants, Take in jacket sides taken off. */
-const PC_itemAdded = (S) => {
-  const a = S.driveTo('fitting');
+const PC_itemAdded = (S, docs = 'none') => {
+  const a = S.driveTo('fitting', { docs });
   S.state.ui['t-adjust'] = {
     apptId: a.id, mode: 'new', prices: {}, removed: ['g2:jacket-sides'], added: [{ garmentId: 'n1', serviceId: 'hem-pants' }],
     items: [{ id: 'n1', type: 'Pants / Jeans' }], removedItems: [], note: '', seq: 2,
@@ -43,9 +44,9 @@ const PC_itemAdded = (S) => {
 const PC_MAX = 10;
 
 export const FLOWS_t_adjust = [
-  { key: 't-adjust', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job', note: 'At the fitting: every item and service as booked, "No changes", Send already on (an untouched order is sent for approval)',
+  { key: 't-adjust', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job', note: 'At the fitting: every item and service as booked, no photos yet, so Send is off and says why (K-02: Before and Pinned photos are required)',
     setup: (S) => { S.driveTo('fitting'); },
-    expect: { has: ['Edit the job', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', 'Add a service', 'Add an item', 'No changes', 'Send to Sarah for approval', PC_fmtExact(PC_sc.seed.payout)], sel: '[data-act="send"]:not([disabled])' } },
+    expect: { has: ['Edit the job', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', 'Add a service', 'Add an item', 'No changes', 'Send to Sarah for approval', PC_fmtExact(PC_sc.seed.payout), 'Before photos', 'Pinned photos', 'Add at least one before photo', 'Add before and pinned photos for 2 items'], sel: '[data-act="send"][disabled]' } },
   { key: 't-adjust--edited', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — edited', note: 'Sleeves repriced, Taper legs added: the marks, the new total and what Amara takes home',
     setup: (S) => { PC_edited(S); },
     expect: { has: ['New', 'New price', 'Taper legs', PC_fmtExact(PC_sc.priceAdded.total), PC_fmtExact(PC_sc.priceAdded.payout), PC_fmtNeg(PC_sc.priceAdded.tailyFee), 'up', '1 service added'], not: 'Added' } },
@@ -79,6 +80,7 @@ export const FLOWS_t_adjust = [
   { key: 't-adjust--error', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — price missing', note: 'Hem pants price cleared, Send pressed: the error sits under the field',
     setup: (S) => {
       const a = S.driveTo('fitting');
+      S.documentFitting(a.id);                                  // K-02: undocumented, the disabled Send would swallow the click
       S.state.ui['t-adjust'] = { apptId: a.id, mode: 'new', prices: { 'g1:hem-pants': '' }, removed: [], added: [], items: [], removedItems: [] };
     },
     click: ['[data-act="send"]'],
@@ -97,7 +99,46 @@ export const FLOWS_t_adjust = [
   { key: 't-adjust--leave', screen: 't-adjust', group: PC_GROUP, title: 'Leave without sending?', note: 'Back with unsent edits asks first: Sarah cannot approve until you send',
     setup: (S) => { PC_edited(S); },
     click: ['[data-act="back"]'],
-    expect: { has: ['Leave without sending?', 'Keep editing'] } },
+    expect: { has: ['Leave without sending?', 'Keep editing', 'Your photos and comments are saved'] } },
+  /* ---- K-02 · fitting documentation ---- */
+  { key: 't-adjust--docs', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — photographed', note: 'K-02: two Before and two Pinned photos per item and a comment on the Suit Jacket: nothing missing, Send is on',
+    setup: (S) => { S.driveTo('fitting', { docs: 'full' }); },
+    expect: { has: ['2 of 4', 'Your comment', PC_FC.g2, 'No changes'], not: ['Add at least one', 'Add before and pinned photos'], sel: '[data-act="send"]:not([disabled])' } },
+  { key: 't-adjust--photos-missing', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — one item still needs a photo', note: 'K-02: the Suit Pant is done, the Suit Jacket has a Pinned photo but no Before: its card and the bar say so',
+    setup: (S) => {
+      const a = S.driveTo('fitting');
+      S.T.addFittingPhoto(a.id, 'g1', 'before'); S.T.addFittingPhoto(a.id, 'g1', 'pinned'); S.T.addFittingPhoto(a.id, 'g2', 'pinned');
+    },
+    expect: { has: ['Add at least one before photo', 'Add before and pinned photos for 1 item'], not: 'Add at least one pinned photo', sel: '[data-garment="g2"] [data-missing-msg="before"]' } },
+  { key: 't-adjust--item-docs', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — a new item needs photos too', note: 'K-02: the Suit Jacket and Suit Pant are photographed, the added Pants / Jeans is not: its card is flagged and Send stays off',
+    setup: (S) => { PC_itemAdded(S, 'min'); },
+    expect: { has: ['New item', 'Pants / Jeans', 'Add before and pinned photos for 1 item'], sel: '[data-garment="n1"] [data-missing-msg="pinned"]' } },
+  { key: 't-adjust--docs-max', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — four Before photos', note: 'K-02: at the limit the Before add tile is gone and a line says why',
+    setup: (S) => {
+      const a = S.driveTo('fitting', { docs: 'min' });
+      for (let i = 0; i < PC_FL.PHOTOS_MAX - 1; i += 1) S.T.addFittingPhoto(a.id, 'g2', 'before');
+    },
+    expect: { has: [`${PC_FL.PHOTOS_MAX} of ${PC_FL.PHOTOS_MAX}`, `Up to ${PC_FL.PHOTOS_MAX} before photos`], sel: `[data-garment="g2"] [data-kind="before"] [data-act="view-doc"][data-index="${PC_FL.PHOTOS_MAX - 1}"]` } },
+  { key: 't-adjust--comment', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — writing a comment', note: 'K-02: the comment editor on the Suit Jacket, unsaved, with Save and Cancel',
+    setup: (S) => {
+      const a = S.driveTo('fitting', { docs: 'min' });
+      S.state.ui['t-adjust'] = { apptId: a.id, mode: 'new', comments: { g2: PC_FC.g2 } };
+    },
+    expect: { has: ['Comment for Sarah', `${[...PC_FC.g2].length} / ${PC_FL.COMMENT_MAX}`, 'Save', 'Cancel'], sel: '#comment-g2' } },
+  { key: 't-adjust--comment-masked', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — a phone number in a comment', note: 'K-02: the saved comment shows [phone hidden] and the card says it is hidden from Sarah',
+    setup: (S) => { const a = S.driveTo('fitting', { docs: 'min' }); S.T.setFittingComment(a.id, 'g1', PC_FC.masked); },
+    expect: { has: ['phone hidden', 'hidden from Sarah'], not: '555-0118' } },
+  { key: 't-adjust--photo-viewer', screen: 't-adjust', group: PC_GROUP, title: 'A before photo', note: 'K-02: the viewer sheet: who took it and when, the Before | Pinned tabs, 1 of 2, Remove photo',
+    setup: (S) => { S.driveTo('fitting', { docs: 'full' }); },
+    click: ['[data-garment="g2"] [data-act="view-doc"][data-kind="before"][data-index="0"]'],
+    expect: { has: ['Suit Jacket · Before', 'Taken by you', '1 of 2', 'Remove photo', 'Pinned'], sel: '[data-s="docs-viewer"]' } },
+  { key: 't-adjust--revise-docs', screen: 't-adjust', group: PC_GROUP, title: 'Edit the order you sent — a new photo', note: 'K-02: a photo added after sending is a change on its own: "Send the updated order" turns on',
+    setup: (S) => {
+      const a = S.driveTo('price-change', { priceChange: 'item' });
+      S.T.addFittingPhoto(a.id, 'g2', 'pinned');
+      S.state.ui['t-adjust'] = { apptId: a.id, mode: 'revise' };
+    },
+    expect: { has: ['Edit the order you sent', '2 of 4'], sel: '[data-act="send"]:not([disabled])' } },
 ];
 
 export const FLOWS_c_price_change = [
@@ -106,7 +147,7 @@ export const FLOWS_c_price_change = [
     expect: { has: ['Review your final order', 'Approve order', 'What changed', '1 service added', 'Taper legs', 'New', 'New price', PC_fmtExact(PC_sc.priceAdded.total), PC_fmtExact(PC_sc.priceAdded.balance), PC_fmtExact(PC_sc.seed.total), PC_fmtExact(PC_sc.seed.deposit), 'Stays the same', 'Approve and start', 'Message Amara', 'note'], not: ['Reject', 'Decline', 'Added'] } },
   { key: 'c-price-change--item-added', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — item added', note: 'Pants / Jeans as a green New item, Take in jacket sides struck: lower total and balance, deposit unchanged',
     setup: (S) => { S.driveTo('price-change', { priceChange: 'item' }); },
-    expect: { has: ['New item', 'Pants / Jeans', 'Hem pants', 'Removed', 'Take in jacket sides', '1 item added', '1 service removed', 'down', PC_fmtExact(PC_sc.priceItem.total), PC_fmtExact(PC_sc.priceItem.balance), PC_fmtExact(PC_sc.seed.deposit)] } },
+    expect: { has: ['New item', 'Pants / Jeans', 'Hem pants', 'Removed', 'Take in jacket sides', '1 item added', '1 service removed', 'down', PC_fmtExact(PC_sc.priceItem.total), PC_fmtExact(PC_sc.priceItem.balance), PC_fmtExact(PC_sc.seed.deposit)], sel: '[data-docs="n1"]' } },
   { key: 'c-price-change--item-removed', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — item removed', note: 'The Suit Pant struck with one Removed tag: lower total and balance',
     setup: (S) => { S.driveTo('price-change', { priceChange: 'item-removed' }); },
     expect: { has: ['Removed', 'Suit Pant', '1 item removed', PC_fmtExact(PC_sc.priceItemRemoved.total), PC_fmtExact(PC_sc.priceItemRemoved.balance)], not: 'New item' } },
@@ -122,6 +163,25 @@ export const FLOWS_c_price_change = [
   { key: 'c-price-change--unchanged', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — no changes', note: 'Amara sent the order as booked: "No changes", the booked total, still one tap to approve',
     setup: (S) => { S.driveTo('price-change', { priceChange: 'unchanged' }); },
     expect: { has: ['Review your final order', 'Your order', 'No changes', 'Same as booked', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', PC_fmtExact(PC_sc.seed.total), PC_fmtExact(PC_sc.seed.balance), 'Approve and start'], not: ['New total', 'New balance', 'Removed', 'New price'] } },
+  /* ---- K-02 · the tailor's photos on the order ---- */
+  { key: 'c-price-change--docs', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — with the fitting photos', note: 'K-02: each garment’s icon, Before | Pinned tabs with counts, the thumbnails and Amara’s comment',
+    setup: (S) => { S.driveTo('price-change', { docs: 'full' }); },
+    expect: { has: ['Before', 'Pinned', 'Amara’s comment', PC_FC.g2, 'photographed each item'], sel: '[data-docs="g2"] [data-act="view-doc"]' } },
+  { key: 'c-price-change--docs-pinned', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — the Pinned photos', note: 'K-02: the Pinned tab selected on the Suit Jacket',
+    setup: (S) => { S.driveTo('price-change', { docs: 'full' }); },
+    click: ['[data-docs="g2"] [data-act="docs-tab"][data-kind="pinned"]'],
+    expect: { sel: '#docs-g2-pinned:not([hidden])' } },
+  { key: 'c-price-change--photo-viewer', screen: 'c-price-change', group: PC_GROUP_C, title: 'A before photo', note: 'K-02: Amara’s photo opened full size: who took it, 2 of 2, no way to remove it',
+    setup: (S) => { S.driveTo('price-change', { docs: 'full' }); },
+    click: ['[data-docs="g2"] [data-act="view-doc"][data-kind="before"][data-index="1"]'],
+    expect: { has: ['Suit Jacket · Before', 'Taken by Amara', '2 of 2'], not: 'Remove photo', sel: '[data-s="docs-viewer"]' } },
+  { key: 'c-price-change--comment-masked', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — a hidden phone number', note: 'K-02: Amara’s comment had a phone number: Sarah sees [phone hidden] and why',
+    setup: (S) => {
+      const a = S.driveTo('fitting', { docs: 'min' });
+      S.T.setFittingComment(a.id, 'g2', PC_FC.masked);
+      S.T.sendPriceChange(a.id, a.lines);
+    },
+    expect: { has: ['phone hidden', 'Phone numbers and emails in this comment are hidden'], not: '555-0118' } },
 ];
 /* ---------- C3 · Customer return + pay (c-ready) · prefix CR_ ---------- */
 import { SCENARIOS as CR_SC } from './money-scenarios.js';
@@ -151,6 +211,7 @@ export const FLOWS_c_ready = [
   { key: 'c-ready--refund', screen: 'c-ready', group: CR_GROUP, title: 'Ready — total below the deposit', note: 'Nothing to pay: the difference comes back to the card; the bar says Confirm and get $X back (D-156)',
     setup: (S) => {
       const a = S.driveTo('fitting', { visitType: 'shop' });
+      S.documentFitting(a.id, { lines: CR_SC.priceBelowDeposit.lines });
       S.T.sendPriceChange(a.id, CR_SC.priceBelowDeposit.lines);
       S.T.approvePriceChange(a.id);
       S.T.markReady(a.id);
@@ -208,7 +269,10 @@ export const FLOWS_t_job = [
     expect: { has: ['time for the fitting', 'Start fitting', 'Message Sarah', 'Something wrong?'], not: 'You accepted', sel: '.action-bar' } },
   { ...TJ4, key: 't-job--fitting', title: 'Job — fitting', note: 'Reached by Back from the editor: Fitting pill, take-home in the bar, Review the order (no shortcut past Sarah)',
     setup: (S) => { S.driveTo('fitting'); },
-    expect: { has: ['Fitting', 'Review the order', 'Message Sarah', TJ4_exact(TJ4_SC.seed.payout), 'Due Fri, Oct 23 · in 8 days', 'Fitting was Thu, Oct 15'], not: ['No changes, start the work', 'Adjust price', 'make it'] } },
+    expect: { has: ['Fitting', 'Review the order', 'Message Sarah', TJ4_exact(TJ4_SC.seed.payout), 'Due Fri, Oct 23 · in 8 days', 'Fitting was Thu, Oct 15', 'Take a before and a pinned photo of each'], not: ['No changes, start the work', 'Adjust price', 'make it'] } },
+  { ...TJ4, key: 't-job--fitting-docs', title: 'Job — fitting, photographed', note: 'K-02: Back from the editor after photographing: The work shows each item’s Before | Pinned photos',
+    setup: (S) => { S.driveTo('fitting', { docs: 'min' }); },
+    expect: { has: ['Fitting', 'Before', 'Pinned', 'Review the order'] } },
   { ...TJ4, key: 't-job--waiting', title: 'Job — waiting for Sarah to approve', note: 'Take-home with the old figure, "The order you sent" with the same marks Sarah sees, Edit the order',
     setup: (S) => { S.driveTo('price-change'); },
     expect: { has: ['Waiting on Sarah', 'The order you sent', 'Taper legs', 'New', TJ4_exact(TJ4_SC.priceAdded.payout), TJ4_exact(TJ4_SC.priceAdded.total), 'Edit the order'], sel: '.change-list' } },
@@ -230,12 +294,22 @@ export const FLOWS_t_job = [
       S.T.sendMessage(a.tailorId, 'tailor', { text: 'The sleeves took longer than I thought. Happy to talk it through.' });
     },
     expect: { has: ['Waiting on Sarah', 'Waiting for Sarah to approve', 'You replied at', 'Edit the order'], not: ['Reply to Sarah', 'wants to talk'], sel: '.note-quote' } },
+  { ...TJ4, key: 't-job--docs-unsent', title: 'Job — photos changed since sending', note: 'K-02: a photo added after the order went out: a line says Sarah does not see it until the updated order is sent (D-183)',
+    setup: (S) => { const a = S.driveTo('price-change'); S.T.addFittingPhoto(a.id, 'g1', 'before'); },
+    expect: { has: ['Waiting on Sarah', 'You changed photos or comments since you sent the order'] } },
   { ...TJ4, key: 't-job--approved', title: 'Job — Sarah approved your changes', note: 'Success banner with the new take-home, Mark ready',
     setup: (S) => { S.driveTo('in-progress', { priceChange: 'added' }); },
     expect: { has: ['approved your changes', TJ4_exact(TJ4_SC.priceAdded.payout), 'Mark ready', 'Price updated after the fitting', 'Due Fri, Oct 23 · in 8 days', 'Fitting was'], sel: '.banner--success' } },
   { ...TJ4, key: 't-job--in-progress', title: 'Job — work in progress', note: 'Order approved as booked: Mark ready is the one next step, no "changes" claim',
     setup: (S) => { S.driveTo('in-progress'); },
     expect: { has: ['In progress', 'Work in progress', 'approved the order', 'Mark ready'], not: 'approved your changes' } },
+  { ...TJ4, key: 't-job--docs', title: 'Job — the work, documented', note: 'K-02: The work with each item’s icon, Before | Pinned tabs and Your comment (the approved record)',
+    setup: (S) => { S.driveTo('in-progress', { docs: 'full' }); },
+    expect: { has: ['The work', 'Before', 'Pinned', 'Your comment', TJ4_FC.g2, TJ4_FC.g1], sel: '[data-docs="g2"] [role="tab"][aria-selected="true"][data-kind="before"]' } },
+  { ...TJ4, key: 't-job--docs-pinned', title: 'Job — the Pinned photos', note: 'K-02: the Pinned tab selected on the Suit Jacket',
+    setup: (S) => { S.driveTo('in-progress', { docs: 'full' }); },
+    click: ['[data-docs="g2"] [data-act="docs-tab"][data-kind="pinned"]'],
+    expect: { sel: '[data-docs="g2"] [role="tab"][aria-selected="true"][data-kind="pinned"]' } },
   { ...TJ4, key: 't-job--mark-ready', title: 'Job — mark ready sheet', note: 'All three ways back ticked; the courier is never her money',
     setup: (S) => { S.driveTo('in-progress'); },
     click: ['[data-act="mark-ready"]'],
@@ -254,7 +328,7 @@ export const FLOWS_t_job = [
     expect: { has: ['Courier booked', 'Courier arrives', '145 N 7th St', 'Paid by Sarah · nothing comes out of your payout', 'Handed to courier', TJ4_exact(TJ4_SC.seed.payout)], not: [TJ4_exact(TJ4_SC.courierQuote.quote), TJ4_exact(TJ4_SC.courierQuote.markup), TJ4_exact(TJ4_SC.courierQuote.cents), 'Mark completed'], sel: '.courier-card--tailor' } },
   { ...TJ4, key: 't-job--completed', title: 'Job — completed, payout', note: 'You take home, Pending with the Friday it arrives and the bank, how it went back, review prompt',
     setup: (S) => { S.driveTo('completed'); },
-    expect: { has: ['Job completed', 'YOU TAKE HOME', TJ4_exact(TJ4_SC.seed.payout), TJ4_neg(TJ4_SC.seed.tailyFee), 'Pending', 'Arrives Fri, Oct 16 · to Chase ••6789', 'Picked up at your shop · ', 'can leave a review'], not: ['Mark completed', 'Scheduled', 'YOUR PAYOUT'] } },
+    expect: { has: ['Job completed', 'YOU TAKE HOME', 'The work', TJ4_exact(TJ4_SC.seed.payout), TJ4_neg(TJ4_SC.seed.tailyFee), 'Pending', 'Arrives Fri, Oct 16 · to Chase ••6789', 'Picked up at your shop · ', 'can leave a review'], not: ['Mark completed', 'Scheduled', 'YOUR PAYOUT'] } },
   { ...TJ4, key: 't-job--completed-paid', title: 'Job — completed, paid', note: 'The Friday run paid it: Paid with the date and the bank (D-172)',
     setup: (S) => { TJ4_C.earningsTo('paid'); TJ4_setFocus(S.state.appts[0].id); },
     expect: { has: ['Job completed', 'YOU TAKE HOME', 'Paid', 'Paid Fri, Oct 16 · to Chase ••6789'], not: ['Pending', 'Arrives'] } },

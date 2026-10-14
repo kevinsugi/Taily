@@ -14,3 +14,4 @@
 .c-price-change__h2--lead { margin-bottom: var(--space-8); }
 .c-price-change__summary { margin-bottom: var(--space-12); }
 .c-price-change__fail { margin-top: var(--space-16); }
+.c-price-change__photos { margin: calc(-1 * var(--space-4)) 0 var(--space-12); text-wrap: pretty; }

@@ -12,7 +12,7 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 | M5 Messaging, accounts, earnings, system | committed (140b2a4, `npm run check` green); no milestone review — covered by the M6 audit, findings in `M6-fixlist.md` | 140b2a4 | not synced | 8 new screens + M5 states on c-thread / t-thread / hosts, journeys J7–J9; re-accepted on purpose: c-thread--new, t-thread (header + context row), sys-components (M5 gallery), sys-index (new screens listed); t-thread--declined removed (now t-thread--read-only) |
 | M6 Final pass | in progress: audit triaged into `docs/v5/M6-fixlist.md`, fix batches running (decisions D-154…D-174 logged) | | | |
 
-**Next action:** Build complete. Waiting on Kevin's review — start with docs/v5/REVIEW-GUIDE.md. Overrule anything via DECISIONS ids.
+**Next action:** K-02 workflow running (fitting documentation: Before/Pinned photos + per-garment comment, garment icons on every card). Script taily-v5-k02-fitting-documentation-wf_28f0ab56-3f0.js, run wf_e62f0a73-f82 (restarted: photos required). Then commit + push.
 
 ## Open findings carried forward
 (none)

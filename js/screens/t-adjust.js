@@ -7,19 +7,22 @@
    the marks Sarah sees: New item / New / New price / Removed. Focal: the
    garment cards; the outcome rides in the action bar lead.
    Draft lives in state.ui['t-adjust'] (D-34):
-     { apptId, mode: 'new'|'revise', prices, removed, added, items, removedItems, note, tried, seq }
+     { apptId, mode: 'new'|'revise', prices, removed, added, items, removedItems, note, tried, seq, comments, commentErrors }
+   K-02 (D-175…D-183): every card also documents the garment — Before / Pinned photos (REQUIRED: Send stays off until every item
+   in the order has one of each) and an optional comment. Photos and saved comments live on the appointment (T.addFittingPhoto …),
+   not in the draft; `comments` holds only the editors that are open with unsaved text.
    Modes: 'new' (from the fitting) · 'revise' (Sarah hasn't approved yet).
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
-import { state, T, getAppt, apptsFor, priceChangeView } from '../state.js';
+import { state, T, getAppt, apptsFor, priceChangeView, docsOf, docsMissing, docsDiffer, nextItemId } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import { setFocus } from '../focus.js';
 import { fmt, fmtExact, fmtColumn, cents } from '../money.js';
-import { SERVICES, GARMENT_TYPES, servicesForType, TAILOR_LIMITS, MAX_ITEMS } from '../data.js';
+import { SERVICES, GARMENT_TYPES, servicesForType, TAILOR_LIMITS, MAX_ITEMS, FITTING_LIMITS, DOC_LABEL } from '../data.js';
 import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, banner, emptyState, listRow, optionRow, textArea, deltaFigure, tailorBreakdown, actionBar, changeSummary,
-  sheetOverlay, modalOverlay, leaveModal, toast, esc,
+  sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, docsEditor, wireGarmentDocs,
 } from '../components.js';
 
 const ID = 't-adjust';
@@ -81,7 +84,10 @@ function ensureDraft(a) {
   d.removedItems ??= [];
   d.note ??= '';
   d.tried ??= false;
-  d.seq ??= nSeq(d.items);
+  d.comments ??= {};
+  d.commentErrors ??= {};
+  /* D-182: an added item never reuses the id of a discarded item that still has photos */
+  d.seq = Math.max(d.seq ?? 0, nSeq(d.items), Number(nextItemId(a).slice(1)));
   return d;
 }
 
@@ -131,6 +137,7 @@ function build(a, d) {
   }
   return garments;
 }
+const liveIds = (garments) => garments.filter((g) => !g.gone).map((g) => g.id);
 const liveRows = (garments) => garments.filter((g) => !g.gone).flatMap((g) => g.rows).filter((r) => !r.removed);
 
 /** The lines the preview prices: an invalid price falls back to what the row started at. */
@@ -143,9 +150,12 @@ const lineSig = (l) => `${l.garmentId}:${l.serviceId}:${l.cents}`;
 function isEdited(a, d, garments) {
   const rows = liveRows(garments);
   if (rows.some((r) => r.parsed.error)) return true;
+  /* K-02: an open comment editor whose text differs from the saved comment is an edit (photos and saved comments are already saved) */
+  if (Object.entries(d.comments ?? {}).some(([gid, text]) => text.trim() !== docsOf(a, gid).comment)) return true;
   if (d.mode === 'revise') {
     const sent = (a.priceChange?.lines ?? a.lines).map(lineSig).sort().join('|');
-    return previewLines(garments).map(lineSig).sort().join('|') !== sent || d.note.trim() !== (a.priceChange?.note ?? '');
+    return previewLines(garments).map(lineSig).sort().join('|') !== sent || d.note.trim() !== (a.priceChange?.note ?? '')
+      || docsDiffer(a, liveIds(garments));
   }
   return priceChangeView(a, previewLines(garments)).changed || d.note.trim() !== '';
 }
@@ -204,12 +214,12 @@ function addable(g) {
   return servicesForType(g.type).filter((id) => typeof prices[id] === 'number' && !g.rows.some((r) => r.serviceId === id));
 }
 
-function garmentHtml(g, errors, busy) {
+function garmentHtml(g, errors, busy, ctx) {
   const dis = busy ? ' disabled' : '';
   if (g.gone) {
     return `<section class="${ID}__garment" aria-label="${esc(g.type)}, removed" data-garment="${esc(g.id)}" data-kind="removed">
     <div class="${ID}__card ${ID}__card--gone">
-      <div class="${ID}__head"><h2 class="t-body w-600 ${ID}__type c-600"><s>${esc(g.type)}</s></h2>${tag('Removed', 'removed')}
+      <div class="${ID}__head">${garmentIcon(g.type)}<h2 class="t-body w-600 ${ID}__type c-600"><s>${esc(g.type)}</s></h2>${tag('Removed', 'removed')}
         <button type="button" class="${ID}__btn ${ID}__btn--text t-body w-600" data-act="undo-item" data-garment="${esc(g.id)}"${dis} aria-label="Undo remove ${esc(g.type)}">Undo</button></div>
       <ul class="${ID}__gone-list">${g.rows.map((r) => `<li class="t-small c-600" data-money><s>${esc(r.label)} · ${fmtExact(r.startCents ?? r.fallback)}</s></li>`).join('')}</ul>
     </div>
@@ -218,9 +228,13 @@ function garmentHtml(g, errors, busy) {
   const more = addable(g).length > 0;
   return `<section class="${ID}__garment" aria-label="${esc(g.type)}" data-garment="${esc(g.id)}" data-kind="${g.isNew ? 'added' : 'kept'}">
     <div class="${ID}__card${g.isNew ? ` ${ID}__card--new` : ''}">
-      <div class="${ID}__head"><h2 class="t-body w-600 ${ID}__type">${esc(g.type)}</h2>${g.isNew ? tag('New item', 'new-item') : ''}
+      <div class="${ID}__head">${garmentIcon(g.type)}<h2 class="t-body w-600 ${ID}__type">${esc(g.type)}</h2>${g.isNew ? tag('New item', 'new-item') : ''}
         <button type="button" class="${ID}__btn ${ID}__btn--text t-small w-600" data-act="remove-item" data-garment="${esc(g.id)}"${dis} aria-label="Remove item: ${esc(g.type)}">Remove item</button></div>
       ${g.rows.map((r) => rowHtml(r, errors, busy, g.isNew)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: '+ Add a service', act: 'add-service' }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${dis}`)}</div>` : ''}
+      ${docsEditor({
+    garmentId: g.id, type: g.type, docs: docsOf(ctx.a, g.id), missing: ctx.missing.get(g.id) ?? { before: false, pinned: false },
+    commentDraft: ctx.d.comments[g.id] ?? null, commentError: ctx.d.commentErrors[g.id] ? `Keep the comment under ${FITTING_LIMITS.COMMENT_MAX} characters.` : '', busy, first: ctx.first,
+  })}
     </div>
   </section>`;
 }
@@ -254,8 +268,13 @@ function view() {
   const edited = isEdited(a, d, garments);
   const atMax = garments.length >= MAX_ITEMS;
   const hero = `<p class="t-caps c-600 ${ID}__eyebrow">At the fitting</p><h1 class="t-title">${revise ? 'Edit the order you sent' : 'Edit the job'}</h1>`
-    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Add or remove items and services with ${esc(first)}, then send ${esc(first)} the final order. You start the work once ${esc(first)} approves.</p></div><!--/notes-->`;
-  const sendDisabled = revise && !edited && !busy;
+    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Take a before photo and a pinned photo of each item. Add or remove items and services with ${esc(first)}, then send ${esc(first)} the final order. You start the work once ${esc(first)} approves.</p></div><!--/notes-->`;
+  /* K-02 (D-178): the card says what is missing, the bar says how many items still need photos */
+  const gaps = docsMissing(a, liveIds(garments));
+  const missing = new Map(gaps.map((m) => [m.garmentId, m]));
+  const missingN = gaps.length;
+  const sendDisabled = !busy && (missingN > 0 || (revise && !edited));
+  const ctx = { a, d, missing, first };
   /* D-126: the bar carries both figures, the customer's first, so the total moves in view while the cards are edited */
   const pair = `<span class="${ID}__lead-pair">${esc(first)} pays <b data-money>${fmtExact(pv.after.total)}</b></span> · <span class="${ID}__lead-pair">You take home <b data-money>${fmtExact(pv.after.payout)}</b></span>`;
   const lead = none ? 'Add an item or service to see the new total'
@@ -265,7 +284,7 @@ function view() {
   ${headingRow(hero, { backRow: true })}
   <div class="${ID}__content"${busy ? ' inert aria-busy="true"' : ''}>
   ${revise ? `<div class="${ID}__info">${banner({ tone: 'info', text: `${esc(first)} hasn’t approved yet. Sending again replaces the order ${esc(first)} is looking at.` })}</div>` : ''}
-  <div class="${ID}__garments">${garments.map((g) => garmentHtml(g, errors, busy)).join('')}
+  <div class="${ID}__garments">${garments.map((g) => garmentHtml(g, errors, busy, ctx)).join('')}
     <div class="${ID}__card ${ID}__card--add">${listRow({ title: '+ Add an item', act: 'add-item' }).replace('data-act="add-item"', `data-act="add-item"${atMax || busy ? ' disabled aria-disabled="true"' : ''}`)}${atMax ? `<p class="t-small c-600 ${ID}__max">Up to ${MAX_ITEMS} items on one job.</p>` : ''}</div>
   </div>
   <div class="${ID}__empty-err" data-live="empty">${errors.empty ? banner({ tone: 'error', text: 'Keep at least one item with a service on this job.' }) : ''}</div>
@@ -283,7 +302,7 @@ function view() {
 </main>
 ${actionBar({
     ctaLabel: revise ? 'Send the updated order' : `Send to ${first} for approval`, ctaAct: 'send', disabled: sendDisabled, busy, busyLabel: 'Sending…',
-    note: sendDisabled ? 'Change something to send it again.' : '',
+    note: !sendDisabled ? '' : missingN > 0 ? `Add before and pinned photos for ${missingN} item${missingN > 1 ? 's' : ''}.` : 'Change something to send it again.',
     lead,
   })}`;
 }
@@ -308,8 +327,8 @@ function patch(root) {
     }
     cur.closest('.field__box')?.classList.toggle(`${ID}__box--error`, next.hasAttribute('aria-invalid'));
   });
-  const noteNext = tpl.content.querySelector('.text-area');
-  const noteCur = root.querySelector('.text-area');
+  const noteNext = tpl.content.querySelector(`.${ID}__note .text-area`);
+  const noteCur = root.querySelector(`.${ID}__note .text-area`);
   if (noteNext && noteCur) {
     const msgNext = noteNext.querySelector('.field__msg');
     const msgCur = noteCur.querySelector('.field__msg');
@@ -376,7 +395,7 @@ function openAddItem() {
   const d = ui();
   const prices = myTailor().prices ?? {};
   const typeStep = () => `<div role="radiogroup" aria-label="Item type">${itemTypes().map(({ type, sub }) => optionRow({
-    name: 'type', value: type, title: esc(type), sub, act: 'pick-type',
+    name: 'type', value: type, title: esc(type), sub, act: 'pick-type', lead: garmentIcon(type, { size: 'row' }),
   })).join('')}</div>`;
   const serviceStep = (type) => `<button type="button" class="${ID}__btn ${ID}__btn--text t-body w-600 ${ID}__back" data-act="pick-back">Choose another item</button>
     <div>${servicesForType(type).filter((id) => typeof prices[id] === 'number').map((id) => serviceRow(id, prices)).join('')}</div>`;
@@ -410,7 +429,7 @@ function openAddItem() {
 }
 
 function openLeave(a) {
-  modalOverlay(leaveModal({ title: 'Leave without sending?', body: `${firstOf()} can’t approve the order until you send it. Your edits won’t be kept.` }), { dataS: `${ID}-leave` }, (holder, close) => {
+  modalOverlay(leaveModal({ title: 'Leave without sending?', body: `${firstOf()} can’t approve the order until you send it. Your photos and comments are saved. Item and price changes aren’t.` }), { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => {
       close({ instant: true });
@@ -435,6 +454,8 @@ function dropNewItem(id) {
   const priceKeys = Object.keys(d.prices).filter((k) => k.startsWith(`${id}:`));
   const savedPrices = Object.fromEntries(priceKeys.map((k) => [k, d.prices[k]]));
   d.items.splice(at, 1);
+  delete d.comments[id];
+  delete d.commentErrors[id];
   d.added = d.added.filter((x) => x.garmentId !== id);
   priceKeys.forEach((k) => delete d.prices[k]);
   rerender('[data-act="add-item"]');
@@ -448,6 +469,48 @@ function dropNewItem(id) {
       rerender(`[data-act="remove-item"][data-garment="${q(id)}"]`);
     },
   });
+}
+
+/* ---------- documentation: photos and the comment (K-02) ---------- */
+const addTile = (gid, kind) => `[data-act="add-doc"][data-garment="${q(gid)}"][data-kind="${kind}"]`;
+const thumb = (gid, kind, index) => `[data-act="view-doc"][data-garment="${q(gid)}"][data-kind="${kind}"][data-index="${index}"]`;
+/** The text button that opens a garment's comment editor: "Edit comment" when one is saved, else "+ Add comment". */
+const commentTrigger = (a, gid) => `[data-act="${docsOf(a, gid).comment ? 'edit-comment' : 'add-comment'}"][data-garment="${q(gid)}"]`;
+
+function addDoc(a, gid, kind) {
+  const r = T.addFittingPhoto(a.id, gid, kind);
+  if (!r.ok) { toast('Something went wrong. Try again.', { tone: 'error' }); return; }
+  const n = docsOf(a, gid)[kind].length;
+  rerender(n < FITTING_LIMITS.PHOTOS_MAX ? addTile(gid, kind) : thumb(gid, kind, n - 1));   // at the max the add tile is gone
+}
+
+function removeDoc(a, gid, photo, kind, index) {
+  const r = T.removeFittingPhoto(a.id, gid, photo.id);
+  if (!r.ok) { toast('Something went wrong. Try again.', { tone: 'error' }); return; }
+  rerender(addTile(gid, kind));
+  toast(`${DOC_LABEL[kind]} photo removed.`, {
+    action: 'Undo',
+    onAction: () => {
+      if (currentScreen() !== ID || !state.ui[ID]) return;
+      const back = T.restoreFittingPhoto(a.id, gid, photo, r.index ?? index);
+      if (back.ok) rerender(thumb(gid, kind, r.index ?? index));
+    },
+  });
+}
+
+function saveComment(a, gid) {
+  const d = ui();
+  const r = T.setFittingComment(a.id, gid, d.comments[gid] ?? '');
+  if (r.ok) {
+    delete d.comments[gid];
+    delete d.commentErrors[gid];
+    rerender(commentTrigger(a, gid));
+  } else if (r.error === 'comment-long') {
+    d.commentErrors[gid] = 'comment-long';
+    rerender(`#comment-${q(gid)}`);
+  } else {
+    toast('Something went wrong. Try again.', { tone: 'error' });
+  }
 }
 
 function removeLine(a, key) {
@@ -464,9 +527,24 @@ function removeLine(a, key) {
   else rerender(`[data-act="undo-line"][data-key="${q(key)}"]`);
 }
 
+/** K-02: save every open comment editor before the order goes. A comment that is too long stops the send at its field. */
+function saveOpenComments(a, d) {
+  for (const gid of Object.keys(d.comments)) {
+    const r = T.setFittingComment(a.id, gid, d.comments[gid]);
+    if (r.ok) { delete d.comments[gid]; delete d.commentErrors[gid]; continue; }
+    if (r.error === 'comment-long') {
+      d.commentErrors[gid] = 'comment-long';
+      rerender(`#comment-${q(gid)}`);
+      return false;
+    }
+  }
+  return true;
+}
+
 function send(a) {
   const d = ui();
   if (d.busy) return;
+  if (!saveOpenComments(a, d)) return;
   d.tried = true;
   const garments = build(a, d);
   const errors = checks(d, garments);
@@ -493,6 +571,9 @@ function send(a) {
       setFocus(a.id);
       go('t-job', { fresh: true });
       toast(revise ? `Updated order sent to ${firstOf()}.` : `Sent to ${firstOf()} for approval.`, { tone: 'success' });
+    } else if (r.error === 'photos-missing') {
+      rerender();
+      toast('Add before and pinned photos first.', { tone: 'error' });
     } else if (r.error === 'not-fitting') {
       delete state.ui[ID];
       setFocus(a.id);
@@ -529,7 +610,19 @@ function wire(root) {
     const el = e.target.closest('[data-act]');
     if (!el || el.disabled) return;
     const act = el.dataset.act;
-    if (act === 'send') send(a);
+    if (act === 'add-doc') addDoc(a, el.dataset.garment, el.dataset.kind);
+    else if (act === 'add-comment' || act === 'edit-comment') {
+      const gid = el.dataset.garment;
+      d.comments[gid] = docsOf(a, gid).comment;
+      delete d.commentErrors[gid];
+      rerender(`#comment-${q(gid)}`);
+    } else if (act === 'save-comment') saveComment(a, el.dataset.garment);
+    else if (act === 'cancel-comment') {
+      const gid = el.dataset.garment;
+      delete d.comments[gid];
+      delete d.commentErrors[gid];
+      rerender(commentTrigger(a, gid));
+    } else if (act === 'send') send(a);
     else if (act === 'add-service') openAdd(a, el.dataset.garment);
     else if (act === 'add-item') openAddItem();
     else if (act === 'remove-line') removeLine(a, el.dataset.key);
@@ -549,15 +642,27 @@ function wire(root) {
     }
   });
 
+  wireGarmentDocs(root, {
+    by: 'Taken by you', editable: true,
+    lookup: (gid) => { const g = build(a, ui()).find((x) => x.id === gid); return g ? { type: g.type, docs: docsOf(a, gid) } : null; },
+    onRemove: (photo, { garmentId, kind, index }) => removeDoc(a, garmentId, photo, kind, index),
+  });
+
   root.addEventListener('input', (e) => {
     const t = e.target;
-    if (t.matches('.field__input[data-key]')) {
+    if (t.matches('textarea[id^="comment-"]')) {
+      const gid = t.id.slice('comment-'.length);
+      d.comments[gid] = t.value;
+      const n = [...t.value].length;
+      const count = root.querySelector(`#${q(t.id)}-count`);
+      if (count) { count.textContent = `${n} / ${FITTING_LIMITS.COMMENT_MAX}`; count.classList.toggle('text-area__count--over', n > FITTING_LIMITS.COMMENT_MAX); }
+    } else if (t.matches('.field__input[data-key]')) {
       d.prices[t.dataset.key] = t.value;
       patch(root);
     } else if (t.id === 'adjust-note') {
       d.note = t.value;
       const n = [...t.value].length;
-      const count = root.querySelector('[data-count]');
+      const count = root.querySelector('#adjust-note-count');
       if (count) { count.textContent = `${n} / ${TAILOR_LIMITS.NOTE_MAX}`; count.classList.toggle('text-area__count--over', n > TAILOR_LIMITS.NOTE_MAX); }
       patch(root);
     }

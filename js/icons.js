@@ -66,3 +66,9 @@ export const META_ICONS = {
 
 /* a small pencil — "change this" on a pill that opens another screen (filter-pill `edit`) */
 export const ICON_EDIT = `<svg class="select-time__chevron filter-pill__edit" aria-hidden="true" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 10L2.4 8L8.2 2.2C8.6 1.8 9.2 1.8 9.6 2.2L9.8 2.4C10.2 2.8 10.2 3.4 9.8 3.8L4 9.6L2 10Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
+
+/* K-02 (D-181): the fallback for a garment type with no illustration — a hanger, 24 viewBox, currentColor */
+export const ICON_HANGER = `<svg class="icon-hanger" aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 8.2V7.4C12 6.3 12.9 5.6 13.7 5.2C14.6 4.8 15.2 4 15.2 3.2C15.2 2.1 14.2 1.4 13.2 1.4C12.2 1.4 11.2 2.1 11.2 3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 3)"/><path d="M12 8.2L21.4 15.4C22 15.9 21.7 16.9 20.9 16.9H3.1C2.3 16.9 2 15.9 2.6 15.4L12 8.2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" transform="translate(0 3)"/></svg>`;
+
+/* K-02 (D-177): the pin on a Pinned photo — a map-pin-free sewing pin: a round head and a slanted shaft, 16 viewBox, currentColor */
+export const ICON_PIN = `<svg class="icon-pin" aria-hidden="true" focusable="false" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10.6" cy="5.4" r="2.6" stroke="currentColor" stroke-width="1.5"/><path d="M8.8 7.2L2.6 13.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;

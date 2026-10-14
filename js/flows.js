@@ -21,7 +21,7 @@
    ============================================================ */
 
 import { state, reset, T, setClock, advanceClock, activeAppt } from './state.js';
-import { driveTo } from './fixtures/common.js';
+import { driveTo, documentFitting } from './fixtures/common.js';
 import { SCREENS } from './inventory.js';
 import * as M0 from './fixtures/m0.js';
 import * as M1 from './fixtures/m1.js';
@@ -65,7 +65,7 @@ export function resetDemo() {
 /** The toolkit every setup composes. Getters, so a `driveTo` inside a setup (which resets) is seen by later reads. */
 export function toolkit() {
   return {
-    state, T, driveTo, setClock, advanceClock,
+    state, T, driveTo, documentFitting, setClock, advanceClock,
     get sim() { return state.sim; },
     get job() { return state.job; },
     get tailor() { return state.tailors[0]; },

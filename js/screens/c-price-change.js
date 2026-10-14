@@ -12,7 +12,7 @@
 import { register, render as go, registered, currentScreen } from '../app.js';
 import { state, T, tailorById, priceChangeView } from '../state.js';
 import {
-  chrome, headingRow, statusHero, banner, emptyState, deltaFigure, noteQuote, changeList, changeSummary, moneyRows, actionBar, toast, esc,
+  chrome, headingRow, statusHero, banner, emptyState, deltaFigure, noteQuote, changeList, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs,
 } from '../components.js';
 import { fmtExact } from '../money.js';
 import { fmtTime } from '../dates.js';
@@ -65,7 +65,8 @@ function view() {
   ${pv.note ? `<div class="${ID}__quote">${noteQuote({ label: `${first}’s note`, text: pv.note })}${pv.noteMasked ? `<p class="t-small c-600 ${ID}__masked">Phone numbers and emails in this note are hidden.</p>` : ''}</div>` : ''}
   <h2 class="t-h2 ${ID}__h2 ${ID}__h2--lead">${changed ? 'What changed' : 'Your order'}</h2>
   <div class="${ID}__summary">${changeSummary(pv.counts)}</div>
-  ${changeList({ garments: pv.garments })}
+  ${Object.keys(a.priceChange.docs ?? {}).length ? `<p class="t-small c-600 ${ID}__photos">${esc(first)} photographed each item before and after pinning.</p>` : ''}
+  ${changeList({ garments: pv.garments, docs: a.priceChange.docs ?? null, commentLabel: `${first}’s comment` })}
   <h2 class="t-h2 ${ID}__h2">Price</h2>
   ${moneyRows(rows)}
   <p class="t-small c-600 ${ID}__fine">If something doesn’t look right, message ${esc(first)} before you approve.</p>
@@ -109,6 +110,17 @@ function wire(root) {
     backBtn.dataset.wired = '1';
     backBtn.addEventListener('click', () => go('c-bookings'));
   }
+
+  /* K-02: the tailor's Before | Pinned photos from the SENT snapshot only (D-175) */
+  const first = firstOf(a ? tailorById(a.tailorId) : null);
+  wireGarmentDocs(root, {
+    by: `Taken by ${first}`,
+    lookup: (gid) => {
+      const docs = a?.priceChange?.docs?.[gid];
+      const type = priceChangeView(a).garments.find((g) => g.id === gid)?.type ?? '';
+      return docs ? { type, docs } : null;
+    },
+  });
 
   root.addEventListener('click', (e) => {
     const el = e.target.closest('[data-act]');

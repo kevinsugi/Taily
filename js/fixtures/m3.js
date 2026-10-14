@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { SCENARIOS as CB_SC, SEED_SLOT as CB_SEED, SECOND_SLOT_AFTER as CB_AFTER } from './money-scenarios.js';
-import { addRequest as cbAddRequest } from './common.js';
+import { addRequest as cbAddRequest, FITTING_COMMENTS as cbFC } from './common.js';
 import { fmtExact as cbExact } from '../money.js';
 import { fmtWhen as cbWhen, isoMinute as cbIsoMinute, addMinutes as cbAddMinutes } from '../dates.js';
 import { POLICY as CB_POLICY } from '../money-config.js';
@@ -29,7 +29,7 @@ export const FLOWS_c_bookings = [
       S.driveTo('completed');
       const b = cbAddRequest({ accept: true, after: CB_AFTER });
       S.setClock(b.slot.start);
-      S.T.startFitting(b.id); S.T.sendPriceChange(b.id, b.lines); S.T.approvePriceChange(b.id); S.T.markReady(b.id);
+      S.T.startFitting(b.id); S.documentFitting(b.id); S.T.sendPriceChange(b.id, b.lines); S.T.approvePriceChange(b.id); S.T.markReady(b.id);
     },
     expect: { has: ['In progress', 'Past', 'Since ', 'Pay now', 'Completed', 'Leave a review'], not: 'Upcoming', sel: '[data-section="progress"] .appt-row' } },
 ];
@@ -70,6 +70,9 @@ export const FLOWS_c_booking = [
   { key: 'c-booking--in-progress', screen: 'c-booking', group: 'M4 · Bookings', title: 'Amara is working on it', note: 'Order approved: Total, not Estimated; the balance is due when it is ready',
     setup: (S) => { S.driveTo('in-progress'); },
     expect: { has: ['In progress', 'working on it', 'approved the order', cbExact(CB_SC.seed.balance), 'Your order', 'Suit Jacket', 'Take in jacket sides'], not: ['Estimated total', 'New item'] } },
+  { key: 'c-booking--docs', screen: 'c-booking', group: 'M4 · Bookings', title: 'Your order — with the fitting photos', note: 'K-02: Your order keeps each garment’s icon, its Before | Pinned photos and Amara’s comment from the fitting',
+    setup: (S) => { S.driveTo('in-progress', { docs: 'full' }); },
+    expect: { has: ['Your order', 'Before', 'Pinned', 'Amara’s comment', cbFC.g2], sel: '[data-docs="g1"]' } },
   { key: 'c-booking--returning-pickup', screen: 'c-booking', group: 'M4 · Bookings', title: 'Ready for pickup', note: 'Paid in full; pick it up at the shop',
     setup: (S) => { S.driveTo('returning'); },
     expect: { has: ['Ready for pickup', 'Reyes Tailoring', 'paid in full', 'Paid', 'In-store pickup'] } },

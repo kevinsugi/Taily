@@ -8,7 +8,7 @@ import * as D from '../../js/dates.js';
 import * as DATA from '../../js/data.js';
 import * as S from '../../js/state.js';
 import * as TD from '../../js/tailor-data.js';
-import { driveTo, TARGETS, addRequest } from '../../js/fixtures/common.js';
+import { driveTo, TARGETS, addRequest, documentFitting, FITTING_COMMENTS } from '../../js/fixtures/common.js';
 import { SCENARIOS, SEED_SLOT } from './money.mjs';
 import { SUGGESTED_SLOT, SECOND_SLOT_AFTER, PAYOUT_DAYS } from '../../js/fixtures/money-scenarios.js';
 import * as EARN from '../../js/fixtures/common.js';
@@ -478,6 +478,7 @@ section('fitting -> completed');
   S.reset(); const a = driveTo('fitting');
   eq(T.confirmNoChange, undefined, 'confirmNoChange is retired (D-120)');
   guard(T.markReady(a.id), 'not-in-progress', 'no shortcut from the fitting to the work');
+  documentFitting(a.id);                                              // K-02: Before and Pinned photos are required before the send
   const st = T.sendPriceChange(a.id, a.lines);
   eq([st.ok, st.appt.priceChange.changed, st.appt.status, st.appt.priceChange.marks], [true, false, 'price-change', []], 'sendPriceChange accepts the unchanged order (changed false)');
   const ap0 = T.approvePriceChange(a.id).appt;
@@ -486,6 +487,7 @@ section('fitting -> completed');
 // the final order: validation (K-01, D-121)
 {
   S.reset(); const a = driveTo('fitting');
+  documentFitting(a.id);                                              // K-02: every guard below fails earlier in the order than photos-missing
   const line = (o) => ({ garmentId: 'n1', garmentType: 'Pants / Jeans', serviceId: 'hem-pants', label: 'Hem pants', cents: 3000, ...o });
   const withNew = (o) => [...a.lines, line(o)];
   guard(T.sendPriceChange(a.id, []), 'no-items', 'sendPriceChange: no lines -> no-items');
@@ -683,6 +685,7 @@ section('fitting -> completed');
   const P = SCENARIOS.priceBelowDeposit;
   ok(P.total < P.deposit && P.refund === P.deposit - P.total && P.balance === 0, 'scenario priceBelowDeposit: total below the deposit, nothing to pay, the difference comes back');
   S.reset(); const b = driveTo('fitting', { visitType: 'shop' });
+  documentFitting(b.id, { lines: P.lines });
   T.sendPriceChange(b.id, P.lines);
   const bp = T.approvePriceChange(b.id).appt;
   eq([bp.money.total, bp.money.deposit, bp.money.balance, bp.money.refund], [P.total, P.deposit, 0, P.refund], 'total below the deposit: balance $0.00, the difference is refunded (D-23)');
@@ -699,6 +702,7 @@ section('fitting -> completed');
 {
   const P = SCENARIOS.priceBelowDeposit;
   S.reset(); const b = driveTo('fitting', { visitType: 'shop' });
+  documentFitting(b.id, { lines: P.lines });
   T.sendPriceChange(b.id, P.lines); T.approvePriceChange(b.id); T.markReady(b.id);
   T.chooseReturn(b.id, 'courier');
   const c = S.getAppt(b.id);
@@ -1303,6 +1307,87 @@ section('M6 batch 4');
   const sug = driveTo('suggested');
   eq(TD.suggestPrice(S.getAppt(sug.id), SUGGESTED_SLOT).less, 0, 'D-155: a suggested time inside a rush window on a non-rush request costs Sarah no rush');
   S.reset();
+}
+
+// fitting documentation (K-02, D-175…D-183): Before and Pinned photos are REQUIRED, a comment is optional
+{
+  const MAXP = DATA.FITTING_LIMITS.PHOTOS_MAX;
+  const MAXC = DATA.FITTING_LIMITS.COMMENT_MAX;
+  S.reset(); let a = driveTo('fitting');
+  eq(S.docsMissing(a, ['g1', 'g2']), [{ garmentId: 'g1', before: true, pinned: true }, { garmentId: 'g2', before: true, pinned: true }], 'K-02: an undocumented fitting is missing both kinds on both garments');
+  const noPhotos = T.sendPriceChange(a.id, a.lines);
+  eq([noPhotos.ok, noPhotos.error, noPhotos.missing], [false, 'photos-missing', [{ garmentId: 'g1', before: true, pinned: true }, { garmentId: 'g2', before: true, pinned: true }]], 'K-02: sendPriceChange without photos -> photos-missing with the gaps');
+  eq([S.getAppt(a.id).status, S.getAppt(a.id).priceChange], ['fitting', null], 'K-02: a refused send changes nothing');
+  const p1 = T.addFittingPhoto(a.id, 'g1', 'before');
+  eq([p1.ok, p1.photo.id, p1.photo.tone, p1.photo.kind], [true, 'p1', 0, 'before'], 'K-02: addFittingPhoto -> p1, tone 0, kind before');
+  guard(T.addFittingPhoto(a.id, 'g1', 'selfie'), 'photo-kind', 'K-02: an unknown kind -> photo-kind');
+  guard(T.addFittingPhoto(a.id, 'g9', 'before'), 'unknown-garment', 'K-02: an unknown garment -> unknown-garment');
+  ok(T.addFittingPhoto(a.id, 'n1', 'before').ok, 'K-02: a draft new item (n1) can be photographed');
+  for (let i = 0; i < MAXP; i += 1) T.addFittingPhoto(a.id, 'g2', 'before');
+  guard(T.addFittingPhoto(a.id, 'g2', 'before'), 'too-many-photos', `K-02: a fifth Before photo -> too-many-photos (PHOTOS_MAX ${MAXP})`);
+  // g1 Before only, g2 fully documented
+  S.reset(); a = driveTo('fitting');
+  T.addFittingPhoto(a.id, 'g1', 'before');
+  T.addFittingPhoto(a.id, 'g2', 'before'); T.addFittingPhoto(a.id, 'g2', 'pinned');
+  eq(S.docsMissing(a, ['g1', 'g2']), [{ garmentId: 'g1', before: false, pinned: true }], 'K-02: docsMissing names only the kind that is missing');
+  eq(T.sendPriceChange(a.id, a.lines).missing, [{ garmentId: 'g1', before: false, pinned: true }], 'K-02: photos-missing carries the same gap');
+  // a removed garment is exempt, a new item is not
+  const without1 = a.lines.filter((l) => l.garmentId !== 'g1');
+  ok(T.sendPriceChange(a.id, without1).ok, 'K-02: removing a garment from the order exempts it from the photo rule');
+  S.reset(); a = driveTo('fitting');
+  const itemLines = [...a.lines.filter((l) => l.serviceId !== 'jacket-sides'), { garmentId: 'n1', garmentType: 'Pants / Jeans', serviceId: 'hem-pants', label: 'Hem pants', cents: 3000 }];
+  documentFitting(a.id, { lines: a.lines });
+  const newItem = T.sendPriceChange(a.id, itemLines);
+  eq([newItem.error, newItem.missing.map((m) => m.garmentId)], ['photos-missing', ['n1']], 'K-02: a new item without photos blocks the send, naming n1');
+  // remove / restore
+  S.reset(); a = driveTo('fitting');
+  T.addFittingPhoto(a.id, 'g1', 'before'); const second = T.addFittingPhoto(a.id, 'g1', 'before').photo; T.addFittingPhoto(a.id, 'g1', 'before');
+  const gone = T.removeFittingPhoto(a.id, 'g1', second.id);
+  eq([gone.ok, gone.photo.id, gone.index, S.docsOf(a, 'g1').before.length], [true, second.id, 1, 2], 'K-02: removeFittingPhoto -> the photo and where it was');
+  ok(T.restoreFittingPhoto(a.id, 'g1', gone.photo, gone.index).ok && S.docsOf(a, 'g1').before[1].id === second.id, 'K-02: restoreFittingPhoto puts it back at its index');
+  guard(T.restoreFittingPhoto(a.id, 'g1', gone.photo, gone.index), 'duplicate', 'K-02: restoring twice -> duplicate');
+  guard(T.removeFittingPhoto(a.id, 'g1', 'p99'), 'not-found', 'K-02: an unknown photo id -> not-found');
+  // comments
+  const mc = T.setFittingComment(a.id, 'g2', FITTING_COMMENTS.masked);
+  ok(mc.ok && mc.masked && S.docsOf(a, 'g2').comment.includes('[phone hidden]') && !S.docsOf(a, 'g2').comment.includes('555') && S.docsOf(a, 'g2').commentMasked, 'K-02: a comment with a phone number is stored masked');
+  guard(T.setFittingComment(a.id, 'g2', 'x'.repeat(MAXC + 1)), 'comment-long', `K-02: a comment over ${MAXC} characters -> comment-long`);
+  ok(T.setFittingComment(a.id, 'g2', '').ok && S.docsOf(a, 'g2').comment === '', 'K-02: an empty comment clears it');
+  ok(T.setFittingComment(a.id, 'g2', `  ${FITTING_COMMENTS.g2}  `).ok && S.docsOf(a, 'g2').comment === FITTING_COMMENTS.g2, 'K-02: a comment is trimmed');
+  // the sent snapshot
+  S.reset(); a = driveTo('fitting');
+  documentFitting(a.id, { lines: a.lines });
+  ok(T.sendPriceChange(a.id, a.lines).ok, 'K-02: documented, the send goes through');
+  eq(Object.keys(S.getAppt(a.id).priceChange.docs), ['g1', 'g2'], 'K-02: priceChange.docs has exactly the sent garments');
+  T.addFittingPhoto(a.id, 'g1', 'before');
+  eq([S.docsOf(a, 'g1').before.length, S.docsOf(a, 'g1', { sent: true }).before.length, S.docsDiffer(a, ['g1', 'g2'])], [2, 1, true], 'K-02: a photo added while pending changes the working docs, not the snapshot');
+  eq([S.docsFor(a, 'customer').g1.before.length, S.docsFor(a, 'tailor').g1.before.length], [1, 1], 'K-02: after the send both readers see the snapshot');
+  ok(T.sendPriceChange(a.id, a.lines).ok && !S.docsDiffer(S.getAppt(a.id), ['g1', 'g2']), 'K-02: the revise send copies the working docs');
+  // lock
+  T.approvePriceChange(a.id);
+  guard(T.addFittingPhoto(a.id, 'g1', 'before'), 'not-editable', 'K-02: after approval a photo cannot be added');
+  guard(T.removeFittingPhoto(a.id, 'g1', 'p1'), 'not-editable', 'K-02: after approval a photo cannot be removed');
+  guard(T.restoreFittingPhoto(a.id, 'g1', { id: 'p1', kind: 'before', at: a.slot.start, tone: 0 }, 0), 'not-editable', 'K-02: after approval a photo cannot be restored');
+  guard(T.setFittingComment(a.id, 'g1', 'late'), 'not-editable', 'K-02: after approval the comment is locked');
+  eq(S.docsFor(S.getAppt(a.id), 'customer'), S.getAppt(a.id).priceChange.docs, 'K-02: the customer reads priceChange.docs');
+  eq(S.docsFor(driveTo('fitting', { docs: 'min' }), 'customer'), {}, 'K-02: Sarah never sees the working docs');
+  // nextItemId
+  S.reset(); a = driveTo('fitting');
+  eq(S.nextItemId(a), 'n1', 'K-02: nextItemId starts at n1');
+  T.addFittingPhoto(a.id, 'n1', 'before');
+  eq(S.nextItemId(a), 'n2', 'K-02: nextItemId looks past a discarded draft item that has photos (D-182)');
+  // the fixtures
+  S.reset(); a = driveTo('in-progress');
+  ok(a.lines.every((l) => S.docsOf(a, l.garmentId, { sent: true }).before.length >= 1 && S.docsOf(a, l.garmentId, { sent: true }).pinned.length >= 1), 'K-02: driveTo past the fitting documents every garment');
+  S.reset(); a = driveTo('price-change', { priceChange: 'item' });
+  ok(a.priceChange.docs.n1 && a.priceChange.docs.n1.before.length >= 1, 'K-02: the item recipe documents the new item too');
+  S.reset(); a = driveTo('in-progress', { docs: 'full' });
+  eq([a.priceChange.docs.g2.comment, a.priceChange.docs.g2.before.length, a.priceChange.docs.g2.pinned.length], [FITTING_COMMENTS.g2, 2, 2], 'K-02: docs full -> two photos per kind and the comment');
+  eq(TD.requestView(a).garments.find((g) => g.id === 'g2').docs.comment, FITTING_COMMENTS.g2, 'K-02: requestView garments carry docs');
+  throws(() => driveTo('in-progress', { docs: 'none' }), 'K-02: driveTo past the fitting with docs none throws');
+  // icons + docs components
+  ok(/garment-icon--card/.test(C.garmentIcon('Suit Jacket')) && /aria-hidden="true"/.test(C.garmentIcon('Suit Jacket')) && !/aria-hidden/.test(C.garmentIcon('Suit Jacket', { alt: 'Suit Jacket' })), 'K-02: garmentIcon is decorative unless given alt');
+  ok(/garment-icon--fallback/.test(C.garmentIcon('Spaceship')) && !/<img/.test(C.garmentIcon('Spaceship')), 'K-02: an unknown type gets the hanger, never a broken image');
+  eq(C.garmentDocs({ garmentId: 'g1', type: 'Suit Pant', docs: { before: [], pinned: [], comment: '', commentMasked: false } }), '', 'K-02: garmentDocs renders nothing for an empty entry');
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

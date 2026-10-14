@@ -145,8 +145,9 @@ export const SCREENS = [
     { key: 'c-booking--returning-dropoff', m: 'M4', kind: 'state' },
     { key: 'c-booking--returning-courier', m: 'M4', kind: 'state' },
     { key: 'c-booking--completed', m: 'M4', kind: 'frame' },
+    { key: 'c-booking--docs', m: 'M4', kind: 'state' },
   ] },
-  { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01)', states: [
+  { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01) · with the tailor’s Before / Pinned photos and comments (K-02)', states: [
     { key: 'c-price-change', m: 'M4', kind: 'frame' },
     { key: 'c-price-change--item-added', m: 'M4', kind: 'state' },
     { key: 'c-price-change--item-removed', m: 'M4', kind: 'state' },
@@ -154,6 +155,7 @@ export const SCREENS = [
     { key: 'c-price-change--repriced', m: 'M4', kind: 'state' },
     { key: 'c-price-change--messaged', m: 'M4', kind: 'state' },
     { key: 'c-price-change--unchanged', m: 'M4', kind: 'state' },
+    { key: 'c-price-change--docs', m: 'M4', kind: 'state' },
   ] },
   { id: 'c-ready', m: 'M4', persona: 'customer', title: 'C10 pick a return option the tailor offers, then pay the balance', states: [
     { key: 'c-ready', m: 'M4', kind: 'frame' },
@@ -333,8 +335,9 @@ export const SCREENS = [
     { key: 't-job--mark-ready', m: 'M4', kind: 'overlay' },
     { key: 't-job--completed-paid', m: 'M6', kind: 'state' },
     { key: 't-job--completed-failed', m: 'M6', kind: 'state' },
+    { key: 't-job--docs', m: 'M4', kind: 'state' },
   ] },
-  { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Edit the job at the fitting: add / remove items and services, re-price → send the final order for approval (K-01)', states: [
+  { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Edit the job at the fitting: add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },
     { key: 't-adjust--edited', m: 'M4', kind: 'state' },
     { key: 't-adjust--item-added', m: 'M4', kind: 'state' },
@@ -346,6 +349,14 @@ export const SCREENS = [
     { key: 't-adjust--add-item-service', m: 'M4', kind: 'overlay' },
     { key: 't-adjust--revise', m: 'M4', kind: 'state' },
     { key: 't-adjust--leave', m: 'M4', kind: 'overlay' },
+    { key: 't-adjust--docs', m: 'M4', kind: 'state' },
+    { key: 't-adjust--photos-missing', m: 'M4', kind: 'state' },
+    { key: 't-adjust--item-docs', m: 'M4', kind: 'state' },
+    { key: 't-adjust--docs-max', m: 'M4', kind: 'state' },
+    { key: 't-adjust--comment', m: 'M4', kind: 'state' },
+    { key: 't-adjust--comment-masked', m: 'M4', kind: 'state' },
+    { key: 't-adjust--photo-viewer', m: 'M4', kind: 'overlay' },
+    { key: 't-adjust--revise-docs', m: 'M4', kind: 'state' },
   ] },
   { id: 't-earnings', m: 'M5', persona: 'tailor', title: 'T8 payouts: upcoming, history', states: [
     { key: 't-earnings', m: 'M5', kind: 'frame' },

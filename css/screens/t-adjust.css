@@ -66,3 +66,9 @@
 .t-adjust__back { align-self: flex-start; padding-inline: var(--space-8); margin: 0 0 var(--space-4) calc(-1 * var(--space-8)); }
 .t-adjust-sheet { gap: 0; }
 .t-adjust__lead-pair { white-space: nowrap; }
+
+/* K-02: the garment icon leads the card head; a removed card dims it; the docs block closes the card */
+.t-adjust__head { padding-bottom: var(--space-8); }
+.t-adjust__head .garment-icon { margin-right: var(--space-4); }
+.t-adjust__card--gone .garment-icon { opacity: .5; filter: grayscale(1); }
+.t-adjust__card .docs-editor { margin-bottom: 0; }

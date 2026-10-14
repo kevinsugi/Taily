@@ -72,6 +72,27 @@ function changedLines(appt, kind) {
   return [...lines, { garmentId: pant.garmentId, garmentType: pant.garmentType, serviceId: 'taper', label: 'Taper legs', cents: cents(AMARA.prices.taper) }];
 }
 
+/** Fitting comments (K-02, copy not money). `masked` carries a phone number the model hides. */
+export const FITTING_COMMENTS = {
+  g1: 'Hem pinned for flats, with a slight break.',
+  g2: 'Pinned both sleeves to just above the wrist. The lining moves with them.',
+  n1: 'Jeans hem pinned at the ankle. I’ll keep the original hem.',
+  masked: 'Call me at (347) 555-0118 if the pins move.',
+};
+
+/** documentFitting(id, { lines = appt.lines, level = 'min' | 'full' }) — through the real transitions, for each distinct garmentId in
+    `lines`: min = 1 Before + 1 Pinned; full = 2 + 2 + the comment in FITTING_COMMENTS where one exists. Does NOT reset; throws on failure. */
+export function documentFitting(id, { lines = getAppt(id).lines, level = 'min' } = {}) {
+  const per = level === 'full' ? 2 : 1;
+  for (const gid of [...new Set(lines.map((l) => l.garmentId))]) {
+    for (const kind of ['before', 'pinned']) {
+      for (let i = 0; i < per; i += 1) must(T.addFittingPhoto(id, gid, kind), `addFittingPhoto ${gid} ${kind}`);
+    }
+    if (level === 'full' && FITTING_COMMENTS[gid]) must(T.setFittingComment(id, gid, FITTING_COMMENTS[gid]), `setFittingComment ${gid}`);
+  }
+  return getAppt(id);
+}
+
 /** The tailor's note per recipe (copy, not money) — driveTo sends it with the final order (A6). */
 export const PRICE_NOTES = {
   added: 'The sleeve lining has to move too, and tapering the legs will sit better with the shorter jacket.',
@@ -82,11 +103,12 @@ export const PRICE_NOTES = {
   unchanged: '',
 };
 
-/** driveTo(target, { ask = false, visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced' | 'item' | 'item-removed' | 'unchanged', returnOption = 'pickup' }) → appt.
+/** driveTo(target, { docs = 'none' | 'min' | 'full' (default 'none' at the fitting, 'min' after), ask = false, visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced' | 'item' | 'item-removed' | 'unchanged', returnOption = 'pickup' }) → appt.
     `price-change` carries a change (default 'added'); later targets send the unchanged order and approve it (K-01, D-120)
     unless `priceChange` is passed explicitly. */
 export function driveTo(target, opts = {}) {
   const { ask = false, visitType = 'home', rush = false, priceChange = 'added', returnOption = 'pickup' } = opts;
+  const docs = opts.docs ?? (target === 'fitting' ? 'none' : 'min');         // K-02: the fitting starts undocumented (the t-adjust state)
   if (!TARGETS.includes(target)) throw new Error(`driveTo: unknown target "${target}"`);
   reset();
   if (ask) askAmara();                                          // M5: a question and an answer before the booking
@@ -124,8 +146,10 @@ export function driveTo(target, opts = {}) {
 
   setClock(getAppt(id).slot.start);
   must(T.startFitting(id), 'startFitting');
-  if (target === 'fitting') return getAppt(id);
+  if (target === 'fitting') return docs === 'none' ? getAppt(id) : documentFitting(id, { level: docs });
+  if (docs === 'none') throw new Error('driveTo: docs "none" past the fitting would fail the send (photos-missing)');
   const recipe = target === 'price-change' || 'priceChange' in opts ? priceChange : 'unchanged';
+  documentFitting(id, { lines: changedLines(getAppt(id), recipe), level: docs });
   must(T.sendPriceChange(id, changedLines(getAppt(id), recipe), { note: PRICE_NOTES[recipe] ?? '' }), 'sendPriceChange');
   if (target === 'price-change') return getAppt(id);
   must(T.approvePriceChange(id), 'approvePriceChange');
@@ -195,6 +219,7 @@ export function onboardTo(step, { phone = NEW_TAILOR_PHONE } = {}) {
 export function completeJob(id, { returnOption = 'pickup' } = {}) {
   setClock(getAppt(id).slot.start);
   must(T.startFitting(id), 'startFitting');
+  documentFitting(id);
   must(T.sendPriceChange(id, getAppt(id).lines.map((l) => ({ ...l })), { note: '' }), 'sendPriceChange');
   must(T.approvePriceChange(id), 'approvePriceChange');
   must(T.markReady(id), 'markReady');

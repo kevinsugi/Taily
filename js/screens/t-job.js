@@ -12,7 +12,7 @@
    is always in dollars; the courier is never her money.
    ============================================================ */
 import { register, render as go, registered, personaHome, currentScreen } from '../app.js';
-import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress } from '../state.js';
+import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor } from '../state.js';
 import { focusAppt, redirectIfMoved, statusWord, setFocus } from '../focus.js';
 import { myTailor, requestView, jobAddress, payoutOf, inbox, payoutLine, courierWindow } from '../tailor-data.js';
 import { CANT_MAKE_IT_REASONS, RETURN_LABEL } from '../data.js';
@@ -23,7 +23,7 @@ import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime, dayDiff } from
 import {
   chrome, headingRow, statusHero, visitBlock, avatar, cta, listRow, banner, tailorBreakdown, moneyRows, workList,
   emptyState, sheetOverlay, chipGroup, wireChipGroups, toast, esc, wirePhotoViewer,
-  actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, changeSummary, deltaFigure, courierCard, ctaSmall, statusPill, linkRow,
+  actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, changeSummary, deltaFigure, courierCard, ctaSmall, statusPill, linkRow, wireGarmentDocs,
 } from '../components.js';
 
 const ID = 't-job';
@@ -121,7 +121,8 @@ function customerRow(v, { message }) {
   </div>${message ? cta(`Message ${esc(firstOf())}`, { attrs: 'data-act="message"' }) : ''}`;
 }
 
-const workHtml = (v, opts) => workList(v, opts);
+/** K-02: "The work" always carries the garment icons; from the fitting on it carries the photos and Your comment (read-only). */
+const workHtml = (v, opts) => workList(v, { docs: true, commentLabel: 'Your comment', ...opts });
 /** The work is over (declined, cancelled, completed, expired): the list drops its estimate row (M6-P-07). */
 const workOver = (a) => TERMINAL.includes(a.status) || a.status === 'expired';
 
@@ -185,7 +186,7 @@ function copyFor(key, a, t, v, pv) {
       note: note(`It’s time for the fitting. Start it when you’re with ${first}.`),
       bar: { ctaLabel: 'Start fitting', ctaAct: 'start-fitting', busy: busy === 'start', busyLabel: 'Starting…', ...msg } };
     case 'fitting': return { ...base, title: `Fitting with ${esc(v.customer.name)}`,
-      note: note(`Go through each piece with ${first}. Add or remove items and services, then send ${first} the final order. You start the work once ${first} approves.`),
+      note: note(`Go through each piece with ${first}. Take a before and a pinned photo of each, add or remove items and services, then send ${first} the final order. You start the work once ${first} approves.`),
       bar: { lead: `You take home <b data-money>${fmtExact(a.money.payout)}</b>`, ctaLabel: 'Review the order', ctaAct: 'edit-order', ...msg } };
     case 'waiting': return { ...base, title: `Waiting for ${first} to approve`,
       note: note(`You sent the final order at ${fmtTime(pv.sentAt)}. Start the work once ${first} approves.`),
@@ -235,6 +236,10 @@ function priceBlocks(a, pv, key) {
   const last = key === 'messaged' ? lastSpeakerSince(a, pv.sentAt) : null;
   const mine = last?.from === 'tailor' && last.text ? noteQuote({ label: 'Your reply', text: last.text })
     : pv.note ? noteQuote({ label: 'Your note', text: pv.note }) : '';
+  /* K-02 (D-183): a photo or comment changed after sending never reaches Sarah until the updated order is sent */
+  const sentIds = [...new Set((a.priceChange?.lines ?? []).map((l) => l.garmentId))];
+  const unsent = docsDiffer(a, sentIds) && ['pending', 'messaged'].includes(a.priceChange?.state)
+    ? `<p class="t-small c-600 ${ID}__unsent" data-unsent>You changed photos or comments since you sent the order. Send the updated order so ${first} sees them.</p>` : '';
   const total = pv.changed
     ? `${first} sees a new total of ${fmtExact(pv.after.total)} (was ${fmtExact(pv.before.total)}).`
     : `${first} sees the total as booked, ${fmtExact(pv.before.total)}.`;
@@ -243,7 +248,8 @@ function priceBlocks(a, pv, key) {
   ${theirs ? `<div class="${ID}__quote">${theirs}</div>` : ''}${mine ? `<div class="${ID}__quote">${mine}</div>` : ''}
   <h2 class="t-h2 ${ID}__h2 ${ID}__h2--lead">The order you sent</h2>
   <div class="${ID}__summary">${changeSummary(pv.counts)}</div>
-  ${changeList({ garments: pv.garments })}
+  ${unsent}
+  ${changeList({ garments: pv.garments, docs: a.priceChange?.docs ?? null, commentLabel: 'Your comment' })}
   <h2 class="t-h2 ${ID}__h2">Your take-home if approved</h2>
   ${tailorBreakdown(pv.after)}`;
 }
@@ -306,6 +312,8 @@ function m4View(a, v, key) {
       const r = a.review;
       const reviewer = `${state.customer.first} ${state.customer.last.charAt(0)}.`;
       body = `${payoutCard(a, t, updated)}
+  <h2 class="t-h2 ${ID}__h2">The work</h2>
+  ${workHtml(v, { final: true, estimateLabel: null })}
   <section class="${ID}__review">${r
     ? `<h2 class="t-h2 ${ID}__h2">${first}’s review</h2>${reviewRow({ name: reviewer, initials: state.customer.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos })}`
     : `<p class="t-small c-600">${first} can leave a review now.</p>`}</section>
@@ -513,6 +521,16 @@ function wire(root) {
   if (redirectIfMoved(ID, go, { has: (id) => registered().includes(id) })) return;
   const a = focusAppt(ID);
   wirePhotoViewer(root);
+  /* K-02: read-only Before | Pinned tabs and the viewer, from the same record the text above shows */
+  wireGarmentDocs(root, {
+    by: 'Taken by you',
+    lookup: (gid) => {
+      const g = a && requestView(a).garments.find((x) => x.id === gid);
+      const docs = a ? docsFor(a, 'tailor')[gid] : null;
+      const type = g?.type ?? a?.priceChange?.lines?.find((l) => l.garmentId === gid)?.garmentType ?? '';
+      return docs ? { type, docs } : null;
+    },
+  });
   root.addEventListener('click', (e) => {
     if (e.target.closest('.screen-sheet--overlay')) return;
     const act = e.target.closest('[data-act]')?.dataset.act;

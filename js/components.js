@@ -105,7 +105,7 @@ export function navBadges(persona = 'customer') {
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS } from './icons.js';
+import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, ICON_HANGER, ICON_PIN } from './icons.js';
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
 import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
@@ -257,10 +257,11 @@ export function garmentTile(type, { qty = 0, attrs = '', addDisabled = false } =
    ============================================================ */
 
 /** CTA_Small — outline action inside cards. */
-export function ctaSmall(label, { attrs = '', href = '' } = {}) {
+export function ctaSmall(label, { attrs = '', href = '', filled = false } = {}) {
   /* `href` = a link that looks the same (Directions, Add to calendar: D-173); extra `attrs` carry target / rel / download */
-  if (href) return `<a class="cta-small" href="${esc(href)}" ${attrs}>${label}</a>`;
-  return `<button type="button" class="cta-small" ${attrs}>${label}</button>`;
+  const cls = filled ? 'cta-small cta-small--filled' : 'cta-small';   /* filled = the primary small action (K2-1-03) */
+  if (href) return `<a class="${cls}" href="${esc(href)}" ${attrs}>${label}</a>`;
+  return `<button type="button" class="${cls}" ${attrs}>${label}</button>`;
 }
 
 /** Progress Bar — stage: 'confirmed' | 'tailoring' | 'ready' | 'complete'. */
@@ -1604,14 +1605,17 @@ export function requestCard({ id = '', act = 'open-request', name = '', initials
     `v` = requestView(appt). Every amount prints with cents (D-98): the screen's payout breakdown below is exact, and one figure
     keeps one precision per screen. A garment with photos shows a tappable 44 px thumbnail + count after its name
     (`data-act="view-photo"`, wired by `wirePhotoViewer`, R3-2-T-11). */
-export function workList(v, { final = false, estimateLabel = 'Estimate from your prices' } = {}) {
+export function workList(v, { final = false, estimateLabel = 'Estimate from your prices', docs = false, commentLabel = 'Your comment' } = {}) {
   /* M6-P-07: a `final` list (the work is over: declined, cancelled, completed, expired) has no estimate row; `estimateLabel: null`
-     drops it too, for a screen whose payout breakdown follows (Services and the total are printed there). */
+     drops it too, for a screen whose payout breakdown follows (Services and the total are printed there).
+     K-02: every garment head carries its illustration (garmentIcon); `docs: true` adds the Before | Pinned photos and the comment
+     from `g.docs` after the garment's service rows. */
   const showEstimate = !final && estimateLabel !== null;
   const groups = v.garments.map((g) => `<div class="work-list__garment">
-    <div class="work-list__top"><p class="t-body w-600 work-list__head">${esc(g.type)}</p>
+    <div class="work-list__top"><span class="work-list__title">${garmentIcon(g.type)}<p class="t-body w-600 work-list__head">${esc(g.type)}</p></span>
     ${g.photos ? `<button type="button" class="work-list__photo" data-act="view-photo" data-type="${esc(g.type)}" data-count="${g.photos}" aria-label="View ${g.photos === 1 ? '1 photo' : `${g.photos} photos`} of the ${esc(g.type)}">${photoTile('photo')}<span class="t-small c-700">${g.photos} ${g.photos === 1 ? 'photo' : 'photos'}</span></button>` : ''}</div>
     ${g.services.map((sv) => priceRow({ label: sv.label, cents: sv.cents, format: fmtExact })).join('')}
+    ${docs && g.docs ? garmentDocs({ garmentId: g.id, type: g.type, docs: g.docs, commentLabel, idPrefix: 'work' }) : ''}
   </div>`).join('');
   return `<div class="work-list">${groups}${showEstimate ? `<div class="work-list__estimate">${priceRow({ label: estimateLabel, cents: v.estimate, format: fmtExact })}</div>` : ''}</div>`;
 }
@@ -1676,8 +1680,10 @@ export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', 
  * 'removed' → type struck + "Removed" tag, rows struck with no per-row tag; anything else (or no kind) renders as before.
  * `newItem: true` on a plain garment (an approved order, D-127) = the "New item" tag on the type line only, no panel.
  * Every change carries a text tag, never colour alone. One precision per list: `format` defaults to fmtExact.
+ * K-02: every garment head leads with its illustration (`garmentIcon`; a removed garment's is dimmed). `docs` = { [garmentId]: entry }
+ * (the sent snapshot): a garment that is not removed and has an entry gets its Before | Pinned photos and comment after the rows.
  */
-export function changeList({ garments = [], format = fmtExact } = {}) {
+export function changeList({ garments = [], format = fmtExact, docs = null, commentLabel = 'Comment' } = {}) {
   const tag = (text, tone) => `<span class="change-list__tag change-list__tag--${tone} t-micro">${text}</span>`;
   const rowHtml = (r, g) => {
     noPercent(r.label, 'changeList');
@@ -1708,16 +1714,20 @@ export function changeList({ garments = [], format = fmtExact } = {}) {
     return `<div class="change-list__row change-list__row--${kind}" role="listitem" data-kind="${wholeNew ? 'added' : kind}"><span class="change-list__text">${text}</span>${amt}</div>`;
   };
   const groups = garments.map((g) => {
-    const head = g.kind === 'added'
+    const title = g.kind === 'added'
       ? `<p class="t-body w-600 change-list__type change-list__type--new">${esc(g.type)}${tag('New item', 'new-item')}</p>`
       : g.kind === 'removed'
         ? `<p class="t-body w-600 change-list__type change-list__type--gone"><s>${esc(g.type)}</s>${tag('Removed', 'removed')}</p>`
         : g.newItem
           ? `<p class="t-body w-600 change-list__type change-list__type--new">${esc(g.type)}${tag('New item', 'new-item')}</p>`
           : `<p class="t-body w-600 change-list__type">${esc(g.type)}</p>`;
+    const head = `<div class="change-list__head${g.kind === 'removed' ? ' change-list__head--gone' : ''}">${garmentIcon(g.type)}${title}</div>`;
+    const docsHtml = docs && g.kind !== 'removed' && docs[g.id]
+      ? garmentDocs({ garmentId: g.id, type: g.type, docs: docs[g.id], commentLabel }) : '';
     return `<div class="change-list__garment${g.kind === 'added' ? ' change-list__garment--new' : ''}${g.kind === 'removed' ? ' change-list__garment--gone' : ''}"${g.kind ? ` data-garment-kind="${g.kind}"` : ''}>
     ${head}
     <div class="change-list__rows" role="list" aria-label="${esc(g.type)}" data-money>${g.rows.map((r) => rowHtml(r, g)).join('')}</div>
+    ${docsHtml}
   </div>`;
   }).join('');
   return `<div class="change-list">${groups}</div>`;
@@ -1900,4 +1910,216 @@ export function cardFields({ values = {}, errors = {} } = {}) {
   </div>
   ${field({ id: 'cc-zip', label: 'ZIP code', value: v.zip ?? '', inputmode: 'numeric', autocomplete: 'postal-code', maxlength: 5, error: e.zip ? CARD_ERRORS.zip : '' })}
 </div>`;
+}
+
+/* ============================================================
+   K-02 — fitting documentation (D-175…D-183): garment icons everywhere a garment has a title, Before | Pinned photos
+   (required before the final order is sent) and a comment per garment. A photo is simulated (D-177): the garment's own
+   illustration on a token tone, so the same sequence always renders the same pictures.
+   ============================================================ */
+const DOC_MAX = () => DATA.FITTING_LIMITS?.PHOTOS_MAX ?? 4;
+const DOC_COMMENT_MAX = () => DATA.FITTING_LIMITS?.COMMENT_MAX ?? 200;
+const DOC_KIND_LIST = () => DATA.DOC_KINDS ?? ['before', 'pinned'];
+const kindLabel = (kind) => DATA.DOC_LABEL?.[kind] ?? kind;
+const lowerKind = (kind) => kindLabel(kind).toLowerCase();
+
+/**
+ * Garment icon (D-181) — the ONE helper every garment title uses. size 'card' 40 (a well, identical to c-job's tile) · 'row' 32
+ * (sheet rows) · 'inline' 24 (no well). Decorative (`alt=""`, aria-hidden) wherever the name is printed next to it; pass `alt`
+ * where it stands alone. A type with no illustration gets a hanger in the same well, never a broken image.
+ */
+export function garmentIcon(type, { size = 'card', alt = '' } = {}) {
+  const src = GARMENT_ICONS[type];
+  const hidden = alt ? '' : ' aria-hidden="true"';
+  if (src) return `<span class="garment-icon garment-icon--${size}"${hidden}><img src="${src}" alt="${esc(alt)}"></span>`;
+  return `<span class="garment-icon garment-icon--${size} garment-icon--fallback"${alt ? ` role="img" aria-label="${esc(alt)}"` : hidden}>${ICON_HANGER}</span>`;
+}
+
+/** The simulated photo (D-177): a token-tone gradient with the garment's illustration, tilted by the photo id; Pinned adds a pin. */
+export function docPhoto(photo, { type = '', size = 'thumb' } = {}) {
+  const src = GARMENT_ICONS[type];
+  const tilt = (Number(String(photo.id).replace(/\D/g, '')) || 0) % 2 === 0 ? 'even' : 'odd';
+  return `<span class="doc-photo doc-photo--${size} doc-photo--t${photo.tone ?? 0} doc-photo--${photo.kind} doc-photo--${tilt}" aria-hidden="true">${src ? `<img src="${src}" alt="">` : ICON_HANGER}${photo.kind === 'pinned' ? `<span class="doc-photo__pin">${ICON_PIN}</span>` : ''}</span>`;
+}
+
+const photoLabel = (kind, i, n, type) => `${kindLabel(kind)} photo ${i + 1} of ${n}, ${type}. Open`;
+
+/**
+ * Docs editor — the documentation block inside a t-adjust garment card (v4 t04): Before photos, Pinned photos, a comment.
+ * `missing` = { before, pinned } booleans (true = this kind still needs a photo); the line says so in error ink with a glyph.
+ * `commentDraft` !== null = the comment is being edited. `busy` disables every button.
+ */
+export function docsEditor({ garmentId, type, docs, missing = { before: false, pinned: false }, commentDraft = null, commentError = '', busy = false, first = 'Sarah' } = {}) {
+  const max = DOC_MAX();
+  const dis = busy ? ' disabled' : '';
+  const g = esc(garmentId);
+  const row = (kind) => {
+    const list = docs?.[kind] ?? [];
+    const n = list.length;
+    const label = `${kindLabel(kind)} photos`;
+    const thumbs = list.map((p, i) => `<button type="button" class="docs-editor__thumb" data-act="view-doc" data-garment="${g}" data-kind="${kind}" data-index="${i}" aria-label="${esc(photoLabel(kind, i, n, type))}"${dis}>${docPhoto(p, { type })}</button>`).join('');
+    const add = n < max
+      ? `<button type="button" class="docs-editor__add" data-act="add-doc" data-garment="${g}" data-kind="${kind}" aria-label="Add a ${lowerKind(kind)} photo of the ${esc(type)}${n ? `, ${n} added` : ''}"${dis}>${ICON_CAMERA}</button>`
+      : '';
+    const miss = missing?.[kind] && n === 0;
+    return `<div class="docs-editor__row" data-kind="${kind}" data-missing="${miss ? 'true' : 'false'}">
+      <div class="docs-editor__head"><span class="t-small w-600 c-700">${label}</span>${n ? `<span class="t-small c-600">${n} of ${max}</span>` : ''}</div>
+      <div class="photo-tiles docs-editor__tiles">${thumbs}${add}</div>
+      ${n >= max ? `<p class="t-small c-600 docs-editor__max">Up to ${max} ${lowerKind(kind)} photos.</p>` : ''}
+      ${miss ? `<p class="docs-editor__missing t-small" data-missing-msg="${kind}">${ICON_ALERT} Add at least one ${lowerKind(kind)} photo.</p>` : ''}
+    </div>`;
+  };
+  const d = docs ?? {};
+  let comment;
+  if (commentDraft !== null) {
+    comment = `<div class="docs-editor__edit">${textArea({ id: `comment-${garmentId}`, label: `Comment for ${first}`, value: commentDraft, rows: 3, max: DOC_COMMENT_MAX(), helper: 'What you pinned and why. Phone numbers and emails are hidden.', error: commentError })}
+      <div class="docs-editor__actions">${ctaSmall('Save', { filled: true, attrs: `data-act="save-comment" data-garment="${g}"${dis}` })}<button type="button" class="docs-editor__text t-small w-600" data-act="cancel-comment" data-garment="${g}"${dis}>Cancel</button></div></div>`;
+  } else if (d.comment) {
+    comment = `<figure class="docs-editor__comment"><figcaption class="t-small c-600">Your comment</figcaption><blockquote class="t-body">“${esc(d.comment)}”</blockquote></figure>
+      <button type="button" class="docs-editor__text t-body w-600" data-act="edit-comment" data-garment="${g}"${dis}>Edit comment</button>
+      ${d.commentMasked ? `<p class="t-small c-600 docs-editor__masked">Phone numbers and emails are hidden from ${esc(first)}.</p>` : ''}`;
+  } else {
+    comment = `<div class="docs-editor__optional"><button type="button" class="docs-editor__text docs-editor__text--add t-body w-600" data-act="add-comment" data-garment="${g}"${dis}>+ Add comment</button><span class="t-small c-600">Optional</span></div>`;
+  }
+  return `<div class="docs-editor" data-docs-editor="${g}">${row('before')}${row('pinned')}<div class="docs-editor__comment-block">${comment}</div></div>`;
+}
+
+const docTab = ({ kind, count, active, id, controls, attrs }) => `<button type="button" class="doc-tab${active ? ' is-active' : ''}" role="tab" id="${id}-tab" aria-controls="${controls}" aria-selected="${active}" tabindex="${active ? 0 : -1}" ${attrs}><span class="t-body w-600">${kindLabel(kind)}</span><span class="t-small c-600">${count}</span></button>`;
+
+/**
+ * Garment docs — the read-only block (v4 `Photo_Row`): a Before | Pinned tablist, a row of thumbnails per kind (the inactive
+ * panel `hidden`) and the comment. Renders nothing when there are no photos and no comment. `tab` picks the selected one
+ * (default Before). `idPrefix` keeps ids unique when two blocks of one garment share a page.
+ */
+export function garmentDocs({ garmentId, type, docs, commentLabel = 'Comment', idPrefix = 'docs', tab = 'before' } = {}) {
+  const d = docs ?? {};
+  const kinds = DOC_KIND_LIST();
+  const total = kinds.reduce((n, k) => n + (d[k]?.length ?? 0), 0);
+  if (!total && !d.comment) return '';
+  const g = esc(garmentId);
+  const pid = (kind) => `${idPrefix}-${garmentId}-${kind}`;
+  const tabs = kinds.map((kind) => docTab({
+    kind, count: d[kind]?.length ?? 0, active: kind === tab, id: pid(kind), controls: pid(kind), attrs: `data-act="docs-tab" data-garment="${g}" data-kind="${kind}"`,
+  })).join('');
+  const panels = kinds.map((kind) => {
+    const list = d[kind] ?? [];
+    const body = list.length
+      ? `<div class="garment-docs__thumbs">${list.map((p, i) => `<button type="button" class="garment-docs__thumb" data-act="view-doc" data-garment="${g}" data-kind="${kind}" data-index="${i}" aria-label="${esc(photoLabel(kind, i, list.length, type))}">${docPhoto(p, { type })}</button>`).join('')}</div>`
+      : `<p class="t-small c-600 garment-docs__none">No ${lowerKind(kind)} photos.</p>`;
+    return `<div class="garment-docs__panel" role="tabpanel" id="${pid(kind)}" aria-labelledby="${pid(kind)}-tab"${kind === tab ? '' : ' hidden'}>${body}</div>`;
+  }).join('');
+  const comment = d.comment
+    ? `<figure class="garment-docs__comment"><figcaption class="t-small c-600">${esc(commentLabel)}</figcaption><blockquote class="t-body">“${esc(d.comment)}”</blockquote></figure>
+       ${d.commentMasked ? '<p class="t-small c-600 garment-docs__masked">Phone numbers and emails in this comment are hidden.</p>' : ''}`
+    : '';
+  return `<div class="garment-docs" data-docs="${g}"><div class="garment-docs__tabs" role="tablist" aria-label="${esc(type)} photos">${tabs}</div>${panels}${comment}</div>`;
+}
+
+/** ←/→/Home/End between the two tabs of a tablist; `pick(tabEl)` selects it. Returns true when handled. */
+function tabKeys(e, pick) {
+  const tab = e.target.closest?.('[role="tab"]');
+  if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return false;
+  const tabs = [...tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
+  const at = tabs.indexOf(tab);
+  const next = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (at + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+  e.preventDefault();
+  pick(tabs[next]);
+  tabs[next].focus({ preventScroll: true });
+  return true;
+}
+
+/**
+ * Photo viewer for fitting photos (D-180): a sheet with the Before | Pinned tabs, a 3:4 stage, ‹ n of N ›, a thumbnail strip
+ * and, while `editable`, Remove photo (it calls `onRemove(photo, { garmentId, kind, index })` and closes the sheet).
+ */
+export function openDocsViewer({ garmentId, type, docs, kind = 'before', index = 0, by = '', editable = false, onRemove = null } = {}) {
+  const kinds = DOC_KIND_LIST();
+  const cur = { kind, index };
+  const list = () => docs?.[cur.kind] ?? [];
+  const clampIndex = () => { cur.index = Math.max(0, Math.min(cur.index, list().length - 1)); };
+  const headerText = () => `${esc(type)} · ${kindLabel(cur.kind)}`;
+  const body = () => {
+    clampIndex();
+    const photos = list();
+    const n = photos.length;
+    const photo = photos[cur.index];
+    const tabs = kinds.map((k) => docTab({ kind: k, count: docs?.[k]?.length ?? 0, active: k === cur.kind, id: `viewer-${garmentId}-${k}`, controls: 'docs-viewer-stage', attrs: `data-act="docs-tab" data-kind="${k}"` })).join('');
+    const sub = photo ? `<p class="t-small c-600 docs-viewer__sub">${esc(by ? `${by} · ` : '')}${fmtDay(photo.at)}, ${fmtTime(photo.at)}</p>` : '';
+    const stage = photo
+      ? `<div class="docs-viewer__stage" id="docs-viewer-stage" role="tabpanel" aria-labelledby="viewer-${garmentId}-${cur.kind}-tab" tabindex="0"><div class="docs-viewer__photo" role="img" aria-label="${kindLabel(cur.kind)} photo ${cur.index + 1} of ${n}, ${esc(type)} (placeholder)">${docPhoto(photo, { type, size: 'stage' })}</div></div>
+        <div class="docs-viewer__controls"><button type="button" class="docs-viewer__nav" data-act="doc-prev" aria-label="Previous photo"${cur.index === 0 ? ' disabled' : ''}>‹</button><span class="t-body w-600" aria-live="polite">${cur.index + 1} of ${n}</span><button type="button" class="docs-viewer__nav" data-act="doc-next" aria-label="Next photo"${cur.index === n - 1 ? ' disabled' : ''}>›</button></div>
+        <div class="docs-viewer__strip">${photos.map((p, i) => `<button type="button" class="docs-viewer__thumb" data-act="doc-thumb" data-index="${i}" aria-label="${esc(photoLabel(cur.kind, i, n, type)).replace(/\. Open$/, '')}"${i === cur.index ? ' aria-current="true"' : ''}>${docPhoto(p, { type })}</button>`).join('')}</div>
+        ${editable ? cta('Remove photo', { variant: 'secondary', attrs: 'data-act="doc-remove"' }).replace('cta cta--secondary', 'cta cta--secondary cta--secondary-danger') : ''}`
+      : `<div class="docs-viewer__stage" id="docs-viewer-stage" role="tabpanel" aria-labelledby="viewer-${garmentId}-${cur.kind}-tab"><p class="t-small c-600 garment-docs__none">No ${lowerKind(cur.kind)} photos.</p></div>`;
+    return `${sub}<div class="garment-docs__tabs" role="tablist" aria-label="${esc(type)} photos">${tabs}</div>${stage}`;
+  };
+  return sheetOverlay(`<div class="docs-viewer" data-viewer>${body()}</div>`, { header: headerText(), dataS: 'docs-viewer', confirm: false }, (holder, close) => {
+    const box = holder.querySelector('[data-viewer]');
+    const title = holder.querySelector('.sheet__title');
+    const draw = (focus) => {
+      box.innerHTML = body();
+      title.innerHTML = headerText();
+      const el = focus && box.querySelector(focus);
+      (el && !el.disabled ? el : box.querySelector('[role="tab"][aria-selected="true"]'))?.focus({ preventScroll: true });
+    };
+    const pickTab = (el) => { cur.kind = el.dataset.kind; cur.index = 0; draw('[role="tab"][aria-selected="true"]'); };
+    holder.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-act]');
+      if (!el || el.disabled) return;
+      const act = el.dataset.act;
+      if (act === 'docs-tab') pickTab(el);
+      else if (act === 'doc-prev') { cur.index -= 1; draw('[data-act="doc-prev"]'); }
+      else if (act === 'doc-next') { cur.index += 1; draw('[data-act="doc-next"]'); }
+      else if (act === 'doc-thumb') { cur.index = Number(el.dataset.index); draw('[aria-current="true"]'); }
+      else if (act === 'doc-remove') {
+        const photo = list()[cur.index];
+        const ctx = { garmentId, kind: cur.kind, index: cur.index };
+        close({ instant: true });
+        if (photo) onRemove?.(photo, ctx);
+      }
+    });
+    holder.addEventListener('keydown', (e) => {
+      if (tabKeys(e, (t) => { cur.kind = t.dataset.kind; cur.index = 0; draw(`[role="tab"][data-kind="${t.dataset.kind}"]`); })) return;
+      if (e.target.closest('#docs-viewer-stage') && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        const next = cur.index + (e.key === 'ArrowRight' ? 1 : -1);
+        if (next < 0 || next >= list().length) return;
+        e.preventDefault();
+        cur.index = next;
+        draw('#docs-viewer-stage');
+      }
+    });
+    box.querySelector('[role="tab"][aria-selected="true"]')?.focus({ preventScroll: true });
+  });
+}
+
+/**
+ * Wire the read-only blocks (`garmentDocs`) and the editor's thumbnails: tab switches in place (no re-render, ←/→/Home/End),
+ * and a photo tap opens the viewer at that kind and index. `lookup(garmentId) → { type, docs }`.
+ */
+export function wireGarmentDocs(root, { lookup, by = '', editable = false, onRemove = null } = {}) {
+  const select = (tab) => {
+    const block = tab.closest('.garment-docs');
+    if (!block) return;
+    block.querySelectorAll('[role="tab"]').forEach((t) => {
+      const on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      t.classList.toggle('is-active', on);
+      const panel = document.getElementById(t.getAttribute('aria-controls'));
+      if (panel) panel.hidden = !on;
+    });
+  };
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('.screen-sheet--overlay')) return;
+    const tab = e.target.closest('[data-act="docs-tab"]');
+    if (tab) { select(tab); return; }
+    const photo = e.target.closest('[data-act="view-doc"]');
+    if (!photo || photo.disabled) return;
+    const info = lookup?.(photo.dataset.garment);
+    if (!info) return;
+    openDocsViewer({
+      garmentId: photo.dataset.garment, type: info.type, docs: info.docs, kind: photo.dataset.kind, index: Number(photo.dataset.index) || 0, by, editable, onRemove,
+    });
+  });
+  root.addEventListener('keydown', (e) => { if (!e.target.closest('.screen-sheet--overlay')) tabKeys(e, select); });
 }

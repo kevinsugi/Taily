@@ -1,17 +1,20 @@
-/* c-account — the Account tab. Layout only; rows are the shared listRow, the sign-out confirm is the shared leave modal. M7: the identity block is flat; the three rows are the one .card--list. */
+/* c-account — the Account tab (V6). Layout only; rows are the shared listRow, the sign-out confirm is the shared leave modal. The identity block is flat on the canvas (squircle initials, 80); the three rows are the one .card--list. */
 .c-account { gap: 0; padding-bottom: var(--space-40); }
 
-/* identity: flat on the linen */
+/* identity: flat on the canvas */
 .c-account__who { display: flex; align-items: center; gap: var(--space-16); }
 .c-account__text { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
 .c-account__name, .c-account__phone, .c-account__email { margin: 0; }
 .c-account__name { overflow-wrap: anywhere; }
-.c-account__phone { font-variant-numeric: tabular-nums; color: var(--ink); }
+.c-account__phone { font-variant-numeric: tabular-nums; }
 .c-account__email { overflow-wrap: anywhere; }
 
 .c-account__list { display: flex; flex-direction: column; }
 .c-account__list .list-row { min-height: 64px; }
 .c-account__list .list-row__right { font-variant-numeric: tabular-nums; }
 
+/* sign out + the version line sit on the left gutter like the headings (V6 is flush-left, not centred) */
 .c-account__out { margin-top: var(--rhythm-section); }
-.c-account__version { margin: var(--space-24) 0 0; text-align: center; }
+.c-account__out .page-actions__links { justify-content: flex-start; }
+.c-account__out .text-link { padding-inline: 0; }
+.c-account__version { margin: var(--space-16) 0 0; text-align: left; }

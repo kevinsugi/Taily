@@ -1,11 +1,11 @@
 /* t-phone — layout only; the field, banner, heading row and action bar are shared components. */
-.t-phone__eyebrow { margin: 0 0 var(--space-4); }
+.t-phone__eyebrow { margin: 0 0 var(--space-8); }
 .t-phone__lead { margin: var(--rhythm-tight) 0 0; }
 .t-phone__saved { margin-top: var(--rhythm-section); }
 .t-phone__field { margin-top: var(--rhythm-section); }
-.t-phone__steps { margin: var(--rhythm-section) 0 0; }
+.t-phone__steps { margin: var(--rhythm-section) 0 0; text-wrap: pretty; }
 .t-phone__other { margin: var(--rhythm-group) 0 0; }
 .t-phone__link {
   display: inline; padding: var(--space-12) var(--space-4); margin: calc(var(--space-12) * -1) calc(var(--space-4) * -1);
-  font: inherit; font-weight: 600; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px;
+  font: inherit; font-weight: 500; color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-color: var(--stitch-ink);
 }

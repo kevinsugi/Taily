@@ -26,3 +26,10 @@ Fully autonomous, Opus (spec / reviews / Figma) + Sonnet (build). Figma: new pag
 "Tailor - Onboarding v6" and a "V6" component section in the same file; V5 pages untouched. When V6 passes its checks,
 GitHub Pages switches from V5 to V6. One local folder; switch with `git checkout V5|V6`.
 Before set for the before/after page: `.shots/V6/before/` (= V5 at 8a3bff7).
+
+## Hand-off when V6 lands (Kevin, Oct 2026)
+1. `git branch V4 main && git push -u origin V4` — preserve v4 before main moves.
+2. Fast-forward `main` to `V6` (V6 descends from main via V5; no history rewrite) and push.
+3. GitHub Pages source → `main` (which is V6).
+4. `git switch main` locally for Kevin's review.
+V5 stays untouched on `V5`; Kevin can `git switch V4|V5|V6|main` at any time.

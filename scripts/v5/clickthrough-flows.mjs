@@ -44,7 +44,7 @@ const KEY_RE = /^[a-z0-9.-]+$/;
 const MONEY_PROSE = /(fee|deposit|refund|payout|balance|courier|total)[^.\n]{0,40}\d\s?%/i;
 const OVERLAY_SEL = '[role="dialog"], [aria-modal="true"], .modal-overlay, .overlay, .screen-sheet--overlay';
 const arr = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
-const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
+const norm = (s) => String(s).replace(/\s+/g, ' ').trim().toLowerCase();   // V6-D-06: case-insensitive (pills render uppercase, section heads sentence case)
 const matches = (key) => !ONLY.length || ONLY.some((p) => (p.endsWith('*') ? key.startsWith(p.slice(0, -1)) : key === p));
 
 const h = await open();

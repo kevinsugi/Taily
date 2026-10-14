@@ -60,7 +60,7 @@ function view(s) {
   const dirty = isDirty();
   const tiers = d.on ? `<div class="card ${ID}__card">
     ${RUSH_TIERS.map((n) => field({ id: `rush-${n}`, label: TIER_LABEL[n], prefix: '$', inputmode: 'numeric', autocomplete: 'off', value: d.fees[n], error: errorCopy(errs[`d${n}`], n, d), disabled: busy })).join('')}
-    <div class="${ID}__free"><span class="t-body w-600">4 days or more</span><span class="t-body c-600">No rush fee</span></div>
+    <div class="${ID}__free"><span class="t-body w-500 c-ink">4 days or more</span><span class="t-body c-600">No rush fee</span></div>
   </div>` : '';
   return `${chrome('shop', { persona: 'tailor' })}
 <main class="body body--with-bar ${ID}">

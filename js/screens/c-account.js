@@ -36,9 +36,9 @@ function view(s) {
     <div class="${ID}__who">
       ${avatar({ initials: c.initials, size: 'lg' })}
       <div class="${ID}__text">
-        <h2 class="t-body w-700 ${ID}__name">${esc(c.first)} ${esc(c.last)}</h2>
-        <p class="t-body ${ID}__phone">${esc(c.phone)}</p>
-        <p class="t-small c-600 ${ID}__email">${esc(c.email)}</p>
+        <h2 class="t-body w-600 c-ink ${ID}__name">${esc(c.first)} ${esc(c.last)}</h2>
+        <p class="t-body c-text ${ID}__phone">${esc(c.phone)}</p>
+        <p class="t-small c-muted ${ID}__email">${esc(c.email)}</p>
       </div>
     </div>
   </section>
@@ -48,7 +48,7 @@ function view(s) {
     ${listRow({ title: 'Past orders', sub: orderSub, act: 'orders' })}
   </nav>
   <div class="page-actions ${ID}__out"><div class="page-actions__links">${textLink('Sign out', { act: 'sign-out', tone: 'muted' })}</div></div>
-  <p class="t-micro c-600 ${ID}__version">Taily prototype · v5</p>
+  <p class="t-micro c-muted ${ID}__version">Taily prototype · v6</p>
 </main>`;
 }
 

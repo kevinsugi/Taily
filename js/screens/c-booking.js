@@ -145,13 +145,13 @@ function liveView(a, t, first) {
     ? `Free cancellation until ${cutoff}. After that, ${esc(first)} keeps the ${money(deposit)} deposit.`
     : `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel now, ${esc(first)} keeps your ${money(deposit)} deposit.`;
   const links = !confirmed ? '' : `<div class="page-actions__links">${early ? textLink('Reschedule', { act: 'reschedule' }) : ''}${textLink('Cancel booking', { act: 'cancel', tone: 'danger' })}</div>`;
-  const late = confirmed && !early ? `<p class="t-small c-600 ${ID}__late">To change the time now, message ${esc(first)}.</p>` : '';
+  const late = confirmed && !early ? `<p class="t-small c-muted ${ID}__late">To change the time now, message ${esc(first)}.</p>` : '';
 
   return `${chrome(bookingTab())}<main class="body ${ID}" data-s="${ID}">
   ${hero}
   ${visitSection(a, t)}
   ${sec(`${sectionHead('What happens next')}${steps}`)}
-  ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}${confirmed ? `<p class="t-small c-600 ${ID}__policy">${policy}</p>` : ''}`)}
+  ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}${confirmed ? `<p class="t-small c-muted ${ID}__policy">${policy}</p>` : ''}`)}
   <div class="page-actions">
     ${cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' })}
     ${late}
@@ -226,7 +226,7 @@ function returnBlock(a, t, first) {
   const rows = [metaRow('', shopName, { icon: 'bag' }), esc(`${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim()), ...(hours ? [esc(hours)] : [])];
   const f = esc(first);
   return `${sec(visitBlock(rows, { title: 'In-store pickup', flush: true }))}
-  <p class="t-small c-600 ${ID}__policy">${f} marks the order completed when you have it.</p>`;
+  <p class="t-small c-muted ${ID}__policy">${f} marks the order completed when you have it.</p>`;
 }
 
 /** "Your order" (K-2-01, D-127): the approved order as plain rows, the same garment / service strings as Amara's "The work".
@@ -267,7 +267,7 @@ function m4View(a, t, first) {
   let middle = '';
   /* D-169: from the fitting onward the past visit time is demoted — one small line, no count line */
   const fitted = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status)
-    ? `<p class="t-small c-600 ${ID}__fitted">Fitted ${fmtDay(a.slot.start)} · ${esc(VISIT_LABEL.customer[a.job.visitType])}</p>` : '';
+    ? `<p class="t-small c-muted ${ID}__fitted">Fitted ${fmtDay(a.slot.start)} · ${esc(VISIT_LABEL.customer[a.job.visitType])}</p>` : '';
   if (early && !fitted) middle = visitSection(a, t);
   if (a.status === 'returning') {
     middle = returnBlock(a, t, first);
@@ -328,7 +328,7 @@ function cancelSheetHtml(a, terms, first, busy = false, error = '') {
     : `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel now, ${esc(first)} keeps your ${money(terms.kept)} deposit for the time set aside. Nothing else is charged.`;
   const label = early ? `Cancel and get ${fmtExact(terms.refund)} back` : `Cancel and lose the ${fmtExact(terms.kept)} deposit`;
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
-  <p class="t-body c-700">${text}</p>
+  <p class="t-body c-text">${text}</p>
   ${moneyRows(rows)}
   ${error ? banner({ tone: 'error', text: error }) : ''}
   ${cta(label, { variant: 'danger', busy, busyLabel: 'Cancelling…', attrs: 'data-act="cancel-ok"' })}
@@ -368,7 +368,7 @@ function openReschedule(a, first) {
   const slots = openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).filter((s) => s !== a.slot.start);
   if (!slots.length) {
     sheetOverlay(`<div class="${ID}-sheet">
-  <p class="t-body c-700">${esc(first)} has no other open times before ${esc(fmtWhen(a.job.needBy).split(' · ')[0])}. Message ${esc(first)} to find a time that works.</p>
+  <p class="t-body c-text">${esc(first)} has no other open times before ${esc(fmtWhen(a.job.needBy).split(' · ')[0])}. Message ${esc(first)} to find a time that works.</p>
   ${cta(`Message ${esc(first)}`, { attrs: 'data-act="resched-message"' })}
   ${cta('Keep current time', { variant: 'secondary', attrs: 'data-act="resched-keep"' })}
 </div>`, { header: 'Pick a new time', dataS: `${ID}--reschedule-none`, confirm: false }, (holder, close) => {
@@ -383,9 +383,9 @@ function openReschedule(a, first) {
   let picked = slots[0];
   const sheetHtml = (busy = false, error = '') => `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   ${error ? banner({ tone: 'error', text: error }) : ''}
-  <p class="t-small c-600 ${ID}-sheet__now" data-now>Booked for <span class="nb">${fmtWhen(a.slot.start)}</span></p>
+  <p class="t-small c-muted ${ID}-sheet__now" data-now>Booked for <span class="nb">${fmtWhen(a.slot.start)}</span></p>
   <div class="${ID}-sheet__wheel">${scheduler({ columns: slotColumns(slots, picked), compact: true, cta: '', inline: true, note: whenNote('New time', picked) })}</div>
-  <p class="t-small c-600">Same price. ${esc(first)} is told right away.</p>
+  <p class="t-small c-muted">Same price. ${esc(first)} is told right away.</p>
   ${cta('Move my visit', { busy, busyLabel: 'Moving…', attrs: 'data-act="move-ok"' })}
   ${cta('Keep current time', { variant: 'secondary', disabled: busy, attrs: 'data-act="resched-keep"' })}
 </div>`;

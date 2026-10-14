@@ -30,7 +30,7 @@ function priceLines(a, iso) {
   const turn = p.tier > 0
     ? `${p.days <= 0 ? 'The same day as' : `${p.days} ${p.days === 1 ? 'day' : 'days'} before`} ${sarah}’s need-by date. ${p.rush > 0 ? `The ${fmtExact(p.rush)} rush fee stays as booked.` : 'No rush fee is added to this request.'}`
     : '';
-  return `<p class="t-small c-600 ${ID}__same" data-money>You take home ${fmtExact(p.payout)}${less}.</p>${turn ? `<p class="t-small w-600 c-700 ${ID}__turn">${esc(turn)}</p>` : ''}`;
+  return `<p class="t-body c-text ${ID}__same" data-money>You take home ${fmtExact(p.payout)}${less}.</p>${turn ? `<p class="t-small w-500 c-ink ${ID}__turn">${esc(turn)}</p>` : ''}`;
 }
 /** The picked slot, kept only while it is still one of her open times. */
 const pickedOf = (slots) => (slots.includes(ui().slot) ? ui().slot : slots[0] ?? null);
@@ -62,7 +62,7 @@ function view() {
   const d = ui();
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${heading}
-  <p class="t-body c-700 ${ID}__lead">${esc(sarah)} asked for <span class="nb">${esc(fmtWhen(a.slot.start))}</span>. Pick one of your open times before her need-by date, <span class="nb">${esc(fmtDay(a.job.needBy))}</span>.</p>
+  <p class="t-body c-muted ${ID}__lead">${esc(sarah)} asked for <span class="nb">${esc(fmtWhen(a.slot.start))}</span>. Pick one of your open times before her need-by date, <span class="nb">${esc(fmtDay(a.job.needBy))}</span>.</p>
   ${d.error === 'slot-unavailable' ? `<div class="${ID}__error">${banner({ tone: 'error', title: 'That time was just taken. Pick another.' })}</div>` : ''}
   <div class="${ID}__sched"${d.busy ? ' inert aria-busy="true"' : ''}>${scheduler({
     columns: slotColumns(slots, picked), inline: true, compact: true, cta: '', note: whenNote(`${sarah} sees`, picked),

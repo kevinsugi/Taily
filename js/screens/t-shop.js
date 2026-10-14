@@ -88,7 +88,7 @@ function view(s) {
   const taking = t.takingRequests !== false;
   const status = ok
     ? `<div class="card ${ID}__live">
-    <p class="${ID}__status">${taking ? statusPill('bookable') : statusPill('paused', 'Paused · customers can’t send requests')}</p>
+    <p class="${ID}__status">${taking ? statusPill('bookable') : `${statusPill('paused', 'Paused')} <span class="t-small c-muted">· customers can’t send requests</span>`}</p>
     ${toggle({ id: 'taking-requests', label: 'Taking requests', checked: taking, helper: taking ? '' : 'Jobs you already booked are not affected.' })}
   </div>`
     : banner({ tone: 'warning', title: 'Customers can’t book you right now', text: `Finish ${finish[0]} so customers can book you again.`, actionLabel: `Finish ${finish[1]}`, actionAct: 'fix' });
@@ -101,7 +101,7 @@ function view(s) {
   const rows = ROWS.map((r) => listRow({
     title: r.label,
     /* "Needs attention" sits as a second line under the summary, so the right column holds only the chevron (R2-2-T-06) */
-    sub: `<span class="${ID}__sum">${esc(SUMMARY[r.id](t))}</span>${r.id !== 'rush' && t.onboarding?.[r.id] === false ? `<span class="${ID}__flag t-small w-600 c-error">Needs attention</span>` : ''}`,
+    sub: `<span class="${ID}__sum">${esc(SUMMARY[r.id](t))}</span>${r.id !== 'rush' && t.onboarding?.[r.id] === false ? `<span class="${ID}__flag t-small w-500 c-error">Needs attention</span>` : ''}`,
     act: `edit-${r.id}`,
   })).join('');
   return `${chrome('shop', { persona: 'tailor' })}

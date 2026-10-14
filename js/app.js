@@ -10,6 +10,7 @@ import { state } from './state.js';
 import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wireVerified, withNavBack } from './components.js';
 import { SCREENS } from './inventory.js';
 import { systemBanner, wireSystem } from './system.js';
+import { wireReveal } from './motion.js';
 
 /* Screens are loaded dynamically — a static import here would run the screen module before this module body (imports hoist),
    hitting the `screens` map in its TDZ. Add a screen = add its id on its milestone's line.
@@ -215,6 +216,8 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   if (el.isConnected && el.dataset.screen === id) { wireInfo(el); wireVerified(el); }
   /* a wire() that forwarded elsewhere (redirectIfMoved) already rendered the destination with its own system layer */
   if (el.isConnected && el.dataset.screen === id) wireSystem(el, id, { go: render });
+  /* V6 (A9): scroll-entry fade-up + list stagger, once per screen arrival; off in tests and under reduced motion */
+  if (el.isConnected && el.dataset.screen === id) wireReveal(el, id);
   wireBackButtons(el);
   if (el.isConnected && el.dataset.screen === id) restoreFocus(el);
   /* R3-2-C-01: a new screen opens at its top (its pill + title are what it says first); a re-render of the

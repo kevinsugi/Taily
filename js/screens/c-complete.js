@@ -35,13 +35,14 @@ function view() {
   const types = a.lines?.length ? [...new Map(a.lines.map((l) => [l.garmentId, l.garmentType])).values()] : a.job.garments.map((g) => g.type);
   const rating = stars({ input: true, name: 'rate', value: 0 }).replace('aria-label="Your rating"', 'aria-labelledby="rate-label"');
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}">
+  <div class="ambient" aria-hidden="true"></div>
   ${headingRow(statusHero({ pill: 'completed', title: 'All done', body: `${esc(first)} marked your order completed. Thanks for booking with Taily.` }))}
   <section class="sec sec--first ${ID}__order">${garmentStrip(types, `${types.length} ${types.length === 1 ? 'item' : 'items'} · back with you`)}</section>
   <section class="sec card ${ID}__rate">
-    <h2 class="t-body w-600" id="rate-label">How did ${esc(first)} do?</h2>
+    <h2 class="t-body w-600 c-ink" id="rate-label">How did ${esc(first)} do?</h2>
     ${rating}
-    <p class="t-small c-700 ${ID}__word" id="rate-word" aria-live="polite">${esc(STAR_WORDS[0])}</p>
-    <p class="t-small c-600 ${ID}__hint">Tap a star to rate. Reviews show on ${esc(first)}’s profile as ${esc(customerShort())}${customerShort().endsWith('.') ? '' : '.'}</p>
+    <p class="t-small c-text ${ID}__word" id="rate-word" aria-live="polite">${esc(STAR_WORDS[0])}</p>
+    <p class="t-small c-muted ${ID}__hint">Tap a star to rate. Reviews show on ${esc(first)}’s profile as ${esc(customerShort())}${customerShort().endsWith('.') ? '' : '.'}</p>
   </section>
   <section class="sec">${sectionHead('Receipt')}
   ${receiptBlock(a, first)}</section>

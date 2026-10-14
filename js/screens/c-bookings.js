@@ -5,7 +5,7 @@
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { state, apptsFor, tailorById, statusScreen, now, priceChangeView } from '../state.js';
-import { chrome, headingRow, apptRow, emptyState, banner, toast, esc, sectionHead, heroGarment } from '../components.js';
+import { chrome, headingRow, apptRow, emptyState, banner, toast, esc, sectionHead, heroGarment, ICON_BELL } from '../components.js';
 import { fmtColumn } from '../money.js';
 import { fmtWhen, fmtCountdown, toDate } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
@@ -42,12 +42,7 @@ function pillFor(a) {
     case 'requested': return ['requested', 'Request sent'];
     case 'suggested': return ['suggested', 'New time'];   // short in the list (R3-1-C-05); the detail screen says "New time suggested"
     case 'declined': return ['declined', 'Declined'];
-    case 'expired': return ['expired', 'No reply'];
-    case 'cancelled': {
-      const r = a.cancel?.reason;
-      if (r === 'no-show') return ['cancelled', 'No-show'];
-      return ['cancelled', 'Cancelled'];   // who cancelled goes in the caption (R3-1-C-05)
-    }
+    /* expired / cancelled come from statusWord (V6-D-66: a no-fault ending is the grey calm pill); who cancelled goes in the caption (R3-1-C-05) */
     default: {
       /* M4 statuses: the shared word table, short form for the list (D-108) */
       const w = statusWord(a, 'customer', { short: true });
@@ -140,7 +135,7 @@ function view() {
   /* M6-X-11: notifications off while a request waits — the reply is the thing she would miss (the tailor's Home has the same banner, D-85) */
   const waiting = groups.requests.find((a) => a.status === 'requested');
   const push = state.sim.push === 'denied' && waiting
-    ? `<div class="${ID}__push">${banner({ tone: 'warning', title: 'Notifications are off', text: `Turn on notifications to hear the moment ${esc(firstOf(tailorById(waiting.tailorId)))} replies.`, actionLabel: 'Open Settings', actionAct: 'push-settings' })}</div>` : '';
+    ? `<div class="${ID}__push">${banner({ tone: 'info', glyph: ICON_BELL, title: 'Notifications are off', text: `Turn on notifications to hear the moment ${esc(firstOf(tailorById(waiting.tailorId)))} replies.`, actionLabel: 'Open Settings', actionAct: 'push-settings' })}</div>` : '';
   return `${head}
   ${push}
   ${blocks}

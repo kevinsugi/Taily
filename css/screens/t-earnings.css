@@ -10,7 +10,6 @@
 .t-earnings__hero p, .t-earnings__next p { margin: 0; }
 .t-earnings__label { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); min-height: 16px; }
 .t-earnings__label .info-btn { margin-right: calc(-1 * var(--space-12)); }
-.t-earnings__amt-hero { font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
 .t-earnings__next--none { gap: var(--space-8); }
 .t-earnings__after { font-variant-numeric: tabular-nums; }
 .t-earnings__rows .list-row { min-height: 56px; }
@@ -28,6 +27,6 @@
 
 /* M6-T-18: sent back + next in one section — the headline carries the date and the whole amount, the Fix button closes it */
 .t-earnings__merged { font-variant-numeric: tabular-nums; text-wrap: balance; }
-.t-earnings__tag { display: inline-block; margin-left: var(--space-8); padding: 2px var(--space-8); border-radius: var(--radius-full); background: var(--error-bg); color: var(--error-ink); font-weight: 600; vertical-align: 2px; }
 .t-earnings__fix { margin-top: var(--rhythm-group); }
 .t-earnings__subline { display: block; }
+.t-earnings__rows .tag { margin-left: var(--space-8); vertical-align: 2px; }

@@ -1,15 +1,19 @@
 /* to-done — You’re bookable. Tokens only; strokes are inset shadows. */
 .to-done { padding-top: calc(44px + var(--space-32)); }
-.to-done__art { display: inline-flex; align-items: center; justify-content: center; width: 120px; height: 120px; border-radius: var(--radius-full); background: var(--accent-bg); }
-.to-done__title { margin: var(--space-16) 0 var(--space-8); }
+/* V6-D-17: left-aligned offset tile — a white 12 px square holding the garment, a sunk square offset 8 / 8 behind it */
+.to-done__art { position: relative; display: block; width: 120px; height: 120px; }
+.to-done__art::before { content: ''; position: absolute; inset: 8px 0 0 8px; border-radius: var(--radius-12); background: var(--surface-sunk); }
+.to-done__tile { position: relative; display: flex; align-items: center; justify-content: center; width: 112px; height: 112px; border-radius: var(--radius-12); background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
+.to-done__tile .garment-icon--hero { width: 80px; height: 80px; transform: rotate(-4deg); }
+.to-done__title { margin: var(--space-24) 0 var(--space-8); text-wrap: balance; }
 .to-done__lead { margin: 0; }
 .to-done__preview { margin-top: var(--rhythm-section); }
 .to-done__steps { display: flex; flex-direction: column; gap: var(--space-16); margin: 0; padding: 0; list-style: none; }
 .to-done__step { display: flex; align-items: flex-start; gap: var(--space-12); }
-.to-done__step > .t-body { padding-top: 3px; }
-.to-done__num { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 var(--size-28); width: var(--size-28); height: var(--size-28); border-radius: var(--radius-full); background: var(--neutral-100); color: var(--ink); font-variant-numeric: tabular-nums; }
+.to-done__step > .t-body { padding-top: 0; }
+.to-done__num { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 var(--space-24); width: var(--space-24); height: var(--space-24); border-radius: var(--radius-6); background: var(--surface-sunk); color: var(--ink); font-family: var(--font-mono); font-size: var(--size-13); line-height: 1; font-variant-numeric: tabular-nums; }
 .to-done__rush { margin: var(--rhythm-section) 0 0; }
 .to-done__link {
   display: inline; padding: var(--space-12) var(--space-4); margin: calc(var(--space-12) * -1) calc(var(--space-4) * -1);
-  font: inherit; font-weight: 600; color: var(--ink); text-decoration: underline; text-underline-offset: 2px;
+  font: inherit; font-weight: 500; color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-color: var(--stitch-ink);
 }

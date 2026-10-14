@@ -7,6 +7,8 @@
 .to-services__take-note { margin: 0; flex: 1; min-width: 0; }
 .to-services__list-error { margin: 0; }
 .to-services__list-error[hidden] { display: none; }
+/* V6: the take-home line is quiet 13 / 400 muted (spec B to-services); the shared row still ships w-600 c-700 */
+.to-services__card .service-row__take { font-weight: 400; color: var(--text-muted); padding-left: calc(var(--space-20) + var(--space-12)); }   /* under the name: 20 box + 12 gap */
 .to-services__card .service-row-wrap { padding-block: var(--space-4); box-shadow: inset 0 -1px 0 var(--hairline); }
 .to-services__card .service-row-wrap:last-child { box-shadow: none; }
 .to-services__preview-body { display: flex; flex-direction: column; gap: var(--rhythm-tight); }

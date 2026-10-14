@@ -58,8 +58,13 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
     case 'requested': return customer ? { pill: 'requested', label: 'Request sent' } : { pill: 'new-request', label: 'New request' };
     case 'suggested': return customer ? { pill: 'suggested', label: pick('New time suggested', 'New time') } : waiting;
     case 'declined': return { pill: 'declined', label: 'Declined' };
-    case 'expired': return { pill: 'expired', label: 'No reply' };
-    case 'cancelled': return { pill: 'cancelled', label: appt.cancel?.reason === 'no-show' ? 'No-show' : 'Cancelled' };
+    /* V6-D-66: a no-fault ending is grey (calm) for the customer on every surface, matching the c-request / c-booking heroes */
+    case 'expired': return { pill: customer ? 'calm' : 'expired', label: 'No reply' };
+    case 'cancelled': {
+      const r = appt.cancel?.reason;
+      if (r === 'no-show') return { pill: 'cancelled', label: 'No-show' };
+      return { pill: customer && r === 'customer-early' ? 'calm' : 'cancelled', label: 'Cancelled' };
+    }
     case 'confirmed': return { pill: 'confirmed', label: 'Confirmed' };
     case 'fitting': return customer ? { pill: 'fitting', label: 'Fitting' } : { pill: 'action', label: 'Fitting' };   // M7-1-T-03: photographing and sending is Amara's move (D-95)
     case 'price-change':

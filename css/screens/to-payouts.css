@@ -14,3 +14,6 @@
 .to-payouts__change { margin: 0 0 var(--space-4); }
 .to-payouts__fields { display: flex; flex-direction: column; gap: var(--rhythm-group); }
 .to-payouts__only4 { margin: var(--space-4) 0 0; }
+/* V6-D-21: routing and account numbers are read digit by digit, so Geist Mono */
+.to-payouts #routing, .to-payouts #account { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+.to-payouts__sentence { color: var(--ink); text-wrap: balance; }

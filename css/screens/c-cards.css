@@ -1,9 +1,9 @@
-/* c-cards — Payment methods. Layout only; rows are the shared listRow inside a .card--list, the sheet fields are cardFields. */
+/* c-cards — Payment methods (V6). Layout only; rows are the shared listRow inside a .card--list, the "Default" tag is .tag, the sheet fields are cardFields. */
 .c-cards { gap: 0; padding-bottom: var(--space-40); }
 .c-cards__list { display: flex; flex-direction: column; }
 .c-cards__list .list-row { min-height: 64px; }
+.c-cards__list .list-row__lead { color: var(--ink); }
 .c-cards__empty .empty-state { padding-block: var(--space-24); }
-.c-cards__tag { display: inline-block; padding: 2px var(--space-8); border-radius: var(--radius-full); background: var(--accent-bg); color: var(--accent-ink); letter-spacing: 1px; white-space: nowrap; }
 
 /* the card sheet (Make default · Remove → confirm) and the add form */
 .c-cards-sheet { display: flex; flex-direction: column; gap: var(--space-12); }

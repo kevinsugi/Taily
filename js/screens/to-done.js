@@ -66,17 +66,18 @@ function view(s) {
   const hours = POLICY.REQUEST_EXPIRY_H;
   return `${statusBar()}
 <main class="body body--with-bar ${ID}">
-  <span class="${ID}__art" aria-hidden="true">${garmentIcon('Suit Jacket', { size: 'hero' })}</span>
+  <span class="${ID}__art" aria-hidden="true"><span class="${ID}__tile">${garmentIcon('Suit Jacket', { size: 'hero' })}</span></span>
   <h1 class="t-display ${ID}__title">You’re bookable</h1>
   <p class="t-body c-600 ${ID}__lead">Customers near you can book you now. You have ${hours} hour${hours === 1 ? '' : 's'} to reply to each request.</p>
   <div class="${ID}__preview">${customerPreview({ title, html: row ?? mini, caption })}</div>
   <section class="sec" aria-labelledby="${ID}-next-h">
     ${sectionHead('What happens next', { id: `${ID}-next-h` })}
-    <ol class="${ID}__steps">${STEPS.map((txt, i) => `<li class="${ID}__step"><span class="${ID}__num t-small w-600" aria-hidden="true">${i + 1}</span><span class="t-body">${txt}</span></li>`).join('')}</ol>
+    <ol class="${ID}__steps">${STEPS.map((txt, i) => `<li class="${ID}__step"><span class="${ID}__num" aria-hidden="true">${i + 1}</span><span class="t-body">${txt}</span></li>`).join('')}</ol>
   </section>
   <p class="t-small c-600 ${ID}__rush">Want extra for rush jobs? <button type="button" class="${ID}__link" data-act="rush" data-hit="inline">Add rush fees</button> in your shop.</p>
 </main>
-${actionBar({ ctaLabel: 'Go to my shop', ctaAct: 'shop', secondaryLabel: 'See my profile as a customer', secondaryAct: 'as-customer' })}`;
+${actionBar({ ctaLabel: 'Go to my shop', ctaAct: 'shop', secondaryLabel: 'See my profile as a customer', secondaryAct: 'as-customer' })}
+<div class="ambient" aria-hidden="true"></div>`;
 }
 
 function wire(root) {

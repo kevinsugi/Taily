@@ -1,7 +1,7 @@
 /* t-shop — T7 Shop. Tokens only; strokes are inset shadows. */
 .t-shop__live { display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-12) var(--space-16); }
 .t-shop__live .toggle-row { min-height: 44px; }
-.t-shop__status { display: flex; margin: 0; }
+.t-shop__status { display: flex; align-items: center; gap: var(--space-8); flex-wrap: wrap; margin: 0; }
 .t-shop__setup .list-row { min-height: 56px; }
 .t-shop__sum, .t-shop__flag { display: block; }
 .t-shop__flag { margin-top: 2px; color: var(--error-ink); }

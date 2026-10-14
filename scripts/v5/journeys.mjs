@@ -34,7 +34,7 @@ import { POLICY } from '../../js/money-config.js';
 
 const ONLY = process.argv.slice(2).filter((a) => !a.startsWith('-'));
 const want = (id) => !ONLY.length || ONLY.includes(id);
-const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
+const norm = (s) => String(s).replace(/\s+/g, ' ').trim().toLowerCase();   // V6-D-06: case-insensitive (pills render uppercase, section heads sentence case)
 const arr = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
 
 const h = await open();

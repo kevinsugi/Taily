@@ -26,7 +26,7 @@ export { strip, addDays, dayDiff, dayStamp, dayLabel };   // v5 (M0 A1): one dat
 export const SCHED_ROW = 44;
 
 /** The "when" note under a wheel (M6-C-12): a caps label and the time in sentence case ("SARAH SEES  Thu, Oct 15 · 5:00 PM"). */
-export const whenNote = (label, iso) => `<span class="t-caps">${esc(label)}</span> <span class="t-small w-600">${esc(fmtWhen(iso))}</span>`;
+export const whenNote = (label, iso) => `<span class="t-label">${esc(label)}</span> <span class="t-small w-600">${esc(fmtWhen(iso))}</span>`;
 
 /** "Jul 17, 6:30 PM". */
 export const stamp = (d, time) => `${dayStamp(d)}${time ? `, ${time}` : ''}`;

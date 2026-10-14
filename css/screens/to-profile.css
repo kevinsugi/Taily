@@ -15,11 +15,11 @@
 .to-profile__work { display: block; width: 100%; min-width: 64px; aspect-ratio: 1; padding: 0; border: 0; background: none; border-radius: var(--radius-sm); }
 .to-profile__work .photo-tile { display: block; width: 100%; height: 100%; border-radius: var(--radius-sm); }
 .to-profile__work .photo-tile--add .icon-camera { inset: 0; margin: auto; width: 24px; height: 24px; }
-.to-profile__viewer { position: relative; aspect-ratio: 4 / 3; margin-bottom: var(--space-12); border-radius: var(--radius-md); overflow: hidden; }
+.to-profile__viewer { position: relative; aspect-ratio: 4 / 3; margin-bottom: var(--space-12); border-radius: var(--radius-12); overflow: hidden; }
 .to-profile__viewer[hidden] { display: none; }
 .to-profile__viewer .doc-photo { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; border-radius: inherit; }
 .to-profile__preview { margin-top: var(--rhythm-section); }
-.to-profile__sheet-list { display: flex; flex-direction: column; border-radius: var(--radius-md); background: var(--white); padding-inline: var(--space-16); margin-bottom: var(--space-12); }
+.to-profile__sheet-list { display: flex; flex-direction: column; border-radius: var(--radius-12); background: var(--surface); padding-inline: var(--space-16); margin-bottom: var(--space-12); }
 .to-profile__sheet-foot { display: flex; justify-content: center; }
 .screen-sheet[data-s^="to-profile"] .sheet__cancel,
 .screen-sheet[data-s^="to-profile"] .sheet__confirm { min-width: 44px; min-height: 44px; }

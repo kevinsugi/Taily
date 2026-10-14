@@ -95,7 +95,7 @@ function view(s) {
       value: draft, placeholder: `Message ${first}`, hint: maskContact(draft).masked ? HINT : '', photos: u.photos ?? 0, max: MAX_PHOTOS(), disabled: !!u.sending, photoType,
     });
   return `${chrome('messages')}
-<main class="body ${ID}">
+<main class="body ${ID}${failed.length ? ` ${ID}--failed` : ''}">
   ${headingRow(head, { sticky: true })}
   <div class="${ID}__context">${contextRow(t, a)}</div>
   <div class="${ID}__note">${privacyNote()}</div>

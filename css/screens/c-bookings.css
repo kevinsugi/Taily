@@ -1,6 +1,6 @@
-/* c-bookings — the Bookings tab. Layout only; rows are the shared apptRow, groups are .sec. */
+/* c-bookings — the Bookings tab (V6). Layout only; rows are the shared apptRow (cards), groups are .sec. */
 .c-bookings { gap: 0; padding-bottom: var(--space-40); }
 .c-bookings__section { gap: var(--space-4); }
-.c-bookings__rows { display: flex; flex-direction: column; gap: var(--space-12); }
+.c-bookings__rows { display: flex; flex-direction: column; gap: var(--rhythm-group); }
 .c-bookings__empty { margin-top: var(--rhythm-section); }
-.c-bookings__push { margin-top: var(--space-16); }
+.c-bookings__push { margin-top: var(--rhythm-group); }

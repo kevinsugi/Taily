@@ -11,7 +11,7 @@ const SEED = SCENARIOS.seed;
 export const FLOWS_sys_index = [
   { key: 'sys-index', screen: 'sys-index', group: 'M0 · System', title: 'Index',
     note: 'Milestones and every built screen, as deep links',
-    expect: { has: ['Taily v5', 'M1'] } },
+    expect: { has: ['Taily v6', 'M1'] } },
 ];
 
 export const FLOWS_sys_components = [

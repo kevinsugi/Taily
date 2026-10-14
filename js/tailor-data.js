@@ -145,17 +145,21 @@ export function payoutDetail(apptId) {
 export function payoutLine(p, bank = myTailor()?.payouts) {
   const b = p.state === 'pending' ? bank : { bank: p.bank ?? bank?.bank, last4: p.last4 ?? bank?.last4 };
   const to = `${b?.bank ?? 'Your bank'} •••• ${b?.last4 ?? ''}`;
+  /* V6-D-21: the same words with the card digits in Geist Mono (`html`, escaped) */
+  const x = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const toHtml = `${x(b?.bank ?? 'Your bank')} •••• <span class="mono">${x(b?.last4 ?? '')}</span>`;
   const day = fmtDay(p.date);
-  if (p.state === 'paid') return { text: `Paid ${day} · to ${to}`, short: `Paid ${day}`, tone: '', label: 'Paid' };
+  if (p.state === 'paid') return { text: `Paid ${day} · to ${to}`, html: `Paid ${x(day)} · to ${toHtml}`, short: `Paid ${day}`, tone: '', label: 'Paid' };
   if (p.state === 'failed') {
     const text = 'Sends again once you update your bank details.';
-    return { text, short: 'Didn’t go through', tone: 'error', label: 'Didn’t go through' };
+    return { text, html: x(text), short: 'Didn’t go through', tone: 'error', label: 'Didn’t go through' };
   }
   if (state.payouts.some((x) => x.state === 'failed')) {   // R5-2-T-02: the same account can't be promised the next one
-    return { text: `Sends ${day} once you update your bank details`, short: `Sends ${day}`, tone: '', label: 'Pending' };
+    const text = `Sends ${day} once you update your bank details`;
+    return { text, html: x(text), short: `Sends ${day}`, tone: '', label: 'Pending' };
   }
   const verb = p.retried ? 'Sending again' : 'Arrives';
-  return { text: `${verb} ${day} · to ${to}`, short: `${verb} ${day}`, tone: '', label: 'Pending' };
+  return { text: `${verb} ${day} · to ${to}`, html: `${verb} ${x(day)} · to ${toHtml}`, short: `${verb} ${day}`, tone: '', label: 'Pending' };
 }
 
 /** D-160: the courier's pickup window on the tailor's job — the next half hour an hour after Sarah paid the balance, 30 minutes long.

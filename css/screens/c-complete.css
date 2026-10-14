@@ -1,7 +1,6 @@
-/* c-complete — C11 receipt + review prompt. Hero, stars, meta row, money rows and action bar are shared. M7: the rating block is the one .card (interactive); the receipt is flat. */
+/* c-complete — C11 receipt + review prompt (V6). Hero, stars, meta row, money rows and action bar are shared. The rating block is the one .card (interactive); the receipt is flat. The ambient light is shared (V6-D-09). */
 .c-complete { gap: 0; }
-.c-complete .status-hero__body { color: var(--neutral-700); font-weight: 400; }
-.c-complete__rate { align-items: flex-start; gap: var(--space-8); padding: var(--space-20); }
+.c-complete__rate { align-items: flex-start; gap: var(--space-8); }
 .c-complete__rate h2 { margin: 0 0 var(--space-4); text-wrap: balance; }
 .c-complete__rate .stars--input { margin-left: calc(var(--space-12) * -1 + 2px); }
 .c-complete__word { font-weight: 500; }

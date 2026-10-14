@@ -78,7 +78,7 @@ function requestedBody(a, t, first) {
   });
   const caption = soon
     ? `<span class="t-small c-request__soon">${esc(first)} has until ${fmtTime(a.expiresAt)} to reply.</span>`
-    : `<span class="t-small c-600">${esc(first)} has until ${fmtTime(a.expiresAt)} to reply</span>`;
+    : `<span class="t-small c-muted">${esc(first)} has until ${fmtTime(a.expiresAt)} to reply</span>`;
   return `${heroRow(hero)}
   <section class="sec sec--first c-request__clock" aria-label="Time left to reply">
     <span class="t-figure">${countdown({ expiresAt: a.expiresAt, now: now() })}</span>
@@ -91,7 +91,7 @@ function requestedBody(a, t, first) {
     { state: 'current', title: `${esc(first)} replies`, sub: `Within ${POLICY.REQUEST_EXPIRY_H} hours` },
     { state: 'todo', title: 'You’re booked', sub: `The ${money(a.payments.deposit.cents)} deposit is charged when ${esc(first)} accepts` },
   ])}
-  <p class="t-small c-600 c-request__note">If ${esc(first)} declines or doesn’t reply, your hold is released.${late ? ` This visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel after ${esc(first)} accepts, ${esc(first)} keeps the ${money(a.payments.deposit.cents)} deposit.` : ''}</p></section>
+  <p class="t-small c-muted c-request__note">If ${esc(first)} declines or doesn’t reply, your hold is released.${late ? ` This visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel after ${esc(first)} accepts, ${esc(first)} keeps the ${money(a.payments.deposit.cents)} deposit.` : ''}</p></section>
   ${priceSection(a, first)}
   <div class="page-actions">
     ${cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' })}
@@ -103,13 +103,13 @@ function suggestedBody(a, t, first, busy) {
   const deposit = a.payments.deposit.cents;
   const hero = statusHero({ variant: 'new-times', pill: 'suggested', pillLabel: 'New time suggested', title: `${esc(first)} suggested a new time` });
   return `${heroRow(hero)}
-  <section class="sec sec--first c-request__time" data-new-time aria-label="Suggested time">
-    <span class="t-caps c-600">NEW TIME</span>
+  <section class="sec sec--first card c-request__time" data-new-time aria-label="Suggested time">
+    <span class="t-label">New time</span>
     <span class="t-figure c-request__when">${fmtWhen(a.suggested.start)}</span>
-    <span class="t-small c-600">You asked for ${fmtWhen(a.slot.start)}</span>
-    <p class="t-body c-700 c-request__same">Same price. If you accept, your ${money(deposit)} deposit is charged and you’re booked.</p>
+    <span class="t-small c-muted">You asked for ${fmtWhen(a.slot.start)}</span>
+    <p class="t-body c-text c-request__same">Same price. If you accept, your ${money(deposit)} deposit is charged and you’re booked.</p>
   </section>
-  <p class="t-small c-600 c-request__holding">${esc(first)} is holding this time until ${fmtWhen(suggestLapseAt(a))}</p>
+  <p class="t-small c-muted c-request__holding">${esc(first)} is holding this time until ${fmtWhen(suggestLapseAt(a))}</p>
   ${ui().error === 'slot-passed' ? `<div class="c-request__alert c-request__alert--top">${banner({ tone: 'error', text: RETRY_ERRORS['slot-passed'].text })}</div>` : ''}
   ${yourRequest([esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`), ...visitRows(a, t).slice(2)])}
   ${priceSection(a, first)}
@@ -182,7 +182,7 @@ function expiredBody(a, t, first, busy, u) {
   const err = !final && u.error ? RETRY_ERRORS[u.error] : null;
   let actions;
   if (lapsed) {
-    actions = `<p class="t-small c-600 c-request__passed" data-lapsed="${passed ? 'passed' : 'too-soon'}">Your ${fmtWhen(a.slot.start)} time ${passed ? 'has passed' : `is too soon for another ${hours}-hour wait`}.</p>
+    actions = `<p class="t-small c-muted c-request__passed" data-lapsed="${passed ? 'passed' : 'too-soon'}">Your ${fmtWhen(a.slot.start)} time ${passed ? 'has passed' : `is too soon for another ${hours}-hour wait`}.</p>
     ${cta('Pick a new time', { disabled: !!busy, attrs: 'data-act="pick-time"' })}
     <div class="page-actions__links">${link(`Message ${esc(first)}`, 'message', busy)}${link('Find another tailor', 'see-others', busy)}</div>`;
   } else if (final) {
@@ -192,7 +192,7 @@ function expiredBody(a, t, first, busy, u) {
     actions = `${err ? `<div class="c-request__alert">${banner({ tone: 'error', text: err.text, actionLabel: err.actionLabel, actionAct: err.actionAct })}</div>` : ''}
     <div class="c-request__try">
       ${cta(a.retries + 1 >= max ? 'Send again (last try)' : 'Send request again', { busy: busy === 'try-again', busyLabel: 'Sending…', disabled: !!busy && busy !== 'try-again', attrs: 'data-act="try-again"' })}
-      <span class="t-small c-600">Holds ${money(deposit)} again · ${esc(first)} has until ${newBy} to reply</span>
+      <span class="t-small c-muted">Holds ${money(deposit)} again · ${esc(first)} has until ${newBy} to reply</span>
     </div>
     <div class="page-actions__links">${link(`Message ${esc(first)}`, 'message', busy)}${link('Find another tailor', 'see-others', busy)}</div>`;
   }

@@ -1,37 +1,38 @@
-/* c-review — stars, optional text, up to 3 photos; then the posted review. Hero, stars, text area and bar are shared. */
+/* c-review — stars, optional text, up to 3 photos; then the posted review (V6). Hero, stars, text area and bar are shared. */
 .c-review { gap: 0; }
-.c-review .status-hero__body { color: var(--neutral-700); font-weight: 400; }
 .c-review .heading-row + .status-hero__notes,
 .c-review .heading-row ~ p { margin-top: var(--space-8); }
 .c-review p { margin: 0; }
-.c-review__rating { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); margin-top: var(--rhythm-section); }
+.c-review__rating { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); margin-top: var(--rhythm-major); }
 .c-review__rating .stars--input { margin-left: calc(var(--space-12) * -1 + 2px); }
 .c-review__word { font-weight: 500; }
 .c-review__word:empty { display: none; }
-.c-review__error { color: var(--error-ink); font-weight: 600; }
+.c-review__error { display: flex; align-items: center; gap: var(--space-4); color: var(--pastel-red-ink); font-weight: 500; }
+.c-review__warn { flex-shrink: 0; }
 .c-review__text { margin-top: var(--rhythm-section); }
 .c-review__photosec { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--rhythm-section); }
 .c-review__photos { display: flex; flex-wrap: wrap; gap: var(--space-16); padding-top: var(--space-12); padding-right: var(--space-12); }
 .c-review__photo { position: relative; display: block; width: 64px; height: 64px; }
-.c-review__photo .photo-tile { display: block; width: 64px; height: 64px; border-radius: var(--radius-md); }
+.c-review__photo .photo-tile { display: block; width: 64px; height: 64px; border-radius: var(--radius-6); }
 .c-review__remove {
   position: absolute; top: -22px; right: -22px; width: 44px; height: 44px; padding: 0; border: 0; background: none;
   display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: var(--radius-full);
 }
 .c-review__x {
-  display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--radius-full);
-  background: var(--ink); color: var(--white); box-shadow: 0 0 0 2px var(--neutral-50);
+  display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: var(--radius-full);
+  background: var(--ink); color: var(--surface); box-shadow: 0 0 0 2px var(--canvas);
 }
-.c-review__remove:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.c-review__remove:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
 .c-review__add {
   display: flex; align-items: center; justify-content: center; width: 64px; height: 64px; padding: 0;
-  background: none; border: 1.5px dashed var(--neutral-300); border-radius: var(--radius-md); color: var(--neutral-600); cursor: pointer;
+  background: none; border: 1px dashed var(--border-strong); border-radius: var(--radius-6); color: var(--text-faint); cursor: pointer;
+  transition: color var(--dur-hover) ease, border-color var(--dur-hover) ease, transform var(--dur-press) var(--ease-out);
 }
-.c-review__add:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+@media (hover: hover) { .c-review__add:hover:not(:disabled) { color: var(--ink); border-color: var(--ink); } }
+.c-review__add:active:not(:disabled) { transform: scale(var(--press-scale)); }
+.c-review__add:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .c-review__add:disabled, .c-review__remove:disabled { cursor: default; opacity: .5; }
 .c-review__photonote { text-wrap: pretty; }
 .c-review__posted { gap: var(--space-12); }
 .c-review__posted .review-row { padding: 0; }
 .c-review__empty { margin-top: var(--rhythm-section); }
-/* R4-1-C-10: the three sections are peers; the text area's label matches "Your rating" and "Photos" (16 / 600 ink) */
-.c-review__text .field__label { font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--ink); }

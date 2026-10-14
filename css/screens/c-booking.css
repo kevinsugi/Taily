@@ -1,6 +1,5 @@
-/* c-booking — C8 booking detail. Layout only; hero, visit block, timeline, money rows and sheets are shared. M7: groups are .sec, actions .page-actions. */
+/* c-booking — C8 booking detail (V6). Layout only; hero, visit block, timeline, money rows and sheets are shared. M7: groups are .sec, actions .page-actions. */
 .c-booking { gap: 0; padding-bottom: var(--space-40); }
-.c-booking .status-hero__body { color: var(--neutral-700); font-weight: 400; }
 /* hero (+ the demoted "Fitted …" line) → the first group */
 .c-booking > .sec:first-of-type { margin-top: var(--rhythm-major); }
 .c-booking__policy { margin: var(--space-4) 0 0; text-wrap: pretty; }
@@ -9,7 +8,7 @@
 .c-booking__empty { margin-top: var(--rhythm-section); }
 .c-booking .visit-block__row .t-figure { display: block; }
 /* a cancelled visit: the old time stays, dimmed */
-.c-booking--cancelled .visit-block__row, .c-booking--cancelled .visit-block__row .t-figure { color: var(--neutral-600); }
+.c-booking--cancelled .visit-block__row, .c-booking--cancelled .visit-block__row .t-figure { color: var(--text-muted); }
 .c-booking-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
 .c-booking-sheet p { margin: 0; }
 .c-booking-sheet__wheel { display: flex; justify-content: center; }

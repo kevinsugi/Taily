@@ -13,6 +13,7 @@ import {
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
+import { ph } from '../icons.js';
 import { fmtExact, estimate, cancelTerms } from '../money.js';
 import { fmtWhen, addMinutes } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
@@ -25,12 +26,12 @@ const booking = () => (state.ui.booking ??= {});
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
 const money = (cents) => `<span data-money>${fmtExact(cents)}</span>`;
 
-const CARD_GLYPH = '<svg width="28" height="20" viewBox="0 0 28 20" fill="none" aria-hidden="true"><rect x="0.75" y="0.75" width="26.5" height="18.5" rx="3.25" stroke="currentColor" stroke-width="1.5"/><path d="M1 6.5h26" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 14h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+const CARD_GLYPH = ph('credit-card', { size: 24, cls: 'icon-24' });
 const GLYPH = {
-  lock: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.5"/></svg>',
-  clock: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5V8l2.5 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-  check: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 8.2l1.8 1.8 3.2-3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  warn: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.2l6.2 11H1.8L8 2.2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.6v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.6" r="0.9" fill="currentColor"/></svg>',
+  lock: ph('lock-simple'),
+  clock: ph('clock'),
+  check: ph('check-circle'),
+  warn: ph('warning'),
 };
 
 /** The cancellation promise for THIS slot, from the model (D-50): free until the cutoff, or already inside the late window. */
@@ -158,7 +159,7 @@ const CARD_ERR = {
 };
 
 /* a dashed card outline with a plus — the add row's lead, the same 32 px column as the option rows' glyphs */
-const ADD_CARD_GLYPH = '<svg width="28" height="20" viewBox="0 0 28 20" fill="none" aria-hidden="true"><rect x="0.75" y="0.75" width="26.5" height="18.5" rx="3.25" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2.5"/><path d="M14 6v8M10 10h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+const ADD_CARD_GLYPH = ph('plus', { size: 20, cls: 'icon-20' });
 
 function methodSheetHtml({ methods, method }) {
   return `<div class="c-pay-sheet" data-view="method">
@@ -178,7 +179,7 @@ function addCardHtml(v = {}, errors = {}) {
     ${field({ id: 'cc-csc', label: 'Security code', value: v.cvc ?? '', inputmode: 'numeric', autocomplete: 'cc-csc', maxlength: 4, helper: '3 or 4 digits on the back', error: errors.cvc ? CARD_ERR.cvc : '' })}
   </div>
   ${field({ id: 'cc-zip', label: 'ZIP code', value: v.zip ?? '', inputmode: 'numeric', autocomplete: 'postal-code', maxlength: 5, error: errors.zip ? CARD_ERR.zip : '' })}
-  <p class="t-small c-600 c-pay-sheet__note">Your card is stored by our payment provider, not by Taily.</p>
+  <p class="t-small c-muted c-pay-sheet__note">Your card is stored by our payment provider, not by Taily.</p>
   ${cta('Save card', { attrs: 'data-act="save-card"' })}
 </form>`;
 }
@@ -187,9 +188,9 @@ function threeDsHtml({ q, method }, busy = false) {
   return `<div class="c-pay-sheet" data-view="3ds">
   <p class="t-body">Your bank asks you to confirm this hold.</p>
   <div class="c-pay-sheet__bank">
-    <span class="t-small c-600 w-600">Taily</span>
-    <span class="t-h2" data-money>Hold ${fmtExact(q.deposit)}</span>
-    <span class="t-small c-600">${esc(method.label)}</span>
+    <span class="t-label">Taily</span>
+    <span class="t-figure" data-money>Hold ${fmtExact(q.deposit)}</span>
+    <span class="t-small c-muted">${esc(method.label)}</span>
   </div>
   ${cta('Confirm', { busy, busyLabel: 'Confirming…', attrs: 'data-act="3ds-ok"' })}
   ${cta('Cancel', { variant: 'secondary', disabled: busy, attrs: 'data-act="3ds-cancel"' })}

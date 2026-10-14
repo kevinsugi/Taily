@@ -61,7 +61,7 @@ function view() {
 
   return `${open(true)}
   <p class="t-body w-600 c-book__who">${t.name}</p>
-  <p class="t-small c-600 c-book__where">${VISIT_LABEL.customer[job.visitType]} · ${VISIT_MINUTES[job.visitType]} min</p>
+  <p class="t-small c-muted c-book__where">${VISIT_LABEL.customer[job.visitType]} · ${VISIT_MINUTES[job.visitType]} min</p>
   <div class="c-book__sched">${scheduler({
     title: '', columns: slotColumns(slots, selected), note: rushNote(t, job, selected),
     cta: '', inline: true, compact: true, top: true,   // M7-2-C-07 / A-05: always the 3-row wheel, the settled row on top — no blank card above it

@@ -53,7 +53,7 @@ export const NAV = {
   tailor: [['home', 'Home'], ['shop', 'Shop'], ['messages', 'Messages'], ['earnings', 'Earnings']],   // K-04 / CR-6b: Messages before Earnings
 };
 /**
- * Top nav (M7 A5.2, D-187): the logo and four 44 x 44 ICON links. The label is the link's aria-label + title. `badges` (D-164):
+ * Top nav (V6, V6-D-11): the logo and four icon + label links (Phosphor Regular 22 over an 11 px label). `aria-label` = label + count, so it starts with the visible label. `badges` (D-164):
  * `{ home: 2, messages: 1 }` — a count above 0 draws an 8 px accent dot on the icon and a spoken ", n unread" (messages) /
  * ", n new" (anything else). The active link is ink at 1.75 stroke with an accent stitch under it.
  * K-06 (D-221): `back` seats the 44 x 44 Back chevron at the left IN PLACE OF the logo (a screen whose heading has a Back);
@@ -65,8 +65,9 @@ export function topNav(active = 'home', items = NAV.customer, { badges = {}, bac
     const n = Number(badges[key]) || 0;
     const dot = n > 0 ? '<span class="top-nav__dot" aria-hidden="true"></span>' : '';
     const name = `${label}${n > 0 ? `, ${n} ${key === 'messages' ? 'unread' : 'new'}` : ''}`;
-    return `<a class="top-nav__link${isActive ? ' is-active' : ''}" href="#" data-nav="${key}" aria-label="${name}" title="${label}"${isActive ? ' aria-current="page"' : ''}>
+    return `<a class="top-nav__link${isActive ? ' is-active' : ''}" href="#" data-nav="${key}" aria-label="${name}"${isActive ? ' aria-current="page"' : ''}>
       <span class="top-nav__icon">${NAV_ICONS[key] ?? NAV_ICONS.home}${dot}</span>
+      <span class="top-nav__label t-micro" aria-hidden="true">${label}</span>
     </a>`;
   }).join('\n    ');
 
@@ -125,8 +126,8 @@ export function navBadges(persona = 'customer') {
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, ICON_HANGER, ICON_PIN, NAV_ICONS, NAV_BACK, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR } from './icons.js';
-export { NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR };
+import { CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, ICON_HANGER, ICON_PIN, NAV_ICONS, NAV_BACK, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR, ICON_CLOSE, ICON_CLOSE_20, ICON_CHECK, ICON_CHECK_20, ICON_CHECK_14, ICON_CHECK_12, ICON_CHECK_CIRCLE, ICON_LOCK, ICON_ALERT, ICON_ALERT_14, ICON_IMAGE, ICON_BELL, ICON_WIFI_OFF, ICON_PLUS, ICON_MINUS, ICON_RETRY, ICON_NEXT_20, ICON_PREV_20, ICON_BACK_24, ICON_STAR, ICON_STAR_EMPTY, ICON_ADD_CIRCLE, ph } from './icons.js';
+export { NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR, ICON_CLOSE, ICON_CHECK, ICON_CHECK_CIRCLE, ICON_LOCK, ICON_ALERT, ICON_IMAGE, ICON_BELL, ICON_WIFI_OFF, ICON_PLUS, ICON_MINUS, ICON_RETRY, ICON_STAR, ICON_STAR_EMPTY, ph };
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
 import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
@@ -151,8 +152,9 @@ export function cta(label, { variant = 'default', disabled = false, busy = false
 }
 
 /**
- * Status (M7 A5.6, D-188) — `statusPill` keeps its name, keys and labels but renders a dot + a word:
- * `<span class="status status--{tone}">`. Tones: action · pending · progress · done · stop · calm (no blue anywhere).
+ * Status (V6, A4) — `statusPill` keeps its name, keys, labels and markup (`span.status.status--{tone}`), but V6 draws it as a small
+ * uppercase pastel pill (the dot is hidden by CSS). Tones by meaning: action = yellow · pending + progress = blue · done = green ·
+ * stop = red · calm = neutral grey.
  * `status` is the state-machine id or the Figma variant name; label defaults to the variant label.
  */
 const PILL_VARIANTS = {
@@ -183,7 +185,7 @@ const PILL_VARIANTS = {
   'expired':               { tone: 'stop',     label: 'Expired' },
   /* M7: t-shop's "Bookable" / "Paused" */
   'bookable':              { tone: 'done',     label: 'Bookable' },
-  'paused':                { tone: 'pending',  label: 'Paused' },
+  'paused':                { tone: 'action',   label: 'Paused' },   /* V6-D-03: a paused shop is the tailor's move */
 };
 
 export function statusPill(status, label) {
@@ -191,6 +193,11 @@ export function statusPill(status, label) {
   const v = PILL_VARIANTS[key];
   if (!v) throw new Error(`statusPill: unknown status "${status}"`);
   return `<span class="status status--${v.tone}"><span class="status__dot" aria-hidden="true"></span><span class="status__word">${label ?? v.label}</span></span>`;
+}
+
+/** A small non-status tag on the pill chassis (V6): tone = blue | red | green | yellow | grey. Changes "New", "Default", "Required". */
+export function tag(label, tone = 'grey', { cls = '' } = {}) {
+  return `<span class="tag tag--${tone}${cls ? ` ${cls}` : ''}">${label}</span>`;
 }
 
 /** Time Chip — Figma State=Default | Selected. */
@@ -245,8 +252,8 @@ const TILE_ART = {
    at six, the label keeps counting), and the label "3 Suit Jackets".
    The tile keeps the grid's width (the master draws 110). */
 export const TILE_MAX_ICONS = 6;
-const TILE_PLUS = '<svg class="garment-tile__glyph" aria-hidden="true" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>';
-const TILE_MINUS = '<svg class="garment-tile__glyph" aria-hidden="true" viewBox="0 0 14 14" fill="none"><path d="M2 7h10" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/></svg>';
+const TILE_PLUS = ph('plus', { size: 16, cls: 'garment-tile__glyph' });
+const TILE_MINUS = ph('minus', { size: 16, cls: 'garment-tile__glyph' });
 export function garmentTile(type, { qty = 0, attrs = '', addDisabled = false } = {}) {
   if (!(qty > 0)) {
     const art = TILE_ART[type]
@@ -317,7 +324,7 @@ export function statusHero({ variant = 'requested', pill, pillLabel, title, titl
      padding, not under the title (the markers are its handle) */
   const notes = [];
   if (body) notes.push(`<p class="status-hero__body${variant === 'confirmed' ? ' status-hero__body--dark' : ''}">${body}</p>`);
-  if (rowLabel) parts.push(`<div class="status-hero__row"><span class="t-caps c-600">${rowLabel}</span><span class="t-figure">${rowValue ?? ''}</span></div>`);
+  if (rowLabel) parts.push(`<div class="status-hero__row"><span class="t-label">${rowLabel}</span><span class="t-figure">${rowValue ?? ''}</span></div>`);
   if (extra) notes.push(extra);   // round 14: 03/Requested's "All Taily-verified tailors are:" + badges
   if (notes.length) parts.push(`<!--notes--><div class="status-hero__notes">${notes.join('\n  ')}</div><!--/notes-->`);
   /* `new-times` (R2-U-03): pill Requested + a custom title/body — the
@@ -362,7 +369,7 @@ export function visitBlock(rows = [], { title = 'Visit details', flush = false, 
 /** The Back control (308:3820) — K-06 (D-221): it now lives in the TOP NAV (`navBackButton`), where it replaces the logo; `backButton()`
     is the plain "‹" 28 chevron the booking flow bar and the onboarding bar keep. The router wires every `.back[data-act="back"]`
     to step the prototype's history (app.js wireBackButtons). */
-export const backButton = () => '<button type="button" class="back" data-act="back" data-hit="inline" aria-label="Back">‹</button>';
+export const backButton = () => `<button type="button" class="back" data-act="back" data-hit="inline" aria-label="Back">${ICON_BACK_24}</button>`;
 /* K-06 (Kevin, D-221): the heading anatomy on every screen that has one, flush on the 20 px gutter edge:
      1. the status line (the 8 px dot + word) on its own line, when the screen has one — `statusHero` hands its pill up through
         a <!--status--> marker, any other screen passes `status`;
@@ -396,7 +403,7 @@ export function headingRow(inner, { back = true, status = '', trailing = '', sti
 export function trustBadges(list = [], { wide = false, user = false } = {}) {
   /* `wide`: 03/Requested's chips pad 4/12 where the summary card's pad 4/8;
      `user` (round 15): the User Summary's neutral-100 / accent-ink chips, no ✓ */
-  return `<span class="trust-badges${wide ? ' trust-badges--wide' : ''}${user ? ' trust-badges--user' : ''}">${list.map((b) => `<span class="trust-badge">${user ? '' : '✓ '}${b}</span>`).join('')}</span>`;
+  return `<span class="trust-badges${wide ? ' trust-badges--wide' : ''}${user ? ' trust-badges--user' : ''}">${list.map((b) => `<span class="trust-badge">${b}</span>`).join('')}</span>`;
 }
 
 /**
@@ -437,7 +444,7 @@ const SELECTOR_CHEVRON = CHEVRON_DOWN.replace('select-time__chevron', 'selector_
 
 export function selector(type, value, options = [], { attrs = '', chevron = true } = {}) {
   const menu = `<div class="selector__menu">${options.map((o) =>
-    `<button type="button" class="selector__option${o === value ? ' is-selected' : ''}" data-option="${o}">${o}${o === value ? '<span>✓</span>' : ''}</button>`).join('')}</div>`;
+    `<button type="button" class="selector__option${o === value ? ' is-selected' : ''}" data-option="${o}">${o}${o === value ? ICON_CHECK : ''}</button>`).join('')}</div>`;
   return `<span class="selector selector--${type}"><button type="button" class="selector__trigger" ${attrs}>${value}${chevron ? SELECTOR_CHEVRON : ''}</button>${menu}</span>`;
 }
 
@@ -457,8 +464,8 @@ export function sheet(contentHtml, { open = null, header = null, grabber = true,
   const titleId = `sheet-title-${++sheetSeq}`;
   const name = header ? ` aria-labelledby="${titleId}"` : ariaLabel ? ` aria-label="${esc(ariaLabel)}"` : '';
   const head = header
-    ? `<div class="sheet__header"><button type="button" class="sheet__cancel" data-act="sheet-cancel" aria-label="Close">✕</button><span class="sheet__title" id="${titleId}">${header}</span>${confirm
-      ? '<button type="button" class="sheet__confirm" data-act="sheet-confirm" aria-label="Done">✓</button>'
+    ? `<div class="sheet__header"><button type="button" class="sheet__cancel" data-act="sheet-cancel" aria-label="Close">${ICON_CLOSE_20}</button><span class="sheet__title" id="${titleId}">${header}</span>${confirm
+      ? `<button type="button" class="sheet__confirm" data-act="sheet-confirm" aria-label="Done">${ICON_CHECK_20}</button>`
       : '<span class="sheet__spacer" aria-hidden="true"></span>'}</div>`
     : '';
   return `<div class="sheet-host"${hostAttr}>
@@ -682,6 +689,8 @@ export function toast(msg, { tone = 'neutral', action = '', onAction = null, ms 
   el.className = tone === 'neutral' ? 'toast' : `toast toast--${tone}`;   // v5: neutral | success | warning | error | info
   el.setAttribute('role', tone === 'error' ? 'alert' : 'status');
   el.textContent = msg;
+  const glyph = { success: 'check-circle', error: 'warning', warning: 'warning' }[tone];   // V6-D-26: a tone glyph before the words
+  if (glyph) el.insertAdjacentHTML('afterbegin', ph(glyph, { size: 16, cls: 'icon-16 toast__glyph' }));
   if (action) {   // an inline action (Undo): the toast takes pointer events for its button
     el.classList.add('toast--action');
     const btn = document.createElement('button');
@@ -845,7 +854,7 @@ export function timeline(steps) {
   /* M6-A-15: an ordered list; the state is spoken ("Done: " / "Now: " / "Next: "), the dot glyph is decoration */
   const SAY = { done: 'Done: ', current: 'Now: ', todo: 'Next: ' };
   const rows = steps.map(({ state, title, sub }) => {
-    const glyph = state === 'done' ? '✓' : state === 'current' ? '●' : '';
+    const glyph = state === 'done' ? ICON_CHECK_12 : '';
     return `<li class="step step--${state}"${state === 'current' ? ' aria-current="step"' : ''}>
     <span class="step__dot" aria-hidden="true">${glyph}</span>
     <span class="step__labels"><span class="step__title"><span class="sr-only">${SAY[state] ?? ''}</span>${title}</span>${sub ? `<span class="step__sub">${sub}</span>` : ''}</span>
@@ -904,19 +913,7 @@ const noPercent = (label, where) => {
 /* ---------- M5 glyphs + limits (messaging, accounts, system) ---------- */
 /** Photos per chat message (CHAT_LIMITS.PHOTOS_MAX in data.js, D-131). */
 const CHAT_PHOTO_CAP = () => DATA.CHAT_LIMITS?.PHOTOS_MAX ?? 3;
-const GLYPH = (paths, size = 16) => `<svg class="icon-${size}" width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
-/** A closed padlock: the masked-token pill's glyph. */
-export const ICON_LOCK = GLYPH('<rect x="3.2" y="7" width="9.6" height="6.8" rx="1.6"/><path d="M5.4 7V5.2a2.6 2.6 0 0 1 5.2 0V7"/>');
-/** A small ✕ (remove an attachment). */
-export const ICON_CLOSE = GLYPH('<path d="M4 4l8 8M12 4l-8 8"/>');
-/** Photo-library glyph (Choose from library). */
-export const ICON_IMAGE = GLYPH('<rect x="2" y="3" width="12" height="10" rx="2"/><circle cx="6" cy="6.6" r="1.1"/><path d="M2.6 12l3.6-3.4 2.6 2.4 1.6-1.4 2.8 2.4"/>');
-/** Bell (the push prompt). */
-export const ICON_BELL = GLYPH('<path d="M3.6 11.2h8.8l-1.1-1.6V6.8a3.3 3.3 0 0 0-6.6 0v2.8z"/><path d="M6.6 13.4a1.5 1.5 0 0 0 2.8 0"/>');
-/** Wi-Fi with a slash (the offline banner). */
-export const ICON_WIFI_OFF = GLYPH('<path d="M1.6 6.2a9.6 9.6 0 0 1 3-1.9M14.4 6.2a9.6 9.6 0 0 0-4.4-2.4M4 8.8a5.6 5.6 0 0 1 2-1.2M12 8.8a5.6 5.6 0 0 0-1.4-1M8 12.2h.01"/><path d="M2 2l12 12"/>');
-/** Alert triangle (a failed courier price, M6-P-09). */
-export const ICON_ALERT = GLYPH('<path d="M8 2.4l6 10.4H2z"/><path d="M8 6.6v3M8 11.4h.01"/>');
+/* V6: ICON_LOCK / ICON_CLOSE / ICON_IMAGE / ICON_BELL / ICON_WIFI_OFF / ICON_ALERT are Phosphor Regular, built in icons.js and re-exported above. */
 
 /* ============================================================
    M7 (K-03) — polish components. Spec: docs/v5/M7-spec.md §A5.
@@ -924,8 +921,8 @@ export const ICON_ALERT = GLYPH('<path d="M8 2.4l6 10.4H2z"/><path d="M8 6.6v3M8
 
 /** Section heading (A5.5): a small sans-caps label above a group. `aside` is HTML (an infoButton, a "See all" link); `count` a plain number/text. */
 export function sectionHead(title, { id = '', count = null, aside = '' } = {}) {
-  const right = [count != null && count !== '' ? `<span class="t-small c-600 tabular">${esc(count)}</span>` : '', aside].filter(Boolean).join('');
-  return `<div class="sec-head"><h2 class="t-caps c-600 sec-head__title"${id ? ` id="${esc(id)}"` : ''}>${title}</h2>${right ? `<span class="sec-head__aside">${right}</span>` : ''}</div>`;
+  const right = [count != null && count !== '' ? `<span class="t-small c-muted tabular">${esc(count)}</span>` : '', aside].filter(Boolean).join('');
+  return `<div class="sec-head"><h2 class="t-label sec-head__title"${id ? ` id="${esc(id)}"` : ''}>${title}</h2>${right ? `<span class="sec-head__aside">${right}</span>` : ''}</div>`;
 }
 
 /**
@@ -953,7 +950,7 @@ export function flowBar({ step = 1, total = BOOKING_STEPS.length, back = true, e
   const dis = busy ? ' disabled aria-disabled="true"' : '';
   return `${statusBar(time)}
 <div class="flow-bar" role="navigation" aria-label="Booking">
-  ${back ? `<button type="button" class="back" data-act="back" aria-label="Back"${dis}>‹</button>` : '<span class="flow-bar__spacer"></span>'}
+  ${back ? `<button type="button" class="back" data-act="back" aria-label="Back"${dis}>${ICON_BACK_24}</button>` : '<span class="flow-bar__spacer"></span>'}
   <div class="flow-bar__steps">${stepsHtml}</div>
   <button type="button" class="flow-bar__exit" data-act="${esc(exitAct)}" aria-label="${esc(exitLabel)}" title="${esc(exitLabel)}"${dis}>${ICON_CLOSE}</button>
 </div>`;
@@ -986,7 +983,7 @@ export function wireVerified(root) {
 /** Rating (A5.8, D-190) — "★ 4.9 (37)" once. With `anchor` ('#reviews') it is a 44 px link that scrolls to that section. */
 export function ratingLine({ avg = 0, count = 0, anchor = '' } = {}) {
   const label = `Rated ${Number(avg).toFixed(1)} out of 5 from ${count} review${count === 1 ? '' : 's'}`;
-  const inner = `<span class="rating-line__star" aria-hidden="true">★</span> <span class="tabular w-600">${Number(avg).toFixed(1)}</span> <span class="c-600">(${count})</span>`;
+  const inner = `<span class="rating-line__star" aria-hidden="true">${ICON_STAR(12)}</span> <span class="tabular w-500">${Number(avg).toFixed(1)}</span> <span class="c-muted">(${count})</span>`;
   return anchor
     ? `<a class="rating-line rating-line--link t-small" data-hit="inline" href="${esc(anchor)}" data-anchor="${esc(anchor.replace(/^#/, ''))}" aria-label="${label}">${inner}</a>`
     : `<span class="rating-line t-small" aria-label="${label}">${inner}</span>`;
@@ -1108,7 +1105,7 @@ export function tailorRow({ id, name, initials, photo = null, verified = false, 
   if (q.rush > 0) incl.push(`${format(q.rush)} rush fee`);
   const captions = incl.length ? [`Includes ${incl.join(' and ')}`] : [];
   const meta = [
-    rating ? `★ ${rating.avg} (${rating.count})` : '',
+    rating ? `<span class="rating-line">${ICON_STAR(12)}<span class="tabular w-500">${rating.avg}</span> <span class="c-muted">(${rating.count})</span></span>` : '',
     distanceMi != null ? `${Number(distanceMi).toFixed(1)} mi` : '',
   ].filter(Boolean).join(' · ');
   const attrs = declined ? ' aria-disabled="true"' : ` data-act="open-tailor" data-id="${esc(id)}"`;
@@ -1122,8 +1119,8 @@ export function tailorRow({ id, name, initials, photo = null, verified = false, 
       ${meta || verified ? `<span class="tailor-row__meta">${meta}${verified ? `${meta ? ' ' : ''}${verifiedMark({ inert: true })}` : ''}</span>` : ''}
     </span>
   </span>
-  ${!declined && (captions.length || nextOpening) ? `<span class="tailor-row__lower">${captions.length ? `<span class="tailor-row__captions" data-money>${captions.map((c) => `<span class="tailor-row__caption">${c}</span>`).join('')}</span>` : ''}${nextOpening ? `<span class="tailor-row__next">Next opening ${fmtWhen(nextOpening)}</span>` : ''}</span>` : ''}
-  ${declined ? '<span class="tailor-row__note">Declined this request</span>' : ''}
+  ${!declined && (captions.length || nextOpening) ? `<span class="tailor-row__lower">${captions.length ? `<span class="tailor-row__captions" data-money>${captions.map((c) => `<span class="tailor-row__caption">${c}</span>`).join('')}</span>` : ''}${nextOpening ? `<span class="tailor-row__next">${ph('clock', { size: 14, cls: 'icon-14' })}<span>Next opening ${fmtWhen(nextOpening)}</span></span>` : ''}</span>` : ''}
+  ${declined ? '<span class="tailor-row__note tag tag--grey">Declined this request</span>' : ''}
   ${!declined && booked ? `<span class="tailor-row__booked">${booked}</span>` : ''}
 </button>`;
 }
@@ -1139,7 +1136,7 @@ export function priceRow({ label, cents = 0, note = '', muted = false, format = 
 }
 
 /* ---------- ratings ---------- */
-const STAR_PATH = '★';
+const STAR_PATH = `${ICON_STAR_EMPTY(14).replace('icon-star', 'icon-star star-out')}${ICON_STAR(14).replace('icon-star', 'icon-star star-in')}`;   /* both glyphs; CSS shows the filled one on .is-filled (V6-D-07) */
 /**
  * Stars — display (5 glyphs, `value` filled) or input (5 radio buttons, 44 px each).
  * Input: `<input type="radio" name aria-label="4 stars">`; wireStars() paints the fill.
@@ -1198,7 +1195,7 @@ export function chatBubble({ text = '', side = 'them', time = '', photos = 0, st
   const body = `${text ? `<span class="chat-bubble__text">${textHtml}</span>` : ''}${photoBtn}`;
   const meta = [];
   if (status === 'sending') meta.push('<span class="chat-msg__status">Sending…</span>');
-  else if (status === 'failed') meta.push(`<button type="button" class="chat-msg__retry" data-act="retry" data-id="${esc(id)}">Not sent · Retry</button>`);
+  else if (status === 'failed') meta.push(`<button type="button" class="chat-msg__retry" data-act="retry" data-id="${esc(id)}">${ICON_RETRY}<span>Not sent · Retry</span></button>`);
   else if (time) meta.push(`<span class="chat-msg__time">${esc(time)}</span>`);
   /* R5-1-C-08 (D-147): the bubble note says what happened; the standing note at the top of the thread says the rule */
   if (masked && me) meta.push(`<span class="chat-msg__note">${peer ? `Hidden from ${esc(peer)}. Numbers and emails stay private on Taily.` : PRIVACY_NOTE}</span>`);
@@ -1251,7 +1248,7 @@ export function field({ id, label, value = '', type = 'text', inputmode, autocom
     <input class="field__input" id="${id}" name="${id}" type="${type}" value="${esc(value)}"${inputmode ? ` inputmode="${inputmode}"` : ''}${autocomplete ? ` autocomplete="${autocomplete}"` : ''}${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}${maxlength ? ` maxlength="${maxlength}"` : ''}${disabled ? ' disabled' : ''}${error ? ' aria-invalid="true"' : ''}${msg ? ` aria-describedby="${msgId}"` : ''} ${attrs}>
     ${suffix ? `<span class="field__affix" aria-hidden="true">${esc(suffix)}</span>` : ''}
   </div>
-  ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : ''}
+  ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${error ? ICON_ALERT_14 : ''}<span>${esc(msg)}</span></p>` : ''}
 </div>`;
 }
 /** Code input — one numeric one-time-code field, `length` digits, spaced for reading. `helper` replaces the default line under it (an error wins). */
@@ -1260,7 +1257,7 @@ export function codeInput({ id, length = 6, value = '', error = '', label = 'Ver
   return `<div class="field field--code${error ? ' field--error' : ''}">
   <label class="field__label" for="${id}">${esc(label)}</label>
   <div class="field__box"><input class="field__input" id="${id}" name="${id}" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="${length}" pattern="[0-9]*" value="${esc(value)}" placeholder="${'•'.repeat(length)}"${error ? ' aria-invalid="true"' : ''} aria-describedby="${msgId}"></div>
-  <p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(error || helper || `Enter the ${length}-digit code we sent you.`)}</p>
+  <p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${error ? ICON_ALERT_14 : ''}<span>${esc(error || helper || `Enter the ${length}-digit code we sent you.`)}</span></p>
 </div>`;
 }
 /** Toggle — a switch row (>= 44 px). */
@@ -1276,10 +1273,10 @@ export function checkRow({ id, label, checked = false, caption = '', captionHtml
   return `<div class="check-row-wrap${error ? ' check-row-wrap--error' : ''}${disabled ? ' check-row-wrap--disabled' : ''}">
   <label class="check-row" for="${id}">
     <input class="check-row__input" type="checkbox" id="${id}" name="${id}"${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}${error ? ` aria-invalid="true" aria-describedby="${id}-msg"` : ''} ${attrs}>
-    <span class="check-row__box" aria-hidden="true">✓</span>
+    <span class="check-row__box" aria-hidden="true">${ICON_CHECK_14}</span>
     <span class="check-row__text"><span class="check-row__label">${esc(label)}</span>${cap ? `<span class="check-row__caption">${cap}</span>` : ''}</span>
   </label>
-  ${error ? `<p class="field__msg field__msg--error" id="${id}-msg" role="alert">${esc(error)}</p>` : ''}
+  ${error ? `<p class="field__msg field__msg--error" id="${id}-msg" role="alert">${ICON_ALERT_14}<span>${esc(error)}</span></p>` : ''}
 </div>`;
 }
 /**
@@ -1300,7 +1297,7 @@ export function chipGroup({ name, label = '', options = [], value = null, multi 
   return `<div class="chip-group chip-group--${variant}${error ? ' chip-group--error' : ''}" data-chip-group="${esc(name)}" data-multi="${multi}">
   ${label ? `<span class="chip-group__label" id="${labelId}">${esc(label)}</span>` : ''}
   <div class="${variant === 'segmented' ? 'segmented' : 'chip-group__options'}"${multi ? ` role="group"` : ' role="radiogroup"'}${label ? ` aria-labelledby="${labelId}"` : ` aria-label="${esc(name)}"`}>${items}</div>
-  ${error ? `<p class="field__msg field__msg--error" role="alert">${esc(error)}</p>` : ''}
+  ${error ? `<p class="field__msg field__msg--error" role="alert">${ICON_ALERT_14}<span>${esc(error)}</span></p>` : ''}
 </div>`;
 }
 /**
@@ -1316,12 +1313,12 @@ export function stepper({ steps = [], current = 0, done = [], variant = 'default
   const state = (i) => (i === ci ? 'current' : (done.includes(i) || done.includes(ids[i])) ? 'done' : 'todo');
   if (variant === 'compact') {
     return `<nav class="stepper stepper--compact" aria-label="Booking progress">
-  <p class="stepper__count t-small c-700 w-600">Step ${ci + 1} of ${steps.length} · ${esc(labels[ci] ?? '')}</p>
+  <p class="stepper__count t-small">Step ${ci + 1} of ${steps.length} · <span class="stepper__name">${esc(labels[ci] ?? '')}</span></p>
   <ol class="stepper__bar">${steps.map((_, i) => `<li class="stepper__seg stepper__seg--${state(i)}"${i === ci ? ' aria-current="step"' : ''}><span class="sr-only">${esc(labels[i])}</span></li>`).join('')}</ol>
 </nav>`;
   }
   return `<div class="stepper">
-  <p class="stepper__text">Step ${ci + 1} of ${steps.length} · ${esc(labels[ci] ?? '')}</p>
+  <p class="stepper__text">Step ${ci + 1} of ${steps.length} · <span class="stepper__name">${esc(labels[ci] ?? '')}</span></p>
   <div class="stepper__bar" role="img" aria-label="Step ${ci + 1} of ${steps.length}">${steps.map((_, i) => `<span class="stepper__seg stepper__seg--${state(i)}"></span>`).join('')}</div>
 </div>`;
 }
@@ -1358,13 +1355,13 @@ export function actionBar({ ctaLabel = '', ctaAct = '', disabled = false, softDi
 
 /**
  * Option row — one row of a single-select sheet (sort, payment method). Wrap a group in role="radiogroup".
- * `lead` is an icon / card badge (HTML); the check ring on the right fills ink with a ✓ when checked.
+ * `lead` is an icon / card badge (HTML); the check ring on the right fills ink with a Phosphor check when checked.
  */
 export function optionRow({ name = '', value = '', title = '', sub = '', checked = false, lead = '', act = 'option' } = {}) {
   return `<button type="button" class="option-row${checked ? ' is-checked' : ''}" role="radio" aria-checked="${checked}" data-act="${esc(act)}" data-name="${esc(name)}" data-value="${esc(value)}">
   ${lead ? `<span class="option-row__lead" aria-hidden="true">${lead}</span>` : ''}
   <span class="option-row__text"><span class="option-row__title t-body w-600">${title}</span>${sub ? `<span class="option-row__sub t-small c-600">${sub}</span>` : ''}</span>
-  <span class="option-row__check" aria-hidden="true">${checked ? '✓' : ''}</span>
+  <span class="option-row__check" aria-hidden="true">${checked ? ICON_CHECK_12 : ''}</span>
 </button>`;
 }
 
@@ -1390,22 +1387,24 @@ export function skeleton({ kind = 'line', count = 1 } = {}) {
   return `<div class="skeleton skeleton--${kind}" aria-busy="true"><span class="sr-only">Loading</span>${one.repeat(Math.max(1, count))}</div>`;
 }
 /**
- * Empty state — sans title (M7-2-A-04: the page title stays the only serif), body, optional primary + secondary. M7: the secondary is a text link (A5.9); `art` = a garment
- * type → its 96 px illustration in a 120 px accent-bg circle above the title (A5.12).
+ * Empty state (V6, V6-D-17) — left-aligned: `art` = a garment type → its illustration tilted inside an offset tile (a white square with a sunk square behind it);
+ * then a serif `.t-h2` title, a muted body, an optional primary + a secondary text link.
  */
 export function emptyState({ title, body = '', ctaLabel = '', ctaAct = '', secondaryLabel = '', secondaryAct = '', art = '' } = {}) {
   return `<div class="empty-state">
-  ${art ? `<span class="empty-state__art" aria-hidden="true">${garmentIcon(art, { size: 'hero' })}</span>` : ''}
-  <h2 class="t-body w-600 empty-state__title">${title}</h2>
-  ${body ? `<p class="t-body c-600 empty-state__body">${body}</p>` : ''}
+  ${art ? `<span class="empty-state__art" aria-hidden="true"><span class="empty-state__tile">${garmentIcon(art, { size: 'hero' })}</span></span>` : ''}
+  <h2 class="t-h2 empty-state__title">${title}</h2>
+  ${body ? `<p class="t-body c-muted empty-state__body">${body}</p>` : ''}
   ${ctaLabel || secondaryLabel ? `<div class="empty-state__actions">${ctaLabel ? cta(ctaLabel, { attrs: `data-act="${ctaAct}"` }) : ''}${secondaryLabel ? textLink(secondaryLabel, { act: secondaryAct }) : ''}</div>` : ''}
 </div>`;
 }
 /** Banner — info | success | warning | error. Error uses role="alert". */
-export function banner({ tone = 'info', title = '', text = '', actionLabel = '', actionAct = '', dismissible = false } = {}) {
+const BANNER_GLYPH = { info: 'info', success: 'check-circle', warning: 'warning', error: 'warning', neutral: 'info' };
+export function banner({ tone = 'info', title = '', text = '', actionLabel = '', actionAct = '', dismissible = false, glyph = '' } = {}) {
   return `<div class="banner banner--${tone}" role="${tone === 'error' ? 'alert' : 'status'}">
+  <span class="banner__glyph" aria-hidden="true">${glyph || ph(BANNER_GLYPH[tone] ?? 'info')}</span>
   <div class="banner__body">${title ? `<span class="banner__title">${title}</span>` : ''}<span class="banner__text">${text}</span>${actionLabel ? `<button type="button" class="banner__action" data-act="${actionAct}">${actionLabel}</button>` : ''}</div>
-  ${dismissible ? '<button type="button" class="banner__close" data-act="dismiss" aria-label="Dismiss">✕</button>' : ''}
+  ${dismissible ? `<button type="button" class="banner__close" data-act="dismiss" aria-label="Dismiss">${ICON_CLOSE}</button>` : ''}
 </div>`;
 }
 
@@ -1618,7 +1617,7 @@ export function onboardingHeader({ editing = false, back = true, active = 'shop'
   return `${statusBar()}
 <div class="ob-bar">
   ${back ? backButton() : '<span class="ob-bar__spacer" aria-hidden="true"></span>'}
-  <button type="button" class="ob-bar__later t-body w-600" data-act="finish-later">Finish later</button>
+  <button type="button" class="ob-bar__later t-body w-500" data-act="finish-later">Finish later</button>
 </div>`;
 }
 
@@ -1640,7 +1639,7 @@ export function textArea({ id, label, value = '', rows = 4, max, helper = '', er
     <textarea class="text-area__input" id="${id}" name="${id}" rows="${rows}"${error ? ' aria-invalid="true"' : ''}${describedBy ? ` aria-describedby="${describedBy}"` : ''}>${esc(value)}</textarea>
   </div>
   <div class="text-area__foot">
-    ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : '<span></span>'}
+    ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${error ? ICON_ALERT_14 : ''}<span>${esc(msg)}</span></p>` : '<span></span>'}
     ${max != null ? `<span class="text-area__count t-small c-600${over ? ' text-area__count--over' : ''}" id="${countId}" data-count data-max="${max}" aria-live="off">${n} / ${max}</span>` : ''}
   </div>
 </div>`;
@@ -1670,7 +1669,7 @@ export function serviceRow({ id, label, caption = '', checked = false, price = '
     </div>` : ''}
   </div>
   ${checked ? `<span class="service-row__take t-small w-600 c-700" data-money data-take${takeHidden ? ' hidden' : ''}>${takeHidden ? '' : `${takeHtml(payoutText || fmt(payoutCents), feeText)}`}</span>` : ''}
-  ${error ? `<p class="field__msg field__msg--error" id="price-${esc(id)}-msg" role="alert">${esc(error)}</p>` : ''}
+  ${error ? `<p class="field__msg field__msg--error" id="price-${esc(id)}-msg" role="alert">${ICON_ALERT_14}<span>${esc(error)}</span></p>` : ''}
 </div>`;
 }
 
@@ -1681,19 +1680,19 @@ export function serviceRow({ id, label, caption = '', checked = false, price = '
 export function zipList({ zips = [], input = '', error = '', inputError = '', suggestions = [] } = {}) {
   const chips = zips.map((z) => {
     const hood = ZIP_INFO[z]?.hood ?? '';
-    return `<button type="button" class="zip-chip" data-act="zip-remove" data-zip="${esc(z)}" aria-label="Remove ${esc(z)}${hood ? ` ${esc(hood)}` : ''}"><span class="zip-chip__zip">${esc(z)}</span>${hood ? `<span class="zip-chip__hood">${esc(hood)}</span>` : ''}<span class="zip-chip__x" aria-hidden="true">✕</span></button>`;
+    return `<button type="button" class="zip-chip" data-act="zip-remove" data-zip="${esc(z)}" aria-label="Remove ${esc(z)}${hood ? ` ${esc(hood)}` : ''}"><span class="zip-chip__zip">${esc(z)}</span>${hood ? `<span class="zip-chip__hood">${esc(hood)}</span>` : ''}<span class="zip-chip__x" aria-hidden="true">${ph('x', { size: 12, cls: 'icon-12' })}</span></button>`;
   }).join('');
   const sugg = suggestions.filter((z) => !zips.includes(z))
-    .map((z) => `<button type="button" class="zip-chip zip-chip--suggest" data-act="zip-suggest" data-zip="${esc(z)}" aria-label="Add ${esc(z)}${ZIP_INFO[z] ? ` ${esc(ZIP_INFO[z].hood)}` : ''}">+ ${esc(z)}</button>`).join('');
+    .map((z) => `<button type="button" class="zip-chip zip-chip--suggest" data-act="zip-suggest" data-zip="${esc(z)}" aria-label="Add ${esc(z)}${ZIP_INFO[z] ? ` ${esc(ZIP_INFO[z].hood)}` : ''}">${ph('plus', { size: 12, cls: 'icon-12' })}<span>${esc(z)}</span></button>`).join('');
   return `<div class="zip-list${error ? ' zip-list--error' : ''}" data-zip-list>
-  <p class="zip-list__label t-small w-600 c-700" id="zip-list-label">ZIP codes you cover</p>
+  <p class="zip-list__label t-label" id="zip-list-label">ZIP codes you cover</p>
   <div class="zip-list__chips" role="group" aria-labelledby="zip-list-label">${chips || '<span class="zip-list__none t-small c-600">No ZIP codes yet.</span>'}</div>
   <div class="zip-list__add">
     ${field({ id: 'zip-add', label: 'Add a ZIP code', value: input, inputmode: 'numeric', maxlength: 5, autocomplete: 'off', error: inputError })}
     <div class="zip-list__add-btn">${ctaSmall('Add', { attrs: 'data-act="zip-add"' })}</div>
   </div>
   ${sugg ? `<div class="zip-list__suggest" role="group" aria-label="Suggested ZIP codes">${sugg}</div>` : ''}
-  ${error ? `<p class="field__msg field__msg--error" role="alert">${esc(error)}</p>` : ''}
+  ${error ? `<p class="field__msg field__msg--error" role="alert">${ICON_ALERT_14}<span>${esc(error)}</span></p>` : ''}
 </div>`;
 }
 
@@ -1708,7 +1707,7 @@ export function dayHours({ sched, day, label, open = null, close = null, error =
   return `<div class="day-hours${on ? ' day-hours--open' : ''}${error ? ' day-hours--error' : ''}" data-day-row="${esc(day)}">
   ${toggle({ id, label, checked: on, helper: on ? '' : 'Closed' })}
   ${on ? `<div class="day-hours__times">${btn('open', open, 'opens')}<span class="day-hours__dash c-500" aria-hidden="true">–</span>${btn('close', close ?? '', 'closes')}</div>` : ''}
-  ${error ? `<p class="field__msg field__msg--error day-hours__error" role="alert">${esc(error)}</p>` : ''}
+  ${error ? `<p class="field__msg field__msg--error day-hours__error" role="alert">${ICON_ALERT_14}<span>${esc(error)}</span></p>` : ''}
 </div>`;
 }
 
@@ -1718,7 +1717,7 @@ export function dayHours({ sched, day, label, open = null, close = null, error =
  */
 export function customerPreview({ title = 'What customers see', html = '', caption = '' } = {}) {
   return `<section class="customer-preview" aria-label="${esc(title)}">
-  <p class="customer-preview__title t-caps c-600">${esc(title)}</p>
+  <p class="customer-preview__title t-label">${esc(title)}</p>
   <div class="customer-preview__body" inert>${html}</div>
   ${caption ? `<p class="customer-preview__caption t-small c-600">${esc(caption)}</p>` : ''}
 </section>`;
@@ -1816,8 +1815,8 @@ export function requestCard({ id = '', act = 'open-request', name = '', initials
   </span>
   <span class="request-card__work t-small c-700">${pill ? `<span class="request-card__pill">${pill}</span>` : ''}<span class="request-card__when w-600">${suggested ? 'You suggested ' : ''}${esc(when)}</span>${asked ? `<span class="c-600">${esc(asked)}</span>` : ''}<span class="request-card__count">${garment ? garmentIcon(garment, { size: 'row' }) : ''}<span>${plural(items, 'item')} · ${plural(services, 'service')}</span></span></span>
   <span class="request-card__pay" data-money>
-    <span class="t-caps c-600">You take home</span>
-    <span class="request-card__take"><span class="request-card__amount t-h2">${fmtExact(payoutCents)}</span><span class="request-card__fee t-small c-600">after the ${fmtExact(feeCents)} Taily fee</span></span>
+    <span class="t-label">You take home</span>
+    <span class="request-card__take"><span class="request-card__amount t-figure">${fmtExact(payoutCents)}</span><span class="request-card__fee t-small c-600">after the ${fmtExact(feeCents)} Taily fee</span></span>
   </span>
 </button>`;
 }
@@ -1909,7 +1908,8 @@ export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', 
  * count the caller maps from `a.job.garments`; `photoOwner` 'Your' | 'Sarah’s' names them in the viewer). A kept entry's comment follows the rows.
  */
 export function changeList({ garments = [], format = fmtExact, docs = null, commentLabel = 'Comment', photoOwner = 'Your' } = {}) {
-  const tag = (text, tone) => `<span class="change-list__tag change-list__tag--${tone} t-small w-600">${text}</span>`;
+  /* V6-D-15: "New" / "New price" / "New item" are blue tags, "Removed" a grey one — a change is information, not success or error */
+  const tag = (text, tone) => `<span class="tag tag--${tone === 'removed' ? 'grey' : 'blue'} change-list__tag change-list__tag--${tone}">${text}</span>`;
   const rowHtml = (r, g) => {
     noPercent(r.label, 'changeList');
     const label = esc(r.label);
@@ -1984,7 +1984,7 @@ export function changeSummary(counts = {}) {
  * Delta Figure — one money figure with what it was: caps label, `.t-display` amount, then "Was $205.00 · up $45.00" /
  * "· down $55.00" / "· no change" in words. `was` null → no comparison line. `caption` is an optional t-small line.
  */
-export function deltaFigure({ label = '', cents: amount = 0, was = null, caption = '' } = {}) {
+export function deltaFigure({ label = '', cents: amount = 0, was = null, caption = '', captionHtml = '' } = {}) {
   noPercent(label, 'deltaFigure'); noPercent(caption, 'deltaFigure');
   let delta = '';
   if (was != null) {
@@ -1995,9 +1995,9 @@ export function deltaFigure({ label = '', cents: amount = 0, was = null, caption
       : `<p class="t-small c-700 delta-figure__was">Was ${fmtExact(was)} · ${d > 0 ? `up ${fmtExact(d)}` : `down ${fmtExact(-d)}`}</p>`;
   }
   return `<div class="delta-figure" data-money>
-  ${label ? `<p class="t-caps c-600 delta-figure__label">${esc(label)}</p>` : ''}
-  <p class="t-display delta-figure__amt">${fmtExact(amount)}</p>
-  ${delta}${caption ? `<p class="t-small c-600 delta-figure__caption">${esc(caption)}</p>` : ''}
+  ${label ? `<p class="t-label delta-figure__label">${esc(label)}</p>` : ''}
+  <p class="t-money delta-figure__amt">${fmtExact(amount)}</p>
+  ${delta}${caption || captionHtml ? `<p class="t-small c-600 delta-figure__caption">${captionHtml || esc(caption)}</p>` : ''}
 </div>`;
 }
 
@@ -2044,7 +2044,7 @@ export function threadMessages(messages = [], { reader = 'customer', now = null,
     const day = isoDay(m.at);
     if (day !== lastDay) {
       lastDay = day;
-      parts.push(`<p class="thread__day t-caps c-600">${day === today ? 'Today' : fmtDay(m.at)}</p>`);
+      parts.push(`<p class="thread__day t-caps c-muted">${day === today ? 'Today' : fmtDay(m.at)}</p>`);
     }
     if (m.from === 'system') {
       const text = reader === 'tailor' ? (m.tailorText ?? m.text) : m.text;
@@ -2252,7 +2252,7 @@ export function docsEditor({ garmentId, type, docs, missing = { before: false, p
     /* M7 (D-196): pristine = a quiet "Required" where "n of 4" shows; once she has tried to send or leave (`tried`) it becomes the error line + a red camera ring */
     const req = miss && !tried;
     return `<div class="docs-editor__row" data-kind="${kind}" data-missing="${miss ? 'true' : 'false'}"${miss && tried ? ' data-tried="true"' : ''}>
-      <div class="docs-editor__head"><span class="t-small w-600 c-700">${label}</span>${n ? `<span class="t-small c-600">${n} of ${max}</span>` : req ? `<span class="t-small w-600 c-600 docs-editor__req" data-missing-msg="${kind}" tabindex="-1">Required</span>` : ''}</div>
+      <div class="docs-editor__head"><span class="t-label docs-editor__label">${label}</span>${n ? `<span class="t-small c-muted">${n} of ${max}</span>` : req ? `<span class="tag tag--grey docs-editor__req" data-missing-msg="${kind}" tabindex="-1">Required</span>` : miss ? '<span class="tag tag--red docs-editor__req">Required</span>' : ''}</div>
       <div class="photo-tiles docs-editor__tiles">${thumbs}${add}</div>
       ${n >= max ? `<p class="t-small c-600 docs-editor__max">Up to ${max} ${lowerKind(kind)} photos.</p>` : ''}
       ${miss && tried ? `<p class="docs-editor__missing t-small" data-missing-msg="${kind}" role="alert" tabindex="-1">${ICON_ALERT} Add at least one ${lowerKind(kind)} photo.</p>` : ''}
@@ -2268,7 +2268,7 @@ export function docsEditor({ garmentId, type, docs, missing = { before: false, p
       <span class="docs-editor__edit-link">${textLink('Edit comment', { act: 'edit-comment', disabled: !!dis, attrs: `data-garment="${g}"` })}</span>
       ${d.commentMasked ? `<p class="t-small c-600 docs-editor__masked">Phone numbers and emails are hidden from ${esc(first)}.</p>` : ''}`;
   } else {
-    comment = `<div class="docs-editor__optional"><button type="button" class="docs-editor__text docs-editor__text--add t-body w-600" data-act="add-comment" data-garment="${g}"${dis}>+ Add comment</button><span class="t-small c-600">Optional</span></div>`;
+    comment = `<div class="docs-editor__optional"><button type="button" class="docs-editor__text docs-editor__text--add t-body w-500" data-act="add-comment" data-garment="${g}"${dis}>${ICON_ADD_CIRCLE}<span>Add comment</span></button><span class="t-small c-600">Optional</span></div>`;
   }
   return `<div class="docs-editor" data-docs-editor="${g}">${row('before')}${row('pinned')}<div class="docs-editor__comment-block">${comment}</div></div>`;
 }
@@ -2321,7 +2321,7 @@ export function openDocsViewer({ garmentId, type, docs, kind = 'before', index =
     const sub = photo ? `<p class="t-small c-600 docs-viewer__sub">${esc(by ? `${by} on ` : '')}${fmtDay(photo.at)} · ${fmtTime(photo.at)}</p>` : '';
     const stage = photo
       ? `<div class="docs-viewer__stage" id="docs-viewer-stage" role="tabpanel" aria-labelledby="viewer-${garmentId}-${cur.kind}-tab" tabindex="0"><div class="docs-viewer__photo" role="img" aria-label="${kindLabel(cur.kind)} photo ${cur.index + 1} of ${n}, ${esc(type)} (placeholder)">${docPhoto(photo, { type, size: 'stage' })}</div></div>
-        <div class="docs-viewer__controls"><button type="button" class="docs-viewer__nav" data-act="doc-prev" aria-label="Previous photo"${cur.index === 0 ? ' disabled' : ''}>‹</button><span class="t-body w-600" aria-live="polite">${cur.index + 1} of ${n}</span><button type="button" class="docs-viewer__nav" data-act="doc-next" aria-label="Next photo"${cur.index === n - 1 ? ' disabled' : ''}>›</button></div>
+        <div class="docs-viewer__controls"><button type="button" class="docs-viewer__nav" data-act="doc-prev" aria-label="Previous photo"${cur.index === 0 ? ' disabled' : ''}>${ICON_PREV_20}</button><span class="t-body w-600" aria-live="polite">${cur.index + 1} of ${n}</span><button type="button" class="docs-viewer__nav" data-act="doc-next" aria-label="Next photo"${cur.index === n - 1 ? ' disabled' : ''}>${ICON_NEXT_20}</button></div>
         <div class="docs-viewer__strip">${photos.map((p, i) => `<button type="button" class="docs-viewer__thumb" data-act="doc-thumb" data-index="${i}" aria-label="${esc(photoLabel(cur.kind, i, n, type)).replace(/\. Open$/, '')}"${i === cur.index ? ' aria-current="true"' : ''}>${docPhoto(p, { type })}</button>`).join('')}</div>
         ${editable ? cta('Remove photo', { variant: 'secondary', attrs: 'data-act="doc-remove"' }).replace('cta cta--secondary', 'cta cta--secondary cta--secondary-danger') : ''}`
       : `<div class="docs-viewer__stage" id="docs-viewer-stage" role="tabpanel" aria-labelledby="viewer-${garmentId}-${cur.kind}-tab"><p class="t-small c-600 garment-docs__none">No ${lowerKind(cur.kind)} photos.</p></div>`;

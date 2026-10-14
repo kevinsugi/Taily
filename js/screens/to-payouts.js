@@ -68,8 +68,8 @@ function feeCard() {
   /* M7: flat. The sentence leads; the other three points live in the fee sheet (ⓘ), one line stays */
   return `<section class="sec ${ID}__fee" aria-labelledby="${ID}-fee-h">
   ${sectionHead('The Taily fee', { id: `${ID}-fee-h`, aside: infoButton('fee', { label: 'The Taily fee' }) })}
-  <p class="t-body w-600 ${ID}__sentence" data-money>On ${fmtExact(c)} of services, Taily keeps ${fmtExact(tailyFeeFor(c))} and you take home ${fmtExact(payoutFor({ services: c }))}.</p>
-  <p class="t-small c-700 ${ID}__points">Home-visit and rush fees are yours in full.</p>
+  <p class="t-body w-500 c-ink ${ID}__sentence" data-money>On ${fmtExact(c)} of services, Taily keeps ${fmtExact(tailyFeeFor(c))} and you take home ${fmtExact(payoutFor({ services: c }))}.</p>
+  <p class="t-small c-600 ${ID}__points">Home-visit and rush fees are yours in full.</p>
 </section>`;
 }
 
@@ -99,7 +99,7 @@ function view(s) {
   const title = '<h1 class="t-title">How you get paid</h1>';
   const head = headingRow(title, { back: editing });
   const current = editing && t.payouts?.bank
-    ? `<div class="${ID}__current"><p class="t-caps c-600">Current account</p><p class="t-body w-600 tabular">${esc(t.payouts.bank)} •••• ${esc(t.payouts.last4)}</p><p class="t-small c-600">Paid every Friday</p></div><p class="t-small w-600 ${ID}__change">Change account</p>` : '';
+    ? `<div class="${ID}__current"><p class="t-label">Current account</p><p class="t-body w-500 c-ink tabular">${esc(t.payouts.bank)} •••• <span class="mono">${esc(t.payouts.last4)}</span></p><p class="t-small c-600">Paid every Friday</p></div><p class="t-small w-500 c-ink ${ID}__change">Change account</p>` : '';
   const fields = `<section class="sec ${ID}__bank" aria-labelledby="${ID}-bank-h">
   ${sectionHead('Your bank account', { id: `${ID}-bank-h` })}
   ${current}

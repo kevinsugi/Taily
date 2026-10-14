@@ -53,8 +53,8 @@ function milestone(ms) {
 function view() {
   return `${statusBar()}<main class="body sys-index" data-s="${ID}">
   <header class="sys-index__head">
-    <h1 class="t-display">Taily v5</h1>
-    <p class="t-body c-600 sys-index__sub">Prototype index · demo clock ${esc(fmtWhen(nowIso()))}</p>
+    <h1 class="t-display">Taily v6</h1>
+    <p class="t-body c-muted sys-index__sub">Prototype index · demo clock ${esc(fmtWhen(nowIso()))}</p>
   </header>
   ${MILESTONES.map(milestone).join('')}
 </main>`;

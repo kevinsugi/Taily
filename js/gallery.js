@@ -13,7 +13,8 @@ import { FITTING_COMMENTS } from './fixtures/common.js';
 import { POLICY } from './money-config.js';
 import { reauthHtml, pushPromptHtml, pushBannerHtml, systemBanner } from './system.js';
 import { quote, fmt, fmtExact, cents, payoutFor } from './money.js';
-import { ICON_CARD, ICON_CAMERA } from './icons.js';
+import { ICON_CARD, ICON_CAMERA, META_ICONS, ph as phIcon } from './icons.js';
+import { PH } from './phosphor.js';
 import { SCENARIOS, AMARA } from './fixtures/money-scenarios.js';
 
 /** Specimen garment id -> { type, docs } for the gallery's photo viewer (K-02). */
@@ -36,6 +37,63 @@ export function galleryHtml() {
   const row = (...items) => s.push(`<div class="row">${items.join('')}</div>`);
   const card = (inner) => `<div class="info-card">${inner}</div>`;
 
+  /* ---------------- V6 — the redesign's reference group (docs/v6/V6-spec.md §A) ---------------- */
+  h2('V6 · palette');
+  const sw = (name, token, ink = 'var(--ink)') => `<span class="gal-swatch"><span class="gal-swatch__chip" style="background:var(${token});color:${ink}">Aa</span><span class="gal-swatch__name">${name}</span></span>`;
+  v('canvas · surface · sunk · ink · text · muted · faint · border');
+  row(sw('canvas', '--canvas'), sw('surface', '--surface'), sw('sunk', '--surface-sunk'), sw('ink', '--ink', 'var(--surface)'), sw('text', '--text', 'var(--surface)'), sw('muted', '--text-muted', 'var(--surface)'), sw('faint', '--text-faint', 'var(--surface)'), sw('border', '--border'));
+  v('pastels (the only colour): red · blue · green · yellow · grey');
+  row(...['red', 'blue', 'green', 'yellow', 'grey'].map((c) => `<span class="gal-swatch"><span class="gal-swatch__chip" style="background:var(--pastel-${c}-bg);color:var(--pastel-${c}-ink)">Aa</span><span class="gal-swatch__name">${c}</span></span>`));
+
+  h2('V6 · type scale');
+  v('Instrument Serif 40 / 32 / 24 · Geist money 32 / 24 · body 16 · label 13 · small 13 · caps 11 · micro 11');
+  col(
+    '<p class="t-display">Taily display 40</p>', '<p class="t-title">Page title 32</p>', '<p class="t-h2">Modal title 24</p>',
+    '<p class="t-money">$147.50</p>', '<p class="t-figure">Thu, Oct 15 · 5:00 PM</p>',
+    '<p class="t-body">Body 16 — rows and paragraphs read in Geist.</p>', '<p class="t-label">Label 13, sentence case, muted</p>',
+    '<p class="t-small c-muted">Small 13 — captions, helpers and footnotes.</p>', '<p class="t-caps c-muted">Caps 11 — pills and day dividers only</p>', '<p class="t-micro c-muted">Micro 11 — nav labels</p>',
+  );
+
+  h2('V6 · status pills + tags');
+  v('every statusPill key');
+  row(...['new-request', 'suggested', 'action', 'requested', 'awaiting-customer', 'waiting', 'price-change', 'paused', 'confirmed', 'fitting', 'in-progress', 'tailoring', 'returning', 'ready', 'completed', 'bookable', 'declined', 'cancelled', 'withdrawn', 'expired', 'calm'].map((k) => C.statusPill(k)));
+  v('tags: blue · red · green · yellow · grey');
+  row(C.tag('New', 'blue'), C.tag('Removed', 'grey'), C.tag('Required', 'red'), C.tag('Default', 'grey'), C.tag('Paid', 'green'), C.tag('Soon', 'yellow'));
+
+  h2('V6 · Phosphor Regular icons');
+  const icons = (size, cls) => `<div class="gal-icons">${Object.keys(PH).map((n) => `<span class="gal-icon" title="${n}">${phIcon(n, { size, cls })}</span>`).join('')}</div>`;
+  v('16 px'); s.push(icons(16, 'icon-16'));
+  v('20 px'); s.push(icons(20, 'icon-20'));
+  v('22 px (nav)'); s.push(icons(22, 'nav-icon'));
+
+  h2('V6 · avatars (squircle)');
+  v('sm 40 · md 56 · lg 80 · muted · add photo');
+  row(C.avatar({ initials: 'AR', size: 'sm' }), C.avatar({ initials: 'AR', size: 'md' }), C.avatar({ initials: 'AR', size: 'lg' }), `<span class="appt-row--muted">${C.avatar({ initials: 'SC', size: 'md' })}</span>`, C.avatar({ photo: true, size: 'md' }));
+
+  h2('V6 · buttons');
+  v('default · hover (class) · disabled · busy · secondary · danger');
+  col(C.cta('Send request'), `<span class="gal-hover">${C.cta('Send request')}</span>`, C.cta('Send request', { disabled: true }), C.cta('Sending', { busy: true, busyLabel: 'Sending…' }), C.cta('Message Amara', { variant: 'secondary' }), C.cta('Cancel booking', { variant: 'danger' }));
+  v('small + text links');
+  row(C.ctaSmall('Directions', { filled: false }), C.textLink('Reschedule'), C.textLink('Cancel booking', { tone: 'danger' }), C.textLink('Not now', { tone: 'muted' }));
+
+  h2('V6 · card + hover lift');
+  v('card · card on hover (class)');
+  col('<div class="card"><p class="t-body w-500">A 12 px card, 1 px #EAEAEA rule, 20 px padding.</p><p class="t-small c-muted">No shadow at rest.</p></div>', '<div class="card gal-lift"><p class="t-body w-500">The same card, lifted (hover)</p><p class="t-small c-muted">Shadow under 0.04.</p></div>');
+
+  h2('V6 · inputs');
+  v('rest · focus (class) · error');
+  col(C.field({ id: 'v6-f1', label: 'Full name', placeholder: 'Sarah Chen' }), `<span class="gal-focus">${C.field({ id: 'v6-f2', label: 'Phone', value: '(718) 555-0123' })}</span>`, C.field({ id: 'v6-f3', label: 'ZIP code', value: '1121', error: 'Enter a 5-digit ZIP code.' }));
+
+  h2('V6 · toggle, check, radio, segmented');
+  col(C.toggle({ id: 'v6-t1', label: 'Taking requests', checked: true }), C.toggle({ id: 'v6-t2', label: 'Shop visits' }), C.checkRow({ id: 'v6-c1', label: 'Pickup at the shop', checked: true }), C.checkRow({ id: 'v6-c2', label: 'Home drop-off' }));
+  s.push(`<div class="option-demo" role="radiogroup" aria-label="Return">${C.optionRow({ name: 'v6', value: 'a', title: 'Pick up in store', sub: 'Free', checked: true, lead: META_ICONS.bag })}${C.optionRow({ name: 'v6', value: 'b', title: 'Home drop-off', sub: 'Free' })}</div>`);
+  col(C.chipGroup({ name: 'v6-seg', label: 'Visit', variant: 'segmented', value: 'home', options: [{ value: 'home', label: 'At my place' }, { value: 'shop', label: 'At the shop' }] }));
+
+  h2('V6 · empty state (offset tile) + stitched dash');
+  col(C.emptyState({ title: 'No bookings yet', body: 'When you book a tailor, your visit shows up here.', ctaLabel: 'Book a tailor', ctaAct: 'x', art: 'Suit Jacket' }));
+  v('stitched dash above a total');
+  col(C.moneyRows([{ label: 'Services', cents: 12500 }, { label: 'Home-visit fee', cents: 3500 }, { label: 'Total', cents: 16000, kind: 'total' }]));
+
   /* ---------------- kept from v4 ---------------- */
   h2('CTA — 229:5030');
   v('Default · Secondary · disabled');   col(C.cta('Start Booking'), C.cta('Find another tailor', { variant: 'secondary' }), C.cta('Send request', { disabled: true }));
@@ -49,7 +107,7 @@ export function galleryHtml() {
   h2('CTA_Small — 302:1656');
   row(C.ctaSmall('Message'), C.ctaSmall('Reschedule'));
 
-  h2('Status dot + word — 312:826 + v5 keys (19, M7 A5.6)');
+  h2('Status pills — 312:826 + v5 keys (19)');
   row(...['requested','confirmed','ready','completed','declined','cancelled','new-request','awaiting-customer','tailoring','suggested','fitting','price-change','in-progress','returning','withdrawn','expired','action','bookable','paused'].map((k) => C.statusPill(k)));
 
   h2('Top nav — customer · tailor');
@@ -83,7 +141,7 @@ export function galleryHtml() {
 
   h2('Summary card · Trust badges · Visit block');
   s.push(C.summaryCard({ initials: 'AR', name: 'Amara Reyes', verified: true, badges: ['ID verified', 'Background check', 'Insured'] }));
-  s.push(card(C.visitBlock(['◉  145 N 7th St, 2R', '▤  Thu, Oct 15 · 5:00 PM', '▤  Need by: Fri, Oct 23'])));
+  s.push(card(C.visitBlock(['145 N 7th St, 2R', 'Thu, Oct 15 · 5:00 PM', 'Need by: Fri, Oct 23'])));
 
   h2('Chat Bubble — v4 atom + Timeline + Info rows');
   col(C.bubble('See you Thursday at 5:00.', 'them'), C.bubble('Perfect, thank you!', 'me'));
@@ -92,11 +150,11 @@ export function galleryHtml() {
     { state: 'current', title: 'Fitting at your place', sub: 'Thu, Oct 15 · 5:00 PM' },
     { state: 'todo', title: 'Ready for return' },
   ]));
-  s.push(C.infoCard([C.metaRow('◉','145 N 7th St, 2R — At my place'), C.metaRow('▤','Thu, Oct 15 · 5:00 PM')].join('')));
+  s.push(C.infoCard([C.metaRow('', '145 N 7th St, 2R — At my place', { icon: 'home' }), C.metaRow('', 'Thu, Oct 15 · 5:00 PM', { icon: 'shop' })].join('')));
   s.push(C.feeRow('$35', 'Home-visit fee', { line: true, caption: 'Amara comes to you' }));
 
   h2('Modal · Method rows · Link row');
-  s.push(`<div class="row"><div class="modal modal--center" style="position:static"><span class="modal__badge">✂</span><h2 class="modal__title">Talk it over with Amara</h2><p class="modal__body">Prices are set by the tailor.</p><div class="modal__actions">${C.cta('Sounds good')}</div></div></div>`);
+  s.push(`<div class="row"><div class="modal modal--center" style="position:static"><span class="modal__badge">${phIcon('coat-hanger', { size: 24, cls: 'icon-24' })}</span><h2 class="modal__title">Talk it over with Amara</h2><p class="modal__body">Prices are set by the tailor.</p><div class="modal__actions">${C.cta('Sounds good')}</div></div></div>`);
   col(C.methodRow('Apple Pay', 'apple'), C.methodRow('Credit Card', 'card'), C.linkRow('View receipt'));
 
   h2('Sheet chassis');

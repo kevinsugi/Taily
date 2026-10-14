@@ -1,14 +1,11 @@
 /* ============================================================
-   Taily v4 — reset, stage, type.
+   Taily v6 — reset, stage, type.
    Every size, colour, space and radius comes from css/tokens.css.
    No literal hex anywhere in this file.
 
-   Line-heights are the px values Figma actually renders. Figma's
-   lineHeight is AUTO on nearly every node, which resolves to the
-   font's own metrics and is then rounded to whole px:
-     Hanken Grotesk   10→13  12→16  16→21  32→42   (≈1.31)
-     Cormorant Gara.  28→34  32→39                  (≈1.21)
-   These are measured from the frames, not guessed.
+   Type scale 11 / 13 / 16 / 24 / 32 / 40 (V6-D-04). Instrument Serif
+   (one weight) for .t-display / .t-title / .t-h2; Geist for everything
+   else. Line-heights are unitless.
    ============================================================ */
 
 /* ---------- reset ---------- */
@@ -23,8 +20,8 @@ html, body {
 
 body {
   font-family: var(--font-sans);
-  color: var(--ink);
-  background: var(--neutral-50);
+  color: var(--text);
+  background: var(--canvas);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -41,7 +38,9 @@ button {
   cursor: pointer;
 }
 
-/* Nothing in the designs is underlined — links carry their own styling. */
+::selection { background: var(--border); color: var(--ink); }
+
+/* Links carry their own styling (.text-link underlines). */
 a {
   color: inherit;
   text-decoration: none;
@@ -70,7 +69,7 @@ a {
 }
 
 @media (min-width: 391px) {
-  body { background: var(--neutral-100); }
+  body { background: var(--surface-sunk); }
 }
 
 /* Frames in Figma grow taller than 844 — let the page scroll rather
@@ -81,7 +80,7 @@ a {
   min-height: 100vh;
   min-height: 100dvh;   /* K-04 / AU-P2-4: the phone's own height, not the 844 of the design frame */
   position: relative;
-  background: var(--neutral-50);
+  background: var(--canvas);
   /* clip, not hidden: hidden leaves a scrollable overflow (02's filter
      pills overflow to 500), and Chrome's native focus-on-click then
      scrolls the tapped pill to centre — panning the whole screen 59px.
@@ -90,11 +89,10 @@ a {
   overflow: clip;
 }
 
-/* ---------- chrome ----------
-   Sizes and offsets verified in Phase 0 across all 14 nav screens.
-   Both are 1:1 with the Figma instances (V2/Status Bar 122:114, Top Nav 197:437). */
+/* ---------- chrome (V6, A7) ----------
+   Status bar, top nav, flow bar and onboarding bar sit on the canvas, separated by a 1 px rule (V6-D-14). */
 
-/* Status bar — Figma: white, space-between, padding-top 12, padding-inline 28. */
+/* Status bar — canvas, space-between, padding-top 12, padding-inline 28. */
 .status-bar {
   position: absolute;
   inset: 0 auto auto 0;
@@ -102,7 +100,7 @@ a {
   max-width: 390px;
   height: 44px;
   z-index: 2;
-  background: var(--white);
+  background: var(--canvas);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -112,8 +110,8 @@ a {
 
 .status-bar__time {
   font-family: var(--font-sans);
-  font-size: var(--size-12);
-  line-height: 16px;
+  font-size: var(--size-13);
+  line-height: 1.2;
   font-weight: 600;
   color: var(--ink);
 }
@@ -131,7 +129,7 @@ a {
   .status-bar { display: none; }
 }
 
-/* Top nav — Figma: white, space-between, padding-inline 20, hairline bottom border. */
+/* Top nav — canvas, space-between, padding-inline 20, a 1 px rule at the bottom. */
 .top-nav {
   position: absolute;
   inset: 44px auto auto 0;
@@ -139,18 +137,16 @@ a {
   max-width: 390px;
   height: 56px;
   z-index: 2;
-  background: var(--white);
+  background: var(--canvas);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding-inline: var(--space-20);
-  /* inset shadow, not border-bottom: a real border would shrink the
-     content box to 55px and throw vertical centring off by 0.5px.
-     Figma's stroke does not consume layout. */
-  box-shadow: inset 0 -1px 0 var(--hairline);
+  /* inset shadow, not border-bottom: a real border would shrink the content box and throw vertical centring off by 0.5px. */
+  box-shadow: inset 0 -1px 0 var(--border);
 }
 
-/* The script-wordmark logo (replaced the Cormorant text wordmark). */
+/* The script-wordmark logo. */
 .top-nav__logo {
   width: 74px;
   height: 34px;
@@ -161,93 +157,86 @@ a {
 .top-nav__links {
   display: flex;
   align-items: center;
-  gap: var(--space-20);
+  gap: 0;
 }
 
-/* M7 (A5.2, D-187): four 44 x 44 icon links. Inactive = graphite, active = ink + a 16 px accent stitch under the icon.
-   Labels live in aria-label / title. */
+/* V6 (V6-D-11): four links, each icon 22 over an 11 px label. Inactive = faint icon + muted label; active = ink icon, label 600 ink and a 20 x 2 ink bar flush on the rule. */
 .top-nav__link {
   position: relative;
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
-  color: var(--neutral-600);
+  gap: 2px;
+  min-width: 56px;
+  height: 52px;
+  border-radius: var(--radius-6);
+  color: var(--text-faint);
 }
+.top-nav__link .top-nav__label { color: var(--text-muted); font-weight: 500; }
 .top-nav__link.is-active { color: var(--ink); }
-.top-nav__link.is-active .nav-icon { stroke-width: 1.75; }
+.top-nav__link.is-active .top-nav__label { color: var(--ink); font-weight: 600; }
 .top-nav__link.is-active::after {
   content: '';
   position: absolute;
-  bottom: 4px;
+  bottom: 0;
   left: 50%;
-  width: 16px;
+  width: 20px;
   height: 2px;
-  margin-left: -8px;
+  margin-left: -10px;
   border-radius: 1px;
-  background: var(--accent-base);
+  background: var(--ink);
 }
 
 /* ---------- body ---------- */
-/* 20 side padding measured in Phase 0. The top offset is --body-top (116 = nav bottom 100 + 16, K-04 / D-204; was 128 with the Back on its own row). */
+/* 20 side padding. The top offset is --body-top (124 = nav bottom 100 + 24, V6-D-20). */
 .body {
   padding-top: var(--body-top);
   padding-inline: var(--space-20);
-  /* No bottom padding: Figma frames end exactly at the last child. */
+  /* No bottom padding: frames end exactly at the last child. */
   display: flex;
   flex-direction: column;
 }
 
-/* ---------- type ----------
-   Nothing outside this block sets font-size. Hierarchy comes from
-   weight and colour, not from inventing sizes. */
+/* ---------- type (V6, A2) ----------
+   Nothing outside this block sets a font-size. Hierarchy comes from size step + weight + ink vs muted. */
 
-/* Page titles are Cormorant Medium in Figma (13 nodes across 11 screens,
-   e.g. "Appointment Details"); use .t-title.w-600 for the 5 SemiBold ones.
-   (The nav wordmark is now the script logo, .top-nav__logo.) One outlier, "What Are We Tailoring?" on 01 Home, carries an
-   explicit 110% line-height (30.8px) instead of the AUTO 34px. */
-.t-title {
+h1, h2, .t-display, .t-title, .t-h2 { text-wrap: balance; }
+p { text-wrap: pretty; }
+
+/* Instrument Serif has ONE weight: font-synthesis off, so a stray .w-600 never fakes a bold. */
+.t-display, .t-title, .t-h2, .status-hero__title, .trust-card__name {
   font-family: var(--font-serif);
-  font-size: var(--size-28);
-  line-height: calc(34 / 28);
-  font-weight: 500;
-  letter-spacing: 0;
+  font-weight: 400;
+  font-synthesis: none;
+  font-variant-numeric: lining-nums;
+  color: var(--ink);
   margin: 0;
 }
-
-/* The one Figma outlier: "What Are We Tailoring?" (01 Home) carries an
-   explicit 110% line-height instead of AUTO -> 30.8px. */
+.t-display { font-size: var(--size-40); line-height: 1.05; letter-spacing: -0.03em; }
+.t-title { font-size: var(--size-32); line-height: 1.1; letter-spacing: -0.02em; }
 .t-title--tight { line-height: 1.1; }
+.t-h2 { font-size: var(--size-24); line-height: 1.15; letter-spacing: -0.02em; }
 
-/* v5 serif scale (the Figma type scale: 10 / 12 / 16 / 24 / 28 / 32 / 36).
-   .t-display = screen / index title, .t-h2 = section header. */
-.t-display {
-  font-family: var(--font-serif);
+/* hero money — Geist, tabular (V6-D-18) */
+.t-money {
+  font-family: var(--font-sans);
   font-size: var(--size-32);
-  line-height: calc(38 / 32);
-  font-weight: 500;
-  letter-spacing: 0;
-  margin: 0;
-}
-
-.t-h2 {
-  font-family: var(--font-serif);
-  font-size: var(--size-24);
-  line-height: calc(29 / 24);
+  line-height: 1.1;
   font-weight: 600;
-  letter-spacing: 0;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums lining-nums;
   margin: 0;
 }
 
-/* M7 (A2): the non-money hero fact — a visit time, "2h left" — sans, not serif */
+/* the non-money hero fact — a visit time, "2h left", card money */
 .t-figure {
   font-family: var(--font-sans);
   font-size: var(--size-24);
-  line-height: calc(29 / 24);
+  line-height: 1.15;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--ink);
   font-variant-numeric: tabular-nums lining-nums;
   margin: 0;
@@ -256,71 +245,88 @@ a {
 .t-body {
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: calc(21 / 16);
+  line-height: 1.5;
   font-weight: 400;
   letter-spacing: 0;
   margin: 0;
 }
 
+/* section heads, eyebrows, field labels — sentence case, muted (V6-D-05) */
+.t-label {
+  font-family: var(--font-sans);
+  font-size: var(--size-13);
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  margin: 0;
+}
+
 .t-small {
   font-family: var(--font-sans);
-  font-size: var(--size-12);
-  line-height: calc(16 / 12);
-  font-weight: 500;
+  font-size: var(--size-13);
+  line-height: 1.45;
+  font-weight: 400;
   letter-spacing: 0;
   margin: 0;
 }
 
-/* 12px SemiBold uppercase, +1px tracking — Figma: "TODAY, 4:12 PM", "DELIVER TO". */
+/* ONLY pills, tags and the day divider are uppercase */
 .t-caps {
   font-family: var(--font-sans);
-  font-size: var(--size-12);
-  line-height: calc(16 / 12);
+  font-size: var(--size-11);
+  line-height: 1.2;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.06em;
   margin: 0;
 }
 
 .t-micro {
   font-family: var(--font-sans);
-  font-size: var(--size-10);
-  line-height: calc(13 / 10);
-  font-weight: 600;
+  font-size: var(--size-11);
+  line-height: 1.3;
+  font-weight: 500;
   letter-spacing: 0;
   margin: 0;
 }
 
-/* Weight modifiers — the only sanctioned way to shift emphasis. */
+[data-money], .tabular, .t-money, .t-figure { font-variant-numeric: tabular-nums lining-nums; }
+
+/* Weight modifiers — the only sanctioned way to shift emphasis (never on serif). */
 .w-400 { font-weight: 400; }
 .w-500 { font-weight: 500; }
 .w-600 { font-weight: 600; }
 .w-700 { font-weight: 700; }
+.t-display.w-500, .t-display.w-600, .t-title.w-500, .t-title.w-600, .t-h2.w-500, .t-h2.w-600 { font-weight: 400; }
 
-/* Emoji glyphs: Segoe UI Emoji's advance runs ~5px wider than the
-   metrics Figma rendered with — pin the advance so following text
-   lands where the frames put it. */
+/* Emoji glyphs: pin the advance so following text lands where the frames put it. */
 .emoji {
   display: inline-block;
   width: 16px;
   overflow: visible;
 }
 
+/* Geist Mono — codes, last-4 masks, routing / account digits, ZIP chips only (V6-D-21) */
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
 /* ---------- colour utilities ---------- */
 .c-ink { color: var(--ink); }
-.c-white { color: var(--white); }
-.c-700 { color: var(--neutral-700); }
-.c-600 { color: var(--neutral-600); }
-.c-500 { color: var(--neutral-500-ink); }
-.c-400 { color: var(--neutral-400); }
-.c-300 { color: var(--neutral-300); }
-.c-accent { color: var(--accent-base); }
-.c-accent-ink { color: var(--accent-ink); }
-.c-sage { color: var(--sage); }
-.c-success { color: var(--success-ink); }
-.c-warning { color: var(--warning-ink); }
-.c-error { color: var(--error-ink); }
-.c-info { color: var(--accent-ink); }   /* M7: no blue anywhere */
+.c-white { color: var(--surface); }
+.c-text { color: var(--text); }
+.c-muted { color: var(--text-muted); }
+.c-faint { color: var(--text-faint); }
+.c-700 { color: var(--text); }
+.c-600 { color: var(--text-muted); }
+.c-500 { color: var(--text-muted); }
+.c-400 { color: var(--text-faint); }
+.c-300 { color: var(--border-strong); }
+.c-accent, .c-accent-ink { color: var(--ink); }
+.c-sage { color: var(--text-muted); }
+.c-success { color: var(--pastel-green-ink); }
+.c-warning { color: var(--pastel-yellow-ink); }
+.c-error { color: var(--pastel-red-ink); }
+.c-info { color: var(--pastel-blue-ink); }
 
 /* ---------- test mode (/?test=1, js/app.js adds html.is-test) ----------
    The harness screenshots must be deterministic: nothing animates, no caret. */

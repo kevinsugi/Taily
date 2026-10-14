@@ -94,7 +94,7 @@ function view(s) {
   <div class="${ID}__group">${field({ id: 'shopName', label: 'Business name (optional)', value: d.shopName, autocomplete: 'organization', helper: HELPERS.shopName })}</div>
   <div class="${ID}__group">${textArea({ id: 'bio', label: 'About your work', value: d.bio, max: BIO_MAX, rows: 4, helper: HELPERS.bio, error: errorCopy(errors.bio, d) })}</div>
   <div class="${ID}__work-block">
-    <p class="t-small w-600 c-700" id="${ID}-work-label">Photos of your work (optional)</p>
+    <p class="t-label c-ink" id="${ID}-work-label">Photos of your work (optional)</p>
     ${workPhotos(d)}
     <p class="t-small c-600">Up to ${WORK_PHOTOS_MAX}.</p>
   </div>

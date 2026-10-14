@@ -10,7 +10,7 @@ import {
   sheetOverlay, toast, esc, garmentHead, sectionHead, textLink,
 } from '../components.js';
 import { GARMENT_TYPES, SERVICES, MAX_ITEMS, itemsLabel, servicesForType } from '../data.js';
-import { CHEVRON_RIGHT } from '../icons.js';
+import { CHEVRON_RIGHT, ICON_CLOSE_20 } from '../icons.js';
 import { fmtColumn } from '../money.js';
 import { fmtWhen } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
@@ -36,9 +36,9 @@ function itemCard(g) {
     ? `<button type="button" class="job-item__add" data-act="add-photo" data-id="${g.id}" aria-label="Add a photo of the ${esc(g.type)}">${photoTile('add')}</button>`
     : '';
   return `<article class="card job-item" data-id="${g.id}">
-  <div class="job-item__head">${garmentHead({ type: g.type, trailing: `<button type="button" class="job-item__remove" data-act="remove-garment" data-id="${g.id}" aria-label="Remove ${esc(g.type)}"><span aria-hidden="true">✕</span></button>` })}</div>
+  <div class="job-item__head">${garmentHead({ type: g.type, trailing: `<button type="button" class="job-item__remove" data-act="remove-garment" data-id="${g.id}" aria-label="Remove ${esc(g.type)}">${ICON_CLOSE_20}</button>` })}</div>
   <button type="button" class="job-item__services${hasErr ? ' job-item__services--error' : ''}" data-act="pick-services" data-id="${g.id}"${hasErr ? ` aria-invalid="true" aria-describedby="${errId}"` : ''}>
-    <span class="job-item__services-text t-body ${g.services.length ? 'c-700' : 'c-accent-ink'}">${g.services.length ? esc(serviceText(g)) : 'Choose what needs doing'}</span>
+    <span class="job-item__services-text t-body ${g.services.length ? 'c-text' : 'c-ink w-500'}">${g.services.length ? esc(serviceText(g)) : 'Choose what needs doing'}</span>
     ${CHEVRON_RIGHT.replace('method-row__chevron', 'job-item__chevron')}
   </button>
   ${hasErr ? `<p class="field__msg field__msg--error" id="${errId}" data-error="service" role="alert">Choose at least one service.</p>` : ''}
@@ -66,7 +66,7 @@ function activeRow() {
   const fmtAmt = fmtColumn([cents]);
   if (a.status !== 'requested' && a.status !== 'suggested' && a.status !== 'expired') row.amountText = ['confirmed', 'fitting'].includes(a.status) ? `Est. ${fmtAmt(cents)}` : fmtAmt(cents);
   return `<section class="${ID}__active" data-active-appt aria-label="Your booking">${apptRow(row)}</section>
-  <p class="t-caps c-600 ${ID}__book-else">Book something else</p>`;
+  <p class="t-label ${ID}__book-else">Book something else</p>`;
 }
 
 function view() {

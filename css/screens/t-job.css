@@ -26,12 +26,12 @@
 .t-job__delta + .t-job__quote .note-quote { margin-top: var(--space-24); }
 .t-job .sec > .courier-card { margin: 0; }
 /* R4-2-T-09: a return block's address sits on the place name's text edge (glyph column 20 + gap 8), regular weight */
-.t-job__addr { display: block; padding-left: calc(var(--space-20) + var(--space-8)); color: var(--neutral-700); font-weight: 400; }
+.t-job__addr { display: block; padding-left: calc(var(--space-20) + var(--space-8)); color: var(--text); font-weight: 400; }
 .t-job__payout { gap: var(--space-4); }   /* flat hero: YOU TAKE HOME, the figure, its state, then the breakdown */
 .t-job__payout p { margin: 0; }
 .t-job__payout-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); min-height: 16px; }
 .t-job__payout-head .info-btn { margin-right: calc(-1 * var(--space-12)); }
-.t-job__payout-amt { font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
+
 .t-job__payout-link { margin-left: calc(-1 * var(--space-8)); }
 .t-job__payout-rows { margin-top: var(--rhythm-group); }
 .t-job__payout .t-job__fine { margin-top: var(--space-8); }
@@ -43,12 +43,13 @@
 .t-job__summary { margin: 0 0 var(--space-8); }
 
 /* D-173: Directions + Add to calendar sit under the visit block, two text links */
-.t-job__links { display: flex; flex-wrap: wrap; gap: var(--space-8); margin-top: var(--space-4); margin-left: calc(-1 * var(--space-8)); }
+.t-job__links { display: flex; flex-wrap: wrap; gap: var(--space-8); margin-top: var(--space-12); }
 /* D-169: the due date leads once the visit is behind her; within a day it turns warning ink */
-.t-job__due--soon { color: var(--warning-ink); }
+.t-job__due--soon { color: var(--pastel-yellow-ink); }
 /* D-172: the transfer's state under the take-home figure — a pill, then its line (error ink when the bank sent it back) */
 .t-job__payout-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); margin-top: var(--space-4); }
-.t-job__err { color: var(--error-ink); font-weight: 600; }
+.t-job__err { color: var(--pastel-red-ink); font-weight: 500; }
 .t-job__returned { margin-top: var(--rhythm-group); }
 .t-job-sheet__intro { text-wrap: pretty; }
 .t-job__unsent { margin: 0; text-wrap: pretty; }
+.t-job__links .cta-small { flex: 0 0 auto; }

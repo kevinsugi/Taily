@@ -60,9 +60,9 @@ function view() {
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${messaged ? '--messaged' : ''}" data-changed="${changed}" data-appt="${esc(a.id)}">
   ${headingRow(hero)}
   ${messaged ? `<div class="${ID}__banner">${banner({ tone: 'info', text: `You messaged ${esc(first)} about the order. Approve when you’re ready, or keep talking in chat.` })}</div>` : ''}
-  ${pv.revisions > 0 ? `<p class="t-small c-600 ${ID}__again">${esc(first)} updated the order again at <span class="nb">${esc(fmtTime(pv.sentAt))}</span>.</p>` : ''}
+  ${pv.revisions > 0 ? `<p class="t-small c-muted ${ID}__again">${esc(first)} updated the order again at <span class="nb">${esc(fmtTime(pv.sentAt))}</span>.</p>` : ''}
   <div class="sec sec--first ${ID}__figure">${deltaFigure({ label: changed ? 'New total' : 'Total', cents: after.total, was: pv.before.total })}</div>
-  ${pv.note ? `<div class="${ID}__quote">${noteQuote({ label: `${first}’s note on the order`, text: pv.note })}${pv.noteMasked ? `<p class="t-small c-600 ${ID}__masked">Phone numbers and emails in this note are hidden.</p>` : ''}</div>` : ''}
+  ${pv.note ? `<div class="${ID}__quote">${noteQuote({ label: `${first}’s note on the order`, text: pv.note })}${pv.noteMasked ? `<p class="t-small c-muted ${ID}__masked">Phone numbers and emails in this note are hidden.</p>` : ''}</div>` : ''}
   <section class="sec">${sectionHead(changed ? 'What changed' : 'Your order')}
   ${changed ? `<div class="${ID}__summary">${changeSummary(pv.counts)}</div>` : ''}
   ${changeList({ garments: withPhotos(pv.garments, a.job), docs: a.priceChange.docs ?? null, commentLabel: `${first}’s comment` })}</section>

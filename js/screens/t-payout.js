@@ -35,7 +35,7 @@ function detail() {
 function words(p) {
   const w = payoutLine(p, myTailor().payouts);
   const pill = { paid: ['completed', 'Paid'], failed: ['declined', 'Didn’t go through'] }[p.state] ?? ['waiting', 'Pending'];
-  return { pill, line: w.text, tone: w.tone };
+  return { pill, line: w.text, html: w.html, tone: w.tone };
 }
 
 /** M6-P-18: why this payout is a kept deposit / no-show pay, said once under the job, with the calm pill the job itself wears. */
@@ -59,7 +59,7 @@ function view() {
   const failed = p.state === 'failed';
   /* K-04 / D-203 (K4-1-01): the status line above, then ONE row = Back + a visible title; the figure follows without a repeated caps label */
   const hero = `<h1 class="t-title">Your payout</h1>
-  ${deltaFigure({ cents: p.cents, caption: w.line })}`;
+  ${deltaFigure({ cents: p.cents, captionHtml: w.html })}`;
   const kept = p.kind === 'kept-deposit' || p.kind === 'no-show';
 
   /* R5-1-T-04: the pill and the caption already say "didn't go through"; the banner looks forward: what to do and when it sends */

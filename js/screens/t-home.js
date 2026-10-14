@@ -1,7 +1,7 @@
 /* ============================================================
    t-home — T1 Inbox (M3-spec §C1). What needs an answer now, then
    what is coming up. Focal: the first request card's take-home
-   figure (the only .t-h2 money on the page). A card has no Accept
+   figure (.t-figure, the only big money on the page). A card has no Accept
    of its own (D-75): the decision is one tap on t-request.
    Push denied (D-85): a warning banner; "Open Settings" turns
    notifications on in the prototype.
@@ -56,7 +56,7 @@ function view(s) {
   const hello = headingRow(`<h1 class="t-title">Hi, ${esc(first)}</h1>`, { back: false });
   /* D-161: the shop is paused — one line with the way back on */
   const paused = t.takingRequests === false
-    ? `<p class="t-small c-600 ${ID}__sum ${ID}__paused">You’re paused, so customers can’t send new requests. ${textLink('Take requests again', { act: 'resume' })}</p>` : '';
+    ? `<div class="${ID}__paused">${banner({ tone: 'warning', text: 'You’re paused, so customers can’t send new requests.', actionLabel: 'Take requests again', actionAct: 'resume' })}</div>` : '';
 
   if (!apptsFor('tailor').length) {
     return `${head}<main class="body ${ID}">
@@ -127,8 +127,8 @@ function view(s) {
   </section>`;
   return `${head}<main class="body ${ID}">
   ${hello}
-  ${paused}
   <p class="t-small c-600 ${ID}__sum">${dateLine()} · ${summary.join(', ')}</p>
+  ${paused}
   ${s.sim.push === 'denied' ? `<div class="${ID}__push">${pushBanner()}</div>` : ''}
   ${group('New requests', 'new', fresh.length || null, fresh.length
     ? `<div class="${ID}__list">${cards}</div>`

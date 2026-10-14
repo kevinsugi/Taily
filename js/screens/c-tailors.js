@@ -110,7 +110,7 @@ function view(s) {
   const loaded = u.loadedFor === filterKey(job);
   let body;
   if (!loaded) {
-    body = `<div class="c-tailors__bar"><span class="t-small c-600" role="status">Finding tailors…</span></div>${skeleton({ kind: 'tailor-row', count: 3 })}`;
+    body = `<div class="c-tailors__bar"><span class="t-small c-muted" role="status">Finding tailors…</span></div>${skeleton({ kind: 'tailor-row', count: 3 })}`;
   } else {
     const res = tailorsFor(job);
     if (res.empty) {
@@ -121,8 +121,8 @@ function view(s) {
       const noneLeft = rows.every((r) => r.declined);                 // C-14: nothing to sort, nothing to open
       body = `${declinedBanner(job)}
   ${noneLeft ? '' : `<div class="c-tailors__bar">
-    <span class="c-tailors__count t-small c-600">${itemsLabel(rows.filter((r) => !r.declined).length, 'tailor')}${infoButton('pricing', { label: 'How pricing works' })}</span>
-    <button type="button" class="c-tailors__sort t-small w-600" data-act="sort" aria-haspopup="dialog">Sort: ${sortLabel(u.sort)}</button>
+    <span class="c-tailors__count t-small c-muted">${itemsLabel(rows.filter((r) => !r.declined).length, 'tailor')}${infoButton('pricing', { label: 'How pricing works' })}</span>
+    <button type="button" class="c-tailors__sort t-small w-500" data-act="sort" aria-haspopup="dialog">Sort: ${sortLabel(u.sort)}</button>
   </div>`}
   <div class="c-tailors__rows">${rows.map((r) => tailorRow({
         id: r.tailor.id, name: r.tailor.name, initials: r.tailor.initials, photo: r.tailor.photo, verified: r.tailor.verified,

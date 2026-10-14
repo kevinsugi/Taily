@@ -10,7 +10,7 @@ import { register, render as go } from '../app.js';
 import { state, T, tailorById, apptsFor } from '../state.js';
 import {
   chrome, headingRow, statusHero, stars, textArea, photoStub, actionBar, emptyState, cta, ratingLine, reviewRow,
-  textLink, wireStars, toast, esc,
+  textLink, wireStars, toast, esc, ph,
 } from '../components.js';
 import { REVIEW_LIMITS, STAR_WORDS } from '../data.js';
 import { withLatency } from '../sim.js';
@@ -31,8 +31,9 @@ function target() {
   return pick(ui().apptId) ?? pick(state.ui.apptId) ?? [...mine].sort((x, y) => String(lastAt(y)).localeCompare(String(lastAt(x))))[0] ?? null;
 }
 
-const CAMERA = '<svg class="c-review__camera" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.2"/></svg>';
-const CLOSE = '<svg viewBox="0 0 12 12" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8"/></svg>';
+const CAMERA = ph('camera', { size: 24, cls: 'c-review__camera' });
+const CLOSE = ph('x', { size: 12, cls: 'icon-12' });
+const WARN = ph('warning', { size: 14, cls: 'c-review__warn' });
 
 function photoRow(d, type = '') {
   const n = d.photos || 0;
@@ -41,7 +42,7 @@ function photoRow(d, type = '') {
   const add = n < max ? `<button type="button" class="c-review__add" data-act="add-photo" aria-label="Add a photo">${CAMERA}</button>` : '';
   const note = n >= max ? `You’ve added ${max} photos, the most a review can have.` : `Up to ${max} photos.`;
   return `<div class="c-review__photos" role="group" aria-labelledby="photos-label">${tiles}${add}</div>
-  <p class="t-small c-600 c-review__photonote" id="photos-note" aria-live="polite">${note}</p>`;
+  <p class="t-small c-muted c-review__photonote" id="photos-note" aria-live="polite">${note}</p>`;
 }
 
 function formView(a, t, first) {
@@ -52,12 +53,12 @@ function formView(a, t, first) {
     .replace('aria-label="Your rating"', `aria-labelledby="stars-label"${noStars ? ' aria-describedby="stars-error" aria-invalid="true"' : ''}`);
   const busy = !!d.busy;
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
-  ${headingRow(`<h1 class="t-title">Review ${esc(first)}</h1><!--notes--><p class="t-body c-700">Shown on ${esc(first)}’s profile as ${esc(state.customer.first)} ${esc(state.customer.last[0])}.</p><!--/notes-->`)}
+  ${headingRow(`<h1 class="t-title">Review ${esc(first)}</h1><!--notes--><p class="t-body c-muted">Shown on ${esc(first)}’s profile as ${esc(state.customer.first)} ${esc(state.customer.last[0])}.</p><!--/notes-->`)}
   <section class="${ID}__rating">
-    <p class="t-body w-600" id="stars-label">Your rating</p>
+    <p class="t-label c-ink" id="stars-label">Your rating</p>
     ${rating}
-    <p class="t-small c-700 ${ID}__word" id="stars-word" aria-live="polite">${esc(STAR_WORDS[d.stars || 0] || '')}</p>
-    ${noStars ? `<p class="t-small ${ID}__error" id="stars-error" role="alert">Choose a star rating.</p>` : ''}
+    <p class="t-small c-text ${ID}__word" id="stars-word" aria-live="polite">${esc(STAR_WORDS[d.stars || 0] || '')}</p>
+    ${noStars ? `<p class="t-small ${ID}__error" id="stars-error" role="alert">${WARN}<span>Choose a star rating.</span></p>` : ''}
   </section>
   <div class="${ID}__text">${textArea({
     id: 'review-text', label: 'Tell others about it (optional)', value: d.text ?? '', rows: 5, max: REVIEW_LIMITS.TEXT_MAX,
@@ -65,7 +66,7 @@ function formView(a, t, first) {
     error: d.error === 'text-long' ? `Keep it under ${REVIEW_LIMITS.TEXT_MAX} characters.` : '',
   })}</div>
   <section class="${ID}__photosec">
-    <p class="t-body w-600" id="photos-label">Photos (optional)</p>
+    <p class="t-label c-ink" id="photos-label">Photos (optional)</p>
     ${photoRow(d, a.job.garments[0]?.type ?? '')}
   </section>
 </main>

@@ -45,30 +45,30 @@ function addressBlock(job, err) {
   const a = job.address;
   const street = a?.street ? `${esc(a.street)}${a.unit ? `, ${esc(a.unit)}` : ''}` : '';
   const lines = street
-    ? `<span class="where__card-main t-body w-600">${street}</span><span class="where__card-sub t-small c-600">${esc(a.city)}, ${esc(a.state ?? 'NY')} ${esc(a.zip ?? job.zip)}</span>`
-    : '<span class="where__card-main t-body w-600 c-accent-ink">Add your address</span>';
+    ? `<span class="where__card-main t-body w-500">${street}</span><span class="where__card-sub t-small c-600">${esc(a.city)}, ${esc(a.state ?? 'NY')} ${esc(a.zip ?? job.zip)}</span>`
+    : '<span class="where__card-main t-body w-500 c-ink">Add your address</span>';
   const errId = 'address-msg';
   return `<div class="where__group">
-  <span class="where__label t-small w-600 c-700" id="address-label">Your address</span>
+  <span class="where__label t-label c-ink" id="address-label">Your address</span>
   <button type="button" class="where__card${err ? ' where__card--error' : ''}" data-act="edit-address" id="address-card" aria-labelledby="address-label address-card"${err ? ` aria-invalid="true" aria-describedby="${errId}"` : ''}>
     <span class="where__card-text">${lines}</span>
-    ${street ? '<span class="where__card-action t-body w-600 c-accent-ink">Change</span>' : CHEVRON_RIGHT.replace('method-row__chevron', 'where__chevron')}
+    ${street ? '<span class="where__card-action t-body w-500 c-ink">Change</span>' : CHEVRON_RIGHT.replace('method-row__chevron', 'where__chevron')}
   </button>
   ${err ? `<p class="field__msg field__msg--error" id="${errId}" role="alert">${err}</p>` : ''}
-  <p class="t-small c-600">Only your neighborhood is shared until a tailor accepts.</p>
+  <p class="t-small c-muted">Only your neighborhood is shared until a tailor accepts.</p>
 </div>`;
 }
 
 function needByBlock(job, err) {
   const has = !!job.needBy;
   return `<div class="where__group">
-  <span class="where__label t-small w-600 c-700" id="needby-label">Need it by</span>
+  <span class="where__label t-label c-ink" id="needby-label">Need it by</span>
   <button type="button" class="where__card where__card--date${err ? ' where__card--error' : ''}" data-act="edit-needby" aria-labelledby="needby-label needby-value"${err ? ' aria-invalid="true" aria-describedby="needby-msg"' : ''}>
-    <span class="where__card-text"><span class="where__card-main t-body w-600${has ? '' : ' c-accent-ink'}" id="needby-value">${has ? fmtDay(job.needBy) : 'Pick a date'}</span></span>
-    <span class="where__card-action t-body w-600 c-accent-ink">Change</span>
+    <span class="where__card-text"><span class="where__card-main t-body w-500${has ? '' : ' c-muted'}" id="needby-value">${has ? fmtDay(job.needBy) : 'Pick a date'}</span></span>
+    <span class="where__card-action t-body w-500 c-ink">Change</span>
   </button>
   ${err ? `<p class="field__msg field__msg--error" id="needby-msg" role="alert">${err}</p>` : ''}
-  <p class="where__rush t-small w-600" data-rush${hasRush() ? '' : ' hidden'}><span class="where__rush-icon" aria-hidden="true">${ICON_ALERT}</span><span>A date this soon can add a rush fee. Each tailor’s price includes it.</span></p>
+  <p class="where__rush t-small w-500" data-rush${hasRush() ? '' : ' hidden'}><span class="where__rush-icon" aria-hidden="true">${ICON_ALERT}</span><span>A date this soon can add a rush fee. Each tailor’s price includes it.</span></p>
 </div>`;
 }
 

@@ -7,8 +7,9 @@
 import { register, render as go } from '../app.js';
 import { state, tailorById } from '../state.js';
 import {
-  chrome, headingRow, listRow, actionBar, emptyState, banner, cardFields, cta, textLink, sectionHead, sheetOverlay, toast, esc,
+  chrome, headingRow, listRow, actionBar, emptyState, banner, cardFields, cta, textLink, sectionHead, sheetOverlay, toast, esc, tag,
 } from '../components.js';
+import { ICON_CARD } from '../icons.js';
 import { withLatency } from '../sim.js';
 import { fmtWhen } from '../dates.js';
 import { fmtExact } from '../money.js';
@@ -16,17 +17,18 @@ import * as A from '../account.js';
 
 const ID = 'c-cards';
 
-const CARD_GLYPH = '<svg width="28" height="20" viewBox="0 0 28 20" fill="none" aria-hidden="true"><rect x="0.75" y="0.75" width="26.5" height="18.5" rx="3.25" stroke="currentColor" stroke-width="1.5"/><path d="M1 6.5h26" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 14h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 const cards = () => state.customer.cards ?? [];
 const label = (c) => `${c.brand} •••• ${c.last4}`;
+/* the masked number reads digit by digit: last-4 in Geist Mono (V6-D-21) */
+const labelHtml = (c) => `${esc(c.brand)} •••• <span class="mono">${esc(c.last4)}</span>`;
 const firstName = (t) => (t?.name || 'your tailor').split(' ')[0];
 
 /* ---------- the list ---------- */
 function view() {
   const list = cards();
   const rows = list.map((c) => listRow({
-    title: esc(label(c)), sub: `Expires ${esc(c.exp)}`, act: 'card', attrs: `data-id="${esc(c.id)}"`, lead: CARD_GLYPH,
-    right: c.default ? `<span class="${ID}__tag t-micro w-700">Default</span>` : '',
+    title: labelHtml(c), sub: `Expires ${esc(c.exp)}`, act: 'card', attrs: `data-id="${esc(c.id)}"`, lead: ICON_CARD,
+    right: c.default ? tag('Default', 'grey', { cls: `${ID}__tag` }) : '',
   })).join('');
   const cardsBlock = list.length
     ? `<div class="${ID}__list card card--list">${rows}</div>`
@@ -57,9 +59,9 @@ function cardHtml(c, { busy = false, error = '' } = {}) {
   const u = usage(c);
   const stuck = !!u.appt && !u.rest.length;                 // the only card, paying for an open booking: no Remove (D-134)
   return `<div class="${ID}-sheet" data-view="card">
-  <p class="t-body c-600 ${ID}-sheet__sub">Expires ${esc(c.exp)}</p>
+  <p class="t-body c-muted ${ID}-sheet__sub">Expires ${esc(c.exp)}</p>
   ${u.appt ? `<p class="t-body ${ID}-sheet__use">Paying for your booking with ${esc(u.who)} on <span class="${ID}-sheet__when">${esc(u.when)}</span>.</p>` : ''}
-  ${stuck ? `${banner({ tone: 'info', text: 'You need a card on file while a booking is open. Add another card first, then you can remove this one.' })}
+  ${stuck ? `${banner({ tone: 'warning', text: 'You need a card on file while a booking is open. Add another card first, then you can remove this one.' })}
   <div class="${ID}-sheet__links">${textLink('Add a card', { act: 'add-from-sheet' })}</div>` : ''}
   ${error ? banner({ tone: 'error', title: error, text: 'Nothing changed.' }) : ''}
   <div class="${ID}-sheet__links">
@@ -79,7 +81,7 @@ function confirmHtml(c, { busy = false, error = '' } = {}) {
   lines.push('You can add it again any time.');
   return `<div class="${ID}-sheet" data-view="confirm">
   <h2 class="t-h2 ${ID}-sheet__title">Remove <span class="${ID}-sheet__nowrap">${esc(label(c))}</span>?</h2>
-  <div class="${ID}-sheet__body">${lines.map((l) => `<p class="t-body c-600">${l}</p>`).join('')}</div>
+  <div class="${ID}-sheet__body">${lines.map((l) => `<p class="t-body c-muted">${l}</p>`).join('')}</div>
   ${error ? banner({ tone: 'error', title: error, text: 'Nothing was removed.' }) : ''}
   <div class="${ID}-sheet__actions ${ID}-sheet__actions--stack">
     ${cta('Remove card', { variant: 'danger', busy, busyLabel: 'Removing…', attrs: 'data-act="remove-ok"' })}
@@ -91,7 +93,7 @@ function confirmHtml(c, { busy = false, error = '' } = {}) {
 function addHtml(v = {}, errors = {}, busy = false) {
   return `<form class="${ID}-sheet" data-view="add" novalidate>
   <fieldset class="${ID}-sheet__fields"${busy ? ' disabled aria-busy="true"' : ''}>${cardFields({ values: v, errors })}</fieldset>
-  <p class="t-small c-600">Your card is stored by our payment provider, not by Taily.</p>
+  <p class="t-small c-muted">Your card is stored by our payment provider, not by Taily.</p>
   ${cta('Save card', { busy, busyLabel: 'Saving…', attrs: 'data-act="save-card"' })}
 </form>`;
 }

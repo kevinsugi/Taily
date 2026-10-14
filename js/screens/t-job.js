@@ -24,7 +24,7 @@ import {
   chrome, headingRow, statusHero, visitBlock, avatar, cta, listRow, banner, tailorBreakdown, moneyRows, workList,
   emptyState, sheetOverlay, chipGroup, wireChipGroups, toast, esc, wirePhotoViewer,
   actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, withPhotos, changeSummary, deltaFigure, courierCard, statusPill, wireGarmentDocs,
-  sectionHead, textLink, infoButton, moreMenu, openMoreMenu, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR,
+  sectionHead, textLink, infoButton, moreMenu, ctaSmall, openMoreMenu, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR,
 } from '../components.js';
 
 const ID = 't-job';
@@ -91,8 +91,8 @@ function visitLinks(a, v) {
   const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Taily//Prototype//EN', 'BEGIN:VEVENT', `UID:${a.id}@taily.example`,
     `DTSTAMP:${stamp(isoMinute(new Date(now())))}00`, `DTSTART:${stamp(a.slot.start)}00`, `DTEND:${stamp(a.slot.end)}00`,
     `SUMMARY:${v.visitLabel} with ${v.customer.name}`, `LOCATION:${where.replace(/,/g, '\\,')}`, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
-  /* a link that opens a map / downloads the .ics: textLink() with `href` */
-  const link = (label, icon, href, attrs) => textLink(label, { icon, href, attrs });
+  /* a link that opens a map / downloads the .ics, drawn as a small outline action with its Phosphor lead (V6 A8) */
+  const link = (label, icon, href, attrs) => ctaSmall(`${icon}<span>${label}</span>`, { href, attrs });
   const maps = a.job.visitType === 'home'
     ? link('Directions', ICON_DIRECTIONS, `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(where)}`, 'target="_blank" rel="noopener" data-act="directions"') : '';
   const cal = link('Add to calendar', ICON_CALENDAR, `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`, 'download="taily-visit.ics" data-act="add-to-calendar"');
@@ -118,11 +118,11 @@ function dueCard(a, v) {
   return visitBlock([fig, `<span class="t-small c-600">Fitting was ${fmtDay(a.slot.start)}</span>`], { title: 'Timing', flush: true });
 }
 
-/** The customer, flat: a circle avatar and the name (CP-T24: no "Customer" label). */
+/** The customer, flat: a squircle avatar and the name (CP-T24: no "Customer" label). */
 function customerRow(v) {
   return `<div class="${ID}__customer">
     ${avatar({ initials: v.customer.initials, size: 'sm' })}
-    <div class="${ID}__customer-text"><span class="t-body w-600">${esc(v.customer.name)}</span></div>
+    <div class="${ID}__customer-text"><span class="t-body w-600 c-ink">${esc(v.customer.name)}</span></div>
   </div>`;
 }
 
@@ -270,15 +270,15 @@ function payoutCard(a, t, extra = '') {
   const w = p ? payoutLine(p, t.payouts) : null;
   const pill = p ? { pending: ['waiting', 'Pending'], paid: ['completed', 'Paid'], failed: ['declined', 'Didn’t go through'] }[p.state] : ['waiting', 'Pending'];
   /* M7-1-T-07: the pill already says Paid, so the line is the date and the bank */
-  const line = w ? (p?.state === 'paid' ? w.text.replace(/^Paid\s+/, '') : w.text) : 'Arrives the Friday after you mark it completed';
+  const line = w ? (p?.state === 'paid' ? w.html.replace(/^Paid\s+/, '') : w.html) : 'Arrives the Friday after you mark it completed';
   const link = p?.state === 'failed' ? `<div class="${ID}__payout-link">${textLink('See the payout', { act: 'open-payout' })}</div>` : '';
   const how = a.returnOption ?? 'pickup';
   const at = a.history.filter((h) => h.status === 'completed').pop()?.at ?? a.history[a.history.length - 1]?.at;
   const returned = `${how === 'dropoff' ? `${RETURN_DONE.dropoff}${firstOf()}’s` : RETURN_DONE[how]} · ${fmtDay(at)}`;
   return `<section class="sec sec--first ${ID}__payout" aria-label="You take home">
-  <div class="${ID}__payout-head"><p class="t-caps c-600">YOU TAKE HOME</p>${infoButton('payouts', { label: 'When you get paid' })}</div>
-  <p class="t-display ${ID}__payout-amt" data-money>${fmtExact(a.money.payout)}</p>
-  <div class="${ID}__payout-state">${statusPill(...pill)}<p class="t-small ${w?.tone === 'error' ? `${ID}__err` : 'c-700'}">${esc(line)}</p></div>${link}
+  <div class="${ID}__payout-head"><p class="t-label">You take home</p>${infoButton('payouts', { label: 'When you get paid' })}</div>
+  <p class="t-money ${ID}__payout-amt" data-money>${fmtExact(a.money.payout)}</p>
+  <div class="${ID}__payout-state">${statusPill(...pill)}<p class="t-small ${w?.tone === 'error' ? `${ID}__err` : 'c-700'}">${line}</p></div>${link}
   <div class="${ID}__payout-rows">${tailorBreakdown(a.money, { total: false })}</div>
   <div class="${ID}__returned">${metaRow('', esc(returned), { icon: { pickup: 'bag', dropoff: 'home', courier: 'truck' }[how] })}</div>${extra}
 </section>`;

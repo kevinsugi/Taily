@@ -1,7 +1,9 @@
-# Taily v5 prototype — rulebook
+# Taily v6 prototype — rulebook
 
-Plain HTML/CSS/JS, no build step, branch `V5` (GitHub Pages serves it at https://kevinsugi.github.io/Taily/). v4 lives on
-`main`; its rulebook is archived verbatim at the end of `docs/HISTORY.md` ("v4 rulebook (archived Oct 2026)").
+Plain HTML/CSS/JS, no build step, branch `V6` = the v5 prototype with a visual redesign (`docs/v6/BRIEF.md`,
+`docs/v6/V6-spec.md`, calls in `docs/v6/DECISIONS.md`). Every v5 screen, flow, state, money and copy rule below still holds.
+`V5` stays the v5 branch; v4 lives on `main`; its rulebook is archived verbatim at the end of `docs/HISTORY.md`
+("v4 rulebook (archived Oct 2026)").
 
 **Start here:** `docs/v5/CONTEXT.md` (file map, signatures, tokens, FLOWS contract). Then only what your task names:
 `docs/v5/MASTER-PLAN.md` (locked product rules §2, defaults §10), `docs/v5/SCREENS.md` (every screen id + state key),
@@ -11,11 +13,11 @@ Plain HTML/CSS/JS, no build step, branch `V5` (GitHub Pages serves it at https:/
 ## How v5 is built
 
 - **Code first, Figma after.** Each milestone: spec → components → screens → integrate + `npm run check` → review →
-  fix → Figma sync → commit + push. Figma (`spK8ZHnsPlWEuD8zRmf5sY`, pages `User - v5`, `Tailor - v5`,
-  `Tailor - Onboarding v5`, `Flow v5`, `Explorations`) is written only through the Figma MCP (`use_figma`), once per
-  milestone, following the Taily Design System rules in MASTER-PLAN §5. v4 Figma pages are never touched.
+  fix → Figma sync → commit + push. Figma (`spK8ZHnsPlWEuD8zRmf5sY`, V6 pages `User - v6`, `Tailor - v6`,
+  `Tailor - Onboarding v6` + a `V6` component section) is written only through the Figma MCP (`use_figma`), once per
+  milestone, following the Taily Design System rules in MASTER-PLAN §5. V4 and V5 pages are never touched.
 - **No human in the loop.** A call not covered by MASTER-PLAN §2 / §10 is appended to `docs/v5/DECISIONS.md` as the
-  next `D-##` (format at the top of that file) and flagged in the milestone commit.
+  next `D-##` (format at the top of that file) and flagged in the milestone commit. V6 calls go to `docs/v6/DECISIONS.md` as `V6-D-##`.
 - **Money:** every rate and window comes from `js/money-config.js` (`MONEY`, `POLICY`) through `js/money.js` (integer
   cents, `fmt / fmtExact / fmtNeg`). Rendered money is **dollar amounts only, never percentages**, on both sides
   ("Taily fee −$12.50", "Deposit $16.00"). No rate literal anywhere else; the harness fails on `%` in money copy.
@@ -29,17 +31,38 @@ Plain HTML/CSS/JS, no build step, branch `V5` (GitHub Pages serves it at https:/
 - **Test flows:** every state in SCREENS.md is a `FLOWS` entry (`js/fixtures/m#.js`, own array per screen) with an
   `expect` snippet; setups compose real transitions and `state.sim` knobs — never hand-written fixture fields.
 
-## Design rules (kept from v4)
+## Design rules (V6 — minimalist warm monochrome)
 
-- Colors, spacing, radius, type sizes ONLY through `css/tokens.css` variables; no literal hex / px font-size outside
+- Colours, spacing, radius, type sizes ONLY through `css/tokens.css` variables; no literal hex / px font-size outside
   `tokens.css` / `base.css` (hygiene step enforces it).
-- Type = the Figma scale 10 / 12 / 16 / 24 / 28 / 32 / 36 via `.t-display .t-title .t-h2 .t-body .t-small .t-caps .t-micro`
-  + `.w-*` + `.c-*` (`base.css`). Serif = Cormorant Garamond (headings), sans = Hanken Grotesk (UI). Hierarchy by
-  weight + colour, never an invented size.
-- Screens: 390 wide, `var(--neutral-50)`; status bar 0/0 h44, top nav 0/44 h56, `.body` padding-top 128, sides 20.
-  Figma strokes are INSIDE → bordered hug components use `box-shadow: inset 0 0 0 1px …`.
-- Add a component variant in `js/components.js` / `css/components-v5.css` before using it; never fork a component
-  inside a screen. 44 px touch targets, visible labels, errors next to the field, loading feedback, reduced motion.
+- **Fonts:** Instrument Serif (one weight, `font-synthesis: none`) for `.t-display` 40 · `.t-title` 32 · `.t-h2` 24, tracking
+  −0.02 to −0.03em, line-height 1.05–1.15; Geist for everything else; Geist Mono only for codes, last-4 masks, routing/account
+  digits and ZIP chips. Loaded from Google Fonts in `index.html`.
+- **Type scale** 11 / 13 / 16 / 24 / 32 / 40 via `.t-display .t-title .t-h2 .t-money .t-figure .t-body .t-label .t-small .t-caps
+  .t-micro` + `.w-*` + `.c-*` (`base.css`). Money is Geist (`.t-money` hero, `.t-figure` card, rows 16), tabular, never serif.
+  Section heads are sentence-case `.t-label`; uppercase only inside pills / tags. Hierarchy by size step + weight + ink vs muted.
+- **Palette:** canvas `--canvas` #F7F6F3, surfaces white, ink #111 (titles, money, CTA, links, active), body `--text` #2F3437,
+  secondary `--text-muted` #6B6A66, glyphs `--text-faint` #787774, rules `--border` #EAEAEA / `--hairline`. **No brand accent**:
+  links = ink + underline; active = ink + weight.
+- **Pastels** are the only colour besides the garment illustrations: red / blue / green / yellow (`--pastel-*-bg` + `-ink`) +
+  neutral grey, mapped by meaning — error / info / success / action-needed — through `statusPill` (small uppercase pills) and
+  `.tag`, banners and field errors. The tone map lives in `V6-spec.md` §A4.
+- **Shapes:** buttons, inputs, chips 6 px; cards, sheets, modals, banners 12 px max; pills / toggles / radios full. 1 px
+  `--border` drawn INSIDE (`box-shadow: inset 0 0 0 1px …`, Figma strokes are inside). No shadows except `--shadow-hover`
+  (interactive cards on hover devices) and `--shadow-float` / `--shadow-overlay` (< .05 alpha) on overlays. No gradients
+  (the ambient blob is the one sanctioned radial light, three screens).
+- **Icons:** Phosphor Regular only, inlined from `js/phosphor.js` (generated by `scripts/v6/phosphor.mjs` from
+  `@phosphor-icons/core@2.1.1`) through `ph()` / the named exports in `js/icons.js`; never a unicode glyph as an icon, never a
+  runtime icon library. Ratings use `star-fill` (the one Fill glyph). Avatars are squircle initials. Garment illustrations and
+  the stitched dash above totals are the signatures — keep them.
+- **Layout:** phone only, 390 wide on the canvas; status bar 0/0 h44 + top nav 0/44 h56 (icon + label; Back replaces the logo,
+  K-06), `.body` padding-top `--body-top` 124, sides 20; rhythm 8 / 12 / 40 / 48; card padding 20. One ink primary per screen.
+- **Motion:** press `scale(.98)`; hover lift; entry fade-up 12 px / 600 ms `cubic-bezier(.16,1,.3,1)` + 80 ms stagger via
+  `js/motion.js` (IntersectionObserver, on screen arrival only). Everything gated by `prefers-reduced-motion`; `html.is-test`
+  disables all motion and content is always visible at rest. Animate transform / opacity only.
+- Add a component variant in `js/components.js` / `css/components-v6.css` (the V6 skin of the shared components; `components.css` /
+  `components-v5.css` are the older layers it overrides) before using it; never fork a component inside a screen. 44 px touch
+  targets, visible labels, errors next to the field, loading feedback, reduced motion.
 
 ## Harness
 
@@ -47,7 +70,7 @@ Plain HTML/CSS/JS, no build step, branch `V5` (GitHub Pages serves it at https:/
 screen, `expect` holds, no console errors, money `%` lint, 44 px lint; cross-persona journeys from M3) → visual
 regression vs `ref/v5/<flow-key>.png` self-baselines (`--accept-new` for new keys; `npm run visual -- --accept <key>`
 for intended changes, listed in the commit) → style hygiene. Run steps sequentially, never in parallel.
-`npm run serve` serves on 127.0.0.1:4173. The v4 harness is archived, unrun, in `scripts/v4/`.
+`npm run serve` serves on 127.0.0.1:4173. Text expects match case-insensitively (V6-D-06). The v4 harness is archived, unrun, in `scripts/v4/`.
 
 ## Working rules (token budget)
 

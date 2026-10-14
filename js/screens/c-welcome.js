@@ -20,18 +20,19 @@ function view(s) {
   });
   return `${statusBar()}
 <main class="body ${ID}">
+  <div class="ambient" aria-hidden="true"></div>
   <span class="${ID}__logo" role="img" aria-label="Taily"></span>
-  <div class="${ID}__hero" aria-hidden="true">${garmentIcon('Suit Jacket', { size: 'hero' })}</div>
+  <div class="${ID}__hero" aria-hidden="true"><div class="${ID}__tile">${garmentIcon('Suit Jacket', { size: 'hero' })}</div></div>
   <h1 class="t-display ${ID}__title">A tailor near you, booked in five steps.</h1>
-  <p class="t-body c-600 ${ID}__lead">Real prices up front. Your deposit is held, not charged, until the tailor accepts.</p>
+  <p class="t-body c-muted ${ID}__lead">Real prices up front. Your deposit is held, not charged, until the tailor accepts.</p>
   <div class="${ID}__spacer"></div>
   ${cta('Continue with phone', { disabled: !!busy, attrs: 'data-act="phone"' })}
-  <div class="${ID}__or" role="separator"><span class="t-small c-600">or</span></div>
+  <div class="${ID}__or" role="separator"><span class="t-small c-muted">or</span></div>
   ${btn('apple', 'secondary')}
   <div class="${ID}__gap"></div>
   ${btn('google', 'secondary')}
-  <p class="t-small c-600 ${ID}__legal">By continuing you agree to Taily’s <button type="button" class="${ID}__link" data-act="terms" data-hit="inline">Terms</button> and <button type="button" class="${ID}__link" data-act="privacy" data-hit="inline">Privacy Policy</button>.</p>
-  <p class="t-small c-600 ${ID}__tailor">Are you a tailor? <button type="button" class="${ID}__link" data-act="tailor" data-hit="inline">Join Taily</button></p>
+  <p class="t-small c-muted ${ID}__legal">By continuing you agree to Taily’s <button type="button" class="${ID}__link" data-act="terms" data-hit="inline">Terms</button> and <button type="button" class="${ID}__link" data-act="privacy" data-hit="inline">Privacy Policy</button>.</p>
+  <p class="t-small c-muted ${ID}__tailor">Are you a tailor? <button type="button" class="${ID}__link" data-act="tailor" data-hit="inline">Join Taily</button></p>
 </main>`;
 }
 

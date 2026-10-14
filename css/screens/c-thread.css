@@ -1,16 +1,22 @@
-/* c-thread — layout only. Header, context row, messages, bubbles, composer, privacy note and chips are shared components. */
+/* c-thread — layout only (V6). Header, context row, messages, bubbles, composer, privacy note and chips are shared components. */
 .screen[data-screen="c-thread"] { display: flex; flex-direction: column; }
 .c-thread { flex: 1 0 auto; display: flex; flex-direction: column; gap: 0; padding-bottom: var(--space-16); }
+/* V6-2-C-02: with a failed message the "Message not sent" toast floats 12 px above the composer; the last bubble and its
+   "Not sent · Retry" line sit clear of it (toast ~44 px + 12 px offset + 16 px air) */
+.c-thread--failed { padding-bottom: calc(var(--space-16) + var(--space-48) + var(--space-8)); }
 .c-thread__context { margin-top: var(--space-12); }
 .c-thread__note { margin-top: var(--space-8); padding-inline: var(--space-4); }
-.c-thread__messages { display: flex; flex: 1 0 auto; flex-direction: column; margin-top: var(--space-24); }
-.c-thread__empty { display: flex; flex: 1 0 auto; flex-direction: column; justify-content: center; gap: var(--space-8); }
-.c-thread__empty .empty-state { padding: var(--space-24) 0 var(--space-8); }
-.c-thread__empty .chip-group { align-items: center; }
-.c-thread__empty .chip-group__options { justify-content: center; }
+.c-thread__messages { display: flex; flex: 1 0 auto; flex-direction: column; margin-top: var(--rhythm-section); }
+/* no messages yet: the question block sits at the top-left like every V6 empty state, the suggestions under it */
+.c-thread__empty { display: flex; flex: 1 0 auto; flex-direction: column; justify-content: flex-start; gap: var(--space-8); }
+.c-thread__empty .empty-state { padding: 0 0 var(--space-8); }
+.c-thread__empty .chip-group { align-items: flex-start; }
+.c-thread__empty .chip-group__options { justify-content: flex-start; }
+/* the sticky composer foot: the canvas, a blur over what scrolls under it, one 1 px rule on top (same as the action bar, V6-D-14) */
 .c-thread__foot {
   position: sticky; bottom: 0; z-index: 5; flex-shrink: 0; width: 100%; max-width: 390px;
   padding: var(--space-12) var(--space-20) var(--space-20);
-  background: var(--white); box-shadow: inset 0 1px 0 var(--neutral-200);
+  background: color-mix(in srgb, var(--canvas) 92%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 var(--border);
 }
 .c-thread__foot .read-only { display: flex; flex-direction: column; gap: var(--space-12); }

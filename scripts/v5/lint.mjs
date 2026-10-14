@@ -3,7 +3,7 @@
      1. literal hex colours / px font-sizes in css/ outside
         tokens.css + base.css (v4 allowlist: #E2DCD1)
      2. v5 CSS (components-v5.css, css/screens/*.css): font-size only
-        from the scale tokens --size-10|12|16|24|28|32|36
+        from the V6 scale tokens --size-11|13|16|24|32|40 (V6-D-04)
      3. rate literals in js/ outside js/money-config.js
         (0.10 / .1 / 10% / 24% ...) — rates live in one file
      4. `%` in money copy: a fee / deposit / refund / payout / balance /
@@ -19,7 +19,7 @@
      8. (K-04) the retired --bottom-border token in v5 CSS (row rules
         use --hairline)
    Skips js/v4/, js/screens/v4/, css/v4/, js/garment-icons.js,
-   js/icons.js (SVG matrices). Prints PASS/FAIL per rule, offenders
+   js/icons.js + js/phosphor.js (SVG matrices). Prints PASS/FAIL per rule, offenders
    with file:line. Exit 1 on any offender.
    ============================================================ */
 
@@ -63,7 +63,7 @@ function rule(name, offenders, note = '') {
 const ALLOWED_LITERALS = ['#E2DCD1'];
 const cssFiles = [...list('css', '.css'), ...list('css/screens', '.css')]
   .filter((f) => !/\/(tokens|base)\.css$/.test(f));
-const V5_CSS = (f) => /css\/components-v5\.css$/.test(f) || /css\/screens\/[^/]+\.css$/.test(f);
+const V5_CSS = (f) => /css\/components-v[56]\.css$/.test(f) || /css\/screens\/[^/]+\.css$/.test(f);
 
 const hexOff = [];
 const sizeOff = [];
@@ -75,8 +75,8 @@ for (const f of cssFiles) {
     if (/font-size:\s*[0-9.]+(px|rem|em)/.test(code)) hexOff.push(`${rel(f)}:${i + 1}  literal font-size`);
     if (V5_CSS(f)) {
       const m = code.match(/font-size:\s*([^;}]+)/);
-      if (m && !/^(var\(--size-(10|12|16|24|28|32|36)\)|inherit|unset|initial)\s*(!important)?$/.test(m[1].trim())) {
-        sizeOff.push(`${rel(f)}:${i + 1}  font-size ${m[1].trim()} (use --size-10|12|16|24|28|32|36)`);
+      if (m && !/^(var\(--size-(11|13|16|24|32|40)\)|inherit|unset|initial)\s*(!important)?$/.test(m[1].trim())) {
+        sizeOff.push(`${rel(f)}:${i + 1}  font-size ${m[1].trim()} (use --size-11|13|16|24|32|40)`);
       }
     }
   });
@@ -137,7 +137,7 @@ const walk = (dir) => {
     return e.name.endsWith('.js') ? [p] : [];
   });
 };
-const SKIP_JS = /js\/(garment-icons|icons)\.js$/;
+const SKIP_JS = /js\/(garment-icons|icons|phosphor)\.js$/;   // V6: phosphor.js is generated SVG path data (decimals trip the rate regex)
 const jsFiles = walk('js').filter((f) => !SKIP_JS.test(rel(f)));
 const code = new Map(jsFiles.map((f) => [f, stripComments(lines(f))]));
 

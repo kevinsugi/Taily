@@ -53,7 +53,7 @@ function hero(t, { back = false } = {}) {
       ${avatar({ initials: t.initials, photo: t.photo, size: 'md' })}
       <div class="c-tailor__who">
         <h1 class="t-title c-tailor__name">${esc(t.name)}</h1>
-        ${t.shopName ? `<p class="t-body w-600 c-700 c-tailor__shop">${esc(t.shopName)}</p>` : ''}
+        ${t.shopName ? `<p class="t-body c-muted c-tailor__shop">${esc(t.shopName)}</p>` : ''}
       </div>
     </div>`;
   return `<div class="c-tailor__hero">
@@ -76,7 +76,7 @@ function about(t) {
   const tiles = Array.from({ length: n }, (_, i) => (more && i === n - 1
     ? `<button type="button" class="c-tailor__work c-tailor__work--more t-body w-600" data-act="more-work" data-count="${total}" aria-label="See all ${total} photos of ${esc(first)}’s work">+${total - (n - 1)}</button>`
     : `<span class="c-tailor__work" role="img" aria-label="Work photo ${i + 1} of ${total}">${photoStub({ type: TYPES[i % TYPES.length], tone: i % 4, size: 'tile' })}</span>`)).join('');
-  return section('About', `${t.bio ? `<p class="t-body c-700">${esc(t.bio)}</p>` : ''}${n ? `<div class="c-tailor__photos">${tiles}</div>` : ''}`);
+  return section('About', `${t.bio ? `<p class="t-body c-text c-tailor__bio">${esc(t.bio)}</p>` : ''}${n ? `<div class="c-tailor__photos">${tiles}</div>` : ''}`);
 }
 
 /** D-98: one precision per screen — set once per render from every amount the profile prints (prices, fees, rush, estimate). */
@@ -103,7 +103,7 @@ function prices(t) {
   const toggle = offered.length > PRICES_SHOWN
     ? `<div class="c-tailor__more">${textLink(all ? 'Show fewer prices' : `See all ${offered.length} prices`, { act: 'all-prices', attrs: `aria-expanded="${all}"` })}</div>` : '';
   return section('Prices', `<div class="c-tailor__prices">${rows}</div>${toggle}
-    <div class="c-tailor__rush"><p class="t-caps c-600">Rush fees</p><div class="t-body" data-money>${rushLadder(t.rush)}</div></div>`);
+    <div class="c-tailor__rush"><p class="t-label">Rush fees</p><div class="t-body" data-money>${rushLadder(t.rush)}</div></div>`);
 }
 
 /** CP-C13: "Williamsburg, Greenpoint, East Williamsburg and Bushwick" — each neighbourhood once, in ZIP order. */
@@ -166,7 +166,7 @@ function view(s) {
   ${preview ? `<div class="c-tailor__preview">${readOnlyBanner({ text: 'You’re viewing your own profile', ctaLabel: 'Back to Taily for tailors', ctaAct: 'exit-preview' })}</div>` : ''}
   ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} declined this request`, text: `Your items and services are saved. You can still book ${esc(first)} for other work.` })}</div>` : ''}
   ${declined ? '' : `<div class="c-tailor__act">
-    <p class="t-small w-600 c-700 c-tailor__next">${next ? `Next opening ${nb(fmtWhen(next))}` : `Nothing open before ${nb(fmtDay(job.needBy))}`}</p>
+    <p class="t-small w-500 c-ink c-tailor__next">${next ? `Next opening ${nb(fmtWhen(next))}` : `Nothing open before ${nb(fmtDay(job.needBy))}`}</p>
     ${preview ? '' : `<div class="c-tailor__ask">${textLink('Ask a question', { act: 'ask', icon: ICON_CHAT })}</div>`}
   </div>`}
   ${profile ? '' : estimateCard(q, job)}

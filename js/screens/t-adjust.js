@@ -22,8 +22,9 @@ import { SERVICES, GARMENT_TYPES, servicesForType, TAILOR_LIMITS, MAX_ITEMS, FIT
 import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, banner, emptyState, listRow, optionRow, textArea, deltaFigure, tailorBreakdown, actionBar, changeSummary,
-  sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, garmentHead, docsEditor, wireGarmentDocs, sectionHead, textLink,
+  sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, garmentHead, docsEditor, wireGarmentDocs, sectionHead, textLink, tag as pillTag,
 } from '../components.js';
+import { ICON_CLOSE_20, ICON_PLUS } from '../icons.js';
 
 const ID = 't-adjust';
 const ADJUSTABLE = ['fitting', 'price-change'];
@@ -173,7 +174,8 @@ function checks(d, garments) {
 }
 
 /* ---------- view ---------- */
-const tag = (text, tone) => `<span class="change-list__tag change-list__tag--${tone} t-micro">${text}</span>`;
+/* V6-D-15: New / New price / New item = blue tag, Removed = grey tag (the shared pill chassis) */
+const tag = (text, tone) => pillTag(text, tone === 'removed' ? 'grey' : 'blue');
 
 function markHtml(r, inNewItem) {
   if (r.removed) return tag('Removed', 'removed');
@@ -203,7 +205,7 @@ function rowHtml(r, errors, busy, inNewItem) {
       <span class="field__affix" aria-hidden="true">$</span>
       <input class="field__input" id="${id}" name="${id}" type="text" inputmode="numeric" autocomplete="off" maxlength="6" value="${esc(r.raw)}" data-key="${esc(r.key)}"${err ? ` aria-invalid="true" aria-describedby="${id}-msg"` : ''}${busy ? ' disabled' : ''}>
     </div>
-    <button type="button" class="${ID}__btn ${ID}__btn--x" data-act="remove-line" data-key="${esc(r.key)}"${busy ? ' disabled' : ''} aria-label="Remove ${label}"><span aria-hidden="true">✕</span></button>
+    <button type="button" class="${ID}__btn ${ID}__btn--x" data-act="remove-line" data-key="${esc(r.key)}"${busy ? ' disabled' : ''} aria-label="Remove ${label}">${ICON_CLOSE_20}</button>
     <div class="${ID}__err" data-live="err-${esc(r.key)}">${err ? `<p class="field__msg field__msg--error t-small" id="${id}-msg" role="alert">${esc(err)}</p>` : ''}</div>
   </div>`;
 }
@@ -229,7 +231,7 @@ function garmentHtml(g, errors, busy, ctx) {
   return `<section class="${ID}__garment" aria-label="${esc(g.type)}" data-garment="${esc(g.id)}" data-kind="${g.isNew ? 'added' : 'kept'}">
     <div class="card ${ID}__card${g.isNew ? ` ${ID}__card--new` : ''}">
       <div class="${ID}__head">${garmentHead({ type: g.type, tag: g.isNew ? tag('New item', 'new-item') : '', as: 'h2' })}</div>
-      ${g.rows.map((r) => rowHtml(r, errors, busy, g.isNew)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: '+ Add a service', act: 'add-service' }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${dis}`)}</div>` : ''}
+      ${g.rows.map((r) => rowHtml(r, errors, busy, g.isNew)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: 'Add a service', act: 'add-service', lead: ICON_PLUS }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${dis}`)}</div>` : ''}
       ${docsEditor({
     garmentId: g.id, type: g.type, docs: docsOf(ctx.a, g.id), missing: ctx.missing.get(g.id) ?? { before: false, pinned: false },
     commentDraft: ctx.d.comments[g.id] ?? null, commentError: ctx.d.commentErrors[g.id] ? `Keep the comment under ${FITTING_LIMITS.COMMENT_MAX} characters.` : '', busy, first: ctx.first, tried: ctx.d.tried,
@@ -240,7 +242,7 @@ function garmentHtml(g, errors, busy, ctx) {
 }
 
 /** A figure with no amount yet (a price in the draft can't be read): the label and a dash. */
-const dashFigure = (label) => `<div class="delta-figure"><p class="t-caps c-600 delta-figure__label">${esc(label)}</p><p class="t-display delta-figure__amt" aria-label="not available">—</p></div>`;
+const dashFigure = (label) => `<div class="delta-figure"><p class="t-label delta-figure__label">${esc(label)}</p><p class="t-money delta-figure__amt" aria-label="not available">—</p></div>`;
 
 function view() {
   const a = target();
@@ -269,8 +271,8 @@ function view() {
   const deposit = pv.after.deposit;
   const edited = isEdited(a, d, garments);
   const atMax = garments.length >= MAX_ITEMS;
-  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">At the fitting</p><h1 class="t-title">${revise ? 'Edit the order you sent' : 'Edit the job'}</h1>`
-    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Photograph each item before and after pinning, then send ${esc(first)} the final order.</p></div><!--/notes-->`;
+  const hero = `<p class="t-label ${ID}__eyebrow">At the fitting</p><h1 class="t-title">${revise ? 'Edit the order you sent' : 'Edit the job'}</h1>`
+    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-muted">Photograph each item before and after pinning, then send ${esc(first)} the final order.</p></div><!--/notes-->`;
   /* K-02 (D-178): the card says what is missing, the bar says how many items still need photos */
   const gaps = docsMissing(a, liveIds(garments));
   const missing = new Map(gaps.map((m) => [m.garmentId, m]));
@@ -289,7 +291,7 @@ function view() {
   <div class="${ID}__content"${busy ? ' inert aria-busy="true"' : ''}>
   ${revise ? `<div class="${ID}__info">${banner({ tone: 'info', text: `${esc(first)} hasn’t approved yet. Sending again replaces the order ${esc(first)} is looking at.` })}</div>` : ''}
   <div class="${ID}__garments">${garments.map((g) => garmentHtml(g, errors, busy, ctx)).join('')}
-    <div class="card ${ID}__card ${ID}__card--add">${listRow({ title: '+ Add an item', act: 'add-item' }).replace('data-act="add-item"', `data-act="add-item"${atMax || busy ? ' disabled aria-disabled="true"' : ''}`)}${atMax ? `<p class="t-small c-600 ${ID}__max">Up to ${MAX_ITEMS} items on one job.</p>` : ''}</div>
+    <div class="card ${ID}__card ${ID}__card--add">${listRow({ title: 'Add an item', act: 'add-item', lead: ICON_PLUS }).replace('data-act="add-item"', `data-act="add-item"${atMax || busy ? ' disabled aria-disabled="true"' : ''}`)}${atMax ? `<p class="t-small c-600 ${ID}__max">Up to ${MAX_ITEMS} items on one job.</p>` : ''}</div>
   </div>
   <div class="${ID}__empty-err" data-live="empty">${errors.empty ? banner({ tone: 'error', text: 'Keep at least one item with a service on this job.' }) : ''}</div>
   <section class="sec ${ID}__note">${textArea({ id: 'adjust-note', label: `Note to ${first} about the whole order (optional)`, value: d.note, rows: 3, max: TAILOR_LIMITS.NOTE_MAX, helper: 'Phone numbers and emails are hidden.', error: errors.note })}</section>
@@ -480,7 +482,7 @@ function dropNewItem(id) {
 /* ---------- documentation: photos and the comment (K-02) ---------- */
 const addTile = (gid, kind) => `[data-act="add-doc"][data-garment="${q(gid)}"][data-kind="${kind}"]`;
 const thumb = (gid, kind, index) => `[data-act="view-doc"][data-garment="${q(gid)}"][data-kind="${kind}"][data-index="${index}"]`;
-/** The text button that opens a garment's comment editor: "Edit comment" when one is saved, else "+ Add comment". */
+/** The text button that opens a garment's comment editor: "Edit comment" when one is saved, else "Add comment" (Phosphor plus lead, V6-2-T-02). */
 const commentTrigger = (a, gid) => `[data-act="${docsOf(a, gid).comment ? 'edit-comment' : 'add-comment'}"][data-garment="${q(gid)}"]`;
 
 function addDoc(a, gid, kind) {

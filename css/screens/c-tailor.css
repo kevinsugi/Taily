@@ -17,23 +17,24 @@
 /* groups: spacing comes from .sec (components-v5); the first group sits 40 under the head block */
 .c-tailor__hero ~ .sec:first-of-type, .c-tailor__act + .sec, .c-tailor__banner + .sec, .c-tailor__hero + .sec { margin-top: var(--rhythm-section); }
 .c-tailor__sec p { margin: 0; }
+.c-tailor__bio { max-width: 34em; }
 .c-tailor__photos { display: flex; gap: var(--space-8); overflow-x: auto; padding-top: var(--space-4); }
 .c-tailor__work { display: block; width: 72px; height: 72px; flex-shrink: 0; }
 
 /* the estimate: flat rows, a stitch, the total */
 .c-tailor__estimate { display: flex; flex-direction: column; }
 .c-tailor__estimate .price-row + .price-row, .c-tailor__estimate .c-tailor__total .price-row { box-shadow: none; }
-.c-tailor__total .price-row__label { font-weight: 600; }
-.c-tailor__total .price-row__value { font-weight: 700; }
+.c-tailor__total .price-row__label { font-weight: 600; color: var(--ink); }
+.c-tailor__total .price-row__value { font-weight: 600; color: var(--ink); }
 
 .c-tailor__prices { display: flex; flex-direction: column; }
 /* "See all …" is a text link: flush with the gutter, not floating in its own 8 px padding */
 .c-tailor__more { display: flex; margin-left: calc(-1 * var(--space-8)); }
-.c-tailor__rush { display: flex; flex-direction: column; gap: var(--rhythm-tight); margin-top: var(--rhythm-group); }
+.c-tailor__rush { display: flex; flex-direction: column; gap: var(--rhythm-tight); margin-top: var(--rhythm-section); }
 
 .c-tailor__place { display: flex; flex-direction: column; gap: var(--space-4); }
 .c-tailor__place .meta-row { color: var(--ink); align-items: flex-start; }
-.c-tailor__place .meta-row__glyph { height: 21px; line-height: 21px; color: var(--neutral-600); }   /* R1-2-C-04: the 16px line icon centres on the first text line */
+.c-tailor__place .meta-row__glyph { height: 21px; line-height: 21px; color: var(--text-muted); }   /* R1-2-C-04: the 16px line icon centres on the first text line */
 .c-tailor__place > .t-small { padding-left: calc(var(--space-8) + 20px); }
 .c-tailor__reviews { display: flex; flex-direction: column; }
 .c-tailor__sec .sec__body { gap: var(--rhythm-tight); }
@@ -41,14 +42,14 @@
 .c-tailor__preview { margin: var(--space-16) 0; }
 /* X-13: the 4th work tile is a "+N" button when there are more photos */
 .c-tailor__work--more {
-  display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-md);
-  background: var(--neutral-100); color: var(--ink); box-shadow: inset 0 0 0 1px var(--neutral-200);
+  display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-6);
+  background: var(--surface-sunk); color: var(--ink); box-shadow: inset 0 0 0 1px var(--border);
 }
-.c-tailor__work--more:active { background: var(--neutral-200); }
+.c-tailor__work--more:active { background: var(--border); }
 .c-tailor__work--more:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* CR-m1: Rush fees print at body size like Prices — a row per tier, hairline between */
 .c-tailor__rush .rush-tier { align-items: center; min-height: 44px; padding-block: var(--space-8); }
 .c-tailor__rush .rush-tier + .rush-tier { box-shadow: inset 0 1px 0 var(--hairline); }
 .c-tailor__rush .rush-tier__when { font-weight: 500; color: var(--ink); }
-.c-tailor__rush .rush-tier__fee { font-weight: 600; color: var(--ink); }
+.c-tailor__rush .rush-tier__fee { font-weight: 500; color: var(--ink); }

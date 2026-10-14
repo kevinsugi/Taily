@@ -15,7 +15,7 @@ import * as A from '../account.js';
 import { withLatency } from '../sim.js';
 import { fmtExact } from '../money.js';
 import { RETURN_LABEL, ZIP_INFO } from '../data.js';
-import { META_ICONS } from '../icons.js';
+import { ph, ICON_CARD, ICON_CHECK_12 } from '../icons.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 
 const ID = 'c-ready';
@@ -23,8 +23,7 @@ const ID = 'c-ready';
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
 const nb = (text) => `<span class="nb">${esc(text)}</span>`;
 const money = (cents) => `<span data-money>${fmtExact(cents)}</span>`;
-const ICON = { pickup: META_ICONS.bag, dropoff: META_ICONS.home, courier: META_ICONS.truck };
-const CARD_GLYPH = '<svg width="28" height="20" viewBox="0 0 28 20" fill="none" aria-hidden="true"><rect x="0.75" y="0.75" width="26.5" height="18.5" rx="3.25" stroke="currentColor" stroke-width="1.5"/><path d="M1 6.5h26" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 14h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+const ICON = { pickup: ph('bag-simple', { size: 20, cls: 'icon-20' }), dropoff: ph('house', { size: 20, cls: 'icon-20' }), courier: ph('truck', { size: 20, cls: 'icon-20' }) };   /* return-option leads are 20 px (V6 §B) */
 
 /** Screen-local flags, scoped to the appointment on screen (a different order starts clean). */
 function ui(a) {
@@ -132,12 +131,12 @@ function view() {
     ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Your card was declined', text: `${esc(pillCard)} didn’t go through, and nothing was charged.`, actionLabel: 'Use another card', actionAct: 'pay' })}</div>`
     : '';
   const sameCard = failed && r.method?.id === r.failedId;                 // the failed card is still the one selected
-  /* "Free" sits in the row's value slot (right-aligned, t-body w-600) */
+  /* "Free" sits in the row's value slot (right-aligned, 13 / 600 ink) */
   const rows = offered.map((k) => optionRow({
     name: 'return', value: k, title: `<span class="${ID}__opt">${esc(RETURN_LABEL[k])}${k === 'courier' ? '' : `<span class="${ID}__opt-val">Free</span>`}</span>`, sub: subOf(k, r), checked: sel === k, lead: ICON[k], act: 'return',
   })).join('');
   const single = offered.length === 1
-    ? `<p class="t-small c-600 ${ID}__single">${esc(first)} offers ${esc(RETURN_LABEL[offered[0]].toLowerCase())} for this order.</p>` : '';
+    ? `<p class="t-small c-muted ${ID}__single">${esc(first)} offers ${esc(RETURN_LABEL[offered[0]].toLowerCase())} for this order.</p>` : '';
   const courier = sel === 'courier'
     ? `<div class="${ID}__courier">${courierCard({
       state: courierState, ...(courierState === 'ready' ? c : { miles: c?.miles ?? ZIP_INFO[a.job.zip]?.miles ?? 0 }),   // the distance is known before the price
@@ -165,14 +164,14 @@ ${actionBar({
 function sheetHtml(r, { cardId, busy = false } = {}) {
   const { a, methods } = r;
   const rows = methods.map((m) => optionRow({
-    name: 'card', value: m.id, title: esc(m.label), checked: m.id === cardId, act: 'card',
-    sub: [m.sub ? esc(m.sub) : '', m.declined ? `<span class="${ID}-sheet__declined c-error w-600">Declined just now</span>` : ''].filter(Boolean).join(' · '),
-    lead: m.kind === 'apple' ? '<span class="pay-badge">Pay</span>' : CARD_GLYPH,
+    name: 'card', value: m.id, title: esc(m.label).replace(/(\d+)$/, '<span class="mono">$1</span>'), checked: m.id === cardId, act: 'card',
+    sub: [m.sub ? esc(m.sub) : '', m.declined ? `<span class="${ID}-sheet__declined c-error w-500">Declined just now</span>` : ''].filter(Boolean).join(' · '),
+    lead: m.kind === 'apple' ? '<span class="pay-badge">Pay</span>' : ICON_CARD,
   })).join('');
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   ${moneyRows([{ label: 'Balance', cents: a.money.balance, kind: 'total' }])}
-  <p class="t-small c-600">Your ${money(a.payments.deposit.cents)} deposit is already taken off.</p>
-  <p class="t-caps c-600">Pay with</p>
+  <p class="t-small c-muted">Your ${money(a.payments.deposit.cents)} deposit is already taken off.</p>
+  <p class="t-label">Pay with</p>
   <div class="${ID}-sheet__group" role="radiogroup" aria-label="Pay with"${busy ? ' aria-disabled="true"' : ''}>${rows}</div>
   ${cta(`Pay ${fmtExact(a.money.balance)}`, { busy, busyLabel: 'Paying…', attrs: 'data-act="pay-ok"' })}
 </div>`;
@@ -260,7 +259,7 @@ function openPay(r) {
           const on = row.dataset.value === cardId;
           row.classList.toggle('is-checked', on);
           row.setAttribute('aria-checked', String(on));
-          row.querySelector('.option-row__check').textContent = on ? '✓' : '';
+          row.querySelector('.option-row__check').innerHTML = on ? ICON_CHECK_12 : '';
         });
       } else if (el.dataset.act === 'pay-ok') {
         if (u.quoting) return;                                      // R4-2-C-01: never pay while the courier price is still coming

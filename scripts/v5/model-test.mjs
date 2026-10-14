@@ -969,7 +969,7 @@ section('account + sim');
 section('M1 components');
 {
   const bar = C.bookingSteps(1);
-  ok(bar.includes('stepper--compact') && (bar.match(/stepper__seg--/g) ?? []).length === 5 && bar.includes('Step 2 of 5 · Where and when') && (bar.match(/aria-current="step"/g) ?? []).length === 1, 'bookingSteps: 5 segments, "Step 2 of 5 · Where and when", one aria-current');
+  ok(bar.includes('stepper--compact') && (bar.match(/stepper__seg--/g) ?? []).length === 5 && bar.includes('Step 2 of 5 · <span class="stepper__name">Where and when</span>') && (bar.match(/aria-current="step"/g) ?? []).length === 1, 'bookingSteps: 5 segments, "Step 2 of 5 · Where and when", one aria-current');
   eq(C.BOOKING_STEPS.length, 5, 'BOOKING_STEPS has 5 steps');
   ok(/disabled aria-disabled="true"/.test(C.cta('X', { disabled: true })), 'cta: disabled emits disabled + aria-disabled');
   const busy = C.cta('X', { busy: true, busyLabel: 'Working…' });
@@ -984,9 +984,9 @@ section('M1 components');
   const stitched = C.moneyRows([{ label: 'A', cents: 100 }, { label: 'Total', cents: 100, kind: 'total' }]);
   ok((stitched.match(/class="stitch"/g) || []).length === 1 && stitched.indexOf('stitch') < stitched.indexOf('money-row--total'), 'moneyRows: one stitched dash, directly above the total (D-197)');
   ok(C.statusPill('confirmed').includes('status--progress') && C.statusPill('suggested').includes('status--action') && C.statusPill('completed').includes('status--done'), 'statusPill: a dot + a word, warm tones (D-188)');
-  ok(C.topNav('home').includes('aria-label="Bookings"') && !C.topNav('home').includes('top-nav__label'), 'topNav: icon links with aria-labels (D-187)');
+  ok(C.topNav('home').includes('aria-label="Bookings"') && C.topNav('home').includes('top-nav__label'), 'topNav: icon + label links, aria-label starts with the visible label (V6-D-11)');
   const opt = C.optionRow({ name: 'sort', value: 'near', title: 'Nearest', sub: 'Closest first', checked: true, lead: 'L' });
-  ok(opt.includes('role="radio"') && opt.includes('aria-checked="true"') && opt.includes('data-name="sort"') && opt.includes('data-value="near"') && opt.includes('✓'), 'optionRow: radio, checked, data hooks');
+  ok(opt.includes('role="radio"') && opt.includes('aria-checked="true"') && opt.includes('data-name="sort"') && opt.includes('data-value="near"') && opt.includes('class="ph icon-12"'), 'optionRow: radio, checked, data hooks');
   ok(C.optionRow({ title: 'A' }).includes('aria-checked="false"'), 'optionRow: unchecked');
 }
 

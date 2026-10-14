@@ -7,7 +7,7 @@
 import { register, render as go, currentScreen } from '../app.js';
 import { state } from '../state.js';
 import {
-  chrome, headingRow, actionBar, emptyState, field, chipGroup, checkRow, cta, sheetOverlay, toast, wireChipGroups, banner, esc,
+  chrome, headingRow, actionBar, emptyState, field, chipGroup, checkRow, cta, sheetOverlay, toast, wireChipGroups, banner, esc, tag, textLink, ph,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import { ADDRESS_LABELS, SHOP_CITY } from '../data.js';
@@ -26,15 +26,17 @@ function card(a, busy) {
   const mine = busy?.id === a.id;
   const lock = busy ? ' disabled aria-disabled="true"' : '';
   const verb = mine ? { 'make-default': 'Updating…', remove: 'Removing…' }[busy.kind] : null;
-  return `<article class="${ID}__card" data-id="${esc(a.id)}"${a.default ? ' data-default="true"' : ''}${mine ? ' aria-busy="true"' : ''}>
+  const verbOf = (kind, idle) => (mine && busy.kind === kind ? verb : idle);
+  return `<article class="${ID}__card card" data-id="${esc(a.id)}"${a.default ? ' data-default="true"' : ''}${mine ? ' aria-busy="true"' : ''}>
   <div class="${ID}__head">
-    <h2 class="t-body w-600 ${ID}__label">${esc(a.label)}</h2>
-    ${a.default ? `<span class="${ID}__tag t-micro w-700">Default</span>` : ''}
+    <span class="${ID}__pin" aria-hidden="true">${ph('map-pin', { size: 16 })}</span>
+    <h2 class="t-body w-600 c-ink ${ID}__label">${esc(a.label)}</h2>
+    ${a.default ? tag('Default', 'grey', { cls: `${ID}__tag` }) : ''}
   </div>
-  <p class="t-body c-700 ${ID}__lines">${esc(a.street)}${a.unit ? `, ${esc(a.unit)}` : ''}<br>${esc(a.city)}, ${esc(a.state)} ${esc(a.zip)}</p>
+  <p class="t-body c-text ${ID}__lines">${esc(a.street)}${a.unit ? `, ${esc(a.unit)}` : ''}<br>${esc(a.city)}, ${esc(a.state)} ${esc(a.zip)}</p>
   <div class="${ID}__actions">
-    ${a.default ? '' : `<button type="button" class="${ID}__btn t-body w-600 c-accent-ink" data-act="make-default" data-id="${esc(a.id)}"${lock}>${mine && busy.kind === 'make-default' ? verb : 'Make default'}</button>`}
-    <button type="button" class="${ID}__btn t-body w-600 c-error" data-act="remove" data-id="${esc(a.id)}"${lock}>${mine && busy.kind === 'remove' ? verb : 'Remove'}</button>
+    ${a.default ? '' : textLink(verbOf('make-default', 'Make default'), { act: 'make-default', attrs: `data-id="${esc(a.id)}"`, disabled: !!busy })}
+    ${textLink(verbOf('remove', 'Remove'), { act: 'remove', tone: 'danger', attrs: `data-id="${esc(a.id)}"`, disabled: !!busy })}
   </div>
   ${ui().error?.id === a.id ? `<div class="${ID}__error" role="alert">${banner({ tone: 'error', title: ui().error.title, text: ui().error.text })}</div>` : ''}
 </article>`;
@@ -58,7 +60,7 @@ function view() {
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
   ${title}
   <div class="${ID}__cards">${rows.map((a) => card(a, busy)).join('')}</div>
-  <p class="t-small c-600 ${ID}__note">New bookings start from your default address.</p>
+  <p class="t-small c-muted ${ID}__note">New bookings start from your default address.</p>
 </main>
 ${actionBar({ ctaLabel: 'Add an address', ctaAct: 'add', busy: false })}`;
 }

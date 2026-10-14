@@ -1,12 +1,12 @@
 /* c-code — layout only; the code input, heading row and action bar are shared components. */
-.c-code__lead { margin: var(--space-8) 0 var(--space-24); }
+.c-code__lead { max-width: 30em; margin: var(--space-8) 0 var(--rhythm-major); }
 .c-code__change {
   display: inline; padding: var(--space-12) var(--space-4); margin: calc(var(--space-12) * -1) calc(var(--space-4) * -1);
-  font: inherit; font-weight: 600; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px;
+  font: inherit; font-weight: 500; color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-color: var(--stitch-ink);
 }
 .c-code__wait { margin: var(--space-16) 0 0; font-variant-numeric: tabular-nums; }
 .c-code__resend {
   align-self: flex-start; min-height: 44px; margin-top: var(--space-8); padding-inline: 0;
-  font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--accent-ink);
+  font-size: var(--size-16); line-height: 1.5; font-weight: 500; color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-color: var(--stitch-ink);
 }
-.c-code__resend:disabled { opacity: 0.4; cursor: not-allowed; }
+.c-code__resend:disabled { color: var(--text-faint); text-decoration: none; cursor: not-allowed; }

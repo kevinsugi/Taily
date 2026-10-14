@@ -77,7 +77,7 @@ function view(s) {
     ? readOnlyBanner({ text: 'You declined this request, so the conversation is closed.', ctaLabel: 'Back to Home', ctaAct: 'home' })
     : composer({ value: draft, placeholder: `Message ${first}`, hint, photos: u.photos ?? 0, max: maxPhotos(), disabled: busy, photoType: gType });
   return `${chrome('messages', { persona: 'tailor' })}
-<main class="body ${ID}"${busy ? ' aria-busy="true"' : ''}>
+<main class="body ${ID}${(u.failed ?? []).length ? ` ${ID}--failed` : ''}"${busy ? ' aria-busy="true"' : ''}>
   ${headingRow(head, { sticky: true })}
   <div class="${ID}__context">${contextRow(a)}</div>
   <div class="${ID}__note">${privacyNote()}</div>

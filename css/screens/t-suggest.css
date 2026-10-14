@@ -1,11 +1,12 @@
 /* t-suggest — T3 Suggest another time. Tokens only. */
 .t-suggest { padding-bottom: var(--space-32); }
-.t-suggest__lead { margin: var(--space-8) 0 0; }
+.t-suggest__lead { margin: var(--space-8) 0 0; max-width: 34em; }
 .t-suggest__error { margin-top: var(--space-16); }
 .t-suggest__sched { margin-top: var(--space-24); }
+.t-suggest__sched .scheduler__note .t-small { color: var(--ink); font-weight: 600; }
 .t-suggest__sched[inert] .wheel { opacity: 0.5; }   /* M6-C-12 / AU-P3-1: only the wheel dims while the suggestion is sending; the summary stays full ink */
 @media (prefers-reduced-motion: no-preference) { .t-suggest__sched .wheel { transition: opacity 160ms ease; } }
-.t-suggest__price { margin-top: var(--space-16); display: flex; flex-direction: column; gap: var(--space-4); }
+.t-suggest__price { margin-top: var(--space-24); display: flex; flex-direction: column; gap: var(--space-8); }
 .t-suggest__same, .t-suggest__turn { margin: 0; }
-.t-suggest__by { margin: var(--space-4) 0 0; }
+.t-suggest__by { margin: var(--space-8) 0 0; }
 .t-suggest__empty { margin-top: var(--space-24); }

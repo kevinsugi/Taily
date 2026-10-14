@@ -43,6 +43,31 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .page-actions { display: flex; flex-direction: column; align-items: stretch; gap: var(--rhythm-group); margin-top: var(--rhythm-major); }
 .page-actions__links { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-24); }
 
+/* ---------- K-07 (D-222): chrome on the page ground, hairline on scroll ----------
+   No permanent line. js/app.js (wireScrollEdges) sets #screen[data-scrolled] when the page is scrolled from the top and
+   #screen[data-more] while content continues below the viewport; the 1px --hairline edge (nav bottom, action-bar top) fades in then.
+   html.is-test already kills transitions (base.css), so a baseline is static; reduced motion drops the fade too. */
+.top-nav::after, .action-bar::before { content: ''; position: absolute; left: 0; right: 0; height: 1px; background: var(--hairline); opacity: 0; pointer-events: none; transition: opacity 150ms var(--ease-out); }
+.top-nav::after { bottom: 0; }
+.action-bar::before { top: 0; }
+#screen[data-scrolled="true"] .top-nav::after, #screen[data-more="true"] .action-bar::before { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .top-nav::after, .action-bar::before { transition: none; } }
+/* The status bar, top nav and system banner stay pinned while the page scrolls under them (a screen with a top nav only; the booking
+   flow bar and the onboarding bar keep scrolling away, unchanged). Fixed, centred in the 390 column. */
+.screen:has(> .top-nav) > :is(.status-bar, .top-nav, .sys-banner) { position: fixed; left: 0; right: 0; margin-inline: auto; }
+.screen:has(> .top-nav) > .status-bar { top: 0; }
+.screen:has(> .top-nav) > .top-nav { top: 44px; }
+.screen:has(> .top-nav) > .sys-banner { top: var(--chrome-h); }
+.screen:has(> .top-nav) .heading-row--sticky { top: var(--chrome-h); }
+.screen:has(> .top-nav).has-sys-banner .heading-row--sticky { top: calc(var(--chrome-h) + var(--sys-banner-h)); }
+/* html.is-test (harness): full-page screenshots of a pinned bar land wherever the page happened to be scrolled, so the bars stay in flow position (absolute, as before K-07) and a baseline is static */
+html.is-test .screen:has(> .top-nav) > :is(.status-bar, .top-nav, .sys-banner) { position: absolute; left: 0; right: auto; margin-inline: 0; }
+html.is-test .screen:has(> .top-nav) > .status-bar { top: 0; }
+html.is-test .screen:has(> .top-nav) > .top-nav { top: 44px; }
+html.is-test .screen:has(> .top-nav) .heading-row--sticky { top: 0; }
+/* the booking flow bar keeps its white; so does the status bar above it */
+.screen:has(> .flow-bar) > .status-bar { background: var(--white); }
+
 /* ---------- top nav: four icon links, each a 44 x 44 hit area (M7 A5.2; base.css owns the box + active stitch) ---------- */
 .top-nav__links { gap: var(--space-4); margin-right: calc(-1 * var(--space-8)); }
 .nav-icon { display: block; width: 24px; height: 24px; flex-shrink: 0; }
@@ -54,7 +79,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .top-nav--back .top-nav__links { margin-left: auto; }
 @media (hover: hover) { .top-nav__back:hover { background: var(--neutral-50); } }
 /* D-164 / D-187: count dot hangs off the icon's corner so no link ever shifts */
-.top-nav__dot { position: absolute; top: -2px; right: -3px; width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--accent-base); box-shadow: 0 0 0 2px var(--white); }
+.top-nav__dot { position: absolute; top: -2px; right: -3px; width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--accent-base); box-shadow: 0 0 0 2px var(--neutral-50); }
 @media (hover: hover) {
   .top-nav__link:not(.is-active):hover { color: var(--ink); background: var(--neutral-50); }
 }
@@ -293,14 +318,14 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 }
 @keyframes cta-spin { to { transform: rotate(360deg); } }
 
-/* ---------- action bar: sticky white bottom bar, a sibling of main.body inside #screen ---------- */
+/* ---------- action bar: sticky bottom bar on the page ground (K-07), a sibling of main.body inside #screen ---------- */
 .screen:has(> .action-bar) { display: flex; flex-direction: column; }
 .screen > .body--with-bar { flex: 1 0 auto; padding-bottom: calc(var(--bar-h) + var(--space-24)); }
 .action-bar {
   position: sticky; bottom: 0; z-index: 5; flex-shrink: 0;
   display: flex; flex-direction: column; gap: var(--space-8);
   width: 100%; max-width: 390px; padding: var(--space-12) var(--space-20) var(--space-20);
-  background: var(--white); box-shadow: inset 0 1px 0 var(--neutral-200);
+  background: var(--neutral-50);
 }
 .action-bar__lead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-8); margin: 0; font-variant-numeric: tabular-nums; }
 .action-bar__lead b { font-weight: 600; color: var(--ink); }

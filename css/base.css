@@ -94,7 +94,7 @@ a {
    Sizes and offsets verified in Phase 0 across all 14 nav screens.
    Both are 1:1 with the Figma instances (V2/Status Bar 122:114, Top Nav 197:437). */
 
-/* Status bar — Figma: white, space-between, padding-top 12, padding-inline 28. */
+/* Status bar — space-between, padding-top 12, padding-inline 28. K-07 (D-222): the page ground, not white. */
 .status-bar {
   position: absolute;
   inset: 0 auto auto 0;
@@ -102,7 +102,7 @@ a {
   max-width: 390px;
   height: 44px;
   z-index: 2;
-  background: var(--white);
+  background: var(--neutral-50);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -131,7 +131,7 @@ a {
   .status-bar { display: none; }
 }
 
-/* Top nav — Figma: white, space-between, padding-inline 20, hairline bottom border. */
+/* Top nav — space-between, padding-inline 20. K-07 (D-222): the page ground, no permanent border; the hairline (::after, components-v5.css) fades in on scroll. */
 .top-nav {
   position: absolute;
   inset: 44px auto auto 0;
@@ -139,15 +139,11 @@ a {
   max-width: 390px;
   height: 56px;
   z-index: 2;
-  background: var(--white);
+  background: var(--neutral-50);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding-inline: var(--space-20);
-  /* inset shadow, not border-bottom: a real border would shrink the
-     content box to 55px and throw vertical centring off by 0.5px.
-     Figma's stroke does not consume layout. */
-  box-shadow: inset 0 -1px 0 var(--hairline);
 }
 
 /* The script-wordmark logo (replaced the Cormorant text wordmark). */

@@ -230,6 +230,8 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
 
   /* M6-A-08: the sticky action bar's height (+16) is what the content must clear — scroll-padding and the body's bottom padding read it */
   syncBarHeight(el);
+  /* K-07 (D-222): hairline on scroll — the top nav's bottom edge once the page is scrolled, the action bar's top edge while content continues below */
+  wireScrollEdges(el);
   announce(id);
   /* M6-A-04: a new screen moves focus to its h1 so a screen reader starts at the title; an open overlay keeps the focus it set */
   if (prevScreen !== id && el.isConnected && !overlayOpen() && !el.contains(document.activeElement)) {   // a wire() that focused a field keeps it
@@ -287,6 +289,36 @@ function restoreFocus(root) {
 }
 
 let barObserver = null;
+/* K-07 (D-222): #screen[data-scrolled] (page scrolled from the top) and #screen[data-more] (content continues below the viewport) drive the
+   chrome hairlines in components-v5.css. One passive scroll listener per screen, coalesced into one rAF; writes only when a flag flips.
+   Under html.is-test the flags are set at paint and never follow resize / content changes, so a full-page screenshot is deterministic. */
+let edgeOff = null;
+function wireScrollEdges(el) {
+  edgeOff?.();
+  edgeOff = null;
+  if (!el.isConnected) return;
+  const doc = document.documentElement;
+  const set = (name, on) => { const v = on ? 'true' : 'false'; if (el.dataset[name] !== v) el.dataset[name] = v; };
+  const measure = () => {
+    set('scrolled', window.scrollY > 0);
+    set('more', doc.scrollHeight - window.scrollY - window.innerHeight > 1);
+  };
+  measure();
+  let raf = 0;
+  const queue = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; measure(); }); };
+  window.addEventListener('scroll', queue, { passive: true });
+  const off = [() => window.removeEventListener('scroll', queue)];
+  if (!doc.classList.contains('is-test')) {
+    window.addEventListener('resize', queue, { passive: true });
+    off.push(() => window.removeEventListener('resize', queue));
+    if (typeof ResizeObserver !== 'undefined') { const ro = new ResizeObserver(queue); ro.observe(el); off.push(() => ro.disconnect()); }
+  }
+  /* the first paint can still settle (fonts, the scroll reset above): measure once more next frame */
+  queue();
+  off.push(() => cancelAnimationFrame(raf));
+  edgeOff = () => off.forEach((f) => f());
+}
+
 function syncBarHeight(el) {
   const root = document.documentElement;
   barObserver?.disconnect();

@@ -10,7 +10,7 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 | M3 Request loop | **done** | see git log | M3 sections on both pages (t-request/t-job/c-bookings re-sync in M4) | review r2 fixed + director fixes | | | |
 | M4 Fitting → completion | **done** (07fb6b4) + K-01 done | | M4 frames; M3 re-synced | 25 P3s in .shots/M4-p3.json → M6 | | | |
 | M5 Messaging, accounts, earnings, system | integrated (`npm run check` green; review pending) | — | — | 8 new screens + M5 states on c-thread / t-thread / hosts, journeys J7–J9; re-accepted on purpose: c-thread--new, t-thread (header + context row), sys-components (M5 gallery), sys-index (new screens listed); t-thread--declined removed (now t-thread--read-only) |
-| M6 Final pass | todo | | | |
+| M6 Final pass | in progress | | | |
 
 **Next action:** M0 Figma pages (the 4 pages, `Flow v5`, new components on Explorations), then commit M0 and start M1 (customer booking).
 

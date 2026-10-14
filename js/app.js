@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { state } from './state.js';
-import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wireVerified } from './components.js';
+import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wireVerified, withNavBack } from './components.js';
 import { SCREENS } from './inventory.js';
 import { systemBanner, wireSystem } from './system.js';
 
@@ -199,7 +199,7 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   /* a toast never outlives its screen: any change of screen id (or persona) clears it.
      Re-rendering the SAME screen keeps it (an Undo toast survives the re-render that follows). */
   if (prevScreen !== id) clearToasts();
-  el.innerHTML = entry.view(state);
+  el.innerHTML = withNavBack(entry.view(state));
   /* M5 system layer (D-138): the offline banner sits under the top bar of every screen */
   const sys = systemBanner(state);
   if (sys) {

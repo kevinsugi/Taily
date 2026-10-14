@@ -1,5 +1,4 @@
 /* c-code — layout only; the code input, heading row and action bar are shared components. */
-.c-code { padding-top: calc(44px + var(--space-32)); }
 .c-code__lead { margin: var(--space-8) 0 var(--space-24); }
 .c-code__change {
   display: inline; padding: var(--space-12) var(--space-4); margin: calc(var(--space-12) * -1) calc(var(--space-4) * -1);

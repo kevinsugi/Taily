@@ -483,6 +483,7 @@ export function galleryHtml() {
   h2('M7 · polish — nav icons, flow bar');
   const navDemo = (html) => s.push(`<div style="position:relative;height:56px;width:390px;margin-inline:-20px">${html.replace('<nav class="top-nav"', '<nav class="top-nav" style="top:0"')}</div>`);
   v('customer nav: Home active · Messages with an unread dot'); navDemo(C.topNav('home', C.NAV.customer, { badges: { messages: 2 } }));
+  v('nav with Back (K-06): the chevron replaces the logo'); navDemo(C.topNav('bookings', C.NAV.customer, { back: true }));
   v('tailor nav: Earnings active · Home with a dot'); navDemo(C.topNav('earnings', C.NAV.tailor, { badges: { home: 1 } }));
   v('flowBar: step 2 of 5 · busy (Back and ✕ locked)');
   s.push(`<div style="position:relative;height:100px;width:390px;margin-inline:-20px">${C.flowBar({ step: 1 })}</div>`);

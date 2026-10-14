@@ -1,5 +1,4 @@
 /* t-phone — layout only; the field, banner, heading row and action bar are shared components. */
-.t-phone { padding-top: calc(44px + var(--space-32)); }
 .t-phone__eyebrow { margin: 0 0 var(--space-4); }
 .t-phone__lead { margin: var(--rhythm-tight) 0 0; }
 .t-phone__saved { margin-top: var(--rhythm-section); }

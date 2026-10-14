@@ -74,6 +74,8 @@ export const ICON_PIN = `<svg class="icon-pin" aria-hidden="true" focusable="fal
    M7 (K-03, D-187): top-nav icons (24 viewBox, 1.5 stroke, currentColor) and the 16 px line glyphs of the same family
    ============================================================ */
 const NAV24 = (d) => `<svg class="nav-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${d}</svg>`;
+/* K-06 (D-221): the top-nav Back chevron — the nav icons' own 24 viewBox / 1.5 round stroke, so it weighs the same as they do */
+export const NAV_BACK = NAV24('<path d="M13 5.5 6.5 12l6.5 6.5"/>');
 export const NAV_ICONS = {
   /* house: roof, walls, door */
   home: NAV24('<path d="M3.75 10.5 12 3.75l8.25 6.75"/><path d="M5.75 9v11.25h12.5V9"/><path d="M10 20.25v-5.5h4v5.5"/>'),

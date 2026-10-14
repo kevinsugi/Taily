@@ -47,6 +47,12 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .top-nav__links { gap: var(--space-4); margin-right: calc(-1 * var(--space-8)); }
 .nav-icon { display: block; width: 24px; height: 24px; flex-shrink: 0; }
 .top-nav__icon { position: relative; display: inline-flex; }
+/* K-06 (D-221): the Back chevron takes the logo's place at the left: a 44 x 44 target, the chevron's stroke edge on the 20 px gutter */
+.top-nav__back { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; height: 44px; margin: 0 0 0 calc(-1 * var(--space-16)); padding: 0; border: 0; border-radius: var(--radius-md); background: none; color: var(--ink); font: inherit; }
+.top-nav__back::after { content: ''; position: absolute; inset: 0; }
+.top-nav__back:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.top-nav--back .top-nav__links { margin-left: auto; }
+@media (hover: hover) { .top-nav__back:hover { background: var(--neutral-50); } }
 /* D-164 / D-187: count dot hangs off the icon's corner so no link ever shifts */
 .top-nav__dot { position: absolute; top: -2px; right: -3px; width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--accent-base); box-shadow: 0 0 0 2px var(--white); }
 @media (hover: hover) {
@@ -614,22 +620,16 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .work-list__estimate { margin-top: var(--space-4); box-shadow: inset 0 1px 0 var(--neutral-200); }
 .work-list__estimate .price-row__label, .work-list__estimate .price-row__value { font-weight: 600; }
 
-/* ---------- the heading (K-04, D-203): status line · Back + title row · notes ----------
-   headingRow(inner, { back, status, trailing, sticky }). The status line sits on its own line; then ONE row, the Back chevron and the
-   h1 (the chevron's 44 px box is pulled 12 px into the gutter so the glyph lands on the 20 px edge; the title starts 4 px after it and
-   wraps beside it, a hanging indent; the chevron is centred on the title's FIRST line); then the notes at the screen padding. */
-.heading-lead { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); width: 100%; margin-bottom: var(--space-4); }
+/* ---------- the heading (K-06, D-221): status line · title row · notes, ALL flush on the 20 px gutter edge ----------
+   headingRow(inner, { back, status, trailing, sticky }). The Back is not here: it sits in the top nav (see .top-nav__back). The status
+   line sits on its own line, --rhythm-tight above the h1; then the title row; then the notes at the screen padding. */
+.heading-lead { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); width: 100%; margin-bottom: var(--rhythm-tight); }
 .heading-lead > p { margin: 0; }
 .heading-row { display: flex; align-items: flex-start; gap: var(--space-4); width: 100%; min-width: 0; }
 .heading-row__body { flex: 1 1 0; min-width: 0; }
 .heading-row__body > h1 { margin: 0; text-wrap: balance; }
-.heading-row .back { position: relative; display: inline-flex; align-items: center; justify-content: flex-start; flex: 0 0 44px; width: 44px; height: 44px; margin: -5px 0 -5px calc(-1 * var(--space-12)); padding: 0 0 0 var(--space-12); font-size: var(--size-28); line-height: 1; }
-.heading-row .back::after { inset: 0; }
-.heading-row .back:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; border-radius: var(--radius-md); }
-.heading-row--solo .heading-row__body { flex-basis: 100%; }
-/* a thread head (avatar + name + sub) is taller than one line: the chevron centres on the whole head */
+/* a thread head (avatar + name + sub) is taller than one line */
 .heading-row--head { align-items: center; }
-.heading-row--head .back { margin-block: 0; }
 .heading-row__trail { display: flex; align-items: center; align-self: flex-start; flex-shrink: 0; margin: -5px calc(-1 * var(--space-12)) -5px auto; }
 /* the thread screens keep the head in view while the messages scroll (AU-P2-4) */
 .heading-row--sticky { position: sticky; top: 0; z-index: 4; padding-block: var(--space-8); margin-block: calc(-1 * var(--space-8)); background: var(--neutral-50); }

@@ -56,8 +56,10 @@ export const NAV = {
  * Top nav (M7 A5.2, D-187): the logo and four 44 x 44 ICON links. The label is the link's aria-label + title. `badges` (D-164):
  * `{ home: 2, messages: 1 }` — a count above 0 draws an 8 px accent dot on the icon and a spoken ", n unread" (messages) /
  * ", n new" (anything else). The active link is ink at 1.75 stroke with an accent stitch under it.
+ * K-06 (D-221): `back` seats the 44 x 44 Back chevron at the left IN PLACE OF the logo (a screen whose heading has a Back);
+ * the icon links stay at the right. `withNavBack(html)` (app.js) turns on `back` for any screen that holds the headingRow marker.
  */
-export function topNav(active = 'home', items = NAV.customer, { badges = {} } = {}) {
+export function topNav(active = 'home', items = NAV.customer, { badges = {}, back = false } = {}) {
   const links = items.map(([key, label]) => {
     const isActive = key === active;
     const n = Number(badges[key]) || 0;
@@ -68,12 +70,29 @@ export function topNav(active = 'home', items = NAV.customer, { badges = {} } = 
     </a>`;
   }).join('\n    ');
 
-  return `<nav class="top-nav" aria-label="Primary">
-  ${LOGO}
+  return `<nav class="top-nav${back ? ' top-nav--back' : ''}" aria-label="Primary">
+  ${back ? navBackButton() : LOGO}
   <div class="top-nav__links">
     ${links}
   </div>
 </nav>`;
+}
+
+/** The nav's Back (K-06): a 44 x 44 chevron button where the logo would be. `.back[data-act="back"]` is what app.js wireBackButtons steps. */
+export const navBackButton = () => `<button type="button" class="back top-nav__back" data-act="back" aria-label="Back" title="Back">${NAV_BACK}</button>`;
+const NAV_BACK_MARK = '<!--nav-back-->';
+/**
+ * K-06 (D-221): a screen's heading says it has a Back by calling headingRow({ back }) (the default), which leaves a NAV_BACK_MARK
+ * in the markup. The router runs every built screen through this: the marker goes, and the nav's logo becomes the Back chevron.
+ * A screen with a status bar but no nav (the sign-in screens) gets a Back-only bar; a flow bar / onboarding bar already holds its own Back.
+ */
+export function withNavBack(html) {
+  if (!html.includes(NAV_BACK_MARK)) return html;
+  const out = html.split(NAV_BACK_MARK).join('');
+  if (/class="top-nav__logo"/.test(out)) return out.replace(/<svg class="top-nav__logo"[\s\S]*?<\/svg>/, navBackButton()).replace('<nav class="top-nav"', '<nav class="top-nav top-nav--back"');
+  if (/class="(flow-bar|ob-bar)\b/.test(out)) return out;
+  const bar = topNav(null, [], { back: true });
+  return /<div class="status-bar"[\s\S]*?<\/div>/.test(out) ? out.replace(/(<div class="status-bar"[\s\S]*?<\/div>)/, `$1\n${bar}`) : `${bar}\n${out}`;
 }
 
 /** Both chrome pieces, in the order screens use them. */
@@ -106,7 +125,7 @@ export function navBadges(persona = 'customer') {
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, ICON_HANGER, ICON_PIN, NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR } from './icons.js';
+import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, ICON_HANGER, ICON_PIN, NAV_ICONS, NAV_BACK, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR } from './icons.js';
 export { NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR };
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
 import * as DATA from './data.js';
@@ -340,22 +359,21 @@ export function visitBlock(rows = [], { title = 'Visit details', flush = false, 
   return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${sectionHead(title, { aside: action })}${rows.map((r) => `<span class="visit-block__row">${r}</span>`).join('')}</div>`;
 }
 
-/** The Back control (308:3820) — "‹" 28 Regular ink in a 36-tall, 8-padded
-    box. `headingRow` seats it left of a screen's heading block (gap 4,
-    centred), round 15: every heading but Home's. The router wires every
-    `.back` to step the prototype's history (app.js wireBackButtons). */
+/** The Back control (308:3820) — K-06 (D-221): it now lives in the TOP NAV (`navBackButton`), where it replaces the logo; `backButton()`
+    is the plain "‹" 28 chevron the booking flow bar and the onboarding bar keep. The router wires every `.back[data-act="back"]`
+    to step the prototype's history (app.js wireBackButtons). */
 export const backButton = () => '<button type="button" class="back" data-act="back" data-hit="inline" aria-label="Back">‹</button>';
-/* K-04 (Kevin, D-203): the heading anatomy on every screen that has one.
+/* K-06 (Kevin, D-221): the heading anatomy on every screen that has one, flush on the 20 px gutter edge:
      1. the status line (the 8 px dot + word) on its own line, when the screen has one — `statusHero` hands its pill up through
         a <!--status--> marker, any other screen passes `status`;
-     2. ONE row = the Back chevron + the `h1`. The chevron's 44 px hit box is pulled 12 px into the gutter so the glyph sits on the
-        20 px text edge; the title starts 4 px after the box and wraps beside it; the chevron is centred on the title's FIRST line;
+     2. ONE row = the `h1` (and `trailing`);
      3. the notes (statusHero's body + extra, or a screen's own <!--notes-->…<!--/notes--> block) at the screen padding, full width.
-   `back: false` keeps the title alone (tab roots, the booking path whose Back is in the flow bar, D-205). `trailing` = HTML at the
-   row's right end (t-job's •••). `sticky` pins the row to the top while the page scrolls (the thread screens, AU-P2-4). Anything
-   between the status and the `h1` (an eyebrow) rides with the status line; anything after the `h1` (statusHero's figure row) follows
-   the row at the padding. A head whose `h1` is nested in a larger block (`threadHead`, c-tailor's avatar + name) takes `whole: true` (the
-   thread head is detected): the block is the row's body and the chevron centres on all of it. */
+   The Back is NOT in the heading any more: `back` (default true) only leaves a marker so `withNavBack` puts the Back chevron in the
+   top nav in place of the logo; `back: false` = a tab root (logo stays) or a path whose Back is in the flow / onboarding bar.
+   `trailing` = HTML at the row's right end (t-job's •••). `sticky` pins the row to the top while the page scrolls (the thread screens,
+   AU-P2-4). Anything between the status and the `h1` (an eyebrow) rides with the status line; anything after the `h1` (statusHero's
+   figure row) follows the row at the padding. A head whose `h1` is nested in a larger block (`threadHead`, c-tailor's avatar + name)
+   takes `whole: true` (the thread head is detected). */
 export function headingRow(inner, { back = true, status = '', trailing = '', sticky = false, whole = false } = {}) {
   const n = /<!--notes-->([\s\S]*?)<!--\/notes-->/.exec(inner);
   const notes = n ? n[1] : '';
@@ -370,8 +388,8 @@ export function headingRow(inner, { back = true, status = '', trailing = '', sti
   const wholeHead = whole || /class="thread-head"/.test(head);
   if (h1 && !wholeHead) { lead = head.slice(0, h1.index); body = h1[0]; after = head.slice(h1.index + h1[0].length); }
   const top = `${statusHtml}${lead}`.trim();
-  const cls = `heading-row${back ? '' : ' heading-row--solo'}${wholeHead ? ' heading-row--head' : ''}${sticky ? ' heading-row--sticky' : ''}`;
-  return `${top ? `<div class="heading-lead">${top}</div>` : ''}<div class="${cls}">${back ? backButton() : ''}<div class="heading-row__body">${body}</div>${trailing ? `<div class="heading-row__trail">${trailing}</div>` : ''}</div>${after.trim() ? `<div class="heading-after">${after}</div>` : ''}${notes}`;
+  const cls = `heading-row${wholeHead ? ' heading-row--head' : ''}${sticky ? ' heading-row--sticky' : ''}`;
+  return `${back ? NAV_BACK_MARK : ''}${top ? `<div class="heading-lead">${top}</div>` : ''}<div class="${cls}"><div class="heading-row__body">${body}</div>${trailing ? `<div class="heading-row__trail">${trailing}</div>` : ''}</div>${after.trim() ? `<div class="heading-after">${after}</div>` : ''}${notes}`;
 }
 
 /** ✓ badges (round 14): success-bg pills, 12/16 SemiBold success. */

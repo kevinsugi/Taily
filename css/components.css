@@ -74,7 +74,7 @@
   flex-shrink: 0;
 }
 .status--action { color: var(--status-action-ink); font-weight: 700; }
-.status--action .status__dot { background: var(--status-action); box-shadow: 0 0 0 3px var(--status-action-halo); }
+.status--action .status__dot { background: var(--status-action); }   /* K-06 (D-221): no halo — the dot sits flush on the gutter edge, level with the title */
 .status--pending { color: var(--status-pending-ink); }
 .status--pending .status__dot { background: var(--status-pending); }
 .status--progress { color: var(--status-progress-ink); }

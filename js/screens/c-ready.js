@@ -6,10 +6,10 @@
    Which appointment: focusAppt (D-72). Screen-local flags: state.ui['c-ready'] { apptId, quoting, cardId }.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorById, returnOffer, returnAddress } from '../state.js';
+import { state, T, tailorById, returnOffer, returnAddress, priceChangeView } from '../state.js';
 import {
   chrome, headingRow, statusHero, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
-  sheetOverlay, cta, toast, esc,
+  sheetOverlay, cta, toast, esc, changeList,
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
@@ -85,6 +85,15 @@ function disabledNote(r) {
 }
 
 /* ---------- view ---------- */
+/** "Your order" (K-2-01, D-127): what the balance pays for — the approved lines, plain rows, as on c-booking and Amara's "The work". */
+function orderSection(a) {
+  if (!a.lines?.length) return '';
+  const added = new Set(a.job.garments.filter((g) => g.added).map((g) => g.id));
+  const garments = priceChangeView(a, a.lines).garments.map((g) => (added.has(g.id) ? { ...g, newItem: true } : g));
+  return `<h2 class="t-h2 ${ID}__h2 ${ID}__h2--order">Your order</h2>
+  <div class="${ID}__order">${changeList({ garments })}</div>`;
+}
+
 function view() {
   const head = chrome('bookings');
   const r = read();
@@ -126,6 +135,7 @@ function view() {
   <div class="${ID}__group" role="radiogroup" aria-labelledby="ready-ways">${rows}</div>
   ${single}
   ${courier}
+  ${orderSection(a)}
   <h2 class="t-h2 ${ID}__h2 ${ID}__h2--price">Price</h2>
   ${customerBreakdown(a.money, { stage: 'ready', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true })}
 </main>

@@ -23,7 +23,7 @@ import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime } from '../date
 import {
   chrome, headingRow, statusHero, visitBlock, avatar, cta, listRow, banner, tailorBreakdown, moneyRows, workList,
   emptyState, sheetOverlay, chipGroup, wireChipGroups, toast, esc, wirePhotoViewer,
-  actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, deltaFigure, courierCard,
+  actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, changeSummary, deltaFigure, courierCard,
 } from '../components.js';
 
 const ID = 't-job';
@@ -154,26 +154,25 @@ function copyFor(key, a, t, v, pv) {
       note: note(`It’s time for the fitting. Start it when you’re with ${first}.`),
       bar: { ctaLabel: 'Start fitting', ctaAct: 'start-fitting', busy: busy === 'start', busyLabel: 'Starting…', ...msg } };
     case 'fitting': return { ...base, title: `Fitting with ${esc(v.customer.name)}`,
-      note: note(`Check each piece against the estimate. If the price changes, ${first} approves it before you start the work.`),
-      bar: { lead: `You take home <b data-money>${fmtExact(a.money.payout)}</b>`, ctaLabel: 'No changes, start the work', ctaAct: 'no-change', busy: busy === 'no-change', busyLabel: 'Saving…',
-        secondaryLabel: 'Adjust price', secondaryAct: 'adjust', tertiaryLabel: `Message ${first}`, tertiaryAct: 'message' } };
+      note: note(`Go through each piece with ${first}. Add or remove items and services, then send ${first} the final order. You start the work once ${first} approves.`),
+      bar: { lead: `You take home <b data-money>${fmtExact(a.money.payout)}</b>`, ctaLabel: 'Review the order', ctaAct: 'edit-order', ...msg } };
     case 'waiting': return { ...base, title: `Waiting for ${first} to approve`,
-      note: note(`You sent a new price at ${fmtTime(pv.sentAt)}. Don’t start the work until ${first} approves.`),
-      bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Change the new price', secondaryAct: 'revise' } };
+      note: note(`You sent the final order at ${fmtTime(pv.sentAt)}. Start the work once ${first} approves.`),
+      bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
     case 'messaged': {
       /* D-112: Amara already answered → the move is Sarah's (the waiting layout) until she speaks again */
       const last = lastSpeakerSince(a, pv.sentAt);
       if (last?.from === 'tailor') {
         return { ...base, title: `Waiting for ${first} to approve`,
-          note: note(`You replied at ${fmtTime(last.at)}. ${first} can approve now, or you can change the price.`),
-          bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Change the new price', secondaryAct: 'revise' } };
+          note: note(`You replied at ${fmtTime(last.at)}. ${first} can approve now, or you can edit the order.`),
+          bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
       }
-      return { ...base, title: `${first} wants to talk about the price`,
-      note: note(`${first} messaged you instead of approving. Reply in chat. ${first} can approve once you’ve talked, or you can change the price.`),
-      bar: { ctaLabel: `Reply to ${first}`, ctaAct: 'message', secondaryLabel: 'Change the new price', secondaryAct: 'revise' } };
+      return { ...base, title: `${first} wants to talk about the order`,
+      note: note(`${first} messaged you instead of approving. Reply in chat. ${first} can approve once you’ve talked, or you can edit the order.`),
+      bar: { ctaLabel: `Reply to ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
     }
     case 'in-progress': return { ...base, title: 'Work in progress',
-      note: note(`Mark it ready when the work is done. ${first} then picks how to get it back and pays the balance.`),
+      note: note(`${first} approved the order. Mark it ready when the work is done. ${first} then picks how to get it back and pays the balance.`),
       bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', ...msg } };
     case 'ready': return { ...base, title: `Ready. Waiting for ${first}`,
       note: note(`${first} is choosing how to get it back and paying the ${fmtExact(a.money.balance)} balance. You’ll see the choice here.`),
@@ -201,10 +200,14 @@ function priceBlocks(a, pv, key) {
     if (latest?.text) theirs = noteQuote({ label: `${firstOf()}’s latest message`, text: latest.text });
   }
   const mine = pv.note ? noteQuote({ label: 'Your note', text: pv.note }) : '';
+  const total = pv.changed
+    ? `${first} sees a new total of ${fmtExact(pv.after.total)} (was ${fmtExact(pv.before.total)}).`
+    : `${first} sees the total as booked, ${fmtExact(pv.before.total)}.`;
   return `<div class="${ID}__delta">${deltaFigure({ label: 'You’ll take home', cents: pv.after.payout, was: pv.before.payout })}
-    <p class="t-small c-600 ${ID}__newtotal" data-money>${first} sees a new total of ${fmtExact(pv.after.total)} (was ${fmtExact(pv.before.total)}).</p></div>
+    <p class="t-small c-600 ${ID}__newtotal" data-money>${total}</p></div>
   ${theirs ? `<div class="${ID}__quote">${theirs}</div>` : ''}${mine ? `<div class="${ID}__quote">${mine}</div>` : ''}
-  <h2 class="t-h2 ${ID}__h2">What changed</h2>
+  <h2 class="t-h2 ${ID}__h2 ${ID}__h2--lead">The order you sent</h2>
+  <div class="${ID}__summary">${changeSummary(pv.counts)}</div>
   ${changeList({ garments: pv.garments })}
   <h2 class="t-h2 ${ID}__h2">Your payout if approved</h2>
   ${tailorBreakdown(pv.after)}`;
@@ -226,7 +229,8 @@ function m4View(a, v, key) {
   const t = myTailor();
   const first = esc(firstOf());
   const pv = a.priceChange ? priceChangeView(a) : null;
-  const approved = a.priceChange?.state === 'approved';
+  /* K-01 (D-120): only an approved order that CHANGED something claims the price moved; as booked reads plainly */
+  const approved = !!a.priceChange?.changed && a.priceChange?.state === 'approved';
   const c = copyFor(key, a, t, v, pv);
   const hero = statusHero({ variant: key === 'completed' ? 'ready' : 'confirmed', pill: c.pill, pillLabel: c.label, title: c.title, body: '', extra: c.note });
   const updated = approved ? `<p class="t-small c-600 ${ID}__fine">Price updated after the fitting.</p>` : '';
@@ -237,7 +241,7 @@ function m4View(a, v, key) {
   const fine = `<p class="t-small c-600 ${ID}__fine">Paid out the Friday after you mark the job completed.${before ? ' The price can change after the fitting.' : approved ? ' Price updated after the fitting.' : ''}</p>`;
   const payout = `<h2 class="t-h2 ${ID}__h2">Your payout</h2>\n  ${tailorBreakdown(v.money)}${fine}`;
   const banners = key === 'in-progress' && approved
-    ? `<div class="${ID}__banner">${banner({ tone: 'success', text: `${first} approved the new price. You take home ${fmtExact(a.money.payout)}.` })}</div>` : '';
+    ? `<div class="${ID}__banner">${banner({ tone: 'success', text: `${first} approved your changes. You take home ${fmtExact(a.money.payout)}.` })}</div>` : '';
   const block = (inner) => `<div class="${ID}__visit">${inner}</div>`;
   let body;
   switch (key) {
@@ -473,11 +477,16 @@ function wire(root) {
     if (act === 'message') go('t-thread');
     else if (act === 'home') go(personaHome('tailor'));
     else if (act === 'start-fitting' && a) {
-      run('start', () => { const r = T.startFitting(a.id); go(ID); if (r.ok) toast('Fitting started', { tone: 'success' }); else failToast(); });
-    } else if (act === 'no-change' && a) {
-      run('no-change', () => { const r = T.confirmNoChange(a.id); go(ID); if (r.ok) toast(`Price confirmed. ${firstOf()} has been told.`, { tone: 'success' }); else failToast(); });
-    } else if ((act === 'adjust' || act === 'revise') && a) {
-      state.ui['t-adjust'] = { apptId: a.id, mode: act === 'adjust' ? 'new' : 'revise' };
+      /* K-01 (B2): Start fitting lands straight on the editor */
+      run('start', () => {
+        const r = T.startFitting(a.id);
+        if (!r.ok) { go(ID); failToast(); return; }
+        state.ui['t-adjust'] = { apptId: a.id, mode: 'new' };
+        go('t-adjust');
+        toast('Fitting started', { tone: 'success' });
+      });
+    } else if ((act === 'edit-order' || act === 'revise') && a) {
+      state.ui['t-adjust'] = { apptId: a.id, mode: act === 'edit-order' ? 'new' : 'revise' };
       go('t-adjust');
     } else if (act === 'mark-ready' && a) openMarkReady(a);
     else if (act === 'complete' && a) {

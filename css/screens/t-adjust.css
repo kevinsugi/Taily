@@ -1,11 +1,11 @@
-/* t-adjust — T5 adjust the price after the fitting. Layout only; lines, figures, breakdown, sheet and bar are shared. Tokens only. */
+/* t-adjust — T5 Edit the job at the fitting (K-01). Layout only; lines, figures, breakdown, sheet and bar are shared. Tokens only. */
 .t-adjust { padding-bottom: var(--space-40); }
 .t-adjust__eyebrow { margin: 0 0 var(--space-4); }
 .t-adjust__content { display: flex; flex-direction: column; margin-top: var(--space-24); }
 .t-adjust__info { margin-bottom: var(--space-24); }
 .t-adjust__info .banner__text { text-wrap: pretty; }
-.t-adjust__garments { display: flex; flex-direction: column; gap: var(--space-24); }
-.t-adjust__type { margin: 0 0 var(--space-8); color: var(--ink); }
+.t-adjust__garments { display: flex; flex-direction: column; gap: var(--space-16); }
+.t-adjust__type { margin: 0; color: var(--ink); min-width: 0; }
 .t-adjust__card { padding: var(--space-4) var(--space-16); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
 
 /* one adjust row: label | $ input | remove-or-undo, the error under the pair */
@@ -15,7 +15,7 @@
 .t-adjust__label label { color: var(--ink); }
 .t-adjust__mark { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); font-variant-numeric: tabular-nums; }
 .t-adjust__mark:empty { display: none; }
-.t-adjust__mark s { color: var(--neutral-500); text-decoration-thickness: 1px; }
+.t-adjust__mark s { color: var(--neutral-600); text-decoration-thickness: 1px; }
 .t-adjust__box { min-height: 48px; }
 .t-adjust__box .field__affix { padding-left: var(--space-12); }
 .t-adjust__box .field__input { padding-left: var(--space-4); padding-right: var(--space-8); font-variant-numeric: tabular-nums; }
@@ -25,7 +25,7 @@
 .t-adjust__btn--x { font-size: var(--size-16); color: var(--neutral-600); }
 .t-adjust__btn:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
 .t-adjust__btn:disabled { opacity: .5; cursor: not-allowed; }
-.t-adjust__was { grid-column: 2; text-align: right; padding-right: var(--space-8); color: var(--neutral-500); font-variant-numeric: tabular-nums; text-decoration-thickness: 1px; }
+.t-adjust__was { grid-column: 2; text-align: right; padding-right: var(--space-8); color: var(--neutral-600); font-variant-numeric: tabular-nums; text-decoration-thickness: 1px; }
 .t-adjust__row--removed .t-adjust__btn { text-decoration: underline; text-underline-offset: 3px; }
 .t-adjust__err { grid-column: 1 / -1; }
 .t-adjust__err:empty { display: none; }
@@ -47,3 +47,22 @@
 /* the add-a-service sheet */
 .t-adjust-sheet { display: flex; flex-direction: column; width: 100%; }
 @media (max-width: 340px) { .t-adjust__figures { grid-template-columns: minmax(0, 1fr); } }
+
+/* K-01: the card head (type · tag · Remove item), the new-item / removed-item cards, Add an item */
+.t-adjust__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); min-height: 44px; padding-top: var(--space-4); box-shadow: inset 0 -1px 0 var(--neutral-100); }
+.t-adjust__head .t-adjust__btn--text { margin-left: auto; padding-inline: var(--space-8); margin-right: calc(-1 * var(--space-8)); }
+.t-adjust__btn--text { text-decoration: underline; text-underline-offset: 3px; color: var(--ink); }
+.t-adjust__card--new { box-shadow: inset 0 0 0 1px var(--success); }
+.t-adjust__card--gone { padding-bottom: var(--space-12); }
+.t-adjust__card--gone .t-adjust__head { box-shadow: none; }
+.t-adjust__gone-list { list-style: none; margin: 0; padding: 0 0 var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); font-variant-numeric: tabular-nums; }
+.t-adjust__gone-list s { text-decoration-thickness: 1px; }
+.t-adjust__card--add { padding-block: var(--space-4); }
+.t-adjust__card--add .list-row { padding-inline: 0; }
+.t-adjust__card--add .list-row:disabled { opacity: .5; cursor: not-allowed; }
+.t-adjust__max { margin: 0 0 var(--space-8); }
+.t-adjust__summary { margin-bottom: var(--space-12); }
+.t-adjust__summary:empty { display: none; }
+.t-adjust__back { align-self: flex-start; padding-inline: var(--space-8); margin: 0 0 var(--space-4) calc(-1 * var(--space-8)); }
+.t-adjust-sheet { gap: 0; }
+.t-adjust__lead-pair { white-space: nowrap; }

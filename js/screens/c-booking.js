@@ -8,11 +8,11 @@
    ============================================================ */
 import { register, render as go, registered } from '../app.js';
 import {
-  state, T, tailorById, openSlots, justConfirmed, now, returnAddress,
+  state, T, tailorById, openSlots, justConfirmed, now, returnAddress, priceChangeView,
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow,
+  sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
@@ -181,7 +181,7 @@ function m4Timeline(a, first) {
   const paid = at >= back;
   return timeline([
     { state: 'done', title: 'Booked', sub: fmtWhen(confirmedAt(a)) },
-    { state: s2, title: 'Visit and fitting', sub: s2 === 'done' ? `Price confirmed · ${money(confirmedTotal(a))}` : s2 === 'current' ? `${esc(first)} confirms the final price` : '' },
+    { state: s2, title: 'Visit and fitting', sub: s2 === 'done' ? `Order approved · ${money(confirmedTotal(a))}` : s2 === 'current' ? `${esc(first)} goes through the order with you` : '' },
     { state: s3, title: 'Tailoring' },
     { state: s4, title: 'Ready', sub: paid ? `Paid ${money(a.payments.balance.cents)}` : s4 === 'current' ? 'Pay the balance' : at >= progress ? `Pay the ${money(a.money.balance)} balance` : `Pay the balance, est. ${money(a.money.balance)}` },
     { state: s5, title: 'Back with you', sub: s5 === 'current' ? esc(statusWord(a, 'customer').label) : '' },
@@ -223,15 +223,24 @@ function returnBlock(a, t, first) {
   <p class="t-small c-600 ${ID}__policy">Message ${f} if you’re coming outside shop hours. ${f} marks the order completed when you have it.</p>`;
 }
 
+/** "Your order" (K-2-01, D-127): the approved order as plain rows, the same garment / service strings as Amara's "The work".
+    Every row is 'same' once approved; a garment added at the fitting keeps a small "New item" tag. */
+function orderSection(a) {
+  const added = new Set(a.job.garments.filter((g) => g.added).map((g) => g.id));
+  const garments = priceChangeView(a, a.lines).garments.map((g) => (added.has(g.id) ? { ...g, newItem: true } : g));
+  return `<h2 class="t-h2 ${ID}__h2">Your order</h2>
+  <div class="${ID}__order">${changeList({ garments })}</div>`;
+}
+
 function m4View(a, t, first) {
   const word = statusWord(a, 'customer');
   const f = esc(first);
   const shopName = esc(t.shopName);
   const how = a.returnOption ?? 'pickup';
   const cfg = {
-    fitting: { title: `Fitting with ${f}`, body: `${f} is checking the fit. If the price changes, you’ll approve it here before any work starts.` },
-    'price-change': { title: `${f} updated the price`, body: 'Review the new price before any work starts.' },
-    'in-progress': { title: `${f} is working on it`, body: `Price confirmed. You’ll pay the ${fmtExact(a.money.balance)} balance when it’s ready.` },
+    fitting: { title: `Fitting with ${f}`, body: `${f} is going through the order with you. You’ll approve the final order here before any work starts.` },
+    'price-change': { title: 'Review your final order', body: 'Approve the final order before any work starts.' },
+    'in-progress': { title: `${f} is working on it`, body: `You approved the order. You’ll pay the ${fmtExact(a.money.balance)} balance when it’s ready.` },
     ready: { title: `${f} finished your order`, body: `Pay the ${fmtExact(a.money.balance)} balance to choose how to get it back.` },
     completed: { title: 'Completed', body: `${f} completed your order on ${fmtDay(completedAt(a))}.` },
     returning: {
@@ -246,7 +255,7 @@ function m4View(a, t, first) {
   const stage = a.status === 'returning' || a.status === 'completed' ? 'paid' : 'booked';
   const confirmed = a.status !== 'fitting' && a.status !== 'price-change';
   const breakdown = customerBreakdown(a.money, { stage, tailorFirst: first, depositState: a.payments.deposit.state, confirmed });
-  const updated = a.status === 'in-progress' && a.priceChange?.state === 'approved'
+  const updated = a.status === 'in-progress' && a.priceChange?.changed && a.priceChange?.state === 'approved'
     ? `<p class="t-small c-600 ${ID}__policy">Updated after the fitting</p>` : '';
 
   let middle = '';
@@ -262,6 +271,7 @@ function m4View(a, t, first) {
     middle = `<h2 class="t-h2 ${ID}__h2 ${ID}__h2--first">Your review</h2><div class="${ID}__review">${mine}</div>`;
   }
   const steps = a.status === 'completed' ? '' : `<h2 class="t-h2 ${ID}__h2">What happens next</h2>${m4Timeline(a, first)}`;
+  const order = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status) && a.lines?.length ? orderSection(a) : '';
   const actions = a.status === 'completed'
     ? `${cta(`Book ${f} again`, { attrs: 'data-act="book-again"' })}
     ${cta(`Message ${f}`, { variant: 'secondary', attrs: 'data-act="message"' })}`
@@ -271,6 +281,7 @@ function m4View(a, t, first) {
   ${hero}
   ${middle}
   ${steps}
+  ${order}
   <h2 class="t-h2 ${ID}__h2">${a.status === 'completed' ? 'Receipt' : 'Price'}</h2>
   ${breakdown}
   ${updated}${after}

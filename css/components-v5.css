@@ -589,17 +589,25 @@ button.list-row:active { opacity: 0.6; }
 .change-list__amt, .change-list__was { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .change-list__amt { color: var(--ink); }
 .change-list__amts { display: inline-flex; align-items: baseline; gap: var(--space-8); flex-shrink: 0; }
-.change-list__was { color: var(--neutral-500); text-decoration: line-through; }
+.change-list__was { color: var(--neutral-600); text-decoration: line-through; }
 /* the tag: sentence case on purpose (the word is searched and read as written); 10 / 600 with the caps tracking */
 .change-list__tag.t-micro { display: inline-block; padding: 2px var(--space-8); border-radius: var(--radius-full); letter-spacing: 1px; white-space: nowrap; }
-.change-list__tag--added { color: var(--accent-ink); background: var(--white); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-ink) 45%, transparent); }
+.change-list__tag--added, .change-list__tag--new-item { color: var(--white); background: var(--success); }   /* D-122: v4's green NEW badge; white on #4F7A5B = 4.9:1 */
 .change-list__tag--repriced { color: var(--ink); background: var(--neutral-100); }
 .change-list__tag--removed { color: var(--neutral-600); background: var(--neutral-100); }
 /* R4-1-C-09: the tint bleeds outward, so label and amount stay on the same columns as the rows around it */
-.change-list__row--added { background: var(--accent-bg); border-radius: var(--radius-sm); margin-inline: calc(-1 * var(--space-12)); padding-inline: var(--space-12); box-shadow: none; }
+.change-list__row--added { background: var(--success-bg); border-radius: var(--radius-sm); margin-inline: calc(-1 * var(--space-12)); padding-inline: var(--space-12); box-shadow: none; }
 .change-list__row--removed .change-list__label { color: var(--neutral-600); }
-.change-list__row--removed .change-list__amt { color: var(--neutral-500); }
-.change-list__row s { text-decoration-thickness: 1px; }
+.change-list__row--removed .change-list__amt { color: var(--neutral-600); }
+.change-list__row s, .change-list__type s { text-decoration-thickness: 1px; }
+.change-list__type--new, .change-list__type--gone { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); }
+.change-list__type--gone { color: var(--neutral-600); }
+/* K-01: a new item is one green panel; its rows read as plain rows inside it */
+.change-list__garment--new { background: var(--success-bg); border-radius: var(--radius-md); padding: var(--space-12); }
+.change-list__garment--new .change-list__row + .change-list__row { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--success) 25%, transparent); }
+.change-list__garment--new .change-list__label { color: var(--ink); font-weight: 600; }
+.change-list__garment--gone .change-list__row--removed .change-list__label { color: var(--neutral-600); }
+.change-summary { margin: 0; text-wrap: pretty; }
 
 .delta-figure { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; font-variant-numeric: tabular-nums; }
 .delta-figure__amt { color: var(--ink); white-space: nowrap; }

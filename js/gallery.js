@@ -328,7 +328,17 @@ export function galleryHtml() {
   ];
   h2('Change list — the correction mark (M4)');
   v('same · added (tint + tag) · repriced (old struck + New price) · removed (struck + tag)');
-  col(C.changeList({ garments: changeGarments }));
+  col(C.changeList({ garments: changeGarments.map((g) => ({ ...g, kind: g.id === 'g2' ? 'changed' : 'same' })) }));
+  v('K-01 · a New item panel (green, one tag) · a Removed item (struck, one tag)');
+  const hemPants = { ...byId('hem-pants'), garmentId: 'n1', garmentType: 'Pants / Jeans', cents: AMARA.prices['hem-pants'] * 100 };
+  col(C.changeList({ garments: [
+    { id: 'n1', type: 'Pants / Jeans', kind: 'added', rows: [rowOf(hemPants, 'added')] },
+    { id: 'g1', type: byId('hem-pants').garmentType, kind: 'removed', rows: [rowOf(byId('hem-pants'), 'removed')] },
+  ] }));
+  h2('Change summary (K-01)');
+  v('changed · items and services');   col(C.changeSummary({ itemsAdded: 1, itemsRemoved: 0, servicesAdded: 0, servicesRemoved: 1, repriced: 0 }));
+  v('changed · every part');           col(C.changeSummary({ itemsAdded: 2, itemsRemoved: 1, servicesAdded: 1, servicesRemoved: 3, repriced: 1 }));
+  v('unchanged');                      col(C.changeSummary({ itemsAdded: 0, itemsRemoved: 0, servicesAdded: 0, servicesRemoved: 0, repriced: 0 }));
 
   h2('Delta figure (M4)');
   v('up (new total vs booked)');         col(C.deltaFigure({ label: 'Sarah pays', cents: SCENARIOS.priceAdded.total, was: SCENARIOS.seed.total }));

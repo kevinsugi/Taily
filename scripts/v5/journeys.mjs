@@ -11,6 +11,8 @@
      J3  decline -> the job is kept
      J4  customer cancels late -> tailor keeps the deposit
      J5  tailor can't make it -> customer refunded
+     J6  edit the job (new item, service off) -> Sarah approves -> tailoring (K-01)
+     J6b no changes still needs Sarah's approval (K-01)
 
    node scripts/v5/journeys.mjs [J1 J2 ...]
    ============================================================ */
@@ -168,6 +170,55 @@ await journey('J5', "tailor can't make it -> customer refunded", async () => {
   await click('[data-nav="bookings"]');
   await click('.appt-row');
   await at('J5 customer: cancelled by Amara', 'c-booking', { has: ['Cancelled by Amara', 'Refunded', fmtExact(S.earlyCancel.refund)] });
+});
+
+/* ---------- J6 (K-01) ---------- */
+await journey('J6', 'edit the job -> Sarah approves -> tailoring, both sides read the same ticket', async () => {
+  await flow('t-job--visit');
+  await click('[data-act="start-fitting"]');
+  await at('J6 Start fitting lands on the editor', 't-adjust', { has: ['Edit the job', 'No changes'] });
+  await click('[data-act="add-item"]');
+  await click('[data-act="pick-type"][data-value="Pants / Jeans"]');
+  await click('[data-act="pick-service"][data-value="hem-pants"]');
+  await at('J6 new item card', 't-adjust', { has: ['New item', 'Pants / Jeans'] });
+  await click('[data-act="remove-line"][data-key="g2:jacket-sides"]');
+  await click('[data-act="send"]');
+  await at('J6 tailor: waiting on Sarah with what she sent', 't-job', {
+    has: ['Waiting on Sarah', 'The order you sent', 'New item', 'Pants / Jeans', '1 item added', fmtExact(S.priceItem.total), fmtExact(S.priceItem.payout)],
+  });
+  await flip();
+  await click('[data-nav="bookings"]');
+  await at('J6 customer bookings', 'c-bookings', { has: ['Approve', 'Final order'] });
+  await click('.appt-row');
+  await at('J6 customer: review the final order', 'c-price-change', {
+    has: ['Review your final order', 'New item', 'Pants / Jeans', 'Removed', 'Take in jacket sides', '1 item added', fmtExact(S.priceItem.total),
+      fmtExact(S.priceItem.balance), fmtExact(S.seed.deposit), 'Stays the same'],
+  });
+  await click('[data-act="approve"]');
+  await at('J6 customer: in progress', 'c-booking', {
+    has: ['In progress', 'approved the order', fmtExact(S.priceItem.balance), 'Your order', 'Pants / Jeans', 'New item', 'Hem pants'],
+  });
+  await flip();
+  await click('.appt-row');
+  await at('J6 tailor: approved your changes', 't-job', { has: ['approved your changes', fmtExact(S.priceItem.payout), 'Pants / Jeans', 'Mark ready'] });
+});
+
+/* ---------- J6b (K-01) ---------- */
+await journey('J6b', 'no changes still needs approval', async () => {
+  await flow('t-job--fitting');
+  await click('[data-act="edit-order"]');
+  await at('J6b editor, nothing touched', 't-adjust', { has: ['Edit the job', 'No changes'] });
+  await click('[data-act="send"]');
+  await at('J6b tailor: waiting on Sarah', 't-job', { has: ['Waiting on Sarah', 'No changes'] });
+  await flip();
+  await click('[data-nav="bookings"]');
+  await click('.appt-row');
+  await at('J6b customer: no changes', 'c-price-change', { has: ['No changes', fmtExact(S.seed.total), 'Approve and start'] });
+  await click('[data-act="approve"]');
+  await at('J6b customer: in progress', 'c-booking', { has: ['In progress'] });
+  await flip();
+  await click('.appt-row');
+  await at('J6b tailor: work in progress, as booked', 't-job', { has: ['Work in progress', 'approved the order'], not: 'approved your changes' });
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

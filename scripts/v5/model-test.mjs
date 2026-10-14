@@ -469,11 +469,48 @@ section('fitting -> completed');
 }
 {
   S.reset(); const a = driveTo('fitting');
-  guard(T.sendPriceChange(a.id, a.lines.map((l, i) => ({ ...l, cents: i === 0 ? 0 : l.cents }))), 'price-missing', 'sendPriceChange: a line with no price fails');
-  guard(T.sendPriceChange(a.id, []), 'price-missing', 'sendPriceChange: no lines fails');
-  const ok1 = T.confirmNoChange(a.id);
-  eq(ok1.appt.status, 'in-progress', 'confirmNoChange -> in-progress');
-  guard(T.confirmNoChange(a.id), 'not-fitting', 'confirmNoChange needs fitting');
+  eq(T.confirmNoChange, undefined, 'confirmNoChange is retired (D-120)');
+  guard(T.markReady(a.id), 'not-in-progress', 'no shortcut from the fitting to the work');
+  const st = T.sendPriceChange(a.id, a.lines);
+  eq([st.ok, st.appt.priceChange.changed, st.appt.status, st.appt.priceChange.marks], [true, false, 'price-change', []], 'sendPriceChange accepts the unchanged order (changed false)');
+  const ap0 = T.approvePriceChange(a.id).appt;
+  eq([ap0.status, ap0.money.total, ap0.money.payout], ['in-progress', SCENARIOS.seed.total, SCENARIOS.seed.payout], 'approve the unchanged order -> in-progress, money = SCENARIOS.seed');
+}
+// the final order: validation (K-01, D-121)
+{
+  S.reset(); const a = driveTo('fitting');
+  const line = (o) => ({ garmentId: 'n1', garmentType: 'Pants / Jeans', serviceId: 'hem-pants', label: 'Hem pants', cents: 3000, ...o });
+  const withNew = (o) => [...a.lines, line(o)];
+  guard(T.sendPriceChange(a.id, []), 'no-items', 'sendPriceChange: no lines -> no-items');
+  guard(T.sendPriceChange(a.id, a.lines.map((l, i) => ({ ...l, cents: i === 0 ? 2550 : l.cents }))), 'price-invalid', 'sendPriceChange: cents not whole dollars -> price-invalid');
+  guard(T.sendPriceChange(a.id, a.lines.map((l, i) => ({ ...l, cents: i === 0 ? 0 : l.cents }))), 'price-invalid', 'sendPriceChange: a $0 line -> price-invalid');
+  guard(T.sendPriceChange(a.id, withNew({ garmentType: 'Skirt', serviceId: 'sleeves' })), 'service-type', 'sendPriceChange: service not for the item type');
+  guard(T.sendPriceChange(a.id, withNew({ garmentType: 'Formal Dress', serviceId: 'bridal' })), 'service-not-offered', 'sendPriceChange: a service Amara does not price');
+  guard(T.sendPriceChange(a.id, withNew({ garmentType: 'Spaceship' })), 'garment-type', 'sendPriceChange: unknown item type');
+  guard(T.sendPriceChange(a.id, withNew({ garmentId: 'g1', garmentType: 'Skirt', serviceId: 'dress-hem' })), 'garment-type', 'sendPriceChange: a booked item keeps its type');
+  guard(T.sendPriceChange(a.id, [...a.lines, a.lines[0]]), 'duplicate-line', 'sendPriceChange: duplicate line');
+  const many = Array.from({ length: 11 }, (_, i) => line({ garmentId: `n${i + 1}`, serviceId: 'repair', garmentType: 'Skirt' }));
+  guard(T.sendPriceChange(a.id, many), 'max-items', 'sendPriceChange: 11 items -> max-items');
+  const noted = T.sendPriceChange(a.id, a.lines, { note: 'Text me at amara@example.com' });
+  ok(noted.ok && noted.appt.priceChange.noteMasked && !noted.appt.priceChange.note.includes('@'), 'an unchanged order carries a masked note too');
+}
+// K-01: a new item and a removed service
+{
+  S.reset(); const a = driveTo('price-change', { priceChange: 'item' });
+  const v = S.priceChangeView(a);
+  eq(v.garments.map((g) => [g.id, g.kind]), [['g1', 'same'], ['g2', 'changed'], ['n1', 'added']], 'priceChangeView garment kinds');
+  eq(v.counts, { itemsAdded: 1, itemsRemoved: 0, servicesAdded: 0, servicesRemoved: 1, repriced: 0 }, 'priceChangeView counts');
+  eq([v.changed, v.after.total, v.after.deposit], [true, SCENARIOS.priceItem.total, SCENARIOS.seed.deposit], 'item recipe: total = SCENARIOS.priceItem, deposit as captured');
+  eq(a.priceChange.changed, true, 'priceChange.changed');
+  const ap = T.approvePriceChange(a.id).appt;
+  eq(ap.job.garments.map((g) => g.type), ['Suit Pant', 'Suit Jacket', 'Pants / Jeans'], 'approve rebuilds job.garments (new item last)');
+  eq(ap.job.garments.map((g) => g.services), [['hem-pants'], ['sleeves'], ['hem-pants']], 'job.garments services follow the approved lines');
+  eq(ap.job.garments[1].photos, 1, 'a booked garment keeps its photos');
+  eq(ap.money.payout, SCENARIOS.priceItem.payout, 'payout = SCENARIOS.priceItem');
+  const b = driveTo('price-change', { priceChange: 'item-removed' });
+  const vb = S.priceChangeView(b);
+  eq([vb.garments[0].kind, vb.counts.itemsRemoved, vb.after.total], ['removed', 1, SCENARIOS.priceItemRemoved.total], 'item-removed: g1 removed');
+  eq(T.approvePriceChange(b.id).appt.job.garments.length, 1, 'item-removed approve: one garment left');
 }
 // price change: added + repriced
 {
@@ -930,8 +967,8 @@ section('M4 model');
   eq(rv.appt.priceChange.marks.map((m) => m.kind), ['removed'], 'revise: marks are vs the booked lines');
   const w = S.priceChangeView(S.getAppt(a.id));
   eq([w.after.balance, w.garments.flatMap((g) => g.rows).filter((r) => r.kind === 'removed').length], [SCENARIOS.priceRemoved.balance, 1], 'priceChangeView removed: balance + one removed row');
-  eq(statusWord(S.getAppt(a.id), 'customer'), { pill: 'action', label: 'Approve new price' }, 'statusWord: customer on price-change');
-  eq(statusWord(S.getAppt(a.id), 'customer', { short: true }).label, 'New price', 'statusWord short: New price');
+  eq(statusWord(S.getAppt(a.id), 'customer'), { pill: 'action', label: 'Approve order' }, 'statusWord: customer on price-change');
+  eq(statusWord(S.getAppt(a.id), 'customer', { short: true }).label, 'Approve', 'statusWord short: Approve');
   eq(statusWord(S.getAppt(a.id), 'tailor'), { pill: 'waiting', label: 'Waiting on Sarah' }, 'statusWord: tailor waiting on Sarah');
   T.approvePriceChange(a.id);
   eq(S.getAppt(a.id).money.balance, SCENARIOS.priceRemoved.balance, 'approve applies the revised price');

@@ -17,28 +17,67 @@ import { PRICE_NOTES as PC_PRICE_NOTES } from './common.js';
 import { TAILOR_LIMITS as PC_LIMITS } from '../data.js';
 import { fmtExact as PC_fmtExact, fmtNeg as PC_fmtNeg, cents as PC_cents } from '../money.js';
 
-const PC_GROUP = 'M4 · Price change';
+const PC_GROUP = 'M4 · Edit job';
+const PC_GROUP_C = 'M4 · Final order';
+const PC_sc = PC_SCENARIOS;
 /** A t-adjust draft for the fitting: Sleeves +$5 and Taper legs added to the suit pant (the "added" recipe). */
 const PC_edited = (S) => {
   const a = S.driveTo('fitting');
   S.state.ui['t-adjust'] = {
     apptId: a.id, mode: 'new', prices: { 'g2:sleeves': String(PC_AMARA.prices.sleeves + 5) }, removed: [],
-    added: [{ garmentId: 'g1', serviceId: 'taper' }], note: '',
+    added: [{ garmentId: 'g1', serviceId: 'taper' }], items: [], removedItems: [], note: '',
   };
   return a;
 };
+/** The J6 draft: a new Pants / Jeans item with Hem pants, Take in jacket sides taken off. */
+const PC_itemAdded = (S) => {
+  const a = S.driveTo('fitting');
+  S.state.ui['t-adjust'] = {
+    apptId: a.id, mode: 'new', prices: {}, removed: ['g2:jacket-sides'], added: [{ garmentId: 'n1', serviceId: 'hem-pants' }],
+    items: [{ id: 'n1', type: 'Pants / Jeans' }], removedItems: [], note: '', seq: 2,
+  };
+  return a;
+};
+const PC_MAX = 10;
 
 export const FLOWS_t_adjust = [
-  { key: 't-adjust', screen: 't-adjust', group: PC_GROUP, title: 'Adjust the price', note: 'After the fitting: every service on the job with its price, Send off until something changes',
+  { key: 't-adjust', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job', note: 'At the fitting: every item and service as booked, "No changes", Send already on (an untouched order is sent for approval)',
     setup: (S) => { S.driveTo('fitting'); },
-    expect: { has: ['Adjust the price', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', 'Add a service', PC_fmtExact(PC_SCENARIOS.seed.payout)], sel: '[data-act="send"][disabled]' } },
-  { key: 't-adjust--edited', screen: 't-adjust', group: PC_GROUP, title: 'Adjust the price — edited', note: 'Sleeves repriced, Taper legs added: the marks, the new total and what Amara takes home',
+    expect: { has: ['Edit the job', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', 'Add a service', 'Add an item', 'No changes', 'Send to Sarah for approval', PC_fmtExact(PC_sc.seed.payout)], sel: '[data-act="send"]:not([disabled])' } },
+  { key: 't-adjust--edited', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — edited', note: 'Sleeves repriced, Taper legs added: the marks, the new total and what Amara takes home',
     setup: (S) => { PC_edited(S); },
-    expect: { has: ['Added', 'New price', 'Taper legs', PC_fmtExact(PC_SCENARIOS.priceAdded.total), PC_fmtExact(PC_SCENARIOS.priceAdded.payout), PC_fmtNeg(PC_SCENARIOS.priceAdded.tailyFee), 'up'] } },
-  { key: 't-adjust--error', screen: 't-adjust', group: PC_GROUP, title: 'Adjust the price — price missing', note: 'Hem pants price cleared, Send pressed: the error sits under the field',
+    expect: { has: ['New', 'New price', 'Taper legs', PC_fmtExact(PC_sc.priceAdded.total), PC_fmtExact(PC_sc.priceAdded.payout), PC_fmtNeg(PC_sc.priceAdded.tailyFee), 'up', '1 service added'], not: 'Added' } },
+  { key: 't-adjust--item-added', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — item added', note: 'A Pants / Jeans item with Hem pants (green New item card), Take in jacket sides struck: total and take-home move down',
+    setup: (S) => { PC_itemAdded(S); },
+    expect: { has: ['New item', 'Pants / Jeans', 'Removed', '1 item added', PC_fmtExact(PC_sc.priceItem.total), PC_fmtExact(PC_sc.priceItem.payout), 'down'] } },
+  { key: 't-adjust--remove-item', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — item removed', note: 'The Suit Pant card collapsed and struck, its service listed struck, Undo',
     setup: (S) => {
       const a = S.driveTo('fitting');
-      S.state.ui['t-adjust'] = { apptId: a.id, mode: 'new', prices: { 'g1:hem-pants': '' }, removed: [], added: [] };
+      S.state.ui['t-adjust'] = { apptId: a.id, mode: 'new', prices: {}, removed: [], added: [], items: [], removedItems: ['g1'], note: '' };
+    },
+    expect: { has: ['Removed', 'Undo', '1 item removed', PC_fmtExact(PC_sc.priceItemRemoved.total), PC_fmtExact(PC_sc.priceItemRemoved.payout)], sel: '[data-act="undo-item"][data-garment="g1"]' } },
+  { key: 't-adjust--add-item', screen: 't-adjust', group: PC_GROUP, title: 'Add an item', note: 'Step 1: the types Amara prices at least one service for, with From $X',
+    setup: (S) => { S.driveTo('fitting'); },
+    click: ['[data-act="add-item"]'],
+    expect: { has: ['Add an item', 'Pants / Jeans', 'Shirt / Blouse', 'Skirt', 'From'], sel: '[data-s="t-adjust-add-item"] [data-act="pick-type"]' } },
+  { key: 't-adjust--add-item-service', screen: 't-adjust', group: PC_GROUP, title: 'Add an item — what does it need', note: 'Step 2: her priced services for Pants / Jeans; an item is never created empty',
+    setup: (S) => { S.driveTo('fitting'); },
+    click: ['[data-act="add-item"]', '[data-act="pick-type"][data-value="Pants / Jeans"]'],
+    expect: { has: ['What does the Pants / Jeans need', 'Hem pants', 'Taper legs', PC_fmtExact(PC_cents(PC_AMARA.prices['hem-pants'])), 'Choose another item'] } },
+  { key: 't-adjust--max-items', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — ten items', note: 'At the item limit Add an item is off and says why',
+    setup: (S) => {
+      const a = S.driveTo('fitting');
+      const items = Array.from({ length: PC_MAX - 2 }, (_, i) => ({ id: `n${i + 1}`, type: 'Shirt / Blouse' }));
+      S.state.ui['t-adjust'] = {
+        apptId: a.id, mode: 'new', prices: {}, removed: [], added: items.map((i) => ({ garmentId: i.id, serviceId: 'repair' })),
+        items, removedItems: [], note: '', seq: PC_MAX - 1,
+      };
+    },
+    expect: { has: [`Up to ${PC_MAX} items`], sel: '[data-act="add-item"][disabled]' } },
+  { key: 't-adjust--error', screen: 't-adjust', group: PC_GROUP, title: 'Edit the job — price missing', note: 'Hem pants price cleared, Send pressed: the error sits under the field',
+    setup: (S) => {
+      const a = S.driveTo('fitting');
+      S.state.ui['t-adjust'] = { apptId: a.id, mode: 'new', prices: { 'g1:hem-pants': '' }, removed: [], added: [], items: [], removedItems: [] };
     },
     click: ['[data-act="send"]'],
     expect: { has: 'Enter a price', sel: '[aria-invalid="true"]' } },
@@ -46,33 +85,41 @@ export const FLOWS_t_adjust = [
     setup: (S) => { S.driveTo('fitting'); },
     click: ['[data-act="add-service"][data-garment="g1"]'],
     expect: { has: ['Add to Suit Pant', 'Taper legs', PC_fmtExact(PC_cents(PC_AMARA.prices.taper))], sel: '[data-s="t-adjust-add"] [data-value="taper"]' } },
-  { key: 't-adjust--revise', screen: 't-adjust', group: PC_GROUP, title: 'Change the new price', note: 'Sarah has not approved yet: the sent price is the starting point, sending again replaces it',
+  { key: 't-adjust--revise', screen: 't-adjust', group: PC_GROUP, title: 'Edit the order you sent', note: 'Sarah has not approved yet: the sent order is the starting point (marks still vs booked), sending again replaces it',
     setup: (S) => {
-      const a = S.driveTo('price-change');
+      const a = S.driveTo('price-change', { priceChange: 'item' });
       S.state.ui['t-adjust'] = { apptId: a.id, mode: 'revise' };
     },
     /* the note sits in a textarea (not visible text): its live counter proves it was prefilled */
-    expect: { has: ['Change the new price', 'Sending again replaces', 'Taper legs', `${[...PC_PRICE_NOTES.added].length} / ${PC_LIMITS.NOTE_MAX}`] } },
-  { key: 't-adjust--leave', screen: 't-adjust', group: PC_GROUP, title: 'Leave without sending?', note: 'Back with unsent changes asks first',
+    expect: { has: ['Edit the order you sent', 'Sending again replaces', 'New item', 'Pants / Jeans', 'Removed', `${[...PC_PRICE_NOTES.item].length} / ${PC_LIMITS.NOTE_MAX}`], sel: '[data-act="send"][disabled]' } },
+  { key: 't-adjust--leave', screen: 't-adjust', group: PC_GROUP, title: 'Leave without sending?', note: 'Back with unsent edits asks first: Sarah cannot approve until you send',
     setup: (S) => { PC_edited(S); },
     click: ['[data-act="back"]'],
-    expect: { has: ['Leave without sending?', 'Keep editing', 'Discard changes'] } },
+    expect: { has: ['Leave without sending?', 'Keep editing'] } },
 ];
 
 export const FLOWS_c_price_change = [
-  { key: 'c-price-change', screen: 'c-price-change', group: PC_GROUP, title: 'Amara updated the price', note: 'Taper added, Sleeves repriced: the marks, the new total, the unchanged deposit, two choices',
+  { key: 'c-price-change', screen: 'c-price-change', group: PC_GROUP_C, title: 'Review your final order', note: 'Taper added, Sleeves repriced: the marks, the new total, the unchanged deposit, two choices',
     setup: (S) => { S.driveTo('price-change'); },
-    expect: { has: ['Approve new price', 'updated the price', 'Taper legs', 'Added', 'New price', PC_fmtExact(PC_SCENARIOS.priceAdded.total), PC_fmtExact(PC_SCENARIOS.priceAdded.balance), PC_fmtExact(PC_SCENARIOS.seed.total), PC_fmtExact(PC_SCENARIOS.seed.deposit), 'Stays the same', 'Message Amara', 'note'], not: ['Reject', 'Decline'] } },
-  { key: 'c-price-change--removed', screen: 'c-price-change', group: PC_GROUP, title: 'Price went down', note: 'Take in jacket sides removed: struck row, lower total and balance',
+    expect: { has: ['Review your final order', 'Approve order', 'What changed', '1 service added', 'Taper legs', 'New', 'New price', PC_fmtExact(PC_sc.priceAdded.total), PC_fmtExact(PC_sc.priceAdded.balance), PC_fmtExact(PC_sc.seed.total), PC_fmtExact(PC_sc.seed.deposit), 'Stays the same', 'Approve and start', 'Message Amara', 'note'], not: ['Reject', 'Decline', 'Added'] } },
+  { key: 'c-price-change--item-added', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — item added', note: 'Pants / Jeans as a green New item, Take in jacket sides struck: lower total and balance, deposit unchanged',
+    setup: (S) => { S.driveTo('price-change', { priceChange: 'item' }); },
+    expect: { has: ['New item', 'Pants / Jeans', 'Hem pants', 'Removed', 'Take in jacket sides', '1 item added', '1 service removed', 'down', PC_fmtExact(PC_sc.priceItem.total), PC_fmtExact(PC_sc.priceItem.balance), PC_fmtExact(PC_sc.seed.deposit)] } },
+  { key: 'c-price-change--item-removed', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — item removed', note: 'The Suit Pant struck with one Removed tag: lower total and balance',
+    setup: (S) => { S.driveTo('price-change', { priceChange: 'item-removed' }); },
+    expect: { has: ['Removed', 'Suit Pant', '1 item removed', PC_fmtExact(PC_sc.priceItemRemoved.total), PC_fmtExact(PC_sc.priceItemRemoved.balance)], not: 'New item' } },
+  { key: 'c-price-change--removed', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — service removed', note: 'Take in jacket sides removed: struck row, lower total and balance',
     setup: (S) => { S.driveTo('price-change', { priceChange: 'removed' }); },
-    expect: { has: ['Removed', 'Take in jacket sides', 'down', PC_fmtExact(PC_SCENARIOS.priceRemoved.total), PC_fmtExact(PC_SCENARIOS.priceRemoved.balance)] } },
-  { key: 'c-price-change--repriced', screen: 'c-price-change', group: PC_GROUP, title: 'One price changed', note: 'Sleeves $5 more, nothing added',
+    expect: { has: ['Removed', 'Take in jacket sides', '1 service removed', 'down', PC_fmtExact(PC_sc.priceRemoved.total), PC_fmtExact(PC_sc.priceRemoved.balance)] } },
+  { key: 'c-price-change--repriced', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — one price changed', note: 'Sleeves $5 more, nothing added',
     setup: (S) => { S.driveTo('price-change', { priceChange: 'repriced' }); },
-    expect: { has: ['New price', PC_fmtExact(PC_SCENARIOS.priceRepriced.total), PC_fmtExact(PC_SCENARIOS.priceRepriced.balance)], not: 'Added' } },
-  { key: 'c-price-change--messaged', screen: 'c-price-change', group: PC_GROUP, title: 'You messaged Amara', note: 'After Message: a banner, Open chat in place of Message, Approve still available',
+    expect: { has: ['New price', '1 new price', PC_fmtExact(PC_sc.priceRepriced.total), PC_fmtExact(PC_sc.priceRepriced.balance)], not: ['New item', 'Removed'] } },
+  { key: 'c-price-change--messaged', screen: 'c-price-change', group: PC_GROUP_C, title: 'You messaged Amara', note: 'After Message: a banner, Open chat in place of Message, Approve still available',
     setup: (S) => { const a = S.driveTo('price-change'); S.T.sendMessage(a.tailorId, 'customer', { text: 'Could we keep the sleeves at the old price?' }); },
-    expect: { has: ['You messaged Amara', 'Open chat', 'Approve new price'] } },
-
+    expect: { has: ['You messaged Amara', 'Open chat', 'Approve and start'] } },
+  { key: 'c-price-change--unchanged', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — no changes', note: 'Amara sent the order as booked: "No changes", the booked total, still one tap to approve',
+    setup: (S) => { S.driveTo('price-change', { priceChange: 'unchanged' }); },
+    expect: { has: ['Review your final order', 'Your order', 'No changes', 'Same as booked', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', PC_fmtExact(PC_sc.seed.total), PC_fmtExact(PC_sc.seed.balance), 'Approve and start'], not: ['New total', 'New balance', 'Removed', 'New price'] } },
 ];
 /* ---------- C3 · Customer return + pay (c-ready) · prefix CR_ ---------- */
 import { SCENARIOS as CR_SC } from './money-scenarios.js';
@@ -82,7 +129,7 @@ const CR_GROUP = 'M4 · Ready';
 export const FLOWS_c_ready = [
   { key: 'c-ready', screen: 'c-ready', group: CR_GROUP, title: 'Your order is ready', note: 'Three ways back, nothing chosen: Pay waits for a choice',
     setup: (S) => { S.driveTo('ready'); },
-    expect: { has: ['Your order is ready', 'How do you want it back?', 'In-store pickup', 'Home drop-off', 'Taily courier', 'Free', 'Due now', CR_fmtExact(CR_SC.seed.balance), 'Choose how to get it back first'], sel: '[data-act="pay"][disabled]' } },
+    expect: { has: ['Your order is ready', 'How do you want it back?', 'In-store pickup', 'Home drop-off', 'Taily courier', 'Free', 'Due now', CR_fmtExact(CR_SC.seed.balance), 'Choose how to get it back first', 'Your order', 'Suit Pant'], sel: '[data-act="pay"][disabled]' } },
   { key: 'c-ready--pickup-only', screen: 'c-ready', group: CR_GROUP, title: 'Ready — pickup is the only way back', note: 'One offer: pre-chosen, named in a line, Pay is on',
     setup: (S) => { const a = S.driveTo('in-progress'); S.T.markReady(a.id, { returns: ['pickup'] }); },
     expect: { has: ['In-store pickup', 'for this order', `Pay ${CR_fmtExact(CR_SC.seed.balance)}`], not: ['Home drop-off', 'Taily courier'] } },
@@ -149,19 +196,22 @@ export const FLOWS_t_job = [
   { ...TJ4, key: 't-job--visit', title: 'Job — visit time, start the fitting', note: 'Clock at the visit start: Start fitting, Message Sarah, no-show wait note',
     setup: (S) => { S.driveTo('confirmed'); S.setClock(TJ4_SLOT); },
     expect: { has: ['time for the fitting', 'Start fitting', 'Message Sarah', 'Something wrong?'], not: 'You accepted', sel: '.action-bar' } },
-  { ...TJ4, key: 't-job--fitting', title: 'Job — fitting', note: 'Fitting pill, take-home in the bar, No changes or Adjust price',
+  { ...TJ4, key: 't-job--fitting', title: 'Job — fitting', note: 'Reached by Back from the editor: Fitting pill, take-home in the bar, Review the order (no shortcut past Sarah)',
     setup: (S) => { S.driveTo('fitting'); },
-    expect: { has: ['Fitting', 'No changes, start the work', 'Adjust price', TJ4_exact(TJ4_SC.seed.payout)], not: 'make it' } },
-  { ...TJ4, key: 't-job--waiting', title: 'Job — waiting for Sarah to approve', note: 'Take-home with the old figure, struck old prices, Change the new price',
+    expect: { has: ['Fitting', 'Review the order', 'Message Sarah', TJ4_exact(TJ4_SC.seed.payout)], not: ['No changes, start the work', 'Adjust price', 'make it'] } },
+  { ...TJ4, key: 't-job--waiting', title: 'Job — waiting for Sarah to approve', note: 'Take-home with the old figure, "The order you sent" with the same marks Sarah sees, Edit the order',
     setup: (S) => { S.driveTo('price-change'); },
-    expect: { has: ['Waiting on Sarah', 'Taper legs', 'Added', 'New price', TJ4_exact(TJ4_SC.priceAdded.payout), TJ4_exact(TJ4_SC.priceAdded.total), 'Change the new price'], sel: '.change-list' } },
+    expect: { has: ['Waiting on Sarah', 'The order you sent', 'Taper legs', 'New', TJ4_exact(TJ4_SC.priceAdded.payout), TJ4_exact(TJ4_SC.priceAdded.total), 'Edit the order'], sel: '.change-list' } },
+  { ...TJ4, key: 't-job--waiting-unchanged', title: 'Job — waiting, order sent as booked', note: 'Nothing changed: "No changes", Same as booked, every booked row plain, still waiting for Sarah',
+    setup: (S) => { S.driveTo('price-change', { priceChange: 'unchanged' }); },
+    expect: { has: ['Waiting on Sarah', 'No changes', 'Same as booked', TJ4_exact(TJ4_SC.seed.total), 'Edit the order'], not: ['Removed', 'New price'] } },
   { ...TJ4, key: 't-job--messaged', title: 'Job — Sarah messaged instead', note: 'Reply to Sarah, her latest message quoted, same price blocks',
     setup: (S) => {
       const a = S.driveTo('price-change');
       S.T.messageAboutPriceChange(a.id);
       S.T.sendMessage(a.tailorId, 'customer', { text: 'Could we keep the sleeves at the old price?' });
     },
-    expect: { has: ['Reply to Sarah', 'keep the sleeves', 'Change the new price'], sel: '.note-quote' } },
+    expect: { has: ['Reply to Sarah', 'keep the sleeves', 'Edit the order'], sel: '.note-quote' } },
   { ...TJ4, key: 't-job--replied', title: 'Job — Amara replied, waiting on Sarah', note: 'After Sarah messaged and Amara answered: the move is Sarah’s again (D-112)',
     setup: (S) => {
       const a = S.driveTo('price-change');
@@ -169,13 +219,13 @@ export const FLOWS_t_job = [
       S.T.sendMessage(a.tailorId, 'customer', { text: 'Could we keep the sleeves at the old price?' });
       S.T.sendMessage(a.tailorId, 'tailor', { text: 'The sleeves took longer than I thought. Happy to talk it through.' });
     },
-    expect: { has: ['Waiting on Sarah', 'Waiting for Sarah to approve', 'You replied at', 'Change the new price'], not: ['Reply to Sarah', 'wants to talk'], sel: '.note-quote' } },
-  { ...TJ4, key: 't-job--approved', title: 'Job — Sarah approved the new price', note: 'Success banner with the new take-home, Mark ready',
+    expect: { has: ['Waiting on Sarah', 'Waiting for Sarah to approve', 'You replied at', 'Edit the order'], not: ['Reply to Sarah', 'wants to talk'], sel: '.note-quote' } },
+  { ...TJ4, key: 't-job--approved', title: 'Job — Sarah approved your changes', note: 'Success banner with the new take-home, Mark ready',
     setup: (S) => { S.driveTo('in-progress', { priceChange: 'added' }); },
-    expect: { has: ['approved the new price', TJ4_exact(TJ4_SC.priceAdded.payout), 'Mark ready', 'Price updated after the fitting'], sel: '.banner--success' } },
-  { ...TJ4, key: 't-job--in-progress', title: 'Job — work in progress', note: 'No price change: Mark ready is the one next step',
+    expect: { has: ['approved your changes', TJ4_exact(TJ4_SC.priceAdded.payout), 'Mark ready', 'Price updated after the fitting'], sel: '.banner--success' } },
+  { ...TJ4, key: 't-job--in-progress', title: 'Job — work in progress', note: 'Order approved as booked: Mark ready is the one next step, no "changes" claim',
     setup: (S) => { S.driveTo('in-progress'); },
-    expect: { has: ['In progress', 'Work in progress', 'Mark ready'], not: 'approved' } },
+    expect: { has: ['In progress', 'Work in progress', 'approved the order', 'Mark ready'], not: 'approved your changes' } },
   { ...TJ4, key: 't-job--mark-ready', title: 'Job — mark ready sheet', note: 'All three ways back ticked; the courier is never her money',
     setup: (S) => { S.driveTo('in-progress'); },
     click: ['[data-act="mark-ready"]'],

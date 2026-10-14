@@ -19,7 +19,7 @@ const ms = (iso) => toDate(iso).getTime();
 
 /* D-116: work that has started (fitting → returning) is "In progress", not "Upcoming" — the same split as the tailor's Home (D-115) */
 const PROGRESS = ['fitting', 'price-change', 'in-progress', 'ready', 'returning'];
-const STEP = { fitting: 'Fitting', 'price-change': 'New price', 'in-progress': 'Tailoring', ready: 'Ready' };
+const STEP = { fitting: 'Fitting', 'price-change': 'Final order', 'in-progress': 'Tailoring', ready: 'Ready' };
 /** An in-progress row's time line: the step and since when ("Out for delivery · since 5:00 PM"), never the past visit time. */
 const stepLine = (a) => `${STEP[a.status] ?? statusWord(a, 'customer').label} · ${sinceText(a)}`;
 const dropped = (a) => a.status === 'cancelled' && ['withdrawn', 'switched'].includes(a.cancel?.reason);

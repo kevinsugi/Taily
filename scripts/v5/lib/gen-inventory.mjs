@@ -64,7 +64,7 @@ export const MILESTONES = [
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4'];
 
 export const SCREENS = [
 ${screens.map((s) => `  { id: ${q(s.id)}, m: ${q(s.m)}, persona: ${q(s.persona)}, title: ${q(s.title)}, states: [

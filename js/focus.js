@@ -60,7 +60,7 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
     case 'confirmed': return { pill: 'confirmed', label: !customer && justConfirmed(appt) ? 'Accepted' : 'Confirmed' };
     case 'fitting': return { pill: 'fitting', label: 'Fitting' };
     case 'price-change':
-      if (customer) return { pill: 'action', label: pick('Approve new price', 'New price') };
+      if (customer) return { pill: 'action', label: pick('Approve order', 'Approve') };
       if (appt.priceChange?.state !== 'messaged') return waiting;
       /* D-112: once Amara has answered, the move is Sarah's again */
       return lastSpeakerSince(appt)?.from === 'tailor' ? waiting : { pill: 'action', label: pick(`Reply to ${sarah}`, 'Reply') };

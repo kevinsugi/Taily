@@ -134,10 +134,14 @@ export const SCREENS = [
     { key: 'c-booking--returning-dropoff', m: 'M4', kind: 'state' },
     { key: 'c-booking--returning-courier', m: 'M4', kind: 'state' },
   ] },
-  { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 review the tailor\'s adjusted prices: Approve or Message', states: [
+  { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01)', states: [
     { key: 'c-price-change', m: 'M4', kind: 'frame' },
+    { key: 'c-price-change--item-added', m: 'M4', kind: 'state' },
+    { key: 'c-price-change--item-removed', m: 'M4', kind: 'state' },
     { key: 'c-price-change--removed', m: 'M4', kind: 'state' },
     { key: 'c-price-change--repriced', m: 'M4', kind: 'state' },
+    { key: 'c-price-change--messaged', m: 'M4', kind: 'state' },
+    { key: 'c-price-change--unchanged', m: 'M4', kind: 'state' },
   ] },
   { id: 'c-ready', m: 'M4', persona: 'customer', title: 'C10 pick a return option the tailor offers, then pay the balance', states: [
     { key: 'c-ready', m: 'M4', kind: 'frame' },
@@ -265,8 +269,10 @@ export const SCREENS = [
     { key: 't-job--cancelled-late', m: 'M3', kind: 'state' },
     { key: 't-job--fitting', m: 'M4', kind: 'state' },
     { key: 't-job--waiting', m: 'M4', kind: 'state' },
+    { key: 't-job--waiting-unchanged', m: 'M4', kind: 'state' },
     { key: 't-job--approved', m: 'M4', kind: 'state' },
     { key: 't-job--messaged', m: 'M4', kind: 'state' },
+    { key: 't-job--replied', m: 'M4', kind: 'state' },
     { key: 't-job--in-progress', m: 'M4', kind: 'state' },
     { key: 't-job--ready', m: 'M4', kind: 'state' },
     { key: 't-job--returning-pickup', m: 'M4', kind: 'state' },
@@ -274,10 +280,18 @@ export const SCREENS = [
     { key: 't-job--courier', m: 'M4', kind: 'state' },
     { key: 't-job--completed', m: 'M4', kind: 'frame' },
   ] },
-  { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 adjust prices after the fitting (add / remove / re-price) → send', states: [
+  { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Edit the job at the fitting: add / remove items and services, re-price → send the final order for approval (K-01)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },
     { key: 't-adjust--edited', m: 'M4', kind: 'state' },
+    { key: 't-adjust--item-added', m: 'M4', kind: 'state' },
+    { key: 't-adjust--remove-item', m: 'M4', kind: 'state' },
+    { key: 't-adjust--max-items', m: 'M4', kind: 'state' },
     { key: 't-adjust--error', m: 'M4', kind: 'state' },
+    { key: 't-adjust--add', m: 'M4', kind: 'overlay' },
+    { key: 't-adjust--add-item', m: 'M4', kind: 'overlay' },
+    { key: 't-adjust--add-item-service', m: 'M4', kind: 'overlay' },
+    { key: 't-adjust--revise', m: 'M4', kind: 'state' },
+    { key: 't-adjust--leave', m: 'M4', kind: 'overlay' },
   ] },
   { id: 't-earnings', m: 'M5', persona: 'tailor', title: 'T8 payouts: upcoming, history', states: [
     { key: 't-earnings', m: 'M5', kind: 'frame' },

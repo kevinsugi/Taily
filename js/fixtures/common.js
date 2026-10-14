@@ -8,9 +8,12 @@ import {
 } from '../state.js';
 import { addMinutes, isoMinute } from '../dates.js';
 import { TAILORS, DECLINE_REASONS, CANT_MAKE_IT_REASONS } from '../data.js';
+import { cents } from '../money.js';
 import { suggestSlots } from '../tailor-data.js';
 import * as A from '../account.js';
 import { POLICY } from '../money-config.js';
+
+const AMARA = TAILORS[0];
 
 export const TARGETS = [
   'requested', 'suggested', 'declined', 'expired', 'expired-2', 'expired-final', 'confirmed', 'cancelled-early',
@@ -23,26 +26,36 @@ const must = (r, step) => {
   return r.appt;
 };
 
-/** A price-change recipe on top of the booked lines: added = + Taper $40 and Sleeves $45 → $50;
-    removed = − Take in jacket sides; repriced = Sleeves $45 → $50. */
+/** A final-order recipe on top of the booked lines: added = + Taper and Sleeves up $5; removed = − Take in jacket sides;
+    repriced = Sleeves up $5; item = − Take in jacket sides + a new Pants / Jeans item with Hem pants (K-01, J6);
+    item-removed = − every Suit Pant line; unchanged = the booked lines as they are. */
 function changedLines(appt, kind) {
   const lines = appt.lines.map((l) => ({ ...l }));
+  if (kind === 'unchanged') return lines;
   if (kind === 'removed') return lines.filter((l) => l.serviceId !== 'jacket-sides');
-  for (const l of lines) if (l.serviceId === 'sleeves') l.cents = 5000;
+  if (kind === 'item-removed') return lines.filter((l) => l.garmentId !== 'g1');
+  if (kind === 'item') {
+    return [...lines.filter((l) => l.serviceId !== 'jacket-sides'),
+      { garmentId: 'n1', garmentType: 'Pants / Jeans', serviceId: 'hem-pants', label: 'Hem pants', cents: cents(AMARA.prices['hem-pants']) }];
+  }
+  for (const l of lines) if (l.serviceId === 'sleeves') l.cents = cents(AMARA.prices.sleeves + 5);
   if (kind === 'repriced') return lines;
   const pant = lines.find((l) => l.serviceId === 'hem-pants');
-  return [...lines, { garmentId: pant.garmentId, garmentType: pant.garmentType, serviceId: 'taper', label: 'Taper legs', cents: 4000 }];
+  return [...lines, { garmentId: pant.garmentId, garmentType: pant.garmentType, serviceId: 'taper', label: 'Taper legs', cents: cents(AMARA.prices.taper) }];
 }
 
-/** The tailor's note per price-change recipe (copy, not money) — driveTo sends it with the change (A6). */
+/** The tailor's note per recipe (copy, not money) — driveTo sends it with the final order (A6). */
 export const PRICE_NOTES = {
   added: 'The sleeve lining has to move too, and tapering the legs will sit better with the shorter jacket.',
   removed: 'Once the sleeves are done the jacket sides already fit, so I took that off.',
   repriced: 'The sleeve lining has to move too.',
+  item: 'Sarah asked me to hem her jeans too, and the jacket sides already fit.',
+  'item-removed': 'The suit pants fit as they are, so I took them off the order.',
+  unchanged: '',
 };
 
-/** driveTo(target, { visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced', returnOption = 'pickup' }) → appt.
-    `price-change` always carries a change (default 'added'); later targets keep the booked price (confirmNoChange)
+/** driveTo(target, { visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced' | 'item' | 'item-removed' | 'unchanged', returnOption = 'pickup' }) → appt.
+    `price-change` carries a change (default 'added'); later targets send the unchanged order and approve it (K-01, D-120)
     unless `priceChange` is passed explicitly. */
 export function driveTo(target, opts = {}) {
   const { visitType = 'home', rush = false, priceChange = 'added', returnOption = 'pickup' } = opts;
@@ -83,13 +96,10 @@ export function driveTo(target, opts = {}) {
   setClock(getAppt(id).slot.start);
   must(T.startFitting(id), 'startFitting');
   if (target === 'fitting') return getAppt(id);
-  if (target === 'price-change' || 'priceChange' in opts) {
-    must(T.sendPriceChange(id, changedLines(getAppt(id), priceChange), { note: PRICE_NOTES[priceChange] ?? '' }), 'sendPriceChange');
-    if (target === 'price-change') return getAppt(id);
-    must(T.approvePriceChange(id), 'approvePriceChange');
-  } else {
-    must(T.confirmNoChange(id), 'confirmNoChange');
-  }
+  const recipe = target === 'price-change' || 'priceChange' in opts ? priceChange : 'unchanged';
+  must(T.sendPriceChange(id, changedLines(getAppt(id), recipe), { note: PRICE_NOTES[recipe] ?? '' }), 'sendPriceChange');
+  if (target === 'price-change') return getAppt(id);
+  must(T.approvePriceChange(id), 'approvePriceChange');
   if (target === 'in-progress') return getAppt(id);
   must(T.markReady(id), 'markReady');
   if (target === 'ready') return getAppt(id);

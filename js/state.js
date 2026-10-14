@@ -29,7 +29,7 @@ import {
 import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
-  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS,
+  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, servicesForType,
 } from './data.js';
 
 export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed', 'cancelled'];
@@ -659,37 +659,48 @@ function priceMarks(oldLines, newLines) {
   for (const [k, l] of before) if (!after.has(k)) marks.push({ garmentId: l.garmentId, serviceId: l.serviceId, kind: 'removed', from: l.cents, to: null });
   return marks;
 }
-/** First send: `fitting` → `price-change`. Revise (D-101): while the change is still `pending` or `messaged`, sending again replaces it
-    (status unchanged, `state` back to `pending`, `revisions` + 1). Marks are always vs the BOOKED lines. The note is masked (D-101). */
+/** "Send the final order" (K-01, D-120/D-121). First send: `fitting` → `price-change`. Revise (D-101): while the order is still `pending`
+    or `messaged`, sending again replaces it (status unchanged, `state` back to `pending`, `revisions` + 1). `lines` is the whole final
+    order; a new item is lines on a `garmentId` that is not booked, removing an item = sending none of its lines. An unchanged order is
+    allowed (`changed: false`). Marks are always vs the BOOKED lines. The note is masked (D-101). */
 export function sendPriceChange(id, lines, { note = '' } = {}) {
   const a = must(id);
   const revising = a.status === 'price-change' && ['pending', 'messaged'].includes(a.priceChange?.state);
   if (a.status !== 'fitting' && !revising) return fail('not-fitting');
-  if (!Array.isArray(lines) || !lines.length || lines.some((l) => !(l.cents > 0))) return fail('price-missing');
+  if (!Array.isArray(lines) || !lines.length) return fail('no-items');
+  const lo = cents(1);
+  const hi = cents(TAILOR_LIMITS.PRICE_MAX);
+  if (lines.some((l) => !Number.isInteger(l.cents) || l.cents % 100 !== 0 || l.cents < lo || l.cents > hi)) return fail('price-invalid');
+  const bookedType = new Map(a.lines.map((l) => [l.garmentId, l.garmentType]));
+  for (const l of lines) {
+    if (!GARMENT_TYPES[l.garmentType] || (bookedType.has(l.garmentId) && bookedType.get(l.garmentId) !== l.garmentType)) return fail('garment-type');
+    if (!servicesForType(l.garmentType).includes(l.serviceId)) return fail('service-type');
+  }
+  const tailor = tailorById(a.tailorId);
+  const booked = new Set(a.lines.map(lineKey));
+  if (lines.some((l) => !booked.has(lineKey(l)) && typeof tailor?.prices?.[l.serviceId] !== 'number')) return fail('service-not-offered');
+  if (new Set(lines.map(lineKey)).size !== lines.length) return fail('duplicate-line');
+  if (new Set(lines.map((l) => l.garmentId)).size > MAX_ITEMS) return fail('max-items');
   const text = String(note ?? '').trim();
   if (text.length > TAILOR_LIMITS.NOTE_MAX) return fail('note-long');
   const masked = maskContact(text);
   const revisions = revising ? (a.priceChange.revisions ?? 0) + 1 : 0;
+  const marks = priceMarks(a.lines, lines);
   a.priceChange = {
-    lines: clone(lines), marks: priceMarks(a.lines, lines), sentAt: nowIso(), state: 'pending',
+    lines: clone(lines), marks, changed: marks.length > 0, sentAt: nowIso(), state: 'pending',
     note: masked.text, noteMasked: masked.masked, revisions,
   };
-  const first = firstName(tailorById(a.tailorId));
+  const first = firstName(tailor);
   if (revising) {
-    say(a, `${first} changed the updated price`, 'You changed the updated price');
+    say(a, `${first} updated your final order`, 'You updated the final order');
   } else {
     setStatus(a, 'price-change');
-    say(a, `${first} sent an updated price`, 'You sent an updated price');
+    say(a, `${first} sent your final order`, 'You sent the final order');
   }
   return succeed(a);
 }
-export function confirmNoChange(id) {
-  const a = must(id);
-  if (a.status !== 'fitting') return fail('not-fitting');
-  setStatus(a, 'in-progress');
-  return succeed(a);
-}
-/** Allowed while pending, and after the customer messaged (disputes settle in chat, then she approves) — D-26. */
+/** Allowed while pending, and after the customer messaged (disputes settle in chat, then she approves) — D-26. Rebuilds `job.garments`
+    from the approved lines (D-121). */
 export function approvePriceChange(id) {
   const a = must(id);
   if (a.status !== 'price-change' || a.priceChange?.state === 'approved') return fail('not-pending');
@@ -697,8 +708,20 @@ export function approvePriceChange(id) {
   a.money = repriceMoney(a);
   a.payments.balance.cents = a.money.balance;
   a.priceChange.state = 'approved';
+  const byGarment = new Map();
+  for (const l of a.lines) {
+    if (!byGarment.has(l.garmentId)) byGarment.set(l.garmentId, { type: l.garmentType, services: [] });
+    byGarment.get(l.garmentId).services.push(l.serviceId);
+  }
+  const garments = [];
+  for (const g of a.job.garments) {
+    const hit = byGarment.get(g.id);
+    if (hit) { garments.push({ ...g, services: hit.services }); byGarment.delete(g.id); }
+  }
+  for (const [gid, hit] of byGarment) garments.push({ id: gid, type: hit.type, services: hit.services, photos: 0, added: true });
+  a.job.garments = garments;
   setStatus(a, 'in-progress');
-  say(a, 'You approved the updated price', `${state.customer.first} approved the updated price`);
+  say(a, 'You approved the order', `${state.customer.first} approved the order`);
   return succeed(a);
 }
 export function messageAboutPriceChange(id) {
@@ -886,9 +909,26 @@ export function priceChangeView(appt, lines = appt?.priceChange?.lines ?? appt?.
     if (prev.has(lineKey(l))) continue;
     bucket(l.garmentId, l.garmentType).rows.push({ key: lineKey(l), label: labelOf(l), kind: 'added', from: null, to: l.cents });
   }
+  const bookedIds = new Set(booked.map((l) => l.garmentId));
+  const present = new Set(lines.map((l) => l.garmentId));
+  for (const g of garments) {
+    g.kind = !bookedIds.has(g.id) ? 'added' : !present.has(g.id) ? 'removed' : g.rows.some((r) => r.kind !== 'same') ? 'changed' : 'same';
+  }
+  const counts = { itemsAdded: 0, itemsRemoved: 0, servicesAdded: 0, servicesRemoved: 0, repriced: 0 };
+  for (const g of garments) {
+    if (g.kind === 'added') counts.itemsAdded += 1;
+    else if (g.kind === 'removed') counts.itemsRemoved += 1;
+    for (const r of g.rows) {
+      if (r.kind === 'repriced') counts.repriced += 1;
+      if (g.kind === 'added' || g.kind === 'removed') continue;
+      if (r.kind === 'added') counts.servicesAdded += 1;
+      else if (r.kind === 'removed') counts.servicesRemoved += 1;
+    }
+  }
   const pc = appt.priceChange;
   return {
     garments, before: m, after, delta: after.total - m.total,
+    changed: garments.some((g) => g.rows.some((r) => r.kind !== 'same')), counts,
     note: pc?.note ?? '', noteMasked: !!pc?.noteMasked, sentAt: pc?.sentAt ?? null, state: pc?.state ?? null, revisions: pc?.revisions ?? 0,
   };
 }
@@ -898,7 +938,7 @@ export const T = {
   setJob, newJob, addGarment, removeGarment, setServices, validateJob,
   requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, findAnotherTailor,
   tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow,
-  startFitting, sendPriceChange, confirmNoChange, approvePriceChange, messageAboutPriceChange, markReady,
+  startFitting, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
   chooseReturn, payBalance, markCompleted, leaveReview, sendMessage, maskContact,
   setTailorSection, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick,

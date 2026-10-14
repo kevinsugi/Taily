@@ -7,7 +7,7 @@
    in money-config.js or a price in data.js and these follow.
    ============================================================ */
 import { TAILORS, SEED_JOB } from '../data.js';
-import { estimate, quote, courierQuote, cancelTerms, noShowPayout } from '../money.js';
+import { estimate, quote, courierQuote, cancelTerms, noShowPayout, cents } from '../money.js';
 import { toDate, addMinutes } from '../dates.js';
 
 /** The seed visit: the first open Thursday home slot, Thu Oct 15 at 5 PM. */
@@ -39,6 +39,12 @@ const priceRepriced = repriced((lines) => {
   return lines;
 });
 const priceRemoved = repriced((lines) => lines.filter((l) => l.serviceId !== 'jacket-sides'));
+/* K-01 (D-124): the J6 recipe — a new Pants / Jeans item with Hem pants, minus Take in jacket sides; and the Suit Pant taken off */
+const priceItem = repriced((lines) => [
+  ...lines.filter((l) => l.serviceId !== 'jacket-sides'),
+  { garmentId: 'n1', garmentType: 'Pants / Jeans', serviceId: 'hem-pants', label: 'Hem pants', cents: cents(AMARA.prices['hem-pants']) },
+]);
+const priceItemRemoved = repriced((lines) => lines.filter((l) => l.garmentId !== 'g1'));
 
 /* a cancel / no-show on a booked seed appointment, two hours before the visit (inside the window) */
 const booked = { slot: { start: SEED_SLOT }, payments: { deposit: { cents: seed.deposit } } };
@@ -46,7 +52,7 @@ const lateCancel = cancelTerms(booked, toDate(addMinutes(SEED_SLOT, -120)).getTi
 const earlyCancel = cancelTerms(booked, toDate(addMinutes(SEED_SLOT, -72 * 60)).getTime());
 
 export const SCENARIOS = Object.freeze({
-  seed, rush, shop, courier, courierQuote: courierQuoted, priceAdded, priceRemoved, priceRepriced,
+  seed, rush, shop, courier, courierQuote: courierQuoted, priceAdded, priceRemoved, priceRepriced, priceItem, priceItemRemoved,
   lateCancel: { ...lateCancel, tailorPaid: lateCancel.kept },
   earlyCancel,
   noShow: { paid: noShowPayout(seed.deposit) },

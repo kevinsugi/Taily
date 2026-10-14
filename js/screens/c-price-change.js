@@ -1,16 +1,18 @@
 /* ============================================================
-   c-price-change — C9 review the adjusted price (M4-spec §C1).
-   After the fitting the tailor changed the order. Sarah sees exactly
-   what changed (the correction marks: struck old price + a text tag),
-   the new total and the unchanged deposit, then approves or messages
-   first. No reject path (§2). Focal: the "New total" figure.
-   States are data: added · removed · repriced · messaged · revised.
+   c-price-change — C9 review your final order (M4-spec §C1, K-01).
+   After the fitting the tailor sends the final order — always, even
+   unchanged. Sarah sees what changed (New item / New / New price /
+   Removed text tags, or "No changes"), the total and the unchanged
+   deposit, then approves or messages first. No reject path (§2).
+   Focal: the "New total" / "Total" figure.
+   States are data: added · item-added · item-removed · removed ·
+   repriced · messaged · unchanged · revised.
    Which appointment: focusAppt (D-72).
    ============================================================ */
 import { register, render as go, registered, currentScreen } from '../app.js';
 import { state, T, tailorById, priceChangeView } from '../state.js';
 import {
-  chrome, headingRow, statusHero, banner, emptyState, deltaFigure, noteQuote, changeList, moneyRows, actionBar, toast, esc,
+  chrome, headingRow, statusHero, banner, emptyState, deltaFigure, noteQuote, changeList, changeSummary, moneyRows, actionBar, toast, esc,
 } from '../components.js';
 import { fmtExact } from '../money.js';
 import { fmtTime } from '../dates.js';
@@ -28,7 +30,7 @@ function view() {
   if (!a || !a.priceChange) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}--none">
   <div class="${ID}__empty" data-empty="no-change">${emptyState({
-    title: 'No price change to review', body: 'When a tailor changes the price after your fitting, it shows up here.',
+    title: 'No final order to review', body: 'After your fitting, the order your tailor sends shows up here.',
     ctaLabel: 'Back to Bookings', ctaAct: 'bookings',
   })}</div>
 </main>`;
@@ -39,34 +41,38 @@ function view() {
   const after = pv.after;
   const messaged = pv.state === 'messaged';
   const busy = !!ui().busy;
+  const changed = pv.changed;
   const hero = statusHero({
-    variant: 'requested', pill: 'action', pillLabel: 'Approve new price', title: `${esc(first)} updated the price`,
-    body: `After the fitting, ${esc(first)} changed your order. Nothing more is charged until it’s ready.`,
+    variant: 'requested', pill: 'action', pillLabel: 'Approve order', title: 'Review your final order',
+    body: changed
+      ? `${esc(first)} updated your order at the fitting. Approve it and ${esc(first)} starts the work. Nothing more is charged until it’s ready.`
+      : `${esc(first)} checked everything at the fitting and nothing changed. Approve it and ${esc(first)} starts the work. Nothing more is charged until it’s ready.`,
   });
   const rows = [
-    { label: 'Services', cents: after.services, caption: `${first}’s new prices` },
+    { label: 'Services', cents: after.services, ...(changed ? { caption: `${first}’s final prices` } : {}) },
     after.homeFee > 0 && { label: 'Home-visit fee', cents: after.homeFee },
     after.rush > 0 && { label: 'Rush fee', cents: after.rush },
-    { label: 'New total', cents: after.total, kind: 'total' },
+    { label: changed ? 'New total' : 'Total', cents: after.total, kind: 'total' },
     { label: 'Deposit', cents: after.deposit, caption: 'Stays the same', status: 'Paid' },
-    { label: 'New balance', cents: after.balance, status: 'Due when ready' },
+    { label: changed ? 'New balance' : 'Balance', cents: after.balance, status: 'Due when ready' },
     after.refund > 0 && { label: 'Refund to your card', cents: after.refund, caption: 'When your order is ready' },
   ].filter(Boolean);
-  return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${messaged ? '--messaged' : ''}" data-appt="${esc(a.id)}">
+  return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${messaged ? '--messaged' : ''}" data-changed="${changed}" data-appt="${esc(a.id)}">
   ${headingRow(hero, { backRow: true })}
-  ${messaged ? `<div class="${ID}__banner">${banner({ tone: 'info', text: `You messaged ${esc(first)} about the price. Approve when you’re ready, or keep talking in chat.` })}</div>` : ''}
-  ${pv.revisions > 0 ? `<p class="t-small c-600 ${ID}__again">${esc(first)} changed the price again at <span class="nb">${esc(fmtTime(pv.sentAt))}</span>.</p>` : ''}
-  <div class="${ID}__figure">${deltaFigure({ label: 'New total', cents: after.total, was: pv.before.total })}</div>
+  ${messaged ? `<div class="${ID}__banner">${banner({ tone: 'info', text: `You messaged ${esc(first)} about the order. Approve when you’re ready, or keep talking in chat.` })}</div>` : ''}
+  ${pv.revisions > 0 ? `<p class="t-small c-600 ${ID}__again">${esc(first)} updated the order again at <span class="nb">${esc(fmtTime(pv.sentAt))}</span>.</p>` : ''}
+  <div class="${ID}__figure">${deltaFigure({ label: changed ? 'New total' : 'Total', cents: after.total, was: pv.before.total })}</div>
   ${pv.note ? `<div class="${ID}__quote">${noteQuote({ label: `${first}’s note`, text: pv.note })}${pv.noteMasked ? `<p class="t-small c-600 ${ID}__masked">Phone numbers and emails in this note are hidden.</p>` : ''}</div>` : ''}
-  <h2 class="t-h2 ${ID}__h2">What changed</h2>
+  <h2 class="t-h2 ${ID}__h2 ${ID}__h2--lead">${changed ? 'What changed' : 'Your order'}</h2>
+  <div class="${ID}__summary">${changeSummary(pv.counts)}</div>
   ${changeList({ garments: pv.garments })}
   <h2 class="t-h2 ${ID}__h2">Price</h2>
   ${moneyRows(rows)}
   <p class="t-small c-600 ${ID}__fine">There’s no charge today. If something doesn’t look right, message ${esc(first)} before you approve.</p>
 </main>
 ${actionBar({
-    ctaLabel: 'Approve new price', ctaAct: 'approve', busy, busyLabel: 'Approving…',
-    lead: `New balance <b data-money>${fmtExact(after.balance)}</b>`,
+    ctaLabel: 'Approve and start', ctaAct: 'approve', busy, busyLabel: 'Approving…',
+    lead: `${changed ? 'New balance' : 'Balance'} <b data-money>${fmtExact(after.balance)}</b>`,
     secondaryLabel: messaged ? 'Open chat' : `Message ${first}`, secondaryAct: 'message',
   })}`;
 }
@@ -83,7 +89,7 @@ function approve(a) {
     if (r.ok) {
       setFocus(a.id);
       go('c-booking', { fresh: true });
-      toast(`New price approved. ${first} can start the work.`, { tone: 'success' });
+      toast(`Order approved. ${first} can start the work.`, { tone: 'success' });
     } else {
       go(ID);
       toast('Something went wrong. Try again.', { tone: 'error' });

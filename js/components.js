@@ -1481,23 +1481,37 @@ export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', 
    ============================================================ */
 
 /**
- * Change List — "the correction mark" (M4 signature). The booked price rows with what moved: `garments` is
- * `priceChangeView(appt).garments` (`[{ id, type, rows: [{ key, label, kind, from, to }] }]`). Row kinds:
+ * Change List — "the correction mark" (M4 signature, K-01 / D-122). The booked rows with what moved: `garments` is
+ * `priceChangeView(appt).garments` (`[{ id, type, kind?, rows: [{ key, label, kind, from, to }] }]`). Row kinds:
  *   same      → label · amount
- *   added     → accent tint + "Added" tag · amount
+ *   added     → success tint + "New" tag · amount
  *   repriced  → "New price" tag · the old amount struck in neutral-500 (sr-only "was") then the new amount
  *   removed   → label and amount struck + "Removed" tag
+ * Garment `kind` (K-01): 'added' → one success panel, type + "New item" tag, plain rows (the item tag says it once);
+ * 'removed' → type struck + "Removed" tag, rows struck with no per-row tag; anything else (or no kind) renders as before.
+ * `newItem: true` on a plain garment (an approved order, D-127) = the "New item" tag on the type line only, no panel.
  * Every change carries a text tag, never colour alone. One precision per list: `format` defaults to fmtExact.
  */
 export function changeList({ garments = [], format = fmtExact } = {}) {
   const tag = (text, tone) => `<span class="change-list__tag change-list__tag--${tone} t-micro">${text}</span>`;
-  const rowHtml = (r) => {
+  const rowHtml = (r, g) => {
     noPercent(r.label, 'changeList');
     const label = esc(r.label);
+    const wholeNew = g.kind === 'added';
+    const wholeGone = g.kind === 'removed';
+    let kind = r.kind;
+    if (wholeNew) kind = 'same-new';
     let text = `<span class="change-list__label t-body">${label}</span>`;
     let amt = `<span class="change-list__amt t-body">${format(r.to ?? 0)}</span>`;
-    if (r.kind === 'added') {
-      text = `<span class="change-list__label t-body w-600">${label}</span>${tag('Added', 'added')}`;
+    if (wholeNew) {
+      text = `<span class="change-list__label t-body w-600">${label}</span>`;
+      amt = `<span class="change-list__amt t-body w-600">${format(r.to)}</span>`;
+    } else if (wholeGone) {
+      kind = 'removed';
+      text = `<span class="change-list__label change-list__label--struck t-body"><s>${label}</s></span>`;
+      amt = `<s class="change-list__amt change-list__amt--struck t-body"><span class="sr-only">removed, was </span>${format(r.from)}</s>`;
+    } else if (r.kind === 'added') {
+      text = `<span class="change-list__label t-body w-600">${label}</span>${tag('New', 'added')}`;
       amt = `<span class="change-list__amt t-body w-600">${format(r.to)}</span>`;
     } else if (r.kind === 'repriced') {
       text = `<span class="change-list__label t-body">${label}</span>${tag('New price', 'repriced')}`;
@@ -1506,13 +1520,39 @@ export function changeList({ garments = [], format = fmtExact } = {}) {
       text = `<span class="change-list__label change-list__label--struck t-body"><s>${label}</s></span>${tag('Removed', 'removed')}`;
       amt = `<s class="change-list__amt change-list__amt--struck t-body"><span class="sr-only">removed, was </span>${format(r.from)}</s>`;
     }
-    return `<div class="change-list__row change-list__row--${r.kind}" role="listitem" data-kind="${r.kind}"><span class="change-list__text">${text}</span>${amt}</div>`;
+    return `<div class="change-list__row change-list__row--${kind}" role="listitem" data-kind="${wholeNew ? 'added' : kind}"><span class="change-list__text">${text}</span>${amt}</div>`;
   };
-  const groups = garments.map((g) => `<div class="change-list__garment">
-    <p class="t-body w-600 change-list__type">${esc(g.type)}</p>
-    <div class="change-list__rows" role="list" aria-label="${esc(g.type)}" data-money>${g.rows.map(rowHtml).join('')}</div>
-  </div>`).join('');
+  const groups = garments.map((g) => {
+    const head = g.kind === 'added'
+      ? `<p class="t-body w-600 change-list__type change-list__type--new">${esc(g.type)}${tag('New item', 'new-item')}</p>`
+      : g.kind === 'removed'
+        ? `<p class="t-body w-600 change-list__type change-list__type--gone"><s>${esc(g.type)}</s>${tag('Removed', 'removed')}</p>`
+        : g.newItem
+          ? `<p class="t-body w-600 change-list__type change-list__type--new">${esc(g.type)}${tag('New item', 'new-item')}</p>`
+          : `<p class="t-body w-600 change-list__type">${esc(g.type)}</p>`;
+    return `<div class="change-list__garment${g.kind === 'added' ? ' change-list__garment--new' : ''}${g.kind === 'removed' ? ' change-list__garment--gone' : ''}"${g.kind ? ` data-garment-kind="${g.kind}"` : ''}>
+    ${head}
+    <div class="change-list__rows" role="list" aria-label="${esc(g.type)}" data-money>${g.rows.map((r) => rowHtml(r, g)).join('')}</div>
+  </div>`;
+  }).join('');
   return `<div class="change-list">${groups}</div>`;
+}
+
+/**
+ * Change Summary (K-01 / D-122) — one t-small line saying the scope of the final order before the rows: the non-zero parts of
+ * `priceChangeView().counts` joined with " · ", or "No changes. Same items, same price as booked." Words only, no money.
+ */
+export function changeSummary(counts = {}) {
+  const n = (k) => counts[k] ?? 0;
+  const part = (count, one, many) => (count ? [`${count} ${count === 1 ? one : many}`] : []);
+  const parts = [
+    ...part(n('itemsAdded'), 'item added', 'items added'),
+    ...part(n('itemsRemoved'), 'item removed', 'items removed'),
+    ...part(n('servicesAdded'), 'service added', 'services added'),
+    ...part(n('servicesRemoved'), 'service removed', 'services removed'),
+    ...part(n('repriced'), 'new price', 'new prices'),
+  ];
+  return `<p class="t-small c-700 change-summary" data-summary>${parts.length ? parts.join(' · ') : 'No changes. Same items, same price as booked.'}</p>`;
 }
 
 /**

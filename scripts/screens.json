@@ -2,7 +2,7 @@
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
     "syncedAt": "2026-10-13",
-    "milestone": "M4",
+    "milestone": "M4 + K-01",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -102,7 +102,14 @@
       "c-review": "844:4829",
       "c-review--submitted": "844:4877",
       "t-adjust": "843:4409",
-      "t-job--completed": "843:4512"
+      "t-job--completed": "843:4512",
+      "c-price-change--item-added": "847:4712",
+      "c-price-change--item-removed": "847:4815",
+      "c-price-change--unchanged": "847:4912",
+      "t-adjust--item-added": "848:4555",
+      "t-adjust--remove-item": "848:4684",
+      "t-job--waiting": "848:4791",
+      "t-job--waiting-unchanged": "848:4885"
     },
     "variables": {
       "semantic/warning-ink": "VariableID:821:4344"

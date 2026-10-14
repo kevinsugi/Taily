@@ -26,7 +26,7 @@ export const FLOWS_c_bookings = [
       S.driveTo('completed');
       const b = cbAddRequest({ accept: true, after: CB_AFTER });
       S.setClock(b.slot.start);
-      S.T.startFitting(b.id); S.T.confirmNoChange(b.id); S.T.markReady(b.id);
+      S.T.startFitting(b.id); S.T.sendPriceChange(b.id, b.lines); S.T.approvePriceChange(b.id); S.T.markReady(b.id);
     },
     expect: { has: ['In progress', 'Past', 'Ready · since', 'Pay now', 'Completed', 'Leave a review'], not: 'Upcoming', sel: '[data-section="progress"] .appt-row' } },
 ];
@@ -61,12 +61,12 @@ export const FLOWS_c_booking = [
   { key: 'c-booking--no-show', screen: 'c-booking', group: 'M3 · Bookings', title: 'Marked as a no-show', note: 'Amara waited and marked it missed: the deposit is kept',
     setup: (S) => { S.driveTo('no-show'); },
     expect: { has: ['Marked as a no-show', 'Kept', cbExact(CB_SC.seed.deposit)] } },
-  { key: 'c-booking--fitting', screen: 'c-booking', group: 'M4 · Bookings', title: 'Fitting with Amara', note: 'Amara is checking the fit; still an estimate, no cancel or reschedule',
+  { key: 'c-booking--fitting', screen: 'c-booking', group: 'M4 · Bookings', title: 'Fitting with Amara', note: 'Amara is going through the order with her; still an estimate, no cancel or reschedule',
     setup: (S) => { S.driveTo('fitting'); },
-    expect: { has: ['Fitting', 'checking the fit', 'Estimated total', cbExact(CB_SC.seed.total)], not: ['Cancel booking', 'Reschedule'] } },
-  { key: 'c-booking--in-progress', screen: 'c-booking', group: 'M4 · Bookings', title: 'Amara is working on it', note: 'Price confirmed: Total, not Estimated; the balance is due when it is ready',
+    expect: { has: ['Fitting', 'going through the order', 'Estimated total', cbExact(CB_SC.seed.total)], not: ['Cancel booking', 'Reschedule'] } },
+  { key: 'c-booking--in-progress', screen: 'c-booking', group: 'M4 · Bookings', title: 'Amara is working on it', note: 'Order approved: Total, not Estimated; the balance is due when it is ready',
     setup: (S) => { S.driveTo('in-progress'); },
-    expect: { has: ['In progress', 'working on it', 'Price confirmed', cbExact(CB_SC.seed.balance)], not: 'Estimated total' } },
+    expect: { has: ['In progress', 'working on it', 'approved the order', cbExact(CB_SC.seed.balance), 'Your order', 'Suit Jacket', 'Take in jacket sides'], not: ['Estimated total', 'New item'] } },
   { key: 'c-booking--returning-pickup', screen: 'c-booking', group: 'M4 · Bookings', title: 'Ready for pickup', note: 'Paid in full; pick it up at the shop',
     setup: (S) => { S.driveTo('returning'); },
     expect: { has: ['Ready for pickup', 'Reyes Tailoring', 'paid in full', 'Paid', 'In-store pickup'] } },

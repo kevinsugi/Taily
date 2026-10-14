@@ -1,4 +1,4 @@
-/* c-price-change — C9 review the adjusted price. Layout only; hero, figure, change list, money rows and bar are shared. Tokens only. */
+/* c-price-change — C9 review your final order (K-01). Layout only; hero, figure, change list, money rows and bar are shared. Tokens only. */
 .c-price-change { padding-bottom: var(--space-40); }
 .c-price-change__banner { margin-top: var(--space-16); }
 .c-price-change__banner .banner__text { text-wrap: pretty; }
@@ -11,3 +11,5 @@
 .c-price-change__empty { margin-top: var(--space-24); }
 .c-price-change .nb { white-space: nowrap; }
 .c-price-change__quote .note-quote { margin-top: 0; }
+.c-price-change__h2--lead { margin-bottom: var(--space-8); }
+.c-price-change__summary { margin-bottom: var(--space-12); }

@@ -35,7 +35,7 @@ function pillOf(a) {
 const shortPlace = (p) => { const parts = p.split(', '); return parts.length > 2 ? parts.slice(0, -2).join(', ') : p; };
 
 /** Where a job past its visit stands, as the row's time line (R4-1-T-06, D-113): the step, and since when. */
-const STEP = { fitting: 'Fitting', 'price-change': 'Price sent', 'in-progress': 'Tailoring', ready: 'Ready', returning: 'Handing back' };
+const STEP = { fitting: 'Fitting', 'price-change': 'Order sent', 'in-progress': 'Tailoring', ready: 'Ready', returning: 'Handing back' };
 const sinceLine = (a) => `${STEP[a.status]} · ${sinceText(a)}`;
 /** Confirmed and not started = Upcoming; the visit itself and everything after = In progress. */
 const started = (a) => a.status !== 'confirmed' || now() >= toDate(a.slot.start).getTime();

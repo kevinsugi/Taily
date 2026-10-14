@@ -1,10 +1,13 @@
 /* ============================================================
-   t-adjust — T5 adjust the price after the fitting (M4-spec §C1).
-   Amara turns what she found at the fitting into a new price Sarah can
-   approve: re-price, remove or add a service, add a note, send. The
-   correction marks (Added / New price / Removed, old price struck) show
-   as she edits. Focal: the editable lines; the outcome rides in the
-   action bar lead. Draft lives in state.ui['t-adjust'] (D-34).
+   t-adjust — T5 "Edit the job" at the fitting (M4-spec §C1, K-01 / D-120…D-124).
+   Amara edits the ticket with Sarah watching the total move: add or
+   remove items and services, re-price, add a note, then send Sarah the
+   FINAL order for approval — always sent, even unchanged. The draft
+   always edits against the BOOKED order (D-121), so the marks here are
+   the marks Sarah sees: New item / New / New price / Removed. Focal: the
+   garment cards; the outcome rides in the action bar lead.
+   Draft lives in state.ui['t-adjust'] (D-34):
+     { apptId, mode: 'new'|'revise', prices, removed, added, items, removedItems, note, tried, seq }
    Modes: 'new' (from the fitting) · 'revise' (Sarah hasn't approved yet).
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
@@ -12,10 +15,10 @@ import { state, T, getAppt, apptsFor, priceChangeView } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import { setFocus } from '../focus.js';
 import { fmt, fmtExact, cents } from '../money.js';
-import { SERVICES, servicesForType, TAILOR_LIMITS } from '../data.js';
+import { SERVICES, GARMENT_TYPES, servicesForType, TAILOR_LIMITS, MAX_ITEMS } from '../data.js';
 import { withLatency } from '../sim.js';
 import {
-  chrome, headingRow, banner, emptyState, listRow, optionRow, textArea, deltaFigure, tailorBreakdown, actionBar,
+  chrome, headingRow, banner, emptyState, listRow, optionRow, textArea, deltaFigure, tailorBreakdown, actionBar, changeSummary,
   sheetOverlay, modalOverlay, leaveModal, toast, esc,
 } from '../components.js';
 
@@ -30,7 +33,7 @@ const inputId = (r) => `price-${r.garmentId}-${r.serviceId}`;
 /* ---------- which appointment, which draft ---------- */
 const adjustable = (a) => !!a && ADJUSTABLE.includes(a.status) && apptsFor('tailor').includes(a);
 
-/** The appointment being adjusted: the draft's own, else the focused one, else the newest in a fitting / price-change. */
+/** The appointment being edited: the draft's own, else the focused one, else the newest in a fitting / price-change. */
 function target() {
   const own = getAppt(state.ui[ID]?.apptId);
   if (adjustable(own)) return own;
@@ -39,17 +42,46 @@ function target() {
   return apptsFor('tailor').find(adjustable) ?? null;
 }
 
+const nSeq = (items) => Math.max(0, ...items.map((i) => Number(String(i.id).slice(1)) || 0)) + 1;
+
+/** Revise: rebuild the draft from the order Sarah is looking at, against the BOOKED order (D-121). */
+function draftFromSent(a) {
+  const sent = a.priceChange?.lines ?? a.lines;
+  const list = myTailor().prices ?? {};
+  const bookedLine = new Map(a.lines.map((l) => [keyOf(l.garmentId, l.serviceId), l]));
+  const bookedIds = new Set(a.lines.map((l) => l.garmentId));
+  const sentKeys = new Set(sent.map((l) => keyOf(l.garmentId, l.serviceId)));
+  const sentIds = new Set(sent.map((l) => l.garmentId));
+  const prices = {};
+  const added = [];
+  const items = [];
+  for (const l of sent) {
+    const key = keyOf(l.garmentId, l.serviceId);
+    const base = bookedLine.get(key)?.cents ?? (typeof list[l.serviceId] === 'number' ? cents(list[l.serviceId]) : null);
+    if (base !== l.cents) prices[key] = String(l.cents / 100);
+    if (!bookedLine.has(key)) added.push({ garmentId: l.garmentId, serviceId: l.serviceId });
+    if (!bookedIds.has(l.garmentId) && !items.some((i) => i.id === l.garmentId)) items.push({ id: l.garmentId, type: l.garmentType });
+  }
+  const removed = a.lines.filter((l) => !sentKeys.has(keyOf(l.garmentId, l.serviceId))).map((l) => keyOf(l.garmentId, l.serviceId));
+  const removedItems = [...bookedIds].filter((id) => !sentIds.has(id));
+  return { prices, removed, added, items, removedItems, note: a.priceChange?.note ?? '', seq: nSeq(items) };
+}
+
 /** Make sure `state.ui['t-adjust']` is a full draft for `a` (a flow may hand over only { apptId, mode }). */
 function ensureDraft(a) {
   const mode = a.status === 'price-change' ? 'revise' : 'new';
   let d = state.ui[ID];
   if (!d || d.apptId !== a.id) d = state.ui[ID] = { apptId: a.id, mode };
   d.mode ??= mode;
+  if (d.mode === 'revise' && d.prices === undefined) Object.assign(d, draftFromSent(a));
   d.prices ??= {};
   d.removed ??= [];
   d.added ??= [];
-  d.note ??= d.mode === 'revise' ? a.priceChange?.note ?? '' : '';
+  d.items ??= [];
+  d.removedItems ??= [];
+  d.note ??= '';
   d.tried ??= false;
+  d.seq ??= nSeq(d.items);
   return d;
 }
 
@@ -68,51 +100,58 @@ const ERR = {
   'price-invalid': `Enter a whole-dollar price up to ${fmt(cents(TAILOR_LIMITS.PRICE_MAX))}.`,
 };
 
-/** Rows per garment: the start lines (minus nothing — removed ones stay, struck) + the added ones. */
+/** One card per garment — the booked ones in booked order, then the new items. A booked garment with no live service left
+    is a removed item (`gone`), whether Remove item or the last ✕ got it there. */
 function build(a, d) {
-  const start = d.mode === 'revise' ? a.priceChange?.lines ?? a.lines : a.lines;
   const prices = myTailor().prices ?? {};
-  const garments = (a.job?.garments ?? []).map((g) => ({ id: g.id, type: g.type, rows: [] }));
-  const bucket = (line) => {
-    let g = garments.find((x) => x.id === line.garmentId);
-    if (!g) { g = { id: line.garmentId, type: line.garmentType ?? '', rows: [] }; garments.push(g); }
-    return g;
-  };
   const booked = new Map(a.lines.map((l) => [keyOf(l.garmentId, l.serviceId), l.cents]));
-  const make = (line, startCents, isAdded) => {
-    const key = keyOf(line.garmentId, line.serviceId);
+  const make = (g, line, isAdded) => {
+    const key = keyOf(g.id, line.serviceId);
     const raw = d.prices[key] ?? String(line.cents / 100);
-    const parsed = parsePrice(raw);
     return {
-      key, garmentId: line.garmentId, garmentType: line.garmentType, serviceId: line.serviceId, label: SERVICES[line.serviceId]?.label ?? line.label,
-      startCents, raw, parsed, fallback: line.cents, added: isAdded, removed: !isAdded && d.removed.includes(key),
-      bookedCents: booked.get(key) ?? null,
+      key, garmentId: g.id, garmentType: g.type, serviceId: line.serviceId, label: SERVICES[line.serviceId]?.label ?? line.label,
+      startCents: isAdded ? null : line.cents, raw, parsed: parsePrice(raw), fallback: line.cents, added: isAdded,
+      removed: !isAdded && d.removed.includes(key), bookedCents: booked.get(key) ?? null,
     };
   };
-  for (const l of start) bucket(l).rows.push(make(l, l.cents, false));
-  for (const x of d.added) {
-    const g = garments.find((y) => y.id === x.garmentId);
+  const addedRows = (g) => d.added.filter((x) => x.garmentId === g.id).map((x) => {
     const price = prices[x.serviceId];
-    if (!g || typeof price !== 'number' || g.rows.some((r) => r.serviceId === x.serviceId)) continue;
-    g.rows.push(make({ garmentId: g.id, garmentType: g.type, serviceId: x.serviceId, label: SERVICES[x.serviceId]?.label, cents: cents(price) }, null, true));
+    return typeof price === 'number' ? make(g, { serviceId: x.serviceId, label: SERVICES[x.serviceId]?.label, cents: cents(price) }, true) : null;
+  }).filter(Boolean);
+  const garments = (a.job?.garments ?? []).map((bg) => {
+    const g = { id: bg.id, type: bg.type, isNew: false };
+    g.rows = [...a.lines.filter((l) => l.garmentId === bg.id).map((l) => make(g, l, false)), ...addedRows(g)];
+    g.gone = d.removedItems.includes(g.id) || g.rows.every((r) => r.removed);
+    return g;
+  });
+  for (const it of d.items) {
+    const g = { id: it.id, type: it.type, isNew: true, gone: false };
+    g.rows = addedRows(g);
+    garments.push(g);
   }
   return garments;
 }
-const liveRows = (garments) => garments.flatMap((g) => g.rows).filter((r) => !r.removed);
+const liveRows = (garments) => garments.filter((g) => !g.gone).flatMap((g) => g.rows).filter((r) => !r.removed);
 
 /** The lines the preview prices: an invalid price falls back to what the row started at. */
 const previewLines = (garments) => liveRows(garments).map((r) => ({
   garmentId: r.garmentId, garmentType: r.garmentType, serviceId: r.serviceId, label: r.label, cents: r.parsed.cents ?? r.fallback,
 }));
 
-function isChanged(a, d, garments) {
-  if (garments.some((g) => g.rows.some((r) => r.removed || r.added))) return true;
-  if (liveRows(garments).some((r) => !r.added && (r.parsed.error || r.parsed.cents !== r.startCents))) return true;
-  return d.mode === 'revise' && d.note.trim() !== (a.priceChange?.note ?? '');
+const lineSig = (l) => `${l.garmentId}:${l.serviceId}:${l.cents}`;
+/** Anything Back would throw away: new → any edit or a note; revise → the draft differs from what was sent (D-123). */
+function isEdited(a, d, garments) {
+  const rows = liveRows(garments);
+  if (rows.some((r) => r.parsed.error)) return true;
+  if (d.mode === 'revise') {
+    const sent = (a.priceChange?.lines ?? a.lines).map(lineSig).sort().join('|');
+    return previewLines(garments).map(lineSig).sort().join('|') !== sent || d.note.trim() !== (a.priceChange?.note ?? '');
+  }
+  return priceChangeView(a, previewLines(garments)).changed || d.note.trim() !== '';
 }
 
 /** Errors the screen shows after Send was pressed. */
-function checks(a, d, garments) {
+function checks(d, garments) {
   const rows = liveRows(garments);
   const fields = {};
   for (const r of rows) if (r.parsed.error) fields[r.key] = r.parsed.error;
@@ -126,21 +165,22 @@ function checks(a, d, garments) {
 /* ---------- view ---------- */
 const tag = (text, tone) => `<span class="change-list__tag change-list__tag--${tone} t-micro">${text}</span>`;
 
-function markHtml(r) {
+function markHtml(r, inNewItem) {
   if (r.removed) return tag('Removed', 'removed');
-  if (r.added || r.bookedCents == null) return tag('Added', 'added');
+  if (inNewItem) return '';
+  if (r.added || r.bookedCents == null) return tag('New', 'added');
   if (r.bookedCents !== (r.parsed.cents ?? r.fallback)) {
     return `<span class="t-small c-600">was <s>${fmtExact(r.bookedCents)}</s></span>${tag('New price', 'repriced')}`;
   }
   return '';
 }
 
-function rowHtml(r, errors, busy) {
+function rowHtml(r, errors, busy, inNewItem) {
   const id = inputId(r);
   const label = esc(r.label);
   if (r.removed) {
     return `<div class="${ID}__row ${ID}__row--removed" data-key="${esc(r.key)}">
-    <div class="${ID}__label"><span class="t-body c-600"><s>${label}</s></span><span class="${ID}__mark" data-live="mark-${esc(r.key)}">${markHtml(r)}</span></div>
+    <div class="${ID}__label"><span class="t-body c-600"><s>${label}</s></span><span class="${ID}__mark" data-live="mark-${esc(r.key)}">${markHtml(r, inNewItem)}</span></div>
     <s class="${ID}__was t-body" data-money>${fmtExact(r.startCents)}</s>
     <button type="button" class="${ID}__btn t-body w-600" data-act="undo-line" data-key="${esc(r.key)}"${busy ? ' disabled' : ''} aria-label="Undo remove ${label}">Undo</button>
     <div class="${ID}__err" data-live="err-${esc(r.key)}"></div>
@@ -148,7 +188,7 @@ function rowHtml(r, errors, busy) {
   }
   const err = errors.fields[r.key] ? ERR[errors.fields[r.key]] : '';
   return `<div class="${ID}__row" data-key="${esc(r.key)}">
-    <div class="${ID}__label"><label class="t-body" for="${id}">${label}</label><span class="${ID}__mark" data-live="mark-${esc(r.key)}" data-money>${markHtml(r)}</span></div>
+    <div class="${ID}__label"><label class="t-body" for="${id}">${label}</label><span class="${ID}__mark" data-live="mark-${esc(r.key)}" data-money>${markHtml(r, inNewItem)}</span></div>
     <div class="field__box ${ID}__box${err ? ` ${ID}__box--error` : ''}">
       <span class="field__affix" aria-hidden="true">$</span>
       <input class="field__input" id="${id}" name="${id}" type="text" inputmode="numeric" autocomplete="off" maxlength="6" value="${esc(r.raw)}" data-key="${esc(r.key)}"${err ? ` aria-invalid="true" aria-describedby="${id}-msg"` : ''}${busy ? ' disabled' : ''}>
@@ -165,10 +205,23 @@ function addable(g) {
 }
 
 function garmentHtml(g, errors, busy) {
+  const dis = busy ? ' disabled' : '';
+  if (g.gone) {
+    return `<section class="${ID}__garment" aria-label="${esc(g.type)}, removed" data-garment="${esc(g.id)}" data-kind="removed">
+    <div class="${ID}__card ${ID}__card--gone">
+      <div class="${ID}__head"><h2 class="t-body w-600 ${ID}__type c-600"><s>${esc(g.type)}</s></h2>${tag('Removed', 'removed')}
+        <button type="button" class="${ID}__btn ${ID}__btn--text t-body w-600" data-act="undo-item" data-garment="${esc(g.id)}"${dis} aria-label="Undo remove ${esc(g.type)}">Undo</button></div>
+      <ul class="${ID}__gone-list">${g.rows.map((r) => `<li class="t-small c-600" data-money><s>${esc(r.label)} · ${fmtExact(r.startCents ?? r.fallback)}</s></li>`).join('')}</ul>
+    </div>
+  </section>`;
+  }
   const more = addable(g).length > 0;
-  return `<section class="${ID}__garment" aria-label="${esc(g.type)}">
-    <h2 class="t-body w-600 ${ID}__type">${esc(g.type)}</h2>
-    <div class="${ID}__card">${g.rows.map((r) => rowHtml(r, errors, busy)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: '+ Add a service', act: 'add-service' }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${busy ? ' disabled' : ''}`)}</div>` : ''}</div>
+  return `<section class="${ID}__garment" aria-label="${esc(g.type)}" data-garment="${esc(g.id)}" data-kind="${g.isNew ? 'added' : 'kept'}">
+    <div class="${ID}__card${g.isNew ? ` ${ID}__card--new` : ''}">
+      <div class="${ID}__head"><h2 class="t-body w-600 ${ID}__type">${esc(g.type)}</h2>${g.isNew ? tag('New item', 'new-item') : ''}
+        <button type="button" class="${ID}__btn ${ID}__btn--text t-small w-600" data-act="remove-item" data-garment="${esc(g.id)}"${dis} aria-label="Remove ${esc(g.type)}">Remove item</button></div>
+      ${g.rows.map((r) => rowHtml(r, errors, busy, g.isNew)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: '+ Add a service', act: 'add-service' }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${dis}`)}</div>` : ''}
+    </div>
   </section>`;
 }
 
@@ -177,45 +230,54 @@ function view() {
   const chromeHtml = chrome('home', { persona: 'tailor' });
   if (!a) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}--none">
-  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'Nothing to adjust', body: 'You can adjust the price during a fitting.', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
+  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'Nothing to edit', body: 'You can edit the job during a fitting.', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
 </main>`;
   }
   const d = ensureDraft(a);
   const first = firstOf();
   const revise = d.mode === 'revise';
   const garments = build(a, d);
-  const changed = isChanged(a, d, garments);
-  const errors = d.tried ? checks(a, d, garments) : { fields: {}, empty: false, note: '' };
-  /* no service left: the figures hold the start values until one is added back (R4-1-T-04) */
+  const errors = d.tried ? checks(d, garments) : { fields: {}, empty: false, note: '' };
+  /* no service left: the figures hold the booked values until one is added back (R4-1-T-04) */
   const none = liveRows(garments).length === 0;
-  const startLines = d.mode === 'revise' ? a.priceChange?.lines ?? a.lines : a.lines;
-  const pv = none ? { ...priceChangeView(a, startLines), delta: 0 } : priceChangeView(a, previewLines(garments));
-  const frozen = none ? priceChangeView(a, startLines) : null;
+  const real = priceChangeView(a, previewLines(garments));
+  const frozen = none ? priceChangeView(a, a.lines) : null;
+  const pv = none ? { ...frozen, delta: 0 } : real;
   const busy = !!d.busy;
   const deposit = pv.after.deposit;
-  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">After the fitting</p><h1 class="t-title">${revise ? 'Change the new price' : 'Adjust the price'}</h1>`
-    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Change what ${esc(first)} pays for this job. ${esc(first)} approves the new price before you start the work.</p></div><!--/notes-->`;
+  const edited = isEdited(a, d, garments);
+  const atMax = garments.length >= MAX_ITEMS;
+  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">At the fitting</p><h1 class="t-title">${revise ? 'Edit the order you sent' : 'Edit the job'}</h1>`
+    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Add or remove items and services with ${esc(first)}, then send ${esc(first)} the final order. You start the work once ${esc(first)} approves.</p></div><!--/notes-->`;
+  const sendDisabled = revise && !edited && !busy;
+  /* D-126: the bar carries both figures, the customer's first, so the total moves in view while the cards are edited */
+  const pair = `<span class="${ID}__lead-pair">${esc(first)} pays <b data-money>${fmtExact(pv.after.total)}</b></span> · <span class="${ID}__lead-pair">You take home <b data-money>${fmtExact(pv.after.payout)}</b></span>`;
+  const lead = none ? 'Add an item or service to see the new total'
+    : `<span>${real.changed ? '' : 'No changes · '}${pair}</span>`;
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${revise ? '--revise' : ''}" data-appt="${esc(a.id)}">
   ${headingRow(hero, { backRow: true })}
   <div class="${ID}__content"${busy ? ' inert aria-busy="true"' : ''}>
-  ${revise ? `<div class="${ID}__info">${banner({ tone: 'info', text: `${esc(first)} hasn’t approved yet. Sending again replaces the price ${esc(first)} is looking at.` })}</div>` : ''}
-  <div class="${ID}__garments">${garments.map((g) => garmentHtml(g, errors, busy)).join('')}</div>
-  <div class="${ID}__empty-err" data-live="empty">${errors.empty ? banner({ tone: 'error', text: 'Keep at least one service on this job.' }) : ''}</div>
+  ${revise ? `<div class="${ID}__info">${banner({ tone: 'info', text: `${esc(first)} hasn’t approved yet. Sending again replaces the order ${esc(first)} is looking at.` })}</div>` : ''}
+  <div class="${ID}__garments">${garments.map((g) => garmentHtml(g, errors, busy)).join('')}
+    <div class="${ID}__card ${ID}__card--add">${listRow({ title: '+ Add an item', act: 'add-item' }).replace('data-act="add-item"', `data-act="add-item"${atMax || busy ? ' disabled aria-disabled="true"' : ''}`)}${atMax ? `<p class="t-small c-600 ${ID}__max">Up to ${MAX_ITEMS} items on one job.</p>` : ''}</div>
+  </div>
+  <div class="${ID}__empty-err" data-live="empty">${errors.empty ? banner({ tone: 'error', text: 'Keep at least one item with a service on this job.' }) : ''}</div>
   <div class="${ID}__note">${textArea({ id: 'adjust-note', label: `Note to ${first} (optional)`, value: d.note, rows: 3, max: TAILOR_LIMITS.NOTE_MAX, helper: 'Say what you found at the fitting. Phone numbers and emails are hidden.', error: errors.note })}</div>
   <h2 class="t-h2 ${ID}__h2">What changes</h2>
+  <div class="${ID}__summary" data-live="summary">${changeSummary(real.counts)}</div>
   <div class="${ID}__figures" data-live="figures">
     ${none ? deltaFigure({ label: `${first} pays`, cents: frozen.after.total }) : deltaFigure({ label: `${first} pays`, cents: pv.after.total, was: pv.before.total })}
     ${none ? deltaFigure({ label: 'You take home', cents: frozen.after.payout }) : deltaFigure({ label: 'You take home', cents: pv.after.payout, was: pv.before.payout })}
-    ${none ? `<p class="t-small c-600 ${ID}__frozen">Add a service back to see the new price</p>` : ''}
+    ${none ? `<p class="t-small c-600 ${ID}__frozen">Add an item or service to see the new total</p>` : ''}
   </div>
   <div class="${ID}__breakdown" data-live="breakdown">${tailorBreakdown(pv.after)}</div>
   <p class="t-small c-600 ${ID}__fine" data-money>${esc(first)}’s ${fmtExact(deposit)} deposit stays the same. The balance is due when the order is ready.</p>
   </div>
 </main>
 ${actionBar({
-    ctaLabel: revise ? 'Send the new price' : `Send to ${first}`, ctaAct: 'send', disabled: !changed && !busy, busy, busyLabel: 'Sending…',
-    note: !changed ? 'Change a price, add or remove a service to send.' : '',
-    lead: none ? 'Add a service back to see the new price' : `You take home <b data-money>${fmtExact(pv.after.payout)}</b>`,
+    ctaLabel: revise ? 'Send the updated order' : `Send to ${first} for approval`, ctaAct: 'send', disabled: sendDisabled, busy, busyLabel: 'Sending…',
+    note: sendDisabled ? 'Change something to send it again.' : '',
+    lead,
   })}`;
 }
 
@@ -258,8 +320,9 @@ function rerender(sel) {
   window.scrollTo(0, y);
   if (sel) document.querySelector(`#screen ${sel}`)?.focus({ preventScroll: true });
 }
+const q = (v) => CSS.escape(v);
 
-/* ---------- actions ---------- */
+/* ---------- the two add sheets ---------- */
 function openAdd(a, garmentId) {
   const d = ui();
   const g = build(a, d).find((x) => x.id === garmentId);
@@ -276,13 +339,62 @@ function openAdd(a, garmentId) {
         const serviceId = el.dataset.value;
         d.added.push({ garmentId, serviceId });
         close({ instant: true });
-        rerender(`#price-${CSS.escape(garmentId)}-${CSS.escape(serviceId)}`);
+        rerender(`#price-${q(garmentId)}-${q(serviceId)}`);
+      });
+    });
+}
+
+/** Types Amara prices at least one service for, catalog order, with the lowest price ("From $X"). */
+function itemTypes() {
+  const prices = myTailor().prices ?? {};
+  return Object.keys(GARMENT_TYPES).map((type) => {
+    const list = servicesForType(type).filter((id) => typeof prices[id] === 'number');
+    return list.length ? { type, min: Math.min(...list.map((id) => prices[id])) } : null;
+  }).filter(Boolean);
+}
+
+/** "Add an item": one sheet, two steps — type, then what it needs. An item is never created without a service (D-121). */
+function openAddItem() {
+  const d = ui();
+  const prices = myTailor().prices ?? {};
+  const typeStep = () => `<div role="radiogroup" aria-label="Item type">${itemTypes().map(({ type, min }) => optionRow({
+    name: 'type', value: type, title: esc(type), sub: `From ${fmtExact(cents(min))}`, act: 'pick-type',
+  })).join('')}</div>`;
+  const serviceStep = (type) => `<button type="button" class="${ID}__btn ${ID}__btn--text t-body w-600 ${ID}__back" data-act="pick-back">Choose another item</button>
+    <div role="radiogroup" aria-label="Services">${servicesForType(type).filter((id) => typeof prices[id] === 'number').map((id) => optionRow({
+    name: 'service', value: id, title: esc(SERVICES[id].label), sub: `Your price ${fmtExact(cents(prices[id]))}`, act: 'pick-service',
+  })).join('')}</div>`;
+  sheetOverlay(`<div class="${ID}-sheet" data-step="type">${typeStep()}</div>`,
+    { header: 'Add an item', confirm: false, dataS: `${ID}-add-item` }, (holder, close) => {
+      const box = holder.querySelector(`.${ID}-sheet`);
+      const title = holder.querySelector('.sheet__title');
+      let type = null;
+      const show = (step) => {
+        box.dataset.step = step;
+        box.innerHTML = step === 'type' ? typeStep() : serviceStep(type);
+        title.textContent = step === 'type' ? 'Add an item' : `What does the ${type} need?`;
+        holder.dataset.s = step === 'type' ? `${ID}-add-item` : `${ID}-add-item-service`;
+        box.querySelector('[data-act="pick-back"], .option-row')?.focus({ preventScroll: true });
+      };
+      holder.addEventListener('click', (e) => {
+        const el = e.target.closest('[data-act]');
+        if (!el) return;
+        if (el.dataset.act === 'pick-type') { type = el.dataset.value; show('service'); }
+        else if (el.dataset.act === 'pick-back') show('type');
+        else if (el.dataset.act === 'pick-service') {
+          const serviceId = el.dataset.value;
+          const id = `n${d.seq++}`;
+          d.items.push({ id, type });
+          d.added.push({ garmentId: id, serviceId });
+          close({ instant: true });
+          rerender(`#price-${q(id)}-${q(serviceId)}`);
+        }
       });
     });
 }
 
 function openLeave(a) {
-  modalOverlay(leaveModal({ title: 'Leave without sending?', body: `Your price changes won’t be sent to ${firstOf()}.` }), { dataS: `${ID}-leave` }, (holder, close) => {
+  modalOverlay(leaveModal({ title: 'Leave without sending?', body: `${firstOf()} can’t approve the order until you send it. Your edits won’t be kept.` }), { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => {
       close({ instant: true });
@@ -296,16 +408,56 @@ function leave(a) {
   go('t-job');
 }
 
+/* ---------- remove / undo ---------- */
+/** A new item goes outright, with an Undo toast that puts back exactly what was dropped. */
+function dropNewItem(id) {
+  const d = ui();
+  const item = d.items.find((i) => i.id === id);
+  if (!item) return;
+  const at = d.items.indexOf(item);
+  const addedOnIt = d.added.filter((x) => x.garmentId === id);
+  const priceKeys = Object.keys(d.prices).filter((k) => k.startsWith(`${id}:`));
+  const savedPrices = Object.fromEntries(priceKeys.map((k) => [k, d.prices[k]]));
+  d.items.splice(at, 1);
+  d.added = d.added.filter((x) => x.garmentId !== id);
+  priceKeys.forEach((k) => delete d.prices[k]);
+  rerender('[data-act="add-item"]');
+  toast(`${item.type} removed.`, {
+    action: 'Undo',
+    onAction: () => {
+      if (currentScreen() !== ID || !state.ui[ID]) return;
+      state.ui[ID].items.splice(at, 0, item);
+      state.ui[ID].added.push(...addedOnIt);
+      Object.assign(state.ui[ID].prices, savedPrices);
+      rerender(`[data-act="remove-item"][data-garment="${q(id)}"]`);
+    },
+  });
+}
+
+function removeLine(a, key) {
+  const d = ui();
+  const garments = build(a, d);
+  const g = garments.find((x) => x.rows.some((r) => r.key === key));
+  if (!g) return;
+  const liveAfter = g.rows.filter((r) => !r.removed && r.key !== key).length;
+  const wasAdded = d.added.findIndex((x) => keyOf(x.garmentId, x.serviceId) === key);
+  if (g.isNew && liveAfter === 0) { dropNewItem(g.id); return; }
+  if (wasAdded >= 0) { d.added.splice(wasAdded, 1); delete d.prices[key]; } else if (!d.removed.includes(key)) d.removed.push(key);
+  if (!g.isNew && liveAfter === 0) rerender(`[data-act="undo-item"][data-garment="${q(g.id)}"]`);
+  else if (wasAdded >= 0) rerender(`[data-act="add-service"][data-garment="${q(g.id)}"]`);
+  else rerender(`[data-act="undo-line"][data-key="${q(key)}"]`);
+}
+
 function send(a) {
   const d = ui();
   if (d.busy) return;
   d.tried = true;
   const garments = build(a, d);
-  const errors = checks(a, d, garments);
+  const errors = checks(d, garments);
   const firstBad = Object.keys(errors.fields)[0];
   if (firstBad || errors.empty || errors.note) {
     const row = garments.flatMap((g) => g.rows).find((r) => r.key === firstBad);
-    rerender(row ? `#${CSS.escape(inputId(row))}` : errors.note ? '#adjust-note' : null);
+    rerender(row ? `#${q(inputId(row))}` : errors.note ? '#adjust-note' : null);
     if (errors.empty) document.querySelector('#screen [data-live="empty"]')?.scrollIntoView({ block: 'center' });
     return;
   }
@@ -313,6 +465,7 @@ function send(a) {
     garmentId: r.garmentId, garmentType: r.garmentType, serviceId: r.serviceId, label: r.label, cents: r.parsed.cents,
   }));
   const note = d.note;
+  const revise = d.mode === 'revise';
   d.busy = true;
   rerender();
   withLatency(() => {
@@ -323,12 +476,15 @@ function send(a) {
       delete state.ui[ID];
       setFocus(a.id);
       go('t-job', { fresh: true });
-      toast(`New price sent to ${firstOf()}.`, { tone: 'success' });
-    } else {
+      toast(revise ? `Updated order sent to ${firstOf()}.` : `Sent to ${firstOf()} for approval.`, { tone: 'success' });
+    } else if (r.error === 'not-fitting') {
       delete state.ui[ID];
       setFocus(a.id);
       go('t-job', { replace: true });
-      toast(r.error === 'not-fitting' ? `${firstOf()} already answered this price.` : 'Something went wrong. Try again.', { tone: 'error' });
+      toast(`${firstOf()} already answered this order.`, { tone: 'error' });
+    } else {
+      rerender();
+      toast('Something went wrong. Try again.', { tone: 'error' });
     }
   });
 }
@@ -348,8 +504,7 @@ function wire(root) {
     btn.dataset.wired = '1';
     btn.addEventListener('click', () => {
       if (ui().busy) return;
-      const garments = build(a, ui());
-      if (isChanged(a, ui(), garments)) openLeave(a); else leave(a);
+      if (isEdited(a, ui(), build(a, ui()))) openLeave(a); else leave(a);
     });
   });
 
@@ -360,22 +515,21 @@ function wire(root) {
     const act = el.dataset.act;
     if (act === 'send') send(a);
     else if (act === 'add-service') openAdd(a, el.dataset.garment);
-    else if (act === 'remove-line') {
-      const key = el.dataset.key;
-      const wasAdded = d.added.findIndex((x) => keyOf(x.garmentId, x.serviceId) === key);
-      if (wasAdded >= 0) {
-        const { garmentId } = d.added[wasAdded];
-        d.added.splice(wasAdded, 1);
-        delete d.prices[key];
-        rerender(`[data-act="add-service"][data-garment="${CSS.escape(garmentId)}"]`);
-      } else {
-        if (!d.removed.includes(key)) d.removed.push(key);
-        rerender(`[data-act="undo-line"][data-key="${CSS.escape(key)}"]`);
-      }
-    } else if (act === 'undo-line') {
+    else if (act === 'add-item') openAddItem();
+    else if (act === 'remove-line') removeLine(a, el.dataset.key);
+    else if (act === 'undo-line') {
       const key = el.dataset.key;
       d.removed = d.removed.filter((k) => k !== key);
-      rerender(`[data-act="remove-line"][data-key="${CSS.escape(key)}"]`);
+      rerender(`[data-act="remove-line"][data-key="${q(key)}"]`);
+    } else if (act === 'remove-item') {
+      const id = el.dataset.garment;
+      if (d.items.some((i) => i.id === id)) dropNewItem(id);
+      else { if (!d.removedItems.includes(id)) d.removedItems.push(id); rerender(`[data-act="undo-item"][data-garment="${q(id)}"]`); }
+    } else if (act === 'undo-item') {
+      const id = el.dataset.garment;
+      d.removedItems = d.removedItems.filter((x) => x !== id);
+      d.removed = d.removed.filter((k) => !k.startsWith(`${id}:`));
+      rerender(`[data-act="remove-item"][data-garment="${q(id)}"]`);
     }
   });
 

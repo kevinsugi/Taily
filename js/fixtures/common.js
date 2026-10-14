@@ -34,6 +34,13 @@ function changedLines(appt, kind) {
   return [...lines, { garmentId: pant.garmentId, garmentType: pant.garmentType, serviceId: 'taper', label: 'Taper legs', cents: 4000 }];
 }
 
+/** The tailor's note per price-change recipe (copy, not money) — driveTo sends it with the change (A6). */
+export const PRICE_NOTES = {
+  added: 'The sleeve lining has to move too, and tapering the legs will sit better with the shorter jacket.',
+  removed: 'Once the sleeves are done the jacket sides already fit, so I took that off.',
+  repriced: 'The sleeve lining has to move too.',
+};
+
 /** driveTo(target, { visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced', returnOption = 'pickup' }) → appt.
     `price-change` always carries a change (default 'added'); later targets keep the booked price (confirmNoChange)
     unless `priceChange` is passed explicitly. */
@@ -77,7 +84,7 @@ export function driveTo(target, opts = {}) {
   must(T.startFitting(id), 'startFitting');
   if (target === 'fitting') return getAppt(id);
   if (target === 'price-change' || 'priceChange' in opts) {
-    must(T.sendPriceChange(id, changedLines(getAppt(id), priceChange)), 'sendPriceChange');
+    must(T.sendPriceChange(id, changedLines(getAppt(id), priceChange), { note: PRICE_NOTES[priceChange] ?? '' }), 'sendPriceChange');
     if (target === 'price-change') return getAppt(id);
     must(T.approvePriceChange(id), 'approvePriceChange');
   } else {

@@ -69,7 +69,7 @@ export function requestView(appt) {
     needByDays: dayDiff(appt.slot.start, appt.job.needBy),
     retries: appt.retries,
     suggested: appt.suggested ? fmtWhen(appt.suggested.start) : null,
-    items: appt.job.garments.length,
+    items: new Set(appt.lines.map((l) => l.garmentId)).size || appt.job.garments.length,
     serviceCount: appt.lines.length,
   };
 }

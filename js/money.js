@@ -46,8 +46,11 @@ export const tailyFeeFor = (services) => round(MONEY.TAILY_FEE_RATE * services);
 /** What the tailor takes home. The courier never reaches the tailor (D-04). */
 export const payoutFor = ({ services, homeFee = 0, rush = 0 }) => services - tailyFeeFor(services) + homeFee + rush;
 
+/** The mocked Uber quote, the Taily courier fee on top, and their sum (D-100). */
 export function courierQuote(miles) {
-  return { miles, cents: round(cents(MONEY.COURIER_BASE + MONEY.COURIER_PER_MILE * miles) * (1 + MONEY.COURIER_MARKUP)) };
+  const uber = cents(MONEY.COURIER_BASE + MONEY.COURIER_PER_MILE * miles);
+  const total = round(uber * (1 + MONEY.COURIER_MARKUP));
+  return { miles, quote: uber, markup: total - uber, cents: total };
 }
 
 /** The one price object every surface prints. `deposit` is passed by a booked
@@ -110,4 +113,5 @@ export function fmtColumn(list) {
   return cents.some((c) => abs(c) % 100 !== 0) ? fmtExact : fmt;
 }
 /** "−$12.50" (U+2212) — the Taily fee row and refunds-out. */
-export const fmtNeg = (c) => `${MINUS}${fmtExact(abs(c))}`;
+/** `−$12.50`; a zero fee prints plain `$0.00` (R4-1-T-04: never a negative zero). */
+export const fmtNeg = (c) => (c === 0 ? fmtExact(0) : `${MINUS}${fmtExact(abs(c))}`);

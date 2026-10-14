@@ -27,6 +27,7 @@ const SCREEN_MODULES = [
   /* M3 · Request loop */
   't-home', 't-request', 't-suggest', 't-job', 't-thread', 'c-bookings', 'c-booking',
   /* M4 · Fitting to completion */
+  't-adjust', 'c-price-change', 'c-ready', 'c-complete', 'c-review',
   /* M5 · Messaging, accounts, earnings, system */
 ];
 

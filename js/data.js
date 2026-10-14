@@ -43,7 +43,9 @@ export const ZIP_INFO = {                               // mock geography: neigh
   '11206': { hood: 'East Williamsburg', miles: 1.5 }, '11237': { hood: 'Bushwick', miles: 2.3 },
   '11201': { hood: 'Brooklyn Heights', miles: 3.9 },   // the "zip outside" toggle
 };
-export const TAILOR_LIMITS = { BIO_MAX: 300, WORK_PHOTOS_MAX: 6, PRICE_MAX: 999, FEE_MAX: 200, RUSH_MAX: 200 };  // whole dollars (D-58, D-59)
+export const REVIEW_LIMITS = { TEXT_MAX: 500, PHOTOS_MAX: 3 };                       // D-107
+export const STAR_WORDS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];        // index = stars
+export const TAILOR_LIMITS = { BIO_MAX: 300, WORK_PHOTOS_MAX: 6, PRICE_MAX: 999, FEE_MAX: 200, RUSH_MAX: 200, NOTE_MAX: 200 };  // whole dollars (D-58, D-59)
 export const RUSH_TIERS = [1, 2, 3];                       // days after the visit; 4+ days is always free (D-64)
 export const SHOP_CITY = { city: 'Brooklyn', state: 'NY' }; // prototype geography (D-60)
 export const DEFAULT_WEEK = {                              // a new tailor's starting hours (D-62); no overlap

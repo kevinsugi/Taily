@@ -3,23 +3,24 @@
    ways to change it. Focal: the visit time (visitBlock title, .t-h2).
    States: just confirmed · upcoming · cancel sheets (early / late) ·
    reschedule sheet · cancelled (early / late) · Amara can't make it ·
-   no-show. Which appointment: focusAppt (D-72).
+   no-show · M4: fitting · in progress · returning (pickup / drop-off /
+   courier) · completed (reviewed). Which appointment: focusAppt (D-72).
    ============================================================ */
 import { register, render as go, registered } from '../app.js';
 import {
-  state, T, tailorById, openSlots, justConfirmed, now,
+  state, T, tailorById, openSlots, justConfirmed, now, returnAddress,
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sheetOverlay, toast, esc, wireWheel, noteQuote,
+  sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow,
 } from '../components.js';
-import { scheduler, slotColumns, readSlot, SCHED_ROW } from '../scheduler.js';
+import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
-import { fmtWhen, fmtTime, addMinutes, toDate } from '../dates.js';
+import { fmtWhen, fmtTime, fmtDay, addMinutes, toDate } from '../dates.js';
 import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
-import { focusAppt, redirectIfMoved } from '../focus.js';
+import { focusAppt, redirectIfMoved, statusWord } from '../focus.js';
 
 const ID = 'c-booking';
 
@@ -38,8 +39,10 @@ function whereOf(a, t) {
 }
 
 function visitRows(a, t) {
-  const items = a.job.garments.length;
-  const services = a.job.garments.reduce((n, g) => n + g.services.length, 0);
+  /* Count from the approved lines once they exist (R4-1-C-01): a price change can add or remove services. */
+  const lines = a.lines?.length ? a.lines : null;
+  const items = lines ? new Set(lines.map((l) => l.garmentId)).size : a.job.garments.length;
+  const services = lines ? lines.length : a.job.garments.reduce((n, g) => n + g.services.length, 0);
   return [
     esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`),
     esc(whereOf(a, t)),
@@ -157,6 +160,126 @@ function liveView(a, t, first) {
 </main>`;
 }
 
+/* ---------- M4: fitting → completed (D-110) ---------- */
+
+const M4_STATES = ['fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed'];
+const ORDER = ['confirmed', ...M4_STATES];
+const completedAt = (a) => [...a.history].reverse().find((h) => h.status === 'completed')?.at ?? a.requestedAt;
+/** The price Amara confirmed at the fitting: the booked money without the courier (that is added later, on top). */
+const confirmedTotal = (a) => a.money.total - (a.money.courier || 0);
+
+
+/** "What happens next", every live state after the visit (D-110). */
+function m4Timeline(a, first) {
+  const at = ORDER.indexOf(a.status);
+  const stage = (from, to) => (at >= from && at <= to ? 'current' : at > to ? 'done' : 'todo');
+  const fitting = ORDER.indexOf('fitting'), progress = ORDER.indexOf('in-progress'), ready = ORDER.indexOf('ready'), back = ORDER.indexOf('returning');
+  const s2 = stage(fitting, ORDER.indexOf('price-change'));
+  const s3 = stage(progress, progress);
+  const s4 = stage(ready, ready);
+  const s5 = a.status === 'completed' ? 'done' : a.status === 'returning' ? 'current' : 'todo';
+  const paid = at >= back;
+  return timeline([
+    { state: 'done', title: 'Booked', sub: fmtWhen(confirmedAt(a)) },
+    { state: s2, title: 'Visit and fitting', sub: s2 === 'done' ? `Price confirmed · ${money(confirmedTotal(a))}` : s2 === 'current' ? `${esc(first)} confirms the final price` : '' },
+    { state: s3, title: 'Tailoring' },
+    { state: s4, title: 'Ready', sub: paid ? `Paid ${money(a.payments.balance.cents)}` : s4 === 'current' ? 'Pay the balance' : at >= progress ? `Pay the ${money(a.money.balance)} balance` : `Pay the balance, est. ${money(a.money.balance)}` },
+    { state: s5, title: 'Back with you', sub: s5 === 'current' ? esc(statusWord(a, 'customer').label) : '' },
+  ]);
+}
+
+const DOW_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+const DOW_NAME = { sun: 'Sun', mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat' };
+const minsOf = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+/** The next shop hours from now, from the tailor's availability: "Open today 10:00 AM – 6:00 PM" (R4-1-C-07). */
+function shopHoursLine(t) {
+  const week = t.availability?.shop ?? {};
+  const d = toDate(now());
+  const nowMin = d.getHours() * 60 + d.getMinutes();
+  for (let i = 0; i < 7; i += 1) {
+    const key = DOW_KEYS[(d.getDay() + i) % 7];
+    const w = (week[key] ?? []).find(([, close]) => i > 0 || minsOf(close) > nowMin);
+    if (!w) continue;
+    const range = `${timeLabel(minsOf(w[0]))} – ${timeLabel(minsOf(w[1]))}`;
+    const day = i === 0 ? 'Open today' : i === 1 ? 'Open tomorrow' : `Next open ${DOW_NAME[key]}`;
+    return `${day} ${range}`;
+  }
+  return '';
+}
+
+/** The "how it comes back" block per return option (B3). */
+function returnBlock(a, t, first) {
+  const shopName = esc(t.shopName);
+  if (a.returnOption === 'dropoff') {
+    return `<div class="${ID}__block">${visitBlock([esc(returnAddress())], { title: 'Home drop-off', flush: true })}</div>`;
+  }
+  if (a.returnOption === 'courier' && a.courier) {
+    return `<div class="${ID}__block">${courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: returnAddress(), note: 'Paid with your balance.' })}</div>`;
+  }
+  const hours = shopHoursLine(t);
+  const rows = [metaRow('', shopName, { icon: 'bag' }), esc(`${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim()), ...(hours ? [esc(hours)] : [])];
+  const f = esc(first);
+  return `<div class="${ID}__block">${visitBlock(rows, { title: 'In-store pickup', flush: true })}</div>
+  <p class="t-small c-600 ${ID}__policy">Message ${f} if you’re coming outside shop hours. ${f} marks the order completed when you have it.</p>`;
+}
+
+function m4View(a, t, first) {
+  const word = statusWord(a, 'customer');
+  const f = esc(first);
+  const shopName = esc(t.shopName);
+  const how = a.returnOption ?? 'pickup';
+  const cfg = {
+    fitting: { title: `Fitting with ${f}`, body: `${f} is checking the fit. If the price changes, you’ll approve it here before any work starts.` },
+    'price-change': { title: `${f} updated the price`, body: 'Review the new price before any work starts.' },
+    'in-progress': { title: `${f} is working on it`, body: `Price confirmed. You’ll pay the ${fmtExact(a.money.balance)} balance when it’s ready.` },
+    ready: { title: `${f} finished your order`, body: `Pay the ${fmtExact(a.money.balance)} balance to choose how to get it back.` },
+    completed: { title: 'Completed', body: `${f} completed your order on ${fmtDay(completedAt(a))}.` },
+    returning: {
+      pickup: { title: 'Ready for pickup', body: `Pick it up at ${shopName}. You’ve paid in full.` },
+      dropoff: { title: `${f} will drop it off`, body: `${f} will bring it to your door and message you to agree a time. You’ve paid in full.` },
+      courier: { title: 'On its way to you', body: `A Taily courier is bringing it from ${shopName} today. You’ve paid in full.` },
+    }[how],
+  }[a.status];
+  const hero = head(a, { pill: word.pill, pillLabel: word.label, title: cfg.title, body: cfg.body, variant: a.status === 'completed' ? 'confirmed' : 'tailoring' });
+
+  const early = a.status === 'fitting' || a.status === 'price-change' || a.status === 'in-progress' || a.status === 'ready';
+  const stage = a.status === 'returning' || a.status === 'completed' ? 'paid' : 'booked';
+  const confirmed = a.status !== 'fitting' && a.status !== 'price-change';
+  const breakdown = customerBreakdown(a.money, { stage, tailorFirst: first, depositState: a.payments.deposit.state, confirmed });
+  const updated = a.status === 'in-progress' && a.priceChange?.state === 'approved'
+    ? `<p class="t-small c-600 ${ID}__policy">Updated after the fitting</p>` : '';
+
+  let middle = '';
+  let after = '';
+  if (early) middle = `<div class="${ID}__block">${visitBlock(visitRows(a, t), { title: fmtWhen(a.slot.start), flush: true })}</div>`;
+  if (a.status === 'returning') {
+    middle = returnBlock(a, t, first);
+  }
+  if (a.status === 'completed') {
+    const r = (t.reviews ?? []).find((x) => x.id === `r-${a.id}`);
+    const mine = r ? reviewRow({ name: r.name, initials: r.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos })
+      : a.review ? reviewRow({ name: `${state.customer.first} ${state.customer.last[0]}.`, initials: state.customer.initials, stars: a.review.stars, date: a.review.date, text: a.review.text, photos: a.review.photos }) : '';
+    middle = `<h2 class="t-h2 ${ID}__h2 ${ID}__h2--first">Your review</h2><div class="${ID}__review">${mine}</div>`;
+  }
+  const steps = a.status === 'completed' ? '' : `<h2 class="t-h2 ${ID}__h2">What happens next</h2>${m4Timeline(a, first)}`;
+  const actions = a.status === 'completed'
+    ? `${cta(`Book ${f} again`, { attrs: 'data-act="book-again"' })}
+    ${cta(`Message ${f}`, { variant: 'secondary', attrs: 'data-act="message"' })}`
+    : cta(`Message ${f}`, { attrs: 'data-act="message"' });
+
+  return `${chrome('bookings')}<main class="body ${ID} ${ID}--${a.status}" data-s="${ID}">
+  ${hero}
+  ${middle}
+  ${steps}
+  <h2 class="t-h2 ${ID}__h2">${a.status === 'completed' ? 'Receipt' : 'Price'}</h2>
+  ${breakdown}
+  ${updated}${after}
+  <div class="${ID}__actions">
+    ${actions}
+  </div>
+</main>`;
+}
+
 function view() {
   const a = focusAppt(ID);
   if (!a || dropped(a)) {
@@ -168,7 +291,8 @@ function view() {
   }
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const first = firstOf(t);
-  return a.status === 'cancelled' ? cancelledView(a, t, first) : liveView(a, t, first);
+  if (a.status === 'cancelled') return cancelledView(a, t, first);
+  return M4_STATES.includes(a.status) ? m4View(a, t, first) : liveView(a, t, first);
 }
 
 /* ---------- sheets ---------- */
@@ -305,7 +429,10 @@ function wire(root) {
       case 'message': go('c-thread'); break;
       case 'cancel': if (a) openCancel(a, firstOf(t)); break;
       case 'reschedule': if (a) openReschedule(a, firstOf(t)); break;
-      case 'book-again': state.ui.booking = { tailorId: a.tailorId }; go('c-book'); break;
+      case 'book-again':
+        state.ui.booking = { tailorId: a.tailorId };
+        if (a.status === 'completed') { T.newJob(); go('c-job'); } else go('c-book');
+        break;
       case 'other-tailors': go('c-tailors'); break;
       case 'find-another': go('c-tailors', { fresh: true }); break;
       case 'bookings': go('c-bookings', { fresh: true }); break;

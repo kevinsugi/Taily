@@ -29,7 +29,7 @@ import {
 import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
-  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS,
+  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS,
 } from './data.js';
 
 export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed', 'cancelled'];
@@ -659,13 +659,28 @@ function priceMarks(oldLines, newLines) {
   for (const [k, l] of before) if (!after.has(k)) marks.push({ garmentId: l.garmentId, serviceId: l.serviceId, kind: 'removed', from: l.cents, to: null });
   return marks;
 }
-export function sendPriceChange(id, lines) {
+/** First send: `fitting` → `price-change`. Revise (D-101): while the change is still `pending` or `messaged`, sending again replaces it
+    (status unchanged, `state` back to `pending`, `revisions` + 1). Marks are always vs the BOOKED lines. The note is masked (D-101). */
+export function sendPriceChange(id, lines, { note = '' } = {}) {
   const a = must(id);
-  if (a.status !== 'fitting') return fail('not-fitting');
+  const revising = a.status === 'price-change' && ['pending', 'messaged'].includes(a.priceChange?.state);
+  if (a.status !== 'fitting' && !revising) return fail('not-fitting');
   if (!Array.isArray(lines) || !lines.length || lines.some((l) => !(l.cents > 0))) return fail('price-missing');
-  a.priceChange = { lines: clone(lines), marks: priceMarks(a.lines, lines), sentAt: nowIso(), state: 'pending' };
-  setStatus(a, 'price-change');
-  say(a, `${firstName(tailorById(a.tailorId))} sent an updated price`, 'You sent an updated price');
+  const text = String(note ?? '').trim();
+  if (text.length > TAILOR_LIMITS.NOTE_MAX) return fail('note-long');
+  const masked = maskContact(text);
+  const revisions = revising ? (a.priceChange.revisions ?? 0) + 1 : 0;
+  a.priceChange = {
+    lines: clone(lines), marks: priceMarks(a.lines, lines), sentAt: nowIso(), state: 'pending',
+    note: masked.text, noteMasked: masked.masked, revisions,
+  };
+  const first = firstName(tailorById(a.tailorId));
+  if (revising) {
+    say(a, `${first} changed the updated price`, 'You changed the updated price');
+  } else {
+    setStatus(a, 'price-change');
+    say(a, `${first} sent an updated price`, 'You sent an updated price');
+  }
   return succeed(a);
 }
 export function confirmNoChange(id) {
@@ -702,9 +717,16 @@ function repriceMoney(a) {
   return q;
 }
 
-export function markReady(id) {
+/** What the tailor offers for getting the order back: `returns` (a subset of her Shop returns), default every one that is on (D-99). */
+export function markReady(id, { returns } = {}) {
   const a = must(id);
   if (a.status !== 'in-progress') return fail('not-in-progress');
+  const tailor = tailorById(a.tailorId);
+  const on = Object.keys(RETURN_LABEL).filter((k) => tailor.returns?.[k] === true);
+  const offer = returns === undefined ? on : Object.keys(RETURN_LABEL).filter((k) => Array.isArray(returns) && returns.includes(k));
+  if (!offer.length) return fail('return-required');
+  if (offer.some((k) => !on.includes(k)) || (Array.isArray(returns) && returns.some((k) => !RETURN_LABEL[k]))) return fail('not-offered');
+  a.returnOffer = offer;
   setStatus(a, 'ready');
   a.payments.balance = { cents: a.money.balance, state: 'due' };
   if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'refunded' };   // D-23
@@ -712,16 +734,34 @@ export function markReady(id) {
   return succeed(a);
 }
 
+/** Where a drop-off or courier delivers (D-106: Sarah's saved address, also for shop visits), as ONE line on both sides:
+    street + unit ("145 N 7th St, 2R"). The visit block alone adds the city (R4-2-C-06). */
+export function returnAddress() {
+  const ad = state.customer.address ?? {};
+  return [ad.street, ad.unit].filter(Boolean).join(', ');
+}
+
+/** The ways back on a ready order, RETURN_LABEL order. */
+export function returnOffer(appt) {
+  if (!appt) return [];
+  if (appt.returnOffer) return appt.returnOffer.slice();
+  const tailor = tailorById(appt.tailorId);
+  return Object.keys(RETURN_LABEL).filter((k) => tailor?.returns?.[k] === true);
+}
+
 export function chooseReturn(id, option) {
   const a = must(id);
   if (a.status !== 'ready') return fail('not-ready');
-  const tailor = tailorById(a.tailorId);
-  if (!RETURN_LABEL[option] || !tailor.returns?.[option]) return fail('not-offered');
+  if (!RETURN_LABEL[option] || !returnOffer(a).includes(option) || !tailorById(a.tailorId).returns?.[option]) return fail('not-offered');
   a.returnOption = option;
   if (option === 'courier') {
     const quoted = courierQuote(ZIP_INFO[a.job.zip]?.miles ?? 0);
     const s = state.sim.courier;
-    a.courier = { miles: quoted.miles, cents: s === 'ok' ? quoted.cents : 0, state: s === 'fail' ? 'failed' : s === 'loading' ? 'loading' : 'ready' };
+    const ready = s !== 'fail' && s !== 'loading';
+    a.courier = {
+      miles: quoted.miles, quote: ready ? quoted.quote : 0, markup: ready ? quoted.markup : 0, cents: ready ? quoted.cents : 0,
+      state: s === 'fail' ? 'failed' : s === 'loading' ? 'loading' : 'ready',
+    };
   } else {
     a.courier = null;
   }
@@ -735,7 +775,7 @@ export function payBalance(id, cardId = null, { threeDS = false } = {}) {
   if (a.status !== 'ready') return fail('not-ready');
   if (!a.returnOption) return fail('return-required');
   if (a.returnOption === 'courier' && a.courier?.state !== 'ready') return fail('courier-unavailable');
-  if (state.sim.card === 'declined') { a.payments.balance.state = 'failed'; return fail('card-declined'); }
+  if (state.sim.card === 'declined') { a.payments.balance.state = 'failed'; a.payments.balance.failedCardId = cardId; return fail('card-declined'); }
   if (state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
   a.payments.balance = { cents: a.money.balance, state: 'paid' };
   a.balanceCardId = cardId;
@@ -759,7 +799,10 @@ export function leaveReview(id, { stars, text = '', photos = 0 } = {}) {
   if (a.review) return fail('already-reviewed');
   if (!Number.isInteger(stars) || stars < 1 || stars > 5) return fail('stars-required');
   const count = Array.isArray(photos) ? photos.length : photos;
-  if (count > 3) return fail('too-many-photos');
+  if (count > REVIEW_LIMITS.PHOTOS_MAX) return fail('too-many-photos');
+  const raw = String(text ?? '').trim();
+  if (raw.length > REVIEW_LIMITS.TEXT_MAX) return fail('text-long');
+  text = maskContact(raw).text;                                      // D-107: contact details never reach a public review
   const tailor = tailorById(a.tailorId);
   a.review = { stars, text, photos: count, date: isoDay(new Date(state.clock.now)) };
   const total = tailor.rating.avg * tailor.rating.count + stars;
@@ -779,7 +822,21 @@ export function sendMessage(tailorId, from, { text = '', photos = 0 } = {}) {
   if (state.sim.send === 'fail') return fail('send-failed');
   const m = maskContact(text);
   const message = post(tailorId, from, m.text, { photos: count, masked: m.masked });
+  /* R4-2-C-02: a pending price change becomes "messaged" only when Sarah actually writes, never on opening the chat */
+  if (from === 'customer') {
+    for (const a of state.appts) {
+      if (a.tailorId === tailorId && a.status === 'price-change' && a.priceChange?.state === 'pending') messageAboutPriceChange(a.id);
+    }
+  }
   return { ok: true, masked: m.masked, message };
+}
+
+/** The latest chat message (customer or tailor, never a system line) from `sentAt` on, in thread order, or null (D-112).
+    Whose move a messaged price change is follows this: Sarah spoke last → Amara replies; Amara spoke last → Sarah approves. */
+export function lastSpeakerSince(appt, sentAt = appt?.priceChange?.sentAt ?? null) {
+  if (!appt) return null;
+  const msgs = threadFor(appt.tailorId).messages.filter((m) => (m.from === 'customer' || m.from === 'tailor') && (!sentAt || m.at >= sentAt));
+  return msgs[msgs.length - 1] ?? null;
 }
 
 /** D-73: a confirmed booking is "just confirmed" for POLICY.JUST_BOOKED_MIN minutes after the LAST accept
@@ -801,6 +858,39 @@ export function statusScreen(appt, persona = state.persona) {
   if (s === 'ready' && appt.payments.balance.state !== 'paid') return 'c-ready';
   if (s === 'completed' && !appt.review) return 'c-complete';
   return 'c-booking';
+}
+
+/* ---------- the price change, as rows (A4) ---------- */
+/** `priceChangeView(appt, lines = appt.priceChange?.lines ?? appt.lines)` — the booked lines vs `lines`, per garment, in booked order
+    (added rows last in their garment), plus both quotes. `before` is the booked money; `after` keeps the captured deposit (D-23). */
+export function priceChangeView(appt, lines = appt?.priceChange?.lines ?? appt?.lines ?? []) {
+  const booked = appt.lines ?? [];
+  const m = appt.money;
+  const after = quote({ lines, homeFee: m.homeFee, rush: m.rush, deposit: appt.payments.deposit.cents });
+  after.rushDays = m.rushDays;
+  const next = new Map(lines.map((l) => [lineKey(l), l]));
+  const prev = new Map(booked.map((l) => [lineKey(l), l]));
+  const garments = [];
+  const bucket = (garmentId, type) => {
+    let g = garments.find((x) => x.id === garmentId);
+    if (!g) { g = { id: garmentId, type: type ?? appt.job?.garments?.find((x) => x.id === garmentId)?.type ?? '', rows: [] }; garments.push(g); }
+    return g;
+  };
+  const labelOf = (l) => SERVICES[l.serviceId]?.label ?? l.label;
+  for (const l of booked) {
+    const n = next.get(lineKey(l));
+    const kind = !n ? 'removed' : n.cents !== l.cents ? 'repriced' : 'same';
+    bucket(l.garmentId, l.garmentType).rows.push({ key: lineKey(l), label: labelOf(l), kind, from: l.cents, to: n ? n.cents : null });
+  }
+  for (const l of lines) {
+    if (prev.has(lineKey(l))) continue;
+    bucket(l.garmentId, l.garmentType).rows.push({ key: lineKey(l), label: labelOf(l), kind: 'added', from: null, to: l.cents });
+  }
+  const pc = appt.priceChange;
+  return {
+    garments, before: m, after, delta: after.total - m.total,
+    note: pc?.note ?? '', noteMasked: !!pc?.noteMasked, sentAt: pc?.sentAt ?? null, state: pc?.state ?? null, revisions: pc?.revisions ?? 0,
+  };
 }
 
 /** Every transition and clock move, in one object, so screens and flow setups call `T.tailorAccept(id)`. */

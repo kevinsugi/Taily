@@ -347,6 +347,8 @@ button.list-row:active { opacity: 0.6; }
 .money-row--subtotal .money-row__label, .money-row--subtotal .money-row__amt { font-weight: 600; }
 .money-row.money-row--total { box-shadow: inset 0 1px 0 var(--neutral-300); }
 .money-row--total .money-row__label, .money-row--total .money-row__amt { font-weight: 700; }
+/* R4-1-C-06: a total that is the only row (the pay sheet's Balance) has nothing above it to rule off */
+.money-row.money-row--total:first-child { box-shadow: none; }
 .money-row.money-row--total + .money-row { box-shadow: inset 0 1px 0 var(--neutral-300); }
 .money-row--negative .money-row__amt { color: var(--neutral-700); }
 .money-row--muted .money-row__label, .money-row--muted .money-row__amt { color: var(--neutral-500); font-weight: 400; }
@@ -524,7 +526,8 @@ button.list-row:active { opacity: 0.6; }
 .appt-row__avatar { grid-column: 1; grid-row: 1 / span 3; align-self: start; display: inline-flex; margin-right: var(--space-4); }
 .appt-row__name { grid-column: 2; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .appt-row__pill { grid-column: 3; grid-row: 1; justify-self: end; display: inline-flex; }
-.appt-row__when { grid-column: 2; grid-row: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* R4-2-T-01: the time line is the row's news — it wraps to a second line rather than losing its end to an ellipsis */
+.appt-row__when { grid-column: 2; grid-row: 2; min-width: 0; text-wrap: pretty; }
 .appt-row__amount { grid-column: 3; grid-row: 2; justify-self: end; color: var(--ink); white-space: nowrap; }
 .appt-row__place { grid-column: 2; grid-row: 3; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .appt-row__caption { grid-column: 3; grid-row: 3; justify-self: end; white-space: nowrap; }
@@ -574,3 +577,44 @@ button.list-row:active { opacity: 0.6; }
 
 /* R3-2-T-07: a date or time that must not break across lines */
 .nb { white-space: nowrap; }
+
+/* ---------- M4: the correction mark (changeList), deltaFigure, courierCard ---------- */
+.change-list { display: flex; flex-direction: column; gap: var(--space-16); }
+.change-list__type { margin: 0 0 var(--space-4); color: var(--ink); }
+.change-list__rows { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
+.change-list__row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); min-height: 44px; padding-block: var(--space-12); }
+.change-list__row + .change-list__row { box-shadow: inset 0 1px 0 var(--bottom-border); }
+.change-list__text { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); min-width: 0; }
+.change-list__label { color: var(--neutral-700); }
+.change-list__amt, .change-list__was { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.change-list__amt { color: var(--ink); }
+.change-list__amts { display: inline-flex; align-items: baseline; gap: var(--space-8); flex-shrink: 0; }
+.change-list__was { color: var(--neutral-500); text-decoration: line-through; }
+/* the tag: sentence case on purpose (the word is searched and read as written); 10 / 600 with the caps tracking */
+.change-list__tag.t-micro { display: inline-block; padding: 2px var(--space-8); border-radius: var(--radius-full); letter-spacing: 1px; white-space: nowrap; }
+.change-list__tag--added { color: var(--accent-ink); background: var(--white); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-ink) 45%, transparent); }
+.change-list__tag--repriced { color: var(--ink); background: var(--neutral-100); }
+.change-list__tag--removed { color: var(--neutral-600); background: var(--neutral-100); }
+/* R4-1-C-09: the tint bleeds outward, so label and amount stay on the same columns as the rows around it */
+.change-list__row--added { background: var(--accent-bg); border-radius: var(--radius-sm); margin-inline: calc(-1 * var(--space-12)); padding-inline: var(--space-12); box-shadow: none; }
+.change-list__row--removed .change-list__label { color: var(--neutral-600); }
+.change-list__row--removed .change-list__amt { color: var(--neutral-500); }
+.change-list__row s { text-decoration-thickness: 1px; }
+
+.delta-figure { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; font-variant-numeric: tabular-nums; }
+.delta-figure__amt { color: var(--ink); white-space: nowrap; }
+.delta-figure__was, .delta-figure__caption { text-wrap: pretty; }
+
+.courier-card { display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-16); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
+.courier-card .meta-row { margin: 0; }
+/* R4-1-C-08: a metaRow used as a heading reads as one (ink), glyph stays neutral */
+.courier-card > .meta-row:first-child { color: var(--ink); font-weight: 600; }
+.visit-block .meta-row { color: var(--ink); }
+.courier-card > .meta-row:first-child .meta-row__glyph, .visit-block .meta-row .meta-row__glyph { color: var(--neutral-600); }
+.courier-card__route { margin: 0; }
+.courier-card .money-rows { padding-inline: 0; background: none; border-radius: 0; }
+.courier-card__note { margin: 0; }
+.courier-card__status { margin: 0; }
+.courier-card .skeleton { display: flex; flex-direction: column; gap: var(--space-12); padding-block: var(--space-8); }
+.courier-card__error { display: flex; flex-direction: column; gap: var(--space-4); padding-block: var(--space-4); }
+.courier-card__error p { margin: 0; }

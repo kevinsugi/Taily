@@ -1,24 +1,27 @@
 /* ============================================================
    c-bookings — the Bookings tab. Every request and visit in one place,
-   sorted by what needs Sarah next: Requests, Upcoming, Past (D-78).
+   sorted by what needs Sarah next: Requests, In progress, Upcoming, Past (D-78, D-116).
    Focal: the first row of the first non-empty section.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, apptsFor, tailorById, statusScreen, now } from '../state.js';
+import { state, apptsFor, tailorById, statusScreen, now, priceChangeView } from '../state.js';
 import { chrome, headingRow, apptRow, emptyState } from '../components.js';
 import { fmtColumn } from '../money.js';
 import { fmtWhen, fmtCountdown, toDate } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
 import { POLICY } from '../money-config.js';
-import { setFocus } from '../focus.js';
+import { setFocus, statusWord, sinceText } from '../focus.js';
 
 const ID = 'c-bookings';
 
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
 const ms = (iso) => toDate(iso).getTime();
 
-/* the later statuses (M4) stay visible in Upcoming rather than vanishing from the list */
-const UPCOMING = ['confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning'];
+/* D-116: work that has started (fitting → returning) is "In progress", not "Upcoming" — the same split as the tailor's Home (D-115) */
+const PROGRESS = ['fitting', 'price-change', 'in-progress', 'ready', 'returning'];
+const STEP = { fitting: 'Fitting', 'price-change': 'New price', 'in-progress': 'Tailoring', ready: 'Ready' };
+/** An in-progress row's time line: the step and since when ("Out for delivery · since 5:00 PM"), never the past visit time. */
+const stepLine = (a) => `${STEP[a.status] ?? statusWord(a, 'customer').label} · ${sinceText(a)}`;
 const dropped = (a) => a.status === 'cancelled' && ['withdrawn', 'switched'].includes(a.cancel?.reason);
 const lastAt = (a) => ms(a.history[a.history.length - 1]?.at ?? a.requestedAt);
 
@@ -26,7 +29,8 @@ function section(a) {
   if (dropped(a)) return null;
   if (['requested', 'suggested'].includes(a.status)) return 'requests';
   if (a.status === 'expired') return a.retries < POLICY.MAX_RETRIES ? 'requests' : 'past';
-  if (UPCOMING.includes(a.status)) return 'upcoming';
+  if (PROGRESS.includes(a.status)) return 'progress';
+  if (a.status === 'confirmed') return 'upcoming';
   return 'past';                                   // cancelled · declined · completed
 }
 
@@ -42,7 +46,11 @@ function pillFor(a) {
       if (r === 'no-show') return ['cancelled', 'No-show'];
       return ['cancelled', 'Cancelled'];   // who cancelled goes in the caption (R3-1-C-05)
     }
-    default: return [a.status, undefined];
+    default: {
+      /* M4 statuses: the shared word table, short form for the list (D-108) */
+      const w = statusWord(a, 'customer', { short: true });
+      return [w.pill, w.label];
+    }
   }
 }
 
@@ -54,7 +62,7 @@ function rowFor(a, kind, fmtAmt) {
     id: a.id,
     name: t.name,
     initials: t.initials,
-    when: fmtWhen(a.status === 'suggested' && a.suggested ? a.suggested.start : a.slot.start),
+    when: kind === 'progress' ? stepLine(a) : fmtWhen(a.status === 'suggested' && a.suggested ? a.suggested.start : a.slot.start),
     place: VISIT_LABEL.customer[a.job.visitType],
     status,
     pillLabel,
@@ -66,10 +74,20 @@ function rowFor(a, kind, fmtAmt) {
       row.amountCaption = left > 0 ? `${fmtCountdown(left)} to reply` : 'Reply overdue';
     } else if (a.status === 'suggested') { row.amountCaption = 'Reply needed'; row.captionTone = 'action'; }
     else if (a.status === 'expired') row.amountCaption = `Try again (${a.retries + 1} of ${POLICY.MAX_RETRIES})`;   // R3-1-C-06: what Sarah can do
-  } else if (kind === 'upcoming') {
+  } else if (kind === 'upcoming' || kind === 'progress') {
     row.amountText = `Est. ${fmtAmt(a.money.total)}`;
+    if (a.status === 'price-change') {
+      row.amountText = fmtAmt(priceChangeView(a).after.total);
+      row.amountCaption = 'Reply needed'; row.captionTone = 'action';
+    } else if (a.status === 'in-progress') { row.amountText = fmtAmt(a.money.total); row.amountCaption = 'Total'; }
+    else if (a.status === 'ready') { row.amountText = fmtAmt(a.money.balance); row.amountCaption = 'Pay now'; row.captionTone = 'action'; }
+    else if (a.status === 'returning') { row.amountText = fmtAmt(a.money.total); row.amountCaption = 'Paid'; }
   }
-  if (kind === 'past') {
+  if (kind === 'past' && a.status === 'completed') {
+    row.amountText = fmtAmt(a.money.total);
+    if (a.review) row.amountCaption = 'Paid';
+    else { row.amountCaption = 'Leave a review'; row.captionTone = 'action'; }
+  } else if (kind === 'past') {
     /* R3-2-C-06 / R3-1-C-13: say what happened to the deposit, in dollars, and who ended it */
     const dep = a.payments.deposit;
     const word = { refunded: 'Refunded', kept: 'Deposit kept', released: 'Hold released' }[dep.state];
@@ -86,15 +104,16 @@ function rowFor(a, kind, fmtAmt) {
 
 function view() {
   const mine = apptsFor('customer');
-  const groups = { requests: [], upcoming: [], past: [] };
+  const groups = { requests: [], progress: [], upcoming: [], past: [] };
   for (const a of mine) { const g = section(a); if (g) groups[g].push(a); }
   groups.requests.sort((x, y) => ms(x.expiresAt) - ms(y.expiresAt));
+  groups.progress.sort((x, y) => ms(x.slot.start) - ms(y.slot.start));
   groups.upcoming.sort((x, y) => ms(x.slot.start) - ms(y.slot.start));
   groups.past.sort((x, y) => lastAt(y) - lastAt(x));
 
   const head = `${chrome('bookings')}<main class="body ${ID}" data-s="${ID}">
   ${headingRow('<h1 class="t-title">Bookings</h1>', { back: false })}`;
-  if (!groups.requests.length && !groups.upcoming.length && !groups.past.length) {
+  if (!groups.requests.length && !groups.progress.length && !groups.upcoming.length && !groups.past.length) {
     return `${head}
   <div class="${ID}__empty" data-empty="bookings">${emptyState({
     title: 'No bookings yet', body: 'When you book a tailor, your requests and visits show up here.', ctaLabel: 'Start a booking', ctaAct: 'home',
@@ -103,8 +122,14 @@ function view() {
   }
 
   /* D-98: one precision across the whole screen — upcoming totals and past deposits share a formatter */
-  const fmtAmt = fmtColumn([...groups.upcoming.map((a) => a.money.total), ...groups.past.map((a) => a.payments.deposit.cents)]);
-  const TITLES = { requests: 'Requests', upcoming: 'Upcoming', past: 'Past' };
+  const live = [...groups.progress, ...groups.upcoming];
+  const fmtAmt = fmtColumn([
+    ...live.map((a) => a.money.total),
+    ...live.filter((a) => a.status === 'price-change').map((a) => priceChangeView(a).after.total),
+    ...live.filter((a) => a.status === 'ready').map((a) => a.money.balance),
+    ...groups.past.map((a) => (a.status === 'completed' ? a.money.total : a.payments.deposit.cents)),
+  ]);
+  const TITLES = { requests: 'Requests', progress: 'In progress', upcoming: 'Upcoming', past: 'Past' };
   const blocks = Object.entries(groups).filter(([, list]) => list.length).map(([kind, list]) => `<section class="${ID}__section" data-section="${kind}" aria-labelledby="${ID}-${kind}">
     <h2 class="t-h2" id="${ID}-${kind}">${TITLES[kind]}</h2>
     <div class="${ID}__rows">${list.map((a) => rowFor(a, kind, fmtAmt)).join('')}</div>

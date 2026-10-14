@@ -147,12 +147,12 @@ function wire(root) {
     if (!el || el.closest('.screen-sheet')) return;
     switch (el.dataset.act) {
       case 'open-tailor':
-        state.ui.booking = { ...state.ui.booking, tailorId: el.dataset.id };
+        state.ui.booking = { ...state.ui.booking, from: undefined, tailorId: el.dataset.id };
         go('c-tailor');
         break;
       case 'edit-where': go('c-where'); break;
       case 'message-hidden':
-        state.ui.booking = { ...state.ui.booking, tailorId: (state.job.hiddenTailors ?? [])[0] };
+        state.ui.booking = { ...state.ui.booking, from: undefined, tailorId: (state.job.hiddenTailors ?? [])[0] };
         go('c-thread');
         break;
       case 'new-job': T.newJob(); go('c-job', { fresh: true }); break;

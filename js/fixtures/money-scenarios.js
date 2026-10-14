@@ -24,7 +24,8 @@ const rush = estimate(AMARA, job({ needBy: '2026-10-16' }), SEED_SLOT);         
 const shop = estimate(AMARA, job({ visitType: 'shop' }), '2026-10-15T10:00');
 
 /* seed + a 0.6 mi Taily courier (Williamsburg), on top of the booked lines */
-const courierCents = courierQuote(0.6).cents;
+const courierQuoted = courierQuote(0.6);
+const courierCents = courierQuoted.cents;
 const courier = quote({ lines: seed.lines, homeFee: seed.homeFee, rush: seed.rush, courier: courierCents });
 
 /* price changes: the deposit stays as captured (D-23); the lines move */
@@ -32,6 +33,10 @@ const repriced = (fn) => quote({ lines: fn(seed.lines.map((l) => ({ ...l }))), h
 const priceAdded = repriced((lines) => {
   for (const l of lines) if (l.serviceId === 'sleeves') l.cents = (AMARA.prices.sleeves + 5) * 100;      // Sleeves up $5
   return [...lines, { ...lines[0], serviceId: 'taper', label: 'Taper legs', cents: AMARA.prices.taper * 100 }];
+});
+const priceRepriced = repriced((lines) => {
+  for (const l of lines) if (l.serviceId === 'sleeves') l.cents = (AMARA.prices.sleeves + 5) * 100;      // Sleeves up $5, nothing else
+  return lines;
 });
 const priceRemoved = repriced((lines) => lines.filter((l) => l.serviceId !== 'jacket-sides'));
 
@@ -41,7 +46,7 @@ const lateCancel = cancelTerms(booked, toDate(addMinutes(SEED_SLOT, -120)).getTi
 const earlyCancel = cancelTerms(booked, toDate(addMinutes(SEED_SLOT, -72 * 60)).getTime());
 
 export const SCENARIOS = Object.freeze({
-  seed, rush, shop, courier, priceAdded, priceRemoved,
+  seed, rush, shop, courier, courierQuote: courierQuoted, priceAdded, priceRemoved, priceRepriced,
   lateCancel: { ...lateCancel, tailorPaid: lateCancel.kept },
   earlyCancel,
   noShow: { paid: noShowPayout(seed.deposit) },

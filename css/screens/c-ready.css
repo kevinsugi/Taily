@@ -1,0 +1,23 @@
+/* c-ready — C10 pick a way back, then pay the balance. Layout only; hero, option rows, courier card, money rows, banner, action bar and sheet are shared. */
+.c-ready { gap: 0; padding-bottom: var(--space-40); }
+.c-ready .status-hero__body { color: var(--neutral-700); font-weight: 400; text-wrap: pretty; }
+.c-ready__alert { margin-top: var(--space-16); }
+.c-ready__h2 { margin: var(--space-24) 0 var(--space-8); }
+.c-ready__h2--price { margin-top: var(--space-32); }
+/* the radio rows sit on a white card so the group reads as one choice */
+.c-ready__group {
+  display: flex; flex-direction: column; padding-inline: var(--space-16);
+  background: var(--white); border-radius: var(--radius-lg); box-shadow: inset 0 0 0 1px var(--neutral-200);
+}
+.c-ready__group .option-row { min-height: 64px; }
+.c-ready__group .option-row__sub { text-wrap: pretty; }
+.c-ready__group .option-row:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: var(--radius-md); }
+.c-ready__single { margin: var(--space-8) 0 0; }
+.c-ready__courier { margin-top: var(--space-16); }
+.c-ready__empty { margin-top: var(--space-24); }
+
+/* pay sheet */
+.c-ready-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
+.c-ready-sheet p { margin: 0; }
+.c-ready-sheet__group { display: flex; flex-direction: column; margin-top: calc(-1 * var(--space-8)); }
+.c-ready-sheet__group[aria-disabled="true"] { opacity: 0.6; pointer-events: none; }

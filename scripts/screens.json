@@ -2,7 +2,7 @@
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
     "syncedAt": "2026-10-13",
-    "milestone": "M3",
+    "milestone": "M4",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -20,7 +20,9 @@
       "user/section-m1-customer-booking": "821:4345",
       "tailor-onboarding/section-m2-tailor-onboarding-shop": "829:4344",
       "user/section-m3-request-loop": "837:4437",
-      "tailor/section-m3-request-loop": "836:4344"
+      "tailor/section-m3-request-loop": "836:4344",
+      "user/section-m4-fitting-to-completion": "844:4536",
+      "tailor/section-m4-fitting-to-completion": "843:4408"
     },
     "components": {
       "avatar": "816:4919",
@@ -92,7 +94,15 @@
       "t-request--expired": "836:4574",
       "t-job--accepted": "836:4635",
       "t-job": "836:4725",
-      "t-thread": "836:4813"
+      "t-thread": "836:4813",
+      "c-tailors--none-left": "841:4670",
+      "c-price-change": "844:4537",
+      "c-ready": "844:4640",
+      "c-complete": "844:4743",
+      "c-review": "844:4829",
+      "c-review--submitted": "844:4877",
+      "t-adjust": "843:4409",
+      "t-job--completed": "843:4512"
     },
     "variables": {
       "semantic/warning-ink": "VariableID:821:4344"

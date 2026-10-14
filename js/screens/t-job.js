@@ -4,12 +4,18 @@
    show). Focal: the visit card, `fmtWhen(start)` over the full
    address. One filled CTA: Message Sarah. Cancelled jobs read
    plainly with the money outcome first and hide the street (D-88).
+
+   M4 (M4-spec §C2, D-103): from the visit start the same screen walks
+   the job — visit → fitting → waiting / messaged → in-progress →
+   ready → returning (pickup / dropoff / courier) → completed. Each
+   state has ONE next thing in a sticky action bar; "what I take home"
+   is always in dollars; the courier is never her money.
    ============================================================ */
-import { register, render as go, registered, personaHome } from '../app.js';
-import { state, T, now, justConfirmed } from '../state.js';
-import { focusAppt, redirectIfMoved } from '../focus.js';
+import { register, render as go, registered, personaHome, currentScreen } from '../app.js';
+import { state, T, now, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress } from '../state.js';
+import { focusAppt, redirectIfMoved, statusWord } from '../focus.js';
 import { myTailor, requestView, jobAddress, payoutOf, inbox } from '../tailor-data.js';
-import { CANT_MAKE_IT_REASONS } from '../data.js';
+import { CANT_MAKE_IT_REASONS, RETURN_LABEL } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { fmtExact, noShowPayout } from '../money.js';
 import { withLatency } from '../sim.js';
@@ -17,6 +23,7 @@ import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime } from '../date
 import {
   chrome, headingRow, statusHero, visitBlock, avatar, cta, listRow, banner, tailorBreakdown, moneyRows, workList,
   emptyState, sheetOverlay, chipGroup, wireChipGroups, toast, esc, wirePhotoViewer,
+  actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, deltaFigure, courierCard,
 } from '../components.js';
 
 const ID = 't-job';
@@ -91,7 +98,9 @@ function customerRow(v, { message }) {
   </div>${message ? cta(`Message ${esc(firstOf())}`, { attrs: 'data-act="message"' }) : ''}`;
 }
 
-const workHtml = (v) => workList(v);
+const workHtml = (v, opts) => workList(v, opts);
+/** Once the price is settled (the work has started) the services line is the agreed price, not an estimate (R4-1-T-02). */
+const SETTLED = ['in-progress', 'ready', 'returning-pickup', 'returning-dropoff', 'courier', 'completed'];
 
 /** Visit-day actions: "I can’t make it" before the start, a wait note until +15 min, then "didn’t show up". */
 function dayActions(a) {
@@ -112,6 +121,156 @@ function dayActions(a) {
   <section class="${ID}__actions" aria-labelledby="${ID}-wrong"><p class="t-small w-600 c-600 ${ID}__group" id="${ID}-wrong">Something wrong?</p>${body}</section>`;
 }
 
+/* ============================================================
+   M4 — the job after the visit starts (M4-spec §C2)
+   ============================================================ */
+const RETURN_ICON = { pickup: 'bag', dropoff: 'home', courier: 'truck' };
+const shopLine = (t) => `${t.shop.street}, ${t.shop.city}, ${t.shop.state} ${t.shop.zip}`;
+/** One return-address line on both sides (R4-2-C-06): street + unit, the same string c-ready and c-booking print. */
+const homeStreet = returnAddress;
+/** A return block (R4-2-T-09): the place name (w-600) beside its icon, the address regular under it on the same left edge. */
+const placeRows = (name, icon, address) => [metaRow('', `<span class="w-600">${esc(name)}</span>`, { icon }), `<span class="${ID}__addr">${esc(address)}</span>`];
+
+/** The M4 state of a job (null = the M3 layout: before the visit starts, or cancelled). */
+function stateKey(a) {
+  if (a.status === 'cancelled') return null;
+  if (a.status === 'confirmed') return now() >= toDate(a.slot.start).getTime() ? 'visit' : null;
+  if (a.status === 'price-change') return a.priceChange?.state === 'messaged' ? 'messaged' : 'waiting';
+  if (a.status === 'returning') return { dropoff: 'returning-dropoff', courier: 'courier' }[a.returnOption] ?? 'returning-pickup';
+  return a.status; // fitting · in-progress · ready · completed
+}
+
+/** Hero copy + the action bar for each M4 state. */
+function copyFor(key, a, t, v, pv) {
+  const first = esc(firstOf());
+  const word = statusWord(a, 'tailor');
+  const note = (html) => `<p class="t-body c-700 ${ID}__note">${html}</p>`;
+  const base = { pill: word.pill, label: word.label };
+  const msg = { secondaryLabel: `Message ${first}`, secondaryAct: 'message' };
+  const busy = ui().busy;
+  const done = { ctaLabel: 'Mark completed', ctaAct: 'complete', busy: busy === 'complete', busyLabel: 'Completing…', ...msg };
+  switch (key) {
+    case 'visit': return { ...base, title: `Visit with ${esc(v.customer.name)}`,
+      note: note(`It’s time for the fitting. Start it when you’re with ${first}.`),
+      bar: { ctaLabel: 'Start fitting', ctaAct: 'start-fitting', busy: busy === 'start', busyLabel: 'Starting…', ...msg } };
+    case 'fitting': return { ...base, title: `Fitting with ${esc(v.customer.name)}`,
+      note: note(`Check each piece against the estimate. If the price changes, ${first} approves it before you start the work.`),
+      bar: { lead: `You take home <b data-money>${fmtExact(a.money.payout)}</b>`, ctaLabel: 'No changes, start the work', ctaAct: 'no-change', busy: busy === 'no-change', busyLabel: 'Saving…',
+        secondaryLabel: 'Adjust price', secondaryAct: 'adjust', tertiaryLabel: `Message ${first}`, tertiaryAct: 'message' } };
+    case 'waiting': return { ...base, title: `Waiting for ${first} to approve`,
+      note: note(`You sent a new price at ${fmtTime(pv.sentAt)}. Don’t start the work until ${first} approves.`),
+      bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Change the new price', secondaryAct: 'revise' } };
+    case 'messaged': {
+      /* D-112: Amara already answered → the move is Sarah's (the waiting layout) until she speaks again */
+      const last = lastSpeakerSince(a, pv.sentAt);
+      if (last?.from === 'tailor') {
+        return { ...base, title: `Waiting for ${first} to approve`,
+          note: note(`You replied at ${fmtTime(last.at)}. ${first} can approve now, or you can change the price.`),
+          bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Change the new price', secondaryAct: 'revise' } };
+      }
+      return { ...base, title: `${first} wants to talk about the price`,
+      note: note(`${first} messaged you instead of approving. Reply in chat. ${first} can approve once you’ve talked, or you can change the price.`),
+      bar: { ctaLabel: `Reply to ${first}`, ctaAct: 'message', secondaryLabel: 'Change the new price', secondaryAct: 'revise' } };
+    }
+    case 'in-progress': return { ...base, title: 'Work in progress',
+      note: note(`Mark it ready when the work is done. ${first} then picks how to get it back and pays the balance.`),
+      bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', ...msg } };
+    case 'ready': return { ...base, title: `Ready. Waiting for ${first}`,
+      note: note(`${first} is choosing how to get it back and paying the ${fmtExact(a.money.balance)} balance. You’ll see the choice here.`),
+      bar: { ctaLabel: `Message ${first}`, ctaAct: 'message' } };
+    case 'returning-pickup': return { ...base, title: `${first} will pick it up`,
+      note: note(`${first} paid the balance and will collect it at your shop. Mark the job completed when it’s handed over.`), bar: done };
+    case 'returning-dropoff': return { ...base, title: `Drop it off at ${first}’s`,
+      note: note(`${first} paid the balance. Agree a time in chat, then mark the job completed when it’s delivered.`), bar: done };
+    /* R4-2-T-07: the same "today" the customer reads ("Delivered by Uber today") */
+    case 'courier': return { ...base, title: 'A courier picks it up today',
+      note: note(`${first} paid the balance and booked a Taily courier. Have the order ready at ${esc(t.shopName)} today, then mark it completed once it’s delivered.`), bar: done };
+    default: { // completed — R4-2-T-05: the record names whose job it was
+      const at = a.history.filter((h) => h.status === 'completed').pop()?.at ?? a.history[a.history.length - 1]?.at;
+      return { ...base, title: 'Job completed', note: note(`${esc(v.customer.name)}’s order, completed ${fmtDay(at)}. Thanks for the careful work.`), bar: null };
+    }
+  }
+}
+
+/** What changed + the payout if approved (waiting / messaged). */
+function priceBlocks(a, pv, key) {
+  const first = esc(firstOf());
+  let theirs = '';
+  if (key === 'messaged') {
+    const latest = threadFor(a.tailorId).messages.filter((m) => m.from === 'customer' && (!pv.sentAt || m.at >= pv.sentAt)).pop();
+    if (latest?.text) theirs = noteQuote({ label: `${firstOf()}’s latest message`, text: latest.text });
+  }
+  const mine = pv.note ? noteQuote({ label: 'Your note', text: pv.note }) : '';
+  return `<div class="${ID}__delta">${deltaFigure({ label: 'You’ll take home', cents: pv.after.payout, was: pv.before.payout })}
+    <p class="t-small c-600 ${ID}__newtotal" data-money>${first} sees a new total of ${fmtExact(pv.after.total)} (was ${fmtExact(pv.before.total)}).</p></div>
+  ${theirs ? `<div class="${ID}__quote">${theirs}</div>` : ''}${mine ? `<div class="${ID}__quote">${mine}</div>` : ''}
+  <h2 class="t-h2 ${ID}__h2">What changed</h2>
+  ${changeList({ garments: pv.garments })}
+  <h2 class="t-h2 ${ID}__h2">Your payout if approved</h2>
+  ${tailorBreakdown(pv.after)}`;
+}
+
+/** The payout card of a completed job: the one display figure, then its breakdown inside the same card (R4-2-T-06). */
+function payoutCard(a, t, extra = '') {
+  const p = payoutOf(a);
+  const where = t.payouts?.bank ? ` to ${esc(t.payouts.bank)} •••• ${esc(t.payouts.last4)}` : '';
+  return `<section class="${ID}__payout" aria-label="Your payout">
+  <p class="t-caps c-600">YOUR PAYOUT</p>
+  <p class="t-display ${ID}__payout-amt" data-money>${fmtExact(a.money.payout)}</p>
+  <p class="t-small c-700">Pending · paid out ${p ? fmtDay(p.date) : 'the Friday after'}${where}</p>
+  <div class="${ID}__payout-rows">${tailorBreakdown(a.money)}</div>${extra}
+</section>`;
+}
+
+function m4View(a, v, key) {
+  const t = myTailor();
+  const first = esc(firstOf());
+  const pv = a.priceChange ? priceChangeView(a) : null;
+  const approved = a.priceChange?.state === 'approved';
+  const c = copyFor(key, a, t, v, pv);
+  const hero = statusHero({ variant: key === 'completed' ? 'ready' : 'confirmed', pill: c.pill, pillLabel: c.label, title: c.title, body: '', extra: c.note });
+  const updated = approved ? `<p class="t-small c-600 ${ID}__fine">Price updated after the fitting.</p>` : '';
+  const who = `<div class="${ID}__who">${customerRow(v, { message: false })}</div>`;
+  const work = `<h2 class="t-h2 ${ID}__h2">The work</h2>\n  ${workHtml(v, SETTLED.includes(key) ? { estimateLabel: 'Services total' } : undefined)}`;
+  /* R4-2-T-04: every live state says when the money arrives; "can change" only until the price is settled */
+  const before = key === 'visit' || key === 'fitting';
+  const fine = `<p class="t-small c-600 ${ID}__fine">Paid out the Friday after you mark the job completed.${before ? ' The price can change after the fitting.' : approved ? ' Price updated after the fitting.' : ''}</p>`;
+  const payout = `<h2 class="t-h2 ${ID}__h2">Your payout</h2>\n  ${tailorBreakdown(v.money)}${fine}`;
+  const banners = key === 'in-progress' && approved
+    ? `<div class="${ID}__banner">${banner({ tone: 'success', text: `${first} approved the new price. You take home ${fmtExact(a.money.payout)}.` })}</div>` : '';
+  const block = (inner) => `<div class="${ID}__visit">${inner}</div>`;
+  let body;
+  switch (key) {
+    case 'visit': body = `${block(visitCard(a, v))}${who}${work}${payout}${dayActions(a)}`; break;
+    case 'fitting': body = `${block(visitCard(a, v))}${who}${work}${payout}`; break;
+    case 'waiting':
+    case 'messaged': body = `${priceBlocks(a, pv, key)}${fine}`; break;
+    case 'in-progress': body = `${banners}${block(visitCard(a, v))}${who}${work}${payout}`; break;
+    case 'ready':
+      body = `${block(visitBlock(returnOffer(a).map((k) => metaRow('', RETURN_LABEL[k], { icon: RETURN_ICON[k] })), { title: 'Ways back you offered', flush: true }))}${who}${work}${payout}`; break;
+    case 'returning-pickup':
+      body = `${block(visitBlock(placeRows(t.shopName, 'bag', shopLine(t)), { title: 'In-store pickup', flush: true }))}${who}${work}${payout}`; break;
+    case 'returning-dropoff':
+      body = `${block(visitBlock(placeRows(`${firstOf()}’s home`, 'home', homeStreet()), { title: 'Home drop-off', flush: true }))}${who}${work}${payout}`; break;
+    case 'courier':
+      body = `${block(courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: homeStreet(), note: `Paid by ${firstOf()}. Not taken from your payout.` }))}${who}${work}${payout}`; break;
+    default: { // completed
+      const r = a.review;
+      const reviewer = `${state.customer.first} ${state.customer.last.charAt(0)}.`;
+      body = `${payoutCard(a, t, updated)}
+  <section class="${ID}__review">${r
+    ? `<h2 class="t-h2 ${ID}__h2">${first}’s review</h2>${reviewRow({ name: reviewer, initials: state.customer.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos })}`
+    : `<p class="t-small c-600">${first} can leave a review now.</p>`}</section>
+  <div class="${ID}__back">${cta('Back to Home', { variant: 'secondary', attrs: 'data-act="home"' })}</div>`;
+    }
+  }
+  return `${chrome('home', { persona: 'tailor' })}
+<main class="body${c.bar ? ' body--with-bar' : ''} ${ID}" data-appt="${esc(a.id)}" data-s="${ID}--${key}">
+  ${headingRow(hero, { backRow: true })}
+  ${body}
+</main>${c.bar ? actionBar(c.bar) : ''}`;
+}
+
 /* ---------- view ---------- */
 function view() {
   const a = focusAppt(ID);
@@ -125,6 +284,8 @@ function view() {
 </main>`;
   }
   const v = requestView(a);
+  const key = stateKey(a);
+  if (key) return m4View(a, v, key);
   const h = heroCopy(a, v);
   const cancelled = a.status === 'cancelled';
   const last = a.history[a.history.length - 1];
@@ -233,6 +394,74 @@ function openNoShow(a) {
   });
 }
 
+
+/* ---------- M4 actions ---------- */
+/** Run a simulated-network action: the bar goes busy (verb, locked, aria-busy), then `work` applies it. */
+function run(kind, work) {
+  if (ui().busy) return;
+  ui().busy = kind;
+  go(ID);
+  withLatency(() => {
+    ui().busy = null;
+    if (currentScreen() !== ID) return;
+    work();
+  });
+}
+const failToast = () => toast('Couldn’t save this. Try again.', { tone: 'error' });
+
+function sheetReadyBody(a, keys, picked, { busy = false, error = false } = {}) {
+  const t = myTailor();
+  const first = esc(firstOf());
+  const line = (k) => (k === 'pickup' ? `At ${t.shopName}, ${t.shop.street}` : k === 'dropoff' ? `You bring it to ${homeStreet()}` : `${firstOf()} pays the courier. It’s not taken from your payout.`);
+  return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
+  <p class="t-body c-700">${first} is told right away, picks how to get it back from the options you tick, then pays the ${fmtExact(a.money.balance)} balance.</p>
+  <fieldset class="${ID}-sheet__ways" data-ways>
+    <legend class="t-small w-600 c-600">Ways back for this order</legend>
+    ${keys.map((k) => checkRow({ id: `ret-${k}`, label: RETURN_LABEL[k], caption: line(k), checked: picked[k] !== false, disabled: busy })).join('')}
+    ${error ? `<p class="field__msg field__msg--error" role="alert" data-err>Tick at least one way to get it back.</p>` : ''}
+  </fieldset>
+  <div class="${ID}-sheet__actions">
+    ${cta('Mark ready', { busy, busyLabel: 'Marking ready…', attrs: 'data-act="ready-ok"' })}
+    ${cta('Not yet', { variant: 'secondary', disabled: busy, attrs: 'data-act="ready-keep"' })}
+  </div>
+</div>`;
+}
+
+function openMarkReady(a) {
+  const t = myTailor();
+  const keys = Object.keys(RETURN_LABEL).filter((k) => t.returns?.[k] === true);
+  const picked = Object.fromEntries(keys.map((k) => [k, true]));
+  sheetOverlay(sheetReadyBody(a, keys, picked), { header: 'Mark the order ready?', dataS: `${ID}--mark-ready`, confirm: false }, (holder, close) => {
+    let busy = false;
+    const paint = (error = false) => { holder.querySelector(`.${ID}-sheet`).outerHTML = sheetReadyBody(a, keys, picked, { busy, error }); };
+    holder.addEventListener('change', (e) => {
+      const m = /^ret-(.+)$/.exec(e.target.id ?? '');
+      if (!m || busy) return;
+      picked[m[1]] = e.target.checked;
+      holder.querySelector('[data-err]')?.remove();
+    });
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (busy) return;
+      if (act === 'ready-keep') close();
+      else if (act === 'ready-ok') {
+        const returns = keys.filter((k) => picked[k]);
+        if (!returns.length) { paint(true); return; }
+        busy = true; paint();
+        withLatency(() => {
+          const r = T.markReady(a.id, { returns });
+          busy = false;
+          close({ instant: true });
+          if (currentScreen() !== ID) return;
+          go(ID);
+          if (r.ok) toast(`${firstOf()} has been told it’s ready.`, { tone: 'success' });
+          else failToast();
+        });
+      }
+    });
+  });
+}
+
 /* ---------- wire ---------- */
 function wire(root) {
   if (redirectIfMoved(ID, go, { has: (id) => registered().includes(id) })) return;
@@ -243,6 +472,23 @@ function wire(root) {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'message') go('t-thread');
     else if (act === 'home') go(personaHome('tailor'));
+    else if (act === 'start-fitting' && a) {
+      run('start', () => { const r = T.startFitting(a.id); go(ID); if (r.ok) toast('Fitting started', { tone: 'success' }); else failToast(); });
+    } else if (act === 'no-change' && a) {
+      run('no-change', () => { const r = T.confirmNoChange(a.id); go(ID); if (r.ok) toast(`Price confirmed. ${firstOf()} has been told.`, { tone: 'success' }); else failToast(); });
+    } else if ((act === 'adjust' || act === 'revise') && a) {
+      state.ui['t-adjust'] = { apptId: a.id, mode: act === 'adjust' ? 'new' : 'revise' };
+      go('t-adjust');
+    } else if (act === 'mark-ready' && a) openMarkReady(a);
+    else if (act === 'complete' && a) {
+      run('complete', () => {
+        const r = T.markCompleted(a.id);
+        go(ID);
+        const p = payoutOf(a);
+        if (r.ok) toast(`Job completed. ${fmtExact(a.money.payout)} is paid out ${p ? fmtDay(p.date) : 'on Friday'}.`, { tone: 'success' });
+        else failToast();
+      });
+    }
     else if (act === 'cant-make-it' && a) openCantMakeIt(a);
     else if (act === 'no-show' && a) openNoShow(a);
   });

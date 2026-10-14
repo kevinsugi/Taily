@@ -7,8 +7,8 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 | M0 Foundation | code done (`npm run check` green) | — | — | model, components, harness, integration (sys-index + sys-components, Test-flows menu, ref/v5 baselines) landed. Figma pages not yet created |
 | M1 Customer booking | **done** | see git log | 16 frames (3 screens re-sync in M2) | review r2 fixed + director polish | | | |
 | M2 Tailor onboarding + Shop | integrated (`npm run check` green; review pending) | — | — | 11 screens, 38 new baselines; c-welcome + sys-index re-accepted (intended: Join Taily line, new screens listed) |
-| M3 Request loop | in progress | | | |
-| M4 Fitting → completion | todo | | | |
+| M3 Request loop | **done** | see git log | M3 sections on both pages (t-request/t-job/c-bookings re-sync in M4) | review r2 fixed + director fixes | | | |
+| M4 Fitting → completion | in progress | | | |
 | M5 Messaging, accounts, earnings, system | todo | | | |
 | M6 Final pass | todo | | | |
 

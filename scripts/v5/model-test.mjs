@@ -11,7 +11,7 @@ import * as TD from '../../js/tailor-data.js';
 import { driveTo, TARGETS, addRequest } from '../../js/fixtures/common.js';
 import { SCENARIOS, SEED_SLOT } from './money.mjs';
 import { SUGGESTED_SLOT, SECOND_SLOT_AFTER } from '../../js/fixtures/money-scenarios.js';
-import { setFocus, focusAppt, redirectIfMoved } from '../../js/focus.js';
+import { setFocus, focusAppt, redirectIfMoved, statusWord } from '../../js/focus.js';
 import * as C from '../../js/components.js';
 import * as A from '../../js/account.js';
 import { withLatency, LATENCY_MS } from '../../js/sim.js';
@@ -201,7 +201,7 @@ const goldenRow = (q, [services, home, rush, courier, total, deposit, balance, f
   goldenRow(M.estimate(amara(), { ...state.job, needBy: '2026-10-16' }, '2026-10-15T17:00'), [12500, 3500, 4000, 0, 20000, 1600, 18400, 1250, 18750], 'rush: need-by Fri Oct 16, visit Thu Oct 15 (1 day)');
   goldenRow(M.estimate(amara(), { ...state.job, visitType: 'shop' }, '2026-10-13T13:00'), [12500, 0, 0, 0, 12500, 1250, 11250, 1250, 11250], 'shop visit');
   goldenRow(M.quote({ lines, homeFee: 3500, courier: M.courierQuote(0.6).cents }), [12500, 3500, 0, 1045, 17045, 1600, 15445, 1250, 14750], 'seed + courier 0.6 mi');
-  eq(M.courierQuote(0.6), { miles: 0.6, cents: 1045 }, 'courierQuote(0.6) = ($8.00 + $2.50 x 0.6) plus markup = $10.45');
+  eq(M.courierQuote(0.6), { miles: 0.6, quote: 950, markup: 95, cents: 1045 }, 'courierQuote(0.6) = ($8.00 + $2.50 x 0.6) plus markup = $10.45');
   eq(M.courierQuote(0).cents, 880, 'courierQuote(0) = $8.00 plus markup = $8.80');
   const dep = 1600;
   const add = [...lines.map((l) => ({ ...l, cents: l.serviceId === 'sleeves' ? $(50) : l.cents })), { garmentId: 'g1', garmentType: 'Suit Pant', serviceId: 'taper', label: 'Taper legs', cents: $(40) }];
@@ -490,6 +490,25 @@ section('fitting -> completed');
   goldenRow(ap.appt.money, [17000, 3500, 0, 0, 20500, 1600, 18900, 1700, 18800], 'approvePriceChange (after messaging): deposit $16.00 kept, balance $189.00, Taily fee $17.00, payout $188.00');
   eq([ap.appt.status, ap.appt.payments.deposit.cents, ap.appt.payments.balance.cents, ap.appt.lines.length, ap.appt.priceChange.state], ['in-progress', 1600, 18900, 4, 'approved'], 'approve: lines replaced, balance updated, status in-progress');
   guard(T.approvePriceChange(a.id), 'not-pending', 'approve twice fails');
+}
+// R4-2-C-02 / D-118: a pending price change becomes "messaged" only on Sarah's first real message
+{
+  S.reset(); const a = driveTo('price-change');
+  T.sendMessage(a.tailorId, 'tailor', { text: 'Let me know if you have questions.' });
+  eq(a.priceChange.state, 'pending', 'a tailor message leaves the price change pending');
+  T.sendMessage(a.tailorId, 'customer', { text: 'Could we keep the sleeves at the old price?' });
+  eq(a.priceChange.state, 'messaged', 'Sarah\'s first message marks the price change messaged');
+  eq(S.lastSpeakerSince(a)?.from, 'customer', 'and the thread backs it up');
+}
+// R4-2-C-04 / D-118: a declined balance remembers the card that was declined
+{
+  S.reset(); const a = driveTo('ready'); T.chooseReturn(a.id, 'pickup');
+  state.sim.card = 'declined';
+  guard(T.payBalance(a.id, 'visa-4242'), 'card-declined', 'declined balance');
+  eq([a.payments.balance.state, a.payments.balance.failedCardId], ['failed', 'visa-4242'], 'the declined card is recorded');
+  state.sim.card = 'ok';
+  const paid = T.payBalance(a.id, 'apple-pay');
+  eq([paid.ok, a.payments.balance.state, a.payments.balance.failedCardId], [true, 'paid', undefined], 'paying another way clears it');
   // refund line: payments untouched until Ready
 }
 // price change: removed
@@ -871,6 +890,68 @@ section('M3 request loop helpers (D-72…D-88)');
   T.tailorAccept(req.id); setFocus(req.id);
   eq([focusAppt('c-request'), focusAppt('c-booking')?.id], [null, req.id], 'after the accept the focus resolves to c-booking');
   S.reset();
+}
+
+
+/* ================= M4 §A9: return offer, courier, price-change view, revise, review masking, status words ================= */
+section('M4 model');
+{
+  S.reset(); const a = driveTo('in-progress');
+  guard(T.markReady(a.id, { returns: [] }), 'return-required', 'markReady with no way back fails');
+  guard(T.markReady(a.id, { returns: ['carrier-pigeon'] }), 'return-required', 'markReady: an unknown key is not an offer');
+  amara().returns.dropoff = false;
+  guard(T.markReady(a.id, { returns: ['dropoff'] }), 'not-offered', 'markReady: a way the shop does not offer fails');
+  amara().returns.dropoff = true;
+  const r = T.markReady(a.id, { returns: ['pickup'] });
+  eq([r.ok, S.returnOffer(r.appt)], [true, ['pickup']], 'markReady({ returns: [pickup] }) -> returnOffer = [pickup]');
+  guard(T.chooseReturn(a.id, 'courier'), 'not-offered', 'chooseReturn: a way not in the offer fails');
+  const b = driveTo('in-progress'); T.markReady(b.id);
+  eq(S.returnOffer(S.getAppt(b.id)), ['pickup', 'dropoff', 'courier'].filter((k) => amara().returns[k]), 'markReady default offers every Shop return, in RETURN_LABEL order');
+  const cq = M.courierQuote(0.6);
+  eq([cq.quote + cq.markup, cq.cents, SCENARIOS.courierQuote.cents], [1045, 1045, 1045], 'courierQuote: quote + markup = total (SCENARIOS.courierQuote)');
+  const c = driveTo('ready', { returnOption: 'courier' }); T.chooseReturn(c.id, 'courier');
+  eq([S.getAppt(c.id).courier.quote, S.getAppt(c.id).courier.markup, S.getAppt(c.id).courier.cents], [SCENARIOS.courierQuote.quote, SCENARIOS.courierQuote.markup, SCENARIOS.courierQuote.cents], 'a.courier stores quote + markup + total');
+}
+{
+  S.reset(); const a = driveTo('price-change', { priceChange: 'added' });
+  const v = S.priceChangeView(a);
+  const rows = v.garments.flatMap((g) => g.rows);
+  eq([rows.filter((r) => r.kind === 'added').map((r) => r.label), rows.filter((r) => r.kind === 'repriced').map((r) => r.label)], [['Taper legs'], ['Shorten sleeves']], 'priceChangeView added: taper added, sleeves repriced');
+  eq([v.after.total, v.after.deposit, v.delta, v.before.total, v.state], [SCENARIOS.priceAdded.total, SCENARIOS.seed.deposit, SCENARIOS.priceAdded.total - SCENARIOS.seed.total, SCENARIOS.seed.total, 'pending'], 'priceChangeView added: total, deposit unchanged, delta');
+  eq(v.garments.map((g) => g.rows.map((r) => r.kind)), [['same', 'added'], ['repriced', 'same']], 'priceChangeView: booked order, added rows last in their garment');
+  ok(v.note.startsWith('The sleeve lining') && !v.noteMasked && v.revisions === 0, 'priceChangeView carries the note from driveTo');
+  // revise
+  T.messageAboutPriceChange(a.id);
+  const removedLines = a.lines.filter((l) => l.serviceId !== 'jacket-sides');
+  guard(T.sendPriceChange(a.id, removedLines, { note: 'x'.repeat(DATA.TAILOR_LIMITS.NOTE_MAX + 1) }), 'note-long', 'sendPriceChange: note over NOTE_MAX fails');
+  const rv = T.sendPriceChange(a.id, removedLines, { note: ' call 718 555 0100 ' });
+  eq([rv.ok, rv.appt.status, rv.appt.priceChange.state, rv.appt.priceChange.revisions, rv.appt.priceChange.noteMasked], [true, 'price-change', 'pending', 1, true], 'revise: status unchanged, pending, revisions + 1, note masked');
+  ok(!rv.appt.priceChange.note.includes('555'), 'revise: the phone number in the note is hidden');
+  eq(rv.appt.priceChange.marks.map((m) => m.kind), ['removed'], 'revise: marks are vs the booked lines');
+  const w = S.priceChangeView(S.getAppt(a.id));
+  eq([w.after.balance, w.garments.flatMap((g) => g.rows).filter((r) => r.kind === 'removed').length], [SCENARIOS.priceRemoved.balance, 1], 'priceChangeView removed: balance + one removed row');
+  eq(statusWord(S.getAppt(a.id), 'customer'), { pill: 'action', label: 'Approve new price' }, 'statusWord: customer on price-change');
+  eq(statusWord(S.getAppt(a.id), 'customer', { short: true }).label, 'New price', 'statusWord short: New price');
+  eq(statusWord(S.getAppt(a.id), 'tailor'), { pill: 'waiting', label: 'Waiting on Sarah' }, 'statusWord: tailor waiting on Sarah');
+  T.approvePriceChange(a.id);
+  eq(S.getAppt(a.id).money.balance, SCENARIOS.priceRemoved.balance, 'approve applies the revised price');
+}
+{
+  S.reset(); const a = driveTo('in-progress');
+  guard(T.sendPriceChange(a.id, a.lines), 'not-fitting', 'sendPriceChange from in-progress -> not-fitting');
+  const rep = driveTo('price-change', { priceChange: 'repriced' });
+  eq(S.priceChangeView(rep).after.total, SCENARIOS.priceRepriced.total, 'priceChangeView repriced: SCENARIOS.priceRepriced');
+  T.messageAboutPriceChange(rep.id);
+  eq(statusWord(S.getAppt(rep.id), 'tailor', { short: true }), { pill: 'action', label: 'Reply' }, 'statusWord: messaged -> tailor Reply');
+}
+{
+  S.reset(); const a = driveTo('completed');
+  guard(T.leaveReview(a.id, { stars: 5, text: 'x'.repeat(DATA.REVIEW_LIMITS.TEXT_MAX + 1) }), 'text-long', 'leaveReview: text over TEXT_MAX fails');
+  T.leaveReview(a.id, { stars: 5, text: 'Great, mail me at sarah@example.com' });
+  ok(!S.getAppt(a.id).review.text.includes('@') && !amara().reviews[0].text.includes('@'), 'leaveReview masks contact details (D-107)');
+  const po = TD.payoutOf(driveTo('completed'));
+  eq({ cents: po.cents, state: po.state, date: po.date }, { cents: SCENARIOS.seed.payout, state: 'pending', date: '2026-10-16' }, 'payoutOf(completed) = seed payout, pending, Fri Oct 16');
+  eq([DATA.STAR_WORDS[5], DATA.STAR_WORDS.length], ['Excellent', 6], 'STAR_WORDS indexed by stars');
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

@@ -277,7 +277,7 @@ function tryAgain(a) {
 }
 
 function message(a) {
-  state.ui.booking = { ...state.ui.booking, tailorId: a.tailorId };
+  state.ui.booking = { ...state.ui.booking, from: undefined, tailorId: a.tailorId };
   go('c-thread');
 }
 
@@ -302,7 +302,7 @@ function wire(root) {
       case 'try-again': if (a) tryAgain(a); break;
       case 'see-others': go('c-tailors'); break;
       case 'pick-time':   // a new time with the same tailor (D-85 / D-94)
-        if (a) state.ui.booking = { ...state.ui.booking, tailorId: a.tailorId, slot: null };
+        if (a) state.ui.booking = { ...state.ui.booking, from: undefined, tailorId: a.tailorId, slot: null };
         go('c-book'); break;
       case 'pay-another': go('c-pay'); break;
       default: break;

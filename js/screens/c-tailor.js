@@ -130,9 +130,14 @@ function reviews(t) {
 const cameFrom = () => (currentScreen() === ID ? previousScreen() : currentScreen());
 const isPreview = () => !!ui().preview && cameFrom() === 'to-done';
 
+/** Profile mode (R4-1-C-03): reached from a finished review, so there is no booking in progress — no stepper, no draft
+    estimate, one "Book again" action. Fixtures land here with no history; a real visit comes from c-review. */
+const isProfile = () => state.ui.booking?.from === 'review';
+
 function view(s) {
   const job = s.job;
   const preview = isPreview();
+  const profile = !preview && isProfile();
   const t = chosen();
   const q = { ...estimateNext(t, job), tailorFirst: (t.name || 'The tailor').split(' ')[0] };
   F = fmtColumn(allAmounts(t, q));
@@ -141,22 +146,24 @@ function view(s) {
   const declined = el.reason === 'declined';
   const first = q.tailorFirst;
   const lead = `<span>Est. <b data-money>${F(q.total)}</b> · ${itemsLabel(job.garments.length, 'item')}</span>`;
-  return `${chrome('home')}<main class="body ${preview ? '' : 'body--with-bar '}${ID}">
-  ${preview ? '' : bookingSteps(3)}
+  return `${chrome(profile ? 'bookings' : 'home')}<main class="body ${preview ? '' : 'body--with-bar '}${ID}${profile ? ` ${ID}--profile` : ''}">
+  ${preview || profile ? '' : bookingSteps(3)}
   ${headingRow('')}
   ${preview ? `<div class="c-tailor__preview">${readOnlyBanner({ text: 'You’re viewing your own profile', ctaLabel: 'Back to Taily for tailors', ctaAct: 'exit-preview' })}</div>` : ''}
   ${hero(t, declined ? null : next, job, declined)}
   ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} can’t take this job`, text: `Your job details are saved. You can book ${esc(first)} for a different job.` })}</div>` : ''}
   ${declined || preview ? '' : `<div class="c-tailor__ask">${cta('Ask a question', { variant: 'secondary', attrs: 'data-act="ask"' })}</div>`}
   ${about(t)}
-  ${estimateCard(q, job)}
+  ${profile ? '' : estimateCard(q, job)}
   ${prices(t)}
   ${where(t, job)}
   ${gettingItBack(t)}
   ${reviews(t)}
 </main>
 ${preview ? ''
-  : declined
+  : profile
+    ? actionBar({ ctaLabel: `Book ${esc(first)} again`, ctaAct: 'book-again' })
+    : declined
     ? actionBar({ ctaLabel: 'Start a different job', ctaAct: 'new-job', note: `${esc(first)} can’t take this job` })
     : actionBar({ lead, ctaLabel: 'Pick a time', ctaAct: 'pick-time', disabled: !el.ok, note: el.ok ? '' : reasonNote(el, job) })}`;
 }
@@ -172,6 +179,13 @@ function wire(root) {
       case 'ask': go('c-thread'); break;
       case 'exit-preview': ui().preview = false; back() || go('to-done'); break;
       case 'pick-time': go('c-book'); break;
+      case 'book-again': {
+        const tailorId = chosen().id;
+        T.newJob();
+        state.ui.booking = { tailorId };
+        go('c-job', { fresh: true });
+        break;
+      }
       case 'all-prices': {
         const y = window.scrollY;
         ui().allPrices = !ui().allPrices;

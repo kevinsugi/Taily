@@ -1,0 +1,49 @@
+/* t-adjust — T5 adjust the price after the fitting. Layout only; lines, figures, breakdown, sheet and bar are shared. Tokens only. */
+.t-adjust { padding-bottom: var(--space-40); }
+.t-adjust__eyebrow { margin: 0 0 var(--space-4); }
+.t-adjust__content { display: flex; flex-direction: column; margin-top: var(--space-24); }
+.t-adjust__info { margin-bottom: var(--space-24); }
+.t-adjust__info .banner__text { text-wrap: pretty; }
+.t-adjust__garments { display: flex; flex-direction: column; gap: var(--space-24); }
+.t-adjust__type { margin: 0 0 var(--space-8); color: var(--ink); }
+.t-adjust__card { padding: var(--space-4) var(--space-16); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
+
+/* one adjust row: label | $ input | remove-or-undo, the error under the pair */
+.t-adjust__row { display: grid; grid-template-columns: minmax(0, 1fr) 96px 52px; align-items: center; column-gap: var(--space-8); padding-block: var(--space-8); box-shadow: inset 0 -1px 0 var(--neutral-100); }
+.t-adjust__row > * { min-width: 0; }
+.t-adjust__label { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); padding-block: var(--space-4); }
+.t-adjust__label label { color: var(--ink); }
+.t-adjust__mark { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); font-variant-numeric: tabular-nums; }
+.t-adjust__mark:empty { display: none; }
+.t-adjust__mark s { color: var(--neutral-500); text-decoration-thickness: 1px; }
+.t-adjust__box { min-height: 48px; }
+.t-adjust__box .field__affix { padding-left: var(--space-12); }
+.t-adjust__box .field__input { padding-left: var(--space-4); padding-right: var(--space-8); font-variant-numeric: tabular-nums; }
+.t-adjust__box--error { box-shadow: inset 0 0 0 1px var(--error); }
+.t-adjust__box--error:focus-within { box-shadow: inset 0 0 0 2px var(--error); }
+.t-adjust__btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--ink); font-family: var(--font-sans); cursor: pointer; }
+.t-adjust__btn--x { font-size: var(--size-16); color: var(--neutral-600); }
+.t-adjust__btn:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.t-adjust__btn:disabled { opacity: .5; cursor: not-allowed; }
+.t-adjust__was { grid-column: 2; text-align: right; padding-right: var(--space-8); color: var(--neutral-500); font-variant-numeric: tabular-nums; text-decoration-thickness: 1px; }
+.t-adjust__row--removed .t-adjust__btn { text-decoration: underline; text-underline-offset: 3px; }
+.t-adjust__err { grid-column: 1 / -1; }
+.t-adjust__err:empty { display: none; }
+.t-adjust__err p { margin: var(--space-4) 0 0; }
+.t-adjust__add { padding-block: var(--space-4); }
+.t-adjust__add .list-row { padding-inline: 0; }
+.t-adjust__row:last-child { box-shadow: inset 0 -1px 0 var(--neutral-100); }
+
+.t-adjust__empty-err { margin-top: var(--space-16); }
+.t-adjust__empty-err:empty { display: none; }
+.t-adjust__note { margin-top: var(--space-32); }
+.t-adjust__h2 { margin: var(--space-32) 0 var(--space-16); }
+.t-adjust__frozen { grid-column: 1 / -1; margin: 0; }
+.t-adjust__figures { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-16); }
+.t-adjust__breakdown { margin-top: var(--space-16); }
+.t-adjust__fine { margin: var(--space-8) 0 0; text-wrap: pretty; }
+.t-adjust__empty { margin-top: var(--space-24); }
+
+/* the add-a-service sheet */
+.t-adjust-sheet { display: flex; flex-direction: column; width: 100%; }
+@media (max-width: 340px) { .t-adjust__figures { grid-template-columns: minmax(0, 1fr); } }

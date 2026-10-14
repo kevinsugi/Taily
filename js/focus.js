@@ -5,7 +5,8 @@
    setFocus(appt.id) first, the screen reads focusAppt(ID), and its
    wire() calls redirectIfMoved(ID, go).
    ============================================================ */
-import { state, getAppt, apptsFor, statusScreen } from './state.js';
+import { state, getAppt, apptsFor, statusScreen, justConfirmed, lastSpeakerSince, now } from './state.js';
+import { fmtTime, fmtDay, isoDay } from './dates.js';
 
 /** c- customer · t- / to- tailor. sys- screens keep the current persona. */
 function personaOf(screenId) {
@@ -39,4 +40,46 @@ export function redirectIfMoved(screenId, go, { has = null } = {}) {
   if (!next || next === screenId || (has && !has(next))) return false;
   go(next, { replace: true });
   return true;
+}
+
+/** The status word both sides print (B2, D-87 + D-108): `{ pill, label }` where `pill` is a `statusPill` key. `short` is the list
+    row's word. M3 words are unchanged; every M4 status comes from here so the two perspectives can't drift. */
+export function statusWord(appt, persona = state.persona, { short = false } = {}) {
+  if (!appt) return { pill: 'calm', label: '' };
+  const customer = persona !== 'tailor';
+  const sarah = state.customer.first;
+  const pick = (long, brief) => (short ? brief : long);
+  /* R4-2-T-02: one word per list for every "waiting on Sarah" case (price change, replied, ready, suggested) */
+  const waiting = { pill: 'waiting', label: pick(`Waiting on ${sarah}`, 'Waiting') };
+  switch (appt.status) {
+    case 'requested': return customer ? { pill: 'requested', label: 'Request sent' } : { pill: 'new-request', label: 'New request' };
+    case 'suggested': return customer ? { pill: 'suggested', label: pick('New time suggested', 'New time') } : waiting;
+    case 'declined': return { pill: 'declined', label: 'Declined' };
+    case 'expired': return { pill: 'expired', label: 'No reply' };
+    case 'cancelled': return { pill: 'cancelled', label: appt.cancel?.reason === 'no-show' ? 'No-show' : 'Cancelled' };
+    case 'confirmed': return { pill: 'confirmed', label: !customer && justConfirmed(appt) ? 'Accepted' : 'Confirmed' };
+    case 'fitting': return { pill: 'fitting', label: 'Fitting' };
+    case 'price-change':
+      if (customer) return { pill: 'action', label: pick('Approve new price', 'New price') };
+      if (appt.priceChange?.state !== 'messaged') return waiting;
+      /* D-112: once Amara has answered, the move is Sarah's again */
+      return lastSpeakerSince(appt)?.from === 'tailor' ? waiting : { pill: 'action', label: pick(`Reply to ${sarah}`, 'Reply') };
+    case 'in-progress': return { pill: 'in-progress', label: 'In progress' };
+    case 'ready': return customer ? { pill: 'action', label: 'Ready' } : waiting;
+    case 'returning': {
+      const how = appt.returnOption ?? 'pickup';
+      if (how === 'dropoff') return customer ? { pill: 'returning', label: pick('Return scheduled', 'Drop-off') } : { pill: 'action', label: 'To drop off' };
+      if (how === 'courier') return customer ? { pill: 'returning', label: pick('Out for delivery', 'Courier') } : { pill: 'returning', label: pick('Courier booked', 'Courier') };
+      return { pill: 'returning', label: pick('Ready for pickup', 'Pickup') };
+    }
+    case 'completed': return { pill: 'completed', label: 'Completed' };
+    default: return { pill: appt.status, label: undefined };
+  }
+}
+
+/** Since when the job has been at its current step (the latest history entry for its status), as list copy:
+    "since 5:00 PM" today, else "since Thu, Oct 15". Both personas' "In progress" rows use it (D-115, D-116). */
+export function sinceText(appt) {
+  const at = [...appt.history].reverse().find((h) => h.status === appt.status)?.at ?? appt.slot.start;
+  return `since ${isoDay(at) === isoDay(now()) ? fmtTime(at) : fmtDay(at)}`;
 }

@@ -11,6 +11,7 @@ import { scheduler, slotColumns } from './scheduler.js';
 import { TAILORS, DEMO_NOW } from './data.js';
 import { quote, fmt, fmtExact, cents, payoutFor } from './money.js';
 import { ICON_CARD } from './icons.js';
+import { SCENARIOS, AMARA } from './fixtures/money-scenarios.js';
 
 /** The gallery's HTML (a string of labelled blocks). */
 export function galleryHtml() {
@@ -42,8 +43,8 @@ export function galleryHtml() {
   h2('CTA_Small — 302:1656');
   row(C.ctaSmall('Message'), C.ctaSmall('Reschedule'));
 
-  h2('Status Pill — 312:826 + v5 keys (16)');
-  row(...['requested','confirmed','ready','completed','declined','cancelled','new-request','awaiting-customer','tailoring','suggested','fitting','price-change','in-progress','returning','withdrawn','expired'].map((k) => C.statusPill(k)));
+  h2('Status Pill — 312:826 + v5 keys (17)');
+  row(...['requested','confirmed','ready','completed','declined','cancelled','new-request','awaiting-customer','tailoring','suggested','fitting','price-change','in-progress','returning','withdrawn','expired','action'].map((k) => C.statusPill(k)));
 
   h2('Top nav — customer · tailor');
   v('NAV.customer (Bookings active)');
@@ -315,6 +316,33 @@ export function galleryHtml() {
   col(C.apptRow({ ...ar, status: 'requested', pillLabel: 'Request sent', amountText: fmtExact(seed.deposit), amountCaption: 'on hold' }));
   v('muted (past)');
   col(C.apptRow({ ...ar, status: 'cancelled', pillLabel: 'Cancelled', amountText: fmtExact(seed.deposit), amountCaption: 'refunded', muted: true }), C.apptRow({ ...ar, status: 'completed', muted: true }));
+  /* ---------------- M4 · fitting to completion (all amounts from SCENARIOS, never typed) ---------------- */
+  const seedLines = SCENARIOS.seed.lines;
+  const rowOf = (l, kind, to) => ({ key: `${l.garmentId}:${l.serviceId}`, label: l.label, kind, from: kind === 'added' ? null : l.cents, to: kind === 'removed' ? null : (to ?? l.cents) });
+  const byId = (id) => seedLines.find((l) => l.serviceId === id);
+  const bumped = byId('sleeves').cents + (SCENARIOS.priceRepriced.services - SCENARIOS.seed.services);
+  const taper = { ...byId('hem-pants'), serviceId: 'taper', label: 'Taper legs', cents: AMARA.prices.taper * 100 };
+  const changeGarments = [
+    { id: 'g1', type: byId('hem-pants').garmentType, rows: [rowOf(byId('hem-pants'), 'same'), rowOf(taper, 'added')] },
+    { id: 'g2', type: byId('sleeves').garmentType, rows: [rowOf(byId('sleeves'), 'repriced', bumped), rowOf(byId('jacket-sides'), 'removed')] },
+  ];
+  h2('Change list — the correction mark (M4)');
+  v('same · added (tint + tag) · repriced (old struck + New price) · removed (struck + tag)');
+  col(C.changeList({ garments: changeGarments }));
+
+  h2('Delta figure (M4)');
+  v('up (new total vs booked)');         col(C.deltaFigure({ label: 'Sarah pays', cents: SCENARIOS.priceAdded.total, was: SCENARIOS.seed.total }));
+  v('down (a service came off)');        col(C.deltaFigure({ label: 'Sarah pays', cents: SCENARIOS.priceRemoved.total, was: SCENARIOS.seed.total }));
+  v('same as booked');                   col(C.deltaFigure({ label: 'Sarah pays', cents: SCENARIOS.seed.total, was: SCENARIOS.seed.total }));
+  v('no was (+ caption)');               col(C.deltaFigure({ label: 'You take home', cents: SCENARIOS.seed.payout, caption: `After the ${fmtExact(SCENARIOS.seed.tailyFee)} Taily fee` }));
+
+  h2('Courier card (M4, D-100)');
+  const cq = SCENARIOS.courierQuote;
+  const cc = { quote: cq.quote, markup: cq.markup, cents: cq.cents, miles: cq.miles, from: amara.shopName, to: '145 N 7th St' };
+  v('ready · customer');                 col(C.courierCard({ ...cc, note: 'Added to your balance.' }));
+  v('ready · tailor');                   col(C.courierCard({ ...cc, note: 'Paid by Sarah. Not taken from your payout.' }));
+  v('loading');                          col(C.courierCard({ state: 'loading', miles: cq.miles, from: cc.from, to: cc.to }));
+  v('failed');                           col(C.courierCard({ state: 'failed', miles: cq.miles, from: cc.from, to: cc.to }));
   return s.join('\n');
 }
 

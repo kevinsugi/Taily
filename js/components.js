@@ -116,6 +116,8 @@ const PILL_VARIANTS = {
   /* R3-2-C-05 (D-95): the one state that waits on the CUSTOMER is the loudest pill — accent fill, action glyph;
      the tailor's side of it ("Waiting on Sarah") is the same accent family, outlined, with the clock */
   'suggested':             { cls: 'pill--action',            icon: 'new_request', label: 'New time' },
+  /* M4 (D-108): the generic "your move" pill — same accent fill; the label says what the move is */
+  'action':                { cls: 'pill--action',            icon: 'new_request', label: 'Your move' },
   'waiting':               { cls: 'pill--waiting',           icon: 'awaiting',    label: 'Waiting on customer' },
   'fitting':               { cls: 'pill--tailoring',         icon: 'tailoring',   label: 'Fitting' },
   'price-change':          { cls: 'pill--awaiting-customer', icon: 'awaiting',    label: 'Price change' },
@@ -516,8 +518,10 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
     else { pendingFinish.add(finish); setTimeout(finish, 300); }
   };
   activeOverlay = close;
-  holder.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', close));
-  wireSheetA11y(holder, close);
+  /* a sheet mid-commit sets holder.dataset.locked = 'true': ✕, scrim and Escape do nothing until it clears (R4-2-C-03) */
+  const dismiss = () => { if (holder.dataset.locked !== 'true') close(); };
+  holder.querySelectorAll('[data-act="sheet-cancel"]').forEach((el) => el.addEventListener('click', dismiss));
+  wireSheetA11y(holder, dismiss);
   wireFn?.(holder, close);
   return close;
 }
@@ -1470,4 +1474,83 @@ export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', 
   <span class="appt-row__caption t-small ${captionTone === 'action' ? 'appt-row__caption--action' : 'c-600'}">${esc(amountCaption)}</span>
   ${chev}
 </button>`;
+}
+
+/* ============================================================
+   M4 — the ticket after the fitting (D-99 … D-108)
+   ============================================================ */
+
+/**
+ * Change List — "the correction mark" (M4 signature). The booked price rows with what moved: `garments` is
+ * `priceChangeView(appt).garments` (`[{ id, type, rows: [{ key, label, kind, from, to }] }]`). Row kinds:
+ *   same      → label · amount
+ *   added     → accent tint + "Added" tag · amount
+ *   repriced  → "New price" tag · the old amount struck in neutral-500 (sr-only "was") then the new amount
+ *   removed   → label and amount struck + "Removed" tag
+ * Every change carries a text tag, never colour alone. One precision per list: `format` defaults to fmtExact.
+ */
+export function changeList({ garments = [], format = fmtExact } = {}) {
+  const tag = (text, tone) => `<span class="change-list__tag change-list__tag--${tone} t-micro">${text}</span>`;
+  const rowHtml = (r) => {
+    noPercent(r.label, 'changeList');
+    const label = esc(r.label);
+    let text = `<span class="change-list__label t-body">${label}</span>`;
+    let amt = `<span class="change-list__amt t-body">${format(r.to ?? 0)}</span>`;
+    if (r.kind === 'added') {
+      text = `<span class="change-list__label t-body w-600">${label}</span>${tag('Added', 'added')}`;
+      amt = `<span class="change-list__amt t-body w-600">${format(r.to)}</span>`;
+    } else if (r.kind === 'repriced') {
+      text = `<span class="change-list__label t-body">${label}</span>${tag('New price', 'repriced')}`;
+      amt = `<span class="change-list__amts"><s class="change-list__was t-small"><span class="sr-only">was </span>${format(r.from)}</s><span class="change-list__amt t-body w-600">${format(r.to)}</span></span>`;
+    } else if (r.kind === 'removed') {
+      text = `<span class="change-list__label change-list__label--struck t-body"><s>${label}</s></span>${tag('Removed', 'removed')}`;
+      amt = `<s class="change-list__amt change-list__amt--struck t-body"><span class="sr-only">removed, was </span>${format(r.from)}</s>`;
+    }
+    return `<div class="change-list__row change-list__row--${r.kind}" role="listitem" data-kind="${r.kind}"><span class="change-list__text">${text}</span>${amt}</div>`;
+  };
+  const groups = garments.map((g) => `<div class="change-list__garment">
+    <p class="t-body w-600 change-list__type">${esc(g.type)}</p>
+    <div class="change-list__rows" role="list" aria-label="${esc(g.type)}" data-money>${g.rows.map(rowHtml).join('')}</div>
+  </div>`).join('');
+  return `<div class="change-list">${groups}</div>`;
+}
+
+/**
+ * Delta Figure — one money figure with what it was: caps label, `.t-display` amount, then "Was $205.00 · up $45.00" /
+ * "· down $55.00" / "· no change" in words. `was` null → no comparison line. `caption` is an optional t-small line.
+ */
+export function deltaFigure({ label = '', cents: amount = 0, was = null, caption = '' } = {}) {
+  noPercent(label, 'deltaFigure'); noPercent(caption, 'deltaFigure');
+  let delta = '';
+  if (was != null) {
+    const d = amount - was;
+    /* R4-2-T-08: "Was" only when the figure moved; unchanged reads "Same as booked", without repeating the amount */
+    delta = d === 0
+      ? '<p class="t-small c-700 delta-figure__was">Same as booked</p>'
+      : `<p class="t-small c-700 delta-figure__was">Was ${fmtExact(was)} · ${d > 0 ? `up ${fmtExact(d)}` : `down ${fmtExact(-d)}`}</p>`;
+  }
+  return `<div class="delta-figure" data-money>
+  <p class="t-caps c-600 delta-figure__label">${esc(label)}</p>
+  <p class="t-display delta-figure__amt">${fmtExact(amount)}</p>
+  ${delta}${caption ? `<p class="t-small c-600 delta-figure__caption">${esc(caption)}</p>` : ''}
+</div>`;
+}
+
+/**
+ * Courier Card — the Taily courier as three honest numbers (D-100). state: ready | loading | failed.
+ * ready = Uber quote + Taily courier fee = Courier total + `note` ("Added to your balance." / "Paid by Sarah. Not taken from
+ * your payout."); loading = skeleton + aria-live status; failed = role=alert + a secondary Try again (`retryAct`).
+ */
+export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: total = 0, miles = 0, from = '', to = '', note = '', retryAct = 'courier-retry' } = {}) {
+  noPercent(note, 'courierCard');
+  const head = `${metaRow('', 'Taily courier', { icon: 'truck' })}<p class="t-small c-600 courier-card__route">${esc(miles)} mi · ${esc(from)} → ${esc(to)}</p>`;
+  let body;
+  if (state === 'loading') {
+    body = `${skeleton({ kind: 'line', count: 3 })}<p class="t-small c-600 courier-card__status" role="status" aria-live="polite">Getting a price from Uber…</p>`;
+  } else if (state === 'failed') {
+    body = `<div class="courier-card__error" role="alert"><p class="t-body w-600">Couldn’t get a courier price</p><p class="t-small c-600">Uber didn’t answer. Try again, or pick another way back.</p></div>${cta('Try again', { variant: 'secondary', attrs: `data-act="${esc(retryAct)}"` })}`;
+  } else {
+    body = `${moneyRows([{ label: 'Uber quote', cents: quote }, { label: 'Taily courier fee', cents: markup }, { label: 'Courier total', cents: total, kind: 'total' }])}${note ? `<p class="t-small c-600 courier-card__note">${esc(note)}</p>` : ''}`;
+  }
+  return `<div class="courier-card courier-card--${state}"${state === 'loading' ? ' aria-busy="true"' : ''} data-state="${state}">${head}${body}</div>`;
 }

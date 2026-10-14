@@ -1,15 +1,12 @@
-/* t-thread — layout only (M3 stub). Bubbles, composer, privacy note and read-only banner are shared components. */
+/* t-thread — layout only. Header, context row, message list, bubbles, composer, privacy note and read-only banner are shared components. */
 .screen[data-screen="t-thread"] { display: flex; flex-direction: column; }
 .t-thread { flex: 1 0 auto; gap: var(--space-12); padding-bottom: var(--space-16); }
-.t-thread__who { display: flex; align-items: center; gap: var(--space-12); min-width: 0; }
-.t-thread__who-text { display: flex; flex-direction: column; min-width: 0; }
-.t-thread__who-name { margin: 0; }
+.t-thread__context { margin-top: calc(-1 * var(--space-4)); }
 .t-thread__note { padding-inline: var(--space-4); }
+.t-thread__messages { display: flex; flex-direction: column; padding-top: var(--space-12); }
 .t-thread__empty { display: flex; flex: 1 0 auto; flex-direction: column; justify-content: center; }
 .t-thread__empty .empty-state { padding: var(--space-24) 0 var(--space-8); }
 .t-thread__empty-text { margin: 0; padding: var(--space-24) var(--space-4) 0; text-align: center; }
-.t-thread__messages { display: flex; flex-direction: column; gap: var(--space-12); padding-top: var(--space-8); }
-.t-thread__system { margin: 0; text-align: center; }
 .t-thread__foot {
   position: sticky; bottom: 0; z-index: 5; flex-shrink: 0; width: 390px;
   padding: var(--space-12) var(--space-20) var(--space-20);

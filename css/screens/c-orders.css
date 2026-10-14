@@ -1,0 +1,6 @@
+/* c-orders — Past orders. Layout only; rows are the shared apptRow. */
+.c-orders { gap: 0; padding-bottom: var(--space-40); }
+.c-orders__rows { display: flex; flex-direction: column; gap: var(--space-12); margin-top: var(--space-24); }
+.c-orders__note { margin: var(--space-16) 0 0; text-align: center; }
+.c-orders__empty { margin-top: var(--space-24); }
+.c-orders__loading { margin-top: var(--space-24); }

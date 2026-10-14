@@ -4,10 +4,11 @@
    Entry shape: see docs/v5/CONTEXT.md (FLOWS / EXPECT contract).
    ============================================================ */
 
-import { SCENARIOS, AMARA } from './money-scenarios.js';
+import { SCENARIOS, AMARA, PAYOUT_DAYS } from './money-scenarios.js';
+import { fmtDay } from '../dates.js';
 import { fmt, fmtExact, cents, tailyFeeFor, payoutFor } from '../money.js';
 import { MONEY } from '../money-config.js';
-import { onboardTo, NEW_TAILOR_PHONE } from './common.js';
+import { onboardTo, NEW_TAILOR_PHONE, earningsTo } from './common.js';
 import * as A from '../account.js';
 
 export const FLOWS_t_phone = [
@@ -128,6 +129,11 @@ export const FLOWS_to_payouts = [
     expect: { has: ['Enter the name on the account', 'Enter the 9-digit routing number', 'Account numbers are 4 to 17 digits'], sel: '#holder[aria-invalid="true"]' } },
   { key: 'to-payouts--edit', screen: 'to-payouts', group: 'M2 · Shop', title: 'Payouts — edit', note: 'Live tailor: current bank, account blank keeps it, Save changes waits for a change',
     expect: { has: ['Save changes', `${AMARA.payouts.bank} ••${AMARA.payouts.last4}`, 'Leave blank to keep'], not: 'Step 6 of 6' } },
+  { key: 'to-payouts--returned', screen: 'to-payouts', group: 'M5 · Earnings', title: 'Payouts — a payout came back', note: 'Fix bank details from Earnings: the returned amount, the bank, and the Friday it sends again after a save',
+    setup: () => { earningsTo('failed'); },
+    get expect() {
+      return { has: [`Your ${fmtExact(SCENARIOS.seed.payout)} payout came back`, `${AMARA.payouts.bank} ••${AMARA.payouts.last4} sent it back`, `we’ll send it again on ${fmtDay(PAYOUT_DAYS.second)}`, 'Save changes'], sel: '.banner--error' };
+    } },
 ];
 export const FLOWS_to_done = [
   { key: 'to-done', screen: 'to-done', group: 'M2 · Onboarding', title: 'You’re bookable', note: 'Live: her row as a customer sees it, what happens next',

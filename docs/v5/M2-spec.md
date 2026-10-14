@@ -366,7 +366,7 @@ directly (`import { onboardTo, NEW_TAILOR_PHONE } from './common.js'`).
 - **Purpose:** bank details, and an honest picture of the Taily fee before she goes live.
 - **Focal:** the fee sentence card (onboarding); the bank fields in edit mode.
 - **Layout:** header · stepper · [banner] · `headingRow('<h1 class="t-title">How you get paid</h1>')` · t-body c-600 "Taily pays
-  you every Friday for the jobs you completed the week before." (D-24) · 24 · **fee card** (white, `--radius-lg`, padding 20):
+  you every Friday for the jobs you completed the week before." (D-24; now "Every Friday, Taily pays you for the jobs you completed before that day.", D-152) · 24 · **fee card** (white, `--radius-lg`, padding 20):
   t-caps c-600 "The Taily fee" · 8 · `<p class="t-h2" data-money>On a $100.00 order, Taily keeps $10.00 and you get $90.00.</p>`
   (all three from §B "fee example") · 12 · t-small c-700 lines, each a `metaRow('✓', …)`: "The fee comes only from your
   service prices." · if home on: `Your ${fmt(cents(t.home.fee))} home-visit fee is yours in full.` · "Rush fees are yours in

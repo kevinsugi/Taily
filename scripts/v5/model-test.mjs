@@ -10,13 +10,15 @@ import * as S from '../../js/state.js';
 import * as TD from '../../js/tailor-data.js';
 import { driveTo, TARGETS, addRequest } from '../../js/fixtures/common.js';
 import { SCENARIOS, SEED_SLOT } from './money.mjs';
-import { SUGGESTED_SLOT, SECOND_SLOT_AFTER } from '../../js/fixtures/money-scenarios.js';
+import { SUGGESTED_SLOT, SECOND_SLOT_AFTER, PAYOUT_DAYS } from '../../js/fixtures/money-scenarios.js';
+import * as EARN from '../../js/fixtures/common.js';
 import { setFocus, focusAppt, redirectIfMoved, statusWord } from '../../js/focus.js';
 import * as C from '../../js/components.js';
 import * as A from '../../js/account.js';
 import { withLatency, LATENCY_MS } from '../../js/sim.js';
 
 const { state, T } = S;
+const CHAT_COPY = EARN.CHAT;
 let pass = 0;
 let failed = 0;
 const failures = [];
@@ -422,7 +424,7 @@ section('cancellation');
 {
   S.reset(); const a = driveTo('cancelled-late');
   eq([a.status, a.cancel.reason, a.cancel.refund, a.cancel.kept, a.cancel.tailorPaid, a.payments.deposit.state], ['cancelled', 'customer-late', 0, 1600, 1600, 'kept'], 'cancelBooking < 24 h: deposit $16.00 kept and paid to the tailor, no Taily fee (D-05)');
-  eq(state.payouts, [{ apptId: a.id, cents: 1600, state: 'pending', date: '2026-10-16', kind: 'kept-deposit' }], 'the kept deposit becomes a pending payout, paid the following Friday (D-24)');
+  eq(state.payouts.map(({ createdAt, ...p }) => p), [{ apptId: a.id, cents: 1600, state: 'pending', date: '2026-10-16', kind: 'kept-deposit' }], 'the kept deposit becomes a pending payout, paid the following Friday (D-24)');
   eq(state.job.garments.length, 2, 'the draft job is still there after a cancel');
 }
 {
@@ -438,7 +440,7 @@ section('cancellation');
   S.setClock('2026-10-15T17:15');
   const n = T.markNoShow(a.id);
   eq([n.appt.status, n.appt.cancel.reason, n.appt.cancel.tailorPaid, n.appt.payments.deposit.state], ['cancelled', 'no-show', 2500, 'kept'], 'markNoShow at 15 min: deposit kept, tailor paid $25.00 (D-06)');
-  eq(state.payouts[0], { apptId: a.id, cents: 2500, state: 'pending', date: '2026-10-16', kind: 'no-show' }, 'no-show pay is a pending payout');
+  eq((({ createdAt, ...p }) => p)(state.payouts[0]), { apptId: a.id, cents: 2500, state: 'pending', date: '2026-10-16', kind: 'no-show' }, 'no-show pay is a pending payout');
   const b = driveTo('no-show');
   eq(b.cancel.tailorPaid, 2500, 'driveTo no-show');
 }
@@ -609,7 +611,7 @@ section('fitting -> completed');
   guard(T.leaveReview(a.id, { stars: 5 }), 'not-completed', 'leaveReview needs completed');
   const done = T.markCompleted(a.id);
   eq(done.appt.status, 'completed', 'markCompleted');
-  eq(state.payouts, [{ apptId: a.id, cents: 14750, state: 'pending', date: '2026-10-16', kind: 'job' }], 'completion creates a pending payout of $147.50 (not the courier)');
+  eq(state.payouts.map(({ createdAt, ...p }) => p), [{ apptId: a.id, cents: 14750, state: 'pending', date: '2026-10-16', kind: 'job' }], 'completion creates a pending payout of $147.50 (not the courier)');
   guard(T.markCompleted(a.id), 'not-returning', 'markCompleted twice fails');
   guard(T.leaveReview(a.id, { stars: 0 }), 'stars-required', 'leaveReview: 0 stars');
   guard(T.leaveReview(a.id, { stars: 6 }), 'stars-required', 'leaveReview: 6 stars');
@@ -989,6 +991,149 @@ section('M4 model');
   const po = TD.payoutOf(driveTo('completed'));
   eq({ cents: po.cents, state: po.state, date: po.date }, { cents: SCENARIOS.seed.payout, state: 'pending', date: '2026-10-16' }, 'payoutOf(completed) = seed payout, pending, Fri Oct 16');
   eq([DATA.STAR_WORDS[5], DATA.STAR_WORDS.length], ['Excellent', 6], 'STAR_WORDS indexed by stars');
+}
+
+
+/* ================= M5 §A10: messaging, payouts, accounts ================= */
+section('M5 messaging');
+{
+  S.reset();
+  const first = T.sendMessage('amara', 'customer', { text: 'Call me: (718) 555-0199 or me@x.com' });
+  eq([first.message.text, first.masked], ['Call me: [phone hidden] or [email hidden]', true], 'both patterns are masked for the customer');
+  eq(T.sendMessage('amara', 'tailor', { text: 'Or (347) 555-0118, amara@x.com' }).message.text, 'Or [phone hidden], [email hidden]', 'both patterns are masked for the tailor');
+  S.reset();
+  state.sim.send = 'fail';
+  guard(T.sendMessage('amara', 'customer', { text: 'hi' }), 'send-failed', 'send-failed: the next send fails');
+  ok(T.sendMessage('amara', 'customer', { text: 'hi again' }).ok && state.sim.send === 'ok', 'send-failed is one-shot');
+  state.sim.network = 'offline';
+  guard(T.sendMessage('amara', 'customer', { text: 'hi' }), 'offline', 'offline: sends fail');
+  guard(T.sendMessage('amara', 'customer', { text: 'hi' }), 'offline', 'offline fails until the network is back');
+  state.sim.network = 'online';
+  guard(T.sendMessage('amara', 'customer', { text: 'x', photos: DATA.CHAT_LIMITS.PHOTOS_MAX + 1 }), 'too-many-photos', 'too-many-photos at 4');
+  ok(T.sendMessage('amara', 'customer', { text: 'x', photos: DATA.CHAT_LIMITS.PHOTOS_MAX }).ok, 'three photos are allowed');
+  S.reset();
+  T.sendMessage('amara', 'customer', { text: 'q' });
+  eq([S.unreadCount('amara', 'customer'), S.unreadCount('amara', 'tailor')], [0, 1], 'unread counts only the other person; your own send is never unread');
+  T.sendMessage('amara', 'tailor', { text: 'a' });
+  eq([S.unreadCount('amara', 'customer'), S.unreadCount('amara', 'tailor')], [1, 0], 'an answer is unread for the asker; answering marks the thread read for the answerer');
+  T.markThreadRead('amara', 'customer');
+  eq([S.unreadCount('amara', 'customer'), S.unreadCount('amara', 'tailor')], [0, 0], 'markThreadRead resets the reader only');
+  T.sendMessage('amara', 'customer', { text: 'and another' });
+  eq([S.unreadCount('amara', 'customer'), S.unreadCount('amara', 'tailor')], [0, 1], 'a new message is unread for the other side');
+  eq(T.markThreadRead('nobody', 'customer').ok, true, 'markThreadRead is a no-op without a thread');
+  driveTo('confirmed', { ask: true });
+  eq(S.unreadCount('amara', 'customer'), 1, 'system lines never count as unread (only the reply does)');
+  const msgs = S.threadFor('amara').messages;
+  eq([msgs[0].text, msgs[1].text, msgs[1].at, msgs[2].at], [CHAT_COPY.ask, CHAT_COPY.reply, '2026-10-13T09:42', '2026-10-13T10:00'], 'askAmara: question 9:30, reply 9:42, then the booking at the demo clock');
+  /* threadAppt */
+  S.reset();
+  eq(S.threadAppt('amara'), null, 'threadAppt: null for a question before any booking');
+  const r1 = driveTo('requested');
+  eq(S.threadAppt('amara').id, r1.id, 'threadAppt: the active appointment');
+  T.withdrawRequest(r1.id);
+  eq(S.threadAppt('amara'), null, 'threadAppt skips a withdrawn request');
+  const dec = driveTo('declined');
+  eq(S.threadAppt('amara').id, dec.id, 'threadAppt: a declined request is still the newest that was not withdrawn');
+  /* preview */
+  S.reset();
+  const sys = T.requestBooking({ tailorId: 'amara', slotStart: '2026-10-15T17:00' });
+  const tm = S.threadFor('amara').messages;
+  eq([S.threadPreview(tm[0], 'customer'), S.threadPreview(tm[0], 'tailor')], ['You sent a request', 'Sarah sent a request'], 'threadPreview: system lines read from the reader side');
+  const own = T.sendMessage('amara', 'customer', { text: 'See my number 718-555-0199' }).message;
+  eq([S.threadPreview(own, 'customer'), S.threadPreview(own, 'tailor')], ['You: See my number phone hidden', 'See my number phone hidden'], 'threadPreview: You: prefix, masked tokens without brackets');
+  const ph = T.sendMessage('amara', 'customer', { text: '', photos: 2 }).message;
+  const ph1 = T.sendMessage('amara', 'tailor', { text: '', photos: 1 }).message;
+  const pt = T.sendMessage('amara', 'tailor', { text: 'Here', photos: 1 }).message;
+  eq([S.threadPreview(ph, 'tailor'), S.threadPreview(ph1, 'customer'), S.threadPreview(pt, 'customer')], ['2 photos', 'Photo', 'Photo · Here'], 'threadPreview: photos');
+  void sys;
+  /* threadsFor */
+  S.reset();
+  eq([S.threadsFor('customer').length, S.threadsFor('tailor').length], [0, 0], 'threadsFor: none before any message');
+  driveTo('requested', { ask: true });
+  const rows = S.threadsFor('tailor');
+  eq([rows.length, rows[0].tailorId, rows[0].unread, rows[0].readOnly, rows[0].appt.status, rows[0].last.from], [1, 'amara', 0, false, 'requested', 'system'], 'threadsFor(tailor): the thread, unread, appt');
+  /* server error */
+  S.reset();
+  state.sim.server = 'error';
+  guard(T.requestBooking({ tailorId: 'amara', slotStart: '2026-10-15T17:00' }), 'server-error', 'server-error fails the request');
+  eq([state.appts.length, state.sim.server], [0, 'ok'], 'server-error authorizes nothing and is one-shot');
+  ok(T.requestBooking({ tailorId: 'amara', slotStart: '2026-10-15T17:00' }).ok, 'the request after a server error goes through');
+  eq(S.threadFor('amara').read, { customer: 0, tailor: 0 }, 'a fresh thread starts unread-neutral');
+}
+section('M5 payouts');
+{
+  S.reset();
+  eq([D.payoutDay('2026-10-15'), D.payoutDay('2026-10-16'), D.payoutDay('2026-10-17T00:00'), D.payoutDay('2026-10-18')], ['2026-10-16', '2026-10-23', '2026-10-23', '2026-10-23'], 'payoutDay: the Friday strictly after');
+  const a = driveTo('completed');
+  state.payouts[0].cents += 0;
+  eq(T.settlePayouts().paid.length, 0, 'settlePayouts pays nothing before the Friday');
+  S.setClock('2026-10-16T18:00');
+  const run = T.settlePayouts();
+  eq([run.paid.length, state.payouts[0].state, state.payouts[0].bank, state.payouts[0].last4], [1, 'paid', 'Chase', '6789'], 'settlePayouts pays due pending payouts and snapshots the bank');
+  eq(T.settlePayouts().paid.length, 0, 'settlePayouts does not pay twice');
+  void a;
+  const pv = TD.payoutsView();
+  eq([pv.next, pv.failed, pv.history.length, pv.paidTotal, pv.history[0].date], [null, null, 1, SCENARIOS.seed.payout, '2026-10-16'], 'payoutsView: paid history and paidTotal');
+  /* failed -> fix bank details -> pending again */
+  driveTo('completed');
+  S.setClock('2026-10-16T18:00');
+  state.sim.payout = 'failed';
+  eq(T.settlePayouts().failed.length, 1, 'sim.payout = failed sends it back');
+  const fv = TD.payoutsView();
+  eq([fv.next, fv.failed.cents, fv.failed.retryDate, fv.failed.items.length], [null, SCENARIOS.seed.payout, '2026-10-23', 1], 'payoutsView: failed with the retry Friday');
+  const fixed = T.setPayouts({ holder: 'Amara Reyes', routing: '021000021', account: '' });
+  eq([fixed.ok, fixed.requeued, fixed.requeuedCents], [true, 1, SCENARIOS.seed.payout], 'setPayouts re-queues failed payouts');
+  const nv = TD.payoutsView();
+  eq([nv.failed, nv.next.date, nv.next.cents, nv.next.items[0].retried], [null, '2026-10-23', SCENARIOS.seed.payout, true], 'payoutsView: re-queued payout is next, retried');
+  eq(TD.payoutDetail(state.appts[0].id).payout.state, 'pending', 'payoutDetail returns the payout, appt and request view');
+  eq(TD.payoutDetail('nope'), null, 'payoutDetail: null for an unknown id');
+  /* grouping */
+  EARN.earningsTo('paid');
+  const g = TD.payoutsView();
+  eq([g.next.cents, g.next.date, g.history[0].cents, g.history[0].date, g.paidTotal], [SCENARIOS.shop.payout, PAYOUT_DAYS.second, SCENARIOS.seed.payout, PAYOUT_DAYS.first, SCENARIOS.seed.payout], "earningsTo('paid'): next payout and history");
+  EARN.earningsTo('kept');
+  eq([TD.payoutsView().next.cents, TD.payoutsView().next.items[0].sub], [SCENARIOS.lateCancel.tailorPaid, 'Late cancellation · deposit kept'], "earningsTo('kept')");
+  eq(TD.threadCustomerName(), 'Sarah Chen', 'threadCustomerName: full name after any accept');
+  S.reset(); driveTo('requested');
+  eq(TD.threadCustomerName(), 'Sarah C.', 'threadCustomerName: initial before any accept');
+}
+section('M5 accounts');
+{
+  S.reset();
+  eq([state.customer.addresses.length, state.customer.addresses[0].default, state.customer.address.zip], [1, true, '11211'], 'seed: one default address, customer.address mirrors it');
+  eq(A.addAddress({ label: '', street: '', zip: '112' }).errors, { label: 'label-required', street: 'street-required', zip: 'zip-invalid' }, 'addAddress: errors');
+  const w = A.addAddress({ label: 'Work', street: '200 Kent Ave', unit: '', zip: '11249' });
+  eq([w.ok, w.address.id, w.address.city, w.address.default, state.customer.address.street], [true, 'addr-1', 'Brooklyn', false, '145 N 7th St'], 'addAddress adds a non-default; customer.address unchanged');
+  A.setDefaultAddress(w.address.id);
+  eq([state.customer.address.street, state.customer.addresses.map((a) => a.default)], ['200 Kent Ave', [false, true]], 'setDefaultAddress moves the default and customer.address');
+  const rm = A.removeAddress(w.address.id);
+  eq([rm.ok, rm.index, rm.newDefault, state.customer.address.street], [true, 1, 'home', '145 N 7th St'], 'removeAddress of the default promotes the first remaining');
+  A.restoreAddress(rm.removed, rm.index);
+  eq([state.customer.addresses.map((a) => a.id), state.customer.addresses.map((a) => a.default), state.customer.address.street], [['home', 'addr-1'], [false, true], '200 Kent Ave'], 'restoreAddress restores order and default');
+  A.removeAddress('home'); A.removeAddress('addr-1');
+  eq(state.customer.address, null, 'removing the last address sets customer.address to null');
+  ok(T.newJob().ok && state.job.address === null, 'newJob still works with no saved address');
+  /* cards */
+  S.reset();
+  const mc = A.addCard({ number: '5555555555554444', exp: '11/29', cvc: '123', zip: '11211' }).card;
+  eq(A.setDefaultCard(mc.id).ok, true, 'setDefaultCard');
+  eq(state.customer.cards.map((c) => c.default), [false, true], 'setDefaultCard moves the default flag');
+  S.reset();
+  driveTo('confirmed');
+  eq(A.cardInUse('visa-4242')?.status, 'confirmed', 'cardInUse: the open booking');
+  guard(A.removeCard('visa-4242'), 'in-use', 'removeCard: the only card of an open booking is in use');
+  A.addCard({ number: '5555555555554444', exp: '11/29', cvc: '123', zip: '11211' });
+  const rc = A.removeCard('visa-4242');
+  eq([rc.ok, rc.movedTo, rc.appts.length, S.getAppt(state.appts[0].id).cardId, state.customer.cards[0].default], [true, 'card-4444', 1, 'card-4444', true], 'removeCard with another card moves the booking to the new default');
+  guard(A.removeCard('nope'), 'unknown-card', 'removeCard: unknown card');
+  S.reset();
+  eq(A.removeCard('visa-4242').ok, true, 'removeCard: a card paying for nothing goes');
+  eq(state.customer.cards.length, 0, 'no cards left');
+  A.expireSession();
+  eq(state.sim.session, 'expired', 'expireSession marks the session expired');
+  A.sendCode('(718) 555-0142'); A.reauth('123456');
+  eq(state.sim.session, 'valid', 'reauth with a good code marks the session valid');
+  S.reset();
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

@@ -87,7 +87,7 @@ function alertHtml(r) {
     return banner({ tone: 'error', text: 'That time was just taken. Pick another time.', actionLabel: 'Pick a time', actionAct: 'pick-time' });
   }
   if (u.error === 'generic') {
-    return banner({ tone: 'error', text: 'Something went wrong. Nothing was held. Try again.' });
+    return banner({ tone: 'error', text: 'Something went wrong on our side. Nothing was held. Try again.' });
   }
   if (u.info === '3ds-cancelled') {
     return banner({ tone: 'info', text: 'Verification cancelled. Nothing was held.' });
@@ -264,6 +264,8 @@ function fail(res) {
   if (res.error === 'card-declined') u.error = 'declined';
   else if (res.error === 'slot-unavailable') u.error = 'taken';
   else u.error = 'generic';
+  /* D-140: the banner above the Pay button carries the error; the toast only echoes it (never the only carrier) */
+  if (res.error === 'server-error') toast('Couldn’t send your request', { tone: 'error' });
   go(ID);
 }
 

@@ -8,7 +8,7 @@
    ============================================================ */
 import { TAILORS, SEED_JOB } from '../data.js';
 import { estimate, quote, courierQuote, cancelTerms, noShowPayout, cents } from '../money.js';
-import { toDate, addMinutes } from '../dates.js';
+import { toDate, addMinutes, payoutDay } from '../dates.js';
 
 /** The seed visit: the first open Thursday home slot, Thu Oct 15 at 5 PM. */
 export const SEED_SLOT = '2026-10-15T17:00';
@@ -16,6 +16,8 @@ export const SEED_SLOT = '2026-10-15T17:00';
 export const SUGGESTED_SLOT = '2026-10-15T18:00';
 /** The `after` the multi-row list flows pass to addRequest(): the second request lands Sat, Oct 17 · 9:00 AM (D-86). */
 export const SECOND_SLOT_AFTER = '2026-10-17T00:00';
+/** The Fridays payouts arrive on (D-24, D-136): the seed visit's, and the one after the second request's visit — computed, never typed. */
+export const PAYOUT_DAYS = Object.freeze({ first: payoutDay(SEED_SLOT), second: payoutDay(SECOND_SLOT_AFTER) });
 const AMARA = TAILORS[0];
 const job = (patch = {}) => ({ ...structuredClone(SEED_JOB), ...patch });
 

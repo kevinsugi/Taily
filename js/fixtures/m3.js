@@ -251,9 +251,5 @@ export const FLOWS_t_job = [
 export const FLOWS_t_thread = [
   { key: 't-thread', screen: 't-thread', group: 'M3 · Tailor job', title: 'Messages — Sarah (stub)', note: 'Privacy note, the accept line, composer pinned',
     setup: (S) => { S.driveTo('confirmed'); },
-    expect: { has: ['Sarah Chen', 'Phone numbers and emails stay private on Taily.', 'Sarah sent a request', 'You accepted'], not: ['Amara accepted', 'Request sent'], sel: '.composer' } },
-  /* extra: the closed conversation after a decline */
-  { key: 't-thread--declined', screen: 't-thread', group: 'M3 · Tailor job', title: 'Messages — declined, closed', note: 'Read-only banner in place of the composer',
-    setup: (S) => { S.driveTo('declined'); },
-    expect: { has: ['You declined this request', 'Back to Home'], not: 'Send', sel: '.read-only' } },
+    expect: { has: ['Sarah Chen', 'Phone numbers and emails stay private on Taily.', 'Sarah sent a request', 'You accepted'], not: ['Amara accepted', 'Request sent'], sel: '.thread-context' } },
 ];

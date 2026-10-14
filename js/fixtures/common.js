@@ -7,13 +7,41 @@ import {
   state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt,
 } from '../state.js';
 import { addMinutes, isoMinute } from '../dates.js';
-import { TAILORS, DECLINE_REASONS, CANT_MAKE_IT_REASONS } from '../data.js';
+import { TAILORS, CUSTOMER, DEMO_NOW, DECLINE_REASONS, CANT_MAKE_IT_REASONS } from '../data.js';
 import { cents } from '../money.js';
 import { suggestSlots } from '../tailor-data.js';
 import * as A from '../account.js';
 import { POLICY } from '../money-config.js';
+import { PAYOUT_DAYS, SECOND_SLOT_AFTER } from './money-scenarios.js';
 
 const AMARA = TAILORS[0];
+
+/** Chat copy for the M5 threads (not money). */
+export const CHAT = {
+  ask: 'Can you take in a jacket at the shoulders?',
+  reply: 'Yes. Shoulders need a fitting, so book a visit and I’ll pin it on you.',
+  after: 'See you on Thursday. Have the jacket on so I can pin the sleeves.',
+  later: 'Is Thursday still good for you?',
+  photo: 'This is the jacket. The sleeves are the problem.',
+  late: 'Running ten minutes late, sorry!',
+  phoneCustomer: `Text me at ${CUSTOMER.phone} if you’re running late.`,
+  phoneTailor: `Easier to call me: ${AMARA.phone}`,
+  email: `Or email me at ${CUSTOMER.email}`,
+};
+
+/** Sarah asks Amara a question before booking, and (by default) Amara answers. Does NOT reset; real sendMessage only. */
+export function askAmara({ reply = true } = {}) {
+  const id = AMARA.id;
+  setClock('2026-10-13T09:30');
+  const q = T.sendMessage(id, 'customer', { text: CHAT.ask });
+  if (!q.ok) throw new Error(`askAmara: question failed (${q.error})`);
+  if (reply) {
+    setClock('2026-10-13T09:42');
+    const r = T.sendMessage(id, 'tailor', { text: CHAT.reply });
+    if (!r.ok) throw new Error(`askAmara: reply failed (${r.error})`);
+  }
+  setClock(DEMO_NOW);
+}
 
 export const TARGETS = [
   'requested', 'suggested', 'declined', 'expired', 'expired-2', 'expired-final', 'confirmed', 'cancelled-early',
@@ -54,13 +82,14 @@ export const PRICE_NOTES = {
   unchanged: '',
 };
 
-/** driveTo(target, { visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced' | 'item' | 'item-removed' | 'unchanged', returnOption = 'pickup' }) → appt.
+/** driveTo(target, { ask = false, visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced' | 'item' | 'item-removed' | 'unchanged', returnOption = 'pickup' }) → appt.
     `price-change` carries a change (default 'added'); later targets send the unchanged order and approve it (K-01, D-120)
     unless `priceChange` is passed explicitly. */
 export function driveTo(target, opts = {}) {
-  const { visitType = 'home', rush = false, priceChange = 'added', returnOption = 'pickup' } = opts;
+  const { ask = false, visitType = 'home', rush = false, priceChange = 'added', returnOption = 'pickup' } = opts;
   if (!TARGETS.includes(target)) throw new Error(`driveTo: unknown target "${target}"`);
   reset();
+  if (ask) askAmara();                                          // M5: a question and an answer before the booking
   T.setJob({ visitType, ...(rush ? { needBy: '2026-10-16' } : {}) });
   const tailorId = state.tailors[0].id;
   const slotStart = nextOpening(tailorId, visitType, { until: state.job.needBy });
@@ -150,4 +179,37 @@ export function onboardTo(step, { phone = NEW_TAILOR_PHONE } = {}) {
     if (!r.ok || r.valid === false) throw new Error(`onboardTo: ${id} did not validate (${JSON.stringify(r.errors)})`);
   });
   return state.tailors[0];
+}
+
+/** completeJob(id, { returnOption = 'pickup' }) — the real chain on an accepted appointment: fitting → final order (unchanged) →
+    approve → ready → return → balance → completed. Throws on failure. */
+export function completeJob(id, { returnOption = 'pickup' } = {}) {
+  setClock(getAppt(id).slot.start);
+  must(T.startFitting(id), 'startFitting');
+  must(T.sendPriceChange(id, getAppt(id).lines.map((l) => ({ ...l })), { note: '' }), 'sendPriceChange');
+  must(T.approvePriceChange(id), 'approvePriceChange');
+  must(T.markReady(id), 'markReady');
+  must(T.chooseReturn(id, returnOption), 'chooseReturn');
+  must(T.payBalance(id, 'visa-4242'), 'payBalance');
+  return must(T.markCompleted(id), 'markCompleted');
+}
+
+/** earningsTo(kind) — kind: 'pending' | 'paid' | 'failed' | 'kept' (M5 A7).
+    pending: one completed job, its payout scheduled for PAYOUT_DAYS.first · paid: that Friday's run paid it, then a second (shop) job is
+    completed on Sat, Oct 17 (next payout PAYOUT_DAYS.second) · failed: the Friday run sent it back · kept: a late cancellation's kept deposit. */
+export function earningsTo(kind) {
+  if (kind === 'kept') return driveTo('cancelled-late');
+  const first = driveTo('completed');
+  if (kind === 'pending') return first;
+  setClock(`${PAYOUT_DAYS.first}T18:00`);
+  if (kind === 'failed') {
+    state.sim.payout = 'failed';
+    T.settlePayouts();
+    return first;
+  }
+  if (kind !== 'paid') throw new Error(`earningsTo: unknown kind "${kind}"`);
+  T.settlePayouts();
+  T.setJob({ visitType: 'shop' });
+  const second = addRequest({ accept: true, after: SECOND_SLOT_AFTER });
+  return completeJob(second.id);
 }

@@ -104,9 +104,17 @@ export const TAILORS = [
   },
 ];
 
+/** Saved-address labels (M5, D-133) and chat limits (D-131), payout kind words (D-136). */
+export const ADDRESS_LABELS = ['Home', 'Work', 'Other'];
+export const CHAT_LIMITS = { PHOTOS_MAX: 3 };
+export const PAYOUT_KIND_LABEL = { job: 'Job', 'kept-deposit': 'Late cancellation', 'no-show': 'No-show' };
+
+const HOME_FIELDS = { street: '145 N 7th St', unit: '2R', city: 'Brooklyn', state: 'NY', zip: '11211' };
+const HOME_ADDRESS = { id: 'home', label: 'Home', ...HOME_FIELDS, default: true };
 export const CUSTOMER = {
   id: 'sarah', first: 'Sarah', last: 'Chen', initials: 'SC', phone: '(718) 555-0142', email: 'sarah.chen@example.com',
-  address: { street: '145 N 7th St', unit: '2R', city: 'Brooklyn', state: 'NY', zip: '11211' },
+  addresses: [HOME_ADDRESS],
+  address: { ...HOME_FIELDS },                          // always the default saved address's fields, or null when none (D-133)
   cards: [{ id: 'visa-4242', brand: 'Visa', last4: '4242', exp: '08/28', default: true }],
   applePay: true,
 };

@@ -19,3 +19,10 @@
 .gal .stepper-demo { display: flex; flex-direction: column; gap: var(--space-12); width: 100%; }
 .gal .stepper-demo .stepper { margin-bottom: 0; }
 .gal .option-demo { display: flex; flex-direction: column; width: 100%; padding-inline: var(--space-16); border-radius: var(--radius-lg); background: var(--white); }
+
+/* M5 gallery demos: the system banner, a tall locked sheet and the push ask shown in flow, not pinned */
+.gal .sys-demo { margin-inline: calc(-1 * var(--space-20)); }
+.gal .sys-demo .sys-banner { position: static; }
+.gal .sheet-demo--tall { height: 600px; }
+.gal .push-demo { position: relative; width: 100%; padding: var(--space-24) 0; background: var(--neutral-100); border-radius: var(--radius-md); }
+.gal .push-demo .modal--push { position: static; translate: none; margin-inline: auto; }

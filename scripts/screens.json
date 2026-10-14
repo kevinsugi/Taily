@@ -1,8 +1,8 @@
 {
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
-    "syncedAt": "2026-10-13",
-    "milestone": "M4 + K-01",
+    "syncedAt": "2026-10-14",
+    "milestone": "M5",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -22,7 +22,9 @@
       "user/section-m3-request-loop": "837:4437",
       "tailor/section-m3-request-loop": "836:4344",
       "user/section-m4-fitting-to-completion": "844:4536",
-      "tailor/section-m4-fitting-to-completion": "843:4408"
+      "tailor/section-m4-fitting-to-completion": "843:4408",
+      "user/section-m5-messaging-accounts-earnings-system": "851:4667",
+      "tailor/section-m5-messaging-accounts-earnings-system": "852:4512"
     },
     "components": {
       "avatar": "816:4919",
@@ -109,7 +111,17 @@
       "t-adjust--item-added": "848:4555",
       "t-adjust--remove-item": "848:4684",
       "t-job--waiting": "848:4791",
-      "t-job--waiting-unchanged": "848:4885"
+      "t-job--waiting-unchanged": "848:4885",
+      "c-messages": "851:4668",
+      "c-thread": "851:4708",
+      "c-thread--read-only": "851:4779",
+      "c-account": "851:4845",
+      "c-addresses": "851:4898",
+      "c-cards": "851:4943",
+      "c-orders": "851:5000",
+      "t-messages": "852:4513",
+      "t-earnings": "852:4553",
+      "t-payout": "852:4606"
     },
     "variables": {
       "semantic/warning-ink": "VariableID:821:4344"

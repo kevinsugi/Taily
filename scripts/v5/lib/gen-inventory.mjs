@@ -11,7 +11,11 @@ const q = (v) => `'${String(v).replace(/'/g, "\\'")}'`;
 const personaOf = (id) => (id.startsWith('c-') ? 'customer' : /^(t|to)-/.test(id) ? 'tailor' : 'system');
 
 const screens = [];
+let inSysTable = false;                    // the "System-wide patterns" table lists host-screen states, never screens (D-142)
 for (const line of md) {
+  if (/^\| key \| M \| Host screen/.test(line)) { inSysTable = true; continue; }
+  if (inSysTable && !line.startsWith('|')) inSysTable = false;
+  if (inSysTable) continue;
   const cells = line.split('|').map((c) => c.trim());
   if (cells.length < 6 || !/^`[a-z0-9-]+`$/.test(cells[1]) || !/^M\d$/.test(cells[2])) continue;
   const id = cells[1].slice(1, -1);
@@ -64,7 +68,7 @@ export const MILESTONES = [
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5'];
 
 export const SCREENS = [
 ${screens.map((s) => `  { id: ${q(s.id)}, m: ${q(s.m)}, persona: ${q(s.persona)}, title: ${q(s.title)}, states: [

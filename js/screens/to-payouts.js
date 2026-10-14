@@ -6,8 +6,9 @@
    (onboarding) / the bank fields (edit).
    ============================================================ */
 import { register, render as go, back, currentScreen } from '../app.js';
-import { state, T } from '../state.js';
-import { myTailor } from '../tailor-data.js';
+import { state, T, nowIso } from '../state.js';
+import { myTailor, payoutsView } from '../tailor-data.js';
+import { fmtDay, payoutDay } from '../dates.js';
 import { ROUTING_BANKS } from '../data.js';
 import { MONEY } from '../money-config.js';
 import { cents, fmt, fmtExact, tailyFeeFor, payoutFor } from '../money.js';
@@ -78,6 +79,19 @@ function feeCard(t) {
 </section>`;
 }
 
+/** R5-1-T-01 (D-148): the payout the bank sent back, said on the form that fixes it. Only a save re-sends it. Edit mode only. */
+function returnedBanner() {
+  const failed = payoutsView().failed;
+  if (!failed) return '';
+  const first = state.payouts.find((p) => p.state === 'failed');
+  const mine = myTailor().payouts;
+  const bank = `${first?.bank || mine?.bank || 'Your bank'} ••${first?.last4 || mine?.last4 || ''}`;
+  return `<div class="${ID}__returned">${banner({
+    tone: 'error', title: `Your <span data-money>${fmtExact(failed.cents)}</span> payout came back`,
+    text: `${esc(bank)} sent it back. Update the account below and we’ll send it again on ${fmtDay(failed.retryDate)}.`,
+  })}</div>`;
+}
+
 function view(s) {
   const t = myTailor();
   const editing = isEditing();
@@ -108,7 +122,8 @@ function view(s) {
   ${editing ? '' : onboardingSteps('payouts', ONBOARDING_STEPS.filter((st) => t.onboarding?.[st.id]).map((st) => st.id))}
   ${editing ? '' : resumeBanner(t)}
   ${head}
-  <p class="t-body c-600 ${ID}__lead">Taily pays you every Friday for the jobs you completed the week before.</p>
+  ${editing ? returnedBanner() : ''}
+  <p class="t-body c-600 ${ID}__lead">Every Friday, Taily pays you for the jobs you completed before that day.</p>
   ${editing ? '' : feeCard(t)}
   ${fields}
 </main>
@@ -214,7 +229,7 @@ function wire(root) {
       delete state.ui[ID];
       if (editing) {
         back() || go('t-shop');
-        toast(`${LABEL} saved`, { tone: 'success' });
+        toast(r.requeued ? `Saved · sending again ${fmtDay(payoutDay(nowIso()))}` : `${LABEL} saved`, { tone: 'success' });
       } else if (r.live) {
         go('to-done', { fresh: true });
       } else {

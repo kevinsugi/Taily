@@ -20,7 +20,7 @@ export const MILESTONES = [
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
@@ -103,14 +103,18 @@ export const SCREENS = [
     { key: 'c-request--expired-final', m: 'M3', kind: 'state' },
     { key: 'c-request--expired-passed', m: 'M3', kind: 'state' },
     { key: 'c-request--withdraw', m: 'M3', kind: 'overlay' },
+    { key: 'sys-push-prompt-customer', m: 'M5', kind: 'overlay' },
   ] },
   { id: 'c-thread', m: 'M1', persona: 'customer', title: 'Chat with one tailor. M1 = "Ask a question" stub; M5 = full rules', states: [
     { key: 'c-thread--new', m: 'M1', kind: 'frame' },
     { key: 'c-thread', m: 'M5', kind: 'frame' },
+    { key: 'c-thread--question', m: 'M5', kind: 'state' },
     { key: 'c-thread--pending', m: 'M5', kind: 'state' },
     { key: 'c-thread--masked', m: 'M5', kind: 'state' },
     { key: 'c-thread--failed', m: 'M5', kind: 'state' },
+    { key: 'c-thread--failed-offline', m: 'M5', kind: 'state' },
     { key: 'c-thread--photo', m: 'M5', kind: 'state' },
+    { key: 'c-thread--attach', m: 'M5', kind: 'overlay' },
     { key: 'c-thread--read-only', m: 'M5', kind: 'frame' },
   ] },
   { id: 'c-bookings', m: 'M3', persona: 'customer', title: 'Bookings tab: upcoming + past', states: [
@@ -163,22 +167,29 @@ export const SCREENS = [
   { id: 'c-messages', m: 'M5', persona: 'customer', title: 'Messages tab: one row per tailor thread', states: [
     { key: 'c-messages', m: 'M5', kind: 'frame' },
     { key: 'c-messages--empty', m: 'M5', kind: 'state' },
+    { key: 'c-messages--loading', m: 'M5', kind: 'state' },
   ] },
   { id: 'c-account', m: 'M5', persona: 'customer', title: 'C13 Account home: profile, addresses, payment methods, past orders, sign out', states: [
     { key: 'c-account', m: 'M5', kind: 'frame' },
+    { key: 'c-account--sign-out', m: 'M5', kind: 'overlay' },
   ] },
   { id: 'c-addresses', m: 'M5', persona: 'customer', title: 'Saved addresses', states: [
     { key: 'c-addresses', m: 'M5', kind: 'frame' },
     { key: 'c-addresses--empty', m: 'M5', kind: 'state' },
+    { key: 'c-addresses--add', m: 'M5', kind: 'overlay' },
+    { key: 'c-addresses--error', m: 'M5', kind: 'overlay' },
   ] },
   { id: 'c-cards', m: 'M5', persona: 'customer', title: 'Payment methods', states: [
     { key: 'c-cards', m: 'M5', kind: 'frame' },
     { key: 'c-cards--empty', m: 'M5', kind: 'state' },
     { key: 'c-cards--remove', m: 'M5', kind: 'overlay' },
+    { key: 'c-cards--in-use', m: 'M5', kind: 'overlay' },
+    { key: 'c-cards--add', m: 'M5', kind: 'overlay' },
   ] },
   { id: 'c-orders', m: 'M5', persona: 'customer', title: 'Past orders + receipts', states: [
     { key: 'c-orders', m: 'M5', kind: 'frame' },
     { key: 'c-orders--empty', m: 'M5', kind: 'state' },
+    { key: 'c-orders--loading', m: 'M5', kind: 'state' },
   ] },
   { id: 't-phone', m: 'M2', persona: 'tailor', title: 'Tailor sign-up: phone', states: [
     { key: 't-phone', m: 'M2', kind: 'frame' },
@@ -227,6 +238,7 @@ export const SCREENS = [
     { key: 'to-payouts', m: 'M2', kind: 'frame' },
     { key: 'to-payouts--invalid', m: 'M2', kind: 'state' },
     { key: 'to-payouts--edit', m: 'M2', kind: 'state' },
+    { key: 'to-payouts--returned', m: 'M5', kind: 'state' },
   ] },
   { id: 'to-done', m: 'M2', persona: 'tailor', title: 'You\'re bookable confirmation', states: [
     { key: 'to-done', m: 'M2', kind: 'frame' },
@@ -298,9 +310,12 @@ export const SCREENS = [
     { key: 't-earnings--empty', m: 'M5', kind: 'state' },
     { key: 't-earnings--pending', m: 'M5', kind: 'state' },
     { key: 't-earnings--failed', m: 'M5', kind: 'state' },
+    { key: 't-earnings--failed-and-next', m: 'M5', kind: 'state' },
+    { key: 't-earnings--loading', m: 'M5', kind: 'state' },
   ] },
   { id: 't-payout', m: 'M5', persona: 'tailor', title: 'T8 per-job breakdown (services, home fee, rush, Taily fee −$, payout)', states: [
     { key: 't-payout', m: 'M5', kind: 'frame' },
+    { key: 't-payout--kept', m: 'M5', kind: 'state' },
   ] },
   { id: 't-messages', m: 'M5', persona: 'tailor', title: 'T9 threads list', states: [
     { key: 't-messages', m: 'M5', kind: 'frame' },
@@ -308,6 +323,8 @@ export const SCREENS = [
   ] },
   { id: 't-thread', m: 'M3', persona: 'tailor', title: 'T9 the same thread the customer sees (M3 stub, D-81; full rules M5)', states: [
     { key: 't-thread', m: 'M3', kind: 'frame' },
+    { key: 't-thread--question', m: 'M5', kind: 'state' },
+    { key: 't-thread--pending', m: 'M5', kind: 'state' },
     { key: 't-thread--masked', m: 'M5', kind: 'state' },
     { key: 't-thread--failed', m: 'M5', kind: 'state' },
     { key: 't-thread--photo', m: 'M5', kind: 'state' },
@@ -318,20 +335,5 @@ export const SCREENS = [
   ] },
   { id: 'sys-components', m: 'M0', persona: 'system', title: 'Component gallery (every v5 component in each state) — visual baseline for the component layer', states: [
     { key: 'sys-components', m: 'M0', kind: 'frame' },
-  ] },
-  { id: 'sys-offline', m: 'M5', persona: 'system', title: '`c-job`', states: [
-    { key: 'state.sim.network = \'offline\'', m: 'M5', kind: 'state' },
-  ] },
-  { id: 'sys-offline-tailor', m: 'M5', persona: 'system', title: '`t-home`', states: [
-
-  ] },
-  { id: 'sys-session-expired', m: 'M5', persona: 'system', title: '`c-bookings`', states: [
-
-  ] },
-  { id: 'sys-push-prompt', m: 'M5', persona: 'system', title: '`t-home`', states: [
-
-  ] },
-  { id: 'sys-error-toast', m: 'M5', persona: 'system', title: '`c-pay`', states: [
-
   ] },
 ];

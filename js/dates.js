@@ -41,6 +41,8 @@ const clock = (d) => `${((d.getHours() + 11) % 12) + 1}:${pad(d.getMinutes())}\u
 export const fmtWhen = (iso) => { const d = toDate(iso); return `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()} · ${clock(d)}`; };
 /** "Thu, Oct 15" */
 export const fmtDay = (iso) => { const d = toDate(iso); return `${DOW[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}`; };
+/** The Friday strictly after that day ('YYYY-MM-DD'); a Friday → the next Friday (D-24, D-136). */
+export const payoutDay = (iso) => { const d = toDate(iso); return isoDay(addDays(d, (5 - d.getDay() + 7) % 7 || 7)); };
 /** "5:00 PM" */
 export const fmtTime = (iso) => clock(toDate(iso));
 /** Keep a formatted date / time together on one line (R1-1-C-06): non-breaking spaces inside each part, normal ones around the " · ". */

@@ -24,12 +24,12 @@ import {
   cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout,
 } from './money.js';
 import {
-  toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen,
+  toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, payoutDay,
 } from './dates.js';
 import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
-  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, servicesForType,
+  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, servicesForType,
 } from './data.js';
 
 export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed', 'cancelled'];
@@ -41,7 +41,9 @@ const MIN_MS = 60000;
 const HOUR_MS = 3600000;
 
 function freshSim() {
-  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', push: 'default', send: 'ok', session: 'valid' };
+  /* network 'online'|'offline' · send 'ok'|'fail' (one-shot, D-130) · session 'valid'|'expired' · push 'default'|'prompt'|'granted'|'denied'
+     · payout 'ok'|'failed' · server 'ok'|'error' (one-shot, D-140) */
+  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', push: 'default', send: 'ok', session: 'valid', payout: 'ok', server: 'ok' };
 }
 function fresh() {
   return {
@@ -52,7 +54,7 @@ function fresh() {
     tailors: clone(TAILORS),
     job: clone(SEED_JOB),
     appts: [],                                 // every appointment; both personas read the same objects
-    threads: {},                               // { [tailorId]: { tailorId, customerId, messages: [] } }
+    threads: {},                               // { [tailorId]: { tailorId, customerId, messages: [], read: { customer, tailor } } }
     payouts: [],                               // { apptId, cents, state: 'pending'|'paid'|'failed', date, kind }
     sim: freshSim(),
     ui: {},                                    // screen-local transient UI only; the model never reads it
@@ -123,11 +125,50 @@ export function activeAppt() {
 }
 
 export function threadFor(tailorId) {
-  return state.threads[tailorId] ?? { tailorId, customerId: state.customer.id, messages: [] };
+  return state.threads[tailorId] ?? { tailorId, customerId: state.customer.id, messages: [], read: { customer: 0, tailor: 0 } };
 }
 function ensureThread(tailorId) {
-  if (!state.threads[tailorId]) state.threads[tailorId] = { tailorId, customerId: state.customer.id, messages: [] };
+  if (!state.threads[tailorId]) state.threads[tailorId] = { tailorId, customerId: state.customer.id, messages: [], read: { customer: 0, tailor: 0 } };
   return state.threads[tailorId];
+}
+/** A message's sequence number: `m12` → 12 (the unit of `thread.read`). */
+const msgNum = (m) => Number(String(m?.id ?? '').slice(1)) || 0;
+/** The thread's appointment (D-129): the pair's newest one that is not terminal and not finally expired; else the newest that was not
+    withdrawn / switched; else null (a question asked before any booking). */
+export function threadAppt(tailorId) {
+  const mine = state.appts.filter((a) => a.tailorId === tailorId).reverse();
+  return mine.find((a) => !TERMINAL.includes(a.status) && !isFinalExpiry(a))
+    ?? mine.find((a) => !(a.status === 'cancelled' && ['withdrawn', 'switched'].includes(a.cancel?.reason)))
+    ?? null;
+}
+/** Messages after `read[reader]` written by the other person; system lines never count (D-128). */
+export function unreadCount(tailorId, reader) {
+  const th = state.threads[tailorId];
+  if (!th) return 0;
+  const other = reader === 'tailor' ? 'customer' : 'tailor';
+  const seen = th.read?.[reader] ?? 0;
+  return th.messages.filter((m) => m.from === other && msgNum(m) > seen).length;
+}
+/** One line for a Messages row, from the reader's point of view. */
+export function threadPreview(msg, reader = 'customer') {
+  if (!msg) return '';
+  if (msg.from === 'system') return reader === 'tailor' ? (msg.tailorText ?? msg.text) : msg.text;
+  const text = String(msg.text ?? '').replace(/\[(phone|email) hidden\]/g, '$1 hidden').trim();
+  const n = msg.photos || 0;
+  const photo = n > 1 ? `${n} photos` : n === 1 ? 'Photo' : '';
+  const body = photo && text ? `${photo} · ${text}` : photo || text;
+  return msg.from === reader ? `You: ${body}` : body;
+}
+/** Threads with at least one message for that reader, newest activity first (ties by sequence). */
+export function threadsFor(reader = 'customer') {
+  const mineId = state.tailors[0].id;
+  return Object.values(state.threads)
+    .filter((th) => th.messages.length && (reader === 'customer' || th.tailorId === mineId))
+    .map((thread) => ({
+      tailorId: thread.tailorId, thread, last: thread.messages[thread.messages.length - 1],
+      unread: unreadCount(thread.tailorId, reader), appt: threadAppt(thread.tailorId), readOnly: threadReadOnly(thread.tailorId),
+    }))
+    .sort((a, b) => (a.last.at < b.last.at ? 1 : a.last.at > b.last.at ? -1 : msgNum(b.last) - msgNum(a.last)));
 }
 /** Read-only after a decline, until the customer books this tailor again. */
 export function threadReadOnly(tailorId) {
@@ -160,7 +201,8 @@ export function maskContact(text) {
 export function setJob(patch) { Object.assign(state.job, patch); return { ok: true, job: state.job }; }
 /** A fresh draft for a different job: no garments yet, same place, empty declined / hidden lists. */
 export function newJob() {
-  state.job = { garments: [], visitType: 'home', zip: state.customer.address.zip, address: { ...state.customer.address }, needBy: state.job.needBy, declinedBy: [], hiddenTailors: [] };
+  const home = state.customer.address;                          // null when Sarah removed every saved address (D-133)
+  state.job = { garments: [], visitType: 'home', zip: home?.zip ?? state.job.zip, address: home ? { ...home } : null, needBy: state.job.needBy, declinedBy: [], hiddenTailors: [] };
   return { ok: true, job: state.job };
 }
 export function addGarment(type) {
@@ -325,7 +367,16 @@ export function setPayouts({ holder = '', routing = '', account = '' } = {}) {
   if (a ? !/^\d{4,17}$/.test(a) : !keep) errors.account = 'account-invalid';
   if (Object.keys(errors).length) return { ok: false, errors };
   const res = setTailorSection('payouts', { payouts: { holder: h, routing: r, bank: ROUTING_BANKS[r] ?? 'Your bank', last4: a ? a.slice(-4) : t.payouts.last4 } });
-  return { ok: true, tailor: res.tailor, bookable: res.bookable, live: res.live };
+  /* D-136: new bank details re-queue every payout the bank sent back, for the next Friday */
+  let requeued = 0;
+  let requeuedCents = 0;
+  for (const p of state.payouts) {
+    if (p.state !== 'failed') continue;
+    p.state = 'pending'; p.date = payoutDay(nowIso()); p.retried = true;
+    delete p.failedAt; delete p.bank; delete p.last4;
+    requeued += 1; requeuedCents += p.cents;
+  }
+  return { ok: true, tailor: res.tailor, bookable: res.bookable, live: res.live, requeued, requeuedCents };
 }
 /** Rush editor draft `{ on, fees: { 1, 2, 3 } }` → `{ ok } | { ok: false, errors: { d1: code, … } }` (D-64). */
 export function validateRush({ on = false, fees = {} } = {}) {
@@ -447,13 +498,24 @@ const jobCopy = (job) => ({ garments: clone(job.garments), visitType: job.visitT
 function restoreDraft(appt) {
   state.job = { ...clone(appt.job), declinedBy: state.job.declinedBy ?? [], hiddenTailors: state.job.hiddenTailors ?? [] };
 }
-function payoutDate(ms) {
-  const d = new Date(ms);
-  const delta = (5 - d.getDay() + 7) % 7 || 7;                 // the following Friday (D-24)
-  return isoDay(addDays(d, delta));
-}
 function addPayout(appt, centsAmount, kind) {
-  state.payouts.push({ apptId: appt.id, cents: centsAmount, state: 'pending', date: payoutDate(state.clock.now), kind });
+  state.payouts.push({ apptId: appt.id, cents: centsAmount, state: 'pending', date: payoutDay(nowIso()), kind, createdAt: nowIso() });   // the following Friday (D-24)
+}
+/** The weekly Friday run (D-136): every pending payout due by today is paid — or, with `sim.payout = 'failed'`, sent back — with the bank
+    snapshotted. Never called by tick() / advanceClock(); fixtures call it. */
+export function settlePayouts() {
+  const today = isoDay(nowIso());
+  const bank = state.tailors[0].payouts ?? {};
+  const paid = [];
+  const failed = [];
+  for (const p of state.payouts) {
+    if (p.state !== 'pending' || p.date > today) continue;
+    p.bank = bank.bank ?? '';
+    p.last4 = bank.last4 ?? '';
+    if (state.sim.payout === 'failed') { p.state = 'failed'; p.failedAt = nowIso(); failed.push(p); }
+    else { p.state = 'paid'; p.paidAt = nowIso(); paid.push(p); }
+  }
+  return { ok: true, paid, failed };
 }
 const expiryIso = () => isoMinute(new Date(state.clock.now + POLICY.REQUEST_EXPIRY_H * HOUR_MS));
 
@@ -461,6 +523,7 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
   const job = state.job;
   const v = validateJob(job);
   if (!v.ok) return fail('job-invalid', { errors: v.errors });
+  if (state.sim.server === 'error') { state.sim.server = 'ok'; return fail('server-error'); }   // one-shot (D-140): nothing authorized
   const tailor = tailorById(tailorId);
   if (!tailor) return fail('unknown-tailor');
   const el = eligible(tailor, job);
@@ -842,9 +905,12 @@ export function sendMessage(tailorId, from, { text = '', photos = 0 } = {}) {
   if (threadReadOnly(tailorId)) return fail('read-only');
   const count = Array.isArray(photos) ? photos.length : photos;
   if (!String(text).trim() && !count) return fail('empty');
-  if (state.sim.send === 'fail') return fail('send-failed');
+  if (count > CHAT_LIMITS.PHOTOS_MAX) return fail('too-many-photos');
+  if (state.sim.network === 'offline') return fail('offline');
+  if (state.sim.send === 'fail') { state.sim.send = 'ok'; return fail('send-failed'); }   // one-shot: a dropped connection (D-130)
   const m = maskContact(text);
   const message = post(tailorId, from, m.text, { photos: count, masked: m.masked });
+  ensureThread(tailorId).read[from] = msgNum(message);          // your own message is never unread (D-128)
   /* R4-2-C-02: a pending price change becomes "messaged" only when Sarah actually writes, never on opening the chat */
   if (from === 'customer') {
     for (const a of state.appts) {
@@ -852,6 +918,14 @@ export function sendMessage(tailorId, from, { text = '', photos = 0 } = {}) {
     }
   }
   return { ok: true, masked: m.masked, message };
+}
+
+/** Mark everything in the thread as seen by `reader` ('customer' | 'tailor'). No-op without a thread. */
+export function markThreadRead(tailorId, reader) {
+  const th = state.threads[tailorId];
+  if (!th || !th.messages.length) return { ok: true };
+  th.read[reader] = msgNum(th.messages[th.messages.length - 1]);
+  return { ok: true };
 }
 
 /** The latest chat message (customer or tailor, never a system line) from `sentAt` on, in thread order, or null (D-112).
@@ -939,7 +1013,7 @@ export const T = {
   requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, findAnotherTailor,
   tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow,
   startFitting, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
-  chooseReturn, payBalance, markCompleted, leaveReview, sendMessage, maskContact,
+  chooseReturn, payBalance, markCompleted, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
   setTailorSection, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick,
 };

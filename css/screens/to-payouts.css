@@ -2,6 +2,10 @@
 .to-payouts .banner { margin-top: var(--space-16); }
 .to-payouts .stepper + .heading-row, .to-payouts .banner + .heading-row { margin-top: var(--space-24); }
 .to-payouts__lead { margin: var(--space-8) 0 0; }
+.to-payouts__returned { margin-top: var(--space-16); }
+.to-payouts__returned + .to-payouts__lead { margin-top: var(--space-16); }
+.to-payouts__returned .banner__text { text-wrap: pretty; }
+.to-payouts__returned [data-money] { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .to-payouts__fee { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-24); padding: var(--space-20); border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); }
 .to-payouts__fee > p { margin: 0; }
 .to-payouts__sentence { margin-bottom: var(--space-4); }

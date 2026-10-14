@@ -9,8 +9,10 @@
 import * as C from './components.js';
 import { scheduler, slotColumns } from './scheduler.js';
 import { TAILORS, DEMO_NOW } from './data.js';
+import { POLICY } from './money-config.js';
+import { reauthHtml, pushPromptHtml, systemBanner } from './system.js';
 import { quote, fmt, fmtExact, cents, payoutFor } from './money.js';
-import { ICON_CARD } from './icons.js';
+import { ICON_CARD, ICON_CAMERA } from './icons.js';
 import { SCENARIOS, AMARA } from './fixtures/money-scenarios.js';
 
 /** The gallery's HTML (a string of labelled blocks). */
@@ -353,6 +355,75 @@ export function galleryHtml() {
   v('ready · tailor');                   col(C.courierCard({ ...cc, note: 'Paid by Sarah. Not taken from your payout.' }));
   v('loading');                          col(C.courierCard({ state: 'loading', miles: cq.miles, from: cc.from, to: cc.to }));
   v('failed');                           col(C.courierCard({ state: 'failed', miles: cq.miles, from: cc.from, to: cc.to }));
+
+  /* ---------------- M5 · messaging, accounts, earnings, system ---------------- */
+  const thread = [
+    { id: 'm1', from: 'system', at: '2026-10-12T16:40', text: 'You sent a request', tailorText: 'Sarah sent a request' },
+    { id: 'm2', from: 'customer', at: '2026-10-13T09:30', text: 'Can you take in a jacket at the shoulders?', photos: 0, masked: false },
+    { id: 'm3', from: 'tailor', at: '2026-10-13T09:42', text: 'Yes. Text me at [phone hidden] when you are close.', photos: 0, masked: true },
+    { id: 'm4', from: 'customer', at: '2026-10-13T09:50', text: 'This is the jacket.', photos: 2, masked: false },
+    { id: 'm5', from: 'system', at: '2026-10-13T09:58', text: 'Amara accepted', tailorText: 'You accepted' },
+  ];
+  h2('Thread messages (M5, D-128) — one list, two readers');
+  v('customer reader · day dividers, system line, masked token, photo buttons, sending, failed');
+  col(C.threadMessages(thread, { reader: 'customer', now: NOW, peer: 'Amara', sending: { text: 'On my way', id: 'x1' }, failed: [{ text: 'See you soon', id: 'x2' }] }));
+  v('tailor reader · same list in her wording');
+  col(C.threadMessages(thread, { reader: 'tailor', now: NOW, peer: 'Sarah' }));
+
+  h2('Thread header · context row (M5)');
+  v('threadHead · name + sub · with a countdown');
+  col(C.headingRow(C.threadHead({ initials: amara.initials, name: amara.name, sub: `Request sent · ${C.countdown({ expiresAt: '2026-10-13T12:00', now: NOW })}` })),
+      C.headingRow(C.threadHead({ initials: amara.initials, name: amara.name, sub: `${amara.shopName} · Williamsburg` })));
+  v('threadContext · pill + time + chevron (button) · no pill · static · long');
+  col(C.threadContext({ pill: 'requested', pillLabel: 'Requested', title: 'Thu, Oct 15, 6:00 PM', sub: 'At your place', act: 'open-request', id: 'a1' }),
+      C.threadContext({ pill: 'confirmed', pillLabel: 'Confirmed', title: 'Thu, Oct 15, 6:00 PM', sub: 'View booking', act: 'open-booking', id: 'a1' }),
+      C.threadContext({ title: 'No booking yet', sub: `See ${amara.name.split(' ')[0]}’s prices and open times`, act: 'open-tailor', id: 'amara' }),
+      C.threadContext({ title: 'No request yet', sub: 'Sarah is asking before booking' }));
+
+  h2('Thread row (M5) — the Messages list');
+  v('read · unread (bold + count badge) · with a status pill · closed');
+  s.push(`<div class="thread-list">${[
+    C.threadRow({ id: 'amara', name: amara.name, initials: amara.initials, preview: 'Yes. Shoulders need a fitting, so book a visit.', time: '9:42 AM' }),
+    C.threadRow({ id: 'amara', name: amara.name, initials: amara.initials, preview: 'You: Is Thursday still good for you?', time: '9:50 AM', unread: 2, pill: 'requested', pillLabel: 'Requested' }),
+    C.threadRow({ id: 'sarah', name: 'Sarah C.', initials: 'SC', preview: 'phone hidden', time: 'Mon', unread: 1 }),
+    C.threadRow({ id: 'amara', name: amara.name, initials: amara.initials, preview: 'Amara declined this request', time: 'Oct 9', closed: true }),
+  ].join('')}</div>`);
+  v('skeleton · thread-row ×3 · payout'); col(`<div class="thread-list">${C.skeleton({ kind: 'thread-row', count: 3 })}</div>`, C.skeleton({ kind: 'payout' }));
+
+  h2('Chat bubble + composer — M5 extensions');
+  v('failed (Retry carries data-id) · masked token (sender sees the note) · photo buttons');
+  col(C.chatBubble({ text: 'This one did not go through', side: 'me', status: 'failed', id: 'x2' }),
+      C.chatBubble({ text: 'Text me at [phone hidden] or [email hidden]', side: 'me', time: '9:42 AM', masked: true }),
+      C.chatBubble({ text: 'Text me at [phone hidden]', side: 'them', time: '9:42 AM', masked: true }),
+      C.chatBubble({ text: 'The sleeves are the problem.', side: 'them', time: '9:50 AM', photos: 2, photoLabel: 'Photo from Amara' }));
+  v('composer · live privacy hint · one photo (send on, no text) · at the max (camera off)');
+  col(C.composer({ value: 'Text me at (718) 555-0142', hint: 'Phone numbers and emails are hidden when you send.' }),
+      C.composer({ photos: 1 }),
+      C.composer({ photos: 3, value: 'Here is the jacket' }));
+  v('read-only banner · with a secondary');
+  col(C.readOnlyBanner({ text: 'Amara declined this request. You can’t reply here.', secondaryLabel: 'See Amara’s profile', secondaryAct: 'open-tailor' }));
+
+  h2('Attach sheet (M5) — Add a photo');
+  s.push(`<div class="sheet-demo">${C.sheet(`<div class="attach-sheet"><p class="t-small c-600 attach-sheet__note">Photos of the garment help the tailor quote. Up to 3 per message.</p><div class="attach-sheet__rows">${
+    C.listRow({ title: 'Take a photo', act: 'photo-camera', lead: ICON_CAMERA, chevron: false })}${C.listRow({ title: 'Choose from library', act: 'photo-library', lead: C.ICON_IMAGE, chevron: false })}</div></div>`, { header: 'Add a photo', open: true, confirm: false })}</div>`);
+
+  h2('Card fields (M5) — add a card');
+  v('empty · filled with errors under the fields');
+  col(C.cardFields(), C.cardFields({ values: { number: '4242 4242', exp: '13/99', cvc: '1', zip: '1121' }, errors: { number: 'card-number', exp: 'card-exp', cvc: 'card-cvc', zip: 'card-zip' } }));
+
+  h2('List row — attrs (M5)');
+  s.push(card(C.listRow({ title: 'Home', sub: '145 N 7th St 2R · Brooklyn 11211', right: 'Default', act: 'open-address', attrs: 'data-id="home"' }) + C.listRow({ title: 'Work', sub: '30 Wythe Ave · Brooklyn 11249', act: 'open-address', attrs: 'data-id="addr-2"' })));
+
+  h2('Money rows — payout breakdown (M5, fee under Services)');
+  col(C.tailorBreakdown(seed, { feeAfterServices: true, feeCaption: `Taily keeps ${fmtExact(seed.tailyFee)} of this job` }));
+
+  h2('System (M5) — offline banner · re-auth sheet · push ask');
+  v('offline banner'); s.push(`<div class="sys-demo">${systemBanner({ sim: { network: 'offline' } })}</div>`);
+  v('re-auth sheet (locked, no ✕) · with an error');
+  s.push(`<div class="sheet-demo sheet-demo--tall" data-s="sys-reauth">${C.sheet(`<div class="reauth">${reauthHtml({ phone: '(718) 555-0142', msToResend: 30000 })}</div>`, { header: 'Sign in again', open: true, confirm: false })}</div>`);
+  s.push(`<div class="sheet-demo sheet-demo--tall" data-s="sys-reauth">${C.sheet(`<div class="reauth">${reauthHtml({ phone: '(718) 555-0142', code: '123456', error: 'code-wrong' })}</div>`, { header: 'Sign in again', open: true, confirm: false })}</div>`);
+  v('push ask (soft ask before the OS prompt)');
+  s.push(`<div class="row"><div class="push-demo">${pushPromptHtml({ title: 'Don’t miss a request', body: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications to reply in time.` })}</div></div>`);
   return s.join('\n');
 }
 

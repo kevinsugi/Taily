@@ -1,84 +1,170 @@
 /* ============================================================
-   t-thread (M3 stub, D-81; full rules arrive in M5) — the job's
-   chat for Amara, so "Message Sarah" is never a dead end. Mirrors
-   c-thread from the tailor side. Focal: the composer, pinned to
-   the bottom (M3-spec §C2).
+   t-thread (M5, T9) — the same conversation Sarah sees, from
+   Amara's side. The thread is pinned to the ticket: a context row
+   under the header names the job (status pill, visit time, link).
+   Focal: the composer + newest message (M5-spec §C2, D-128…D-132).
    ============================================================ */
 import { register, render as go, personaHome } from '../app.js';
-import { state, T, getAppt, apptsFor, threadFor, threadReadOnly } from '../state.js';
-import { focusAppt } from '../focus.js';
-import { MY_TAILOR_ID, requestView, customerName, customerInitials } from '../tailor-data.js';
 import {
-  chrome, headingRow, avatar, privacyNote, chatBubble, composer, readOnlyBanner, emptyState,
-  wireComposer, toast, esc,
+  state, T, now, msLeft, threadFor, threadReadOnly, threadAppt, maskContact, statusScreen,
+} from '../state.js';
+import { setFocus, statusWord } from '../focus.js';
+import { MY_TAILOR_ID, requestView, customerInitials, threadCustomerName, jobAddress } from '../tailor-data.js';
+import { withLatency } from '../sim.js';
+import { CHAT_LIMITS } from '../data.js';
+import {
+  chrome, headingRow, privacyNote, composer, readOnlyBanner, emptyState, threadHead, threadContext,
+  threadMessages, countdown, openAttachSheet, wireComposer, wirePhotoViewer, toast, esc,
 } from '../components.js';
-import { fmtWhen, fmtTime } from '../dates.js';
+import { fmtWhen } from '../dates.js';
 
 const ID = 't-thread';
+const HINT = 'Phone numbers and emails are hidden when you send.';
 const ui = () => (state.ui[ID] ??= {});
+const firstName = () => state.customer.first;
+const maxPhotos = () => CHAT_LIMITS?.PHOTOS_MAX ?? 3;
+let failSeq = 0;
 
-/** The job this chat is about: the focused appointment when it is Amara's, else her newest job, else her newest request. */
-function jobOf() {
-  const f = state.ui.apptId ? getAppt(state.ui.apptId) : null;
-  if (f && apptsFor('tailor').includes(f)) return f;
-  return focusAppt('t-job') ?? focusAppt('t-request');
+/** Header sub line (B2, tailor column; amended by D-149: the place, not the time). The countdown is the `countdown` component (no interval, D-09). */
+function subLine(a) {
+  if (!a) return 'Asking before booking';
+  if (a.status === 'requested') {
+    const left = msLeft(a) > 0;
+    return `New request · ${countdown({ expiresAt: a.expiresAt, now: now() })}${left ? ' to reply' : ''}`;
+  }
+  /* R5-1-T-07 (D-149): the context row owns the time and the pill; the header says where she is going */
+  return esc(jobAddress(a));
 }
 
-function messageHtml(m) {
-  if (m.from === 'system') return `<p class="t-small c-500 ${ID}__system">${esc(m.tailorText ?? m.text)}</p>`;
-  return chatBubble({ text: m.text, side: m.from === 'tailor' ? 'me' : 'them', time: fmtTime(m.at), photos: m.photos, masked: m.masked });
+/** The context row (B2, tailor column): the job this thread belongs to. Neighborhood-only: no street is ever printed here. */
+function contextRow(a) {
+  if (!a) return threadContext({ title: 'No request yet', sub: `${firstName()} is asking before booking` });
+  const w = statusWord(a, 'tailor', { short: true });
+  const v = requestView(a);
+  const link = a.status === 'declined' ? ''
+    : a.status === 'requested' || a.status === 'suggested' ? 'View request' : 'Open job';
+  return threadContext({
+    pill: w.pill, pillLabel: w.label,
+    title: fmtWhen(a.slot.start),
+    sub: link ? `${v.visitLabel} · ${link}` : v.visitLabel,
+    act: link ? 'open-appt' : '', id: a.id,
+  });
 }
 
 function view(s) {
-  const a = jobOf();
-  if (!a) {
+  const a = threadAppt(MY_TAILOR_ID);
+  const thread = threadFor(MY_TAILOR_ID);
+  if (!a && !thread.messages.length) {
     return `${chrome('messages', { persona: 'tailor' })}
 <main class="body ${ID}">
-  ${headingRow('<h1 class="t-title">Messages</h1>')}
+  ${headingRow('<h1 class="t-title">Messages</h1>', { back: false })}
   <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No conversation yet', body: 'Messages with a customer show up here once she has sent a request.', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
 </main>`;
   }
-  const v = requestView(a);
-  const messages = threadFor(MY_TAILOR_ID).messages;
+  const u = ui();
   const closed = threadReadOnly(MY_TAILOR_ID);
-  const first = customerName(a).split(' ')[0];
-  const draft = (s.ui[ID] ?? {}).draft ?? '';
-  const head = `<div class="${ID}__who">${avatar({ initials: customerInitials(), size: 'sm' })}
-    <div class="${ID}__who-text"><span class="t-body w-600 ${ID}__who-name">${esc(customerName(a))}</span><span class="t-small c-600">${fmtWhen(a.slot.start)} · ${esc(v.visitLabel)}</span></div></div>`;
-  const body = messages.length
-    ? `<div class="${ID}__messages" aria-live="polite">${messages.map(messageHtml).join('')}</div>`
+  const first = firstName();
+  const draft = u.draft ?? '';
+  const hint = maskContact(draft).masked ? HINT : '';
+  const busy = !!u.sending;
+  const head = threadHead({ initials: customerInitials(), name: threadCustomerName(), sub: subLine(a) });
+  const body = thread.messages.length || u.sending || (u.failed ?? []).length
+    ? threadMessages(thread.messages, { reader: 'tailor', now: now(), failed: u.failed ?? [], sending: u.sending ?? null, peer: first })
     : `<p class="t-body c-600 ${ID}__empty-text">No messages yet. Say hello or ask about the fit.</p>`;
   const foot = closed
-    ? readOnlyBanner({ text: `You declined this request, so the conversation is closed.`, ctaLabel: 'Back to Home', ctaAct: 'home' })
-    : composer({ value: draft, placeholder: `Message ${first}` });
+    ? readOnlyBanner({ text: `You declined this request, so the conversation is closed. ${first} can send you a new request for a different job.`, ctaLabel: 'Back to Home', ctaAct: 'home' })
+    : composer({ value: draft, placeholder: `Message ${first}`, hint, photos: u.photos ?? 0, max: maxPhotos(), disabled: busy });
   return `${chrome('messages', { persona: 'tailor' })}
-<main class="body ${ID}">
-  ${headingRow(head)}
+<main class="body ${ID}"${busy ? ' aria-busy="true"' : ''}>
+  ${headingRow(head, { back: true })}
+  <div class="${ID}__context">${contextRow(a)}</div>
   <div class="${ID}__note">${privacyNote()}</div>
-  ${body}
+  <div class="${ID}__messages">${body}</div>
 </main>
 <div class="${ID}__foot">${foot}</div>`;
 }
 
+/** The error echo sits above the pinned composer, never over it (B3). */
+function toastAboveFoot(msg) {
+  toast(msg, { tone: 'error' });
+  const el = document.querySelector('.toast');
+  const foot = document.querySelector(`.${ID}__foot`);
+  if (el && foot) el.style.bottom = `${foot.offsetHeight + 12}px`;
+}
+const onScreen = () => document.querySelector('#screen')?.dataset.screen === ID;
+const scrollEnd = () => window.scrollTo?.(0, document.body.scrollHeight);
+
+/** Send one message through the simulated network. Failure keeps the text as a "Not sent · Retry" bubble (D-130). */
+function deliver({ text, photos, id = '' }) {
+  const u = ui();
+  const masked = maskContact(text);
+  u.sending = { text: masked.text, photos, masked: masked.masked };
+  u.draft = ''; u.photos = 0;
+  go(ID);
+  scrollEnd();
+  withLatency(() => {
+    const r = T.sendMessage(MY_TAILOR_ID, 'tailor', { text, photos });
+    u.sending = null;
+    if (!r.ok) {
+      (u.failed ??= []).push({ id: id || `f${++failSeq}`, text: masked.text, rawText: text, photos, masked: masked.masked });
+      if (onScreen()) { go(ID); scrollEnd(); }
+      toastAboveFoot('Message not sent');
+      return;
+    }
+    if (onScreen()) { go(ID); scrollEnd(); }
+  });
+}
+
 function wire(root) {
+  const u = ui();
+  T.markThreadRead(MY_TAILOR_ID, 'tailor');
   const foot = root.querySelector(`.${ID}__foot`);
   const input = foot?.querySelector('.composer__input');
 
-  if (input) {
-    wireComposer(foot, (text) => {
-      const r = T.sendMessage(MY_TAILOR_ID, 'tailor', { text });
-      if (!r.ok) { ui().draft = text; toast('Message not sent. Try again.', { tone: 'error' }); go(ID); return; }
-      ui().draft = '';
-      go(ID);
-      window.scrollTo?.(0, document.body.scrollHeight);
+  if (input && !input.disabled) {
+    wireComposer(foot, (text) => deliver({ text, photos: u.photos ?? 0 }));
+    const hintEl = foot.querySelector('#composer-hint');
+    input.addEventListener('input', () => {
+      u.draft = input.value;
+      /* toggle the live hint in place: no re-render while typing */
+      const on = maskContact(input.value).masked;
+      if (!hintEl) return;
+      const has = !!hintEl.textContent.trim();
+      if (on && !has) {
+        hintEl.innerHTML = `<span class="privacy-note__glyph" aria-hidden="true">i</span><span>${HINT}</span>`;
+        input.setAttribute('aria-describedby', 'composer-hint');
+      } else if (!on && has) {
+        hintEl.textContent = '';
+        input.removeAttribute('aria-describedby');
+      }
     });
-    input.addEventListener('input', () => { ui().draft = input.value; });
   }
 
+  wirePhotoViewer(root);
   root.addEventListener('click', (e) => {
-    const act = e.target.closest('[data-act]')?.dataset.act;
+    const el = e.target.closest('[data-act]');
+    if (!el || e.target.closest('.screen-sheet--overlay')) return;
+    const act = el.dataset.act;
     if (act === 'home') go(personaHome('tailor'));
-    else if (act === 'attach-photo') toast('Photos arrive with messaging');
+    else if (act === 'open-appt') {
+      const a = threadAppt(MY_TAILOR_ID);
+      if (!a) return;
+      setFocus(a.id);
+      go(statusScreen(a, 'tailor'));
+    } else if (act === 'retry') {
+      const f = (u.failed ?? []).find((x) => x.id === el.dataset.id);
+      if (!f || u.sending) return;
+      u.failed = u.failed.filter((x) => x !== f);
+      deliver({ text: f.rawText ?? f.text, photos: f.photos ?? 0, id: f.id });
+    } else if (act === 'attach-photo') {
+      openAttachSheet({ count: u.photos ?? 0, max: maxPhotos() }, () => {
+        u.photos = Math.min(maxPhotos(), (u.photos ?? 0) + 1);
+        go(ID);
+      });
+    } else if (act === 'remove-attachment') {
+      u.photos = Math.max(0, (u.photos ?? 0) - 1);
+      go(ID);
+    }
   });
 }
 

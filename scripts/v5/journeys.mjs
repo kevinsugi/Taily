@@ -13,13 +13,18 @@
      J5  tailor can't make it -> customer refunded
      J6  edit the job (new item, service off) -> Sarah approves -> tailoring (K-01)
      J6b no changes still needs Sarah's approval (K-01)
+     J7  courier return, money identical on both sides, never in the payout (D-143)
+     J8  completed -> review -> c-tailor shows it (D-143)
+     J9  one thread from a question to a booking, masked on both sides (D-143)
 
    node scripts/v5/journeys.mjs [J1 J2 ...]
    ============================================================ */
 
 import { open, reporter, settle } from './lib/browser.mjs';
 import { SCENARIOS, SEED_SLOT, fmtExact, fmtNeg } from './money.mjs';
-import { SUGGESTED_SLOT } from '../../js/fixtures/money-scenarios.js';
+import { SUGGESTED_SLOT, AMARA } from '../../js/fixtures/money-scenarios.js';
+import { CHAT } from '../../js/fixtures/common.js';
+import { CUSTOMER } from '../../js/data.js';
 import { fmtWhen } from '../../js/dates.js';
 
 const ONLY = process.argv.slice(2).filter((a) => !a.startsWith('-'));
@@ -219,6 +224,103 @@ await journey('J6b', 'no changes still needs approval', async () => {
   await flip();
   await click('.appt-row');
   await at('J6b tailor: work in progress, as booked', 't-job', { has: ['Work in progress', 'approved the order'], not: 'approved your changes' });
+});
+
+/* ---------- J7 (D-143) ---------- */
+await journey('J7', 'courier return: the three courier amounts match on both sides and stay out of the payout', async () => {
+  const cq = S.courierQuote;
+  await flow('t-job--in-progress');
+  await click('[data-act="mark-ready"]');
+  await click('[data-act="ready-ok"]');
+  await at('J7 tailor: waiting on Sarah', 't-job', { has: ['Waiting on Sarah'] });
+  await flip();
+  await click('[data-nav="bookings"]');
+  await click('.appt-row');
+  await at('J7 customer: ready', 'c-ready');
+  await click('[data-act="return"][data-value="courier"]');
+  await at('J7 customer: courier quote', 'c-ready', { has: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Pay ${fmtExact(S.courier.balance)}`] });
+  await click('[data-act="pay"]');
+  await click('[data-act="pay-ok"]');
+  await at('J7 customer: out for delivery', 'c-booking', { has: ['Out for delivery', fmtExact(cq.cents)] });
+  await flip();
+  await click('.appt-row');
+  await at('J7 tailor: courier booked, not her money', 't-job', {
+    has: ['Courier booked', fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), 'Not taken from your payout', fmtExact(S.seed.payout)],
+  });
+});
+
+/* ---------- J8 (D-143) ---------- */
+await journey('J8', 'completed -> review -> the tailor profile shows it', async () => {
+  await flow('t-job--returning-pickup');
+  await click('[data-act="complete"]');
+  await at('J8 tailor: job completed', 't-job', { has: ['Job completed', fmtExact(S.seed.payout)] });
+  await flip();
+  await click('[data-nav="bookings"]');
+  await click('.appt-row');
+  await at('J8 customer: complete', 'c-complete');
+  await click('[data-act="leave-review"]');
+  await click('label:has(input[name="stars"][value="5"])');
+  await click('[data-act="post"]');
+  await at('J8 customer: thanks', 'c-review', { has: ['Thanks, Sarah'] });
+  await click('[data-act="see-profile"]');
+  await at('J8 customer: the review on the profile', 'c-tailor', { has: ['Sarah C.', `${AMARA.rating.count + 1} reviews`] });
+  await flip();
+  await page.evaluate(() => window.Taily.render('t-job'));
+  await settle(page);
+  const stars = await page.locator('[aria-label="5 out of 5 stars"]').count();
+  check('J8 tailor sees the 5-star review (by aria-label)', stars > 0, `found ${stars}`);
+});
+
+/* ---------- J9 (D-143) ---------- */
+/** Send from the keyboard: at 390 wide the pinned Test-flows trigger sits over the Send button (it appears on the first keystroke). */
+const send = async () => { await page.press('#composer-input', 'Enter'); await settle(page); };
+await journey('J9', 'one thread from a question to a booking; a typed phone number is hidden on both sides', async () => {
+  const phoneTail = CUSTOMER.phone.slice(-8);
+  await flow('c-tailor');
+  await click('[data-act="ask"]');
+  await page.fill('#composer-input', CHAT.ask);
+  await send();
+  await at('J9 customer: the question, no booking yet', 'c-thread', { has: [CHAT.ask, 'No booking yet'] });
+  await flip();
+  await click('[data-nav="messages"]');
+  await at('J9 tailor: Messages', 't-messages', { has: ['Sarah C.', '1 unread'], not: 'Sarah Chen' });
+  await click('.thread-row');
+  await at('J9 tailor: the question', 't-thread', { has: [CHAT.ask, 'Sarah C.'] });
+  await page.fill('#composer-input', CHAT.reply);
+  await send();
+  await at('J9 tailor: replied', 't-thread', { has: [CHAT.reply] });
+  await flip();
+  await click('[data-nav="messages"]');
+  await at('J9 customer: Messages', 'c-messages', { has: ['Amara Reyes', 'book a visit'] });
+  await click('.thread-row');
+  await click('[data-act="open-profile"]');
+  await at('J9 customer: Amara profile', 'c-tailor');
+  await click('[data-act="pick-time"]');
+  await click('[data-act="slot-next"]');
+  await click('[data-act="pay"]');
+  await at('J9 customer: request sent', 'c-request');
+  await click('[data-act="message"]');
+  await at('J9 customer: the SAME thread carries the request', 'c-thread', { has: [CHAT.ask, 'book a visit', 'You sent a request', '2h left'] });
+  await page.fill('#composer-input', CHAT.phoneCustomer);
+  await at('J9 customer: the live hint', 'c-thread', { has: ['hidden when you send'] });
+  await send();
+  await at('J9 customer: number hidden, note on her side', 'c-thread', { has: ['phone hidden', 'stay private on Taily'], not: phoneTail });
+  await flip();
+  await click('[data-nav="messages"]');
+  await click('.thread-row');
+  await at('J9 tailor: number hidden, request noted', 't-thread', { has: ['phone hidden', 'Sarah sent a request', 'New request'], not: phoneTail });
+  const themNotes = await page.locator('.chat-msg--them .chat-msg__note').count();
+  check('J9 tailor: no privacy note under the other side bubble', themNotes === 0, `found ${themNotes}`);
+  await click('[data-act="open-appt"]');
+  await at('J9 tailor: the request', 't-request');
+  await click('[data-act="accept"]');
+  await click('[data-nav="messages"]');
+  await click('.thread-row');
+  await at('J9 tailor: accepted line', 't-thread', { has: ['You accepted', 'Sarah Chen'] });
+  await flip();
+  await click('[data-nav="messages"]');
+  await click('.thread-row');
+  await at('J9 customer: accepted line', 'c-thread', { has: ['Amara accepted', 'Confirmed'] });
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

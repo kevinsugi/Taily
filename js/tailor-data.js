@@ -4,9 +4,9 @@
    (state.appts), through these adapters. v4's tailor-data.js is
    archived in js/v4/tailor-data.js.
    ============================================================ */
-import { state, apptsFor, tailorById, openSlots } from './state.js';
+import { state, apptsFor, tailorById, openSlots, getAppt } from './state.js';
 import { SERVICES, VISIT_LABEL, VISIT_MINUTES, ZIP_INFO } from './data.js';
-import { toDate, fmtWhen, fmtDay, fmtTime, dayDiff } from './dates.js';
+import { toDate, fmtWhen, fmtDay, fmtTime, dayDiff, payoutDay, isoDay } from './dates.js';
 
 export const MY_TAILOR_ID = 'amara';
 export const myTailor = () => tailorById(MY_TAILOR_ID);
@@ -90,3 +90,50 @@ export function suggestSlots(appt, { limit = null } = {}) {
 export const payoutOf = (appt) => state.payouts.find((p) => p.apptId === appt.id) ?? null;
 
 export const currentCustomer = () => state.customer;
+
+/** "Sarah C." until ANY appointment of the pair was accepted, then "Sarah Chen" (D-74, D-129). */
+export function threadCustomerName() {
+  const { first, last } = state.customer;
+  const accepted = state.appts.some((a) => a.customerId === state.customer.id && wasAccepted(a));
+  return accepted ? `${first} ${last}` : `${first} ${last.charAt(0)}.`;
+}
+
+/* ---------- payouts (M5, D-136) ---------- */
+/** One payout as a job row: who, what it was, what she takes home. */
+function payoutItem(p) {
+  const appt = getAppt(p.apptId);
+  const day = appt ? fmtDay(appt.slot.start) : '';
+  const types = appt ? [...new Set(appt.job.garments.map((g) => g.type))].join(', ') : '';
+  const sub = p.kind === 'kept-deposit' ? 'Late cancellation · deposit kept'
+    : p.kind === 'no-show' ? `No-show · ${day}`
+      : `${types} · ${day}`;
+  return { apptId: p.apptId, cents: p.cents, kind: p.kind, title: appt ? customerName(appt) : '', sub, retried: !!p.retried };
+}
+const sumOf = (list) => list.reduce((n, p) => n + p.cents, 0);
+
+/** `{ next, failed, history, paidTotal }` — state.payouts grouped by date + state. `next` = the earliest pending date (re-queued payouts
+    included); `failed` = every payout the bank sent back, with the Friday it will be sent again; `history` = paid Fridays, newest first. */
+export function payoutsView() {
+  const pending = state.payouts.filter((p) => p.state === 'pending');
+  const nextDate = pending.map((p) => p.date).sort()[0] ?? null;
+  const nextList = pending.filter((p) => p.date === nextDate);
+  const failedList = state.payouts.filter((p) => p.state === 'failed');
+  const paid = state.payouts.filter((p) => p.state === 'paid');
+  const dates = [...new Set(paid.map((p) => p.date))].sort().reverse();
+  return {
+    next: nextDate ? { date: nextDate, cents: sumOf(nextList), items: nextList.map(payoutItem) } : null,
+    failed: failedList.length ? { cents: sumOf(failedList), items: failedList.map(payoutItem), retryDate: payoutDay(isoDay(state.clock.now)) } : null,
+    history: dates.map((date) => {
+      const list = paid.filter((p) => p.date === date);
+      return { date, state: 'paid', cents: sumOf(list), bank: list[0].bank ?? '', last4: list[0].last4 ?? '', items: list.map(payoutItem) };
+    }),
+    paidTotal: sumOf(paid),
+  };
+}
+
+/** One job's payout: `{ payout, appt, view: requestView(appt) }` or null. */
+export function payoutDetail(apptId) {
+  const payout = state.payouts.find((p) => p.apptId === apptId);
+  const appt = getAppt(apptId);
+  return payout && appt ? { payout, appt, view: requestView(appt) } : null;
+}

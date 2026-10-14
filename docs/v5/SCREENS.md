@@ -37,18 +37,18 @@ services $125.00 · home-visit fee $35.00 · total $160.00 · deposit $16.00 · 
 | `c-book` | M1 | C5a Pick a time: Scheduler limited to the tailor's open slots before the need-by | `c-book` ◆ · `c-book--no-slots` ◆ (empty state: change need-by / message tailor) |
 | `c-pay` | M1 | C5b Breakdown + pay the deposit, sends the request | `c-pay` ◆ (deposit $16.00 due today) · `c-pay--rush` · · `c-pay--shop` · (no home-fee row) · `c-pay--method` O (payment method sheet) · `c-pay--add-card` O · `c-pay--declined` · (inline error banner, card kept) · `c-pay--3ds` O (3-D Secure sheet) · `c-pay--processing` · (CTA busy, inputs locked) |
 | `c-request` | M1 | C6/C7 request status (also the Bookings target for an open request) | `c-request` ◆ (Request sent, "2h left", chat link) · M3: `c-request--soon` · (≤15 min) · `c-request--suggested` ◆ (accept new time / pick another tailor) · `c-request--declined` ◆ (job kept, Find another tailor) · `c-request--expired` ◆ (Try again 1 of 2 / Message) · `c-request--expired-2` · (Try again 2 of 2) · `c-request--expired-final` · (no retries left → other tailors) · `c-request--expired-passed` · (the visit is too close for another 2-hour wait → Pick a new time, D-94) · `c-request--withdraw` O (cancel request, hold released) |
-| `c-thread` | M1 | Chat with one tailor. M1 = "Ask a question" stub; M5 = full rules | `c-thread--new` ◆ (empty, privacy note, composer) · M5: `c-thread` ◆ (booked conversation) · `c-thread--pending` · (countdown in header) · `c-thread--masked` · (number/email hidden + sender note) · `c-thread--failed` · (failed send + Retry) · `c-thread--photo` · (photo message) · `c-thread--read-only` ◆ (declined: banner + Find another tailor, no composer) |
+| `c-thread` | M1 | Chat with one tailor. M1 = "Ask a question" stub; M5 = full rules | `c-thread--new` ◆ (empty, privacy note, composer) · M5: `c-thread` ◆ (booked conversation) · `c-thread--question` · (asking before booking: No booking yet) · `c-thread--pending` · (countdown in header) · `c-thread--masked` · (number/email hidden + sender note) · `c-thread--failed` · (failed send + Retry) · `c-thread--failed-offline` · (offline send: Retry in view) · `c-thread--photo` · (photo message) · `c-thread--attach` O (Add a photo sheet) · `c-thread--read-only` ◆ (declined: banner + Find another tailor, no composer) |
 | `c-bookings` | M3 | Bookings tab: upcoming + past | `c-bookings` ◆ · `c-bookings--empty` · |
 | `c-booking` | M3 | C8 booking detail: status, visit, address, money, chat | `c-booking--confirmed` ◆ (just accepted: "You're booked") · `c-booking` ◆ (upcoming) · `c-booking--cancel` O (>24 h: full $16.00 refund) · `c-booking--cancel-late` O (<24 h: $16.00 kept) · `c-booking--cancelled` · (refunded) · `c-booking--cancelled-late` · (kept) · `c-booking--reschedule` O (Scheduler, >24 h only) · `c-booking--cant-make-it` ◆ (tailor cancelled: full refund, Find another tailor, job kept) · `c-booking--no-show` · (marked no-show: deposit kept) · M4: `c-booking--fitting` · · `c-booking--in-progress` · · `c-booking--returning-pickup` · · `c-booking--returning-dropoff` · · `c-booking--returning-courier` · |
 | `c-price-change` | M4 | C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01) | `c-price-change` ◆ (one service added, one re-priced) · `c-price-change--item-added` · (New item card, a service removed) · `c-price-change--item-removed` · (an item struck) · `c-price-change--removed` · (a service removed, balance lower) · `c-price-change--repriced` · (only prices changed) · `c-price-change--messaged` · · `c-price-change--unchanged` · (No changes, still needs the tap; the deposit-exceeds-total refund edge, D-23, is model-tested only) |
 | `c-ready` | M4 | C10 pick a return option the tailor offers, then pay the balance | `c-ready` ◆ (3 options) · `c-ready--pickup-only` · · `c-ready--courier-loading` · · `c-ready--courier` · (quote row, e.g. $10.45) · `c-ready--courier-failed` · (retry / other option) · `c-ready--pay` O (balance payment sheet) · `c-ready--pay-failed` · |
 | `c-complete` | M4 | C11 order completed: receipt + review prompt | `c-complete` ◆ |
 | `c-review` | M4 | Stars (1–5), optional text, up to 3 photos | `c-review` ◆ · `c-review--error` · (no stars) · `c-review--submitted` ◆ |
-| `c-messages` | M5 | Messages tab: one row per tailor thread | `c-messages` ◆ · `c-messages--empty` · |
-| `c-account` | M5 | C13 Account home: profile, addresses, payment methods, past orders, sign out | `c-account` ◆ |
-| `c-addresses` | M5 | Saved addresses | `c-addresses` ◆ · `c-addresses--empty` · |
-| `c-cards` | M5 | Payment methods | `c-cards` ◆ · `c-cards--empty` · · `c-cards--remove` O (remove card confirm) |
-| `c-orders` | M5 | Past orders + receipts | `c-orders` ◆ · `c-orders--empty` · |
+| `c-messages` | M5 | Messages tab: one row per tailor thread | `c-messages` ◆ · `c-messages--empty` · · `c-messages--loading` · |
+| `c-account` | M5 | C13 Account home: profile, addresses, payment methods, past orders, sign out | `c-account` ◆ · `c-account--sign-out` O (sign out confirm) |
+| `c-addresses` | M5 | Saved addresses | `c-addresses` ◆ · `c-addresses--empty` · · `c-addresses--add` O (add sheet) · `c-addresses--error` O (field errors) |
+| `c-cards` | M5 | Payment methods | `c-cards` ◆ · `c-cards--empty` · · `c-cards--remove` O (remove card confirm) · `c-cards--in-use` O (only card of an open booking) · `c-cards--add` O (add a card sheet) |
+| `c-orders` | M5 | Past orders + receipts | `c-orders` ◆ · `c-orders--empty` · `c-orders--loading` · |
 
 ## Tailor — sign-up and onboarding (M2)
 
@@ -61,7 +61,7 @@ services $125.00 · home-visit fee $35.00 · total $160.00 · deposit $16.00 · 
 | `to-where` | M2 | O3 shop address (optional) + home visits toggle → zips + home-visit fee | `to-where` ◆ (both on) · `to-where--home-only` · · `to-where--none` · (at least one of shop / home) · `to-where--zip-invalid` · · `to-where--fee-missing` · · `to-where--edit` · |
 | `to-returns` | M2 | O4 in-store pickup / home drop-off / Taily courier | `to-returns` ◆ · `to-returns--none` · · `to-returns--edit` · |
 | `to-availability` | M2 | O5 weekly hours, split shop / home when both | `to-availability` ◆ (split) · `to-availability--single` · (one schedule) · `to-availability--empty` · · `to-availability--overlap` · · `to-availability--edit` · |
-| `to-payouts` | M2 | O6 bank details + the Taily fee in dollars ("On a $100.00 order, Taily keeps $10.00 and you get $90.00") | `to-payouts` ◆ · `to-payouts--invalid` · · `to-payouts--edit` · |
+| `to-payouts` | M2 | O6 bank details + the Taily fee in dollars ("On a $100.00 order, Taily keeps $10.00 and you get $90.00") | `to-payouts` ◆ · `to-payouts--invalid` · · `to-payouts--edit` · M5: `to-payouts--returned` · |
 | `to-done` | M2 | You're bookable confirmation | `to-done` ◆ |
 | `t-shop` | M2 | T7 Shop: every onboarding section with its summary, Edit each, Rush fees row | `t-shop` ◆ · `t-shop--incomplete` · (home visits on with no home hours: warning banner, row flagged, D-56) |
 | `t-rush` | M2 | T7 Rush fees editor (≤1 / 2 / 3 days → $; 4+ days free) | `t-rush` ◆ · `t-rush--invalid` · · `t-rush--unsaved` O (leave without saving?) |
@@ -75,10 +75,10 @@ services $125.00 · home-visit fee $35.00 · total $160.00 · deposit $16.00 · 
 | `t-suggest` | M3 | T3 suggest another time: Scheduler over the tailor's own open slots | `t-suggest` ◆ |
 | `t-job` | M3 | T4 job detail: full address after accept, chat, actions by status | `t-job--accepted` ◆ (just accepted) · `t-job` ◆ (upcoming) · `t-job--cant-make-it` O · `t-job--no-show` O (15 min after start) · `t-job--cant-make-it-done` · · `t-job--no-show-done` · ($25.00 paid) · `t-job--cancelled` · (customer cancelled >24 h: nothing owed) · `t-job--cancelled-late` · (you keep $16.00) · M4: `t-job--fitting` · (Review the order) · `t-job--waiting` · (final order sent) · `t-job--waiting-unchanged` · (sent as booked) · `t-job--approved` · · `t-job--messaged` · (customer replied in chat instead) · `t-job--replied` · (Amara answered; waiting on Sarah again, D-112) · `t-job--in-progress` · · `t-job--ready` · (waiting for the return choice + balance) · `t-job--returning-pickup` · · `t-job--returning-dropoff` · · `t-job--courier` · (courier booked) · `t-job--completed` ◆ (payout summary) |
 | `t-adjust` | M4 | T5 Edit the job at the fitting: add / remove items and services, re-price → send the final order for approval (K-01) | `t-adjust` ◆ (no changes, Send on) · `t-adjust--edited` · (changed rows marked, new payout) · `t-adjust--item-added` · (New item card, a service struck) · `t-adjust--remove-item` · (a booked item struck, Undo) · `t-adjust--max-items` · (Add an item off at 10) · `t-adjust--error` · (empty price) · `t-adjust--add` O · (add a service) · `t-adjust--add-item` O · (pick the item type) · `t-adjust--add-item-service` O · (pick its first service) · `t-adjust--revise` · (edit the order Sarah has not approved yet) · `t-adjust--leave` O (leave without sending?) |
-| `t-earnings` | M5 | T8 payouts: upcoming, history | `t-earnings` ◆ · `t-earnings--empty` · · `t-earnings--pending` · · `t-earnings--failed` · (fix bank details) |
-| `t-payout` | M5 | T8 per-job breakdown (services, home fee, rush, Taily fee −$, payout) | `t-payout` ◆ |
+| `t-earnings` | M5 | T8 payouts: upcoming, history | `t-earnings` ◆ · `t-earnings--empty` · · `t-earnings--pending` · · `t-earnings--failed` · (fix bank details) · `t-earnings--failed-and-next` · (sent back + another job scheduled) · `t-earnings--loading` · |
+| `t-payout` | M5 | T8 per-job breakdown (services, home fee, rush, Taily fee −$, payout) | `t-payout` ◆ · `t-payout--kept` · (deposit kept) |
 | `t-messages` | M5 | T9 threads list | `t-messages` ◆ · `t-messages--empty` · |
-| `t-thread` | M3 | T9 the same thread the customer sees (M3 stub, D-81; full rules M5) | `t-thread` ◆ · M5: `t-thread--masked` · · `t-thread--failed` · · `t-thread--photo` · · `t-thread--read-only` · |
+| `t-thread` | M3 | T9 the same thread the customer sees (M3 stub, D-81; full rules M5) | `t-thread` ◆ · M5: `t-thread--question` · · `t-thread--pending` · · `t-thread--masked` · · `t-thread--failed` · · `t-thread--photo` · · `t-thread--read-only` · |
 
 ## System
 
@@ -95,6 +95,7 @@ System-wide patterns (M5) have no screen of their own: each key lands on a host 
 | `sys-offline-tailor` | M5 | `t-home` | same banner on the tailor side |
 | `sys-session-expired` | M5 | `c-bookings` | O re-auth sheet (phone code) |
 | `sys-push-prompt` | M5 | `t-home` | O push permission prompt (first launch) |
+| `sys-push-prompt-customer` | M5 | `c-request` | O soft push ask while a request waits (Test flows only, D-139) |
 | `sys-error-toast` | M5 | `c-pay` | toast + inline error pattern after a failed action |
 
 ## Status → screen (`statusScreen(appt, persona)`, js/state.js)

@@ -82,8 +82,9 @@ export function chrome(active = 'home', { persona = 'customer', time = '9:41' } 
 
 import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS } from './icons.js';
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
+import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
-import { fmtShort, fmtWhen, fmtCountdown } from './dates.js';
+import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay } from './dates.js';
 import { POLICY } from './money-config.js';
 
 /**
@@ -471,6 +472,7 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
   const screenEl = document.getElementById('screen');
   // one overlay at a time (a closing one, mid slide-out, doesn't count)
   if (screenEl.querySelector('.screen-sheet--overlay:not(.is-closing)')) return () => {};
+  clearToasts();   // R5-1-C-04: a toast never covers a sheet control
   const opener = document.activeElement;
   const holder = document.createElement('div');
   holder.className = 'screen-sheet screen-sheet--overlay';
@@ -534,6 +536,7 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
 export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wireFn) {
   const screenEl = document.getElementById('screen');
   if (screenEl.querySelector('.screen-sheet--overlay:not(.is-closing)')) return () => {};
+  clearToasts();   // R5-1-C-04
   const opener = document.activeElement;
   const holder = document.createElement('div');
   holder.className = 'screen-sheet screen-sheet--overlay modal-host';
@@ -796,6 +799,21 @@ const noPercent = (label, where) => {
   if (String(label ?? '').includes('%')) throw new Error(`${where}: money copy is dollar amounts, never percentages ("${label}")`);
 };
 
+/* ---------- M5 glyphs + limits (messaging, accounts, system) ---------- */
+/** Photos per chat message (CHAT_LIMITS.PHOTOS_MAX in data.js, D-131). */
+const CHAT_PHOTO_CAP = () => DATA.CHAT_LIMITS?.PHOTOS_MAX ?? 3;
+const GLYPH = (paths, size = 16) => `<svg class="icon-${size}" width="${size}" height="${size}" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+/** A closed padlock: the masked-token pill's glyph. */
+export const ICON_LOCK = GLYPH('<rect x="3.2" y="7" width="9.6" height="6.8" rx="1.6"/><path d="M5.4 7V5.2a2.6 2.6 0 0 1 5.2 0V7"/>');
+/** A small ✕ (remove an attachment). */
+export const ICON_CLOSE = GLYPH('<path d="M4 4l8 8M12 4l-8 8"/>');
+/** Photo-library glyph (Choose from library). */
+export const ICON_IMAGE = GLYPH('<rect x="2" y="3" width="12" height="10" rx="2"/><circle cx="6" cy="6.6" r="1.1"/><path d="M2.6 12l3.6-3.4 2.6 2.4 1.6-1.4 2.8 2.4"/>');
+/** Bell (the push prompt). */
+export const ICON_BELL = GLYPH('<path d="M3.6 11.2h8.8l-1.1-1.6V6.8a3.3 3.3 0 0 0-6.6 0v2.8z"/><path d="M6.6 13.4a1.5 1.5 0 0 0 2.8 0"/>');
+/** Wi-Fi with a slash (the offline banner). */
+export const ICON_WIFI_OFF = GLYPH('<path d="M1.6 6.2a9.6 9.6 0 0 1 3-1.9M14.4 6.2a9.6 9.6 0 0 0-4.4-2.4M4 8.8a5.6 5.6 0 0 1 2-1.2M12 8.8a5.6 5.6 0 0 0-1.4-1M8 12.2h.01"/><path d="M2 2l12 12"/>');
+
 /* ---------- avatar ---------- */
 /** Avatar — size 'sm' 40 | 'md' 56 | 'lg' 80. Photo wins over initials; `photo: true` = a placeholder photo circle (no <img>). Decorative (the name sits beside it). */
 export function avatar({ initials = '', photo = null, size = 'sm' } = {}) {
@@ -895,14 +913,21 @@ export function countdown({ expiresAt, now, suffix = 'left' } = {}) {
  * Chat Bubble — sent · sending · failed ("Not sent · Retry") · masked (privacy note under a
  * `me` bubble) · photo. Text is escaped here; `time` is the caption ("10:02 AM").
  */
-export function chatBubble({ text = '', side = 'them', time = '', photos = 0, status = 'sent', masked = false } = {}) {
+export function chatBubble({ text = '', side = 'them', time = '', photos = 0, status = 'sent', masked = false, id = '', photoLabel = 'Photo', peer = '' } = {}) {
   const me = side === 'me';
-  const body = `${text ? `<span class="chat-bubble__text">${esc(text)}</span>` : ''}${photos > 0 ? `<span class="chat-bubble__photos">${Array.from({ length: Math.min(photos, 3) }, () => photoTile('photo')).join('')}</span>` : ''}`;
+  const n = Math.min(photos, CHAT_PHOTO_CAP());
+  /* M5: [phone hidden] / [email hidden] print as a masked-token pill (the text is escaped first, then the tokens are swapped in) */
+  const textHtml = esc(text).replace(/\[(phone|email) hidden\]/g, (_, kind) => `<span class="masked-token">${ICON_LOCK}${kind} hidden</span>`);
+  /* M5: photos are one 64 px view-photo button (the placeholder viewer opens through wirePhotoViewer) */
+  const photoTitle = n === 1 ? photoLabel : photoLabel.replace(/\bphoto\b/i, (m) => `${m}s`);   // R5-1-C-01: the viewer's ready-made title
+  const photoBtn = n > 0 ? `<button type="button" class="chat-bubble__photo" data-act="view-photo" data-type="${esc(photoLabel)}" data-title="${esc(photoTitle)}" data-count="${n}" aria-label="View ${n === 1 ? '1 photo' : `${n} photos`}">${Array.from({ length: n }, () => '<span class="chat-bubble__tile"></span>').join('')}</button>` : '';
+  const body = `${text ? `<span class="chat-bubble__text">${textHtml}</span>` : ''}${photoBtn}`;
   const meta = [];
   if (status === 'sending') meta.push('<span class="chat-msg__status">Sending…</span>');
-  else if (status === 'failed') meta.push('<button type="button" class="chat-msg__retry" data-act="retry">Not sent · Retry</button>');
+  else if (status === 'failed') meta.push(`<button type="button" class="chat-msg__retry" data-act="retry" data-id="${esc(id)}">Not sent · Retry</button>`);
   else if (time) meta.push(`<span class="chat-msg__time">${esc(time)}</span>`);
-  if (masked && me) meta.push(`<span class="chat-msg__note">${PRIVACY_NOTE}</span>`);
+  /* R5-1-C-08 (D-147): the bubble note says what happened; the standing note at the top of the thread says the rule */
+  if (masked && me) meta.push(`<span class="chat-msg__note">${peer ? `Hidden from ${esc(peer)}. Numbers and emails stay private on Taily.` : PRIVACY_NOTE}</span>`);
   return `<div class="chat-msg chat-msg--${me ? 'me' : 'them'} chat-msg--${status}">
   <div class="bubble-row${me ? ' bubble-row--me' : ''}"><div class="bubble chat-bubble${me ? ' bubble--me' : ''}">${body}</div></div>
   ${meta.length ? `<div class="chat-msg__meta">${meta.join('')}</div>` : ''}
@@ -912,17 +937,26 @@ export function chatBubble({ text = '', side = 'them', time = '', photos = 0, st
 export function privacyNote() {
   return `<p class="privacy-note"><span class="privacy-note__glyph" aria-hidden="true">i</span>${PRIVACY_NOTE}</p>`;
 }
-/** Read-only thread footer (a declined request): banner + one CTA. */
-export function readOnlyBanner({ text = '', ctaLabel = 'Find another tailor', ctaAct = 'find-another' } = {}) {
-  return `<div class="read-only">${banner({ tone: 'info', text })}${cta(ctaLabel, { attrs: `data-act="${ctaAct}"` })}</div>`;
+/** Read-only thread footer (a declined request): banner + one CTA, optionally an outline secondary under it (M5). */
+export function readOnlyBanner({ text = '', ctaLabel = 'Find another tailor', ctaAct = 'find-another', secondaryLabel = '', secondaryAct = '' } = {}) {
+  return `<div class="read-only">${banner({ tone: 'info', text })}${cta(ctaLabel, { attrs: `data-act="${ctaAct}"` })}${secondaryLabel ? cta(secondaryLabel, { variant: 'secondary', attrs: `data-act="${secondaryAct}"` }) : ''}</div>`;
 }
-/** Message composer — empty (send disabled) · typing · disabled (read-only). */
-export function composer({ value = '', disabled = false, placeholder = 'Message' } = {}) {
-  const empty = !String(value).trim();
-  return `<form class="composer${disabled ? ' composer--disabled' : ''}" data-composer novalidate>
-  <button type="button" class="composer__attach" data-act="attach-photo" aria-label="Add photo"${disabled ? ' disabled' : ''}>${ICON_CAMERA}</button>
+/**
+ * Message composer — empty (send disabled) · typing · disabled (read-only).
+ * M5: `hint` (non-empty) = the live privacy line above the input (`#composer-hint`, aria-live); `photos` > 0 = a tray of
+ * 64 px placeholder tiles with 44 px remove buttons, and Send is enabled by text OR a photo; at `max` the camera is disabled.
+ * The form carries `data-photos` so wireComposer can submit a photo-only message.
+ */
+export function composer({ value = '', disabled = false, placeholder = 'Message', hint = '', photos = 0, max = CHAT_PHOTO_CAP() } = {}) {
+  const empty = !String(value).trim() && !(photos > 0);
+  const full = photos >= max;
+  const tray = photos > 0 ? `<div class="composer__tray" role="list" aria-label="Photos to send">${Array.from({ length: photos }, (_, i) => `<span class="composer__thumb" role="listitem"><span class="composer__thumb-tile" aria-hidden="true"></span><button type="button" class="composer__remove" data-act="remove-attachment" data-index="${i}" aria-label="Remove photo ${i + 1}"${disabled ? ' disabled' : ''}>${ICON_CLOSE}</button></span>`).join('')}</div>` : '';
+  return `<form class="composer${disabled ? ' composer--disabled' : ''}" data-composer data-photos="${photos}" novalidate>
+  <p class="composer__hint t-small c-700" id="composer-hint" aria-live="polite">${hint ? `<span class="privacy-note__glyph" aria-hidden="true">i</span><span>${esc(hint)}</span>` : ''}</p>
+  ${tray}
+  <button type="button" class="composer__attach" data-act="attach-photo" aria-label="${full ? `${max} photos added, the most per message` : 'Add photo'}"${disabled || full ? ' disabled' : ''}>${ICON_CAMERA}</button>
   <label class="sr-only" for="composer-input">Message</label>
-  <input class="composer__input" id="composer-input" type="text" autocomplete="off" placeholder="${esc(placeholder)}" value="${esc(value)}"${disabled ? ' disabled' : ''}>
+  <input class="composer__input" id="composer-input" type="text" autocomplete="off" placeholder="${esc(placeholder)}" value="${esc(value)}"${hint ? ' aria-describedby="composer-hint"' : ''}${disabled ? ' disabled' : ''}>
   <button type="submit" class="composer__send" data-act="send" aria-label="Send"${disabled || empty ? ' disabled' : ''}>Send</button>
 </form>`;
 }
@@ -946,13 +980,13 @@ export function field({ id, label, value = '', type = 'text', inputmode, autocom
   ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : ''}
 </div>`;
 }
-/** Code input — one numeric one-time-code field, `length` digits, spaced for reading. */
-export function codeInput({ id, length = 6, value = '', error = '', label = 'Verification code' } = {}) {
+/** Code input — one numeric one-time-code field, `length` digits, spaced for reading. `helper` replaces the default line under it (an error wins). */
+export function codeInput({ id, length = 6, value = '', error = '', label = 'Verification code', helper = '' } = {}) {
   const msgId = `${id}-msg`;
   return `<div class="field field--code${error ? ' field--error' : ''}">
   <label class="field__label" for="${id}">${esc(label)}</label>
   <div class="field__box"><input class="field__input" id="${id}" name="${id}" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="${length}" pattern="[0-9]*" value="${esc(value)}" placeholder="${'•'.repeat(length)}"${error ? ' aria-invalid="true"' : ''} aria-describedby="${msgId}"></div>
-  <p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(error || `Enter the ${length}-digit code we sent you.`)}</p>
+  <p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(error || helper || `Enter the ${length}-digit code we sent you.`)}</p>
 </div>`;
 }
 /** Toggle — a switch row (>= 44 px). */
@@ -1057,19 +1091,22 @@ export function optionRow({ name = '', value = '', title = '', sub = '', checked
 }
 
 /* ---------- lists, loading, empty ---------- */
-/** List row — [lead] title (+ sub) left, value (+ chevron) right. A button when `act` is set. `lead` (HTML) takes the same 32 px column as optionRow's, so titles line up. */
-export function listRow({ title, sub = '', right = '', act = '', chevron = true, lead = '' } = {}) {
+/** List row — [lead] title (+ sub) left, value (+ chevron) right. A button when `act` is set (`attrs` = extra attributes on it, e.g. `data-id`). `lead` (HTML) takes the same 32 px column as optionRow's, so titles line up. */
+export function listRow({ title, sub = '', right = '', act = '', chevron = true, lead = '', attrs = '' } = {}) {
   const inner = `${lead ? `<span class="list-row__lead" aria-hidden="true">${lead}</span>` : ''}<span class="list-row__text"><span class="list-row__title">${title}</span>${sub ? `<span class="list-row__sub">${sub}</span>` : ''}</span>${right ? `<span class="list-row__right">${right}</span>` : ''}${act && chevron ? CHEVRON_RIGHT.replace('method-row__chevron', 'list-row__chevron') : ''}`;
   return act
-    ? `<button type="button" class="list-row" data-act="${act}">${inner}</button>`
+    ? `<button type="button" class="list-row" data-act="${act}"${attrs ? ` ${attrs}` : ''}>${inner}</button>`
     : `<div class="list-row list-row--static">${inner}</div>`;
 }
-/** Skeleton — loading placeholders (static under reduced motion). kind: line | tailor-row | card | thread. */
+/** Skeleton — loading placeholders (static under reduced motion). kind: line | tailor-row | card | thread | thread-row | payout. */
 export function skeleton({ kind = 'line', count = 1 } = {}) {
   const one = {
     line: '<span class="skeleton__line"></span>',
     'tailor-row': '<div class="skeleton__card skeleton__card--row"><span class="skeleton__who"><span class="skeleton__dot"></span><span class="skeleton__lines"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w40"></span><span class="skeleton__line skeleton__line--w80"></span></span></span><span class="skeleton__lower"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w80"></span></span></div>',
     card: '<div class="skeleton__card"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line"></span><span class="skeleton__line skeleton__line--w80"></span></div>',
+    'thread-row': '<div class="skeleton__row"><span class="skeleton__dot skeleton__dot--sm"></span><span class="skeleton__lines"><span class="skeleton__line skeleton__line--w40"></span><span class="skeleton__line skeleton__line--w80"></span></span></div>',
+    'appt-row': '<div class="skeleton__appt"><span class="skeleton__dot skeleton__dot--sm"></span><span class="skeleton__lines"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w80"></span><span class="skeleton__line skeleton__line--w40"></span></span><span class="skeleton__aside"><span class="skeleton__line skeleton__line--pill"></span><span class="skeleton__line skeleton__line--amt"></span></span></div>',
+    payout: '<div class="skeleton__card"><span class="skeleton__line skeleton__line--figure skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w80"></span><span class="skeleton__line skeleton__line--w40"></span></div>',
     thread: '<div class="skeleton__thread"><span class="skeleton__bubble skeleton__bubble--them"></span><span class="skeleton__bubble skeleton__bubble--me"></span><span class="skeleton__bubble skeleton__bubble--them skeleton__bubble--short"></span></div>',
   }[kind] ?? '';
   return `<div class="skeleton skeleton--${kind}" aria-busy="true"><span class="sr-only">Loading</span>${one.repeat(Math.max(1, count))}</div>`;
@@ -1133,13 +1170,17 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
   ].filter(Boolean);
   return moneyRows(rows);
 }
-/** The tailor's breakdown — no courier row (D-04); the Taily fee is a negative row. */
-export function tailorBreakdown(q) {
+/** The tailor's breakdown — no courier row (D-04); the Taily fee is a negative row. `feeAfterServices` (M5, D-137, t-payout only)
+    seats the fee row right under Services with `feeCaption`; the default order is unchanged. */
+export function tailorBreakdown(q, { feeAfterServices = false, feeCaption = '' } = {}) {
+  noPercent(feeCaption, 'tailorBreakdown');
+  const fee = { label: 'Taily fee', cents: q.tailyFee, kind: 'negative', caption: feeAfterServices ? feeCaption : '' };
   return moneyRows([
     { label: 'Services', cents: q.services },
+    feeAfterServices && fee,
     q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush },
-    { label: 'Taily fee', cents: q.tailyFee, kind: 'negative' },
+    !feeAfterServices && fee,
     { label: 'Your payout', cents: q.payout, kind: 'total' },
   ].filter(Boolean));
 }
@@ -1178,17 +1219,20 @@ export function wireChipGroups(root) {
     group.dispatchEvent(new CustomEvent('chip', { bubbles: true, detail: { name: group.dataset.chipGroup, value: b.dataset.value, values } }));
   });
 }
-/** Composer: enable Send only while there is text; Enter submits via the form. */
+/** Composer: Send is enabled while there is text OR an attached photo (`form.dataset.photos`, M5); Enter submits via the form.
+    `onSend(text)` — `text` may be '' for a photo-only message. */
 export function wireComposer(root, onSend) {
   root.querySelectorAll('[data-composer]').forEach((form) => {
     const input = form.querySelector('.composer__input'); const send = form.querySelector('.composer__send');
-    input.addEventListener('input', () => { send.disabled = !input.value.trim(); });
+    const photos = () => Number(form.dataset.photos) || 0;
+    const sendable = () => !!input.value.trim() || photos() > 0;
+    input.addEventListener('input', () => { send.disabled = !sendable(); });
     form.addEventListener('submit', (e) => {
       e.preventDefault();
+      if (input.disabled || !sendable()) return;
       const text = input.value.trim();
-      if (!text || input.disabled) return;
       onSend?.(text);
-      input.value = ''; send.disabled = true;
+      input.value = ''; send.disabled = !sendable();
     });
   });
 }
@@ -1443,7 +1487,8 @@ export function wirePhotoViewer(root) {
   root.addEventListener('click', (e) => {
     const el = e.target.closest('[data-act="view-photo"]');
     if (!el || e.target.closest('.screen-sheet--overlay')) return;
-    openPhotoViewer({ title: `${el.dataset.type} · ${el.dataset.count === '1' ? 'photo' : 'photos'}`, count: Number(el.dataset.count) });
+    /* chat bubbles carry a ready-made data-title; garment thumbnails build "<type> · photos" */
+    openPhotoViewer({ title: el.dataset.title || `${el.dataset.type} · ${el.dataset.count === '1' ? 'photo' : 'photos'}`, count: Number(el.dataset.count) });
   });
 }
 
@@ -1593,4 +1638,122 @@ export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: tot
     body = `${moneyRows([{ label: 'Uber quote', cents: quote }, { label: 'Taily courier fee', cents: markup }, { label: 'Courier total', cents: total, kind: 'total' }])}${note ? `<p class="t-small c-600 courier-card__note">${esc(note)}</p>` : ''}`;
   }
   return `<div class="courier-card courier-card--${state}"${state === 'loading' ? ' aria-busy="true"' : ''} data-state="${state}">${head}${body}</div>`;
+}
+
+/* ============================================================
+   M5 — messaging, accounts, earnings, system (docs/v5/M5-spec.md §A8)
+   ============================================================ */
+
+/**
+ * Thread messages — the ONE renderer both thread screens use (D-128): day dividers ("Today" / `fmtDay`), system lines in the
+ * reader's wording (`text` for the customer, `tailorText ?? text` for the tailor) with their time, chat bubbles by reader
+ * (`me` = the reader's own), then the `sending` bubble and each `failed` bubble ("Not sent · Retry", `data-id`).
+ * `peer` (optional) = the other person's first name, for the photo button's label ("Photo from Amara"; own photos read "Your photo").
+ * `sending` / `failed[i]` = { text, photos = 0, masked = false, id }.
+ */
+export function threadMessages(messages = [], { reader = 'customer', now = null, failed = [], sending = null, peer = '' } = {}) {
+  const today = now ? isoDay(now) : '';
+  const them = reader === 'tailor' ? 'customer' : 'tailor';
+  const parts = [];
+  let lastDay = '';
+  for (const m of messages) {
+    const day = isoDay(m.at);
+    if (day !== lastDay) {
+      lastDay = day;
+      parts.push(`<p class="thread__day t-caps c-600">${day === today ? 'Today' : fmtDay(m.at)}</p>`);
+    }
+    if (m.from === 'system') {
+      const text = reader === 'tailor' ? (m.tailorText ?? m.text) : m.text;
+      parts.push(`<p class="thread__system t-small c-600">${esc(text)} <span class="thread__system-time">· ${fmtTime(m.at)}</span></p>`);
+      continue;
+    }
+    const mine = m.from === reader;
+    parts.push(chatBubble({
+      text: m.text, side: mine ? 'me' : 'them', time: fmtTime(m.at), photos: m.photos ?? 0, masked: !!m.masked,
+      photoLabel: mine ? 'Your photo' : (peer && m.from === them ? `Photo from ${peer}` : 'Photo'), peer,
+    }));
+  }
+  if (sending) parts.push(chatBubble({ text: sending.text ?? '', side: 'me', photos: sending.photos ?? 0, masked: !!sending.masked, status: 'sending', photoLabel: 'Your photo', peer }));
+  for (const f of failed) parts.push(chatBubble({ text: f.text ?? '', side: 'me', photos: f.photos ?? 0, masked: !!f.masked, status: 'failed', id: f.id ?? '', photoLabel: 'Your photo', peer }));
+  return `<div class="thread" aria-live="polite">${parts.join('')}</div>`;
+}
+
+/** Thread header — the inner HTML for `headingRow` (root `.thread-head`): a 40 px avatar, the name, one `sub` line (HTML; may hold a `countdown`). */
+export function threadHead({ initials = '', photo = null, name = '', sub = '' } = {}) {
+  return `<div class="thread-head">
+  ${avatar({ initials, photo, size: 'sm' })}
+  <div class="thread-head__text"><h1 class="thread-head__name t-body w-600">${esc(name)}</h1>${sub ? `<p class="thread-head__sub t-small c-600">${sub}</p>` : ''}</div>
+</div>`;
+}
+
+/**
+ * Thread context row (the signature, D-128) — the job a thread is pinned to: status pill + visit time on one line, a sub line, and a
+ * chevron. A `<button data-act data-id>` when `act` is set, else a static `<div>`. At least 56 px tall.
+ */
+export function threadContext({ pill = '', pillLabel = '', title = '', sub = '', act = '', id = '' } = {}) {
+  const inner = `<span class="thread-context__text">
+    <span class="thread-context__line">${pill ? `<span class="thread-context__pill">${statusPill(pill, pillLabel ? esc(pillLabel) : undefined)}</span>` : ''}<span class="thread-context__title t-body w-600">${esc(title)}</span></span>
+    ${sub ? `<span class="thread-context__sub t-small c-600">${esc(sub)}</span>` : ''}
+  </span>${act ? CHEVRON_RIGHT.replace('method-row__chevron', 'thread-context__chevron') : ''}`;
+  return act
+    ? `<button type="button" class="thread-context" data-act="${esc(act)}" data-id="${esc(id)}">${inner}</button>`
+    : `<div class="thread-context thread-context--static">${inner}</div>`;
+}
+
+/**
+ * Thread row — one 72 px line of the Messages list (both personas): avatar, name (+ status pill) · time, one-line preview, and an unread
+ * badge. Unread bolds the name and the preview and prints a count badge with an sr-only "n unread"; `closed` shows a calm "Closed" pill.
+ */
+export function threadRow({ id = '', act = 'open-thread', name = '', initials = '', photo = null, preview = '', time = '', unread = 0, pill = '', pillLabel = '', closed = false } = {}) {
+  const pillHtml = closed ? statusPill('calm', 'Closed') : pill ? statusPill(pill, pillLabel ? esc(pillLabel) : undefined) : '';
+  return `<button type="button" class="thread-row${unread > 0 ? ' thread-row--unread' : ''}${closed ? ' thread-row--closed' : ''}" data-act="${esc(act)}" data-id="${esc(id)}">
+  <span class="thread-row__avatar">${avatar({ initials, photo, size: 'sm' })}</span>
+  <span class="thread-row__head"><span class="thread-row__name t-body ${unread > 0 ? 'w-700' : 'w-600'}">${esc(name)}</span>${pillHtml ? `<span class="thread-row__pill">${pillHtml}</span>` : ''}<span class="thread-row__time t-small c-600">${esc(time)}</span></span>
+  <span class="thread-row__foot"><span class="thread-row__preview t-small ${unread > 0 ? 'c-700 w-600' : 'c-600'}">${esc(preview)}</span>${unread > 0 ? `<span class="thread-row__badge t-micro w-700" aria-hidden="true">${unread}</span><span class="sr-only">${unread} unread</span>` : ''}</span>
+</button>`;
+}
+
+/**
+ * Attach sheet — "Add a photo" with Take a photo / Choose from library (`[data-act="photo-camera"]` / `photo-library`, 56 px rows).
+ * Either calls `onAdd()` then closes. `count` = photos already on the message; `max` defaults to CHAT_LIMITS.PHOTOS_MAX. dataS `attach`.
+ */
+export function openAttachSheet({ count = 0, max = CHAT_PHOTO_CAP() } = {}, onAdd) {
+  const body = `<div class="attach-sheet">
+  <p class="t-small c-600 attach-sheet__note">Photos of the garment help the tailor quote. Up to ${max}&nbsp;per&nbsp;message.${count > 0 ? ` ${count} added.` : ''}</p>
+  <div class="attach-sheet__rows">
+    ${listRow({ title: 'Take a photo', act: 'photo-camera', lead: ICON_CAMERA, chevron: false })}
+    ${listRow({ title: 'Choose from library', act: 'photo-library', lead: ICON_IMAGE, chevron: false })}
+  </div>
+</div>`;
+  return sheetOverlay(body, { header: 'Add a photo', dataS: 'attach', confirm: false }, (holder, close) => {
+    holder.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-act="photo-camera"], [data-act="photo-library"]')) return;
+      onAdd?.();
+      close();
+    });
+  });
+}
+
+/** Add-card error copy (lifted from c-pay; c-pay keeps its own copy until M6). Keys = the fields `addCard` reports. */
+export const CARD_ERRORS = {
+  number: 'Enter the full card number.',
+  exp: 'Enter a valid expiry, like 08/28.',
+  cvc: 'Enter the 3 or 4 digit code.',
+  zip: 'Enter a 5-digit ZIP code.',
+};
+/**
+ * Card fields — number, expiry + security code, ZIP (`#cc-number #cc-exp #cc-csc #cc-zip`), errors under the fields.
+ * `values` = { number, exp, cvc, zip }; `errors` = { number, exp, cvc, zip } (any truthy value shows that field's CARD_ERRORS copy).
+ * Markup only: the host sheet owns the form, the "stored by our payment provider" note and the Save button.
+ */
+export function cardFields({ values = {}, errors = {} } = {}) {
+  const v = values ?? {}; const e = errors ?? {};
+  return `<div class="card-fields">
+  ${field({ id: 'cc-number', label: 'Card number', value: v.number ?? '', inputmode: 'numeric', autocomplete: 'cc-number', placeholder: '1234 1234 1234 1234', maxlength: 19, error: e.number ? CARD_ERRORS.number : '' })}
+  <div class="card-fields__pair">
+    ${field({ id: 'cc-exp', label: 'Expiry', value: v.exp ?? '', inputmode: 'numeric', autocomplete: 'cc-exp', placeholder: 'MM/YY', maxlength: 5, error: e.exp ? CARD_ERRORS.exp : '' })}
+    ${field({ id: 'cc-csc', label: 'Security code', value: v.cvc ?? '', inputmode: 'numeric', autocomplete: 'cc-csc', maxlength: 4, helper: '3 or 4 digits on the back', error: e.cvc ? CARD_ERRORS.cvc : '' })}
+  </div>
+  ${field({ id: 'cc-zip', label: 'ZIP code', value: v.zip ?? '', inputmode: 'numeric', autocomplete: 'postal-code', maxlength: 5, error: e.zip ? CARD_ERRORS.zip : '' })}
+</div>`;
 }

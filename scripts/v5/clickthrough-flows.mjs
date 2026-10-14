@@ -158,6 +158,14 @@ for (const f of all.filter((e) => matches(e.key))) {
     for (const s of arr(exp.has)) if (!text.includes(norm(s))) problems.push(`missing "${s}"`);
     for (const s of arr(exp.not)) if (text.includes(norm(s))) problems.push(`should not show "${s}"`);
     if (exp.sel && !(await page.evaluate((q) => { const el = document.querySelector(q); return !!el && el.getClientRects().length > 0; }, exp.sel))) problems.push(`no visible ${exp.sel}`);
+    /* inView (R5-1-C-02): the `sel` element sits inside the viewport and nothing (a sticky foot, a toast) covers its centre */
+    if (exp.inView && exp.sel && !(await page.evaluate((q) => {
+      const el = document.querySelector(q); if (!el) return false;
+      const r = el.getBoundingClientRect();
+      if (r.top < 0 || r.bottom > window.innerHeight) return false;
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!hit && (el === hit || el.contains(hit));
+    }, exp.sel))) problems.push(`${exp.sel} is outside the viewport or covered`);
   }
   if (f.click.length && OVERLAY_KEYS.has(f.key) && !r.overlays) problems.push('click set but no overlay open');
   if (r.url !== f.key) problems.push(`?flow=${r.url}`);

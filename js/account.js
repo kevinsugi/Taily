@@ -7,8 +7,9 @@
    the decline recovery of D-40). Every fn returns
    { ok, … } | { ok: false, error } (field forms: errors { field: code }).
    ============================================================ */
-import { state, now, blankTailor, nextSection } from './state.js';
+import { state, now, blankTailor, nextSection, TERMINAL } from './state.js';
 import { POLICY } from './money-config.js';
+import { SHOP_CITY } from './data.js';
 
 const WRONG_CODE = '000000';
 
@@ -156,4 +157,106 @@ export function addCard({ number = '', exp = '', cvc = '', zip = '' } = {}) {
 export function useOtherMethod() {
   clearDecline();
   return { ok: true };
+}
+
+/* ---------- re-auth (M5, D-138) ---------- */
+/** Verify a code on an expired session; ok also marks the session valid. */
+export function reauth(code, who = 'customer') {
+  const r = verifyCode(code, who);
+  if (r.ok) state.sim.session = 'valid';
+  return r;
+}
+/** Test hook only: the session has expired. */
+export function expireSession() {
+  state.sim.session = 'expired';
+  return { ok: true };
+}
+
+/* ---------- saved addresses (M5, D-133) ---------- */
+const FIELDS = ['street', 'unit', 'city', 'state', 'zip'];
+/** `customer.address` always equals the default saved address's fields, or null when none is saved. */
+function syncAddress() {
+  const d = state.customer.addresses.find((a) => a.default);
+  state.customer.address = d ? Object.fromEntries(FIELDS.map((k) => [k, d[k] ?? ''])) : null;
+}
+const addrNum = (a) => Number(String(a.id).replace(/^addr-/, '')) || 0;
+
+/** `{ label, street, unit, zip, makeDefault }` → `{ ok, address } | { ok: false, errors: { street, zip, label } }`. City and state from SHOP_CITY. */
+export function addAddress({ label = '', street = '', unit = '', zip = '', makeDefault = false } = {}) {
+  const errors = {};
+  if (!String(label).trim()) errors.label = 'label-required';
+  if (!String(street).trim()) errors.street = 'street-required';
+  if (!/^\d{5}$/.test(String(zip).trim())) errors.zip = 'zip-invalid';
+  if (Object.keys(errors).length) return { ok: false, errors };
+  const list = state.customer.addresses;
+  const address = {
+    id: `addr-${Math.max(0, ...list.map(addrNum)) + 1}`, label: String(label).trim(), street: String(street).trim(), unit: String(unit).trim(),
+    city: SHOP_CITY.city, state: SHOP_CITY.state, zip: String(zip).trim(), default: false,
+  };
+  if (makeDefault || !list.some((a) => a.default)) { for (const a of list) a.default = false; address.default = true; }
+  list.push(address);
+  syncAddress();
+  return { ok: true, address };
+}
+
+/** → `{ ok, removed, index, newDefault }` (`newDefault` = the promoted address id, or null). Removing the last one leaves `customer.address === null`. */
+export function removeAddress(id) {
+  const list = state.customer.addresses;
+  const index = list.findIndex((a) => a.id === id);
+  if (index < 0) return fail('unknown-address');
+  const [removed] = list.splice(index, 1);
+  let newDefault = null;
+  if (removed.default && list.length) { list[0].default = true; newDefault = list[0].id; }
+  syncAddress();
+  return { ok: true, removed, index, newDefault };
+}
+
+/** Undo: puts the address back where it was, default flag included. */
+export function restoreAddress(removed, index = 0) {
+  if (!removed) return fail('unknown-address');
+  const list = state.customer.addresses;
+  if (removed.default) for (const a of list) a.default = false;
+  list.splice(Math.min(index, list.length), 0, { ...removed });
+  syncAddress();
+  return { ok: true, address: removed };
+}
+
+export function setDefaultAddress(id) {
+  const list = state.customer.addresses;
+  if (!list.some((a) => a.id === id)) return fail('unknown-address');
+  for (const a of list) a.default = a.id === id;
+  syncAddress();
+  return { ok: true };
+}
+
+/* ---------- saved cards (M5, D-134) ---------- */
+const isFinalExpiry = (a) => a.status === 'expired' && a.retries >= POLICY.MAX_RETRIES;
+const holdsCard = (a, id) => a.cardId === id && !TERMINAL.includes(a.status) && !isFinalExpiry(a);
+/** The newest open appointment paying with this card, or null. */
+export function cardInUse(id) {
+  return state.appts.filter((a) => holdsCard(a, id)).pop() ?? null;
+}
+
+export function setDefaultCard(id) {
+  const cards = state.customer.cards;
+  if (!cards.some((c) => c.id === id)) return fail('unknown-card');
+  for (const c of cards) c.default = c.id === id;
+  return { ok: true };
+}
+
+/** → `{ ok, removed, movedTo, appts }` | `unknown-card` | `in-use` (the only card of an open booking). Open bookings move to the new default. */
+export function removeCard(id) {
+  const cards = state.customer.cards;
+  const index = cards.findIndex((c) => c.id === id);
+  if (index < 0) return fail('unknown-card');
+  const open = state.appts.filter((a) => holdsCard(a, id));
+  if (open.length && cards.length === 1) return fail('in-use');
+  const [removed] = cards.splice(index, 1);
+  if (removed.default && cards.length) cards[0].default = true;
+  let movedTo = null;
+  if (open.length) {
+    movedTo = (cards.find((c) => c.default) ?? cards[0]).id;
+    for (const a of open) a.cardId = movedTo;
+  }
+  return { ok: true, removed, movedTo, appts: open.map((a) => a.id) };
 }

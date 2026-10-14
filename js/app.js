@@ -10,6 +10,7 @@ import { state } from './state.js';
 import { toast, closeOverlay, clearToasts } from './components.js';
 import { ALL_FLOWS, setBootLatency, primaryFlow } from './flows.js';
 import { initFlowMenu, runFlow } from './flow-menu.js';
+import { systemBanner, wireSystem } from './system.js';
 
 /* Screens are loaded dynamically in boot() — a static import here would run
    the screen module before this module body (imports hoist), hitting the
@@ -29,6 +30,7 @@ const SCREEN_MODULES = [
   /* M4 · Fitting to completion */
   't-adjust', 'c-price-change', 'c-ready', 'c-complete', 'c-review',
   /* M5 · Messaging, accounts, earnings, system */
+  'c-messages', 'c-account', 'c-addresses', 'c-cards', 'c-orders', 't-earnings', 't-payout', 't-messages',
 ];
 
 /* Where Back at the root and the persona flip land; sys-index until those screens are registered. */
@@ -150,8 +152,13 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
      Re-rendering the SAME screen keeps it (an Undo toast survives the re-render that follows). */
   if (prevScreen !== id) clearToasts();
   el.innerHTML = entry.view(state);
+  /* M5 system layer (D-138): the offline banner sits under the top bar of every screen */
+  const sys = systemBanner(state);
+  if (sys) el.insertAdjacentHTML('afterbegin', sys);
   el.dataset.screen = id;
   entry.wire?.(el);
+  /* a wire() that forwarded elsewhere (redirectIfMoved) already rendered the destination with its own system layer */
+  if (el.isConnected && el.dataset.screen === id) wireSystem(el, id, { go: render });
   wireBackButtons(el);
   /* R3-2-C-01: a new screen opens at its top (its pill + title are what it says first); a re-render of the
      SAME screen keeps its scroll, so a sheet, a toast or a busy repaint never jumps the page. A wire()

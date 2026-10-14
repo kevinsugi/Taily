@@ -16,6 +16,7 @@ import { POLICY } from '../money-config.js';
 import {
   chrome, headingRow, banner, emptyState, requestCard, apptRow, toast, esc,
 } from '../components.js';
+import { openPushPrompt } from '../system.js';
 
 const ID = 't-home';
 const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -154,6 +155,13 @@ function wire(root) {
       toast('Notifications are on');
     }
   });
+  /* D-139: the soft ask, at the moment of value. "Not now" leaves the denied banner above (D-85). */
+  if (state.sim.push === 'prompt') {
+    openPushPrompt({
+      title: 'Don’t miss a request',
+      body: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications and we’ll tell you the moment one comes in.`,
+    }, { onDone: () => go(ID, { replace: true }) });
+  }
 }
 
 register(ID, view, wire);

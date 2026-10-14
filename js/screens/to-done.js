@@ -75,7 +75,11 @@ function wire(root) {
     const a = e.target.closest('[data-act]');
     if (!a) return;
     if (a.dataset.act === 'rush') go('t-rush');
-    else if (a.dataset.act === 'shop') go('t-shop', { fresh: true });
+    else if (a.dataset.act === 'shop') {
+      /* D-139: first launch — the soft notification ask shows on Home (t-home), where requests will arrive */
+      if (state.sim.push === 'default') state.sim.push = 'prompt';
+      go('t-shop', { fresh: true });
+    }
     else if (a.dataset.act === 'as-customer') {
       state.ui.booking = { ...state.ui.booking, from: undefined, tailorId: MY_TAILOR_ID };   // persona flips to customer on c-tailor (D-65)
       state.ui['c-tailor'] = { ...state.ui['c-tailor'], preview: true };

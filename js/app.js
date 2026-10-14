@@ -230,7 +230,7 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
 
   /* M6-A-08: the sticky action bar's height (+16) is what the content must clear — scroll-padding and the body's bottom padding read it */
   syncBarHeight(el);
-  /* K-07 (D-222): hairline on scroll — the top nav's bottom edge once the page is scrolled, the action bar's top edge while content continues below */
+  /* K-07 / K-08: hairline on scroll — the action bar's top edge while content continues below */
   wireScrollEdges(el);
   announce(id);
   /* M6-A-04: a new screen moves focus to its h1 so a screen reader starts at the title; an open overlay keeps the focus it set */
@@ -289,8 +289,8 @@ function restoreFocus(root) {
 }
 
 let barObserver = null;
-/* K-07 (D-222): #screen[data-scrolled] (page scrolled from the top) and #screen[data-more] (content continues below the viewport) drive the
-   chrome hairlines in components-v5.css. One passive scroll listener per screen, coalesced into one rAF; writes only when a flag flips.
+/* K-07 / K-08: #screen[data-more] (content continues below the viewport) drives the action bar's top hairline in components-v5.css
+   (the nav has no hairline and is not pinned, K-08). One passive scroll listener per screen, coalesced into one rAF; writes only when a flag flips.
    Under html.is-test the flags are set at paint and never follow resize / content changes, so a full-page screenshot is deterministic. */
 let edgeOff = null;
 function wireScrollEdges(el) {
@@ -300,7 +300,6 @@ function wireScrollEdges(el) {
   const doc = document.documentElement;
   const set = (name, on) => { const v = on ? 'true' : 'false'; if (el.dataset[name] !== v) el.dataset[name] = v; };
   const measure = () => {
-    set('scrolled', window.scrollY > 0);
     set('more', doc.scrollHeight - window.scrollY - window.innerHeight > 1);
   };
   measure();

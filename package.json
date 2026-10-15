@@ -4,6 +4,7 @@
   "description": "Taily v5 prototype — plain HTML/CSS/JS. No build step.",
   "scripts": {
     "serve": "node scripts/serve.mjs",
+    "stamp": "node scripts/v5/stamp.mjs",
     "check": "node scripts/v5/check.mjs",
     "diff": "node scripts/v5/diff.mjs",
     "model": "node scripts/v5/model-test.mjs",

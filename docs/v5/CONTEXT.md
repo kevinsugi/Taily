@@ -1,6 +1,7 @@
 # Taily v5 — agent context (read this, not the repo)
 
 Plain HTML/CSS/JS, no build step, branch `V5`. Serve: `npm run serve` (127.0.0.1:4173). Gate: `npm run check`.
+**Before committing run `npm run stamp`** (content-hash cache-busting: `?v=<sha1[0..10]>` on every CSS link + an import map for all `js/**/*.js` in `index.html` / `components.html`, D-246); `npm run check` fails when stamps are stale. Add no `<link>`/`<script>` by hand without re-stamping.
 Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.md` · calls made: `docs/v5/DECISIONS.md`
 · milestone specs `docs/v5/M#-spec.md` · ledger `docs/v5/PROGRESS.md`. Never read `docs/HISTORY.md`, `UX-LOOP.md`,
 `js/v4/`, `js/screens/v4/`, `scripts/v4/` or `js/garment-icons.js`. Read code with `grep -n` / `sed -n` ranges.

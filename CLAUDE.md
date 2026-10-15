@@ -49,6 +49,9 @@ screen, `expect` holds, no console errors, money `%` lint, 44 px lint; cross-per
 regression vs `ref/v5/<flow-key>.png` self-baselines (`--accept-new` for new keys; `npm run visual -- --accept <key>`
 for intended changes, listed in the commit) → style hygiene. Run steps sequentially, never in parallel.
 `npm run serve` serves on 127.0.0.1:4173. The v4 harness is archived, unrun, in `scripts/v4/`.
+**Run `npm run stamp` before committing** (any `css/` or `js/` change): it rewrites the `?v=<hash>` on every stylesheet /
+modulepreload / main script and the import map in `index.html` + `components.html` so a deploy loads as one consistent
+set (D-246). `npm run check` fails (first step) if the stamps are stale. Never hand-edit the `stamp:importmap` block.
 
 ## Working rules (token budget)
 

@@ -2,6 +2,7 @@
    npm run check — the whole v5 gate in one command.
 
    Runs SEQUENTIALLY (never in parallel — screenshots corrupt):
+     0. stamp     (fast, first) fails when index.html's ?v= hashes are stale
      1. model     scripts/v5/model-test.mjs      (Node, no browser)
      2. flows     scripts/v5/clickthrough-flows.mjs   registry + every
                   FLOWS entry + money / target lint + menu behaviour
@@ -33,7 +34,7 @@ const SKIP = flag('skip');
 const t0 = Date.now();
 const steps = [];
 
-const SIGNAL = /^FAIL|^NOTE|^SKIP|Error|CONSOLE|over gate|^Baselines written|^\d+ (flow|visual) entries|^lint:|^model:|passed|ALL (ASSERTIONS|TESTS)/;
+const SIGNAL = /^FAIL|^NOTE|^SKIP|Error|CONSOLE|over gate|^Baselines written|^\d+ (flow|visual) entries|^lint:|^model:|passed|ALL (ASSERTIONS|TESTS)|stamps are current/;
 
 function run(id, name, script, args = []) {
   if ((ONLY.length && !ONLY.includes(id)) || SKIP.includes(id)) return;
@@ -65,6 +66,7 @@ function run(id, name, script, args = []) {
   steps.push({ name, ok });
 }
 
+run('stamp', 'stamp (cache-busting ?v= hashes are current)', 'scripts/v5/stamp.mjs', ['--check']);
 run('model', 'model (golden numbers, guards)', 'scripts/v5/model-test.mjs');
 run('flows', 'flows (registry, expect, money + target lint, menu)', 'scripts/v5/clickthrough-flows.mjs');
 if (existsSync(resolve(ROOT, 'scripts/v5/journeys.mjs'))) run('journeys', 'journeys (cross-persona)', 'scripts/v5/journeys.mjs');

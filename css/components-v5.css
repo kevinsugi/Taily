@@ -602,6 +602,8 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .request-card__strip--expired { background: var(--neutral-100); color: var(--neutral-600); }
 /* K-13 (D-238), option F "The proposal leads the bar": a suggested card's strip = "You suggested <when>" left, clock + countdown at the right end; same warning / error tones */
 .request-card__strip--suggest { justify-content: space-between; gap: var(--space-12); }
+/* K-15: the same strip on the t-request screen — bleeds across the 390 frame, flush under the nav (no card to clip it), 20 px gutter */
+.request-card__strip--page { margin: calc(-1 * var(--space-16)) calc(-1 * var(--space-20)) var(--space-20); padding-inline: var(--space-20); }
 .request-card__strip-lead { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .request-card__strip-clock { display: inline-flex; align-items: center; gap: var(--space-4); flex-shrink: 0; margin-left: auto; }
 
@@ -618,6 +620,12 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
    left; each garment drawn + "n items · n services" on the right). No footer. */
 .request-card__payside { display: flex; flex-direction: column; align-items: flex-end; flex: 0 0 auto; text-align: right; font-variant-numeric: tabular-nums; }
 .request-card__payside .request-card__amount { line-height: calc(29 / 24); }
+/* K-15: on t-request the payout column is one 44 px button (amount over "Your payout ⓘ") that opens the Taily-fee sheet */
+.request-card__name.t-title { font-family: var(--font-serif); font-size: var(--size-28); line-height: calc(34 / 28); font-weight: 500; }   /* K-15: the screen's h1 (beats the v4 .request-card__name in components.css) */
+.request-head__pay { min-height: 44px; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; border-radius: var(--radius-sm); }
+.request-head__pay:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+.request-head__label { display: inline-flex; align-items: center; gap: var(--space-4); }
+.request-head__label .icon-16 { width: var(--size-16); height: var(--size-16); }
 .request-card__line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-8) var(--space-12); padding-top: var(--space-12); box-shadow: inset 0 1px 0 var(--neutral-100); font-variant-numeric: tabular-nums; }
 .request-card__icons { display: inline-flex; align-items: center; gap: var(--space-2); }
 
@@ -1030,17 +1038,25 @@ a.cta-small { text-decoration: none; }
 .info-sheet .meta-row { align-items: flex-start; }
 .info-sheet .meta-row__glyph { color: var(--neutral-600); padding-top: var(--space-2); }
 
-/* ---------- verified mark + sheet (A5.7, D-189) ---------- */
-.verified { position: relative; display: inline-flex; align-items: center; gap: var(--space-4); min-height: 20px; font-family: var(--font-sans); font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--success-ink); }
+/* ---------- the tailor's Verified check + tooltip popover (A5.7, D-189; K-15) ---------- */
+.verified { position: relative; display: inline-flex; align-items: center; gap: var(--space-4); min-height: 20px; padding: 0; border: 0; background: none; font-family: var(--font-sans); font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--success-ink); cursor: pointer; }
 .verified .icon-16 { width: var(--size-16); height: var(--size-16); }
-.verified--inert { min-height: auto; }
-/* M7-2-C-03: the proof row's controls stay 20 px tall; an invisible ::before carries the 44 px target (data-hit="inline") */
-.verified:not(.verified--inert)::before, .rating-line--link::before { content: ''; position: absolute; inset: -12px calc(-1 * var(--space-8)); }
-.verified-list { display: flex; flex-direction: column; gap: var(--space-16); margin: 0; padding: var(--space-12) var(--space-20) var(--space-24); list-style: none; }
-.verified-item { display: flex; align-items: flex-start; gap: var(--space-12); }
-.verified-item__icon { display: inline-flex; flex-shrink: 0; padding-top: var(--space-2); color: var(--success); }
-.verified-item__icon .icon-16 { width: var(--size-16); height: var(--size-16); }
-.verified-item__text { display: flex; flex-direction: column; gap: var(--space-2); }
+/* M7-2-C-03 / K-15: 16-20 px visible, an invisible ::before carries the 44 px target (data-hit="inline") */
+.verified::before, .rating-line--link::before { content: ''; position: absolute; inset: -12px calc(-1 * var(--space-8)); }
+.verified--icon { min-height: 0; }
+.verified--icon::before { inset: -14px; }
+.verified:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; border-radius: var(--radius-sm); }
+.verified-pop { position: absolute; z-index: var(--z-banner); box-sizing: border-box; width: max-content; max-width: calc(100% - var(--space-24)); padding: var(--space-12) var(--space-16); border-radius: var(--radius-md); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-300), var(--shadow-float); color: var(--ink); outline: none; animation: verified-pop-in var(--dur-press) var(--ease-out); }
+.verified-pop__list { display: flex; flex-direction: column; gap: var(--space-8); margin: 0; padding: 0; list-style: none; }
+.verified-pop__item { display: flex; align-items: center; gap: var(--space-8); }
+.verified-pop__tick { display: inline-flex; flex-shrink: 0; color: var(--success-ink); }
+.verified-pop__tick .icon-16 { width: var(--size-16); height: var(--size-16); }
+/* the pointer: a rotated square with two borders, over the bubble's own stroke, aimed at the check (--pop-arrow-x) */
+.verified-pop__arrow { position: absolute; left: var(--pop-arrow-x, 50%); width: var(--space-8); height: var(--space-8); margin-left: calc(-0.5 * var(--space-8)); background: var(--white); border: 0 solid var(--neutral-300); transform: rotate(45deg); }
+.verified-pop[data-side="below"] .verified-pop__arrow { top: calc(-0.5 * var(--space-8) - 1px); border-width: 1px 0 0 1px; }
+.verified-pop[data-side="above"] .verified-pop__arrow { bottom: calc(-0.5 * var(--space-8) - 1px); border-width: 0 1px 1px 0; }
+@keyframes verified-pop-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .verified-pop { animation: none; } }
 
 /* ---------- rating line (A5.8, D-190) ---------- */
 .rating-line { display: inline-flex; align-items: center; gap: var(--space-4); }

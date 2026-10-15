@@ -62,7 +62,7 @@ function visitSection(a, t) {
     const href = calendarHref({ uid: a.id, start: a.slot.start, end: a.slot.end, stamp: isoMinute(new Date(now())), summary: `${VISIT_LABEL.customer[a.job.visitType]} with ${t.name}`, location: whereOf(a, t) });
     actions.push({ label: 'Add to calendar', icon: ICON_CALENDAR, href, act: 'add-to-calendar', attrs: 'download="taily-visit.ics"' });
   }
-  return sec(personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: t.verified }, rows: visitRows(a, t), actions }));
+  return sec(personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: t.verified, years: t.years }, rows: visitRows(a, t), actions }));
 }
 
 /** The shared detail header (D-93, supersedes R3-1-C-04's pill-above-Back): Back on its own row, then the pill,

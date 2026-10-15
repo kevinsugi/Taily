@@ -125,7 +125,7 @@ function view(s) {
     <button type="button" class="c-tailors__sort t-small w-600" data-act="sort" aria-haspopup="dialog">Sort: ${sortLabel(u.sort)}</button>
   </div>`}
   <div class="c-tailors__rows">${rows.map((r) => tailorRow({
-        id: r.tailor.id, name: r.tailor.name, initials: r.tailor.initials, photo: r.tailor.photo, verified: r.tailor.verified,
+        id: r.tailor.id, name: r.tailor.name, initials: r.tailor.initials, photo: r.tailor.photo, verified: r.tailor.verified, years: r.tailor.years,
         rating: r.tailor.rating?.count > 0 ? r.tailor.rating : null, distanceMi: r.distanceMi, quote: r.quote,
         nextOpening: r.nextOpening, visitType: job.visitType, declined: r.declined, format: fmtAmt, booked: bookedNote(r.tailor) })).join('')}</div>
   ${noneLeft ? `<div data-empty="none-left">${emptyState({ art: 'Suit Pant', title: 'No other tailors for this request yet', body: `${declinedFirst(job)} declined this request, and no other tailors cover ${esc(job.zip)} yet. A later need-by date or another ZIP may open more.`, ctaLabel: 'Change need-by date', ctaAct: 'later', secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>` : ''}`;

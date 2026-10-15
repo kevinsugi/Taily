@@ -6,7 +6,7 @@
 import { register, render as go, back, currentScreen, previousScreen } from '../app.js';
 import { state, T, tailorById, estimateNext, eligible, nextOpening } from '../state.js';
 import {
-  chrome, flowBar, headingRow, avatar, ratingLine, verifiedMark, reviewRow, photoStub, priceRow, metaRow,
+  chrome, flowBar, headingRow, avatar, ratingLine, verifiedCheck, reviewRow, photoStub, priceRow, metaRow,
   sectionHead, textLink, infoButton, rushLadder, stitchDivider, ICON_CHAT,
   actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, esc,
 } from '../components.js';
@@ -47,7 +47,7 @@ function hero(t, { back = false } = {}) {
   const area = t.shop?.hood || ZIP_INFO[t.shop?.zip]?.hood || '';
   const line2 = [area, t.years ? `${t.years} years tailoring` : ''].filter(Boolean).join(' · ');
   const rated = t.rating?.count > 0;
-  const proof = [rated ? ratingLine({ ...t.rating, anchor: '#reviews' }) : '<span class="t-small c-600 c-tailor__new">New on Taily</span>', t.verified ? verifiedMark() : ''].filter(Boolean).join('');
+  const proof = [rated ? ratingLine({ ...t.rating, anchor: '#reviews' }) : '<span class="t-small c-600 c-tailor__new">New on Taily</span>', t.verified ? verifiedCheck({ years: t.years, word: true }) : ''].filter(Boolean).join('');
   /* K-04 / D-205: opened from Bookings (profile) or previewed by the tailor, the Back sits inline with the tailor's name, not on its own row */
   const id = `<div class="c-tailor__id">
       ${avatar({ initials: t.initials, photo: t.photo, size: 'md' })}

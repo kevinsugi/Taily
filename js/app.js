@@ -211,7 +211,7 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   entry.wire?.(el);
   /* M6-A-11: radio groups (chips, segmented, option rows) are one tab stop with arrow keys */
   if (el.isConnected && el.dataset.screen === id) wireRadioRows(el);
-  /* M7: the ⓘ info sheets (infoButton) and the Verified sheet (verifiedMark) open from any screen; screens never wire them */
+  /* M7: the ⓘ info sheets (infoButton) and the tailor's Verified popover (verifiedCheck) open from any screen; screens never wire them */
   if (el.isConnected && el.dataset.screen === id) { wireInfo(el); wireVerified(el); }
   /* a wire() that forwarded elsewhere (redirectIfMoved) already rendered the destination with its own system layer */
   if (el.isConnected && el.dataset.screen === id) wireSystem(el, id, { go: render });

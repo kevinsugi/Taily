@@ -2,20 +2,17 @@
 .t-request { padding-bottom: var(--space-40); }
 .t-request.body--with-bar { padding-bottom: var(--space-32); }
 
-/* hero: the take-home and the clock, flat on the linen */
-.t-request__hero { display: flex; flex-direction: column; gap: var(--rhythm-group); margin-top: var(--rhythm-block); }
-
-/* the take-home: the focal figure */
-.t-request__take { display: flex; flex-direction: column; gap: var(--space-4); }
-.t-request__take p { margin: 0; }
-.t-request__take-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); min-height: 16px; }
-.t-request__take-head .info-btn { margin-right: calc(-1 * var(--space-12)); }
-.t-request__amount { font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
-.t-request__take--muted .t-request__amount { color: var(--text-footnote); font-weight: 400; }
-
-/* the expiry line: the clock left, the deadline right (warning ink when soon) */
-.t-request__strip { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); }
-.t-request__strip--soon .t-small { color: var(--warning-ink); }
+/* K-15 "The home card, opened": the flush strip (components: .request-card__strip--page) sits under the nav, an optional note, then the
+   t-home card's header row (components: requestHead) over a hairline; the K-14 tile rows follow. */
+.t-request__note { display: flex; flex-direction: column; gap: var(--space-4); padding-bottom: var(--space-16); }
+.t-request__note p { margin: 0; text-wrap: pretty; }
+.t-request__head { padding-bottom: var(--space-16); box-shadow: inset 0 -1px 0 var(--neutral-200); }
+.t-request__head .request-card__top { align-items: center; flex-wrap: wrap; row-gap: var(--space-8); }
+.t-request__head .request-card__who { flex: 1 1 auto; min-width: min-content; width: auto; padding-bottom: 0; }   /* width / padding: the v4 .request-card__who rule in components.css */   /* at 200% zoom the payout drops under the name instead of over it */
+.t-request__head .request-card__top > .request-card__payside { margin-left: auto; }
+.t-request__head .request-card__name { margin: 0; }
+.t-request__head--muted .request-card__amount { color: var(--text-footnote); font-weight: 400; }   /* pending / did not happen: the payout greys */
+.t-request .t-request__visit { margin-top: var(--rhythm-group); }
 
 /* the visit */
 

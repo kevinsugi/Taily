@@ -64,7 +64,7 @@ export function requestView(appt) {
     payout: m.payout,
     expiresAt: appt.expiresAt,
     money: m,
-    customer: { name: customerName(appt), initials: customerInitials(), verified: state.customer.verified === true },
+    customer: { name: customerName(appt), initials: customerInitials() },
     whenEnd: fmtTime(appt.slot.end),
     minutes: VISIT_MINUTES[appt.job.visitType],
     needByDays: dayDiff(appt.slot.start, appt.job.needBy),

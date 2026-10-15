@@ -82,11 +82,11 @@ export function galleryHtml() {
   s.push(C.statusHero({ variant: 'confirmed', title: 'You’re booked for', titleLine2: 'Thu, Oct 15 at 5:00 PM', body: 'Amara Reyes · At my place · 145 N 7th St' }));
 
   h2('Summary card · Trust badges · Visit block');
-  s.push(C.summaryCard({ initials: 'AR', name: 'Amara Reyes', verified: true, badges: ['ID verified', 'Background check', 'Insured'] }));
+  s.push(C.summaryCard({ initials: 'AR', name: 'Amara Reyes', verified: true, years: 12, badges: ['ID verified', 'Background check', 'Insured'] }));
   s.push(card(C.visitBlock([{ icon: 'calendar', value: 'Thu, Oct 15 · 5:00 PM', strong: true, detail: 'At my place · 60 min' }, { icon: 'home', value: '145 N 7th St, 2R' }, { icon: 'hanger', value: '2 items · 3 services' }], { title: 'Your request' })));
 
-  v('Person-led block (K-12): avatar, name + check, rows under the name, equal buttons');
-  s.push(card(C.personBlock({ title: 'Visit', person: { initials: 'SC', name: 'Sarah Chen', verified: true },
+  v('Person-led block (K-12 / K-15): avatar, name + the tailor’s check, rows under the name, equal buttons');
+  s.push(card(C.personBlock({ title: 'Visit', person: { initials: 'AR', name: 'Amara Reyes', verified: true, years: 12 },
     rows: [{ icon: 'calendar', value: 'Thu, Oct 15 · 5:00 PM', strong: true, detail: 'Home visit · 60 min, until 6:00 PM' }, { icon: 'map-pin', value: '145 N 7th St, 2R, Brooklyn, NY 11211' }],
     actions: [{ label: 'Message', icon: C.ICON_CHAT, act: 'a' }, { label: 'Directions', icon: C.ICON_DIRECTIONS, act: 'b' }, { label: 'Add to calendar', icon: C.ICON_CALENDAR, act: 'c' }] })));
 
@@ -129,7 +129,7 @@ export function galleryHtml() {
       C.avatar({ initials: 'AR', size: 'md', photo: 'assets/garments/tile-suit-jacket.png' }), C.avatar({ size: 'md', photo: true }), C.avatar({ size: 'lg', photo: true }));
 
   h2('Tailor Row');
-  const trow = { id: 'amara', name: amara.name, initials: amara.initials, verified: true, rating: amara.rating, distanceMi: 0.6, nextOpening: '2026-10-15T17:00' };
+  const trow = { id: 'amara', name: amara.name, initials: amara.initials, verified: true, years: amara.years, rating: amara.rating, distanceMi: 0.6, nextOpening: '2026-10-15T17:00' };
   v('default (home visit)');  col(C.tailorRow({ ...trow, quote: seed, visitType: 'home' }));
   v('rush (+ $40 rush fee)'); col(C.tailorRow({ ...trow, quote: rush, visitType: 'home' }));
   v('shop visit');            col(C.tailorRow({ ...trow, quote: quote({ lines }), visitType: 'shop' }));
@@ -263,7 +263,7 @@ export function galleryHtml() {
   /* ---------------- M2 · tailor onboarding + Shop ---------------- */
   const hdr = (inner) => s.push(`<div style="position:relative;height:100px;width:390px;margin-inline:-20px">${inner}</div>`);
   const take = (dollars) => payoutFor({ services: cents(dollars) });                 // what she keeps of a whole-dollar price
-  const MINI_ROW = { id: 'amara', name: amara.name, initials: amara.initials, verified: true, rating: amara.rating, distanceMi: 0.6, nextOpening: '2026-10-15T17:00' };
+  const MINI_ROW = { id: 'amara', name: amara.name, initials: amara.initials, verified: true, years: amara.years, rating: amara.rating, distanceMi: 0.6, nextOpening: '2026-10-15T17:00' };
 
   h2('Onboarding steps · "Step n of 6 · label"');
   v('step 1'); col(C.onboardingSteps('profile'));
@@ -519,10 +519,10 @@ export function galleryHtml() {
   h2('M7 · stitched dash, status, verified, info');
   v('a breakdown: the stitch sits directly above the total');
   col(C.customerBreakdown(seed, { stage: 'estimate', tailorFirst: 'Amara' }));
-  v('verifiedMark · inert');
-  row(C.verifiedMark(), C.verifiedMark({ inert: true }));
-  v('Verified by Taily sheet');
-  s.push(`<div class="sheet-demo">${C.sheet(C.verifiedSheetHtml(), { header: 'Verified by Taily', open: true, confirm: false })}</div>`);
+  v('verifiedCheck · icon · with the word (tailors only, K-15; tap opens the popover)');
+  row(C.verifiedCheck({ years: 12 }), C.verifiedCheck({ years: 12, word: true }));
+  v('Verified popover (K-15): four checks, a tick each');
+  s.push(`<div class="verified-pop-demo"><div class="verified-pop" role="dialog" aria-label="Verification" data-side="below" style="--pop-arrow-x:24px">${C.verifiedPopoverHtml(12)}</div></div>`);
   v('infoButton · the "About the deposit" sheet');
   row(C.infoButton('deposit'), C.infoButton('pricing'));
   { const sh = C.infoSheetHtml('deposit'); s.push(`<div class="sheet-demo">${C.sheet(sh.html, { header: sh.title, open: true, confirm: false })}</div>`); }

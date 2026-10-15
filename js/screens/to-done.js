@@ -19,7 +19,7 @@ function previewRow() {
   const r = tailorsFor(job).rows.find((x) => x.tailor.id === MY_TAILOR_ID);
   if (!r) return null;
   return tailorRow({
-    id: r.tailor.id, name: r.tailor.name, initials: r.tailor.initials, photo: r.tailor.photo, verified: r.tailor.verified,
+    id: r.tailor.id, name: r.tailor.name, initials: r.tailor.initials, photo: r.tailor.photo, verified: r.tailor.verified, years: r.tailor.years,
     rating: r.tailor.rating?.count > 0 ? r.tailor.rating : null, distanceMi: r.distanceMi, quote: r.quote,
     nextOpening: r.nextOpening, visitType: job.visitType,
   });

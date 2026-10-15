@@ -81,6 +81,8 @@ export function topNav(active = 'home', items = NAV.customer, { badges = {}, bac
 /** The nav's Back (K-06): a 44 x 44 chevron button where the logo would be. `.back[data-act="back"]` is what app.js wireBackButtons steps. */
 export const navBackButton = () => `<button type="button" class="back top-nav__back" data-act="back" aria-label="Back" title="Back">${NAV_BACK}</button>`;
 const NAV_BACK_MARK = '<!--nav-back-->';
+/** For a screen with no heading row (t-request, K-15): the marker that turns the nav logo into the Back chevron. */
+export const navBackMark = () => NAV_BACK_MARK;
 /**
  * K-06 (D-221): a screen's heading says it has a Back by calling headingRow({ back }) (the default), which leaves a NAV_BACK_MARK
  * in the markup. The router runs every built screen through this: the marker goes, and the nav's logo becomes the Back chevron.
@@ -334,12 +336,12 @@ export function statusHero({ variant = 'requested', pill, pillLabel, title, titl
 /* Round 15 (Kevin): the tailor side's Sarah card is the "User Summary"
    master (207:3847 NewCustomer) — 20 padded, "✓ New Customer" in accent
    after the name, neutral-100 / accent-ink badges (`user: true`, `tag`). */
-export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [], verified = false, badges = [], tag = '', user = false, attrs = '' } = {}) {
+export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [], verified = false, years = 0, badges = [], tag = '', user = false, attrs = '' } = {}) {
   return `<article class="summary-card${user ? ' summary-card--user' : ''}"${badges.length && !user ? ' role="button" tabindex="0"' : ''} ${attrs}>
   <div class="summary-card__who">
     <span class="avatar avatar--md">${initials}</span>
     <div class="summary-card__info">
-      <span class="summary-card__name-row"><span class="summary-card__name">${name}</span>${verified ? verifiedMark({ inert: true }) : ''}${tag ? `<span class="summary-card__tag">${tag}</span>` : ''}</span>
+      <span class="summary-card__name-row"><span class="summary-card__name">${name}</span>${verified ? verifiedCheck({ years }) : ''}${tag ? `<span class="summary-card__tag">${tag}</span>` : ''}</span>
       ${badges.length && user ? trustBadges(badges, { user }) : ''}
       ${rows.map((r) => `<span class="summary-card__row">${r}</span>`).join('\n      ')}
     </div>
@@ -357,7 +359,7 @@ export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [],
 export function visitBlock(rows = [], { title = 'Visit details', flush = false, action = '' } = {}) {
   /* M7 (A5.5): the title is a small caps section head (`action` = HTML aside, e.g. a "Change time" text link); rows sit flat under it.
      K-10 (D-235): a row is a plain HTML string (legacy) or a fact object for an "Icon rows" row — see `visitRow`. */
-  return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${sectionHead(title, { aside: action })}${visitRows(rows)}</div>`;
+  return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${title || action ? sectionHead(title, { aside: action }) : ''}${visitRows(rows)}</div>`;
 }
 
 /** K-14 (D-240): the rows of a visit / person block share ONE column (`.visit-rows`): every icon in a 40 px round tile, every text on one edge. */
@@ -376,7 +378,7 @@ export function visitRow({ icon = 'calendar', value = '', detail = '', strong = 
 }
 
 /** K-12 Option C "Person-led block": the avatar anchors the block and the visit icon rows hang under the name, then equal action buttons.
-    `person` = { initials, name, verified } — `verified` adds the check mark (`verifiedCheck`) right after the name, no facts line under it.
+    `person` = { initials, name, verified, years } — `verified` (a TAILOR only, K-15) adds the tappable Verified check (`verifiedCheck`, `years` for its popover) right after the name, no facts line under it.
     `rows` = the same fact objects / strings `visitBlock` takes. `actions` = [{ label, icon (HTML), act, href, attrs }] rendered as equal
     columns of small outline buttons (a `href` makes it a link: Directions, Add to calendar). One block for both personas. */
 export function personBlock({ title = 'Visit', person = {}, rows = [], actions = [], action = '' } = {}) {
@@ -386,7 +388,7 @@ export function personBlock({ title = 'Visit', person = {}, rows = [], actions =
     return ctaSmall(inner, { attrs, href: x.href ?? '' });
   }).join('');
   /* K-14: the person is the first row of the one column — the avatar sits in the icon slot (no tile fill), the name on the common text edge */
-  const lead = `<div class="visit-row visit-row--person"><span class="visit-row__icon visit-row__icon--avatar">${avatar({ initials: person.initials ?? '', size: 'sm' })}</span><div class="visit-row__text person-block__who"><span class="person-block__name t-body w-600">${esc(person.name ?? '')}</span>${person.verified ? verifiedCheck() : ''}</div></div>`;
+  const lead = `<div class="visit-row visit-row--person"><span class="visit-row__icon visit-row__icon--avatar">${avatar({ initials: person.initials ?? '', size: 'sm' })}</span><div class="visit-row__text person-block__who"><span class="person-block__name t-body w-600">${esc(person.name ?? '')}</span>${person.verified ? verifiedCheck({ years: person.years }) : ''}</div></div>`;
   return `<div class="visit-block visit-block--flush person-block">${sectionHead(title, { aside: action })}${visitRows(rows, lead)}${btns ? `<div class="person-block__actions">${btns}</div>` : ''}</div>`;
 }
 
@@ -450,7 +452,7 @@ export function trustCard(p, { popup = false } = {}) {
   return `<article class="trust-card${popup ? ' trust-card--popup' : ''}"${popup ? ` role="dialog" aria-label="${p.name}" tabindex="0"` : ''}>
   <div class="trust-card__photo" aria-hidden="true">${photoStub({ type: 'Suit Jacket', size: 'stage' })}</div>
   <div class="trust-card__head">
-    <div class="trust-card__name-row"><span class="trust-card__name">${p.name}</span>${p.verified ? verifiedMark({ inert: true }) : ''}</div>
+    <div class="trust-card__name-row"><span class="trust-card__name">${p.name}</span>${p.verified ? verifiedCheck({ years: p.years }) : ''}</div>
   </div>
   <p class="trust-card__sub">Tailor for ${p.years} years · ${p.area}, ${p.distance} away</p>
   <p class="trust-card__bio">${p.bio}</p>
@@ -562,11 +564,12 @@ let activeOverlay = null;
     replaces #screen — `instant` skips the exit animation and restores
     the page scroll at once (the holder is about to be wiped anyway). */
 export function closeOverlay({ instant = false } = {}) {
+  const hadPopover = closeVerifiedPopover({ instant: true });   // K-15: the Verified popover is not a sheet, but leaves with one
   /* an overlay whose close() is already animating out (a handler
      closed it, then navigated) has nothing left to animate once the
      router wipes #screen — finish it now so the page unfreezes */
   if (instant) for (const fin of [...pendingFinish]) fin();
-  if (!activeOverlay) return false;
+  if (!activeOverlay) return hadPopover;
   const c = activeOverlay;
   activeOverlay = null;
   c({ instant });
@@ -986,10 +989,6 @@ export const ICON_ALERT = GLYPH('<path d="M8 2.4l6 10.4H2z"/><path d="M8 6.6v3M8
    ============================================================ */
 
 /** Section heading (A5.5): a small sans-caps label above a group. `aside` is HTML (an infoButton, a "See all" link); `count` a plain number/text. */
-/** K-12: the verified mark as a check icon only, right after a name (no word, no support text); the accessible name is "Verified". */
-export function verifiedCheck() {
-  return `<span class="verified verified--inert verified--icon">${ICON_VERIFIED}<span class="sr-only">Verified</span></span>`;
-}
 export function sectionHead(title, { id = '', count = null, aside = '' } = {}) {
   const right = [count != null && count !== '' ? `<span class="t-small c-600 tabular">${esc(count)}</span>` : '', aside].filter(Boolean).join('');
   return `<div class="sec-head"><h2 class="t-caps c-600 sec-head__title"${id ? ` id="${esc(id)}"` : ''}>${title}</h2>${right ? `<span class="sec-head__aside">${right}</span>` : ''}</div>`;
@@ -1026,28 +1025,109 @@ export function flowBar({ step = 1, total = BOOKING_STEPS.length, back = true, e
 </div>`;
 }
 
-/** Verified mark (A5.7, D-189) — one seal + word. A button that opens the "Verified by Taily" sheet; `inert` inside a button host (tailorRow). */
-export function verifiedMark({ act = 'verified', inert = false } = {}) {
-  const inner = `${ICON_VERIFIED}<span>Verified</span>`;
-  return inert
-    ? `<span class="verified verified--inert">${inner}</span>`
-    : `<button type="button" class="verified" data-act="${esc(act)}" data-hit="inline" aria-haspopup="dialog">${inner}</button>`;   /* M7-2-C-03: 20 px visible, a ::before carries the 44 px target */
+/* ---------- the tailor's Verified check + its tooltip popover (K-15) ---------- */
+/**
+ * The tailor's Verified check — the ONLY verified mark in the app (customers carry none, K-15). A 16 px seal icon (`word: true` adds the word
+ * "Verified", the profile and list rows) that is a <button> with a 44 px hit area; tapping it opens ONE non-modal tooltip popover
+ * (`openVerifiedPopover`) listing the four checks. `years` = the tailor's years of experience (data-years). `inline` renders a
+ * role="button" span for a host that is itself a <button> (tailorRow) — the tap is intercepted before the row's own action.
+ */
+export function verifiedCheck({ years = 0, word = false, inline = false } = {}) {
+  const attrs = `class="verified verified--check${word ? '' : ' verified--icon'}" data-verified data-years="${Number(years) || 0}" data-hit="inline" aria-label="Verified tailor — show checks" aria-haspopup="dialog" aria-expanded="false" aria-controls="verified-pop"`;
+  const inner = `${ICON_VERIFIED}${word ? '<span>Verified</span>' : ''}`;
+  return inline ? `<span role="button" tabindex="0" ${attrs}>${inner}</span>` : `<button type="button" ${attrs}>${inner}</button>`;
 }
-/** "Verified by Taily" sheet: ID verified · Background check · Insured, one line each (labels = TRUST_BADGES). */
-const VERIFIED_LINES = ['Taily checked a government ID.', 'Passed a background check before their first booking.', 'Covered while working on your garments.'];
-/** The sheet's body (also the gallery's static specimen). */
-export function verifiedSheetHtml() {
-  const rows = TRUST_BADGES.map((label, i) => `<li class="verified-item"><span class="verified-item__icon">${ICON_VERIFIED}</span><span class="verified-item__text"><span class="t-body w-600">${esc(label)}</span><span class="t-small c-600">${VERIFIED_LINES[i] ?? ''}</span></span></li>`).join('');
-  return `<ul class="verified-list">${rows}</ul>`;
+const ICON_TICK = GLYPH('<path d="m3.5 8.4 3 3 6-6.8"/>');
+/** The four checks, one tick each: ID verified · Background check · "<N> years of experience" · Insured. */
+export function verifiedChecks(years = 0) {
+  const n = Number(years) || 0;
+  return ['ID verified', 'Background check', ...(n > 0 ? [`${n} ${n === 1 ? 'year' : 'years'} of experience`] : []), 'Insured'];
 }
-export function openVerifiedSheet() {
-  return sheetOverlay(verifiedSheetHtml(), { header: 'Verified by Taily', dataS: 'verified', confirm: false });
+/** The popover's own markup (also the gallery's static specimen). */
+export function verifiedPopoverHtml(years = 0) {
+  return `<span class="verified-pop__arrow" aria-hidden="true"></span><ul class="verified-pop__list">${verifiedChecks(years).map((t) => `<li class="verified-pop__item"><span class="verified-pop__tick">${ICON_TICK}</span><span class="t-small w-500">${esc(t)}</span></li>`).join('')}</ul>`;
 }
-/** Delegated: `[data-act="verified"]` opens the sheet. app.js calls this on every screen; screens never need to. */
+let activeVerified = null;
+/** Close the open Verified popover. `instant` skips returning focus (the screen is being replaced). Returns true when one was open. */
+export function closeVerifiedPopover({ instant = false } = {}) {
+  if (!activeVerified) return false;
+  const { pop, btn, off } = activeVerified;
+  activeVerified = null;
+  off();
+  pop.remove();
+  if (btn.isConnected) {
+    btn.setAttribute('aria-expanded', 'false');
+    if (!instant) btn.focus({ preventScroll: true });
+  }
+  return true;
+}
+/** Open the popover anchored to a `verifiedCheck`: below it (flipped above near the bottom of the window), clamped inside the screen column,
+    the arrow pointing at the check. Non-modal: closes on an outside tap, Escape, focus leaving, or a second tap on the check. */
+export function openVerifiedPopover(btn) {
+  const screenEl = document.getElementById('screen');
+  if (!screenEl || !btn) return null;
+  const was = activeVerified?.btn === btn;
+  closeVerifiedPopover({ instant: true });
+  if (was) return null;                                           // second tap = close
+  const pop = document.createElement('div');
+  pop.className = 'verified-pop';
+  pop.id = 'verified-pop';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-label', 'Verification');
+  pop.tabIndex = -1;
+  pop.innerHTML = verifiedPopoverHtml(btn.dataset.years);
+  screenEl.appendChild(pop);
+  btn.setAttribute('aria-expanded', 'true');
+  const place = () => {
+    const sr = screenEl.getBoundingClientRect();
+    const br = btn.querySelector('svg')?.getBoundingClientRect() ?? btn.getBoundingClientRect();   // the pointer targets the icon, not the 44 px pad
+    const gap = 10;
+    const margin = 12;
+    const w = pop.offsetWidth;
+    const h = pop.offsetHeight;
+    const cx = br.left + br.width / 2 - sr.left;
+    const left = Math.max(margin, Math.min(sr.width - margin - w, cx - w / 2));
+    const below = br.bottom + gap + h <= window.innerHeight - margin || br.top - gap - h < 0;
+    pop.dataset.side = below ? 'below' : 'above';
+    pop.style.left = `${Math.round(left)}px`;
+    pop.style.top = `${Math.round(below ? br.bottom - sr.top + gap : br.top - sr.top - gap - h)}px`;
+    pop.style.setProperty('--pop-arrow-x', `${Math.round(Math.max(16, Math.min(w - 16, cx - left)))}px`);
+  };
+  place();
+  const onDown = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) closeVerifiedPopover({ instant: true }); };
+  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeVerifiedPopover(); } };
+  const onOut = (e) => { if (e.relatedTarget && !pop.contains(e.relatedTarget) && !btn.contains(e.relatedTarget)) closeVerifiedPopover({ instant: true }); };
+  document.addEventListener('pointerdown', onDown, true);
+  document.addEventListener('keydown', onKey, true);
+  pop.addEventListener('focusout', onOut);
+  window.addEventListener('resize', place);
+  const off = () => {
+    document.removeEventListener('pointerdown', onDown, true);
+    document.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('resize', place);
+  };
+  activeVerified = { pop, btn, off };
+  pop.focus({ preventScroll: true });
+  return pop;
+}
+/** Delegated on every screen by app.js (screens never wire it): a tap / Enter / Space on `[data-verified]` toggles the popover, and is kept
+    from reaching the host (a tailor row's "open tailor"). */
 export function wireVerified(root) {
+  const hit = (e) => e.target.closest?.('[data-verified]');
   root.addEventListener('click', (e) => {
-    if (e.target.closest('[data-act="verified"]')) openVerifiedSheet();
-  });
+    const b = hit(e);
+    if (!b) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openVerifiedPopover(b);
+  }, true);
+  root.addEventListener('keydown', (e) => {
+    const b = hit(e);
+    if (!b || b.tagName === 'BUTTON' || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openVerifiedPopover(b);
+  }, true);
 }
 
 /** Rating (A5.8, D-190) — "★ 4.9 (37)" once. With `anchor` ('#reviews') it is a 44 px link that scrolls to that section. */
@@ -1167,7 +1247,7 @@ export function avatar({ initials = '', photo = null, size = 'sm', glyph = false
  * States: default · rush (adds the "+ $40 rush fee" caption) · declined (dimmed,
  * "Declined this request", aria-disabled, no action). Skeleton: skeleton({ kind: 'tailor-row' }).
  */
-export function tailorRow({ id, name, initials, photo = null, verified = false, rating = null, distanceMi = null, quote = 0, nextOpening = null, visitType = 'home', declined = false, format = fmt, booked = '' } = {}) {
+export function tailorRow({ id, name, initials, photo = null, verified = false, years = 0, rating = null, distanceMi = null, quote = 0, nextOpening = null, visitType = 'home', declined = false, format = fmt, booked = '' } = {}) {
   const q = typeof quote === 'number' ? { total: quote } : (quote ?? {});
   /* M6-M-07: one caption, "Includes $35 home-visit fee and $40 rush fee" — no "+" */
   const incl = [];
@@ -1186,7 +1266,7 @@ export function tailorRow({ id, name, initials, photo = null, verified = false, 
     ${avatar({ initials, photo, size: 'md' })}
     <span class="tailor-row__info">
       <span class="tailor-row__name-row"><span class="tailor-row__name">${esc(name)}</span>${est}</span>
-      ${meta || verified ? `<span class="tailor-row__meta">${meta}${verified ? `${meta ? ' ' : ''}${verifiedMark({ inert: true })}` : ''}</span>` : ''}
+      ${meta || verified ? `<span class="tailor-row__meta">${meta}${verified ? `${meta ? ' ' : ''}${verifiedCheck({ years, word: true, inline: true })}` : ''}</span>` : ''}
     </span>
   </span>
   ${!declined && (captions.length || nextOpening) ? `<span class="tailor-row__lower">${captions.length ? `<span class="tailor-row__captions" data-money>${captions.map((c) => `<span class="tailor-row__caption">${c}</span>`).join('')}</span>` : ''}${nextOpening ? `<span class="tailor-row__next">Next opening ${fmtWhen(nextOpening)}</span>` : ''}</span>` : ''}
@@ -1867,6 +1947,44 @@ export function leaveModal({ title = 'Leave without saving?', body = 'Your chang
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
+ * The K-11 request strip (D-236), shared by the t-home request card and the t-request screen (K-15): a full-width band with a clock —
+ * warning by default, error at <= EXPIRING_SOON_MIN, neutral once expired (K-13: a suggested strip leads with the proposal and ends with the
+ * clock). `lead` prefixes the requested text ("New request · "); `text` + `tone` force a fixed line for an ended request (declined, expired);
+ * `page` bleeds it across the screen under the nav (K-15) instead of across a card. Empty string when there is nothing to show.
+ */
+export function requestStrip({ status = 'requested', expiresAt = null, now = null, lapseAt = null, when = '', lead = '', text = '', tone: forced = '', page = false } = {}) {
+  const suggested = status === 'suggested';
+  const ms = suggested || expiresAt == null ? null : toMs(expiresAt) - toMs(now);
+  const lapseMs = suggested && lapseAt ? toMs(lapseAt) - toMs(now) : null;
+  const sugClock = lapseMs == null ? '' : lapseMs <= 0 ? 'Expired' : fmtCountdown(lapseMs);
+  const stripMs = suggested ? lapseMs : ms;
+  const tone = forced || (stripMs == null ? (suggested ? 'normal' : '') : stripMs <= 0 ? 'expired' : stripMs <= POLICY.EXPIRING_SOON_MIN * 60000 ? 'urgent' : 'normal');
+  if (!tone) return '';
+  const attrs = `data-countdown data-state="${tone === 'urgent' ? 'soon' : tone}"`;
+  const pageCls = page ? ' request-card__strip--page' : '';
+  if (text) return `<span class="request-card__strip request-card__strip--${tone}${pageCls}" ${attrs}>${META_ICONS.clock}<span>${esc(text)}</span></span>`;
+  if (suggested) return `<span class="request-card__strip request-card__strip--suggest request-card__strip--${tone}${pageCls}" ${attrs}><span class="request-card__strip-lead">You suggested ${esc(when)}</span>${sugClock ? `<span class="request-card__strip-clock">${META_ICONS.clock}<span>${sugClock}</span></span>` : ''}</span>`;
+  return `<span class="request-card__strip request-card__strip--${tone}${pageCls}" ${attrs}>${META_ICONS.clock}<span>${tone === 'expired' ? 'Expired' : `${lead}${fmtCountdown(ms)} left to answer · by ${fmtTime(expiresAt)}`}</span></span>`;
+}
+
+/**
+ * The request header row (K-12 Option A, K-15): avatar | name (+ the visit line on the card) | payout amount over "Your payout". One markup for the
+ * t-home card (inside its <button>, spans) and the t-request screen (`page`: the name is the h1, a 28 serif title; `info` makes the payout column
+ * a button that opens the Taily-fee sheet, label + ⓘ). The customer carries no Verified check (K-15) — only tailors do.
+ */
+export function requestHead({ name = '', initials = '', where = '', again = false, payoutCents = 0, label = 'Your payout', page = false, info = false, infoLabel = 'The Taily fee' } = {}) {
+  const nameHtml = `${esc(name)}${again ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}`;
+  const who = page
+    ? `<div class="request-card__who"><h1 class="request-card__name t-title">${nameHtml}</h1>${where}</div>`
+    : `<span class="request-card__who"><span class="request-card__name t-body w-600">${nameHtml}</span>${where}</span>`;
+  const cap = `${esc(label)}${info ? ICON_INFO : ''}`;
+  const pay = info
+    ? `<button type="button" class="request-card__payside request-head__pay" data-info="fee" aria-haspopup="dialog" aria-label="${esc(`${label} ${fmtExact(payoutCents)}. ${infoLabel}`)}" data-money><span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span><span class="request-head__label t-small c-600">${cap}</span></button>`
+    : `<span class="request-card__payside" data-money><span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span><span class="t-small c-600">${cap}</span></span>`;
+  return `<span class="request-card__top">${avatar({ initials, size: 'sm' })}${who}${pay}</span>`;
+}
+
+/**
  * Request Card — the tailor's inbox ticket (t-home "New requests"). One <button>: avatar + name + "<visit> · <place>" with
  * a "Waiting on <name>" pill (suggested), then the visit time + "n items · n services", then
  * the focal payout: YOUR PAYOUT / `fmtExact(payoutCents)`. A requested card opens with the K-11 flush timer strip. Amounts are cents.
@@ -1874,25 +1992,16 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
  */
 export function requestCard({ id = '', act = 'open-request', name = '', initials = '', visitLabel = '', place = '', when = '', items = 0, services = 0, payoutCents = 0, feeCents = 0, expiresAt = null, now = null, status = 'requested', waitingOn = '', retries = 0, asked = '', lapseAt = null, garment = '', garments = [] } = {}) {
   const suggested = status === 'suggested';
-  const ms = suggested || expiresAt == null ? null : toMs(expiresAt) - toMs(now);
   /* D-154: a suggested time lapses (`lapseAt`) — the same clock a request has, so she sees how long Sarah has. */
-  const lapseMs = suggested && lapseAt ? toMs(lapseAt) - toMs(now) : null;
-  const sugClock = lapseMs == null ? '' : lapseMs <= 0 ? 'Expired' : fmtCountdown(lapseMs);
   const right = suggested ? (lapseAt ? countdown({ expiresAt: lapseAt, now, suffix: `for ${esc(waitingOn || 'the customer')} to answer` }) : '') : countdown({ expiresAt, now });
   /* K-11 (D-236), Option 1 "Flush band": a requested card opens with a full-width strip — clock + "2h left to answer · by 12:00 PM"
      (warning; error at <= EXPIRING_SOON_MIN; neutral once expired). K-13: a suggested card's strip leads with the proposal and ends with the clock. */
-  const stripMs = suggested ? lapseMs : ms;
-  const tone = stripMs == null ? (suggested ? 'normal' : '') : stripMs <= 0 ? 'expired' : stripMs <= POLICY.EXPIRING_SOON_MIN * 60000 ? 'urgent' : 'normal';
-  const stripAttrs = `data-countdown data-state="${tone === 'urgent' ? 'soon' : tone}"`;
-  const strip = !tone ? '' : suggested
-    ? `<span class="request-card__strip request-card__strip--suggest request-card__strip--${tone}" ${stripAttrs}><span class="request-card__strip-lead">You suggested ${esc(when)}</span>${sugClock ? `<span class="request-card__strip-clock">${META_ICONS.clock}<span>${sugClock}</span></span>` : ''}</span>`
-    : `<span class="request-card__strip request-card__strip--${tone}" ${stripAttrs}>${META_ICONS.clock}<span>${tone === 'expired' ? 'Expired' : `${fmtCountdown(ms)} left to answer · by ${fmtTime(expiresAt)}`}</span></span>`;
+  const strip = requestStrip({ status, expiresAt, now, lapseAt, when });
   const label = suggested
     ? `${name}, you suggested ${when}${asked ? `, ${asked}` : ''}, your payout ${fmtExact(payoutCents)}${right ? `, ${right.replace(/<[^>]+>/g, '')}` : ''}`
     : `${name}, ${when}, your payout ${fmtExact(payoutCents)}, ${right.replace(/<[^>]+>/g, '')}`;
   const cls = `request-card card${suggested ? ' request-card--suggested' : ''}${strip ? ' request-card--strip' : ''}`;
   const btn = `<button type="button" class="${cls}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">`;
-  const nameHtml = `${esc(name)}${retries > 0 ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}`;
   const where = `<span class="request-card__where t-small c-600"><span class="request-card__visit">${esc(visitLabel)}</span><span class="request-card__place">${esc(String(place).replace(/\s·\s/g, '\u2009'))}</span></span>`;
   /* K-12 (D-237), Option A "Payout beside the name": header = avatar | who | payout + "Your payout"; a hairline; ONE line; no footer.
      K-13 (D-238), option F "The proposal leads the bar": a suggested card shares that structure — its flush strip reads "You suggested <when>" with a clock +
@@ -1902,17 +2011,7 @@ export function requestCard({ id = '', act = 'open-request', name = '', initials
   const icons = types.map((t) => garmentIcon(t, { size: 'inline' })).join('');
   const left = suggested ? (asked ? `<span class="request-card__asked">${esc(asked)}</span>` : '<span></span>') : `<span class="request-card__when w-600">${esc(when)}</span>`;
   return `${btn}
-  ${strip}<span class="request-card__top">
-    ${avatar({ initials, size: 'sm' })}
-    <span class="request-card__who">
-      <span class="request-card__name t-body w-600">${nameHtml}</span>
-      ${where}
-    </span>
-    <span class="request-card__payside" data-money>
-      <span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span>
-      <span class="t-small c-600">Your payout</span>
-    </span>
-  </span>
+  ${strip}${requestHead({ name, initials, where, again: retries > 0, payoutCents })}
   <span class="request-card__line t-small c-700">
     ${left}
     <span class="request-card__count">${icons ? `<span class="request-card__icons">${icons}</span>` : ''}<span>${plural(items, 'item')} · ${plural(services, 'service')}</span></span>

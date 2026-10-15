@@ -148,6 +148,7 @@ export const SCREENS = [
     { key: 'c-booking--returning-courier', m: 'M4', kind: 'state' },
     { key: 'c-booking--completed', m: 'M4', kind: 'frame' },
     { key: 'c-booking--docs', m: 'M4', kind: 'state' },
+    { key: 'c-booking--verified-open', m: 'M4', kind: 'overlay' },
   ] },
   { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01) · with the tailor’s Before / Pinned photos and comments (K-02)', states: [
     { key: 'c-price-change', m: 'M4', kind: 'frame' },

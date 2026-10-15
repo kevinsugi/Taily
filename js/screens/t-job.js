@@ -97,9 +97,9 @@ function visitActions(a, v) {
   return [message, ...maps, cal];
 }
 
-/** K-12 (D-237) Option C: ONE person-led block per state — Sarah (avatar, name, a check once phone-verified, no facts line) with the state's
+/** K-12 (D-237) Option C: ONE person-led block per state — Sarah (avatar, name, no check (K-15: only tailors are verified), no facts line) with the state's
     rows hanging under her name and the buttons under them. */
-const personOf = (v) => ({ initials: v.customer.initials, name: v.customer.name, verified: v.customer.verified });
+const personOf = (v) => ({ initials: v.customer.initials, name: v.customer.name });
 const personCard = (a, v, title, rows) => personBlock({ title, person: personOf(v), rows, actions: visitActions(a, v) });
 
 function visitCard(a, v) {

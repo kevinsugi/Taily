@@ -23,6 +23,8 @@
 /* M5 gallery demos: the system banner, a tall locked sheet and the push ask shown in flow, not pinned */
 .gal .sys-demo { margin-inline: calc(-1 * var(--space-20)); }
 .gal .sys-demo .sys-banner { position: static; }
+.gal .verified-pop-demo { padding: var(--space-16) 0 var(--space-4); }
+.gal .verified-pop-demo .verified-pop { position: relative; animation: none; }
 .gal .sheet-demo--tall { height: 600px; }
 .gal .push-banner-demo { position: relative; width: 100%; height: 80px; }
 .gal .push-banner-demo .push-banner { transform: none; }

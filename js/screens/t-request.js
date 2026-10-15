@@ -1,7 +1,10 @@
 /* ============================================================
    t-request — T2/T3 The request card (M3-spec §C1). Everything
    Amara needs to decide in ninety seconds, then Accept · Suggest
-   time · Decline with one thumb. Focal: "Your payout" (display).
+   time · Decline with one thumb. K-15 "The home card, opened": a
+   flush strip under the nav (the K-11 request strip), the t-home
+   card's header row (avatar · Sarah C. · payout + "Your payout" ⓘ),
+   a hairline, the K-14 tile rows, the work, the breakdown.
    States: requested (◆) · suggested · expired · declined.
    Privacy (D-74): "Sarah C." and "Williamsburg · 11211" until she
    accepts. Which appointment: focusAppt (D-72).
@@ -16,7 +19,7 @@ import { DECLINE_REASONS } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
 import {
-  chrome, headingRow, statusHero, countdown, visitBlock, workList, tailorBreakdown, actionBar, cta, emptyState,
+  chrome, headingRow, navBackMark, requestStrip, requestHead, visitBlock, workList, tailorBreakdown, actionBar, cta, emptyState,
   chipGroup, sheetOverlay, toast, esc, wirePhotoViewer, sectionHead, infoButton,
 } from '../components.js';
 
@@ -25,15 +28,6 @@ const ui = () => (state.ui[ID] ??= {});
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 /* ---------- blocks ---------- */
-function takeHome(v, { muted = false, note = '', cents = v.payout } = {}) {
-  return `<section class="${ID}__take${muted ? ` ${ID}__take--muted` : ''}" aria-label="Your payout">
-  <div class="${ID}__take-head"><p class="t-caps c-600">${muted ? 'Your payout would have been' : 'Your payout'}</p>${muted ? '' : infoButton('fee', { label: 'The Taily fee' })}</div>
-  <p class="${ID}__amount t-money" data-money>${fmtExact(cents)}</p>
-  ${muted ? '' : `<p class="t-body c-700" data-money>after the ${fmtExact(v.tailyFee)} Taily fee</p>`}
-  ${note ? `<p class="t-small c-600">${note}</p>` : ''}
-</section>`;
-}
-
 /** "Your payout" (R3-1-T-04, D-172): the breakdown sits after the work, as on t-job, so the visit is above the fold. */
 const payoutSection = (v, money = v.money) => `<section class="sec" aria-labelledby="${ID}-payout">
   ${sectionHead('Your payout', { id: `${ID}-payout` })}
@@ -48,7 +42,7 @@ function visitSection(a, v, { title, asked = '', addressNote = '', start = a.slo
     { icon: 'map-pin', value: `<span class="${ID}__place">${esc(v.place)}</span>`, detail: addressNote ? esc(addressNote) : '' },
     { icon: 'clock', value: `Needed by <span class="nb">${esc(v.needBy)}</span>`, detail: `${plural(days, 'day', 'days')} after the visit` },
   ];
-  return `<section class="sec ${ID}__visit">${visitBlock(rows, { title: 'The visit', flush: true })}</section>`;
+  return `<section class="sec ${ID}__visit" aria-label="The visit">${visitBlock(rows, { title: '', flush: true })}</section>`;
 }
 
 /** `final` = the request is over (declined, expired): no estimate row and nothing left to adjust (M6-P-07). `breakdown` = the payout
@@ -60,20 +54,12 @@ function workSection(v, { final = false, breakdown = false } = {}) {
 </section>`;
 }
 
-/** The deadline line of an open request (CR-4b): one line, "2h left · answer by 12:00 PM" (warning ink when soon). */
-function strip(a) {
-  return countdown({ expiresAt: a.expiresAt, now: now(), tail: `answer by ${fmtTime(a.expiresAt)}`, line: true });
+/** K-15: the screen's top — the flush request strip under the nav, an optional note (what happened / what happens next), then the t-home
+    card's header row (the name is the h1) over a hairline. `muted` greys the payout (suggested: pending; ended: it did not happen). */
+function top(v, { strip, note = '', payout = v.payout, label = 'Your payout', muted = false, info = true } = {}) {
+  return `${navBackMark()}${strip}${note ? `<div class="${ID}__note">${note}</div>` : ''}
+  <div class="${ID}__head${muted ? ` ${ID}__head--muted` : ''}">${requestHead({ name: v.customer.name, initials: v.customer.initials, payoutCents: payout, label, page: true, info })}</div>`;
 }
-
-/** The same strip for a suggested time (D-154): how long Sarah has to accept it. */
-function lapseStrip(a) {
-  const cd = countdown({ expiresAt: suggestLapseAt(a), now: now(), suffix: `for ${esc(state.customer.first)} to answer` });
-  const isSoon = /data-state="soon"/.test(cd);
-  return `<div class="${ID}__strip${isSoon ? ` ${ID}__strip--soon` : ''}">${cd}<span class="t-small ${isSoon ? 'w-600' : 'c-700'}">${isSoon ? 'Closing soon · open until' : 'Open until'} ${fmtWhen(suggestLapseAt(a))}</span></div>`;
-}
-
-/** The shared detail header (K-04, D-203): status line, then Back + title on one row, then the notes at the padding. */
-const detailHead = (html) => headingRow(html);
 
 /* ---------- view ---------- */
 function view(s) {
@@ -97,12 +83,11 @@ function view(s) {
     const price = suggestPrice(a, a.suggested.start);            // D-155: the rush never goes up, so the take-home can only drop
     const money = { ...v.money, rush: price.rush, payout: price.payout };
     const note = price.less > 0 ? `${esc(sarah)} pays ${fmtExact(price.less)} less at the new time, because it is not a rush.` : 'Same price for the new time.';
+    const lapse = suggestLapseAt(a);
+    const strip = requestStrip({ status: 'suggested', lapseAt: lapse, now: now(), when: v.suggested, page: true });
+    const lead = `<p class="t-body w-600">Waiting on ${esc(sarah)}</p><p class="t-small c-700">${esc(sarah)} can accept your time until ${esc(fmtWhen(lapse))}, or choose another tailor. ${note}</p>`;
     return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--suggested">
-  ${detailHead(statusHero({
-    variant: 'requested', pill: 'waiting', pillLabel: `Waiting on ${esc(sarah)}`, title: esc(v.customer.name),
-    body: `You suggested ${esc(v.suggested)}. ${esc(sarah)} can accept it or choose another tailor.`,
-  }))}
-  <div class="hero ${ID}__hero">${takeHome(v, { note, cents: price.payout })}${lapseStrip(a)}</div>
+  ${top(v, { strip, note: lead, payout: price.payout, muted: true })}
   ${visitSection(a, v, {
     title: v.suggested, asked: `${esc(sarah)} asked for ${esc(fmtWhen(a.slot.start))}`, addressNote: `Full address once ${sarah} accepts`,
     start: a.suggested.start, end: fmtTime(isoMinute(addMinutes(a.suggested.start, v.minutes))),   // R3-1-T-01: the end follows the NEW start
@@ -123,9 +108,9 @@ ${actionBar({ ctaLabel: `Message ${esc(sarah)}`, ctaAct: 'message', secondaryLab
       : ended
         ? { pill: 'expired', pillLabel: 'Expired', title: 'Your suggested time passed', body: `${esc(sarah)} didn’t accept in time, so her ${fmtExact(a.payments.deposit.cents)} hold is released. ${esc(sarah)} can now book another tailor.` }
         : { pill: 'expired', pillLabel: 'Expired', title: 'This request expired', body: `You didn’t answer within ${hours} hours, so ${esc(sarah)}’s hold was released.${again}` };
+    const strip = requestStrip({ text: hero.title, tone: 'expired', page: true });
     return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--expired"${ended ? ` data-suggestion-ended="${ended}"` : ''}>
-  ${detailHead(statusHero({ variant: 'declined', ...hero }))}
-  <div class="hero ${ID}__hero">${takeHome(v, { muted: true })}</div>
+  ${top(v, { strip, note: `<p class="t-body c-700">${hero.body}</p>`, label: 'Would have paid', muted: true, info: false })}
   ${visitSection(a, v, { title: v.when })}
   ${workSection(v, { final })}
 </main>
@@ -133,13 +118,10 @@ ${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
   }
 
   if (a.status === 'declined') {
+    const strip = requestStrip({ text: 'You declined this request', tone: 'expired', page: true });
+    const body = `<p class="t-body c-700">${esc(sarah)} has been told, and her ${fmtExact(a.payments.deposit.cents)} hold is released.</p>${a.declineReason ? `<p class="t-small c-600">Your reason: ${esc(a.declineReason)}</p>` : ''}`;
     return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--declined">
-  ${detailHead(statusHero({
-    variant: 'declined', pill: 'declined', pillLabel: 'Declined', title: 'You declined this request',
-    body: `${esc(sarah)} has been told, and her ${fmtExact(a.payments.deposit.cents)} hold is released.`,
-    extra: a.declineReason ? `<p class="t-small c-600">Your reason: ${esc(a.declineReason)}</p>` : '',
-  }))}
-  <div class="hero ${ID}__hero">${takeHome(v, { muted: true })}</div>
+  ${top(v, { strip, note: body, label: 'Would have paid', muted: true, info: false })}
   ${visitSection(a, v, { title: v.when })}
   ${workSection(v, { final })}
 </main>
@@ -148,12 +130,10 @@ ${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
 
   /* requested (◆) */
   const d = ui();
+  const strip = requestStrip({ expiresAt: a.expiresAt, now: now(), lead: 'New request · ', page: true });
+  const again = v.retries > 0 ? `<p class="t-body c-700">${esc(sarah)} sent this again after it expired.</p>` : '';
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}">
-  ${detailHead(statusHero({
-    variant: 'requested', pill: 'new-request', pillLabel: 'New request', title: esc(v.customer.name),
-    body: v.retries > 0 ? `${esc(sarah)} sent this again after it expired.` : '', extra: strip(a),
-  }))}
-  <div class="hero ${ID}__hero">${takeHome(v)}</div>
+  ${top(v, { strip, note: again })}
   ${visitSection(a, v, { title: v.when, addressNote: a.job.visitType === 'home' ? 'Full address after you accept' : '' })}
   ${workSection(v, { final, breakdown: true })}
   ${payoutSection(v)}

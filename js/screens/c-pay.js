@@ -186,7 +186,7 @@ function threeDsHtml({ q, method }, busy = false) {
   <p class="t-body">Your bank asks you to confirm this hold.</p>
   <div class="c-pay-sheet__bank">
     <span class="t-small c-600 w-600">Taily</span>
-    <span class="t-h2" data-money>Hold ${fmtExact(q.deposit)}</span>
+    <span class="t-money t-money--md" data-money>Hold ${fmtExact(q.deposit)}</span>
     <span class="t-small c-600">${esc(method.label)}</span>
   </div>
   ${cta('Confirm', { busy, busyLabel: 'Confirming…', attrs: 'data-act="3ds-ok"' })}

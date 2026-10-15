@@ -268,12 +268,12 @@ export const FLOWS_c_review = [
 /* ---------- C2 · Tailor job loop (t-job M4 states) ---------- */
 const TJ4 = { group: 'M4 · Job', screen: 't-job' };
 export const FLOWS_t_job = [
-  { ...TJ4, key: 't-job--visit', title: 'Job — visit time, start the fitting', note: 'Clock at the visit start: Start fitting, Message Sarah, no-show wait note',
+  { ...TJ4, key: 't-job--visit', title: 'Job — visit time, start the fitting', note: 'Clock at the visit start: Start fitting (the bar’s one action), Sarah’s block with Message / Directions / Add to calendar, no-show wait note',
     setup: (S) => { S.driveTo('confirmed'); S.setClock(TJ4_SLOT); },
-    expect: { has: ['time for the fitting', 'Start fitting', 'Message Sarah'], not: 'You accepted', sel: '[data-act="more"]' } },
+    expect: { has: ['time for the fitting', 'Start fitting', 'Message', 'Directions'], not: ['You accepted', 'Message Sarah'], sel: '[data-act="more"]' } },
   { ...TJ4, key: 't-job--fitting', title: 'Job — fitting', note: 'Reached by Back from the editor: Fitting pill, payout in the bar, Edit the job (no shortcut past Sarah)',
     setup: (S) => { S.driveTo('fitting'); },
-    expect: { has: ['Fitting', 'Edit the job', 'Message Sarah', TJ4_exact(TJ4_SC.seed.payout), 'Needed by Fri, Oct 23 · in 8 days', 'Fitting was Thu, Oct 15', 'Take a before and a pinned photo of each item'], not: ['No changes, start the work', 'Adjust price', 'make it'] } },
+    expect: { has: ['Fitting', 'Edit the job', 'Message', TJ4_exact(TJ4_SC.seed.payout), 'Needed by Fri, Oct 23 · in 8 days', 'Fitting was Thu, Oct 15', 'Take a before and a pinned photo of each item'], not: ['No changes, start the work', 'Adjust price', 'make it', 'Message Sarah'] } },
   { ...TJ4, key: 't-job--fitting-docs', title: 'Job — fitting, photographed', note: 'K-04: Back from the editor after photographing: each item row shows its fitting photos (Before + Pinned) as one stack',
     setup: (S) => { S.driveTo('fitting', { docs: 'min' }); },
     expect: { has: ['Fitting', 'photos', 'Edit the job'], sel: '[data-act="view-photos"][data-source="fitting"]' } },

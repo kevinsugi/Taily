@@ -283,6 +283,7 @@ export const SCREENS = [
     { key: 't-home--no-upcoming', m: 'M3', kind: 'state' },
     { key: 't-home--soon', m: 'M3', kind: 'state' },
     { key: 't-home--suggested', m: 'M3', kind: 'state' },
+    { key: 't-home--suggested-soon', m: 'M3', kind: 'state' },
     { key: 't-home--retried', m: 'M3', kind: 'state' },
     { key: 'sys-offline-tailor', m: 'M5', kind: 'state' },
     { key: 'sys-session-expired-tailor', m: 'M5', kind: 'overlay' },

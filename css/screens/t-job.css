@@ -8,8 +8,6 @@
 .t-job__money { margin-top: var(--rhythm-section); }
 .t-job__money .money-row:only-child { padding-block: 0; min-height: 0; }   /* a single total row has nothing above it */
 .t-job__money .money-row:only-child + .stitch, .t-job__money .stitch:first-child { display: none; }
-.t-job__customer { display: flex; align-items: center; gap: var(--space-12); min-height: 44px; }
-.t-job__customer-text { display: flex; flex-direction: column; min-width: 0; }
 .t-job__fine { margin: var(--space-8) 0 0; }
 
 /* sheets */
@@ -40,8 +38,6 @@
 .t-job-sheet__ways legend { padding: 0; margin-bottom: var(--space-8); }
 .t-job__summary { margin: 0 0 var(--space-8); }
 
-/* D-173: Directions + Add to calendar sit under the visit block, two text links */
-.t-job__links { display: flex; flex-wrap: wrap; gap: var(--space-8); margin-top: var(--space-4); margin-left: calc(-1 * var(--space-8)); }
 /* D-169: the due date leads once the visit is behind her; within a day it turns warning ink */
 .t-job__due--soon { color: var(--warning-ink); }
 /* D-172: the transfer's state under the take-home figure — a pill, then its line (error ink when the bank sent it back) */

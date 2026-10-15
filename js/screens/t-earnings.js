@@ -1,6 +1,6 @@
 /* ============================================================
    t-earnings — T8 Earnings (M5-spec §C4, D-136). What lands in the
-   bank on Friday and why. Focal: the next-payout figure (.t-display).
+   bank on Friday and why. Focal: the next-payout figure (.t-money).
    Every amount is after the Taily fee and says so; dollars only, one
    precision on the whole screen (fmtExact — the figure is exact, so
    the rows are too). A failed payout is an error banner with the
@@ -43,7 +43,7 @@ const rowsOf = (items, tag = '') => listOf(items.map((i) => jobRow(i, { tag })).
 /** The flat hero: caps label (+ ⓘ), the display figure, a caption. */
 const hero = ({ label, cents, caption = '', info = false }) => `<div class="${ID}__hero" data-money>
     <div class="${ID}__label"><p class="t-caps c-600">${esc(label)}</p>${info ? infoButton('payouts', { label: 'When you get paid' }) : ''}</div>
-    <p class="t-display ${ID}__amt-hero">${fmtExact(cents)}</p>
+    <p class="t-money ${ID}__amt-hero">${fmtExact(cents)}</p>
     ${caption ? `<p class="t-small c-600">${esc(caption)}</p>` : ''}
   </div>`;
 

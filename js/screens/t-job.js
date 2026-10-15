@@ -2,7 +2,8 @@
    t-job — T4 upcoming job (M3-spec §C2). Where, when, who — and the
    two things that can go wrong (she can't make it / Sarah doesn't
    show). Focal: the visit card, `fmtWhen(start)` over the full
-   address. One filled CTA: Message Sarah. Cancelled jobs read
+   address. The person-led block (K-12) carries Message / Directions /
+   Add to calendar; no CTA of its own before the visit. Cancelled jobs read
    plainly with the money outcome first and hide the street (D-88).
 
    M4 (M4-spec §C2, D-103): from the visit start the same screen walks
@@ -21,7 +22,7 @@ import { fmtExact, noShowPayout } from '../money.js';
 import { withLatency } from '../sim.js';
 import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime, dayDiff } from '../dates.js';
 import {
-  chrome, headingRow, statusHero, visitBlock, avatar, cta, listRow, banner, tailorBreakdown, moneyRows, workList,
+  chrome, headingRow, statusHero, personBlock, calendarHref, cta, listRow, banner, tailorBreakdown, moneyRows, workList,
   emptyState, sheetOverlay, chipGroup, wireChipGroups, toast, esc, wirePhotoViewer,
   actionBar, checkRow, metaRow, reviewRow, noteQuote, changeList, withPhotos, changeSummary, deltaFigure, courierCard, statusPill, wireGarmentDocs,
   sectionHead, textLink, infoButton, moreMenu, openMoreMenu, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR,
@@ -83,21 +84,23 @@ function cancelMoney(a) {
 }
 
 /* ---------- blocks ---------- */
-/** D-173: Directions (home visits only; the street is hers to see once accepted) and Add to calendar (an .ics data link). M7: two quiet links. */
-function visitLinks(a, v) {
-  if (a.status !== 'confirmed') return '';
+/** K-12 (D-237): the person-led block's equal buttons. Message always; Directions (home visits only; the street is hers to see once accepted)
+    and Add to calendar (an .ics data link) while the job is confirmed. */
+function visitActions(a, v) {
+  const message = { label: 'Message', icon: ICON_CHAT, act: 'message' };
+  if (a.status !== 'confirmed') return [message];
   const where = jobAddress(a);
-  const stamp = (iso) => iso.replace(/[-:]/g, '').slice(0, 15);
-  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Taily//Prototype//EN', 'BEGIN:VEVENT', `UID:${a.id}@taily.example`,
-    `DTSTAMP:${stamp(isoMinute(new Date(now())))}00`, `DTSTART:${stamp(a.slot.start)}00`, `DTEND:${stamp(a.slot.end)}00`,
-    `SUMMARY:${v.visitLabel} with ${v.customer.name}`, `LOCATION:${where.replace(/,/g, '\\,')}`, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
-  /* a link that opens a map / downloads the .ics: textLink() with `href` */
-  const link = (label, icon, href, attrs) => textLink(label, { icon, href, attrs });
   const maps = a.job.visitType === 'home'
-    ? link('Directions', ICON_DIRECTIONS, `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(where)}`, 'target="_blank" rel="noopener" data-act="directions"') : '';
-  const cal = link('Add to calendar', ICON_CALENDAR, `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`, 'download="taily-visit.ics" data-act="add-to-calendar"');
-  return `<div class="${ID}__links">${maps}${cal}</div>`;
+    ? [{ label: 'Directions', icon: ICON_DIRECTIONS, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(where)}`, act: 'directions', attrs: 'target="_blank" rel="noopener"' }] : [];
+  const href = calendarHref({ uid: a.id, start: a.slot.start, end: a.slot.end, stamp: isoMinute(new Date(now())), summary: `${v.visitLabel} with ${v.customer.name}`, location: where });
+  const cal = { label: 'Add to calendar', icon: ICON_CALENDAR, href, act: 'add-to-calendar', attrs: 'download="taily-visit.ics"' };
+  return [message, ...maps, cal];
 }
+
+/** K-12 (D-237) Option C: ONE person-led block per state — Sarah (avatar, name, a check once phone-verified, no facts line) with the state's
+    rows hanging under her name and the buttons under them. */
+const personOf = (v) => ({ initials: v.customer.initials, name: v.customer.name, verified: v.customer.verified });
+const personCard = (a, v, title, rows) => personBlock({ title, person: personOf(v), rows, actions: visitActions(a, v) });
 
 function visitCard(a, v) {
   /* K-10 (D-235): icon rows — calendar (date + length), map-pin (place), clock (needed by) */
@@ -106,7 +109,7 @@ function visitCard(a, v) {
     { icon: 'map-pin', value: esc(jobAddress(a)) },
     { icon: 'clock', value: `Needed by ${v.needBy}` },
   ];
-  return `${visitBlock(rows, { title: 'Visit', flush: true })}${visitLinks(a, v)}`;
+  return personCard(a, v, 'Visit', rows);
 }
 
 /** D-169: from the fitting on, the visit time is behind her. The block leads with the due date and how long she has;
@@ -115,15 +118,7 @@ function dueCard(a, v) {
   const days = dayDiff(now(), a.job.needBy);
   const when = days < 0 ? `${plural(-days, 'day')} ago` : days === 0 ? 'today' : `in ${plural(days, 'day')}`;
   const fig = `<span class="${ID}__due${days <= 1 ? ` ${ID}__due--soon` : ''}">Needed by ${fmtDay(a.job.needBy)} · ${when}</span>`;
-  return visitBlock([{ icon: 'clock', value: fig, strong: true, detail: `Fitting was ${fmtDay(a.slot.start)}` }], { title: 'Timing', flush: true });
-}
-
-/** The customer, flat: a circle avatar and the name (CP-T24: no "Customer" label). */
-function customerRow(v) {
-  return `<div class="${ID}__customer">
-    ${avatar({ initials: v.customer.initials, size: 'sm' })}
-    <div class="${ID}__customer-text"><span class="t-body w-600">${esc(v.customer.name)}</span></div>
-  </div>`;
+  return personCard(a, v, 'Timing', [{ icon: 'clock', value: fig, strong: true, detail: `Fitting was ${fmtDay(a.slot.start)}` }]);
 }
 
 /** K-02: "The work" always carries the garment icons; from the fitting on it carries the photos and Your comment (read-only). */
@@ -186,16 +181,15 @@ function copyFor(key, a, t, v, pv) {
   const word = statusWord(a, 'tailor');
   const note = (html) => `<p class="t-body c-700 ${ID}__note">${html}</p>`;
   const base = { pill: word.pill, label: word.label };
-  const msg = { secondaryLabel: `Message ${first}`, secondaryAct: 'message' };
   const busy = ui().busy;
-  const done = { ctaLabel: 'Mark completed', ctaAct: 'complete', busy: busy === 'complete', busyLabel: 'Completing…', ...msg };
+  const done = { ctaLabel: 'Mark completed', ctaAct: 'complete', busy: busy === 'complete', busyLabel: 'Completing…' };
   switch (key) {
     case 'visit': return { ...base, title: `Visit with ${esc(v.customer.name)}`,
       note: note(`It’s time for the fitting. Start it when you’re with ${first}.`),
-      bar: { ctaLabel: 'Start fitting', ctaAct: 'start-fitting', busy: busy === 'start', busyLabel: 'Starting…', ...msg } };
+      bar: { ctaLabel: 'Start fitting', ctaAct: 'start-fitting', busy: busy === 'start', busyLabel: 'Starting…' } };
     case 'fitting': return { ...base, title: `Fitting with ${esc(v.customer.name)}`,
       note: note(`Take a before and a pinned photo of each item, then send ${first} the final order.`),
-      bar: { lead: `Your payout <b data-money>${fmtExact(a.money.payout)}</b>`, ctaLabel: 'Edit the job', ctaAct: 'edit-order', ...msg } };
+      bar: { lead: `Your payout <b data-money>${fmtExact(a.money.payout)}</b>`, ctaLabel: 'Edit the job', ctaAct: 'edit-order' } };
     case 'waiting': return { ...base, title: `Waiting for ${first} to approve`,
       note: note(`You sent the final order at ${fmtTime(pv.sentAt)}. Start the work once ${first} approves.`),
       bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
@@ -213,10 +207,10 @@ function copyFor(key, a, t, v, pv) {
     }
     case 'in-progress': return { ...base, title: 'Work in progress',
       note: note('Mark it ready when the work is done.'),
-      bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', ...msg } };
+      bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready' } };
     case 'ready': return { ...base, title: `Ready. Waiting for ${first}`,
       note: note(`${first} is choosing how to get it back, then pays the balance (${fmtExact(a.money.balance)}, plus the courier if she picks it). You’ll see the choice here.`),
-      bar: { ctaLabel: `Message ${first}`, ctaAct: 'message' } };
+      bar: null };   // K-12 (D-237): Message lives in the person block; nothing else is hers to do until Sarah chooses
     case 'returning-pickup': return { ...base, title: `${first} will pick it up`,
       note: note(`${first} paid the balance and will collect it at your shop. Mark the job completed when it’s handed over.`), bar: done };
     case 'returning-dropoff': return { ...base, title: `Drop it off at ${first}’s`,
@@ -277,7 +271,7 @@ function payoutCard(a, t, extra = '') {
   const returned = `${how === 'dropoff' ? `${RETURN_DONE.dropoff}${firstOf()}’s` : RETURN_DONE[how]} · ${fmtDay(at)}`;
   return `<section class="sec sec--first ${ID}__payout" aria-label="Your payout">
   <div class="${ID}__payout-head"><p class="t-caps c-600">YOUR PAYOUT</p>${infoButton('payouts', { label: 'When you get paid' })}</div>
-  <p class="t-display ${ID}__payout-amt" data-money>${fmtExact(a.money.payout)}</p>
+  <p class="t-money ${ID}__payout-amt" data-money>${fmtExact(a.money.payout)}</p>
   <div class="${ID}__payout-state">${statusPill(...pill)}<p class="t-small ${w?.tone === 'error' ? `${ID}__err` : 'c-700'}">${esc(line)}</p></div>${link}
   <div class="${ID}__payout-rows">${tailorBreakdown(a.money, { total: false })}</div>
   <div class="${ID}__returned">${metaRow('', esc(returned), { icon: { pickup: 'bag', dropoff: 'home', courier: 'truck' }[how] })}</div>${extra}
@@ -293,7 +287,6 @@ function m4View(a, v, key) {
   const c = copyFor(key, a, t, v, pv);
   const hero = statusHero({ variant: key === 'completed' ? 'ready' : 'confirmed', pill: c.pill, pillLabel: c.label, title: c.title, body: '', extra: c.note });
   const updated = approved ? `<p class="t-small c-600 ${ID}__fine">Price updated after the fitting.</p>` : '';
-  const who = sec(customerRow(v));
   const work = workSec(a, v);
   /* R4-2-T-04: every live state says when the money arrives; "can change" only until the price is settled */
   const fine = `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after you mark the job completed.${approved ? ' Price updated after the fitting.' : ''}</p>`;
@@ -303,19 +296,19 @@ function m4View(a, v, key) {
   const block = (inner) => sec(inner, { first: true });
   let body;
   switch (key) {
-    case 'visit': body = `${block(visitCard(a, v))}${who}${work}${payout}`; break;
-    case 'fitting': body = `${block(dueCard(a, v))}${who}${work}${payout}`; break;
+    case 'visit': body = `${block(visitCard(a, v))}${work}${payout}`; break;
+    case 'fitting': body = `${block(dueCard(a, v))}${work}${payout}`; break;
     case 'waiting':
     case 'messaged': body = `${priceBlocks(a, pv, key)}${fine}`; break;
-    case 'in-progress': body = `${banners}${block(dueCard(a, v))}${who}${work}${payout}`; break;
+    case 'in-progress': body = `${banners}${block(dueCard(a, v))}${work}${payout}`; break;
     case 'ready':
-      body = `${block(visitBlock(returnOffer(a).map((k) => ({ icon: RETURN_ICON[k], value: RETURN_LABEL[k] })), { title: 'Return options you offered', flush: true }))}${who}${work}${payout}`; break;
+      body = `${block(personCard(a, v, 'Return options you offered', returnOffer(a).map((k) => ({ icon: RETURN_ICON[k], value: RETURN_LABEL[k] }))))}${work}${payout}`; break;
     case 'returning-pickup':
-      body = `${block(visitBlock(placeRows(t.shopName, 'bag', shopLine(t)), { title: 'In-store pickup', flush: true }))}${who}${work}${payout}`; break;
+      body = `${block(personCard(a, v, 'In-store pickup', placeRows(t.shopName, 'bag', shopLine(t))))}${work}${payout}`; break;
     case 'returning-dropoff':
-      body = `${block(visitBlock(placeRows(`${firstOf()}’s home`, 'home', homeStreet()), { title: 'Home drop-off', flush: true }))}${who}${work}${payout}`; break;
+      body = `${block(personCard(a, v, 'Home drop-off', placeRows(`${firstOf()}’s home`, 'home', homeStreet())))}${work}${payout}`; break;
     case 'courier':
-      body = `${block(courierCard({ variant: 'tailor', window: courierWhen(a), from: t.shopName, to: homeStreet(), note: `Paid by ${firstOf()} · nothing comes out of your payout` }))}${who}${work}${payout}`; break;
+      body = `${block(courierCard({ variant: 'tailor', window: courierWhen(a), from: t.shopName, to: homeStreet(), note: `Paid by ${firstOf()} · nothing comes out of your payout` }))}${sec(personCard(a, v, 'Hand-off', []))}${work}${payout}`; break;
     default: { // completed
       const r = a.review;
       const reviewer = `${state.customer.first} ${state.customer.last.charAt(0)}.`;
@@ -364,10 +357,9 @@ function view() {
   ${moved}
   ${sec(visitCard(a, v), { first: true })}
   ${cancelled ? cancelMoney(a) : ''}
-  ${sec(customerRow(v))}
   ${workSec(a, v)}
   ${cancelled ? '' : payoutSec(a, v, `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after you mark the job completed.</p>`)}
-  <div class="page-actions">${cancelled ? textLink('Back to Home', { act: 'home' }) : cta(`Message ${esc(firstOf())}`, { attrs: 'data-act="message"' })}</div>
+  ${cancelled ? `<div class="page-actions">${textLink('Back to Home', { act: 'home' })}</div>` : ''}
 </main>`;
 }
 

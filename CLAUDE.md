@@ -34,8 +34,9 @@ Plain HTML/CSS/JS, no build step, branch `V5` (GitHub Pages serves it at https:/
 - Colors, spacing, radius, type sizes ONLY through `css/tokens.css` variables; no literal hex / px font-size outside
   `tokens.css` / `base.css` (hygiene step enforces it).
 - Type = the Figma scale 10 / 12 / 16 / 24 / 28 / 32 / 36 via `.t-display .t-title .t-h2 .t-body .t-small .t-caps .t-micro`
-  + `.w-*` + `.c-*` (`base.css`). Serif = Cormorant Garamond (headings), sans = Hanken Grotesk (UI). Hierarchy by
-  weight + colour, never an invented size.
+  + `.w-*` + `.c-*` (`base.css`), plus `.t-money` (32) / `.t-money--md` (24) for money. Serif = Cormorant Garamond for page and
+  overlay TITLES only; sans = Hanken Grotesk for everything else, **all hero money included** (K-12: weight 600, tabular lining
+  figures, never serif). Hierarchy by weight + colour, never an invented size.
 - Screens: 390 wide, `var(--neutral-50)`; status bar 0/0 h44, top nav 0/44 h56, `.body` padding-top 116 (`--body-top`, D-204), sides 20.
   Figma strokes are INSIDE → bordered hug components use `box-shadow: inset 0 0 0 1px …`.
 - Add a component variant in `js/components.js` / `css/components-v5.css` before using it; never fork a component

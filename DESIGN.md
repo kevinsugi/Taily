@@ -33,6 +33,20 @@ typography:
     fontWeight: 500
     lineHeight: "38px"
     letterSpacing: "0"
+  money:
+    fontFamily: "Hanken Grotesk, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+    fontSize: "32px"
+    fontWeight: 600
+    lineHeight: "38px"
+    letterSpacing: "-0.01em"
+    fontFeature: "\"tnum\" 1, \"lnum\" 1"
+  money-md:
+    fontFamily: "Hanken Grotesk, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif"
+    fontSize: "24px"
+    fontWeight: 600
+    lineHeight: "29px"
+    letterSpacing: "-0.01em"
+    fontFeature: "\"tnum\" 1, \"lnum\" 1"
   title:
     fontFamily: "Cormorant Garamond, Iowan Old Style, Palatino Linotype, Palatino, Georgia, serif"
     fontSize: "28px"
@@ -305,7 +319,7 @@ icon-only top nav, a focused flow bar during booking, and a sticky action bar fo
 
 **Key Characteristics:**
 - Linen page, tissue cards with an inside chalk ring, and only for interactive groups.
-- Serif (Cormorant Garamond) only for page titles, overlay titles and the one hero money figure. Everything else is Hanken Grotesk.
+- Serif (Cormorant Garamond) only for page titles and overlay titles (K-12). Everything else, every hero money figure included, is Hanken Grotesk.
 - Section headings whisper: 12 px sans caps in graphite, never serif.
 - Status = an 8 px warm dot plus a 12 px word. No coloured chips, no blue.
 - One filled ink button per screen; every other action is an accent text link.
@@ -376,19 +390,21 @@ a 3 px Tissue Wash halo). An added charge is not a success, so "New" tags are ac
 does every working job (rows, money, buttons, fields) with tabular figures and quiet weight shifts.
 
 ### Hierarchy
-- **Display** (serif 500, 32 px / 38 px): the one hero money figure on a screen (take-home on t-request, t-job, t-payout,
-  t-earnings; delta figures). Only serif when it is money.
+- **Display** (serif 500, 32 px / 38 px): a welcome / index / onboarding title only (`.t-display`). Never money (K-12).
+- **Money** (sans 600, 32 px / 38 px, -0.01em, tabular lining figures; `.t-money`): the one hero money figure on a screen (payout on
+  t-request, t-job, t-payout, t-earnings; delta figures, receipts). K-12: all hero money is Hanken Grotesk, weight 600 for hierarchy.
+- **Money MD** (sans 600, 24 px / 29 px; `.t-money.t-money--md`): money in cards (the request card's payout "$147.50", c-pay's
+  "Hold $16.00").
 - **Title** (serif 500, 28 px / 34 px): the single `h1` per screen, `statusHero` titles, sheet and modal titles, empty-state titles.
   A few SemiBold titles use `.t-title.w-600`.
-- **H2** (serif 600, 24 px / 29 px): serif money in cards (the request card's take-home "$147.50", c-pay's "Hold $16.00") and overlay
-  titles. Not a section heading any more.
+- **H2** (serif 600, 24 px / 29 px): overlay (modal / sheet) titles. Not a section heading any more, and not money (K-12).
 - **Figure** (sans 600, 24 px / 29 px, -0.01em, tabular lining figures): the non-money hero fact: a visit time ("Thu, Oct 15 · 5:00
   PM"), "2h left", the tailor-row estimate.
 - **Body** (sans 400, 16 px / 21 px): paragraphs and row labels; 500 for row labels and inputs, 600 (`body-strong`) for buttons,
   links, chips, row titles and amounts.
 - **Small** (sans 500, 12 px / 16 px): captions, meta lines, helpers, the status word (at 600).
 - **Caps** (sans 600, 12 px / 16 px, +1 px tracking, uppercase): section headings via `sectionHead()` in `neutral-600`, and labels
-  like "YOU TAKE HOME", "VISIT". Source copy stays sentence case; CSS uppercases it.
+  like "YOUR PAYOUT", "VISIT". Source copy stays sentence case; CSS uppercases it.
 - **Micro** (sans 600, 10 px / 13 px): change tags ("New", "Removed", +1 px tracking, sentence case on purpose).
 
 Line heights are unitless ratios (K-04: `calc(21 / 16)`, `calc(34 / 28)`, …) that equal the pixel values Figma renders for AUTO at 1x (Hanken about 1.31, Cormorant about 1.21), so text still scales with the user's font size. The scale is the
@@ -396,13 +412,13 @@ Figma scale 10 / 12 / 16 / 24 / 28 / 32 / 36; hierarchy comes from weight and co
 
 ### Named Rules
 
-**The Serif-Is-A-Name Rule (K-03).** Cormorant appears only for a page or overlay title and for hero money. A serif section heading,
-serif row, serif button or serif number in a list is wrong. `.t-section` (serif 20) is retired in v5.
+**The Serif-Is-A-Name Rule (K-03, K-12).** Cormorant appears only for a page or overlay title. Hero money is Hanken Grotesk 600 (`.t-money`),
+never serif. A serif section heading, serif row, serif button or any serif number is wrong. `.t-section` (serif 20) is retired in v5.
 
 **The Whisper Heading Rule.** Section headings are `h2.t-caps.c-600`: small, graphite, uppercase. The content under them leads.
 
 **The Tabular Money Rule.** Every amount, time and count sets `font-variant-numeric: tabular-nums` (`.tabular`) so columns align and
-figures do not jitter as they change. Never let Cormorant render numbers in running text (its old-style figures read "IIzoI").
+figures do not jitter as they change. Never let Cormorant render numbers or dollar amounts, hero or running (its old-style figures read "IIzoI"; K-12 moved the hero money to the sans for the same reason).
 
 ## Layout
 

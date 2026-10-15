@@ -1,7 +1,7 @@
 /* ============================================================
    t-home — T1 Inbox (M3-spec §C1). What needs an answer now, then
    what is coming up. Focal: the first request card's take-home
-   figure (the only .t-h2 money on the page). A card has no Accept
+   figure (the only .t-money money on the page). A card has no Accept
    of its own (D-75): the decision is one tap on t-request.
    Push denied (D-85): a warning banner; "Open Settings" turns
    notifications on in the prototype.
@@ -90,7 +90,8 @@ function view(s) {
       asked: sug ? `${s.customer.first} asked for ${sameDay(a.slot.start, a.suggested.start) ? fmtTime(a.slot.start) : v.when}` : '',
       items: v.items, services: v.serviceCount, payoutCents: sug ? suggestPrice(a, a.suggested.start).payout : v.payout, feeCents: v.tailyFee,   // D-155: a suggested time never raises the rush
       expiresAt: a.expiresAt, now: now(), status: a.status, waitingOn: s.customer.first, retries: a.retries,
-      garment: heroGarment(v),   // M7-2-C-05: a broad silhouette reads at 32 px
+      garment: heroGarment(v),   // M7-2-C-05: a broad silhouette reads at 32 px (the suggested card)
+      garments: v.garments.map((g) => g.type),   // K-12: the requested card draws every garment
       lapseAt: sug ? suggestLapseAt(a) : null,   // D-154: her suggested time stays open until then
     });
   };

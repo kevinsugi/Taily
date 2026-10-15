@@ -589,7 +589,6 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
   display: flex; flex-direction: column;   /* M7-2-T-01: the shared .card is block; the 12 px gap between top / work / pay needs flex */
   align-items: stretch; justify-content: flex-start; gap: var(--space-12); min-height: 44px; text-align: left;
 }
-.request-card--soon:not(.request-card--strip) { box-shadow: inset 0 0 0 2px var(--warning); }
 /* K-11 (D-236), Option 1 "Flush band": the timer is a full-width strip across the top of the card (the card's overflow clips its corners);
    warning by default, error at <= EXPIRING_SOON_MIN, neutral once expired. The old top-right clock and the soon ring are gone. */
 .request-card--strip { overflow: hidden; }
@@ -597,6 +596,30 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .request-card__strip .icon-16 { flex-shrink: 0; }
 .request-card__strip--urgent { background: var(--error-bg); color: var(--error-ink); }
 .request-card__strip--expired { background: var(--neutral-100); color: var(--neutral-600); }
+/* K-13 (D-238), option F "The proposal leads the bar": a suggested card's strip = "You suggested <when>" left, clock + countdown at the right end; same warning / error tones */
+.request-card__strip--suggest { justify-content: space-between; gap: var(--space-12); }
+.request-card__strip-lead { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.request-card__strip-clock { display: inline-flex; align-items: center; gap: var(--space-4); flex-shrink: 0; margin-left: auto; }
+
+/* K-12 Option C "Person-led block": the avatar is the spine, the visit rows hang under the name, equal action buttons close the block */
+.person-block__spine { display: grid; grid-template-columns: var(--space-40) minmax(0, 1fr); column-gap: var(--space-12); align-items: start; }
+.person-block__spine > .avatar { grid-row: 1 / span 2; }
+.person-block__who { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-4) var(--space-8); min-height: var(--space-40); min-width: 0; }
+.person-block__name { color: var(--ink); overflow-wrap: break-word; min-width: 0; }
+.person-block__rows { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-16); grid-column: 2; }
+.person-block__rows .visit-row + .visit-row { margin-top: var(--space-8); }
+.person-block__actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-8); margin-top: var(--rhythm-block); }
+.person-block__actions .cta-small { flex-direction: column; gap: var(--space-4); min-height: 64px; padding: var(--space-12) var(--space-4); white-space: normal; text-align: center; border-radius: var(--radius-lg); }
+.person-block__actions .cta-small svg { width: var(--glyph-box); height: var(--glyph-box); }
+.verified--icon { min-height: 0; }
+.verified--icon .icon-16 { display: block; }
+
+/* K-12 (D-237), Option A "Payout beside the name": the payout rides in the header's right column, a hairline, then one line (date / time on the
+   left; each garment drawn + "n items · n services" on the right). No footer. */
+.request-card__payside { display: flex; flex-direction: column; align-items: flex-end; flex: 0 0 auto; text-align: right; font-variant-numeric: tabular-nums; }
+.request-card__payside .request-card__amount { line-height: calc(29 / 24); }
+.request-card__line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-8) var(--space-12); padding-top: var(--space-12); box-shadow: inset 0 1px 0 var(--neutral-100); font-variant-numeric: tabular-nums; }
+.request-card__icons { display: inline-flex; align-items: center; gap: var(--space-2); }
 
 /* K-11 (D-236), Option 3 "Ochre band": c-request's status + clock in one soft band above the title; <= EXPIRING_SOON_MIN adds a 2 px warning ring */
 .wait-band { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4) var(--space-12); align-self: stretch; box-sizing: border-box; margin-bottom: var(--space-12); padding: var(--space-12) var(--space-16); border-radius: var(--radius-md); background: var(--warning-bg); }
@@ -610,18 +633,13 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .request-card__name { display: flex; align-items: baseline; gap: var(--space-8); min-width: 0; color: var(--ink); }
 .request-card__again { flex-shrink: 0; white-space: nowrap; }
 .request-card__where { display: flex; flex-direction: column; min-width: 0; }
-.request-card__visit, .request-card__place { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.request-card__lapse { display: flex; min-width: 0; }   /* K4-2-01: a suggested card's lapse clock, its own line under the visit and place */
-.request-card__lapse .countdown--normal { color: var(--status-pending-ink); }
+.request-card__visit { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.request-card__place { overflow-wrap: anywhere; }   /* K-13: beside the payout at 320 the zip wraps rather than clips */
 .request-card__count { display: inline-flex; align-items: center; gap: var(--space-8); }
-.request-card:not(.request-card--suggested) .countdown--normal { color: var(--accent-ink); }   /* CR-4c: the clock is the card's call to act */
-.request-card__work { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); font-variant-numeric: tabular-nums; }
 .request-card__when { color: var(--ink); }
-.request-card__pill { display: inline-flex; margin-bottom: var(--space-4); }   /* the suggested pill sits in its own row (R3-1-T-03) */
-.request-card__pay { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-8); padding-top: var(--space-12); box-shadow: inset 0 1px 0 var(--neutral-100); }   /* P3-2: the caps label sits on the amount's baseline (first line of the take column), not at the foot of the fee line */
-.request-card__take { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
 .request-card__amount { color: var(--ink); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
-.request-card--suggested .request-card__amount { color: var(--neutral-600); }
+.request-card--suggested .request-card__amount { color: var(--neutral-600); }   /* pending: the payout is greyed until Sarah answers */
+.request-card__asked { color: var(--neutral-700); }
 
 /* ---------- appt row: one 72 px list line ---------- */
 .appt-row {

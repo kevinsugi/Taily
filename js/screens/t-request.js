@@ -28,7 +28,7 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 function takeHome(v, { muted = false, note = '', cents = v.payout } = {}) {
   return `<section class="${ID}__take${muted ? ` ${ID}__take--muted` : ''}" aria-label="Your payout">
   <div class="${ID}__take-head"><p class="t-caps c-600">${muted ? 'Your payout would have been' : 'Your payout'}</p>${muted ? '' : infoButton('fee', { label: 'The Taily fee' })}</div>
-  <p class="${ID}__amount t-display w-600" data-money>${fmtExact(cents)}</p>
+  <p class="${ID}__amount t-money" data-money>${fmtExact(cents)}</p>
   ${muted ? '' : `<p class="t-body c-700" data-money>after the ${fmtExact(v.tailyFee)} Taily fee</p>`}
   ${note ? `<p class="t-small c-600">${note}</p>` : ''}
 </section>`;

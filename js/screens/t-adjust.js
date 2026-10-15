@@ -240,7 +240,7 @@ function garmentHtml(g, errors, busy, ctx) {
 }
 
 /** A figure with no amount yet (a price in the draft can't be read): the label and a dash. */
-const dashFigure = (label) => `<div class="delta-figure"><p class="t-caps c-600 delta-figure__label">${esc(label)}</p><p class="t-display delta-figure__amt" aria-label="not available">—</p></div>`;
+const dashFigure = (label) => `<div class="delta-figure"><p class="t-caps c-600 delta-figure__label">${esc(label)}</p><p class="t-money delta-figure__amt" aria-label="not available">—</p></div>`;
 
 function view() {
   const a = target();

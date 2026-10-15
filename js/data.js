@@ -117,6 +117,7 @@ const HOME_FIELDS = { street: '145 N 7th St', unit: '2R', city: 'Brooklyn', stat
 const HOME_ADDRESS = { id: 'home', label: 'Home', ...HOME_FIELDS, default: true };
 export const CUSTOMER = {
   id: 'sarah', first: 'Sarah', last: 'Chen', initials: 'SC', phone: '(718) 555-0142', email: 'sarah.chen@example.com',
+  verified: true,                                       // K-12: phone-verified — the tailor side shows a check after her name
   addresses: [HOME_ADDRESS],
   address: { ...HOME_FIELDS },                          // always the default saved address's fields, or null when none (D-133)
   cards: [{ id: 'visa-4242', brand: 'Visa', last4: '4242', exp: '08/28', default: true }],

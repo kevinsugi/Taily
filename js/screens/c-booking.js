@@ -11,12 +11,12 @@ import {
   state, T, tailorById, openSlots, justConfirmed, now, returnAddress, priceChangeView,
 } from '../state.js';
 import {
-  chrome, headingRow, statusHero, visitBlock, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip,
+  chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
+  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
-import { fmtWhen, fmtTime, fmtDay, addMinutes, toDate } from '../dates.js';
+import { fmtWhen, fmtTime, fmtDay, addMinutes, toDate, isoMinute } from '../dates.js';
 import { VISIT_LABEL, VISIT_MINUTES, SHOP_CITY } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
@@ -54,7 +54,16 @@ function visitRows(a, t) {
 }
 /** A group on the page (A3): `<section class="sec">`. */
 const sec = (inner, cls = '') => `<section class="sec${cls ? ` ${cls}` : ''}">${inner}</section>`;
-const visitSection = (a, t) => sec(visitBlock(visitRows(a, t), { title: 'Visit', flush: true }));
+/** K-12 (D-237) Option C: the tailor leads the Visit block (avatar, name, a check once verified, no facts line), the visit rows hang under her
+    name, then Message + Add to calendar (a confirmed booking only; Directions is Amara's side — the visit is at Sarah's place or Amara's shop). */
+function visitSection(a, t) {
+  const actions = [{ label: 'Message', icon: ICON_CHAT, act: 'message' }];
+  if (a.status === 'confirmed') {
+    const href = calendarHref({ uid: a.id, start: a.slot.start, end: a.slot.end, stamp: isoMinute(new Date(now())), summary: `${VISIT_LABEL.customer[a.job.visitType]} with ${t.name}`, location: whereOf(a, t) });
+    actions.push({ label: 'Add to calendar', icon: ICON_CALENDAR, href, act: 'add-to-calendar', attrs: 'download="taily-visit.ics"' });
+  }
+  return sec(personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: t.verified }, rows: visitRows(a, t), actions }));
+}
 
 /** The shared detail header (D-93, supersedes R3-1-C-04's pill-above-Back): Back on its own row, then the pill,
     the title and the notes, all flush at the screen padding. */
@@ -154,7 +163,6 @@ function liveView(a, t, first) {
   ${sec(`${sectionHead('What happens next')}${steps}`)}
   ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}${confirmed ? `<p class="t-small c-600 ${ID}__policy">${policy}</p>` : ''}`)}
   <div class="page-actions">
-    ${cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' })}
     ${late}
     ${links}
   </div>
@@ -285,7 +293,7 @@ function m4View(a, t, first) {
   const actions = a.status === 'completed'
     ? `${cta(`Book ${f} again`, { attrs: 'data-act="book-again"' })}
     <div class="page-actions__links">${textLink(`Message ${f}`, { act: 'message' })}</div>`
-    : cta(`Message ${f}`, { attrs: 'data-act="message"' });
+    : early && !fitted ? '' : cta(`Message ${f}`, { attrs: 'data-act="message"' });   // K-12 (D-237): the person block above already carries Message
 
   return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--${a.status}" data-s="${ID}">
   ${hero}
@@ -294,9 +302,9 @@ function m4View(a, t, first) {
   ${steps}
   ${order}
   ${sec(`${sectionHead(a.status === 'completed' ? 'Receipt' : 'Price', { aside: a.status === 'completed' ? '' : infoButton('deposit') })}${breakdown}`)}
-  <div class="page-actions">
+  ${actions ? `<div class="page-actions">
     ${actions}
-  </div>
+  </div>` : ''}
 </main>`;
 }
 

@@ -34,9 +34,9 @@ export const FLOWS_c_bookings = [
     expect: { has: ['IN PROGRESS', 'PAST', 'Since ', 'Pay now', 'Completed', 'Leave a review'], not: 'UPCOMING', sel: '[data-section="progress"] .appt-row' } },
 ];
 export const FLOWS_c_booking = [
-  { key: 'c-booking--confirmed', screen: 'c-booking', group: 'M3 · Bookings', title: 'Booked with Amara', note: 'Just accepted: deposit Paid, same time and prices as her ticket',
+  { key: 'c-booking--confirmed', screen: 'c-booking', group: 'M3 · Bookings', title: 'Booked with Amara', note: 'Just accepted: Amara leads the Visit block (check after the name, rows under it, Message + Add to calendar), deposit Paid, same time and prices as her ticket',
     setup: (S) => { S.driveTo('confirmed'); },
-    expect: { has: ['Confirmed', 'booked with Amara', 'deposit is paid', cbWhen(CB_SEED), 'Paid', cbExact(CB_SC.seed.deposit), cbExact(CB_SC.seed.services), cbExact(CB_SC.seed.homeFee), 'Estimated total', 'Message Amara'], not: 'On hold' } },
+    expect: { has: ['Confirmed', 'booked with Amara', 'deposit is paid', cbWhen(CB_SEED), 'Paid', cbExact(CB_SC.seed.deposit), cbExact(CB_SC.seed.services), cbExact(CB_SC.seed.homeFee), 'Estimated total', 'Message', 'Add to calendar', 'Verified'], not: ['On hold', 'Directions', 'Message Amara'], sel: '.person-block .verified--icon' } },
   { key: 'c-booking', screen: 'c-booking', group: 'M3 · Bookings', title: 'Your visit with Amara', note: 'An hour after the accept: free cancellation until the cutoff, Reschedule, Cancel',
     setup: (S) => { S.driveTo('confirmed'); S.advanceClock(CB_POLICY.JUST_BOOKED_MIN); },
     expect: { has: ['Your visit with Amara', 'Free cancellation until Wed, Oct 14', 'Reschedule', 'Cancel booking'], not: 'booked with' } },
@@ -119,9 +119,12 @@ export const FLOWS_t_home = [
   { key: 't-home--soon', screen: 't-home', group: 'M3 · Tailor', title: 'Home — reply window closing', note: '10 minutes left: the card’s strip turns urgent (error tint)',
     setup: (S) => { S.driveTo('requested'); S.advanceClock(110); },
     expect: { has: ['10m left to answer · by 12:00 PM'], sel: '.request-card__strip--urgent' } },
-  { key: 't-home--suggested', screen: 't-home', group: 'M3 · Tailor', title: 'Home — waiting on Sarah', note: 'A suggested time: muted money, a countdown to when it lapses (D-154)',
+  { key: 't-home--suggested', screen: 't-home', group: 'M3 · Tailor', title: 'Home — waiting on Sarah', note: 'K-13 option F: the strip leads with “You suggested …” and the 24h clock; the line is Sarah’s ask; payout greyed; no status word in the card',
     setup: (S) => { S.driveTo('suggested'); },
-    expect: { has: ['Waiting on Sarah', 'You suggested', c1When(C1_SUGGESTED), 'Sarah asked for', '1 waiting on Sarah', c1Exact(C1_SC.seed.payout), 'for Sarah to answer'], not: ['1 new request'], sel: '.request-card--suggested', noClip: ['.request-card__name', '.request-card__visit', '.request-card__place', '.request-card__lapse'] } },
+    expect: { has: ['WAITING ON SARAH', `You suggested ${c1When(C1_SUGGESTED)}`, '24h', `Sarah asked for ${c1Time(C1_SLOT)}`, '1 waiting on Sarah', c1Exact(C1_SC.seed.payout), 'Your payout'], not: ['1 new request', 'New time', 'for Sarah to answer', 'left to answer'], sel: '.request-card--suggested .request-card__strip--normal', noClip: ['.request-card__name', '.request-card__visit', '.request-card__strip-lead'] } },
+  { key: 't-home--suggested-soon', screen: 't-home', group: 'M3 · Tailor', title: 'Home — waiting on Sarah, last minutes', note: '10 minutes before the suggested time lapses (D-154): the strip turns urgent (error tint)',
+    setup: (S) => { S.driveTo('suggested'); S.advanceClock(24 * 60 - 10); },
+    expect: { has: [`You suggested ${c1When(C1_SUGGESTED)}`, '10m', `Sarah asked for ${c1Time(C1_SLOT)}`], not: ['24h', 'left to answer'], sel: '.request-card--suggested .request-card__strip--urgent' } },
   { key: 't-home--in-progress', screen: 't-home', group: 'M3 · Tailor', title: 'Home — a job in progress', note: 'The visit is behind her: the row leads with the step and the due date (D-169)',
     setup: (S) => { S.driveTo('in-progress'); },
     expect: { has: ['IN PROGRESS', 'Tailoring · needed by Fri, Oct 23', 'Sarah Chen', c1Exact(C1_SC.seed.payout)], not: ['since ', 'UPCOMING'] } },
@@ -240,9 +243,9 @@ import { POLICY as TJ_POLICY } from '../money-config.js';
 import { openSlots as tjOpenSlots } from '../state.js';
 
 export const FLOWS_t_job = [
-  { key: 't-job--accepted', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — you just accepted', note: 'Confirmed pill (title: You accepted), Sarah Chen, the full address, Message Sarah, payout',
+  { key: 't-job--accepted', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — you just accepted', note: 'Confirmed pill (title: You accepted), Sarah Chen (check after the name) leading the Visit block, the full address, Message / Directions / Add to calendar, payout',
     setup: (S) => { S.driveTo('confirmed'); },
-    expect: { has: ['Confirmed', 'You accepted', 'Sarah Chen', '145 N 7th St, 2R', tjWhen(TJ_SLOT), 'Message Sarah', tjExact(TJ_SC.seed.payout), tjNeg(TJ_SC.seed.tailyFee)] } },
+    expect: { has: ['Confirmed', 'You accepted', 'Sarah Chen', '145 N 7th St, 2R', tjWhen(TJ_SLOT), 'Message', 'Directions', 'Add to calendar', 'Verified', tjExact(TJ_SC.seed.payout), tjNeg(TJ_SC.seed.tailyFee)], not: ['New customer', 'Message Sarah'], sel: '.person-block .verified--icon' } },
   { key: 't-job', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — upcoming', note: 'An hour after the accept: Confirmed, Visit with Sarah Chen, I can’t make it',
     setup: (S) => { S.driveTo('confirmed'); S.advanceClock(TJ_POLICY.JUST_BOOKED_MIN); },
     expect: { has: ['Confirmed', 'Visit with Sarah Chen', '145 N 7th St'], not: 'You accepted', sel: '[data-act="more"]' } },

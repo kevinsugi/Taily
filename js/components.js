@@ -369,6 +369,32 @@ export function visitRow({ icon = 'calendar', value = '', detail = '', strong = 
   return `<div class="visit-row${cls ? ` ${cls}` : ''}"><span class="visit-row__icon">${VISIT_ICONS[icon] ?? ''}</span><div class="visit-row__text"><span class="visit-row__value t-body ${strong ? 'w-600' : 'w-500'}">${value}</span>${lines.map((l) => `<span class="visit-row__detail t-small w-400 c-600">${l}</span>`).join('')}${extra}</div></div>`;
 }
 
+/** K-12 Option C "Person-led block": the avatar anchors the block and the visit icon rows hang under the name, then equal action buttons.
+    `person` = { initials, name, verified } — `verified` adds the check mark (`verifiedCheck`) right after the name, no facts line under it.
+    `rows` = the same fact objects / strings `visitBlock` takes. `actions` = [{ label, icon (HTML), act, href, attrs }] rendered as equal
+    columns of small outline buttons (a `href` makes it a link: Directions, Add to calendar). One block for both personas. */
+export function personBlock({ title = 'Visit', person = {}, rows = [], actions = [], action = '' } = {}) {
+  const rowHtml = rows.map((r) => (typeof r === 'string' ? `<span class="visit-block__row">${r}</span>` : visitRow(r))).join('');
+  const btns = actions.map((x) => {
+    const inner = `${x.icon ?? ''}<span>${esc(x.label)}</span>`;
+    const attrs = `${x.act ? `data-act="${esc(x.act)}"` : ''}${x.attrs ? ` ${x.attrs}` : ''}`;
+    return ctaSmall(inner, { attrs, href: x.href ?? '' });
+  }).join('');
+  return `<div class="visit-block visit-block--flush person-block">${sectionHead(title, { aside: action })}
+  <div class="person-block__spine">${avatar({ initials: person.initials ?? '', size: 'sm' })}
+    <div class="person-block__who"><span class="person-block__name t-body w-600">${esc(person.name ?? '')}</span>${person.verified ? verifiedCheck() : ''}</div>
+    ${rowHtml ? `<div class="person-block__rows">${rowHtml}</div>` : ''}
+  </div>${btns ? `<div class="person-block__actions">${btns}</div>` : ''}</div>`;
+}
+
+/** An .ics data link for "Add to calendar" (both personas). `start` / `end` / `stamp` are ISO minutes ("2026-10-15T17:00"). */
+export function calendarHref({ uid = '', start = '', end = '', stamp = '', summary = '', location = '' } = {}) {
+  const f = (iso) => `${iso.replace(/[-:]/g, '').slice(0, 15)}00`;
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Taily//Prototype//EN', 'BEGIN:VEVENT', `UID:${uid}@taily.example`,
+    `DTSTAMP:${f(stamp)}`, `DTSTART:${f(start)}`, `DTEND:${f(end)}`, `SUMMARY:${summary}`, `LOCATION:${location.replace(/,/g, '\\,')}`, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
+}
+
 /** The Back control (308:3820) — K-06 (D-221): it now lives in the TOP NAV (`navBackButton`), where it replaces the logo; `backButton()`
     is the plain "‹" 28 chevron the booking flow bar and the onboarding bar keep. The router wires every `.back[data-act="back"]`
     to step the prototype's history (app.js wireBackButtons). */
@@ -957,6 +983,10 @@ export const ICON_ALERT = GLYPH('<path d="M8 2.4l6 10.4H2z"/><path d="M8 6.6v3M8
    ============================================================ */
 
 /** Section heading (A5.5): a small sans-caps label above a group. `aside` is HTML (an infoButton, a "See all" link); `count` a plain number/text. */
+/** K-12: the verified mark as a check icon only, right after a name (no word, no support text); the accessible name is "Verified". */
+export function verifiedCheck() {
+  return `<span class="verified verified--inert verified--icon">${ICON_VERIFIED}<span class="sr-only">Verified</span></span>`;
+}
 export function sectionHead(title, { id = '', count = null, aside = '' } = {}) {
   const right = [count != null && count !== '' ? `<span class="t-small c-600 tabular">${esc(count)}</span>` : '', aside].filter(Boolean).join('');
   return `<div class="sec-head"><h2 class="t-caps c-600 sec-head__title"${id ? ` id="${esc(id)}"` : ''}>${title}</h2>${right ? `<span class="sec-head__aside">${right}</span>` : ''}</div>`;
@@ -1839,33 +1869,50 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
  * the focal payout: YOUR PAYOUT / `fmtExact(payoutCents)`. A requested card opens with the K-11 flush timer strip. Amounts are cents.
  * States: requested · soon (countdown <= EXPIRING_SOON_MIN → error strip) · expired (neutral strip) · suggested (muted money) · retried ("Sent again").
  */
-export function requestCard({ id = '', act = 'open-request', name = '', initials = '', visitLabel = '', place = '', when = '', items = 0, services = 0, payoutCents = 0, feeCents = 0, expiresAt = null, now = null, status = 'requested', waitingOn = '', retries = 0, asked = '', lapseAt = null, garment = '' } = {}) {
+export function requestCard({ id = '', act = 'open-request', name = '', initials = '', visitLabel = '', place = '', when = '', items = 0, services = 0, payoutCents = 0, feeCents = 0, expiresAt = null, now = null, status = 'requested', waitingOn = '', retries = 0, asked = '', lapseAt = null, garment = '', garments = [] } = {}) {
   const suggested = status === 'suggested';
   const ms = suggested || expiresAt == null ? null : toMs(expiresAt) - toMs(now);
-  const soon = ms != null && ms > 0 && ms <= POLICY.EXPIRING_SOON_MIN * 60000;
-  const waiting = `Waiting on ${waitingOn || 'customer'}`;
-  const pill = suggested ? statusPill('waiting', esc(waiting)) : '';
-  /* D-154: a suggested time lapses (`lapseAt`) — the same clock a request has, so she sees how long Sarah has.
-     K4-2-01 (D-219): the long "… for Sarah to answer" clock takes its own line under the visit and place, so it never squeezes them at 320 */
+  /* D-154: a suggested time lapses (`lapseAt`) — the same clock a request has, so she sees how long Sarah has. */
+  const lapseMs = suggested && lapseAt ? toMs(lapseAt) - toMs(now) : null;
+  const sugClock = lapseMs == null ? '' : lapseMs <= 0 ? 'Expired' : fmtCountdown(lapseMs);
   const right = suggested ? (lapseAt ? countdown({ expiresAt: lapseAt, now, suffix: `for ${esc(waitingOn || 'the customer')} to answer` }) : '') : countdown({ expiresAt, now });
   /* K-11 (D-236), Option 1 "Flush band": a requested card opens with a full-width strip — clock + "2h left to answer · by 12:00 PM"
-     (warning; error at <= EXPIRING_SOON_MIN; neutral once expired). A suggested card keeps its lapse line under the visit. */
-  const tone = ms == null ? '' : ms <= 0 ? 'expired' : soon ? 'urgent' : 'normal';
-  const strip = !suggested && tone ? `<span class="request-card__strip request-card__strip--${tone}" data-countdown data-state="${tone === 'urgent' ? 'soon' : tone}">${META_ICONS.clock}<span>${tone === 'expired' ? 'Expired' : `${fmtCountdown(ms)} left to answer · by ${fmtTime(expiresAt)}`}</span></span>` : '';
-  const label = `${name}, ${suggested ? `you suggested ${when}` : when}, your payout ${fmtExact(payoutCents)}, ${suggested ? `${waiting}${right ? `, ${right.replace(/<[^>]+>/g, '')}` : ''}` : right.replace(/<[^>]+>/g, '')}`;
-  return `<button type="button" class="request-card card${soon ? ' request-card--soon' : ''}${suggested ? ' request-card--suggested' : ''}${strip ? ' request-card--strip' : ''}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">
+     (warning; error at <= EXPIRING_SOON_MIN; neutral once expired). K-13: a suggested card's strip leads with the proposal and ends with the clock. */
+  const stripMs = suggested ? lapseMs : ms;
+  const tone = stripMs == null ? (suggested ? 'normal' : '') : stripMs <= 0 ? 'expired' : stripMs <= POLICY.EXPIRING_SOON_MIN * 60000 ? 'urgent' : 'normal';
+  const stripAttrs = `data-countdown data-state="${tone === 'urgent' ? 'soon' : tone}"`;
+  const strip = !tone ? '' : suggested
+    ? `<span class="request-card__strip request-card__strip--suggest request-card__strip--${tone}" ${stripAttrs}><span class="request-card__strip-lead">You suggested ${esc(when)}</span>${sugClock ? `<span class="request-card__strip-clock">${META_ICONS.clock}<span>${sugClock}</span></span>` : ''}</span>`
+    : `<span class="request-card__strip request-card__strip--${tone}" ${stripAttrs}>${META_ICONS.clock}<span>${tone === 'expired' ? 'Expired' : `${fmtCountdown(ms)} left to answer · by ${fmtTime(expiresAt)}`}</span></span>`;
+  const label = suggested
+    ? `${name}, you suggested ${when}${asked ? `, ${asked}` : ''}, your payout ${fmtExact(payoutCents)}${right ? `, ${right.replace(/<[^>]+>/g, '')}` : ''}`
+    : `${name}, ${when}, your payout ${fmtExact(payoutCents)}, ${right.replace(/<[^>]+>/g, '')}`;
+  const cls = `request-card card${suggested ? ' request-card--suggested' : ''}${strip ? ' request-card--strip' : ''}`;
+  const btn = `<button type="button" class="${cls}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">`;
+  const nameHtml = `${esc(name)}${retries > 0 ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}`;
+  const where = `<span class="request-card__where t-small c-600"><span class="request-card__visit">${esc(visitLabel)}</span><span class="request-card__place">${esc(String(place).replace(/\s·\s/g, '\u2009'))}</span></span>`;
+  /* K-12 (D-237), Option A "Payout beside the name": header = avatar | who | payout + "Your payout"; a hairline; ONE line; no footer.
+     K-13 (D-238), option F "The proposal leads the bar": a suggested card shares that structure — its flush strip reads "You suggested <when>" with a clock +
+     the countdown for the customer to answer at its right end; the line reads "<Sarah asked for 5:00 PM>" beside the garments; the payout is greyed (pending);
+     no status word (the t-home section header says "Waiting on Sarah"). */
+  const types = [...new Set(garments.length ? garments : garment ? [garment] : [])];
+  const icons = types.map((t) => garmentIcon(t, { size: 'inline' })).join('');
+  const left = suggested ? (asked ? `<span class="request-card__asked">${esc(asked)}</span>` : '<span></span>') : `<span class="request-card__when w-600">${esc(when)}</span>`;
+  return `${btn}
   ${strip}<span class="request-card__top">
     ${avatar({ initials, size: 'sm' })}
     <span class="request-card__who">
-      <span class="request-card__name t-body w-600">${esc(name)}${retries > 0 ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}</span>
-      <span class="request-card__where t-small c-600"><span class="request-card__visit">${esc(visitLabel)}</span><span class="request-card__place">${esc(String(place).replace(/\s·\s/g, '\u2009'))}</span></span>
-      ${suggested && right ? `<span class="request-card__lapse">${right}</span>` : ''}
+      <span class="request-card__name t-body w-600">${nameHtml}</span>
+      ${where}
+    </span>
+    <span class="request-card__payside" data-money>
+      <span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span>
+      <span class="t-small c-600">Your payout</span>
     </span>
   </span>
-  <span class="request-card__work t-small c-700">${pill ? `<span class="request-card__pill">${pill}</span>` : ''}<span class="request-card__when w-600">${suggested ? 'You suggested ' : ''}${esc(when)}</span>${asked ? `<span class="c-600">${esc(asked)}</span>` : ''}<span class="request-card__count">${garment ? garmentIcon(garment, { size: 'row' }) : ''}<span>${plural(items, 'item')} · ${plural(services, 'service')}</span></span></span>
-  <span class="request-card__pay" data-money>
-    <span class="t-caps c-600">Your payout</span>
-    <span class="request-card__take"><span class="request-card__amount t-h2">${fmtExact(payoutCents)}</span></span>
+  <span class="request-card__line t-small c-700">
+    ${left}
+    <span class="request-card__count">${icons ? `<span class="request-card__icons">${icons}</span>` : ''}<span>${plural(items, 'item')} · ${plural(services, 'service')}</span></span>
   </span>
 </button>`;
 }
@@ -2029,7 +2076,7 @@ export function changeSummary(counts = {}) {
 }
 
 /**
- * Delta Figure — one money figure with what it was: caps label, `.t-display` amount, then "Was $205.00 · up $45.00" /
+ * Delta Figure — one money figure with what it was: caps label, `.t-money` amount, then "Was $205.00 · up $45.00" /
  * "· down $55.00" / "· no change" in words. `was` null → no comparison line. `caption` is an optional t-small line.
  */
 export function deltaFigure({ label = '', cents: amount = 0, was = null, caption = '' } = {}) {
@@ -2044,7 +2091,7 @@ export function deltaFigure({ label = '', cents: amount = 0, was = null, caption
   }
   return `<div class="delta-figure" data-money>
   ${label ? `<p class="t-caps c-600 delta-figure__label">${esc(label)}</p>` : ''}
-  <p class="t-display delta-figure__amt">${fmtExact(amount)}</p>
+  <p class="t-money delta-figure__amt">${fmtExact(amount)}</p>
   ${delta}${caption ? `<p class="t-small c-600 delta-figure__caption">${esc(caption)}</p>` : ''}
 </div>`;
 }

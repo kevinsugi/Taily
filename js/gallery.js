@@ -85,6 +85,11 @@ export function galleryHtml() {
   s.push(C.summaryCard({ initials: 'AR', name: 'Amara Reyes', verified: true, badges: ['ID verified', 'Background check', 'Insured'] }));
   s.push(card(C.visitBlock([{ icon: 'calendar', value: 'Thu, Oct 15 · 5:00 PM', strong: true, detail: 'At my place · 60 min' }, { icon: 'home', value: '145 N 7th St, 2R' }, { icon: 'hanger', value: '2 items · 3 services' }], { title: 'Your request' })));
 
+  v('Person-led block (K-12): avatar, name + check, rows under the name, equal buttons');
+  s.push(card(C.personBlock({ title: 'Visit', person: { initials: 'SC', name: 'Sarah Chen', verified: true },
+    rows: [{ icon: 'calendar', value: 'Thu, Oct 15 · 5:00 PM', strong: true, detail: 'Home visit · 60 min, until 6:00 PM' }, { icon: 'map-pin', value: '145 N 7th St, 2R, Brooklyn, NY 11211' }],
+    actions: [{ label: 'Message', icon: C.ICON_CHAT, act: 'a' }, { label: 'Directions', icon: C.ICON_DIRECTIONS, act: 'b' }, { label: 'Add to calendar', icon: C.ICON_CALENDAR, act: 'c' }] })));
+
   h2('Chat Bubble — v4 atom + Timeline + Info rows');
   col(C.bubble('See you Thursday at 5:00.', 'them'), C.bubble('Perfect, thank you!', 'me'));
   s.push(C.timeline([
@@ -314,11 +319,12 @@ export function galleryHtml() {
     C.leaveModal().replace('class="modal modal--leave"', 'class="modal modal--leave" style="position:absolute"')}</div></div>`);
   /* ---------------- M3 · request loop ---------------- */
   h2('Request card — the tailor’s inbox ticket (D-75)');
-  const rc = { id: 'A-1001', name: 'Sarah C.', initials: 'SC', visitLabel: 'Home visit', place: 'Williamsburg · 11211', when: 'Thu, Oct 15 · 5:00 PM', items: 2, services: 3, payoutCents: seed.payout, feeCents: seed.tailyFee, expiresAt: '2026-10-13T12:00', now: NOW };
+  const rc = { id: 'A-1001', name: 'Sarah C.', initials: 'SC', visitLabel: 'Home visit', place: 'Williamsburg · 11211', when: 'Thu, Oct 15 · 5:00 PM', items: 2, services: 3, payoutCents: seed.payout, feeCents: seed.tailyFee, expiresAt: '2026-10-13T12:00', now: NOW, garments: ['Suit Pant', 'Suit Jacket'] };
   v('requested (2h left)');          col(C.requestCard(rc));
   v('urgent (15 min or less → error strip)'); col(C.requestCard({ ...rc, expiresAt: '2026-10-13T10:12' }));
   v('expired (neutral strip)'); col(C.requestCard({ ...rc, expiresAt: '2026-10-13T09:50' }));
-  v('suggested (muted money, waiting on Sarah)'); col(C.requestCard({ ...rc, status: 'suggested', waitingOn: 'Sarah' }));
+  v('suggested (K-13: You suggested + 24h, muted payout)'); col(C.requestCard({ ...rc, when: 'Thu, Oct 15 · 6:00 PM', asked: 'Sarah asked for 5:00 PM', status: 'suggested', waitingOn: 'Sarah', lapseAt: '2026-10-14T09:40', now: '2026-10-13T09:40' }));
+  v('suggested, urgent (10 min → error bar)'); col(C.requestCard({ ...rc, when: 'Thu, Oct 15 · 6:00 PM', asked: 'Sarah asked for 5:00 PM', status: 'suggested', waitingOn: 'Sarah', lapseAt: '2026-10-13T09:50', now: '2026-10-13T09:40' }));
   v('retried (Sent again) · one item, one service'); col(C.requestCard({ ...rc, retries: 1, items: 1, services: 1 }));
 
   h2('Appt row — one line of an appointment list');
@@ -496,8 +502,8 @@ export function galleryHtml() {
     `<span class="appt-row--muted">${C.avatar({ initials: 'SC', size: 'md' })}</span>`, C.avatar({ initials: 'AR', photo: true, size: 'md' }), C.avatar({ photo: true, size: 'md' }));
   v('sectionHead · with a count · with ⓘ · with a link');
   col(C.sectionHead('Your items', { count: '2 items' }), C.sectionHead('Price', { aside: C.infoButton('deposit') }), C.sectionHead('Reviews', { aside: C.textLink('See all 37', { act: 'noop' }) }));
-  v('.t-figure (hero fact) · .t-display (hero money)');
-  col(`<p class="t-figure">Thu, Oct 15 · 5:00 PM</p>`, `<p class="t-display" data-money>${fmtExact(seed.payout)}</p>`);
+  v('.t-figure (hero fact) · .t-money (hero money, sans)');
+  col(`<p class="t-figure">Thu, Oct 15 · 5:00 PM</p>`, `<p class="t-money" data-money>${fmtExact(seed.payout)}</p>`);
 
   h2('M7 · text links, action bar, more menu');
   v('textLink: default · danger · muted · with icon · disabled');

@@ -241,6 +241,20 @@ a {
   margin: 0;
 }
 
+/* K-12: ALL hero money is Hanken Grotesk (sans), never Cormorant — payouts, totals, new totals, earnings, receipts, any large dollar
+   figure. Same sizes as the old serif money (.t-display 32 / .t-h2 24), weight 600 for hierarchy, tabular lining figures.
+   Cormorant stays for page and overlay titles only (.t-title, .t-display / .t-h2 as titles). */
+.t-money {
+  font-family: var(--font-sans);
+  font-size: var(--size-32);
+  line-height: calc(38 / 32);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+  margin: 0;
+}
+.t-money--md { font-size: var(--size-24); line-height: calc(29 / 24); }
+
 /* M7 (A2): the non-money hero fact — a visit time, "2h left" — sans, not serif */
 .t-figure {
   font-family: var(--font-sans);

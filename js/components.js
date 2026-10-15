@@ -357,16 +357,22 @@ export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [],
 export function visitBlock(rows = [], { title = 'Visit details', flush = false, action = '' } = {}) {
   /* M7 (A5.5): the title is a small caps section head (`action` = HTML aside, e.g. a "Change time" text link); rows sit flat under it.
      K-10 (D-235): a row is a plain HTML string (legacy) or a fact object for an "Icon rows" row — see `visitRow`. */
-  return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${sectionHead(title, { aside: action })}${rows.map((r) => (typeof r === 'string' ? `<span class="visit-block__row">${r}</span>` : visitRow(r))).join('')}</div>`;
+  return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${sectionHead(title, { aside: action })}${visitRows(rows)}</div>`;
 }
 
-/** K-10 (D-235), Option A "Icon rows": one fact = a 20 px line icon (neutral-600, aria-hidden) beside the value (16 / 500 ink, 16 / 600 when
-    `strong`, the date row) with `detail` under it (12 / 400 neutral-600; a string or an array, one line each). `extra` = HTML under the
-    detail (the garment tiles). `value` / `detail` are HTML the caller has escaped. The icon box is one 16-size text line tall, so the icon
-    centres on the first line. */
+/** K-14 (D-240): the rows of a visit / person block share ONE column (`.visit-rows`): every icon in a 40 px round tile, every text on one edge. */
+function visitRows(rows = [], lead = '') {
+  const inner = lead + rows.map((r) => (typeof r === 'string' ? `<span class="visit-block__row">${r}</span>` : visitRow(r))).join('');
+  return inner ? `<div class="visit-rows">${inner}</div>` : '';
+}
+
+/** K-10 (D-235) + K-14 (D-240), "Icon tiles match the avatar": one fact = a 20 px line icon (neutral-600, aria-hidden) in a 40 px round
+    neutral tile (the avatar's diameter, so tiles and avatar share one column) beside the value (16 / 500 ink, 16 / 600 when `strong`, the
+    date row) with `detail` under it (12 / 400 neutral-600; a string or an array, one line each). The text column is at least one tile tall and
+    centres on it; a row with `extra` (the garment tiles) top-aligns instead (`--tall`). `value` / `detail` are HTML the caller has escaped. */
 export function visitRow({ icon = 'calendar', value = '', detail = '', strong = false, extra = '', cls = '' } = {}) {
   const lines = (Array.isArray(detail) ? detail : [detail]).filter(Boolean);
-  return `<div class="visit-row${cls ? ` ${cls}` : ''}"><span class="visit-row__icon">${VISIT_ICONS[icon] ?? ''}</span><div class="visit-row__text"><span class="visit-row__value t-body ${strong ? 'w-600' : 'w-500'}">${value}</span>${lines.map((l) => `<span class="visit-row__detail t-small w-400 c-600">${l}</span>`).join('')}${extra}</div></div>`;
+  return `<div class="visit-row${extra ? ' visit-row--tall' : ''}${cls ? ` ${cls}` : ''}"><span class="visit-row__icon">${VISIT_ICONS[icon] ?? ''}</span><div class="visit-row__text"><span class="visit-row__value t-body ${strong ? 'w-600' : 'w-500'}">${value}</span>${lines.map((l) => `<span class="visit-row__detail t-small w-400 c-600">${l}</span>`).join('')}${extra}</div></div>`;
 }
 
 /** K-12 Option C "Person-led block": the avatar anchors the block and the visit icon rows hang under the name, then equal action buttons.
@@ -374,17 +380,14 @@ export function visitRow({ icon = 'calendar', value = '', detail = '', strong = 
     `rows` = the same fact objects / strings `visitBlock` takes. `actions` = [{ label, icon (HTML), act, href, attrs }] rendered as equal
     columns of small outline buttons (a `href` makes it a link: Directions, Add to calendar). One block for both personas. */
 export function personBlock({ title = 'Visit', person = {}, rows = [], actions = [], action = '' } = {}) {
-  const rowHtml = rows.map((r) => (typeof r === 'string' ? `<span class="visit-block__row">${r}</span>` : visitRow(r))).join('');
   const btns = actions.map((x) => {
     const inner = `${x.icon ?? ''}<span>${esc(x.label)}</span>`;
     const attrs = `${x.act ? `data-act="${esc(x.act)}"` : ''}${x.attrs ? ` ${x.attrs}` : ''}`;
     return ctaSmall(inner, { attrs, href: x.href ?? '' });
   }).join('');
-  return `<div class="visit-block visit-block--flush person-block">${sectionHead(title, { aside: action })}
-  <div class="person-block__spine">${avatar({ initials: person.initials ?? '', size: 'sm' })}
-    <div class="person-block__who"><span class="person-block__name t-body w-600">${esc(person.name ?? '')}</span>${person.verified ? verifiedCheck() : ''}</div>
-    ${rowHtml ? `<div class="person-block__rows">${rowHtml}</div>` : ''}
-  </div>${btns ? `<div class="person-block__actions">${btns}</div>` : ''}</div>`;
+  /* K-14: the person is the first row of the one column — the avatar sits in the icon slot (no tile fill), the name on the common text edge */
+  const lead = `<div class="visit-row visit-row--person"><span class="visit-row__icon visit-row__icon--avatar">${avatar({ initials: person.initials ?? '', size: 'sm' })}</span><div class="visit-row__text person-block__who"><span class="person-block__name t-body w-600">${esc(person.name ?? '')}</span>${person.verified ? verifiedCheck() : ''}</div></div>`;
+  return `<div class="visit-block visit-block--flush person-block">${sectionHead(title, { aside: action })}${visitRows(rows, lead)}${btns ? `<div class="person-block__actions">${btns}</div>` : ''}</div>`;
 }
 
 /** An .ics data link for "Add to calendar" (both personas). `start` / `end` / `stamp` are ISO minutes ("2026-10-15T17:00"). */

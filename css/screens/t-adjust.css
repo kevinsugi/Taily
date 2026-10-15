@@ -1,8 +1,8 @@
 /* t-adjust — T5 Edit the job at the fitting (K-01). Layout only; lines, figures, breakdown, sheet and bar are shared. Tokens only. */
 .t-adjust { padding-bottom: var(--space-40); }
 .t-adjust__eyebrow { margin: 0 0 var(--space-4); }
-.t-adjust__content { display: flex; flex-direction: column; margin-top: var(--space-24); }
-.t-adjust__info { margin-bottom: var(--space-24); }
+.t-adjust__content { display: flex; flex-direction: column; margin-top: var(--rhythm-block); }
+.t-adjust__info { margin-bottom: var(--rhythm-block); }
 .t-adjust__info .banner__text { text-wrap: pretty; }
 .t-adjust__garments { display: flex; flex-direction: column; gap: var(--rhythm-group); }
 .t-adjust__card.card { padding-block: var(--space-4); }   /* the shared .card: tissue + chalk ring */
@@ -30,28 +30,33 @@
 .t-adjust__err p { margin: var(--space-4) 0 0; }
 .t-adjust__add { padding-block: var(--space-4); }
 .t-adjust__add .list-row { padding-inline: 0; }
-.t-adjust__row:last-child { box-shadow: inset 0 -1px 0 var(--neutral-100); }
+.t-adjust__row:last-child { box-shadow: none; }   /* P2-2: no hairline between the services and the docs block */
 
-.t-adjust__empty-err { margin-top: var(--space-16); }
+.t-adjust__empty-err { margin-top: var(--rhythm-group); }
 .t-adjust__empty-err:empty { display: none; }
 .t-adjust__note.sec { gap: 0; }
 .t-adjust__frozen { grid-column: 1 / -1; margin: 0; }
 .t-adjust__figures { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-16); }
 .t-adjust__breakdown { margin-top: var(--rhythm-group); }
 .t-adjust__fine { margin: 0; text-wrap: pretty; }
-.t-adjust__empty { margin-top: var(--space-24); }
 
 /* the add-a-service sheet */
 .t-adjust-sheet { display: flex; flex-direction: column; width: 100%; }
 /* M7-2-T-03: nothing changed → no two-up figures (the summary + breakdown say it once) */
 .t-adjust__figures--none { display: none; }
 @media (max-width: 340px) { .t-adjust__figures { grid-template-columns: minmax(0, 1fr); } }
+/* P1-2 zoom tier: the label takes its own row, then the input and the remove button share the next */
+@media (max-width: 300px) {
+  .t-adjust__row { grid-template-columns: minmax(0, 1fr) 52px; }
+  .t-adjust__label { grid-column: 1 / -1; }
+  .t-adjust__was { grid-column: 1; }
+}
 
 /* K-01: the card head (type · tag · Remove item), the new-item / removed-item cards, Add an item */
 .t-adjust__head { min-height: 44px; padding-top: var(--space-4); box-shadow: inset 0 -1px 0 var(--neutral-100); }   /* K-04: the head is the shared garmentHead (icon, name, tag … Remove item) */
 .t-adjust__head .garment-head { margin-bottom: 0; }
 /* the head's link is the shared textLink (M7-1-T-05): pushed to the right edge, drawn at the small size */
-.t-adjust__head .text-link { margin-right: calc(-1 * var(--space-8)); font-size: var(--size-12); line-height: 16px; }
+.t-adjust__head .text-link { margin-right: calc(-1 * var(--space-8)); font-size: var(--size-12); line-height: var(--lh-12); }
 .t-adjust__card--new.card { box-shadow: inset 0 0 0 1px var(--success); }
 .t-adjust__card--gone { padding-bottom: var(--space-12); }
 .t-adjust__card--gone .t-adjust__head { box-shadow: none; }
@@ -65,18 +70,19 @@
 .t-adjust__summary:empty { display: none; }
 .t-adjust__back { align-self: flex-start; margin: 0 0 var(--space-4) calc(-1 * var(--space-8)); }
 .t-adjust-sheet { gap: 0; }
-.t-adjust__lead-pair { white-space: nowrap; }
+.t-adjust__lead-pair { min-width: 0; }   /* P1-3 (D-224): the pair may wrap; only label + amount stays together (.nb in the markup) */
 
 /* K-02: the garment icon leads the card head; a removed card dims it; the docs block closes the card */
 .t-adjust__head { padding-bottom: var(--space-8); }
-.t-adjust__card .docs-editor { margin-bottom: 0; }
+/* P2-2 (D-229): inside a garment card: services → 24 → docs block (Before / Pinned / comment 8 apart, no hairline, no inset panel) → Remove item */
+.t-adjust__card .docs-editor { margin: var(--rhythm-block) 0 0; padding: 0; gap: var(--rhythm-tight); box-shadow: none; }
 
 /* M7: the bar lead is two columns (what Sarah pays | what you take home); the figures, not a dotted sentence */
-.t-adjust__lead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-12); width: 100%; }
+.t-adjust__lead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-4) var(--space-12); width: 100%; }
 .t-adjust__lead-pair b { color: var(--ink); font-weight: 600; }
 /* D-196: the bar note is a footnote until she has tried to send or leave, then error ink */
 .t-adjust[data-tried="true"] + .action-bar .action-bar__note { color: var(--error-ink); }
 
 /* CR-5: Remove item is the card's last row, a red text link at the left under + Add comment */
-.t-adjust__remove { display: flex; padding-top: var(--space-4); }
+.t-adjust__remove { display: flex; padding-top: var(--rhythm-tight); }
 .t-adjust__remove .text-link { margin-left: calc(-1 * var(--space-8)); min-height: 44px; }

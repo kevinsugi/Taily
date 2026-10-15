@@ -38,7 +38,7 @@
   color: var(--neutral-50);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   /* press feedback: transform only, retargetable */
   transition: transform var(--dur-press) var(--ease-out);
@@ -61,7 +61,7 @@
   gap: var(--space-8);
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 600;
   white-space: nowrap;
   color: var(--status-calm-ink);
@@ -100,7 +100,7 @@
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   white-space: nowrap;
   transition: transform var(--dur-press) var(--ease-out),
@@ -130,7 +130,7 @@
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   transition: transform var(--dur-press) var(--ease-out);
 }
@@ -155,7 +155,7 @@
   /* 16px in the frames (the generated design-context fallback said 12
      — the rendered ref proves 16) */
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   color: var(--neutral-500-ink);
 }
@@ -175,7 +175,7 @@
   font-family: var(--font-sans);
   /* value text is 16px in the frames (labels stay 12) */
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   color: var(--ink);
   white-space: nowrap;
@@ -215,7 +215,7 @@
   border-radius: var(--space-4);
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 500;
   color: var(--neutral-600);
 }
@@ -269,7 +269,7 @@
   transform: translateY(0.5px);
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 500;
   color: var(--ink);
   text-align: center;
@@ -316,7 +316,7 @@
 .garment-tile--row .garment-tile__icon img,
 .garment-tile--grid .garment-tile__icon img { left: -36.87%; top: -13.64%; width: 169.7%; height: 127.27%; }
 /* 4+ items: a fixed 2x3 grid of 15x19 icons inside the 40 px band (six icons at most; the label keeps counting) */
-.garment-tile--grid .garment-tile__icons { width: 53px; margin-inline: auto; row-gap: 2px; column-gap: 4px; }
+.garment-tile--grid .garment-tile__icons { width: 53px; margin-inline: auto; row-gap: var(--space-2); column-gap: 4px; }
 .garment-tile--grid .garment-tile__icon { width: 15px; height: 19px; }
 /* the master draws Selected_One's label neutral-700, the multi states' ink (raised) */
 .garment-tile--one .garment-tile__label { color: var(--neutral-700); }
@@ -346,7 +346,7 @@
   color: var(--ink);
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 600;
   white-space: nowrap;
   transition: transform var(--dur-press) var(--ease-out);
@@ -406,21 +406,21 @@
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 700;
   color: var(--neutral-500-ink);
 }
 .appt-card__month {
   font-family: var(--font-sans);
   font-size: var(--size-10);
-  line-height: 13px;
+  line-height: var(--lh-10);
   font-weight: 600;
   color: var(--accent-ink);
 }
 .appt-card__day {
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 700;
   color: var(--ink);
 }
@@ -436,7 +436,7 @@
 .appt-card__name {
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   color: var(--ink);
 }
@@ -446,7 +446,7 @@
   min-width: 1px;
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 500;
   color: var(--neutral-600);
 }
@@ -456,7 +456,7 @@
 .card-list__title {
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 700;
 }
 .card-list__items {
@@ -466,7 +466,7 @@
   padding-left: var(--space-8);
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 500;
 }
 
@@ -480,7 +480,7 @@
 .status-hero__title {
   font-family: var(--font-serif);
   font-size: var(--size-28);
-  line-height: 34px;
+  line-height: var(--lh-28);
   font-weight: 500;
   color: var(--ink);
   margin: 0;
@@ -495,7 +495,7 @@
 .status-hero__body {
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 500;
   color: var(--neutral-600);   /* R1-1-C-09: 6.4:1 on neutral-50 (neutral-500 was 3.75:1) */
   margin: 0;
@@ -514,7 +514,7 @@
   width: 100%;
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 500;
   color: var(--neutral-600);
 }
@@ -551,7 +551,7 @@
   justify-content: center;
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   letter-spacing: 0.02em;
   flex-shrink: 0;
@@ -562,7 +562,7 @@
   gap: var(--space-4);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
 }
 .summary-card__name-row { display: flex; align-items: center; gap: var(--space-4); }
 .summary-card__name { font-weight: 600; color: var(--ink); }
@@ -577,7 +577,7 @@
   color: var(--success-ink);
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -587,7 +587,7 @@
 /* Round 15 (Kevin, User Summary 207:3847): the customer's card on the tailor
    side — 20 padded, the accent "✓ New Customer" tag, neutral-100 chips in accent ink */
 .summary-card--user { padding: var(--space-20); cursor: default; }
-.summary-card__tag { font-size: var(--size-12); line-height: 16px; font-weight: 600; color: var(--accent-ink); }
+.summary-card__tag { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--accent-ink); }
 .trust-badges--user .trust-badge { background: var(--neutral-100); color: var(--accent-ink); }
 .trust-line { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; }   /* master: who → badges gap 8 inside the card's 16 */
 /* Trust Card — Meet Marco (round 14): 03/Confirmed in-page + the 03.4 popup */
@@ -606,12 +606,12 @@
 .trust-card__photo .doc-photo { width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; }
 .trust-card__head { display: flex; flex-direction: column; gap: var(--space-8); }
 .trust-card__name-row { display: flex; align-items: center; gap: var(--space-8); }
-.trust-card__name { font-family: var(--font-serif); font-size: var(--size-24); line-height: 29px; font-weight: 600; color: var(--ink); }
-.trust-card__sub { margin: 0; font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 500; color: var(--neutral-600); }
-.trust-card__bio { margin: 0; font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 400; color: var(--neutral-700); }
+.trust-card__name { font-family: var(--font-serif); font-size: var(--size-24); line-height: var(--lh-24); font-weight: 600; color: var(--ink); }
+.trust-card__sub { margin: 0; font-family: var(--font-sans); font-size: var(--size-16); line-height: var(--lh-16); font-weight: 500; color: var(--neutral-600); }
+.trust-card__bio { margin: 0; font-family: var(--font-sans); font-size: var(--size-16); line-height: var(--lh-16); font-weight: 400; color: var(--neutral-700); }
 /* 03/Confirmed's Visit Details block at the top of the garments card */
 .visit-block { display: flex; flex-direction: column; gap: var(--rhythm-tight); }   /* M7: flat — the title is a sectionHead */
-.visit-block__row { font-family: var(--font-sans); font-size: var(--size-16); line-height: 21px; font-weight: 400; color: var(--ink); white-space: pre; }   /* round 16: Kevin's frames draw the rows Regular ink */
+.visit-block__row { font-family: var(--font-sans); font-size: var(--size-16); line-height: var(--lh-16); font-weight: 400; color: var(--ink); white-space: pre; }   /* round 16: Kevin's frames draw the rows Regular ink */
 /* Round 15 (Kevin): the Back control (308:3820) beside a heading — a
    36-tall, 8-padded box around "‹" 28 Regular ink; the row centres it
    on the heading block (gap 4). */
@@ -622,7 +622,7 @@
   border: 0;
   font-family: var(--font-sans);
   font-size: var(--size-28);
-  line-height: 34px;
+  line-height: var(--lh-28);
   font-weight: 400;
   color: var(--ink);
   flex-shrink: 0;
@@ -688,7 +688,7 @@
 .garment-card__price {
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 500;
   color: var(--ink);
 }
@@ -707,7 +707,7 @@
   gap: var(--space-8);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   color: var(--ink);
 }
@@ -722,7 +722,7 @@
 .garment-card--view .garment-card__service {
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 500;
   color: var(--ink);
 }
@@ -741,7 +741,7 @@
   color: var(--accent-bg);
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 500;
   flex-shrink: 0;
 }
@@ -768,7 +768,7 @@
   gap: var(--space-8);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   color: var(--ink);
 }
@@ -782,7 +782,7 @@
   left: 0;
   z-index: 5;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
   width: 220px;
   padding: 6px;
   background: var(--white);
@@ -801,7 +801,7 @@
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
   font-size: var(--size-14);
-  line-height: 18px;
+  line-height: var(--lh-14);
   font-weight: 500;
   color: var(--ink);
   text-align: left;
@@ -826,7 +826,7 @@
   padding: 6px 12px 4px;
   font-family: var(--font-sans);
   font-size: var(--size-11);
-  line-height: 14px;
+  line-height: var(--lh-11);
   font-weight: 600;
   color: var(--neutral-500-ink);
   white-space: nowrap;
@@ -834,7 +834,7 @@
 .selector__price {
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 400;
   color: var(--neutral-500-ink);
 }
@@ -842,7 +842,7 @@
   padding-left: var(--space-4);
   font-family: var(--font-sans);
   font-size: var(--size-14);
-  line-height: 18px;
+  line-height: var(--lh-14);
   font-weight: 600;
   color: var(--neutral-500);
 }
@@ -863,7 +863,7 @@
   right: 13px;                    /* Figma: ✕ box ends 13 from the edge */
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   color: var(--neutral-500);
 }
@@ -898,7 +898,7 @@
 .photo-tiles__label {
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 500;
   color: var(--neutral-500-ink);
 }
@@ -932,20 +932,30 @@
   inset: 0;
   background: var(--ink);
   opacity: 0.4;
-  z-index: 3;
+  z-index: 1;   /* P3-4: relative to the overlay holder (.screen-sheet--overlay, --z-overlay), which is its stacking context */
 }
 .sheet {
   position: absolute;
   inset: auto 0 0 0;
-  z-index: 4;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: var(--space-16);
-  padding: var(--space-12) var(--space-20) var(--space-32);
+  padding: var(--space-12) var(--space-20) calc(var(--space-32) + var(--safe-bottom));
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   background: var(--neutral-50);
+  /* P1-1: never taller than the visible viewport; the content scrolls inside and the header stays reachable */
+  max-height: calc(100% - var(--rhythm-major));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* K-09 (WCAG 2.4.11): stop a focused control below the stuck grabber row + header; fitOverlay overwrites it with the measured height */
+  scroll-padding-top: calc(var(--space-16) + var(--touch) + var(--space-8));
 }
-.sheet__grabber-row { display: flex; justify-content: center; width: 100%; }
+.sheet > * { flex-shrink: 0; }
+/* P1-1: the grabber row and the header stay at the sheet's top edge while the content scrolls. A sticky `top` is measured from the scroller's
+   CONTENT box (12 px under its top edge), so the row takes the sheet's 12 px top padding itself (padding + the matching negative margin: same
+   layout as before) and sticks at -12; the header sticks right under it. */
+.sheet__grabber-row { display: flex; justify-content: center; width: 100%; position: sticky; top: calc(-1 * var(--space-12)); z-index: 1; padding-top: var(--space-12); margin-top: calc(-1 * var(--space-12)); background: var(--neutral-50); }
 
 .sheet__grabber { width: 40px; }
 /* Picker title went serif in the Aug 2026 frames: Cormorant SemiBold 20/24
@@ -953,7 +963,7 @@
 .sheet--picker .sheet__title {
   font-family: var(--font-serif);
   font-size: var(--size-20);
-  line-height: 24px;
+  line-height: var(--lh-20);
   font-weight: 600;
   text-align: center;
   flex: 1 0 0;
@@ -984,10 +994,15 @@
   width: 100%;
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   color: var(--ink);
+  position: sticky;
+  top: calc(-1 * var(--space-12));
+  z-index: 1;
+  background: var(--neutral-50);
 }
+.sheet__grabber-row + .sheet__header { top: var(--space-4); }   /* under the stuck grabber row (12 + 4): the two stack, no overlap */
 .sheet__cancel { color: var(--neutral-500-ink); }
 .sheet__confirm { color: var(--accent-ink); font-weight: 700; }
 
@@ -1012,6 +1027,7 @@
   background: var(--neutral-100);
 }
 .wheel__col { position: relative; display: flex; flex-direction: column; min-width: 44px; }   /* AU-P3-6: a narrow column never drops under a touch target */
+@media (max-width: 300px) { .wheel__col { min-width: 32px; } }   /* P1-2: zoom tier; 32 CSS px is 64 at 100% */
 .wheel__row {
   height: 44px;   /* M6-V-02: rows are tap targets — 44 px pitch everywhere */
   display: flex;
@@ -1019,14 +1035,14 @@
   justify-content: center;
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 500;
   color: var(--neutral-600);
 }
 .wheel__row--edge { color: var(--neutral-500-ink); }   /* K-04 / AU-P2-1: both read at 4.5:1 or better */
 .wheel__row--selected {
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 700;
   color: var(--ink);
 }
@@ -1058,7 +1074,7 @@
   background: var(--white);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   color: var(--ink);
   transition: transform var(--dur-press) var(--ease-out);
@@ -1075,10 +1091,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: var(--space-2);
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 700;
   color: var(--ink);
   flex-shrink: 0;
@@ -1094,7 +1110,7 @@
 .bubble-row { display: flex; width: 100%; }
 .bubble-row--me { justify-content: flex-end; }
 .bubble {
-  max-width: 262px;
+  max-width: var(--chat-measure);
   padding: var(--space-12) var(--space-16);
   border-radius: var(--radius-lg);
   background: var(--white);
@@ -1102,7 +1118,7 @@
   font-family: var(--font-sans);
   /* refine r1: master moved 14 → 16 (Chat Bubble 514:934) */
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 400;
 }
 .bubble--me { background: var(--ink); color: var(--white); }
@@ -1131,7 +1147,7 @@
   justify-content: center;
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -1141,7 +1157,7 @@
 .step__title {
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 700;
   color: var(--ink);
 }
@@ -1149,7 +1165,7 @@
 .step--todo .step__title {
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 500;
   color: var(--neutral-500-ink);
 }
@@ -1162,7 +1178,7 @@
 .delivery-window__day {
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 500;
   color: var(--neutral-500-ink);
 }
@@ -1185,7 +1201,7 @@
   font-family: var(--font-sans);
   /* Phase R0 (08): heading moved 12 → 16, +1px tracking kept */
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   letter-spacing: 1px;
   font-weight: 600;
   color: var(--neutral-500-ink);
@@ -1200,11 +1216,11 @@
   width: 100%;
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 500;
   color: var(--neutral-500-ink);
 }
-.info-row--small { font-size: var(--size-12); line-height: 16px; }
+.info-row--small { font-size: var(--size-12); line-height: var(--lh-12); }
 /* Phase R0: 08's total row is Hanken Bold in the frame */
 .info-row--total { font-weight: 700; color: var(--ink); }
 
@@ -1215,11 +1231,11 @@
   gap: var(--space-8);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 500;
   color: var(--neutral-500-ink);
 }
-.meta-row__glyph { font-size: var(--size-12); line-height: 16px; }
+.meta-row__glyph { font-size: var(--size-12); line-height: var(--lh-12); }
 
 /* UX-LOOP round 6: 03/Requested's request card leads with a who-row —
    a 40px avatar (the ✂ glyph until a tailor accepts) beside the name
@@ -1228,7 +1244,7 @@
 .request-card__name {
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   color: var(--ink);
 }
@@ -1251,7 +1267,7 @@
   text-align: center;
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 700;
   color: var(--ink);
   flex-shrink: 0;
@@ -1259,15 +1275,15 @@
 .fee-row__desc {
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 500;
   color: var(--ink);
 }
-.fee-row__text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 0; min-width: 0; }
+.fee-row__text { display: flex; flex-direction: column; gap: var(--space-2); flex: 1 1 0; min-width: 0; }
 .fee-row__caption {
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 500;
   color: var(--ink);
 }
@@ -1298,13 +1314,13 @@
    card, r24 (not a Figma radius variable), pad 24/20/20, gap 12,
    0 16 40 black@18% shadow, over an ink@45% scrim.
    ============================================================ */
-/* z3 clears the chrome (status bar / top nav sit at z2) */
-.modal-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 45%, transparent); z-index: 3; }
+/* inside the overlay holder (--z-overlay), which clears the chrome (--z-chrome); scrim 1, card 2 */
+.modal-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--ink) 45%, transparent); z-index: 1; }
 .modal {
   position: absolute;
-  z-index: 3;
-  left: 32px;
-  right: 32px;
+  z-index: 2;
+  left: var(--space-32);
+  right: var(--space-32);
   width: auto;
   display: flex;
   flex-direction: column;
@@ -1319,7 +1335,7 @@
   margin: 0;
   font-family: var(--font-serif);
   font-size: var(--size-24);
-  line-height: 29px;
+  line-height: var(--lh-24);
   font-weight: 500;
   color: var(--ink);
   width: 100%;
@@ -1334,11 +1350,11 @@
   width: 100%;
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   color: var(--ink);
 }
 .modal__row > :last-child { width: 250px; }
-.modal__glyph { font-weight: 700; flex-shrink: 0; font-size: var(--size-14); line-height: 18px; }
+.modal__glyph { font-weight: 700; flex-shrink: 0; font-size: var(--size-14); line-height: var(--lh-14); }
 /* 05C: success-green SemiBold title + a real bulleted prepare list */
 .modal__title--success { font-weight: 600; color: var(--success-ink); }
 .modal__list { margin: 0; padding-left: var(--space-24); }
@@ -1359,7 +1375,7 @@
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--size-14);
-  line-height: 18px;
+  line-height: var(--lh-14);
   color: var(--neutral-500-ink);
   width: 100%;
 }
@@ -1396,7 +1412,7 @@
   width: 300px;
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 400;
   color: var(--neutral-500-ink);
   text-align: center;
@@ -1411,7 +1427,7 @@
   background: var(--neutral-50);
   text-align: left;
 }
-.detail-row { display: flex; justify-content: space-between; width: 100%; font-family: var(--font-sans); line-height: 21px; }
+.detail-row { display: flex; justify-content: space-between; width: 100%; font-family: var(--font-sans); line-height: var(--lh-16); }
 /* round 16 (Kevin, Window Confirmed / Modal): 16px rows */
 .detail-row__label { font-size: var(--size-16); font-weight: 400; color: var(--neutral-500-ink); }
 .detail-row__value { font-size: var(--size-16); font-weight: 600; color: var(--ink); }
@@ -1436,7 +1452,7 @@
   margin: 0;
   font-family: var(--font-serif);
   font-size: var(--size-28);
-  line-height: 34px;
+  line-height: var(--lh-28);
   font-weight: 500;
   color: var(--ink);
 }
@@ -1444,7 +1460,7 @@
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 400;
   color: var(--neutral-500-ink);
 }
@@ -1458,7 +1474,7 @@
 .review-sheet__stars button {
   font-family: var(--font-sans);
   font-size: var(--size-30);
-  line-height: 39px;
+  line-height: var(--lh-30);
   font-weight: 600;
   color: var(--neutral-300);
 }
@@ -1468,7 +1484,7 @@
 .review-sheet__check {
   font-family: var(--font-sans);
   font-size: var(--size-24);
-  line-height: 31px;
+  line-height: var(--lh-24-open);
   font-weight: 600;
   color: var(--success-ink);
 }
@@ -1481,7 +1497,7 @@
   background: var(--neutral-50);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 400;
   color: var(--ink);
   resize: none;
@@ -1500,19 +1516,19 @@
 .toast {
   position: fixed;
   left: 50%;
-  bottom: var(--space-24);
+  bottom: calc(var(--space-24) + var(--safe-bottom));
   transform: translate(-50%, 8px);
-  z-index: 30;
+  z-index: var(--z-toast);
   width: max-content;   /* R3-1-C-07: left:50% would cap the shrink-to-fit width at half the viewport */
   max-width: min(320px, calc(100vw - 40px));
   text-wrap: balance;
-  padding: 10px var(--space-16);   /* 10 is off-grid, like the modal's row gap */
+  padding: calc(var(--space-8) + var(--space-2)) var(--space-16);   /* 10, off-grid on purpose (the toast's one line + its 44 px action) */
   border-radius: var(--radius-20);
   background: var(--ink);
   color: var(--neutral-50);
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 600;
   text-align: center;
   box-shadow: var(--shadow-overlay);
@@ -1555,7 +1571,7 @@
   display: none;
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 500;
   color: var(--error-ink);
 }
@@ -1570,7 +1586,7 @@
   padding-top: var(--space-12);
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 600;
   color: var(--accent-ink);
 }
@@ -1602,13 +1618,13 @@
   background: none;
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 400;
   color: var(--neutral-500-ink);
   text-align: left;
 }
 button.scheduler__sub { cursor: pointer; }
-.scheduler__title { font-family: var(--font-serif); font-size: var(--size-24); line-height: 29px; font-weight: 600; color: var(--ink); }
+.scheduler__title { font-family: var(--font-serif); font-size: var(--size-24); line-height: var(--lh-24); font-weight: 600; color: var(--ink); }
 .wheel--sched { height: 220px; width: 100%; }   /* M6-V-02: 5 rows × 44 (SCHED_ROW) */
 .wheel--sched .wheel__band { top: 88px; height: 44px; border-radius: var(--radius-md); background: var(--neutral-50); }   /* R1-1-C-14: inset equally on both sides (was flush to the card's right edge) */
 .wheel--sched .wheel__col--scroll { height: 220px; }
@@ -1617,13 +1633,14 @@ button.scheduler__sub { cursor: pointer; }
 .wheel--sched .wheel__col--scroll .wheel__row--selected { font-weight: 600; color: var(--ink); }
 .wheel--sched .wheel__pad { flex: 0 0 88px; }
 .scheduler--inline .wheel--sched .wheel__col:first-of-type { flex: 1 1 0; min-width: 0; }
+@media (max-width: 300px) { .scheduler--inline .wheel--sched .wheel__col:first-of-type { flex: 1 1 0; min-width: 0; } .scheduler--inline .wheel--sched .wheel__col:first-of-type .wheel__row { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 44px; padding-inline: var(--space-2); } }   /* P1-2: the date column takes what is left and ellipsises */
 .scheduler__note .t-small { text-transform: none; letter-spacing: 0; }   /* M6-C-12: the value reads in sentence case beside its caps label */
 .scheduler__note {
   margin: 0;
   width: 100%;
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -1646,7 +1663,7 @@ button.scheduler__sub { cursor: pointer; }
   color: var(--neutral-50);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 600;
   cursor: pointer;
 }
@@ -1669,7 +1686,7 @@ button.scheduler__sub { cursor: pointer; }
   background: var(--white);
   font-family: var(--font-sans);
   font-size: var(--size-16);
-  line-height: 21px;
+  line-height: var(--lh-16);
   font-weight: 500;
   color: var(--ink);
   cursor: pointer;

@@ -1,13 +1,14 @@
 /* ============================================================
    c-addresses — Saved addresses. The places tailors visit and the default new bookings start from.
-   Focal: the default address card. Add = a sheet (D-133); remove is immediate with Undo, no confirm.
-   Screen-local UI: state.ui['c-addresses'] = { add: draft | undefined, busy: { kind, id } | null }.
+   Focal: the default address row. One card--list of rows (P3-1, the c-cards topology); a row opens a sheet with Make default / Remove
+   (D-133, D-229). Add = a sheet; remove is immediate with Undo, no confirm.
+   Screen-local UI: state.ui['c-addresses'] = { add: draft | undefined }.
    Spec: M5-spec.md §C3.
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
 import { state } from '../state.js';
 import {
-  chrome, headingRow, actionBar, emptyState, field, chipGroup, checkRow, cta, sheetOverlay, toast, wireChipGroups, banner, esc,
+  chrome, headingRow, actionBar, emptyState, field, chipGroup, checkRow, cta, listRow, textLink, sheetOverlay, toast, wireChipGroups, banner, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import { ADDRESS_LABELS, SHOP_CITY } from '../data.js';
@@ -22,23 +23,7 @@ const sorted = () => list().slice().sort((a, b) => Number(!!b.default) - Number(
 const onScreen = () => currentScreen() === ID;
 
 /* ---------- the list ---------- */
-function card(a, busy) {
-  const mine = busy?.id === a.id;
-  const lock = busy ? ' disabled aria-disabled="true"' : '';
-  const verb = mine ? { 'make-default': 'Updating…', remove: 'Removing…' }[busy.kind] : null;
-  return `<article class="${ID}__card" data-id="${esc(a.id)}"${a.default ? ' data-default="true"' : ''}${mine ? ' aria-busy="true"' : ''}>
-  <div class="${ID}__head">
-    <h2 class="t-body w-600 ${ID}__label">${esc(a.label)}</h2>
-    ${a.default ? `<span class="${ID}__tag t-micro w-700">Default</span>` : ''}
-  </div>
-  <p class="t-body c-700 ${ID}__lines">${esc(a.street)}${a.unit ? `, ${esc(a.unit)}` : ''}<br>${esc(a.city)}, ${esc(a.state)} ${esc(a.zip)}</p>
-  <div class="${ID}__actions">
-    ${a.default ? '' : `<button type="button" class="${ID}__btn t-body w-600 c-accent-ink" data-act="make-default" data-id="${esc(a.id)}"${lock}>${mine && busy.kind === 'make-default' ? verb : 'Make default'}</button>`}
-    <button type="button" class="${ID}__btn t-body w-600 c-error" data-act="remove" data-id="${esc(a.id)}"${lock}>${mine && busy.kind === 'remove' ? verb : 'Remove'}</button>
-  </div>
-  ${ui().error?.id === a.id ? `<div class="${ID}__error" role="alert">${banner({ tone: 'error', title: ui().error.title, text: ui().error.text })}</div>` : ''}
-</article>`;
-}
+const lines = (a) => `${a.street}${a.unit ? `, ${a.unit}` : ''}, ${a.city}, ${a.state} ${a.zip}`;
 
 function view() {
   const head = `${chrome('account')}`;
@@ -54,13 +39,89 @@ function view() {
   })}</div>
 </main>`;
   }
-  const busy = ui().busy ?? null;
-  return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
+  const items = rows.map((a) => listRow({
+    title: esc(a.label), sub: esc(lines(a)), act: 'address', attrs: `data-id="${esc(a.id)}"${a.default ? ' data-default="true"' : ''}`,
+    right: a.default ? '<span class="list-row__tag t-micro w-700">Default</span>' : '',
+  })).join('');
+  return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${title}
-  <div class="${ID}__cards">${rows.map((a) => card(a, busy)).join('')}</div>
+  <div class="${ID}__list card card--list">${items}</div>
   <p class="t-small c-600 ${ID}__note">New bookings start from your default address.</p>
 </main>
 ${actionBar({ ctaLabel: 'Add an address', ctaAct: 'add', busy: false })}`;
+}
+
+/* ---------- the address sheet (Make default · Remove address, as c-cards' card sheet) ---------- */
+function rowHtml(a, { busy = '', error = '' } = {}) {
+  const lock = !!busy;
+  return `<div class="${ID}-sheet" data-view="address">
+  <p class="t-body c-700 ${ID}-sheet__lines">${esc(a.street)}${a.unit ? `, ${esc(a.unit)}` : ''}<br>${esc(a.city)}, ${esc(a.state)} ${esc(a.zip)}</p>
+  ${a.default ? `<p class="t-small c-600 ${ID}-sheet__default">Your default address. New bookings start here.</p>` : ''}
+  ${error ? banner({ tone: 'error', title: error, text: 'Nothing changed. Try again.' }) : ''}
+  <div class="${ID}-sheet__links">
+    ${a.default ? '' : textLink(busy === 'make-default' ? 'Updating…' : 'Make default', { act: 'make-default', disabled: lock })}
+    ${textLink(busy === 'remove' ? 'Removing…' : 'Remove address', { act: 'remove', tone: 'danger', disabled: lock })}
+  </div>
+</div>`;
+}
+
+function openRow(id) {
+  const a0 = list().find((a) => a.id === id);
+  if (!a0) return;
+  sheetOverlay(rowHtml(a0), { header: a0.label, dataS: 'address', confirm: false }, (holder, close) => {
+    const body = () => holder.querySelector(`.${ID}-sheet`);
+    const current = () => list().find((a) => a.id === id);
+    const lock = (on) => { holder.dataset.locked = on ? 'true' : 'false'; };
+    const swap = (opts) => { const a = current(); if (a) body().outerHTML = rowHtml(a, opts); };
+
+    const removeIt = () => {
+      if (holder.dataset.locked === 'true') return;
+      const label = current()?.label ?? 'Address';
+      swap({ busy: 'remove' }); lock(true);
+      withLatency(() => {
+        if (!holder.isConnected) return;
+        lock(false);
+        const res = A.removeAddress(id);
+        if (!res.ok) {                                              // D-140 / A-14: the banner sits in the sheet, where she acted; the toast echoes it
+          swap({ error: 'Couldn’t remove this address' });
+          toast('Couldn’t remove the address', { tone: 'error' });
+          return;
+        }
+        const nid = typeof res.newDefault === 'object' ? res.newDefault?.id : res.newDefault;   // the promoted address (id or the address itself)
+        const promoted = nid ? list().find((a) => a.id === nid)?.label ?? '' : '';
+        close({ instant: true });
+        go(ID);
+        toast(`Address removed${promoted ? `. ${promoted} is now your default.` : ''}`, {
+          action: 'Undo',
+          onAction: () => {
+            A.restoreAddress(res.removed, res.index);
+            if (onScreen()) go(ID);
+            toast(`${label} restored`);
+          },
+        });
+      });
+    };
+
+    const makeIt = () => {
+      if (holder.dataset.locked === 'true') return;
+      swap({ busy: 'make-default' }); lock(true);
+      withLatency(() => {
+        if (!holder.isConnected) return;
+        lock(false);
+        A.setDefaultAddress(id);
+        close({ instant: true });
+        go(ID);
+        toast('Default address updated');
+      });
+    };
+
+    holder.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-act]');
+      if (!el || el.disabled) return;
+      if (el.dataset.act === 'remove') removeIt();
+      else if (el.dataset.act === 'make-default') makeIt();
+    });
+  });
 }
 
 /* ---------- the add sheet ---------- */
@@ -138,56 +199,13 @@ function openAdd() {
   });
 }
 
-/* ---------- remove · make default ---------- */
-function remove(id) {
-  const label = list().find((a) => a.id === id)?.label ?? 'Address';
-  ui().error = null;
-  ui().busy = { kind: 'remove', id };
-  go(ID);
-  withLatency(() => {
-    ui().busy = null;
-    if (!onScreen()) return;
-    const res = A.removeAddress(id);
-    go(ID);
-    if (!res.ok) {                                                   // D-140 / A-14: the banner sits on the address, the toast only echoes it
-      ui().error = { id, title: 'Couldn’t remove this address', text: 'Nothing changed. Try again.' };
-      go(ID);
-      toast('Couldn’t remove the address', { tone: 'error' });
-      return;
-    }
-    const nid = typeof res.newDefault === 'object' ? res.newDefault?.id : res.newDefault;   // the promoted address (id or the address itself)
-    const promoted = nid ? list().find((a) => a.id === nid)?.label ?? '' : '';
-    toast(`Address removed${promoted ? `. ${promoted} is now your default.` : ''}`, {
-      action: 'Undo',
-      onAction: () => {
-        A.restoreAddress(res.removed, res.index);
-        go(ID);
-        toast(`${label} restored`);
-      },
-    });
-  });
-}
-
-function makeDefault(id) {
-  ui().busy = { kind: 'make-default', id };
-  go(ID);
-  withLatency(() => {
-    ui().busy = null;
-    if (!onScreen()) return;
-    A.setDefaultAddress(id);
-    go(ID);
-    toast('Default address updated');
-  });
-}
-
 function wire(root) {
   root.addEventListener('click', (e) => {
     const el = e.target.closest('[data-act]');
     if (!el || e.target.closest('.screen-sheet--overlay')) return;
     switch (el.dataset.act) {
-      case 'add': if (!ui().busy) openAdd(); break;
-      case 'remove': if (!ui().busy) remove(el.dataset.id); break;
-      case 'make-default': if (!ui().busy) makeDefault(el.dataset.id); break;
+      case 'add': openAdd(); break;
+      case 'address': openRow(el.dataset.id); break;
       default: break;
     }
   });

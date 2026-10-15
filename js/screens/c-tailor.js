@@ -56,7 +56,7 @@ function hero(t, { back = false } = {}) {
         ${t.shopName ? `<p class="t-body w-600 c-700 c-tailor__shop">${esc(t.shopName)}</p>` : ''}
       </div>
     </div>`;
-  return `<div class="c-tailor__hero">
+  return `<div class="hero c-tailor__hero">
     ${back ? headingRow(id, { whole: true }) : id}
     <div class="c-tailor__meta">
       ${line2 ? `<p class="t-small c-600 c-tailor__sub">${esc(line2)}</p>` : ''}
@@ -92,7 +92,7 @@ function estimateCard(q, job) {
   if (job.visitType === 'home' && q.homeFee > 0) rows.push(priceRow({ label: 'Home-visit fee', cents: q.homeFee, format: F }));
   if (q.rush > 0) rows.push(priceRow({ label: 'Rush fee', cents: q.rush, note: `Need-by ${q.rushDays} day${q.rushDays === 1 ? '' : 's'} after the visit`, format: F }));
   const total = `${stitchDivider()}<div class="c-tailor__total w-600">${priceRow({ label: 'Estimated total', cents: q.total, format: F })}</div>`;
-  return section('Your estimate', `<div class="c-tailor__estimate">${rows.join('')}${total}</div>`, { key: 'estimate', aside: infoButton('pricing', { label: 'How pricing works' }) });
+  return section('Your estimate', `<div class="c-tailor__estimate">${rows.join('')}${total}</div>`, { key: 'estimate', cls: 'c-tailor__sec--estimate', aside: infoButton('pricing', { label: 'How pricing works' }) });
 }
 
 function prices(t) {
@@ -103,7 +103,7 @@ function prices(t) {
   const toggle = offered.length > PRICES_SHOWN
     ? `<div class="c-tailor__more">${textLink(all ? 'Show fewer prices' : `See all ${offered.length} prices`, { act: 'all-prices', attrs: `aria-expanded="${all}"` })}</div>` : '';
   return section('Prices', `<div class="c-tailor__prices">${rows}</div>${toggle}
-    <div class="c-tailor__rush"><p class="t-caps c-600">Rush fees</p><div class="t-body" data-money>${rushLadder(t.rush)}</div></div>`);
+    <div class="c-tailor__rush" role="group" aria-labelledby="c-tailor-rush-h"><h3 class="t-small w-600 c-700 c-tailor__rush-h" id="c-tailor-rush-h">Rush fees</h3><div class="t-body" data-money>${rushLadder(t.rush)}</div></div>`);
 }
 
 /** CP-C13: "Williamsburg, Greenpoint, East Williamsburg and Bushwick" — each neighbourhood once, in ZIP order. */

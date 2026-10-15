@@ -12,6 +12,15 @@
      · money lint: no `%` inside [data-money]; no "fee … 10%" prose
      · target lint: every visible control is >= 44 x 44
        (opt out with data-hit="inline")
+     · edge lint (B5 P2-5 / D-230): .screen is `overflow: clip`, so a clipped
+       overflow never shows in scrollWidth. No visible element outside a
+       horizontal scroller may cross #screen's left / right edge — at 390
+       and 320 for every entry, and at 195 x 422 (page zoom 200%) for the
+       short list EDGE_195 (tab roots, stars, wheel, day-hours, t-adjust,
+       every sheet / overlay entry)
+     · overlap lint (K9-2-04 / D-233): at 195 x 422, no text item (own text
+       nodes' Range rects, or a text input) intersects another in the same
+       layer by more than 3 x 4 px (scripts/v5/lib/overlap.mjs)
    Plus the registry rules (keys unique + url-safe, screens registered,
    every registered screen has an entry, every built state has one) and
    the menu's own behaviour (open, tabs, run an entry, Escape,
@@ -31,6 +40,7 @@
    ============================================================ */
 
 import { open, loadFlows, personaOf, reporter, settle, MIN_TARGET } from './lib/browser.mjs';
+import { textOverlaps } from './lib/overlap.mjs';
 
 const DUMP = process.argv.includes('--dump');
 const ONLY = process.argv.slice(2).filter((a) => !a.startsWith('-'));
@@ -39,6 +49,12 @@ const ONLY = process.argv.slice(2).filter((a) => !a.startsWith('-'));
 const EXPECT = {
   // 'c-tailors--empty-zip': { has: 'No tailors', sel: '[data-empty="zip"]' },
 };
+
+/* P2-5: the states that also run the edge lint (and, K9-2-04, the text-overlap lint) at 195 x 422 (a 390 phone at 200% zoom).
+   K9-2 (D-233) adds every screen whose rows reflowed in the zoom tier: appt-row lists, saved-item / money list rows, service rows,
+   zip chips, toggle rows, garment tiles, the customer preview, the offline banner */
+const EDGE_195 = [/^(c-tailors|c-messages|c-account|t-messages)$/, /^c-bookings/, /^t-home/, /^t-earnings/, /^c-orders/, /^c-review/, /^c-book(--|$)/, /^c-where--needby-sheet$/, /^to-availability/, /^t-adjust/,
+  /^c-job/, /^c-cards/, /^c-addresses/, /^c-ready/, /^c-tailors/, /^to-services/, /^to-where/, /^to-profile/, /^t-shop/, /^sys-offline/, /^sys-session-expired$/];
 
 const KEY_RE = /^[a-z0-9.-]+$/;
 const MONEY_PROSE = /(fee|deposit|refund|payout|balance|courier|total)[^.\n]{0,40}\d\s?%/i;
@@ -98,6 +114,30 @@ const lints = () => page.evaluate(({ OVERLAY_SEL, MIN }) => {
   }
   return { money, small };
 }, { OVERLAY_SEL, MIN: MIN_TARGET });
+
+/* P2-5: elements outside a horizontal scroller whose box crosses #screen's left / right edge (the clip hides them from scrollWidth) */
+const edgeCrossers = () => page.evaluate(() => {
+  const scr = document.getElementById('screen');
+  const sr = scr.getBoundingClientRect();
+  const cn = (el) => String(el.className?.baseVal ?? el.className ?? '').split(' ')[0];
+  const inScroller = (el) => { for (let a = el.parentElement; a && a !== scr; a = a.parentElement) if (/(auto|scroll)/.test(getComputedStyle(a).overflowX)) return true; return false; };
+  const out = [];
+  for (const el of scr.querySelectorAll('*')) {
+    const r = el.getBoundingClientRect();
+    if (r.width <= 1 || r.height <= 1) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none' || cs.opacity === '0') continue;
+    if (el.closest('.sr-only, .visually-hidden, .is-closing, [hidden]') || inScroller(el)) continue;
+    if (r.right > sr.right + 1 || r.left < sr.left - 1) out.push(`${el.tagName.toLowerCase()}.${cn(el)} "${String(el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 24)}" ${Math.round(r.left - sr.left)}..${Math.round(r.right - sr.left)} of ${Math.round(sr.width)}`);
+  }
+  return out;
+});
+const edgeAt = async (w, hgt) => {
+  await page.setViewportSize({ width: w, height: hgt });
+  await settle(page);
+  const o = await edgeCrossers();
+  return o.length ? `edge@${w}: ${o.slice(0, 3).join('; ')}${o.length > 3 ? ` (+${o.length - 3})` : ''}` : '';
+};
 
 /* ---------- the registry ---------- */
 const { legacy, flows: all } = await loadFlows(page);
@@ -205,6 +245,19 @@ for (const f of all.filter((e) => matches(e.key))) {
   const prose = norm(r.text).match(MONEY_PROSE);
   if (prose) problems.push(`% in money copy: "${prose[0]}"`);
   if (lint.small.length) problems.push(`targets < ${MIN_TARGET}px: ${lint.small.slice(0, 4).join('; ')}${lint.small.length > 4 ? ` (+${lint.small.length - 4})` : ''}`);
+  /* P2-5 edge lint: 390 (as run), 320, and 195 x 422 for the short list */
+  /* sys-components is the 390-wide specimen sheet (fixed-width frames, not a phone screen): 390 only */
+  const sizes = f.screen === 'sys-components' ? [[390, 844]] : [[390, 844], [320, 568], ...(OVERLAY_KEYS.has(f.key) || EDGE_195.some((re) => re.test(f.key)) ? [[195, 422]] : [])];
+  for (const [w, hgt] of sizes) {
+    const msg = await edgeAt(w, hgt);
+    if (msg) problems.push(msg);
+    /* K9-2-04 (D-233): at 195 no text may overprint other text in the same layer (scripts/v5/lib/overlap.mjs) */
+    if (w === 195) {
+      const ov = await page.evaluate(textOverlaps, { OVERLAY_SEL });
+      if (ov.length) problems.push(`overlap@195: ${ov.slice(0, 3).join('; ')}${ov.length > 3 ? ` (+${ov.length - 3})` : ''}`);
+    }
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
   check(f.key, !problems.length, problems.join('; '));
 }
 

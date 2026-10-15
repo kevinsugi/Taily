@@ -68,13 +68,13 @@ function read() {
 
 function subOf(k, r) {
   const { t, first, c, courierState } = r;
-  /* nowrap segments (D-69(4)): a line breaks between them, never inside one, so "Free" or "it" can't be left alone */
-  if (k === 'pickup') return `${nb(`${t.shopName}, ${t.shop?.street ?? ''}`)}`;
-  if (k === 'dropoff') return `${esc(first)} brings it to ${nb(streetOf())}`;
+  /* P1-3 (D-224): .nb only on the date / time; the shop + street run breaks between words (a word longer than the line still breaks, D-233) rather than run under the radio */
+  if (k === 'pickup') return `<span class="c-ready__place">${esc(`${t.shopName}, ${t.shop?.street ?? ''}`)}</span>`;
+  if (k === 'dropoff') return `${esc(first)} brings it to <span class="c-ready__place">${esc(streetOf())}</span>`;
   if (r.sel === 'courier' && courierState === 'ready') return `${money(c.cents)} · delivered today`;
   if (r.sel === 'courier' && courierState === 'loading') return 'Getting a price…';
   if (r.sel === 'courier' && courierState === 'failed') return 'Price unavailable';
-  return `${nb('Uber, today')} · ${nb('priced when you choose it')}`;
+  return `${nb('Uber, today')} · priced when you choose it`;
 }
 
 /** CR-1b: the action-bar lead — why Pay waits, and once it can go, what was chosen. */
@@ -172,8 +172,10 @@ function sheetHtml(r, { cardId, busy = false } = {}) {
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   ${moneyRows([{ label: 'Balance', cents: a.money.balance, kind: 'total' }])}
   <p class="t-small c-600">Your ${money(a.payments.deposit.cents)} deposit is already taken off.</p>
+  <div class="${ID}-sheet__pay">
   <p class="t-caps c-600">Pay with</p>
   <div class="${ID}-sheet__group" role="radiogroup" aria-label="Pay with"${busy ? ' aria-disabled="true"' : ''}>${rows}</div>
+  </div>
   ${cta(`Pay ${fmtExact(a.money.balance)}`, { busy, busyLabel: 'Paying…', attrs: 'data-act="pay-ok"' })}
 </div>`;
 }

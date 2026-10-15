@@ -1,7 +1,7 @@
 /* to-done — You’re bookable. Tokens only; strokes are inset shadows. */
-.to-done { padding-top: calc(44px + var(--space-32)); }
+.to-done { padding-top: calc(var(--status-h) + var(--space-32)); }
 .to-done__art { display: inline-flex; align-items: center; justify-content: center; width: 120px; height: 120px; border-radius: var(--radius-full); background: var(--accent-bg); }
-.to-done__title { margin: var(--space-16) 0 var(--space-8); }
+.to-done__title { margin: var(--rhythm-group) 0 var(--rhythm-tight); }
 .to-done__lead { margin: 0; }
 .to-done__preview { margin-top: var(--rhythm-section); }
 .to-done__steps { display: flex; flex-direction: column; gap: var(--space-16); margin: 0; padding: 0; list-style: none; }

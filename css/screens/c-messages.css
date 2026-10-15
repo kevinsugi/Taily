@@ -1,4 +1,3 @@
 /* c-messages — the Messages tab. Layout only; rows are the shared threadRow inside .thread-list (the one interactive card). */
 .c-messages { gap: 0; padding-bottom: var(--space-40); }
-.c-messages__list { margin-top: var(--space-24); }
-.c-messages__empty { margin-top: var(--rhythm-section); }
+.c-messages__list { margin-top: var(--rhythm-block); }

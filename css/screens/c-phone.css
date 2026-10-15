@@ -1,2 +1,2 @@
 /* c-phone — layout only; the field, heading row and action bar are shared components. */
-.c-phone__lead { margin: var(--space-8) 0 var(--space-24); }
+.c-phone__lead { margin: var(--rhythm-tight) 0 var(--rhythm-block); }

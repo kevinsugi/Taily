@@ -101,7 +101,7 @@ function view(s) {
     variant: 'requested', pill: 'waiting', pillLabel: `Waiting on ${esc(sarah)}`, title: esc(v.customer.name),
     body: `You suggested ${esc(v.suggested)}. ${esc(sarah)} can accept it or choose another tailor.`,
   }))}
-  <div class="${ID}__hero">${takeHome(v, { note, cents: price.payout })}${lapseStrip(a)}</div>
+  <div class="hero ${ID}__hero">${takeHome(v, { note, cents: price.payout })}${lapseStrip(a)}</div>
   ${visitSection(a, v, {
     title: v.suggested, asked: `${esc(sarah)} asked for ${esc(fmtWhen(a.slot.start))}`, addressNote: `Full address once ${sarah} accepts`,
     start: a.suggested.start, end: fmtTime(isoMinute(addMinutes(a.suggested.start, v.minutes))),   // R3-1-T-01: the end follows the NEW start
@@ -124,7 +124,7 @@ ${actionBar({ ctaLabel: `Message ${esc(sarah)}`, ctaAct: 'message', secondaryLab
         : { pill: 'expired', pillLabel: 'Expired', title: 'This request expired', body: `You didn’t answer within ${hours} hours, so ${esc(sarah)}’s hold was released.${again}` };
     return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--expired"${ended ? ` data-suggestion-ended="${ended}"` : ''}>
   ${detailHead(statusHero({ variant: 'declined', ...hero }))}
-  <div class="${ID}__hero">${takeHome(v, { muted: true })}</div>
+  <div class="hero ${ID}__hero">${takeHome(v, { muted: true })}</div>
   ${visitSection(a, v, { title: v.when })}
   ${workSection(v, { final })}
 </main>
@@ -138,7 +138,7 @@ ${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
     body: `${esc(sarah)} has been told, and her ${fmtExact(a.payments.deposit.cents)} hold is released.`,
     extra: a.declineReason ? `<p class="t-small c-600">Your reason: ${esc(a.declineReason)}</p>` : '',
   }))}
-  <div class="${ID}__hero">${takeHome(v, { muted: true })}</div>
+  <div class="hero ${ID}__hero">${takeHome(v, { muted: true })}</div>
   ${visitSection(a, v, { title: v.when })}
   ${workSection(v, { final })}
 </main>
@@ -152,7 +152,7 @@ ${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
     variant: 'requested', pill: 'new-request', pillLabel: 'New request', title: esc(v.customer.name),
     body: v.retries > 0 ? `${esc(sarah)} sent this again after it expired.` : '', extra: strip(a),
   }))}
-  <div class="${ID}__hero">${takeHome(v)}</div>
+  <div class="hero ${ID}__hero">${takeHome(v)}</div>
   ${visitSection(a, v, { title: v.when, addressNote: a.job.visitType === 'home' ? 'Full address after you accept' : '' })}
   ${workSection(v, { final, breakdown: true })}
   ${payoutSection(v)}

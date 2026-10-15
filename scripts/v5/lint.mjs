@@ -18,6 +18,10 @@
         icon / chevron / star / close selectors are exempt
      8. (K-04) the retired --bottom-border token in v5 CSS (row rules
         use --hairline)
+     9. (P2-1, D-228) a vertical margin in css/screens/*.css written as a
+        bare var(--space-16) / var(--space-24): the gap between blocks is
+        a named role (--rhythm-tight / group / block / section / major),
+        so the rhythm stays one scale
    Skips js/v4/, js/screens/v4/, css/v4/, js/garment-icons.js,
    js/icons.js (SVG matrices). Prints PASS/FAIL per rule, offenders
    with file:line. Exit 1 on any offender.
@@ -126,6 +130,23 @@ for (const f of cssFiles.filter((f) => V5_CSS(f) || /css\/components\.css$/.test
 }
 rule('css (K-04): base glyph colours never set text (use the -ink twins)', glyphColorOff);
 rule('css (K-04): no --bottom-border in v5 CSS', bottomBorderOff);
+
+/* P2-1 (D-228): vertical margins between blocks use the rhythm roles, never a bare 16 / 24 */
+const bareRhythmOff = [];
+const BARE = /^var\(--space-(16|24)\)$/;
+const splitVals = (v) => v.trim().replace(/;$/, '').match(/(?:[^\s(]|\([^)]*(?:\([^)]*\)[^)]*)*\))+/g) ?? [];
+for (const f of cssFiles.filter((f) => /css\/screens\//.test(f) && !/css\/screens\/sys-/.test(f))) {
+  stripComments(lines(f)).forEach((code, i) => {
+    for (const m of code.matchAll(/(?:^|[\s;{])(margin-top|margin-bottom|margin-block|margin):\s*([^;}]*)/g)) {
+      const v = splitVals(m[2]);
+      const hit = m[1] === 'margin-top' || m[1] === 'margin-bottom' ? BARE.test(v[0] ?? '')
+        : m[1] === 'margin-block' ? v.some((x) => BARE.test(x))
+        : [v[0], v[2] ?? v[0]].some((x) => BARE.test(x ?? ''));   // margin: top [right] bottom [left]
+      if (hit) bareRhythmOff.push(`${rel(f)}:${i + 1}  ${m[1]}: ${m[2].trim().slice(0, 50)}  (use --rhythm-group / --rhythm-block)`);
+    }
+  });
+}
+rule('css (P2-1): no bare var(--space-16|24) in vertical margins in css/screens (use the --rhythm-* roles)', bareRhythmOff);
 
 /* ---------- JS ---------- */
 const walk = (dir) => {

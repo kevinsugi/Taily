@@ -46,6 +46,7 @@
   --media-placeholder: #D9D9D9;  /* Figma: media/placeholder */
 
   /* ---------- Spacing · Taily / Spacing ---------- */
+  --space-2: 2px;
   --space-4: 4px;
   --space-8: 8px;
   --space-12: 12px;
@@ -110,8 +111,24 @@
   /* rhythm: tight inside a group, air between groups */
   --rhythm-tight: var(--space-8);      /* label → value, row → row inside one group */
   --rhythm-group: var(--space-12);     /* section heading → its first row; stacked controls */
+  --rhythm-block: var(--space-24);     /* heading → an unlabelled card / banner; a banner under a heading; a thread note → its messages */
   --rhythm-section: var(--space-32);   /* between sections on a page */
-  --rhythm-major: var(--space-40);     /* hero block → first section; last section → page actions */
+  --rhythm-major: var(--space-40);     /* hero block → first section; heading → a labelled section; last section → page actions */
+
+  /* line-height ratios of the type scale (LAYOUT-PLAN P2-4): size/line px pairs from Figma, kept as unitless ratios so text scaling
+     never makes two lines overlap. A component that sets font-size: var(--size-N) pairs it with var(--lh-N). */
+  --lh-10: calc(13 / 10);
+  --lh-11: calc(14 / 11);
+  --lh-12: calc(16 / 12);
+  --lh-14: calc(18 / 14);
+  --lh-16: calc(21 / 16);
+  --lh-20: calc(24 / 20);
+  --lh-24: calc(29 / 24);
+  --lh-28: calc(34 / 28);
+  --lh-30: calc(39 / 30);
+  --lh-16-roomy: calc(24 / 16);   /* the few 16 px runs that read on a 24 px line */
+  --lh-12-roomy: calc(20 / 12);
+  --lh-24-open: calc(31 / 24);
 
   /* text roles */
   --text-footnote: var(--neutral-600); /* 6.5:1 on --neutral-50, 7.0:1 on --white (K-03 #12) */
@@ -144,8 +161,29 @@
   --stitch-gap: 4px;
   --stitch-w: 1.5px;
 
-  /* the content top: nav bottom (100) + --space-16, K-04 / D-204 */
-  --body-top: 116px;
+  /* chrome geometry (LAYOUT-PLAN P3-4): the status bar + the nav / flow / onboarding bar, and the content top under them */
+  --status-h: 44px;
+  --nav-h: 56px;
+  --column: 390px;
+  --chrome-h: calc(var(--status-h) + var(--nav-h));   /* 100 */
+  --body-top: calc(var(--chrome-h) + var(--space-16));   /* 116: nav bottom + --space-16, K-04 / D-204 */
+
+  /* shared measures (LAYOUT-PLAN P3-10) */
+  --touch: 44px;                                   /* the minimum touch target */
+  --glyph-box: 20px;                               /* the one glyph column of a .meta-row */
+  --icon-hang: calc(var(--space-8) + var(--glyph-box));   /* a line that hangs under a meta-row's text: glyph box + the row's gap */
+  --chat-measure: 85%;                             /* the widest a chat bubble and its meta / note run, of the message row */
+
+  /* real device insets (LAYOUT-PLAN P1-4): 0 in a browser tab and in the harness */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* stacking: one ladder, each overlay is relative to its holder (LAYOUT-PLAN P3-4) */
+  --z-chrome: 2;     /* status bar, nav, flow / onboarding bar, system banner */
+  --z-sticky: 5;     /* sticky action bar, thread composer */
+  --z-banner: 9;     /* push banner */
+  --z-overlay: 10;   /* full-screen sheet overlay */
+  --z-toast: 30;     /* toast */
 
   /* motion (K-03 #11) */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);

@@ -26,7 +26,7 @@ function view() {
   const list = cards();
   const rows = list.map((c) => listRow({
     title: esc(label(c)), sub: `Expires ${esc(c.exp)}`, act: 'card', attrs: `data-id="${esc(c.id)}"`, lead: CARD_GLYPH,
-    right: c.default ? `<span class="${ID}__tag t-micro w-700">Default</span>` : '',
+    right: c.default ? `<span class="list-row__tag t-micro w-700">Default</span>` : '',
   })).join('');
   const cardsBlock = list.length
     ? `<div class="${ID}__list card card--list">${rows}</div>`
@@ -37,8 +37,8 @@ function view() {
   <div class="${ID}__list card card--list">${listRow({ title: 'Apple Pay', sub: 'Set up in Wallet on this phone', lead: '<span class="pay-badge">Pay</span>', chevron: false })}</div></section>`;
   return `${chrome('account')}<main class="body${list.length ? ' body--with-bar' : ''} ${ID}" data-s="${ID}">
   ${headingRow('<h1 class="t-title">Payment methods</h1>')}
-  <section class="sec sec--first">${sectionHead('Cards')}
-  ${cardsBlock}</section>
+  ${list.length ? `<section class="sec sec--first">${sectionHead('Cards')}
+  ${cardsBlock}</section>` : cardsBlock}
   ${apple}
 </main>${list.length ? actionBar({ ctaLabel: 'Add a card', ctaAct: 'add' }) : ''}`;
 }

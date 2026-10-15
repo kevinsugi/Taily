@@ -37,11 +37,13 @@ function itemCard(g) {
     : '';
   return `<article class="card job-item" data-id="${g.id}">
   <div class="job-item__head">${garmentHead({ type: g.type, trailing: `<button type="button" class="job-item__remove" data-act="remove-garment" data-id="${g.id}" aria-label="Remove ${esc(g.type)}"><span aria-hidden="true">✕</span></button>` })}</div>
+  <div class="job-item__task">
   <button type="button" class="job-item__services${hasErr ? ' job-item__services--error' : ''}" data-act="pick-services" data-id="${g.id}"${hasErr ? ` aria-invalid="true" aria-describedby="${errId}"` : ''}>
     <span class="job-item__services-text t-body ${g.services.length ? 'c-700' : 'c-accent-ink'}">${g.services.length ? esc(serviceText(g)) : 'Choose what needs doing'}</span>
     ${CHEVRON_RIGHT.replace('method-row__chevron', 'job-item__chevron')}
   </button>
   ${hasErr ? `<p class="field__msg field__msg--error" id="${errId}" data-error="service" role="alert">Choose at least one service.</p>` : ''}
+  </div>
   <div class="job-item__photos">
     <div class="photo-tiles">${thumbs}${addPhoto}</div>
     <p class="job-item__caption t-small c-600">Photo (optional)</p>
@@ -100,7 +102,12 @@ function view() {
 }
 
 /* ---------- overlays ---------- */
-function openServices(root, id) {
+/* P2-3 (D-226): `tile` (the garment type just added by a tap on its tile / +) means the sheet opened by itself, so Done or ✕ returns focus to that tile */
+const focusTile = (type) => {
+  const hits = [...document.querySelectorAll(`#screen [data-act="add-garment"][data-type="${CSS.escape(type)}"]`)];
+  (hits.find((h) => h.matches('[data-plus]')) ?? hits.find((h) => !h.matches('[data-minus]')) ?? hits[0])?.focus({ preventScroll: true });
+};
+function openServices(root, id, { tile = null } = {}) {
   const g = state.job.garments.find((x) => x.id === id);
   if (!g) return;
   const rows = servicesForType(g.type).map((sid) => checkRow({
@@ -116,7 +123,7 @@ function openServices(root, id) {
       if (ids.length) delete ui().errors[g.id];
       close();
       go(ID);
-      requestAnimationFrame(() => document.querySelector(`#screen [data-act="pick-services"][data-id="${g.id}"]`)?.focus({ preventScroll: true }));
+      requestAnimationFrame(() => (tile ? focusTile(tile) : document.querySelector(`#screen [data-act="pick-services"][data-id="${g.id}"]`)?.focus({ preventScroll: true })));
     };
     holder.querySelector('[data-act="services-done"]').addEventListener('click', done);
   });
@@ -152,13 +159,16 @@ function wire(root) {
     if (tile) {
       if (tile.disabled) return;
       const type = tile.dataset.type;
+      let added = null;
       if (e.target.closest('[data-minus]')) {
         const last = [...state.job.garments].reverse().find((g) => g.type === type);
         if (last) { T.removeGarment(last.id); delete ui().errors[last.id]; }
       } else if (state.job.garments.length < MAX_ITEMS) {
-        T.addGarment(type);
+        added = T.addGarment(type).garment ?? null;
       }
       go(ID);   // the router puts focus back on the same tile / − / + (AU-P1-2a)
+      /* P2-3 (D-226, amends D-45's flow): adding a garment opens "what needs doing?" for it; − opens nothing */
+      if (added) { focusTile(type); openServices(root, added.id, { tile: type }); }
       return;
     }
     const open = e.target.closest('[data-act="open-appt"]');

@@ -41,6 +41,14 @@ export function wireSystem(root, screenId, { go } = {}) {
   const banner = root.querySelector('.sys-banner');
   root.classList.toggle('has-sys-banner', !!banner);
   if (banner) root.style.setProperty('--sys-banner-h', `${banner.offsetHeight}px`);   // the page's top offset grows by exactly the banner's height
+  /* K9-2-02 (D-233): re-measured when the banner re-wraps (rotation, zoom), so a three-line banner never covers the title */
+  if (banner && typeof ResizeObserver === 'function') {
+    const ro = new ResizeObserver(() => {
+      if (!banner.isConnected) { ro.disconnect(); return; }
+      root.style.setProperty('--sys-banner-h', `${banner.offsetHeight}px`);
+    });
+    ro.observe(banner);
+  }
 
   root.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-act="sys-retry"]');

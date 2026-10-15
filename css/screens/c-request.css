@@ -7,7 +7,6 @@
 .c-request__note { margin: var(--space-4) 0 0; }
 /* the countdown caption, the hold note and the try-again hint never leave one word alone */
 .c-request__clock .t-small, .c-request__note, .c-request__try .t-small, .c-request__passed { text-wrap: pretty; }
-.c-request__empty { margin-top: var(--rhythm-section); }
 .c-request-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
 .c-request-sheet p { margin: 0; }
 

@@ -1,11 +1,9 @@
 /* t-request — T2/T3 the request card. Tokens only; strokes are inset shadows. M7: flat hero, flat status line, flat sections. */
 .t-request { padding-bottom: var(--space-40); }
 .t-request.body--with-bar { padding-bottom: var(--space-32); }
-.t-request__empty { margin-top: var(--space-24); }
 
 /* hero: the take-home and the clock, flat on the linen */
-.t-request__hero { display: flex; flex-direction: column; gap: var(--rhythm-group); margin-top: var(--space-24); }
-.t-request__hero + .sec { margin-top: var(--rhythm-major); }
+.t-request__hero { display: flex; flex-direction: column; gap: var(--rhythm-group); margin-top: var(--rhythm-block); }
 
 /* the take-home: the focal figure */
 .t-request__take { display: flex; flex-direction: column; gap: var(--space-4); }
@@ -21,7 +19,7 @@
 
 /* the visit */
 .t-request__place, .t-request__cap { display: block; }
-.t-request__cap { margin-top: 2px; }
+.t-request__cap { margin-top: var(--space-2); }
 
 /* the decline sheet */
 .t-request-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }

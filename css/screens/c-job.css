@@ -1,9 +1,8 @@
 /* c-job — C1 What needs work. Layout only; components are never restyled here. */
 
-.c-job .stepper--compact { margin-bottom: var(--space-16); }
 .job__title { margin: 0; }
 .job__lead { margin-top: var(--space-8); }
-.job__grid { margin-top: var(--space-16); }
+.job__grid { margin-top: var(--rhythm-group); }
 .job__grid[data-max="true"] .garment-tile:not(.garment-tile--selected) { opacity: 0.45; cursor: not-allowed; }
 .job__helper { margin-top: var(--space-8); }
 
@@ -16,7 +15,7 @@
 .job-item__remove {
   display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px; height: 44px;
   margin-right: calc(-1 * var(--space-8)); border-radius: var(--radius-full);
-  font-size: var(--size-16); line-height: 21px; color: var(--neutral-500-ink);
+  font-size: var(--size-16); line-height: var(--lh-16); color: var(--neutral-500-ink);
 }
 .job-item__remove:active { background: var(--neutral-100); }
 
@@ -29,7 +28,7 @@
 .job-item__services--error { box-shadow: inset 0 0 0 1px var(--error); }
 .job-item__services-text { flex: 1 1 0; min-width: 0; }
 .job-item__chevron { width: 16px; height: 16px; flex-shrink: 0; color: var(--neutral-500); }
-.job-item > .field__msg { margin-top: calc(-1 * var(--space-4)); }
+.job-item__task { display: flex; flex-direction: column; gap: var(--rhythm-tight); }   /* P2-1: the services field and its error are one sub-group with its own gap (was a -4 margin cancelling the card's 12) */
 
 .job-item__photos { display: flex; align-items: center; gap: var(--space-12); }
 .job-item__add { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex-shrink: 0; border-radius: var(--radius-sm); }
@@ -49,3 +48,4 @@
 .c-job__active { margin-top: var(--space-4); }
 .c-job__book-else { margin: var(--rhythm-section) 0 var(--rhythm-group); }
 .c-job__book-else + .stepper--compact, .c-job__book-else + .booking-steps { margin-top: 0; }
+@media (max-width: 300px) { .job-item__photos { flex-wrap: wrap; } .job-item__caption { flex-basis: auto; min-width: auto; } }   /* K9-2-02 zoom tier (D-233): "Photo (optional)" drops under the tiles instead of running past the card */

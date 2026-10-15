@@ -56,13 +56,13 @@ function view(s) {
   const hello = headingRow(`<h1 class="t-title">Hi, ${esc(first)}</h1>`, { back: false });
   /* D-161: the shop is paused — one line with the way back on */
   const paused = t.takingRequests === false
-    ? `<p class="t-small c-600 ${ID}__sum ${ID}__paused">You’re paused, so customers can’t send new requests. ${textLink('Take requests again', { act: 'resume' })}</p>` : '';
+    ? `<p class="t-small c-600 hero ${ID}__sum ${ID}__paused">You’re paused, so customers can’t send new requests. ${textLink('Take requests again', { act: 'resume' })}</p>` : '';
 
   if (!apptsFor('tailor').length) {
     return `${head}<main class="body ${ID}">
   ${hello}
   ${paused}
-  ${s.sim.push === 'denied' ? `<div class="${ID}__push">${pushBanner()}</div>` : ''}
+  ${s.sim.push === 'denied' ? `<div class="hero ${ID}__push">${pushBanner()}</div>` : ''}
   <div class="${ID}__empty" data-empty="home">${emptyState({
     title: 'No requests yet',
     body: `When a customer books you, the request shows up here. You’ll have ${POLICY.REQUEST_EXPIRY_H} hours to answer each one.`,
@@ -128,8 +128,8 @@ function view(s) {
   return `${head}<main class="body ${ID}">
   ${hello}
   ${paused}
-  <p class="t-small c-600 ${ID}__sum">${dateLine()} · ${summary.join(', ')}</p>
-  ${s.sim.push === 'denied' ? `<div class="${ID}__push">${pushBanner()}</div>` : ''}
+  <p class="t-small c-600 hero ${ID}__sum">${dateLine()} · ${summary.join(', ')}</p>
+  ${s.sim.push === 'denied' ? `<div class="hero ${ID}__push">${pushBanner()}</div>` : ''}
   ${group('New requests', 'new', fresh.length || null, fresh.length
     ? `<div class="${ID}__list">${cards}</div>`
     : `<p class="t-body c-600 ${ID}__none">No new requests right now.</p>`)}

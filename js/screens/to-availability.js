@@ -152,7 +152,7 @@ function view() {
   return `${onboardingHeader({ editing: mode })}<main class="body body--with-bar ${ID} ${ID}--${mode ? 'edit' : 'onboarding'}">
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
-  ${mode ? headingRow(TITLE) : `<div class="${ID}__title">${TITLE}</div>`}
+  ${mode ? headingRow(TITLE) : `<div class="heading-block ${ID}__title">${TITLE}</div>`}
   <p class="to-availability__lead t-body c-600">Set your usual week.</p>
   <div class="to-availability__body">${body(list, seg)}</div>
 </main>${barHtml()}`;

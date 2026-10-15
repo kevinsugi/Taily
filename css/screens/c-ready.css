@@ -2,22 +2,24 @@
 .c-ready { gap: 0; padding-bottom: var(--space-40); }
 .c-ready .status-hero__body { color: var(--neutral-700); font-weight: 400; text-wrap: pretty; }
 .c-ready > .sec:first-of-type { margin-top: var(--rhythm-major); }
-.c-ready__alert { margin-top: var(--space-16); }
+.c-ready__alert { margin-top: var(--rhythm-group); }
 .c-ready__group { display: flex; flex-direction: column; }
 .c-ready__group .option-row { min-height: 64px; }
 .c-ready__group .option-row__text { flex: 1; min-width: 0; }
 .c-ready__group .option-row__title { display: block; }
-.c-ready__group .option-row__sub { text-wrap: pretty; }
+.c-ready__group .option-row__sub { text-wrap: pretty; min-width: 0; }
+.c-ready__place { overflow-wrap: break-word; }
 .c-ready__group .option-row:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: var(--radius-md); }
 /* the title row: the way back left, its price right (the row's value slot) */
 .c-ready__opt { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-12); }
 .c-ready__opt-val { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .c-ready__single { margin: 0; }
 .c-ready__courier { margin-top: var(--space-8); display: flex; flex-direction: column; gap: var(--space-8); }
-.c-ready__empty { margin-top: var(--rhythm-section); }
 
 /* pay sheet */
 .c-ready-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
 .c-ready-sheet p { margin: 0; }
-.c-ready-sheet__group { display: flex; flex-direction: column; margin-top: calc(-1 * var(--space-8)); }
+.c-ready-sheet__pay { display: flex; flex-direction: column; gap: var(--rhythm-tight); }   /* P2-1: the label and its group are one sub-group with their own gap (was a -8 margin cancelling the sheet's 16) */
+.c-ready-sheet__group { display: flex; flex-direction: column; }
 .c-ready-sheet__group[aria-disabled="true"] { opacity: 0.6; pointer-events: none; }
+@media (max-width: 300px) { .c-ready__group .option-row__lead { display: none; } .c-ready__opt { flex-wrap: wrap; column-gap: var(--space-12); } }   /* K9-2-03 zoom tier (D-233): the decorative way-back glyph yields its 44 px so the shop + street wrap between words, not inside "Metropolitan"; "Free" drops under a way back that needs the whole line */

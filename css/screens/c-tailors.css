@@ -1,26 +1,25 @@
 /* c-tailors — C3 Tailors near you. Tokens only; strokes are inset shadows. */
 .c-tailors__filters {
-  display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: var(--space-8); margin-top: var(--space-16);
+  display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: var(--space-8); margin-top: var(--rhythm-group);
   padding-bottom: var(--space-4);
 }
 .c-tailors__filters .filter-pill { min-width: 0; }
-.c-tailors__filters .filter-pill__label { font-size: var(--size-12); line-height: 16px; font-weight: 500; color: var(--neutral-600); }   /* a summary, not form labels (R1-2-C-06) */
+.c-tailors__filters .filter-pill__label { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 500; color: var(--neutral-600); }   /* a summary, not form labels (R1-2-C-06) */
 .c-tailors__filters .filter-pill__box { min-width: 0; overflow: hidden; padding-inline: var(--space-8); gap: var(--space-4); }
 .c-tailors__bar {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-12);
-  min-height: 44px; margin-top: var(--space-16);
+  min-height: 44px; margin-top: var(--rhythm-group);
 }
 .c-tailors__sort {
   display: inline-flex; align-items: center; justify-content: flex-end; min-height: 44px; min-width: 44px;
   padding-inline: var(--space-4); color: var(--accent-ink); text-align: right;
 }
 .c-tailors__rows { display: flex; flex-direction: column; gap: var(--rhythm-group); margin-top: var(--space-4); padding-bottom: var(--rhythm-section); }
-.c-tailors__banner { margin-top: var(--space-16); }
+.c-tailors__banner { margin-top: var(--rhythm-group); }
 .c-tailors__banner + .c-tailors__bar { margin-top: var(--space-8); }
 .c-tailors__count { display: inline-flex; align-items: center; gap: var(--space-4); }
 .c-tailors__count .info-btn { margin-block: calc(-1 * var(--space-12)); }
 .c-tailors .skeleton { margin-top: var(--space-4); }
-.c-tailors .empty-state { margin-top: var(--space-16); }
 .c-tailors__sheet { display: flex; flex-direction: column; padding: 0 var(--space-20) var(--space-20); }
 /* the loading skeleton mirrors the circle avatar (M7 A5.4) */
 .c-tailors .skeleton__dot { border-radius: var(--radius-full); }

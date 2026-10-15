@@ -142,7 +142,7 @@ export const FLOWS_to_payouts = [
 export const FLOWS_to_done = [
   { key: 'to-done', screen: 'to-done', group: 'M2 · Onboarding', title: 'You’re bookable', note: 'Live: her row as a customer sees it, what happens next',
     setup: () => { onboardTo('done'); },
-    expect: { has: ['bookable', 'HOW A CUSTOMER IN WILLIAMSBURG SEES YOU', `Est. ${fmt(SCENARIOS.seed.total)}`, 'WHAT HAPPENS NEXT', 'Go to my shop'], sel: '.customer-preview .tailor-row' } },
+    expect: { has: ['bookable', 'PREVIEW', 'How a customer in Williamsburg sees you', `Est. ${fmt(SCENARIOS.seed.total)}`, 'WHAT HAPPENS NEXT', 'Go to my shop'], sel: '.customer-preview .tailor-row' } },
 ];
 export const FLOWS_t_shop = [
   { key: 't-shop', screen: 't-shop', group: 'M2 · Shop', title: 'Your shop', note: 'Bookable: preview of her row, seven setup rows with summaries',

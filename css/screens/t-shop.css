@@ -4,6 +4,6 @@
 .t-shop__status { display: flex; margin: 0; }
 .t-shop__setup .list-row { min-height: 56px; }
 .t-shop__sum, .t-shop__flag { display: block; }
-.t-shop__flag { margin-top: 2px; color: var(--error-ink); }
+.t-shop__flag { margin-top: var(--space-2); color: var(--error-ink); }
 .t-shop__out { display: flex; justify-content: center; margin: var(--rhythm-section) 0 var(--rhythm-major); }
 .t-shop .banner__action { min-width: 44px; min-height: 44px; }

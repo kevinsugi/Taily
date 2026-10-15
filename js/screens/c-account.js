@@ -47,7 +47,7 @@ function view(s) {
     ${listRow({ title: 'Payment methods', sub: cardSub, act: 'cards' })}
     ${listRow({ title: 'Past orders', sub: orderSub, act: 'orders' })}
   </nav>
-  <div class="page-actions ${ID}__out"><div class="page-actions__links">${textLink('Sign out', { act: 'sign-out', tone: 'muted' })}</div></div>
+  <div class="page-actions ${ID}__out"><div class="page-actions__links">${textLink('Sign out', { act: 'sign-out', tone: 'danger' })}</div></div>
   <p class="t-micro c-600 ${ID}__version">Taily prototype · v5</p>
 </main>`;
 }

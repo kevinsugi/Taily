@@ -75,7 +75,7 @@ function view() {
      sent back alone keeps the sentence and the button */
   const merged = !!(failed && next);
   const failBanner = failed
-    ? `<div class="${ID}__alert">${banner(merged
+    ? `<div class="hero ${ID}__alert">${banner(merged
       ? { tone: 'error', title: 'Your Friday payout didn’t go through' }
       : {
         tone: 'error', title: 'Your Friday payout didn’t go through',

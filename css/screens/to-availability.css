@@ -1,11 +1,11 @@
 /* to-availability — layout only; segmented control, day rows, banner, stepper and action bar are shared components. */
-.to-availability .banner { margin-top: var(--space-16); }
-.to-availability__title { margin-top: var(--space-24); }
-.to-availability .stepper + .to-availability__title { margin-top: var(--space-24); }
+.to-availability .banner { margin-top: var(--rhythm-group); }   /* the resume banner sits 12 under the stepper */
+.to-availability__title { margin-top: var(--rhythm-block); }   /* 24 under a banner; 12 right under the stepper (components-v5 .stepper + .heading-block) */
 .to-availability__lead { margin: var(--rhythm-tight) 0 0; }
 .to-availability__body { display: flex; flex-direction: column; margin-top: var(--rhythm-section); }
 .to-availability__note { margin: 0; }
 .to-availability .to-availability__card { margin-top: var(--rhythm-group); padding: var(--space-4) var(--space-16); }
+@media (max-width: 300px) { .to-availability .to-availability__card { padding-inline: var(--space-12); } }   /* P1-2 zoom tier */
 .to-availability__head { margin-top: var(--rhythm-section); }
 .to-availability__body > .to-availability__head:first-child { margin-top: 0; }
 .to-availability__error { margin: var(--space-8) 0 0; }

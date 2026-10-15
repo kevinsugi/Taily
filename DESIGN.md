@@ -91,6 +91,7 @@ rounded:
   xl: "24px"
   full: "999px"
 spacing:
+  "2": "2px"
   "4": "4px"
   "8": "8px"
   "12": "12px"
@@ -102,6 +103,7 @@ spacing:
   "40": "40px"
   rhythm-tight: "8px"
   rhythm-group: "12px"
+  rhythm-block: "24px"
   rhythm-section: "32px"
   rhythm-major: "40px"
   gutter: "20px"
@@ -221,7 +223,7 @@ components:
     rounded: "{rounded.full}"
     padding: "2px 8px"
   top-nav:
-    backgroundColor: "{colors.white}"
+    backgroundColor: "{colors.neutral-50}"
     height: "56px"
     padding: "0 20px"
   top-nav-link:
@@ -233,11 +235,11 @@ components:
     rounded: "{rounded.md}"
     size: "44px"
   flow-bar:
-    backgroundColor: "{colors.white}"
+    backgroundColor: "{colors.neutral-50}"
     height: "56px"
     padding: "0 12px"
   action-bar:
-    backgroundColor: "{colors.white}"
+    backgroundColor: "{colors.neutral-50}"
     padding: "12px 20px 20px"
   sheet:
     backgroundColor: "{colors.neutral-50}"
@@ -340,9 +342,9 @@ that appear as dots and small ink, never as fields of colour.
 - **Pencil Graphite** (`ink`): all primary text, the filled primary button, selected chips, the active nav icon, completed stepper
   segments, the toast.
 - **Unbleached Linen** (`neutral-50`): the page, every screen background, sheets.
-- **Tissue** (`white`): cards, inputs, the status bar, top nav, flow bar and action bar, modals.
+- **Tissue** (`white`): cards, inputs, modals. The status bar, top nav, flow bar, onboarding bar and action bar are NOT Tissue: they share the Linen page ground (K-07 / K-08).
 - **Oat** (`neutral-100`): `--hairline` between rows, muted avatars, segmented-control track, the removed tag, note quotes.
-- **Chalk** (`neutral-200`): `--card-ring`, the inside 1 px ring on every card and the action bar's top rule.
+- **Chalk** (`neutral-200`): `--card-ring`, the inside 1 px ring on every card.
 - **Bisque** (`neutral-300`): outline rings on small buttons, time chips and select pills; stepper grabbers.
 - **Dust** (`neutral-400`): the stitched dash ink and disabled link text only.
 - **Control Taupe** (`neutral-500`): glyphs, chevrons, input rings and control boundaries (3.75:1 on linen, meets 3:1 for UI). Never
@@ -350,7 +352,7 @@ that appear as dots and small ink, never as fields of colour.
 - **Caption Taupe** (`neutral-500-ink`): secondary text that must pass 4.5:1 (captions under rows, sheet Cancel, list subtitles).
 - **Graphite Soft** (`neutral-600`): `--text-footnote`. Section headings, footnotes, helpers, inactive nav icons, struck old amounts.
 - **Graphite Deep** (`neutral-700`): field labels, muted text links, the word next to progress / calm dots.
-- **Row Rule** (`hairline`, `neutral-100`): the nav / flow-bar bottom rule and every in-list row separator (K-04 / D-213: one hairline,
+- **Row Rule** (`hairline`, `neutral-100`): the action bar and thread composer hairline (on scroll only) and every in-list row separator (K-04 / D-213: one hairline,
   the unsorted `--bottom-border` variable is deleted).
 
 ### Named Rules
@@ -404,15 +406,21 @@ figures do not jitter as they change. Never let Cormorant render numbers in runn
 
 ## Layout
 
-A single 390 px phone column, centred on a `neutral-100` desktop backdrop above 391 px. Fixed chrome: status bar 0/0 h44 (white),
-top nav or flow bar 0/44 h56 (white, inside 1 px bottom rule). The content body starts at **116 px** (`--body-top`: nav bottom 100 + 16, K-04 / D-204) with **20 px** side gutters and no
+A single 390 px phone column, centred on a `neutral-100` desktop backdrop above 391 px. Chrome: status bar 0/0 h44 and top nav or flow bar
+0/44 h56, both on the Linen page ground with no rule (K-07 / K-08); the nav scrolls away with the page. Only the sticky action bar (and the thread composer, D-227) draws
+a 1 px hairline, and only while content continues under it. The content body starts at **116 px** (`--body-top`: nav bottom 100 + 16, K-04 / D-204) with **20 px** side gutters and no
 bottom padding; when a sticky action bar is present the body pads by the bar height plus 24.
 
-Spacing is on a 4 px base (4 / 8 / 12 / 16 / 20 / 24 / 28 / 32 / 40) with an **uneven rhythm** (K-03 #9):
+Spacing is on a 4 px base (2 / 4 / 8 / 12 / 16 / 20 / 24 / 28 / 32 / 40; the 2 is `--space-2`, only for hairline gaps inside one text group) with an **uneven rhythm** (K-03 #9, five roles, D-228).
+The gap between blocks is always one of these names, never a bare 16 or 24 (the hygiene step fails on it in `css/screens/*`):
 - `rhythm-tight` 8: label to value, row to row inside a group.
 - `rhythm-group` 12: section heading to its first row; stacked controls.
+- `rhythm-block` 24: a heading to an unlabelled card, banner or empty state; a banner under a heading; the privacy note to the messages in a thread.
 - `rhythm-section` 32: between sections (`<section class="sec">`).
-- `rhythm-major` 40: hero block to first section; last section to in-page actions (`.page-actions`).
+- `rhythm-major` 40: a heading or hero (`.hero + .sec`) to a section that carries a caps label; last section to in-page actions (`.page-actions`).
+
+The one heading-to-content rule: 40 into a labelled section, 24 into anything unlabelled, and a stepper's title sits 12 under it (`--rhythm-group`; what is above a title belongs to it).
+Nothing cancels a parent gap with a negative margin: a pair that needs a smaller gap is its own sub-group.
 
 Grids are content-shaped: the garment picker is a 3-up tile grid (110 px tiles), appointment rows are a 4-column grid (avatar /
 text / status-and-amount / chevron), booking filters are a row of pills. Every tappable is at least 44 x 44; inline controls that
@@ -461,7 +469,7 @@ dashed 56 px camera tile (1.5 px dashed `neutral-500`, turning `error` after a f
 ### Buttons
 Decisive and rare: one black slab per screen, everything else a link.
 - **Shape:** gently rounded slab (20 px radius), full width, 54 px tall.
-- **Primary:** ink fill, linen text, Hanken 16/600. Lives in the sticky white action bar (12/20/20 padding, inside top rule) or in
+- **Primary:** ink fill, linen text, Hanken 16/600. Lives in the sticky Linen action bar (12/20/20 padding; the 1 px hairline shows only while content continues under it) or in
   `.page-actions`. Busy state shows an inline spinner and `cursor: progress`.
 - **Disabled / soft-disabled:** 55 % opacity. `softDisabled` keeps the look but drops the `disabled` attribute (`aria-disabled`), so a
   tap can still explain why (t-adjust Send with photos missing).
@@ -500,7 +508,7 @@ ring, so closed reads differently by shape as well as hue). Muted past rows drop
   options), time chips (Tissue with Bisque ring, ink when selected), filter pills (caption above a 44 px box with a pencil glyph).
 
 ### Navigation
-- **Top nav:** white, 56 px, script "Taily" logo (74 x 34) left, four 44 x 44 icon links right, 4 px apart. Icons are 24 px line
+- **Top nav:** Linen (the page ground), no rule, scrolls away with the page, 56 px, script "Taily" logo (74 x 34) left, four 44 x 44 icon links right, 4 px apart. Icons are 24 px line
   glyphs at 1.5 stroke (home, bookings, messages, account / home, shop, earnings, messages). Inactive Graphite Soft; hover (hover
   devices) ink on linen; active ink at 1.75 stroke with a 16 x 2 px Basting Thread stitch 4 px from the bottom. Unread = an 8 px
   accent dot with a 2 px white ring on the icon's corner. Labels live in `aria-label` + `title`.
@@ -515,7 +523,7 @@ own line when the screen has one; (2) ONE row holding the Back chevron and the `
 the gutter so the glyph sits on the 20 px text edge, the title starts 4 px after it and wraps beside it (hanging indent), the chevron
 centred on the title's first line; (3) the notes / description below at the screen padding, full width. Tab roots (`back: false`)
 show the title alone. The booking flow bar and the onboarding bar keep their Back inside the 56 px bar (D-205). The body starts
-16 px under the nav rule (`--body-top`), so there is no separate Back row and no gap above the title.
+16 px under the nav (`--body-top`), so there is no separate Back row and no gap above the title.
 
 ### Garment Item Row and Photo Stack (K-04)
 One shared `garmentHead` opens every item card (change list, work list, t-adjust, c-job): the item NAME first (16/600 ink, underlined

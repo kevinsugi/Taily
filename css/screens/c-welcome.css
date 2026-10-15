@@ -1,7 +1,7 @@
 /* c-welcome — entry. Layout only; buttons, rows and type come from the shared components. */
 .c-welcome {
   min-height: 100dvh;
-  padding-top: calc(44px + var(--space-32) * 2);
+  padding-top: calc(var(--status-h) + var(--space-32) * 2);
   padding-bottom: var(--space-24);
 }
 .c-welcome__logo {
@@ -21,7 +21,7 @@
 .c-welcome__or { display: flex; align-items: center; gap: var(--space-12); margin-block: var(--space-12); }
 .c-welcome__or::before, .c-welcome__or::after { content: ""; flex: 1 1 0; height: 1px; background: var(--neutral-200); }
 .c-welcome__gap { height: var(--space-8); }
-.c-welcome__legal { margin: var(--space-16) 0 0; text-align: center; }
+.c-welcome__legal { margin: var(--rhythm-group) 0 0; text-align: center; }
 .c-welcome__tailor { display: block; margin: var(--space-20) 0 0; text-align: center; }
 .c-welcome__link {
   display: inline; padding: var(--space-12) var(--space-4); margin: calc(var(--space-12) * -1) calc(var(--space-4) * -1);
@@ -31,7 +31,7 @@
 .c-welcome__legal .c-welcome__link { position: relative; z-index: 1; }
 /* AU-P2-4: short viewports (390 × 664): the hero is capped by min(…, 22dvh) above; the top and hero margins tighten so Phone, Apple and Google all show */
 @media (max-height: 760px) {
-  .c-welcome { padding-top: calc(44px + var(--space-16)); }
-  .c-welcome__hero { margin-block: var(--space-16); }
+  .c-welcome { padding-top: calc(var(--status-h) + var(--space-16)); }
+  .c-welcome__hero { margin-block: var(--rhythm-group); }
   .c-welcome__spacer { min-height: var(--space-16); }
 }

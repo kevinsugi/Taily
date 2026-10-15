@@ -2,7 +2,7 @@
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
     "syncedAt": "2026-10-14",
-    "milestone": "K-04",
+    "milestone": "K-09",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -70,7 +70,9 @@
       "garmentTileArt": "876:5096",
       "headingRow": "885:5190",
       "garmentItemRow": "885:5171",
-      "photoStack": "885:5117"
+      "photoStack": "885:5117",
+      "actionBar": "925:5250",
+      "sheet": "925:5283"
     },
     "screens": {
       "c-welcome": "822:4347",

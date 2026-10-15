@@ -4,9 +4,9 @@
   display: inline; padding: var(--space-12) var(--space-4); margin: calc(var(--space-12) * -1) calc(var(--space-4) * -1);
   font: inherit; font-weight: 600; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px;
 }
-.t-code__wait { margin: var(--space-16) 0 0; font-variant-numeric: tabular-nums; }
+.t-code__wait { margin: var(--rhythm-group) 0 0; font-variant-numeric: tabular-nums; }
 .t-code__resend {
   align-self: flex-start; min-height: 44px; margin-top: var(--space-8); padding-inline: 0;
-  font-size: var(--size-16); line-height: 21px; font-weight: 600; color: var(--accent-ink);
+  font-size: var(--size-16); line-height: var(--lh-16); font-weight: 600; color: var(--accent-ink);
 }
 .t-code__resend:disabled { opacity: 0.4; cursor: not-allowed; }

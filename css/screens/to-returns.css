@@ -1,7 +1,6 @@
 /* to-returns — layout only; check rows, preview, stepper, banner and action bar are shared components. */
-.to-returns .banner { margin-top: var(--space-16); }
-.to-returns__title { margin-top: var(--space-24); }
-.to-returns .stepper + .to-returns__title { margin-top: var(--space-24); }
+.to-returns .banner { margin-top: var(--rhythm-group); }   /* the resume banner sits 12 under the stepper */
+.to-returns__title { margin-top: var(--rhythm-block); }   /* 24 under a banner; 12 right under the stepper (components-v5 .stepper + .heading-block) */
 .to-returns__lead { margin: var(--rhythm-tight) 0 0; }
 .to-returns__card { display: flex; flex-direction: column; margin-top: var(--rhythm-section); padding: var(--space-8) var(--space-16); }
 .to-returns__card .check-row-wrap { padding-block: var(--space-4); }

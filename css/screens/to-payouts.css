@@ -1,9 +1,9 @@
 /* to-payouts — O6 Payouts. Tokens only; strokes are inset shadows. */
-.to-payouts .banner { margin-top: var(--space-16); }
-.to-payouts .stepper + .heading-row, .to-payouts .banner + .heading-row { margin-top: var(--space-24); }
+.to-payouts .banner { margin-top: var(--rhythm-group); }
+.to-payouts .banner + .heading-row { margin-top: var(--rhythm-block); }   /* .stepper + .heading-row is the shared 12 */
 .to-payouts__lead { margin: var(--rhythm-tight) 0 0; }
-.to-payouts__returned { margin-top: var(--space-16); }
-.to-payouts__returned + .to-payouts__lead { margin-top: var(--space-16); }
+.to-payouts__returned { margin-top: var(--rhythm-block); }   /* a banner under the heading */
+.to-payouts__returned + .to-payouts__lead { margin-top: var(--rhythm-group); }
 .to-payouts__returned .banner__text { text-wrap: pretty; }
 .to-payouts__returned [data-money] { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .to-payouts__fee > p { margin: 0; }

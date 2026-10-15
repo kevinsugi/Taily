@@ -63,13 +63,15 @@ a {
    viewport is the stage, so the backdrop never shows. */
 .stage {
   width: 100%;
-  max-width: 390px;
+  max-width: var(--column);
   min-height: 100vh;
+  min-height: 100dvh;   /* B5 P3-6: the dynamic viewport, like .screen */
   margin-inline: auto;
   position: relative;
 }
 
-@media (min-width: 391px) {
+/* B5 P3-5: only a real desktop window gets the tinted backdrop; wide phones (391-599) keep the linen ground. */
+@media (min-width: 600px) {
   body { background: var(--neutral-100); }
 }
 
@@ -77,7 +79,7 @@ a {
    than clipping the screen. */
 .screen {
   width: 100%;
-  max-width: 390px;
+  max-width: var(--column);
   min-height: 100vh;
   min-height: 100dvh;   /* K-04 / AU-P2-4: the phone's own height, not the 844 of the design frame */
   position: relative;
@@ -99,9 +101,9 @@ a {
   position: absolute;
   inset: 0 auto auto 0;
   width: 100%;
-  max-width: 390px;
-  height: 44px;
-  z-index: 2;
+  max-width: var(--column);
+  height: var(--status-h);
+  z-index: var(--z-chrome);
   background: var(--neutral-50);
   display: flex;
   align-items: center;
@@ -113,7 +115,7 @@ a {
 .status-bar__time {
   font-family: var(--font-sans);
   font-size: var(--size-12);
-  line-height: 16px;
+  line-height: var(--lh-12);
   font-weight: 600;
   color: var(--ink);
 }
@@ -126,19 +128,21 @@ a {
   flex-shrink: 0;
 }
 
-/* Installed as a PWA the OS draws its own status bar. */
+/* Installed as a PWA the OS draws its own status bar. The nav then starts under the device's top inset (0 where there is no notch),
+   and every offset derived from --status-h (--chrome-h, --body-top, the banner) follows (LAYOUT-PLAN P1-4 / P3-4). */
 @media (display-mode: standalone) {
+  :root { --status-h: var(--safe-top); }
   .status-bar { display: none; }
 }
 
 /* Top nav — space-between, padding-inline 20. K-07 (D-222): the page ground, no permanent border; the hairline (::after, components-v5.css) fades in on scroll. */
 .top-nav {
   position: absolute;
-  inset: 44px auto auto 0;
+  inset: var(--status-h) auto auto 0;
   width: 100%;
-  max-width: 390px;
-  height: 56px;
-  z-index: 2;
+  max-width: var(--column);
+  height: var(--nav-h);
+  z-index: var(--z-chrome);
   background: var(--neutral-50);
   display: flex;
   align-items: center;

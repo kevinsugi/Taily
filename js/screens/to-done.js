@@ -57,11 +57,12 @@ function view(s) {
   const job = s.job;
   const row = previewRow();
   const hood = ZIP_INFO[job.zip]?.hood ?? 'Brooklyn';
-  const caption = row
-    ? `Example: ${nameList(job.garments.map((g) => g.type))}, ${lowerFirst(VISIT_LABEL.tailor[job.visitType])}`
-    : whyNotShown(t, job);
   /* a row → "How a customer in <hood> sees you"; no row → that customer wouldn't see her at all, so the neutral title (as t-shop) */
   const title = row ? `How a customer in ${hood} sees you` : 'What customers will see';
+  /* B5 P3-9: the caps head says "Preview"; the sentence title leads the caption (and stays the section's accessible name) */
+  const caption = row
+    ? `${title}. Example: ${nameList(job.garments.map((g) => g.type))}, ${lowerFirst(VISIT_LABEL.tailor[job.visitType])}`
+    : whyNotShown(t, job);
   const mini = miniProfile({ name: t.name, initials: t.initials, photo: t.photo, shopName: t.shopName, bio: t.bio ?? '' });
   const hours = POLICY.REQUEST_EXPIRY_H;
   return `${statusBar()}
@@ -69,7 +70,7 @@ function view(s) {
   <span class="${ID}__art" aria-hidden="true">${garmentIcon('Suit Jacket', { size: 'hero' })}</span>
   <h1 class="t-display ${ID}__title">You’re bookable</h1>
   <p class="t-body c-600 ${ID}__lead">Customers near you can book you now. You have ${hours} hour${hours === 1 ? '' : 's'} to reply to each request.</p>
-  <div class="${ID}__preview">${customerPreview({ title, html: row ?? mini, caption })}</div>
+  <div class="${ID}__preview">${customerPreview({ title, head: 'Preview', html: row ?? mini, caption })}</div>
   <section class="sec" aria-labelledby="${ID}-next-h">
     ${sectionHead('What happens next', { id: `${ID}-next-h` })}
     <ol class="${ID}__steps">${STEPS.map((txt, i) => `<li class="${ID}__step"><span class="${ID}__num t-small w-600" aria-hidden="true">${i + 1}</span><span class="t-body">${txt}</span></li>`).join('')}</ol>

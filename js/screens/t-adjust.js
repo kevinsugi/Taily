@@ -280,7 +280,8 @@ function view() {
   const sendDisabled = !busy && missingN === 0 && revise && !edited;
   const ctx = { a, d, missing, first };
   /* D-126: the bar carries both figures, the customer's first, so the total moves in view while the cards are edited */
-  const pair = `<span class="${ID}__lead-pair">${esc(first)} pays <b data-money>${fmtExact(pv.after.total)}</b></span><span class="${ID}__lead-pair">You take home <b data-money>${fmtExact(pv.after.payout)}</b></span>`;
+  /* P1-3 (D-224): the name may break; the label + amount atom never does */
+  const pair = `<span class="${ID}__lead-pair">${esc(first)} <span class="nb">pays <b data-money>${fmtExact(pv.after.total)}</b></span></span><span class="${ID}__lead-pair"><span class="nb">You take home <b data-money>${fmtExact(pv.after.payout)}</b></span></span>`;
   const lead = none ? 'Add an item or service to see the new total'
     : bad ? fix
       : `<span class="${ID}__lead">${pair}</span>`;

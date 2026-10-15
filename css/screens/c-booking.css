@@ -6,7 +6,6 @@
 .c-booking__policy { margin: var(--space-4) 0 0; text-wrap: pretty; }
 .c-booking__late, .page-actions > p { text-wrap: pretty; }
 .c-booking__late { margin: 0; text-align: center; }
-.c-booking__empty { margin-top: var(--rhythm-section); }
 .c-booking .visit-block__row .t-figure { display: block; }
 /* a cancelled visit: the old time stays, dimmed */
 .c-booking--cancelled .visit-block__row, .c-booking--cancelled .visit-block__row .t-figure { color: var(--neutral-600); }

@@ -318,14 +318,31 @@ function wireScrollEdges(el) {
   edgeOff = () => off.forEach((f) => f());
 }
 
+/* K-09 / P1-5 (D-225): the sticky bar yields when it would cover over a quarter of the viewport: #screen[data-bar-tall] makes it static
+   (the page's closing block, still last in DOM and focus order; components-v5.css owns the look). Measured at paint, then on bar changes;
+   the window / visualViewport resize listeners are skipped under html.is-test (like wireScrollEdges). */
+let barOff = null;
 function syncBarHeight(el) {
   const root = document.documentElement;
   barObserver?.disconnect();
+  barObserver = null;
+  barOff?.();
+  barOff = null;
   const bar = el.querySelector('.action-bar');
-  if (!bar) { root.style.removeProperty('--bar-h'); return; }
-  const set = () => root.style.setProperty('--bar-h', `${bar.offsetHeight + 16}px`);
+  if (!bar) { root.style.removeProperty('--bar-h'); delete el.dataset.barTall; return; }
+  const set = () => {
+    const cur = el.querySelector('.action-bar') ?? bar;      // screens swap the bar in place while typing (patch)
+    root.style.setProperty('--bar-h', `${cur.offsetHeight + 16}px`);
+    const tall = cur.offsetHeight > window.innerHeight * 0.25;
+    if (tall) { if (el.dataset.barTall !== 'true') el.dataset.barTall = 'true'; } else if (el.dataset.barTall) delete el.dataset.barTall;
+  };
   set();
   if (typeof ResizeObserver !== 'undefined') { barObserver = new ResizeObserver(set); barObserver.observe(bar); }
+  if (!root.classList.contains('is-test')) {
+    window.addEventListener('resize', set, { passive: true });
+    window.visualViewport?.addEventListener('resize', set, { passive: true });
+    barOff = () => { window.removeEventListener('resize', set); window.visualViewport?.removeEventListener('resize', set); };
+  }
 }
 
 /* The Back control beside every heading (components.js backButton) — steps

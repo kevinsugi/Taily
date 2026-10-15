@@ -1,6 +1,6 @@
 /* to-services — layout only; service rows, preview, stepper, banner and action bar are shared components. */
-.to-services__resume { margin-top: var(--space-16); }
-.to-services__title { margin-top: var(--space-24); }
+.to-services__resume { margin-top: var(--rhythm-group); }
+.to-services__title { margin-top: var(--rhythm-block); }
 .to-services__lead { margin: var(--rhythm-tight) 0 0; }
 .to-services__fee { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--rhythm-tight); }
 .to-services__fee .info-btn { margin-block: calc(-1 * var(--space-12)); margin-right: calc(-1 * var(--space-12)); }

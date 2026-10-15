@@ -1,14 +1,14 @@
 /* t-thread — layout only. Header, context row, message list, bubbles, composer, privacy note and read-only banner are shared components. */
 .screen[data-screen="t-thread"] { display: flex; flex-direction: column; }
-.t-thread { flex: 1 0 auto; gap: var(--space-12); padding-bottom: var(--space-16); }
-.t-thread__context { margin-top: 0; }
-.t-thread__note { margin-top: calc(-1 * var(--space-4)); padding-inline: var(--space-4); }
-.t-thread__messages { display: flex; flex-direction: column; padding-top: var(--space-12); }
+.t-thread { flex: 1 0 auto; gap: 0; padding-bottom: var(--space-16); }
+.t-thread__context { margin-top: var(--rhythm-group); }
+.t-thread__note { margin-top: var(--rhythm-tight); padding-inline: var(--space-4); }   /* P2-1: spacing is each block's own margin, so nothing cancels a parent gap */
+.t-thread__messages { display: flex; flex-direction: column; margin-top: var(--rhythm-block); }   /* note → messages is --rhythm-block on both personas */
 .t-thread__empty { display: flex; flex: 1 0 auto; flex-direction: column; justify-content: center; }
 .t-thread__empty .empty-state { padding: var(--space-24) 0 var(--space-8); }
 .t-thread__empty-text { margin: 0; padding: var(--space-24) var(--space-4) 0; text-align: center; }
 .t-thread__foot {
-  position: sticky; bottom: 0; z-index: 5; flex-shrink: 0; width: 100%; max-width: 390px;
-  padding: var(--space-12) var(--space-20) var(--space-20);
-  background: var(--white); box-shadow: inset 0 1px 0 var(--neutral-200);
+  position: sticky; bottom: 0; z-index: var(--z-sticky); flex-shrink: 0; width: 100%; max-width: var(--column);
+  padding: var(--space-12) var(--space-20) calc(var(--space-20) + var(--safe-bottom));
+  background: var(--neutral-50);   /* K-09 / P3-7 (D-227): the action bar's ground; the hairline is components-v5.css (::before, on [data-more]) */
 }

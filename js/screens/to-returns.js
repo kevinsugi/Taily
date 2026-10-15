@@ -108,7 +108,7 @@ function view() {
   return `${onboardingHeader({ editing: mode })}<main class="body body--with-bar ${ID} ${ID}--${mode ? 'edit' : 'onboarding'}">
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
-  ${mode ? headingRow(TITLE) : `<div class="${ID}__title">${TITLE}</div>`}
+  ${mode ? headingRow(TITLE) : `<div class="heading-block ${ID}__title">${TITLE}</div>`}
   <p class="to-returns__lead t-body c-600">Pick every option you offer.</p>
   <div class="card to-returns__card${err ? ' to-returns__card--error' : ''}" role="group" aria-label="Return options"${err ? ' aria-describedby="returns-msg"' : ''}>${rows}</div>
   <p class="field__msg field__msg--error to-returns__error" id="returns-msg" role="alert"${err ? '' : ' hidden'}>${esc(err)}</p>

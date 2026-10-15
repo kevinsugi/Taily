@@ -172,7 +172,11 @@ export const FLOWS_c_account = [
 export const FLOWS_c_addresses = [
   { key: 'c-addresses', screen: 'c-addresses', group: CA_GROUP, title: 'Saved addresses', note: 'Home is the default; Work added',
     setup: () => { CA_A.addAddress({ label: 'Work', street: '200 Kent Ave', unit: '', zip: '11249' }); },
-    expect: { has: ['Home', 'Default', CA_CUSTOMER.address.street, 'Work', '200 Kent Ave', 'Make default', 'Add an address'] } },
+    expect: { has: ['Home', 'Default', CA_CUSTOMER.address.street, 'Work', '200 Kent Ave', 'Add an address'], not: ['Make default', 'Remove'], sel: '.card--list [data-act="address"]' } },
+  { key: 'c-addresses--row', screen: 'c-addresses', group: CA_GROUP, title: 'Saved addresses — row sheet', note: 'Tap Work: Make default and Remove address live in the row sheet (P3-1, D-229)',
+    setup: () => { CA_A.addAddress({ label: 'Work', street: '200 Kent Ave', unit: '', zip: '11249' }); },
+    click: ['[data-act="address"]:not([data-default])'],
+    expect: { has: ['Work', '200 Kent Ave', 'Make default', 'Remove address'], sel: '[data-s="address"]' } },
   { key: 'c-addresses--empty', screen: 'c-addresses', group: CA_GROUP, title: 'Saved addresses — none', note: 'Sarah removed every address',
     setup: () => { CA_A.removeAddress('home'); },
     expect: { has: ['No saved addresses', 'Add an address'], sel: '[data-empty="addresses"]' } },

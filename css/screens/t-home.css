@@ -1,11 +1,9 @@
 /* t-home — T1 Inbox. Tokens only; strokes are inset shadows. */
 .t-home { padding-bottom: var(--space-40); }
 .t-home__sum { margin: var(--space-8) 0 0; }
-.t-home__sum + .sec, .t-home__push + .sec { margin-top: var(--rhythm-major); }
-.t-home__push { margin-top: var(--space-16); }
+.t-home__push { margin-top: var(--rhythm-block); }
 .t-home__list { display: flex; flex-direction: column; gap: var(--space-12); }
 .t-home__none { margin: 0; }
-.t-home__empty { margin-top: var(--space-24); }
 .t-home .banner__action { min-width: 44px; min-height: 44px; }
 .t-home__paused { display: flex; flex-direction: column; align-items: flex-start; margin-top: var(--space-4); }
 .t-home__paused .text-link { min-height: 44px; padding-inline: 0; }

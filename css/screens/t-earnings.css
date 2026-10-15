@@ -1,9 +1,8 @@
 /* t-earnings — T8 Earnings. Layout only; figure, rows, status words, banner and skeleton are shared. Tokens only. M7: flat hero, tappable rows in one card. */
 .t-earnings { gap: 0; padding-bottom: var(--space-40); }
-.t-earnings__alert { margin-top: var(--space-16); }
+.t-earnings__alert { margin-top: var(--rhythm-block); }
 .t-earnings__alert .banner__text { text-wrap: pretty; }
 .t-earnings__alert [data-money] { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.t-earnings__alert + .sec { margin-top: var(--rhythm-section); }
 
 /* the next Friday: a flat hero (caps label, display figure, caption), its jobs in one card under it */
 .t-earnings__hero { display: flex; flex-direction: column; gap: var(--space-4); }
@@ -23,11 +22,10 @@
 .t-earnings__gtext { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
 .t-earnings__gtext p, .t-earnings__gright span { margin: 0; }
 .t-earnings__gright { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-4); font-variant-numeric: tabular-nums; }
-.t-earnings__loading { margin-top: var(--space-24); }
-.t-earnings__empty { margin-top: var(--space-24); }
+.t-earnings__loading { margin-top: var(--rhythm-block); }
 
 /* M6-T-18: sent back + next in one section — the headline carries the date and the whole amount, the Fix button closes it */
 .t-earnings__merged { font-variant-numeric: tabular-nums; text-wrap: balance; }
-.t-earnings__tag { display: inline-block; margin-left: var(--space-8); padding: 2px var(--space-8); border-radius: var(--radius-full); background: var(--error-bg); color: var(--error-ink); font-weight: 600; vertical-align: 2px; }
+.t-earnings__tag { display: inline-block; margin-left: var(--space-8); padding: var(--space-2) var(--space-8); border-radius: var(--radius-full); background: var(--error-bg); color: var(--error-ink); font-weight: 600; vertical-align: 2px; }
 .t-earnings__fix { margin-top: var(--rhythm-group); }
 .t-earnings__subline { display: block; }

@@ -36,7 +36,7 @@ Plain HTML/CSS/JS, no build step, branch `V5` (GitHub Pages serves it at https:/
 - Type = the Figma scale 10 / 12 / 16 / 24 / 28 / 32 / 36 via `.t-display .t-title .t-h2 .t-body .t-small .t-caps .t-micro`
   + `.w-*` + `.c-*` (`base.css`). Serif = Cormorant Garamond (headings), sans = Hanken Grotesk (UI). Hierarchy by
   weight + colour, never an invented size.
-- Screens: 390 wide, `var(--neutral-50)`; status bar 0/0 h44, top nav 0/44 h56, `.body` padding-top 128, sides 20.
+- Screens: 390 wide, `var(--neutral-50)`; status bar 0/0 h44, top nav 0/44 h56, `.body` padding-top 116 (`--body-top`, D-204), sides 20.
   Figma strokes are INSIDE → bordered hug components use `box-shadow: inset 0 0 0 1px …`.
 - Add a component variant in `js/components.js` / `css/components-v5.css` before using it; never fork a component
   inside a screen. 44 px touch targets, visible labels, errors next to the field, loading feedback, reduced motion.

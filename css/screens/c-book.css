@@ -3,4 +3,3 @@
 .c-book__who { margin: var(--space-8) 0 0; color: var(--ink); }
 .c-book__where { margin: var(--space-4) 0 0; }
 .c-book__sched { margin-top: var(--rhythm-group); }
-.c-book__empty { margin-top: var(--rhythm-section); }

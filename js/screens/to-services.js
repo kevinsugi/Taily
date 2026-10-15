@@ -102,7 +102,7 @@ function view() {
   const title = '<h1 class="t-title">Services and prices</h1>';
   return `${onboardingHeader({ editing })}
 <main class="body body--with-bar ${ID}">
-  ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="${ID}__title">${title}</div>`}
+  ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="heading-block ${ID}__title">${title}</div>`}
   <p class="t-body c-600 ${ID}__lead">Tick what you do and set your usual price.</p>
   <div class="${ID}__fee"><p class="t-small c-600 ${ID}__take-note" data-money>${feeLine()}</p>${infoButton('fee', { label: 'The Taily fee' })}</div>
   <section class="sec" aria-labelledby="${ID}-list-label">

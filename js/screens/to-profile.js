@@ -81,7 +81,7 @@ function view(s) {
   const title = `<h1 class="t-title">Your profile</h1>`;
   return `${onboardingHeader({ editing, back: editing })}
 <main class="body body--with-bar ${ID}">
-  ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="${ID}__title">${title}</div>`}
+  ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="heading-block ${ID}__title">${title}</div>`}
   <p class="t-body c-600 ${ID}__lead">This is the first thing customers see.</p>
   <div class="${ID}__photo">
     ${initialsOf(d.name) ? avatar({ initials: initialsOf(d.name), photo: d.photo || null, size: 'lg' }) : avatar({ photo: true, size: 'lg' })}

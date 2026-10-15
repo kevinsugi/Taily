@@ -550,6 +550,39 @@ function freezePage(doc) {
 /** Is an overlay (sheet / modal / viewer) currently mounted? */
 export const overlayOpen = () => activeOverlay !== null;
 
+/* Pin an overlay holder to the VISIBLE part of the screen column (viewport ∩ screen) and keep it there: it re-measures on
+   window and visualViewport resize (rotation, on-screen keyboard, browser chrome). Returns the function that removes the
+   listeners; every close path calls it (LAYOUT-PLAN P1-1). */
+function fitOverlay(holder, screenEl) {
+  const vv = window.visualViewport;
+  const fit = () => {
+    const r = screenEl.getBoundingClientRect();
+    const bottomEdge = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    const top = Math.max(r.top, 0);
+    holder.style.position = 'fixed';
+    holder.style.left = `${r.left}px`;
+    holder.style.width = `${r.width}px`;
+    holder.style.top = `${top}px`;
+    holder.style.height = `${Math.max(Math.min(r.bottom, bottomEdge) - top, 0)}px`;
+    /* K-09 P2 (WCAG 2.4.11): the stuck grabber row + header cover the top of a scrolling .sheet, so a focused or scrolled-to
+       control must stop below them. Measured, because a long title wraps the header to two lines. */
+    padTop();
+  };
+  const padTop = () => {
+    const panel = holder.querySelector('.sheet');
+    if (!panel) return;
+    const stuck = (panel.querySelector('.sheet__grabber-row')?.offsetHeight || 0) + (panel.querySelector('.sheet__header')?.offsetHeight || 0);
+    panel.style.scrollPaddingTop = `${stuck + 8}px`;
+  };
+  /* the title can wrap late (web font load, a sheet that re-renders its header) */
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(padTop) : null;
+  holder.querySelectorAll('.sheet__header, .sheet__grabber-row').forEach((el) => ro?.observe(el));
+  fit();
+  window.addEventListener('resize', fit);
+  vv?.addEventListener('resize', fit);
+  return () => { ro?.disconnect(); window.removeEventListener('resize', fit); vv?.removeEventListener('resize', fit); };
+}
+
 export function sheetOverlay(contentHtml, { header = null, variant = '', dataS = '', confirm = true, ariaLabel = '' } = {}, wireFn) {
   const screenEl = document.getElementById('screen');
   // one overlay at a time (a closing one, mid slide-out, doesn't count)
@@ -571,15 +604,10 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
      (viewport ∩ screen). Absolute inset-0 would anchor the sheet to the
      bottom of a tall screen — below the fold on short windows — and any
      scroll-into-view then pans the whole page: the exact motion this
-     overlay exists to avoid. Measured once; scroll is frozen below. */
-  const r = screenEl.getBoundingClientRect();
-  const top = Math.max(r.top, 0);
-  holder.style.position = 'fixed';
-  holder.style.left = `${r.left}px`;
-  holder.style.width = `${r.width}px`;
-  holder.style.top = `${top}px`;
-  holder.style.height = `${Math.min(r.bottom, window.innerHeight) - top}px`;
+     overlay exists to avoid. Scroll is frozen below; fitOverlay re-measures
+     when the visible viewport changes (rotation, keyboard, zoom). */
   screenEl.appendChild(holder);
+  const unfit = fitOverlay(holder, screenEl);
 
   /* Freeze the page while the sheet is open; pad for the vanishing
      scrollbar so the centred stage doesn't shift. */
@@ -597,6 +625,7 @@ export function sheetOverlay(contentHtml, { header = null, variant = '', dataS =
     host.dataset.open = 'false';
     const finish = () => {
       pendingFinish.delete(finish);
+      unfit();
       holder.remove();
       doc.style.overflow = prev.overflow;
       doc.style.paddingRight = prev.paddingRight;
@@ -631,14 +660,8 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
   if (dataS) holder.dataset.s = dataS;
   holder.innerHTML = `<div class="modal-scrim" data-act="modal-dismiss"></div>${modalHtml}`;
 
-  const r = screenEl.getBoundingClientRect();
-  const top = Math.max(r.top, 0);
-  holder.style.position = 'fixed';
-  holder.style.left = `${r.left}px`;
-  holder.style.width = `${r.width}px`;
-  holder.style.top = `${top}px`;
-  holder.style.height = `${Math.min(r.bottom, window.innerHeight) - top}px`;
   screenEl.appendChild(holder);
+  const unfit = fitOverlay(holder, screenEl);
 
   const doc = document.documentElement;
   const prev = freezePage(doc);
@@ -653,6 +676,7 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
     holder.dataset.open = 'false';
     const finish = () => {
       pendingFinish.delete(finish);
+      unfit();
       holder.remove();
       doc.style.overflow = prev.overflow;
       doc.style.paddingRight = prev.paddingRight;
@@ -1239,13 +1263,14 @@ export function composer({ value = '', disabled = false, placeholder = 'Message'
 /**
  * Field — label above, input, then helper OR error (the error replaces the helper,
  * sits next to the field and wires aria-invalid / aria-describedby).
- * `prefix` / `suffix` render inside the box ("$", "mi").
+ * `prefix` / `suffix` render inside the box ("$", "mi"). `labelEnd` (html) sits at the end of the label row, before the input
+ * in DOM order (B5 P3-11: an ⓘ for the label, e.g. to-where's fee).
  */
-export function field({ id, label, value = '', type = 'text', inputmode, autocomplete, placeholder = '', helper = '', error = '', prefix = '', suffix = '', maxlength, disabled = false, attrs = '' } = {}) {
+export function field({ id, label, value = '', type = 'text', inputmode, autocomplete, placeholder = '', helper = '', error = '', prefix = '', suffix = '', maxlength, disabled = false, attrs = '', labelEnd = '' } = {}) {
   const msg = error || helper;
   const msgId = `${id}-msg`;
   return `<div class="field${error ? ' field--error' : ''}${disabled ? ' field--disabled' : ''}">
-  <label class="field__label" for="${id}">${esc(label)}</label>
+  ${labelEnd ? `<div class="field__label-row"><label class="field__label" for="${id}">${esc(label)}</label>${labelEnd}</div>` : `<label class="field__label" for="${id}">${esc(label)}</label>`}
   <div class="field__box">
     ${prefix ? `<span class="field__affix" aria-hidden="true">${esc(prefix)}</span>` : ''}
     <input class="field__input" id="${id}" name="${id}" type="${type}" value="${esc(value)}"${inputmode ? ` inputmode="${inputmode}"` : ''}${autocomplete ? ` autocomplete="${autocomplete}"` : ''}${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}${maxlength ? ` maxlength="${maxlength}"` : ''}${disabled ? ' disabled' : ''}${error ? ' aria-invalid="true"' : ''}${msg ? ` aria-describedby="${msgId}"` : ''} ${attrs}>
@@ -1716,10 +1741,11 @@ export function dayHours({ sched, day, label, open = null, close = null, error =
  * Customer preview — "What customers see": a caps label over an INERT container (so a tailorRow button inside is
  * neither focusable nor clickable) on --neutral-100, then an optional caption. `html` is trusted markup built from customer components.
  */
-export function customerPreview({ title = 'What customers see', html = '', caption = '' } = {}) {
+export function customerPreview({ title = 'What customers see', head = '', html = '', caption = '' } = {}) {
+  /* `head` (B5 P3-9): a short caps word shown instead of the sentence title, which stays the section's accessible name */
   return `<section class="customer-preview" aria-label="${esc(title)}">
-  <p class="customer-preview__title t-caps c-600">${esc(title)}</p>
-  <div class="customer-preview__body" inert>${html}</div>
+  <p class="customer-preview__title t-caps c-600">${esc(head || title)}</p>
+  <div class="customer-preview__body" role="group" aria-disabled="true" inert>${html}</div>
   ${caption ? `<p class="customer-preview__caption t-small c-600">${esc(caption)}</p>` : ''}
 </section>`;
 }

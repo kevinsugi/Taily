@@ -3,8 +3,8 @@
 .c-complete .status-hero__body { color: var(--neutral-700); font-weight: 400; }
 .c-complete__rate { align-items: flex-start; gap: var(--space-8); padding: var(--space-20); }
 .c-complete__rate h2 { margin: 0 0 var(--space-4); text-wrap: balance; }
-.c-complete__rate .stars--input { margin-left: calc(var(--space-12) * -1 + 2px); }
+.c-complete__rate .stars--input { margin-left: calc(var(--space-12) * -1 + var(--space-2)); }
+@media (max-width: 300px) { .c-complete__rate { padding: var(--space-12); } .c-complete__rate .stars--input { margin-left: 0; } }   /* P1-2 zoom tier */
 .c-complete__word { font-weight: 500; }
 .c-complete__word:empty { display: none; }
 .c-complete__rate p { margin: 0; text-wrap: pretty; }
-.c-complete__empty { margin-top: var(--rhythm-section); }

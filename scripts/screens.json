@@ -2,7 +2,7 @@
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
     "syncedAt": "2026-10-15",
-    "milestone": "K-13",
+    "milestone": "K-15",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -78,7 +78,8 @@
       "requestCard": "942:5321",
       "visitBlock": "942:5386",
       "personBlock": "942:5491",
-      "moneyFigure": "942:5502"
+      "moneyFigure": "942:5502",
+      "verifiedPopover": "958:5222"
     },
     "screens": {
       "c-welcome": "822:4347",
@@ -155,7 +156,9 @@
       "t-adjust--photo-viewer": "869:5010",
       "t-job--docs": "869:5124",
       "c-booking--completed": "942:12905",
-      "t-job--visit": "942:12906"
+      "t-job--visit": "942:12906",
+      "t-request--urgent": "959:5460",
+      "c-booking--verified-open": "960:6360"
     },
     "variables": {
       "semantic/warning-ink": "VariableID:821:4344",

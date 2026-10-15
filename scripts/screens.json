@@ -1,8 +1,8 @@
 {
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
-    "syncedAt": "2026-10-14",
-    "milestone": "K-09",
+    "syncedAt": "2026-10-15",
+    "milestone": "K-13",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -72,7 +72,13 @@
       "garmentItemRow": "885:5171",
       "photoStack": "885:5117",
       "actionBar": "925:5250",
-      "sheet": "925:5283"
+      "sheet": "925:5283",
+      "verifiedCheck": "942:5165",
+      "waitBand": "942:5189",
+      "requestCard": "942:5321",
+      "visitBlock": "942:5386",
+      "personBlock": "942:5491",
+      "moneyFigure": "942:5502"
     },
     "screens": {
       "c-welcome": "822:4347",
@@ -147,7 +153,9 @@
       "c-booking--docs": "866:4760",
       "t-adjust--docs": "869:4824",
       "t-adjust--photo-viewer": "869:5010",
-      "t-job--docs": "869:5124"
+      "t-job--docs": "869:5124",
+      "c-booking--completed": "942:12905",
+      "t-job--visit": "942:12906"
     },
     "variables": {
       "semantic/warning-ink": "VariableID:821:4344",

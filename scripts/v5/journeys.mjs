@@ -141,7 +141,7 @@ await journey('J2', 'suggest -> accept the new time', async () => {
   await click('[data-act="suggest"]');
   await at('J2 suggest screen', 't-suggest');
   await click('[data-act="send-suggestion"]');
-  await at('J2 waiting on Sarah', 't-request', { has: ['Waiting on Sarah', SUGG_WHEN] });
+  await at('J2 waiting on Sarah', 't-request', { has: ['You suggested a new time', SUGG_WHEN] });
   await flip();
   await click('[data-nav="bookings"]');
   await click('.appt-row');
@@ -179,7 +179,7 @@ await journey('J4', 'customer cancels late -> tailor keeps the deposit', async (
   await flip();
   await at('J4 tailor home', 't-home');
   await page.evaluate(() => window.Taily.render('t-job'));
-  await at('J4 tailor job: cancelled by Sarah', 't-job', { has: ['Cancelled by Sarah', fmtExact(S.lateCancel.tailorPaid)] });
+  await at('J4 tailor job: cancelled by Sarah', 't-job', { has: ['Sarah cancelled', fmtExact(S.lateCancel.tailorPaid)] });
 });
 
 /* ---------- J5 ---------- */
@@ -189,7 +189,7 @@ await journey('J5', "tailor can't make it -> customer refunded", async () => {
   await flip();
   await click('[data-nav="bookings"]');
   await click('.appt-row');
-  await at('J5 customer: cancelled by Amara', 'c-booking', { has: ['Cancelled by Amara', 'Refunded', fmtExact(S.earlyCancel.refund)] });
+  await at('J5 customer: cancelled by Amara', 'c-booking', { has: ['Amara can’t make it', 'Refunded', fmtExact(S.earlyCancel.refund)] });
 });
 
 /* ---------- J6 (K-01) ---------- */
@@ -226,7 +226,7 @@ await journey('J6', 'edit the job -> Sarah approves -> tailoring, both sides rea
   await at('J6 customer bookings', 'c-bookings', { has: ['Approve', 'Final order'] });
   await click('.appt-row');
   await at('J6 customer: review the final order', 'c-price-change', {
-    has: ['Review your final order', 'New item', 'Pants / Jeans', 'Removed', 'Take in jacket sides', '1 item added', fmtExact(S.priceItem.total),
+    has: ['Approve your final order', 'New item', 'Pants / Jeans', 'Removed', 'Take in jacket sides', '1 item added', fmtExact(S.priceItem.total),
       fmtExact(S.priceItem.balance), fmtExact(S.seed.deposit), 'Stays the same', 'photos', 'Amara’s comment', FITTING_COMMENTS.g2],
   });
   await click('[data-garment="n1"] [data-act="view-photos"]');
@@ -236,11 +236,11 @@ await journey('J6', 'edit the job -> Sarah approves -> tailoring, both sides rea
   await settle(page);
   await click('[data-act="approve"]');
   await at('J6 customer: in progress', 'c-booking', {
-    has: ['In progress', 'approved the order', fmtExact(S.priceItem.balance), 'YOUR ORDER', 'Pants / Jeans', 'New item', 'Hem pants', 'Amara’s comment', FITTING_COMMENTS.g2],
+    has: ['working on it', 'approved the order', fmtExact(S.priceItem.balance), 'YOUR ORDER', 'Pants / Jeans', 'New item', 'Hem pants', 'Amara’s comment', FITTING_COMMENTS.g2],
   });
   await flip();
   await click('.appt-row');
-  await at('J6 tailor: approved your changes', 't-job', { has: ['approved your changes', fmtExact(S.priceItem.payout), 'Pants / Jeans', 'Mark ready', 'Your comment', FITTING_COMMENTS.g2] });
+  await at('J6 tailor: approved your changes', 't-job', { has: ['Sarah approved', fmtExact(S.priceItem.payout), 'Pants / Jeans', 'Mark ready', 'Your comment', FITTING_COMMENTS.g2] });
 });
 
 /* ---------- J6b (K-01) ---------- */
@@ -261,10 +261,10 @@ await journey('J6b', 'no changes still needs approval', async () => {
   await click('.appt-row');
   await at('J6b customer: no changes', 'c-price-change', { has: ['No changes', fmtExact(S.seed.total), 'Approve and start'] });
   await click('[data-act="approve"]');
-  await at('J6b customer: in progress', 'c-booking', { has: ['In progress'] });
+  await at('J6b customer: in progress', 'c-booking', { has: ['working on it'] });
   await flip();
   await click('.appt-row');
-  await at('J6b tailor: work in progress, as booked', 't-job', { has: ['Work in progress', 'Mark it ready when the work is done.'], not: 'approved your changes' });
+  await at('J6b tailor: work in progress, as booked', 't-job', { has: ['In progress', 'Mark ready'], not: ['Sarah approved', 'Work in progress'] });
 });
 
 /* ---------- J7 (D-143) ---------- */
@@ -273,7 +273,7 @@ await journey('J7', 'courier return: the three courier amounts match on both sid
   await flow('t-job--in-progress');
   await click('[data-act="mark-ready"]');
   await click('[data-act="ready-ok"]');
-  await at('J7 tailor: waiting on Sarah', 't-job', { has: ['Waiting on Sarah'] });
+  await at('J7 tailor: waiting on Sarah', 't-job', { has: ['Ready · Sarah is choosing how to get it back'] });
   await flip();
   await click('[data-nav="bookings"]');
   await click('.appt-row');
@@ -282,11 +282,11 @@ await journey('J7', 'courier return: the three courier amounts match on both sid
   await at('J7 customer: courier quote', 'c-ready', { has: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Pay ${fmtExact(S.courier.balance)}`] });
   await click('[data-act="pay"]');
   await click('[data-act="pay-ok"]');
-  await at('J7 customer: out for delivery', 'c-booking', { has: ['Out for delivery', fmtExact(cq.cents)] });
+  await at('J7 customer: out for delivery', 'c-booking', { has: ['On its way to you', fmtExact(cq.cents)] });
   await flip();
   await click('.appt-row');
   await at('J7 tailor: courier booked, not her money', 't-job', {
-    has: ['Courier booked', 'Courier arrives', 'Paid by Sarah · nothing comes out of your payout', 'Handed to courier', fmtExact(S.seed.payout)],
+    has: ['Courier booked', 'arrives', 'Paid by Sarah · nothing comes out of your payout', 'Handed to courier', fmtExact(S.seed.payout)],
     not: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents)],
   });
 });
@@ -372,7 +372,7 @@ await journey('J10', 'the expiry loop: no reply, Try again, Sent again, expire t
   await at('J10 request sent', 'c-request', { has: ['Waiting for Amara', 'On hold'] });
   await advance(wait);
   await paint('c-request');
-  await at('J10 no reply, hold released, first retry', 'c-request', { has: ['No reply', 'hold was released', 'Send request again'], not: 'On hold' });
+  await at('J10 no reply, hold released, first retry', 'c-request', { has: ['reply in time', 'hold was released', 'Send request again'], not: 'On hold' });
   await click('[data-act="try-again"]');
   await at('J10 sent again', 'c-request', { has: ['Waiting for Amara', 'On hold'] });
   await flip();
@@ -380,7 +380,7 @@ await journey('J10', 'the expiry loop: no reply, Try again, Sent again, expire t
   await flip();
   await advance(wait);
   await paint('c-request');
-  await at('J10 no reply again, last try', 'c-request', { has: ['No reply', 'Send again (last try)', 'send it once more'] });
+  await at('J10 no reply again, last try', 'c-request', { has: ['reply in time', 'Send again (last try)', 'send it once more'] });
   await click('[data-act="try-again"]');
   await advance(wait);
   await paint('c-request');
@@ -421,7 +421,7 @@ await journey('J12', 'a suggested time lapses: both sides end it, the hold is re
   await flow('t-request');
   await click('[data-act="suggest"]');
   await click('[data-act="send-suggestion"]');
-  await at('J12 waiting on Sarah', 't-request', { has: ['Waiting on Sarah', SUGG_WHEN] });
+  await at('J12 waiting on Sarah', 't-request', { has: ['You suggested a new time', SUGG_WHEN] });
   await advance(24 * 60);
   await paint('t-request');
   await at('J12 tailor: the suggestion lapsed', 't-request', { has: ['Your suggested time passed', 'didn’t accept in time', 'Back to Home'], not: 'Withdraw suggestion' });

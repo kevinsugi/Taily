@@ -14,5 +14,4 @@
 .c-request__try { display: flex; flex-direction: column; gap: var(--space-8); }
 .c-request__try .t-small { text-align: center; }
 .c-request__alert { margin-bottom: var(--space-4); }
-.c-request__holding { margin: var(--space-8) 0 0; text-wrap: pretty; }
 .c-request__alert--top { margin: var(--space-12) 0 0; }

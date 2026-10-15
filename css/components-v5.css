@@ -604,8 +604,41 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .request-card__strip--suggest { justify-content: space-between; gap: var(--space-12); }
 /* K-15: the same strip on the t-request screen — bleeds across the 390 frame, flush under the nav (no card to clip it), 20 px gutter */
 .request-card__strip--page { margin: calc(-1 * var(--space-16)) calc(-1 * var(--space-20)) var(--space-20); padding-inline: var(--space-20); }
+/* K-17 (K16-1-02): the strip already owns the 20 px below it — a first section after it adds no major gap on top */
+.request-card__strip--page + .sec--first { margin-top: 0; }
 .request-card__strip-lead { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .request-card__strip-clock { display: inline-flex; align-items: center; gap: var(--space-4); flex-shrink: 0; margin-left: auto; }
+/* K-17 (D-242): STATE strips on t-job / c-price-change — the same band, token tones: warn (the default band: waiting on the other side), action (your move), done, calm.
+   A strip with a right-hand fact (`--split`) keeps the lead on one line and the fact beside it. */
+.request-card__strip--action { background: var(--accent-bg); color: var(--accent-ink); }
+.request-card__strip--done { background: var(--success-bg); color: var(--success-ink); }
+.request-card__strip--calm { background: var(--neutral-100); color: var(--neutral-700); }
+.request-card__strip--split { justify-content: space-between; gap: var(--space-12); }
+.request-card__strip--split .request-card__strip-lead { white-space: normal; text-wrap: pretty; }
+.request-card__strip[data-strip] .request-card__strip-lead { flex: 1 1 auto; white-space: normal; text-wrap: pretty; overflow: visible; }
+.request-card__strip[data-strip] .request-card__strip-clock { margin-left: auto; white-space: nowrap; }
+/* the header of a status screen (the K-15 request head on t-job / c-price-change): person left, the one amount (or Message) right, supporting lines under it, one hairline */
+.page-head { padding-bottom: var(--space-16); box-shadow: inset 0 -1px 0 var(--neutral-200); }
+.page-head .request-card__top { align-items: center; flex-wrap: wrap; row-gap: var(--space-8); }
+.page-head .request-card__who { flex: 1 1 auto; min-width: min-content; width: auto; padding-bottom: 0; }
+.page-head .request-card__top > .request-card__payside, .page-head .request-card__top > .page-head__trail { margin-left: auto; }
+.page-head .request-card__name { margin: 0; }
+.request-head__name { display: inline-flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.request-head__name .verified { flex: 0 0 auto; }
+.request-head__sub { white-space: nowrap; }
+.page-head__foot { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-12); }
+.page-head__foot p { margin: 0; text-wrap: pretty; }
+.page-head__trail .cta-small { flex-direction: row; gap: var(--space-8); padding-inline: var(--space-16); white-space: nowrap; }
+.page-head__trail .cta-small svg { width: var(--size-16); height: var(--size-16); }
+.page-head + * { margin-top: var(--space-20); }
+/* K-17 (K16-1-05): in a narrow header (a 320 screen) the Message button cannot sit beside avatar + name, so it becomes a 44 x 44 icon-only button
+   (its aria-label carries "Message <first>") and stays on the row; 390 is unchanged. */
+.page-head { container-type: inline-size; }
+@container (max-width: 320px) {
+  .page-head__trail .cta-small { width: var(--touch); min-width: var(--touch); padding-inline: 0; justify-content: center; }
+  .page-head__trail .cta-small > span { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
+.person-actions { margin-top: var(--rhythm-block); }
 
 /* K-12 Option C "Person-led block": the avatar is the spine, the visit rows hang under the name, equal action buttons close the block */
 .visit-row--person .visit-row__text { flex-direction: row; justify-content: flex-start; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); }

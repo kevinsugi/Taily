@@ -118,9 +118,9 @@ function view() {
   const only = offered.length === 1 ? offered[0] : null;
   const LINE_FOR = { pickup: `pick it up at ${esc(t.shopName)}`, dropoff: `${esc(first)} brings it to your door`, courier: 'a courier brings it today' };
   const hero = headingRow(statusHero({
-    variant: 'ready', pill: 'action', pillLabel: 'Ready', title: 'Your order is ready',
+    variant: 'ready', pill: false, title: 'Your order is ready',   // K-17 R1: the title says it, no "Ready" pill
     body: zero && refund > 0
-      ? `${esc(first)} finished the work. Your final total is less than your deposit, so ${fmtExact(refund)} comes back to your card.`
+      ? `${esc(first)} finished the work. Your final total is less than your deposit, so the difference comes back to your card.`   // R5: the amount is on the button and in Price
       : zero
         ? (only ? `${esc(first)} finished the work. Nothing is left to pay, then ${LINE_FOR[only]}.` : `${esc(first)} finished the work. Choose how to get it back. Nothing is left to pay.`)
         : only

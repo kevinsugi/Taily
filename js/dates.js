@@ -45,6 +45,11 @@ export const fmtDay = (iso) => { const d = toDate(iso); return `${DOW[d.getDay()
 export const payoutDay = (iso) => { const d = toDate(iso); return isoDay(addDays(d, (5 - d.getDay() + 7) % 7 || 7)); };
 /** "5:00 PM" */
 export const fmtTime = (iso) => clock(toDate(iso));
+/** "6:00–6:30 PM" (D-160, K16-2-02): a time window, one meridiem when both ends share it; "11:30 AM–12:00 PM" otherwise. */
+export function fmtTimeRange(fromIso, toIso) {
+  const [from, to] = [fmtTime(fromIso), fmtTime(toIso)];
+  return from.slice(-2) === to.slice(-2) ? `${from.slice(0, -3)}–${to}` : `${from}–${to}`;
+}
 /** Keep a formatted date / time together on one line (R1-1-C-06): non-breaking spaces inside each part, normal ones around the " · ". */
 export const nb = (s) => String(s).split(' · ').map((p) => p.replace(/ /g, '\u00A0')).join(' · ');
 /** "Oct 15" */

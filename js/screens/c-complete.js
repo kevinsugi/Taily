@@ -35,7 +35,7 @@ function view() {
   const types = a.lines?.length ? [...new Map(a.lines.map((l) => [l.garmentId, l.garmentType])).values()] : a.job.garments.map((g) => g.type);
   const rating = stars({ input: true, name: 'rate', value: 0 }).replace('aria-label="Your rating"', 'aria-labelledby="rate-label"');
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}">
-  ${headingRow(statusHero({ pill: 'completed', title: 'All done', body: `${esc(first)} marked your order completed. Thanks for booking with Taily.` }))}
+  ${headingRow(statusHero({ pill: false, title: 'All done', body: `${esc(first)} marked your order completed. Thanks for booking with Taily.` }))}
   <section class="sec sec--first ${ID}__order">${garmentStrip(types, `${types.length} ${types.length === 1 ? 'item' : 'items'} · back with you`)}</section>
   <section class="sec card ${ID}__rate">
     <h2 class="t-body w-600" id="rate-label">How did ${esc(first)} do?</h2>

@@ -1,9 +1,6 @@
 /* t-job — T4 upcoming job. Layout only; hero, visit block, rows, money and sheets are shared components. Tokens only. */
 .t-job { gap: 0; padding-bottom: var(--space-40); }
-.t-job__note { margin: 0; }
-.t-job__banner { margin-top: var(--rhythm-block); }
-.t-job__banner .banner__text { text-wrap: pretty; }
-.t-job__nb { white-space: nowrap; }
+.t-job__note { margin: 0; text-wrap: pretty; }
 .t-job .heading-row__trail .more-btn { margin-right: 0; }   /* the ••• sits at the title row's right end (D-195); the row pulls it 12 into the gutter */
 .t-job__money { margin-top: var(--rhythm-section); }
 .t-job__money .money-row:only-child { padding-block: 0; min-height: 0; }   /* a single total row has nothing above it */
@@ -17,10 +14,8 @@
 
 /* M4 — the job after the visit starts. The bar is a sibling of main (shared .action-bar); layout only. */
 .t-job.body--with-bar { padding-bottom: var(--space-32); }
-.t-job__delta { margin-top: var(--rhythm-block); display: flex; flex-direction: column; gap: var(--space-8); }
-.t-job__newtotal { margin: 0; font-variant-numeric: tabular-nums; }
-.t-job__quote .note-quote { margin-top: var(--rhythm-group); }
-.t-job__delta + .t-job__quote .note-quote { margin-top: var(--rhythm-block); }
+/* K-17: the one quote sits under the header row (page-head) */
+.t-job__quote .note-quote { margin-top: 0; }
 .t-job .sec > .courier-card { margin: 0; }
 /* R4-2-T-09: a return block's address sits on the place name's text edge (glyph column 20 + gap 8), regular weight */
 .t-job__payout { gap: var(--space-4); }   /* flat hero: YOU TAKE HOME, the figure, its state, then the breakdown */
@@ -43,6 +38,5 @@
 /* D-172: the transfer's state under the take-home figure — a pill, then its line (error ink when the bank sent it back) */
 .t-job__payout-state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8); margin-top: var(--space-4); }
 .t-job__err { color: var(--error-ink); font-weight: 600; }
-.t-job__returned { margin-top: var(--rhythm-group); }
 .t-job-sheet__intro { text-wrap: pretty; }
 .t-job__unsent { margin: 0; text-wrap: pretty; }

@@ -74,6 +74,18 @@ export const VISIT_ICONS = {
   clock: LINE20('<circle cx="10" cy="10" r="7.25"/><path d="M10 5.8V10l2.8 1.7"/>'),
   bag: LINE20('<path d="M4 7h12l-.9 10H4.9L4 7z"/><path d="M7.2 7V5.5a2.8 2.8 0 0 1 5.6 0V7"/>'),
   truck: LINE20('<path d="M2 5.5h9.5v8H2z"/><path d="M11.5 8.5h3.2l2.3 2.9v2.1h-5.5"/><circle cx="5.5" cy="14.5" r="1.6"/><circle cx="14.2" cy="14.5" r="1.6"/>'),
+  /* K-17: a note row (the tailor's reason, on c-booking) */
+  chat: LINE20('<path d="M5.6 14.6A2 2 0 0 1 4 12.7V6.6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v6.1a2 2 0 0 1-2 2H9.2L6 17.4z"/>'),
+  /* K-17: the fitting task row */
+  camera: LINE20('<path d="M7.4 4h5.2l1.3 2H16.5A1.5 1.5 0 0 1 18 7.5v7a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 14.5v-7A1.5 1.5 0 0 1 3.5 6H6.1z"/><circle cx="10" cy="10.5" r="2.7"/>'),
+};
+
+/* K-17 (D-242): the 16 px glyph at the start of a status strip (`requestStrip({ icon })`) — a check for good news, a bubble for a message, a camera for the fitting, plus the clock / bag / home / truck of META_ICONS */
+export const STRIP_ICONS = {
+  clock: META_ICONS.clock, bag: META_ICONS.bag, home: META_ICONS.home, truck: META_ICONS.truck,
+  check: LINE16('<path d="M3.2 8.4l3 3 6.6-6.8"/>'),
+  chat: LINE16('<path d="M4.5 11A1.5 1.5 0 0 1 3 9.5v-5A1.5 1.5 0 0 1 4.5 3h7A1.5 1.5 0 0 1 13 4.5v5a1.5 1.5 0 0 1-1.5 1.5H7l-2.5 2.5z"/>'),
+  camera: LINE16('<path d="M6 3.5h4l1 1.6h2A1.2 1.2 0 0 1 14.2 6.3v6a1.2 1.2 0 0 1-1.2 1.2H3A1.2 1.2 0 0 1 1.8 12.3v-6A1.2 1.2 0 0 1 3 5.1h2z"/><circle cx="8" cy="9" r="2.1"/>'),
 };
 
 /* a small pencil — "change this" on a pill that opens another screen (filter-pill `edit`) */

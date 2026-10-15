@@ -67,7 +67,7 @@ export const FLOWS_t_earnings = [
       TE_C.completeJob(second.id);
     },
     get expect() {
-      return { has: ['go through', 'Fix bank details', TE_exact(TE_SC().shop.payout), TE_exact(TE_SC().seed.payout), TE_exact(TE_SC().shop.payout + TE_SC().seed.payout), `${TE_day(TE_DAYS().second)} · `, 'once you update your bank details', 'Returned'], not: ['Arrives', 'Sends '], sel: '.banner--error' };
+      return { has: ['go through', 'Fix bank details', TE_exact(TE_SC().shop.payout), TE_exact(TE_SC().seed.payout), TE_exact(TE_SC().shop.payout + TE_SC().seed.payout), `Sends ${TE_day(TE_DAYS().second)} once you update your bank details`, 'Returned'], not: ['Arrives'], sel: '.banner--error' };
     } },
   { key: 't-earnings--kept', screen: 't-earnings', group: 'M5 · Earnings', title: 'Earnings — a kept deposit', note: 'A late cancellation is the only payout: it says "no Taily fee", not "after the Taily fee" (D-172)',
     setup: () => { TE_C.earningsTo('kept'); },
@@ -95,10 +95,10 @@ export const FLOWS_t_payout = [
     get expect() {
       return { has: ['No-show pay', TE_exact(TE_SC().noShow.paid), 'No Taily fee on no-show pay', 'Pending', 'Arrives', 'didn’t show up'], not: ['Services', 'kept deposit', 'Scheduled'] };
     } },
-  { key: 't-payout--failed', screen: 't-payout', group: 'M5 · Earnings', title: 'Payout — didn’t go through', note: 'The bank returned it: the banner and the sticky Fix bank details',
+  { key: 't-payout--failed', screen: 't-payout', group: 'M5 · Earnings', title: 'Payout — didn’t go through', note: 'The bank returned it: the pill and one meta line (when it sends again), the sticky Fix bank details; no banner repeats them (K-17 #7)',
     setup: (S) => { TE_C.earningsTo('failed'); TE_first(S); },
     get expect() {
-      return { has: ['go through', 'Update your bank details to get paid', 'Fix bank details', TE_exact(TE_SC().seed.payout), TE_day(TE_DAYS().second), 'Sends again once you update your bank details.'], sel: '.banner--error' };
+      return { has: ['go through', 'Fix bank details', TE_exact(TE_SC().seed.payout), TE_day(TE_DAYS().second), `Sends again ${TE_day(TE_DAYS().second)} once you update your bank details.`], not: ['Update your bank details to get paid'], sel: '.status--error, .status' };
     } },
 ];
 export const FLOWS_c_messages = [

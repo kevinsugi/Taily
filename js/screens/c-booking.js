@@ -8,15 +8,15 @@
    ============================================================ */
 import { register, render as go, registered } from '../app.js';
 import {
-  state, T, tailorById, openSlots, justConfirmed, now, returnAddress, priceChangeView,
+  state, T, tailorById, openSlots, justConfirmed, now, returnAddress, priceChangeView, courierWindow,
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, noteQuote, metaRow, courierCard, reviewRow, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR,
+  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
-import { fmtWhen, fmtTime, fmtDay, addMinutes, toDate, isoMinute } from '../dates.js';
+import { fmtWhen, fmtTime, fmtDay, fmtTimeRange, addMinutes, toDate, isoMinute } from '../dates.js';
 import { VISIT_LABEL, VISIT_MINUTES, SHOP_CITY } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
@@ -56,13 +56,13 @@ function visitRows(a, t) {
 const sec = (inner, cls = '') => `<section class="sec${cls ? ` ${cls}` : ''}">${inner}</section>`;
 /** K-12 (D-237) Option C: the tailor leads the Visit block (avatar, name, a check once verified, no facts line), the visit rows hang under her
     name, then Message + Add to calendar (a confirmed booking only; Directions is Amara's side — the visit is at Sarah's place or Amara's shop). */
-function visitSection(a, t) {
+function visitSection(a, t, { extra = [] } = {}) {
   const actions = [{ label: 'Message', icon: ICON_CHAT, act: 'message' }];
   if (a.status === 'confirmed') {
     const href = calendarHref({ uid: a.id, start: a.slot.start, end: a.slot.end, stamp: isoMinute(new Date(now())), summary: `${VISIT_LABEL.customer[a.job.visitType]} with ${t.name}`, location: whereOf(a, t) });
     actions.push({ label: 'Add to calendar', icon: ICON_CALENDAR, href, act: 'add-to-calendar', attrs: 'download="taily-visit.ics"' });
   }
-  return sec(personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: t.verified, years: t.years }, rows: visitRows(a, t), actions }));
+  return sec(personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: t.verified, years: t.years }, rows: [...visitRows(a, t), ...extra], actions }));
 }
 
 /** The shared detail header (D-93, supersedes R3-1-C-04's pill-above-Back): Back on its own row, then the pill,
@@ -76,34 +76,34 @@ function head(a, { pill, pillLabel, title, body = '', variant = 'requested' }) {
 function cancelledView(a, t, first) {
   const reason = a.cancel?.reason;
   const dep = a.payments.deposit.cents;
-  const refund = a.cancel?.refund ?? 0;
-  const kept = a.cancel?.kept ?? 0;
+  /* K-17 (D-243): R1 the title says the state, so no status pill; R3 / R5 one sentence under it, and the money only in Price (the Deposit row
+     says Refunded / Kept); the tailor's reason is a row of her block, not a quote card above it. */
   const cfg = {
     'customer-early': {
-      pill: 'calm', label: 'Cancelled', title: 'Booking cancelled',
-      body: `Your ${fmtExact(refund)} deposit is on its way back to your card. It can take a few business days to show.`,
+      title: 'Booking cancelled',
+      body: 'Your deposit is on its way back to your card. It can take a few business days to show.',
       status: 'Refunded',
     },
     'customer-late': {
-      pill: 'cancelled', label: 'Cancelled', title: 'Booking cancelled',
-      body: `${first} kept the ${fmtExact(kept)} deposit because you cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit. Nothing else is charged.`,
+      title: 'Booking cancelled',
+      body: `${first} kept your deposit because you cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit. Nothing else is charged.`,
       status: 'Kept',
     },
     'tailor-cant-make-it': {
-      pill: 'cancelled', label: `Cancelled by ${first}`, title: `${esc(first)} can’t make it`,
-      body: `${first} cancelled your ${fmtWhen(a.slot.start)} visit. Your ${fmtExact(refund)} deposit is refunded in full, and your items and services are saved so you can book someone else.`,
+      title: `${esc(first)} can’t make it`,
+      body: 'Your deposit is refunded in full, and your items and services are saved so you can book someone else.',
       status: 'Refunded',
     },
     'no-show': {
-      pill: 'cancelled', label: 'No-show', title: 'Marked as a no-show',
-      body: `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}, ${Math.max(0, Math.round((toDate(a.cancel.at).getTime() - toDate(a.slot.start).getTime()) / 60000))} minutes after the start. ${first} keeps your ${fmtExact(kept)} deposit. Nothing else is charged. If you were there, message ${first}.`,
+      title: 'Marked as a no-show',
+      body: `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}, ${Math.max(0, Math.round((toDate(a.cancel.at).getTime() - toDate(a.slot.start).getTime()) / 60000))} minutes after the start, and keeps your deposit. If you were there, message ${first}.`,
       status: 'Kept',
     },
   }[reason] ?? {
-    pill: 'cancelled', label: 'Cancelled', title: 'Booking cancelled', body: '', status: a.payments.deposit.state === 'refunded' ? 'Refunded' : 'Kept',
+    title: 'Booking cancelled', body: '', status: a.payments.deposit.state === 'refunded' ? 'Refunded' : 'Kept',
   };
-  const note = reason === 'tailor-cant-make-it' && a.cancel?.note
-    ? noteQuote({ label: `${first}’s note`, text: a.cancel.note }) : '';
+  const noteRow = reason === 'tailor-cant-make-it' && a.cancel?.note
+    ? [{ icon: 'chat', value: esc(a.cancel.note), detail: `${esc(first)}’s note` }] : [];
 
   let actions;
   if (reason === 'tailor-cant-make-it') {
@@ -117,9 +117,8 @@ function cancelledView(a, t, first) {
     <div class="page-actions__links">${textLink('Find another tailor', { act: 'other-tailors' })}</div>`;
   }
   return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--cancelled" data-s="${ID}">
-  ${head(a, { pill: cfg.pill, pillLabel: cfg.label, title: cfg.title, body: esc(cfg.body), variant: 'declined' })}
-  ${note}
-  ${visitSection(a, t)}
+  ${head(a, { pill: false, title: cfg.title, body: esc(cfg.body), variant: 'declined' })}
+  ${visitSection(a, t, { extra: noteRow })}
   ${sec(`${sectionHead('Price')}${moneyRows([{ label: 'Deposit', cents: dep, status: cfg.status }])}`)}
   <div class="page-actions">
     ${actions}
@@ -174,9 +173,9 @@ function liveView(a, t, first) {
 const M4_STATES = ['fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed'];
 const ORDER = ['confirmed', ...M4_STATES];
 const completedAt = (a) => [...a.history].reverse().find((h) => h.status === 'completed')?.at ?? a.requestedAt;
-/** The price Amara confirmed at the fitting: the booked money without the courier (that is added later, on top). */
-const confirmedTotal = (a) => a.money.total - (a.money.courier || 0);
 
+/** "Fitted Thu, Oct 15 · at my place" (D-169, K-17 R5): the past visit, now on the timeline's done step. */
+const fittedText = (a) => { const v = VISIT_LABEL.customer[a.job.visitType]; return `Fitted ${esc(fmtDay(a.slot.start))} · ${esc(v.charAt(0).toLowerCase() + v.slice(1))}`; };
 
 /** "What happens next", every live state after the visit (D-110). */
 function m4Timeline(a, first) {
@@ -190,10 +189,11 @@ function m4Timeline(a, first) {
   const paid = at >= back;
   return timeline([
     { state: 'done', title: 'Booked', sub: fmtWhen(confirmedAt(a)) },
-    { state: s2, title: 'Visit and fitting', sub: s2 === 'done' ? `Order approved · ${money(confirmedTotal(a))}` : s2 === 'current' ? `${esc(first)} goes through the order with you` : '' },
+    /* K-17 (D-243, R5): "Fitted Thu, Oct 15 · at my place" lives on the done step, not as a fourth header line */
+    { state: s2, title: 'Visit and fitting', sub: s2 === 'done' ? `<span class="${ID}__step-line">${fittedText(a)}</span><span class="${ID}__step-line">Order approved</span>` : s2 === 'current' ? `${esc(first)} goes through the order with you` : '' },
     { state: s3, title: 'Tailoring' },
     { state: s4, title: 'Ready', sub: paid ? `Paid ${money(a.payments.balance.cents)}` : s4 === 'current' ? 'Pay the balance' : at >= progress ? `Pay the ${money(a.money.balance)} balance` : `Pay the balance, est. ${money(a.money.balance)}` },
-    { state: s5, title: 'Back with you', sub: s5 === 'current' ? esc(statusWord(a, 'customer').label) : '' },
+    { state: s5, title: 'Back with you' },   // R1: the title says the state, the timeline doesn't echo it
   ]);
 }
 
@@ -229,13 +229,12 @@ function returnBlock(a, t, first) {
     return sec(visitBlock([{ icon: 'home', value: esc(dropoffAddress()) }], { title: 'Home drop-off', flush: true }));
   }
   if (a.returnOption === 'courier' && a.courier) {
-    return sec(courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: returnAddress(), note: `Included in the ${fmtExact(a.payments.balance.cents)} you paid when it was ready.` }));
+    const w = courierWindow(a);                                  // K16-2-02: the same "6:00–6:30 PM" window the tailor's strip prints
+    return sec(courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: returnAddress(), variant: 'route', window: w ? fmtTimeRange(w.from, w.to) : '' }));
   }
   const hours = shopHoursLine(t);
   const rows = [{ icon: 'bag', value: shopName, detail: [esc(`${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim()), ...(hours ? [esc(hours)] : [])] }];
-  const f = esc(first);
-  return `${sec(visitBlock(rows, { title: 'In-store pickup', flush: true }))}
-  <p class="t-small c-600 ${ID}__policy">${f} marks the order completed when you have it.</p>`;
+  return sec(visitBlock(rows, { title: 'In-store pickup', flush: true }));   // K-17 R5: "<first> marks the order completed when you have it" is the subtitle now
 }
 
 /** "Your order" (K-2-01, D-127): the approved order as plain rows, the same garment / service strings as Amara's "The work".
@@ -251,19 +250,20 @@ function m4View(a, t, first) {
   const f = esc(first);
   const shopName = esc(t.shopName);
   const how = a.returnOption ?? 'pickup';
+  /* K-17 (D-243, R1): the title states the state, so there is no status pill above it; R5: one subtitle line, no "Fitted …" line (it is on the timeline) */
   const cfg = {
     fitting: { title: `Fitting with ${f}`, body: `${f} is going through the order with you.` },
     'price-change': { title: 'Review your final order', body: 'Approve the final order before any work starts.' },
-    'in-progress': { title: `${f} is working on it`, body: `You approved the order. You’ll pay the ${fmtExact(a.money.balance)} balance when it’s ready.` },
+    'in-progress': { title: `${f} is working on it`, body: 'You approved the order. You’ll pay the balance when it’s ready.' },
     ready: { title: `${f} finished your order`, body: `Pay the ${fmtExact(a.money.balance)} balance to choose how to get it back.` },
-    completed: { title: `All done with ${f}`, body: `${f} completed your order on ${fmtDay(completedAt(a))}.` },
+    completed: { title: `All done with ${f}`, body: `Completed ${fmtDay(completedAt(a))}. Fitted ${fmtDay(a.slot.start)} · ${VISIT_LABEL.customer[a.job.visitType].toLowerCase()}.` },
     returning: {
-      pickup: { title: `Pick it up at ${shopName}`, body: `It’s ready, and you’ve paid in full.` },
-      dropoff: { title: `${f} will drop it off`, body: `${f} will bring it to your door. You’ve paid in full.` },
-      courier: { title: 'On its way to you', body: `A Taily courier is bringing it from ${shopName} today. You’ve paid in full.` },
+      pickup: { title: 'Ready for pickup', body: `You’ve paid in full. ${f} marks the order completed when you have it.` },
+      dropoff: { title: `${f} will drop it off`, body: 'You’ve paid in full.' },
+      courier: { title: 'On its way to you', body: `A Taily courier is bringing it from ${shopName} today.` },
     }[how],
   }[a.status];
-  const hero = head(a, { pill: word.pill, pillLabel: word.label, title: cfg.title, body: cfg.body, variant: a.status === 'completed' ? 'confirmed' : 'tailoring' });
+  const hero = head(a, { pill: false, title: cfg.title, body: cfg.body, variant: a.status === 'completed' ? 'confirmed' : 'tailoring' });
 
   const early = a.status === 'fitting' || a.status === 'price-change' || a.status === 'in-progress' || a.status === 'ready';
   const stage = a.status === 'returning' || a.status === 'completed' ? 'paid' : 'booked';
@@ -271,13 +271,12 @@ function m4View(a, t, first) {
 
   const updated = a.status === 'in-progress' && a.priceChange?.changed && a.priceChange?.state === 'approved';   // P-30: the services row says so
   const breakdown = a.status === 'completed' ? receiptBlock(a, first)
-    : customerBreakdown(a.money, { stage, tailorFirst: first, depositState: a.payments.deposit.state, confirmed, ...(updated ? { servicesCaption: `${first}’s final prices · updated at the fitting` } : {}) });
+    : customerBreakdown(a.money, { stage, tailorFirst: first, depositState: a.payments.deposit.state, confirmed, ...(a.status === 'returning' && a.returnOption === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {}), ...(updated ? { servicesCaption: `${first}’s final prices · updated at the fitting` } : {}) });
 
   let middle = '';
-  /* D-169: from the fitting onward the past visit time is demoted — one small line, no count line */
-  const fitted = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status)
-    ? `<p class="t-small c-600 ${ID}__fitted">Fitted ${fmtDay(a.slot.start)} · ${esc(VISIT_LABEL.customer[a.job.visitType])}</p>` : '';
-  if (early && !fitted) middle = visitSection(a, t);
+  /* D-169 + K-17 R5: from the visit on, the past visit time is demoted — the timeline's done step says "Fitted …" (completed: the subtitle) */
+  const postFit = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status);
+  if (early && !postFit) middle = visitSection(a, t);
   if (a.status === 'returning') {
     middle = returnBlock(a, t, first);
   }
@@ -293,11 +292,10 @@ function m4View(a, t, first) {
   const actions = a.status === 'completed'
     ? `${cta(`Book ${f} again`, { attrs: 'data-act="book-again"' })}
     <div class="page-actions__links">${textLink(`Message ${f}`, { act: 'message' })}</div>`
-    : early && !fitted ? '' : cta(`Message ${f}`, { attrs: 'data-act="message"' });   // K-12 (D-237): the person block above already carries Message
+    : early && !postFit ? '' : cta(`Message ${f}`, { attrs: 'data-act="message"' });   // K-12 (D-237): the person block above already carries Message
 
   return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--${a.status}" data-s="${ID}">
   ${hero}
-  ${fitted}
   ${middle}
   ${steps}
   ${order}

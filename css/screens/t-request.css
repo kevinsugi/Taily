@@ -2,9 +2,10 @@
 .t-request { padding-bottom: var(--space-40); }
 .t-request.body--with-bar { padding-bottom: var(--space-32); }
 
-/* K-15 "The home card, opened": the flush strip (components: .request-card__strip--page) sits under the nav, an optional note, then the
-   t-home card's header row (components: requestHead) over a hairline; the K-14 tile rows follow. */
-.t-request__note { display: flex; flex-direction: column; gap: var(--space-4); padding-bottom: var(--space-16); }
+/* K-15 "The home card, opened": the flush strip (components: .request-card__strip--page) sits under the nav, then the t-home card's header
+   row (components: requestHead) over a hairline, then an optional note (K16-2-01: under the hairline, as t-job's one quote under .page-head);
+   the K-14 tile rows follow. */
+.t-request__note { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-20); }
 .t-request__note p { margin: 0; text-wrap: pretty; }
 .t-request__head { padding-bottom: var(--space-16); box-shadow: inset 0 -1px 0 var(--neutral-200); }
 .t-request__head .request-card__top { align-items: center; flex-wrap: wrap; row-gap: var(--space-8); }

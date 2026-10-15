@@ -127,7 +127,7 @@ export function navBadges(persona = 'customer') {
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, VISIT_ICONS, ICON_HANGER, ICON_PIN, NAV_ICONS, NAV_BACK, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR } from './icons.js';
+import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, STRIP_ICONS, VISIT_ICONS, ICON_HANGER, ICON_PIN, NAV_ICONS, NAV_BACK, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR } from './icons.js';
 export { NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR };
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
 import * as DATA from './data.js';
@@ -381,12 +381,21 @@ export function visitRow({ icon = 'calendar', value = '', detail = '', strong = 
     `person` = { initials, name, verified, years } — `verified` (a TAILOR only, K-15) adds the tappable Verified check (`verifiedCheck`, `years` for its popover) right after the name, no facts line under it.
     `rows` = the same fact objects / strings `visitBlock` takes. `actions` = [{ label, icon (HTML), act, href, attrs }] rendered as equal
     columns of small outline buttons (a `href` makes it a link: Directions, Add to calendar). One block for both personas. */
-export function personBlock({ title = 'Visit', person = {}, rows = [], actions = [], action = '' } = {}) {
-  const btns = actions.map((x) => {
+/** The equal small outline buttons of a person block / status screen: [{ label, icon (HTML), act, href, attrs }] → one `.cta-small` each (a `href` makes a link). */
+export function personButtons(actions = []) {
+  return actions.map((x) => {
     const inner = `${x.icon ?? ''}<span>${esc(x.label)}</span>`;
     const attrs = `${x.act ? `data-act="${esc(x.act)}"` : ''}${x.attrs ? ` ${x.attrs}` : ''}`;
     return ctaSmall(inner, { attrs, href: x.href ?? '' });
   }).join('');
+}
+/** K-17 (D-242): the buttons on their own, under a status screen's tile rows (the person is in the header, so no block around them). */
+export const personActions = (actions = []) => { const b = personButtons(actions); return b ? `<div class="person-block__actions person-actions">${b}</div>` : ''; };
+/** K-17 (D-242): a status screen's header — the K-15 `requestHead` row, then optional full-width `foot` lines, over one hairline. */
+export const pageHead = (head, { foot = [] } = {}) => `<div class="page-head">${head}${foot.length ? `<div class="page-head__foot">${foot.map((l) => `<p class="t-small c-600">${esc(l)}</p>`).join('')}</div>` : ''}</div>`;
+
+export function personBlock({ title = 'Visit', person = {}, rows = [], actions = [], action = '' } = {}) {
+  const btns = personButtons(actions);
   /* K-14: the person is the first row of the one column — the avatar sits in the icon slot (no tile fill), the name on the common text edge */
   const lead = `<div class="visit-row visit-row--person"><span class="visit-row__icon visit-row__icon--avatar">${avatar({ initials: person.initials ?? '', size: 'sm' })}</span><div class="visit-row__text person-block__who"><span class="person-block__name t-body w-600">${esc(person.name ?? '')}</span>${person.verified ? verifiedCheck({ years: person.years }) : ''}</div></div>`;
   return `<div class="visit-block visit-block--flush person-block">${sectionHead(title, { aside: action })}${visitRows(rows, lead)}${btns ? `<div class="person-block__actions">${btns}</div>` : ''}</div>`;
@@ -1597,7 +1606,7 @@ const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', capture
  * Without it, estimate reads "Due today" and every later stage reads "Paid".
  * The total reads "Estimated total" for `estimate` AND `booked` (D-49) until `confirmed` (the fitting or an approved price change).
  */
-export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '', confirmed = false, refundState = '', servicesCaption = '' } = {}) {
+export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '', confirmed = false, refundState = '', servicesCaption = '', courierCaption = '' } = {}) {
   const est = (stage === 'estimate' || stage === 'booked') && !confirmed;   // D-49: still an estimate until the fitting (or a price change) confirms it
   const deposit = depositState ? (DEPOSIT_STATUS[depositState] ?? 'Paid') : stage === 'estimate' ? 'Due today' : 'Paid';
   const balance = stage === 'ready' && q.balance === 0 ? 'Nothing to pay' : stage === 'paid' ? 'Paid' : stage === 'ready' ? 'Due now' : 'Due when ready';   // D-156
@@ -1605,7 +1614,7 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
     { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
     q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush, caption: `Need-by ${q.rushDays ?? 1} day${(q.rushDays ?? 1) === 1 ? '' : 's'} after the visit` },
-    q.courier > 0 && { label: 'Taily courier', cents: q.courier },
+    q.courier > 0 && { label: 'Taily courier', cents: q.courier, ...(courierCaption ? { caption: courierCaption } : {}) },
     { label: est ? 'Estimated total' : 'Total', cents: q.total, kind: 'total' },
     { label: 'Deposit', cents: q.deposit, status: deposit },
     { label: 'Balance', cents: q.balance, status: balance },
@@ -1946,13 +1955,14 @@ export function leaveModal({ title = 'Leave without saving?', body = 'Your chang
    ============================================================ */
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+const STRIP_TONES = ['warn', 'action', 'done', 'calm'];
 /**
  * The K-11 request strip (D-236), shared by the t-home request card and the t-request screen (K-15): a full-width band with a clock —
  * warning by default, error at <= EXPIRING_SOON_MIN, neutral once expired (K-13: a suggested strip leads with the proposal and ends with the
  * clock). `lead` prefixes the requested text ("New request · "); `text` + `tone` force a fixed line for an ended request (declined, expired);
  * `page` bleeds it across the screen under the nav (K-15) instead of across a card. Empty string when there is nothing to show.
  */
-export function requestStrip({ status = 'requested', expiresAt = null, now = null, lapseAt = null, when = '', lead = '', text = '', tone: forced = '', page = false } = {}) {
+export function requestStrip({ status = 'requested', expiresAt = null, now = null, lapseAt = null, when = '', lead = '', text = '', tone: forced = '', page = false, icon = 'clock', right = '' } = {}) {
   const suggested = status === 'suggested';
   const ms = suggested || expiresAt == null ? null : toMs(expiresAt) - toMs(now);
   const lapseMs = suggested && lapseAt ? toMs(lapseAt) - toMs(now) : null;
@@ -1962,6 +1972,19 @@ export function requestStrip({ status = 'requested', expiresAt = null, now = nul
   if (!tone) return '';
   const attrs = `data-countdown data-state="${tone === 'urgent' ? 'soon' : tone}"`;
   const pageCls = page ? ' request-card__strip--page' : '';
+  /* K-17 (D-242): a STATE strip on a status screen (t-job, c-price-change): `tone` warn (waiting on the other side) | action (your move) | done | calm,
+     `icon` a STRIP_ICONS key, `text` the one line that states the state, `right` an optional fact at the far end (when it was sent, days left). */
+  if (STRIP_TONES.includes(forced)) {
+    /* K-17 (D-243, #6): a state strip with `lapseAt` carries the hold deadline as its countdown ("23h left · by 10:00 AM"), so no sentence repeats it;
+       a waiting (warn) strip turns error-toned inside EXPIRING_SOON_MIN, like the request strip. */
+    let shown = forced; let end = right;
+    if (lapseAt != null && !right) {
+      const left = toMs(lapseAt) - toMs(now);
+      end = left <= 0 ? 'Expired' : `${fmtCountdown(left)} left · by ${fmtTime(lapseAt)}`;
+      if (forced === 'warn' && left > 0 && left <= POLICY.EXPIRING_SOON_MIN * 60000) shown = 'urgent';
+    }
+    return `<div class="request-card__strip request-card__strip--${shown}${pageCls}${end ? ' request-card__strip--split' : ''}" data-strip="${forced}">${STRIP_ICONS[icon] ?? ''}<span class="request-card__strip-lead">${esc(text)}</span>${end ? `<span class="request-card__strip-clock">${esc(end)}</span>` : ''}</div>`;
+  }
   if (text) return `<span class="request-card__strip request-card__strip--${tone}${pageCls}" ${attrs}>${META_ICONS.clock}<span>${esc(text)}</span></span>`;
   if (suggested) return `<span class="request-card__strip request-card__strip--suggest request-card__strip--${tone}${pageCls}" ${attrs}><span class="request-card__strip-lead">You suggested ${esc(when)}</span>${sugClock ? `<span class="request-card__strip-clock">${META_ICONS.clock}<span>${sugClock}</span></span>` : ''}</span>`;
   return `<span class="request-card__strip request-card__strip--${tone}${pageCls}" ${attrs}>${META_ICONS.clock}<span>${tone === 'expired' ? 'Expired' : `${lead}${fmtCountdown(ms)} left to answer · by ${fmtTime(expiresAt)}`}</span></span>`;
@@ -1972,15 +1995,18 @@ export function requestStrip({ status = 'requested', expiresAt = null, now = nul
  * t-home card (inside its <button>, spans) and the t-request screen (`page`: the name is the h1, a 28 serif title; `info` makes the payout column
  * a button that opens the Taily-fee sheet, label + ⓘ). The customer carries no Verified check (K-15) — only tailors do.
  */
-export function requestHead({ name = '', initials = '', where = '', again = false, payoutCents = 0, label = 'Your payout', page = false, info = false, infoLabel = 'The Taily fee' } = {}) {
+export function requestHead({ name = '', initials = '', where = '', again = false, payoutCents = 0, label = 'Your payout', page = false, info = false, infoLabel = 'The Taily fee', check = '', lines = [], trail = '' } = {}) {
   const nameHtml = `${esc(name)}${again ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}`;
+  const h1 = `<h1 class="request-card__name t-title">${nameHtml}</h1>`;
   const who = page
-    ? `<div class="request-card__who"><h1 class="request-card__name t-title">${nameHtml}</h1>${where}</div>`
+    ? `<div class="request-card__who">${check ? `<span class="request-head__name">${h1}${check}</span>` : h1}${where}</div>`
     : `<span class="request-card__who"><span class="request-card__name t-body w-600">${nameHtml}</span>${where}</span>`;
   const cap = `${esc(label)}${info ? ICON_INFO : ''}`;
-  const pay = info
+  /* K-17 (D-242): `lines` = supporting facts under the amount, one per line ("Was $147.50 · up $40.50"); `trail` = HTML in place of the amount (a Message button) */
+  const sub = lines.map((l) => `<span class="request-head__sub t-small c-600">${esc(l)}</span>`).join('');
+  const pay = trail ? `<span class="page-head__trail">${trail}</span>` : info
     ? `<button type="button" class="request-card__payside request-head__pay" data-info="fee" aria-haspopup="dialog" aria-label="${esc(`${label} ${fmtExact(payoutCents)}. ${infoLabel}`)}" data-money><span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span><span class="request-head__label t-small c-600">${cap}</span></button>`
-    : `<span class="request-card__payside" data-money><span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span><span class="t-small c-600">${cap}</span></span>`;
+    : `<span class="request-card__payside" data-money><span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span><span class="t-small c-600">${cap}</span>${sub}</span>`;
   return `<span class="request-card__top">${avatar({ initials, size: 'sm' })}${who}${pay}</span>`;
 }
 
@@ -2177,20 +2203,22 @@ export function changeSummary(counts = {}) {
   return `<p class="t-small c-700 change-summary${parts.length >= 3 ? ' change-summary--lines' : ''}" data-summary>${body}</p>`;
 }
 
+/** R4-2-T-08: "Was $205.00 · up $45.00" / "· down $55.00" in words; "Same as booked" when the figure did not move (no amount repeated). K-17: also the line under a status head's amount. */
+export function deltaText(amount, was) {
+  const d = amount - was;
+  return d === 0 ? 'Same as booked' : `Was ${fmtExact(was)} · ${d > 0 ? `up ${fmtExact(d)}` : `down ${fmtExact(-d)}`}`;
+}
+
+/** K-17 (K16-1-01): the same words as `deltaText`, split in two lines for the narrow amount column beside a long name ("Was $160.00" / "up $45.00"). */
+export const deltaLines = (amount, was) => (amount === was ? ['Same as booked'] : deltaText(amount, was).split(' · '));
+
 /**
  * Delta Figure — one money figure with what it was: caps label, `.t-money` amount, then "Was $205.00 · up $45.00" /
  * "· down $55.00" / "· no change" in words. `was` null → no comparison line. `caption` is an optional t-small line.
  */
 export function deltaFigure({ label = '', cents: amount = 0, was = null, caption = '' } = {}) {
   noPercent(label, 'deltaFigure'); noPercent(caption, 'deltaFigure');
-  let delta = '';
-  if (was != null) {
-    const d = amount - was;
-    /* R4-2-T-08: "Was" only when the figure moved; unchanged reads "Same as booked", without repeating the amount */
-    delta = d === 0
-      ? '<p class="t-small c-700 delta-figure__was">Same as booked</p>'
-      : `<p class="t-small c-700 delta-figure__was">Was ${fmtExact(was)} · ${d > 0 ? `up ${fmtExact(d)}` : `down ${fmtExact(-d)}`}</p>`;
-  }
+  const delta = was != null ? `<p class="t-small c-700 delta-figure__was">${deltaText(amount, was)}</p>` : '';
   return `<div class="delta-figure" data-money>
   ${label ? `<p class="t-caps c-600 delta-figure__label">${esc(label)}</p>` : ''}
   <p class="t-money delta-figure__amt">${fmtExact(amount)}</p>
@@ -2210,6 +2238,10 @@ export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: tot
     return `<div class="courier-card courier-card--tailor" data-state="ready">${metaRow('', esc(pickup ? `Courier arrives ${pickup}` : 'A Taily courier is coming'), { icon: 'truck' })}<p class="t-small c-600 courier-card__route">${esc(from)} → ${esc(to)}</p>${note ? `<p class="t-small c-600 courier-card__note">${esc(note)}</p>` : ''}</div>`;
   }
   const head = `${metaRow('', 'Taily courier', { icon: 'truck' })}<p class="t-small c-600 courier-card__route">${esc(miles)} mi · ${esc(from)} → ${esc(to)}</p>`;
+  /* K-17 (K16-1-04): `variant: 'route'` is the courier block once the balance is paid — only the route (+ the arrival when known); the quote and fee ride as the caption of Price's "Taily courier" row */
+  if (variant === 'route') {
+    return `<div class="courier-card courier-card--route" data-state="ready">${head}${pickup ? `<p class="t-small c-600 courier-card__route">Arrives ${esc(pickup)}</p>` : ''}</div>`;
+  }
   let body;
   if (state === 'loading') {
     body = `${skeleton({ kind: 'line', count: 3 })}<p class="t-small c-600 courier-card__status" role="status" aria-live="polite">Getting a price from Uber…</p>`;

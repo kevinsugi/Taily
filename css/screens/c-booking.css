@@ -13,5 +13,5 @@
 .c-booking-sheet__wheel { display: flex; justify-content: center; }
 /* M4 states */
 .c-booking__review .review-row { padding: 0; }   /* flat: a review is reference content (A4) */
-/* D-169: the demoted visit time after the fitting */
-.c-booking__fitted { margin: var(--space-12) 0 0; }
+/* D-169 + K-17 R5: the demoted visit time lives on the timeline's done step, one line per fact */
+.c-booking__step-line { display: block; }

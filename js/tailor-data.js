@@ -158,18 +158,6 @@ export function payoutLine(p, bank = myTailor()?.payouts) {
   return { text: `${verb} ${day} · to ${to}`, short: `${verb} ${day}`, tone: '', label: 'Pending' };
 }
 
-/** D-160: the courier's pickup window on the tailor's job — the next half hour an hour after Sarah paid the balance, 30 minutes long.
-    `{ from, to }` as ISO minutes; null when no courier is booked. */
-export function courierWindow(appt) {
-  if (appt.returnOption !== 'courier' || !appt.courier) return null;
-  const paidAt = [...appt.history].reverse().find((h) => h.status === 'returning')?.at ?? appt.history[appt.history.length - 1]?.at;
-  if (!paidAt) return null;
-  const t = toDate(paidAt);
-  const m = t.getHours() * 60 + t.getMinutes() + 60;
-  const start = new Date(t); start.setHours(0, 0, 0, 0); start.setMinutes(Math.ceil(m / 30) * 30);
-  return { from: isoMinute(start), to: isoMinute(addMinutes(isoMinute(start), 30)) };
-}
-
 /** D-155: what a suggested time does to the price. Rush = min(as booked, the rush for the new slot): it never goes up. Returns
     `{ days, tier, rush, payout, less }` in cents — `tier` the rush the slot would normally carry, `rush` what is charged on this request,
     `payout` what she takes home at that slot, `less` what Sarah pays less than she booked (0 when the price is the same). */

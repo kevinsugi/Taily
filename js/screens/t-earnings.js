@@ -79,7 +79,7 @@ function view() {
       ? { tone: 'error', title: 'Your Friday payout didn’t go through' }
       : {
         tone: 'error', title: 'Your Friday payout didn’t go through',
-        text: `${esc(bank)} returned ${money(failed.cents)}. Update your bank details to get paid.`,
+        text: `${esc(bank)} returned it. Update your bank details to get paid.`,   // K-17 #7: the amount is the figure below, once
         actionLabel: 'Fix bank details', actionAct: 'fix-bank',
       })}</div>` : '';
 
@@ -89,8 +89,7 @@ function view() {
     const all = [...failed.items, ...next.items];
     const day = next.date > failed.retryDate ? next.date : failed.retryDate;
     nextCard = `<section class="sec sec--first ${ID}__next ${ID}__next--merged" aria-label="Next payout">
-    <p class="t-caps c-600">Next payout</p>
-    <p class="t-figure ${ID}__merged" data-money>${fmtDay(day)} · ${fmtExact(failed.cents + next.cents)} once you update your bank details</p>
+    ${hero({ label: 'Next payout', cents: failed.cents + next.cents, caption: `Sends ${fmtDay(day)} once you update your bank details` })}
     <p class="t-small c-600 ${ID}__after">${plural(all.length, 'job', 'jobs')} · ${feeNote(all)}</p>
     ${listOf(`${failed.items.map((i) => jobRow(i, { tag: 'Returned' })).join('')}${next.items.map((i) => jobRow(i)).join('')}`)}
     <div class="${ID}__fix">${cta('Fix bank details', { attrs: 'data-act="fix-bank"' })}</div>
@@ -113,9 +112,9 @@ function view() {
 
   /* the money the bank sent back: with nothing else scheduled it is the focal card, directly under the banner */
   let sent = '';
-  if (failed && !next) {
+  if (failed && !next) {   // K-17 #7: the banner says it didn't go through; the figure is a plain payout figure with one meta line
     sent = `<section class="sec sec--first ${ID}__next ${ID}__next--failed" aria-label="Didn’t go through">
-    ${hero({ label: 'Didn’t go through', cents: failed.cents, caption: `Sends ${fmtDay(failed.retryDate)} once you update your bank details` })}
+    ${hero({ label: 'Next payout', cents: failed.cents, caption: `Sends ${fmtDay(failed.retryDate)} once you update your bank details` })}
     <p class="t-small c-600 ${ID}__after">${plural(failed.items.length, 'job', 'jobs')} · ${feeNote(failed.items)}</p>
     ${rowsOf(failed.items)}
   </section>`;

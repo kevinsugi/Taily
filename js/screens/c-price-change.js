@@ -12,7 +12,8 @@
 import { register, render as go, registered, currentScreen } from '../app.js';
 import { state, T, tailorById, priceChangeView } from '../state.js';
 import {
-  chrome, headingRow, statusHero, banner, emptyState, deltaFigure, noteQuote, changeList, withPhotos, wirePhotoViewer, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs, sectionHead,
+  chrome, banner, emptyState, deltaLines, noteQuote, changeList, withPhotos, wirePhotoViewer, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs, sectionHead,
+  navBackMark, requestStrip, requestHead, pageHead, verifiedCheck,
 } from '../components.js';
 import { fmtExact } from '../money.js';
 import { fmtTime } from '../dates.js';
@@ -42,12 +43,19 @@ function view() {
   const messaged = pv.state === 'messaged';
   const busy = !!ui().busy;
   const changed = pv.changed;
-  const hero = statusHero({
-    variant: 'requested', pill: 'action', pillLabel: 'Approve order', title: 'Review your final order',
-    body: changed
-      ? `${esc(first)} changed your order at the fitting. Once you approve, the work starts.`
-      : `${esc(first)} checked everything at the fitting. Nothing changed.`,
+  /* K-17 (D-242) option A, "strip-led": ONE flush strip states the state and what Amara did, the header row is Amara (the tailor's check) with the one
+     amount at the right and what it was under it (R2: kept under the amount), then her note (the only quote), then the order. Once you messaged her
+     the strip says so (R3: one notice above the content). */
+  const strip = requestStrip({
+    page: true, tone: messaged ? 'warn' : 'action', icon: messaged ? 'chat' : 'check',
+    text: messaged ? `You messaged ${first} · approve when you’re ready`
+      : pv.revisions > 0 ? `Approve your updated order · ${first} updated it again at ${fmtTime(pv.sentAt)}`
+      : `Approve your final order · ${first} ${changed ? 'changed it at the fitting' : 'checked everything, nothing changed'}`,
   });
+  const head = pageHead(requestHead({
+    page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
+    payoutCents: after.total, label: changed ? 'New total' : 'Total', lines: deltaLines(after.total, pv.before.total),
+  }));
   const rows = [
     { label: 'Services', cents: after.services, caption: `${first}’s final prices` },
     after.homeFee > 0 && { label: 'Home-visit fee', cents: after.homeFee },
@@ -58,10 +66,7 @@ function view() {
     after.refund > 0 && { label: 'Refund to your card', cents: after.refund, caption: 'When your order is ready' },
   ].filter(Boolean);
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${messaged ? '--messaged' : ''}" data-changed="${changed}" data-appt="${esc(a.id)}">
-  ${headingRow(hero)}
-  ${messaged ? `<div class="${ID}__banner">${banner({ tone: 'info', text: `You messaged ${esc(first)} about the order. Approve when you’re ready, or keep talking in chat.` })}</div>` : ''}
-  ${pv.revisions > 0 ? `<p class="t-small c-600 ${ID}__again">${esc(first)} updated the order again at <span class="nb">${esc(fmtTime(pv.sentAt))}</span>.</p>` : ''}
-  <div class="sec sec--first ${ID}__figure">${deltaFigure({ label: changed ? 'New total' : 'Total', cents: after.total, was: pv.before.total })}</div>
+  ${navBackMark()}${strip}${head}
   ${pv.note ? `<div class="${ID}__quote">${noteQuote({ label: `${first}’s note on the order`, text: pv.note })}${pv.noteMasked ? `<p class="t-small c-600 ${ID}__masked">Phone numbers and emails in this note are hidden.</p>` : ''}</div>` : ''}
   <section class="sec">${sectionHead(changed ? 'What changed' : 'Your order')}
   ${changed ? `<div class="${ID}__summary">${changeSummary(pv.counts)}</div>` : ''}

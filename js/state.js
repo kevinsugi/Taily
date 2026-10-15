@@ -1003,6 +1003,18 @@ export function returnAddress() {
   return [ad.street, ad.unit].filter(Boolean).join(', ');
 }
 
+/** D-160 (moved here from tailor-data.js, K16-2-02 / D-245): the courier's pickup window (the tailor's strip and the customer's route block): the next half hour an hour after Sarah paid the balance, 30 minutes long.
+    `{ from, to }` as ISO minutes; null when no courier is booked. */
+export function courierWindow(appt) {
+  if (appt.returnOption !== 'courier' || !appt.courier) return null;
+  const paidAt = [...appt.history].reverse().find((h) => h.status === 'returning')?.at ?? appt.history[appt.history.length - 1]?.at;
+  if (!paidAt) return null;
+  const t = toDate(paidAt);
+  const m = t.getHours() * 60 + t.getMinutes() + 60;
+  const start = new Date(t); start.setHours(0, 0, 0, 0); start.setMinutes(Math.ceil(m / 30) * 30);
+  return { from: isoMinute(start), to: isoMinute(addMinutes(isoMinute(start), 30)) };
+}
+
 /** The ways back on a ready order, RETURN_LABEL order. */
 export function returnOffer(appt) {
   if (!appt) return [];

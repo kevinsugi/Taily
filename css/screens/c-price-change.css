@@ -1,10 +1,7 @@
 /* c-price-change — C9 review your final order (K-01). Layout only; hero, figure, change list, money rows and bar are shared. M7: groups are .sec. */
 .c-price-change { padding-bottom: var(--space-40); }
-.c-price-change__banner { margin-top: var(--rhythm-block); }
-.c-price-change__banner .banner__text { text-wrap: pretty; }
-.c-price-change__again { margin: var(--space-12) 0 0; }
-.c-price-change__figure { gap: 0; }
-.c-price-change__quote { margin-top: var(--rhythm-section); }
+/* K-17: strip + header come first; the one quote follows the header, the order after it */
+.c-price-change__quote { margin-top: var(--space-20); }
 .c-price-change__masked { margin: var(--space-8) 0 0; }
 .c-price-change .nb { white-space: nowrap; }
 .c-price-change__quote .note-quote { margin-top: 0; }

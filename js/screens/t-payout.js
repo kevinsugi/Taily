@@ -2,8 +2,9 @@
    t-payout — T8 one job's payout (M5-spec §C4, D-136/D-137). How one
    job became one payout, in dollars. Focal: the payout figure. The
    Taily fee sits under Services with what it was taken from; the
-   courier is never Amara's money (D-04). Failed → the same banner as
-   Earnings and a sticky "Fix bank details".
+   courier is never Amara's money (D-04). Failed → the pill and the one
+   meta line under the figure carry it (K-17 #7: no banner repeating them)
+   and a sticky "Fix bank details".
    ============================================================ */
 import { register, render as go, back, personaHome } from '../app.js';
 import { state } from '../state.js';
@@ -14,7 +15,7 @@ import { POLICY } from '../money-config.js';
 import { fmtDay, fmtWhen } from '../dates.js';
 import { payoutsView } from '../tailor-data.js';
 import {
-  chrome, headingRow, banner, emptyState, statusPill, deltaFigure, moneyRows, tailorBreakdown, listRow, actionBar, cta, esc, sectionHead, garmentIcon,
+  chrome, headingRow, emptyState, statusPill, deltaFigure, moneyRows, tailorBreakdown, listRow, actionBar, cta, esc, sectionHead, garmentIcon,
   heroGarment,
 } from '../components.js';
 
@@ -35,7 +36,10 @@ function detail() {
 function words(p) {
   const w = payoutLine(p, myTailor().payouts);
   const pill = { paid: ['completed', 'Paid'], failed: ['declined', 'Didn’t go through'] }[p.state] ?? ['waiting', 'Pending'];
-  return { pill, line: w.text, tone: w.tone };
+  /* K-17 (D-243, #7 / #9): the pill says Paid / Didn't go through, so the one meta line is the date and the bank — or, when it failed, when it sends again (the banner's fact) */
+  const line = p.state === 'paid' ? w.text.replace(/^Paid\s+/, '')
+    : p.state === 'failed' ? `Sends again ${fmtDay(payoutsView().failed?.retryDate ?? p.date)} once you update your bank details.` : w.text;
+  return { pill, line, tone: w.tone };
 }
 
 /** M6-P-18: why this payout is a kept deposit / no-show pay, said once under the job, with the calm pill the job itself wears. */
@@ -61,12 +65,6 @@ function view() {
   const hero = `<h1 class="t-title">Your payout</h1>
   ${deltaFigure({ cents: p.cents, caption: w.line })}`;
   const kept = p.kind === 'kept-deposit' || p.kind === 'no-show';
-
-  /* R5-1-T-04: the pill and the caption already say "didn't go through"; the banner looks forward: what to do and when it sends */
-  const alert = failed ? `<div class="${ID}__alert">${banner({
-    tone: 'error', title: 'Update your bank details to get paid',
-    text: `We’ll send <span data-money>${fmtExact(p.cents)}</span> again on ${fmtDay(payoutsView().failed?.retryDate ?? p.date)} after you save them.`,
-  })}</div>` : '';   // the one "Fix bank details" is the sticky bar's
 
   /* the job: one tappable card — the row is the "Open the job" action */
   const lines = [
@@ -97,7 +95,6 @@ function view() {
 
   return `${head}<main class="body ${failed ? 'body--with-bar ' : ''}${ID}" data-appt="${esc(a.id)}">
   ${headingRow(hero, { status: statusPill(...w.pill) })}
-  ${alert}
   ${job}
   <section class="sec" aria-labelledby="${ID}-sum">
     ${sectionHead('How it adds up', { id: `${ID}-sum` })}

@@ -10,7 +10,7 @@ import { register, render as go, currentScreen, previousScreen } from '../app.js
 import { state, T, tailorById, now, msLeft, suggestLapseAt } from '../state.js';
 import {
   chrome, headingRow, statusHero, statusPill, waitBand, countdown, visitBlock, timeline, customerBreakdown, moneyRows, banner, cta,
-  emptyState, sheetOverlay, toast, esc, noteQuote, sectionHead, infoButton, textLink, garmentStrip,
+  emptyState, sheetOverlay, toast, esc, noteQuote, sectionHead, infoButton, textLink, garmentStrip, requestStrip, navBackMark,
 } from '../components.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 import { withLatency } from '../sim.js';
@@ -101,15 +101,15 @@ function requestedBody(a, t, first) {
 
 function suggestedBody(a, t, first, busy) {
   const deposit = a.payments.deposit.cents;
-  const hero = statusHero({ variant: 'new-times', pill: 'suggested', pillLabel: 'New time suggested', title: `${esc(first)} suggested a new time` });
-  return `${heroRow(hero)}
+  /* K-17 (D-243, #6 / R1): the strip says the state and carries the hold deadline as its countdown; the new time is the one figure (the h1) with
+     the old time as its one "was" line, then one sentence on what accepting does. No pill, no caps label, no "holding until" sentence. */
+  const strip = requestStrip({ tone: 'action', icon: 'clock', text: `${esc(first)} suggested a new time`, lapseAt: suggestLapseAt(a), now: now(), page: true });
+  return `${backTarget() === 'c-bookings' ? navBackMark() : ''}${strip}
   <section class="sec sec--first c-request__time" data-new-time aria-label="Suggested time">
-    <span class="t-caps c-600">NEW TIME</span>
-    <span class="t-figure c-request__when">${fmtWhen(a.suggested.start)}</span>
+    <h1 class="t-title c-request__when">${fmtWhen(a.suggested.start)}</h1>
     <span class="t-small c-600">You asked for ${fmtWhen(a.slot.start)}</span>
     <p class="t-body c-700 c-request__same">Same price. If you accept, your ${money(deposit)} deposit is charged and you’re booked.</p>
   </section>
-  <p class="t-small c-600 c-request__holding">${esc(first)} is holding this time until ${fmtWhen(suggestLapseAt(a))}</p>
   ${ui().error === 'slot-passed' ? `<div class="c-request__alert c-request__alert--top">${banner({ tone: 'error', text: RETRY_ERRORS['slot-passed'].text })}</div>` : ''}
   ${yourRequest([{ icon: 'calendar', value: esc(VISIT_LABEL.customer[a.job.visitType]), detail: `${VISIT_MINUTES[a.job.visitType]} min` }, ...visitRows(a, t).slice(1)])}
   ${priceSection(a, first)}
@@ -120,10 +120,9 @@ function suggestedBody(a, t, first, busy) {
 }
 
 function declinedBody(a, t, first, busy) {
-  const deposit = a.payments.deposit.cents;
   const hero = statusHero({
-    variant: 'declined', pill: 'declined', title: `${esc(first)} declined your request`,
-    body: `Your ${money(deposit)} hold is released, so you weren’t charged. Your items and services are saved for the next tailor.`,
+    variant: 'declined', pill: false, title: `${esc(first)} declined your request`,
+    body: 'You weren’t charged, and your items and services are saved for the next tailor.',   // K-17 R1 / R3: the title states it; the hold amount is the Price row
   });
   return `${heroRow(hero)}
   ${a.declineReason ? noteQuote({ label: `${first}’s note`, text: a.declineReason }) : ''}
@@ -137,12 +136,11 @@ function declinedBody(a, t, first, busy) {
 
 /** D-154: a suggested time that lapsed or that she withdrew — the D-94 lapsed pattern: hold released, find someone else. */
 function suggestionEndedBody(a, t, first, busy) {
-  const deposit = a.payments.deposit.cents;
   const withdrawn = a.suggested.ended === 'withdrawn';
   const hero = statusHero({
-    variant: 'requested', pill: 'calm', pillLabel: withdrawn ? 'Time withdrawn' : 'Time passed',
+    variant: 'requested', pill: false,
     title: withdrawn ? `${esc(first)} withdrew her suggested time` : `${esc(first)}’s suggested time has passed`,
-    body: `Your ${money(deposit)} hold is released. We won’t show ${esc(first)} for this request again, so you can choose another tailor.`,
+    body: `Your hold is released. We won’t show ${esc(first)} for this request again, so you can choose another tailor.`,
   });
   return `${heroRow(hero)}
   ${yourRequest(visitRows(a, t))}
@@ -168,17 +166,17 @@ function expiredBody(a, t, first, busy, u) {
   let title; let body;
   if (final) {
     title = `${esc(first)} didn’t reply again`;
-    body = `Your ${money(deposit)} hold was released. We won’t show ${esc(first)} for this request again, so you can choose another tailor.`;
+    body = `Your hold was released. We won’t show ${esc(first)} for this request again, so you can choose another tailor.`;
   } else if (lapsed) {
     title = `${esc(first)} didn’t reply in time`;
-    body = `Your ${money(deposit)} hold was released. Pick a new time with ${esc(first)}, or message ${esc(first)} first.`;
+    body = `Your hold was released. Pick a new time with ${esc(first)}, or message ${esc(first)} first.`;
   } else {
     title = `${esc(first)} didn’t reply in time`;
     body = a.retries + 1 >= max
-      ? `Your ${money(deposit)} hold was released. You can send it once more. If ${esc(first)} doesn’t reply by ${newBy}, we’ll show you other tailors.`
-      : `Your ${money(deposit)} hold was released. You can send the same request again, and ${esc(first)} gets another ${hours} hours.`;
+      ? `Your hold was released. You can send it once more. If ${esc(first)} doesn’t reply by ${newBy}, we’ll show you other tailors.`
+      : `Your hold was released. You can send the same request again, and ${esc(first)} gets another ${hours} hours.`;
   }
-  const hero = statusHero({ variant: 'requested', pill: 'calm', pillLabel: 'No reply', title, body });
+  const hero = statusHero({ variant: 'requested', pill: false, title, body });   // K-17 R1: the title says it, no "No reply" pill
   const err = !final && u.error ? RETRY_ERRORS[u.error] : null;
   let actions;
   if (lapsed) {

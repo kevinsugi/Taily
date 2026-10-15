@@ -265,3 +265,19 @@ error, a `%` in money copy, a target under 44 px, or a visual diff above 0.10 %.
 - **Tokens + lint (B1, B5)**: `--body-top`, `--shadow-float`, `--shadow-overlay`, `--hairline` replaces `--bottom-border` (deleted); `--ease-drawer`, `--size-8` and `--size-18` are deleted; base semantic colours (`--neutral-500`, `--success`, `--error`, `--warning`, `--accent-base`) never set text (use the `-ink` twins). `.t-*` line-heights are unitless (`calc(34 / 28)`, … so 1× renders as before). `scripts/v5/lint.mjs` rules 7–8 fail a base glyph colour as a text colour (chevron / icon / glyph / star / close selectors are exempt) and any `--bottom-border` in v5 CSS.
 
 - **K-12 person-led block**: `personBlock({ title, person: { initials, name, verified }, rows, actions: [{ label, icon, act, href, attrs }] })` (`js/components.js`, `.person-block*` in `components-v5.css`) — avatar spine, `verifiedCheck()` (check icon only, sr-only "Verified") right after the name, `visitBlock`-style rows hanging under the name, equal small outline buttons. Used by t-job (Sarah, `v.customer.verified` from `CUSTOMER.verified`) and c-booking (Amara, `t.verified`). `calendarHref({ uid, start, end, stamp, summary, location })` builds the .ics data link for both.
+
+## Study tab (Test flows panel, 4th tab; D-239)
+
+`js/study.js` exports `STUDY_TITLE` and `STUDY_SCRIPT` (one array of `{ title, cue?, start, jump: [key…] }`); `js/flow-menu.js` renders it, no study content lives there.
+Every key is an existing FLOWS entry and every button is a `[data-flow]` item, so it runs `runFlow(key)` exactly like the Tailor tab. Unknown keys render as
+`missing: <key>` (error colour) and `console.warn` once when the menu mounts. Prev / Next section run the neighbouring section's `start`. Memory is module-level only
+(open tab once it is Study, last-run section + key). `?study=1[&s=n]` boots with the panel open on Study, section n highlighted, nothing auto-run (add `&flow=` to also run a state).
+Run it end to end: `npm run study` (`scripts/v5/study-run.mjs`, 390 px, through the real menu; shots in `.shots/study/`).
+
+| # | Section | start | jump to |
+|---|---|---|---|
+| 1 | Onboarding | `to-profile` | `to-services` `to-where` `to-returns` `to-availability` `to-payouts` `to-done` `t-shop` |
+| 2 | New job request | `t-home` | `t-request` `t-suggest` `t-job--accepted` |
+| 3 | Fitting, photos & notes | `t-job--visit` | `t-adjust` `t-adjust--photos-required` `t-adjust--item-added` `t-job--waiting` |
+| 4 | Messaging the client (cue: participant taps Message) | `t-job--in-progress` | `t-thread` `t-messages` |
+| 5 | Job ready (cue: participant taps Mark ready) | `t-job--in-progress` | `t-job--mark-ready` `t-job--ready` `t-job--completed` `t-payout` |

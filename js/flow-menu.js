@@ -14,15 +14,19 @@
 
 import { state } from './state.js';
 import { ALL_FLOWS, findFlow, prepareFlow, personaForScreen } from './flows.js';
+import { STUDY_TITLE, STUDY_SCRIPT } from './study.js';
 
 let render = null;
 let homeFor = () => 'sys-index';
 let lastKey = null;
 let tab = null;
+/* Study tab memory (session only): the section last run / opened (null = none yet) and the key last run from it */
+let studySec = null;
+let studyKey = null;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const TABS = [['customer', 'Customer'], ['tailor', 'Tailor'], ['system', 'System']];
+const TABS = [['customer', 'Customer'], ['tailor', 'Tailor'], ['system', 'System'], ['study', 'Study']];
 /** Which tab an entry belongs to: its persona, or System for sys-* screens. */
 const personaTab = (f) => (f.screen.startsWith('sys-') ? 'system' : (f.persona ?? personaForScreen(f.screen) ?? 'customer'));
 /** An entry lists under its own tab; a sys-* key (hosted on a customer or tailor screen) ALSO lists under System (M6-X-09). */
@@ -72,6 +76,60 @@ function listHtml(which) {
     </section>`).join('');
 }
 
+/* ---------- Study tab (STUDY_SCRIPT, js/study.js) ---------- */
+/** Every study key that is not in the registry. Filled by validateStudy() when the menu mounts. */
+const studyMissing = new Set();
+const studyKeys = (sec) => [sec.start, ...(sec.jump ?? [])];
+function validateStudy() {
+  studyMissing.clear();
+  for (const sec of STUDY_SCRIPT) for (const k of studyKeys(sec)) if (!findFlow(k)) studyMissing.add(k);
+  if (studyMissing.size) console.warn(`study: ${studyMissing.size} key(s) missing from the Test-flows registry: ${[...studyMissing].join(', ')}`);
+}
+
+/** A study button for one key: a [data-flow] item (same click path as every other tab), or a "missing: key" note in the error colour. */
+function studyBtn(key, cls, sec, inner) {
+  if (!findFlow(key)) return `<span class="flow-menu__missing" role="note">missing: ${esc(key)}</span>`;
+  const f = findFlow(key);
+  return `<button type="button" class="${cls}" data-flow="${esc(key)}" data-study-sec="${sec}" title="${esc(f.title)}"${sec === studySec && key === studyKey && key === lastKey ? ' aria-current="true"' : ''}>${inner}</button>`;
+}
+
+function studyHtml() {
+  const last = STUDY_SCRIPT.length - 1;
+  const prevOff = studySec == null || studySec <= 0;
+  const nextOff = studySec != null && studySec >= last;
+  return `
+    <p class="flow-menu__study-title">${esc(STUDY_TITLE)}</p>
+    <ol class="flow-menu__secs">
+      ${STUDY_SCRIPT.map((sec, i) => `
+      <li class="flow-menu__sec"${i === studySec ? ' data-current="true"' : ''} data-sec="${i}">
+        <div class="flow-menu__sec-head">
+          <span class="flow-menu__sec-num" aria-hidden="true">${i + 1}</span>
+          <h3 class="flow-menu__sec-title">${esc(sec.title)}</h3>
+        </div>
+        ${sec.cue ? `<p class="flow-menu__sec-cue">${esc(sec.cue)}</p>` : ''}
+        ${studyBtn(sec.start, 'flow-menu__start', i, `<span>Start</span><span class="flow-menu__start-key">${esc(sec.start)}</span>`)}
+        ${(sec.jump ?? []).length ? `
+        <p class="flow-menu__jump-label">Jump to</p>
+        <div class="flow-menu__jumps">${sec.jump.map((k) => studyBtn(k, 'flow-menu__jump', i, esc(k))).join('')}</div>` : ''}
+      </li>`).join('')}
+    </ol>
+    <div class="flow-menu__study-nav">
+      <button type="button" class="flow-menu__step" data-study-step="-1"${prevOff ? ' aria-disabled="true"' : ''}>← Prev section</button>
+      <button type="button" class="flow-menu__step" data-study-step="1"${nextOff ? ' aria-disabled="true"' : ''}>Next section →</button>
+    </div>`;
+}
+
+/** Run the neighbouring section's start key (Prev / Next). Returns true when it ran. */
+function stepStudy(dir) {
+  const to = studySec == null ? (dir > 0 ? 0 : -1) : studySec + dir;
+  const sec = STUDY_SCRIPT[to];
+  if (!sec || !findFlow(sec.start)) return false;
+  studySec = to;
+  studyKey = sec.start;
+  close();
+  return runFlow(sec.start);
+}
+
 function panelHtml() {
   return `<div class="flow-menu" id="flow-menu" role="dialog" aria-label="Test flows" hidden>
   <div class="flow-menu__head">
@@ -98,7 +156,7 @@ function paintTab(which) {
   tab = which;
   document.querySelectorAll('.flow-menu__tab').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === which)));
   const list = $('[data-flow-list]');
-  if (list) list.innerHTML = listHtml(which);
+  if (list) list.innerHTML = which === 'study' ? studyHtml() : listHtml(which);
 }
 
 function paintLabels() {
@@ -109,15 +167,28 @@ function paintLabels() {
   if (flip) flip.textContent = state.persona === 'tailor' ? 'View as Customer' : 'View as Tailor';
 }
 
+/** Open the panel. The Study tab sticks once chosen (a session on a phone returns to it); the others follow the screen. */
 function open() {
   const menu = $('#flow-menu');
   if (!menu) return;
-  paintTab(currentTab());
+  paintTab(tab === 'study' ? 'study' : currentTab());
   menu.hidden = false;
   $('#flow-trigger').setAttribute('aria-expanded', 'true');
-  const current = menu.querySelector('[aria-current="true"]');
-  if (current) current.scrollIntoView({ block: 'center' });
+  const sec = tab === 'study' ? menu.querySelector('.flow-menu__sec[data-current]') : null;
+  const current = menu.querySelector('[aria-current="true"]') ?? sec?.querySelector('.flow-menu__start');
+  if (sec) sec.scrollIntoView({ block: 'start' });
+  else if (current) current.scrollIntoView({ block: 'center' });
   (current ?? menu.querySelector('.flow-menu__tab[aria-selected="true"]'))?.focus({ preventScroll: true });
+}
+
+/** Open the panel on the Study tab with section `n` (1-based) highlighted; nothing runs. ?study=1[&s=n] (app.js). */
+export function openStudy(n = 1) {
+  const i = Math.min(STUDY_SCRIPT.length, Math.max(1, Number.parseInt(n, 10) || 1)) - 1;
+  studySec = i;
+  studyKey = null;
+  tab = 'study';
+  if (isOpen()) close();
+  open();
 }
 
 function close({ focusTrigger = false } = {}) {
@@ -162,6 +233,7 @@ export function initFlowMenu(renderFn, { home } = {}) {
   if (home) homeFor = home;
   const host = $('.stage-caption');
   if (!host) return;
+  validateStudy();
   host.innerHTML = `${panelHtml()}
   <button type="button" class="persona-toggle flow-trigger" id="flow-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="flow-menu">
     <span class="flow-trigger__label">Test flows</span><span class="flow-trigger__who" data-trigger-who>Customer</span>
@@ -174,8 +246,11 @@ export function initFlowMenu(renderFn, { home } = {}) {
     $('[data-flow-list]').scrollTop = 0;
   }));
   $('[data-flow-list]').addEventListener('click', (e) => {
+    const step = e.target.closest('[data-study-step]');
+    if (step) { if (step.getAttribute('aria-disabled') !== 'true') stepStudy(Number(step.dataset.studyStep)); return; }
     const item = e.target.closest('[data-flow]');
     if (!item) return;
+    if (item.dataset.studySec != null) { studySec = Number(item.dataset.studySec); studyKey = item.dataset.flow; }
     close();
     runFlow(item.dataset.flow);
   });
@@ -190,7 +265,7 @@ export function initFlowMenu(renderFn, { home } = {}) {
   $('#flow-menu').addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { e.stopPropagation(); close({ focusTrigger: true }); return; }
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-    const items = [...document.querySelectorAll('.flow-menu__item')];
+    const items = [...document.querySelectorAll('.flow-menu__item, .flow-menu__start, .flow-menu__jump, .flow-menu__step')];
     const i = items.indexOf(document.activeElement);
     const next = items[Math.min(items.length - 1, Math.max(0, i + (e.key === 'ArrowDown' ? 1 : -1)))];
     if (next) { e.preventDefault(); next.focus(); }

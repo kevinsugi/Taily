@@ -476,7 +476,7 @@ function guardBusy() {
  * a screen with no entry renders on the seed; else sys-index. `?test=1` makes the demo
  * deterministic (instant latency, no transitions or caret).
  * D-212: a plain visit imports the core + sys-index, paints, then idle-loads the other screens; the flows registry, menu and the
- * other screens load up front only for ?flow= / ?screen= / ?test=1 (their setups press buttons on any screen), and on first input otherwise.
+ * other screens load up front only for ?flow= / ?screen= / ?test=1 / ?study= (their setups press buttons on any screen), and on first input otherwise.
  */
 async function boot() {
   const params = new URLSearchParams(location.search);
@@ -489,7 +489,10 @@ async function boot() {
   const flow = params.get('flow');
   const screen = params.get('screen');
   const first = screen || 'sys-index';
-  const wantsTools = test || !!flow || !!screen;
+  /* ?study=1[&s=n]: boot with the Test-flows panel open on the Study tab (section n, default 1); nothing is run unless ?flow= / ?screen= says so */
+  const study = params.has('study');
+  const wantsTools = test || !!flow || !!screen || study;
+  if (study) document.documentElement.classList.add('has-input');   // the pinned control is hidden until the first input
   if (wantsTools) await Promise.all([loadTools(), loadAllScreens()]);
   else await loadScreen(first);
   wireDragScroll();
@@ -500,12 +503,14 @@ async function boot() {
   state.persona ??= 'customer';
   document.documentElement.dataset.persona = state.persona;
   if (!wantsTools) whenIdle(() => idleLoad());
+  const openStudy = () => { if (study) tools?.menu.openStudy(params.get('s')); };
   if (tools) {
-    if (flow && !screen && tools.menu.runFlow(flow)) return;
+    if (flow && !screen && tools.menu.runFlow(flow)) return openStudy();
     const primary = screen && tools.flows.primaryFlow(screen);
-    if (primary && tools.menu.runFlow(primary.key, { keepUrl: true })) return;
+    if (primary && tools.menu.runFlow(primary.key, { keepUrl: true })) return openStudy();
   }
   render(first);
+  openStudy();
 }
 
 /* Handy at the console, and the harness's entry point. `ready` resolves when boot() has painted. `flows` fills in when the registry loads. */

@@ -9,6 +9,7 @@
     "model": "node scripts/v5/model-test.mjs",
     "test:model": "node scripts/v5/model-test.mjs",
     "flows": "node scripts/v5/clickthrough-flows.mjs",
+    "study": "node scripts/v5/study-run.mjs",
     "visual": "node scripts/v5/diff.mjs",
     "lint": "node scripts/v5/lint.mjs",
     "hygiene": "node scripts/v5/lint.mjs"

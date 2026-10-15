@@ -87,7 +87,7 @@ function view() {
     const noShow = p.kind === 'no-show';
     sum = `${moneyRows([
       { label: noShow ? 'No-show pay' : 'Deposit kept', cents: p.cents },
-      { label: 'You take home', cents: p.cents, kind: 'total' },
+      { label: 'Your payout', cents: p.cents, kind: 'total' },
     ])}
     <p class="t-small c-600 ${ID}__fine">${noShow ? 'No Taily fee on no-show pay.' : 'No Taily fee on a kept deposit.'}</p>`;
   } else {

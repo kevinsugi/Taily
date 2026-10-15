@@ -100,11 +100,11 @@ function visitLinks(a, v) {
 }
 
 function visitCard(a, v) {
+  /* K-10 (D-235): icon rows — calendar (date + length), map-pin (place), clock (needed by) */
   const rows = [
-    `<span class="t-figure">${esc(fmtWhen(a.slot.start))}</span>`,
-    `${esc(v.visitLabel)} · ${v.minutes} min, until ${v.whenEnd}`,
-    `<span class="w-600">${esc(jobAddress(a))}</span>`,
-    `Needed by ${v.needBy}`,
+    { icon: 'calendar', value: esc(fmtWhen(a.slot.start)), strong: true, detail: `${esc(v.visitLabel)} · ${v.minutes} min, until ${v.whenEnd}` },
+    { icon: 'map-pin', value: esc(jobAddress(a)) },
+    { icon: 'clock', value: `Needed by ${v.needBy}` },
   ];
   return `${visitBlock(rows, { title: 'Visit', flush: true })}${visitLinks(a, v)}`;
 }
@@ -114,8 +114,8 @@ function visitCard(a, v) {
 function dueCard(a, v) {
   const days = dayDiff(now(), a.job.needBy);
   const when = days < 0 ? `${plural(-days, 'day')} ago` : days === 0 ? 'today' : `in ${plural(days, 'day')}`;
-  const fig = `<span class="t-figure ${ID}__due${days <= 1 ? ` ${ID}__due--soon` : ''}">Needed by ${fmtDay(a.job.needBy)} · ${when}</span>`;
-  return visitBlock([fig, `<span class="t-small c-600">Fitting was ${fmtDay(a.slot.start)}</span>`], { title: 'Timing', flush: true });
+  const fig = `<span class="${ID}__due${days <= 1 ? ` ${ID}__due--soon` : ''}">Needed by ${fmtDay(a.job.needBy)} · ${when}</span>`;
+  return visitBlock([{ icon: 'clock', value: fig, strong: true, detail: `Fitting was ${fmtDay(a.slot.start)}` }], { title: 'Timing', flush: true });
 }
 
 /** The customer, flat: a circle avatar and the name (CP-T24: no "Customer" label). */
@@ -134,7 +134,7 @@ const workOver = (a) => TERMINAL.includes(a.status) || a.status === 'expired';
 /** A grouped section: head + content on the rhythm (`first` = directly under the hero notes). */
 const sec = (inner, { first = false, id = '' } = {}) => `<section class="sec${first ? ' sec--first' : ''}"${id ? ` aria-labelledby="${id}"` : ''}>${inner}</section>`;
 const workSec = (a, v) => sec(`${sectionHead('The work', { id: `${ID}-work` })}${workHtml(v, { final: workOver(a), estimateLabel: null })}`, { id: `${ID}-work` });   // the payout breakdown follows: no estimate row (M6-P-07)
-const payoutSec = (a, v, fineHtml = '') => sec(`${sectionHead('Your take-home', { id: `${ID}-take`, aside: infoButton('payouts', { label: 'When you get paid' }) })}${tailorBreakdown(v.money)}${fineHtml}`, { id: `${ID}-take` });
+const payoutSec = (a, v, fineHtml = '') => sec(`${sectionHead('Your payout', { id: `${ID}-take`, aside: infoButton('payouts', { label: 'When you get paid' }) })}${tailorBreakdown(v.money)}${fineHtml}`, { id: `${ID}-take` });
 
 /** ••• menu (D-195): "I can’t make it" before the visit starts, "Mark as no-show" once it has (its row says when). Null once neither applies. */
 function moreItems(a) {
@@ -169,7 +169,7 @@ const shopLine = (t) => `${t.shop.street}, ${t.shop.city}, ${t.shop.state} ${t.s
 /** One return-address line on both sides (R4-2-C-06): street + unit, the same string c-ready and c-booking print. */
 const homeStreet = returnAddress;
 /** A return block (R4-2-T-09): the place name (w-600) beside its icon, the address regular under it on the same left edge. */
-const placeRows = (name, icon, address) => [metaRow('', `<span class="w-600">${esc(name)}</span>`, { icon }), `<span class="${ID}__addr">${esc(address)}</span>`];
+const placeRows = (name, icon, address) => [{ icon, value: esc(name), detail: esc(address) }];
 
 /** The M4 state of a job (null = the M3 layout: before the visit starts, or cancelled). */
 function stateKey(a) {
@@ -195,7 +195,7 @@ function copyFor(key, a, t, v, pv) {
       bar: { ctaLabel: 'Start fitting', ctaAct: 'start-fitting', busy: busy === 'start', busyLabel: 'Starting…', ...msg } };
     case 'fitting': return { ...base, title: `Fitting with ${esc(v.customer.name)}`,
       note: note(`Take a before and a pinned photo of each item, then send ${first} the final order.`),
-      bar: { lead: `You take home <b data-money>${fmtExact(a.money.payout)}</b>`, ctaLabel: 'Edit the job', ctaAct: 'edit-order', ...msg } };
+      bar: { lead: `Your payout <b data-money>${fmtExact(a.money.payout)}</b>`, ctaLabel: 'Edit the job', ctaAct: 'edit-order', ...msg } };
     case 'waiting': return { ...base, title: `Waiting for ${first} to approve`,
       note: note(`You sent the final order at ${fmtTime(pv.sentAt)}. Start the work once ${first} approves.`),
       bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
@@ -251,18 +251,18 @@ function priceBlocks(a, pv, key) {
   const total = pv.changed
     ? `${first} sees a new total of ${fmtExact(pv.after.total)} (was ${fmtExact(pv.before.total)}).`
     : `${first} sees the total as booked, ${fmtExact(pv.before.total)}.`;
-  return `<div class="${ID}__delta">${deltaFigure({ label: 'You’ll take home', cents: pv.after.payout, was: pv.before.payout })}
+  return `<div class="${ID}__delta">${deltaFigure({ label: 'Your payout', cents: pv.after.payout, was: pv.before.payout })}
     <p class="t-small c-600 ${ID}__newtotal" data-money>${total}</p></div>
   ${theirs ? `<div class="${ID}__quote">${theirs}</div>` : ''}${mine ? `<div class="${ID}__quote">${mine}</div>` : ''}
   ${sec(`${sectionHead('The order you sent', { id: `${ID}-sent` })}
   <div class="${ID}__summary">${changeSummary(pv.counts)}</div>
   ${unsent}
   ${changeList({ garments: withPhotos(pv.garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: 'Your comment', photoOwner: `${firstOf()}’s` })}`, { first: true, id: `${ID}-sent` })}
-  ${sec(`${sectionHead('Your take-home if approved', { id: `${ID}-take` })}
+  ${sec(`${sectionHead('Your payout if approved', { id: `${ID}-take` })}
   ${tailorBreakdown(pv.after)}`, { id: `${ID}-take` })}`;
 }
 
-/** The payout card of a completed job: the one display figure ("You take home", D-172), the transfer's state and date, then the
+/** The payout card of a completed job: the one display figure ("Your payout", D-172), the transfer's state and date, then the
     breakdown without its total (the figure above is the total, M6-P-33) and how it went back, inside the same card. */
 const RETURN_DONE = { pickup: 'Picked up at your shop', dropoff: 'Dropped off at ', courier: 'Delivered by Taily courier' };
 function payoutCard(a, t, extra = '') {
@@ -275,8 +275,8 @@ function payoutCard(a, t, extra = '') {
   const how = a.returnOption ?? 'pickup';
   const at = a.history.filter((h) => h.status === 'completed').pop()?.at ?? a.history[a.history.length - 1]?.at;
   const returned = `${how === 'dropoff' ? `${RETURN_DONE.dropoff}${firstOf()}’s` : RETURN_DONE[how]} · ${fmtDay(at)}`;
-  return `<section class="sec sec--first ${ID}__payout" aria-label="You take home">
-  <div class="${ID}__payout-head"><p class="t-caps c-600">YOU TAKE HOME</p>${infoButton('payouts', { label: 'When you get paid' })}</div>
+  return `<section class="sec sec--first ${ID}__payout" aria-label="Your payout">
+  <div class="${ID}__payout-head"><p class="t-caps c-600">YOUR PAYOUT</p>${infoButton('payouts', { label: 'When you get paid' })}</div>
   <p class="t-display ${ID}__payout-amt" data-money>${fmtExact(a.money.payout)}</p>
   <div class="${ID}__payout-state">${statusPill(...pill)}<p class="t-small ${w?.tone === 'error' ? `${ID}__err` : 'c-700'}">${esc(line)}</p></div>${link}
   <div class="${ID}__payout-rows">${tailorBreakdown(a.money, { total: false })}</div>
@@ -299,7 +299,7 @@ function m4View(a, v, key) {
   const fine = `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after you mark the job completed.${approved ? ' Price updated after the fitting.' : ''}</p>`;
   const payout = payoutSec(a, v, fine);
   const banners = key === 'in-progress' && approved
-    ? `<div class="${ID}__banner">${banner({ tone: 'success', text: `${first} approved your changes. You take home ${fmtExact(a.money.payout)}.` })}</div>` : '';
+    ? `<div class="${ID}__banner">${banner({ tone: 'success', text: `${first} approved your changes. Your payout is ${fmtExact(a.money.payout)}.` })}</div>` : '';
   const block = (inner) => sec(inner, { first: true });
   let body;
   switch (key) {
@@ -309,7 +309,7 @@ function m4View(a, v, key) {
     case 'messaged': body = `${priceBlocks(a, pv, key)}${fine}`; break;
     case 'in-progress': body = `${banners}${block(dueCard(a, v))}${who}${work}${payout}`; break;
     case 'ready':
-      body = `${block(visitBlock(returnOffer(a).map((k) => metaRow('', RETURN_LABEL[k], { icon: RETURN_ICON[k] })), { title: 'Return options you offered', flush: true }))}${who}${work}${payout}`; break;
+      body = `${block(visitBlock(returnOffer(a).map((k) => ({ icon: RETURN_ICON[k], value: RETURN_LABEL[k] })), { title: 'Return options you offered', flush: true }))}${who}${work}${payout}`; break;
     case 'returning-pickup':
       body = `${block(visitBlock(placeRows(t.shopName, 'bag', shopLine(t)), { title: 'In-store pickup', flush: true }))}${who}${work}${payout}`; break;
     case 'returning-dropoff':

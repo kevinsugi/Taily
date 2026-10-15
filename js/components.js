@@ -125,7 +125,7 @@ export function navBadges(persona = 'customer') {
    Garment Tile 252:1235.
    ============================================================ */
 
-import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, ICON_HANGER, ICON_PIN, NAV_ICONS, NAV_BACK, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR } from './icons.js';
+import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_RIGHT, ICON_CARD, META_ICONS, VISIT_ICONS, ICON_HANGER, ICON_PIN, NAV_ICONS, NAV_BACK, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR } from './icons.js';
 export { NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR };
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
 import * as DATA from './data.js';
@@ -355,8 +355,18 @@ export function summaryCard({ initials = 'MT', name = 'Marco Tailor', rows = [],
 /* R1-1-C-08: `flush` sits the block at the screen's 20 px gutter (no side padding, rows wrap at full width);
    `action` = HTML for a 44 px text button in the title row (c-pay's "Change time"). */
 export function visitBlock(rows = [], { title = 'Visit details', flush = false, action = '' } = {}) {
-  /* M7 (A5.5): the title is a small caps section head (`action` = HTML aside, e.g. a "Change time" text link); rows sit flat under it */
-  return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${sectionHead(title, { aside: action })}${rows.map((r) => `<span class="visit-block__row">${r}</span>`).join('')}</div>`;
+  /* M7 (A5.5): the title is a small caps section head (`action` = HTML aside, e.g. a "Change time" text link); rows sit flat under it.
+     K-10 (D-235): a row is a plain HTML string (legacy) or a fact object for an "Icon rows" row — see `visitRow`. */
+  return `<div class="visit-block${flush ? ' visit-block--flush' : ''}">${sectionHead(title, { aside: action })}${rows.map((r) => (typeof r === 'string' ? `<span class="visit-block__row">${r}</span>` : visitRow(r))).join('')}</div>`;
+}
+
+/** K-10 (D-235), Option A "Icon rows": one fact = a 20 px line icon (neutral-600, aria-hidden) beside the value (16 / 500 ink, 16 / 600 when
+    `strong`, the date row) with `detail` under it (12 / 400 neutral-600; a string or an array, one line each). `extra` = HTML under the
+    detail (the garment tiles). `value` / `detail` are HTML the caller has escaped. The icon box is one 16-size text line tall, so the icon
+    centres on the first line. */
+export function visitRow({ icon = 'calendar', value = '', detail = '', strong = false, extra = '', cls = '' } = {}) {
+  const lines = (Array.isArray(detail) ? detail : [detail]).filter(Boolean);
+  return `<div class="visit-row${cls ? ` ${cls}` : ''}"><span class="visit-row__icon">${VISIT_ICONS[icon] ?? ''}</span><div class="visit-row__text"><span class="visit-row__value t-body ${strong ? 'w-600' : 'w-500'}">${value}</span>${lines.map((l) => `<span class="visit-row__detail t-small w-400 c-600">${l}</span>`).join('')}${extra}</div></div>`;
 }
 
 /** The Back control (308:3820) — K-06 (D-221): it now lives in the TOP NAV (`navBackButton`), where it replaces the logo; `backButton()`
@@ -1206,6 +1216,15 @@ export function countdown({ expiresAt, now, suffix = 'left', tail = '', line = f
   return `<span class="countdown countdown--${state}${line ? ' countdown--line' : ''}" role="timer" data-countdown data-state="${state}">${text}</span>`;
 }
 
+/**
+ * Wait band — K-11 (D-236), Figma option 3 "Ochre band": the c-request header's one soft warning-bg band, status on the left
+ * and the clock on the right ("2h left · until 12:00 PM"), above the title. `soon` (<= EXPIRING_SOON_MIN) adds a 2 px warning ring.
+ * `status` = a statusPill; `clock` = a `countdown()` (role="timer").
+ */
+export function waitBand({ status = '', clock = '', soon = false } = {}) {
+  return `<div class="wait-band${soon ? ' wait-band--soon' : ''}">${status}<span class="wait-band__clock">${META_ICONS.clock}${clock}</span></div>`;
+}
+
 /* ---------- chat ---------- */
 /**
  * Chat Bubble — sent · sending · failed ("Not sent · Retry") · masked (privacy note under a
@@ -1509,13 +1528,13 @@ export function receiptBlock(a, tailorFirst = '') {
 /** The tailor's breakdown — no courier row (D-04). One order everywhere (D-165, amends D-137): Services, the Taily fee (a negative
     row, "On the $125.00 of services only" — its base), Home-visit fee, Rush fee, then the total. */
 export function tailorBreakdown(q, { total = true } = {}) {
-  /* D-172: the per-job figure is "You take home"; "payout" is the bank transfer. `total: false` = the figure is already the card's hero (M6-P-33). */
+  /* D-172: the per-job figure is "Your payout"; "payout" is the bank transfer. `total: false` = the figure is already the card's hero (M6-P-33). */
   return moneyRows([
     { label: 'Services', cents: q.services },
     { label: 'Taily fee', cents: q.tailyFee, kind: 'negative', caption: `On the ${fmtExact(q.services)} of services only` },
     q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush },
-    total && { label: 'You take home', cents: q.payout, kind: 'total' },
+    total && { label: 'Your payout', cents: q.payout, kind: 'total' },
   ].filter(Boolean));
 }
 
@@ -1676,8 +1695,8 @@ export function textArea({ id, label, value = '', rows = 4, max, helper = '', er
  * line on its own full-width line under the row, aligned with the service name (`data-take`; hidden while null; M6-V-01). `payoutText` = the amount already formatted for its column (money.js `fmtColumn`, D-70); default `fmt(payoutCents)`.
  * states: unchecked · checked, empty · checked with price + payout · error.
  */
-/** "You take home $22.50 · Taily fee −$2.50" (CP-S03; the fee is a deduction, as fmtNeg prints it) — two nowrap halves, so a narrow column breaks at the dot, never inside an amount (D-172). */
-export const takeHtml = (take, fee = '') => `<span class="service-row__part">You take home ${take}${fee ? '\u00a0·' : ''}</span>${fee ? ` <span class="service-row__part">Taily fee −${fee}</span>` : ''}`;
+/** "Your payout $22.50 · Taily fee −$2.50" (CP-S03; the fee is a deduction, as fmtNeg prints it) — two nowrap halves, so a narrow column breaks at the dot, never inside an amount (D-172). */
+export const takeHtml = (take, fee = '') => `<span class="service-row__part">Your payout ${take}${fee ? '\u00a0·' : ''}</span>${fee ? ` <span class="service-row__part">Taily fee −${fee}</span>` : ''}`;
 export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', feeText = '', error = '' } = {}) {
   const takeHidden = payoutCents == null;
   /* caption as a list (garment types) → one nowrap span per item with its " ·" kept inside (no-break space), and a plain
@@ -1816,9 +1835,9 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
  * Request Card — the tailor's inbox ticket (t-home "New requests"). One <button>: avatar + name + "<visit> · <place>" with
- * a countdown (requested) or a "Waiting on <name>" pill (suggested), then the visit time + "n items · n services", then
- * the focal take-home: YOU TAKE HOME / `fmtExact(payoutCents)` / "after the $Y Taily fee". Amounts are cents.
- * States: requested · soon (countdown <= EXPIRING_SOON_MIN → warning ring) · suggested (muted money) · retried ("Sent again").
+ * a "Waiting on <name>" pill (suggested), then the visit time + "n items · n services", then
+ * the focal payout: YOUR PAYOUT / `fmtExact(payoutCents)`. A requested card opens with the K-11 flush timer strip. Amounts are cents.
+ * States: requested · soon (countdown <= EXPIRING_SOON_MIN → error strip) · expired (neutral strip) · suggested (muted money) · retried ("Sent again").
  */
 export function requestCard({ id = '', act = 'open-request', name = '', initials = '', visitLabel = '', place = '', when = '', items = 0, services = 0, payoutCents = 0, feeCents = 0, expiresAt = null, now = null, status = 'requested', waitingOn = '', retries = 0, asked = '', lapseAt = null, garment = '' } = {}) {
   const suggested = status === 'suggested';
@@ -1829,21 +1848,24 @@ export function requestCard({ id = '', act = 'open-request', name = '', initials
   /* D-154: a suggested time lapses (`lapseAt`) — the same clock a request has, so she sees how long Sarah has.
      K4-2-01 (D-219): the long "… for Sarah to answer" clock takes its own line under the visit and place, so it never squeezes them at 320 */
   const right = suggested ? (lapseAt ? countdown({ expiresAt: lapseAt, now, suffix: `for ${esc(waitingOn || 'the customer')} to answer` }) : '') : countdown({ expiresAt, now });
-  const label = `${name}, ${suggested ? `you suggested ${when}` : when}, you take home ${fmtExact(payoutCents)}, ${suggested ? `${waiting}${right ? `, ${right.replace(/<[^>]+>/g, '')}` : ''}` : right.replace(/<[^>]+>/g, '')}`;
-  return `<button type="button" class="request-card card${soon ? ' request-card--soon' : ''}${suggested ? ' request-card--suggested' : ''}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">
-  <span class="request-card__top">
+  /* K-11 (D-236), Option 1 "Flush band": a requested card opens with a full-width strip — clock + "2h left to answer · by 12:00 PM"
+     (warning; error at <= EXPIRING_SOON_MIN; neutral once expired). A suggested card keeps its lapse line under the visit. */
+  const tone = ms == null ? '' : ms <= 0 ? 'expired' : soon ? 'urgent' : 'normal';
+  const strip = !suggested && tone ? `<span class="request-card__strip request-card__strip--${tone}" data-countdown data-state="${tone === 'urgent' ? 'soon' : tone}">${META_ICONS.clock}<span>${tone === 'expired' ? 'Expired' : `${fmtCountdown(ms)} left to answer · by ${fmtTime(expiresAt)}`}</span></span>` : '';
+  const label = `${name}, ${suggested ? `you suggested ${when}` : when}, your payout ${fmtExact(payoutCents)}, ${suggested ? `${waiting}${right ? `, ${right.replace(/<[^>]+>/g, '')}` : ''}` : right.replace(/<[^>]+>/g, '')}`;
+  return `<button type="button" class="request-card card${soon ? ' request-card--soon' : ''}${suggested ? ' request-card--suggested' : ''}${strip ? ' request-card--strip' : ''}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">
+  ${strip}<span class="request-card__top">
     ${avatar({ initials, size: 'sm' })}
     <span class="request-card__who">
       <span class="request-card__name t-body w-600">${esc(name)}${retries > 0 ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}</span>
       <span class="request-card__where t-small c-600"><span class="request-card__visit">${esc(visitLabel)}</span><span class="request-card__place">${esc(String(place).replace(/\s·\s/g, '\u2009'))}</span></span>
       ${suggested && right ? `<span class="request-card__lapse">${right}</span>` : ''}
     </span>
-    ${!suggested && right ? `<span class="request-card__status">${right}</span>` : ''}
   </span>
   <span class="request-card__work t-small c-700">${pill ? `<span class="request-card__pill">${pill}</span>` : ''}<span class="request-card__when w-600">${suggested ? 'You suggested ' : ''}${esc(when)}</span>${asked ? `<span class="c-600">${esc(asked)}</span>` : ''}<span class="request-card__count">${garment ? garmentIcon(garment, { size: 'row' }) : ''}<span>${plural(items, 'item')} · ${plural(services, 'service')}</span></span></span>
   <span class="request-card__pay" data-money>
-    <span class="t-caps c-600">You take home</span>
-    <span class="request-card__take"><span class="request-card__amount t-h2">${fmtExact(payoutCents)}</span><span class="request-card__fee t-small c-600">after the ${fmtExact(feeCents)} Taily fee</span></span>
+    <span class="t-caps c-600">Your payout</span>
+    <span class="request-card__take"><span class="request-card__amount t-h2">${fmtExact(payoutCents)}</span></span>
   </span>
 </button>`;
 }

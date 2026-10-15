@@ -106,7 +106,7 @@ function view(s) {
     const post = a.status !== 'confirmed';
     return apptRow({
       id: a.id, name: customerName(a), initials: customerInitials(), when: post ? sinceLine(a) : fmtWhen(a.slot.start), place: shortPlace(requestView(a).place),
-      status: p.status, pillLabel: p.label, amountText: money(takeHome(a)), amountCaption: pending(a) ? `If ${s.customer.first} approves` : 'You take home',
+      status: p.status, pillLabel: p.label, amountText: money(takeHome(a)), amountCaption: pending(a) ? `If ${s.customer.first} approves` : 'Your payout',
     });
   }).join('');
   const rows = rowsOf(upcoming);

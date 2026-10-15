@@ -225,7 +225,7 @@ export const FLOWS_c_pay = [
 export const FLOWS_c_request = [
   { key: 'c-request', screen: 'c-request', group: 'M1 · Booking', title: 'Request sent', note: 'Waiting for Amara: 2 hours on the clock, deposit on hold',
     setup: (S) => { S.driveTo('requested'); },
-    expect: { has: ['Request sent', 'Waiting for Amara', '2h left', 'has until 12:00 PM to reply', 'On hold', fmtExact(SCENARIOS.seed.deposit), 'Message Amara'] } },
+    expect: { has: ['Request sent', 'Waiting for Amara', '2h left · until 12:00 PM', 'We’ll text you the moment Amara replies.', 'On hold', fmtExact(SCENARIOS.seed.deposit), 'Message Amara'] } },
   { key: 'c-request--withdraw', screen: 'c-request', group: 'M1 · Booking', title: 'Withdraw this request? — sheet', note: 'Releases the hold right away',
     setup: (S) => { S.driveTo('requested'); },
     click: ['[data-act="withdraw"]'],

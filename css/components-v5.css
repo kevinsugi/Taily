@@ -392,6 +392,15 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .meta-row__glyph { flex: 0 0 var(--glyph-box); display: inline-flex; align-items: center; justify-content: center; }   /* R1-1-C-13: one glyph column, so every text line starts at the same x */
 .visit-block--flush { padding-inline: 0; }
 .visit-block--flush .visit-block__row { white-space: pre-wrap; }
+/* K-10 (D-235): Option A "Icon rows" — rows 16 apart, icon box = one 16-size text line so the icon centres on the first line, value + detail 2 apart */
+.visit-row { display: flex; align-items: flex-start; gap: var(--space-12); }
+.visit-row + .visit-row, .visit-row + .visit-block__row, .visit-block__row + .visit-row { margin-top: var(--space-8); }   /* + the block's tight gap = 16 between rows */
+.visit-row__icon { flex: 0 0 var(--glyph-box); display: inline-flex; align-items: center; justify-content: center; height: calc(var(--size-16) * var(--lh-16)); color: var(--neutral-600); }
+.visit-row__icon svg { width: var(--glyph-box); height: var(--glyph-box); flex: 0 0 auto; }
+.visit-row__text { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); min-width: 0; flex: 1 1 auto; }
+.visit-row__value { color: var(--ink); overflow-wrap: break-word; max-width: 100%; }
+.visit-row__detail { display: block; overflow-wrap: break-word; max-width: 100%; }
+.visit-row__text .garment-strip { margin-top: var(--space-4); padding-block: 0; }
 .visit-block__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); }
 .filter-pill__value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .filter-pill__box .select-time__chevron { flex-shrink: 0; }
@@ -580,7 +589,21 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
   display: flex; flex-direction: column;   /* M7-2-T-01: the shared .card is block; the 12 px gap between top / work / pay needs flex */
   align-items: stretch; justify-content: flex-start; gap: var(--space-12); min-height: 44px; text-align: left;
 }
-.request-card--soon { box-shadow: inset 0 0 0 2px var(--warning); }
+.request-card--soon:not(.request-card--strip) { box-shadow: inset 0 0 0 2px var(--warning); }
+/* K-11 (D-236), Option 1 "Flush band": the timer is a full-width strip across the top of the card (the card's overflow clips its corners);
+   warning by default, error at <= EXPIRING_SOON_MIN, neutral once expired. The old top-right clock and the soon ring are gone. */
+.request-card--strip { overflow: hidden; }
+.request-card__strip { display: flex; align-items: center; gap: var(--space-8); margin: calc(-1 * var(--space-16)) calc(-1 * var(--space-16)) 0; padding: var(--space-12) var(--space-16); font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; background: var(--warning-bg); color: var(--warning-ink); }
+.request-card__strip .icon-16 { flex-shrink: 0; }
+.request-card__strip--urgent { background: var(--error-bg); color: var(--error-ink); }
+.request-card__strip--expired { background: var(--neutral-100); color: var(--neutral-600); }
+
+/* K-11 (D-236), Option 3 "Ochre band": c-request's status + clock in one soft band above the title; <= EXPIRING_SOON_MIN adds a 2 px warning ring */
+.wait-band { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-4) var(--space-12); align-self: stretch; box-sizing: border-box; margin-bottom: var(--space-12); padding: var(--space-12) var(--space-16); border-radius: var(--radius-md); background: var(--warning-bg); }
+.wait-band--soon { box-shadow: inset 0 0 0 2px var(--warning); }
+.wait-band__clock { display: inline-flex; align-items: center; gap: var(--space-8); color: var(--warning-ink); }
+.wait-band__clock .countdown { color: var(--warning-ink); }
+.wait-band .status { color: var(--warning-ink); }
 .request-card__top { display: flex; align-items: flex-start; gap: var(--space-12); }
 .request-card__top .avatar { flex-shrink: 0; }
 .request-card__who { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2); flex: 1 1 0; min-width: 0; }
@@ -592,7 +615,6 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .request-card__lapse .countdown--normal { color: var(--status-pending-ink); }
 .request-card__count { display: inline-flex; align-items: center; gap: var(--space-8); }
 .request-card:not(.request-card--suggested) .countdown--normal { color: var(--accent-ink); }   /* CR-4c: the clock is the card's call to act */
-.request-card__status { flex: 0 0 auto; display: inline-flex; align-items: center; min-height: 20px; }
 .request-card__work { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); font-variant-numeric: tabular-nums; }
 .request-card__when { color: var(--ink); }
 .request-card__pill { display: inline-flex; margin-bottom: var(--space-4); }   /* the suggested pill sits in its own row (R3-1-T-03) */
@@ -1103,7 +1125,6 @@ a.cta-small { text-decoration: none; }
   .toggle-row__label { overflow-wrap: break-word; }   /* a long label wraps between words beside its 52 px toggle (break-word keeps whole words: min-content is the longest word) */
   /* the appointment-like cards: the countdown / photo stack drop under the name */
   .request-card__top, .request-card__name { flex-wrap: wrap; }
-  .request-card__status { flex-basis: 100%; }
   .garment-head { flex-wrap: wrap; }
   /* labels may wrap; only the amount stays whole */
   .rush-tier { white-space: normal; }

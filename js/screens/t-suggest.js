@@ -30,7 +30,7 @@ function priceLines(a, iso) {
   const turn = p.tier > 0
     ? `${p.days <= 0 ? 'The same day as' : `${p.days} ${p.days === 1 ? 'day' : 'days'} before`} ${sarah}’s need-by date. ${p.rush > 0 ? `The ${fmtExact(p.rush)} rush fee stays as booked.` : 'No rush fee is added to this request.'}`
     : '';
-  return `<p class="t-small c-600 ${ID}__same" data-money>You take home ${fmtExact(p.payout)}${less}.</p>${turn ? `<p class="t-small w-600 c-700 ${ID}__turn">${esc(turn)}</p>` : ''}`;
+  return `<p class="t-small c-600 ${ID}__same" data-money>Your payout ${fmtExact(p.payout)}${less}.</p>${turn ? `<p class="t-small w-600 c-700 ${ID}__turn">${esc(turn)}</p>` : ''}`;
 }
 /** The picked slot, kept only while it is still one of her open times. */
 const pickedOf = (slots) => (slots.includes(ui().slot) ? ui().slot : slots[0] ?? null);

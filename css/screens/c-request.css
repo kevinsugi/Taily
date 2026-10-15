@@ -1,16 +1,11 @@
-/* c-request — C6/C7 every outcome of a request. M7: sections via .sec / .page-actions; the clock is a .t-figure. */
+/* c-request — C6/C7 every outcome of a request. M7: sections via .sec / .page-actions; the clock is the wait band (K-11). */
 .c-request { gap: 0; padding-bottom: var(--space-40); }
-.c-request__clock { gap: var(--space-4); }
-.c-request__clock .countdown { font: inherit; color: var(--ink); letter-spacing: inherit; font-variant-numeric: tabular-nums lining-nums; }
-.c-request__clock .countdown--soon { color: var(--warning-ink); }
-.c-request__clock .countdown--expired { color: var(--error-ink); }
 .c-request__note { margin: var(--space-4) 0 0; }
 /* the countdown caption, the hold note and the try-again hint never leave one word alone */
-.c-request__clock .t-small, .c-request__note, .c-request__try .t-small, .c-request__passed { text-wrap: pretty; }
+.c-request__note, .c-request__try .t-small, .c-request__passed { text-wrap: pretty; }
 .c-request-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
 .c-request-sheet p { margin: 0; }
 
-.c-request__soon { color: var(--warning-ink); font-weight: 500; }
 /* the suggested time: the one focal fact, flat on the linen */
 .c-request__time { gap: var(--space-4); }
 .c-request__when { font-variant-numeric: lining-nums tabular-nums; }

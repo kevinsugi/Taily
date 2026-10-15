@@ -1,7 +1,7 @@
 /* ============================================================
    t-request — T2/T3 The request card (M3-spec §C1). Everything
    Amara needs to decide in ninety seconds, then Accept · Suggest
-   time · Decline with one thumb. Focal: "You take home" (display).
+   time · Decline with one thumb. Focal: "Your payout" (display).
    States: requested (◆) · suggested · expired · declined.
    Privacy (D-74): "Sarah C." and "Williamsburg · 11211" until she
    accepts. Which appointment: focusAppt (D-72).
@@ -26,27 +26,28 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 /* ---------- blocks ---------- */
 function takeHome(v, { muted = false, note = '', cents = v.payout } = {}) {
-  return `<section class="${ID}__take${muted ? ` ${ID}__take--muted` : ''}" aria-label="What you take home">
-  <div class="${ID}__take-head"><p class="t-caps c-600">${muted ? 'You would have taken home' : 'You take home'}</p>${muted ? '' : infoButton('fee', { label: 'The Taily fee' })}</div>
+  return `<section class="${ID}__take${muted ? ` ${ID}__take--muted` : ''}" aria-label="Your payout">
+  <div class="${ID}__take-head"><p class="t-caps c-600">${muted ? 'Your payout would have been' : 'Your payout'}</p>${muted ? '' : infoButton('fee', { label: 'The Taily fee' })}</div>
   <p class="${ID}__amount t-display w-600" data-money>${fmtExact(cents)}</p>
   ${muted ? '' : `<p class="t-body c-700" data-money>after the ${fmtExact(v.tailyFee)} Taily fee</p>`}
   ${note ? `<p class="t-small c-600">${note}</p>` : ''}
 </section>`;
 }
 
-/** "Your take-home" (R3-1-T-04, D-172): the breakdown sits after the work, as on t-job, so the visit is above the fold. */
+/** "Your payout" (R3-1-T-04, D-172): the breakdown sits after the work, as on t-job, so the visit is above the fold. */
 const payoutSection = (v, money = v.money) => `<section class="sec" aria-labelledby="${ID}-payout">
-  ${sectionHead('Your take-home', { id: `${ID}-payout` })}
+  ${sectionHead('Your payout', { id: `${ID}-payout` })}
   ${tailorBreakdown(money)}
 </section>`;
 
 function visitSection(a, v, { title, asked = '', addressNote = '', start = a.slot.start, end = v.whenEnd } = {}) {
-  const rows = [`<span class="t-figure">${esc(title)}</span>`];
-  if (asked) rows.push(asked);
   const days = dayDiff(start, a.job.needBy);
-  rows.push(`${esc(v.visitLabel)} · ${v.minutes} min, until ${esc(end)}`);
-  rows.push(`<span class="${ID}__place">${esc(v.place)}</span>${addressNote ? `<span class="${ID}__cap t-small c-600">${esc(addressNote)}</span>` : ''}`);
-  rows.push(`Needed by <span class="nb">${esc(v.needBy)}</span> · ${plural(days, 'day', 'days')} after the visit`);
+  /* K-10 (D-235): icon rows — calendar (date + length), map-pin (place), clock (needed by) */
+  const rows = [
+    { icon: 'calendar', value: esc(title), strong: true, detail: [...(asked ? [asked] : []), `${esc(v.visitLabel)} · ${v.minutes} min, until ${esc(end)}`] },
+    { icon: 'map-pin', value: `<span class="${ID}__place">${esc(v.place)}</span>`, detail: addressNote ? esc(addressNote) : '' },
+    { icon: 'clock', value: `Needed by <span class="nb">${esc(v.needBy)}</span>`, detail: `${plural(days, 'day', 'days')} after the visit` },
+  ];
   return `<section class="sec ${ID}__visit">${visitBlock(rows, { title: 'The visit', flush: true })}</section>`;
 }
 

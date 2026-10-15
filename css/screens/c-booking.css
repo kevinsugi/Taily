@@ -6,9 +6,8 @@
 .c-booking__policy { margin: var(--space-4) 0 0; text-wrap: pretty; }
 .c-booking__late, .page-actions > p { text-wrap: pretty; }
 .c-booking__late { margin: 0; text-align: center; }
-.c-booking .visit-block__row .t-figure { display: block; }
 /* a cancelled visit: the old time stays, dimmed */
-.c-booking--cancelled .visit-block__row, .c-booking--cancelled .visit-block__row .t-figure { color: var(--neutral-600); }
+.c-booking--cancelled .visit-block__row, .c-booking--cancelled .visit-row__value { color: var(--neutral-600); }
 .c-booking-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
 .c-booking-sheet p { margin: 0; }
 .c-booking-sheet__wheel { display: flex; justify-content: center; }

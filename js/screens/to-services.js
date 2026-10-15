@@ -1,6 +1,6 @@
 /* ============================================================
    to-services — O2 Services and prices (M2-spec §C1). Focal: the
-   service list with the live "You take home $X · Taily fee −$Y" under each price (the
+   service list with the live "Your payout $X · Taily fee −$Y" under each price (the
    M2 signature: what she takes home after the Taily fee). Two
    modes (D-56): onboarding (stepper + Next) and edit (Shop chrome
    + Save changes). Draft = state.ui['to-services'].draft (D-34);
@@ -53,7 +53,7 @@ const selectedText = (d) => `${ticked(d).length} selected`;
 const listed = (d) => ticked(d).filter((id) => goodPrice(d.prices[id]));
 const leadText = (d) => { const n = listed(d).length; return n ? `${n} ${n === 1 ? 'service' : 'services'} on your profile` : ''; };
 const NONE_NOTE = 'Pick at least one service to continue.';
-/** One precision for every "You take home" and "Taily fee" in the list (D-70). */
+/** One precision for every "Your payout" and "Taily fee" in the list (D-70). */
 const takeFmt = (d) => fmtColumn(ticked(d).flatMap((id) => [takeCents(d.prices[id]), feeCents(d.prices[id])]));
 
 /** D-172, M6-T-07: the fee in dollars on a round example, said once under the lead; each row below spells out its own. */
@@ -156,7 +156,7 @@ function wire(root) {
     }
     note.textContent = reason; btn.setAttribute('aria-describedby', note.id);
   };
-  /* every "You take home" and fee in the list shares one precision, so a change on one row repaints them all (D-70) */
+  /* every "Your payout" and fee in the list shares one precision, so a change on one row repaints them all (D-70) */
   const paintTakes = () => {
     const f = takeFmt(d);
     ticked(d).forEach((id) => {

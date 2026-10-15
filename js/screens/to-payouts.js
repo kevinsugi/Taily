@@ -68,7 +68,7 @@ function feeCard() {
   /* M7: flat. The sentence leads; the other three points live in the fee sheet (ⓘ), one line stays */
   return `<section class="sec ${ID}__fee" aria-labelledby="${ID}-fee-h">
   ${sectionHead('The Taily fee', { id: `${ID}-fee-h`, aside: infoButton('fee', { label: 'The Taily fee' }) })}
-  <p class="t-body w-600 ${ID}__sentence" data-money>On ${fmtExact(c)} of services, Taily keeps ${fmtExact(tailyFeeFor(c))} and you take home ${fmtExact(payoutFor({ services: c }))}.</p>
+  <p class="t-body w-600 ${ID}__sentence" data-money>On ${fmtExact(c)} of services, Taily keeps ${fmtExact(tailyFeeFor(c))} and your payout is ${fmtExact(payoutFor({ services: c }))}.</p>
   <p class="t-small c-700 ${ID}__points">Home-visit and rush fees are yours in full.</p>
 </section>`;
 }

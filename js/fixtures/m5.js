@@ -83,7 +83,7 @@ export const FLOWS_t_payout = [
     setup: (S) => { TE_C.earningsTo('paid'); TE_first(S); },
     get expect() {
       const sc = TE_SC().seed;
-      return { has: ['Your payout', 'Paid', 'You take home', TE_exact(sc.payout), TE_exact(sc.services), TE_neg(sc.tailyFee), TE_exact(sc.homeFee), 'of services only', 'Open the job', TE_bank()], sel: '.money-rows' };
+      return { has: ['Your payout', 'Paid', 'Your payout', TE_exact(sc.payout), TE_exact(sc.services), TE_neg(sc.tailyFee), TE_exact(sc.homeFee), 'of services only', 'Open the job', TE_bank()], sel: '.money-rows' };
     } },
   { key: 't-payout--kept', screen: 't-payout', group: 'M5 · Earnings', title: 'Payout — deposit kept', note: 'A late cancellation: the kept deposit is the whole payout, no Taily fee',
     setup: (S) => { TE_C.earningsTo('kept'); TE_first(S); },

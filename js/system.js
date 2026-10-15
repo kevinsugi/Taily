@@ -262,7 +262,7 @@ function pushNewRequests(root, { go } = {}) {
   const left = fmtCountdown(toDate(a.expiresAt).getTime() - now());
   pushBanner({
     title: `New request · ${v.customer.name}`,
-    body: `${v.visitLabel} ${fmtDay(a.slot.start)} · You take home ${fmtExact(v.payout)} · ${left} to reply`,
+    body: `${v.visitLabel} ${fmtDay(a.slot.start)} · Your payout ${fmtExact(v.payout)} · ${left} to reply`,
   }, root);
   root.querySelector('.push-banner')?.addEventListener('click', () => { setFocus(a.id); go?.('t-request'); });
 }

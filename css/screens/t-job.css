@@ -25,7 +25,6 @@
 .t-job__delta + .t-job__quote .note-quote { margin-top: var(--rhythm-block); }
 .t-job .sec > .courier-card { margin: 0; }
 /* R4-2-T-09: a return block's address sits on the place name's text edge (glyph column 20 + gap 8), regular weight */
-.t-job__addr { display: block; padding-left: calc(var(--space-20) + var(--space-8)); color: var(--neutral-700); font-weight: 400; }
 .t-job__payout { gap: var(--space-4); }   /* flat hero: YOU TAKE HOME, the figure, its state, then the breakdown */
 .t-job__payout p { margin: 0; }
 .t-job__payout-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); min-height: 16px; }

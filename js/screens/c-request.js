@@ -9,7 +9,7 @@
 import { register, render as go, currentScreen, previousScreen } from '../app.js';
 import { state, T, tailorById, now, msLeft, suggestLapseAt } from '../state.js';
 import {
-  chrome, headingRow, statusHero, countdown, visitBlock, timeline, customerBreakdown, moneyRows, banner, cta,
+  chrome, headingRow, statusHero, statusPill, waitBand, countdown, visitBlock, timeline, customerBreakdown, moneyRows, banner, cta,
   emptyState, sheetOverlay, toast, esc, noteQuote, sectionHead, infoButton, textLink, garmentStrip,
 } from '../components.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
@@ -41,12 +41,12 @@ function visitRows(a, t) {
     : [t.shopName, t.shop?.street].filter(Boolean).join(', ');
   const items = a.job.garments.length;
   const services = a.job.garments.reduce((n, g) => n + g.services.length, 0);
+  const label = VISIT_LABEL.customer[a.job.visitType];
   return [
-    fmtWhen(a.slot.start),
-    VISIT_LABEL.customer[a.job.visitType],
-    esc(where),
-    /* M7-2-C-04 (D-202): the booked garments as illustrations, then the count */
-    garmentStrip(a.job.garments.map((g) => g.type), `${items} ${items === 1 ? 'item' : 'items'} · ${services} ${services === 1 ? 'service' : 'services'}`),
+    { icon: 'calendar', value: fmtWhen(a.slot.start), strong: true, detail: `${label} · ${VISIT_MINUTES[a.job.visitType]} min` },
+    { icon: home ? 'home' : 'shop', value: esc(where) },
+    /* M7-2-C-04 (D-202): the booked garments as illustrations, then the count (K-10: the count is the value, the tiles sit under it) */
+    { icon: 'hanger', value: `${items} ${items === 1 ? 'item' : 'items'} · ${services} ${services === 1 ? 'service' : 'services'}`, extra: garmentStrip(a.job.garments.map((g) => g.type)) },
   ];
 }
 
@@ -72,18 +72,18 @@ const releasedRow = (a) => `<section class="sec">${sectionHead('Price')}
 function requestedBody(a, t, first) {
   const soon = msLeft(a) <= POLICY.EXPIRING_SOON_MIN * 60000;
   const late = cancelTerms(a, now()).window === 'late';
+  /* K-11 (D-236), Option 3 "Ochre band": status + clock + deadline in one band, then the title and the text promise (the band rides in
+     the heading's lead line; the countdown keeps role="timer"). */
+  const band = waitBand({
+    status: statusPill('requested', 'Request sent'),
+    clock: countdown({ expiresAt: a.expiresAt, now: now(), tail: `until ${fmtTime(a.expiresAt)}` }),
+    soon,
+  });
   const hero = statusHero({
-    variant: 'requested', pill: 'requested', pillLabel: 'Request sent', title: `Waiting for ${esc(first)}`,
+    variant: 'requested', pill: false, title: `Waiting for ${esc(first)}`,
     body: `We’ll text you the moment ${esc(first)} replies.`,
   });
-  const caption = soon
-    ? `<span class="t-small c-request__soon">${esc(first)} has until ${fmtTime(a.expiresAt)} to reply.</span>`
-    : `<span class="t-small c-600">${esc(first)} has until ${fmtTime(a.expiresAt)} to reply</span>`;
-  return `${heroRow(hero)}
-  <section class="sec sec--first c-request__clock" aria-label="Time left to reply">
-    <span class="t-figure">${countdown({ expiresAt: a.expiresAt, now: now() })}</span>
-    ${caption}
-  </section>
+  return `${headingRow(hero, { back: backTarget() === 'c-bookings', status: band })}
   ${yourRequest(visitRows(a, t))}
   <section class="sec">${sectionHead('What happens next')}
   ${timeline([
@@ -111,7 +111,7 @@ function suggestedBody(a, t, first, busy) {
   </section>
   <p class="t-small c-600 c-request__holding">${esc(first)} is holding this time until ${fmtWhen(suggestLapseAt(a))}</p>
   ${ui().error === 'slot-passed' ? `<div class="c-request__alert c-request__alert--top">${banner({ tone: 'error', text: RETRY_ERRORS['slot-passed'].text })}</div>` : ''}
-  ${yourRequest([esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`), ...visitRows(a, t).slice(2)])}
+  ${yourRequest([{ icon: 'calendar', value: esc(VISIT_LABEL.customer[a.job.visitType]), detail: `${VISIT_MINUTES[a.job.visitType]} min` }, ...visitRows(a, t).slice(1)])}
   ${priceSection(a, first)}
   <div class="page-actions">
     ${cta('Accept new time', { busy: busy === 'accept-time', busyLabel: 'Booking…', disabled: !!busy && busy !== 'accept-time', attrs: 'data-act="accept-time"' })}

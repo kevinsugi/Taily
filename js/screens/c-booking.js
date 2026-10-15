@@ -43,12 +43,13 @@ function visitRows(a, t) {
   const lines = a.lines?.length ? a.lines : null;
   const items = lines ? new Set(lines.map((l) => l.garmentId)).size : a.job.garments.length;
   const services = lines ? lines.length : a.job.garments.reduce((n, g) => n + g.services.length, 0);
+  const home = a.job.visitType === 'home';
+  const types = lines ? [...new Map(lines.map((l) => [l.garmentId, l.garmentType])).values()] : a.job.garments.map((g) => g.type);
   return [
-    `<span class="t-figure">${esc(fmtWhen(a.slot.start))}</span>`,
-    esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`),
-    esc(whereOf(a, t)),
-    /* M7-2-C-04 (D-202): the booked garments as illustrations, then the count */
-    garmentStrip(lines ? [...new Map(lines.map((l) => [l.garmentId, l.garmentType])).values()] : a.job.garments.map((g) => g.type), `${plural(items, 'item')} · ${plural(services, 'service')}`),
+    { icon: 'calendar', value: esc(fmtWhen(a.slot.start)), strong: true, detail: esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`) },
+    { icon: home ? 'home' : 'shop', value: esc(whereOf(a, t)) },
+    /* M7-2-C-04 (D-202): the booked garments as illustrations; K-10: the count is the value, the tiles sit under it */
+    { icon: 'hanger', value: `${plural(items, 'item')} · ${plural(services, 'service')}`, extra: garmentStrip(types) },
   ];
 }
 /** A group on the page (A3): `<section class="sec">`. */
@@ -217,13 +218,13 @@ function dropoffAddress() {
 function returnBlock(a, t, first) {
   const shopName = esc(t.shopName);
   if (a.returnOption === 'dropoff') {
-    return sec(visitBlock([esc(dropoffAddress())], { title: 'Home drop-off', flush: true }));
+    return sec(visitBlock([{ icon: 'home', value: esc(dropoffAddress()) }], { title: 'Home drop-off', flush: true }));
   }
   if (a.returnOption === 'courier' && a.courier) {
     return sec(courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: returnAddress(), note: `Included in the ${fmtExact(a.payments.balance.cents)} you paid when it was ready.` }));
   }
   const hours = shopHoursLine(t);
-  const rows = [metaRow('', shopName, { icon: 'bag' }), esc(`${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim()), ...(hours ? [esc(hours)] : [])];
+  const rows = [{ icon: 'bag', value: shopName, detail: [esc(`${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim()), ...(hours ? [esc(hours)] : [])] }];
   const f = esc(first);
   return `${sec(visitBlock(rows, { title: 'In-store pickup', flush: true }))}
   <p class="t-small c-600 ${ID}__policy">${f} marks the order completed when you have it.</p>`;

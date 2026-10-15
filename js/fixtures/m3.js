@@ -98,17 +98,17 @@ const c1Both = (S) => { S.driveTo('confirmed'); c1AddRequest({ after: C1_AFTER }
 const c1Fee = `after the ${c1Exact(C1_SC.seed.tailyFee)} Taily fee`;
 
 export const FLOWS_t_home = [
-  { key: 't-home', screen: 't-home', group: 'M3 · Tailor', title: 'Home — a request and an upcoming visit', note: 'New request with the take-home, 2h left, a visit booked below (Sarah Chen on both once she is accepted, D-159)',
+  { key: 't-home', screen: 't-home', group: 'M3 · Tailor', title: 'Home — a request and an upcoming visit', note: 'New request with the payout, 2h left, a visit booked below (Sarah Chen on both once she is accepted, D-159)',
     setup: c1Both,
-    expect: { has: ['Hi, Amara', 'Tuesday, Oct 13 · 1 new request, 1 upcoming visit', 'NEW REQUESTS', 'Sarah Chen', 'You take home', c1Exact(C1_SC.seed.payout), c1Fee, '2h left', 'UPCOMING', 'Sarah Chen', c1When(C1_SLOT)], sel: '.request-card' } },
+    expect: { has: ['Hi, Amara', 'Tuesday, Oct 13 · 1 new request, 1 upcoming visit', 'NEW REQUESTS', 'Sarah Chen', 'Your payout', c1Exact(C1_SC.seed.payout), '2h left', 'UPCOMING', 'Sarah Chen', c1When(C1_SLOT)], not: c1Fee, sel: '.request-card' } },
   { key: 't-home--empty', screen: 't-home', group: 'M3 · Tailor', title: 'Home — nothing yet', note: 'No requests, nothing booked: Check your hours',
-    expect: { has: ['No requests yet', 'Check your hours'], not: 'You take home', sel: '[data-empty="home"]' } },
+    expect: { has: ['No requests yet', 'Check your hours'], not: 'Your payout', sel: '[data-empty="home"]' } },
   { key: 't-home--push-denied', screen: 't-home', group: 'M3 · Tailor', title: 'Home — notifications off', note: 'Warning banner with Open Settings, requests still listed',
     setup: (S) => { c1Both(S); S.sim.push = 'denied'; },
     expect: { has: ['Notifications are off', 'Open Settings', 'NEW REQUESTS'], sel: '[data-act="push-settings"]' } },
   { key: 't-home--push', screen: 't-home', group: 'M3 · Tailor', title: 'Home — a push card for a new request', note: 'Notifications on: the card over the status bar, copy from the request (D-167)',
     setup: (S) => { S.driveTo('requested'); S.sim.push = 'granted'; },
-    expect: { has: ['New request · Sarah C.', 'Home visit', 'You take home', c1Exact(C1_SC.seed.payout), '2h to reply'], sel: '[data-act="push-open"]' } },
+    expect: { has: ['New request · Sarah C.', 'Home visit', 'Your payout', c1Exact(C1_SC.seed.payout), '2h to reply'], sel: '[data-act="push-open"]' } },
   /* extras beyond the spec table: states the screen draws that the table did not key */
   { key: 't-home--no-requests', screen: 't-home', group: 'M3 · Tailor', title: 'Home — only an upcoming visit', note: 'No new requests right now, the booked visit below',
     setup: (S) => { S.driveTo('confirmed'); },
@@ -116,9 +116,9 @@ export const FLOWS_t_home = [
   { key: 't-home--no-upcoming', screen: 't-home', group: 'M3 · Tailor', title: 'Home — only a request', note: 'Nothing booked yet under Upcoming',
     setup: (S) => { S.driveTo('requested'); },
     expect: { has: ['NEW REQUESTS', 'Sarah C.', 'Nothing upcoming.'], not: 'Nothing booked yet', sel: '.request-card' } },
-  { key: 't-home--soon', screen: 't-home', group: 'M3 · Tailor', title: 'Home — reply window closing', note: '10 minutes left: the card gets the warning ring',
+  { key: 't-home--soon', screen: 't-home', group: 'M3 · Tailor', title: 'Home — reply window closing', note: '10 minutes left: the card’s strip turns urgent (error tint)',
     setup: (S) => { S.driveTo('requested'); S.advanceClock(110); },
-    expect: { has: ['10m left'], sel: '.request-card--soon' } },
+    expect: { has: ['10m left to answer · by 12:00 PM'], sel: '.request-card__strip--urgent' } },
   { key: 't-home--suggested', screen: 't-home', group: 'M3 · Tailor', title: 'Home — waiting on Sarah', note: 'A suggested time: muted money, a countdown to when it lapses (D-154)',
     setup: (S) => { S.driveTo('suggested'); },
     expect: { has: ['Waiting on Sarah', 'You suggested', c1When(C1_SUGGESTED), 'Sarah asked for', '1 waiting on Sarah', c1Exact(C1_SC.seed.payout), 'for Sarah to answer'], not: ['1 new request'], sel: '.request-card--suggested', noClip: ['.request-card__name', '.request-card__visit', '.request-card__place', '.request-card__lapse'] } },
@@ -134,10 +134,10 @@ export const FLOWS_t_home = [
 ];
 
 export const FLOWS_t_request = [
-  { key: 't-request', screen: 't-request', group: 'M3 · Tailor', title: 'Request — decide in one tap', note: 'Sarah C., Williamsburg only, take-home, the work, Accept · Suggest time · Decline',
+  { key: 't-request', screen: 't-request', group: 'M3 · Tailor', title: 'Request — decide in one tap', note: 'Sarah C., Williamsburg only, payout, the work, Accept · Suggest time · Decline',
     setup: (S) => { S.driveTo('requested'); },
-    expect: { has: ['New request', 'Sarah C.', '2h left', 'answer by 12:00 PM', 'YOU TAKE HOME', c1Exact(C1_SC.seed.payout), c1Fee, c1Neg(C1_SC.seed.tailyFee), c1When(C1_SLOT), 'Williamsburg · 11211', 'Full address after you accept', 'Needed by Fri, Oct 23', c1Exact(C1_SC.seed.services), 'Accept', 'Suggest time', 'Decline'], not: ['145 N 7th St', 'Chen'] } },
-  { key: 't-request--rush', screen: 't-request', group: 'M3 · Tailor', title: 'Request — a rush job', note: 'Need-by one day after the visit: the rush fee is in her take-home and shown on its own line',
+    expect: { has: ['New request', 'Sarah C.', '2h left', 'answer by 12:00 PM', 'YOUR PAYOUT', c1Exact(C1_SC.seed.payout), c1Fee, c1Neg(C1_SC.seed.tailyFee), c1When(C1_SLOT), 'Williamsburg · 11211', 'Full address after you accept', 'Needed by Fri, Oct 23', c1Exact(C1_SC.seed.services), 'Accept', 'Suggest time', 'Decline'], not: ['145 N 7th St', 'Chen'] } },
+  { key: 't-request--rush', screen: 't-request', group: 'M3 · Tailor', title: 'Request — a rush job', note: 'Need-by one day after the visit: the rush fee is in her payout and shown on its own line',
     setup: (S) => { S.driveTo('requested', { rush: true }); },
     get expect() { return { has: ['Rush fee', c1Exact(C1_SC.rush.rush), c1Exact(C1_SC.rush.payout), c1Neg(C1_SC.rush.tailyFee)], sel: '.money-rows' }; } },
   { key: 't-request--soon', screen: 't-request', group: 'M3 · Tailor', title: 'Request — expires soon', note: '10 minutes left: the strip turns warning',
@@ -145,7 +145,7 @@ export const FLOWS_t_request = [
     expect: { has: ['10m left', 'answer by'], sel: '[data-countdown][data-state="soon"]' } },
   { key: 't-request--expired', screen: 't-request', group: 'M3 · Tailor', title: 'Request — expired', note: 'Hold released, Sarah can send it again; no decision buttons',
     setup: (S) => { S.driveTo('expired'); },
-    expect: { has: ['This request expired', 'Sarah can send it again', 'Back to Home', 'YOU WOULD HAVE TAKEN HOME'], not: ['Suggest time', 'Decline', 'Back to requests'] } },
+    expect: { has: ['This request expired', 'Sarah can send it again', 'Back to Home', 'YOUR PAYOUT WOULD HAVE BEEN'], not: ['Suggest time', 'Decline', 'Back to requests'] } },
   { key: 't-request--decline', screen: 't-request', group: 'M3 · Tailor', title: 'Decline this request? — sheet', note: 'Optional reason chips, red Decline request, Keep request',
     setup: (S) => { S.driveTo('requested'); },
     click: ['[data-act="decline"]'],
@@ -186,12 +186,12 @@ export const FLOWS_t_request = [
 ];
 
 export const FLOWS_t_suggest = [
-  { key: 't-suggest', screen: 't-suggest', group: 'M3 · Tailor', title: 'Suggest another time', note: 'Her open times only; "Sarah sees" follows the wheel; same take-home',
+  { key: 't-suggest', screen: 't-suggest', group: 'M3 · Tailor', title: 'Suggest another time', note: 'Her open times only; "Sarah sees" follows the wheel; same payout',
     setup: (S) => { S.driveTo('requested'); },
-    expect: { has: ['Suggest another time', c1When(C1_SLOT), 'SARAH SEES', c1When(C1_SUGGESTED), 'Send suggestion', `You take home ${c1Exact(C1_SC.seed.payout)}`], sel: '[data-scheduler]' } },
-  { key: 't-suggest--rush-window', screen: 't-suggest', group: 'M3 · Tailor', title: 'Suggest another time — inside her rush window', note: 'The settled time is 1 day before the need-by date, but this request was not a rush: no rush fee, her take-home unchanged (D-155)',
+    expect: { has: ['Suggest another time', c1When(C1_SLOT), 'SARAH SEES', c1When(C1_SUGGESTED), 'Send suggestion', `Your payout ${c1Exact(C1_SC.seed.payout)}`], sel: '[data-scheduler]' } },
+  { key: 't-suggest--rush-window', screen: 't-suggest', group: 'M3 · Tailor', title: 'Suggest another time — inside her rush window', note: 'The settled time is 1 day before the need-by date, but this request was not a rush: no rush fee, her payout unchanged (D-155)',
     setup: (S) => { S.driveTo('requested'); S.state.ui['t-suggest'] = { slot: '2026-10-22T17:00' }; },
-    expect: { has: ['1 day before Sarah’s need-by date. No rush fee is added to this request.', `You take home ${c1Exact(C1_SC.seed.payout)}`], not: 'pays' } },
+    expect: { has: ['1 day before Sarah’s need-by date. No rush fee is added to this request.', `Your payout ${c1Exact(C1_SC.seed.payout)}`], not: 'pays' } },
   { key: 't-suggest--sending', screen: 't-suggest', group: 'M3 · Tailor', title: 'Suggest another time — sending', note: 'Latency held: Send suggestion busy, wheel locked',
     setup: (S) => { S.driveTo('requested'); S.sim.latency = 'hold'; },
     click: ['[data-act="send-suggestion"]'],
@@ -200,9 +200,9 @@ export const FLOWS_t_suggest = [
 
 /* ---------- C3 · Customer request outcomes (c-request M3 states, c-tailors none-left) ---------- */
 export const FLOWS_c_request = [
-  { key: 'c-request--soon', screen: 'c-request', group: 'M3 · Request outcomes', title: 'Request sent — reply is close', note: '10 minutes left: the clock turns warning and says so',
+  { key: 'c-request--soon', screen: 'c-request', group: 'M3 · Request outcomes', title: 'Request sent — reply is close', note: '10 minutes left: the band gets the ochre ring and the clock says so',
     setup: (S) => { S.driveTo('requested'); S.advanceClock(110); },
-    expect: { has: ['10m left', 'has until', 'to reply'], not: 'has 2 hours', sel: '[data-countdown][data-state="soon"]' } },
+    expect: { has: ['10m left · until 12:00 PM'], not: 'has 2 hours', sel: '.wait-band--soon [data-countdown][data-state="soon"]' } },
   { key: 'c-request--suggested', screen: 'c-request', group: 'M3 · Request outcomes', title: 'Amara suggested a new time', note: 'Same price; accepting charges the deposit and books it',
     setup: (S) => { S.driveTo('suggested'); },
     expect: { has: ['New time suggested', 'suggested a new time', c3When(C3_SUGGESTED_SLOT), `You asked for ${c3When(C3_SEED_SLOT)}`, 'Same price', 'On hold', 'Accept new time', 'Find another tailor', 'is holding this time until'] } },

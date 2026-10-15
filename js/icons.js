@@ -53,12 +53,27 @@ const LINE16 = (paths) => `<svg class="icon-16" width="16" height="16" viewBox="
 export const META_ICONS = {
   /* storefront: awning over a shop with a door */
   shop: LINE16('<path d="M2.5 6.2V13.5h11V6.2"/><path d="M1.8 3h12.4l.9 2.4a1.8 1.8 0 0 1-3.5.6 1.8 1.8 0 0 1-3.6 0 1.8 1.8 0 0 1-3.6 0 1.8 1.8 0 0 1-3.5-.6L1.8 3z"/><path d="M6.5 13.5v-3.5h3v3.5"/>'),
+  /* clock: K-11 (D-236), the request clocks (c-request band, t-home strip) */
+  clock: LINE16('<circle cx="8" cy="8" r="5.9"/><path d="M8 4.6V8l2.2 1.4"/>'),
   /* home: roof + walls + door */
   home: LINE16('<path d="M2.2 7.2 8 2.5l5.8 4.7"/><path d="M3.5 6.2v7.3h9V6.2"/><path d="M6.6 13.5v-3.6h2.8v3.6"/>'),
   /* bag: shopping bag with handles (in-store pickup) */
   bag: LINE16('<path d="M3 5.5h10l-.7 8H3.7L3 5.5z"/><path d="M5.8 5.5V4.3a2.2 2.2 0 0 1 4.4 0v1.2"/>'),
   /* truck: courier van */
   truck: LINE16('<path d="M1.5 4h8v7.5h-8z"/><path d="M9.5 6.5h2.8l2.2 2.4v2.6h-5"/><circle cx="4.5" cy="12" r="1.3"/><circle cx="11.8" cy="12" r="1.3"/>'),
+};
+
+/* K-10 (D-235): the 20 px line icons of the visit-details block (Option A "Icon rows") — 20 viewBox, 1.5 stroke, currentColor, same family as META_ICONS */
+const LINE20 = (paths) => `<svg class="icon-20" width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+export const VISIT_ICONS = {
+  calendar: LINE20('<rect x="3" y="4.5" width="14" height="12.5" rx="2.5"/><path d="M3 8.5h14"/><path d="M7 3v3M13 3v3"/>'),
+  home: LINE20('<path d="M3 9 10 3.5 17 9"/><path d="M4.75 8v8.5h10.5V8"/><path d="M8.5 16.5v-4h3v4"/>'),
+  shop: LINE20('<path d="M3.5 8v8.5h13V8"/><path d="M2.5 4h15l1 3a2.3 2.3 0 0 1-4.3.8 2.3 2.3 0 0 1-4.4 0 2.3 2.3 0 0 1-4.4 0A2.3 2.3 0 0 1 1.5 7l1-3z"/><path d="M8.2 16.5v-4h3.6v4"/>'),
+  hanger: LINE20('<path d="M10 8V7c0-.8.7-1.3 1.3-1.7.6-.4 1-.9 1-1.6a2.3 2.3 0 0 0-4.6 0"/><path d="M10 8l7.4 5.6c.6.5.3 1.4-.5 1.4H3.1c-.8 0-1.1-.9-.5-1.4L10 8z"/>'),
+  'map-pin': LINE20('<path d="M10 17.5s5.5-4.6 5.5-9a5.5 5.5 0 0 0-11 0c0 4.4 5.5 9 5.5 9z"/><circle cx="10" cy="8.5" r="2"/>'),
+  clock: LINE20('<circle cx="10" cy="10" r="7.25"/><path d="M10 5.8V10l2.8 1.7"/>'),
+  bag: LINE20('<path d="M4 7h12l-.9 10H4.9L4 7z"/><path d="M7.2 7V5.5a2.8 2.8 0 0 1 5.6 0V7"/>'),
+  truck: LINE20('<path d="M2 5.5h9.5v8H2z"/><path d="M11.5 8.5h3.2l2.3 2.9v2.1h-5.5"/><circle cx="5.5" cy="14.5" r="1.6"/><circle cx="14.2" cy="14.5" r="1.6"/>'),
 };
 
 /* a small pencil — "change this" on a pill that opens another screen (filter-pill `edit`) */

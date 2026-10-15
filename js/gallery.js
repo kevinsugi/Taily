@@ -83,7 +83,7 @@ export function galleryHtml() {
 
   h2('Summary card · Trust badges · Visit block');
   s.push(C.summaryCard({ initials: 'AR', name: 'Amara Reyes', verified: true, badges: ['ID verified', 'Background check', 'Insured'] }));
-  s.push(card(C.visitBlock(['◉  145 N 7th St, 2R', '▤  Thu, Oct 15 · 5:00 PM', '▤  Need by: Fri, Oct 23'])));
+  s.push(card(C.visitBlock([{ icon: 'calendar', value: 'Thu, Oct 15 · 5:00 PM', strong: true, detail: 'At my place · 60 min' }, { icon: 'home', value: '145 N 7th St, 2R' }, { icon: 'hanger', value: '2 items · 3 services' }], { title: 'Your request' })));
 
   h2('Chat Bubble — v4 atom + Timeline + Info rows');
   col(C.bubble('See you Thursday at 5:00.', 'them'), C.bubble('Perfect, thank you!', 'me'));
@@ -316,7 +316,8 @@ export function galleryHtml() {
   h2('Request card — the tailor’s inbox ticket (D-75)');
   const rc = { id: 'A-1001', name: 'Sarah C.', initials: 'SC', visitLabel: 'Home visit', place: 'Williamsburg · 11211', when: 'Thu, Oct 15 · 5:00 PM', items: 2, services: 3, payoutCents: seed.payout, feeCents: seed.tailyFee, expiresAt: '2026-10-13T12:00', now: NOW };
   v('requested (2h left)');          col(C.requestCard(rc));
-  v('soon (15 min or less → warning ring)'); col(C.requestCard({ ...rc, expiresAt: '2026-10-13T10:12' }));
+  v('urgent (15 min or less → error strip)'); col(C.requestCard({ ...rc, expiresAt: '2026-10-13T10:12' }));
+  v('expired (neutral strip)'); col(C.requestCard({ ...rc, expiresAt: '2026-10-13T09:50' }));
   v('suggested (muted money, waiting on Sarah)'); col(C.requestCard({ ...rc, status: 'suggested', waitingOn: 'Sarah' }));
   v('retried (Sent again) · one item, one service'); col(C.requestCard({ ...rc, retries: 1, items: 1, services: 1 }));
 
@@ -356,7 +357,7 @@ export function galleryHtml() {
   v('up (new total vs booked)');         col(C.deltaFigure({ label: 'Sarah pays', cents: SCENARIOS.priceAdded.total, was: SCENARIOS.seed.total }));
   v('down (a service came off)');        col(C.deltaFigure({ label: 'Sarah pays', cents: SCENARIOS.priceRemoved.total, was: SCENARIOS.seed.total }));
   v('same as booked');                   col(C.deltaFigure({ label: 'Sarah pays', cents: SCENARIOS.seed.total, was: SCENARIOS.seed.total }));
-  v('no was (+ caption)');               col(C.deltaFigure({ label: 'You take home', cents: SCENARIOS.seed.payout, caption: `After the ${fmtExact(SCENARIOS.seed.tailyFee)} Taily fee` }));
+  v('no was (+ caption)');               col(C.deltaFigure({ label: 'Your payout', cents: SCENARIOS.seed.payout, caption: `After the ${fmtExact(SCENARIOS.seed.tailyFee)} Taily fee` }));
 
   h2('Courier card (M4, D-100)');
   const cq = SCENARIOS.courierQuote;
@@ -478,7 +479,7 @@ export function galleryHtml() {
   v('push ask (soft ask before the OS prompt)');
   s.push(`<div class="row"><div class="push-demo">${pushPromptHtml({ title: 'Don’t miss a request', body: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications to reply in time.` })}</div></div>`);
   v('in-app push card (D-167): a new request, over the status bar');
-  s.push(`<div class="push-banner-demo">${pushBannerHtml({ title: 'New request · Sarah C.', body: `Home visit Thu, Oct 15 · You take home ${fmtExact(seed.payout)} · 2h to reply` })}</div>`);
+  s.push(`<div class="push-banner-demo">${pushBannerHtml({ title: 'New request · Sarah C.', body: `Home visit Thu, Oct 15 · Your payout ${fmtExact(seed.payout)} · 2h to reply` })}</div>`);
   /* ---------------- M7 · polish (K-03) ---------------- */
   h2('M7 · polish — nav icons, flow bar');
   const navDemo = (html) => s.push(`<div style="position:relative;height:56px;width:390px;margin-inline:-20px">${html.replace('<nav class="top-nav"', '<nav class="top-nav" style="top:0"')}</div>`);

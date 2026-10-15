@@ -15,7 +15,7 @@ import * as A from '../account.js';
 import { withLatency } from '../sim.js';
 import { fmtExact, estimate, cancelTerms } from '../money.js';
 import { fmtWhen, addMinutes } from '../dates.js';
-import { VISIT_LABEL } from '../data.js';
+import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
 import { POLICY } from '../money-config.js';
 
 const ID = 'c-pay';
@@ -69,13 +69,11 @@ function visitRows({ t, job, slot }) {
     : [t.shopName, t.shop?.street].filter(Boolean).join(', ');
   const items = job.garments.length;
   const services = job.garments.reduce((n, g) => n + g.services.length, 0);
-  /* the visit time is the one focal fact (t-figure); the "·" chain is broken into lines (M7 B) */
+  /* K-10: icon rows — the visit time is the one strong fact; the tailor and the visit type ride under it */
   return [
-    `<span class="t-figure">${fmtWhen(slot)}</span>`,
-    `<span class="w-600">${esc(t.name)}</span>`,
-    VISIT_LABEL.customer[job.visitType],
-    esc(where),
-    `${items} ${items === 1 ? 'item' : 'items'} · ${services} ${services === 1 ? 'service' : 'services'}`,
+    { icon: 'calendar', value: fmtWhen(slot), strong: true, detail: [`With ${esc(t.name)}`, `${VISIT_LABEL.customer[job.visitType]} · ${VISIT_MINUTES[job.visitType]} min`] },
+    { icon: home ? 'home' : 'shop', value: esc(where) },
+    { icon: 'hanger', value: `${items} ${items === 1 ? 'item' : 'items'} · ${services} ${services === 1 ? 'service' : 'services'}` },
   ];
 }
 

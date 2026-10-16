@@ -102,12 +102,12 @@ function view() {
 }
 
 /* ---------- overlays ---------- */
-/* P2-3 (D-226): `tile` (the garment type just added by a tap on its tile / +) means the sheet opened by itself, so Done or ✕ returns focus to that tile */
+/* K-23: after a tile / + adds a garment, focus lands on that tile's + (the tile becomes a stepper at qty 1) */
 const focusTile = (type) => {
   const hits = [...document.querySelectorAll(`#screen [data-act="add-garment"][data-type="${CSS.escape(type)}"]`)];
   (hits.find((h) => h.matches('[data-plus]')) ?? hits.find((h) => !h.matches('[data-minus]')) ?? hits[0])?.focus({ preventScroll: true });
 };
-function openServices(root, id, { tile = null } = {}) {
+function openServices(root, id) {
   const g = state.job.garments.find((x) => x.id === id);
   if (!g) return;
   const rows = servicesForType(g.type).map((sid) => checkRow({
@@ -123,7 +123,7 @@ function openServices(root, id, { tile = null } = {}) {
       if (ids.length) delete ui().errors[g.id];
       close();
       go(ID);
-      requestAnimationFrame(() => (tile ? focusTile(tile) : document.querySelector(`#screen [data-act="pick-services"][data-id="${g.id}"]`)?.focus({ preventScroll: true })));
+      requestAnimationFrame(() => document.querySelector(`#screen [data-act="pick-services"][data-id="${g.id}"]`)?.focus({ preventScroll: true }));
     };
     holder.querySelector('[data-act="services-done"]').addEventListener('click', done);
   });
@@ -167,8 +167,8 @@ function wire(root) {
         added = T.addGarment(type).garment ?? null;
       }
       go(ID);   // the router puts focus back on the same tile / − / + (AU-P1-2a)
-      /* P2-3 (D-226, amends D-45's flow): adding a garment opens "what needs doing?" for it; − opens nothing */
-      if (added) { focusTile(type); openServices(root, added.id, { tile: type }); }
+      /* K-23 (reverses D-226): adding a garment only adds it — the item shows "Choose what needs doing" under Your items, and Next still requires a service */
+      if (added) focusTile(type);
       return;
     }
     const open = e.target.closest('[data-act="open-appt"]');

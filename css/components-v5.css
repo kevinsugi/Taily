@@ -1145,8 +1145,8 @@ a.cta-small { text-decoration: none; }
 .garment-pop__name { overflow-wrap: anywhere; }
 .garment-pop__count { font-variant-numeric: tabular-nums lining-nums; }
 .garment-pop__svcs { display: flex; flex-direction: column; gap: var(--space-4); margin: var(--space-8) 0 0; padding: 0; list-style: none; }
-.garment-pop__svcs li { position: relative; padding-left: var(--space-20); text-wrap: pretty; overflow-wrap: anywhere; }
-.garment-pop__svcs li::before { content: ''; position: absolute; left: 0; top: calc(0.5em * var(--lh-16) - 1px); width: var(--space-12); height: var(--stitch-w); background: var(--accent-base); }
+.garment-pop__svcs li { position: relative; padding-left: var(--space-16); text-wrap: pretty; overflow-wrap: anywhere; }
+.garment-pop__svcs li::before { content: ''; position: absolute; left: var(--space-2); top: calc(0.5em * var(--lh-16) - var(--space-2) - 1px); width: calc(var(--space-4) + var(--space-2)); height: calc(var(--space-4) + var(--space-2)); border-radius: 50%; background: var(--accent-base); }   /* K-25 rev: a round cognac bullet per service (was a 12 px stitch dash) */
 
 /* ---------- rating line (A5.8, D-190) ---------- */
 .rating-line { display: inline-flex; align-items: center; gap: var(--space-4); }

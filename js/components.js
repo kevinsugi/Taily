@@ -1623,7 +1623,7 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
   return moneyRows(rows);
 }
 /** The balance card's label for a receipt ("Visa •••• 4242", "Apple Pay"). */
-function balanceCardLabel(a, id = a.balanceCardId) {
+export function balanceCardLabel(a, id = a.balanceCardId) {
   const c = state.customer.cards.find((x) => x.id === id);
   if (c) return `${c.brand} •••• ${c.last4}`;
   return id === 'apple-pay' ? 'Apple Pay' : 'your card';

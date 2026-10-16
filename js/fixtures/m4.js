@@ -242,9 +242,13 @@ export const FLOWS_c_ready = [
     expect: { has: 'Paying', sel: '.sheet__cancel[disabled]' }, visual: false },
 ];
 export const FLOWS_c_complete = [
-  { key: 'c-complete', screen: 'c-complete', group: 'M4 · Completed', title: 'All done — receipt and review prompt', note: 'Amara completed it: the receipt matches what Sarah paid, five stars to start a review',
+  { key: 'c-complete', screen: 'c-complete', group: 'M4 · Completed', title: 'Order complete — review prompt and receipt row', note: 'K-17 "Linen and cognac": the stitch stage with the garments on tags, Amara’s label with five stars, the receipt as one row',
     setup: (S) => { S.driveTo('completed'); },
-    expect: { has: ['All done', 'How did Amara do?', 'Tap a star to rate', 'profile as Sarah C.', 'RECEIPT', 'Paid', ccExact(CC_SC.seed.total), ccExact(CC_SC.seed.balance), 'back with you', 'Message Amara'], not: 'Leave a review', sel: '[data-stars]' } },
+    expect: { has: ['ORDER COMPLETE', 'Back with you, tailored to fit.', 'TAILORED BY', 'Amara Reyes', 'How did Amara do?', 'Tap a star to rate', 'profile as Sarah C.', 'Receipt', 'Paid', ccExact(CC_SC.seed.total), 'in full', 'Visa', 'Message Amara'], not: 'Leave a review', sel: '[data-stars]' } },
+  { key: 'c-complete--receipt', screen: 'c-complete', group: 'M4 · Completed', title: 'Order complete — receipt open', note: 'The receipt row opens in place: how it came back, what was paid, what paid the balance (K-17)',
+    setup: (S) => { S.driveTo('completed'); },
+    click: ['[data-act="receipt"]'],
+    expect: { has: ['Receipt', ccExact(CC_SC.seed.total), ccExact(CC_SC.seed.balance), 'Balance paid with'], sel: '[data-act="receipt"][aria-expanded="true"]' } },
 ];
 export const FLOWS_c_review = [
   { key: 'c-review', screen: 'c-review', group: 'M4 · Completed', title: 'Review Amara', note: 'Stars first, then optional words and photos',

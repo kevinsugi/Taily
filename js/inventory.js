@@ -174,8 +174,9 @@ export const SCREENS = [
     { key: 'c-ready--processing', m: 'M4', kind: 'overlay' },
     { key: 'c-ready--processing-locked', m: 'M4', kind: 'state' },
   ] },
-  { id: 'c-complete', m: 'M4', persona: 'customer', title: 'C11 order completed: receipt + review prompt', states: [
+  { id: 'c-complete', m: 'M4', persona: 'customer', title: 'C11 order completed: stitch stage + garment tags, Amara’s label with stars, receipt row (K-17)', states: [
     { key: 'c-complete', m: 'M4', kind: 'frame' },
+    { key: 'c-complete--receipt', m: 'M4', kind: 'state' },
   ] },
   { id: 'c-review', m: 'M4', persona: 'customer', title: 'Stars (1–5), optional text, up to 3 photos', states: [
     { key: 'c-review', m: 'M4', kind: 'frame' },

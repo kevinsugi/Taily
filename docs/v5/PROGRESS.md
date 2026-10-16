@@ -13,9 +13,7 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 | M7 World-class polish | **done** (f81baad) | | V5 masters + all frames re-synced | before/after: https://claude.ai/artifact/DaSb9aAmGFEF2RSJAJ4SDa |
 | M6 Final pass | in progress: audit triaged into `docs/v5/M6-fixlist.md`, fix batches running (decisions D-154…D-174 logged) | | | |
 
-**Next action:** K-04 done. Waiting on Kevin: 5 defaulted calls from K04 plan (D-204..D-209) — see docs/v5/K04-fixlist.md.
-
-**K-04 (Oct 14) status:** B1 shared layout / tokens / a11y / boot (D-203…D-214) · B2 customer screens (D-215) · B3 tailor screens (D-216) · B4 shared copy (D-217) · B5 leftovers: unitless `.t-*` line-heights (zero baseline change), lint rules 7–8 (base glyph colour as text, `--bottom-border`), dead serif + `--size-8/18` removed, CONTEXT.md + DESIGN.md updated ("Drift found" closed), grep sweep clean ("turnaround" → "rush jobs" on to-done / t-shop copy, fixture notes reworded). Commit body: list D-203…D-217 as DEFAULTED; re-baselined keys = every ref/v5 key except `c-welcome` and `sys-index` (285 of 287 PNGs modified vs HEAD, 0 new, 0 removed); B5 itself re-accepted `to-done`, `t-shop`, `t-shop--paused`, `t-shop--incomplete`.
+**Next action:** (Oct 15 2026, handoff) V5 is current through K-16 + D-246 at main=V5. Open: optional Figma sync for the K-16 status screens (K-14/K-15 already synced); hybrid F (https://claude.ai/artifact/M3qxVyXYEDedJhxWVeQc2Z) parked — Kevin chose A for now. Remaining revise candidates are all addressed by K-16 (see docs/v5/REVISE-CANDIDATES.md).
 
 ## Queued after M7 — impeccable (Kevin, Oct 14) — REVIEW GATE
 Run `/impeccable:impeccable` (Operate mode; launcher binary download approved by Kevin's "yes"):

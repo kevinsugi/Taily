@@ -1232,3 +1232,27 @@ a.cta-small { text-decoration: none; }
   .garment-tile__step { min-width: 0; }
   .zip-chip__hood { min-width: 0; overflow-wrap: break-word; }
 }
+
+/* ---------- K-18 (D-249) the hanging stage (hangStage): 1-E's linen + cognac stitch, edge to edge ---------- */
+.hang { margin-inline: calc(-1 * var(--space-20)); padding: var(--space-16) 0; background: var(--neutral-100); color: var(--ink); }
+.hang__svg { display: block; width: 100%; height: auto; overflow: visible; }
+.hang__rail { stroke: var(--accent-base); stroke-width: 2; stroke-dasharray: 6 4; }
+.hang__sew { display: none; fill: var(--neutral-100); }
+.hang__wire { fill: none; stroke: var(--accent-ink); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+.hang__clip { fill: var(--accent-ink); }
+.hang__item, .hang__tag { transform-box: view-box; }
+.hang__loop { fill: none; stroke: var(--accent-base); stroke-width: 1.4; }
+.hang__string { stroke: var(--accent-base); stroke-width: 1.4; }
+.hang__tagcard { fill: var(--white); filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--ink) 14%, transparent)); }
+.hang__hole { fill: var(--white); stroke: var(--accent-base); stroke-width: 2; }
+.hang__t1 { fill: var(--ink); font-family: var(--font-sans); font-size: var(--size-12); font-weight: 700; letter-spacing: -0.01em; }
+.hang__t2 { fill: var(--neutral-600); font-family: var(--font-sans); font-size: var(--size-10); font-weight: 600; }
+.hang__cap { display: flex; justify-content: space-between; gap: var(--space-8); margin-top: var(--space-8); padding-inline: var(--space-20); }
+.hang__cap .t-small + .t-small { color: var(--neutral-700); text-align: right; }
+/* one finite swing-in and settle per hanger and the tag, then the stitch sewn left to right; at rest everything is complete (html.is-test never animates) */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes hang-sew { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  @keyframes hang-drop { 0% { transform: translateY(-44px) rotate(-9deg); opacity: 0; } 50% { transform: translateY(2px) rotate(4deg); opacity: 1; } 70% { transform: translateY(0) rotate(-2deg); } 86% { transform: rotate(.8deg); } 100% { transform: none; opacity: 1; } }
+  html:not(.is-test) .hang__sew { display: block; transform-box: fill-box; transform-origin: 100% 50%; transform: scaleX(0); animation: hang-sew 700ms var(--ease-in-out) both; }
+  html:not(.is-test) .hang__item, html:not(.is-test) .hang__tag { animation: hang-drop 1000ms var(--ease-out) var(--d, 450ms) both; }
+}

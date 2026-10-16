@@ -12,7 +12,7 @@ import {
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR,
+  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
@@ -216,25 +216,95 @@ function shopHoursLine(t) {
   return '';
 }
 
-/** P-27: the drop-off address in full — street, city, state and ZIP (Sarah's saved address, D-106). */
-function dropoffAddress() {
+/** P-27 + K-18 (3-J): the drop-off address in two lines — the street, then city, state and ZIP (Sarah's saved address, D-106). */
+function dropoffLines() {
   const ad = state.customer.address ?? {};
-  return [returnAddress(), ad.city ?? SHOP_CITY.city, `${ad.state ?? SHOP_CITY.state} ${ad.zip ?? ''}`.trim()].filter(Boolean).join(', ');
+  return [returnAddress(), [ad.city ?? SHOP_CITY.city, `${ad.state ?? SHOP_CITY.state} ${ad.zip ?? ''}`.trim()].filter(Boolean).join(', ')];
 }
 
-/** The "how it comes back" block per return option (B3). */
-function returnBlock(a, t, first) {
+/** K-18 (D-249), 3-J "Edge-to-edge linen stage": the three return options share one screen skeleton —
+    strip (the state) · header row (Amara, what you paid) · the hanging stage (her garments, Sarah's tag) · the labelled place block with its buttons ·
+    what's left to do · Your order · Price. Only the strip, the tag, the place rows and the remaining steps differ. */
+function returningView(a, t, first) {
+  const f = esc(first);
   const shopName = esc(t.shopName);
-  if (a.returnOption === 'dropoff') {
-    return sec(visitBlock([{ icon: 'home', value: esc(dropoffAddress()) }], { title: 'Home drop-off', flush: true }));
-  }
-  if (a.returnOption === 'courier' && a.courier) {
-    const w = courierWindow(a);                                  // K16-2-02: the same "6:00–6:30 PM" window the tailor's strip prints
-    return sec(courierCard({ state: 'ready', ...a.courier, from: t.shopName, to: returnAddress(), variant: 'route', window: w ? fmtTimeRange(w.from, w.to) : '' }));
-  }
+  const how = a.returnOption ?? 'pickup';
   const hours = shopHoursLine(t);
-  const rows = [{ icon: 'bag', value: shopName, detail: [esc(`${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim()), ...(hours ? [esc(hours)] : [])] }];
-  return sec(visitBlock(rows, { title: 'In-store pickup', flush: true }));   // K-17 R5: "<first> marks the order completed when you have it" is the subtitle now
+  const w = how === 'courier' && a.courier ? courierWindow(a) : null;
+  const win = w ? fmtTimeRange(w.from, w.to) : '';
+  const items = returnedItems(a);
+  const services = items.reduce((n, g) => n + g.services.length, 0);
+  const sarah = `${state.customer.first} ${(state.customer.last ?? '').charAt(0)}.`.replace(/ \.$/, '');
+  const message = { label: 'Message', icon: ICON_CHAT, act: 'message' };
+  const paid = a.payments.balance.cents;
+
+  const cfg = {
+    pickup: {
+      strip: { tone: 'done', icon: 'bag', text: 'Ready for pickup', right: hours ? hours.split(' – ')[0] : '' },
+      tag: 'Ready', right: `at ${t.shopName}`,
+      place: () => {
+        const addr = `${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim();
+        const dir = { label: 'Directions', icon: ICON_DIRECTIONS, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${t.shopName}, ${addr}`)}`, act: 'directions', attrs: 'target="_blank" rel="noopener"' };
+        return `${visitBlock([{ icon: 'bag', value: shopName, detail: [esc(addr), ...(hours ? [esc(hours)] : [])] }], { title: 'In-store pickup', flush: true })}${personActions([dir, message])}`;
+      },
+      steps: [
+        { state: 'current', title: 'Pick it up at the shop', sub: hours ? esc(hours.replace(/^Open /, '').replace(/^./, (c) => c.toUpperCase())) : '' },
+        { state: 'todo', title: `${f} marks it completed` },
+        { state: 'todo', title: 'Rate the fit' },
+      ],
+    },
+    dropoff: {
+      strip: { tone: 'action', icon: 'home', text: `${first} will drop it off · agree on a time in chat` },
+      tag: 'To your door', right: 'coming to you',
+      place: () => {
+        const [street, city] = dropoffLines();
+        return `${visitBlock([
+          { icon: 'home', value: esc(street), detail: esc(city) },
+          { icon: 'clock', value: 'Time to agree', detail: `${f} will message you a time` },
+        ], { title: 'Home drop-off', flush: true })}${personActions([message])}`;
+      },
+      steps: [
+        { state: 'current', title: `Agree on a time with ${f}`, sub: 'In chat' },
+        { state: 'todo', title: `${f} brings it to your door` },
+        { state: 'todo', title: 'Rate the fit' },
+      ],
+    },
+    courier: {
+      strip: { tone: 'done', icon: 'truck', text: 'On its way', right: win ? `Arrives ${win}` : '' },
+      tag: 'With courier', right: 'in the courier’s bag',
+      place: () => `${visitBlock([{
+        icon: 'truck', cls: 'visit-row--courier', value: esc(`${t.shopName} → ${returnAddress()}`),
+        detail: [`${esc(a.courier?.miles ?? 0)} mi${win ? ` · arrives ${esc(win)}` : ''}`, 'Uber via Taily · Paid by you'],
+      }], { title: 'Taily courier', flush: true })}${personActions([message])}`,
+      steps: [
+        { state: 'current', title: 'On its way to you', sub: win ? `Arrives ${esc(win)}` : '' },
+        { state: 'todo', title: `${f} marks it completed` },
+        { state: 'todo', title: 'Rate the fit' },
+      ],
+    },
+  }[how];
+
+  const strip = requestStrip({ page: true, ...cfg.strip });
+  const head = pageHead(requestHead({
+    page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
+    payoutCents: paid, label: 'Paid in full',
+  }));
+  const stage = hangStage({
+    types: items.map((g) => g.type), tag: [sarah, cfg.tag], left: `${plural(items.length, 'item')} · ${plural(services, 'service')}`, right: cfg.right,
+    label: `${plural(items.length, 'item')} ready: ${items.map((g) => g.type).join(' and ')}, hung on a rail with a tag: ${sarah}, ${cfg.tag}`,
+  });
+  const steps = timeline([{ state: 'done', title: 'Booked, fitted, tailored', sub: `Ready · paid ${money(paid)}` }, ...cfg.steps]);
+  const courierCaption = how === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {};
+  const breakdown = customerBreakdown(a.money, { stage: 'paid', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true, ...courierCaption });
+  const order = a.lines?.length ? orderSection(a, first) : '';
+  return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--returning ${ID}--returning-${how}" data-s="${ID}">
+  ${navBackMark()}${strip}${head}
+  ${stage}
+  ${sec(cfg.place())}
+  ${sec(`${sectionHead('What happens next')}${steps}`)}
+  ${order}
+  ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${breakdown}`)}
+</main>`;
 }
 
 /** "Your order" (K-2-01, D-127): the approved order as plain rows, the same garment / service strings as Amara's "The work".
@@ -246,10 +316,9 @@ function orderSection(a, first = 'Amara') {
 }
 
 function m4View(a, t, first) {
+  if (a.status === 'returning') return returningView(a, t, first);
   const word = statusWord(a, 'customer');
   const f = esc(first);
-  const shopName = esc(t.shopName);
-  const how = a.returnOption ?? 'pickup';
   /* K-17 (D-243, R1): the title states the state, so there is no status pill above it; R5: one subtitle line, no "Fitted …" line (it is on the timeline) */
   const cfg = {
     fitting: { title: `Fitting with ${f}`, body: `${f} is going through the order with you.` },
@@ -257,29 +326,21 @@ function m4View(a, t, first) {
     'in-progress': { title: `${f} is working on it`, body: 'You approved the order. You’ll pay the balance when it’s ready.' },
     ready: { title: `${f} finished your order`, body: `Pay the ${fmtExact(a.money.balance)} balance to choose how to get it back.` },
     completed: { title: `All done with ${f}`, body: `Completed ${fmtDay(completedAt(a))}. Fitted ${fmtDay(a.slot.start)} · ${VISIT_LABEL.customer[a.job.visitType].toLowerCase()}.` },
-    returning: {
-      pickup: { title: 'Ready for pickup', body: `You’ve paid in full. ${f} marks the order completed when you have it.` },
-      dropoff: { title: `${f} will drop it off`, body: 'You’ve paid in full.' },
-      courier: { title: 'On its way to you', body: `A Taily courier is bringing it from ${shopName} today.` },
-    }[how],
   }[a.status];
   const hero = head(a, { pill: false, title: cfg.title, body: cfg.body, variant: a.status === 'completed' ? 'confirmed' : 'tailoring' });
 
   const early = a.status === 'fitting' || a.status === 'price-change' || a.status === 'in-progress' || a.status === 'ready';
-  const stage = a.status === 'returning' || a.status === 'completed' ? 'paid' : 'booked';
+  const stage = a.status === 'completed' ? 'paid' : 'booked';
   const confirmed = a.status !== 'fitting' && a.status !== 'price-change';
 
   const updated = a.status === 'in-progress' && a.priceChange?.changed && a.priceChange?.state === 'approved';   // P-30: the services row says so
   const breakdown = a.status === 'completed' ? receiptBlock(a, first)
-    : customerBreakdown(a.money, { stage, tailorFirst: first, depositState: a.payments.deposit.state, confirmed, ...(a.status === 'returning' && a.returnOption === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {}), ...(updated ? { servicesCaption: `${first}’s final prices · updated at the fitting` } : {}) });
+    : customerBreakdown(a.money, { stage, tailorFirst: first, depositState: a.payments.deposit.state, confirmed, ...(updated ? { servicesCaption: `${first}’s final prices · updated at the fitting` } : {}) });
 
   let middle = '';
   /* D-169 + K-17 R5: from the visit on, the past visit time is demoted — the timeline's done step says "Fitted …" (completed: the subtitle) */
   const postFit = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status);
   if (early && !postFit) middle = visitSection(a, t);
-  if (a.status === 'returning') {
-    middle = returnBlock(a, t, first);
-  }
   if (a.status === 'completed') {
     const r = (t.reviews ?? []).find((x) => x.id === `r-${a.id}`);
     const mine = r ? reviewRow({ name: r.name, initials: r.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos, photoType: r.photoType ?? a.job.garments[0]?.type ?? '' })

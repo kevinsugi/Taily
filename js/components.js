@@ -1507,12 +1507,12 @@ export function bookingSteps(current = 0) {
  * left and one <b data-money> amount on the right; never trailing text after the <b> (it becomes a third item). `note` sits under the buttons and, when
  * `disabled`, is linked to the CTA with aria-describedby (the reason it is off). `busy` locks both buttons.
  */
-export function actionBar({ ctaLabel = '', ctaAct = '', disabled = false, softDisabled = false, busy = false, busyLabel = '', lead = '', note = '', secondaryLabel = '', secondaryAct = '', tertiaryLabel = '', tertiaryAct = '', tertiaryTone = 'default' } = {}) {
+export function actionBar({ ctaLabel = '', ctaAct = '', disabled = false, softDisabled = false, busy = false, busyLabel = '', lead = '', note = '', secondaryLabel = '', secondaryAct = '', secondaryIcon = '', tertiaryLabel = '', tertiaryAct = '', tertiaryTone = 'default' } = {}) {
   const noteId = `action-bar-note-${ctaAct || 'cta'}`;
   const leadId = `action-bar-lead-${ctaAct || 'cta'}`;
   const describe = (disabled || softDisabled) && (note || lead) ? ` aria-describedby="${note ? noteId : leadId}"` : '';
   /* M7 (A5.9, D-195): the secondary and tertiary are text links under the one filled primary, in one centred row */
-  const second = secondaryLabel ? textLink(secondaryLabel, { act: secondaryAct, disabled: busy }) : '';
+  const second = secondaryLabel ? textLink(secondaryLabel, { act: secondaryAct, disabled: busy, icon: secondaryIcon }) : '';
   const third = tertiaryLabel ? textLink(tertiaryLabel, { act: tertiaryAct, tone: tertiaryTone === 'danger' ? 'danger' : 'default', disabled: busy }) : '';
   return `<div class="action-bar${busy ? ' action-bar--busy' : ''}">
   ${lead ? `<p class="action-bar__lead t-small c-600" id="${leadId}">${lead}</p>` : ''}
@@ -2404,6 +2404,65 @@ export function garmentStrip(types = [], label = '') {
   const shown = types.slice(0, 5);
   const more = types.length - shown.length;
   return `<span class="garment-strip"><span class="garment-strip__icons">${shown.map((t) => garmentIcon(t, { size: 'row' })).join('')}${more > 0 ? `<span class="garment-strip__more t-small w-600 c-700">+${more}</span>` : ''}</span>${label ? `<span class="garment-strip__label t-small c-600">${label}</span>` : ''}</span>`;
+}
+
+/** K-18 (D-249): what came back, one entry per garment — its type and the services done (the approved lines once they exist, else the job's garments).
+    Shared by c-complete's tags and c-booking's hanging stage. */
+export function returnedItems(a) {
+  if (a.lines?.length) {
+    return priceChangeView(a, a.lines).garments.filter((g) => g.kind !== 'removed')
+      .map((g) => ({ type: g.type, services: g.rows.filter((r) => r.kind !== 'removed').map((r) => r.label) }));
+  }
+  return a.job.garments.map((g) => ({ type: g.type, services: (g.services ?? []).map((id) => DATA.SERVICES[id]?.label).filter(Boolean) }));
+}
+
+/* ---------- the hanging stage (K-18 3-J "Edge-to-edge linen stage") ----------
+   A full-bleed linen band: the 1-E cognac stitch runs edge to edge, each garment hangs from it on a cognac wire hanger (the real garment art, no gap:
+   a jacket-style hanger tucked into the shoulders, a clip hanger on pants and skirts), and the customer's tag is a white card with a cognac eyelet.
+   Geometry is measured from the art (its 256 box, non-transparent bounds); the group of hangers + tag is centred. */
+const ART_BOX = {   // [x0, y0, x1, y1] of the drawn garment inside its 256 x 256 raster
+  'Suit Jacket': [65, 38, 193, 208], 'Suit Pant': [99, 29, 156, 218], 'Formal Dress': [87, 27, 167, 237], 'Jacket': [48, 54, 207, 204],
+  'Shirt / Blouse': [63, 47, 192, 200], 'Dress / Jumpsuit': [75, 24, 182, 222], 'Pants / Jeans': [95, 36, 160, 211], 'Skirt': [69, 55, 188, 195], 'Accessories': [67, 59, 189, 181],
+};
+const CLIP_HANGER = new Set(['Suit Pant', 'Pants / Jeans', 'Skirt']);
+const HANG_SCALE = 0.64, HANG_STITCH_Y = 18, HANG_HOOK_Y = 15.88, HANG_MAX_ITEMS = 3, HANG_TAG_W = 72;
+const r1 = (n) => Math.round(n * 100) / 100;
+
+function hangItem(type, i, cx) {
+  const [x0, y0, x1, y1] = ART_BOX[type] ?? [64, 40, 192, 208];
+  const mid = (x0 + x1) / 2, bw = x1 - x0, clip = CLIP_HANGER.has(type);
+  const half = clip ? bw / 2 + 8.5 : Math.max(34, bw / 2 - 3);          // the hanger's half-width (clip: a little wider than the waist; shoulders: a hair inside the art)
+  const up = clip ? 55 : 32;                                             // the hook's top above the art's top edge
+  const hx = mid + 11, hy = y0 - up;                                     // the hook's top point, in art coordinates
+  const X = cx + 7;                                                      // the hook sits 7 px right of the garment's centre line (the stem is at the centre)
+  const stem = clip
+    ? `M${mid} ${y0 - 31}V${y0 - 41}C${mid} ${y0 - 50} ${mid + 5} ${y0 - 55} ${mid + 11} ${y0 - 55}C${mid + 17} ${y0 - 55} ${mid + 21} ${y0 - 51} ${mid + 21} ${y0 - 46}C${mid + 21} ${y0 - 42} ${mid + 18} ${y0 - 39} ${mid + 14} ${y0 - 39}`
+    : `M${mid} ${y0 - 2}V${y0 - 18}C${mid} ${y0 - 27} ${mid + 5} ${y0 - 32} ${mid + 11} ${y0 - 32}C${mid + 17} ${y0 - 32} ${mid + 21} ${y0 - 28} ${mid + 21} ${y0 - 23}C${mid + 21} ${y0 - 19} ${mid + 18} ${y0 - 16} ${mid + 14} ${y0 - 16}`;
+  const frame = clip
+    ? `M${mid - half} ${y0 - 7}L${mid} ${y0 - 31}L${mid + half} ${y0 - 7}Z`
+    : `M${mid - half} ${y0 + 28}L${mid} ${y0 - 2}L${mid + half} ${y0 + 28}Z`;
+  const off = half * 0.53;
+  const clips = clip ? `<rect class="hang__clip" x="${r1(mid - off - 5)}" y="${y0 - 13}" width="10" height="23" rx="2"/><rect class="hang__clip" x="${r1(mid + off - 5)}" y="${y0 - 13}" width="10" height="23" rx="2"/>` : '';
+  const src = GARMENT_ICONS[type];
+  const art = src ? `<image href="${src}" width="256" height="256"/>` : '';
+  const g = `<g class="hang__item" style="transform-origin:${r1(X)}px ${HANG_STITCH_Y}px;--d:${450 + i * 130}ms"><g transform="translate(${r1(X)} ${HANG_HOOK_Y}) scale(${HANG_SCALE}) translate(${r1(-hx)} ${r1(-hy)})"><path class="hang__wire" d="${frame}"/><path class="hang__wire" d="${stem}"/>${art}${clips}</g></g>`;
+  return { svg: g, bottom: HANG_HOOK_Y + HANG_SCALE * (up + (y1 - y0)), slot: Math.max(60, 2 * HANG_SCALE * Math.max(half, bw / 2) + 12) };
+}
+
+/** `types` = the garment types hung (at most 3 are drawn); `tag` = [name line, note line] on Sarah's tag; `left` / `right` = the caption on the linen. */
+export function hangStage({ types = [], tag = ['', ''], left = '', right = '', label = '' } = {}) {
+  const shown = types.slice(0, HANG_MAX_ITEMS);
+  const slots = shown.map((t) => hangItem(t, 0, 0).slot);
+  const tagSlot = HANG_TAG_W + 16;
+  const total = slots.reduce((n, w) => n + w, 0) + tagSlot;
+  const W = Math.max(390, total + 24);
+  let cx = (W - total) / 2;
+  const items = shown.map((t, i) => { const it = hangItem(t, i, cx + slots[i] / 2); cx += slots[i]; return it; });
+  const tx = cx + tagSlot / 2;
+  const H = Math.max(178, Math.ceil(Math.max(...items.map((i) => i.bottom), 0) + 10));
+  const tagSvg = `<g class="hang__tag" style="transform-origin:${r1(tx)}px ${HANG_STITCH_Y}px;--d:${450 + shown.length * 130}ms"><ellipse class="hang__loop" cx="${r1(tx)}" cy="${HANG_STITCH_Y}" rx="3.2" ry="3.6"/><line class="hang__string" x1="${r1(tx)}" y1="21.6" x2="${r1(tx)}" y2="43"/><path class="hang__tagcard" d="M${r1(tx - 28)} 36H${r1(tx + 28)}L${r1(tx + 36)} 44V78Q${r1(tx + 36)} 82 ${r1(tx + 32)} 82H${r1(tx - 32)}Q${r1(tx - 36)} 82 ${r1(tx - 36)} 78V44Z"/><circle class="hang__hole" cx="${r1(tx)}" cy="43" r="2.6"/><text class="hang__t1" x="${r1(tx)}" y="62" text-anchor="middle">${esc(tag[0])}</text><text class="hang__t2" x="${r1(tx)}" y="75" text-anchor="middle">${esc(tag[1])}</text></g>`;
+  return `<div class="hang" data-hang><svg class="hang__svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}"><line class="hang__rail" x1="0" y1="${HANG_STITCH_Y}" x2="${W}" y2="${HANG_STITCH_Y}"/><rect class="hang__sew" x="0" y="13" width="${W}" height="10"/>${items.map((i) => i.svg).join('')}${tagSvg}</svg>
+  <div class="hang__cap"><span class="t-small w-600">${esc(left)}</span><span class="t-small">${esc(right)}</span></div></div>`;
 }
 
 export function garmentIcon(type, { size = 'card', alt = '' } = {}) {

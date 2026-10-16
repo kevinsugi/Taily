@@ -1,26 +1,58 @@
-/* c-tailor — C4 Tailor profile. Tokens only; strokes are inset shadows. M7: flat groups, caps headings, one stitch above the total. */
-/* M7-1-C-08 / M7-2-C-03: identity group (avatar + name + shop, place · years, rating + Verified, 4–8 apart), 24, action group (Next opening + Ask), the estimate below */
-.c-tailor__hero { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); }
-.c-tailor__id { display: flex; align-items: center; gap: var(--space-12); width: 100%; min-width: 0; }
-.c-tailor__who { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); flex: 1 1 0; min-width: 0; }
-.c-tailor__meta { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); width: 100%; }
-/* M7-2-C-03: the action group (Next opening + Ask) sits 24 under the identity group */
-.c-tailor__act { display: flex; flex-direction: column; align-items: flex-start; gap: 0; margin-top: var(--rhythm-block); }
-.c-tailor__name { margin: 0; }
-.c-tailor__shop, .c-tailor__sub, .c-tailor__new, .c-tailor__next { margin: 0; }
-.c-tailor__proof { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-16); }
-.c-tailor__proof .rating-line, .c-tailor__proof .verified { align-self: center; }
-.c-tailor__ask { display: flex; margin-left: calc(-1 * var(--space-8)); }   /* the link's own 8 px padding makes the visible gap ~12 */
-.c-tailor__banner { margin-top: var(--rhythm-block); }
+/* c-tailor — C4 Tailor profile. K-18 (2-I): a centred host profile. Tokens only; strokes are inset shadows; one stitch above the estimate total. */
 
-/* groups: spacing comes from .sec (components-v5); the first group sits 40 under the head block */
-.c-tailor__act + .sec, .c-tailor__banner + .sec { margin-top: var(--rhythm-section); }   /* a hero directly followed by a section is the shared .hero + .sec (40) */
+/* portrait slot (a placeholder tile until she adds a photo) with the initials avatar straddling its bottom edge */
+.c-tailor__portrait { position: relative; margin-bottom: var(--space-40); }
+.c-tailor__photo, .c-tailor__work {
+  position: relative; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; padding: var(--space-8);
+  border-radius: var(--radius-lg); background: repeating-linear-gradient(135deg, var(--neutral-200) 0 10px, var(--neutral-100) 10px 20px);
+  box-shadow: inset 0 0 0 1px var(--neutral-300); overflow: hidden; color: var(--neutral-700);
+}
+.c-tailor__photo { height: 248px; justify-content: flex-start; }
+.c-tailor__glyph { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%); display: inline-flex; align-items: center; justify-content: center; width: var(--space-40); height: var(--space-40); border-radius: var(--radius-full); background: var(--white); color: var(--neutral-600); }
+.c-tailor__glyph svg { width: var(--size-20); height: var(--size-20); }
+.c-tailor__tag { max-width: 100%; padding: var(--space-4) var(--space-8); border-radius: var(--radius-sm); background: var(--white); color: var(--neutral-700); font-size: var(--size-10); line-height: var(--lh-10); font-weight: 600; }
+.c-tailor__tag b { display: block; margin: 0 0 var(--space-2); font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.c-tailor__portrait .avatar { position: absolute; left: 50%; bottom: calc(-1 * var(--space-40)); margin-left: calc(-1 * var(--space-40)); box-shadow: 0 0 0 4px var(--neutral-50); }
+
+/* name (serif, with the Verified check) and "Shop · Neighbourhood", centred */
+.c-tailor__centre { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center; }
+.c-tailor__namerow { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-8); }
+.c-tailor__name, .c-tailor__shop { margin: 0; }
+
+/* the ruled stat strip: 3 columns (2 when one has nothing to say) */
+.c-tailor__stats { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); margin-top: var(--rhythm-group); box-shadow: inset 0 1px 0 var(--neutral-200), inset 0 -1px 0 var(--neutral-200); }
+.c-tailor__stats[data-n="1"] { --cols: 1; }
+.c-tailor__stats[data-n="2"] { --cols: 2; }
+.c-tailor__stat { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); min-height: 64px; padding: var(--space-8) var(--space-4); color: inherit; text-align: center; text-decoration: none; }
+.c-tailor__stat + .c-tailor__stat { box-shadow: inset 1px 0 0 var(--neutral-200); }
+.c-tailor__stat--link:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.c-tailor__fig { font-size: var(--size-16); line-height: var(--lh-16); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums lining-nums; }
+.c-tailor__star { margin-right: var(--space-2); color: var(--accent-ink); }
+
+.c-tailor__banner, .c-tailor__preview { margin-top: var(--rhythm-block); }
+
+/* the split: the next opening as plain text beside Book now (the standard primary CTA, same 54 px height) */
+.c-tailor__split { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--space-8); margin-top: var(--rhythm-group); }
+.c-tailor__slot { display: flex; align-items: center; gap: var(--space-8); min-width: 0; min-height: 54px; padding: var(--space-8) var(--space-12) var(--space-8) var(--space-16); border-radius: var(--radius-20); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-300); }
+.c-tailor__slot-icon { display: inline-flex; flex-shrink: 0; color: var(--neutral-600); }
+.c-tailor__slot-text { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.c-tailor__split-note { margin: var(--space-8) 0 0; text-align: center; text-wrap: pretty; }
+
+/* groups: spacing comes from .sec (components-v5); the first group sits 24 under the split */
+.c-tailor__split-note + .sec, .c-tailor__banner + .sec, .c-tailor__preview + .sec, .c-tailor__stats + .sec { margin-top: var(--rhythm-block); }
 .c-tailor__sec p { margin: 0; }
-/* P2-2 (D-229): three speeds. Hero → act → estimate hang together (24), then 40 to the reference stack, then 32 between sections */
-.c-tailor__act + .sec.c-tailor__sec--estimate, .c-tailor__banner + .sec.c-tailor__sec--estimate, .c-tailor__preview + .sec.c-tailor__sec--estimate { margin-top: var(--rhythm-block); }
+.c-tailor__bio { line-height: var(--lh-16-roomy); text-wrap: pretty; }
+.c-tailor__bio + .c-tailor__bio { margin-top: var(--space-12); }
+.c-tailor__sec .sec__body { gap: var(--rhythm-tight); }
 .c-tailor__sec--estimate + .sec { margin-top: var(--rhythm-major); }
-.c-tailor__photos { display: flex; gap: var(--space-8); overflow-x: auto; padding-top: var(--space-4); }
-.c-tailor__work { display: block; width: 72px; height: 72px; flex-shrink: 0; }
+
+/* the work photos: a 2-up grid of placeholder tiles (the 4th is "+N" when there are more) */
+.c-tailor__photos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-8); margin-top: var(--rhythm-group); }
+.c-tailor__work { aspect-ratio: 1 / 1; }
+.c-tailor__work .c-tailor__glyph { top: var(--space-24); transform: translateX(-50%); }
+.c-tailor__work--more { align-items: center; justify-content: center; background: var(--neutral-100); color: var(--ink); cursor: pointer; font-family: var(--font-sans); }
+.c-tailor__work--more:active { background: var(--neutral-200); }
+.c-tailor__work--more:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* the estimate: flat rows, a stitch, the total */
 .c-tailor__estimate { display: flex; flex-direction: column; }
@@ -28,30 +60,11 @@
 .c-tailor__total .price-row__label { font-weight: 600; }
 .c-tailor__total .price-row__value { font-weight: 700; }
 
-.c-tailor__prices { display: flex; flex-direction: column; }
 /* "See all …" is a text link: flush with the gutter, not floating in its own 8 px padding */
 .c-tailor__more { display: flex; margin-left: calc(-1 * var(--space-8)); }
-.c-tailor__rush { display: flex; flex-direction: column; gap: var(--rhythm-tight); margin-top: var(--rhythm-block); }   /* P2-2: a sub-block of Prices, 24 under the list, labelled t-small 600 (not a second caps head) */
-.c-tailor__rush-h { margin: 0; }
 
 .c-tailor__place { display: flex; flex-direction: column; gap: var(--space-4); }
 .c-tailor__place .meta-row { color: var(--ink); align-items: flex-start; }
 .c-tailor__place .meta-row__glyph { height: 21px; line-height: 21px; color: var(--neutral-600); }   /* R1-2-C-04: the 16px line icon centres on the first text line */
 .c-tailor__place > .t-small { padding-left: var(--icon-hang); }   /* text hangs under the glyph box (meta-row gap + --glyph-box) */
 .c-tailor__reviews { display: flex; flex-direction: column; }
-.c-tailor__sec .sec__body { gap: var(--rhythm-tight); }
-/* the tailor viewing her own profile (from to-done): a read-only banner where the booking stepper would be */
-.c-tailor__preview { margin: var(--rhythm-block) 0 var(--rhythm-group); }
-/* X-13: the 4th work tile is a "+N" button when there are more photos */
-.c-tailor__work--more {
-  display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-md);
-  background: var(--neutral-100); color: var(--ink); box-shadow: inset 0 0 0 1px var(--neutral-200);
-}
-.c-tailor__work--more:active { background: var(--neutral-200); }
-.c-tailor__work--more:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-
-/* CR-m1: Rush fees print at body size like Prices — a row per tier, hairline between */
-.c-tailor__rush .rush-tier { align-items: center; min-height: 44px; padding-block: var(--space-8); }
-.c-tailor__rush .rush-tier + .rush-tier { box-shadow: inset 0 1px 0 var(--hairline); }
-.c-tailor__rush .rush-tier__when { font-weight: 500; color: var(--ink); }
-.c-tailor__rush .rush-tier__fee { font-weight: 600; color: var(--ink); }

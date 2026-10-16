@@ -19,6 +19,7 @@
      J10 the expiry loop: no reply -> Send request again -> Sent again -> expire twice -> no tailors left (D-85, D-94)
      J11 payout lifecycle: completed -> Pending (the Friday) -> the Friday run -> Paid, fee and payout in dollars (D-24, D-136)
      J12 a suggested time lapses: both sides end it and the hold is released (D-154)
+     J13 Book now on the profile opens the picker on the next opening; one tap confirms it into review (K-18)
 
    node scripts/v5/journeys.mjs [J1 J2 ...]
    ============================================================ */
@@ -431,6 +432,21 @@ await journey('J12', 'a suggested time lapses: both sides end it, the hold is re
   await at('J12 customer: the time is no longer held, hold released', 'c-request', {
     has: ['suggested time has passed', 'hold is released', 'Released', 'Find another tailor'], not: ['Accept new time', 'Try again'],
   });
+});
+
+/* ---------- J13 (K-18) ---------- */
+await journey('J13', 'Book now takes the next opening: the picker opens on it and one tap carries it to review', async () => {
+  await flow('c-tailor');
+  const next = await page.evaluate(async () => { const m = await import('/js/state.js'); const t = m.state.tailors[0]; return m.nextOpening(t.id, m.state.job.visitType, { until: m.state.job.needBy }); });
+  check('J13 the profile shows an opening to book', !!next, String(next));
+  await click('[data-act="book-now"]');
+  await at('J13 the picker', 'c-book', { has: ['Pick a time', 'Next: review and send', 'Step 4 of 5'] });
+  const drafted = await page.evaluate(() => window.Taily.state.ui.booking?.slot);
+  check('J13 the opening is already in the booking draft', drafted === next, `${drafted} vs ${next}`);
+  await click('[data-act="slot-next"]');
+  await at('J13 review and send', 'c-pay', { has: ['Review and send request'] });
+  const kept = await page.evaluate(() => window.Taily.state.ui.booking?.slot);
+  check('J13 the same time reaches review', kept === next, `${kept} vs ${next}`);
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

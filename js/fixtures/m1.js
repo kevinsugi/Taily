@@ -8,6 +8,7 @@ import { SCENARIOS, AMARA } from './money-scenarios.js';
 import { fmt, fmtExact } from '../money.js';
 
 import * as A from '../account.js';
+import { nextOpening } from '../state.js';
 import { draftAgain as CT_draftAgain } from './common.js';
 
 export const FLOWS_c_welcome = [
@@ -161,27 +162,27 @@ export const FLOWS_c_tailors = [
 ];
 export const FLOWS_c_tailor = [
   { key: 'c-tailor', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile',
-    note: 'Amara, shop + home, 4 reviews',
-    expect: { has: ['Amara Reyes', 'Reyes Tailoring', 'Ask a question', 'YOUR ESTIMATE', `Est. ${fmt(SCENARIOS.seed.total)}`, '312 Metropolitan Ave', 'Taily courier', 'Priya S.', 'Step 3 of 5'] } },
+    note: 'K-18 (2-I): Amara centred — portrait, rating / years / distance, the next opening beside Book now, About, photos, estimate, reviews; no Prices section, no "Est." lead',
+    expect: { has: ['Amara Reyes', 'Reyes Tailoring', 'Williamsburg', 'Photo: portrait', '37 reviews', '12 years tailoring', '0.6 mi', 'Next opening', 'Thu, Oct 15 · 5:00 PM', 'Book now', 'Book now takes this time. For another day, use Pick a time.', 'Pick a time', 'Ask a question', 'ABOUT', 'YOUR ESTIMATE', fmt(SCENARIOS.seed.total), '312 Metropolitan Ave', 'Taily courier', 'Priya S.', 'Step 3 of 5'], not: ['PRICES', 'Rush fees', 'See all 10 prices', 'Est. $'], sel: '.c-tailor__split .cta[data-act="book-now"]:not([disabled])' } },
   { key: 'c-tailor--verified', screen: 'c-tailor', group: 'M7 · Polish', title: 'Tailor profile — Verified popover', note: 'Tap the Verified check: ID verified, background check, years of experience, insured (K-15)',
     click: ['[data-verified]'],
     expect: { has: ['ID verified', 'Background check', '12 years of experience', 'Insured'], sel: '#verified-pop[role="dialog"]' } },
   { key: 'c-tailor--no-reviews', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — no reviews',
     note: 'New on Taily',
     setup: (S) => { S.T.setTailorSection('profile', { reviews: [], rating: { avg: 0, count: 0 } }); },
-    expect: { has: ['No reviews yet', 'New on Taily'], not: 'Priya' } },
+    expect: { has: ['No reviews yet', 'New', 'on Taily', 'Book now'], not: 'Priya' } },
   { key: 'c-tailor--home-only', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — home visits only',
     note: 'No shop address block',
     setup: (S) => { S.T.setTailorSection('where', { shop: { enabled: false } }); },
-    expect: { has: ['Comes to you in Williamsburg', '12 years tailoring', '11211, 11222'], not: '312 Metropolitan Ave' } },
+    expect: { has: ['Comes to you in Williamsburg', '12 years tailoring', 'At home', '11211, 11222'], not: ['312 Metropolitan Ave', '0.6 mi'] } },
   { key: 'c-tailor--shop-only', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — shop only',
     note: 'Job at the shop; no home block, no home-visit fee',
     setup: (S) => { S.T.setTailorSection('where', { home: { enabled: false } }); S.T.setJob({ visitType: 'shop' }); },
-    expect: { has: ['312 Metropolitan Ave', `Est. ${fmt(SCENARIOS.shop.total)}`], not: 'Home-visit fee' } },
+    expect: { has: ['312 Metropolitan Ave', 'Book now', fmt(SCENARIOS.shop.total)], not: ['Home-visit fee', 'Est. $'] } },
   { key: 'c-tailor--declined', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — declined',
     note: 'Amara declined this request; the way forward is a new request',
     setup: (S) => { S.driveTo('declined'); },
-    expect: { has: ['Amara declined this request', 'Your items and services are saved', 'Start a new request'], not: ['Ask a question', 'Est. $'], sel: '[data-act="new-job"]' } },
+    expect: { has: ['Amara declined this request', 'Your items and services are saved', 'Start a new request', 'Not available for this request'], not: ['Ask a question', 'Est. $', 'Book now takes this time'], sel: '.c-tailor__split .cta[data-act="book-now"][disabled]' } },
   { key: 'c-tailor--reviewed', screen: 'c-tailor', group: 'M4 · Completed', title: 'Tailor profile — with Sarah’s new review',
     note: 'After a 5-star review: Sarah C. first, the count is one higher',
     setup: (S) => { const a = S.driveTo('reviewed'); S.state.ui.booking = { tailorId: a.tailorId, from: 'review' }; },
@@ -190,6 +191,9 @@ export const FLOWS_c_tailor = [
 export const FLOWS_c_book = [
   { key: 'c-book', screen: 'c-book', group: 'M1 · Booking', title: 'Pick a time', note: 'Scheduler on Amara’s open times; first slot Thu, Oct 15',
     expect: { has: ['Pick a time', 'Thu, Oct 15', '60 min', 'Next: review and send', 'Step 4 of 5'], sel: '[data-scheduler] [role="listbox"][aria-label="AM/PM"][aria-activedescendant] [role="option"][aria-selected="true"]' } },
+  { key: 'c-book--preset', screen: 'c-book', group: 'M7 · Polish', title: 'Pick a time — opened from Book now', note: 'K-18: Book now on the profile put the next opening (Thu, Oct 15 · 5:00 PM) in the booking draft, so the wheel opens on it and one tap confirms',
+    setup: (S) => { const t = S.state.tailors[0]; S.state.ui.booking = { ...S.state.ui.booking, tailorId: t.id, slot: nextOpening(t.id, S.job.visitType, { until: S.job.needBy }) }; },
+    expect: { has: ['Pick a time', 'Thu, Oct 15', 'Next: review and send', 'Step 4 of 5'], sel: '[data-scheduler] [role="listbox"][aria-label="AM/PM"][aria-activedescendant] [role="option"][aria-selected="true"]' } },
   { key: 'c-book--no-slots', screen: 'c-book', group: 'M1 · Booking', title: 'Pick a time — nothing before the need-by', note: 'Need-by Thu, Oct 15: no visit a day earlier is open',
     setup: (S) => { S.T.setJob({ needBy: '2026-10-15' }); },
     expect: { has: ['No times before your need-by date', 'first opening is', 'Change need-by date', 'Message Amara'], sel: '[data-empty="no-slots"]' } },

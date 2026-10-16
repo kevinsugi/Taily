@@ -74,7 +74,7 @@ export const SCREENS = [
     { key: 'c-tailors--sort', m: 'M1', kind: 'overlay' },
     { key: 'c-tailors--none-left', m: 'M3', kind: 'state' },
   ] },
-  { id: 'c-tailor', m: 'M1', persona: 'customer', title: 'C4 Tailor profile: bio, badges, price list, reviews, return options, shop address, Ask a question', states: [
+  { id: 'c-tailor', m: 'M1', persona: 'customer', title: 'C4 Tailor profile (K-18 2-I): portrait, stat strip, next opening + Book now, About, photos, estimate, reviews, return options, shop address; Ask a question under Pick a time', states: [
     { key: 'c-tailor', m: 'M1', kind: 'frame' },
     { key: 'c-tailor--no-reviews', m: 'M1', kind: 'state' },
     { key: 'c-tailor--home-only', m: 'M1', kind: 'state' },
@@ -86,6 +86,7 @@ export const SCREENS = [
   { id: 'c-book', m: 'M1', persona: 'customer', title: 'C5a Pick a time: Scheduler limited to the tailor\'s open slots before the need-by', states: [
     { key: 'c-book', m: 'M1', kind: 'frame' },
     { key: 'c-book--no-slots', m: 'M1', kind: 'frame' },
+    { key: 'c-book--preset', m: 'M7', kind: 'state' },
   ] },
   { id: 'c-pay', m: 'M1', persona: 'customer', title: 'C5b Breakdown + pay the deposit, sends the request', states: [
     { key: 'c-pay', m: 'M1', kind: 'frame' },

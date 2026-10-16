@@ -8,10 +8,9 @@
 import { register, render as go } from '../app.js';
 import { state, tailorById, priceChangeView } from '../state.js';
 import {
-  chrome, navBackMark, receiptBlock, balanceCardLabel, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, garmentIcon, verifiedCheck,
+  chrome, navBackMark, receiptBlock, balanceCardLabel, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, garmentIcon, verifiedCheck, returnedItems,
 } from '../components.js';
 import { CHEVRON_RIGHT, VISIT_ICONS } from '../icons.js';
-import { SERVICES } from '../data.js';
 import { fmtExact } from '../money.js';
 import { fmtDay } from '../dates.js';
 import { focusAppt, setFocus, bookingTab } from '../focus.js';
@@ -24,15 +23,6 @@ const MAX_TAGS = 3;
 const customerShort = () => `${state.customer.first} ${(state.customer.last ?? '').charAt(0)}.`.replace(/ \.$/, '');
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
 const doneAt = (a) => [...a.history].reverse().find((h) => h.status === 'completed')?.at ?? a.requestedAt;
-
-/** What came back, one entry per garment: its type and the services done (the approved lines once they exist, as c-booking does). */
-function returned(a) {
-  if (a.lines?.length) {
-    return priceChangeView(a, a.lines).garments.filter((g) => g.kind !== 'removed')
-      .map((g) => ({ type: g.type, services: g.rows.filter((r) => r.kind !== 'removed').map((r) => r.label) }));
-  }
-  return a.job.garments.map((g) => ({ type: g.type, services: (g.services ?? []).map((id) => SERVICES[id]?.label).filter(Boolean) }));
-}
 
 /** The receipt row's one line: what was paid and with what, or where a refund went (D-156). */
 function receiptLine(a) {
@@ -59,7 +49,7 @@ function view() {
   }
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const first = firstOf(t);
-  const items = returned(a);
+  const items = returnedItems(a);
   const tags = items.slice(0, MAX_TAGS);
   const more = items.length - tags.length;
   /* M7-1-A-06: the heading is the group's visible label; a star tap carries the rating into c-review (D-107) */

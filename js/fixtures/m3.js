@@ -79,13 +79,13 @@ export const FLOWS_c_booking = [
     expect: { has: ['YOUR ORDER', 'photos', 'Amara’s comment', cbFC.g2], sel: '[data-garment="g1"] [data-act="view-photos"][data-source="fitting"]' } },
   { key: 'c-booking--returning-pickup', screen: 'c-booking', group: 'M4 · Bookings', title: 'Ready for pickup', note: 'Paid in full; pick it up at the shop',
     setup: (S) => { S.driveTo('returning'); },
-    expect: { has: ['Ready for pickup', 'paid in full', 'marks the order completed when you have it', 'Paid', 'IN-STORE PICKUP', 'Reyes Tailoring'], not: 'Pick it up at' } },
+    expect: { has: ['Ready for pickup', 'Open tomorrow 10:00 AM', 'Amara Reyes', 'Paid in full', 'Sarah C.', '2 items · 3 services', 'IN-STORE PICKUP', 'Reyes Tailoring', 'Directions', 'Message', 'WHAT HAPPENS NEXT', 'Pick it up at the shop', 'Ready · paid'], not: ['Message Amara', 'marks the order completed when you have it'], sel: '[data-hang] .hang__item' } },   // K-18 (3-J)
   { key: 'c-booking--returning-dropoff', screen: 'c-booking', group: 'M4 · Bookings', title: 'Amara will drop it off', note: 'Home drop-off: she messages to agree a time',
     setup: (S) => { S.driveTo('returning', { returnOption: 'dropoff' }); },
-    expect: { has: ['drop it off', '145 N 7th St', 'HOME DROP-OFF'], not: 'Coming to you' } },
+    expect: { has: ['Amara will drop it off · agree on a time in chat', 'Paid in full', 'To your door', '145 N 7th St', 'Brooklyn, NY', 'HOME DROP-OFF', 'Time to agree', 'Agree on a time with Amara', 'Amara brings it to your door'], sel: '[data-hang] .hang__tag' } },   // K-18 (3-J)
   { key: 'c-booking--returning-courier', screen: 'c-booking', group: 'M4 · Bookings', title: 'On its way to you', note: 'Taily courier: quote + fee = total, paid with the balance',
     setup: (S) => { S.driveTo('returning', { returnOption: 'courier' }); },
-    expect: { has: ['On its way to you', 'Arrives 6:00–6:30 PM', cbExact(CB_SC.courierQuote.quote), cbExact(CB_SC.courierQuote.markup), cbExact(CB_SC.courier.courier)], sel: '.courier-card--route' } },   // K16-2-02: the same window as t-job--courier's strip
+    expect: { has: ['On its way', 'Arrives 6:00–6:30 PM', 'With courier', 'TAILY COURIER', 'Paid by you', cbExact(CB_SC.courierQuote.quote), cbExact(CB_SC.courierQuote.markup), cbExact(CB_SC.courier.courier)], sel: '.visit-row--courier' } },   // K16-2-02: the same window as t-job--courier's strip; K-18 (3-J)
   { key: 'c-booking--completed', screen: 'c-booking', group: 'M4 · Bookings', title: 'Completed and reviewed', note: 'Her own review, the receipt, and Book Amara again',
     setup: (S) => { S.driveTo('reviewed'); },
     expect: { has: ['All done with Amara', 'Completed Thu, Oct 15. Fitted Thu, Oct 15 · at my place', 'YOUR REVIEW', 'Perfect fit', 'Book Amara again'] } },

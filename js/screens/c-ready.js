@@ -8,9 +8,11 @@
 import { register, render as go } from '../app.js';
 import { state, T, tailorById, returnOffer, returnAddress, priceChangeView } from '../state.js';
 import {
-  chrome, headingRow, statusHero, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
+  chrome, headingRow, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
   sheetOverlay, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, wireGarmentDocs, textLink, sectionHead,
+  linenStage, hangStage, returnedItems, andList,
 } from '../components.js';
+import { fmtDay } from '../dates.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
 import { fmtExact } from '../money.js';
@@ -117,16 +119,26 @@ function view() {
   /* one way back offered → nothing to choose (R4-1-C-05, D-113) */
   const only = offered.length === 1 ? offered[0] : null;
   const LINE_FOR = { pickup: `pick it up at ${esc(t.shopName)}`, dropoff: `${esc(first)} brings it to your door`, courier: 'a courier brings it today' };
-  const hero = headingRow(statusHero({
-    variant: 'ready', pill: false, title: 'Your order is ready',   // K-17 R1: the title says it, no "Ready" pill
-    body: zero && refund > 0
+  const body = zero && refund > 0
       ? `${esc(first)} finished the work. Your final total is less than your deposit, so the difference comes back to your card.`   // R5: the amount is on the button and in Price
       : zero
         ? (only ? `${esc(first)} finished the work. Nothing is left to pay, then ${LINE_FOR[only]}.` : `${esc(first)} finished the work. Choose how to get it back. Nothing is left to pay.`)
         : only
           ? `${esc(first)} finished the work. Pay the balance, then ${LINE_FOR[only]}.`
-          : `${esc(first)} finished the work. Choose how to get it back, then pay the balance.`,
-  }));
+          : `${esc(first)} finished the work. Choose how to get it back, then pay the balance.`;
+  /* K-24 (R3): the linen stage carries the title — caps eyebrow + serif title on the linen, the K-22 hang stage under the stitch,
+     the body on the page ground directly above the choice. The tag says Ready; the clothes are at the shop until a way back is picked. */
+  const items = returnedItems(a);
+  const services = items.reduce((n, g) => n + g.services.length, 0);
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const sarah = `${state.customer.first} ${(state.customer.last ?? '').charAt(0)}.`.replace(/ \.$/, '');
+  const readyAt = [...a.history].reverse().find((h) => h.status === 'ready')?.at;
+  const stage = hangStage({
+    types: items.map((g) => g.type), tag: [sarah, 'Ready'], left: `${plural(items.length, 'item')} · ${plural(services, 'service')}`, right: `at ${t.shopName}`,
+    label: `${plural(items.length, 'item')} ready: ${andList(items.map((g) => g.type))}, hung on a rail with a tag: ${sarah}, Ready`,
+  });
+  const hero = `${linenStage({ eyebrow: readyAt ? `Finished · ${fmtDay(readyAt)}` : 'Finished', title: 'Your order is ready', rail: stage, label: 'Your order is ready' })}
+  <p class="t-body ${ID}__intro">${body}</p>`;
   /* C-11: one decline pattern (D-140) — the banner sits directly above the action bar, the way forward is another card */
   const alert = failed && !zero
     ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Your card was declined', text: `${esc(pillCard)} didn’t go through, and nothing was charged.`, actionLabel: 'Use another card', actionAct: 'pay' })}</div>`

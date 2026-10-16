@@ -132,7 +132,7 @@ export { NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTI
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
 import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
-import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay } from './dates.js';
+import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb } from './dates.js';
 import { POLICY } from './money-config.js';
 import { state, apptsFor, threadsFor, priceChangeView } from './state.js';
 import { inbox } from './tailor-data.js';
@@ -1250,35 +1250,47 @@ export function avatar({ initials = '', photo = null, size = 'sm', glyph = false
 }
 
 /* ---------- tailor row ---------- */
+/* K-19 glyphs: the mock's 20-grid line icons drawn at 16 */
+const ROW_GLYPH = (paths) => `<svg class="icon-16" width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+const ROW_ICONS = {
+  home: ROW_GLYPH('<path d="M3 9 10 3.5 17 9"/><path d="M4.75 8v8.5h10.5V8"/><path d="M8.5 16.5v-4h3v4"/>'),
+  shop: ROW_GLYPH('<path d="M10 17.5s5.5-4.6 5.5-9a5.5 5.5 0 0 0-11 0c0 4.4 5.5 9 5.5 9z"/><circle cx="10" cy="8.5" r="2"/>'),
+  next: ROW_GLYPH('<rect x="3" y="4.5" width="14" height="12.5" rx="2.5"/><path d="M3 8.5h14"/><path d="M7 3v3M13 3v3"/>'),
+};
 /**
- * Tailor Row — one card per tailor in "Tailors near you".
- * `quote` is the quote() object in cents ({ total, homeFee, rush }) or a bare total.
- * States: default · rush (adds the "+ $40 rush fee" caption) · declined (dimmed,
- * "Declined this request", aria-disabled, no action). Skeleton: skeleton({ kind: 'tailor-row' }).
+ * Tailor Row — one card per tailor in "Tailors near you" (K-19, option Q "Cognac rule").
+ * Head: avatar · name + Verified check (icon only, K-15 popover) · "★ 4.9 (37)", or "N years tailoring" when there are no reviews · the
+ * estimate ("$160" over "Est."; no fee lines). Then the tailor's `cardLine` as a margin note on a 2 px cognac rule (wraps, never truncated,
+ * the card grows), then the facts: the place by visit type (shop: street · area · distance; home: "Comes to you · from <area>") and the
+ * next opening. `quote` is the quote() object in cents ({ total, … }) or a bare total. Declined: dimmed, head + "Declined this request",
+ * aria-disabled. Skeleton: skeleton({ kind: 'tailor-row' }).
  */
-export function tailorRow({ id, name, initials, photo = null, verified = false, years = 0, rating = null, distanceMi = null, quote = 0, nextOpening = null, visitType = 'home', declined = false, format = fmt, booked = '' } = {}) {
+export function tailorRow({ id, name, initials, photo = null, verified = false, years = 0, rating = null, distanceMi = null, quote = 0, nextOpening = null, visitType = 'home', declined = false, format = fmt, booked = '', cardLine = '', street = '', hood = '' } = {}) {
   const q = typeof quote === 'number' ? { total: quote } : (quote ?? {});
-  /* M6-M-07: one caption, "Includes $35 home-visit fee and $40 rush fee" — no "+" */
-  const incl = [];
-  if (visitType === 'home' && q.homeFee > 0) incl.push(`${format(q.homeFee)} home-visit fee`);
-  if (q.rush > 0) incl.push(`${format(q.rush)} rush fee`);
-  const captions = incl.length ? [`Includes ${incl.join(' and ')}`] : [];
-  const meta = [
-    rating ? `★ ${rating.avg} (${rating.count})` : '',
-    distanceMi != null ? `${Number(distanceMi).toFixed(1)} mi` : '',
-  ].filter(Boolean).join(' · ');
+  const yrs = Number(years) || 0;
+  const slot = rating
+    ? `<span class="tailor-row__rating"><span class="tailor-row__star" aria-hidden="true">★</span> ${esc(rating.avg)} <span class="tailor-row__rating-n">(${esc(rating.count)})</span></span>`
+    : (yrs > 0 ? `<span class="tailor-row__rating tailor-row__rating--years">${yrs} ${yrs === 1 ? 'year' : 'years'} tailoring</span>` : '');
+  const place = visitType === 'shop'
+    ? [street, hood, distanceMi != null ? `${Number(distanceMi).toFixed(1)} mi` : ''].filter(Boolean).map((x) => esc(x)).join(' · ')
+    : `Comes to you${hood ? ` · from ${esc(hood)}` : ''}`;
   const attrs = declined ? ' aria-disabled="true"' : ` data-act="open-tailor" data-id="${esc(id)}"`;
-  /* the estimate is the focal element (R1-1-C-17): right-aligned on the name row at 24 / 600 tabular; the full badge list lives on the profile */
-  const est = declined ? '' : `<span class="tailor-row__quote" data-money><span class="tailor-row__est">Est. ${format(q.total ?? 0)}</span></span>`;
+  /* the estimate is the focal element (R1-1-C-17): 24 / 600 tabular, "Est." under it */
+  const est = declined ? '' : `<span class="tailor-row__quote" data-money><span class="tailor-row__amt">${format(q.total ?? 0)}</span><span class="tailor-row__est">Est.</span></span>`;
+  const line = String(cardLine ?? '').trim();
+  const next = nextOpening ? `<span class="tailor-row__fact tailor-row__fact--next"><span class="tailor-row__glyph">${ROW_ICONS.next}</span><span class="tailor-row__fact-t">Next opening ${nb(fmtWhen(nextOpening))}</span></span>` : '';
+  const facts = declined ? '' : `<span class="tailor-row__facts"><span class="tailor-row__fact"><span class="tailor-row__glyph">${visitType === 'shop' ? ROW_ICONS.shop : ROW_ICONS.home}</span><span class="tailor-row__fact-t">${place}</span></span>${next}</span>`;
   return `<button type="button" class="tailor-row card${declined ? ' tailor-row--declined' : ''}${q.rush > 0 ? ' tailor-row--rush' : ''}"${attrs}>
-  <span class="tailor-row__who">
-    ${avatar({ initials, photo, size: 'md' })}
-    <span class="tailor-row__info">
-      <span class="tailor-row__name-row"><span class="tailor-row__name">${esc(name)}</span>${est}</span>
-      ${meta || verified ? `<span class="tailor-row__meta">${meta}${verified ? `${meta ? ' ' : ''}${verifiedCheck({ years, word: true, inline: true })}` : ''}</span>` : ''}
+  <span class="tailor-row__head">
+    ${avatar({ initials, photo, size: 'sm' })}
+    <span class="tailor-row__who">
+      <span class="tailor-row__name-row"><span class="tailor-row__name">${esc(name)}</span>${verified ? verifiedCheck({ years, inline: true }) : ''}</span>
+      ${slot}
     </span>
+    ${est}
   </span>
-  ${!declined && (captions.length || nextOpening) ? `<span class="tailor-row__lower">${captions.length ? `<span class="tailor-row__captions" data-money>${captions.map((c) => `<span class="tailor-row__caption">${c}</span>`).join('')}</span>` : ''}${nextOpening ? `<span class="tailor-row__next">Next opening ${fmtWhen(nextOpening)}</span>` : ''}</span>` : ''}
+  ${!declined && line ? `<span class="tailor-row__line" data-cardline>${esc(line)}</span>` : ''}
+  ${facts}
   ${declined ? '<span class="tailor-row__note">Declined this request</span>' : ''}
   ${!declined && booked ? `<span class="tailor-row__booked">${booked}</span>` : ''}
 </button>`;
@@ -1546,7 +1558,7 @@ export function listRow({ title, sub = '', right = '', act = '', chevron = true,
 export function skeleton({ kind = 'line', count = 1 } = {}) {
   const one = {
     line: '<span class="skeleton__line"></span>',
-    'tailor-row': '<div class="skeleton__card skeleton__card--row"><span class="skeleton__who"><span class="skeleton__dot"></span><span class="skeleton__lines"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w40"></span><span class="skeleton__line skeleton__line--w80"></span></span></span><span class="skeleton__lower"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w80"></span></span></div>',
+    'tailor-row': '<div class="skeleton__card skeleton__card--row"><span class="skeleton__who"><span class="skeleton__dot"></span><span class="skeleton__lines"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w40"></span></span><span class="skeleton__price"><span class="skeleton__line skeleton__line--w80"></span><span class="skeleton__line skeleton__line--w40"></span></span></span><span class="skeleton__note"><span class="skeleton__line skeleton__line--w80"></span><span class="skeleton__line skeleton__line--w60"></span></span><span class="skeleton__lower"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w80"></span></span></div>',
     card: '<div class="skeleton__card"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line"></span><span class="skeleton__line skeleton__line--w80"></span></div>',
     'thread-row': '<div class="skeleton__row"><span class="skeleton__dot skeleton__dot--sm"></span><span class="skeleton__lines"><span class="skeleton__line skeleton__line--w40"></span><span class="skeleton__line skeleton__line--w80"></span></span></div>',
     'appt-row': '<div class="skeleton__appt"><span class="skeleton__dot skeleton__dot--sm"></span><span class="skeleton__lines"><span class="skeleton__line skeleton__line--w60"></span><span class="skeleton__line skeleton__line--w80"></span><span class="skeleton__line skeleton__line--w40"></span></span><span class="skeleton__aside"><span class="skeleton__line skeleton__line--pill"></span><span class="skeleton__line skeleton__line--amt"></span></span></div>',

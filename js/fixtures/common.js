@@ -200,7 +200,7 @@ export function onboardTo(step, { phone = NEW_TAILOR_PHONE } = {}) {
   const seed = TAILORS[0];
   const pick = (o, keys) => Object.fromEntries(keys.map((k) => [k, structuredClone(o[k])]));
   const saves = {
-    profile: () => T.setTailorSection('profile', pick(seed, ['name', 'shopName', 'initials', 'bio', 'years', 'photo', 'workPhotos'])),
+    profile: () => T.setTailorSection('profile', pick(seed, ['name', 'shopName', 'initials', 'cardLine', 'bio', 'years', 'photo', 'workPhotos'])),
     services: () => T.setTailorSection('services', { prices: structuredClone(seed.prices) }),
     where: () => T.setTailorSection('where', pick(seed, ['shop', 'home'])),
     returns: () => T.setTailorSection('returns', { returns: structuredClone(seed.returns) }),

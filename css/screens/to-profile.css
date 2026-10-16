@@ -22,3 +22,6 @@
 .to-profile__sheet-foot { display: flex; justify-content: center; }
 .screen-sheet[data-s^="to-profile"] .sheet__cancel,
 .screen-sheet[data-s^="to-profile"] .sheet__confirm { min-width: 44px; min-height: 44px; }
+/* K-19: the profile photo is required — a missing one after Next rings the well in the error colour, the message sits beside it */
+.to-profile__photo--error .avatar { box-shadow: inset 0 0 0 2px var(--error); }
+.to-profile__photo--error .to-profile__photo-side .text-link { color: var(--error-ink); }

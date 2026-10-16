@@ -45,7 +45,7 @@ export const ZIP_INFO = {                               // mock geography: neigh
 };
 export const REVIEW_LIMITS = { TEXT_MAX: 500, PHOTOS_MAX: 3 };                       // D-107
 export const STAR_WORDS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];        // index = stars
-export const TAILOR_LIMITS = { BIO_MAX: 300, WORK_PHOTOS_MAX: 6, PRICE_MAX: 999, FEE_MAX: 200, RUSH_MAX: 200, NOTE_MAX: 200 };  // whole dollars (D-58, D-59)
+export const TAILOR_LIMITS = { BIO_MAX: 300, CARD_LINE_MAX: 110, WORK_PHOTOS_MAX: 6, PRICE_MAX: 999, FEE_MAX: 200, RUSH_MAX: 200, NOTE_MAX: 200 };  // whole dollars (D-58, D-59)
 export const RUSH_TIERS = [1, 2, 3];                       // days after the visit; 4+ days is always free (D-64)
 export const SHOP_CITY = { city: 'Brooklyn', state: 'NY' }; // prototype geography (D-60)
 export const DEFAULT_WEEK = {                              // a new tailor's starting hours (D-62); no overlap
@@ -76,8 +76,9 @@ export const servicesForType = (type) => Object.keys(SERVICES).filter((id) => SE
 
 export const TAILORS = [
   {
-    id: 'amara', name: 'Amara Reyes', shopName: 'Reyes Tailoring', initials: 'AR', photo: null, workPhotos: 4, years: 12,
+    id: 'amara', name: 'Amara Reyes', shopName: 'Reyes Tailoring', initials: 'AR', photo: true, workPhotos: 4, years: 12,
     phone: '(347) 555-0118', live: true, takingRequests: true,
+    cardLine: 'I’ve fitted suits and dresses in Williamsburg since 2014. I pin every fitting myself, at my shop or yours.',   // K-19: the list-card line, ≤ CARD_LINE_MAX
     bio: 'Tailoring in Williamsburg since 2014. I fit at my shop on Metropolitan Ave or at your place, and I show you every pin before I cut.',
     verified: true, badges: TRUST_BADGES,
     shop: { enabled: true, street: '312 Metropolitan Ave', city: 'Brooklyn', state: 'NY', zip: '11211', hood: 'Williamsburg' },
@@ -135,7 +136,7 @@ export const SEED_JOB = {
 
 /** A tailor with every section empty — the onboarding flows overwrite `amara` with it (D-20). */
 export const BLANK_TAILOR = {
-  id: 'amara', name: '', shopName: '', initials: '', photo: null, workPhotos: 0, years: 0, bio: '', phone: '', live: false, takingRequests: true,
+  id: 'amara', name: '', shopName: '', initials: '', photo: null, workPhotos: 0, years: 0, cardLine: '', bio: '', phone: '', live: false, takingRequests: true,
   verified: false, badges: [],
   shop: { enabled: false, street: '', city: '', state: '', zip: '', hood: '' },
   home: { enabled: false, zips: [], fee: 0 },

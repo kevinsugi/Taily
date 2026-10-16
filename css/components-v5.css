@@ -117,7 +117,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .avatar--placeholder .icon-camera { width: var(--size-24); height: var(--size-24); }
 .avatar__img { width: 100%; height: 100%; object-fit: cover; }
 
-/* ---------- tailor row ---------- */
+/* ---------- tailor row (K-19, option Q "Cognac rule") ---------- */
 .tailor-row {
   display: flex;
   flex-direction: column;
@@ -126,19 +126,29 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
   min-height: 44px;
   text-align: left;
 }
-.tailor-row__who { display: flex; align-items: flex-start; gap: var(--space-12); }
-.tailor-row__info { display: flex; flex-direction: column; gap: var(--space-4); flex: 1 1 0; min-width: 0; }
-.tailor-row__name-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-8); }
-.tailor-row__name { flex: 1 1 0; min-width: 0; font-family: var(--font-sans); font-size: var(--size-16); line-height: var(--lh-16); font-weight: 600; color: var(--ink); }
-.tailor-row__meta { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--space-8); font-size: var(--size-12); line-height: var(--lh-12); font-weight: 500; color: var(--neutral-600); }
-/* the estimate is the focal element: 24 / 600 tabular, right-aligned on the name row (R1-1-C-17) */
-.tailor-row__quote { flex: 0 0 auto; display: inline-flex; }
-.tailor-row__est { font-size: var(--size-24); line-height: var(--lh-24); font-weight: 600; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
-.tailor-row__lower { display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-12); border-top: 1px solid var(--neutral-100); }
-.tailor-row__captions { display: flex; flex-direction: column; gap: var(--space-2); }
-.tailor-row__caption { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 500; color: var(--neutral-600); }
+.tailor-row__head { display: grid; grid-template-columns: var(--space-40) minmax(0, 1fr) auto; gap: 0 var(--space-12); align-items: start; }
+.tailor-row__who { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; padding-top: var(--space-2); }
+.tailor-row__name-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-4); min-width: 0; }
+.tailor-row__name { min-width: 0; font-family: var(--font-sans); font-size: var(--size-16); line-height: var(--lh-16); font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.tailor-row__name-row .verified { color: var(--success-ink); }
+.tailor-row__rating { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--neutral-700); font-variant-numeric: tabular-nums lining-nums; }
+.tailor-row__star { color: var(--accent-base); }
+.tailor-row__rating-n { font-weight: 500; color: var(--neutral-600); }
+.tailor-row__rating--years { font-weight: 500; }
+/* the estimate is the focal element: "$160" at 24 / 600 tabular, "Est." under it (R1-1-C-17, K-19) */
+.tailor-row__quote { display: flex; flex-direction: column; align-items: flex-end; flex: 0 0 auto; text-align: right; }
+.tailor-row__amt { font-family: var(--font-sans); font-size: var(--size-24); line-height: var(--lh-24); font-weight: 600; letter-spacing: -0.01em; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.tailor-row__est { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--neutral-600); }
+/* the card line: a margin note, 8 px off a 2 px cognac rule; it wraps and the card grows (never truncated) */
+.tailor-row__line { display: block; min-width: 0; padding: var(--space-2) 0 var(--space-2) var(--space-8); box-shadow: inset 2px 0 0 var(--accent-base); font-size: var(--size-12); line-height: var(--lh-12); font-weight: 400; color: var(--neutral-700); text-wrap: pretty; overflow-wrap: break-word; }
+.tailor-row__facts { display: flex; flex-direction: column; gap: var(--space-8); padding-top: var(--space-12); box-shadow: inset 0 1px 0 var(--hairline); }
+.tailor-row__fact { display: flex; align-items: flex-start; gap: var(--space-8); font-size: var(--size-12); line-height: var(--lh-12); font-weight: 500; color: var(--neutral-700); }
+.tailor-row__fact-t { min-width: 0; text-wrap: pretty; }
+.tailor-row__glyph { display: inline-flex; flex: 0 0 auto; color: var(--neutral-500); }
+.tailor-row__glyph svg { width: var(--size-16); height: var(--size-16); }
+.tailor-row__fact--next { font-weight: 600; color: var(--accent-ink); }
+.tailor-row__fact--next .tailor-row__glyph { color: var(--accent-base); }
 .tailor-row__booked { display: block; padding-top: var(--space-8); font-size: var(--size-12); line-height: var(--lh-12); font-weight: 500; color: var(--neutral-600); text-wrap: pretty; }
-.tailor-row__next { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--accent-ink); }
 .tailor-row__note { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--neutral-700); }
 .tailor-row--declined { opacity: 0.55; cursor: not-allowed; }
 
@@ -366,8 +376,11 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .skeleton__line--w60 { width: 60%; }
 .skeleton__line--w80 { width: 80%; }
 .skeleton__card { display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-16); border-radius: var(--radius-lg); background: var(--white); }
-.skeleton__card--row { align-items: stretch; }   /* who row + hairline + two estimate bars = the height of tailorRow with a quote (R1-2-C-09) */
-.skeleton__who { display: flex; align-items: flex-start; gap: var(--space-12); min-height: 71px; }
+.skeleton__card--row { align-items: stretch; }   /* head + cognac-ruled card line + hairline facts = the shape of tailorRow (R1-2-C-09, K-19) */
+.skeleton__who { display: flex; align-items: flex-start; gap: var(--space-12); }
+.skeleton__price { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-4); width: calc(var(--space-40) + var(--space-24)); flex-shrink: 0; }
+.skeleton__card--row .skeleton__dot { width: var(--space-40); height: var(--space-40); border-radius: var(--radius-full); }
+.skeleton__note { display: flex; flex-direction: column; gap: var(--space-4); padding-left: var(--space-8); box-shadow: inset 2px 0 0 var(--neutral-100); }
 .skeleton__lower { display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-12); border-top: 1px solid var(--neutral-100); }
 .skeleton__dot { flex-shrink: 0; width: 56px; height: 56px; border-radius: var(--radius-lg); }
 .skeleton__lines { display: flex; flex-direction: column; gap: var(--space-8); flex: 1 1 0; }
@@ -1199,10 +1212,6 @@ a.cta-small { text-decoration: none; }
   .rush-tier { white-space: normal; }
   .rush-tier__when { min-width: 0; overflow-wrap: break-word; }
   .status { white-space: normal; }   /* a long status word wraps beside its dot instead of running off the edge */
-  .tailor-row__name-row { flex-wrap: wrap; }   /* the estimate drops under the name */
-  .tailor-row__name { flex: 1 1 96px; }
-  .tailor-row__quote { flex: 0 1 auto; min-width: 0; }
-  .tailor-row__est { white-space: normal; }   /* "Est." and the amount stack when the column is narrow; the amount itself never breaks */
   /* K9-2-03 (D-233): the neighbourhood drops under the ZIP code (the ✕ stays beside it) instead of splitting mid-word */
   .zip-chip { display: inline-grid; grid-template-columns: auto auto; justify-content: start; column-gap: var(--space-8); row-gap: 0; max-width: 100%; padding-block: var(--space-4); border-radius: var(--radius-lg); text-align: left; }
   .zip-chip__zip { grid-column: 1; grid-row: 1; }

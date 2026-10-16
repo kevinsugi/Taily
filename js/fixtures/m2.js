@@ -39,15 +39,26 @@ export const FLOWS_t_code = [
     expect: { has: 'Resend code', not: 'Resend code in', sel: '[data-act="resend"]:not([disabled])' } },
 ];
 export const FLOWS_to_profile = [
-  { key: 'to-profile', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile', note: 'Step 1 of 6: blank tailor, name focal, live preview, Finish later',
+  { key: 'to-profile', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile', note: 'Step 1 of 6: blank tailor, name focal, card line + live list-card preview, Finish later',
     setup: () => { onboardTo('profile'); },
-    expect: { has: ['Step 1 of 6', 'Your profile', 'Your name', 'About your work', 'WHAT CUSTOMERS SEE', 'Finish later'], not: 'Save changes', sel: '#name' } },
-  { key: 'to-profile--errors', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile — errors', note: 'No name, a bio three times too long, then Next',
-    setup: (S) => { onboardTo('profile'); S.state.ui['to-profile'] = { draft: { name: '', shopName: '', bio: AMARA.bio.repeat(3), photo: false, workPhotos: 0 } }; },
+    expect: { has: ['Step 1 of 6', 'Your profile', 'Your name', 'Your card line', 'What customers see on the list. Up to 110 characters.', '0 / 110', 'About your work', 'YOUR CARD ON THE LIST', 'Shown for a sample job', 'Finish later'], not: ['Save changes', 'Optional.'], sel: '#name' } },
+  { key: 'to-profile--card-line', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile — card line', note: 'Amara’s card line typed in: 106 / 110, and the list card shows it in the margin note (K-19)',
+    setup: (S) => { onboardTo('profile'); S.state.ui['to-profile'] = { draft: { name: AMARA.name, shopName: AMARA.shopName, cardLine: AMARA.cardLine, bio: AMARA.bio, photo: true, workPhotos: 0 } }; },
+    expect: { has: ['Your card line', AMARA.cardLine, '106 / 110', 'YOUR CARD ON THE LIST', AMARA.name, 'Comes to you · from Williamsburg', fmt(SCENARIOS.seed.total), 'Est.'], sel: '.customer-preview .tailor-row__line' } },
+  { key: 'to-profile--card-line-over', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile — card line too long', note: 'A card line over 110: the counter turns error, Next says why',
+    setup: (S) => { onboardTo('profile'); S.state.ui['to-profile'] = { draft: { name: AMARA.name, shopName: '', cardLine: `${AMARA.cardLine} ${AMARA.cardLine}`.slice(0, 124), bio: AMARA.bio, photo: true, workPhotos: 0 } }; },
     click: ['[data-act="next"]'],
-    expect: { has: ['Enter your name', 'Keep it to 300 characters'], sel: '#name[aria-invalid="true"]' } },
-  { key: 'to-profile--edit', screen: 'to-profile', group: 'M2 · Shop', title: 'Profile — edit', note: 'Live tailor: Save changes waits for a change',
-    expect: { has: ['Your profile', 'Save changes', 'No changes yet', AMARA.name], not: 'Step 1 of 6', sel: '[data-act="save"][disabled]' } },
+    expect: { has: ['124 / 110', 'Keep it to 110 characters — you’re at 124.'], sel: '#cardLine[aria-invalid="true"]', also: ['.text-area__count--over'] } },
+  { key: 'to-profile--photo-missing', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile — photo missing', note: 'Everything filled in but the profile photo: Next says "Add a profile photo" (K-19)',
+    setup: (S) => { onboardTo('profile'); S.state.ui['to-profile'] = { draft: { name: AMARA.name, shopName: '', cardLine: AMARA.cardLine, bio: AMARA.bio, photo: false, workPhotos: 0 } }; },
+    click: ['[data-act="next"]'],
+    expect: { has: ['Add a profile photo.', 'Add a photo'], not: ['Step 2 of 6'], sel: '.to-profile__photo--error' } },
+  { key: 'to-profile--errors', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile — errors', note: 'No name, no card line, no photo, a bio three times too long, then Next',
+    setup: (S) => { onboardTo('profile'); S.state.ui['to-profile'] = { draft: { name: '', shopName: '', cardLine: '', bio: AMARA.bio.repeat(3), photo: false, workPhotos: 0 } }; },
+    click: ['[data-act="next"]'],
+    expect: { has: ['Enter your name', 'Write the line customers see on the list.', 'Add a profile photo.', 'Keep it to 300 characters'], sel: '#name[aria-invalid="true"]', also: ['#cardLine[aria-invalid="true"]', '.to-profile__photo--error'] } },
+  { key: 'to-profile--edit', screen: 'to-profile', group: 'M2 · Shop', title: 'Profile — edit', note: 'Live tailor: Save changes waits for a change; the card line sits before About',
+    expect: { has: ['Your profile', 'Save changes', 'No changes yet', AMARA.name, 'Your card line', AMARA.cardLine, '106 / 110', 'YOUR CARD ON THE LIST'], not: 'Step 1 of 6', sel: '[data-act="save"][disabled]' } },
 ];
 export const FLOWS_to_services = [
   { key: 'to-services', screen: 'to-services', group: 'M2 · Onboarding', title: 'Services and prices', note: 'Step 2 of 6: three ticked, a live "Your payout · Taily fee" under each price',
@@ -142,11 +153,11 @@ export const FLOWS_to_payouts = [
 export const FLOWS_to_done = [
   { key: 'to-done', screen: 'to-done', group: 'M2 · Onboarding', title: 'You’re bookable', note: 'Live: her row as a customer sees it, what happens next',
     setup: () => { onboardTo('done'); },
-    expect: { has: ['bookable', 'PREVIEW', 'How a customer in Williamsburg sees you', `Est. ${fmt(SCENARIOS.seed.total)}`, 'WHAT HAPPENS NEXT', 'Go to my shop'], sel: '.customer-preview .tailor-row' } },
+    expect: { has: ['bookable', 'PREVIEW', 'How a customer in Williamsburg sees you', fmt(SCENARIOS.seed.total), 'Est.', AMARA.cardLine, 'WHAT HAPPENS NEXT', 'Go to my shop'], sel: '.customer-preview .tailor-row' } },
 ];
 export const FLOWS_t_shop = [
   { key: 't-shop', screen: 't-shop', group: 'M2 · Shop', title: 'Your shop', note: 'Bookable: preview of her row, seven setup rows with summaries',
-    expect: { has: ['Your shop', 'Bookable', 'Taking requests', 'WHAT CUSTOMERS SEE', `Est. ${fmt(SCENARIOS.seed.total)}`, 'Reyes Tailoring', `1 day +${fmt(cents(AMARA.rush[0].fee))}`, `${AMARA.payouts.bank} •••• ${AMARA.payouts.last4}`] } },
+    expect: { has: ['Your shop', 'Bookable', 'Taking requests', 'WHAT CUSTOMERS SEE', fmt(SCENARIOS.seed.total), 'Est.', AMARA.cardLine, 'Reyes Tailoring', `1 day +${fmt(cents(AMARA.rush[0].fee))}`, `${AMARA.payouts.bank} •••• ${AMARA.payouts.last4}`] } },
   { key: 't-shop--paused', screen: 't-shop', group: 'M2 · Shop', title: 'Your shop — paused', note: 'Taking requests is off: the chip says customers can’t send requests; booked jobs are untouched (D-161)',
     setup: (S) => { S.T.setTakingRequests(false); },
     expect: { has: ['Paused · customers can’t send requests', 'Taking requests', 'already booked'], not: 'Bookable', sel: '#taking-requests[aria-checked="false"]' } },

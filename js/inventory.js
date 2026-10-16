@@ -65,6 +65,8 @@ export const SCREENS = [
   { id: 'c-tailors', m: 'M1', persona: 'customer', title: 'C3 Tailors near you (filtered list, 1 seed row)', states: [
     { key: 'c-tailors--loading', m: 'M1', kind: 'frame' },
     { key: 'c-tailors', m: 'M1', kind: 'frame' },
+    { key: 'c-tailors--shop', m: 'M1', kind: 'state' },
+    { key: 'c-tailors--no-reviews', m: 'M1', kind: 'state' },
     { key: 'c-tailors--rush', m: 'M1', kind: 'state' },
     { key: 'c-tailors--booked', m: 'M1', kind: 'state' },
     { key: 'c-tailors--empty-zip', m: 'M1', kind: 'frame' },
@@ -223,8 +225,11 @@ export const SCREENS = [
     { key: 't-code--expired', m: 'M2', kind: 'state' },
     { key: 't-code--resend', m: 'M2', kind: 'state' },
   ] },
-  { id: 'to-profile', m: 'M2', persona: 'tailor', title: 'O1 name, photo, short bio, work photos', states: [
+  { id: 'to-profile', m: 'M2', persona: 'tailor', title: 'O1 name, photo, card line, short bio, work photos', states: [
     { key: 'to-profile', m: 'M2', kind: 'frame' },
+    { key: 'to-profile--card-line', m: 'M2', kind: 'state' },
+    { key: 'to-profile--card-line-over', m: 'M2', kind: 'state' },
+    { key: 'to-profile--photo-missing', m: 'M2', kind: 'state' },
     { key: 'to-profile--errors', m: 'M2', kind: 'state' },
     { key: 'to-profile--edit', m: 'M2', kind: 'state' },
   ] },

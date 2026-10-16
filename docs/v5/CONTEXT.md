@@ -138,7 +138,7 @@ verified, years, badges, tag, user, attrs })` `visitBlock(rows, { title })` `tru
 `infoCard(rowsHtml, { heading })` `infoRow(label, value, { small, total })` `metaRow(glyph, text, { icon: shop|home|bag|truck })` `methodRow(label, icon)`
 `timeline(steps)` `progressBar(stage)` `statusHero({ variant, pill, pillLabel, title, titleLine2, body, rowLabel, rowValue, extra })`
 `feeRow(price, desc, { line, info, muted, caption })`. People: `avatar({ initials, photo, size })`
-`tailorRow({ id, name, initials, photo, verified, years, rating, distanceMi, quote, nextOpening, visitType, declined })`
+`tailorRow({ id, name, initials, photo, verified, years, rating, distanceMi, quote, nextOpening, visitType, declined, booked, cardLine, street, hood })` (K-19 Q card; build the props from a `tailorsFor` row with `tailorRowProps(row, job, extra)` in `js/tailor-data.js`)
 `ratingLine({ avg, count, anchor })` `stars({ value, input, name })` `reviewRow({ name, initials, stars, date, text, photos })`
 `priceRow({ label, cents, note, muted })`. Time/chat: `countdown({ expiresAt, now, suffix })` `bubble(text, side)`
 `chatBubble({ text, side, time, photos, status, masked })` `privacyNote()` `readOnlyBanner({ text, ctaLabel, ctaAct })`

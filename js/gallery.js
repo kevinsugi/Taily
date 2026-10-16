@@ -129,10 +129,11 @@ export function galleryHtml() {
       C.avatar({ initials: 'AR', size: 'md', photo: 'assets/garments/tile-suit-jacket.png' }), C.avatar({ size: 'md', photo: true }), C.avatar({ size: 'lg', photo: true }));
 
   h2('Tailor Row');
-  const trow = { id: 'amara', name: amara.name, initials: amara.initials, verified: true, years: amara.years, rating: amara.rating, distanceMi: 0.6, nextOpening: '2026-10-15T17:00' };
+  const trow = { id: 'amara', name: amara.name, initials: amara.initials, verified: true, years: amara.years, rating: amara.rating, distanceMi: 0.6, nextOpening: '2026-10-15T17:00', cardLine: amara.cardLine, street: amara.shop.street, hood: amara.shop.hood };
   v('default (home visit)');  col(C.tailorRow({ ...trow, quote: seed, visitType: 'home' }));
-  v('rush (+ $40 rush fee)'); col(C.tailorRow({ ...trow, quote: rush, visitType: 'home' }));
+  v('rush (the estimate carries the fee)'); col(C.tailorRow({ ...trow, quote: rush, visitType: 'home' }));
   v('shop visit');            col(C.tailorRow({ ...trow, quote: quote({ lines }), visitType: 'shop' }));
+  v('no reviews (years in the rating slot)'); col(C.tailorRow({ ...trow, rating: null, quote: seed, visitType: 'home' }));
   v('declined');              col(C.tailorRow({ ...trow, quote: seed, declined: true }));
   v('skeleton');              col(C.skeleton({ kind: 'tailor-row', count: 2 }));
 
@@ -263,7 +264,7 @@ export function galleryHtml() {
   /* ---------------- M2 · tailor onboarding + Shop ---------------- */
   const hdr = (inner) => s.push(`<div style="position:relative;height:100px;width:390px;margin-inline:-20px">${inner}</div>`);
   const take = (dollars) => payoutFor({ services: cents(dollars) });                 // what she keeps of a whole-dollar price
-  const MINI_ROW = { id: 'amara', name: amara.name, initials: amara.initials, verified: true, years: amara.years, rating: amara.rating, distanceMi: 0.6, nextOpening: '2026-10-15T17:00' };
+  const MINI_ROW = { id: 'amara', name: amara.name, initials: amara.initials, verified: true, years: amara.years, rating: amara.rating, distanceMi: 0.6, nextOpening: '2026-10-15T17:00', cardLine: amara.cardLine, hood: amara.shop.hood };
 
   h2('Onboarding steps · "Step n of 6 · label"');
   v('step 1'); col(C.onboardingSteps('profile'));

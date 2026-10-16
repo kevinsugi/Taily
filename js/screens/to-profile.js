@@ -9,21 +9,27 @@
 import { register, render as go, back, currentScreen } from '../app.js';
 import { state, T, SECTIONS, validateSection } from '../state.js';
 import { myTailor } from '../tailor-data.js';
-import { TAILOR_LIMITS, GARMENT_TYPES } from '../data.js';
+import { TAILOR_LIMITS, GARMENT_TYPES, TAILORS, SEED_JOB, ZIP_INFO } from '../data.js';
+import { estimate, fmt } from '../money.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, field, textArea, avatar, textLink, photoTile, photoStub,
-  customerPreview, miniProfile, actionBar, sheetOverlay, modalOverlay, leaveModal, listRow, toast, esc,
+  customerPreview, tailorRow, actionBar, sheetOverlay, modalOverlay, leaveModal, listRow, toast, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 
 const ID = 'to-profile';
 const STEP = 'profile';
-const { BIO_MAX, WORK_PHOTOS_MAX } = TAILOR_LIMITS;
+const { BIO_MAX, CARD_LINE_MAX, WORK_PHOTOS_MAX } = TAILOR_LIMITS;
 const HELPERS = {
   name: 'Customers see your full name.',
   bio: 'A line or two: what you’re best at and how you work.',
+  cardLine: `What customers see on the list. Up to ${CARD_LINE_MAX} characters.`,
+  photo: 'Required. Customers see it on the list.',
 };
+/* K-19: the card preview is drawn for the demo customer's sample job (suit jacket + suit pants, at her place); price and next opening fill in per job */
+const SAMPLE_NEXT = '2026-10-15T17:00';
+const PREVIEW_CAPTION = 'Shown for a sample job (suit jacket + suit pants) at the customer’s place. Price and next opening fill in per job.';
 /* work photos are drawn as garments, cycling the catalog (M7 A5.12) */
 const GARMENTS = Object.keys(GARMENT_TYPES);
 const workType = (i) => GARMENTS[i % GARMENTS.length];
@@ -31,7 +37,7 @@ const bioLen = (v) => [...String(v ?? '')].length;
 const ui = () => (state.ui[ID] ??= {});
 
 /* ---------- draft ---------- */
-const fromTailor = (t) => ({ name: t.name ?? '', shopName: t.shopName ?? '', bio: t.bio ?? '', photo: t.photo || false, workPhotos: t.workPhotos ?? 0 });
+const fromTailor = (t) => ({ name: t.name ?? '', shopName: t.shopName ?? '', cardLine: t.cardLine ?? '', bio: t.bio ?? '', photo: t.photo || false, workPhotos: t.workPhotos ?? 0 });
 const sig = (d) => JSON.stringify(fromTailor(d));
 const draftOf = () => (ui().draft ??= fromTailor(myTailor()));
 const isDirty = () => sig(draftOf()) !== sig(fromTailor(myTailor()));
@@ -42,6 +48,9 @@ function errorCopy(code, d) {
   if (code === 'name-required') return 'Enter your name as customers will see it.';
   if (code === 'bio-required') return 'Write a line or two about your work.';
   if (code === 'bio-long') return `Keep it to ${BIO_MAX} characters — you’re at ${bioLen(d.bio)}.`;
+  if (code === 'cardline-required') return 'Write the line customers see on the list.';
+  if (code === 'cardline-long') return `Keep it to ${CARD_LINE_MAX} characters — you’re at ${bioLen(d.cardLine)}.`;
+  if (code === 'photo-required') return 'Add a profile photo.';
   return '';
 }
 
@@ -58,8 +67,15 @@ function resumeBanner(t) {
 }
 
 /* ---------- pieces ---------- */
+/** The real list card (`tailorRow`) for the draft: her name, photo and card line, over the sample job's estimate and opening. */
 function previewHtml(d) {
-  return miniProfile({ name: d.name, initials: initialsOf(d.name), photo: d.photo || null, shopName: d.shopName, bio: d.bio });
+  const t = myTailor();
+  const hood = t.shop?.hood || ZIP_INFO[(t.home?.zips ?? [])[0]]?.hood || ZIP_INFO[SEED_JOB.zip]?.hood || '';
+  return tailorRow({
+    id: 'preview', name: d.name.trim() || 'Your name', initials: initialsOf(d.name), photo: d.photo || null, verified: true, years: t.years ?? 0,
+    rating: t.rating?.count > 0 ? t.rating : null, quote: estimate(TAILORS[0], SEED_JOB, SAMPLE_NEXT), nextOpening: SAMPLE_NEXT,
+    visitType: 'home', cardLine: d.cardLine, hood, format: fmt,
+  });
 }
 
 function workPhotos(d) {
@@ -83,22 +99,23 @@ function view(s) {
 <main class="body body--with-bar ${ID}">
   ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="heading-block ${ID}__title">${title}</div>`}
   <p class="t-body c-600 ${ID}__lead">This is the first thing customers see.</p>
-  <div class="${ID}__photo">
+  <div class="${ID}__photo${errors.photo ? ` ${ID}__photo--error` : ''}">
     ${initialsOf(d.name) ? avatar({ initials: initialsOf(d.name), photo: d.photo || null, size: 'lg' }) : avatar({ photo: true, size: 'lg' })}
     <div class="${ID}__photo-side">
       ${textLink(d.photo ? 'Change photo' : 'Add a photo', { act: 'photo' })}
-      <p class="t-small c-600">Optional.</p>
+      ${errors.photo ? `<p class="t-small w-600 c-error" id="photo-msg" role="alert">${esc(errorCopy(errors.photo, d))}</p>` : `<p class="t-small c-600" id="photo-msg">${HELPERS.photo}</p>`}
     </div>
   </div>
   <div class="${ID}__group">${field({ id: 'name', label: 'Your name', value: d.name, autocomplete: 'name', helper: HELPERS.name, error: errorCopy(errors.name, d) })}</div>
   <div class="${ID}__group">${field({ id: 'shopName', label: 'Business name (optional)', value: d.shopName, autocomplete: 'organization', helper: HELPERS.shopName })}</div>
+  <div class="${ID}__group">${textArea({ id: 'cardLine', label: 'Your card line', value: d.cardLine, max: CARD_LINE_MAX, rows: 3, helper: HELPERS.cardLine, error: errorCopy(errors.cardLine, d) })}</div>
   <div class="${ID}__group">${textArea({ id: 'bio', label: 'About your work', value: d.bio, max: BIO_MAX, rows: 4, helper: HELPERS.bio, error: errorCopy(errors.bio, d) })}</div>
   <div class="${ID}__work-block">
     <p class="t-small w-600 c-700" id="${ID}-work-label">Photos of your work (optional)</p>
     ${workPhotos(d)}
     <p class="t-small c-600">Up to ${WORK_PHOTOS_MAX}.</p>
   </div>
-  <div class="${ID}__preview">${customerPreview({ html: previewHtml(d) })}</div>
+  <div class="${ID}__preview">${customerPreview({ title: 'Your card on the list', html: previewHtml(d), caption: PREVIEW_CAPTION })}</div>
 </main>
 ${editing
     ? actionBar({ ctaLabel: 'Save changes', ctaAct: 'save', disabled: !dirty && !busy, note: dirty || busy ? '' : 'No changes yet.', busy, busyLabel: 'Saving…' })
@@ -145,6 +162,7 @@ function wire(root) {
   const name = root.querySelector('#name');
   const shop = root.querySelector('#shopName');
   const bio = root.querySelector('#bio');
+  const card = root.querySelector('#cardLine');
 
   /* focus: the first invalid field after Next / Save, else the focal field on a fresh onboarding visit */
   if (ui().focus) { root.querySelector(ui().focus)?.focus(); ui().focus = null; }
@@ -162,21 +180,20 @@ function wire(root) {
     const msg = box.querySelector('.field__msg');
     if (msg) { msg.classList.remove('field__msg--error'); msg.removeAttribute('role'); msg.textContent = HELPERS[key]; }
   };
+  /* the photo well follows the typed initials; the list card is re-drawn from the draft (it is the real tailorRow) */
   const paintPreview = () => {
     const ini = initialsOf(d.name);
-    root.querySelectorAll('.avatar').forEach((a) => {
-      if (ini) a.textContent = ini;
-      else if (a.classList.contains('avatar--placeholder')) a.innerHTML = cameraGlyph();
-      else if (a.classList.contains('avatar--glyph')) a.innerHTML = hangerGlyph();   // CR-m4: the preview's empty well
-      else a.textContent = '';
-    });
-    const pn = root.querySelector('[data-pv="name"]');
-    pn.textContent = d.name.trim() || 'Your name';
-    pn.classList.toggle('c-500', !d.name.trim());
-    const ps = root.querySelector('[data-pv="shop"]');
-    ps.textContent = d.shopName.trim(); ps.hidden = !d.shopName.trim();
-    const pb = root.querySelector('[data-pv="bio"]');
-    pb.textContent = d.bio.trim(); pb.hidden = !d.bio.trim();
+    const well = root.querySelector(`.${ID}__photo .avatar`);
+    if (ini) well.textContent = ini;
+    else if (well.classList.contains('avatar--placeholder')) well.innerHTML = cameraGlyph();
+    else well.textContent = '';
+    root.querySelector('.customer-preview__body').innerHTML = previewHtml(d);
+  };
+  const paintCount = (el, key, max) => {
+    const n = bioLen(d[key]);
+    const c = root.querySelector(`#${el.id}-count`);
+    c.textContent = `${n} / ${max}`;
+    c.classList.toggle('text-area__count--over', n > max);
   };
   const paintBar = () => {
     if (!editing || !bar) return;
@@ -194,14 +211,17 @@ function wire(root) {
   };
   name.addEventListener('input', () => { d.name = name.value; clearError(name, 'name'); paintPreview(); paintBar(); });
   shop.addEventListener('input', () => { d.shopName = shop.value; paintPreview(); paintBar(); });
+  card.addEventListener('input', () => {
+    d.cardLine = card.value;
+    paintCount(card, 'cardLine', CARD_LINE_MAX);
+    clearError(card, 'cardLine');
+    paintPreview(); paintBar();
+  });
   bio.addEventListener('input', () => {
     d.bio = bio.value;
-    const n = bioLen(d.bio);
-    const c = root.querySelector('[data-count]');
-    c.textContent = `${n} / ${BIO_MAX}`;
-    c.classList.toggle('text-area__count--over', n > BIO_MAX);
+    paintCount(bio, 'bio', BIO_MAX);
     clearError(bio, 'bio');
-    paintPreview(); paintBar();
+    paintBar();
   });
 
   /* ----- actions ----- */
@@ -220,15 +240,15 @@ function wire(root) {
   });
 
   const patch = () => ({
-    name: d.name.trim(), shopName: d.shopName.trim(), initials: initialsOf(d.name), bio: d.bio.trim(),
+    name: d.name.trim(), shopName: d.shopName.trim(), initials: initialsOf(d.name), cardLine: d.cardLine.trim(), bio: d.bio.trim(),
     photo: d.photo || null, workPhotos: d.workPhotos,
   });
   function submit() {
     if (ui().busy) return;
-    const v = validateSection(STEP, { name: d.name, bio: d.bio });
+    const v = validateSection(STEP, { name: d.name, cardLine: d.cardLine, bio: d.bio, photo: d.photo });
     if (!v.ok) {
       ui().errors = v.errors;
-      ui().focus = v.errors.name ? '#name' : '#bio';
+      ui().focus = v.errors.photo ? '[data-act="photo"]' : v.errors.name ? '#name' : v.errors.cardLine ? '#cardLine' : '#bio';
       go(ID);
       return;
     }
@@ -264,7 +284,7 @@ function wire(root) {
     if (act === 'dismiss') {
       if (state.ui.onboarding) state.ui.onboarding.resumed = false;
       a.closest(`.${ID}__resume`)?.remove();
-    } else if (act === 'photo') openPhoto('Add a photo', () => { d.photo = true; });
+    } else if (act === 'photo') openPhoto('Add a photo', () => { d.photo = true; if (ui().errors) delete ui().errors.photo; });
     else if (act === 'work-add') openPhoto('Add a photo of your work', () => { d.workPhotos = Math.min(WORK_PHOTOS_MAX, d.workPhotos + 1); });
     else if (act === 'work-open') {
       const i = Number(a.dataset.i);

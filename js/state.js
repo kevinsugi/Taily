@@ -267,6 +267,11 @@ const SECTION_RULES = {
     const bio = String(d.bio ?? '').trim();
     if (!bio) e.bio = 'bio-required';
     else if (bio.length > TAILOR_LIMITS.BIO_MAX) e.bio = 'bio-long';
+    /* K-19: the list-card line is required and short; the profile photo is required (no going live without either) */
+    const line = String(d.cardLine ?? '').trim();
+    if (!line) e.cardLine = 'cardline-required';
+    else if ([...line].length > TAILOR_LIMITS.CARD_LINE_MAX) e.cardLine = 'cardline-long';
+    if (!d.photo) e.photo = 'photo-required';
     return e;
   },
   services: (d) => {
@@ -336,11 +341,12 @@ export function validateSection(section, data = state.tailors[0]) {
   const errors = rule(data ?? {});
   return { ok: Object.keys(errors).length === 0, errors, soft: SECTION_SOFT[section]?.(data ?? {}) ?? {} };
 }
-/** Soft notes (D-162): never block a save. The profile's bio and shop name hide a phone number or email (`maskContact`) when saved. */
+/** Soft notes (D-162): never block a save. The profile's bio, card line and shop name hide a phone number or email (`maskContact`) when saved. */
 const SECTION_SOFT = {
   profile: (d) => {
     const soft = {};
     if (maskContact(d.bio).masked) soft.bio = 'contact-hidden';
+    if (maskContact(d.cardLine).masked) soft.cardLine = 'contact-hidden';
     if (maskContact(d.shopName).masked) soft.shopName = 'contact-hidden';
     return soft;
   },
@@ -371,6 +377,7 @@ export function setTailorSection(section, patch) {
   if (section === 'profile') {
     soft = validateSection(section, t).soft;                    // D-162: what she typed, before the mask
     if ('bio' in soft) t.bio = maskContact(t.bio).text;
+    if ('cardLine' in soft) t.cardLine = maskContact(t.cardLine).text;
     if ('shopName' in soft) t.shopName = maskContact(t.shopName).text;
   }
   const v = validateSection(section, t);

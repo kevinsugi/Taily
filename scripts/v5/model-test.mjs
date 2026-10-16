@@ -665,11 +665,48 @@ section('fitting -> completed');
 // profile bio and shop name hide contact info (D-162)
 {
   S.reset();
-  const v = S.validateSection('profile', { name: 'Amara', bio: 'Call me on 718-555-0199', shopName: 'Reyes — a@b.com' });
+  const v = S.validateSection('profile', { name: 'Amara', bio: 'Call me on 718-555-0199', shopName: 'Reyes — a@b.com', cardLine: 'Suits.', photo: true });
   eq([v.ok, v.soft], [true, { bio: 'contact-hidden', shopName: 'contact-hidden' }], 'D-162: validateSection returns the soft code per field and stays ok');
   const sv = T.setTailorSection('profile', { bio: 'Call me on 718-555-0199 or a@b.com', shopName: 'Reyes 718-555-0199' });
   eq([sv.soft, amara().bio, amara().shopName], [{ bio: 'contact-hidden', shopName: 'contact-hidden' }, 'Call me on [phone hidden] or [email hidden]', 'Reyes [phone hidden]'], 'D-162: setTailorSection stores the masked text');
   eq(T.setTailorSection('profile', { bio: 'Twelve years of suits.', shopName: 'Reyes Tailoring' }).soft, {}, 'D-162: clean text raises no soft code');
+}
+// K-19: the card line (required, <= CARD_LINE_MAX, trimmed, contact details masked) and the required profile photo
+{
+  S.reset();
+  const MAX = DATA.TAILOR_LIMITS.CARD_LINE_MAX;
+  eq(MAX, 110, 'K-19: CARD_LINE_MAX is 110');
+  const base = { name: 'Amara', bio: 'Suits.', cardLine: 'Suits and dresses.', photo: true };
+  const errs = (patch) => S.validateSection('profile', { ...base, ...patch }).errors;
+  eq(errs({}), {}, 'K-19: a complete profile is valid');
+  eq(errs({ cardLine: '' }), { cardLine: 'cardline-required' }, 'K-19: card line required');
+  eq(errs({ cardLine: '   \n ' }), { cardLine: 'cardline-required' }, 'K-19: a blank card line is required (trimmed)');
+  eq(errs({ cardLine: undefined }), { cardLine: 'cardline-required' }, 'K-19: a missing card line is required');
+  eq(errs({ cardLine: 'x'.repeat(MAX) }), {}, 'K-19: exactly CARD_LINE_MAX characters is fine');
+  eq(errs({ cardLine: `  ${'x'.repeat(MAX)}  ` }), {}, 'K-19: the limit counts the trimmed text');
+  eq(errs({ cardLine: 'x'.repeat(MAX + 1) }), { cardLine: 'cardline-long' }, 'K-19: one over CARD_LINE_MAX is long');
+  eq(errs({ photo: false }), { photo: 'photo-required' }, 'K-19: the profile photo is required');
+  eq(errs({ photo: null }), { photo: 'photo-required' }, 'K-19: a null photo is required');
+  eq(S.validateSection('profile', { ...base, cardLine: 'Call 718-555-0199' }).soft, { cardLine: 'contact-hidden' }, 'K-19: a phone number in the card line is a soft note (masked on save)');
+  // the seed's line is within the limit, and the seed tailor stays bookable
+  ok([...DATA.TAILORS[0].cardLine].length <= MAX && [...DATA.TAILORS[0].cardLine].length > 0, 'K-19: the seed card line fits CARD_LINE_MAX');
+  eq(S.validateSection('profile', DATA.TAILORS[0]).errors, {}, 'K-19: the seed tailor profile is valid');
+  // setTailorSection: the flag follows the rules, contact details are masked on save
+  S.reset();
+  T.setTailorSection('profile', { name: 'A', bio: 'B', photo: true, cardLine: '' });
+  eq(amara().onboarding.profile, false, 'K-19: no card line -> the Profile section is not done');
+  T.setTailorSection('profile', { cardLine: 'Text me on 718-555-0199 or a@b.com' });
+  eq([amara().onboarding.profile, amara().cardLine], [true, 'Text me on [phone hidden] or [email hidden]'], 'K-19: card line saved masked; the Profile section is done');
+  T.setTailorSection('profile', { photo: null });
+  eq(amara().onboarding.profile, false, 'K-19: no photo -> the Profile section is not done');
+  // a tailor missing either cannot be bookable
+  S.reset();
+  ok(S.bookable(amara()), 'K-19: the seed tailor is bookable');
+  T.setTailorSection('profile', { cardLine: '' });
+  ok(!S.bookable(amara()), 'K-19: without a card line she is not bookable');
+  S.reset();
+  T.setTailorSection('profile', { photo: null });
+  ok(!S.bookable(amara()), 'K-19: without a photo she is not bookable');
 }
 // the return step word (M6-M-14)
 {
@@ -850,8 +887,8 @@ section('tailor sections');
   T.setJob({ visitType: 'shop' });
   eq(S.tailorsFor(state.job).empty, 'shop', 'blank tailor -> the list is empty (shop)');
   T.setJob({ visitType: 'home' });
-  eq(S.validateSection('profile', amara()).errors, { name: 'name-required', bio: 'bio-required' }, 'profile rules');
-  eq(T.setTailorSection('profile', { name: 'Amara Reyes', initials: 'AR', bio: 'Hi.' }).valid, true, 'setTailorSection profile -> valid');
+  eq(S.validateSection('profile', amara()).errors, { name: 'name-required', bio: 'bio-required', cardLine: 'cardline-required', photo: 'photo-required' }, 'profile rules (K-19: card line and photo are required)');
+  eq(T.setTailorSection('profile', { name: 'Amara Reyes', initials: 'AR', bio: 'Hi.', cardLine: 'Hi.', photo: true }).valid, true, 'setTailorSection profile -> valid');
   eq(T.setTailorSection('services', { prices: { 'hem-pants': 25 } }).valid, true, 'services valid with one priced service');
   eq(T.setTailorSection('services', { prices: { 'hem-pants': undefined } }).valid, false, 'undefined deletes a key; no services -> invalid');
   T.setTailorSection('services', { prices: { 'hem-pants': 25, taper: 40, waist: 35, sleeves: 45, 'jacket-sides': 55 } });
@@ -1016,7 +1053,7 @@ section('M2 tailor onboarding');
   const v = A.verifyCode('123456', 'tailor');
   eq([v.isNew, v.next, state.tailors[0].phone, state.tailors[0].name], [true, 'profile', '(718) 555-0100', ''], 'a new tailor number starts a blank tailor');
   eq(T.setTailorSection('services', { prices: { a: '', b: 5.5, c: 1000, d: 20 } }).errors, { 'price-a': 'price-missing', 'price-b': 'price-invalid', 'price-c': 'price-invalid' }, 'services rules');
-  eq(T.setTailorSection('profile', { name: 'A', bio: 'x'.repeat(301) }).errors, { bio: 'bio-long' }, 'profile: bio too long');
+  eq(T.setTailorSection('profile', { name: 'A', bio: 'x'.repeat(301), cardLine: 'Hi.', photo: true }).errors, { bio: 'bio-long' }, 'profile: bio too long');
   eq(T.setTailorSection('availability', { shop: { enabled: true }, home: { enabled: true }, availability: { shop: { tue: [['10:00', '18:00']] }, home: { tue: [['17:00', '20:00']], mon: [['18:00', '17:00']] } } }).errors, { 'home-mon': 'hours-range', 'overlap-tue': 'hours-overlap' }, 'availability: range + overlap');
 }
 

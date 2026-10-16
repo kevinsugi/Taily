@@ -5,7 +5,7 @@
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { state, T, tailorsFor, bookable } from '../state.js';
-import { myTailor, MY_TAILOR_ID } from '../tailor-data.js';
+import { myTailor, MY_TAILOR_ID, tailorRowProps } from '../tailor-data.js';
 import { VISIT_LABEL, RETURN_LABEL } from '../data.js';
 import { cents, fmt } from '../money.js';
 import * as A from '../account.js';
@@ -29,11 +29,7 @@ function previewRow() {
   const job = state.job;
   const r = tailorsFor(job).rows.find((x) => x.tailor.id === MY_TAILOR_ID);
   if (!r) return null;
-  return tailorRow({
-    id: r.tailor.id, name: r.tailor.name, initials: r.tailor.initials, photo: r.tailor.photo, verified: r.tailor.verified, years: r.tailor.years,
-    rating: r.tailor.rating?.count > 0 ? r.tailor.rating : null, distanceMi: r.distanceMi, quote: r.quote,
-    nextOpening: r.nextOpening, visitType: job.visitType,
-  });
+  return tailorRow(tailorRowProps(r, job));
 }
 /* ---------- row summaries (what is saved, in words and dollars) ---------- */
 const SUMMARY = {

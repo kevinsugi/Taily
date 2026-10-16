@@ -167,3 +167,14 @@ export function suggestPrice(appt, slotIso) {
   const rush = Math.min(m.rush, r.cents);
   return { days: r.days, tier: r.cents, rush, payout: payoutFor({ services: m.services, homeFee: m.homeFee, rush }), less: m.rush - rush };
 }
+
+/** K-19: the props `tailorRow` takes for one `tailorsFor(...).rows` entry (rating only when there are reviews; the card line; street + area for the place line). */
+export function tailorRowProps(r, job = state.job, extra = {}) {
+  const t = r.tailor;
+  const hood = t.shop?.hood || ZIP_INFO[t.shop?.zip]?.hood || ZIP_INFO[(t.home?.zips ?? [])[0]]?.hood || '';
+  return {
+    id: t.id, name: t.name, initials: t.initials, photo: t.photo, verified: t.verified, years: t.years,
+    rating: t.rating?.count > 0 ? t.rating : null, distanceMi: r.distanceMi, quote: r.quote, nextOpening: r.nextOpening,
+    visitType: job.visitType, declined: r.declined, cardLine: t.cardLine ?? '', street: t.shop?.street ?? '', hood, ...extra,
+  };
+}

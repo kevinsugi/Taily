@@ -103,15 +103,32 @@ export const PRICE_NOTES = {
   unchanged: '',
 };
 
-/** driveTo(target, { docs = 'none' | 'min' | 'full' (default 'none' at the fitting, 'min' after), ask = false, visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced' | 'item' | 'item-removed' | 'unchanged', returnOption = 'pickup' }) → appt.
+/** K-21: the five-item order the sliding rail is tested with (k28): [garment type, service ids]. */
+export const MANY_ITEMS = [
+  ['Suit Jacket', ['sleeves', 'jacket-sides']], ['Suit Pant', ['hem-pants']], ['Formal Dress', ['dress-take-in']],
+  ['Shirt / Blouse', ['sleeves']], ['Skirt', ['dress-hem']],
+];
+/** Replace the seed draft's garments with `items` ([type, service ids]) through the real job transitions. Throws on failure. */
+export function setGarments(items) {
+  for (const g of [...state.job.garments]) T.removeGarment(g.id);
+  for (const [type, services] of items) {
+    const r = T.addGarment(type);
+    if (!r.ok) throw new Error(`setGarments: addGarment ${type} failed (${r.error})`);
+    const sv = T.setServices(r.garment.id, services);
+    if (!sv.ok) throw new Error(`setGarments: setServices ${type} failed (${sv.error})`);
+  }
+}
+
+/** driveTo(target, { docs = 'none' | 'min' | 'full' (default 'none' at the fitting, 'min' after), ask = false, visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced' | 'item' | 'item-removed' | 'unchanged', returnOption = 'pickup', items = null ([type, service ids] in place of the seed garments, e.g. MANY_ITEMS) }) → appt.
     `price-change` carries a change (default 'added'); later targets send the unchanged order and approve it (K-01, D-120)
     unless `priceChange` is passed explicitly. */
 export function driveTo(target, opts = {}) {
-  const { ask = false, visitType = 'home', rush = false, priceChange = 'added', returnOption = 'pickup' } = opts;
+  const { ask = false, visitType = 'home', rush = false, priceChange = 'added', returnOption = 'pickup', items = null } = opts;
   const docs = opts.docs ?? (target === 'fitting' ? 'none' : 'min');         // K-02: the fitting starts undocumented (the t-adjust state)
   if (!TARGETS.includes(target)) throw new Error(`driveTo: unknown target "${target}"`);
   reset();
   if (ask) askAmara();                                          // M5: a question and an answer before the booking
+  if (items) setGarments(items);                                // K-21: a bigger order through the real job transitions
   T.setJob({ visitType, ...(rush ? { needBy: '2026-10-16' } : {}) });
   const tailorId = state.tailors[0].id;
   const slotStart = nextOpening(tailorId, visitType, { until: state.job.needBy });

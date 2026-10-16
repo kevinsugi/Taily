@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { SCENARIOS as CB_SC, SEED_SLOT as CB_SEED, SECOND_SLOT_AFTER as CB_AFTER } from './money-scenarios.js';
-import { addRequest as cbAddRequest, FITTING_COMMENTS as cbFC } from './common.js';
+import { addRequest as cbAddRequest, FITTING_COMMENTS as cbFC, MANY_ITEMS as cbMany } from './common.js';
 import { fmtExact as cbExact } from '../money.js';
 import { fmtWhen as cbWhen, isoMinute as cbIsoMinute, addMinutes as cbAddMinutes } from '../dates.js';
 import { POLICY as CB_POLICY } from '../money-config.js';
@@ -80,6 +80,9 @@ export const FLOWS_c_booking = [
   { key: 'c-booking--returning-pickup', screen: 'c-booking', group: 'M4 · Bookings', title: 'Ready for pickup', note: 'Paid in full; pick it up at the shop',
     setup: (S) => { S.driveTo('returning'); },
     expect: { has: ['Ready for pickup', 'Open tomorrow 10:00 AM', 'Amara Reyes', 'Paid in full', 'Sarah C.', '2 items · 3 services', 'IN-STORE PICKUP', 'Reyes Tailoring', 'Directions', 'Message', 'WHAT HAPPENS NEXT', 'Pick it up at the shop', 'Ready · paid'], not: ['Message Amara', 'marks the order completed when you have it'], sel: '[data-hang] .hang__item' } },   // K-18 (3-J)
+  { key: 'c-booking--returning-pickup-many', screen: 'c-booking', group: 'M4 · Bookings', title: 'Ready for pickup — five items', note: 'K-21 sliding rail: every garment hangs on its thread (K-22), three show and the fourth peeks, Sarah’s tag pinned at the right end',
+    setup: (S) => { S.driveTo('returning', { items: cbMany }); },
+    expect: { has: ['Ready for pickup', 'Paid in full', 'Sarah C.', '5 items · 6 services', 'IN-STORE PICKUP'], sel: '[data-hang] .hang__scroll[role="region"][tabindex="0"]', also: '[data-hang] .hang__slot--tag' } },   // K-21
   { key: 'c-booking--returning-dropoff', screen: 'c-booking', group: 'M4 · Bookings', title: 'Amara will drop it off', note: 'Home drop-off: she messages to agree a time',
     setup: (S) => { S.driveTo('returning', { returnOption: 'dropoff' }); },
     expect: { has: ['Amara will drop it off · agree on a time in chat', 'Paid in full', 'To your door', '145 N 7th St', 'Brooklyn, NY', 'HOME DROP-OFF', 'Time to agree', 'Agree on a time with Amara', 'Amara brings it to your door'], sel: '[data-hang] .hang__tag' } },   // K-18 (3-J)

@@ -8,7 +8,7 @@
 import { register, render as go } from '../app.js';
 import { state, tailorById, priceChangeView } from '../state.js';
 import {
-  chrome, navBackMark, receiptBlock, balanceCardLabel, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, garmentIcon, verifiedCheck, returnedItems,
+  chrome, navBackMark, receiptBlock, balanceCardLabel, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, verifiedCheck, returnedItems, linenStage, tagRail,
 } from '../components.js';
 import { CHEVRON_RIGHT, VISIT_ICONS } from '../icons.js';
 import { fmtExact } from '../money.js';
@@ -16,8 +16,6 @@ import { fmtDay } from '../dates.js';
 import { focusAppt, setFocus, bookingTab } from '../focus.js';
 
 const ID = 'c-complete';
-/** How many garment tags hang from the stitch; the rest are counted under it (a tag is 144 px wide, three share the row). */
-const MAX_TAGS = 3;
 
 /** How a review names Sarah on Amara’s profile: first name and last initial. */
 const customerShort = () => `${state.customer.first} ${(state.customer.last ?? '').charAt(0)}.`.replace(/ \.$/, '');
@@ -33,10 +31,6 @@ function receiptLine(a) {
   return `Paid ${fmtExact(a.money.total)} in full · ${card}`;
 }
 
-const tagHtml = (g) => `<div class="${ID}__tag">
-      <span class="${ID}__string" aria-hidden="true"></span>
-      <div class="${ID}__tagcard"><span class="${ID}__hole" aria-hidden="true"></span>${garmentIcon(g.type, { size: 'tag' })}<span class="${ID}__tagname">${esc(g.type)}</span>${g.services.length ? `<span class="${ID}__tagsvc">${esc(g.services.join(' · '))}</span>` : ''}</div>
-    </div>`;
 
 function view() {
   const a = focusAppt(ID);
@@ -50,22 +44,12 @@ function view() {
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const first = firstOf(t);
   const items = returnedItems(a);
-  const tags = items.slice(0, MAX_TAGS);
-  const more = items.length - tags.length;
   /* M7-1-A-06: the heading is the group's visible label; a star tap carries the rating into c-review (D-107) */
   const rating = stars({ input: true, name: 'rate' }).replace('aria-label="Your rating"', 'aria-labelledby="rate-label"');
   const meta = [t.shopName, t.shop?.hood, `for ${customerShort()}`].filter(Boolean).join(' · ');
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${navBackMark()}
-  <section class="${ID}__stage" aria-label="Order complete">
-    <p class="t-caps ${ID}__eyebrow">Order complete · ${esc(fmtDay(doneAt(a)))}</p>
-    <h1 class="${ID}__title">Back with you, tailored to fit.</h1>
-    <div class="${ID}__rail">
-      <span class="${ID}__stitch" aria-hidden="true"></span>
-      <div class="${ID}__tags" data-n="${tags.length}">${tags.map(tagHtml).join('')}</div>
-      ${more > 0 ? `<p class="t-small w-600 c-700 ${ID}__more">+${more} more ${more === 1 ? 'item' : 'items'}</p>` : ''}
-    </div>
-  </section>
+  ${linenStage({ eyebrow: `Order complete · ${fmtDay(doneAt(a))}`, title: 'Back with you, tailored to fit.', rail: tagRail(items), label: 'Order complete' })}
   <section class="${ID}__label" aria-label="Rate ${esc(first)}">
     <p class="t-caps ${ID}__by">Tailored by</p>
     <span class="${ID}__namerow"><span class="${ID}__name">${esc(t.name)}</span>${t.verified ? verifiedCheck({ years: t.years }) : ''}</span>

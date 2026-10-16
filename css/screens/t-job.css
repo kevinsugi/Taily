@@ -18,15 +18,10 @@
 .t-job__quote .note-quote { margin-top: 0; }
 .t-job .sec > .courier-card { margin: 0; }
 /* R4-2-T-09: a return block's address sits on the place name's text edge (glyph column 20 + gap 8), regular weight */
-.t-job__payout { gap: var(--space-4); }   /* flat hero: YOU TAKE HOME, the figure, its state, then the breakdown */
+.t-job__payout { gap: 0; margin-top: var(--rhythm-block); }   /* K-20 flat hero: YOUR PAYOUT, the figure, its state (+ ⓘ), her rating once she rated, then the breakdown */
 .t-job__payout p { margin: 0; }
-.t-job__payout-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); min-height: 16px; }
-.t-job__payout-head .info-btn { margin-right: calc(-1 * var(--space-12)); }
 .t-job__payout-amt { font-variant-numeric: lining-nums tabular-nums; color: var(--ink); }
-.t-job__payout-link { margin-left: calc(-1 * var(--space-8)); }
-.t-job__payout-rows { margin-top: var(--rhythm-group); }
 .t-job__payout .t-job__fine { margin-top: var(--space-8); }
-.t-job__review { margin: var(--rhythm-section) 0 0; }
 
 /* mark-ready sheet */
 .t-job-sheet__ways { display: flex; flex-direction: column; gap: var(--space-4); margin: 0; padding: 0; border: 0; min-width: 0; }
@@ -40,3 +35,31 @@
 .t-job__err { color: var(--error-ink); font-weight: 600; }
 .t-job-sheet__intro { text-wrap: pretty; }
 .t-job__unsent { margin: 0; text-wrap: pretty; }
+
+/* ---------- K-20 (A2b) the completed job: the linen stage (shared linenStage + tagRail) ends just under the tags ---------- */
+.t-job .linen-stage { padding-bottom: var(--space-8); }
+.t-job .linen-stage .tag-rail { padding-bottom: var(--space-20); }
+.t-job .linen-stage .tag-rail--slide { padding-bottom: var(--space-16); }
+.t-job__payout .t-job__payout-amt { margin-top: var(--space-4); }
+.t-job__payout-state .info-btn { margin-block: calc(-1 * var(--space-12)); margin-left: calc(-1 * var(--space-8)); color: var(--neutral-700); }
+.t-job__payout .t-job__payout-err { margin-top: var(--space-4); text-wrap: pretty; }
+.t-job__payout-fix { margin-top: var(--rhythm-group); }
+.t-job__payout-rows { margin-top: var(--rhythm-group); padding-top: var(--space-4); box-shadow: inset 0 1px 0 var(--neutral-200); }
+.t-job__payout + .sec { margin-top: var(--rhythm-section); }
+/* Sarah's rating, one flat row: no box, no heading — only once she has rated */
+.t-job__rev { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--rhythm-group); }
+.t-job__rev-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); }
+.t-job__rev-by { color: var(--neutral-700); white-space: nowrap; }
+.t-job__rev-quote { color: var(--ink); text-wrap: pretty; }
+/* the figure settles after the tags; her rating lands (stars one by one, then her line); a failed payout never moves */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes t-job-count { from { opacity: 0; transform: translateY(var(--space-8)); } to { opacity: 1; transform: none; } }
+  @keyframes t-job-star { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: none; opacity: 1; } }
+  html:not(.is-test) .t-job__payout--live .t-job__payout-amt { animation: t-job-count 500ms var(--ease-out) 1000ms both; }
+  html:not(.is-test) .t-job__rev .stars__star { display: inline-block; animation: t-job-star 420ms var(--ease-out) 1200ms both; }
+  html:not(.is-test) .t-job__rev .stars__star:nth-child(2) { animation-delay: 1280ms; }
+  html:not(.is-test) .t-job__rev .stars__star:nth-child(3) { animation-delay: 1360ms; }
+  html:not(.is-test) .t-job__rev .stars__star:nth-child(4) { animation-delay: 1440ms; }
+  html:not(.is-test) .t-job__rev .stars__star:nth-child(5) { animation-delay: 1520ms; }
+  html:not(.is-test) .t-job__rev-quote { animation: t-job-count 500ms var(--ease-out) 1600ms both; }
+}

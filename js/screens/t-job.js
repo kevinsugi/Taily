@@ -24,9 +24,10 @@ import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime, fmtTimeRange, 
 import {
   chrome, headingRow, statusHero, personBlock, calendarHref, cta, listRow, tailorBreakdown, moneyRows, workList,
   emptyState, sheetOverlay, chipGroup, wireChipGroups, toast, esc, wirePhotoViewer,
-  actionBar, checkRow, reviewRow, noteQuote, changeList, withPhotos, changeSummary, deltaText, statusPill, wireGarmentDocs,
+  actionBar, checkRow, noteQuote, changeList, withPhotos, changeSummary, deltaText, statusPill, wireGarmentDocs,
   navBackMark, requestStrip, requestHead, pageHead, personActions, personButtons, visitBlock,
   sectionHead, textLink, infoButton, moreMenu, openMoreMenu, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR,
+  linenStage, tagRail, returnedItems, stars,
 } from '../components.js';
 
 const ID = 't-job';
@@ -207,9 +208,7 @@ function copyFor(key, a, t, v, pv) {
     case 'returning-dropoff': return { bar: done };
     /* R4-2-T-07: the same "today" the customer reads ("Delivered by Uber today") */
     case 'courier': return { bar: { ...done, ctaLabel: 'Handed to courier', busyLabel: 'Saving…' } };
-    default: { // completed — R4-2-T-05: the record names whose job it was
-      return { ...base, title: 'Job completed', note: note(`${first}’s order · ${returnedLine(a)}`), bar: null };
-    }
+    default: return { ...base, bar: null };   // completed — K-20: the linen stage carries the title and the record line
   }
 }
 
@@ -262,29 +261,60 @@ function priceBlocks(a, pv, key) {
   ${tailorBreakdown(pv.after)}`, { id: `${ID}-take` })}`;
 }
 
-/** The payout card of a completed job: the one display figure ("Your payout", D-172), the transfer's state and date, then the
-    breakdown without its total (the figure above is the total, M6-P-33) and how it went back, inside the same card. */
-const RETURN_DONE = { pickup: 'picked up at your shop', dropoff: 'dropped off at ', courier: 'delivered by Taily courier' };
-/** "picked up at your shop · Thu, Oct 15" — how it went back and when: the completed head's one line (K-17 R5: it was an orphan row inside the payout card). */
+/* ---------- K-20 (A2b) the completed job: the linen stage, then the payout flat, then the breakdown and The work ---------- */
+const RETURN_DONE = { pickup: 'Picked up at your shop', dropoff: 'Dropped off at ', courier: 'Delivered by Taily courier' };
+const doneAt = (a) => a.history.filter((h) => h.status === 'completed').pop()?.at ?? a.history[a.history.length - 1]?.at;
+/** "Picked up at your shop · Thu, Oct 15" — how it went back and when: the stage's one line under the title. */
 function returnedLine(a) {
   const how = a.returnOption ?? 'pickup';
-  const at = a.history.filter((h) => h.status === 'completed').pop()?.at ?? a.history[a.history.length - 1]?.at;
-  return `${how === 'dropoff' ? `${RETURN_DONE.dropoff}${firstOf()}’s` : RETURN_DONE[how]} · ${fmtDay(at)}`;
+  return `${how === 'dropoff' ? `${RETURN_DONE.dropoff}${firstOf()}’s` : RETURN_DONE[how]} · ${fmtDay(doneAt(a))}`;
 }
-function payoutCard(a, t, extra = '') {
+/** Sarah's rating as ONE flat row (K-20 A2b): stars · "Sarah C. · Fri, Oct 16", then her line in quotes. Only once she has rated. */
+function reviewLine(r) {
+  const who = `${state.customer.first} ${(state.customer.last ?? '').charAt(0)}.`;
+  return `<div class="${ID}__rev" role="group" aria-label="${esc(`${firstOf()}’s review`)}">
+    <div class="${ID}__rev-row">${stars({ value: r.stars })}<p class="t-small ${ID}__rev-by">${esc(`${who} · ${fmtDay(r.date)}`)}</p></div>
+    ${r.text ? `<p class="t-body w-500 ${ID}__rev-quote">“${esc(r.text)}”</p>` : ''}
+  </div>`;
+}
+/** The payout of a completed job (D-172, K-20): "Your payout", the one sans figure, the transfer's state + date + bank with the ⓘ at the end of the
+    line it explains; failed = the bank sent it back, with "Update bank details" directly under the error. Then Sarah's rating row (once she rated,
+    never on a failed payout), then the breakdown without its total (the figure is the total, M6-P-33). */
+function payoutBlock(a, t, extra = '') {
   const p = payoutOf(a);
   const w = p ? payoutLine(p, t.payouts) : null;
+  const failed = p?.state === 'failed';
   const pill = p ? { pending: ['waiting', 'Pending'], paid: ['completed', 'Paid'], failed: ['declined', 'Didn’t go through'] }[p.state] : ['waiting', 'Pending'];
+  const info = infoButton('payouts', { label: 'When you get paid' });
+  const bank = `${p?.bank ?? t.payouts?.bank ?? 'Your bank'} •••• ${p?.last4 ?? t.payouts?.last4 ?? ''}`;
   /* M7-1-T-07: the pill already says Paid, so the line is the date and the bank */
   const line = w ? (p?.state === 'paid' ? w.text.replace(/^Paid\s+/, '') : w.text) : 'Arrives the Friday after you mark it completed';
-  const link = p?.state === 'failed' ? `<div class="${ID}__payout-link">${textLink('See the payout', { act: 'open-payout' })}</div>` : '';
-  return `<section class="sec sec--first ${ID}__payout" aria-label="Your payout">
-  <div class="${ID}__payout-head"><p class="t-caps c-600">YOUR PAYOUT</p>${infoButton('payouts', { label: 'When you get paid' })}</div>
+  const stateRow = failed
+    ? `<div class="${ID}__payout-state">${statusPill(...pill)}${info}</div>
+  <p class="t-small ${ID}__err ${ID}__payout-err">${esc(`${bank} sent it back. It sends again once you update your bank details.`)}</p>
+  <div class="${ID}__payout-fix">${cta('Update bank details', { attrs: 'data-act="fix-bank"' })}</div>`
+    : `<div class="${ID}__payout-state">${statusPill(...pill)}<p class="t-small c-700">${esc(line)}</p>${info}</div>`;
+  return `<section class="sec ${ID}__payout${failed ? '' : ` ${ID}__payout--live`}" aria-label="Your payout">
+  <p class="t-caps c-600">Your payout</p>
   <p class="t-money ${ID}__payout-amt" data-money>${fmtExact(a.money.payout)}</p>
-  <div class="${ID}__payout-state">${statusPill(...pill)}<p class="t-small ${w?.tone === 'error' ? `${ID}__err` : 'c-700'}">${esc(line)}</p></div>${link}
+  ${stateRow}
+  ${!failed && a.review ? reviewLine(a.review) : ''}
   <div class="${ID}__payout-rows">${tailorBreakdown(a.money, { total: false })}</div>
   ${extra}
 </section>`;
+}
+/** The completed body: Sarah's 1-E linen stage with the garment tags (no woven label), then the payout block, then The work. Failed = calm. */
+function completedBody(a, v, t, extra) {
+  const failed = payoutOf(a)?.state === 'failed';
+  const me = (t.name || 'there').split(' ')[0];
+  const stage = linenStage({
+    eyebrow: failed ? `${firstOf()}’s order` : `Job completed · ${firstOf()}’s order`,
+    title: failed ? 'Job completed' : `Nice work, ${me}.`,
+    line: returnedLine(a), rail: tagRail(returnedItems(a)), label: 'Job completed', calm: failed,
+  });
+  return `${navBackMark()}${stage}
+  ${payoutBlock(a, t, extra)}
+  ${workSec(a, v)}`;
 }
 
 function m4View(a, v, key) {
@@ -307,7 +337,7 @@ function m4View(a, v, key) {
   const strip = stripped ? requestStrip({ ...stripFor(key, a, v, pv), page: true }) : '';
   const person = { name: v.customer.name, initials: v.customer.initials, page: true };
   const head = (opts) => `${navBackMark()}${strip}${pageHead(requestHead({ ...person, ...opts }), { foot: opts.foot ?? [] })}`;
-  const hero = stripped ? '' : statusHero({ variant: key === 'completed' ? 'ready' : 'confirmed', pill: false, title: c.title, body: '', extra: c.note });
+  const hero = stripped || key === 'completed' ? '' : statusHero({ variant: 'confirmed', pill: false, title: c.title, body: '', extra: c.note });
   let body;
   switch (key) {
     case 'visit': body = `${backHead(hero, a)}${block(visitCard(a, v))}${work}${payout}`; break;
@@ -335,16 +365,7 @@ function m4View(a, v, key) {
       body = `${head({ trail: personButtons(message) })}${sec(visitBlock(placeRows(`${firstOf()}’s home`, 'home', homeStreet()), { title: 'Home drop-off' }))}${work}${payout}`; break;
     case 'courier':
       body = `${head({ trail: personButtons(message) })}${sec(visitBlock([{ icon: 'truck', value: esc(`${t.shopName} → ${homeStreet()}`), detail: `Paid by ${firstOf()} · nothing comes out of your payout` }], { title: 'Taily courier' }))}${work}${payout}`; break;
-    default: { // completed
-      const r = a.review;
-      const reviewer = `${state.customer.first} ${state.customer.last.charAt(0)}.`;
-      body = `${backHead(hero, a)}${payoutCard(a, t, updated)}
-  ${workSec(a, v)}
-  ${r
-    ? sec(`${sectionHead(`${first}’s review`, { id: `${ID}-review` })}${reviewRow({ name: reviewer, initials: state.customer.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos, photoType: r.photoType ?? a.job.garments[0]?.type ?? '' })}`, { id: `${ID}-review` })
-    : `<p class="t-small c-600 ${ID}__review">${first} can leave a review now.</p>`}
-  <div class="page-actions">${textLink('Back to Home', { act: 'home' })}</div>`;
-    }
+    default: body = completedBody(a, v, t, updated);   // completed (K-20)
   }
   return `${chrome('home', { persona: 'tailor' })}
 <main class="body${c.bar ? ' body--with-bar' : ''} ${ID}" data-appt="${esc(a.id)}" data-s="${ID}--${key}">
@@ -555,6 +576,7 @@ function wire(root) {
     if (act === 'message') go('t-thread');
     else if (act === 'home') go(personaHome('tailor'));
     else if (act === 'open-payout' && a) { setFocus(a.id); go('t-payout'); }
+    else if (act === 'fix-bank') { state.ui['to-payouts'] = { from: 'earnings' }; go('to-payouts'); }   // K-20: the failed payout's fix, as t-payout
     else if (act === 'start-fitting' && a) {
       /* K-01 (B2): Start fitting lands straight on the editor */
       run('start', () => {

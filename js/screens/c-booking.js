@@ -12,7 +12,7 @@ import {
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR,
+  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, andList, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
@@ -291,7 +291,7 @@ function returningView(a, t, first) {
   }));
   const stage = hangStage({
     types: items.map((g) => g.type), tag: [sarah, cfg.tag], left: `${plural(items.length, 'item')} · ${plural(services, 'service')}`, right: cfg.right,
-    label: `${plural(items.length, 'item')} ready: ${items.map((g) => g.type).join(' and ')}, hung on a rail with a tag: ${sarah}, ${cfg.tag}`,
+    label: `${plural(items.length, 'item')} ready: ${andList(items.map((g) => g.type))}, hung on a rail with a tag: ${sarah}, ${cfg.tag}`,   // K-21: every garment is drawn, so the label names every one
   });
   const steps = timeline([{ state: 'done', title: 'Booked, fitted, tailored', sub: `Ready · paid ${money(paid)}` }, ...cfg.steps]);
   const courierCaption = how === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {};

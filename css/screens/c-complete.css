@@ -6,22 +6,7 @@
    ============================================================ */
 .c-complete { gap: 0; }
 
-/* ---------- the stage: eyebrow, title, the stitch rail ---------- */
-.c-complete__stage { margin: calc(-1 * var(--space-16)) calc(-1 * var(--space-20)) 0; padding: var(--space-24) var(--space-20) 0; background: var(--neutral-100); color: var(--ink); }
-.c-complete__eyebrow { margin: 0; color: var(--accent-ink); }
-.c-complete__title { margin: var(--space-8) 0 0; font-family: var(--font-serif); font-size: var(--size-36); line-height: var(--lh-28); font-weight: 500; color: var(--ink); text-wrap: balance; }
-.c-complete__rail { position: relative; margin-top: var(--rhythm-block); padding: var(--space-8) 0 var(--space-32); }
-.c-complete__stitch { position: absolute; left: 0; right: 0; top: var(--space-8); height: 0; border-top: 2px dashed var(--accent-base); }
-.c-complete__tags { display: flex; justify-content: center; align-items: flex-start; gap: var(--space-24); }
-.c-complete__tags[data-n="3"] { gap: var(--space-8); }
-.c-complete__tag { position: relative; display: flex; flex-direction: column; align-items: center; flex: 0 1 144px; min-width: 0; transform-origin: 50% 0; }
-.c-complete__string { width: 2px; height: var(--space-20); background: var(--accent-base); }
-.c-complete__tagcard { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); width: 100%; padding: var(--space-8) var(--space-8) var(--space-12); border-radius: var(--radius-md) var(--radius-md) var(--radius-sm) var(--radius-sm); background: var(--white); color: var(--ink); box-shadow: var(--shadow-float); }
-.c-complete__hole { width: var(--space-8); height: var(--space-8); border-radius: var(--radius-full); box-shadow: inset 0 0 0 2px var(--accent-base); }
-.c-complete__tagcard .garment-icon--tag { max-width: 100%; }
-.c-complete__tagname { max-width: 100%; font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; text-align: center; overflow-wrap: anywhere; }
-.c-complete__tagsvc { font-size: var(--size-10); line-height: var(--lh-10); font-weight: 600; color: var(--neutral-600); text-align: center; }
-.c-complete__more { margin: var(--space-12) 0 0; text-align: center; }
+/* the stage (eyebrow, title, the stitch with the garment tags) is the shared linenStage + tagRail (components-v5.css, K-20 / K-21) */
 
 /* ---------- Amara's woven label ---------- */
 .c-complete__label { position: relative; z-index: 1; margin-top: calc(-1 * var(--space-16)); padding: var(--space-20); border-radius: var(--radius-sm); background: var(--accent-bg); box-shadow: inset 0 0 0 1px var(--neutral-300), var(--shadow-float); }
@@ -47,15 +32,9 @@
 .c-complete__row[aria-expanded="true"] .method-row__chevron { transform: rotate(90deg); }
 .c-complete__receipt-body { padding-top: var(--space-16); }
 
-/* ---------- motion: the stitch draws itself, the tags swing in from it and settle, the label rises ---------- */
+/* ---------- motion: the label rises (the stitch and tags move in the shared tagRail) ---------- */
 @media (prefers-reduced-motion: no-preference) {
-  @keyframes c-complete-wipe { from { transform: scaleX(1); } to { transform: scaleX(0); } }
-  @keyframes c-complete-swing { 0% { transform: translateY(calc(-1 * var(--space-24))) rotate(-10deg); opacity: 0; } 35% { opacity: 1; } 45% { transform: translateY(0) rotate(6deg); } 65% { transform: rotate(-3deg); } 85% { transform: rotate(1deg); } 100% { transform: none; opacity: 1; } }
   @keyframes c-complete-rise { from { transform: translateY(var(--space-12)); opacity: 0; } to { transform: none; opacity: 1; } }
-  html:not(.is-test) .c-complete__stitch::after { content: ''; position: absolute; left: 0; right: 0; top: calc(-1 * var(--space-4)); height: var(--space-8); background: var(--neutral-100); transform-origin: 100% 50%; transform: scaleX(0); animation: c-complete-wipe 700ms var(--ease-in-out) both; }
-  html:not(.is-test) .c-complete__tag { animation: c-complete-swing 1100ms var(--ease-out) 450ms both; }
-  html:not(.is-test) .c-complete__tag:nth-child(2) { animation-delay: 580ms; }
-  html:not(.is-test) .c-complete__tag:nth-child(3) { animation-delay: 710ms; }
   html:not(.is-test) .c-complete__label { animation: c-complete-rise 600ms var(--ease-out) 700ms both; }
   .c-complete__row .method-row__chevron { transition: transform 180ms var(--ease-out); }
 }

@@ -1242,13 +1242,59 @@ a.cta-small { text-decoration: none; }
   .zip-chip__hood { min-width: 0; overflow-wrap: break-word; }
 }
 
-/* ---------- K-18 (D-249) the hanging stage (hangStage): 1-E's linen + cognac stitch, edge to edge ---------- */
+/* ---------- K-17 / K-20 / K-21 the linen stage + tag rail (linenStage, tagRail): c-complete and t-job completed ---------- */
+.linen-stage { margin: calc(-1 * var(--space-16)) calc(-1 * var(--space-20)) 0; padding: var(--space-24) var(--space-20) 0; background: var(--neutral-100); color: var(--ink); }
+.linen-stage__eyebrow { margin: 0; color: var(--accent-ink); }
+.linen-stage--calm .linen-stage__eyebrow { color: var(--neutral-600); }
+.linen-stage__title { margin: var(--space-8) 0 0; font-family: var(--font-serif); font-size: var(--size-36); line-height: var(--lh-28); font-weight: 500; color: var(--ink); text-wrap: balance; }
+.linen-stage__line { margin: var(--space-8) 0 0; color: var(--neutral-700); text-wrap: pretty; }
+.tag-rail { position: relative; margin-top: var(--rhythm-block); padding: var(--space-8) 0 var(--space-32); }
+.tag-rail__stitch { position: absolute; left: 0; right: 0; top: var(--space-8); height: 0; border-top: 2px dashed var(--accent-base); }
+.tag-rail__tags { display: flex; justify-content: center; align-items: flex-start; gap: var(--space-24); }
+.tag-rail__tags[data-n="3"] { gap: var(--space-8); }
+.tag-rail__tag { position: relative; display: flex; flex-direction: column; align-items: center; flex: 0 1 144px; min-width: 0; transform-origin: 50% 0; }
+.tag-rail__string { width: 2px; height: var(--space-20); background: var(--accent-base); }
+.tag-rail__card { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); width: 100%; padding: var(--space-8) var(--space-8) var(--space-12); border-radius: var(--radius-md) var(--radius-md) var(--radius-sm) var(--radius-sm); background: var(--white); color: var(--ink); box-shadow: var(--shadow-float); }
+.tag-rail__hole { width: var(--space-8); height: var(--space-8); border-radius: var(--radius-full); box-shadow: inset 0 0 0 2px var(--accent-base); }
+.tag-rail__card .garment-icon--tag { max-width: 100%; }
+.tag-rail__name { max-width: 100%; font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; text-align: center; overflow-wrap: anywhere; }
+.tag-rail__svc { font-size: var(--size-10); line-height: var(--lh-10); font-weight: 600; color: var(--neutral-600); text-align: center; }
+/* K-21 option Z: four or more tags slide along the stitch — the stitch runs edge to edge and stays; full-size tags scroll-snap under it, three + a peek */
+.tag-rail--slide .tag-rail__stitch { left: calc(-1 * var(--space-20)); right: calc(-1 * var(--space-20)); }
+.tag-rail__scroll { margin-inline: calc(-1 * var(--space-20)); padding: 0 var(--space-20) var(--space-16); overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scroll-padding-inline: var(--space-20); scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, var(--ink) calc(100% - var(--space-24)), transparent); mask-image: linear-gradient(90deg, var(--ink) calc(100% - var(--space-24)), transparent); }
+.tag-rail__scroll::-webkit-scrollbar { display: none; }
+.tag-rail__scroll:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.tag-rail--slide .tag-rail__tags { justify-content: flex-start; gap: var(--space-8); width: max-content; }
+.tag-rail--slide .tag-rail__tag { flex: 0 0 100px; scroll-snap-align: start; }
+.tag-rail--slide { padding-bottom: var(--space-24); }
+.tag-rail__more { margin: var(--space-4) 0 0; text-align: center; }
+/* the stitch sews itself, the tags swing in from it and settle (staggered by --d); complete at rest, html.is-test never moves; a calm stage never moves */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes tag-rail-wipe { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  @keyframes tag-rail-swing { 0% { transform: translateY(calc(-1 * var(--space-24))) rotate(-10deg); opacity: 0; } 35% { opacity: 1; } 45% { transform: translateY(0) rotate(6deg); } 65% { transform: rotate(-3deg); } 85% { transform: rotate(1deg); } 100% { transform: none; opacity: 1; } }
+  html:not(.is-test) .tag-rail__stitch::after { content: ''; position: absolute; left: 0; right: 0; top: calc(-1 * var(--space-4)); height: var(--space-8); background: var(--neutral-100); transform-origin: 100% 50%; transform: scaleX(0); animation: tag-rail-wipe 700ms var(--ease-in-out) both; }
+  html:not(.is-test) .tag-rail__tag { animation: tag-rail-swing 1100ms var(--ease-out) var(--d, 450ms) both; }
+  html .linen-stage--calm .tag-rail__tag { animation: none; }
+  html .linen-stage--calm .tag-rail__stitch::after { display: none; animation: none; }
+  .tag-rail__scroll { scroll-behavior: smooth; }
+}
+
+/* ---------- K-18 (D-249) the hanging stage (hangStage): 1-E's linen + cognac stitch, edge to edge; K-22 H1 threads; K-21 sliding rail ---------- */
 .hang { margin-inline: calc(-1 * var(--space-20)); padding: var(--space-16) 0; background: var(--neutral-100); color: var(--ink); }
-.hang__svg { display: block; width: 100%; height: auto; overflow: visible; }
-.hang__rail { stroke: var(--accent-base); stroke-width: 2; stroke-dasharray: 6 4; }
-.hang__sew { display: none; fill: var(--neutral-100); }
-.hang__wire { fill: none; stroke: var(--accent-ink); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
-.hang__clip { fill: var(--accent-ink); }
+.hang__band { position: relative; display: flex; align-items: flex-start; }
+.hang__rail { position: absolute; left: 0; right: 0; top: 17px; height: 2px; background: repeating-linear-gradient(90deg, var(--accent-base) 0 6px, transparent 6px 10px); }
+.hang__scroll { position: relative; display: flex; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
+.hang__scroll::-webkit-scrollbar { display: none; }
+.hang__scroll--fit { justify-content: safe center; }
+.hang--slide .hang__scroll { padding-left: var(--space-12); scroll-snap-type: x mandatory; scroll-padding-inline: var(--space-12);
+  -webkit-mask-image: linear-gradient(90deg, var(--ink) calc(100% - var(--space-24)), transparent); mask-image: linear-gradient(90deg, var(--ink) calc(100% - var(--space-24)), transparent); }
+.hang--slide .hang__slot { scroll-snap-align: start; }
+.hang__scroll:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.hang__track { position: relative; display: flex; flex: 0 0 auto; }
+.hang__slot { position: relative; display: block; flex: 0 0 auto; overflow: visible; }
+.hang__thread { stroke: var(--accent-base); stroke-width: 1.4; }
+.hang__eyelet { fill: var(--white); stroke: var(--accent-base); stroke-width: 1.4; }
 .hang__item, .hang__tag { transform-box: view-box; }
 .hang__loop { fill: none; stroke: var(--accent-base); stroke-width: 1.4; }
 .hang__string { stroke: var(--accent-base); stroke-width: 1.4; }
@@ -1258,10 +1304,11 @@ a.cta-small { text-decoration: none; }
 .hang__t2 { fill: var(--neutral-600); font-family: var(--font-sans); font-size: var(--size-10); font-weight: 600; }
 .hang__cap { display: flex; justify-content: space-between; gap: var(--space-8); margin-top: var(--space-8); padding-inline: var(--space-20); }
 .hang__cap .t-small + .t-small { color: var(--neutral-700); text-align: right; }
-/* one finite swing-in and settle per hanger and the tag, then the stitch sewn left to right; at rest everything is complete (html.is-test never animates) */
+/* the stitch sews itself left to right, then each garment and the tag drop in on their threads and settle (staggered by --d); complete at rest (html.is-test never animates) */
 @media (prefers-reduced-motion: no-preference) {
-  @keyframes hang-sew { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  @keyframes hang-sew { from { transform: scaleX(0); } to { transform: none; } }
   @keyframes hang-drop { 0% { transform: translateY(-44px) rotate(-9deg); opacity: 0; } 50% { transform: translateY(2px) rotate(4deg); opacity: 1; } 70% { transform: translateY(0) rotate(-2deg); } 86% { transform: rotate(.8deg); } 100% { transform: none; opacity: 1; } }
-  html:not(.is-test) .hang__sew { display: block; transform-box: fill-box; transform-origin: 100% 50%; transform: scaleX(0); animation: hang-sew 700ms var(--ease-in-out) both; }
+  html:not(.is-test) .hang__rail { transform-origin: 0 50%; animation: hang-sew 700ms var(--ease-in-out) both; }
   html:not(.is-test) .hang__item, html:not(.is-test) .hang__tag { animation: hang-drop 1000ms var(--ease-out) var(--d, 450ms) both; }
+  .hang__scroll { scroll-behavior: smooth; }
 }

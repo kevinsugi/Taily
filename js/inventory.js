@@ -147,6 +147,7 @@ export const SCREENS = [
     { key: 'c-booking--fitting', m: 'M4', kind: 'state' },
     { key: 'c-booking--in-progress', m: 'M4', kind: 'state' },
     { key: 'c-booking--returning-pickup', m: 'M4', kind: 'state' },
+    { key: 'c-booking--returning-pickup-many', m: 'M7', kind: 'state' },
     { key: 'c-booking--returning-dropoff', m: 'M4', kind: 'state' },
     { key: 'c-booking--returning-courier', m: 'M4', kind: 'state' },
     { key: 'c-booking--completed', m: 'M4', kind: 'frame' },
@@ -180,6 +181,7 @@ export const SCREENS = [
   { id: 'c-complete', m: 'M4', persona: 'customer', title: 'C11 order completed: stitch stage + garment tags, Amara’s label with stars, receipt row (K-17)', states: [
     { key: 'c-complete', m: 'M4', kind: 'frame' },
     { key: 'c-complete--receipt', m: 'M4', kind: 'state' },
+    { key: 'c-complete--many', m: 'M7', kind: 'state' },
   ] },
   { id: 'c-review', m: 'M4', persona: 'customer', title: 'Stars (1–5), optional text, up to 3 photos', states: [
     { key: 'c-review', m: 'M4', kind: 'frame' },
@@ -346,6 +348,8 @@ export const SCREENS = [
     { key: 't-job--mark-ready', m: 'M4', kind: 'overlay' },
     { key: 't-job--completed-paid', m: 'M6', kind: 'state' },
     { key: 't-job--completed-failed', m: 'M6', kind: 'state' },
+    { key: 't-job--completed-rated', m: 'M7', kind: 'state' },
+    { key: 't-job--completed-many', m: 'M7', kind: 'state' },
     { key: 't-job--docs', m: 'M4', kind: 'state' },
     { key: 't-job--docs-pinned', m: 'M4', kind: 'state' },
     { key: 't-job--fitting-docs', m: 'M4', kind: 'state' },

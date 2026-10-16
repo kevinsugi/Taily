@@ -296,7 +296,7 @@ await journey('J7', 'courier return: the three courier amounts match on both sid
 await journey('J8', 'completed -> review -> the tailor profile shows it', async () => {
   await flow('t-job--returning-pickup');
   await click('[data-act="complete"]');
-  await at('J8 tailor: job completed', 't-job', { has: ['Job completed', fmtExact(S.seed.payout)] });
+  await at('J8 tailor: job completed', 't-job', { has: ['JOB COMPLETED', 'Nice work, Amara.', fmtExact(S.seed.payout)] });   // K-20: the linen stage's eyebrow + title
   await flip();
   await click('[data-nav="bookings"]');
   await click('.appt-row');

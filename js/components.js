@@ -2428,52 +2428,88 @@ export function returnedItems(a) {
   return a.job.garments.map((g) => ({ type: g.type, services: (g.services ?? []).map((id) => DATA.SERVICES[id]?.label).filter(Boolean) }));
 }
 
-/* ---------- the hanging stage (K-18 3-J "Edge-to-edge linen stage") ----------
-   A full-bleed linen band: the 1-E cognac stitch runs edge to edge, each garment hangs from it on a cognac wire hanger (the real garment art, no gap:
-   a jacket-style hanger tucked into the shoulders, a clip hanger on pants and skirts), and the customer's tag is a white card with a cognac eyelet.
-   Geometry is measured from the art (its 256 box, non-transparent bounds); the group of hangers + tag is centred. */
-const ART_BOX = {   // [x0, y0, x1, y1] of the drawn garment inside its 256 x 256 raster
-  'Suit Jacket': [65, 38, 193, 208], 'Suit Pant': [99, 29, 156, 218], 'Formal Dress': [87, 27, 167, 237], 'Jacket': [48, 54, 207, 204],
-  'Shirt / Blouse': [63, 47, 192, 200], 'Dress / Jumpsuit': [75, 24, 182, 222], 'Pants / Jeans': [95, 36, 160, 211], 'Skirt': [69, 55, 188, 195], 'Accessories': [67, 59, 189, 181],
-};
-const CLIP_HANGER = new Set(['Suit Pant', 'Pants / Jeans', 'Skirt']);
-const HANG_SCALE = 0.64, HANG_STITCH_Y = 18, HANG_HOOK_Y = 15.88, HANG_MAX_ITEMS = 3, HANG_TAG_W = 72;
-const r1 = (n) => Math.round(n * 100) / 100;
-
-function hangItem(type, i, cx) {
-  const [x0, y0, x1, y1] = ART_BOX[type] ?? [64, 40, 192, 208];
-  const mid = (x0 + x1) / 2, bw = x1 - x0, clip = CLIP_HANGER.has(type);
-  const half = clip ? bw / 2 + 8.5 : Math.max(34, bw / 2 - 3);          // the hanger's half-width (clip: a little wider than the waist; shoulders: a hair inside the art)
-  const up = clip ? 55 : 32;                                             // the hook's top above the art's top edge
-  const hx = mid + 11, hy = y0 - up;                                     // the hook's top point, in art coordinates
-  const X = cx + 7;                                                      // the hook sits 7 px right of the garment's centre line (the stem is at the centre)
-  const stem = clip
-    ? `M${mid} ${y0 - 31}V${y0 - 41}C${mid} ${y0 - 50} ${mid + 5} ${y0 - 55} ${mid + 11} ${y0 - 55}C${mid + 17} ${y0 - 55} ${mid + 21} ${y0 - 51} ${mid + 21} ${y0 - 46}C${mid + 21} ${y0 - 42} ${mid + 18} ${y0 - 39} ${mid + 14} ${y0 - 39}`
-    : `M${mid} ${y0 - 2}V${y0 - 18}C${mid} ${y0 - 27} ${mid + 5} ${y0 - 32} ${mid + 11} ${y0 - 32}C${mid + 17} ${y0 - 32} ${mid + 21} ${y0 - 28} ${mid + 21} ${y0 - 23}C${mid + 21} ${y0 - 19} ${mid + 18} ${y0 - 16} ${mid + 14} ${y0 - 16}`;
-  const frame = clip
-    ? `M${mid - half} ${y0 - 7}L${mid} ${y0 - 31}L${mid + half} ${y0 - 7}Z`
-    : `M${mid - half} ${y0 + 28}L${mid} ${y0 - 2}L${mid + half} ${y0 + 28}Z`;
-  const off = half * 0.53;
-  const clips = clip ? `<rect class="hang__clip" x="${r1(mid - off - 5)}" y="${y0 - 13}" width="10" height="23" rx="2"/><rect class="hang__clip" x="${r1(mid + off - 5)}" y="${y0 - 13}" width="10" height="23" rx="2"/>` : '';
-  const src = GARMENT_ICONS[type];
-  const art = src ? `<image href="${src}" width="256" height="256"/>` : '';
-  const g = `<g class="hang__item" style="transform-origin:${r1(X)}px ${HANG_STITCH_Y}px;--d:${450 + i * 130}ms"><g transform="translate(${r1(X)} ${HANG_HOOK_Y}) scale(${HANG_SCALE}) translate(${r1(-hx)} ${r1(-hy)})"><path class="hang__wire" d="${frame}"/><path class="hang__wire" d="${stem}"/>${art}${clips}</g></g>`;
-  return { svg: g, bottom: HANG_HOOK_Y + HANG_SCALE * (up + (y1 - y0)), slot: Math.max(60, 2 * HANG_SCALE * Math.max(half, bw / 2) + 12) };
+/* ---------- K-17 / K-20 / K-21 the linen stage and its tag rail ----------
+   A linen (neutral-100) band: eyebrow, serif title, an optional line, then the cognac stitch with the garments hanging from it on white tags
+   (c-complete, t-job completed). Up to RAIL_FIT tags share the row as K-17 drew it; four or more slide along the stitch (K-21 option Z,
+   CSS scroll-snap, no script): the stitch stays put, full-size tags scroll under it, three show and the fourth peeks. */
+const RAIL_FIT = 3;
+const stagger = (i) => 450 + i * 130;   // the swing-in / drop-in delay of the i-th tag or hanger (motion-safe only)
+/** "Suit Jacket, Suit Pant and Skirt" */
+export function andList(xs = []) {
+  return xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`;
+}
+/** "5 items · 6 services" for `returnedItems()` entries. */
+export function itemsLine(items = []) {
+  return `${plural(items.length, 'item')} · ${plural(items.reduce((n, g) => n + (g.services?.length ?? 0), 0), 'service')}`;
+}
+/** The garments on white tags hanging from the stitch. `items` = `returnedItems(a)` (type + services). */
+export function tagRail(items = []) {
+  const n = items.length;
+  const tag = (g, i) => `<div class="tag-rail__tag" style="--d:${stagger(i)}ms">
+      <span class="tag-rail__string" aria-hidden="true"></span>
+      <div class="tag-rail__card"><span class="tag-rail__hole" aria-hidden="true"></span>${garmentIcon(g.type, { size: 'tag' })}<span class="tag-rail__name">${esc(g.type)}</span>${g.services?.length ? `<span class="tag-rail__svc">${esc(g.services.join(' · '))}</span>` : ''}</div>
+    </div>`;
+  const tags = `<div class="tag-rail__tags" data-n="${n}">${items.map(tag).join('')}</div>`;
+  if (n <= RAIL_FIT) return `<div class="tag-rail"><span class="tag-rail__stitch" aria-hidden="true"></span>${tags}</div>`;
+  return `<div class="tag-rail tag-rail--slide"><span class="tag-rail__stitch" aria-hidden="true"></span><div class="tag-rail__scroll" role="region" tabindex="0" aria-label="${n} items, scroll for more">${tags}</div><p class="t-small w-600 c-700 tag-rail__more">${esc(itemsLine(items))}</p></div>`;
+}
+/** The linen stage: `eyebrow` (caps), `title` (serif h1), optional `line`, then `rail` (HTML, a `tagRail`). `calm` = a stage that must not move
+    (a payout that didn't go through): neutral eyebrow, no sewing or swinging. `label` names the section. */
+export function linenStage({ eyebrow = '', title = '', line = '', rail = '', label = '', calm = false } = {}) {
+  return `<section class="linen-stage${calm ? ' linen-stage--calm' : ''}"${label ? ` aria-label="${esc(label)}"` : ''}>
+    <p class="t-caps linen-stage__eyebrow">${esc(eyebrow)}</p>
+    <h1 class="linen-stage__title">${esc(title)}</h1>
+    ${line ? `<p class="t-body linen-stage__line">${esc(line)}</p>` : ''}
+    ${rail}
+  </section>`;
 }
 
-/** `types` = the garment types hung (at most 3 are drawn); `tag` = [name line, note line] on Sarah's tag; `left` / `right` = the caption on the linen. */
+/* ---------- the hanging stage (K-18 3-J "Edge-to-edge linen stage", K-21 sliding rail, K-22 H1 "just a line") ----------
+   A full-bleed linen band: the 1-E cognac stitch runs edge to edge and each garment drops from it on ONE 1.4 px cognac thread — a small loop knotted
+   on the stitch (drawn over it) and a small eyelet at the garment's top centre drawn BEHIND the art, so the garment is the top layer and the thread
+   disappears into the bodice / waistband. No hanger frame: nothing to size. Garment tops share one line under the stitch. The customer's tag is a white
+   card with a cognac eyelet. Up to RAIL_FIT garments + the tag are centred; four or more slide (scroll-snap) and the tag stays pinned at the right end.
+   Geometry is measured from the art (256 box, alpha > 60): box = [x0, y0, x1, y1]; mid = the centre of the top edge; eye = the eyelet's depth
+   below the top, in art px (the dress needs a little more to sit inside its bodice). */
+const HANG_ART = {
+  'Suit Jacket': { box: [65, 38, 193, 208], mid: 127.5, eye: 3 }, 'Suit Pant': { box: [99, 29, 156, 218], mid: 127.5, eye: 4 },
+  'Formal Dress': { box: [93, 27, 166, 237], mid: 128, eye: 6 }, 'Jacket': { box: [48, 54, 207, 203], mid: 128.5, eye: 3 },
+  'Shirt / Blouse': { box: [64, 47, 192, 200], mid: 127.5, eye: 3 }, 'Dress / Jumpsuit': { box: [75, 25, 182, 222], mid: 127.5, eye: 4 },
+  'Pants / Jeans': { box: [95, 36, 160, 211], mid: 127.5, eye: 4 }, 'Skirt': { box: [69, 56, 188, 195], mid: 127.5, eye: 3 },
+  'Accessories': { box: [67, 60, 189, 181], mid: 127.5, eye: 3 },
+};
+const HANG_S = 0.64, HANG_Y = 18, HANG_TOP = HANG_Y + 26, HANG_GAP = 20, HANG_TAG_SLOT = 88, HANG_FIT_W = 366;   // FIT_W: the 390 phone less 12 a side
+const r1 = (n) => Math.round(n * 100) / 100;
+
+/** One garment in its own slot svg: thread + eyelet (under), the art, the loop on the stitch (over). */
+function hangItem(type, i) {
+  const a = HANG_ART[type] ?? { box: [64, 40, 192, 208], mid: 128, eye: 3 };
+  const [x0, y0, x1, y1] = a.box;
+  const w = Math.ceil((x1 - x0) * HANG_S + HANG_GAP);
+  const tx = w / 2 - (HANG_S * (x0 + x1)) / 2, ty = HANG_TOP - HANG_S * y0;
+  const x = r1(tx + HANG_S * a.mid), ey = r1(ty + HANG_S * (y0 + a.eye));
+  const src = GARMENT_ICONS[type];
+  const art = src ? `<image href="${src}" width="256" height="256" transform="translate(${r1(tx)} ${r1(ty)}) scale(${HANG_S})"/>` : '';
+  const g = `<g class="hang__item" style="transform-origin:${x}px ${HANG_Y}px;--d:${stagger(i)}ms"><line class="hang__thread" x1="${x}" y1="${HANG_Y + 3.6}" x2="${x}" y2="${r1(ey - 2.4)}"/><circle class="hang__eyelet" cx="${x}" cy="${ey}" r="2.4"/>${art}<ellipse class="hang__loop" cx="${x}" cy="${HANG_Y}" rx="3.2" ry="3.6"/></g>`;
+  return { w, g, bottom: HANG_TOP + HANG_S * (y1 - y0) };
+}
+
+/** `types` = every garment type hung; `tag` = [name line, note line] on the customer's tag; `left` / `right` = the caption on the linen;
+    `label` = the accessible name of the drawing (it names every garment drawn and the tag). */
 export function hangStage({ types = [], tag = ['', ''], left = '', right = '', label = '' } = {}) {
-  const shown = types.slice(0, HANG_MAX_ITEMS);
-  const slots = shown.map((t) => hangItem(t, 0, 0).slot);
-  const tagSlot = HANG_TAG_W + 16;
-  const total = slots.reduce((n, w) => n + w, 0) + tagSlot;
-  const W = Math.max(390, total + 24);
-  let cx = (W - total) / 2;
-  const items = shown.map((t, i) => { const it = hangItem(t, i, cx + slots[i] / 2); cx += slots[i]; return it; });
-  const tx = cx + tagSlot / 2;
-  const H = Math.max(178, Math.ceil(Math.max(...items.map((i) => i.bottom), 0) + 10));
-  const tagSvg = `<g class="hang__tag" style="transform-origin:${r1(tx)}px ${HANG_STITCH_Y}px;--d:${450 + shown.length * 130}ms"><ellipse class="hang__loop" cx="${r1(tx)}" cy="${HANG_STITCH_Y}" rx="3.2" ry="3.6"/><line class="hang__string" x1="${r1(tx)}" y1="21.6" x2="${r1(tx)}" y2="43"/><path class="hang__tagcard" d="M${r1(tx - 28)} 36H${r1(tx + 28)}L${r1(tx + 36)} 44V78Q${r1(tx + 36)} 82 ${r1(tx + 32)} 82H${r1(tx - 32)}Q${r1(tx - 36)} 82 ${r1(tx - 36)} 78V44Z"/><circle class="hang__hole" cx="${r1(tx)}" cy="43" r="2.6"/><text class="hang__t1" x="${r1(tx)}" y="62" text-anchor="middle">${esc(tag[0])}</text><text class="hang__t2" x="${r1(tx)}" y="75" text-anchor="middle">${esc(tag[1])}</text></g>`;
-  return `<div class="hang" data-hang><svg class="hang__svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}"><line class="hang__rail" x1="0" y1="${HANG_STITCH_Y}" x2="${W}" y2="${HANG_STITCH_Y}"/><rect class="hang__sew" x="0" y="13" width="${W}" height="10"/>${items.map((i) => i.svg).join('')}${tagSvg}</svg>
+  const items = types.map((t, i) => hangItem(t, i));
+  const H = Math.max(178, Math.ceil(Math.max(0, ...items.map((it) => it.bottom)) + 10));
+  const slot = (it) => `<svg class="hang__slot" width="${it.w}" height="${H}" viewBox="0 0 ${it.w} ${H}" aria-hidden="true">${it.g}</svg>`;
+  const tx = HANG_TAG_SLOT / 2;
+  const tagSvg = `<svg class="hang__slot hang__slot--tag" width="${HANG_TAG_SLOT}" height="${H}" viewBox="0 0 ${HANG_TAG_SLOT} ${H}" aria-hidden="true"><g class="hang__tag" style="transform-origin:${tx}px ${HANG_Y}px;--d:${stagger(items.length)}ms"><ellipse class="hang__loop" cx="${tx}" cy="${HANG_Y}" rx="3.2" ry="3.6"/><line class="hang__string" x1="${tx}" y1="21.6" x2="${tx}" y2="43"/><path class="hang__tagcard" d="M${tx - 28} 36H${tx + 28}L${tx + 36} 44V78Q${tx + 36} 82 ${tx + 32} 82H${tx - 32}Q${tx - 36} 82 ${tx - 36} 78V44Z"/><circle class="hang__hole" cx="${tx}" cy="43" r="2.6"/><text class="hang__t1" x="${tx}" y="62" text-anchor="middle">${esc(tag[0])}</text><text class="hang__t2" x="${tx}" y="75" text-anchor="middle">${esc(tag[1])}</text></g></svg>`;
+  /* fit = up to RAIL_FIT garments that fit beside the tag: the group (garments + tag) is centred; otherwise the garments slide and the tag is pinned.
+     Both scroll (never clipped) — a fit group only overflows at zoomed widths. */
+  const total = items.reduce((n, it) => n + it.w, 0) + HANG_TAG_SLOT;
+  const slide = items.length > RAIL_FIT || total > HANG_FIT_W;
+  const track = slide
+    ? `<div class="hang__scroll" role="region" tabindex="0" aria-label="${esc(`${label}. ${items.length} items, scroll for more`)}"><div class="hang__track">${items.map(slot).join('')}</div></div>${tagSvg}`
+    : `<div class="hang__scroll hang__scroll--fit" role="img" aria-label="${esc(label)}"><div class="hang__track">${items.map(slot).join('')}${tagSvg}</div></div>`;
+  return `<div class="hang${slide ? ' hang--slide' : ''}" data-hang><div class="hang__band"><span class="hang__rail" aria-hidden="true"></span>${track}</div>
   <div class="hang__cap"><span class="t-small w-600">${esc(left)}</span><span class="t-small">${esc(right)}</span></div></div>`;
 }
 

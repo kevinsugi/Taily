@@ -13,7 +13,7 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 | M7 World-class polish | **done** (f81baad) | | V5 masters + all frames re-synced | before/after: https://claude.ai/artifact/DaSb9aAmGFEF2RSJAJ4SDa |
 | M6 Final pass | in progress: audit triaged into `docs/v5/M6-fixlist.md`, fix batches running (decisions D-154…D-174 logged) | | | |
 
-**Next action:** (Oct 15 2026, handoff) V5 is current through K-16 + D-246 at main=V5. Open: optional Figma sync for the K-16 status screens (K-14/K-15 already synced); hybrid F (https://claude.ai/artifact/M3qxVyXYEDedJhxWVeQc2Z) parked — Kevin chose A for now. Remaining revise candidates are all addressed by K-16 (see docs/v5/REVISE-CANDIDATES.md).
+**Next action:** (Oct 16 2026) V5 is current through K-22 + D-251, and Figma is synced through K-22 (D-252: 29 frames re-drawn in place, 9 new frames, Hang Stage / Linen Stage / Tag / Request Strip masters added, Tailor Row rebuilt as the K-19 Q card). Open: hybrid F (https://claude.ai/artifact/M3qxVyXYEDedJhxWVeQc2Z) parked — Kevin chose A for now. Remaining revise candidates are all addressed by K-16 (see docs/v5/REVISE-CANDIDATES.md).
 
 ## Queued after M7 — impeccable (Kevin, Oct 14) — REVIEW GATE
 Run `/impeccable:impeccable` (Operate mode; launcher binary download approved by Kevin's "yes"):

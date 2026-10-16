@@ -1,8 +1,8 @@
 {
   "v5": {
     "fileKey": "spK8ZHnsPlWEuD8zRmf5sY",
-    "syncedAt": "2026-10-15",
-    "milestone": "K-15",
+    "syncedAt": "2026-10-16",
+    "milestone": "K-16..K-22",
     "pages": {
       "User - v5": "815:4957",
       "Tailor - v5": "815:4958",
@@ -79,7 +79,11 @@
       "visitBlock": "942:5386",
       "personBlock": "942:5491",
       "moneyFigure": "942:5502",
-      "verifiedPopover": "958:5222"
+      "verifiedPopover": "958:5222",
+      "requestStrip": "976:5237",
+      "tag": "976:5240",
+      "linenStage": "976:5300",
+      "hangStage": "975:5266"
     },
     "screens": {
       "c-welcome": "822:4347",
@@ -158,7 +162,16 @@
       "c-booking--completed": "942:12905",
       "t-job--visit": "942:12906",
       "t-request--urgent": "959:5460",
-      "c-booking--verified-open": "960:6360"
+      "c-booking--verified-open": "960:6360",
+      "c-tailors--no-reviews": "968:6124",
+      "c-tailors--shop": "968:6196",
+      "c-book--preset": "968:6624",
+      "c-complete--many": "969:6627",
+      "c-booking--returning-pickup-many": "967:6062",
+      "to-profile--card-line": "970:7123",
+      "to-profile--photo-missing": "970:7042",
+      "t-job--completed-rated": "971:5434",
+      "t-job--completed-many": "971:5277"
     },
     "variables": {
       "semantic/warning-ink": "VariableID:821:4344",

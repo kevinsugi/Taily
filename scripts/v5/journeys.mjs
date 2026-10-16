@@ -20,6 +20,8 @@
      J11 payout lifecycle: completed -> Pending (the Friday) -> the Friday run -> Paid, fee and payout in dollars (D-24, D-136)
      J12 a suggested time lapses: both sides end it and the hold is released (D-154)
      J13 Book now on the profile opens the picker on the next opening; one tap confirms it into review (K-18)
+     J14 the anchored popover (K-25): a garment thumb toggles it, another thumb moves it, Escape returns focus, it flips above near the
+         window bottom, the Verified check shares its one slot; t-home's count cluster lists every item and the card still opens the request
 
    node scripts/v5/journeys.mjs [J1 J2 ...]
    ============================================================ */
@@ -447,6 +449,61 @@ await journey('J13', 'Book now takes the next opening: the picker opens on it an
   await at('J13 review and send', 'c-pay', { has: ['Review and send request'] });
   const kept = await page.evaluate(() => window.Taily.state.ui.booking?.slot);
   check('J13 the same time reaches review', kept === next, `${kept} vs ${next}`);
+});
+
+/* ---------- J14 (K-25) ---------- */
+await journey('J14', 'The garment popover: toggle, move, Escape, flip, one slot with Verified; the request card still opens', async () => {
+  const pop = () => page.evaluate(() => {
+    const p = document.querySelector('#screen .anchor-pop');
+    const open = [...document.querySelectorAll('#screen [aria-expanded="true"][aria-controls]')].map((b) => b.dataset.peekLabel ?? (b.hasAttribute('data-verified') ? 'verified' : '?'));
+    return { id: p?.id ?? null, side: p?.dataset.side ?? null, text: p?.innerText.replace(/\s+/g, ' ').trim() ?? '', open, focus: document.activeElement?.dataset?.peekLabel ?? document.activeElement?.id ?? document.activeElement?.tagName };
+  });
+  const PANT = '#screen .person-block .garment-strip__btn[data-peek-label="Suit Pant"]';
+  const JACKET = '#screen .person-block .garment-strip__btn[data-peek-label="Suit Jacket"]';
+  await flow('c-booking--confirmed');
+  await click(PANT);
+  let p = await pop();
+  check('J14 a thumb opens the garment popover', p.id === 'garment-pop' && p.text.includes('Suit Pant') && p.text.includes('Hem pants') && p.open.join() === 'Suit Pant', JSON.stringify(p));
+  check('J14 no prices in it', !/\$\d/.test(p.text), p.text);
+  await click(PANT);
+  p = await pop();
+  check('J14 a second tap closes it, focus on the thumb', p.id === null && !p.open.length && p.focus === 'Suit Pant', JSON.stringify(p));
+  await click(PANT);
+  await click(JACKET);
+  p = await pop();
+  check('J14 another thumb moves it in one tap', p.id === 'garment-pop' && p.text.includes('Suit Jacket') && p.text.includes('Take in jacket sides') && !p.text.includes('Hem pants') && p.open.join() === 'Suit Jacket', JSON.stringify(p));
+  await page.keyboard.press('Escape');
+  await settle(page);
+  p = await pop();
+  check('J14 Escape closes it and returns focus to the thumb', p.id === null && !p.open.length && p.focus === 'Suit Jacket', JSON.stringify(p));
+  await click(JACKET);
+  await click('#screen .person-block [data-verified]');
+  p = await pop();
+  check('J14 the Verified check takes the same slot (one open at a time)', p.id === 'verified-pop' && p.open.join() === 'verified' && !(await page.$('#garment-pop')), JSON.stringify(p));
+  await page.mouse.click(8, 300);
+  await settle(page);
+  p = await pop();
+  check('J14 an outside tap closes it', p.id === null && !p.open.length, JSON.stringify(p));
+  /* near the window bottom it opens above, arrow down */
+  const vp = page.viewportSize();
+  const low = await page.evaluate((q) => Math.round(document.querySelector(q).getBoundingClientRect().bottom + 60), JACKET);   // the thumb ends 60 px above the window bottom
+  await page.setViewportSize({ width: vp.width, height: low });
+  await settle(page);
+  await click(JACKET);
+  p = await pop();
+  check('J14 near the window bottom it flips above', p.id === 'garment-pop' && p.side === 'above', JSON.stringify(p));
+  const box = await page.evaluate(() => { const s = document.getElementById('screen').getBoundingClientRect(); const r = document.getElementById('garment-pop').getBoundingClientRect(); return { l: r.left - s.left, r: s.right - r.right }; });
+  check('J14 it stays 12 px inside the column', box.l >= 11.5 && box.r >= 11.5, JSON.stringify(box));
+  await page.setViewportSize(vp);
+  /* t-home: the count cluster lists every item; the rest of the card still opens the request */
+  await flow('t-home');
+  await click('#screen .request-card .peek-cluster');
+  p = await pop();
+  check('J14 t-home: the cluster lists both items', p.id === 'garment-pop' && ['Suit Pant', 'Hem pants', 'Suit Jacket', 'Shorten sleeves', 'Take in jacket sides'].every((t) => p.text.includes(t)), JSON.stringify(p));
+  await at('J14 t-home: the cluster does not open the request', 't-home', { has: 'NEW REQUESTS' });
+  await page.keyboard.press('Escape');
+  await click('#screen .request-card');
+  await at('J14 t-home: the card still opens the request', 't-request', { has: 'Sarah' });
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

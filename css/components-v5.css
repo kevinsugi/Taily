@@ -606,6 +606,18 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
   display: flex; flex-direction: column;   /* M7-2-T-01: the shared .card is block; the 12 px gap between top / work / pay needs flex */
   align-items: stretch; justify-content: flex-start; gap: var(--space-12); min-height: 44px; text-align: left;
 }
+/* K-25: stretched-link card — the card's action is a button laid over the whole card (z 1); the count cluster sits above it (z 2) as its own button */
+.request-card { position: relative; }
+.request-card__link { position: absolute; inset: 0; z-index: 1; width: 100%; padding: 0; border: 0; border-radius: inherit; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.request-card__link:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.request-card:has(> .request-card__link:active) { transform: scale(var(--press-scale)); }
+/* the count cluster: icons + "2 items · 3 services" are ONE 44 px trigger (a ::before pad); the count is underlined neutral-500, 2 px ink when open */
+.peek-cluster { position: relative; z-index: 2; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.peek-cluster::before { content: ''; position: absolute; inset: calc(-0.5 * (var(--touch) - var(--size-24))) calc(-1 * var(--space-4)); }
+.peek-cluster__count { text-decoration: underline; text-decoration-color: var(--neutral-500); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.peek-cluster[aria-expanded="true"] .peek-cluster__count { text-decoration-color: var(--ink); text-decoration-thickness: 2px; }
+.peek-cluster:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 4px; }
+@media (hover: hover) { .peek-cluster:hover .peek-cluster__count { text-decoration-color: var(--ink); } }
 /* K-11 (D-236), Option 1 "Flush band": the timer is a full-width strip across the top of the card (the card's overflow clips its corners);
    warning by default, error at <= EXPIRING_SOON_MIN, neutral once expired. The old top-right clock and the soon ring are gone. */
 .request-card--strip { overflow: hidden; }
@@ -949,9 +961,20 @@ a.cta-small { text-decoration: none; }
 .garment-icon--inline { width: var(--size-24); height: var(--size-24); }
 /* M7-2-C-04: garment strip — the booked order before the fitting (c-request, c-booking): 32 px wells 8 apart, then the count */
 .garment-strip { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-8) var(--space-12); padding-block: var(--space-4); white-space: normal; }
-.garment-strip__icons { display: flex; align-items: center; gap: var(--space-8); }
-.garment-strip .garment-icon--row { background: var(--white); box-shadow: inset 0 0 0 1px var(--card-ring); }
-.garment-strip__more { display: inline-flex; align-items: center; }
+/* K-25: each thumb is a button — 32 px well + 12 gap = a 44 pitch, the ::before pads abut and never overlap. Closed: the control stroke
+   (neutral-500, D-163); hover ink; open (aria-expanded) a 2 px ink ring. "+N" is a well of its own. */
+.garment-strip__icons { display: flex; align-items: center; gap: var(--space-12); }
+.garment-strip .garment-icon--row { background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-500); }
+.garment-strip__more { display: inline-flex; align-items: center; justify-content: center; width: var(--size-32); height: var(--size-32); border-radius: var(--radius-sm); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-500); font-variant-numeric: tabular-nums lining-nums; }
+.garment-strip__btn { position: relative; display: inline-flex; flex: 0 0 auto; padding: 0; border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.garment-strip__btn::before { content: ''; position: absolute; inset: calc(-0.5 * (var(--touch) - var(--size-32))); }
+.garment-strip__btn:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+.garment-strip__btn[aria-expanded="true"] .garment-icon--row, .garment-strip__btn[aria-expanded="true"] .garment-strip__more { box-shadow: inset 0 0 0 2px var(--ink); }
+@media (hover: hover) { .garment-strip__btn:hover .garment-icon--row, .garment-strip__btn:hover .garment-strip__more { box-shadow: inset 0 0 0 1px var(--ink); } .garment-strip__btn[aria-expanded="true"]:hover .garment-icon--row, .garment-strip__btn[aria-expanded="true"]:hover .garment-strip__more { box-shadow: inset 0 0 0 2px var(--ink); } }
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.is-test) .garment-strip__btn { transition: transform var(--dur-press) var(--ease-out); }
+  html:not(.is-test) .garment-strip__btn:active { transform: scale(var(--press-scale)); }
+}
 /* a garment that leads a line of text (thread preview) sits in a 24 px well, drawn at 20 */
 .thread-row__garment { display: inline-flex; flex-shrink: 0; }   /* M7-2-C-05: a 32 px well (garmentIcon 'row'), the hero garment of the booking */
 .thread-context__garment { display: inline-flex; flex-shrink: 0; }
@@ -1092,17 +1115,38 @@ a.cta-small { text-decoration: none; }
 .verified--icon { min-height: 0; }
 .verified--icon::before { inset: -14px; }
 .verified:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; border-radius: var(--radius-sm); }
-.verified-pop { position: absolute; z-index: var(--z-banner); box-sizing: border-box; width: max-content; max-width: calc(100% - var(--space-24)); padding: var(--space-12) var(--space-16); border-radius: var(--radius-md); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-300), var(--shadow-float); color: var(--ink); outline: none; animation: verified-pop-in var(--dur-press) var(--ease-out); }
+/* K-25: ONE anchored popover shell (anchorPopover) — white, neutral-300 inset stroke, --shadow-float, radius 12, the arrow on the trigger.
+   Skins: .verified-pop (K-15, the four checks) · .garment-pop (P2, what a garment is in for). Motion only when motion is welcome, never under test. */
+.anchor-pop { position: absolute; z-index: var(--z-banner); box-sizing: border-box; width: max-content; max-width: calc(100% - var(--space-24)); border-radius: var(--radius-md); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-300), var(--shadow-float); color: var(--ink); outline: none; text-align: left; white-space: normal; }
+.anchor-pop__arrow { position: absolute; left: var(--pop-arrow-x, 50%); width: var(--space-8); height: var(--space-8); margin-left: calc(-0.5 * var(--space-8)); background: var(--white); border: 0 solid var(--neutral-300); transform: rotate(45deg); }
+.anchor-pop[data-side="below"] .anchor-pop__arrow { top: calc(-0.5 * var(--space-8) - 1px); border-width: 1px 0 0 1px; }
+.anchor-pop[data-side="above"] .anchor-pop__arrow { bottom: calc(-0.5 * var(--space-8) - 1px); border-width: 0 1px 1px 0; }
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.is-test) .verified-pop { animation: verified-pop-in var(--dur-press) var(--ease-out); }
+  html:not(.is-test) .garment-pop { transform-origin: var(--pop-arrow-x, 50%) top; animation: garment-pop-in 160ms var(--ease-out) both; }
+  html:not(.is-test) .garment-pop[data-side="above"] { transform-origin: var(--pop-arrow-x, 50%) bottom; }
+}
+@keyframes verified-pop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes garment-pop-in { from { opacity: 0; transform: translateY(calc(-1 * var(--space-4))) scale(0.96); } to { opacity: 1; transform: none; } }
+.verified-pop { padding: var(--space-12) var(--space-16); }
 .verified-pop__list { display: flex; flex-direction: column; gap: var(--space-8); margin: 0; padding: 0; list-style: none; }
 .verified-pop__item { display: flex; align-items: center; gap: var(--space-8); }
 .verified-pop__tick { display: inline-flex; flex-shrink: 0; color: var(--success-ink); }
 .verified-pop__tick .icon-16 { width: var(--size-16); height: var(--size-16); }
-/* the pointer: a rotated square with two borders, over the bubble's own stroke, aimed at the check (--pop-arrow-x) */
-.verified-pop__arrow { position: absolute; left: var(--pop-arrow-x, 50%); width: var(--space-8); height: var(--space-8); margin-left: calc(-0.5 * var(--space-8)); background: var(--white); border: 0 solid var(--neutral-300); transform: rotate(45deg); }
-.verified-pop[data-side="below"] .verified-pop__arrow { top: calc(-0.5 * var(--space-8) - 1px); border-width: 1px 0 0 1px; }
-.verified-pop[data-side="above"] .verified-pop__arrow { bottom: calc(-0.5 * var(--space-8) - 1px); border-width: 0 1px 1px 0; }
-@keyframes verified-pop-in { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .verified-pop { animation: none; } }
+/* K-25 P2 garment popover: head (32 px thumb + name + "N services"), hairline, services on cognac stitch dashes; at most 280 wide (names wrap),
+   several items stack and scroll past 320 */
+.garment-pop { min-width: calc(var(--space-40) * 4); max-width: min(calc(100% - var(--space-24)), calc(var(--space-40) * 7)); padding: var(--space-12) var(--space-16) var(--space-16); }
+.garment-pop__list { max-height: calc(var(--space-40) * 8); overflow-y: auto; overscroll-behavior: contain; margin: calc(-1 * var(--space-4)); padding: var(--space-4); border-radius: var(--radius-sm); }
+.garment-pop__list:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.garment-pop__item + .garment-pop__item { margin-top: var(--space-16); }
+.garment-pop__head { display: flex; align-items: center; gap: var(--space-12); padding-bottom: var(--space-8); box-shadow: inset 0 -1px 0 var(--hairline); }
+.garment-pop__head .garment-icon--row { background: var(--neutral-50); }
+.garment-pop__who { display: flex; flex-direction: column; min-width: 0; }
+.garment-pop__name { overflow-wrap: anywhere; }
+.garment-pop__count { font-variant-numeric: tabular-nums lining-nums; }
+.garment-pop__svcs { display: flex; flex-direction: column; gap: var(--space-4); margin: var(--space-8) 0 0; padding: 0; list-style: none; }
+.garment-pop__svcs li { position: relative; padding-left: var(--space-20); text-wrap: pretty; overflow-wrap: anywhere; }
+.garment-pop__svcs li::before { content: ''; position: absolute; left: 0; top: calc(0.5em * var(--lh-16) - 1px); width: var(--space-12); height: var(--stitch-w); background: var(--accent-base); }
 
 /* ---------- rating line (A5.8, D-190) ---------- */
 .rating-line { display: inline-flex; align-items: center; gap: var(--space-4); }
@@ -1143,11 +1187,12 @@ a.cta-small { text-decoration: none; }
 
 /* ---------- press (A5.14): one rule for every tappable surface — transform only, never `all` ---------- */
 .text-link, .top-nav__link, .more-btn, .info-btn, .tailor-row, .request-card, .appt-row, .thread-row, .thread-context, .list-row, .option-row, .where__card, .docs-editor__add, .photo-tile--add, .flow-bar__exit, .flow-bar .back, .verified { transition: transform var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out); }
-:is(.cta, .text-link, .top-nav__link, .more-btn, .info-btn, .tailor-row, .request-card, .appt-row, .thread-row, .thread-context, .list-row, .option-row, .garment-tile:not(.garment-tile--selected), .chip, .time-chip, .where__card, .docs-editor__add, .photo-tile--add, .select-time, .cta-small, .method-row, .scheduler__cta, .flow-bar__exit):active:not(:disabled):not([aria-disabled="true"]) { transform: scale(var(--press-scale)); }
+:is(.cta, .text-link, .top-nav__link, .more-btn, .info-btn, .tailor-row, .appt-row, .thread-row, .thread-context, .list-row, .option-row, .garment-tile:not(.garment-tile--selected), .chip, .time-chip, .where__card, .docs-editor__add, .photo-tile--add, .select-time, .cta-small, .method-row, .scheduler__cta, .flow-bar__exit):active:not(:disabled):not([aria-disabled="true"]) { transform: scale(var(--press-scale)); }
 
 /* reduced motion (and html.is-test): transforms off for press, sheets and modals; opacity / colour transitions stay short */
 @media (prefers-reduced-motion: reduce) {
   :is(.cta, .text-link, .top-nav__link, .more-btn, .info-btn, .tailor-row, .request-card, .appt-row, .thread-row, .thread-context, .list-row, .option-row, .garment-tile, .chip, .time-chip, .where__card, .docs-editor__add, .photo-tile--add, .select-time, .cta-small, .method-row, .scheduler__cta, .flow-bar__exit):active { transform: none; }
+  .request-card:has(> .request-card__link:active) { transform: none; }
   .text-link, .top-nav__link, .more-btn, .info-btn, .tailor-row, .request-card, .appt-row, .thread-row, .thread-context, .list-row, .where__card, .flow-bar__exit, .flow-bar .back, .verified { transition: color 150ms ease, background-color 150ms ease; }
   .modal-host:not([data-open="true"]) .modal, .modal-host:not([data-open="true"]) .scheduler-popup { transform: none; }
 }

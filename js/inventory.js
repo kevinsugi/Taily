@@ -112,6 +112,7 @@ export const SCREENS = [
     { key: 'c-request--expired-passed', m: 'M3', kind: 'state' },
     { key: 'c-request--suggested-passed', m: 'M3', kind: 'state' },
     { key: 'c-request--withdraw', m: 'M3', kind: 'overlay' },
+    { key: 'c-request--item-peek', m: 'M7', kind: 'overlay' },
     { key: 'sys-push-prompt-customer', m: 'M5', kind: 'overlay' },
   ] },
   { id: 'c-thread', m: 'M1', persona: 'customer', title: 'Chat with one tailor. M1 = "Ask a question" stub; M5 = full rules', states: [
@@ -153,6 +154,7 @@ export const SCREENS = [
     { key: 'c-booking--completed', m: 'M4', kind: 'frame' },
     { key: 'c-booking--docs', m: 'M4', kind: 'state' },
     { key: 'c-booking--verified-open', m: 'M4', kind: 'overlay' },
+    { key: 'c-booking--item-peek', m: 'M7', kind: 'overlay' },
   ] },
   { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01) · with the tailor’s Before / Pinned photos and comments (K-02)', states: [
     { key: 'c-price-change', m: 'M4', kind: 'frame' },
@@ -295,6 +297,7 @@ export const SCREENS = [
     { key: 't-home--suggested', m: 'M3', kind: 'state' },
     { key: 't-home--suggested-soon', m: 'M3', kind: 'state' },
     { key: 't-home--retried', m: 'M3', kind: 'state' },
+    { key: 't-home--item-peek', m: 'M7', kind: 'overlay' },
     { key: 'sys-offline-tailor', m: 'M5', kind: 'state' },
     { key: 'sys-session-expired-tailor', m: 'M5', kind: 'overlay' },
     { key: 'sys-push-prompt', m: 'M5', kind: 'overlay' },

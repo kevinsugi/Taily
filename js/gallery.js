@@ -320,7 +320,7 @@ export function galleryHtml() {
     C.leaveModal().replace('class="modal modal--leave"', 'class="modal modal--leave" style="position:absolute"')}</div></div>`);
   /* ---------------- M3 · request loop ---------------- */
   h2('Request card — the tailor’s inbox ticket (D-75)');
-  const rc = { id: 'A-1001', name: 'Sarah C.', initials: 'SC', visitLabel: 'Home visit', place: 'Williamsburg · 11211', when: 'Thu, Oct 15 · 5:00 PM', items: 2, services: 3, payoutCents: seed.payout, feeCents: seed.tailyFee, expiresAt: '2026-10-13T12:00', now: NOW, garments: ['Suit Pant', 'Suit Jacket'] };
+  const rc = { id: 'A-1001', name: 'Sarah C.', initials: 'SC', visitLabel: 'Home visit', place: 'Williamsburg · 11211', when: 'Thu, Oct 15 · 5:00 PM', items: 2, services: 3, payoutCents: seed.payout, feeCents: seed.tailyFee, expiresAt: '2026-10-13T12:00', now: NOW, garments: [{ type: 'Suit Pant', services: ['Hem pants'] }, { type: 'Suit Jacket', services: ['Shorten sleeves', 'Take in jacket sides'] }] };
   v('requested (2h left)');          col(C.requestCard(rc));
   v('urgent (15 min or less → error strip)'); col(C.requestCard({ ...rc, expiresAt: '2026-10-13T10:12' }));
   v('expired (neutral strip)'); col(C.requestCard({ ...rc, expiresAt: '2026-10-13T09:50' }));
@@ -523,7 +523,7 @@ export function galleryHtml() {
   v('verifiedCheck · icon · with the word (tailors only, K-15; tap opens the popover)');
   row(C.verifiedCheck({ years: 12 }), C.verifiedCheck({ years: 12, word: true }));
   v('Verified popover (K-15): four checks, a tick each');
-  s.push(`<div class="verified-pop-demo"><div class="verified-pop" role="dialog" aria-label="Verification" data-side="below" style="--pop-arrow-x:24px">${C.verifiedPopoverHtml(12)}</div></div>`);
+  s.push(`<div class="verified-pop-demo"><div class="anchor-pop verified-pop" role="dialog" aria-label="Verification" data-side="below" style="--pop-arrow-x:24px">${C.anchorArrow}${C.verifiedPopoverHtml(12)}</div></div>`);
   v('infoButton · the "About the deposit" sheet');
   row(C.infoButton('deposit'), C.infoButton('pricing'));
   { const sh = C.infoSheetHtml('deposit'); s.push(`<div class="sheet-demo">${C.sheet(sh.html, { header: sh.title, open: true, confirm: false })}</div>`); }

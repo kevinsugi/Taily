@@ -573,7 +573,7 @@ let activeOverlay = null;
     replaces #screen — `instant` skips the exit animation and restores
     the page scroll at once (the holder is about to be wiped anyway). */
 export function closeOverlay({ instant = false } = {}) {
-  const hadPopover = closeVerifiedPopover({ instant: true });   // K-15: the Verified popover is not a sheet, but leaves with one
+  const hadPopover = closeAnchorPopover({ instant: true });   // K-15 / K-25: the anchored popover is not a sheet, but leaves with one
   /* an overlay whose close() is already animating out (a handler
      closed it, then navigated) has nothing left to animate once the
      router wipes #screen — finish it now so the page unfreezes */
@@ -1052,16 +1052,21 @@ export function verifiedChecks(years = 0) {
   const n = Number(years) || 0;
   return ['ID verified', 'Background check', ...(n > 0 ? [`${n} ${n === 1 ? 'year' : 'years'} of experience`] : []), 'Insured'];
 }
-/** The popover's own markup (also the gallery's static specimen). */
+/** The popover's own markup (also the gallery's static specimen, inside `.anchor-pop.verified-pop` with an `anchorArrow`). */
 export function verifiedPopoverHtml(years = 0) {
-  return `<span class="verified-pop__arrow" aria-hidden="true"></span><ul class="verified-pop__list">${verifiedChecks(years).map((t) => `<li class="verified-pop__item"><span class="verified-pop__tick">${ICON_TICK}</span><span class="t-small w-500">${esc(t)}</span></li>`).join('')}</ul>`;
+  return `<ul class="verified-pop__list">${verifiedChecks(years).map((t) => `<li class="verified-pop__item"><span class="verified-pop__tick">${ICON_TICK}</span><span class="t-small w-500">${esc(t)}</span></li>`).join('')}</ul>`;
 }
-let activeVerified = null;
-/** Close the open Verified popover. `instant` skips returning focus (the screen is being replaced). Returns true when one was open. */
-export function closeVerifiedPopover({ instant = false } = {}) {
-  if (!activeVerified) return false;
-  const { pop, btn, off } = activeVerified;
-  activeVerified = null;
+
+/* ---------- K-25: ONE anchored popover — the Verified check (K-15) and the garment peek share its shell, slot and contract ---------- */
+/** The arrow every anchored popover carries (aimed at its trigger through `--pop-arrow-x`). */
+export const anchorArrow = '<span class="anchor-pop__arrow" aria-hidden="true"></span>';
+let activePop = null;
+/** Close the open anchored popover (Verified or garment). `instant` skips returning focus (the screen is being replaced, or the tap went
+    elsewhere). Returns true when one was open. */
+export function closeAnchorPopover({ instant = false } = {}) {
+  if (!activePop) return false;
+  const { pop, btn, off } = activePop;
+  activePop = null;
   off();
   pop.remove();
   if (btn.isConnected) {
@@ -1070,26 +1075,35 @@ export function closeVerifiedPopover({ instant = false } = {}) {
   }
   return true;
 }
-/** Open the popover anchored to a `verifiedCheck`: below it (flipped above near the bottom of the window), clamped inside the screen column,
-    the arrow pointing at the check. Non-modal: closes on an outside tap, Escape, focus leaving, or a second tap on the check. */
-export function openVerifiedPopover(btn) {
+/** K-15 name, kept for callers: the Verified popover is the anchored popover. */
+export const closeVerifiedPopover = closeAnchorPopover;
+/**
+ * Open a non-modal popover (`role="dialog"`, labelled `label`) anchored to `btn`: appended to #screen (it scrolls with the page), 10 px below
+ * `aim` (the part of the trigger the arrow points at; default the trigger), flipped above when it would cross the window bottom minus 12,
+ * clamped 12 px inside the screen column, the arrow on the aim's centre (>= 16 px from the corners). One open at a time (one slot): opening
+ * closes the other; a second tap on the same trigger closes it. Closes on an outside tap or focus leaving (focus stays where it went), on
+ * Escape (focus back on the trigger), and with `closeOverlay()` (Back, route change). Focus moves into it (tabindex -1). `cls` = the skin
+ * (`verified-pop` · `garment-pop`), `id` = the trigger's aria-controls.
+ */
+export function anchorPopover(btn, html, { id = 'anchor-pop', cls = '', label = '', aim = null } = {}) {
   const screenEl = document.getElementById('screen');
   if (!screenEl || !btn) return null;
-  const was = activeVerified?.btn === btn;
-  closeVerifiedPopover({ instant: true });
-  if (was) return null;                                           // second tap = close
+  const was = activePop?.btn === btn;
+  closeAnchorPopover({ instant: true });
+  if (was) { btn.focus({ preventScroll: true }); return null; }   // second tap = close, focus stays on the trigger
   const pop = document.createElement('div');
-  pop.className = 'verified-pop';
-  pop.id = 'verified-pop';
+  pop.className = `anchor-pop${cls ? ` ${cls}` : ''}`;
+  pop.id = id;
   pop.setAttribute('role', 'dialog');
-  pop.setAttribute('aria-label', 'Verification');
+  pop.setAttribute('aria-label', label);
   pop.tabIndex = -1;
-  pop.innerHTML = verifiedPopoverHtml(btn.dataset.years);
+  pop.innerHTML = `${anchorArrow}${html}`;
   screenEl.appendChild(pop);
   btn.setAttribute('aria-expanded', 'true');
+  const target = aim ?? btn;
   const place = () => {
     const sr = screenEl.getBoundingClientRect();
-    const br = btn.querySelector('svg')?.getBoundingClientRect() ?? btn.getBoundingClientRect();   // the pointer targets the icon, not the 44 px pad
+    const br = target.getBoundingClientRect();
     const gap = 10;
     const margin = 12;
     const w = pop.offsetWidth;
@@ -1103,9 +1117,9 @@ export function openVerifiedPopover(btn) {
     pop.style.setProperty('--pop-arrow-x', `${Math.round(Math.max(16, Math.min(w - 16, cx - left)))}px`);
   };
   place();
-  const onDown = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) closeVerifiedPopover({ instant: true }); };
-  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeVerifiedPopover(); } };
-  const onOut = (e) => { if (e.relatedTarget && !pop.contains(e.relatedTarget) && !btn.contains(e.relatedTarget)) closeVerifiedPopover({ instant: true }); };
+  const onDown = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) closeAnchorPopover({ instant: true }); };
+  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeAnchorPopover(); } };
+  const onOut = (e) => { if (e.relatedTarget && !pop.contains(e.relatedTarget) && !btn.contains(e.relatedTarget)) closeAnchorPopover({ instant: true }); };
   document.addEventListener('pointerdown', onDown, true);
   document.addEventListener('keydown', onKey, true);
   pop.addEventListener('focusout', onOut);
@@ -1115,29 +1129,65 @@ export function openVerifiedPopover(btn) {
     document.removeEventListener('keydown', onKey, true);
     window.removeEventListener('resize', place);
   };
-  activeVerified = { pop, btn, off };
+  activePop = { pop, btn, off };
   pop.focus({ preventScroll: true });
   return pop;
 }
-/** Delegated on every screen by app.js (screens never wire it): a tap / Enter / Space on `[data-verified]` toggles the popover, and is kept
-    from reaching the host (a tailor row's "open tailor"). */
-export function wireVerified(root) {
-  const hit = (e) => e.target.closest?.('[data-verified]');
+/** Open the Verified popover for a `verifiedCheck` (the arrow aims at the 16 px seal, not the 44 px pad). */
+export function openVerifiedPopover(btn) {
+  return anchorPopover(btn, verifiedPopoverHtml(btn.dataset.years), { id: 'verified-pop', cls: 'verified-pop', label: 'Verification', aim: btn.querySelector('svg') });
+}
+
+/** K-25 (P2): the garment popover's content — per item a head (32 px thumb, name 16 / 600, "N services" 12 neutral-600), a hairline, then
+    each service (16 / 400 neutral-700) on a 12 px cognac stitch dash. No prices. Several items stack in one card that scrolls past a max height. */
+export function garmentPopoverHtml(items = []) {
+  const one = (g) => `<div class="garment-pop__item">
+    <div class="garment-pop__head">${garmentIcon(g.type, { size: 'row' })}<span class="garment-pop__who"><span class="garment-pop__name t-body w-600">${esc(g.type)}</span><span class="garment-pop__count t-small c-600">${plural((g.services ?? []).length, 'service')}</span></span></div>
+    <ul class="garment-pop__svcs">${(g.services ?? []).map((sv) => `<li class="t-body c-700">${esc(sv)}</li>`).join('')}</ul>
+  </div>`;
+  return `<div class="garment-pop__list">${items.map(one).join('')}</div>`;
+}
+/** The data a peek trigger carries: `data-peek` (the items as JSON) + `data-peek-label` (the dialog's name). */
+export function peekAttrs(items = [], label = '') {
+  const data = items.map((g) => ({ type: g.type, services: g.services ?? [] }));
+  return `data-peek="${esc(JSON.stringify(data))}" data-peek-label="${esc(label)}" data-hit="inline" aria-haspopup="dialog" aria-expanded="false" aria-controls="garment-pop"`;
+}
+/** Open the garment popover for a `[data-peek]` trigger (a strip thumb, "+N", or a request card's count cluster). */
+export function openGarmentPopover(btn) {
+  let items = [];
+  try { items = JSON.parse(btn.dataset.peek || '[]'); } catch { items = []; }
+  const aim = btn.querySelector('.garment-icon, .garment-strip__more, .request-card__icons') ?? btn;
+  const pop = anchorPopover(btn, garmentPopoverHtml(items), { id: 'garment-pop', cls: 'garment-pop', label: btn.dataset.peekLabel || 'Items', aim });
+  const list = pop?.querySelector('.garment-pop__list');
+  if (list && list.scrollHeight > list.clientHeight + 1) {        // a long order scrolls: let the keyboard reach it
+    list.tabIndex = 0;
+    list.setAttribute('role', 'region');
+    list.setAttribute('aria-label', `${btn.dataset.peekLabel || 'Items'}, scroll for more`);
+  }
+  return pop;
+}
+/** Delegated on every screen by app.js (screens never wire it): a tap / Enter / Space on `[data-verified]` or `[data-peek]` toggles its
+    popover, and is kept from reaching the host (a tailor row's "open tailor", a screen's own click handler). */
+export function wirePopovers(root) {
+  const hit = (e) => e.target.closest?.('[data-verified], [data-peek]');
+  const openFor = (b) => (b.hasAttribute('data-peek') ? openGarmentPopover(b) : openVerifiedPopover(b));
   root.addEventListener('click', (e) => {
     const b = hit(e);
     if (!b) return;
     e.preventDefault();
     e.stopPropagation();
-    openVerifiedPopover(b);
+    openFor(b);
   }, true);
   root.addEventListener('keydown', (e) => {
     const b = hit(e);
     if (!b || b.tagName === 'BUTTON' || (e.key !== 'Enter' && e.key !== ' ')) return;
     e.preventDefault();
     e.stopPropagation();
-    openVerifiedPopover(b);
+    openFor(b);
   }, true);
 }
+/** K-15 name, kept for callers. */
+export const wireVerified = wirePopovers;
 
 /** Rating (A5.8, D-190) — "★ 4.9 (37)" once. With `anchor` ('#reviews') it is a 44 px link that scrolls to that section. */
 export function ratingLine({ avg = 0, count = 0, anchor = '' } = {}) {
@@ -2039,22 +2089,35 @@ export function requestCard({ id = '', act = 'open-request', name = '', initials
     ? `${name}, you suggested ${when}${asked ? `, ${asked}` : ''}, your payout ${fmtExact(payoutCents)}${right ? `, ${right.replace(/<[^>]+>/g, '')}` : ''}`
     : `${name}, ${when}, your payout ${fmtExact(payoutCents)}, ${right.replace(/<[^>]+>/g, '')}`;
   const cls = `request-card card${suggested ? ' request-card--suggested' : ''}${strip ? ' request-card--strip' : ''}`;
-  const btn = `<button type="button" class="${cls}" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}">`;
+  /* K-25: a stretched-link card — the card's one action is `.request-card__link` (a button laid over the whole card), so the count cluster can be
+     a real button of its own above it (no nested controls). The face is aria-hidden: the link's label says it all, as the old card button did. */
+  const link = `<button type="button" class="request-card__link" data-act="${esc(act)}" data-id="${esc(id)}" aria-label="${esc(label)}"></button>`;
+  const hide = (html) => html.replace(/^(\s*<\w+)/, '$1 aria-hidden="true"');
   const where = `<span class="request-card__where t-small c-600"><span class="request-card__visit">${esc(visitLabel)}</span><span class="request-card__place">${esc(String(place).replace(/\s·\s/g, '\u2009'))}</span></span>`;
   /* K-12 (D-237), Option A "Payout beside the name": header = avatar | who | payout + "Your payout"; a hairline; ONE line; no footer.
      K-13 (D-238), option F "The proposal leads the bar": a suggested card shares that structure — its flush strip reads "You suggested <when>" with a clock +
      the countdown for the customer to answer at its right end; the line reads "<Sarah asked for 5:00 PM>" beside the garments; the payout is greyed (pending);
-     no status word (the t-home section header says "Waiting on Sarah"). */
-  const types = [...new Set(garments.length ? garments : garment ? [garment] : [])];
+     no status word (the t-home section header says "Waiting on Sarah").
+     K-25: `garments` = `{ type, services }` items (every item, in order) make the count cluster ONE trigger for the garment popover listing them all;
+     bare type strings (the gallery) keep a plain cluster. */
+  const peekItems = garments.filter((g) => g && typeof g === 'object');
+  const typeList = garments.length ? garments.map((g) => (typeof g === 'string' ? g : g.type)) : garment ? [garment] : [];
+  const types = [...new Set(typeList)];
   const icons = types.map((t) => garmentIcon(t, { size: 'inline' })).join('');
-  const left = suggested ? (asked ? `<span class="request-card__asked">${esc(asked)}</span>` : '<span></span>') : `<span class="request-card__when w-600">${esc(when)}</span>`;
-  return `${btn}
-  ${strip}${requestHead({ name, initials, where, again: retries > 0, payoutCents })}
+  const left = suggested ? (asked ? `<span class="request-card__asked" aria-hidden="true">${esc(asked)}</span>` : '<span></span>') : `<span class="request-card__when w-600" aria-hidden="true">${esc(when)}</span>`;
+  const countText = `${plural(items, 'item')} · ${plural(services, 'service')}`;
+  const iconsHtml = icons ? `<span class="request-card__icons">${icons}</span>` : '';
+  const owner = `${String(name).split(' ')[0] || 'The customer'}’s order`;
+  const count = peekItems.length
+    ? `<button type="button" class="request-card__count peek-cluster" ${peekAttrs(peekItems, owner)} aria-label="${esc(`${plural(items, 'item')}, ${plural(services, 'service')}: show what’s in the order`)}">${iconsHtml}<span class="peek-cluster__count">${countText}</span></button>`
+    : `<span class="request-card__count" aria-hidden="true">${iconsHtml}<span>${countText}</span></span>`;
+  return `<div class="${cls}" data-id="${esc(id)}">${link}
+  ${strip ? hide(strip) : ''}${hide(requestHead({ name, initials, where, again: retries > 0, payoutCents }))}
   <span class="request-card__line t-small c-700">
     ${left}
-    <span class="request-card__count">${icons ? `<span class="request-card__icons">${icons}</span>` : ''}<span>${plural(items, 'item')} · ${plural(services, 'service')}</span></span>
+    ${count}
   </span>
-</button>`;
+</div>`;
 }
 
 /** "The work" list (R3-1-T-05): garments with their services and the estimate. One render for t-request and t-job.
@@ -2411,11 +2474,18 @@ export function heroGarment(job) {
   return types.reduce((best, t) => (rank(t) < rank(best) ? t : best), types[0]);
 }
 
-/** M7-2-C-04 (D-202): the booked order as a strip — each garment's illustration in a 32 px well, then "2 items · 3 services". */
-export function garmentStrip(types = [], label = '') {
-  const shown = types.slice(0, 5);
-  const more = types.length - shown.length;
-  return `<span class="garment-strip"><span class="garment-strip__icons">${shown.map((t) => garmentIcon(t, { size: 'row' })).join('')}${more > 0 ? `<span class="garment-strip__more t-small w-600 c-700">+${more}</span>` : ''}</span>${label ? `<span class="garment-strip__label t-small c-600">${label}</span>` : ''}</span>`;
+/** M7-2-C-04 (D-202): the booked order as a strip — each garment's illustration in a 32 px well, then "2 items · 3 services".
+    K-25: `items` = `{ type, services }` (`returnedItems(a)`); every thumb is a 44 px button (the 32 px well + a ::before pad, 12 apart) that opens
+    the garment popover for that item, and "+N" is one too, listing the items it hides. */
+export function garmentStrip(items = [], label = '') {
+  const list = items.map((g) => (typeof g === 'string' ? { type: g, services: [] } : g));
+  const shown = list.slice(0, 5);
+  const rest = list.slice(shown.length);
+  const thumb = (g) => `<button type="button" class="garment-strip__btn" ${peekAttrs([g], g.type)} aria-label="${esc(`${g.type}: show services`)}">${garmentIcon(g.type, { size: 'row' })}</button>`;
+  const more = rest.length
+    ? `<button type="button" class="garment-strip__btn" ${peekAttrs(rest, plural(rest.length, 'more item'))} aria-label="${esc(`${plural(rest.length, 'more item')}: show services`)}"><span class="garment-strip__more t-small w-600 c-700">+${rest.length}</span></button>`
+    : '';
+  return `<span class="garment-strip"><span class="garment-strip__icons">${shown.map(thumb).join('')}${more}</span>${label ? `<span class="garment-strip__label t-small c-600">${label}</span>` : ''}</span>`;
 }
 
 /** K-18 (D-249): what came back, one entry per garment — its type and the services done (the approved lines once they exist, else the job's garments).

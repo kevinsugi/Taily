@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { state } from './state.js';
-import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wireVerified, withNavBack } from './components.js';
+import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wirePopovers, withNavBack } from './components.js';
 import { SCREENS } from './inventory.js';
 import { systemBanner, wireSystem } from './system.js';
 
@@ -212,7 +212,7 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   /* M6-A-11: radio groups (chips, segmented, option rows) are one tab stop with arrow keys */
   if (el.isConnected && el.dataset.screen === id) wireRadioRows(el);
   /* M7: the ⓘ info sheets (infoButton) and the tailor's Verified popover (verifiedCheck) open from any screen; screens never wire them */
-  if (el.isConnected && el.dataset.screen === id) { wireInfo(el); wireVerified(el); }
+  if (el.isConnected && el.dataset.screen === id) { wireInfo(el); wirePopovers(el); }
   /* a wire() that forwarded elsewhere (redirectIfMoved) already rendered the destination with its own system layer */
   if (el.isConnected && el.dataset.screen === id) wireSystem(el, id, { go: render });
   wireBackButtons(el);

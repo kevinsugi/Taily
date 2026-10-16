@@ -10,7 +10,7 @@ import { register, render as go, currentScreen, previousScreen } from '../app.js
 import { state, T, tailorById, now, msLeft, suggestLapseAt } from '../state.js';
 import {
   chrome, headingRow, statusHero, statusPill, waitBand, countdown, visitBlock, timeline, customerBreakdown, moneyRows, banner, cta,
-  emptyState, sheetOverlay, toast, esc, noteQuote, sectionHead, infoButton, textLink, garmentStrip, requestStrip, navBackMark,
+  emptyState, sheetOverlay, toast, esc, noteQuote, sectionHead, infoButton, textLink, garmentStrip, returnedItems, requestStrip, navBackMark,
 } from '../components.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 import { withLatency } from '../sim.js';
@@ -46,7 +46,7 @@ function visitRows(a, t) {
     { icon: 'calendar', value: fmtWhen(a.slot.start), strong: true, detail: `${label} · ${VISIT_MINUTES[a.job.visitType]} min` },
     { icon: home ? 'home' : 'shop', value: esc(where) },
     /* M7-2-C-04 (D-202): the booked garments as illustrations, then the count (K-10: the count is the value, the tiles sit under it) */
-    { icon: 'hanger', value: `${items} ${items === 1 ? 'item' : 'items'} · ${services} ${services === 1 ? 'service' : 'services'}`, extra: garmentStrip(a.job.garments.map((g) => g.type)) },
+    { icon: 'hanger', value: `${items} ${items === 1 ? 'item' : 'items'} · ${services} ${services === 1 ? 'service' : 'services'}`, extra: garmentStrip(returnedItems(a)) },   // K-25: each thumb opens what it is in for
   ];
 }
 

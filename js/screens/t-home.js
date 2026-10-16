@@ -92,7 +92,7 @@ function view(s) {
       items: v.items, services: v.serviceCount, payoutCents: sug ? suggestPrice(a, a.suggested.start).payout : v.payout, feeCents: v.tailyFee,   // D-155: a suggested time never raises the rush
       expiresAt: a.expiresAt, now: now(), status: a.status, waitingOn: s.customer.first, retries: a.retries,
       garment: heroGarment(v),   // M7-2-C-05: a broad silhouette reads at 32 px (the suggested card)
-      garments: v.garments.map((g) => g.type),   // K-12: the requested card draws every garment
+      garments: v.garments.map((g) => ({ type: g.type, services: g.services.map((sv) => sv.label) })),   // K-12: every garment drawn; K-25: the cluster lists each with its services
       lapseAt: sug ? suggestLapseAt(a) : null,   // D-154: her suggested time stays open until then
     });
   };

@@ -44,12 +44,11 @@ function visitRows(a, t) {
   const items = lines ? new Set(lines.map((l) => l.garmentId)).size : a.job.garments.length;
   const services = lines ? lines.length : a.job.garments.reduce((n, g) => n + g.services.length, 0);
   const home = a.job.visitType === 'home';
-  const types = lines ? [...new Map(lines.map((l) => [l.garmentId, l.garmentType])).values()] : a.job.garments.map((g) => g.type);
   return [
     { icon: 'calendar', value: esc(fmtWhen(a.slot.start)), strong: true, detail: esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`) },
     { icon: home ? 'home' : 'shop', value: esc(whereOf(a, t)) },
     /* M7-2-C-04 (D-202): the booked garments as illustrations; K-10: the count is the value, the tiles sit under it */
-    { icon: 'hanger', value: `${plural(items, 'item')} · ${plural(services, 'service')}`, extra: garmentStrip(types) },
+    { icon: 'hanger', value: `${plural(items, 'item')} · ${plural(services, 'service')}`, extra: garmentStrip(returnedItems(a)) },   // K-25: each thumb opens what it is in for
   ];
 }
 /** A group on the page (A3): `<section class="sec">`. */

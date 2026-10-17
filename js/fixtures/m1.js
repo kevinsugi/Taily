@@ -9,6 +9,7 @@ import { fmt, fmtExact } from '../money.js';
 
 import * as A from '../account.js';
 import { nextOpening } from '../state.js';
+import { servicesForType } from '../data.js';
 import { draftAgain as CT_draftAgain } from './common.js';
 
 export const FLOWS_c_welcome = [
@@ -60,7 +61,11 @@ export const FLOWS_c_job = [
     expect: { has: ['What needs work', 'Tap a garment to add it'], sel: '[data-act="next"][aria-disabled="true"]' } },
   { key: 'c-job', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — Sarah’s items',
     note: 'Suit pant + suit jacket, services chosen',
-    expect: { has: ['Suit Pant', 'Suit Jacket', 'Hem pants', 'Shorten sleeves · Take in jacket sides', '2 items', 'Step 1 of 5'] } },
+    expect: { has: ['Suit Pant', 'Suit Jacket', 'Hem pants', 'Shorten sleeves', 'Take in jacket sides', '2 items', 'Step 1 of 5'], not: '+1 more', sel: '.job-item__svcs > .job-item__svc' } },
+  { key: 'c-job--five-services', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — five services on one item',
+    note: 'K-26 (H2): one service per line up to four; from the fifth the list flows into two columns at the same size',
+    setup: (S) => { S.T.newJob(); const r = S.T.addGarment('Suit Pant'); S.T.setServices(r.garment.id, servicesForType('Suit Pant').slice(0, 5)); },
+    expect: { has: ['Suit Pant', 'Hem pants', 'Taper legs', 'Replace zipper'], not: 'more', sel: '.job-item__svcs > .job-item__svc:nth-child(5)' } },
   { key: 'c-job--active', screen: 'c-job', group: 'M1 · Booking', title: 'Home — a booking in flight',
     note: 'Amara finished the order: its row leads (pill, balance, Pay now), the wizard waits under Book something else (D-168)',
     setup: (S) => { S.driveTo('ready'); },

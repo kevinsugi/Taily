@@ -27,6 +27,12 @@
 .job-item__services:active { background: var(--neutral-100); }
 .job-item__services--error { box-shadow: inset 0 0 0 1px var(--error); }
 .job-item__services-text { flex: 1 1 0; min-width: 0; }
+/* K-26 (H2): one service per line after the K-25 round cognac bullet; 5+ services flow into a strict two-column grid at the same 16 px,
+   a long name wrapping inside its column with the bullet hanging */
+.job-item__svcs { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.job-item__svc { display: block; position: relative; padding-left: var(--space-16); text-wrap: pretty; overflow-wrap: anywhere; }
+.job-item__svc::before { content: ''; position: absolute; left: var(--space-2); top: calc(0.5em * var(--lh-16) - var(--space-2) - 1px); width: calc(var(--space-4) + var(--space-2)); height: calc(var(--space-4) + var(--space-2)); border-radius: 50%; background: var(--accent-base); }
+.job-item__svcs:has(> .job-item__svc:nth-child(5)) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4) var(--space-12); align-items: start; }
 .job-item__chevron { width: 16px; height: 16px; flex-shrink: 0; color: var(--neutral-500); }
 .job-item__task { display: flex; flex-direction: column; gap: var(--rhythm-tight); }   /* P2-1: the services field and its error are one sub-group with its own gap (was a -4 margin cancelling the card's 12) */
 

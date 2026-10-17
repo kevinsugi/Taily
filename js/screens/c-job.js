@@ -22,10 +22,11 @@ const MAX_PHOTOS = 3;   // per garment (D-42)
 /* ---------- typed / transient UI: which garments show the "choose a service" error ---------- */
 const ui = () => (state.ui[ID] ??= { errors: {} });
 
-/* two services: "A · B"; three or more: "A, B +n more" (M7 B: no long "·" chain) */
-const serviceText = (g) => {
+/* K-26 (H2): every service, one per line after a K-25 cognac bullet; from the 5th service the list flows into two columns
+   (CSS :has, same markup at every count). Spans, not a <ul>, because the list sits inside the field's <button>; sr-only commas read it as a list. */
+const serviceList = (g) => {
   const labels = g.services.map((id) => SERVICES[id]?.label).filter(Boolean);
-  return labels.length > 2 ? `${labels[0]}, ${labels[1]} +${labels.length - 2} more` : labels.join(' · ');
+  return `<span class="sr-only">Services: </span><span class="job-item__svcs">${labels.map((l, i) => `<span class="job-item__svc">${esc(l)}${i < labels.length - 1 ? '<span class="sr-only">, </span>' : ''}</span>`).join('')}</span>`;
 };
 
 function itemCard(g) {
@@ -39,7 +40,7 @@ function itemCard(g) {
   <div class="job-item__head">${garmentHead({ type: g.type, trailing: `<button type="button" class="job-item__remove" data-act="remove-garment" data-id="${g.id}" aria-label="Remove ${esc(g.type)}"><span aria-hidden="true">✕</span></button>` })}</div>
   <div class="job-item__task">
   <button type="button" class="job-item__services${hasErr ? ' job-item__services--error' : ''}" data-act="pick-services" data-id="${g.id}"${hasErr ? ` aria-invalid="true" aria-describedby="${errId}"` : ''}>
-    <span class="job-item__services-text t-body ${g.services.length ? 'c-700' : 'c-accent-ink'}">${g.services.length ? esc(serviceText(g)) : 'Choose what needs doing'}</span>
+    <span class="job-item__services-text t-body ${g.services.length ? 'c-700' : 'c-accent-ink'}">${g.services.length ? serviceList(g) : 'Choose what needs doing'}</span>
     ${CHEVRON_RIGHT.replace('method-row__chevron', 'job-item__chevron')}
   </button>
   ${hasErr ? `<p class="field__msg field__msg--error" id="${errId}" data-error="service" role="alert">Choose at least one service.</p>` : ''}

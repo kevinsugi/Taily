@@ -42,6 +42,7 @@ export const ZIP_INFO = {                               // mock geography: neigh
   '11211': { hood: 'Williamsburg', miles: 0.6 }, '11222': { hood: 'Greenpoint', miles: 1.4 },
   '11206': { hood: 'East Williamsburg', miles: 1.5 }, '11237': { hood: 'Bushwick', miles: 2.3 },
   '11201': { hood: 'Brooklyn Heights', miles: 3.9 },   // the "zip outside" toggle
+  '11249': { hood: 'Williamsburg', miles: 0.9 },       // Study-1 C5: Williamsburg's second zip (Amara's seed neighborhoods)
 };
 /** Study-1 C5: the five boroughs, picker order. */
 export const BOROUGHS = [
@@ -82,6 +83,11 @@ export const NEIGHBORHOODS = [
   { id: 'great-kills', name: 'Great Kills', borough: 'staten-island', zips: ['10308'], tile: { x: 0, y: 2 } },
   { id: 'tottenville', name: 'Tottenville', borough: 'staten-island', zips: ['10307'], tile: { x: 0, y: 3 } },
 ];
+/** Study-1 C5: neighborhood lookups. `zipsForHoods` = the zips a list of neighborhood ids covers (picked order, each once) —
+    the ONE derivation of `home.zips` from `home.hoods`; `hoodNames` = their names in the same order. */
+export const HOOD_BY_ID = Object.fromEntries(NEIGHBORHOODS.map((n) => [n.id, n]));
+export const zipsForHoods = (ids = []) => [...new Set((ids ?? []).flatMap((id) => HOOD_BY_ID[id]?.zips ?? []))];
+export const hoodNames = (ids = []) => (ids ?? []).map((id) => HOOD_BY_ID[id]?.name).filter(Boolean);
 export const REVIEW_LIMITS = { TEXT_MAX: 500, PHOTOS_MAX: 3 };                       // D-107
 export const HANDOFF_CODE_LEN = 4;                                                  // Study-1 A3: the customer's pickup code, digits
 export const NOTES_LIMITS = { TEXT_MAX: 500, PHOTOS_MAX: 4 };                       // Study-1 B2: one private tailor note
@@ -125,7 +131,7 @@ export const TAILORS = [
     bio: 'Tailoring in Williamsburg since 2014. I fit at my shop on Metropolitan Ave or at your place, and I show you every pin before I cut.',
     verified: true, badges: TRUST_BADGES,
     shop: { enabled: true, street: '312 Metropolitan Ave', city: 'Brooklyn', state: 'NY', zip: '11211', hood: 'Williamsburg' },
-    home: { enabled: true, zips: ['11211', '11222', '11206', '11237'], fee: 35, hoods: ['williamsburg', 'greenpoint', 'east-williamsburg', 'bushwick'] },
+    home: { enabled: true, zips: ['11211', '11249', '11222', '11206', '11237'], fee: 35, hoods: ['williamsburg', 'greenpoint', 'east-williamsburg', 'bushwick'] },
     prices: {                                           // dollars; 10 services
       'hem-pants': 25, taper: 40, waist: 35, sleeves: 45, 'jacket-sides': 55, 'shirt-take-in': 30,
       'dress-hem': 50, 'dress-take-in': 65, zipper: 30, repair: 20,

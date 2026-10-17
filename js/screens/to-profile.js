@@ -9,11 +9,11 @@
 import { register, render as go, back, currentScreen } from '../app.js';
 import { state, T, SECTIONS, validateSection } from '../state.js';
 import { myTailor } from '../tailor-data.js';
-import { TAILOR_LIMITS, GARMENT_TYPES, TAILORS, SEED_JOB, ZIP_INFO } from '../data.js';
+import { TAILOR_LIMITS, GARMENT_TYPES, TAILORS, SEED_JOB, ZIP_INFO, hoodNames } from '../data.js';
 import { estimate, fmt } from '../money.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, field, textArea, avatar, textLink, photoTile, photoStub,
-  customerPreview, tailorRow, actionBar, sheetOverlay, modalOverlay, leaveModal, listRow, toast, esc,
+  customerPreview, tailorRow, actionBar, sheetOverlay, modalOverlay, leaveModal, listRow, toast, esc, wireTextLimit,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -23,9 +23,18 @@ const STEP = 'profile';
 const { BIO_MAX, CARD_LINE_MAX, WORK_PHOTOS_MAX } = TAILOR_LIMITS;
 const HELPERS = {
   name: 'Customers see your full name.',
-  bio: 'A line or two: what you’re best at and how you work.',
-  cardLine: `What customers see on the list. Up to ${CARD_LINE_MAX} characters.`,
+  bio: '',
+  cardLine: '',
   photo: 'Required. Customers see it on the list.',
+};
+/* Study-1 C1: what each text is for, in the label; a grey example as the placeholder (never a value, so it can't be saved by accident) */
+const LABELS = {
+  cardLine: 'Card line — the one sentence customers see in search results',
+  bio: 'About — the full bio on your profile',
+};
+const PLACEHOLDERS = {
+  cardLine: 'Example: I’ve been tailoring luxury clothes for 10 years and frequently work with designers for fashion week',
+  bio: 'Example: I’ve tailored luxury and designer clothing for 10 years, including looks for fashion week. I specialize in suits, eveningwear and bridal, and I pin every fitting myself. I make home visits in SoHo, Tribeca, the West Village and Williamsburg.',
 };
 /* K-19: the card preview is drawn for the demo customer's sample job (suit jacket + suit pants, at her place); price and next opening fill in per job */
 const SAMPLE_NEXT = '2026-10-15T17:00';
@@ -70,7 +79,7 @@ function resumeBanner(t) {
 /** The real list card (`tailorRow`) for the draft: her name, photo and card line, over the sample job's estimate and opening. */
 function previewHtml(d) {
   const t = myTailor();
-  const hood = t.shop?.hood || ZIP_INFO[(t.home?.zips ?? [])[0]]?.hood || ZIP_INFO[SEED_JOB.zip]?.hood || '';
+  const hood = t.shop?.hood || hoodNames(t.home?.hoods)[0] || ZIP_INFO[SEED_JOB.zip]?.hood || '';
   return tailorRow({
     id: 'preview', name: d.name.trim() || 'Your name', initials: initialsOf(d.name), photo: d.photo || null, verified: true, years: t.years ?? 0,
     rating: t.rating?.count > 0 ? t.rating : null, quote: estimate(TAILORS[0], SEED_JOB, SAMPLE_NEXT), nextOpening: SAMPLE_NEXT,
@@ -99,6 +108,8 @@ function view(s) {
 <main class="body body--with-bar ${ID}">
   ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="heading-block ${ID}__title">${title}</div>`}
   <p class="t-body c-600 ${ID}__lead">This is the first thing customers see.</p>
+  ${customerPreview({ title: 'Your card on the list', html: previewHtml(d), sticky: true })}
+  <p class="t-small c-600 ${ID}__preview-caption">${PREVIEW_CAPTION}</p>
   <div class="${ID}__photo${errors.photo ? ` ${ID}__photo--error` : ''}">
     ${initialsOf(d.name) ? avatar({ initials: initialsOf(d.name), photo: d.photo || null, size: 'lg' }) : avatar({ photo: true, size: 'lg' })}
     <div class="${ID}__photo-side">
@@ -108,14 +119,13 @@ function view(s) {
   </div>
   <div class="${ID}__group">${field({ id: 'name', label: 'Your name', value: d.name, autocomplete: 'name', helper: HELPERS.name, error: errorCopy(errors.name, d) })}</div>
   <div class="${ID}__group">${field({ id: 'shopName', label: 'Business name (optional)', value: d.shopName, autocomplete: 'organization', helper: HELPERS.shopName })}</div>
-  <div class="${ID}__group">${textArea({ id: 'cardLine', label: 'Your card line', value: d.cardLine, max: CARD_LINE_MAX, rows: 3, helper: HELPERS.cardLine, error: errorCopy(errors.cardLine, d) })}</div>
-  <div class="${ID}__group">${textArea({ id: 'bio', label: 'About your work', value: d.bio, max: BIO_MAX, rows: 4, helper: HELPERS.bio, error: errorCopy(errors.bio, d) })}</div>
+  <div class="${ID}__group">${textArea({ id: 'cardLine', label: LABELS.cardLine, value: d.cardLine, maxlength: CARD_LINE_MAX, rows: 3, placeholder: PLACEHOLDERS.cardLine, helper: HELPERS.cardLine, error: errorCopy(errors.cardLine, d) })}</div>
+  <div class="${ID}__group">${textArea({ id: 'bio', label: LABELS.bio, value: d.bio, max: BIO_MAX, rows: 6, placeholder: PLACEHOLDERS.bio, helper: HELPERS.bio, error: errorCopy(errors.bio, d) })}</div>
   <div class="${ID}__work-block">
     <p class="t-small w-600 c-700" id="${ID}-work-label">Photos of your work (optional)</p>
     ${workPhotos(d)}
     <p class="t-small c-600">Up to ${WORK_PHOTOS_MAX}.</p>
   </div>
-  <div class="${ID}__preview">${customerPreview({ title: 'Your card on the list', html: previewHtml(d), caption: PREVIEW_CAPTION })}</div>
 </main>
 ${editing
     ? actionBar({ ctaLabel: 'Save changes', ctaAct: 'save', disabled: !dirty && !busy, note: dirty || busy ? '' : 'No changes yet.', busy, busyLabel: 'Saving…' })
@@ -211,12 +221,20 @@ function wire(root) {
   };
   name.addEventListener('input', () => { d.name = name.value; clearError(name, 'name'); paintPreview(); paintBar(); });
   shop.addEventListener('input', () => { d.shopName = shop.value; paintPreview(); paintBar(); });
+  /* C2: the hard stop (typing stops at 110, a paste is cut to fit + "Trimmed to 110 characters."); the counter is painted there */
+  const pasteCard = wireTextLimit(root, 'cardLine');
   card.addEventListener('input', () => {
     d.cardLine = card.value;
-    paintCount(card, 'cardLine', CARD_LINE_MAX);
     clearError(card, 'cardLine');
     paintPreview(); paintBar();
   });
+  /* a Test-flows paste (ui.paste) goes through the same path as a real one */
+  if (ui().paste != null) {
+    const text = ui().paste;
+    ui().paste = null;
+    card.setSelectionRange(card.value.length, card.value.length);
+    pasteCard(text);
+  }
   bio.addEventListener('input', () => {
     d.bio = bio.value;
     paintCount(bio, 'bio', BIO_MAX);

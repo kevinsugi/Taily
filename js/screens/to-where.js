@@ -1,6 +1,7 @@
 /* ============================================================
    to-where — O3 Where you work. M2 spec §C2.
-   Shop, home visits, or both; for home visits the ZIPs and the fee.
+   Shop, home visits, or both; for home visits the neighborhoods (Study-1 C5: borough groups + a tile map; the model derives
+   the ZIP codes from them) and the flat per-visit fee (C4).
    Focal: the two switches. Two modes (D-56): onboarding (not live yet) and edit (live).
    Drafts live in state.ui['to-where'].draft (D-34); the model is written only on Next / Save / Finish later.
    ============================================================ */
@@ -8,13 +9,13 @@ import { register, render as go, back, currentScreen } from '../app.js';
 import { state, T, SECTIONS } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, toggle, field, zipList, customerPreview, miniProfile,
-  actionBar, wireToggles, toast, modalOverlay, leaveModal, esc, infoButton,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, toggle, field, hoodPicker, hoodMap, customerPreview, miniProfile,
+  actionBar, wireToggles, toast, modalOverlay, leaveModal, esc, infoButton, HOME_FEE_HELP,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 import { fmt, cents } from '../money.js';
-import { ZIP_INFO, SHOP_CITY, TAILOR_LIMITS, VISIT_MINUTES } from '../data.js';
+import { ZIP_INFO, SHOP_CITY, TAILOR_LIMITS, VISIT_MINUTES, NEIGHBORHOODS, HOOD_BY_ID } from '../data.js';
 
 const ID = 'to-where';
 const SECTION = 'where';
@@ -30,11 +31,12 @@ const MSG = {
   'where-required': 'Turn on your shop, home visits, or both.',
   'street-required': 'Enter your shop’s street address.',
   'zip-invalid': 'Enter a 5-digit ZIP code.',
-  'zips-required': 'Add at least one ZIP code.',
-  'fee-missing': 'Enter your home-visit fee, or 0 for none.',
+  'hoods-required': 'Pick at least one neighborhood.',
+  'hood-unknown': 'Pick at least one neighborhood.',
+  'fee-missing': 'Enter your home visit fee, or 0 for none.',
   'fee-invalid': `Enter a whole-dollar fee up to ${fmt(cents(TAILOR_LIMITS.FEE_MAX))}.`,
 };
-const FEE_HELP = 'Paid to you in full.';
+const FEE_HELP = HOME_FEE_HELP;   // C4: flat, per visit — the same sentence customers read on the profile
 const hoodLine = (zip) => (ZIP_INFO[zip]?.hood ? `${ZIP_INFO[zip].hood}, ${SHOP_CITY.city}, ${SHOP_CITY.state}` : `${SHOP_CITY.city}, ${SHOP_CITY.state}`);
 const HELP = { shopZip: (d) => hoodLine(String(d.shop.zip ?? '').trim()), fee: () => FEE_HELP };
 
@@ -44,14 +46,14 @@ function fromTailor(t) {
   const fresh = !editing() && !t.onboarding.where && !t.shop.enabled && !t.home.enabled;
   return {
     shop: { enabled: fresh ? true : !!t.shop.enabled, street: t.shop.street ?? '', zip: t.shop.zip ?? '' },
-    home: { enabled: !!t.home.enabled, zips: [...(t.home.zips ?? [])], fee: t.home.enabled ? t.home.fee : null },
+    home: { enabled: !!t.home.enabled, hoods: [...(t.home.hoods ?? [])], fee: t.home.enabled ? t.home.fee : null },
   };
 }
 const draft = () => (ui().draft ??= fromTailor(myTailor()));
 const feeNum = (raw) => (raw == null || String(raw).trim() === '' ? null : Number(raw));
 const norm = (d) => ({
   shop: { enabled: !!d.shop?.enabled, street: String(d.shop?.street ?? '').trim(), zip: String(d.shop?.zip ?? '').trim() },
-  home: { enabled: !!d.home?.enabled, zips: [...(d.home?.zips ?? [])], fee: String(d.home?.fee ?? '').trim() },
+  home: { enabled: !!d.home?.enabled, hoods: [...(d.home?.hoods ?? [])], fee: String(d.home?.fee ?? '').trim() },
 });
 /** Unsaved changes — or, in edit mode, a section that currently fails its rules (so Save can fix it). */
 const dirty = () => JSON.stringify(norm(draft())) !== JSON.stringify(norm(fromTailor(myTailor())))
@@ -62,7 +64,7 @@ function toPatch(d) {
   const zip = String(d.shop.zip ?? '').trim();
   return {
     shop: { enabled: !!d.shop.enabled, street: String(d.shop.street ?? '').trim(), zip, hood: ZIP_INFO[zip]?.hood ?? '', ...SHOP_CITY },
-    home: { enabled: !!d.home.enabled, zips: [...d.home.zips], fee: feeNum(d.home.fee) },
+    home: { enabled: !!d.home.enabled, hoods: [...d.home.hoods], fee: feeNum(d.home.fee) },   // the model derives home.zips
   };
 }
 function validate() {
@@ -82,7 +84,7 @@ const errOf = (key) => (ui().errors?.[key] ? MSG[ui().errors[key]] ?? '' : '');
 function feeCaption(raw) {
   const n = feeNum(raw);
   if (n == null || !Number.isInteger(n) || n < 0 || n > TAILOR_LIMITS.FEE_MAX) return '';
-  return n > 0 ? `Includes ${fmt(cents(n))} home-visit fee` : 'No home-visit fee';
+  return n > 0 ? `Includes ${fmt(cents(n))} home visit fee` : 'No home visit fee';
 }
 function feePreview(raw) {
   const text = feeCaption(raw);
@@ -107,13 +109,16 @@ function shopCard(d) {
 ${pickupGoesOff(d) ? `<p class="to-where__pickup-note t-small c-600" data-pickup-note>${PICKUP_NOTE}</p>` : ''}</div>`;
 }
 
+/** The borough groups shown open: what she opened or closed, else every borough holding a pick. */
+const openBoroughs = (d) => ui().open ?? [...new Set(d.home.hoods.map((id) => HOOD_BY_ID[id]?.borough).filter(Boolean))];
+
 function homeCard(d) {
   const h = d.home;
   return `<section class="card to-where__card" aria-label="Home visits">
   ${toggle({ id: 'home-on', label: 'You visit customers at home', helper: `${VISIT_MINUTES.home}-minute visits at the customer’s place.`, checked: !!h.enabled })}
   ${h.enabled ? `<div class="to-where__fields">
-    ${zipList({ zips: h.zips, input: ui().zipInput ?? '', inputError: ui().zipError ?? '', error: errOf('zips'), suggestions: Object.keys(ZIP_INFO) })}
-    ${field({ id: 'fee', label: 'Home-visit fee', prefix: '$', inputmode: 'numeric', maxlength: 4, autocomplete: 'off', value: h.fee == null ? '' : String(h.fee), helper: FEE_HELP, error: errOf('fee'), labelEnd: infoButton('fee', { label: 'The Taily fee' }) })}
+    ${hoodPicker({ selected: h.hoods, open: openBoroughs(d), error: errOf('hoods'), map: hoodMap({ selected: h.hoods }) })}
+    ${field({ id: 'fee', label: 'Home visit fee (flat, per visit)', prefix: '$', inputmode: 'numeric', maxlength: 4, autocomplete: 'off', value: h.fee == null ? '' : String(h.fee), helper: FEE_HELP, error: errOf('fee'), labelEnd: infoButton('fee', { label: 'The Taily fee' }) })}
   </div>` : ''}
 </section>`;
 }
@@ -226,8 +231,8 @@ function submit() {
   const keys = Object.keys(errors);
   if (keys.length) {
     ui().errors = errors;
-    const first = ['where', 'street', 'shopZip', 'zips', 'fee'].find((k) => errors[k]);
-    const sel = { where: '#shop-on', street: '#street', shopZip: '#shopZip', zips: '#zip-add', fee: '#fee' }[first];
+    const first = ['where', 'street', 'shopZip', 'hoods', 'fee'].find((k) => errors[k]);
+    const sel = { where: '#shop-on', street: '#street', shopZip: '#shopZip', hoods: '.hood-group__head', fee: '#fee' }[first];
     rerender(sel);
     return;
   }
@@ -251,17 +256,19 @@ function submit() {
   });
 }
 
-/* ---------- ZIP list ---------- */
-function addZip(raw) {
-  const z = String(raw ?? '').trim();
+/* ---------- neighborhoods (C5) ---------- */
+function toggleHood(id) {
   const d = draft();
-  if (!/^\d{5}$/.test(z)) { ui().zipError = MSG['zip-invalid']; ui().zipInput = z; rerender('#zip-add'); return; }
-  if (d.home.zips.includes(z)) { ui().zipError = `${z} is already on your list.`; ui().zipInput = z; rerender('#zip-add'); return; }
-  d.home.zips.push(z);
-  ui().zipInput = '';
-  ui().zipError = '';
-  if (ui().errors) delete ui().errors.zips;
-  rerender('#zip-add');
+  if (!HOOD_BY_ID[id]) return;
+  if (!ui().open) ui().open = openBoroughs(d);
+  d.home.hoods = d.home.hoods.includes(id) ? d.home.hoods.filter((x) => x !== id) : [...d.home.hoods, id];
+  if (ui().errors) delete ui().errors.hoods;
+  rerender(`[data-act="hood"][data-id="${id}"]`);
+}
+function toggleBorough(id) {
+  const open = openBoroughs(draft());
+  ui().open = open.includes(id) ? open.filter((x) => x !== id) : [...open, id];
+  rerender(`[data-act="borough"][data-id="${id}"]`);
 }
 
 /* ---------- wiring ---------- */
@@ -287,10 +294,11 @@ function wire(root) {
       if (ui().errors) { delete ui().errors.where; if (!checked) { delete ui().errors.street; delete ui().errors.shopZip; } }
     } else if (id === 'home-on') {
       d.home.enabled = checked;
-      if (checked && !d.home.zips.length && /^\d{5}$/.test(String(d.shop.zip ?? '').trim())) d.home.zips = [String(d.shop.zip).trim()];
-      if (ui().errors) { delete ui().errors.where; if (!checked) { delete ui().errors.zips; delete ui().errors.fee; } }
+      /* a first home-visit area: the neighborhood her shop is in, when it is one we know */
+      const shopHood = NEIGHBORHOODS.find((n) => n.zips.includes(String(d.shop.zip ?? '').trim()));
+      if (checked && !d.home.hoods.length && shopHood) d.home.hoods = [shopHood.id];
+      if (ui().errors) { delete ui().errors.where; if (!checked) { delete ui().errors.hoods; delete ui().errors.fee; } }
     } else return;
-    ui().zipError = '';
     rerender(`#${id}`);
   });
 
@@ -311,30 +319,16 @@ function wire(root) {
       const text = feeCaption(el.value);
       const box = main.querySelector('[data-fee-preview]');
       if (box) { box.hidden = !text; box.querySelector('[data-fee-caption]').textContent = text; }
-    } else if (el.id === 'zip-add') {
-      el.value = el.value.replace(/\D/g, '').slice(0, 5);
-      ui().zipInput = el.value;
-      if (ui().zipError) { ui().zipError = ''; setFieldMsg('zip-add', ''); }
     } else return;
     refreshBar(root);
-  });
-
-  main.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.target.id === 'zip-add') { e.preventDefault(); addZip(e.target.value); }
   });
 
   root.addEventListener('click', (e) => {
     const a = e.target.closest('[data-act]');
     if (!a || a.disabled) return;
     switch (a.dataset.act) {
-      case 'zip-add': addZip(main.querySelector('#zip-add')?.value); break;
-      case 'zip-suggest': addZip(a.dataset.zip); break;
-      case 'zip-remove': {
-        const d = draft();
-        d.home.zips = d.home.zips.filter((z) => z !== a.dataset.zip);
-        rerender('#zip-add');
-        break;
-      }
+      case 'hood': toggleHood(a.dataset.id); break;
+      case 'borough': toggleBorough(a.dataset.id); break;
       case 'dismiss':
         if (state.ui.onboarding) state.ui.onboarding.resumed = false;
         rerender();

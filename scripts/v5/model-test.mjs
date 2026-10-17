@@ -67,7 +67,7 @@ section('seed');
 S.reset();
 eq(D.fmtWhen(D.isoMinute(new Date(S.now()))), 'Tue, Oct 13 · 10:00\u00a0AM', 'frozen demo clock: Tue Oct 13, 10:00 AM');
 eq([state.persona, state.tailors.length, state.appts.length, state.job.garments.length], ['customer', 1, 0, 2], 'seed: customer persona, 1 tailor, no appts, 2 garments');
-eq([amara().id, amara().shop.zip, amara().home.zips, amara().home.fee, amara().rush], ['amara', '11211', ['11211', '11222', '11206', '11237'], 35, [{ days: 1, fee: 40 }, { days: 2, fee: 25 }, { days: 3, fee: 15 }]], 'Amara: Brooklyn shop + home zips + $35 + rush ladder');
+eq([amara().id, amara().shop.zip, amara().home.zips, amara().home.fee, amara().rush], ['amara', '11211', ['11211', '11249', '11222', '11206', '11237'], 35, [{ days: 1, fee: 40 }, { days: 2, fee: 25 }, { days: 3, fee: 15 }]], 'Amara: Brooklyn shop + home zips + $35 + rush ladder');
 eq(Object.keys(amara().prices).length, 10, 'Amara prices 10 of the 11 catalog services');
 ok(!('bridal' in amara().prices) && 'bridal' in DATA.SERVICES, 'bridal is in the catalog but not offered');
 eq(Object.keys(DATA.SERVICES).length, 11, 'catalog has 11 services');
@@ -894,9 +894,9 @@ section('tailor sections');
   eq(T.setTailorSection('services', { prices: { 'hem-pants': undefined } }).valid, false, 'undefined deletes a key; no services -> invalid');
   T.setTailorSection('services', { prices: { 'hem-pants': 25, taper: 40, waist: 35, sleeves: 45, 'jacket-sides': 55 } });
   eq(T.setTailorSection('where', { shop: { enabled: false } }).valid, false, 'where: neither shop nor home -> invalid');
-  eq(T.setTailorSection('where', { home: { enabled: true, zips: ['11211'], fee: 35 } }).valid, true, 'where: home visits with zips + fee -> valid');
-  eq(T.setTailorSection('where', { home: { zips: [] } }).errors, { zips: 'zips-required' }, 'where: home visits need a zip');
-  T.setTailorSection('where', { home: { zips: ['11211'] } });
+  eq(T.setTailorSection('where', { home: { enabled: true, hoods: ['williamsburg'], fee: 35 } }).valid, true, 'where: home visits with a neighborhood + fee -> valid (Study-1 C5)');
+  eq(T.setTailorSection('where', { home: { hoods: [] } }).errors, { hoods: 'hoods-required' }, 'where: home visits need a neighborhood');
+  T.setTailorSection('where', { home: { hoods: ['williamsburg'] } });
   eq(T.setTailorSection('returns', { returns: { dropoff: true } }).valid, true, 'returns: one option is enough');
   eq(T.setTailorSection('returns', { returns: { pickup: true } }).errors, { pickup: 'pickup-needs-shop' }, 'returns: pickup needs a shop (D-61)');
   T.setTailorSection('returns', { returns: { pickup: false } });
@@ -1560,6 +1560,38 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
 /* ===== S1-B ===== */
 
 /* ===== S1-C ===== */
+{
+  /* C3: price ranges = base ± PRICE_RANGE_SPREAD, ends rounded to PRICE_ROUND; mid = rounded midpoint (STUDY-1-spec §6) */
+  const R = (id) => { const r = M.priceRange(id); return [r.low, r.high, r.mid].map((c) => c / 100); };
+  eq([R('hem-pants'), R('taper'), R('waist'), R('sleeves'), R('jacket-sides'), R('shirt-take-in'), R('dress-hem'), R('dress-take-in'), R('zipper'), R('repair'), R('bridal')],
+    [[20, 30, 25], [30, 50, 40], [30, 40, 35], [35, 55, 45], [45, 65, 55], [25, 35, 30], [40, 60, 50], [50, 80, 65], [25, 35, 30], [15, 25, 20], [200, 300, 250]], 'S1-C: priceRange table (§6)');
+  eq(M.priceRange('nope'), null, 'S1-C: priceRange of an unknown service is null');
+  /* C5: neighborhoods are the source of truth; zips are derived (picked order, each once) */
+  S.reset();
+  eq(DATA.zipsForHoods(amara().home.hoods), amara().home.zips, 'S1-C: Amara’s seed zips = the zips of her neighborhoods');
+  eq(DATA.ZIP_INFO['11249'], { hood: 'Williamsburg', miles: 0.9 }, 'S1-C: 11249 is Williamsburg, 0.9 mi');
+  let r = T.setTailorSection('where', { home: { hoods: ['soho', 'williamsburg'] } });
+  eq([r.valid, amara().home.zips], [true, ['10012', '10013', '11211', '11249']], 'S1-C: setTailorSection derives home.zips from home.hoods');
+  T.setJob({ visitType: 'home', zip: '11222' });
+  eq(S.eligible(amara(), state.job).reason, 'zip', 'S1-C: a zip outside her neighborhoods is not eligible');
+  T.setJob({ zip: '11249' });
+  eq(S.eligible(amara(), state.job).ok, true, 'S1-C: a zip inside a picked neighborhood is eligible');
+  r = T.setTailorSection('where', { home: { hoods: [] } });
+  eq([r.valid, r.errors, amara().home.zips], [false, { hoods: 'hoods-required' }, []], 'S1-C: no neighborhood -> hoods-required, no zips');
+  eq(T.setTailorSection('where', { home: { hoods: ['atlantis'] } }).errors, { hoods: 'hood-unknown' }, 'S1-C: an unknown neighborhood id is refused');
+  eq(S.validateSection('where', { home: { enabled: false, hoods: [] }, shop: { enabled: true, street: 'x', zip: '11211' } }).ok, true, 'S1-C: shop only needs no neighborhood');
+  S.reset();
+  /* C2 / C4: components */
+  const ta = C.textArea({ id: 'x', label: 'L', maxlength: 110, value: 'a'.repeat(110), placeholder: 'Example: hi' });
+  ok(ta.includes('maxlength="110"') && ta.includes('text-area--full') && ta.includes('110 / 110') && ta.includes('placeholder="Example: hi"') && !ta.includes('aria-invalid'), 'S1-C: textArea at the hard stop is full, not invalid');
+  ok(!C.textArea({ id: 'y', label: 'L', maxlength: 110, value: 'abc' }).includes('text-area--full'), 'S1-C: textArea under the limit is not full');
+  const bd = C.customerBreakdown(SCENARIOS.seed, { stage: 'estimate' });
+  ok(bd.includes('Home visit fee') && bd.includes('Flat, per visit') && !bd.includes('Home-visit'), 'S1-C: customer breakdown says "Home visit fee" + "Flat, per visit"');
+  ok(C.tailorBreakdown(SCENARIOS.seed).includes('Home visit fee'), 'S1-C: tailor breakdown says "Home visit fee"');
+  const hp = C.hoodPicker({ selected: ['williamsburg'], open: ['brooklyn'] });
+  ok(hp.includes('aria-pressed="true"') && hp.includes('1 selected') && (hp.match(/data-act="borough"/g) ?? []).length === 5, 'S1-C: hoodPicker = five borough groups, picks pressed');
+  ok((C.hoodMap({ selected: ['williamsburg', 'soho'] }).match(/hood-map__tile is-on/g) ?? []).length === 2, 'S1-C: hoodMap lights one tile per pick');
+}
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);
 if (failed) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }

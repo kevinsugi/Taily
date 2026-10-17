@@ -79,7 +79,7 @@ export const FLOWS_t_earnings = [
     expect: { has: 'Earnings', not: 'after the Taily fee', sel: '.skeleton--payout' } },
 ];
 export const FLOWS_t_payout = [
-  { key: 't-payout', screen: 't-payout', group: 'M5 · Earnings', title: 'Payout — one job', note: 'Paid: the services, the Taily fee in dollars under them, the home-visit fee, then the payout',
+  { key: 't-payout', screen: 't-payout', group: 'M5 · Earnings', title: 'Payout — one job', note: 'Paid: the services, the Taily fee in dollars under them, the home visit fee, then the payout',
     setup: (S) => { TE_C.earningsTo('paid'); TE_first(S); },
     get expect() {
       const sc = TE_SC().seed;

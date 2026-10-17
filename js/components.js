@@ -1214,7 +1214,7 @@ const INFO = {
     `${c.first || 'The customer'} approves the final order before you start.`] }),
   fee: () => ({ title: 'The Taily fee', lines: [
     'Taily’s fee comes only from your service prices.',
-    'Home-visit and rush fees are yours in full.',
+    'Home visit and rush fees are yours in full.',
     'Customers pay for the courier. It never comes out of your payout.',
     `If a customer cancels within ${POLICY.CANCEL_WINDOW_H} hours, you keep their deposit, with no fee.`] }),
   payouts: () => ({ title: 'When you get paid', lines: [
@@ -1659,6 +1659,9 @@ export function moneyRows(rows = []) {
   }).join('');
   return `<div class="money-rows" data-money>${html}</div>`;
 }
+/** Study-1 C4: the home visit fee is flat — the customer rows' caption and the profile's helper sentence (one wording everywhere). */
+export const HOME_FEE_CAPTION = 'Flat, per visit';
+export const HOME_FEE_HELP = 'Charged once per home visit, no matter how long it takes.';
 /** Deposit status words by the appointment's deposit state (payments.deposit.state). */
 const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', captured: 'Paid', released: 'Released', refunded: 'Refunded', kept: 'Kept' };
 /**
@@ -1678,7 +1681,7 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
     : { paid: 'Paid', held: 'On hold', charged: 'Charged', ready: 'Hold now' }[stage] ?? 'Due when ready';   // D-156
   const rows = [
     { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
-    q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
+    q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee, caption: HOME_FEE_CAPTION },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush, caption: `Need-by ${q.rushDays ?? 1} day${(q.rushDays ?? 1) === 1 ? '' : 's'} after the visit` },
     q.courier > 0 && { label: 'Taily courier', cents: q.courier, ...(courierCaption ? { caption: courierCaption } : {}) },
     { label: est ? 'Estimated total' : 'Total', cents: q.total, kind: 'total' },
@@ -1714,13 +1717,13 @@ export function receiptBlock(a, tailorFirst = '') {
   ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}`;
 }
 /** The tailor's breakdown — no courier row (D-04). One order everywhere (D-165, amends D-137): Services, the Taily fee (a negative
-    row, "On the $125.00 of services only" — its base), Home-visit fee, Rush fee, then the total. */
+    row, "On the $125.00 of services only" — its base), Home visit fee, Rush fee, then the total. */
 export function tailorBreakdown(q, { total = true } = {}) {
   /* D-172: the per-job figure is "Your payout"; "payout" is the bank transfer. `total: false` = the figure is already the card's hero (M6-P-33). */
   return moneyRows([
     { label: 'Services', cents: q.services },
     { label: 'Taily fee', cents: q.tailyFee, kind: 'negative', caption: `On the ${fmtExact(q.services)} of services only` },
-    q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
+    q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush },
     total && { label: 'Your payout', cents: q.payout, kind: 'total' },
   ].filter(Boolean));
@@ -1855,25 +1858,31 @@ export function onboardingHeader({ editing = false, back = true, active = 'shop'
 }
 
 /**
- * Text area — the field chassis (label, inset box, helper / error) plus a live "n / max" counter. No `maxlength`
+ * Text area — the field chassis (label, inset box, helper / error) plus a live "n / max" counter. No `maxlength` by default
  * (a paste must be able to show the over-max error). The counter is `data-count` (screens update it in place on
  * `input`); over max it turns --error. states: empty · typing · over max · error.
+ * Study-1 C1–C2: `placeholder` = grey example text (native, never a value). `maxlength` = a hard stop (wire it with
+ * `wireTextLimit`): typing stops at it, a paste is cut to fit with `notice` ("Trimmed to 110 characters.", live) under the box,
+ * and AT the limit the counter and the box ring take the error tone while the field stays valid (`.text-area--full`).
  */
-export function textArea({ id, label, value = '', rows = 4, max, helper = '', error = '' } = {}) {
+export function textArea({ id, label, value = '', rows = 4, max, maxlength = null, placeholder = '', notice = '', helper = '', error = '' } = {}) {
   const msg = error || helper;
   const msgId = `${id}-msg`;
   const countId = `${id}-count`;
   const n = [...String(value ?? '')].length;
-  const over = max != null && n > max;
-  const describedBy = [msg ? msgId : '', max != null ? countId : ''].filter(Boolean).join(' ');
-  return `<div class="field text-area${error ? ' field--error' : ''}">
+  const cap = maxlength ?? max;
+  const over = cap != null && n > cap;
+  const full = maxlength != null && n >= maxlength;
+  const describedBy = [msg ? msgId : '', cap != null ? countId : '', maxlength != null ? `${id}-notice` : ''].filter(Boolean).join(' ');
+  return `<div class="field text-area${error ? ' field--error' : ''}${full ? ' text-area--full' : ''}">
   <label class="field__label" for="${id}">${esc(label)}</label>
   <div class="field__box text-area__box">
-    <textarea class="text-area__input" id="${id}" name="${id}" rows="${rows}"${error ? ' aria-invalid="true"' : ''}${describedBy ? ` aria-describedby="${describedBy}"` : ''}>${esc(value)}</textarea>
+    <textarea class="text-area__input" id="${id}" name="${id}" rows="${rows}"${maxlength != null ? ` maxlength="${maxlength}" data-maxlength="${maxlength}"` : ''}${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}${error ? ' aria-invalid="true"' : ''}${describedBy ? ` aria-describedby="${describedBy}"` : ''}>${esc(value)}</textarea>
   </div>
   <div class="text-area__foot">
-    ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : '<span></span>'}
-    ${max != null ? `<span class="text-area__count t-small c-600${over ? ' text-area__count--over' : ''}" id="${countId}" data-count data-max="${max}" aria-live="off">${n} / ${max}</span>` : ''}
+    ${maxlength != null ? `<div class="text-area__foot-text">${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : ''}<p class="text-area__notice t-small w-600 c-700" id="${id}-notice" aria-live="polite" data-notice>${esc(notice)}</p></div>`
+    : msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : '<span></span>'}
+    ${cap != null ? `<span class="text-area__count t-small c-600${over || full ? ' text-area__count--over' : ''}" id="${countId}" data-count data-max="${cap}" aria-live="off">${n} / ${cap}</span>` : ''}
   </div>
 </div>`;
 }
@@ -1881,11 +1890,12 @@ export function textArea({ id, label, value = '', rows = 4, max, helper = '', er
 /**
  * Service row — a checkbox row; when checked, a whole-dollar `$` price input (`#price-<id>`) and a live take-home
  * line on its own full-width line under the row, aligned with the service name (`data-take`; hidden while null; M6-V-01). `payoutText` = the amount already formatted for its column (money.js `fmtColumn`, D-70); default `fmt(payoutCents)`.
+ * `range` (Study-1 C3): the "Most NYC tailors charge $20–$30." line under the row, ticked or not (`data-range`).
  * states: unchecked · checked, empty · checked with price + payout · error.
  */
 /** "Your payout $22.50 · Taily fee −$2.50" (CP-S03; the fee is a deduction, as fmtNeg prints it) — two nowrap halves, so a narrow column breaks at the dot, never inside an amount (D-172). */
 export const takeHtml = (take, fee = '') => `<span class="service-row__part">Your payout ${take}${fee ? '\u00a0·' : ''}</span>${fee ? ` <span class="service-row__part">Taily fee −${fee}</span>` : ''}`;
-export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', feeText = '', error = '' } = {}) {
+export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', feeText = '', error = '', range = '' } = {}) {
   const takeHidden = payoutCents == null;
   /* caption as a list (garment types) → one nowrap span per item with its " ·" kept inside (no-break space), and a plain
      space between spans: a line only breaks between whole names and never starts with a "·" */
@@ -1901,31 +1911,9 @@ export function serviceRow({ id, label, caption = '', checked = false, price = '
       </div>
     </div>` : ''}
   </div>
+  ${range ? `<p class="service-row__range t-small c-600" data-money data-range>${esc(range)}</p>` : ''}
   ${checked ? `<span class="service-row__take t-small w-600 c-700" data-money data-take${takeHidden ? ' hidden' : ''}>${takeHidden ? '' : `${takeHtml(payoutText || fmt(payoutCents), feeText)}`}</span>` : ''}
   ${error ? `<p class="field__msg field__msg--error" id="price-${esc(id)}-msg" role="alert">${esc(error)}</p>` : ''}
-</div>`;
-}
-
-/**
- * ZIP list — removable 44 px chips (ZIP + neighborhood), an add field (`#zip-add`) with an Add button, "+ zip"
- * suggestion chips (only those not already listed) and a list-level error. states: empty · 4 zips · input error · list error.
- */
-export function zipList({ zips = [], input = '', error = '', inputError = '', suggestions = [] } = {}) {
-  const chips = zips.map((z) => {
-    const hood = ZIP_INFO[z]?.hood ?? '';
-    return `<button type="button" class="zip-chip" data-act="zip-remove" data-zip="${esc(z)}" aria-label="Remove ${esc(z)}${hood ? ` ${esc(hood)}` : ''}"><span class="zip-chip__zip">${esc(z)}</span>${hood ? `<span class="zip-chip__hood">${esc(hood)}</span>` : ''}<span class="zip-chip__x" aria-hidden="true">✕</span></button>`;
-  }).join('');
-  const sugg = suggestions.filter((z) => !zips.includes(z))
-    .map((z) => `<button type="button" class="zip-chip zip-chip--suggest" data-act="zip-suggest" data-zip="${esc(z)}" aria-label="Add ${esc(z)}${ZIP_INFO[z] ? ` ${esc(ZIP_INFO[z].hood)}` : ''}">+ ${esc(z)}</button>`).join('');
-  return `<div class="zip-list${error ? ' zip-list--error' : ''}" data-zip-list>
-  <p class="zip-list__label t-small w-600 c-700" id="zip-list-label">ZIP codes you cover</p>
-  <div class="zip-list__chips" role="group" aria-labelledby="zip-list-label">${chips || '<span class="zip-list__none t-small c-600">No ZIP codes yet.</span>'}</div>
-  <div class="zip-list__add">
-    ${field({ id: 'zip-add', label: 'Add a ZIP code', value: input, inputmode: 'numeric', maxlength: 5, autocomplete: 'off', error: inputError })}
-    <div class="zip-list__add-btn">${ctaSmall('Add', { attrs: 'data-act="zip-add"' })}</div>
-  </div>
-  ${sugg ? `<div class="zip-list__suggest" role="group" aria-label="Suggested ZIP codes">${sugg}</div>` : ''}
-  ${error ? `<p class="field__msg field__msg--error" role="alert">${esc(error)}</p>` : ''}
 </div>`;
 }
 
@@ -1948,9 +1936,10 @@ export function dayHours({ sched, day, label, open = null, close = null, error =
  * Customer preview — "What customers see": a caps label over an INERT container (so a tailorRow button inside is
  * neither focusable nor clickable) on --neutral-100, then an optional caption. `html` is trusted markup built from customer components.
  */
-export function customerPreview({ title = 'What customers see', head = '', html = '', caption = '' } = {}) {
-  /* `head` (B5 P3-9): a short caps word shown instead of the sentence title, which stays the section's accessible name */
-  return `<section class="customer-preview" aria-label="${esc(title)}">
+export function customerPreview({ title = 'What customers see', head = '', html = '', caption = '', sticky = false } = {}) {
+  /* `head` (B5 P3-9): a short caps word shown instead of the sentence title, which stays the section's accessible name.
+     `sticky` (Study-1 C1): pinned to the top of the viewport on the page ground while the fields under it scroll. */
+  return `<section class="customer-preview${sticky ? ' customer-preview--sticky' : ''}" aria-label="${esc(title)}">
   <p class="customer-preview__title t-caps c-600">${esc(head || title)}</p>
   <div class="customer-preview__body" role="group" aria-disabled="true" inert>${html}</div>
   ${caption ? `<p class="customer-preview__caption t-small c-600">${esc(caption)}</p>` : ''}
@@ -2848,3 +2837,115 @@ export function reminderCard({ title = '', text = '', actionLabel = 'Leave a rev
 /* ===== S1-B ===== */
 
 /* ===== S1-C ===== */
+/* Study-1 C2: the hard stop for a `textArea({ maxlength })`. Typing stops at the limit (native maxlength); a paste that would
+   overflow is cut to fit (never refused) and the field says "Trimmed to N characters." until the next keystroke. The counter
+   and the box ring take the error tone AT the limit (`.text-area--full`) — the field stays valid. Returns `paste(text)`, the
+   same path a real paste takes (a Test-flows entry replays a paste through it). */
+export function wireTextLimit(root, id) {
+  const el = root.querySelector(`#${id}`);
+  if (!el?.dataset.maxlength) return () => false;
+  const max = Number(el.dataset.maxlength);
+  const wrap = el.closest('.text-area');
+  const count = root.querySelector(`#${id}-count`);
+  const notice = root.querySelector(`#${id}-notice`);
+  let trimmed = false;
+  const paint = () => {
+    const n = [...el.value].length;
+    if (count) { count.textContent = `${n} / ${max}`; count.classList.toggle('text-area__count--over', n >= max); }
+    wrap?.classList.toggle('text-area--full', n >= max);
+    if (notice) notice.textContent = trimmed ? `Trimmed to ${max} characters.` : '';
+  };
+  const paste = (text) => {
+    const v = el.value;
+    const a = el.selectionStart ?? v.length;
+    const b = el.selectionEnd ?? v.length;
+    const room = Math.max(0, max - (v.length - (b - a)));
+    let ins = String(text ?? '').replace(/\r\n?/g, '\n');
+    const cut = ins.length > room;
+    if (cut) { ins = ins.slice(0, room); if (/[\uD800-\uDBFF]$/.test(ins)) ins = ins.slice(0, -1); }
+    el.setRangeText(ins, a, b, 'end');
+    trimmed = cut;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    return cut;
+  };
+  el.addEventListener('paste', (e) => { e.preventDefault(); paste(e.clipboardData?.getData('text/plain') ?? ''); });
+  el.addEventListener('input', (e) => { if (e.isTrusted) trimmed = false; paint(); });
+  return paste;
+}
+
+/* Study-1 C5 — neighborhoods instead of ZIP codes (to-where). */
+const hoodsIn = (borough) => DATA.NEIGHBORHOODS.filter((n) => n.borough === borough);
+/** "Williamsburg, Greenpoint and Bushwick" — names in the order given. */
+export function hoodSentence(ids = []) {
+  const names = DATA.hoodNames(ids);
+  return names.length < 2 ? names[0] ?? '' : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+/**
+ * Neighborhood picker (D-254): one collapsible group per borough — a 48 px head button (borough · "n selected" · chevron,
+ * `data-act="borough" data-id`, aria-expanded) over a wrap of 44 px toggle chips (`data-act="hood" data-id`, aria-pressed).
+ * `open` = the borough ids shown expanded. `map` = trusted markup (hoodMap) between the helper and the groups. `error` rings
+ * the groups and prints under them. states: none · some · error.
+ */
+export function hoodPicker({ selected = [], open = [], error = '', map = '', label = 'Neighborhoods you visit', helper = 'Where customers can book a home visit' } = {}) {
+  const groups = DATA.BOROUGHS.map((b) => {
+    const hoods = hoodsIn(b.id);
+    const n = hoods.filter((h) => selected.includes(h.id)).length;
+    const on = open.includes(b.id);
+    const chips = hoods.map((h) => {
+      const picked = selected.includes(h.id);
+      return `<button type="button" class="chip hood-chip${picked ? ' chip--selected' : ''}" data-act="hood" data-id="${esc(h.id)}" aria-pressed="${picked}">${esc(h.name)}</button>`;
+    }).join('');
+    return `<div class="hood-group${on ? ' is-open' : ''}" data-borough="${esc(b.id)}">
+    <button type="button" class="hood-group__head" data-act="borough" data-id="${esc(b.id)}" aria-expanded="${on}" aria-controls="hoods-${esc(b.id)}">
+      <span class="hood-group__name t-body w-600">${esc(b.name)}</span>
+      <span class="hood-group__count t-small ${n ? 'w-600 c-ink' : 'c-600'}">${n ? `${n} selected` : 'None'}</span>
+      <span class="hood-group__chev" aria-hidden="true">${CHEVRON_DOWN}</span>
+    </button>
+    <div class="hood-group__chips" id="hoods-${esc(b.id)}" role="group" aria-label="${esc(`${b.name} neighborhoods`)}"${on ? '' : ' hidden'}>${chips}</div>
+  </div>`;
+  }).join('');
+  return `<div class="hood-picker${error ? ' hood-picker--error' : ''}" data-hood-picker>
+  <p class="hood-picker__label t-small w-600 c-700" id="hood-picker-label">${esc(label)}</p>
+  ${helper ? `<p class="hood-picker__help t-small c-600" id="hood-picker-help">${esc(helper)}</p>` : ''}
+  ${map}
+  <div class="hood-picker__groups" role="group" aria-labelledby="hood-picker-label"${helper ? ' aria-describedby="hood-picker-help"' : ''}>${groups}</div>
+  ${error ? `<p class="field__msg field__msg--error" id="hoods-msg" role="alert">${esc(error)}</p>` : ''}
+</div>`;
+}
+/* the tile map's layout (tile units): where each borough's own tile grid sits, and where its caps label goes — mock geography */
+const HOOD_MAP = {
+  bronx: { at: [4, 0], label: [5, 0] },
+  manhattan: { at: [3, 3], label: [3, 3], end: true },
+  queens: { at: [6, 3], label: [7, 3] },
+  brooklyn: { at: [5, 6], label: [7, 6] },
+  'staten-island': { at: [1, 6], label: [2, 9] },
+};
+const HOOD_TILE = 20;
+const HOOD_STEP = 24;
+/**
+ * Neighborhood map (C5): an inline SVG tile map, one rounded tile per neighborhood grouped by borough, selected = accent.
+ * No external map. `role="img"` with the selection as its name; a caption counts the picks.
+ */
+export function hoodMap({ selected = [] } = {}) {
+  const cols = 10; const rows = 10;
+  const w = cols * HOOD_STEP - (HOOD_STEP - HOOD_TILE);
+  const h = rows * HOOD_STEP - (HOOD_STEP - HOOD_TILE);
+  const tiles = DATA.NEIGHBORHOODS.map((n) => {
+    const [ox, oy] = HOOD_MAP[n.borough]?.at ?? [0, 0];
+    const on = selected.includes(n.id);
+    return `<rect class="hood-map__tile${on ? ' is-on' : ''}" data-hood="${esc(n.id)}" x="${(ox + n.tile.x) * HOOD_STEP}" y="${(oy + n.tile.y) * HOOD_STEP}" width="${HOOD_TILE}" height="${HOOD_TILE}" rx="4"><title>${esc(n.name)}</title></rect>`;
+  }).join('');
+  const labels = DATA.BOROUGHS.map((b) => {
+    const m = HOOD_MAP[b.id];
+    if (!m) return '';
+    const x = m.end ? m.label[0] * HOOD_STEP - 6 : m.label[0] * HOOD_STEP + 2;
+    const y = m.label[1] * HOOD_STEP + HOOD_TILE / 2;
+    return `<text class="hood-map__label" x="${x}" y="${y}" dominant-baseline="middle"${m.end ? ' text-anchor="end"' : ''}>${esc(b.name.toUpperCase())}</text>`;
+  }).join('');
+  const names = hoodSentence(selected);
+  const n = DATA.hoodNames(selected).length;
+  return `<figure class="hood-map" data-hood-map>
+  <svg class="hood-map__svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(n ? `Map: home visits in ${names}` : 'Map: no neighborhoods picked yet')}">${tiles}${labels}</svg>
+  <figcaption class="hood-map__caption t-small c-600">${n ? `${n} ${n === 1 ? 'neighborhood' : 'neighborhoods'} highlighted` : 'Pick neighborhoods below to see them here.'}</figcaption>
+</figure>`;
+}

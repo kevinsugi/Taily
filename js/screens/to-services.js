@@ -11,11 +11,11 @@ import { register, render as go, back } from '../app.js';
 import { state, T, SECTIONS, validateSection } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import { SERVICES, GARMENT_TYPES, TAILOR_LIMITS } from '../data.js';
-import { cents, fmt, fmtExact, payoutFor, tailyFeeFor, fmtColumn } from '../money.js';
+import { cents, fmt, fmtExact, payoutFor, tailyFeeFor, fmtColumn, priceRange } from '../money.js';
 import { MONEY } from '../money-config.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, serviceRow, priceRow,
-  actionBar, modalOverlay, leaveModal, toast, esc, takeHtml, sectionHead, infoButton,
+  actionBar, modalOverlay, leaveModal, toast, esc, takeHtml, sectionHead, infoButton, ctaSmall,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -59,7 +59,21 @@ const takeFmt = (d) => fmtColumn(ticked(d).flatMap((id) => [takeCents(d.prices[i
 /** D-172, M6-T-07: the fee in dollars on a round example, said once under the lead; each row below spells out its own. */
 function feeLine() {
   const c = cents(MONEY.FEE_EXAMPLE_SERVICES);
-  return `Taily keeps ${fmtExact(tailyFeeFor(c))} of every ${fmtExact(c)} of services. Home-visit and rush fees are yours in full.`;
+  return `Taily keeps ${fmtExact(tailyFeeFor(c))} of every ${fmtExact(c)} of services. Home visit and rush fees are yours in full.`;
+}
+
+/* ---------- Study-1 C3: price help ---------- */
+const INTRO = 'This is what customers see when they book. Set what you’d charge for a typical job. You can adjust after the fitting, but the customer has to approve big changes.';
+/** "Most NYC tailors charge $20–$30." — the catalog base ± the MONEY spread, rounded (money.js priceRange). */
+const rangeText = (id) => { const r = priceRange(id); return r ? `Most NYC tailors charge ${fmt(r.low)}–${fmt(r.high)}.` : ''; };
+const RECOMMEND_NOTE = 'Tick the services you offer first.';
+const emptyTicked = (d) => ticked(d).filter((id) => d.prices[id] == null || d.prices[id] === '');
+function recommendHtml(d) {
+  const none = !ticked(d).length;
+  return `<div class="${ID}__recommend" data-recommend>
+    ${ctaSmall('Use recommended prices', { attrs: `data-act="recommend"${none ? ' disabled aria-disabled="true" aria-describedby="recommend-note"' : ''}` })}
+    ${none ? `<p class="t-small c-600 ${ID}__recommend-note" id="recommend-note">${RECOMMEND_NOTE}</p>` : ''}
+  </div>`;
 }
 
 function resumeBanner(t) {
@@ -79,7 +93,7 @@ function rowHtml(id, d) {
   const p = d.prices[id];
   return serviceRow({
     id, label: SERVICES[id].label, caption: caption(id), checked: on, price: p == null ? '' : String(p),
-    payoutCents: on ? takeCents(p) : null, payoutText: on && takeCents(p) != null ? takeFmt(d)(takeCents(p)) : '', feeText: on && feeCents(p) != null ? takeFmt(d)(feeCents(p)) : '', error: on ? errorCopy((ui().errors ?? {})[`price-${id}`]) : '',
+    range: rangeText(id), payoutCents: on ? takeCents(p) : null, payoutText: on && takeCents(p) != null ? takeFmt(d)(takeCents(p)) : '', feeText: on && feeCents(p) != null ? takeFmt(d)(feeCents(p)) : '', error: on ? errorCopy((ui().errors ?? {})[`price-${id}`]) : '',
   });
 }
 function previewBody(d) {
@@ -103,10 +117,11 @@ function view() {
   return `${onboardingHeader({ editing })}
 <main class="body body--with-bar ${ID}">
   ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="heading-block ${ID}__title">${title}</div>`}
-  <p class="t-body c-600 ${ID}__lead">Tick what you do and set your usual price.</p>
+  <p class="t-body c-600 ${ID}__lead">${INTRO}</p>
   <div class="${ID}__fee"><p class="t-small c-600 ${ID}__take-note" data-money>${feeLine()}</p>${infoButton('fee', { label: 'The Taily fee' })}</div>
   <section class="sec" aria-labelledby="${ID}-list-label">
     ${sectionHead('Services', { id: `${ID}-list-label`, aside: `<span class="t-small c-600 tabular" data-selected>${selectedText(d)}</span>` })}
+    ${recommendHtml(d)}
     <p class="field__msg field__msg--error ${ID}__list-error" role="alert" data-list-error${listErr ? '' : ' hidden'}>${esc(listErr)}</p>
     <div class="card card--list ${ID}__card" role="group" aria-labelledby="${ID}-list-label">${IDS.map((id) => rowHtml(id, d)).join('')}</div>
   </section>
@@ -167,8 +182,14 @@ function wire(root) {
       take.innerHTML = c == null ? '' : takeHtml(f(c), f(feeCents(d.prices[id])));
     });
   };
+  const paintRecommend = () => {
+    const box = root.querySelector('[data-recommend]');
+    const t = document.createElement('template'); t.innerHTML = recommendHtml(d).trim();
+    if (box.outerHTML !== t.content.firstChild.outerHTML) box.replaceWith(t.content.firstChild);
+  };
   const paintSummary = () => {
     root.querySelector('[data-selected]').textContent = selectedText(d);
+    paintRecommend();
     root.querySelector(`.${ID}__preview-body`).innerHTML = previewBody(d);
     paintTakes();
     paintBar();
@@ -266,7 +287,23 @@ function wire(root) {
     if (!a || a.disabled) return;
     if (a.dataset.act === 'next' || a.dataset.act === 'save') submit();
   });
+  /* C3: fill each TICKED service that has no price with the recommended midpoint; typed prices are never touched, nothing is ticked */
+  function recommend() {
+    if (ui().busy || !ticked(d).length) return;
+    const typed = ticked(d).length - emptyTicked(d).length;
+    const fill = emptyTicked(d);
+    fill.forEach((id) => {
+      d.prices[id] = priceRange(id).mid / 100;
+      delete (ui().errors ?? {})[`price-${id}`];
+      card.querySelector(`[data-service="${id}"]`).outerHTML = rowHtml(id, d);
+    });
+    paintSummary();
+    const n = fill.length;
+    const kept = typed ? ' Prices you typed are unchanged.' : '';
+    toast(n ? `Filled ${n} empty ${n === 1 ? 'price' : 'prices'}.${kept}` : `Every ticked service already has a price.${kept}`);
+  }
   main.addEventListener('click', (e) => {
+    if (e.target.closest('[data-act="recommend"]:not([disabled])')) { recommend(); return; }
     const a = e.target.closest('[data-act="dismiss"]');
     if (!a) return;
     if (state.ui.onboarding) state.ui.onboarding.resumed = false;

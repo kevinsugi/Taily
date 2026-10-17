@@ -94,6 +94,18 @@ export function cancelTerms(appt, nowMs) {
 
 export const noShowPayout = (deposit) => Math.max(deposit, cents(MONEY.NO_SHOW_COMP));
 
+/** Study-1 C3: what most NYC tailors charge for a service — its catalog `base` ± `PRICE_RANGE_SPREAD`, each end rounded to the
+    nearest `PRICE_ROUND` dollars; `mid` = the rounded midpoint ("Use recommended prices"). Cents; null for an unknown service. */
+export function priceRange(serviceId) {
+  const base = SERVICES[serviceId]?.base;
+  if (!(base > 0)) return null;
+  const step = MONEY.PRICE_ROUND;
+  const to = (d) => Math.round(d / step + 1e-9) * step;
+  const low = to(base * (1 - MONEY.PRICE_RANGE_SPREAD));
+  const high = to(base * (1 + MONEY.PRICE_RANGE_SPREAD));
+  return { low: cents(low), high: cents(high), mid: cents(to((low + high) / 2)) };
+}
+
 /* ---------- formatting ---------- */
 const MINUS = '−';
 const group = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');

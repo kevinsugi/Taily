@@ -12,7 +12,7 @@ import { TAILORS, DEMO_NOW, FITTING_LIMITS } from './data.js';
 import { FITTING_COMMENTS } from './fixtures/common.js';
 import { POLICY } from './money-config.js';
 import { reauthHtml, pushPromptHtml, pushBannerHtml, systemBanner } from './system.js';
-import { quote, fmt, fmtExact, cents, payoutFor } from './money.js';
+import { quote, fmt, fmtExact, cents, payoutFor, priceRange } from './money.js';
 import { ICON_CARD, ICON_CAMERA } from './icons.js';
 import { SCENARIOS, AMARA } from './fixtures/money-scenarios.js';
 
@@ -98,7 +98,7 @@ export function galleryHtml() {
     { state: 'todo', title: 'Ready for return' },
   ]));
   s.push(C.infoCard([C.metaRow('◉','145 N 7th St, 2R — At my place'), C.metaRow('▤','Thu, Oct 15 · 5:00 PM')].join('')));
-  s.push(C.feeRow('$35', 'Home-visit fee', { line: true, caption: 'Amara comes to you' }));
+  s.push(C.feeRow('$35', 'Home visit fee', { line: true, caption: 'Amara comes to you' }));
 
   h2('Modal · Method rows · Link row');
   s.push(`<div class="row"><div class="modal modal--center" style="position:static"><span class="modal__badge">✂</span><h2 class="modal__title">Talk it over with Amara</h2><p class="modal__body">Prices are set by the tailor.</p><div class="modal__actions">${C.cta('Sounds good')}</div></div></div>`);
@@ -282,6 +282,12 @@ export function galleryHtml() {
     C.textArea({ id: 'g-bio1', label: 'About your work', max: 280, value: BIO, helper: 'A line or two: what you do best.' }),
     C.textArea({ id: 'g-bio2', label: 'About your work', max: 40, value: BIO }),
     C.textArea({ id: 'g-bio3', label: 'About your work', max: 280, error: 'Tell customers a little about your work.' }));
+  v('Study-1 C1–C2: placeholder · at the 110 hard stop · a paste trimmed');
+  const LINE110 = 'Savile Row trained. Suits, bridal and eveningwear for 20 years. I pin every fitting myself, studio or at home.';
+  col(
+    C.textArea({ id: 'g-card0', label: 'Card line — the one sentence customers see in search results', maxlength: 110, rows: 3, placeholder: 'Example: I’ve been tailoring luxury clothes for 10 years and frequently work with designers for fashion week' }),
+    C.textArea({ id: 'g-card1', label: 'Card line — the one sentence customers see in search results', maxlength: 110, rows: 3, value: LINE110 }),
+    C.textArea({ id: 'g-card2', label: 'Card line — the one sentence customers see in search results', maxlength: 110, rows: 3, value: LINE110, notice: 'Trimmed to 110 characters.' }));
 
   h2('Service row');
   col(
@@ -289,13 +295,13 @@ export function galleryHtml() {
     C.serviceRow({ id: 'g-hem1', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true }),
     C.serviceRow({ id: 'g-hem2', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true, price: '25', payoutCents: take(25) }),
     C.serviceRow({ id: 'g-hem3', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true, price: 'abc', error: 'Enter a price in whole dollars.' }));
+  v('Study-1 C3: with the NYC range');
+  { const r = priceRange('hem-pants'); col(C.serviceRow({ id: 'g-hem4', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true, price: '25', payoutCents: take(25), range: `Most NYC tailors charge ${fmt(r.low)}–${fmt(r.high)}.` })); }
 
-  h2('ZIP list');
-  const ZIPS = ['11211', '11222', '11206', '11237'];
-  v('empty (with suggestions)'); col(C.zipList({ suggestions: ZIPS }));
-  v('4 zips'); col(C.zipList({ zips: ZIPS, suggestions: [...ZIPS, '11201'] }));
-  v('input error'); col(C.zipList({ zips: ZIPS.slice(0, 2), input: '1121', inputError: 'Enter a 5-digit ZIP code.' }));
-  v('list error'); col(C.zipList({ error: 'Add at least one ZIP code you cover.' }));
+  h2('Neighborhood picker + tile map (Study-1 C5)');
+  const HOODS = amara.home.hoods;
+  v('Amara: Brooklyn open, four picked'); col(card(C.hoodPicker({ selected: HOODS, open: ['brooklyn'], map: C.hoodMap({ selected: HOODS }) })));
+  v('none picked · error'); col(card(C.hoodPicker({ error: 'Pick at least one neighborhood.', map: C.hoodMap() })));
 
   h2('Day hours');
   v('closed · open · error');

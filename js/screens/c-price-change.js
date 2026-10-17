@@ -13,7 +13,7 @@ import { register, render as go, registered, currentScreen } from '../app.js';
 import { state, T, tailorById, priceChangeView } from '../state.js';
 import {
   chrome, banner, emptyState, deltaLines, noteQuote, changeList, withPhotos, wirePhotoViewer, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs, sectionHead,
-  navBackMark, requestStrip, requestHead, pageHead, verifiedCheck,
+  navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, HOME_FEE_CAPTION,
 } from '../components.js';
 import { fmtExact } from '../money.js';
 import { fmtTime } from '../dates.js';
@@ -58,7 +58,7 @@ function view() {
   }));
   const rows = [
     { label: 'Services', cents: after.services, caption: `${first}’s final prices` },
-    after.homeFee > 0 && { label: 'Home-visit fee', cents: after.homeFee },
+    after.homeFee > 0 && { label: 'Home visit fee', cents: after.homeFee, caption: HOME_FEE_CAPTION },
     after.rush > 0 && { label: 'Rush fee', cents: after.rush },
     { label: changed ? 'New total' : 'Total', cents: after.total, kind: 'total' },
     { label: 'Deposit', cents: after.deposit, caption: 'Stays the same', status: 'Paid' },

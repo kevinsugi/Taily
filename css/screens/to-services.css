@@ -12,3 +12,7 @@
 .to-services__preview-body { display: flex; flex-direction: column; gap: var(--rhythm-tight); }
 .to-services__prices { display: flex; flex-direction: column; }
 .to-services__more { margin: var(--rhythm-tight) 0 0; }
+/* Study-1 C3: "Use recommended prices" above the list; disabled with its reason until something is ticked */
+.to-services__recommend { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); }
+.to-services__recommend .cta-small { min-height: 44px; padding-inline: var(--space-16); white-space: nowrap; }
+.to-services__recommend-note { margin: 0; }

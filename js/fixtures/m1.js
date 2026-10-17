@@ -5,7 +5,7 @@
    ============================================================ */
 
 import { SCENARIOS, AMARA } from './money-scenarios.js';
-import { fmt, fmtExact } from '../money.js';
+import { fmt, fmtExact, cents } from '../money.js';
 
 import * as A from '../account.js';
 import { nextOpening } from '../state.js';
@@ -135,11 +135,11 @@ export const FLOWS_c_tailors = [
     expect: { has: 'Tailors near you', sel: '.skeleton--tailor-row' } },
   { key: 'c-tailors', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you',
     note: 'Amara, home visit, seed job',
-    expect: { has: ['Tailors near you', fmt(SCENARIOS.seed.total), 'Est.', AMARA.cardLine, 'Comes to you · from Williamsburg', 'Next opening Thu, Oct 15 · 5:00 PM', '4.9 (37)', 'Step 3 of 5'], not: ['home-visit fee', 'Includes', '0.6 mi'], sel: '.tailor-row__line' } },
+    expect: { has: ['Tailors near you', fmt(SCENARIOS.seed.total), 'Est.', AMARA.cardLine, 'Comes to you · from Williamsburg', 'Next opening Thu, Oct 15 · 5:00 PM', '4.9 (37)', 'Step 3 of 5'], not: ['home visit fee', 'Includes', '0.6 mi'], sel: '.tailor-row__line' } },
   { key: 'c-tailors--shop', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — at the shop',
     note: 'At the shop (K-19): street · area · distance replaces "Comes to you"',
     setup: (S) => { S.T.setJob({ visitType: 'shop' }); },
-    expect: { has: [fmt(SCENARIOS.shop.total), 'Est.', AMARA.cardLine, `${AMARA.shop.street} · ${AMARA.shop.hood} · 0.6 mi`], not: ['Comes to you', 'home-visit fee'], sel: '.tailor-row__line' } },
+    expect: { has: [fmt(SCENARIOS.shop.total), 'Est.', AMARA.cardLine, `${AMARA.shop.street} · ${AMARA.shop.hood} · 0.6 mi`], not: ['Comes to you', 'home visit fee'], sel: '.tailor-row__line' } },
   { key: 'c-tailors--no-reviews', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — no reviews yet',
     note: 'A tailor with no reviews shows "N years tailoring" in the rating slot (K-19)',
     setup: (S) => { S.T.setTailorSection('profile', { rating: { avg: 0, count: 0 }, reviews: [] }); },
@@ -151,7 +151,7 @@ export const FLOWS_c_tailors = [
   { key: 'c-tailors--rush', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — rush fee',
     note: 'Need-by Fri Oct 16: the estimate carries the rush fee (no fee line on the card, K-19)',
     setup: (S) => { S.T.setJob({ needBy: '2026-10-16' }); },
-    expect: { has: [fmt(SCENARIOS.rush.total), 'Est.'], not: ['home-visit fee', 'rush fee'], sel: '.tailor-row--rush' } },
+    expect: { has: [fmt(SCENARIOS.rush.total), 'Est.'], not: ['home visit fee', 'rush fee'], sel: '.tailor-row--rush' } },
   { key: 'c-tailors--empty-zip', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — ZIP outside',
     note: 'Sarah in 11201: no tailor visits',
     setup: (S) => { S.T.setJob({ zip: '11201', address: { ...S.job.address, zip: '11201' } }); },
@@ -187,11 +187,11 @@ export const FLOWS_c_tailor = [
   { key: 'c-tailor--home-only', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — home visits only',
     note: 'No shop address block',
     setup: (S) => { S.T.setTailorSection('where', { shop: { enabled: false } }); },
-    expect: { has: ['Comes to you in Williamsburg', '12 years tailoring', 'At home', '11211, 11222'], not: ['312 Metropolitan Ave', '0.6 mi'] } },
+    expect: { has: ['Comes to you in Williamsburg, Greenpoint, East Williamsburg and Bushwick', `${fmt(cents(AMARA.home.fee))} home visit fee · Charged once per home visit, no matter how long it takes.`, '12 years tailoring', 'At home'], not: ['312 Metropolitan Ave', '0.6 mi', '11211, 11222'] } },
   { key: 'c-tailor--shop-only', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — shop only',
-    note: 'Job at the shop; no home block, no home-visit fee',
+    note: 'Job at the shop; no home block, no home visit fee',
     setup: (S) => { S.T.setTailorSection('where', { home: { enabled: false } }); S.T.setJob({ visitType: 'shop' }); },
-    expect: { has: ['312 Metropolitan Ave', 'Book now', fmt(SCENARIOS.shop.total)], not: ['Home-visit fee', 'Est. $'] } },
+    expect: { has: ['312 Metropolitan Ave', 'Book now', fmt(SCENARIOS.shop.total)], not: ['Home visit fee', 'Est. $'] } },
   { key: 'c-tailor--declined', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — declined',
     note: 'Amara declined this request; the way forward is a new request',
     setup: (S) => { S.driveTo('declined'); },
@@ -213,13 +213,13 @@ export const FLOWS_c_book = [
 ];
 export const FLOWS_c_pay = [
   { key: 'c-pay', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request', note: 'Seed job: the deposit is held, not charged',
-    expect: { has: ['Review and send request', fmtExact(SCENARIOS.seed.services), fmtExact(SCENARIOS.seed.homeFee), fmtExact(SCENARIOS.seed.total), 'Held today', `Hold ${fmtExact(SCENARIOS.seed.deposit)} and send request`, 'Visa •••• 4242', 'released in full'] } },
+    expect: { has: ['Review and send request', fmtExact(SCENARIOS.seed.services), 'Home visit fee', 'Flat, per visit', fmtExact(SCENARIOS.seed.homeFee), fmtExact(SCENARIOS.seed.total), 'Held today', `Hold ${fmtExact(SCENARIOS.seed.deposit)} and send request`, 'Visa •••• 4242', 'released in full'] } },
   { key: 'c-pay--rush', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — rush', note: 'Need-by Fri, Oct 16: a rush fee row, same deposit',
     setup: (S) => { S.T.setJob({ needBy: '2026-10-16' }); },
     expect: { has: ['Rush fee', fmtExact(SCENARIOS.rush.rush), fmtExact(SCENARIOS.rush.total), `Hold ${fmtExact(SCENARIOS.rush.deposit)}`] } },
-  { key: 'c-pay--shop', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — at the shop', note: 'No home-visit fee',
+  { key: 'c-pay--shop', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — at the shop', note: 'No home visit fee',
     setup: (S) => { S.T.setJob({ visitType: 'shop' }); },
-    expect: { has: ['At the shop', 'Tue, Oct 13 · 1:00 PM', fmtExact(SCENARIOS.shop.total), `Hold ${fmtExact(SCENARIOS.shop.deposit)}`, 'This visit is less than', `Amara keeps the ${fmtExact(SCENARIOS.shop.deposit)} deposit`], not: ['Home-visit fee', 'Free cancellation'] } },
+    expect: { has: ['At the shop', 'Tue, Oct 13 · 1:00 PM', fmtExact(SCENARIOS.shop.total), `Hold ${fmtExact(SCENARIOS.shop.deposit)}`, 'This visit is less than', `Amara keeps the ${fmtExact(SCENARIOS.shop.deposit)} deposit`], not: ['Home visit fee', 'Free cancellation'] } },
   { key: 'c-pay--method', screen: 'c-pay', group: 'M1 · Booking', title: 'Pay with — sheet', note: 'Saved card, Apple Pay, add a card',
     click: ['[data-act="change-method"]'],
     expect: { has: ['Pay with', 'Visa •••• 4242', 'Apple Pay', 'Add a card'] } },

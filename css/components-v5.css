@@ -525,22 +525,6 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .service-row__take[hidden] { display: none; }
 .service-row-wrap--error .check-row__box { box-shadow: inset 0 0 0 1px var(--error); }
 
-/* ---------- ZIP list ---------- */
-.zip-list { display: flex; flex-direction: column; gap: var(--space-12); }
-.zip-list__label { margin: 0; }
-.zip-list__chips, .zip-list__suggest { display: flex; flex-wrap: wrap; gap: var(--space-8); }
-.zip-chip { display: inline-flex; align-items: center; gap: var(--space-8); min-height: 44px; padding-inline: var(--space-16); border-radius: var(--radius-full); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); font-size: var(--size-16); line-height: var(--lh-16); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
-.zip-chip__hood { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 500; color: var(--neutral-600); }
-.zip-chip__x { font-size: var(--size-12); line-height: var(--lh-12); color: var(--neutral-500-ink); }
-.zip-chip--suggest { padding-inline: var(--space-12); background: transparent; font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--accent-ink); box-shadow: inset 0 0 0 1px var(--neutral-300); }
-.zip-chip:focus-visible, .zip-list__add .cta-small:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
-.zip-list__none { display: inline-flex; align-items: center; min-height: 44px; }
-.zip-list__add { display: flex; align-items: flex-start; gap: var(--space-12); }
-.zip-list__add .field { flex: 1 1 0; min-width: 0; }
-.zip-list__add-btn { flex-shrink: 0; padding-top: var(--space-20); }
-.zip-list__add-btn .cta-small { min-height: 48px; min-width: 72px; }
-.zip-list--error .zip-list__chips { padding: var(--space-8); border-radius: var(--radius-lg); box-shadow: inset 0 0 0 1px var(--error); }   /* P2-1: the ring is the chips' own padded box, not a negative margin cancelling the parent gap */
-
 /* ---------- day hours ---------- */
 .day-hours { display: flex; flex-direction: column; gap: var(--space-4); padding-block: var(--space-4); }
 .day-hours + .day-hours { box-shadow: inset 0 1px 0 var(--neutral-100); }
@@ -1257,15 +1241,6 @@ a.cta-small { text-decoration: none; }
   .rush-tier { white-space: normal; }
   .rush-tier__when { min-width: 0; overflow-wrap: break-word; }
   .status { white-space: normal; }   /* a long status word wraps beside its dot instead of running off the edge */
-  /* K9-2-03 (D-233): the neighbourhood drops under the ZIP code (the ✕ stays beside it) instead of splitting mid-word */
-  .zip-chip { display: inline-grid; grid-template-columns: auto auto; justify-content: start; column-gap: var(--space-8); row-gap: 0; max-width: 100%; padding-block: var(--space-4); border-radius: var(--radius-lg); text-align: left; }
-  .zip-chip__zip { grid-column: 1; grid-row: 1; }
-  .zip-chip__x { grid-column: 2; grid-row: 1; }
-  .zip-chip__hood { grid-column: 1 / span 2; grid-row: 2; }
-  /* the add-ZIP field takes the full row (5 digits need it), Add sits under it */
-  .zip-list__add { flex-wrap: wrap; row-gap: var(--space-8); }
-  .zip-list__add .field { flex: 1 1 100%; }
-  .zip-list__add-btn { padding-top: 0; }
   /* the customer preview (to-profile, t-shop, to-where): the text drops under the avatar when its longest word cannot sit beside it */
   .mini-profile { flex-wrap: wrap; }
   .mini-profile__text { min-width: min-content; }
@@ -1284,7 +1259,6 @@ a.cta-small { text-decoration: none; }
   .garment-tile { height: auto; min-height: 110px; padding-inline: var(--space-2); }   /* 65 px of label: "Accessories" fits whole */
   .garment-tile__label, .garment-tile--selected .garment-tile__label { flex: 0 0 auto; white-space: normal; overflow-wrap: break-word; hyphens: auto; text-wrap: balance; }   /* "Accessories" hyphenates rather than splits blind */
   .garment-tile__step { min-width: 0; }
-  .zip-chip__hood { min-width: 0; overflow-wrap: break-word; }
 }
 
 /* ---------- K-17 / K-20 / K-21 the linen stage + tag rail (linenStage, tagRail): c-complete and t-job completed ---------- */
@@ -1363,3 +1337,42 @@ a.cta-small { text-decoration: none; }
 /* ===== S1-B ===== */
 
 /* ===== S1-C ===== */
+/* C1 · placeholder example text: grey, regular weight, gone on the first keystroke (native placeholder, never a value) */
+.text-area__input::placeholder { color: var(--neutral-500-ink); font-weight: 400; }
+/* C2 · at the hard stop the counter and the ring take the error tone; the field stays valid (no aria-invalid) */
+.text-area--full .field__box { box-shadow: inset 0 0 0 1px var(--error); }
+.text-area--full .field__box:focus-within { box-shadow: inset 0 0 0 2px var(--error); }
+.text-area__foot-text { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.text-area__notice { margin: 0; }
+.text-area__notice:empty { display: none; }
+/* C1 · the live card preview stays in view while the fields under it scroll (the onboarding bar scrolls away, so top 0) */
+.customer-preview--sticky { position: sticky; top: 0; z-index: var(--z-sticky); margin-inline: calc(-1 * var(--space-20)); padding: var(--space-12) var(--space-20); background: var(--neutral-50); box-shadow: 0 1px 0 var(--hairline); }
+/* C3 · the "Most NYC tailors charge" line, indented to the service name like the take-home line */
+.service-row__range { margin: 0; padding-left: calc(var(--size-24) + var(--space-12)); padding-bottom: var(--space-8); font-variant-numeric: tabular-nums; text-wrap: pretty; }
+/* C5 · neighborhood picker: one collapsible group per borough */
+.hood-picker { display: flex; flex-direction: column; gap: var(--space-8); }
+.hood-picker__label, .hood-picker__help { margin: 0; }
+.hood-picker__groups { display: flex; flex-direction: column; margin-top: var(--space-4); border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px var(--neutral-200); }
+.hood-group + .hood-group { box-shadow: inset 0 1px 0 var(--neutral-200); }
+.hood-group__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); width: 100%; min-height: 48px; padding: var(--space-8) var(--space-12) var(--space-8) var(--space-16); border: 0; background: none; text-align: left; color: var(--ink); }
+.hood-group__name { flex: 1 1 auto; }   /* no min-width: 0 — at 200% zoom the count wraps under the name instead of overprinting it */
+.hood-group__count { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.hood-group__chev { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; color: var(--neutral-700); }
+.hood-group__chev svg { width: 12px; height: 12px; }
+.hood-group.is-open .hood-group__chev svg { transform: rotate(180deg); }
+.hood-group__chips { display: flex; flex-wrap: wrap; gap: var(--space-8); padding: 0 var(--space-16) var(--space-16); }
+.hood-group__chips[hidden] { display: none; }
+.hood-chip { min-height: 44px; padding-block: var(--space-8); white-space: normal; text-align: left; }
+.hood-picker--error .hood-picker__groups { box-shadow: inset 0 0 0 1px var(--error); }
+@media (prefers-reduced-motion: no-preference) {
+  .hood-group__chev svg { transition: transform var(--dur-press) var(--ease-out); }
+}
+/* C5 · the tile map: one rounded tile per neighborhood, selected = accent */
+.hood-map { display: flex; flex-direction: column; align-items: center; gap: var(--space-8); margin: 0; padding: var(--space-16) var(--space-12) var(--space-12); border-radius: var(--radius-md); background: var(--neutral-100); }
+.hood-map__svg { display: block; width: 100%; max-width: 240px; height: auto; }
+.hood-map__tile { fill: var(--white); stroke: var(--neutral-300); stroke-width: 1; }
+.hood-map__tile.is-on { fill: var(--accent-base); stroke: var(--accent-base); }
+.hood-map__label { fill: var(--neutral-600); font-family: var(--font-sans); font-size: var(--size-10); font-weight: 600; letter-spacing: 0.06em; }
+.hood-map__caption { margin: 0; text-align: center; }
+/* C3 · a disabled outline small button (to-services "Use recommended prices" before anything is ticked) */
+.cta-small:disabled:not(.cta-small--filled) { background: var(--neutral-100); color: var(--neutral-500-ink); box-shadow: inset 0 0 0 1px var(--neutral-200); cursor: not-allowed; }

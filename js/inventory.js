@@ -18,10 +18,11 @@ export const MILESTONES = [
   { id: 'M5', name: 'Messaging, accounts, earnings, system' },
   { id: 'M6', name: 'Final pass' },
   { id: 'M7', name: 'Polish' },
+  { id: 'S1', name: 'Study-1 (tailor usability)' },
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
@@ -75,6 +76,7 @@ export const SCREENS = [
     { key: 'c-tailors--declined', m: 'M1', kind: 'state' },
     { key: 'c-tailors--sort', m: 'M1', kind: 'overlay' },
     { key: 'c-tailors--none-left', m: 'M3', kind: 'state' },
+    { key: 'c-tailors--card-line-max', m: 'S1', kind: 'state' },
   ] },
   { id: 'c-tailor', m: 'M1', persona: 'customer', title: 'C4 Tailor profile (K-18 2-I): portrait, stat strip, next opening + Book now, About, photos, estimate, reviews, return options, shop address; Ask a question under Pick a time', states: [
     { key: 'c-tailor', m: 'M1', kind: 'frame' },
@@ -232,7 +234,9 @@ export const SCREENS = [
   { id: 'to-profile', m: 'M2', persona: 'tailor', title: 'O1 name, photo, card line, short bio, work photos', states: [
     { key: 'to-profile', m: 'M2', kind: 'frame' },
     { key: 'to-profile--card-line', m: 'M2', kind: 'state' },
-    { key: 'to-profile--card-line-over', m: 'M2', kind: 'state' },
+    { key: 'to-profile--card-line-max', m: 'S1', kind: 'state' },
+    { key: 'to-profile--card-line-trimmed', m: 'S1', kind: 'state' },
+    { key: 'to-profile--about', m: 'S1', kind: 'state' },
     { key: 'to-profile--photo-missing', m: 'M2', kind: 'state' },
     { key: 'to-profile--errors', m: 'M2', kind: 'state' },
     { key: 'to-profile--edit', m: 'M2', kind: 'state' },
@@ -244,14 +248,19 @@ export const SCREENS = [
     { key: 'to-services--resume', m: 'M2', kind: 'state' },
     { key: 'to-services--edit', m: 'M2', kind: 'state' },
     { key: 'to-services--unsaved', m: 'M2', kind: 'overlay' },
+    { key: 'to-services--recommended', m: 'S1', kind: 'state' },
+    { key: 'to-services--recommended-none', m: 'S1', kind: 'state' },
   ] },
-  { id: 'to-where', m: 'M2', persona: 'tailor', title: 'O3 shop address (optional) + home visits toggle → zips + home-visit fee', states: [
+  { id: 'to-where', m: 'M2', persona: 'tailor', title: 'O3 shop address (optional) + home visits toggle → neighborhoods (borough groups + tile map) + flat home visit fee', states: [
     { key: 'to-where', m: 'M2', kind: 'frame' },
     { key: 'to-where--home-only', m: 'M2', kind: 'state' },
     { key: 'to-where--none', m: 'M2', kind: 'state' },
     { key: 'to-where--zip-invalid', m: 'M2', kind: 'state' },
     { key: 'to-where--fee-missing', m: 'M2', kind: 'state' },
     { key: 'to-where--edit', m: 'M2', kind: 'state' },
+    { key: 'to-where--hoods', m: 'S1', kind: 'state' },
+    { key: 'to-where--hoods-borough', m: 'S1', kind: 'state' },
+    { key: 'to-where--hoods-none', m: 'S1', kind: 'state' },
   ] },
   { id: 'to-returns', m: 'M2', persona: 'tailor', title: 'O4 in-store pickup / home drop-off / Taily courier', states: [
     { key: 'to-returns', m: 'M2', kind: 'frame' },

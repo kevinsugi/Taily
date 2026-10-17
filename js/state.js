@@ -30,6 +30,7 @@ import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
   TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType,
+  HOOD_BY_ID, zipsForHoods,
 } from './data.js';
 
 export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff', 'completed', 'cancelled'];
@@ -293,9 +294,10 @@ const SECTION_RULES = {
       if (!zip5(d.shop.zip)) e.shopZip = 'zip-invalid';
     }
     if (d.home?.enabled) {
-      const zips = d.home.zips ?? [];
-      if (!zips.length) e.zips = 'zips-required';
-      else if (!zips.every(zip5)) e.zips = 'zip-invalid';
+      /* Study-1 C5: the neighborhoods are the source of truth; `home.zips` is derived from them (setTailorSection) */
+      const hoods = d.home.hoods ?? [];
+      if (!hoods.length) e.hoods = 'hoods-required';
+      else if (!hoods.every((id) => HOOD_BY_ID[id])) e.hoods = 'hood-unknown';
       const fee = d.home.fee;
       if (blank(fee) || Number.isNaN(Number(fee))) e.fee = 'fee-missing';
       else if (!isWhole(Number(fee)) || Number(fee) < 0 || Number(fee) > TAILOR_LIMITS.FEE_MAX) e.fee = 'fee-invalid';
@@ -373,6 +375,7 @@ export function setTailorSection(section, patch) {
     delete rest[k];
   }
   deepMerge(t, rest);
+  if (section === 'where' && t.home) t.home.zips = zipsForHoods(t.home.hoods);   // Study-1 C5: zips follow the neighborhoods, so eligible() keeps matching on zips
   let soft = {};
   if (section === 'profile') {
     soft = validateSection(section, t).soft;                    // D-162: what she typed, before the mask

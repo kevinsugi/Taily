@@ -4,7 +4,7 @@
    Focal: the visit-type segmented control.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, now, tailorsFor } from '../state.js';
+import { state, T, now, tailorsFor, tailorById, eligible } from '../state.js';
 import {
   flowBar, headingRow, chipGroup, field, actionBar, cta, sheetOverlay, wireChipGroups, wireWheel, esc, ICON_ALERT,
 } from '../components.js';
@@ -201,7 +201,13 @@ function wire(root) {
     if (!next || next.disabled) return;
     if (zip) T.setJob({ zip: zip.value });
     const { ok, errors } = T.validateJob(state.job, 'where');
-    if (ok) { ui().submitted = false; go('c-tailors'); return; }
+    if (ok) {
+      ui().submitted = false;
+      /* Study-1 A4 (default 9): "Book again" goes straight to that tailor's profile while she still serves this place; else the list */
+      const again = state.ui.booking?.again ? tailorById(state.ui.booking.tailorId) : null;
+      go(again && eligible(again, state.job).ok ? 'c-tailor' : 'c-tailors');
+      return;
+    }
     ui().submitted = true;
     go(ID);
     const target = errors.zip && state.job.visitType === 'shop' ? '#zip'

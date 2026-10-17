@@ -1203,11 +1203,12 @@ const INFO = {
   pricing: () => ({ title: 'How pricing works', lines: [
     'Estimates use each tailor’s own price list.',
     'At the fitting, the tailor sends you the final order. Nothing changes until you approve it.',
-    'You pay the balance when your order is ready.'] }),
+    'When your order is ready, we hold the balance and charge it when you get your items.'] }),   // K-27 (Study-1 A2)
   deposit: () => ({ title: 'About the deposit', lines: [
     'The deposit is held on your card, and charged only when the tailor accepts.',
     'It comes off your final total.',
-    `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the tailor keeps the deposit.`] }),
+    `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the tailor keeps the deposit.`,
+    'If the tailor cancels or doesn’t show up, you get it back in full.'] }),   // K-29 (Study-1 A5)
   fitting: (c) => ({ title: 'At the fitting', lines: [
     'You can add or remove items and services, and change prices.',
     `${c.first || 'The customer'} approves the final order before you start.`] }),
@@ -1671,7 +1672,10 @@ const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', capture
 export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '', confirmed = false, refundState = '', servicesCaption = '', courierCaption = '' } = {}) {
   const est = (stage === 'estimate' || stage === 'booked') && !confirmed;   // D-49: still an estimate until the fitting (or a price change) confirms it
   const deposit = depositState ? (DEPOSIT_STATUS[depositState] ?? 'Paid') : stage === 'estimate' ? 'Due today' : 'Paid';
-  const balance = stage === 'ready' && q.balance === 0 ? 'Nothing to pay' : stage === 'paid' ? 'Paid' : stage === 'ready' ? 'Due now' : 'Due when ready';   // D-156
+  /* K-27 (Study-1 A2): `held` = picked a way back, the balance is on hold; `charged` = captured before the handoff (unclaimed after 7 days) */
+  const settled = stage === 'paid' || stage === 'held' || stage === 'charged';
+  const balance = (stage === 'ready' || stage === 'held') && q.balance === 0 ? 'Nothing to pay'
+    : { paid: 'Paid', held: 'On hold', charged: 'Charged', ready: 'Hold now' }[stage] ?? 'Due when ready';   // D-156
   const rows = [
     { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
     q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
@@ -1680,7 +1684,7 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
     { label: est ? 'Estimated total' : 'Total', cents: q.total, kind: 'total' },
     { label: 'Deposit', cents: q.deposit, status: deposit },
     { label: 'Balance', cents: q.balance, status: balance },
-    (stage === 'ready' || stage === 'paid') && q.refund > 0 && { label: 'Refund to your card', cents: q.refund, status: refundState === 'refunded' || (!refundState && stage === 'paid') ? 'Refunded' : 'After you choose' },   // D-156
+    (stage === 'ready' || settled) && q.refund > 0 && { label: 'Refund to your card', cents: q.refund, status: refundState === 'refunded' || (!refundState && settled) ? 'Refunded' : 'After you choose' },   // D-156
   ].filter(Boolean);
   return moneyRows(rows);
 }
@@ -2798,6 +2802,48 @@ export function wireGarmentDocs(root, { lookup, by = '', editable = false, onRem
 }
 
 /* ===== S1-A ===== */
+/* Study-1 WS-A (K-27…K-29): the handoff — pickup code, the auto-complete countdown, the delivery photo, the review reminder. */
+
+/** The customer's pickup code card: caps label, the digits as the one sans figure (K-12 money style, tabular), the line under it.
+    The digits are spelled out for screen readers ("8 1 5 3"). */
+export function pickupCode({ code = '', label = 'Your pickup code', helper = 'Show this code when you pick up.' } = {}) {
+  return `<section class="pickup-code" aria-label="${esc(label)}" data-pickup-code>
+  <p class="t-caps c-600">${esc(label)}</p>
+  <p class="t-money pickup-code__digits"><span aria-hidden="true">${esc(code)}</span><span class="sr-only">${esc(String(code).split('').join(' '))}</span></p>
+  <p class="t-small c-600">${esc(helper)}</p>
+</section>`;
+}
+
+/** "Completes automatically in 47h unless you report a problem" (Study-1 A3, default 3): `msLeft` from `autoCompleteLeft(appt)`; the
+    whole hours still ahead ("47h" right after the mark), in the last hour "less than 1h". `who` = 'you' (Sarah) or the customer's first name. */
+export function autoCompleteLine(msLeft, { who = 'you' } = {}) {
+  if (msLeft == null) return '';
+  const h = Math.floor(Math.max(0, msLeft - 1) / 3600000);   // whole hours still ahead: "47h" right after the mark, "less than 1h" in the last hour
+  const when = h < 1 ? 'less than 1h' : `${h}h`;
+  const unless = who === 'you' ? 'unless you report a problem' : `unless ${who} reports a problem`;
+  return `<p class="t-small c-700 auto-line" data-auto-complete>${META_ICONS.clock}<span>Completes automatically in ${esc(when)} ${esc(unless)}</span></p>`;
+}
+
+/** The drop-off photo the tailor attached when she marked it delivered (a photo stub of the first garment) with who took it and when. */
+export function deliveryPhoto({ photo, type = '', by = '', label = 'Drop-off photo' } = {}) {
+  if (!photo) return '';
+  return `<figure class="delivery-photo" data-delivery-photo>
+  <span class="delivery-photo__frame">${photoStub({ type, tone: photo.tone ?? 0, size: 'stage', alt: label, seed: photo.id })}</span>
+  <figcaption class="t-small c-600">${esc([by ? `Taken by ${by}` : '', photo.at ? `${fmtDay(photo.at)}, ${fmtTime(photo.at)}` : ''].filter(Boolean).join(' · '))}</figcaption>
+</figure>`;
+}
+
+/** The review reminder (Study-1 A4, K-28): a notification card — bell, title, one line, the "Leave a review" button (`act`, `data-id`). */
+export function reminderCard({ title = '', text = '', actionLabel = 'Leave a review', act = 'review-reminder', id = '' } = {}) {
+  return `<section class="card reminder-card" role="status" aria-label="${esc(title)}" data-reminder>
+  <span class="reminder-card__icon" aria-hidden="true">${ICON_BELL}</span>
+  <div class="reminder-card__body">
+    <p class="t-body w-600">${esc(title)}</p>
+    <p class="t-small c-600">${esc(text)}</p>
+    ${ctaSmall(actionLabel, { attrs: `data-act="${esc(act)}"${id ? ` data-id="${esc(id)}"` : ''}` })}
+  </div>
+</section>`;
+}
 
 /* ===== S1-B ===== */
 

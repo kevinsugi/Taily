@@ -83,8 +83,12 @@ function rowFor(a, kind, fmtAmt) {
       row.amountText = fmtAmt(priceChangeView(a).after.total);
       row.amountCaption = 'Reply needed'; row.captionTone = 'action';
     } else if (a.status === 'in-progress') { row.amountText = fmtAmt(a.money.total); row.amountCaption = 'Total'; }
-    else if (a.status === 'ready') { row.amountText = fmtAmt(a.money.balance); row.amountCaption = 'Pay now'; row.captionTone = 'action'; }
-    else if (a.status === 'awaiting-handoff') { row.amountText = fmtAmt(a.money.total); row.amountCaption = 'Paid'; }
+    else if (a.status === 'ready') { row.amountText = fmtAmt(a.money.balance); row.amountCaption = 'Choose a way back'; row.captionTone = 'action'; }   // K-27: held at the choice, not paid
+    else if (a.status === 'awaiting-handoff') {
+      const b = a.payments.balance;
+      row.amountText = fmtAmt(b.cents > 0 ? b.cents : a.money.total);
+      row.amountCaption = b.state === 'captured' ? 'Charged' : b.cents > 0 ? 'On hold' : 'Paid';   // Study-1 A2
+    }
   }
   if (kind === 'past' && a.status === 'completed') {
     row.amountText = fmtAmt(a.money.total);
@@ -98,9 +102,10 @@ function rowFor(a, kind, fmtAmt) {
     if (a.status === 'cancelled') {
       const r = a.cancel?.reason;
       if (r === 'tailor-cant-make-it') row.place = `${first} cancelled`;
+      else if (r === 'tailor-no-show') row.place = `${first} didn’t show up`;   // K-29
       else if (r === 'customer-early' || r === 'customer-late') row.place = 'You cancelled';
     }
-    row.kept = a.status === 'declined' || (a.status === 'cancelled' && ['tailor-cant-make-it', 'customer-late', 'no-show'].includes(a.cancel?.reason));
+    row.kept = a.status === 'declined' || (a.status === 'cancelled' && ['tailor-cant-make-it', 'tailor-no-show', 'customer-late', 'no-show'].includes(a.cancel?.reason));
   }
   return apptRow(row);
 }
@@ -129,7 +134,7 @@ function view() {
   const fmtAmt = fmtColumn([
     ...live.map((a) => a.money.total),
     ...live.filter((a) => a.status === 'price-change').map((a) => priceChangeView(a).after.total),
-    ...live.filter((a) => a.status === 'ready').map((a) => a.money.balance),
+    ...live.filter((a) => a.status === 'ready' || a.status === 'awaiting-handoff').map((a) => a.payments.balance?.cents ?? a.money.balance),
     ...groups.past.map((a) => (a.status === 'completed' ? a.money.total : a.payments.deposit.cents)),
   ]);
   const TITLES = { requests: 'Requests', progress: 'In progress', upcoming: 'Upcoming', past: 'Past' };

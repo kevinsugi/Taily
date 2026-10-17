@@ -71,6 +71,13 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
     case 'ready': return customer ? { pill: 'action', label: 'Ready' } : waiting;
     case 'awaiting-handoff': {
       const how = appt.returnOption ?? 'pickup';
+      const h = appt.handoff ?? {};
+      /* Study-1 A3: a reported problem is Amara's move; a handoff she marked is Sarah's to confirm (or the countdown completes it) */
+      if (h.problemAt) return customer ? { pill: 'waiting', label: pick('Problem reported', 'Problem') } : { pill: 'action', label: pick(`${sarah} didn’t get it`, 'Problem') };
+      if (h.markedAt) {
+        const done = how === 'dropoff' ? 'Delivered' : 'Picked up';
+        return customer ? { pill: 'action', label: pick('Confirm you got it', done) } : { pill: 'awaiting-handoff', label: done };
+      }
       if (how === 'dropoff') return customer ? { pill: 'awaiting-handoff', label: pick('Coming to you', 'Drop-off') } : { pill: 'action', label: 'To drop off' };
       if (how === 'courier') return customer ? { pill: 'awaiting-handoff', label: pick('Out for delivery', 'Courier') } : { pill: 'awaiting-handoff', label: pick('Courier booked', 'Courier') };
       return { pill: 'awaiting-handoff', label: pick('Ready for pickup', 'Pickup') };

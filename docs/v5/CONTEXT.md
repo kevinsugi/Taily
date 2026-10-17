@@ -91,11 +91,20 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   `findAnotherTailor`, `tailorDecline(id, reason)`, `expireRequest`, `tryAgain` (errors: not-expired no-retries slot-passed
   slot-unavailable card-declined), `cancelBooking`, `rescheduleBooking(id, slotStart)`, `tailorCantMakeIt(id, reason)`,
   `markNoShow`, `startFitting`, `sendPriceChange(id, lines)`, `approvePriceChange`,
-  `messageAboutPriceChange`, `markReady`, `chooseReturn(id, option)`, `holdBalance(id, cardId, { threeDS })`, `markCompleted`,
+  `messageAboutPriceChange`, `markReady`, `chooseReturn(id, option)`, `holdBalance(id, cardId, { threeDS })` (HOLDS the balance, K-27),
+  Study-1 A3: `confirmPickup(id, code)` (`code-format` `code-wrong` `not-pickup`), `markHandedOver(id, { photo })` (`photo-required` on a drop-off,
+  `courier`, `already-marked`), `confirmReceived`, `reportNotReceived` (`not-marked` `already-reported`), `courierDelivered` (`not-courier`) — `markCompleted` is gone;
+  A4 `bookAgain(id)`; A5 `reportTailorNoShow(id)` (`too-early`; cancel reason `tailor-no-show`), `tailorCantMakeIt` stores `cancel.late`;
   `leaveReview(id, { stars, text, photos })`, `sendMessage(tailorId, from, { text, photos }) → { ok, masked, message }`. System thread lines carry `text` (customer reader) and `tailorText` (tailor reader), D-98.
   Job: `setJob(patch)`, `newJob()`, `addGarment(type)`, `removeGarment(id)`, `setServices(garmentId, ids)`,
   `validateJob(job, step?: 'what'|'where') → { ok, errors }`. Tailor: `setTailorSection(section, patch) → { ok, tailor, valid,
   errors, bookable, live }`, `validateSection(section, data) → { ok, errors }`, `blankTailor()` (D-20), `bookable(tailor)`.
+- Study-1 WS-A selectors: `handoffCode(appt)` · `autoCompleteLeft(appt)` (ms or null) · `unclaimedAt(appt)` · `reviewReminderDue(appt)` · `reviewReminder()`.
+  `payments.balance.state`: `pending due failed held none captured` (+ `captureReason: 'handoff' | 'unclaimed'`, `capturedAt`); `a.handoff` = D-270.
+  `tick()` also captures an unclaimed hold (heldAt + `UNCLAIMED_CAPTURE_D`) and auto-completes at `autoAt` (`HANDOFF_AUTO_H`); a problem pauses both.
+  Components (S1-A block): `pickupCode({ code })` · `autoCompleteLine(msLeft, { who })` · `deliveryPhoto({ photo, type, by })` · `reminderCard({ title, text, actionLabel, act, id })`;
+  `customerBreakdown` stages `held` ("On hold") / `charged` ("Charged"), `ready` balance reads "Hold now". `driveTo` targets + `handed-over problem auto-completed
+  unclaimed review-reminder tailor-no-show cant-make-it-late`; `handOver(id, how)` (common.js). Test-flows panel: Demo actions row (D-277).
 - selectors: `justConfirmed(appt)` (D-73: confirmed and < `POLICY.JUST_BOOKED_MIN` 60 min since the last accept), `now()`, `nowIso()`, `setClock(iso)`, `advanceClock(min) → { now, expired[] }`, `tick()`, `msLeft(appt)`, `getAppt`,
   `tailorById`, `apptsFor(persona)`, `activeAppt()`, `threadFor(tailorId)`, `threadReadOnly(tailorId)`, `maskContact(text)
   → { text, masked }`, `eligible(tailor, job) → { ok, reason: 'zip'|'shop-off'|'hidden'|'declined'|'nothing-open'|null }`,

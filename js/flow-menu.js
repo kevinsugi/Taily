@@ -4,7 +4,8 @@
    is js/flows.js) under three tabs: Customer, Tailor, System. Choosing
    an entry resets the demo, runs the entry's setup through the real
    transitions and opens the screen live; the footer flip switches
-   persona WITHOUT resetting anything.
+   persona WITHOUT resetting anything; the Demo actions row (Study-1) moves the
+   demo clock or delivers the courier on the live state, also without a reset.
 
    Lives in .stage-caption, OUTSIDE .screen, and stays hidden until the
    first input (html.has-input) — the diff harness never sees it.
@@ -12,8 +13,11 @@
    presses screen buttons, so the screens must be registered first).
    ============================================================ */
 
-import { state } from './state.js';
+import { state, T, getAppt, activeAppt, advanceClock, nowIso } from './state.js';
 import { ALL_FLOWS, findFlow, prepareFlow, personaForScreen } from './flows.js';
+import { setFocus } from './focus.js';
+import { toast } from './components.js';
+import { fmtWhen } from './dates.js';
 import { STUDY_TITLE, STUDY_SCRIPT } from './study.js';
 
 let render = null;
@@ -143,6 +147,12 @@ function panelHtml() {
     ${TABS.map(([id, label]) => `<button type="button" class="flow-menu__tab" role="tab" data-tab="${id}" aria-selected="false">${label}</button>`).join('')}
   </div>
   <div class="flow-menu__list" role="tabpanel" data-flow-list></div>
+  <div class="flow-menu__demo" role="group" aria-labelledby="flow-demo-label">
+    <span class="flow-menu__demo-label" id="flow-demo-label">Demo actions</span>
+    <div class="flow-menu__demo-btns">
+      ${DEMO.map(([id, label]) => `<button type="button" class="flow-menu__demo-btn" data-demo="${id}">${label}</button>`).join('')}
+    </div>
+  </div>
   <div class="flow-menu__foot">
     <button type="button" class="flow-menu__switch" id="persona-toggle">View as Tailor</button>
     <span class="flow-menu__hint">Keeps the current state</span>
@@ -151,6 +161,29 @@ function panelHtml() {
 }
 
 const isOpen = () => !$('#flow-menu')?.hidden;
+
+/* ---------- Demo actions (Study-1 §3): act on the live state, no reset ---------- */
+const DEMO = [['courier', 'Courier delivers'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days']];
+const DEMO_MIN = { h1: 60, h48: 48 * 60, d7: 7 * 24 * 60 };
+/** The appointment the demo acts on: the one on screen (focused), else the customer's active one, else the newest. */
+const demoAppt = () => (state.ui.apptId ? getAppt(state.ui.apptId) : null) ?? activeAppt() ?? state.appts[state.appts.length - 1] ?? null;
+/** Run a Demo action, then re-render the current screen; its wire() forwards (redirectIfMoved) when the appointment moved on. */
+function runDemo(kind) {
+  const a = demoAppt();
+  let msg;
+  if (kind === 'courier') {
+    const r = a ? T.courierDelivered(a.id) : { ok: false };
+    msg = r.ok ? 'The courier delivered it.' : 'No courier delivery to complete.';
+  } else {
+    advanceClock(DEMO_MIN[kind]);
+    msg = `Clock moved to ${fmtWhen(nowIso())}.`;
+  }
+  if (a) setFocus(a.id, { keepFrom: true });   // so the screen showing it follows it (c-booking → c-complete)
+  close();
+  const id = document.getElementById('screen')?.dataset.screen;
+  if (id) render(id, { replace: true });
+  toast(msg);
+}
 
 function paintTab(which) {
   tab = which;
@@ -245,6 +278,7 @@ export function initFlowMenu(renderFn, { home } = {}) {
     paintTab(b.dataset.tab);
     $('[data-flow-list]').scrollTop = 0;
   }));
+  document.querySelectorAll('[data-demo]').forEach((b) => b.addEventListener('click', () => runDemo(b.dataset.demo)));
   $('[data-flow-list]').addEventListener('click', (e) => {
     const step = e.target.closest('[data-study-step]');
     if (step) { if (step.getAttribute('aria-disabled') !== 'true') stepStudy(Number(step.dataset.studyStep)); return; }

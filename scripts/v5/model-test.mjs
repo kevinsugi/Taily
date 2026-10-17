@@ -554,7 +554,7 @@ section('fitting -> completed');
   eq([a.payments.balance.state, a.payments.balance.failedCardId], ['failed', 'visa-4242'], 'the declined card is recorded');
   state.sim.card = 'ok';
   const paid = T.holdBalance(a.id, 'apple-pay');
-  eq([paid.ok, a.payments.balance.state, a.payments.balance.failedCardId], [true, 'paid', undefined], 'paying another way clears it');
+  eq([paid.ok, a.payments.balance.state, a.payments.balance.failedCardId], [true, 'held', undefined], 'holding with another way clears it');
   // refund line: payments untouched until Ready
 }
 // price change: removed
@@ -784,13 +784,14 @@ section('fitting -> completed');
   guard(T.holdBalance(a.id, 'visa-4242'), 'needs-3ds', 'holdBalance with 3-D Secure needs the challenge');
   state.sim.card = 'ok';
   const pay = T.holdBalance(a.id, 'visa-4242');
-  eq([pay.appt.status, pay.appt.payments.balance], ['awaiting-handoff', { cents: 14400, state: 'paid' }], 'holdBalance: awaiting-handoff, balance paid');
-  guard(T.holdBalance(a.id, 'visa-4242'), 'not-ready', 'pay twice fails');
+  eq([pay.appt.status, pay.appt.payments.balance.cents, pay.appt.payments.balance.state], ['awaiting-handoff', 14400, 'held'], 'holdBalance: awaiting-handoff, balance held (K-27)');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'not-ready', 'hold twice fails');
   guard(T.leaveReview(a.id, { stars: 5 }), 'not-completed', 'leaveReview needs completed');
-  const done = T.markCompleted(a.id);
-  eq(done.appt.status, 'completed', 'markCompleted');
+  eq(state.payouts.length, 0, 'nothing is paid out while the order waits for the handoff');
+  const done = T.confirmPickup(a.id, S.handoffCode(a));
+  eq(done.appt.status, 'completed', 'the pickup code completes it');
   eq(state.payouts.map(({ createdAt, ...p }) => p), [{ apptId: a.id, cents: 14750, state: 'pending', date: '2026-10-16', kind: 'job' }], 'completion creates a pending payout of $147.50 (not the courier)');
-  guard(T.markCompleted(a.id), 'not-awaiting-handoff', 'markCompleted twice fails');
+  guard(T.confirmPickup(a.id, S.handoffCode(a)), 'not-awaiting-handoff', 'confirming twice fails');
   guard(T.leaveReview(a.id, { stars: 0 }), 'stars-required', 'leaveReview: 0 stars');
   guard(T.leaveReview(a.id, { stars: 6 }), 'stars-required', 'leaveReview: 6 stars');
   guard(T.leaveReview(a.id, { stars: 4.5 }), 'stars-required', 'leaveReview: fractional stars');
@@ -859,7 +860,7 @@ section('statusScreen');
     eq(S.statusScreen(fake, 'customer'), CUSTOMER_MAP[status], `statusScreen customer ${status}`);
     eq(S.statusScreen(fake, 'tailor'), TAILOR_MAP[status], `statusScreen tailor ${status}`);
   }
-  eq(S.statusScreen({ status: 'ready', payments: { balance: { state: 'paid' } } }, 'customer'), 'c-booking', 'ready with the balance paid -> c-booking');
+  eq(S.statusScreen({ status: 'ready', payments: { balance: { state: 'held' } } }, 'customer'), 'c-ready', 'ready is always c-ready (holding moves it on, K-27)');
   eq(S.statusScreen({ status: 'completed', review: { stars: 5 }, payments: { balance: { state: 'paid' } } }, 'customer'), 'c-booking', 'completed and reviewed -> c-booking');
   state.persona = 'tailor';
   eq(S.statusScreen({ status: 'requested' }), 't-request', 'statusScreen defaults to state.persona');
@@ -1451,6 +1452,110 @@ section('M6 batch 4');
 }
 
 /* ===== S1-A ===== */
+section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
+{
+  const H = 60, DAY = 24 * 60;
+  const hours = (ms) => Math.round(ms / 3600000);
+  // A2 hold: the balance (services + rush + courier − deposit) is HELD at the return choice, nothing captured, nothing paid out
+  S.reset(); let a = driveTo('awaiting-handoff');
+  eq([a.status, a.payments.balance.cents, a.payments.balance.state, a.payments.deposit.state, state.payouts.length], ['awaiting-handoff', SCENARIOS.seed.balance, 'held', 'captured', 0], 'S1-A2: picking pickup holds $144.00; the deposit stays captured; no payout yet');
+  eq([a.handoff.code, a.handoff.code.length, S.handoffCode(a)], ['8153', DATA.HANDOFF_CODE_LEN, '8153'], 'S1-A3: the pickup code is 4 digits derived from the id (A-1001 → 8153)');
+  ok(/on hold/.test(S.threadFor('amara').messages.at(-1).text) && !/%/.test(S.threadFor('amara').messages.at(-1).text), 'S1-A2: the thread says what is on hold, in dollars');
+  const c = driveTo('awaiting-handoff', { returnOption: 'courier' });
+  eq([c.payments.balance.cents, c.payments.balance.state], [SCENARIOS.courier.balance, 'held'], 'S1-A2: the courier is part of the hold ($154.45)');
+  S.reset();
+  {
+    const r = driveTo('fitting', { visitType: 'shop' });
+    documentFitting(r.id, { lines: SCENARIOS.priceBelowDeposit.lines });
+    T.sendPriceChange(r.id, SCENARIOS.priceBelowDeposit.lines); T.approvePriceChange(r.id); T.markReady(r.id); T.chooseReturn(r.id, 'pickup');
+    const z = T.holdBalance(r.id, 'visa-4242');
+    eq([z.ok, z.appt.payments.balance.cents, z.appt.payments.balance.state, z.appt.payments.refund.state], [true, 0, 'none', 'refunded'], 'S1-A2 (D-156): a total below the deposit holds nothing and refunds at the choice');
+  }
+  // A3 pickup code
+  S.reset(); a = driveTo('awaiting-handoff');
+  guard(T.confirmPickup(a.id, '81'), 'code-format', 'S1-A3: a short code is a format error');
+  guard(T.confirmPickup(a.id, '0000'), 'code-wrong', 'S1-A3: a wrong code does not match');
+  eq([a.status, a.payments.balance.state], ['awaiting-handoff', 'held'], 'S1-A3: a wrong code changes nothing');
+  guard(T.courierDelivered(a.id), 'not-courier', 'S1-A3: only a courier return is delivered by the courier');
+  const done = T.confirmPickup(a.id, ' 8153 ');
+  eq([done.ok, a.status, a.payments.balance.state, a.payments.balance.captureReason, a.handoff.completedBy], [true, 'completed', 'captured', 'handoff', 'code'], 'S1-A3: the right code completes it right away and captures the hold');
+  eq(state.payouts.map((p) => [p.cents, p.date, p.kind]), [[SCENARIOS.seed.payout, PAYOUT_DAYS.first, 'job']], 'S1-A3: the payout is queued for the Friday after the handoff');
+  // A3 drop-off: Delivered needs a photo; 48 h countdown; "I didn't get it" pauses; "I got it" completes
+  S.reset(); a = driveTo('awaiting-handoff', { returnOption: 'dropoff' });
+  guard(T.reportNotReceived(a.id), 'not-marked', 'S1-A3: nothing to object to before Amara marks it');
+  guard(T.confirmPickup(a.id, '8153'), 'not-pickup', 'S1-A3: no pickup code on a drop-off');
+  guard(T.markHandedOver(a.id), 'photo-required', 'S1-A3: Delivered needs a photo');
+  T.markHandedOver(a.id, { photo: true });
+  eq([hours(S.autoCompleteLeft(a)), a.handoff.photo.tone, a.handoff.markedBy], [POLICY.HANDOFF_AUTO_H, 0, 'tailor'], 'S1-A3: Delivered with a photo starts the 48 h countdown');
+  guard(T.markHandedOver(a.id, { photo: true }), 'already-marked', 'S1-A3: marking twice without a problem fails');
+  T.advanceClock(H);
+  ok(/in 46h unless you report a problem/.test(C.autoCompleteLine(S.autoCompleteLeft(a))) && /unless Sarah reports a problem/.test(C.autoCompleteLine(S.autoCompleteLeft(a), { who: 'Sarah' })), 'S1-A3: an hour later the line reads 46h (whole hours still ahead), worded per side');
+  eq([C.autoCompleteLine(48 * 3600000).includes('in 47h'), C.autoCompleteLine(3600000).includes('less than 1h'), C.autoCompleteLine(null)], [true, true, ''], 'S1-A3 (default 3): 47h right after the mark, less than 1h in the last hour, nothing while paused');
+  T.reportNotReceived(a.id);
+  guard(T.reportNotReceived(a.id), 'already-reported', 'S1-A3: one report at a time');
+  eq(S.autoCompleteLeft(a), null, 'S1-A3: a reported problem stops the countdown');
+  T.advanceClock(8 * DAY);
+  eq([a.status, a.payments.balance.state], ['awaiting-handoff', 'held'], 'S1-A3 (default 2): a problem pauses BOTH the 48 h and the 7-day timers');
+  const re = T.markHandedOver(a.id, { photo: true });
+  eq([re.ok, a.handoff.problemAt, a.handoff.photo.tone, hours(S.autoCompleteLeft(a))], [true, null, 1, POLICY.HANDOFF_AUTO_H], 'S1-A3 (default 5): Delivered again with a new photo clears the problem and restarts 48 h');
+  ok(S.unclaimedAt(a) > S.unclaimedAt({ handoff: { ...a.handoff, pausedMs: 0 } }), 'S1-A3: the 7-day capture moves out by the paused time');
+  T.reportNotReceived(a.id);
+  const got = T.confirmReceived(a.id);
+  eq([got.ok, a.status, a.handoff.completedBy, a.payments.balance.captureReason], [true, 'completed', 'customer', 'handoff'], 'S1-A3: "I got it" completes it even after a reported problem');
+  // A3 48 h auto-complete, stamped at autoAt
+  S.reset(); a = driveTo('handed-over', { returnOption: 'dropoff' });
+  const autoAt = a.handoff.autoAt;
+  T.advanceClock(POLICY.HANDOFF_AUTO_H * H - 1);
+  eq(a.status, 'awaiting-handoff', 'S1-A3: one minute before the 48 h it is still open');
+  const moved = T.advanceClock(1 + 3 * H).expired;
+  eq([moved.includes(a.id), a.status, a.handoff.completedBy, a.handoff.completedAt, a.history.at(-1).at, a.payments.balance.captureReason], [true, 'completed', 'auto', autoAt, autoAt, 'handoff'], 'S1-A3: tick completes it at autoAt (stamped then, not at the late tick)');
+  eq(state.payouts.map((p) => p.date), [D.payoutDay(autoAt)], 'S1-A3: the auto payout is for the Friday after autoAt');
+  eq(driveTo('auto-completed', { returnOption: 'pickup' }).handoff.completedBy, 'auto', 'S1-A3: a pickup marked without the code auto-completes too');
+  // A3 courier
+  S.reset(); a = driveTo('awaiting-handoff', { returnOption: 'courier' });
+  guard(T.markHandedOver(a.id), 'courier', 'S1-A3 (default 6): no tailor mark on a courier return');
+  T.courierDelivered(a.id);
+  eq([a.status, a.handoff.completedBy, a.payments.balance.state, state.payouts[0].cents], ['completed', 'courier', 'captured', SCENARIOS.seed.payout], 'S1-A3: courier delivery completes it; the payout never includes the courier');
+  // A2 unclaimed: 7 days after the hold → captured, the job stays open, the payout waits for the handoff
+  S.reset(); a = driveTo('awaiting-handoff');
+  const heldAt = a.handoff.heldAt;
+  T.advanceClock(POLICY.UNCLAIMED_CAPTURE_D * DAY - 1);
+  eq(a.payments.balance.state, 'held', 'S1-A2: still held a minute before 7 days');
+  T.advanceClock(1);
+  eq([a.status, a.payments.balance.state, a.payments.balance.captureReason, a.payments.balance.capturedAt, state.payouts.length], ['awaiting-handoff', 'captured', 'unclaimed', D.isoMinute(D.addMinutes(heldAt, POLICY.UNCLAIMED_CAPTURE_D * DAY)), 0], 'S1-A2: 7 days after the hold it is captured (unclaimed); the job stays open; no payout yet');
+  ok(S.threadFor('amara').messages.some((m) => m.text === `We charged the ${M.fmtExact(SCENARIOS.seed.balance)} on hold after 7 days`), 'S1-A2: the thread says it was charged');
+  T.confirmPickup(a.id, a.handoff.code);
+  eq([a.status, a.payments.balance.captureReason, state.payouts.length], ['completed', 'unclaimed', 1], 'S1-A2: the handoff later completes it without a second charge; the payout is queued then');
+  // A4 review reminder (K-28: a selector, no status)
+  S.reset(); a = driveTo('completed');
+  ok(!S.reviewReminderDue(a) && !S.reviewReminder(), 'S1-A4: no reminder at completion');
+  T.advanceClock(POLICY.REVIEW_REMINDER_D * DAY - 1);
+  ok(!S.reviewReminderDue(a), 'S1-A4: none a minute before 7 days');
+  T.advanceClock(1);
+  ok(S.reviewReminderDue(a) && S.reviewReminder() === a, 'S1-A4: the reminder is due 7 days after completion');
+  T.leaveReview(a.id, { stars: 5 });
+  ok(!S.reviewReminderDue(a), 'S1-A4: a review clears it');
+  eq(driveTo('review-reminder').status, 'completed', 'S1-A4: driveTo review-reminder stays completed');
+  // A4 Book again
+  S.reset(); a = driveTo('completed', { visitType: 'shop' });
+  const again = T.bookAgain(a.id);
+  eq([again.ok, state.job.garments.length, state.job.visitType, state.job.zip], [true, 0, 'shop', a.job.zip], 'S1-A4: Book again = same visit type and ZIP, no garments');
+  // A5 tailor cancels (late flag) and the tailor no-show
+  S.reset(); a = driveTo('cant-make-it-late');
+  eq([a.cancel.late, a.cancel.refund, a.payments.deposit.state, state.payouts.length], [true, SCENARIOS.seed.deposit, 'refunded', 0], 'S1-A5: a tailor cancel inside 24 h is late, the deposit still refunded in full, nothing paid out');
+  eq(driveTo('cant-make-it').cancel.late, false, 'S1-A5: a tailor cancel 24 h or more ahead is not late');
+  S.reset(); a = driveTo('confirmed');
+  S.setClock(D.isoMinute(D.addMinutes(a.slot.start, POLICY.NO_SHOW_WAIT_MIN - 1)));
+  guard(T.reportTailorNoShow(a.id), 'too-early', 'S1-A5: the no-show report opens 15 min after the start');
+  T.advanceClock(1);
+  const ns = T.reportTailorNoShow(a.id);
+  eq([ns.ok, a.status, a.cancel.reason, a.cancel.by, a.cancel.refund, a.payments.deposit.state, state.payouts.length, state.job.garments.length], [true, 'cancelled', 'tailor-no-show', 'customer', SCENARIOS.seed.deposit, 'refunded', 0, 2], 'S1-A5: a tailor no-show cancels, refunds the deposit in full, pays nothing out, restores the order');
+  guard(T.markNoShow(a.id), 'not-confirmed', 'S1-A5 (default 8): first report wins');
+  eq([S.statusScreen(a, 'customer'), S.statusScreen(a, 'tailor')], ['c-booking', 't-job'], 'S1-A5: both sides land on the booking / job');
+  S.reset(); a = driveTo('no-show');
+  eq([a.cancel.reason, a.payments.deposit.state, state.payouts[0].cents], ['no-show', 'kept', M.noShowPayout(SCENARIOS.seed.deposit)], 'S1-A5: the customer no-show is unchanged');
+  ok(S.threadFor('amara').messages.every((m) => !/%/.test(m.text)), 'S1-A: no system line carries a percent sign');
+}
 
 /* ===== S1-B ===== */
 

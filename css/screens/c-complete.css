@@ -38,3 +38,6 @@
   html:not(.is-test) .c-complete__label { animation: c-complete-rise 600ms var(--ease-out) 700ms both; }
   .c-complete__row .method-row__chevron { transition: transform 180ms var(--ease-out); }
 }
+/* Study-1 A4: the 7-day review reminder, a notification card above the linen stage (the stage then starts under it, not bled up) */
+.c-complete__reminder { margin-bottom: var(--rhythm-group); }
+.c-complete__reminder + .linen-stage { margin-top: 0; }

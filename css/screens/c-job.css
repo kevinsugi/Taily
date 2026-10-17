@@ -55,3 +55,6 @@
 .c-job__book-else { margin: var(--rhythm-section) 0 var(--rhythm-group); }
 .c-job__book-else + .stepper--compact, .c-job__book-else + .booking-steps { margin-top: 0; }
 @media (max-width: 300px) { .job-item__photos { flex-wrap: wrap; } .job-item__caption { flex-basis: auto; min-width: auto; } }   /* K9-2-02 zoom tier (D-233): "Photo (optional)" drops under the tiles instead of running past the card */
+/* Study-1 A4: the review reminder leads Home; a "Book again" draft names its tailor above the title */
+.c-job__reminder { margin-bottom: var(--rhythm-block); }
+.job__again { margin: 0 0 var(--space-4); }

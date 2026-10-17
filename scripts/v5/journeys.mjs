@@ -20,6 +20,9 @@
      J11 payout lifecycle: completed -> Pending (the Friday) -> the Friday run -> Paid, fee and payout in dollars (D-24, D-136)
      J12 a suggested time lapses: both sides end it and the hold is released (D-154)
      J13 Book now on the profile opens the picker on the next opening; one tap confirms it into review (K-18)
+     J15 pickup with the code (Study-1 A2–A4): Hold at the return choice, Sarah's code, a wrong code, the right code completes both sides, Job Done
+     J16 drop-off (Study-1 A3): Delivered needs a photo -> the 47h countdown on both sides -> "I didn't get it" pauses it -> "I got it" completes
+     J17 the clock (Study-1 A2–A3): +48 hours (Demo actions) auto-completes a delivered order; +7 days captures an unclaimed hold, the job stays open
      J14 the anchored popover (K-25): a garment thumb toggles it, another thumb moves it, Escape returns focus, it flips above near the
          window bottom, the Verified check shares its one slot; t-home's count cluster lists every item and the card still opens the request
 
@@ -111,6 +114,7 @@ const advance = (minutes) => page.evaluate(async (m) => { (await import('/js/sta
 const paint = async (screen) => { await page.evaluate((id) => window.Taily.render(id), screen); await settle(page); };
 
 const S = SCENARIOS;
+const PICKUP_CODE = '8153';   // handoffCode() of the first appointment (A-1001), the copy deck's code
 const SEED_WHEN = fmtWhen(SEED_SLOT);
 const SUGG_WHEN = fmtWhen(SUGGESTED_SLOT);
 
@@ -187,7 +191,7 @@ await journey('J4', 'customer cancels late -> tailor keeps the deposit', async (
 
 /* ---------- J5 ---------- */
 await journey('J5', "tailor can't make it -> customer refunded", async () => {
-  await flow('t-job--cant-make-it');
+  await flow('t-job--cancel');
   await click('[data-act="cant-ok"]');
   await flip();
   await click('[data-nav="bookings"]');
@@ -282,22 +286,24 @@ await journey('J7', 'courier return: the three courier amounts match on both sid
   await click('.appt-row');
   await at('J7 customer: ready', 'c-ready');
   await click('[data-act="return"][data-value="courier"]');
-  await at('J7 customer: courier quote', 'c-ready', { has: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Pay ${fmtExact(S.courier.balance)}`] });
+  await at('J7 customer: courier quote', 'c-ready', { has: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Hold ${fmtExact(S.courier.balance)}`] });
   await click('[data-act="pay"]');
   await click('[data-act="pay-ok"]');
   await at('J7 customer: out for delivery', 'c-booking', { has: ['On its way to you', fmtExact(cq.cents)] });
   await flip();
   await click('.appt-row');
   await at('J7 tailor: courier booked, not her money', 't-job', {
-    has: ['Courier booked', 'arrives', 'Paid by Sarah · nothing comes out of your payout', 'Handed to courier', fmtExact(S.seed.payout)],
-    not: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents)],
+    has: ['Courier booked', 'arrives', 'completes on delivery', 'Paid by Sarah · nothing comes out of your payout', fmtExact(S.seed.payout)],
+    not: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), 'Handed to courier'],
   });
 });
 
 /* ---------- J8 (D-143) ---------- */
 await journey('J8', 'completed -> review -> the tailor profile shows it', async () => {
   await flow('t-job--handoff-pickup');
-  await click('[data-act="complete"]');
+  await click('[data-act="picked-up"]');
+  await page.fill('#handoff-code', PICKUP_CODE);
+  await press('[data-act="pickup-ok"]');
   await at('J8 tailor: job completed', 't-job', { has: ['JOB COMPLETED', 'Nice work, Amara.', fmtExact(S.seed.payout)] });   // K-20: the linen stage's eyebrow + title
   await flip();
   await click('[data-nav="bookings"]');
@@ -449,6 +455,99 @@ await journey('J13', 'Book now takes the next opening: the picker opens on it an
   await at('J13 review and send', 'c-pay', { has: ['Review and send request'] });
   const kept = await page.evaluate(() => window.Taily.state.ui.booking?.slot);
   check('J13 the same time reaches review', kept === next, `${kept} vs ${next}`);
+});
+
+/* ---------- J15 (Study-1 A2–A4) ---------- */
+await journey('J15', 'pickup with the code: hold at the choice, the code, a wrong code, the right code completes both sides', async () => {
+  const bal = fmtExact(S.seed.balance);
+  await flow('c-ready');
+  await click('[data-act="return"][data-value="pickup"]');
+  await at('J15 customer: what holding means', 'c-ready', { has: [`Hold ${bal}`, `We’ll hold ${bal} now and charge it when you get your garments.`, 'If you haven’t got it 7 days after you choose'], not: `Pay ${bal}` });
+  await click('[data-act="pay"]');
+  await at('J15 customer: the hold sheet', 'c-ready', { has: ['Hold the balance', `Hold ${bal}`] });
+  await click('[data-act="pay-ok"]');
+  await at('J15 customer: on hold, the pickup code', 'c-booking', { has: ['Ready for pickup · show your code at the shop', 'On hold', bal, 'YOUR PICKUP CODE', PICKUP_CODE, 'I got it'], not: 'Paid in full' });
+  await flip();
+  await click('.appt-row');
+  await at('J15 tailor: Sarah’s balance is on hold', 't-job', { has: [`In-store pickup · Sarah’s ${bal} is on hold`, 'Picked up'], not: 'Mark completed' });
+  await click('[data-act="picked-up"]');
+  await page.fill('#handoff-code', '0000');
+  await press('[data-act="pickup-ok"]');
+  await at('J15 tailor: a wrong code, next to the field', 't-job', { has: ['Enter Sarah’s pickup code', 'That code doesn’t match. Ask Sarah to check her booking.'] });
+  await page.fill('#handoff-code', PICKUP_CODE);
+  await press('[data-act="pickup-ok"]');
+  await at('J15 tailor: completed, the payout pending', 't-job', { has: ['JOB COMPLETED', 'Nice work, Amara.', 'Picked up at your shop', fmtExact(S.seed.payout), 'Pending'] });
+  await click('[data-nav="home"]');
+  await at('J15 tailor: the Completed list', 't-home', { has: ['COMPLETED', 'Payout pending', fmtExact(S.seed.payout)] });
+  await flip();
+  await click('[data-nav="bookings"]');
+  await click('.appt-row');
+  await at('J15 customer: Job Done', 'c-complete', { has: ['ORDER COMPLETE', `Charged ${bal}`, 'Leave a review', 'Book Amara again', 'Message Amara'] });
+  await click('[data-act="book-again"]');
+  await at('J15 customer: Book again starts on Home with Amara named', 'c-job', { has: ['Booking again with Amara', 'What needs work?'] });
+});
+
+/* ---------- J16 (Study-1 A3) ---------- */
+await journey('J16', 'drop-off: Delivered needs a photo, the countdown both sides, a reported problem pauses it, I got it completes', async () => {
+  await flow('t-job--handoff-dropoff');
+  await click('[data-act="delivered"]');
+  await press('[data-act="delivered-ok"]');
+  await at('J16 tailor: a photo is required', 't-job', { has: ['Mark as delivered', 'Add a photo of the drop-off. Sarah sees it.', 'Add a photo to mark it delivered.'] });
+  await click('[data-act="photo-camera"]');
+  await press('[data-act="delivered-ok"]');
+  await at('J16 tailor: delivered, the countdown', 't-job', { has: ['Delivered · photo sent to Sarah', 'Completes automatically in 47h unless Sarah reports a problem'], not: 'Mark as delivered' });
+  await flip();
+  await click('[data-nav="bookings"]');
+  await click('.appt-row');
+  await at('J16 customer: delivered, the photo and the countdown', 'c-booking', { has: ['Amara delivered it · photo below', 'Taken by Amara', 'Completes automatically in 47h unless you report a problem', 'I got it', 'I didn’t get it'] });
+  await click('[data-act="not-got-it"]');
+  await at('J16 customer: the report sheet', 'c-booking', { has: ['Didn’t get it?', 'We’ll stop the automatic completion and tell Amara. Nothing is charged while you sort it out in chat.', 'Report a problem', 'Keep waiting'] });
+  await click('[data-act="nr-ok"]');
+  await at('J16 customer: problem reported, the countdown stopped', 'c-booking', { has: ['You reported a problem. We’ve stopped the automatic completion and told Amara.', 'I got it'], not: ['Completes automatically', 'I didn’t get it'] });
+  await advance(3 * 24 * 60);
+  await paint('c-booking');
+  await at('J16 customer: three days on, still open (paused)', 'c-booking', { has: ['You reported a problem', 'On hold'] });
+  await flip();
+  await click('.appt-row');
+  await at('J16 tailor: Sarah didn’t get it', 't-job', { has: ['Sarah says she didn’t get it. Sort it out in chat.', 'Message Sarah', 'Mark delivered again'], not: 'Completes automatically' });
+  await flip();
+  await click('[data-nav="bookings"]');
+  await click('.appt-row');
+  await click('[data-act="got-it"]');
+  await at('J16 customer: got everything?', 'c-booking', { has: ['Got everything?', `We’ll charge the ${fmtExact(S.seed.balance)} on hold and close the order.`, 'Yes, I got it', 'Not yet'] });
+  await click('[data-act="got-ok"]');
+  await at('J16 customer: Job Done', 'c-complete', { has: ['ORDER COMPLETE', `Charged ${fmtExact(S.seed.balance)}`, 'Leave a review'] });
+  await flip();
+  await click('.appt-row');
+  await at('J16 tailor: completed', 't-job', { has: ['Nice work, Amara.', 'Dropped off at Sarah’s', fmtExact(S.seed.payout)] });
+});
+
+/* ---------- J17 (Study-1 A2–A3) ---------- */
+/** A Demo action from the real Test-flows menu (moves the demo clock or delivers the courier on the live state). */
+const demo = async (id) => { await page.mouse.move(5, 5); await page.mouse.move(10, 10); await click('#flow-trigger'); await click(`[data-demo="${id}"]`); };   // the first input reveals the pinned control
+await journey('J17', 'the clock: +48 hours auto-completes a delivered order; +7 days captures an unclaimed hold and the job stays open', async () => {
+  const bal = fmtExact(S.seed.balance);
+  await flow('t-job--handoff-delivered');
+  await advance(47 * 60);
+  await paint('t-job');
+  await at('J17 tailor: the last hour', 't-job', { has: ['Completes automatically in less than 1h unless Sarah reports a problem'] });
+  await demo('h1');
+  await at('J17 tailor: completed automatically at the 48h mark', 't-job', { has: ['COMPLETED AUTOMATICALLY · SARAH’S ORDER', fmtExact(S.seed.payout)] });
+  await flip();
+  await click('[data-nav="bookings"]');
+  await click('.appt-row');
+  await at('J17 customer: completed automatically, charged', 'c-complete', { has: ['COMPLETED AUTOMATICALLY · SAT, OCT 17', `Charged ${bal}`, 'Leave a review'] });
+  await demo('d7');
+  await click('[data-nav="home"]');
+  await at('J17 customer: a week later, the review reminder on Home', 'c-job', { has: ['How did Amara do?', 'It’s been a week since your order came back. Your review helps other customers.', 'Leave a review'] });
+  await flow('c-booking--handoff-pickup');
+  await demo('d7');
+  await at('J17 customer: charged after 7 days, still open', 'c-booking', { has: [`We charged the ${bal} on hold after 7 days. Amara still keeps it for you until you pick it up.`, 'Charged', 'YOUR PICKUP CODE', `Ready · ${bal} charged`], not: 'On hold' });
+  await flip();
+  await click('.appt-row');
+  await at('J17 tailor: charged, paid at the handoff', 't-job', { has: [`Sarah’s ${bal} was charged after 7 days. You’re paid when she picks it up.`, 'Picked up'] });
+  await click('[data-nav="earnings"]');
+  await at('J17 tailor: nothing paid out yet', 't-earnings', { not: fmtExact(S.seed.payout) });
 });
 
 /* ---------- J14 (K-25) ---------- */

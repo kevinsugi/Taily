@@ -7,7 +7,7 @@
    notifications on in the prototype.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, now, apptsFor, priceChangeView, suggestLapseAt } from '../state.js';
+import { state, T, now, apptsFor, priceChangeView, suggestLapseAt, autoCompleteLeft } from '../state.js';
 import { myTailor, inbox, requestView, customerName, customerInitials, payoutOf, payoutLine, suggestPrice } from '../tailor-data.js';
 import { setFocus, statusWord, returnStep } from '../focus.js';
 import { fmtColumn } from '../money.js';
@@ -40,8 +40,16 @@ const shortPlace = (p) => { const parts = p.split(', '); return parts.length > 2
     itself is behind her, so the line leads with the need-by date. An awaiting-handoff order names how it goes back (D-106). */
 const STEP = { fitting: 'Started', 'price-change': 'Order sent', 'in-progress': 'Tailoring', ready: 'Ready' };
 const stepOf = (a) => (a.status === 'awaiting-handoff' ? returnStep(a, 'tailor') : STEP[a.status]);
+/** Study-1 A3: a handoff she marked counts down; a reported problem says so (the need-by date no longer matters once it is handed over). */
+function handoffLine(a) {
+  const h = a.handoff ?? {};
+  if (h.problemAt) return `${state.customer.first} didn’t get it · sort it out in chat`;
+  const left = autoCompleteLeft(a);
+  if (left != null) return `${a.returnOption === 'dropoff' ? 'Delivered' : 'Picked up'} · completes in ${left <= 3600000 ? 'less than 1h' : `${Math.floor((left - 1) / 3600000)}h`}`;   // the same count as autoCompleteLine
+  return null;
+}
 /* K-17 (D-243, #9): an "In progress" row's pill already says it (and so does its section), so its line is only the due date — one line, no "Tailoring ·" */
-const sinceLine = (a) => (a.status === 'in-progress' ? `Needed by ${fmtDay(a.job.needBy)}` : `${stepOf(a)} · needed by ${fmtDay(a.job.needBy)}`);
+const sinceLine = (a) => (a.status === 'in-progress' ? `Needed by ${fmtDay(a.job.needBy)}` : handoffLine(a) ?? `${stepOf(a)} · needed by ${fmtDay(a.job.needBy)}`);
 /** Confirmed and not started = Upcoming; the visit itself and everything after = In progress. */
 const started = (a) => a.status !== 'confirmed' || now() >= toDate(a.slot.start).getTime();
 
@@ -50,8 +58,9 @@ function view(s) {
   const { requests, upcoming: booked } = inbox();
   const upcoming = booked.filter((a) => !started(a));
   const progress = booked.filter(started).sort((a, b) => toDate(a.job.needBy) - toDate(b.job.needBy) || toDate(a.slot.start) - toDate(b.slot.start));   // D-169: soonest due first
+  /* Study-1 A4 (default 10): every completed job, newest first, with what it paid out */
   const recent = apptsFor('tailor').filter((a) => a.status === 'completed')
-    .sort((a, b) => toDate(b.history[b.history.length - 1].at) - toDate(a.history[a.history.length - 1].at)).slice(0, 1);
+    .sort((a, b) => toDate(b.history[b.history.length - 1].at) - toDate(a.history[a.history.length - 1].at));
   const first = firstOf(t);
   const head = `${chrome('home', { persona: 'tailor' })}`;
   const hello = headingRow(`<h1 class="t-title">Hi, ${esc(first)}</h1>`, { back: false });
@@ -113,13 +122,16 @@ function view(s) {
   }).join('');
   const rows = rowsOf(upcoming);
   const progressRows = rowsOf(progress);
+  const doneMoney = fmtColumn(recent.map((a) => a.money.payout));
   const recentRows = recent.map((a) => {
     const po = payoutOf(a);
     const w = statusWord(a, 'tailor', { short: true });
+    /* "Paid Fri, Oct 16" once the Friday run paid it; "Payout pending" until then; the bank's return in the error tone */
+    const caption = po?.state === 'paid' ? payoutLine(po).short : po?.state === 'failed' ? payoutLine(po).short : 'Payout pending';
     return apptRow({
       id: a.id, name: customerName(a), initials: customerInitials(), when: `Completed ${fmtDay(a.history[a.history.length - 1].at)}`, place: shortPlace(requestView(a).place),
-      status: w.pill, pillLabel: w.label, amountText: fmtColumn([a.money.payout])(a.money.payout),
-      amountCaption: po ? payoutLine(po).short : 'Payout pending', captionTone: po?.state === 'failed' ? 'error' : 'default', muted: true,
+      status: w.pill, pillLabel: w.label, amountText: doneMoney(a.money.payout),
+      amountCaption: caption, captionTone: po?.state === 'failed' ? 'error' : 'default', muted: true,
     });
   }).join('');
 
@@ -139,7 +151,7 @@ function view(s) {
   ${upcoming.length || !progress.length ? group('Upcoming', 'upcoming', upcoming.length || null,
     upcoming.length ? `<div class="${ID}__list">${rows}</div>` : `<p class="t-body c-600 ${ID}__none">${apptsFor('tailor').length ? 'Nothing upcoming.' : 'Nothing booked yet.'}</p>`) : ''}
   ${progress.length ? group('In progress', 'progress', progress.length, `<div class="${ID}__list">${progressRows}</div>`) : ''}
-  ${recent.length ? group('Recent', 'recent', null, `<div class="${ID}__list">${recentRows}</div>`) : ''}
+  ${recent.length ? group('Completed', 'completed', recent.length, `<div class="${ID}__list">${recentRows}</div>`) : ''}
 </main>`;
 }
 

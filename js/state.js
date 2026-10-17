@@ -16,12 +16,14 @@
 
    Status machine:
      requested → confirmed → fitting → price-change → in-progress → ready → awaiting-handoff → completed
+       (awaiting-handoff, Study-1 A1–A3: the balance is HELD when Sarah picks a way back and captured at the handoff — pickup code,
+        "I got it", courier delivery, or HANDOFF_AUTO_H after Amara marks it; still open after UNCLAIMED_CAPTURE_D → captured, job stays open)
      requested → suggested → confirmed | cancelled(switched | withdrawn)
      requested → declined (terminal) · expired → requested (Try again) · confirmed → cancelled(...)
    ============================================================ */
 import { POLICY } from './money-config.js';
 import {
-  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout,
+  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout, fmtExact,
 } from './money.js';
 import {
   toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, payoutDay,
@@ -29,7 +31,7 @@ import {
 import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
-  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType,
+  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType, HANDOFF_CODE_LEN,
 } from './data.js';
 
 export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff', 'completed', 'cancelled'];
@@ -39,6 +41,7 @@ export const SECTIONS = ['profile', 'services', 'where', 'returns', 'availabilit
 const clone = (x) => structuredClone(x);
 const MIN_MS = 60000;
 const HOUR_MS = 3600000;
+const DAY_MS = 24 * HOUR_MS;
 
 function freshSim() {
   /* network 'online'|'offline' · send 'ok'|'fail' (one-shot, D-130) · session 'valid'|'expired' · push 'default'|'prompt'|'granted'|'denied'
@@ -84,7 +87,9 @@ const succeed = (appt, extra = {}) => ({ ok: true, appt, ...extra });
 export const now = () => state.clock.now;
 export const nowIso = () => isoMinute(new Date(state.clock.now));
 export function setClock(iso) { state.clock.now = toDate(iso).getTime(); return state.clock.now; }
-/** Expire every `requested` appointment whose reply window has passed. Returns the expired ids. */
+/** Run every timer that is due: expire `requested` appointments whose reply window passed, lapse suggested times (D-154) and, on
+    `awaiting-handoff` (Study-1 A2–A3), capture an unclaimed hold and auto-complete a marked handoff — each stamped at its own due time,
+    in time order. A reported problem pauses both handoff timers. Returns the ids that moved. */
 export function tick() {
   const expired = [];
   for (const a of state.appts) {
@@ -93,6 +98,17 @@ export function tick() {
     } else if (a.status === 'suggested' && state.clock.now >= suggestLapseAt(a)) {
       endSuggestion(a, `${firstName(tailorById(a.tailorId))}’s suggested time passed`, 'Your suggested time passed', 'lapsed');   // D-154
       expired.push(a.id);
+    } else if (a.status === 'awaiting-handoff' && a.handoff && !a.handoff.problemAt) {
+      const auto = a.handoff.autoAt ? toDate(a.handoff.autoAt).getTime() : Infinity;
+      const cap = a.payments.balance.state === 'held' ? unclaimedAt(a) : Infinity;
+      if (cap <= state.clock.now && cap < auto) {
+        const at = isoMinute(new Date(cap));
+        captureHold(a, 'unclaimed', at);
+        const amt = fmtExact(a.payments.balance.cents);
+        post(a.tailorId, 'system', `We charged the ${amt} on hold after ${POLICY.UNCLAIMED_CAPTURE_D} days`, { at, tailorText: `${state.customer.first}’s ${amt} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days` });
+        expired.push(a.id);
+      }
+      if (auto <= state.clock.now) { completeHandoff(a, 'auto', a.handoff.autoAt); expired.push(a.id); }
     }
   }
   return expired;
@@ -543,8 +559,8 @@ function restoreDraft(appt) {
 function restoreDraftIfEmpty(appt) {
   if (!(state.job.garments ?? []).length) restoreDraft(appt);
 }
-function addPayout(appt, centsAmount, kind) {
-  state.payouts.push({ apptId: appt.id, cents: centsAmount, state: 'pending', date: payoutDay(nowIso()), kind, createdAt: nowIso() });   // the following Friday (D-24)
+function addPayout(appt, centsAmount, kind, at = nowIso()) {
+  state.payouts.push({ apptId: appt.id, cents: centsAmount, state: 'pending', date: payoutDay(at), kind, createdAt: at });   // the following Friday (D-24)
 }
 /** The weekly Friday run (D-136): every pending payout due by today is paid — or, with `sim.payout = 'failed'`, sent back — with the bank
     snapshotted. Never called by tick() / advanceClock(); fixtures call it. */
@@ -755,9 +771,25 @@ export function tailorCantMakeIt(id, reason = '') {
   if (a.status !== 'confirmed') return fail('not-confirmed');
   setStatus(a, 'cancelled');
   a.payments.deposit.state = 'refunded';
-  a.cancel = { by: 'tailor', reason: 'tailor-cant-make-it', note: reason, at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
+  /* K-29 (Study-1 A5): inside CANCEL_WINDOW_H the tailor was warned; the refund is the same (in full), the cancel is marked late */
+  const late = cancelTerms(a, state.clock.now).window === 'late';
+  a.cancel = { by: 'tailor', reason: 'tailor-cant-make-it', note: reason, at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0, late };
   restoreDraft(a);
   say(a, `${firstName(tailorById(a.tailorId))} can’t make it`, 'You can’t make it');
+  return succeed(a);
+}
+
+/** K-29 (Study-1 A5): Sarah reports that the tailor didn't show up — from NO_SHOW_WAIT_MIN after the start, while still confirmed (first report
+    wins: a visit Amara started, or a no-show she marked, has moved on). Cancelled, deposit refunded in full, the order back as the draft, no payout. */
+export function reportTailorNoShow(id) {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  if (state.clock.now < toDate(a.slot.start).getTime() + POLICY.NO_SHOW_WAIT_MIN * MIN_MS) return fail('too-early');
+  setStatus(a, 'cancelled');
+  a.payments.deposit.state = 'refunded';
+  a.cancel = { by: 'customer', reason: 'tailor-no-show', at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
+  restoreDraft(a);
+  say(a, `You reported that ${firstName(tailorById(a.tailorId))} didn’t show up`, `${state.customer.first} reported you didn’t show up`);
   return succeed(a);
 }
 
@@ -1053,6 +1085,8 @@ export function chooseReturn(id, option) {
   return succeed(a);
 }
 
+/** K-27 (Study-1 A2): picking a way back HOLDS the balance (services + rush + courier − deposit) on the card; nothing is charged until the
+    handoff (or UNCLAIMED_CAPTURE_D later). A $0 balance holds nothing and settles a D-156 refund as before. Moves to awaiting-handoff. */
 export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   const a = must(id);
   if (a.status !== 'ready') return fail('not-ready');
@@ -1061,21 +1095,129 @@ export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   const charge = a.money.balance > 0;                                                         // M6-M-03: a $0 balance only settles the refund, nothing to decline
   if (charge && state.sim.card === 'declined') { a.payments.balance.state = 'failed'; a.payments.balance.failedCardId = cardId; return fail('card-declined'); }
   if (charge && state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
-  a.payments.balance = { cents: a.money.balance, state: 'paid' };
+  a.payments.balance = { cents: a.money.balance, state: charge ? 'held' : 'none', heldAt: nowIso() };
   if (a.payments.refund?.cents > 0) a.payments.refund.state = 'refunded';                   // D-156
   a.balanceCardId = cardId;
+  a.handoff = {
+    code: handoffCode(a), heldAt: nowIso(), pausedMs: 0,
+    markedBy: null, markedAt: null, photo: null, marks: 0, autoAt: null, problemAt: null, completedBy: null, completedAt: null,
+  };
   setStatus(a, 'awaiting-handoff');
-  say(a, 'You paid the balance', `${state.customer.first} paid the balance`);
+  const how = RETURN_LABEL[a.returnOption].toLowerCase();
+  const amt = fmtExact(a.money.balance);
+  say(a, charge ? `You chose ${how}. ${amt} is on hold.` : `You chose ${how}.`, charge ? `${state.customer.first} chose ${how}. Her ${amt} is on hold.` : `${state.customer.first} chose ${how}.`);
   return succeed(a);
 }
 
-export function markCompleted(id) {
+/* ---------- Study-1 A2–A3: the handoff ---------- */
+/** The customer's pickup code: HANDOFF_CODE_LEN digits derived from the appointment id, so it is the same on every reload (A-1001 → 8153). */
+export function handoffCode(appt) {
+  const n = Number(String(appt?.id ?? '').replace(/\D/g, '')) || 0;
+  return String((n * 7919 + 1234) % (10 ** HANDOFF_CODE_LEN)).padStart(HANDOFF_CODE_LEN, '0');
+}
+/** When an unclaimed hold is captured: the hold + UNCLAIMED_CAPTURE_D, plus the time a reported problem paused it. Epoch ms; null without a hold. */
+export function unclaimedAt(appt) {
+  const h = appt?.handoff;
+  if (!h?.heldAt) return null;
+  return toDate(h.heldAt).getTime() + POLICY.UNCLAIMED_CAPTURE_D * DAY_MS + (h.pausedMs ?? 0);
+}
+/** ms until the automatic completion; null while nothing counts down (not marked yet, a problem is open, or it is no longer awaiting the handoff). */
+export function autoCompleteLeft(appt) {
+  const h = appt?.handoff;
+  if (appt?.status !== 'awaiting-handoff' || !h?.autoAt || h.problemAt) return null;
+  return Math.max(0, toDate(h.autoAt).getTime() - state.clock.now);
+}
+function captureHold(a, reason, at = nowIso()) {
+  const b = a.payments.balance;
+  if (b.state !== 'held') return false;
+  Object.assign(b, { state: 'captured', captureReason: reason, capturedAt: at });
+  return true;
+}
+/** The one way into `completed` (A3): capture what is still held, stamp the completion (at `at` — an auto-completion is stamped at its
+    `autoAt`), queue the payout for the Friday after. `by`: 'code' | 'customer' | 'courier' | 'auto'. */
+function completeHandoff(a, by, at = nowIso()) {
+  captureHold(a, 'handoff', at);
+  a.status = 'completed';
+  a.history.push({ status: 'completed', at });
+  Object.assign(a.handoff, { completedBy: by, completedAt: at });
+  addPayout(a, a.money.payout, 'job', at);                           // pending until the weekly run (D-24)
+  post(a.tailorId, 'system', by === 'auto' ? 'Completed automatically' : 'Completed', { at, tailorText: by === 'auto' ? 'Completed automatically' : 'Completed' });
+}
+const guardHandoff = (a) => (a.status !== 'awaiting-handoff' ? fail('not-awaiting-handoff') : null);
+
+/** Tailor, in-store pickup: Sarah's code completes it right away. Errors: code-format (not HANDOFF_CODE_LEN digits) · code-wrong. */
+export function confirmPickup(id, code) {
   const a = must(id);
-  if (a.status !== 'awaiting-handoff') return fail('not-awaiting-handoff');
-  setStatus(a, 'completed');
-  addPayout(a, a.money.payout, 'job');                               // pending until the weekly run (D-24)
-  say(a, 'Completed');
+  const g = guardHandoff(a); if (g) return g;
+  if (a.returnOption !== 'pickup') return fail('not-pickup');
+  const c = String(code ?? '').trim();
+  if (!new RegExp(`^\\d{${HANDOFF_CODE_LEN}}$`).test(c)) return fail('code-format');
+  if (c !== a.handoff.code) return fail('code-wrong');
+  completeHandoff(a, 'code');
   return succeed(a);
+}
+/** Tailor marks it handed over without Sarah's confirmation: a drop-off needs a photo (Sarah sees it); a pickup without the code needs none.
+    Starts the HANDOFF_AUTO_H countdown. After a reported problem she can mark it again (a new photo), which clears the problem and restarts it. */
+export function markHandedOver(id, { photo = false } = {}) {
+  const a = must(id);
+  const g = guardHandoff(a); if (g) return g;
+  if (a.returnOption === 'courier') return fail('courier');
+  const h = a.handoff;
+  if (h.markedAt && !h.problemAt) return fail('already-marked');
+  const dropoff = a.returnOption === 'dropoff';
+  if (dropoff && !photo) return fail('photo-required');
+  if (h.problemAt) { h.pausedMs += state.clock.now - toDate(h.problemAt).getTime(); h.problemAt = null; }
+  h.marks += 1;
+  Object.assign(h, {
+    markedBy: 'tailor', markedAt: nowIso(), autoAt: isoMinute(new Date(state.clock.now + POLICY.HANDOFF_AUTO_H * HOUR_MS)),
+    photo: dropoff ? { id: `h${h.marks}`, at: nowIso(), tone: (h.marks - 1) % 4 } : null,
+  });
+  const first = firstName(tailorById(a.tailorId));
+  say(a, dropoff ? `${first} marked it delivered` : `${first} marked it picked up`, dropoff ? 'You marked it delivered' : 'You marked it picked up');
+  return succeed(a);
+}
+/** Customer, any way back: "I got it" completes it right away (also after she reported a problem). */
+export function confirmReceived(id) {
+  const a = must(id);
+  const g = guardHandoff(a); if (g) return g;
+  completeHandoff(a, 'customer');
+  return succeed(a);
+}
+/** Customer: "I didn't get it" once the tailor marked it — stops the automatic completion and the unclaimed capture until it is sorted out. */
+export function reportNotReceived(id) {
+  const a = must(id);
+  const g = guardHandoff(a); if (g) return g;
+  if (!a.handoff.markedAt) return fail('not-marked');
+  if (a.handoff.problemAt) return fail('already-reported');
+  a.handoff.problemAt = nowIso();
+  say(a, 'You said you didn’t get it', `${state.customer.first} says she didn’t get it`);
+  return succeed(a);
+}
+/** The Taily courier dropped it at Sarah's door: completes right away (simulated by the Test-flows Demo action). */
+export function courierDelivered(id) {
+  const a = must(id);
+  const g = guardHandoff(a); if (g) return g;
+  if (a.returnOption !== 'courier') return fail('not-courier');
+  completeHandoff(a, 'courier');
+  return succeed(a);
+}
+
+/** K-28 (Study-1 A4): a completed order with no review, REVIEW_REMINDER_D or more after it completed → the reminder card + Leave a review. */
+export function reviewReminderDue(appt) {
+  if (!appt || appt.status !== 'completed' || appt.review) return false;
+  const at = appt.handoff?.completedAt ?? [...appt.history].reverse().find((h) => h.status === 'completed')?.at;
+  return !!at && state.clock.now >= toDate(at).getTime() + POLICY.REVIEW_REMINDER_D * DAY_MS;
+}
+/** The customer's newest order whose review reminder is due, or null. */
+export const reviewReminder = () => apptsFor('customer').find(reviewReminderDue) ?? null;
+
+/** Study-1 A4 "Book [tailor] again": a fresh draft for the same place — visit type, ZIP and address — with no garments. */
+export function bookAgain(id) {
+  const a = must(id);
+  const { visitType, zip, address } = a.job;
+  newJob();
+  Object.assign(state.job, { visitType, zip, address: address ? clone(address) : state.job.address });
+  return { ok: true, appt: a, job: state.job };
 }
 
 export function leaveReview(id, { stars, text = '', photos = 0 } = {}) {
@@ -1151,7 +1293,7 @@ export function statusScreen(appt, persona = state.persona) {
   if (persona === 'tailor') return ['requested', 'suggested', 'declined', 'expired'].includes(s) ? 't-request' : 't-job';
   if (['requested', 'suggested', 'declined', 'expired'].includes(s)) return 'c-request';
   if (s === 'price-change') return 'c-price-change';
-  if (s === 'ready' && appt.payments.balance.state !== 'paid') return 'c-ready';
+  if (s === 'ready') return 'c-ready';                              // holding the balance moves it on to awaiting-handoff (K-27)
   if (s === 'completed' && !appt.review) return 'c-complete';
   return 'c-booking';
 }
@@ -1210,9 +1352,9 @@ export function priceChangeView(appt, lines = appt?.priceChange?.lines ?? appt?.
 export const T = {
   setJob, newJob, addGarment, removeGarment, setServices, validateJob,
   requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, withdrawSuggestion, findAnotherTailor,
-  tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow,
+  tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow, reportTailorNoShow,
   startFitting, addFittingPhoto, removeFittingPhoto, restoreFittingPhoto, setFittingComment, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
-  chooseReturn, holdBalance, markCompleted, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
+  chooseReturn, holdBalance, confirmPickup, markHandedOver, confirmReceived, reportNotReceived, courierDelivered, bookAgain, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick, suggestLapseAt,
 };

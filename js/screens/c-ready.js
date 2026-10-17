@@ -1,6 +1,6 @@
 /* ============================================================
-   c-ready — C10 pick a way back, then pay the balance.
-   Focal: the "How do you want it back?" radio group; the amount lives in the Pay button.
+   c-ready — C10 pick a way back, then HOLD the balance (K-27, Study-1 A2: charged at the handoff).
+   Focal: the "How do you want it back?" radio group; the amount lives in the Hold button.
    Only the options Amara offers for this order render (returnOffer); nothing is pre-chosen
    unless there is exactly one. The Taily courier is three dollar lines before Pay enables.
    Which appointment: focusAppt (D-72). Screen-local flags: state.ui['c-ready'] { apptId, quoting, cardId }.
@@ -17,6 +17,7 @@ import * as A from '../account.js';
 import { withLatency } from '../sim.js';
 import { fmtExact } from '../money.js';
 import { RETURN_LABEL, ZIP_INFO } from '../data.js';
+import { POLICY } from '../money-config.js';
 import { META_ICONS } from '../icons.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 
@@ -79,7 +80,7 @@ function subOf(k, r) {
   return `${nb('Uber, today')} · priced when you choose it`;
 }
 
-/** CR-1b: the action-bar lead — why Pay waits, and once it can go, what was chosen. */
+/** CR-1b: the action-bar lead — why Hold waits, and once it can go, what was chosen. */
 function barLead(r) {
   if (!r.sel) return 'Choose how to get it back first.';
   if (r.sel === 'courier' && r.courierState === 'loading') return 'Waiting for the courier price.';
@@ -111,7 +112,6 @@ function view() {
 </main>`;
   }
   const { a, t, first, offered, sel, c, courierState, failed } = r;
-  const pillCard = r.methods.find((m) => m.id === r.failedId)?.label ?? 'card';
   const off = !sel || (sel === 'courier' && courierState !== 'ready');
   const zero = a.money.balance === 0;                                     // D-156: the final order is worth less than the deposit
   const refund = a.money.refund;
@@ -124,8 +124,8 @@ function view() {
       : zero
         ? (only ? `${esc(first)} finished the work. Nothing is left to pay, then ${LINE_FOR[only]}.` : `${esc(first)} finished the work. Choose how to get it back. Nothing is left to pay.`)
         : only
-          ? `${esc(first)} finished the work. Pay the balance, then ${LINE_FOR[only]}.`
-          : `${esc(first)} finished the work. Choose how to get it back, then pay the balance.`;
+          ? `${esc(first)} finished the work. Hold the balance, then ${LINE_FOR[only]}.`
+          : `${esc(first)} finished the work. Choose how to get it back. We hold the balance until you have it.`;
   /* K-24 (R3): the linen stage carries the title — caps eyebrow + serif title on the linen, the K-22 hang stage under the stitch,
      the body on the page ground directly above the choice. The tag says Ready; the clothes are at the shop until a way back is picked. */
   const items = returnedItems(a);
@@ -141,7 +141,7 @@ function view() {
   <p class="t-body ${ID}__intro">${body}</p>`;
   /* C-11: one decline pattern (D-140) — the banner sits directly above the action bar, the way forward is another card */
   const alert = failed && !zero
-    ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Your card was declined', text: `${esc(pillCard)} didn’t go through, and nothing was charged.`, actionLabel: 'Use another card', actionAct: 'pay' })}</div>`
+    ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Your card was declined', text: 'Nothing was held. Try another card.', actionLabel: 'Use another card', actionAct: 'pay' })}</div>`
     : '';
   const sameCard = failed && r.method?.id === r.failedId;                 // the failed card is still the one selected
   /* "Free" sits in the row's value slot (right-aligned, t-body w-600) */
@@ -155,19 +155,26 @@ function view() {
       state: courierState, ...(courierState === 'ready' ? c : { miles: c?.miles ?? ZIP_INFO[a.job.zip]?.miles ?? 0 }),   // the distance is known before the price
       from: t.shopName, to: streetOf(), note: 'Added to your balance.',
     })}${courierState === 'failed' && offered.length === 1 ? textLink(`Message ${first}`, { act: 'message' }) : ''}</div>` : '';
+  /* K-27 (Study-1 A2): what holding means, and the unclaimed rule, shown where the way back is chosen */
+  const bal = a.money.balance;
+  const hold = zero ? '' : `<div class="${ID}__hold" data-hold>
+  <p class="t-body c-700">We’ll hold ${money(bal)} now and charge it when you get your ${items.length > 1 ? 'garments' : 'garment'}.</p>
+  <p class="t-small c-600">If you haven’t got it ${POLICY.UNCLAIMED_CAPTURE_D} days after you choose, we’ll charge the ${money(bal)} then. ${esc(first)} still keeps it for you until you do.</p>
+</div>`;
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${hero}
   <section class="sec">${sectionHead(only ? 'Getting it back' : 'How do you want it back?', { id: 'ready-ways' })}
   <div class="${ID}__group card card--list" role="radiogroup" aria-labelledby="ready-ways">${rows}</div>
   ${single}
-  ${courier}</section>
+  ${courier}
+  ${hold}</section>
   ${orderSection(a)}
   <section class="sec">${sectionHead('Price')}
   ${customerBreakdown(a.money, { stage: 'ready', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true })}</section>
   ${alert}
 </main>
 ${actionBar({
-    ctaLabel: zero ? (refund > 0 ? `Confirm${sel ? ` ${CHOICE_WORD[sel]}` : ''} and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : `Pay ${fmtExact(a.money.balance)}`,
+    ctaLabel: zero ? (refund > 0 ? `Confirm${sel ? ` ${CHOICE_WORD[sel]}` : ''} and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : `Hold ${fmtExact(a.money.balance)}`,
     ctaAct: zero ? 'confirm' : 'pay', disabled: off, busy: confirming, busyLabel: 'Confirming…', lead: barLead(r),
     secondaryLabel: `Message ${first}`, secondaryAct: 'message',
   })}`;
@@ -188,7 +195,7 @@ function sheetHtml(r, { cardId, busy = false } = {}) {
   <p class="t-caps c-600">Pay with</p>
   <div class="${ID}-sheet__group" role="radiogroup" aria-label="Pay with"${busy ? ' aria-disabled="true"' : ''}>${rows}</div>
   </div>
-  ${cta(`Pay ${fmtExact(a.money.balance)}`, { busy, busyLabel: 'Paying…', attrs: 'data-act="pay-ok"' })}
+  ${cta(`Hold ${fmtExact(a.money.balance)}`, { busy, busyLabel: 'Holding…', attrs: 'data-act="pay-ok"' })}
 </div>`;
 }
 
@@ -255,7 +262,7 @@ function openPay(r) {
   const u = ui(a);
   let cardId = r.method?.id;
   let busy = false;
-  sheetOverlay(sheetHtml(r, { cardId }), { header: 'Pay the balance', dataS: `${ID}--pay`, confirm: false }, (holder, close) => {
+  sheetOverlay(sheetHtml(r, { cardId }), { header: 'Hold the balance', dataS: `${ID}--pay`, confirm: false }, (holder, close) => {
     /* while paying, the sheet cannot be dismissed (✕, scrim, Escape): closing it would drop the payment (R4-2-C-03) */
     const paint = () => {
       holder.querySelector(`.${ID}-sheet`).outerHTML = sheetHtml(r, { cardId, busy });
@@ -291,8 +298,8 @@ function openPay(r) {
           close();
           /* the router took the screen away mid-payment (browser Back): the charge still lands, say so */
           if (!onScreen()) {
-            if (res.ok) toast(`Paid ${fmtExact(res.appt.payments.balance.cents)}.`, { tone: 'success' });
-            else if (res.error === 'card-declined') toast('Your payment didn’t go through. Nothing was charged.', { tone: 'error' });
+            if (res.ok) toast(`${fmtExact(res.appt.payments.balance.cents)} is on hold.`, { tone: 'success' });
+            else if (res.error === 'card-declined') toast('Your card was declined. Nothing was held.', { tone: 'error' });
             return;
           }
           if (res.ok) {
@@ -301,7 +308,7 @@ function openPay(r) {
               : how === 'dropoff' ? ` ${r.first} will drop it off.` : ' Your courier is on the way.';
             setFocus(a.id);
             go('c-booking', { fresh: true });
-            toast(`Paid ${fmtExact(res.appt.payments.balance.cents)}.${tail}`, { tone: 'success' });
+            toast(`${fmtExact(res.appt.payments.balance.cents)} is on hold.${tail}`, { tone: 'success' });
           } else if (res.error === 'card-declined') {
             go(ID);
           } else {

@@ -4,7 +4,7 @@
    Every milestone's Test-flows setup reuses it. DOM-free.
    ============================================================ */
 import {
-  state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt,
+  state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt, handoffCode,
 } from '../state.js';
 import { addMinutes, isoMinute } from '../dates.js';
 import { TAILORS, CUSTOMER, DEMO_NOW, DECLINE_REASONS, CANT_MAKE_IT_REASONS } from '../data.js';
@@ -47,7 +47,18 @@ export const TARGETS = [
   'requested', 'suggested', 'declined', 'expired', 'expired-2', 'expired-final', 'confirmed', 'cancelled-early',
   'cancelled-late', 'cant-make-it', 'no-show', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff',
   'completed', 'reviewed',
+  /* Study-1 WS-A */
+  'handed-over', 'problem', 'auto-completed', 'unclaimed', 'review-reminder', 'tailor-no-show', 'cant-make-it-late',
 ];
+
+/** Study-1 A3: the handoff each way back completes with — pickup: Sarah's code; courier: the courier delivers; drop-off: Amara marks it
+    delivered with a photo and Sarah taps "I got it". Throws on failure. */
+export function handOver(id, how = getAppt(id).returnOption) {
+  if (how === 'pickup') return must(T.confirmPickup(id, handoffCode(getAppt(id))), 'confirmPickup');
+  if (how === 'courier') return must(T.courierDelivered(id), 'courierDelivered');
+  must(T.markHandedOver(id, { photo: true }), 'markHandedOver');
+  return must(T.confirmReceived(id), 'confirmReceived');
+}
 
 const must = (r, step) => {
   if (!r.ok) throw new Error(`driveTo: ${step} failed (${r.error})`);
@@ -156,6 +167,14 @@ export function driveTo(target, opts = {}) {
     return must(T.cancelBooking(id), 'cancelBooking');
   }
   if (target === 'cant-make-it') return must(T.tailorCantMakeIt(id, CANT_MAKE_IT_REASONS[0]), 'tailorCantMakeIt');
+  if (target === 'cant-make-it-late') {
+    setClock(isoMinute(addMinutes(getAppt(id).slot.start, -8 * 60)));         // inside the 24 h window (K-29)
+    return must(T.tailorCantMakeIt(id, CANT_MAKE_IT_REASONS[0]), 'tailorCantMakeIt');
+  }
+  if (target === 'tailor-no-show') {
+    setClock(isoMinute(addMinutes(getAppt(id).slot.start, 20)));
+    return must(T.reportTailorNoShow(id), 'reportTailorNoShow');
+  }
   if (target === 'no-show') {
     setClock(isoMinute(addMinutes(getAppt(id).slot.start, 20)));
     return must(T.markNoShow(id), 'markNoShow');
@@ -176,8 +195,17 @@ export function driveTo(target, opts = {}) {
   must(T.chooseReturn(id, returnOption), 'chooseReturn');
   must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
   if (target === 'awaiting-handoff') return getAppt(id);
-  must(T.markCompleted(id), 'markCompleted');
+  if (target === 'unclaimed') { advanceClock(POLICY.UNCLAIMED_CAPTURE_D * 24 * 60); return getAppt(id); }   // the hold is captured, the job stays open
+  if (['handed-over', 'problem', 'auto-completed'].includes(target)) {
+    must(T.markHandedOver(id, { photo: returnOption === 'dropoff' }), 'markHandedOver');   // pickup: marked without the code
+    if (target === 'handed-over') return getAppt(id);
+    if (target === 'problem') return must(T.reportNotReceived(id), 'reportNotReceived');
+    advanceClock(POLICY.HANDOFF_AUTO_H * 60);                                 // the countdown runs out: completed automatically
+    return getAppt(id);
+  }
+  handOver(id, returnOption);
   if (target === 'completed') return getAppt(id);
+  if (target === 'review-reminder') { advanceClock(POLICY.REVIEW_REMINDER_D * 24 * 60); return getAppt(id); }
   return must(T.leaveReview(id, { stars: 5, text: 'Perfect fit, and she was on time.', photos: 0 }), 'leaveReview');
 }
 
@@ -232,7 +260,7 @@ export function onboardTo(step, { phone = NEW_TAILOR_PHONE } = {}) {
 }
 
 /** completeJob(id, { returnOption = 'pickup' }) — the real chain on an accepted appointment: fitting → final order (unchanged) →
-    approve → ready → return → balance → completed. Throws on failure. */
+    approve → ready → return → hold → handOver (Study-1 A3) → completed. Throws on failure. */
 export function completeJob(id, { returnOption = 'pickup' } = {}) {
   setClock(getAppt(id).slot.start);
   must(T.startFitting(id), 'startFitting');
@@ -242,7 +270,7 @@ export function completeJob(id, { returnOption = 'pickup' } = {}) {
   must(T.markReady(id), 'markReady');
   must(T.chooseReturn(id, returnOption), 'chooseReturn');
   must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
-  return must(T.markCompleted(id), 'markCompleted');
+  return handOver(id, returnOption);
 }
 
 /** earningsTo(kind) — kind: 'pending' | 'paid' | 'failed' | 'kept' (M5 A7).

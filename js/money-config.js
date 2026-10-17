@@ -12,6 +12,8 @@ export const MONEY = Object.freeze({
   COURIER_PER_MILE: 2.50,   // … + $2.50 per mile
   FEE_EXAMPLE_SERVICES: 100, // the round services total the payouts step explains the Taily fee with (display only, not a rate, D-63)
   NO_SHOW_COMP: 25,         // floor the tailor is paid on a no-show (D-06)
+  PRICE_RANGE_SPREAD: 0.20, // Study-1 C3: a service's recommended range = base ± this share, never rendered as a rate
+  PRICE_ROUND: 5,           // Study-1 C3: range ends rounded to the nearest $5
 });
 
 export const POLICY = Object.freeze({
@@ -25,4 +27,7 @@ export const POLICY = Object.freeze({
   CODE_TTL_MIN: 10,         // a sign-in SMS code works for 10 min, then it expires (D-33)
   CODE_RESEND_S: 30,        // "Resend code" unlocks 30 s after the last send (D-33)
   JUST_BOOKED_MIN: 60,      // a booking reads as just confirmed (You’re booked / You accepted) this long after the accept (D-73)
+  HANDOFF_AUTO_H: 48,       // Study-1 A3: a handoff the tailor marked (drop-off photo / pickup without code) completes on its own after this long
+  UNCLAIMED_CAPTURE_D: 7,   // Study-1 A2: the held balance is captured this many days after the hold if the order is still not handed over
+  REVIEW_REMINDER_D: 7,     // Study-1 A4: the review reminder shows this many days after completion when no review was left
 });

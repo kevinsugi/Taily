@@ -15,7 +15,7 @@
    money-config.js. Decisions: D-03 … D-27 in docs/v5/DECISIONS.md.
 
    Status machine:
-     requested → confirmed → fitting → price-change → in-progress → ready → returning → completed
+     requested → confirmed → fitting → price-change → in-progress → ready → awaiting-handoff → completed
      requested → suggested → confirmed | cancelled(switched | withdrawn)
      requested → declined (terminal) · expired → requested (Try again) · confirmed → cancelled(...)
    ============================================================ */
@@ -32,7 +32,7 @@ import {
   TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType,
 } from './data.js';
 
-export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed', 'cancelled'];
+export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff', 'completed', 'cancelled'];
 export const TERMINAL = ['declined', 'cancelled', 'completed'];
 export const SECTIONS = ['profile', 'services', 'where', 'returns', 'availability', 'payouts'];
 
@@ -998,7 +998,7 @@ export function markReady(id, { returns } = {}) {
   a.returnOffer = offer;
   setStatus(a, 'ready');
   a.payments.balance = { cents: a.money.balance, state: 'due' };
-  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-23, D-156: settled by payBalance
+  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-23, D-156: settled by holdBalance
   say(a, 'Ready. Choose how to get it back.', `You marked it ready. Waiting for ${state.customer.first} to choose how to get it back.`);
   return succeed(a);
 }
@@ -1014,7 +1014,7 @@ export function returnAddress() {
     `{ from, to }` as ISO minutes; null when no courier is booked. */
 export function courierWindow(appt) {
   if (appt.returnOption !== 'courier' || !appt.courier) return null;
-  const paidAt = [...appt.history].reverse().find((h) => h.status === 'returning')?.at ?? appt.history[appt.history.length - 1]?.at;
+  const paidAt = [...appt.history].reverse().find((h) => h.status === 'awaiting-handoff')?.at ?? appt.history[appt.history.length - 1]?.at;
   if (!paidAt) return null;
   const t = toDate(paidAt);
   const m = t.getHours() * 60 + t.getMinutes() + 60;
@@ -1053,7 +1053,7 @@ export function chooseReturn(id, option) {
   return succeed(a);
 }
 
-export function payBalance(id, cardId = null, { threeDS = false } = {}) {
+export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   const a = must(id);
   if (a.status !== 'ready') return fail('not-ready');
   if (!a.returnOption) return fail('return-required');
@@ -1064,14 +1064,14 @@ export function payBalance(id, cardId = null, { threeDS = false } = {}) {
   a.payments.balance = { cents: a.money.balance, state: 'paid' };
   if (a.payments.refund?.cents > 0) a.payments.refund.state = 'refunded';                   // D-156
   a.balanceCardId = cardId;
-  setStatus(a, 'returning');
+  setStatus(a, 'awaiting-handoff');
   say(a, 'You paid the balance', `${state.customer.first} paid the balance`);
   return succeed(a);
 }
 
 export function markCompleted(id) {
   const a = must(id);
-  if (a.status !== 'returning') return fail('not-returning');
+  if (a.status !== 'awaiting-handoff') return fail('not-awaiting-handoff');
   setStatus(a, 'completed');
   addPayout(a, a.money.payout, 'job');                               // pending until the weekly run (D-24)
   say(a, 'Completed');
@@ -1212,7 +1212,7 @@ export const T = {
   requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, withdrawSuggestion, findAnotherTailor,
   tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow,
   startFitting, addFittingPhoto, removeFittingPhoto, restoreFittingPhoto, setFittingComment, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
-  chooseReturn, payBalance, markCompleted, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
+  chooseReturn, holdBalance, markCompleted, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick, suggestLapseAt,
 };

@@ -43,7 +43,48 @@ export const ZIP_INFO = {                               // mock geography: neigh
   '11206': { hood: 'East Williamsburg', miles: 1.5 }, '11237': { hood: 'Bushwick', miles: 2.3 },
   '11201': { hood: 'Brooklyn Heights', miles: 3.9 },   // the "zip outside" toggle
 };
+/** Study-1 C5: the five boroughs, picker order. */
+export const BOROUGHS = [
+  { id: 'manhattan', name: 'Manhattan' }, { id: 'brooklyn', name: 'Brooklyn' }, { id: 'queens', name: 'Queens' },
+  { id: 'bronx', name: 'Bronx' }, { id: 'staten-island', name: 'Staten Island' },
+];
+/** Study-1 C5: mock neighborhoods a tailor picks for home visits — `home.hoods` (ids) is the source of truth, `home.zips` is derived
+    from their `zips`. `tile` = the cell in that borough's SVG tile map (x = column, y = row, from 0). Mock geography, not real bounds. */
+export const NEIGHBORHOODS = [
+  { id: 'upper-west-side', name: 'Upper West Side', borough: 'manhattan', zips: ['10024', '10025'], tile: { x: 0, y: 0 } },
+  { id: 'upper-east-side', name: 'Upper East Side', borough: 'manhattan', zips: ['10021', '10028'], tile: { x: 1, y: 0 } },
+  { id: 'midtown', name: 'Midtown', borough: 'manhattan', zips: ['10018', '10019'], tile: { x: 0, y: 1 } },
+  { id: 'chelsea', name: 'Chelsea', borough: 'manhattan', zips: ['10001', '10011'], tile: { x: 0, y: 2 } },
+  { id: 'west-village', name: 'West Village', borough: 'manhattan', zips: ['10014'], tile: { x: 0, y: 3 } },
+  { id: 'east-village', name: 'East Village', borough: 'manhattan', zips: ['10003', '10009'], tile: { x: 1, y: 3 } },
+  { id: 'soho', name: 'SoHo', borough: 'manhattan', zips: ['10012', '10013'], tile: { x: 1, y: 4 } },
+  { id: 'tribeca', name: 'Tribeca', borough: 'manhattan', zips: ['10007'], tile: { x: 0, y: 4 } },
+  { id: 'greenpoint', name: 'Greenpoint', borough: 'brooklyn', zips: ['11222'], tile: { x: 1, y: 0 } },
+  { id: 'williamsburg', name: 'Williamsburg', borough: 'brooklyn', zips: ['11211', '11249'], tile: { x: 0, y: 1 } },
+  { id: 'east-williamsburg', name: 'East Williamsburg', borough: 'brooklyn', zips: ['11206'], tile: { x: 1, y: 1 } },
+  { id: 'bushwick', name: 'Bushwick', borough: 'brooklyn', zips: ['11237'], tile: { x: 2, y: 1 } },
+  { id: 'brooklyn-heights', name: 'Brooklyn Heights', borough: 'brooklyn', zips: ['11201'], tile: { x: 0, y: 2 } },
+  { id: 'fort-greene', name: 'Fort Greene', borough: 'brooklyn', zips: ['11205'], tile: { x: 1, y: 2 } },
+  { id: 'bed-stuy', name: 'Bed-Stuy', borough: 'brooklyn', zips: ['11216', '11221'], tile: { x: 2, y: 2 } },
+  { id: 'park-slope', name: 'Park Slope', borough: 'brooklyn', zips: ['11215'], tile: { x: 1, y: 3 } },
+  { id: 'astoria', name: 'Astoria', borough: 'queens', zips: ['11102', '11105'], tile: { x: 0, y: 0 } },
+  { id: 'long-island-city', name: 'Long Island City', borough: 'queens', zips: ['11101'], tile: { x: 0, y: 1 } },
+  { id: 'sunnyside', name: 'Sunnyside', borough: 'queens', zips: ['11104'], tile: { x: 1, y: 1 } },
+  { id: 'jackson-heights', name: 'Jackson Heights', borough: 'queens', zips: ['11372'], tile: { x: 2, y: 1 } },
+  { id: 'ridgewood', name: 'Ridgewood', borough: 'queens', zips: ['11385'], tile: { x: 1, y: 2 } },
+  { id: 'forest-hills', name: 'Forest Hills', borough: 'queens', zips: ['11375'], tile: { x: 2, y: 2 } },
+  { id: 'riverdale', name: 'Riverdale', borough: 'bronx', zips: ['10471'], tile: { x: 0, y: 0 } },
+  { id: 'fordham', name: 'Fordham', borough: 'bronx', zips: ['10458'], tile: { x: 1, y: 1 } },
+  { id: 'parkchester', name: 'Parkchester', borough: 'bronx', zips: ['10462'], tile: { x: 2, y: 1 } },
+  { id: 'mott-haven', name: 'Mott Haven', borough: 'bronx', zips: ['10454'], tile: { x: 1, y: 2 } },
+  { id: 'st-george', name: 'St. George', borough: 'staten-island', zips: ['10301'], tile: { x: 1, y: 0 } },
+  { id: 'stapleton', name: 'Stapleton', borough: 'staten-island', zips: ['10304'], tile: { x: 1, y: 1 } },
+  { id: 'great-kills', name: 'Great Kills', borough: 'staten-island', zips: ['10308'], tile: { x: 0, y: 2 } },
+  { id: 'tottenville', name: 'Tottenville', borough: 'staten-island', zips: ['10307'], tile: { x: 0, y: 3 } },
+];
 export const REVIEW_LIMITS = { TEXT_MAX: 500, PHOTOS_MAX: 3 };                       // D-107
+export const HANDOFF_CODE_LEN = 4;                                                  // Study-1 A3: the customer's pickup code, digits
+export const NOTES_LIMITS = { TEXT_MAX: 500, PHOTOS_MAX: 4 };                       // Study-1 B2: one private tailor note
 export const STAR_WORDS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];        // index = stars
 export const TAILOR_LIMITS = { BIO_MAX: 300, CARD_LINE_MAX: 110, WORK_PHOTOS_MAX: 6, PRICE_MAX: 999, FEE_MAX: 200, RUSH_MAX: 200, NOTE_MAX: 200 };  // whole dollars (D-58, D-59)
 export const RUSH_TIERS = [1, 2, 3];                       // days after the visit; 4+ days is always free (D-64)
@@ -57,19 +98,21 @@ export const ROUTING_BANKS = { '021000021': 'Chase', '026009593': 'Bank of Ameri
 export const SHOP_RADIUS_MI = 5;                        // shop visits list shops within this distance (D-19)
 
 const ALL = Object.keys(GARMENT_TYPES);
-/** Service catalog: id → { label, garments: [GARMENT_TYPES keys] }. 'bridal' is not offered by the seed tailor. */
+/** Service catalog: id → { label, garments: [GARMENT_TYPES keys], base }. 'bridal' is not offered by the seed tailor.
+    `base` = the typical NYC price in whole dollars (Study-1 C3: the recommended range is base ± MONEY.PRICE_RANGE_SPREAD, rounded to
+    MONEY.PRICE_ROUND, via money.js) — equal to Amara's seed price for the ten she offers; bridal 250 (proposed). */
 export const SERVICES = {
-  'hem-pants': { label: 'Hem pants', garments: ['Suit Pant', 'Pants / Jeans'] },
-  taper: { label: 'Taper legs', garments: ['Suit Pant', 'Pants / Jeans'] },
-  waist: { label: 'Take in or let out waist', garments: ['Suit Pant', 'Pants / Jeans', 'Skirt'] },
-  sleeves: { label: 'Shorten sleeves', garments: ['Suit Jacket', 'Jacket', 'Shirt / Blouse'] },
-  'jacket-sides': { label: 'Take in jacket sides', garments: ['Suit Jacket', 'Jacket'] },
-  'shirt-take-in': { label: 'Take in shirt', garments: ['Shirt / Blouse'] },
-  'dress-hem': { label: 'Hem dress or skirt', garments: ['Formal Dress', 'Dress / Jumpsuit', 'Skirt'] },
-  'dress-take-in': { label: 'Take in dress', garments: ['Formal Dress', 'Dress / Jumpsuit'] },
-  zipper: { label: 'Replace zipper', garments: ['Suit Pant', 'Pants / Jeans', 'Skirt', 'Dress / Jumpsuit', 'Jacket'] },
-  repair: { label: 'Repair or patch', garments: ALL },
-  bridal: { label: 'Bridal gown alterations', garments: ['Formal Dress'] },
+  'hem-pants': { label: 'Hem pants', garments: ['Suit Pant', 'Pants / Jeans'], base: 25 },
+  taper: { label: 'Taper legs', garments: ['Suit Pant', 'Pants / Jeans'], base: 40 },
+  waist: { label: 'Take in or let out waist', garments: ['Suit Pant', 'Pants / Jeans', 'Skirt'], base: 35 },
+  sleeves: { label: 'Shorten sleeves', garments: ['Suit Jacket', 'Jacket', 'Shirt / Blouse'], base: 45 },
+  'jacket-sides': { label: 'Take in jacket sides', garments: ['Suit Jacket', 'Jacket'], base: 55 },
+  'shirt-take-in': { label: 'Take in shirt', garments: ['Shirt / Blouse'], base: 30 },
+  'dress-hem': { label: 'Hem dress or skirt', garments: ['Formal Dress', 'Dress / Jumpsuit', 'Skirt'], base: 50 },
+  'dress-take-in': { label: 'Take in dress', garments: ['Formal Dress', 'Dress / Jumpsuit'], base: 65 },
+  zipper: { label: 'Replace zipper', garments: ['Suit Pant', 'Pants / Jeans', 'Skirt', 'Dress / Jumpsuit', 'Jacket'], base: 30 },
+  repair: { label: 'Repair or patch', garments: ALL, base: 20 },
+  bridal: { label: 'Bridal gown alterations', garments: ['Formal Dress'], base: 250 },
 };
 /** Service ids that apply to a garment type, catalog order. */
 export const servicesForType = (type) => Object.keys(SERVICES).filter((id) => SERVICES[id].garments.includes(type));
@@ -82,7 +125,7 @@ export const TAILORS = [
     bio: 'Tailoring in Williamsburg since 2014. I fit at my shop on Metropolitan Ave or at your place, and I show you every pin before I cut.',
     verified: true, badges: TRUST_BADGES,
     shop: { enabled: true, street: '312 Metropolitan Ave', city: 'Brooklyn', state: 'NY', zip: '11211', hood: 'Williamsburg' },
-    home: { enabled: true, zips: ['11211', '11222', '11206', '11237'], fee: 35 },
+    home: { enabled: true, zips: ['11211', '11222', '11206', '11237'], fee: 35, hoods: ['williamsburg', 'greenpoint', 'east-williamsburg', 'bushwick'] },
     prices: {                                           // dollars; 10 services
       'hem-pants': 25, taper: 40, waist: 35, sleeves: 45, 'jacket-sides': 55, 'shirt-take-in': 30,
       'dress-hem': 50, 'dress-take-in': 65, zipper: 30, repair: 20,
@@ -139,7 +182,7 @@ export const BLANK_TAILOR = {
   id: 'amara', name: '', shopName: '', initials: '', photo: null, workPhotos: 0, years: 0, cardLine: '', bio: '', phone: '', live: false, takingRequests: true,
   verified: false, badges: [],
   shop: { enabled: false, street: '', city: '', state: '', zip: '', hood: '' },
-  home: { enabled: false, zips: [], fee: 0 },
+  home: { enabled: false, zips: [], fee: 0, hoods: [] },
   prices: {}, rush: [],
   returns: { pickup: false, dropoff: false, courier: false },
   availability: { shop: {}, home: {} },

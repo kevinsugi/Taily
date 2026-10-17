@@ -50,7 +50,7 @@ export function galleryHtml() {
   row(C.ctaSmall('Message'), C.ctaSmall('Reschedule'));
 
   h2('Status dot + word — 312:826 + v5 keys (19, M7 A5.6)');
-  row(...['requested','confirmed','ready','completed','declined','cancelled','new-request','awaiting-customer','tailoring','suggested','fitting','price-change','in-progress','returning','withdrawn','expired','action','bookable','paused'].map((k) => C.statusPill(k)));
+  row(...['requested','confirmed','ready','completed','declined','cancelled','new-request','awaiting-customer','tailoring','suggested','fitting','price-change','in-progress','awaiting-handoff','withdrawn','expired','action','bookable','paused'].map((k) => C.statusPill(k)));
 
   h2('Top nav — customer · tailor');
   v('NAV.customer (Bookings active)');

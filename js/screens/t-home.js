@@ -37,9 +37,9 @@ function pillOf(a) {
 const shortPlace = (p) => { const parts = p.split(', '); return parts.length > 2 ? parts.slice(0, -2).join(', ') : p; };
 
 /** Where a job past its visit stands, as the row's time line (R4-1-T-06, D-113, D-169): the step, and when it is due. The visit
-    itself is behind her, so the line leads with the need-by date. A returning order names how it goes back (D-106). */
+    itself is behind her, so the line leads with the need-by date. An awaiting-handoff order names how it goes back (D-106). */
 const STEP = { fitting: 'Started', 'price-change': 'Order sent', 'in-progress': 'Tailoring', ready: 'Ready' };
-const stepOf = (a) => (a.status === 'returning' ? returnStep(a, 'tailor') : STEP[a.status]);
+const stepOf = (a) => (a.status === 'awaiting-handoff' ? returnStep(a, 'tailor') : STEP[a.status]);
 /* K-17 (D-243, #9): an "In progress" row's pill already says it (and so does its section), so its line is only the due date — one line, no "Tailoring ·" */
 const sinceLine = (a) => (a.status === 'in-progress' ? `Needed by ${fmtDay(a.job.needBy)}` : `${stepOf(a)} · needed by ${fmtDay(a.job.needBy)}`);
 /** Confirmed and not started = Upcoming; the visit itself and everything after = In progress. */

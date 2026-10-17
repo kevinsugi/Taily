@@ -231,7 +231,7 @@ function confirmZero(r) {
   cancelWait = withLatency(() => {
     u.confirming = false;
     if (!a.returnOption && r.offered.length === 1 && r.offered[0] !== 'courier') T.chooseReturn(a.id, r.offered[0]);
-    const res = T.payBalance(a.id, a.cardId ?? r.method?.id ?? null, { threeDS: true });
+    const res = T.holdBalance(a.id, a.cardId ?? r.method?.id ?? null, { threeDS: true });
     if (!onScreen()) {
       if (res.ok && res.appt.money.refund > 0) toast(`${fmtExact(res.appt.money.refund)} is on its way back to your card.`, { tone: 'success' });
       return;
@@ -285,7 +285,7 @@ function openPay(r) {
         cancelWait = withLatency(() => {
           let res;
           if (!a.returnOption && r.offered.length === 1 && r.offered[0] !== 'courier') T.chooseReturn(a.id, r.offered[0]);
-          res = T.payBalance(a.id, cardId, { threeDS: true });
+          res = T.holdBalance(a.id, cardId, { threeDS: true });
           busy = false;
           holder.dataset.locked = 'false';
           close();

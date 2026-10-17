@@ -20,7 +20,8 @@ Plain HTML/CSS/JS, no build step, branch `V5` (GitHub Pages serves it at https:/
   cents, `fmt / fmtExact / fmtNeg`). Rendered money is **dollar amounts only, never percentages**, on both sides
   ("Taily fee −$12.50", "Deposit $16.00"). No rate literal anywhere else; the harness fails on `%` in money copy.
 - **State:** `js/state.js` holds the v5 machine (request → confirmed / suggested / declined / expired → fitting →
-  price-change → in-progress → ready → returning → completed, plus the cancel / can't-make-it / no-show branches);
+  price-change → in-progress → ready → awaiting-handoff → completed, plus the cancel / can't-make-it / no-show branches;
+  awaiting-handoff = after the customer picks a way back, until the handoff is confirmed, Study-1 A1);
   transitions are pure and take an appointment id; `statusScreen(appt, persona)` is THE status → screen map. The
   prototype runs on a frozen demo clock (`now()`); never call `Date.now()` in screens.
 - **Screens:** one id = `js/screens/<id>.js` calling `register(id, view, wire)` + `css/screens/<id>.css`. Ids:

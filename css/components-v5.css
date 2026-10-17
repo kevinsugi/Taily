@@ -1357,3 +1357,9 @@ a.cta-small { text-decoration: none; }
   html:not(.is-test) .hang__item, html:not(.is-test) .hang__tag { animation: hang-drop 1000ms var(--ease-out) var(--d, 450ms) both; }
   .hang__scroll { scroll-behavior: smooth; }
 }
+
+/* ===== S1-A ===== */
+
+/* ===== S1-B ===== */
+
+/* ===== S1-C ===== */

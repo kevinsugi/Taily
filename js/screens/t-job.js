@@ -8,7 +8,7 @@
 
    M4 (M4-spec §C2, D-103): from the visit start the same screen walks
    the job — visit → fitting → waiting / messaged → in-progress →
-   ready → returning (pickup / dropoff / courier) → completed. Each
+   ready → awaiting-handoff (pickup / dropoff / courier) → completed. Each
    state has ONE next thing in a sticky action bar; "what I take home"
    is always in dollars; the courier is never her money.
    ============================================================ */
@@ -177,7 +177,7 @@ function stateKey(a) {
   if (a.status === 'cancelled') return null;
   if (a.status === 'confirmed') return now() >= toDate(a.slot.start).getTime() ? 'visit' : null;
   if (a.status === 'price-change') return a.priceChange?.state === 'messaged' ? 'messaged' : 'waiting';
-  if (a.status === 'returning') return { dropoff: 'returning-dropoff', courier: 'courier' }[a.returnOption] ?? 'returning-pickup';
+  if (a.status === 'awaiting-handoff') return { dropoff: 'handoff-dropoff', courier: 'handoff-courier' }[a.returnOption] ?? 'handoff-pickup';
   return a.status; // fitting · in-progress · ready · completed
 }
 
@@ -204,10 +204,10 @@ function copyFor(key, a, t, v, pv) {
     }
     case 'in-progress': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready' } };
     case 'ready': return { bar: null };   // K-12 (D-237): Message lives in the header; nothing else is hers to do until Sarah chooses
-    case 'returning-pickup':
-    case 'returning-dropoff': return { bar: done };
+    case 'handoff-pickup':
+    case 'handoff-dropoff': return { bar: done };
     /* R4-2-T-07: the same "today" the customer reads ("Delivered by Uber today") */
-    case 'courier': return { bar: { ...done, ctaLabel: 'Handed to courier', busyLabel: 'Saving…' } };
+    case 'handoff-courier': return { bar: { ...done, ctaLabel: 'Handed to courier', busyLabel: 'Saving…' } };
     default: return { ...base, bar: null };   // completed — K-20: the linen stage carries the title and the record line
   }
 }
@@ -229,15 +229,15 @@ function stripFor(key, a, v, pv) {
       ? { tone: 'done', icon: 'check', text: `${first} approved · work in progress`, right: daysLeft(a) }
       : { tone: 'calm', icon: 'clock', text: 'In progress', right: daysLeft(a) };
     case 'ready': return { tone: 'warn', icon: 'clock', text: `Ready · ${first} is choosing how to get it back` };
-    case 'returning-pickup': return { tone: 'done', icon: 'bag', text: `In-store pickup · ${first} paid the balance` };
-    case 'returning-dropoff': return { tone: 'action', icon: 'home', text: 'Home drop-off · agree on a time in chat' };
+    case 'handoff-pickup': return { tone: 'done', icon: 'bag', text: `In-store pickup · ${first} paid the balance` };
+    case 'handoff-dropoff': return { tone: 'action', icon: 'home', text: 'Home drop-off · agree on a time in chat' };
     default: { // courier
       const when = courierWhen(a);
       return { tone: 'done', icon: 'truck', text: `Courier booked${when ? ` · arrives ${when}` : ''}` };
     }
   }
 }
-const STRIPPED = ['fitting', 'waiting', 'messaged', 'in-progress', 'ready', 'returning-pickup', 'returning-dropoff', 'courier'];
+const STRIPPED = ['fitting', 'waiting', 'messaged', 'in-progress', 'ready', 'handoff-pickup', 'handoff-dropoff', 'handoff-courier'];
 
 /** What changed + the payout if approved (waiting / messaged), under the header. K-17 R3: at most ONE quote, the latest — Sarah's message, or
     Amara's reply once she has answered it, else the note that went with the order. */
@@ -359,11 +359,11 @@ function m4View(a, v, key) {
       body = `${head({ trail: personButtons(message) })}
   ${sec(visitBlock(returnOffer(a).map((k) => ({ icon: RETURN_ICON[k], value: RETURN_LABEL[k] })), { title: 'Return options you offered' }))}
   <p class="t-small c-600 ${ID}__fine">${first} pays the ${fmtExact(a.money.balance)} balance, plus the courier if she picks it.</p>${work}${payout}`; break;
-    case 'returning-pickup':
+    case 'handoff-pickup':
       body = `${head({ trail: personButtons(message) })}${sec(visitBlock(placeRows(t.shopName, 'bag', shopLine(t)), { title: 'In-store pickup' }))}${work}${payout}`; break;
-    case 'returning-dropoff':
+    case 'handoff-dropoff':
       body = `${head({ trail: personButtons(message) })}${sec(visitBlock(placeRows(`${firstOf()}’s home`, 'home', homeStreet()), { title: 'Home drop-off' }))}${work}${payout}`; break;
-    case 'courier':
+    case 'handoff-courier':
       body = `${head({ trail: personButtons(message) })}${sec(visitBlock([{ icon: 'truck', value: esc(`${t.shopName} → ${homeStreet()}`), detail: `Paid by ${firstOf()} · nothing comes out of your payout` }], { title: 'Taily courier' }))}${work}${payout}`; break;
     default: body = completedBody(a, v, t, updated);   // completed (K-20)
   }

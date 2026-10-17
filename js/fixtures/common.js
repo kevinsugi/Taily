@@ -45,7 +45,7 @@ export function askAmara({ reply = true } = {}) {
 
 export const TARGETS = [
   'requested', 'suggested', 'declined', 'expired', 'expired-2', 'expired-final', 'confirmed', 'cancelled-early',
-  'cancelled-late', 'cant-make-it', 'no-show', 'fitting', 'price-change', 'in-progress', 'ready', 'returning',
+  'cancelled-late', 'cant-make-it', 'no-show', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff',
   'completed', 'reviewed',
 ];
 
@@ -174,8 +174,8 @@ export function driveTo(target, opts = {}) {
   must(T.markReady(id), 'markReady');
   if (target === 'ready') return getAppt(id);
   must(T.chooseReturn(id, returnOption), 'chooseReturn');
-  must(T.payBalance(id, 'visa-4242'), 'payBalance');
-  if (target === 'returning') return getAppt(id);
+  must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
+  if (target === 'awaiting-handoff') return getAppt(id);
   must(T.markCompleted(id), 'markCompleted');
   if (target === 'completed') return getAppt(id);
   return must(T.leaveReview(id, { stars: 5, text: 'Perfect fit, and she was on time.', photos: 0 }), 'leaveReview');
@@ -241,7 +241,7 @@ export function completeJob(id, { returnOption = 'pickup' } = {}) {
   must(T.approvePriceChange(id), 'approvePriceChange');
   must(T.markReady(id), 'markReady');
   must(T.chooseReturn(id, returnOption), 'chooseReturn');
-  must(T.payBalance(id, 'visa-4242'), 'payBalance');
+  must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
   return must(T.markCompleted(id), 'markCompleted');
 }
 

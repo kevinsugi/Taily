@@ -69,11 +69,11 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
       return lastSpeakerSince(appt)?.from === 'tailor' ? waiting : { pill: 'action', label: pick(`Reply to ${sarah}`, 'Reply') };
     case 'in-progress': return { pill: 'in-progress', label: 'In progress' };
     case 'ready': return customer ? { pill: 'action', label: 'Ready' } : waiting;
-    case 'returning': {
+    case 'awaiting-handoff': {
       const how = appt.returnOption ?? 'pickup';
-      if (how === 'dropoff') return customer ? { pill: 'returning', label: pick('Coming to you', 'Drop-off') } : { pill: 'action', label: 'To drop off' };
-      if (how === 'courier') return customer ? { pill: 'returning', label: pick('Out for delivery', 'Courier') } : { pill: 'returning', label: pick('Courier booked', 'Courier') };
-      return { pill: 'returning', label: pick('Ready for pickup', 'Pickup') };
+      if (how === 'dropoff') return customer ? { pill: 'awaiting-handoff', label: pick('Coming to you', 'Drop-off') } : { pill: 'action', label: 'To drop off' };
+      if (how === 'courier') return customer ? { pill: 'awaiting-handoff', label: pick('Out for delivery', 'Courier') } : { pill: 'awaiting-handoff', label: pick('Courier booked', 'Courier') };
+      return { pill: 'awaiting-handoff', label: pick('Ready for pickup', 'Pickup') };
     }
     case 'completed': return { pill: 'completed', label: 'Completed' };
     default: return { pill: appt.status, label: undefined };
@@ -87,7 +87,7 @@ export function sinceText(appt) {
   return `since ${isoDay(at) === isoDay(now()) ? fmtTime(at) : fmtDay(at)}`;
 }
 
-/** The return step word on a returning order (D-106, D-170), one source for the t-home rows and the status words:
+/** The return step word on an awaiting-handoff order (D-106, D-170), one source for the t-home rows and the status words:
     tailor — Ready for pickup · To drop off · Courier booked; customer — (pickup) Ready for pickup · Drop-off · Out for delivery. */
 export function returnStep(appt, persona = state.persona) {
   const how = appt?.returnOption ?? 'pickup';

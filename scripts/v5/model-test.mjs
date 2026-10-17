@@ -550,10 +550,10 @@ section('fitting -> completed');
 {
   S.reset(); const a = driveTo('ready'); T.chooseReturn(a.id, 'pickup');
   state.sim.card = 'declined';
-  guard(T.payBalance(a.id, 'visa-4242'), 'card-declined', 'declined balance');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'card-declined', 'declined balance');
   eq([a.payments.balance.state, a.payments.balance.failedCardId], ['failed', 'visa-4242'], 'the declined card is recorded');
   state.sim.card = 'ok';
-  const paid = T.payBalance(a.id, 'apple-pay');
+  const paid = T.holdBalance(a.id, 'apple-pay');
   eq([paid.ok, a.payments.balance.state, a.payments.balance.failedCardId], [true, 'paid', undefined], 'paying another way clears it');
   // refund line: payments untouched until Ready
 }
@@ -710,11 +710,11 @@ section('fitting -> completed');
 }
 // the return step word (M6-M-14)
 {
-  const a = driveTo('returning', { returnOption: 'pickup' });
+  const a = driveTo('awaiting-handoff', { returnOption: 'pickup' });
   eq([returnStep(a, 'tailor'), returnStep(a, 'customer')], ['Ready for pickup', 'Ready for pickup'], 'returnStep: pickup');
-  const d = driveTo('returning', { returnOption: 'dropoff' });
+  const d = driveTo('awaiting-handoff', { returnOption: 'dropoff' });
   eq([returnStep(d, 'tailor'), returnStep(d, 'customer')], ['To drop off', 'Drop-off'], 'returnStep: drop-off');
-  const c = driveTo('returning', { returnOption: 'courier' });
+  const c = driveTo('awaiting-handoff', { returnOption: 'courier' });
   eq([returnStep(c, 'tailor'), returnStep(c, 'customer')], ['Courier booked', 'Out for delivery'], 'returnStep: courier');
 }
 // price change below the deposit -> refund (D-23, D-156)
@@ -731,8 +731,8 @@ section('fitting -> completed');
   ok(/After you choose/.test(C.customerBreakdown(S.getAppt(b.id).money, { stage: 'ready' })), 'D-156: the refund row reads "After you choose" while pending');
   T.chooseReturn(b.id, 'pickup');
   eq(S.getAppt(b.id).payments.refund, { cents: P.refund, state: 'pending' }, 'chooseReturn keeps the pending refund (D-156)');
-  const paid = T.payBalance(b.id, 'visa-4242');
-  eq([paid.ok, S.getAppt(b.id).payments.refund], [true, { cents: P.refund, state: 'refunded' }], 'payBalance settles the refund (D-156)');
+  const paid = T.holdBalance(b.id, 'visa-4242');
+  eq([paid.ok, S.getAppt(b.id).payments.refund], [true, { cents: P.refund, state: 'refunded' }], 'holdBalance settles the refund (D-156)');
   ok(/Refunded/.test(C.customerBreakdown(S.getAppt(b.id).money, { stage: 'paid' })), 'D-156: the refund row reads "Refunded" once settled');
 }
 // refund + courier: the courier eats into the refund; the money still nets to the total (D-156)
@@ -754,11 +754,11 @@ section('fitting -> completed');
 {
   S.reset(); const a = driveTo('in-progress');
   guard(T.chooseReturn(a.id, 'pickup'), 'not-ready', 'chooseReturn needs ready');
-  guard(T.payBalance(a.id, 'visa-4242'), 'not-ready', 'payBalance needs ready');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'not-ready', 'holdBalance needs ready');
   const r = T.markReady(a.id);
   eq([r.appt.status, r.appt.payments.balance], ['ready', { cents: 14400, state: 'due' }], 'markReady: balance $144.00 due');
   guard(T.markReady(a.id), 'not-in-progress', 'markReady twice fails');
-  guard(T.payBalance(a.id, 'visa-4242'), 'return-required', 'payBalance needs a return choice');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'return-required', 'holdBalance needs a return choice');
   guard(T.chooseReturn(a.id, 'carrier-pigeon'), 'not-offered', 'chooseReturn: unknown option');
   amara().returns.dropoff = false;
   guard(T.chooseReturn(a.id, 'dropoff'), 'not-offered', 'chooseReturn: an option the tailor does not offer');
@@ -767,7 +767,7 @@ section('fitting -> completed');
   state.sim.courier = 'fail';
   const f = T.chooseReturn(a.id, 'courier');
   eq([f.appt.courier.state, f.appt.money.total], ['failed', 16000], 'sim.courier fail -> courier failed, not charged');
-  guard(T.payBalance(a.id, 'visa-4242'), 'courier-unavailable', 'payBalance blocked while the courier quote failed');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'courier-unavailable', 'holdBalance blocked while the courier quote failed');
   state.sim.courier = 'loading';
   eq(T.chooseReturn(a.id, 'courier').appt.courier.state, 'loading', 'sim.courier loading -> courier loading');
   state.sim.courier = 'ok';
@@ -778,19 +778,19 @@ section('fitting -> completed');
   const p0 = T.chooseReturn(a.id, 'pickup');
   eq([p0.appt.courier, p0.appt.money.total, p0.appt.payments.balance.cents], [null, 16000, 14400], 'switching back to pickup drops the courier charge');
   state.sim.card = 'declined';
-  guard(T.payBalance(a.id, 'visa-4242'), 'card-declined', 'payBalance with a declined card fails');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'card-declined', 'holdBalance with a declined card fails');
   eq([S.getAppt(a.id).status, S.getAppt(a.id).payments.balance.state], ['ready', 'failed'], 'a declined card leaves it ready, balance failed');
   state.sim.card = '3ds';
-  guard(T.payBalance(a.id, 'visa-4242'), 'needs-3ds', 'payBalance with 3-D Secure needs the challenge');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'needs-3ds', 'holdBalance with 3-D Secure needs the challenge');
   state.sim.card = 'ok';
-  const pay = T.payBalance(a.id, 'visa-4242');
-  eq([pay.appt.status, pay.appt.payments.balance], ['returning', { cents: 14400, state: 'paid' }], 'payBalance: returning, balance paid');
-  guard(T.payBalance(a.id, 'visa-4242'), 'not-ready', 'pay twice fails');
+  const pay = T.holdBalance(a.id, 'visa-4242');
+  eq([pay.appt.status, pay.appt.payments.balance], ['awaiting-handoff', { cents: 14400, state: 'paid' }], 'holdBalance: awaiting-handoff, balance paid');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'not-ready', 'pay twice fails');
   guard(T.leaveReview(a.id, { stars: 5 }), 'not-completed', 'leaveReview needs completed');
   const done = T.markCompleted(a.id);
   eq(done.appt.status, 'completed', 'markCompleted');
   eq(state.payouts.map(({ createdAt, ...p }) => p), [{ apptId: a.id, cents: 14750, state: 'pending', date: '2026-10-16', kind: 'job' }], 'completion creates a pending payout of $147.50 (not the courier)');
-  guard(T.markCompleted(a.id), 'not-returning', 'markCompleted twice fails');
+  guard(T.markCompleted(a.id), 'not-awaiting-handoff', 'markCompleted twice fails');
   guard(T.leaveReview(a.id, { stars: 0 }), 'stars-required', 'leaveReview: 0 stars');
   guard(T.leaveReview(a.id, { stars: 6 }), 'stars-required', 'leaveReview: 6 stars');
   guard(T.leaveReview(a.id, { stars: 4.5 }), 'stars-required', 'leaveReview: fractional stars');
@@ -849,8 +849,8 @@ section('messaging');
 /* ================= statusScreen ================= */
 section('statusScreen');
 {
-  const CUSTOMER_MAP = { requested: 'c-request', suggested: 'c-request', declined: 'c-request', expired: 'c-request', confirmed: 'c-booking', fitting: 'c-booking', 'price-change': 'c-price-change', 'in-progress': 'c-booking', ready: 'c-ready', returning: 'c-booking', completed: 'c-complete', cancelled: 'c-booking' };
-  const TAILOR_MAP = { requested: 't-request', suggested: 't-request', declined: 't-request', expired: 't-request', confirmed: 't-job', fitting: 't-job', 'price-change': 't-job', 'in-progress': 't-job', ready: 't-job', returning: 't-job', completed: 't-job', cancelled: 't-job' };
+  const CUSTOMER_MAP = { requested: 'c-request', suggested: 'c-request', declined: 'c-request', expired: 'c-request', confirmed: 'c-booking', fitting: 'c-booking', 'price-change': 'c-price-change', 'in-progress': 'c-booking', ready: 'c-ready', 'awaiting-handoff': 'c-booking', completed: 'c-complete', cancelled: 'c-booking' };
+  const TAILOR_MAP = { requested: 't-request', suggested: 't-request', declined: 't-request', expired: 't-request', confirmed: 't-job', fitting: 't-job', 'price-change': 't-job', 'in-progress': 't-job', ready: 't-job', 'awaiting-handoff': 't-job', completed: 't-job', cancelled: 't-job' };
   eq(S.STATUSES.length, 12, '12 statuses');
   eq(S.TERMINAL, ['declined', 'cancelled', 'completed'], 'TERMINAL');
   S.reset();
@@ -1432,6 +1432,29 @@ section('M6 batch 4');
   ok(/garment-icon--fallback/.test(C.garmentIcon('Spaceship')) && !/<img/.test(C.garmentIcon('Spaceship')), 'K-02: an unknown type gets the hanger, never a broken image');
   eq(C.garmentDocs({ garmentId: 'g1', type: 'Suit Pant', docs: { before: [], pinned: [], comment: '', commentMasked: false } }), '', 'K-02: garmentDocs renders nothing for an empty entry');
 }
+
+/* ===== Study-1 phase 0: shared constants and seed ===== */
+{
+  S.reset();
+  ok(S.STATUSES.includes('awaiting-handoff') && !S.STATUSES.includes('returning'), 'S1-0: awaiting-handoff replaces returning');
+  eq([POLICY.HANDOFF_AUTO_H, POLICY.UNCLAIMED_CAPTURE_D, POLICY.REVIEW_REMINDER_D, MONEY.PRICE_RANGE_SPREAD, MONEY.PRICE_ROUND], [48, 7, 7, 0.20, 5], 'S1-0: Study-1 timers and price-range settings');
+  eq([DATA.HANDOFF_CODE_LEN, DATA.NOTES_LIMITS], [4, { TEXT_MAX: 500, PHOTOS_MAX: 4 }], 'S1-0: handoff code length and private-note limits');
+  ok(Object.values(DATA.SERVICES).every((s) => Number.isInteger(s.base) && s.base > 0), 'S1-0: every service has a whole-dollar base price');
+  ok(Object.entries(amara().prices).every(([id, p]) => DATA.SERVICES[id].base === p) && DATA.SERVICES.bridal.base === 250, 'S1-0: base = Amara’s seed price; bridal 250');
+  eq(DATA.BOROUGHS.map((b) => b.name), ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'], 'S1-0: five boroughs in picker order');
+  const ids = DATA.NEIGHBORHOODS.map((n) => n.id), zips = DATA.NEIGHBORHOODS.flatMap((n) => n.zips);
+  ok(new Set(ids).size === ids.length && new Set(zips).size === zips.length, 'S1-0: neighborhood ids and zips are unique');
+  ok(DATA.NEIGHBORHOODS.every((n) => DATA.BOROUGHS.some((b) => b.id === n.borough) && n.zips.every((z) => /^\d{5}$/.test(z)) && Number.isInteger(n.tile?.x) && Number.isInteger(n.tile?.y)), 'S1-0: every neighborhood has a borough, 5-digit zips and a tile');
+  const byId = new Map(DATA.NEIGHBORHOODS.map((n) => [n.id, n]));
+  eq(amara().home.hoods, ['williamsburg', 'greenpoint', 'east-williamsburg', 'bushwick'], 'S1-0: Amara visits four neighborhoods');
+  ok(amara().home.zips.every((z) => amara().home.hoods.some((h) => byId.get(h).zips.includes(z))), 'S1-0: Amara’s zips all fall inside her neighborhoods');
+}
+
+/* ===== S1-A ===== */
+
+/* ===== S1-B ===== */
+
+/* ===== S1-C ===== */
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);
 if (failed) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }

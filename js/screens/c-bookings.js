@@ -17,8 +17,8 @@ const ID = 'c-bookings';
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
 const ms = (iso) => toDate(iso).getTime();
 
-/* D-116: work that has started (fitting → returning) is "In progress", not "Upcoming" — the same split as the tailor's Home (D-115) */
-const PROGRESS = ['fitting', 'price-change', 'in-progress', 'ready', 'returning'];
+/* D-116: work that has started (fitting → awaiting-handoff) is "In progress", not "Upcoming" — the same split as the tailor's Home (D-115) */
+const PROGRESS = ['fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'];
 const STEP = { fitting: 'Fitting', 'price-change': 'Final order', 'in-progress': 'Tailoring', ready: 'Ready' };
 /** An in-progress row's time line: the step and since when ("Out for delivery · since 5:00 PM"), never the past visit time. */
 const stepLine = (a) => `${STEP[a.status] ?? statusWord(a, 'customer').label} · ${sinceText(a)}`;
@@ -84,7 +84,7 @@ function rowFor(a, kind, fmtAmt) {
       row.amountCaption = 'Reply needed'; row.captionTone = 'action';
     } else if (a.status === 'in-progress') { row.amountText = fmtAmt(a.money.total); row.amountCaption = 'Total'; }
     else if (a.status === 'ready') { row.amountText = fmtAmt(a.money.balance); row.amountCaption = 'Pay now'; row.captionTone = 'action'; }
-    else if (a.status === 'returning') { row.amountText = fmtAmt(a.money.total); row.amountCaption = 'Paid'; }
+    else if (a.status === 'awaiting-handoff') { row.amountText = fmtAmt(a.money.total); row.amountCaption = 'Paid'; }
   }
   if (kind === 'past' && a.status === 'completed') {
     row.amountText = fmtAmt(a.money.total);

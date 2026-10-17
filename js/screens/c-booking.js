@@ -3,7 +3,7 @@
    ways to change it. Focal: the visit time (the first row of the Visit group, .t-figure).
    States: just confirmed · upcoming · cancel sheets (early / late) ·
    reschedule sheet · cancelled (early / late) · Amara can't make it ·
-   no-show · M4: fitting · in progress · returning (pickup / drop-off /
+   no-show · M4: fitting · in progress · awaiting-handoff (pickup / drop-off /
    courier) · completed (reviewed). Which appointment: focusAppt (D-72).
    ============================================================ */
 import { register, render as go, registered } from '../app.js';
@@ -169,7 +169,7 @@ function liveView(a, t, first) {
 
 /* ---------- M4: fitting → completed (D-110) ---------- */
 
-const M4_STATES = ['fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed'];
+const M4_STATES = ['fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff', 'completed'];
 const ORDER = ['confirmed', ...M4_STATES];
 const completedAt = (a) => [...a.history].reverse().find((h) => h.status === 'completed')?.at ?? a.requestedAt;
 
@@ -180,11 +180,11 @@ const fittedText = (a) => { const v = VISIT_LABEL.customer[a.job.visitType]; ret
 function m4Timeline(a, first) {
   const at = ORDER.indexOf(a.status);
   const stage = (from, to) => (at >= from && at <= to ? 'current' : at > to ? 'done' : 'todo');
-  const fitting = ORDER.indexOf('fitting'), progress = ORDER.indexOf('in-progress'), ready = ORDER.indexOf('ready'), back = ORDER.indexOf('returning');
+  const fitting = ORDER.indexOf('fitting'), progress = ORDER.indexOf('in-progress'), ready = ORDER.indexOf('ready'), back = ORDER.indexOf('awaiting-handoff');
   const s2 = stage(fitting, ORDER.indexOf('price-change'));
   const s3 = stage(progress, progress);
   const s4 = stage(ready, ready);
-  const s5 = a.status === 'completed' ? 'done' : a.status === 'returning' ? 'current' : 'todo';
+  const s5 = a.status === 'completed' ? 'done' : a.status === 'awaiting-handoff' ? 'current' : 'todo';
   const paid = at >= back;
   return timeline([
     { state: 'done', title: 'Booked', sub: fmtWhen(confirmedAt(a)) },
@@ -224,7 +224,7 @@ function dropoffLines() {
 /** K-18 (D-249), 3-J "Edge-to-edge linen stage": the three return options share one screen skeleton —
     strip (the state) · header row (Amara, what you paid) · the hanging stage (her garments, Sarah's tag) · the labelled place block with its buttons ·
     what's left to do · Your order · Price. Only the strip, the tag, the place rows and the remaining steps differ. */
-function returningView(a, t, first) {
+function handoffView(a, t, first) {
   const f = esc(first);
   const shopName = esc(t.shopName);
   const how = a.returnOption ?? 'pickup';
@@ -296,7 +296,7 @@ function returningView(a, t, first) {
   const courierCaption = how === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {};
   const breakdown = customerBreakdown(a.money, { stage: 'paid', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true, ...courierCaption });
   const order = a.lines?.length ? orderSection(a, first) : '';
-  return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--returning ${ID}--returning-${how}" data-s="${ID}">
+  return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--handoff ${ID}--handoff-${how}" data-s="${ID}">
   ${navBackMark()}${strip}${head}
   ${stage}
   ${sec(cfg.place())}
@@ -315,7 +315,7 @@ function orderSection(a, first = 'Amara') {
 }
 
 function m4View(a, t, first) {
-  if (a.status === 'returning') return returningView(a, t, first);
+  if (a.status === 'awaiting-handoff') return handoffView(a, t, first);
   const word = statusWord(a, 'customer');
   const f = esc(first);
   /* K-17 (D-243, R1): the title states the state, so there is no status pill above it; R5: one subtitle line, no "Fitted …" line (it is on the timeline) */
@@ -338,7 +338,7 @@ function m4View(a, t, first) {
 
   let middle = '';
   /* D-169 + K-17 R5: from the visit on, the past visit time is demoted — the timeline's done step says "Fitted …" (completed: the subtitle) */
-  const postFit = ['in-progress', 'ready', 'returning', 'completed'].includes(a.status);
+  const postFit = ['in-progress', 'ready', 'awaiting-handoff', 'completed'].includes(a.status);
   if (early && !postFit) middle = visitSection(a, t);
   if (a.status === 'completed') {
     const r = (t.reviews ?? []).find((x) => x.id === `r-${a.id}`);
@@ -348,7 +348,7 @@ function m4View(a, t, first) {
   }
   const steps = a.status === 'completed' ? '' : sec(`${sectionHead('What happens next')}${m4Timeline(a, first)}`);
   /* D-218: a completed booking's Receipt carries the order (with its photo stacks), so "Your order" is not shown twice */
-  const order = ['in-progress', 'ready', 'returning'].includes(a.status) && a.lines?.length ? orderSection(a, first) : '';
+  const order = ['in-progress', 'ready', 'awaiting-handoff'].includes(a.status) && a.lines?.length ? orderSection(a, first) : '';
   const actions = a.status === 'completed'
     ? `${cta(`Book ${f} again`, { attrs: 'data-act="book-again"' })}
     <div class="page-actions__links">${textLink(`Message ${f}`, { act: 'message' })}</div>`

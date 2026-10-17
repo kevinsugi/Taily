@@ -177,7 +177,7 @@ const PILL_VARIANTS = {
   'fitting':               { tone: 'progress', label: 'Fitting' },
   'price-change':          { tone: 'pending',  label: 'Price change' },
   'in-progress':           { tone: 'progress', label: 'In progress' },
-  'returning':             { tone: 'done',     label: 'On its way' },
+  'awaiting-handoff':      { tone: 'done',     label: 'On its way' },
   /* R3-1-C-12: a no-fault outcome (Sarah cancelled early, a plain no reply) — the neutral tone */
   'calm':                  { tone: 'calm',     label: 'Cancelled' },
   'withdrawn':             { tone: 'stop',     label: 'Withdrawn' },
@@ -2796,3 +2796,9 @@ export function wireGarmentDocs(root, { lookup, by = '', editable = false, onRem
     });
   });
 }
+
+/* ===== S1-A ===== */
+
+/* ===== S1-B ===== */
+
+/* ===== S1-C ===== */

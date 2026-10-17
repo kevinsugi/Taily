@@ -13,7 +13,7 @@ export const MY_TAILOR_ID = 'amara';
 export const myTailor = () => tailorById(MY_TAILOR_ID);
 
 const PENDING = ['requested', 'suggested'];
-const ACTIVE = ['confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning'];
+const ACTIVE = ['confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'];
 
 /** Tailor's Home: `requests` = waiting on a reply (soonest expiry first), `upcoming` = booked work (soonest visit first). */
 export function inbox() {

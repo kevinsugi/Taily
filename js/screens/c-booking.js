@@ -363,7 +363,10 @@ function m4View(a, t, first) {
     'price-change': { title: 'Review your final order', body: 'Approve the final order before any work starts.' },
     'in-progress': { title: `${f} is working on it`, body: 'You approved the order. You’ll pay the balance when it’s ready.' },
     ready: { title: `${f} finished your order`, body: `Pay the ${fmtExact(a.money.balance)} balance to choose how to get it back.` },
-    completed: { title: `All done with ${f}`, body: `Completed ${fmtDay(completedAt(a))}. Fitted ${fmtDay(a.slot.start)} · ${VISIT_LABEL.customer[a.job.visitType].toLowerCase()}.` },
+    completed: a.outcome === 'partial'
+      /* Study-1 B1: she declined the edit — "Returned, partial work", and what she paid for */
+      ? { title: 'Returned, partial work', body: `Completed ${fmtDay(completedAt(a))}. You declined ${f}’s changes and paid ${fmtExact(a.edit?.workDone ?? a.money.total)} for the work done so far.` }
+      : { title: `All done with ${f}`, body: `Completed ${fmtDay(completedAt(a))}. Fitted ${fmtDay(a.slot.start)} · ${VISIT_LABEL.customer[a.job.visitType].toLowerCase()}.` },
   }[a.status];
   const hero = head(a, { pill: false, title: cfg.title, body: cfg.body, variant: a.status === 'completed' ? 'confirmed' : 'tailoring' });
 

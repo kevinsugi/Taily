@@ -7,7 +7,7 @@
    notifications on in the prototype.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, now, apptsFor, priceChangeView, suggestLapseAt, autoCompleteLeft } from '../state.js';
+import { state, T, now, apptsFor, priceChangeView, suggestLapseAt, autoCompleteLeft, jobEditView } from '../state.js';
 import { myTailor, inbox, requestView, customerName, customerInitials, payoutOf, payoutLine, suggestPrice } from '../tailor-data.js';
 import { setFocus, statusWord, returnStep } from '../focus.js';
 import { fmtColumn } from '../money.js';
@@ -49,7 +49,7 @@ function handoffLine(a) {
   return null;
 }
 /* K-17 (D-243, #9): an "In progress" row's pill already says it (and so does its section), so its line is only the due date — one line, no "Tailoring ·" */
-const sinceLine = (a) => (a.status === 'in-progress' ? `Needed by ${fmtDay(a.job.needBy)}` : handoffLine(a) ?? `${stepOf(a)} · needed by ${fmtDay(a.job.needBy)}`);
+const sinceLine = (a) => (a.status === 'in-progress' ? (a.edit?.state === 'pending' ? `Changes sent · needed by ${fmtDay(a.job.needBy)}` : `Needed by ${fmtDay(a.job.needBy)}`) : handoffLine(a) ?? `${stepOf(a)} · needed by ${fmtDay(a.job.needBy)}`);
 /** Confirmed and not started = Upcoming; the visit itself and everything after = In progress. */
 const started = (a) => a.status !== 'confirmed' || now() >= toDate(a.slot.start).getTime();
 
@@ -109,8 +109,9 @@ function view(s) {
   const waitCards = waiting.map(card).join('');
 
   /* D-117: a price change waiting on Sarah shows the take-home t-job leads with, captioned as conditional */
-  const pending = (a) => a.status === 'price-change' && a.priceChange && a.priceChange.state !== 'approved';
-  const takeHome = (a) => (pending(a) ? priceChangeView(a).after.payout : a.money.payout);
+  const editing = (a) => a.status === 'in-progress' && a.edit?.state === 'pending';   // Study-1 B1: changes waiting on Sarah
+  const pending = (a) => editing(a) || (a.status === 'price-change' && a.priceChange && a.priceChange.state !== 'approved');
+  const takeHome = (a) => (editing(a) ? jobEditView(a).after.payout : pending(a) ? priceChangeView(a).after.payout : a.money.payout);
   const money = fmtColumn(booked.map(takeHome));
   const rowsOf = (list) => list.map((a) => {
     const p = pillOf(a);

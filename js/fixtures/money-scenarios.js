@@ -7,7 +7,7 @@
    in money-config.js or a price in data.js and these follow.
    ============================================================ */
 import { TAILORS, SEED_JOB } from '../data.js';
-import { estimate, quote, courierQuote, cancelTerms, noShowPayout, cents } from '../money.js';
+import { estimate, quote, courierQuote, cancelTerms, noShowPayout, cents, partialQuote } from '../money.js';
 import { toDate, addMinutes, payoutDay } from '../dates.js';
 
 /** The seed visit: the first open Thursday home slot, Thu Oct 15 at 5 PM. */
@@ -52,6 +52,16 @@ const priceItemRemoved = repriced((lines) => lines.filter((l) => l.garmentId !==
 const belowLines = [{ ...shop.lines[0], cents: Math.max(100, Math.floor(shop.deposit / 200) * 100) }];
 const priceBelowDeposit = { ...quote({ lines: belowLines, homeFee: shop.homeFee, deposit: shop.deposit }), lines: belowLines };
 
+/* Study-1 B1: the post-fitting edit the fixtures send (inputs, like the "+5" above, not amounts on a screen): Shorten sleeves up $15, the due
+   date three days later, $40 of work done so far. `edit` = the approved order with the edit; `partial` = what Sarah pays if she declines
+   (partialQuote: balance = work done − deposit; payout = the services part − Taily fee + the home visit fee). */
+export const JOB_EDIT = Object.freeze({ sleevesUp: 15, dueDays: 3, workDone: 40 });
+const edit = repriced((lines) => {
+  for (const l of lines) if (l.serviceId === 'sleeves') l.cents = cents(AMARA.prices.sleeves + JOB_EDIT.sleevesUp);
+  return lines;
+});
+const partial = partialQuote({ workDone: cents(JOB_EDIT.workDone), homeFee: seed.homeFee, deposit: seed.deposit });
+
 /* a cancel / no-show on a booked seed appointment, two hours before the visit (inside the window) */
 const booked = { slot: { start: SEED_SLOT }, payments: { deposit: { cents: seed.deposit } } };
 const lateCancel = cancelTerms(booked, toDate(addMinutes(SEED_SLOT, -120)).getTime());
@@ -59,6 +69,7 @@ const earlyCancel = cancelTerms(booked, toDate(addMinutes(SEED_SLOT, -72 * 60)).
 
 export const SCENARIOS = Object.freeze({
   seed, rush, shop, courier, courierQuote: courierQuoted, priceAdded, priceRemoved, priceRepriced, priceItem, priceItemRemoved, priceBelowDeposit,
+  edit, partial,
   lateCancel: { ...lateCancel, tailorPaid: lateCancel.kept },
   earlyCancel,
   noShow: { paid: noShowPayout(seed.deposit) },

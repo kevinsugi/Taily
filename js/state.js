@@ -23,7 +23,7 @@
    ============================================================ */
 import { POLICY } from './money-config.js';
 import {
-  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout, fmtExact,
+  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout, fmtExact, partialQuote,
 } from './money.js';
 import {
   toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, payoutDay,
@@ -32,7 +32,7 @@ import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
   TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType, HANDOFF_CODE_LEN,
-  HOOD_BY_ID, zipsForHoods,
+  HOOD_BY_ID, zipsForHoods, NOTES_LIMITS,
 } from './data.js';
 
 export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff', 'completed', 'cancelled'];
@@ -612,6 +612,8 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
     payments: { deposit: { cents: money.deposit, state: 'authorized' }, balance: { cents: money.balance, state: 'pending' } },
     priceChange: null, returnOption: null, courier: null, cancel: null, review: null,
     docs: {}, docSeq: 0,                                        // K-02 (D-175): the tailor's working fitting documentation
+    edit: null, outcome: null,                                  // Study-1 B1: the post-fitting edit; 'partial' once Sarah declined one
+    notes: [], noteSeq: 0,                                      // Study-1 B2: the tailor's private General notes
     history: [{ status: 'requested', at: nowIso() }],
   };
   state.appts.push(appt);
@@ -926,39 +928,44 @@ function priceMarks(oldLines, newLines) {
   for (const [k, l] of before) if (!after.has(k)) marks.push({ garmentId: l.garmentId, serviceId: l.serviceId, kind: 'removed', from: l.cents, to: null });
   return marks;
 }
+/** The order checks a final order (K-01) and a post-fitting edit (Study-1 B1) share, against `a.lines` (booked, or approved once the
+    work started): price-invalid · garment-type · service-type · service-not-offered · duplicate-line · max-items. Null when fine. */
+function lineErrors(a, lines) {
+  const lo = cents(1);
+  const hi = cents(TAILOR_LIMITS.PRICE_MAX);
+  if (lines.some((l) => !Number.isInteger(l.cents) || l.cents % 100 !== 0 || l.cents < lo || l.cents > hi)) return 'price-invalid';
+  const bookedType = new Map(a.lines.map((l) => [l.garmentId, l.garmentType]));
+  for (const l of lines) {
+    if (!GARMENT_TYPES[l.garmentType] || (bookedType.has(l.garmentId) && bookedType.get(l.garmentId) !== l.garmentType)) return 'garment-type';
+    if (!servicesForType(l.garmentType).includes(l.serviceId)) return 'service-type';
+  }
+  const tailor = tailorById(a.tailorId);
+  const booked = new Set(a.lines.map(lineKey));
+  if (lines.some((l) => !booked.has(lineKey(l)) && typeof tailor?.prices?.[l.serviceId] !== 'number')) return 'service-not-offered';
+  if (new Set(lines.map(lineKey)).size !== lines.length) return 'duplicate-line';
+  if (new Set(lines.map((l) => l.garmentId)).size > MAX_ITEMS) return 'max-items';
+  return null;
+}
 /** "Send the final order" (K-01, D-120/D-121). First send: `fitting` → `price-change`. Revise (D-101): while the order is still `pending`
     or `messaged`, sending again replaces it (status unchanged, `state` back to `pending`, `revisions` + 1). `lines` is the whole final
     order; a new item is lines on a `garmentId` that is not booked, removing an item = sending none of its lines. An unchanged order is
-    allowed (`changed: false`). Marks are always vs the BOOKED lines. The note is masked (D-101). */
-export function sendPriceChange(id, lines, { note = '' } = {}) {
+    allowed (`changed: false`). Marks are always vs the BOOKED lines. Study-1 B2 (K-31): no note travels with the order any more — the
+    tailor's whole-order note is a private General note (`addNote`). */
+export function sendPriceChange(id, lines) {
   const a = must(id);
   const revising = a.status === 'price-change' && ['pending', 'messaged'].includes(a.priceChange?.state);
   if (a.status !== 'fitting' && !revising) return fail('not-fitting');
   if (!Array.isArray(lines) || !lines.length) return fail('no-items');
-  const lo = cents(1);
-  const hi = cents(TAILOR_LIMITS.PRICE_MAX);
-  if (lines.some((l) => !Number.isInteger(l.cents) || l.cents % 100 !== 0 || l.cents < lo || l.cents > hi)) return fail('price-invalid');
-  const bookedType = new Map(a.lines.map((l) => [l.garmentId, l.garmentType]));
-  for (const l of lines) {
-    if (!GARMENT_TYPES[l.garmentType] || (bookedType.has(l.garmentId) && bookedType.get(l.garmentId) !== l.garmentType)) return fail('garment-type');
-    if (!servicesForType(l.garmentType).includes(l.serviceId)) return fail('service-type');
-  }
+  const bad = lineErrors(a, lines);
+  if (bad) return fail(bad);
   const tailor = tailorById(a.tailorId);
-  const booked = new Set(a.lines.map(lineKey));
-  if (lines.some((l) => !booked.has(lineKey(l)) && typeof tailor?.prices?.[l.serviceId] !== 'number')) return fail('service-not-offered');
-  if (new Set(lines.map(lineKey)).size !== lines.length) return fail('duplicate-line');
-  if (new Set(lines.map((l) => l.garmentId)).size > MAX_ITEMS) return fail('max-items');
   const sentIds = [...new Set(lines.map((l) => l.garmentId))];
   const gaps = docsMissing(a, sentIds);
   if (gaps.length) return fail('photos-missing', { missing: gaps });                    // K-02 (D-178)
-  const text = String(note ?? '').trim();
-  if (text.length > TAILOR_LIMITS.NOTE_MAX) return fail('note-long');
-  const masked = maskContact(text);
   const revisions = revising ? (a.priceChange.revisions ?? 0) + 1 : 0;
   const marks = priceMarks(a.lines, lines);
   a.priceChange = {
-    lines: clone(lines), marks, changed: marks.length > 0, sentAt: nowIso(), state: 'pending',
-    note: masked.text, noteMasked: masked.masked, revisions,
+    lines: clone(lines), marks, changed: marks.length > 0, sentAt: nowIso(), state: 'pending', revisions,
     docs: Object.fromEntries(sentIds.map((gid) => [gid, clone(docsOf(a, gid))])),          // K-02 (D-175): the snapshot Sarah sees
   };
   const first = firstName(tailor);
@@ -979,6 +986,13 @@ export function approvePriceChange(id) {
   a.money = repriceMoney(a);
   a.payments.balance.cents = a.money.balance;
   a.priceChange.state = 'approved';
+  a.job.garments = garmentsFromLines(a);
+  setStatus(a, 'in-progress');
+  say(a, 'You approved the order', `${state.customer.first} approved the order`);
+  return succeed(a);
+}
+/** `job.garments` rebuilt from `a.lines` (D-121): the kept garments in their order with their services, then new items (`added: true`). */
+function garmentsFromLines(a) {
   const byGarment = new Map();
   for (const l of a.lines) {
     if (!byGarment.has(l.garmentId)) byGarment.set(l.garmentId, { type: l.garmentType, services: [] });
@@ -990,10 +1004,7 @@ export function approvePriceChange(id) {
     if (hit) { garments.push({ ...g, services: hit.services }); byGarment.delete(g.id); }
   }
   for (const [gid, hit] of byGarment) garments.push({ id: gid, type: hit.type, services: hit.services, photos: 0, added: true });
-  a.job.garments = garments;
-  setStatus(a, 'in-progress');
-  say(a, 'You approved the order', `${state.customer.first} approved the order`);
-  return succeed(a);
+  return garments;
 }
 export function messageAboutPriceChange(id) {
   const a = must(id);
@@ -1001,11 +1012,13 @@ export function messageAboutPriceChange(id) {
   a.priceChange.state = 'messaged';
   return succeed(a);
 }
-/** Quote from the booked appointment's own lines; the captured deposit never changes (D-23). */
+/** Quote from the booked appointment's own lines; the captured deposit never changes (D-23). A declined post-fitting edit (Study-1 B1)
+    prices the work done so far instead (`partialQuote`), plus the courier when she picks it. */
 function repriceMoney(a, rush = a.money.rush) {
+  const courier = a.courier?.state === 'ready' ? a.courier.cents : 0;
+  if (a.outcome === 'partial') return partialQuote({ workDone: a.edit.workDone, homeFee: a.edit.homeFee ?? a.money.homeFee, courier, deposit: a.payments.deposit.cents });
   const q = quote({
-    lines: a.lines, homeFee: a.money.homeFee, rush,
-    courier: a.courier?.state === 'ready' ? a.courier.cents : 0, deposit: a.payments.deposit.cents,
+    lines: a.lines, homeFee: a.money.homeFee, rush, courier, deposit: a.payments.deposit.cents,
   });
   q.rushDays = a.money.rushDays;
   return q;
@@ -1025,6 +1038,7 @@ function repriceForSlot(a, slotStart) {
 export function markReady(id, { returns } = {}) {
   const a = must(id);
   if (a.status !== 'in-progress') return fail('not-in-progress');
+  if (a.edit?.state === 'pending') return fail('edit-pending');                                // Study-1 B1 (default 13)
   const tailor = tailorById(a.tailorId);
   const on = Object.keys(RETURN_LABEL).filter((k) => tailor.returns?.[k] === true);
   const offer = returns === undefined ? on : Object.keys(RETURN_LABEL).filter((k) => Array.isArray(returns) && returns.includes(k));
@@ -1205,6 +1219,191 @@ export function courierDelivered(id) {
   return succeed(a);
 }
 
+/* ---------- Study-1 B1: edit the job after the fitting (K-30, defaults 11–13) ---------- */
+const lineSig = (l) => `${lineKey(l)}:${l.cents}`;
+const sameLines = (x, y) => x.map(lineSig).sort().join('|') === y.map(lineSig).sort().join('|');
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** The price of an edit: the edited lines, the rush for the (new) need-by date — never above what was approved, so a later date can only
+    lower it — and the captured deposit. Cents, `quote()` shape. */
+export function editQuote(a, lines, needBy = a.job.needBy) {
+  const r = rushFor(tailorById(a.tailorId), a.slot.start, needBy);
+  const rush = Math.min(a.money.rush, r.cents);
+  const q = quote({ lines, homeFee: a.money.homeFee, rush, deposit: a.payments.deposit.cents });
+  q.rushDays = rush === a.money.rush ? a.money.rushDays : r.days;
+  return q;
+}
+/** An edit (sent, or a draft `{ lines, needBy, workDone }`) against the approved order: the change rows (`priceChangeView` vs `a.lines`), both
+    quotes, the due dates, and what Sarah pays if she declines (`ifDeclined`, `partialQuote`). Null without an edit. */
+export function jobEditView(appt, e = appt?.edit) {
+  if (!appt || !e) return null;
+  const lines = e.lines ?? appt.lines;
+  const pv = priceChangeView(appt, lines);
+  const needBy = e.needBy ?? appt.job.needBy;
+  const needByWas = e.state === 'pending' || !e.state ? appt.job.needBy : (e.needByWas ?? appt.job.needBy);
+  const after = editQuote(appt, lines, needBy);
+  const workDone = Number.isInteger(e.workDone) ? e.workDone : null;
+  return {
+    garments: pv.garments, counts: pv.counts, changed: pv.changed, before: appt.money, after, delta: after.total - appt.money.total,
+    needBy, needByWas, dueChanged: needBy !== needByWas, reason: e.reason ?? '', reasonMasked: !!e.reasonMasked, photo: e.photo ?? null,
+    workDone, ifDeclined: workDone == null ? null : partialQuote({ workDone, homeFee: appt.money.homeFee, deposit: appt.payments.deposit.cents }),
+    sentAt: e.sentAt ?? null, state: e.state ?? null, revisions: e.revisions ?? 0,
+  };
+}
+/** The tailor edits the job between the fitting and Mark ready (status `in-progress`). Price, due date or the work need Sarah's approval:
+    `lines` = the whole order against the APPROVED one (same rules as the final order), `needBy` an ISO day from today on, `reason` required
+    (masked, ≤ NOTE_MAX), `photo` optional, `workDone` = whole-dollar cents $0 … the approved total (what she pays if she declines). One
+    pending edit at a time: sending again replaces it (default 13). Errors: not-in-progress · no-items · <line errors> · due-invalid ·
+    no-change · reason-required · reason-long · work-done-required · work-done-invalid. */
+export function sendJobEdit(id, { lines, needBy = null, reason = '', photo = false, workDone = null } = {}) {
+  const a = must(id);
+  if (a.status !== 'in-progress') return fail('not-in-progress');
+  if (!Array.isArray(lines) || !lines.length) return fail('no-items');
+  const bad = lineErrors(a, lines);
+  if (bad) return fail(bad);
+  const due = needBy ?? a.job.needBy;
+  if (!ISO_DAY.test(String(due)) || due < isoDay(nowIso())) return fail('due-invalid');
+  const changed = !sameLines(a.lines, lines);
+  if (!changed && due === a.job.needBy) return fail('no-change');
+  const why = String(reason ?? '').trim();
+  if (!why) return fail('reason-required');
+  if ([...why].length > TAILOR_LIMITS.NOTE_MAX) return fail('reason-long');
+  if (workDone == null || workDone === '') return fail('work-done-required');
+  if (!Number.isInteger(workDone) || workDone % 100 !== 0 || workDone < 0 || workDone > a.money.total) return fail('work-done-invalid');
+  const masked = maskContact(why);
+  const revising = a.edit?.state === 'pending';
+  a.editSeq = (a.editSeq ?? 0) + 1;
+  a.edit = {
+    lines: clone(lines), marks: priceMarks(a.lines, lines), changed, needBy: due, needByWas: a.job.needBy,
+    reason: masked.text, reasonMasked: masked.masked,
+    photo: photo ? { id: `e${a.editSeq}`, at: nowIso(), tone: (a.editSeq - 1) % 4 } : null,
+    workDone, sentAt: nowIso(), state: 'pending', revisions: revising ? (a.edit.revisions ?? 0) + 1 : 0, decidedAt: null,
+  };
+  const first = firstName(tailorById(a.tailorId));
+  if (revising) say(a, `${first} updated the changes to your order`, 'You updated your changes');
+  else say(a, `${first} edited your order`, `You sent your changes to ${state.customer.first}`);
+  return succeed(a);
+}
+/** Sarah approves: the edited lines and due date replace the approved ones (money re-quoted, deposit unchanged) and the work continues. */
+export function approveJobEdit(id) {
+  const a = must(id);
+  if (a.status !== 'in-progress' || a.edit?.state !== 'pending') return fail('not-pending');
+  const e = a.edit;
+  const q = editQuote(a, e.lines, e.needBy);
+  e.needByWas = a.job.needBy;
+  a.lines = clone(e.lines);
+  a.job.needBy = e.needBy;
+  a.job.garments = garmentsFromLines(a);
+  a.money = q;
+  a.payments.balance.cents = q.balance;
+  Object.assign(e, { state: 'approved', decidedAt: nowIso() });
+  say(a, 'You approved the changes', `${state.customer.first} approved your changes`);
+  return succeed(a);
+}
+/** Sarah declines (default 12): she pays only the work done so far and gets the garment back — the job goes straight to `ready` with every
+    way back offered, priced by `partialQuote` (balance = work done − deposit, a refund when negative), and carries `outcome: 'partial'` to
+    completion ("Returned, partial work"). */
+export function declineJobEdit(id) {
+  const a = must(id);
+  if (a.status !== 'in-progress' || a.edit?.state !== 'pending') return fail('not-pending');
+  const e = a.edit;
+  Object.assign(e, { state: 'declined', decidedAt: nowIso(), homeFee: a.money.homeFee });
+  a.outcome = 'partial';
+  a.money = repriceMoney(a);
+  const tailor = tailorById(a.tailorId);
+  a.returnOffer = Object.keys(RETURN_LABEL).filter((k) => tailor.returns?.[k] === true);
+  setStatus(a, 'ready');
+  a.payments.balance = { cents: a.money.balance, state: 'due' };
+  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-156: settled at the return choice
+  const amt = fmtExact(e.workDone);
+  say(a, `You declined the changes. You pay ${amt} for the work done so far.`, `${state.customer.first} declined your changes. She pays ${amt} for the work done so far.`);
+  return succeed(a);
+}
+
+/* ---------- Study-1 B2: private General notes (K-31, default 14) ---------- */
+const NOTE_OPEN = ['fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'];
+/** The tailor's private notes are hers from the fitting until the job is completed (then read-only). Nobody else ever reads them. */
+export const notesEditable = (a) => !!a && NOTE_OPEN.includes(a.status);
+const photoCount = (photos) => (typeof photos === 'number' ? photos : Array.isArray(photos) ? photos.length : 0);
+/** A note's photos: `photos` = a count of new photos, or an array whose entries with an `id` are kept and the rest are new. */
+function notePhotos(a, photos) {
+  const list = typeof photos === 'number' ? Array.from({ length: photos }, () => ({})) : Array.isArray(photos) ? photos : [];
+  return list.map((p) => {
+    if (p?.id) return clone(p);
+    a.notePhotoSeq = (a.notePhotoSeq ?? 0) + 1;
+    return { id: `np${a.notePhotoSeq}`, at: nowIso(), tone: (a.notePhotoSeq - 1) % 4 };
+  });
+}
+function noteError(a, text, photos) {
+  if (!notesEditable(a)) return 'notes-closed';
+  const t = String(text ?? '').trim();
+  if (!t && !photoCount(photos)) return 'note-empty';
+  if ([...t].length > NOTES_LIMITS.TEXT_MAX) return 'note-long';
+  if (photoCount(photos) > NOTES_LIMITS.PHOTOS_MAX) return 'too-many-photos';
+  return null;
+}
+/** Errors: notes-closed · note-empty (no text and no photo) · note-long · too-many-photos. */
+export function addNote(id, { text = '', photos = [] } = {}) {
+  const a = must(id);
+  const err = noteError(a, text, photos);
+  if (err) return fail(err);
+  a.noteSeq = (a.noteSeq ?? 0) + 1;
+  const note = { id: `note${a.noteSeq}`, text: String(text ?? '').trim(), photos: notePhotos(a, photos), at: nowIso(), updatedAt: null };
+  (a.notes ??= []).push(note);
+  return succeed(a, { note });
+}
+/** Replace a note's text and / or photos (omitted = unchanged). Errors as addNote + not-found. */
+export function updateNote(id, noteId, { text, photos } = {}) {
+  const a = must(id);
+  if (!notesEditable(a)) return fail('notes-closed');
+  const note = (a.notes ?? []).find((n) => n.id === noteId);
+  if (!note) return fail('not-found');
+  const nextText = text === undefined ? note.text : text;
+  const nextPhotos = photos === undefined ? note.photos : photos;
+  const err = noteError(a, nextText, nextPhotos);
+  if (err) return fail(err);
+  Object.assign(note, { text: String(nextText ?? '').trim(), photos: notePhotos(a, nextPhotos), updatedAt: nowIso() });
+  return succeed(a, { note });
+}
+export function removeNote(id, noteId) {
+  const a = must(id);
+  if (!notesEditable(a)) return fail('notes-closed');
+  const index = (a.notes ?? []).findIndex((n) => n.id === noteId);
+  if (index < 0) return fail('not-found');
+  const [note] = a.notes.splice(index, 1);
+  return succeed(a, { note, index });
+}
+/** Undo a removeNote: the same note back at `index`. */
+export function restoreNote(id, note, index) {
+  const a = must(id);
+  if (!notesEditable(a)) return fail('notes-closed');
+  if (!note?.id || (a.notes ?? []).some((n) => n.id === note.id)) return fail('duplicate');
+  const at = Math.max(0, Math.min(Number.isInteger(index) ? index : a.notes.length, a.notes.length));
+  a.notes.splice(at, 0, clone(note));
+  return succeed(a);
+}
+export function addNotePhoto(id, noteId) {
+  const a = must(id);
+  const note = (a.notes ?? []).find((n) => n.id === noteId);
+  if (!notesEditable(a)) return fail('notes-closed');
+  if (!note) return fail('not-found');
+  if (note.photos.length >= NOTES_LIMITS.PHOTOS_MAX) return fail('too-many-photos');
+  const [photo] = notePhotos(a, 1);
+  note.photos.push(photo);
+  note.updatedAt = nowIso();
+  return succeed(a, { photo });
+}
+/** Errors: notes-closed · not-found · note-empty (it was the note's only content). */
+export function removeNotePhoto(id, noteId, photoId) {
+  const a = must(id);
+  const note = (a.notes ?? []).find((n) => n.id === noteId);
+  if (!notesEditable(a)) return fail('notes-closed');
+  if (!note || !note.photos.some((p) => p.id === photoId)) return fail('not-found');
+  if (!note.text && note.photos.length === 1) return fail('note-empty');
+  note.photos = note.photos.filter((p) => p.id !== photoId);
+  note.updatedAt = nowIso();
+  return succeed(a);
+}
+
 /** K-28 (Study-1 A4): a completed order with no review, REVIEW_REMINDER_D or more after it completed → the reminder card + Leave a review. */
 export function reviewReminderDue(appt) {
   if (!appt || appt.status !== 'completed' || appt.review) return false;
@@ -1296,6 +1495,7 @@ export function statusScreen(appt, persona = state.persona) {
   if (persona === 'tailor') return ['requested', 'suggested', 'declined', 'expired'].includes(s) ? 't-request' : 't-job';
   if (['requested', 'suggested', 'declined', 'expired'].includes(s)) return 'c-request';
   if (s === 'price-change') return 'c-price-change';
+  if (s === 'in-progress' && appt.edit?.state === 'pending') return 'c-price-change';   // Study-1 B1: the edit Sarah has to answer
   if (s === 'ready') return 'c-ready';                              // holding the balance moves it on to awaiting-handoff (K-27)
   if (s === 'completed' && !appt.review) return 'c-complete';
   return 'c-booking';
@@ -1347,7 +1547,7 @@ export function priceChangeView(appt, lines = appt?.priceChange?.lines ?? appt?.
   return {
     garments, before: m, after, delta: after.total - m.total,
     changed: garments.some((g) => g.rows.some((r) => r.kind !== 'same')), counts,
-    note: pc?.note ?? '', noteMasked: !!pc?.noteMasked, sentAt: pc?.sentAt ?? null, state: pc?.state ?? null, revisions: pc?.revisions ?? 0,
+    sentAt: pc?.sentAt ?? null, state: pc?.state ?? null, revisions: pc?.revisions ?? 0,
   };
 }
 
@@ -1357,6 +1557,7 @@ export const T = {
   requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, withdrawSuggestion, findAnotherTailor,
   tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow, reportTailorNoShow,
   startFitting, addFittingPhoto, removeFittingPhoto, restoreFittingPhoto, setFittingComment, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
+  sendJobEdit, approveJobEdit, declineJobEdit, addNote, updateNote, removeNote, restoreNote, addNotePhoto, removeNotePhoto,
   chooseReturn, holdBalance, confirmPickup, markHandedOver, confirmReceived, reportNotReceived, courierDelivered, bookAgain, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick, suggestLapseAt,

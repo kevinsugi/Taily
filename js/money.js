@@ -69,6 +69,24 @@ export function quote({ lines = [], homeFee = 0, rush = 0, courier = 0, deposit 
   };
 }
 
+/** Study-1 B1 (default 12, D-285): Sarah declined a post-fitting edit, so she pays `workDone` — the ALL-IN amount the tailor entered — for
+    the work so far, plus the courier if she picks it. The flat home visit fee is earned first (the visit happened), up to `workDone`; the
+    rest counts as services, and the Taily fee is on that services part only. Same shape as `quote()` (+ `partial`, `workDone`), so every
+    breakdown, hold and payout reads it unchanged. */
+export function partialQuote({ workDone = 0, homeFee = 0, courier = 0, deposit = 0 } = {}) {
+  const home = Math.min(homeFee, workDone);
+  const services = workDone - home;
+  const total = workDone + courier;
+  return {
+    services, homeFee: home, rush: 0, courier, total, deposit,
+    balance: Math.max(0, total - deposit),
+    refund: Math.max(0, deposit - total),
+    tailyFee: tailyFeeFor(services),
+    payout: payoutFor({ services, homeFee: home }),
+    partial: true, workDone, rushDays: null,
+  };
+}
+
 /** Quote for a draft job against one tailor. `slotIso` is the visit the rush tier
     is read from — callers pass the tailor's `nextOpening` (state.js has `estimateNext`). */
 export function estimate(tailor, job, slotIso = null) {

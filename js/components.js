@@ -1679,9 +1679,15 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
   const settled = stage === 'paid' || stage === 'held' || stage === 'charged';
   const balance = (stage === 'ready' || stage === 'held') && q.balance === 0 ? 'Nothing to pay'
     : { paid: 'Paid', held: 'On hold', charged: 'Charged', ready: 'Hold now' }[stage] ?? 'Due when ready';   // D-156
+  /* Study-1 B1 (default 12): a declined edit is priced as ONE all-in amount — the work done so far — never split into services and fee */
+  const work = q.partial
+    ? [{ label: 'Work done so far', cents: q.workDone, caption: servicesCaption || 'You declined the changes' }]
+    : [
+      { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
+      q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee, caption: HOME_FEE_CAPTION },
+    ];
   const rows = [
-    { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
-    q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee, caption: HOME_FEE_CAPTION },
+    ...work,
     q.rush > 0 && { label: 'Rush fee', cents: q.rush, caption: `Need-by ${q.rushDays ?? 1} day${(q.rushDays ?? 1) === 1 ? '' : 's'} after the visit` },
     q.courier > 0 && { label: 'Taily courier', cents: q.courier, ...(courierCaption ? { caption: courierCaption } : {}) },
     { label: est ? 'Estimated total' : 'Total', cents: q.total, kind: 'total' },
@@ -1709,7 +1715,7 @@ export function receiptBlock(a, tailorFirst = '') {
   const cardLine = paid > 0 ? `Balance paid with ${balanceCardLabel(a)}.`
     : refund > 0 ? `${fmtExact(refund)} refunded to ${balanceCardLabel(a, a.cardId)}.` : '';
   /* M7-1-C-05: what was paid for — the approved lines with their garments — between the return line and the totals */
-  const order = a.lines?.length ? `<div class="receipt__order">${changeList({ garments: withPhotos(priceChangeView(a, a.lines).garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: `${tailorFirst || 'Tailor'}’s comment` })}</div>` : '';
+  const order = a.lines?.length && a.outcome !== 'partial' ? `<div class="receipt__order">${changeList({ garments: withPhotos(priceChangeView(a, a.lines).garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: `${tailorFirst || 'Tailor'}’s comment` })}</div>` : '';
   return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', dropoff: 'home', courier: 'truck' }[how] })}</div>
   ${stitchDivider()}
   ${order}
@@ -1721,7 +1727,7 @@ export function receiptBlock(a, tailorFirst = '') {
 export function tailorBreakdown(q, { total = true } = {}) {
   /* D-172: the per-job figure is "Your payout"; "payout" is the bank transfer. `total: false` = the figure is already the card's hero (M6-P-33). */
   return moneyRows([
-    { label: 'Services', cents: q.services },
+    { label: 'Services', cents: q.services, ...(q.partial ? { caption: `Work done so far: ${fmtExact(q.workDone)} in all` } : {}) },   // Study-1 B1: the services part of a partial job
     { label: 'Taily fee', cents: q.tailyFee, kind: 'negative', caption: `On the ${fmtExact(q.services)} of services only` },
     q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush },
@@ -2400,9 +2406,11 @@ export function threadRow({ id = '', act = 'open-thread', name = '', initials = 
  * Attach sheet — "Add a photo" with Take a photo / Choose from library (`[data-act="photo-camera"]` / `photo-library`, 56 px rows).
  * Either calls `onAdd()` then closes. `count` = photos already on the message; `max` defaults to CHAT_LIMITS.PHOTOS_MAX. dataS `attach`.
  */
-export function openAttachSheet({ count = 0, max = CHAT_PHOTO_CAP(), peer = '' } = {}, onAdd) {
+export function openAttachSheet({ count = 0, max = CHAT_PHOTO_CAP(), peer = '', note = '' } = {}, onAdd) {
+  /* Study-1 B2: `note` replaces the chat line (a private note / an edit photo says who sees it) */
+  const line = note ? `${esc(note)}${count > 0 ? ` ${count} added.` : ''}` : `Show ${esc(peer || 'them')} the garment. Up to ${max}&nbsp;per&nbsp;message.${count > 0 ? ` ${count} added.` : ''}`;
   const body = `<div class="attach-sheet">
-  <p class="t-small c-600 attach-sheet__note">Show ${esc(peer || 'them')} the garment. Up to ${max}&nbsp;per&nbsp;message.${count > 0 ? ` ${count} added.` : ''}</p>
+  <p class="t-small c-600 attach-sheet__note">${line}</p>
   <div class="attach-sheet__rows">
     ${listRow({ title: 'Take a photo', act: 'photo-camera', lead: ICON_CAMERA, chevron: false })}
     ${listRow({ title: 'Choose from library', act: 'photo-library', lead: ICON_IMAGE, chevron: false })}
@@ -2835,6 +2843,112 @@ export function reminderCard({ title = '', text = '', actionLabel = 'Leave a rev
 }
 
 /* ===== S1-B ===== */
+/* Study-1 WS-B (K-30, K-31): the tailor's private General notes (B2) and the edit's due-date line (B1). */
+
+/** B2 copy: the empty line and the field errors of the note editor. */
+export const NOTE_EMPTY = 'Measurements, fabric notes, reminders. Only you see them.';
+const NOTE_ERRORS = {
+  'note-empty': 'Write something or add a photo.',
+  'note-long': `Keep the note under ${DATA.NOTES_LIMITS.TEXT_MAX} characters.`,
+  'too-many-photos': `Up to ${DATA.NOTES_LIMITS.PHOTOS_MAX} photos per note.`,
+};
+/** "Fri, Oct 16, 10:00 AM" (+ " · Edited"). */
+const noteStamp = (n) => `${fmtDay(n.updatedAt ?? n.at)}, ${fmtTime(n.updatedAt ?? n.at)}${n.updatedAt ? ' · Edited' : ''}`;
+
+/**
+ * Private notes (Study-1 B2, K-31) — "General notes": the lock line "Only you can see these notes.", every note (text, its photos as one
+ * thumbnail row that opens the viewer, when, Edit), then "Add a note"; no sharing anywhere. `draft` = the open editor
+ * `{ id: noteId | null, text, photos: [{ tone }], error }` (in place of that note, or last for a new one): a textArea `#note-text`,
+ * the photo tray (`[data-act="note-remove-photo"][data-index]`), "Add photo" (`note-add-photo`), Save note / Cancel / Delete note.
+ * `readOnly` (a completed job) drops every control. `type` = the garment the photo stubs draw.
+ */
+export function privateNotes({ notes = [], draft = null, readOnly = false, type = '', id = 'notes', busy = false } = {}) {
+  const max = DATA.NOTES_LIMITS;
+  const dis = busy || !!draft;
+  const thumbs = (n) => (n.photos.length ? `<button type="button" class="private-note__photos" data-act="view-photo" data-count="${n.photos.length}" data-type="${esc(type)}" data-title="${n.photos.length === 1 ? 'Note photo' : 'Note photos'}" aria-label="Open ${n.photos.length === 1 ? 'the photo' : `${n.photos.length} photos`} in this note">${n.photos.map((p) => `<span class="private-note__thumb">${photoStub({ type, tone: p.tone ?? 0, size: 'thumb', seed: p.id })}</span>`).join('')}</button>` : '');
+  const editor = () => {
+    const tray = draft.photos.length ? `<div class="composer__tray private-notes__tray" role="list" aria-label="Photos in this note">${draft.photos.map((p, i) => `<span class="composer__thumb" role="listitem"><span class="composer__thumb-tile" aria-hidden="true">${photoStub({ type, tone: p.tone ?? i, size: 'fill' })}</span><button type="button" class="composer__remove" data-act="note-remove-photo" data-index="${i}" aria-label="Remove photo ${i + 1}"${busy ? ' disabled' : ''}>${ICON_CLOSE}</button></span>`).join('')}</div>` : '';
+    const full = draft.photos.length >= max.PHOTOS_MAX;
+    return `<li class="private-note private-note--editing" data-note-editor${draft.id ? ` data-note="${esc(draft.id)}"` : ''}>
+    ${textArea({ id: 'note-text', label: draft.id ? 'Edit note' : 'New note', value: draft.text ?? '', rows: 4, max: max.TEXT_MAX, error: draft.error ? NOTE_ERRORS[draft.error] ?? '' : '' })}
+    ${tray}
+    ${full ? `<p class="t-small c-600 private-notes__max">Up to ${max.PHOTOS_MAX} photos per note.</p>` : `<div class="private-notes__add-photo">${textLink('Add photo', { act: 'note-add-photo', icon: ICON_CAMERA, disabled: busy })}</div>`}
+    <div class="private-notes__actions">
+      ${ctaSmall(busy ? 'Saving…' : 'Save note', { filled: true, attrs: `data-act="note-save"${busy ? ' disabled aria-busy="true"' : ''}` })}
+      ${textLink('Cancel', { act: 'note-cancel', tone: 'muted', disabled: busy })}
+      ${draft.id ? textLink('Delete note', { act: 'note-delete', tone: 'danger', disabled: busy }): ''}
+    </div>
+  </li>`;
+  };
+  const item = (n) => (draft && draft.id === n.id ? editor() : `<li class="private-note" data-note="${esc(n.id)}">
+    ${n.text ? `<p class="t-body private-note__text">${esc(n.text)}</p>` : ''}
+    ${thumbs(n)}
+    <div class="private-note__foot"><p class="t-small c-600">${esc(noteStamp(n))}</p>${readOnly ? '' : textLink('Edit', { act: 'note-edit', disabled: dis, attrs: `data-note="${esc(n.id)}" aria-label="Edit this note"` })}</div>
+  </li>`);
+  const rows = [...notes.map(item), draft && !draft.id ? editor() : ''].join('');
+  return `<section class="sec private-notes" aria-labelledby="${esc(id)}-head" data-notes>
+  ${sectionHead('General notes', { id: `${id}-head`, count: notes.length || null })}
+  <p class="t-small c-700 private-notes__lock" data-private>${ICON_LOCK}<span>Only you can see these notes.</span></p>
+  ${rows ? `<ul class="private-notes__list" role="list">${rows}</ul>` : `<p class="t-body c-600 private-notes__empty">${esc(NOTE_EMPTY)}</p>`}
+  ${readOnly || draft ? '' : `<div class="private-notes__add">${textLink('Add a note', { act: 'note-add', icon: ICON_EDIT, disabled: busy })}</div>`}
+</section>`;
+}
+
+/**
+ * Wire `privateNotes` on a screen (t-job, t-adjust). The host keeps the editor draft and the model calls:
+ * `{ draft() → d | null, setDraft(d | null), notes() → [], save(d) → { ok, error }, remove(noteId) → { ok, note, index },
+ *    restore(note, index), rerender(focusSel), type }`. Add photo opens the attach sheet (camera or library); Delete note offers Undo.
+ */
+export function wirePrivateNotes(root, { draft, setDraft, notes, save, remove, restore, rerender, type = '' }) {
+  const max = DATA.NOTES_LIMITS.PHOTOS_MAX;
+  root.addEventListener('input', (e) => {
+    if (e.target.id !== 'note-text' || !draft()) return;
+    draft().text = e.target.value;
+    const n = [...e.target.value].length;
+    const count = root.querySelector('#note-text-count');
+    if (count) { count.textContent = `${n} / ${DATA.NOTES_LIMITS.TEXT_MAX}`; count.classList.toggle('text-area__count--over', n > DATA.NOTES_LIMITS.TEXT_MAX); }
+  });
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('.screen-sheet--overlay')) return;
+    const el = e.target.closest('[data-act^="note-"]');
+    if (!el || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
+    const act = el.dataset.act;
+    const d = draft();
+    if (act === 'note-add') { setDraft({ id: null, text: '', photos: [], error: '' }); rerender('#note-text'); }
+    else if (act === 'note-edit') {
+      const n = notes().find((x) => x.id === el.dataset.note);
+      if (!n) return;
+      setDraft({ id: n.id, text: n.text, photos: n.photos.map((p) => ({ ...p })), error: '' });
+      rerender('#note-text');
+    } else if (!d) return;
+    else if (act === 'note-cancel') { setDraft(null); rerender('[data-act="note-add"]'); }
+    else if (act === 'note-add-photo') {
+      openAttachSheet({ count: d.photos.length, max, note: `Up to ${max} photos per note. Only you see them.` }, () => {
+        d.photos.push({ tone: d.photos.length % 4 });
+        if (d.error === 'note-empty') d.error = '';
+        rerender(d.photos.length >= max ? '#note-text' : '[data-act="note-add-photo"]');
+      });
+    } else if (act === 'note-remove-photo') {
+      d.photos.splice(Number(el.dataset.index), 1);
+      rerender('[data-act="note-add-photo"]');
+    } else if (act === 'note-save') {
+      const r = save(d);
+      if (r?.ok) { setDraft(null); rerender('[data-act="note-add"]'); toast('Note saved. Only you can see it.', { tone: 'success' }); }
+      else { d.error = r?.error ?? 'note-empty'; rerender('#note-text'); }
+    } else if (act === 'note-delete') {
+      const r = remove(d.id);
+      if (!r?.ok) { toast('Couldn’t delete the note. Try again.', { tone: 'error' }); return; }
+      setDraft(null);
+      rerender('[data-act="note-add"]');
+      toast('Note deleted.', { action: 'Undo', onAction: () => { if (restore(r.note, r.index)?.ok) rerender(`[data-act="note-edit"][data-note="${r.note.id}"]`); } });
+    }
+  });
+}
+
+/** B1: "New due date Fri, Oct 26 · was Fri, Oct 23" — one line, the old date muted. */
+export function dueChange({ needBy, was } = {}) {
+  return `<span class="due-change">New due date <span class="due-change__part">${esc(fmtDay(needBy))}</span> <span class="c-600">· was <span class="due-change__part">${esc(fmtDay(was))}</span></span></span>`;
+}
 
 /* ===== S1-C ===== */
 /* Study-1 C2: the hard stop for a `textArea({ maxlength })`. Typing stops at the limit (native maxlength); a paste that would

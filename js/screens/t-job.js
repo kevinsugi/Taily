@@ -13,7 +13,7 @@
    is always in dollars; the courier is never her money.
    ============================================================ */
 import { register, render as go, registered, personaHome, currentScreen } from '../app.js';
-import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft } from '../state.js';
+import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable } from '../state.js';
 import { focusAppt, redirectIfMoved, statusWord, setFocus } from '../focus.js';
 import { myTailor, requestView, jobAddress, payoutOf, inbox, payoutLine } from '../tailor-data.js';
 import { CANT_MAKE_IT_REASONS, RETURN_LABEL, HANDOFF_CODE_LEN } from '../data.js';
@@ -29,6 +29,7 @@ import {
   sectionHead, textLink, infoButton, moreMenu, openMoreMenu, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR,
   linenStage, tagRail, returnedItems, stars,
   banner, codeInput, autoCompleteLine, deliveryPhoto, photoStub, ICON_IMAGE,
+  privateNotes, wirePrivateNotes, dueChange,
 } from '../components.js';
 import { ICON_CAMERA } from '../icons.js';
 
@@ -186,6 +187,7 @@ function stateKey(a) {
   if (a.status === 'confirmed') return now() >= toDate(a.slot.start).getTime() ? 'visit' : null;
   if (a.status === 'price-change') return a.priceChange?.state === 'messaged' ? 'messaged' : 'waiting';
   if (a.status === 'awaiting-handoff') return { dropoff: 'handoff-dropoff', courier: 'handoff-courier' }[a.returnOption] ?? 'handoff-pickup';
+  if (a.status === 'in-progress' && a.edit?.state === 'pending') return 'edit-pending';   // Study-1 B1: waiting on Sarah's answer
   return a.status; // fitting · in-progress · ready · completed
 }
 
@@ -213,7 +215,9 @@ function copyFor(key, a, t, v, pv) {
       if (last?.from === 'tailor') return { bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
       return { bar: { ctaLabel: `Reply to ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
     }
-    case 'in-progress': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready' } };
+    case 'in-progress': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', secondaryLabel: 'Edit the job', secondaryAct: 'edit-job' } };   // Study-1 B1
+    /* default 13: one pending edit at a time — Mark ready waits; Edit the job again replaces what Sarah is looking at */
+    case 'edit-pending': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', disabled: true, note: `${first} hasn’t answered your changes yet.`, secondaryLabel: 'Edit the job', secondaryAct: 'edit-job' } };
     case 'ready': return { bar: null };   // K-12 (D-237): Message lives in the header; nothing else is hers to do until Sarah chooses
     case 'handoff-pickup': return { bar: h.problemAt ? problemBar() : h.markedAt ? null : { ctaLabel: 'Picked up', ctaAct: 'picked-up' } };
     case 'handoff-dropoff': return { bar: h.problemAt ? problemBar({ secondaryLabel: 'Mark delivered again', secondaryAct: 'delivered' }) : h.markedAt ? null : { ctaLabel: 'Delivered', ctaAct: 'delivered' } };
@@ -235,10 +239,13 @@ function stripFor(key, a, v, pv) {
         ? { tone: 'warn', icon: 'clock', text: `Waiting on ${first} to approve`, right: `You replied ${fmtTime(last.at)}` }
         : { tone: 'action', icon: 'chat', text: `${first} wants to talk about the order` };
     }
-    case 'in-progress': return approved
-      ? { tone: 'done', icon: 'check', text: `${first} approved · work in progress`, right: daysLeft(a) }
-      : { tone: 'calm', icon: 'clock', text: 'In progress', right: daysLeft(a) };
-    case 'ready': return { tone: 'warn', icon: 'clock', text: `Ready · ${first} is choosing how to get it back` };
+    case 'in-progress':
+      if (a.edit?.state === 'approved') return { tone: 'done', icon: 'check', text: `${first} approved your changes`, right: daysLeft(a) };   // Study-1 B1
+      return approved
+        ? { tone: 'done', icon: 'check', text: `${first} approved · work in progress`, right: daysLeft(a) }
+        : { tone: 'calm', icon: 'clock', text: 'In progress', right: daysLeft(a) };
+    case 'edit-pending': return { tone: 'warn', icon: 'clock', text: `Waiting on ${first} to approve your changes`, right: a.edit?.sentAt ? `Sent ${fmtTime(a.edit.sentAt)}` : '' };
+    case 'ready': return { tone: 'warn', icon: 'clock', text: a.outcome === 'partial' ? `${first} declined your changes · choosing how to get it back` : `Ready · ${first} is choosing how to get it back` };
     case 'handoff-pickup':
     case 'handoff-dropoff': {
       const h = a.handoff ?? {};
@@ -255,7 +262,7 @@ function stripFor(key, a, v, pv) {
     }
   }
 }
-const STRIPPED = ['fitting', 'waiting', 'messaged', 'in-progress', 'ready', 'handoff-pickup', 'handoff-dropoff', 'handoff-courier'];
+const STRIPPED = ['fitting', 'waiting', 'messaged', 'in-progress', 'edit-pending', 'ready', 'handoff-pickup', 'handoff-dropoff', 'handoff-courier'];
 
 /** What changed + the payout if approved (waiting / messaged), under the header. K-17 R3: at most ONE quote, the latest — Sarah's message, or
     Amara's reply once she has answered it, else the note that went with the order. */
@@ -263,9 +270,9 @@ function priceBlocks(a, pv, key) {
   const first = esc(firstOf());
   const last = key === 'messaged' ? lastSpeakerSince(a, pv.sentAt) : null;   // M6-T-21: once Amara answered, the quote is her reply
   const latest = key === 'messaged' ? threadFor(a.tailorId).messages.filter((m) => m.from === 'customer' && (!pv.sentAt || m.at >= pv.sentAt)).pop() : null;
+  /* K-31 (Study-1 B2): her whole-order note is private now — it lives in General notes, never quoted as sent */
   const quote = last?.from === 'tailor' && last.text ? noteQuote({ label: 'Your reply', text: last.text })
-    : latest?.text ? noteQuote({ label: `${firstOf()}’s latest message`, text: latest.text })
-    : pv.note ? noteQuote({ label: 'Your note', text: pv.note }) : '';
+    : latest?.text ? noteQuote({ label: `${firstOf()}’s latest message`, text: latest.text }) : '';
   /* K-02 (D-183): a photo or comment changed after sending never reaches Sarah until the updated order is sent */
   const sentIds = [...new Set((a.priceChange?.lines ?? []).map((l) => l.garmentId))];
   const unsent = docsDiffer(a, sentIds) && ['pending', 'messaged'].includes(a.priceChange?.state)
@@ -338,15 +345,45 @@ function payoutBlock(a, t, extra = '') {
 /** The completed body: Sarah's 1-E linen stage with the garment tags (no woven label), then the payout block, then The work. Failed = calm. */
 function completedBody(a, v, t, extra) {
   const failed = payoutOf(a)?.state === 'failed';
+  const partial = a.outcome === 'partial';
   const me = (t.name || 'there').split(' ')[0];
   const stage = linenStage({
-    eyebrow: failed ? `${firstOf()}’s order` : a.handoff?.completedBy === 'auto' ? `Completed automatically · ${firstOf()}’s order` : `Job completed · ${firstOf()}’s order`,
-    title: failed ? 'Job completed' : `Nice work, ${me}.`,
+    eyebrow: failed || partial ? `${firstOf()}’s order` : a.handoff?.completedBy === 'auto' ? `Completed automatically · ${firstOf()}’s order` : `Job completed · ${firstOf()}’s order`,
+    title: partial ? 'Returned, partial work' : failed ? 'Job completed' : `Nice work, ${me}.`,   // Study-1 B1: a declined edit says so
     line: returnedLine(a), rail: tagRail(returnedItems(a)), label: 'Job completed', calm: failed,
   });
+  const why = partial ? `<p class="t-body c-700 ${ID}__partial" data-partial>${esc(firstOf())} declined your changes and paid ${fmtExact(a.edit?.workDone ?? a.money.total)} for the work done so far.</p>` : '';
   return `${navBackMark()}${stage}
+  ${why}
   ${payoutBlock(a, t, extra)}
-  ${workSec(a, v)}`;
+  ${workSec(a, v)}
+  ${notesSec(a)}`;
+}
+
+/* ---------- Study-1 B2: private General notes (K-31) — from the fitting on, editable until completed ---------- */
+/** The open note editor of THIS job (state.ui['t-job'].note), or null. */
+const noteDraft = (a) => (a && ui().note?.apptId === a.id ? ui().note : null);
+function notesSec(a) {
+  const ro = !notesEditable(a);
+  if (ro && !(a.notes ?? []).length) return '';
+  return privateNotes({ notes: a.notes ?? [], draft: ro ? null : noteDraft(a), readOnly: ro, type: returnedItems(a)[0]?.type ?? '', id: `${ID}-notes` });
+}
+
+/* ---------- Study-1 B1: the edit waiting on Sarah ---------- */
+function editBlocks(a, ev) {
+  const first = esc(firstOf());
+  const items = returnedItems(a);
+  const due = ev.dueChanged ? sec(visitBlock([{ icon: 'clock', value: dueChange({ needBy: ev.needBy, was: ev.needByWas }), strong: true }], { title: '' }), { first: true }) : '';
+  return `<div class="${ID}__quote">${noteQuote({ label: 'Your reason', text: ev.reason })}</div>
+  ${ev.photo ? `<div class="${ID}__edit-photo">${deliveryPhoto({ photo: ev.photo, type: a.job.garments.find((g) => g.id === a.edit?.marks?.[0]?.garmentId)?.type ?? items[0]?.type ?? '', by: 'you', label: 'Photo for the change' })}</div>` : ''}
+  ${due}
+  ${ev.changed ? sec(`${sectionHead('Your changes', { id: `${ID}-changes` })}
+  <div class="${ID}__summary">${changeSummary(ev.counts)}</div>
+  ${changeList({ garments: withPhotos(ev.garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: 'Your comment', photoOwner: `${firstOf()}’s` })}`, { id: `${ID}-changes` }) : ''}
+  ${notesSec(a)}
+  ${sec(`${sectionHead('Your payout if approved', { id: `${ID}-take` })}
+  ${tailorBreakdown(ev.after)}
+  <p class="t-small c-600 ${ID}__fine" data-money>If ${first} declines, she pays ${fmtExact(ev.workDone)} for the work done so far and you’re paid ${fmtExact(ev.ifDeclined.payout)}.</p>`, { id: `${ID}-take` })}`;
 }
 
 function m4View(a, v, key) {
@@ -362,6 +399,7 @@ function m4View(a, v, key) {
   /* R4-2-T-04: every live state says when the money arrives; "can change" only until the price is settled */
   const fine = `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after ${esc(firstOf())} gets her order.${approved ? ' Price updated after the fitting.' : ''}</p>`;   // Study-1 A3: the handoff, not a tap of yours, completes the job
   const payout = payoutSec(a, v, fine);
+  const notes = notesSec(a);
   const block = (inner) => sec(inner, { first: true });
   const message = [{ label: 'Message', icon: ICON_CHAT, act: 'message', attrs: `aria-label="${esc(`Message ${firstOf()}`)}"` }];
   /* K-17 (D-242) option A, "strip-led": ONE flush strip states the state (no status line + title pair), then the header row — Sarah, and the one amount
@@ -378,25 +416,31 @@ function m4View(a, v, key) {
   ${visitBlock([
     dueRows(a, `${plural(dayDiff(a.slot.start, a.job.needBy), 'day')} after the fitting`),
     { icon: 'camera', value: 'Take a before and a pinned photo of each item', detail: `Then send ${firstOf()} the final order` },
-  ], { title: '' })}${personActions(message)}${work}${payout}`; break;
+  ], { title: '' })}${personActions(message)}${work}${notes}${payout}`; break;
     case 'waiting':
     case 'messaged':
       body = `${head({ payoutCents: pv.after.payout, label: 'Your payout if approved', lines: [deltaText(pv.after.payout, pv.before.payout)],
         foot: [pv.changed ? `${firstOf()} sees a new total of ${fmtExact(pv.after.total)} (was ${fmtExact(pv.before.total)}).` : `${firstOf()} sees the total as booked, ${fmtExact(pv.before.total)}.`] })}
-  ${priceBlocks(a, pv, key)}${fine}`; break;
+  ${priceBlocks(a, pv, key)}${notes}${fine}`; break;
     case 'in-progress':
       body = `${head({ payoutCents: a.money.payout })}
-  ${visitBlock([dueRows(a, `Fitted ${fmtDay(a.slot.start)}`)], { title: '' })}${personActions(message)}${work}${payout}`; break;
+  ${visitBlock([dueRows(a, `Fitted ${fmtDay(a.slot.start)}`)], { title: '' })}${personActions(message)}${work}${notes}${payout}`; break;
+    case 'edit-pending': {
+      const ev = jobEditView(a);
+      body = `${head({ payoutCents: ev.after.payout, label: 'Your payout if approved', lines: [deltaText(ev.after.payout, ev.before.payout)],
+        foot: [ev.changed ? `${firstOf()} sees a new total of ${fmtExact(ev.after.total)} (was ${fmtExact(ev.before.total)}).` : `${firstOf()} sees the total as before, ${fmtExact(ev.before.total)}.`] })}
+  ${editBlocks(a, ev)}`; break;
+    }
     case 'ready':
       body = `${head({ trail: personButtons(message) })}
   ${sec(visitBlock(returnOffer(a).map((k) => ({ icon: RETURN_ICON[k], value: RETURN_LABEL[k] })), { title: 'Return options you offered' }))}
-  <p class="t-small c-600 ${ID}__fine">${first} pays the ${fmtExact(a.money.balance)} balance, plus the courier if she picks it.</p>${work}${payout}`; break;
+  <p class="t-small c-600 ${ID}__fine">${a.outcome === 'partial' ? `${first} declined your changes. She pays ${fmtExact(a.edit?.workDone ?? a.money.total)} for the work done so far, plus the courier if she picks it.` : `${first} pays the ${fmtExact(a.money.balance)} balance, plus the courier if she picks it.`}</p>${work}${notes}${payout}`; break;
     case 'handoff-pickup':
-      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(visitBlock(placeRows(t.shopName, 'bag', shopLine(t)), { title: 'In-store pickup' }))}${work}${payout}`; break;
+      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(visitBlock(placeRows(t.shopName, 'bag', shopLine(t)), { title: 'In-store pickup' }))}${work}${notes}${payout}`; break;
     case 'handoff-dropoff':
-      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(visitBlock(placeRows(`${firstOf()}’s home`, 'home', homeStreet()), { title: 'Home drop-off' }))}${work}${payout}`; break;
+      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(visitBlock(placeRows(`${firstOf()}’s home`, 'home', homeStreet()), { title: 'Home drop-off' }))}${work}${notes}${payout}`; break;
     case 'handoff-courier':
-      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(visitBlock([{ icon: 'truck', value: esc(`${t.shopName} → ${homeStreet()}`), detail: `Paid by ${firstOf()} · nothing comes out of your payout` }], { title: 'Taily courier' }))}${work}${payout}`; break;
+      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(visitBlock([{ icon: 'truck', value: esc(`${t.shopName} → ${homeStreet()}`), detail: `Paid by ${firstOf()} · nothing comes out of your payout` }], { title: 'Taily courier' }))}${work}${notes}${payout}`; break;
     default: body = completedBody(a, v, t, updated);   // completed (K-20)
   }
   return `${chrome('home', { persona: 'tailor' })}
@@ -711,6 +755,23 @@ function wire(root) {
       return docs ? { type, docs } : null;
     },
   });
+  /* Study-1 B2: the private General notes — the editor draft lives in ui().note (with the job's id) */
+  if (a && notesEditable(a)) {
+    wirePrivateNotes(root, {
+      draft: () => noteDraft(a),
+      setDraft: (d) => { if (d) ui().note = { ...d, apptId: a.id }; else delete ui().note; },
+      notes: () => a.notes ?? [],
+      save: (d) => (d.id ? T.updateNote(a.id, d.id, { text: d.text, photos: d.photos }) : T.addNote(a.id, { text: d.text, photos: d.photos })),
+      remove: (noteId) => T.removeNote(a.id, noteId),
+      restore: (note, index) => T.restoreNote(a.id, note, index),
+      rerender: (sel) => {
+        const y = window.scrollY;
+        go(ID, { replace: true });
+        window.scrollTo(0, y);
+        if (sel) document.querySelector(`#screen ${sel}`)?.focus({ preventScroll: true });
+      },
+    });
+  }
   root.addEventListener('click', (e) => {
     if (e.target.closest('.screen-sheet--overlay')) return;
     const act = e.target.closest('[data-act]')?.dataset.act;
@@ -727,6 +788,10 @@ function wire(root) {
         go('t-adjust');
         toast('Fitting started', { tone: 'success' });
       });
+    } else if (act === 'edit-job' && a) {
+      /* Study-1 B1: edit the job after the fitting (a pending edit is the starting point; sending again replaces it) */
+      state.ui['t-adjust'] = { apptId: a.id, mode: 'edit' };
+      go('t-adjust');
     } else if ((act === 'edit-order' || act === 'revise') && a) {
       state.ui['t-adjust'] = { apptId: a.id, mode: act === 'edit-order' ? 'new' : 'revise' };
       go('t-adjust');

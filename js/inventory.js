@@ -170,6 +170,7 @@ export const SCREENS = [
     { key: 'c-booking--no-show-report', m: 'M7', kind: 'overlay' },
     { key: 'c-booking--tailor-no-show', m: 'M7', kind: 'state' },
     { key: 'c-booking--cant-make-it-late', m: 'M7', kind: 'state' },
+    { key: 'c-booking--completed-partial', m: 'S1', kind: 'state' },
   ] },
   { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01) · with the tailor’s Before / Pinned photos and comments (K-02)', states: [
     { key: 'c-price-change', m: 'M4', kind: 'frame' },
@@ -180,6 +181,9 @@ export const SCREENS = [
     { key: 'c-price-change--messaged', m: 'M4', kind: 'state' },
     { key: 'c-price-change--unchanged', m: 'M4', kind: 'state' },
     { key: 'c-price-change--docs', m: 'M4', kind: 'state' },
+    { key: 'c-price-change--edit', m: 'S1', kind: 'state' },
+    { key: 'c-price-change--edit-due', m: 'S1', kind: 'state' },
+    { key: 'c-price-change--decline', m: 'S1', kind: 'overlay' },
   ] },
   { id: 'c-ready', m: 'M4', persona: 'customer', title: 'C10 pick a return option the tailor offers, then pay the balance', states: [
     { key: 'c-ready', m: 'M4', kind: 'frame' },
@@ -194,6 +198,7 @@ export const SCREENS = [
     { key: 'c-ready--pay-another-way', m: 'M4', kind: 'state' },
     { key: 'c-ready--processing', m: 'M4', kind: 'overlay' },
     { key: 'c-ready--processing-locked', m: 'M4', kind: 'state' },
+    { key: 'c-ready--partial', m: 'S1', kind: 'state' },
   ] },
   { id: 'c-complete', m: 'M4', persona: 'customer', title: 'C11 order completed: stitch stage + garment tags, Amara’s label with stars, receipt row (K-17)', states: [
     { key: 'c-complete', m: 'M4', kind: 'frame' },
@@ -202,6 +207,7 @@ export const SCREENS = [
     { key: 'c-complete--auto', m: 'M7', kind: 'state' },
     { key: 'c-complete--courier', m: 'M7', kind: 'state' },
     { key: 'c-complete--review-reminder', m: 'M7', kind: 'state' },
+    { key: 'c-complete--partial', m: 'S1', kind: 'state' },
   ] },
   { id: 'c-review', m: 'M4', persona: 'customer', title: 'Stars (1–5), optional text, up to 3 photos', states: [
     { key: 'c-review', m: 'M4', kind: 'frame' },
@@ -328,6 +334,7 @@ export const SCREENS = [
     { key: 'sys-push-prompt', m: 'M5', kind: 'overlay' },
     { key: 't-home--completed', m: 'M7', kind: 'state' },
     { key: 't-home--handoff', m: 'M7', kind: 'state' },
+    { key: 't-home--completed-partial', m: 'S1', kind: 'state' },
   ] },
   { id: 't-request', m: 'M3', persona: 'tailor', title: 'T2/T3 request card: garments + estimate, visit type + neighborhood/zip, time, need-by, payout after Taily fee, expiry; Accept · Suggest time · Decline', states: [
     { key: 't-request', m: 'M3', kind: 'frame' },
@@ -396,6 +403,12 @@ export const SCREENS = [
     { key: 't-job--handoff-problem', m: 'M7', kind: 'state' },
     { key: 't-job--handoff-unclaimed', m: 'M7', kind: 'state' },
     { key: 't-job--completed-auto', m: 'M7', kind: 'state' },
+    { key: 't-job--notes', m: 'S1', kind: 'state' },
+    { key: 't-job--note-editor', m: 'S1', kind: 'state' },
+    { key: 't-job--note-attach', m: 'S1', kind: 'overlay' },
+    { key: 't-job--edit-pending', m: 'S1', kind: 'state' },
+    { key: 't-job--ready-partial', m: 'S1', kind: 'state' },
+    { key: 't-job--completed-partial', m: 'S1', kind: 'state' },
   ] },
   { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Edit the job at the fitting: add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },
@@ -418,6 +431,10 @@ export const SCREENS = [
     { key: 't-adjust--photo-viewer', m: 'M4', kind: 'overlay' },
     { key: 't-adjust--revise-docs', m: 'M4', kind: 'state' },
     { key: 't-adjust--photos-required', m: 'M7', kind: 'state' },
+    { key: 't-adjust--notes', m: 'S1', kind: 'state' },
+    { key: 't-adjust--edit', m: 'S1', kind: 'state' },
+    { key: 't-adjust--edit-errors', m: 'S1', kind: 'state' },
+    { key: 't-adjust--edit-due', m: 'S1', kind: 'overlay' },
   ] },
   { id: 't-earnings', m: 'M5', persona: 'tailor', title: 'T8 payouts: upcoming, history', states: [
     { key: 't-earnings', m: 'M5', kind: 'frame' },

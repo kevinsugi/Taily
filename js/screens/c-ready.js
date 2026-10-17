@@ -95,7 +95,7 @@ const CHOICE_WORD = { pickup: 'pickup', dropoff: 'drop-off', courier: 'courier' 
 /* ---------- view ---------- */
 /** "Your order" (K-2-01, D-127): what the balance pays for — the approved lines, plain rows, as on c-booking and Amara's "The work". */
 function orderSection(a) {
-  if (!a.lines?.length) return '';
+  if (!a.lines?.length || a.outcome === 'partial') return '';   // Study-1 B1: a declined edit pays for the work done, not these lines
   const added = new Set(a.job.garments.filter((g) => g.added).map((g) => g.id));
   const garments = withPhotos(priceChangeView(a, a.lines).garments, a.job).map((g) => (added.has(g.id) ? { ...g, newItem: true } : g));
   return `<section class="sec">${sectionHead('Your order')}
@@ -119,7 +119,11 @@ function view() {
   /* one way back offered → nothing to choose (R4-1-C-05, D-113) */
   const only = offered.length === 1 ? offered[0] : null;
   const LINE_FOR = { pickup: `pick it up at ${esc(t.shopName)}`, dropoff: `${esc(first)} brings it to your door`, courier: 'a courier brings it today' };
-  const body = zero && refund > 0
+  const partial = a.outcome === 'partial';
+  /* Study-1 B1 (default 12): she declined the edit — she pays the work done so far and gets her items back */
+  const body = partial
+    ? `You declined ${esc(first)}’s changes, so you pay <span class="nb" data-money>${fmtExact(a.edit?.workDone ?? a.money.total)}</span> for the work done so far. ${zero ? 'Choose how to get your items back.' : 'Choose how to get your items back. We hold the balance until you have them.'}`
+    : zero && refund > 0
       ? `${esc(first)} finished the work. Your final total is less than your deposit, so the difference comes back to your card.`   // R5: the amount is on the button and in Price
       : zero
         ? (only ? `${esc(first)} finished the work. Nothing is left to pay, then ${LINE_FOR[only]}.` : `${esc(first)} finished the work. Choose how to get it back. Nothing is left to pay.`)
@@ -134,10 +138,12 @@ function view() {
   const sarah = `${state.customer.first} ${(state.customer.last ?? '').charAt(0)}.`.replace(/ \.$/, '');
   const readyAt = [...a.history].reverse().find((h) => h.status === 'ready')?.at;
   const stage = hangStage({
-    types: items.map((g) => g.type), tag: [sarah, 'Ready'], left: `${plural(items.length, 'item')} · ${plural(services, 'service')}`, right: `at ${t.shopName}`,
+    types: items.map((g) => g.type), tag: [sarah, partial ? 'Partial work' : 'Ready'], left: `${plural(items.length, 'item')} · ${plural(services, 'service')}`, right: `at ${t.shopName}`,
     label: `${plural(items.length, 'item')} ready: ${andList(items.map((g) => g.type))}, hung on a rail with a tag: ${sarah}, Ready`,
   });
-  const hero = `${linenStage({ eyebrow: readyAt ? `Finished · ${fmtDay(readyAt)}` : 'Finished', title: 'Your order is ready', rail: stage, label: 'Your order is ready' })}
+  const hero = `${linenStage(partial
+    ? { eyebrow: readyAt ? `Partial work · ${fmtDay(readyAt)}` : 'Partial work', title: 'Your items are ready to come back', rail: stage, label: 'Your items are ready to come back' }
+    : { eyebrow: readyAt ? `Finished · ${fmtDay(readyAt)}` : 'Finished', title: 'Your order is ready', rail: stage, label: 'Your order is ready' })}
   <p class="t-body ${ID}__intro">${body}</p>`;
   /* C-11: one decline pattern (D-140) — the banner sits directly above the action bar, the way forward is another card */
   const alert = failed && !zero

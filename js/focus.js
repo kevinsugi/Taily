@@ -67,7 +67,10 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
       if (appt.priceChange?.state !== 'messaged') return waiting;
       /* D-112: once Amara has answered, the move is Sarah's again */
       return lastSpeakerSince(appt)?.from === 'tailor' ? waiting : { pill: 'action', label: pick(`Reply to ${sarah}`, 'Reply') };
-    case 'in-progress': return { pill: 'in-progress', label: 'In progress' };
+    case 'in-progress':
+      /* Study-1 B1: a post-fitting edit waiting on Sarah is her move */
+      if (appt.edit?.state === 'pending') return customer ? { pill: 'action', label: pick('Approve changes', 'Approve') } : waiting;
+      return { pill: 'in-progress', label: 'In progress' };
     case 'ready': return customer ? { pill: 'action', label: 'Ready' } : waiting;
     case 'awaiting-handoff': {
       const how = appt.returnOption ?? 'pickup';
@@ -82,7 +85,7 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
       if (how === 'courier') return customer ? { pill: 'awaiting-handoff', label: pick('Out for delivery', 'Courier') } : { pill: 'awaiting-handoff', label: pick('Courier booked', 'Courier') };
       return { pill: 'awaiting-handoff', label: pick('Ready for pickup', 'Pickup') };
     }
-    case 'completed': return { pill: 'completed', label: 'Completed' };
+    case 'completed': return { pill: 'completed', label: appt.outcome === 'partial' ? 'Partial work' : 'Completed' };   // Study-1 B1: "Returned, partial work"
     default: return { pill: appt.status, label: undefined };
   }
 }

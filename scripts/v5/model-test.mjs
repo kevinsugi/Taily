@@ -501,7 +501,7 @@ section('fitting -> completed');
   const many = Array.from({ length: 11 }, (_, i) => line({ garmentId: `n${i + 1}`, serviceId: 'repair', garmentType: 'Skirt' }));
   guard(T.sendPriceChange(a.id, many), 'max-items', 'sendPriceChange: 11 items -> max-items');
   const noted = T.sendPriceChange(a.id, a.lines, { note: 'Text me at amara@example.com' });
-  ok(noted.ok && noted.appt.priceChange.noteMasked && !noted.appt.priceChange.note.includes('@'), 'an unchanged order carries a masked note too');
+  ok(noted.ok && !('note' in noted.appt.priceChange), 'K-31 (Study-1 B2): no note travels with the final order (a passed note is ignored)');
 }
 // K-01: a new item and a removed service
 {
@@ -1143,14 +1143,12 @@ section('M4 model');
   eq([rows.filter((r) => r.kind === 'added').map((r) => r.label), rows.filter((r) => r.kind === 'repriced').map((r) => r.label)], [['Taper legs'], ['Shorten sleeves']], 'priceChangeView added: taper added, sleeves repriced');
   eq([v.after.total, v.after.deposit, v.delta, v.before.total, v.state], [SCENARIOS.priceAdded.total, SCENARIOS.seed.deposit, SCENARIOS.priceAdded.total - SCENARIOS.seed.total, SCENARIOS.seed.total, 'pending'], 'priceChangeView added: total, deposit unchanged, delta');
   eq(v.garments.map((g) => g.rows.map((r) => r.kind)), [['same', 'added'], ['repriced', 'same']], 'priceChangeView: booked order, added rows last in their garment');
-  ok(v.note.startsWith('The sleeve lining') && !v.noteMasked && v.revisions === 0, 'priceChangeView carries the note from driveTo');
+  ok(!('note' in v) && v.revisions === 0 && a.notes[0]?.text.startsWith('The sleeve lining'), 'K-31: driveTo keeps its note as a private General note, not on the order');
   // revise
   T.messageAboutPriceChange(a.id);
   const removedLines = a.lines.filter((l) => l.serviceId !== 'jacket-sides');
-  guard(T.sendPriceChange(a.id, removedLines, { note: 'x'.repeat(DATA.TAILOR_LIMITS.NOTE_MAX + 1) }), 'note-long', 'sendPriceChange: note over NOTE_MAX fails');
-  const rv = T.sendPriceChange(a.id, removedLines, { note: ' call 718 555 0100 ' });
-  eq([rv.ok, rv.appt.status, rv.appt.priceChange.state, rv.appt.priceChange.revisions, rv.appt.priceChange.noteMasked], [true, 'price-change', 'pending', 1, true], 'revise: status unchanged, pending, revisions + 1, note masked');
-  ok(!rv.appt.priceChange.note.includes('555'), 'revise: the phone number in the note is hidden');
+  const rv = T.sendPriceChange(a.id, removedLines);
+  eq([rv.ok, rv.appt.status, rv.appt.priceChange.state, rv.appt.priceChange.revisions], [true, 'price-change', 'pending', 1], 'revise: status unchanged, pending, revisions + 1');
   eq(rv.appt.priceChange.marks.map((m) => m.kind), ['removed'], 'revise: marks are vs the booked lines');
   const w = S.priceChangeView(S.getAppt(a.id));
   eq([w.after.balance, w.garments.flatMap((g) => g.rows).filter((r) => r.kind === 'removed').length], [SCENARIOS.priceRemoved.balance, 1], 'priceChangeView removed: balance + one removed row');
@@ -1558,6 +1556,105 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
 }
 
 /* ===== S1-B ===== */
+{
+  section('Study-1 B1: edit the job after the fitting');
+  const { jobEdit, EDIT_REASON } = EARN;
+  let a = driveTo('in-progress');
+  const before = { lines: structuredClone(a.lines), money: structuredClone(a.money), needBy: a.job.needBy };
+  const draft = jobEdit(a);
+  /* guards */
+  guard(T.sendJobEdit(driveTo('fitting', { docs: 'min' }).id, draft), 'not-in-progress', 'S1-B1: no edit at the fitting (that is the final order)');
+  a = driveTo('in-progress');
+  guard(T.sendJobEdit(a.id, { ...draft, lines: [] }), 'no-items', 'S1-B1: an edit keeps at least one line');
+  guard(T.sendJobEdit(a.id, { ...draft, lines: draft.lines.map((l, i) => (i ? l : { ...l, cents: 2550 })) }), 'price-invalid', 'S1-B1: whole-dollar prices only');
+  guard(T.sendJobEdit(a.id, { ...draft, needBy: '2026-10-01' }), 'due-invalid', 'S1-B1: the due date cannot be in the past');
+  guard(T.sendJobEdit(a.id, { ...draft, lines: a.lines.map((l) => ({ ...l })), needBy: a.job.needBy }), 'no-change', 'S1-B1: nothing changed → nothing to send');
+  guard(T.sendJobEdit(a.id, { ...draft, reason: '   ' }), 'reason-required', 'S1-B1: the reason is required');
+  guard(T.sendJobEdit(a.id, { ...draft, reason: 'x'.repeat(DATA.TAILOR_LIMITS.NOTE_MAX + 1) }), 'reason-long', 'S1-B1: the reason has a limit');
+  guard(T.sendJobEdit(a.id, { ...draft, workDone: null }), 'work-done-required', 'S1-B1: work done so far is required');
+  guard(T.sendJobEdit(a.id, { ...draft, workDone: a.money.total + 100 }), 'work-done-invalid', 'S1-B1: work done is at most the approved total');
+  guard(T.sendJobEdit(a.id, { ...draft, workDone: 4050 }), 'work-done-invalid', 'S1-B1: work done is whole dollars');
+  /* send */
+  const sent = T.sendJobEdit(a.id, { ...draft, reason: 'Call me at 718 555 0100' });
+  eq([sent.ok, a.status, a.edit.state, a.edit.changed, a.edit.reasonMasked, a.edit.workDone, !!a.edit.photo], [true, 'in-progress', 'pending', true, true, M.cents(40), true], 'S1-B1: the edit is pending, the job stays in progress, the reason masked');
+  eq([S.statusScreen(a, 'customer'), S.statusScreen(a, 'tailor')], ['c-price-change', 't-job'], 'S1-B1: Sarah lands on the edit (c-price-change), Amara on the job');
+  eq([statusWord(a, 'customer').label, statusWord(a, 'tailor', { short: true }).label], ['Approve changes', 'Waiting'], 'S1-B1: whose move it is, both sides');
+  guard(T.markReady(a.id), 'edit-pending', 'S1-B1 (default 13): Mark ready waits for Sarah’s answer');
+  const v = S.jobEditView(a);
+  eq([v.after.total, v.after.payout, v.delta, v.dueChanged, v.ifDeclined.balance, v.ifDeclined.payout], [SCENARIOS.edit.total, SCENARIOS.edit.payout, SCENARIOS.edit.total - SCENARIOS.seed.total, true, SCENARIOS.partial.balance, SCENARIOS.partial.payout], 'S1-B1: jobEditView — new total and payout, due moved, the decline amounts');
+  const re = T.sendJobEdit(a.id, { ...draft, workDone: M.cents(50) });
+  eq([re.ok, a.edit.revisions, a.edit.workDone], [true, 1, M.cents(50)], 'S1-B1 (default 13): sending again replaces the pending edit');
+  /* approve */
+  T.sendJobEdit(a.id, draft);
+  const ap = T.approveJobEdit(a.id);
+  eq([ap.ok, a.status, a.edit.state, a.money.total, a.money.balance, a.money.payout, a.payments.deposit.cents, a.job.needBy, a.edit.needByWas], [true, 'in-progress', 'approved', SCENARIOS.edit.total, SCENARIOS.edit.balance, SCENARIOS.edit.payout, SCENARIOS.seed.deposit, draft.needBy, before.needBy], 'S1-B1: approve — the new price and date replace the old, the deposit stays');
+  guard(T.approveJobEdit(a.id), 'not-pending', 'S1-B1: nothing left to approve');
+  ok(T.markReady(a.id).ok && a.payments.balance.cents === SCENARIOS.edit.balance, 'S1-B1: approved → Mark ready works, the balance is the new one');
+  /* decline */
+  a = driveTo('edit-pending');
+  const dc = T.declineJobEdit(a.id);
+  eq([dc.ok, a.status, a.outcome, a.edit.state, a.money.total, a.money.balance, a.money.payout, a.money.tailyFee, a.payments.balance.state, a.returnOffer], [true, 'ready', 'partial', 'declined', SCENARIOS.partial.total, SCENARIOS.partial.balance, SCENARIOS.partial.payout, SCENARIOS.partial.tailyFee, 'due', ['pickup', 'dropoff', 'courier']], 'S1-B1 (default 12): decline → ready with every way back, priced at the work done so far');
+  eq(a.lines, before.lines, 'S1-B1: a declined edit leaves the approved lines as they were');
+  eq([SCENARIOS.partial.balance, SCENARIOS.partial.payout], [M.cents(40) - SCENARIOS.seed.deposit, M.cents(40) - SCENARIOS.seed.homeFee - M.tailyFeeFor(M.cents(40) - SCENARIOS.seed.homeFee) + SCENARIOS.seed.homeFee], 'S1-B1 (default 12): balance = work done − deposit; payout = services part − Taily fee + home visit fee');
+  ok(S.threadFor('amara').messages.some((m) => m.text === `You declined the changes. You pay ${M.fmtExact(M.cents(40))} for the work done so far.`), 'S1-B1: the thread says what she pays, in dollars');
+  T.chooseReturn(a.id, 'courier');
+  eq([a.money.total, a.money.balance, a.money.payout], [SCENARIOS.partial.total + SCENARIOS.courierQuote.cents, SCENARIOS.partial.balance + SCENARIOS.courierQuote.cents, SCENARIOS.partial.payout], 'S1-B1: a courier on a partial return is added to what she pays, never the payout');
+  T.chooseReturn(a.id, 'pickup');
+  T.holdBalance(a.id, 'visa-4242');
+  eq([a.status, a.payments.balance.state, a.payments.balance.cents], ['awaiting-handoff', 'held', SCENARIOS.partial.balance], 'S1-B1: the hold is the partial balance');
+  EARN.handOver(a.id);
+  eq([a.status, a.outcome, state.payouts[0].cents, statusWord(a, 'tailor', { short: true }).label], ['completed', 'partial', SCENARIOS.partial.payout, 'Partial work'], 'S1-B1: completed as partial work, payout on the work done');
+  eq(driveTo('partial-completed').outcome, 'partial', 'S1-B1: driveTo partial-completed');
+  /* refund: work done below the deposit */
+  a = driveTo('in-progress');
+  T.sendJobEdit(a.id, { ...jobEdit(a), workDone: M.cents(10) });
+  T.declineJobEdit(a.id);
+  eq([a.money.balance, a.money.refund, a.payments.refund?.state], [0, SCENARIOS.seed.deposit - M.cents(10), 'pending'], 'S1-B1 (default 12): work done below the deposit → a refund of the difference');
+  /* due only */
+  a = driveTo('edit-pending', { edit: 'due' });
+  eq([a.edit.changed, S.jobEditView(a).delta, S.jobEditView(a).dueChanged], [false, 0, true], 'S1-B1: a due-date-only edit changes no price');
+  guard(T.declineJobEdit(driveTo('in-progress').id), 'not-pending', 'S1-B1: nothing to decline without an edit');
+  ok(EDIT_REASON && !/%/.test(S.threadFor('amara').messages.map((m) => m.text).join(' ')), 'S1-B1: no system line carries a percent sign');
+
+  section('Study-1 B2: private General notes');
+  a = driveTo('fitting');
+  guard(T.addNote(a.id, { text: '  ' }), 'note-empty', 'S1-B2: an empty note is refused');
+  guard(T.addNote(a.id, { text: 'x'.repeat(DATA.NOTES_LIMITS.TEXT_MAX + 1) }), 'note-long', 'S1-B2: up to 500 characters');
+  guard(T.addNote(a.id, { text: 'x', photos: DATA.NOTES_LIMITS.PHOTOS_MAX + 1 }), 'too-many-photos', 'S1-B2: up to 4 photos');
+  const n1 = T.addNote(a.id, { text: ' Sleeve 24 1/2 in. ' });
+  const n2 = T.addNote(a.id, { photos: 2 });
+  eq([n1.ok, n1.note.text, n2.ok, n2.note.photos.map((p) => p.id), a.notes.length], [true, 'Sleeve 24 1/2 in.', true, ['np1', 'np2'], 2], 'S1-B2: a text note and a photo-only note');
+  const up = T.updateNote(a.id, n1.note.id, { text: 'Sleeve 24 3/4 in.', photos: [...n1.note.photos, {}] });
+  eq([up.ok, a.notes[0].text, a.notes[0].photos.length, !!a.notes[0].updatedAt], [true, 'Sleeve 24 3/4 in.', 1, true], 'S1-B2: update text and add a photo');
+  ok(T.addNotePhoto(a.id, n2.note.id).ok && a.notes[1].photos.length === 3, 'S1-B2: add a photo to a note');
+  ok(T.removeNotePhoto(a.id, n2.note.id, 'np1').ok && a.notes[1].photos.length === 2, 'S1-B2: remove a photo');
+  const rm = T.removeNote(a.id, n1.note.id);
+  eq([rm.ok, rm.index, a.notes.length], [true, 0, 1], 'S1-B2: remove a note');
+  ok(T.restoreNote(a.id, rm.note, rm.index).ok && a.notes[0].id === n1.note.id, 'S1-B2: undo puts it back where it was');
+  guard(T.restoreNote(a.id, rm.note, 0), 'duplicate', 'S1-B2: restore twice fails');
+  ok(S.threadFor('amara').messages.every((m) => !m.text.includes('Sleeve 24')), 'S1-B2: notes never reach the thread');
+  guard(T.addNote(driveTo('confirmed').id, { text: 'x' }), 'notes-closed', 'S1-B2: notes open at the fitting');
+  a = driveTo('completed');
+  ok(!S.notesEditable(a), 'S1-B2 (default 14): read-only once completed');
+  guard(T.addNote(a.id, { text: 'x' }), 'notes-closed', 'S1-B2: no new note on a completed job');
+  ok(S.notesEditable(driveTo('awaiting-handoff')) && S.notesEditable(driveTo('ready')), 'S1-B2: editable until the handoff');
+  a = driveTo('price-change');
+  ok(a.notes.length === 1 && !('note' in a.priceChange) && !('note' in S.priceChangeView(a)), 'S1-B2 (K-31): the whole-order note is private; the order Sarah sees has none');
+
+  section('Study-1 B1–B2: components');
+  const pn = C.privateNotes({ notes: a.notes, type: 'Suit Pant' });
+  ok(pn.includes('General notes') && pn.includes('Only you can see these notes.') && pn.includes('data-act="note-add"') && !/share/i.test(pn), 'S1-B2: privateNotes — label, lock line, Add a note, no sharing');
+  ok(C.privateNotes({ notes: [] }).includes(C.NOTE_EMPTY), 'S1-B2: privateNotes empty line');
+  const ro = C.privateNotes({ notes: a.notes, readOnly: true });
+  ok(!ro.includes('data-act="note-add"') && !ro.includes('data-act="note-edit"'), 'S1-B2: read-only notes have no controls');
+  const ed = C.privateNotes({ notes: [], draft: { id: null, text: 'x', photos: [{ tone: 0 }, { tone: 1 }] } });
+  ok(ed.includes('id="note-text"') && (ed.match(/data-act="note-remove-photo"/g) ?? []).length === 2 && ed.includes('data-act="note-add-photo"') && ed.includes('data-act="note-save"'), 'S1-B2: the editor — text, two photos to remove, Add photo, Save');
+  ok(C.privateNotes({ notes: [], draft: { id: null, text: '', photos: [{}, {}, {}, {}] } }).includes('Up to 4 photos per note.'), 'S1-B2: at 4 photos Add photo gives way to the limit line');
+  const cb = C.customerBreakdown(SCENARIOS.partial, { stage: 'ready' });
+  ok(cb.includes('Work done so far') && !cb.includes('Services') && !/%/.test(cb), 'S1-B1: the customer sees one Work done so far row, dollars only');
+  ok(C.tailorBreakdown(SCENARIOS.partial).includes(`Work done so far: ${M.fmtExact(M.cents(40))} in all`), 'S1-B1: the tailor sees the services part of the work done');
+  ok(/New due date Mon, Oct 26 · was Fri, Oct 23/.test(C.dueChange({ needBy: '2026-10-26', was: '2026-10-23' }).replace(/<[^>]+>/g, '')), 'S1-B1: dueChange');
+}
 
 /* ===== S1-C ===== */
 {

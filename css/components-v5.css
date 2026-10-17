@@ -1347,6 +1347,31 @@ a.cta-small { text-decoration: none; }
 .reminder-card__body .cta-small { align-self: flex-start; max-width: 100%; margin-top: var(--space-8); padding-inline: var(--space-16); white-space: normal; text-align: center; }
 
 /* ===== S1-B ===== */
+/* Study-1 WS-B: private General notes (B2) — one white card of notes, hairlines between them; the editor in place; the edit's due line (B1) */
+.private-notes__lock { display: flex; align-items: center; gap: var(--space-8); margin: 0; }
+.private-notes__lock svg { flex: none; width: var(--size-16); height: var(--size-16); color: var(--neutral-600); }
+.private-notes__empty { margin: 0; text-wrap: pretty; }
+.private-notes__list { list-style: none; margin: 0; padding: 0 var(--space-16); border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: inset 0 0 0 1px var(--card-ring); }
+.private-note { display: flex; flex-direction: column; gap: var(--space-8); padding-block: var(--space-16) var(--space-4); }
+.private-note + .private-note { box-shadow: inset 0 1px 0 var(--hairline); }
+.private-note__text { margin: 0; color: var(--ink); white-space: pre-line; overflow-wrap: anywhere; text-wrap: pretty; }
+.private-note__photos { display: flex; flex-wrap: wrap; gap: var(--space-8); align-self: flex-start; min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer; }
+.private-note__photos:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; border-radius: var(--radius-sm); }
+.private-note__thumb { display: block; }
+.private-note__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-8); }
+.private-note__foot p { margin: 0; }
+.private-note__foot .text-link { margin-right: calc(-1 * var(--space-8)); }
+.private-note--editing { padding-bottom: var(--space-16); }
+.private-notes__tray { margin: 0; }
+.private-notes__add-photo { display: flex; }
+.private-notes__add-photo .text-link, .private-notes__add .text-link { margin-left: calc(-1 * var(--space-8)); }
+.private-notes__add-photo .text-link svg, .private-notes__add .text-link svg { width: var(--size-16); height: var(--size-16); }
+.private-notes__max { margin: 0; }
+.private-notes__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-8) var(--space-12); }
+.private-notes__actions .cta-small { flex: 0 0 auto; padding-inline: var(--space-20); }
+.private-notes__add { display: flex; }
+.due-change { font-variant-numeric: tabular-nums; }
+.due-change__part { white-space: nowrap; }
 
 /* ===== S1-C ===== */
 /* C1 · placeholder example text: grey, regular weight, gone on the first keystroke (native placeholder, never a value) */

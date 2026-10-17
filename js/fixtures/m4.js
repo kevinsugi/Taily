@@ -17,7 +17,7 @@ import { REVIEW_LIMITS as CV_LIMITS } from '../data.js';
 /* ---------- C1 · Price change (t-adjust, c-price-change) ---------- */
 import { SCENARIOS as PC_SCENARIOS, AMARA as PC_AMARA } from './money-scenarios.js';
 import { PRICE_NOTES as PC_PRICE_NOTES, FITTING_COMMENTS as PC_FC } from './common.js';
-import { TAILOR_LIMITS as PC_LIMITS, FITTING_LIMITS as PC_FL } from '../data.js';
+import { FITTING_LIMITS as PC_FL } from '../data.js';
 import { fmtExact as PC_fmtExact, fmtNeg as PC_fmtNeg, cents as PC_cents } from '../money.js';
 
 const PC_GROUP = 'M4 · Edit job';
@@ -97,8 +97,8 @@ export const FLOWS_t_adjust = [
       const a = S.driveTo('price-change', { priceChange: 'item' });
       S.state.ui['t-adjust'] = { apptId: a.id, mode: 'revise' };
     },
-    /* the note sits in a textarea (not visible text): its live counter proves it was prefilled */
-    expect: { has: ['Edit the order you sent', 'Sending again replaces', 'New item', 'Pants / Jeans', 'Removed', `${[...PC_PRICE_NOTES.item].length} / ${PC_LIMITS.NOTE_MAX}`], sel: '[data-act="send"][disabled]' } },
+    /* K-31 (Study-1 B2): the fitting note is a private General note now, not sent with the order */
+    expect: { has: ['Edit the order you sent', 'Sending again replaces', 'New item', 'Pants / Jeans', 'Removed', 'GENERAL NOTES', 'Only you can see these notes.', PC_PRICE_NOTES.item], not: 'Note to Sarah', sel: '[data-act="send"][disabled]' } },
   { key: 't-adjust--leave', screen: 't-adjust', group: PC_GROUP, title: 'Leave without sending?', note: 'Back with unsent edits asks first: Sarah cannot approve until you send',
     setup: (S) => { PC_edited(S); },
     click: ['[data-act="back"]'],
@@ -148,7 +148,7 @@ export const FLOWS_t_adjust = [
 export const FLOWS_c_price_change = [
   { key: 'c-price-change', screen: 'c-price-change', group: PC_GROUP_C, title: 'Review your final order', note: 'Taper added, Sleeves repriced: the marks, the new total, the unchanged deposit, two choices',
     setup: (S) => { S.driveTo('price-change'); },
-    expect: { has: ['Approve your final order · Amara changed it at the fitting', 'New total', 'Was ', 'WHAT CHANGED', '1 service added', 'Taper legs', 'New', 'New price', PC_fmtExact(PC_sc.priceAdded.total), PC_fmtExact(PC_sc.priceAdded.balance), PC_fmtExact(PC_sc.seed.total), PC_fmtExact(PC_sc.seed.deposit), 'Stays the same', 'due when it’s ready', 'Approve and start', 'Message Amara', 'note'], not: ['Reject', 'Decline', 'Added', 'Review your final order', 'Once you approve'], sel: '[data-strip="action"] + .page-head h1' } },
+    expect: { has: ['Approve your final order · Amara changed it at the fitting', 'New total', 'Was ', 'WHAT CHANGED', '1 service added', 'Taper legs', 'New', 'New price', PC_fmtExact(PC_sc.priceAdded.total), PC_fmtExact(PC_sc.priceAdded.balance), PC_fmtExact(PC_sc.seed.total), PC_fmtExact(PC_sc.seed.deposit), 'Stays the same', 'due when it’s ready', 'Approve and start', 'Message Amara'], not: ['Reject', 'Decline', 'Added', 'Review your final order', 'Once you approve', 'note on the order', PC_PRICE_NOTES.added], sel: '[data-strip="action"] + .page-head h1' } },
   { key: 'c-price-change--item-added', screen: 'c-price-change', group: PC_GROUP_C, title: 'Final order — item added', note: 'Pants / Jeans as a green New item, Take in jacket sides struck: lower total and balance, deposit unchanged',
     setup: (S) => { S.driveTo('price-change', { priceChange: 'item' }); },
     expect: { has: ['New item', 'Pants / Jeans', 'Hem pants', 'Removed', 'Take in jacket sides', '1 item added', '1 service removed', 'down', PC_fmtExact(PC_sc.priceItem.total), PC_fmtExact(PC_sc.priceItem.balance), PC_fmtExact(PC_sc.seed.deposit)], sel: '[data-garment="n1"] [data-act="view-photos"]', rowFit: true } },
@@ -311,9 +311,9 @@ export const FLOWS_t_job = [
   { ...TJ4, key: 't-job--approved', title: 'Job — Sarah approved your changes', note: 'K-17: the green strip says Sarah approved (no banner); the new payout is the header amount; due date is one tile row; Mark ready',
     setup: (S) => { S.driveTo('in-progress', { priceChange: 'added' }); },
     expect: { has: ['Sarah approved · work in progress', '8 days left', TJ4_exact(TJ4_SC.priceAdded.payout), 'Mark ready', 'Price updated after the fitting', 'Needed by Fri, Oct 23', 'Fitted Thu, Oct 15'], not: ['Timing', 'TIMING', 'approved your changes'], sel: '[data-strip="done"]' } },
-  { ...TJ4, key: 't-job--in-progress', title: 'Job — work in progress', note: 'Order approved as booked: Mark ready is the one next step, no "changes" claim',
+  { ...TJ4, key: 't-job--in-progress', title: 'Job — work in progress', note: 'Order approved as booked: Mark ready is the next step, Edit the job (Study-1 B1) beside it, private General notes (B2), no "changes" claim',
     setup: (S) => { S.driveTo('in-progress'); },
-    expect: { has: ['In progress', '8 days left', 'Needed by Fri, Oct 23', 'Mark ready'], not: ['Sarah approved', 'Work in progress', 'TIMING'], sel: '[data-strip="calm"]' } },
+    expect: { has: ['In progress', '8 days left', 'Needed by Fri, Oct 23', 'Mark ready', 'Edit the job', 'GENERAL NOTES', 'Only you can see these notes.', 'Measurements, fabric notes, reminders. Only you see them.', 'Add a note'], not: ['Sarah approved', 'Work in progress', 'TIMING'], sel: '[data-strip="calm"]' } },
   { ...TJ4, key: 't-job--docs', title: 'Job — the work, documented', note: 'K-04: The work with each item’s name, icon and fitting-photo stack, and Your comment (the approved record)',
     setup: (S) => { S.driveTo('in-progress', { docs: 'full' }); },
     expect: { has: ['THE WORK', 'photos', 'Your comment', TJ4_FC.g2, TJ4_FC.g1], sel: '[data-garment="g2"] [data-act="view-photos"][data-source="fitting"]' } },

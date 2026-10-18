@@ -15,7 +15,7 @@ import {
 import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
   sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, andList, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR, COURIER_LOBBY,
-  actionBar, pickupCode, autoCompleteLine, balanceCardLabel, openHandoffTime,
+  actionBar, pickupCode, autoCompleteLine, balanceCardLabel, openHandoffTime, chargedWhen,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
@@ -347,10 +347,11 @@ function handoffView(a, t, first) {
 
   const strip = requestStrip({ page: true, ...cfg.strip });
   /* K-27: the one amount is the balance on hold (or charged after 7 days), with the card under it; a $0 balance has nothing on hold (D-156).
-     K-44 (D-302): customer-side the held balance reads "Payment $X · Charged at handoff" (short: "Charged at handoff"), never "On hold" */
+     K-44 (D-302): customer-side the held balance reads "Payment $X · Charged at pickup" / "… on delivery" (short: the same words), never "On hold";
+     D-303: the words come from chargedWhen (components.js), the one map the c-ready caption uses */
   const head = pageHead(requestHead({
     page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
-    ...(held > 0 ? { payoutCents: held, label: charged ? 'Charged' : 'Charged at handoff', lines: [balanceCardLabel(a)] } : { payoutCents: a.money.total, label: 'Paid in full' }),
+    ...(held > 0 ? { payoutCents: held, label: charged ? 'Charged' : chargedWhen(how), lines: [balanceCardLabel(a)] } : { payoutCents: a.money.total, label: 'Paid in full' }),
   }));
   const alert = problem
     ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `You reported a problem. We’ve stopped the automatic completion and told ${f}.` })}</div>`
@@ -364,10 +365,10 @@ function handoffView(a, t, first) {
   const handoff = how === 'pickup' && !marked
     ? pickupCode({ code: h.code ?? '' })
     : marked ? autoCompleteLine(autoCompleteLeft(a)) : '';
-  const heldLine = held > 0 ? (charged ? `Ready · ${money(held)} charged` : `Payment ${money(held)} · Charged at handoff`) : 'Ready · nothing to pay';
+  const heldLine = held > 0 ? (charged ? `Ready · ${money(held)} charged` : `Payment ${money(held)} · ${chargedWhen(how)}`) : 'Ready · nothing to pay';
   const steps = timeline([{ state: 'done', title: 'Booked, fitted, tailored', sub: heldLine }, ...cfg.steps]);
   const courierCaption = how === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {};
-  const breakdown = customerBreakdown(a.money, { stage: charged ? 'charged' : 'held', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '', ...courierCaption });
+  const breakdown = customerBreakdown(a.money, { stage: charged ? 'charged' : 'held', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '', wayBack: how, ...courierCaption });
   const order = a.lines?.length ? orderSection(a, first) : '';
   /* A3: once Amara marked it handed over, confirming is Sarah's move (the sticky bar: I got it · I didn't get it); before that, or while a problem is
      open, "I got it" is a quiet outline button at the end of the page (she can still close it any time) */

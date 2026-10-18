@@ -5,7 +5,7 @@
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { state, apptsFor, tailorById, statusScreen, now, priceChangeView } from '../state.js';
-import { chrome, headingRow, apptRow, emptyState, sectionHead, heroGarment } from '../components.js';
+import { chrome, headingRow, apptRow, emptyState, sectionHead, heroGarment, chargedWhen } from '../components.js';
 import { fmtColumn } from '../money.js';
 import { fmtWhen, fmtCountdown, toDate } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
@@ -87,7 +87,7 @@ function rowFor(a, kind, fmtAmt) {
     else if (a.status === 'awaiting-handoff') {
       const b = a.payments.balance;
       row.amountText = fmtAmt(b.cents > 0 ? b.cents : a.money.total);
-      row.amountCaption = b.state === 'captured' ? 'Charged' : b.cents > 0 ? 'Charged at handoff' : 'Paid';   // Study-1 A2; K-44 (D-302): the short status, not "On hold"
+      row.amountCaption = b.state === 'captured' ? 'Charged' : b.cents > 0 ? chargedWhen(a.returnOption) : 'Paid';   // Study-1 A2; K-44 (D-302): the short status, not "On hold"; D-303: by the way back
     }
   }
   if (kind === 'past' && a.status === 'completed') {

@@ -40,6 +40,8 @@ export function galleryHtml() {
   v('Default · Secondary · disabled');   col(C.cta('Start Booking'), C.cta('Find another tailor', { variant: 'secondary' }), C.cta('Send request', { disabled: true }));
   v('Busy (spinner + busyLabel, aria-busy) · default · secondary');
   col(C.cta('Send code', { busy: true, busyLabel: 'Sending code…' }), C.cta('Sign in', { variant: 'secondary', busy: true, busyLabel: 'Signing in…' }));
+  v('K-46 · two-line (sub = when it is charged; disabled = the reason it waits; busy keeps the line)');
+  col(C.cta(`Pay ${fmtExact(seed.balance)}`, { sub: C.CHARGE_CAPTION.pickup, subId: 'g-cta2a' }), C.cta(`Pay ${fmtExact(seed.balance)}`, { sub: 'Pick a pickup time first.', subId: 'g-cta2b', disabled: true }), C.cta(`Pay ${fmtExact(seed.balance)}`, { sub: C.CHARGE_CAPTION.courier, subId: 'g-cta2c', busy: true, busyLabel: 'Paying…' }));
 
   h2('CTA — danger variant (destructive confirm sheets, D-79)');
   v('default · busy · disabled');
@@ -189,6 +191,7 @@ export function galleryHtml() {
   v('default');                 bar(C.actionBar({ ctaLabel: 'Send code', ctaAct: 'send-code' }));
   v('disabled + note');         bar(C.actionBar({ ctaLabel: 'Next: where and when', ctaAct: 'next', disabled: true, note: 'Add at least one garment to continue.' }));
   v('busy');                    bar(C.actionBar({ ctaLabel: 'Send code', ctaAct: 'send-code', busy: true, busyLabel: 'Sending code…' }));
+  v('two-line cta (K-46)');     bar(C.actionBar({ ctaLabel: `Pay ${fmtExact(seed.balance)}`, ctaAct: 'g-pay', ctaSub: C.CHARGE_CAPTION.pickup, secondaryLabel: 'Message Amara', secondaryAct: 'g-message' }));
   v('with lead');               bar(C.actionBar({ ctaLabel: 'Pick a time', ctaAct: 'pick-time', lead: `<span>Est. <b data-money>${fmt(seed.total)}</b> · 2 items</span>` }));
   v('with secondary');          bar(C.actionBar({ ctaLabel: 'Pick a time', ctaAct: 'pick-time', disabled: true, note: 'Not available for this job', secondaryLabel: 'Start a different job', secondaryAct: 'new-job' }));
 

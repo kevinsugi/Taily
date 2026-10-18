@@ -1,7 +1,7 @@
 /* ============================================================
    to-services — O2 Services and prices (M2-spec §C1). Focal: the
-   service list with the live "Your payout $X · Taily fee −$Y" under each price (the
-   M2 signature: what she takes home after the Taily fee). Two
+   service list with the live "Your payout: $X" under each price (the
+   M2 signature: what she takes home after the Taily fee, K-45). Two
    modes (D-56): onboarding (stepper + Next) and edit (Shop chrome
    + Save changes). Draft = state.ui['to-services'].draft (D-34);
    prices are whole dollars (D-59); ticking / unticking and typing
@@ -15,7 +15,7 @@ import { cents, fmt, fmtExact, payoutFor, tailyFeeFor, fmtColumn, priceRange } f
 import { MONEY } from '../money-config.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, serviceRow, priceRow,
-  actionBar, modalOverlay, leaveModal, toast, esc, takeHtml, sectionHead, infoButton, ctaSmall,
+  actionBar, modalOverlay, leaveModal, toast, esc, takeHtml, servicePay, sectionHead, infoButton, ctaSmall,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -39,7 +39,6 @@ const goodPrice = (p) => okPrice(p) && p <= PRICE_MAX;
 /* M7: names joined by commas, each name kept whole with no-break spaces, so a line only breaks after a comma (R2-2-T-05) */
 const caption = (id) => (SERVICES[id].garments.length >= ALL_TYPES ? 'Any garment' : SERVICES[id].garments.map((g) => g.replace(/ /g, '\u00a0')).join(', '));
 const takeCents = (p) => (okPrice(p) ? payoutFor({ services: cents(p) }) : null);
-const feeCents = (p) => (okPrice(p) ? tailyFeeFor(cents(p)) : null);
 
 /* ---------- copy ---------- */
 function errorCopy(code) {
@@ -53,10 +52,10 @@ const selectedText = (d) => `${ticked(d).length} selected`;
 const listed = (d) => ticked(d).filter((id) => goodPrice(d.prices[id]));
 const leadText = (d) => { const n = listed(d).length; return n ? `${n} ${n === 1 ? 'service' : 'services'} on your profile` : ''; };
 const NONE_NOTE = 'Pick at least one service to continue.';
-/** One precision for every "Your payout" and "Taily fee" in the list (D-70). */
-const takeFmt = (d) => fmtColumn(ticked(d).flatMap((id) => [takeCents(d.prices[id]), feeCents(d.prices[id])]));
+/** One precision for every "Your payout" in the list (D-70). */
+const takeFmt = (d) => fmtColumn(ticked(d).map((id) => takeCents(d.prices[id])));
 
-/** D-172, M6-T-07: the fee in dollars on a round example, said once under the lead; each row below spells out its own. */
+/** D-172, M6-T-07: the fee in dollars on a round example, said once under the lead; the rows show only her payout (K-45). */
 function feeLine() {
   const c = cents(MONEY.FEE_EXAMPLE_SERVICES);
   return `Taily keeps ${fmtExact(tailyFeeFor(c))} of every ${fmtExact(c)} of services. Home visit and rush fees are yours in full.`;
@@ -93,7 +92,7 @@ function rowHtml(id, d) {
   const p = d.prices[id];
   return serviceRow({
     id, label: SERVICES[id].label, caption: caption(id), checked: on, price: p == null ? '' : String(p),
-    range: rangeText(id), payoutCents: on ? takeCents(p) : null, payoutText: on && takeCents(p) != null ? takeFmt(d)(takeCents(p)) : '', feeText: on && feeCents(p) != null ? takeFmt(d)(feeCents(p)) : '', error: on ? errorCopy((ui().errors ?? {})[`price-${id}`]) : '',
+    range: rangeText(id), payoutCents: on ? takeCents(p) : null, payoutText: on && takeCents(p) != null ? takeFmt(d)(takeCents(p)) : '', error: on ? errorCopy((ui().errors ?? {})[`price-${id}`]) : '',
   });
 }
 function previewBody(d) {
@@ -171,15 +170,15 @@ function wire(root) {
     }
     note.textContent = reason; btn.setAttribute('aria-describedby', note.id);
   };
-  /* every "Your payout" and fee in the list shares one precision, so a change on one row repaints them all (D-70) */
+  /* every "Your payout" in the list shares one precision, so a change on one row repaints them all (D-70); "—" before a price (K-45) */
   const paintTakes = () => {
     const f = takeFmt(d);
     ticked(d).forEach((id) => {
       const take = card.querySelector(`[data-service="${id}"] [data-take]`);
       if (!take) return;
       const c = takeCents(d.prices[id]);
-      take.hidden = c == null;
-      take.innerHTML = c == null ? '' : takeHtml(f(c), f(feeCents(d.prices[id])));
+      const html = takeHtml(c == null ? '' : f(c));
+      if (take.innerHTML !== html) take.innerHTML = html;
     });
   };
   const paintRecommend = () => {
@@ -204,11 +203,12 @@ function wire(root) {
     const key = `price-${id}`;
     if (!ui().errors?.[key]) return;
     delete ui().errors[key];
-    input.removeAttribute('aria-invalid'); input.removeAttribute('aria-describedby');
+    input.removeAttribute('aria-invalid'); input.setAttribute('aria-describedby', `${key}-pay`);
     const wrap = input.closest('.service-row-wrap');
     wrap.classList.remove('service-row-wrap--error');
     wrap.querySelector('.service-row__box')?.classList.remove('service-row__box--error');
-    wrap.querySelector('.field__msg')?.remove();
+    const msg = wrap.querySelector('.field__msg');
+    if (msg) msg.outerHTML = servicePay(id);   // the payout slot comes back in the error's place; paintTakes fills it (K-45)
   };
 
   main.addEventListener('change', (e) => {

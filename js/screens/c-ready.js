@@ -12,7 +12,7 @@ import { state, T, tailorById, returnOffer, returnAddress, priceChangeView, slot
 import {
   chrome, headingRow, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
   sheetOverlay, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, wireGarmentDocs, textLink, sectionHead,
-  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime, COURIER_LOBBY,
+  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime, COURIER_LOBBY, CHARGE_CAPTION,
 } from '../components.js';
 import { fmtDay, fmtTime, fmtTimeRange, nb as datesNb } from '../dates.js';
 import * as A from '../account.js';
@@ -91,8 +91,7 @@ function subOf(k, r) {
 
 /** K-44 (D-302): the balance CTA label lives here only (Kevin is still choosing the verb) — the action bar and the pay sheet both use it. */
 const payLabel = (cents) => `Pay ${fmtExact(cents)}`;
-/** K-44 (D-302): the caption above the Pay button, by the way back — the balance is authorized now and charged at the handoff. */
-const CHARGE_CAPTION = { pickup: 'Charged at pickup', courier: 'Charged on delivery' };
+/* K-44 (D-302) → K-46: the Pay button's second line, by the way back (CHARGE_CAPTION, components.js) — shared with the Balance row (D-303). */
 /** CR-1b: the action-bar lead — why Pay waits; once it can go, the K-44 caption (a $0 balance: what was chosen, nothing is charged). */
 function barLead(r, { zero = false } = {}) {
   if (!r.sel) return 'Choose how to get it back first.';
@@ -202,12 +201,14 @@ function view() {
   ${hold}</section>
   ${orderSection(a)}
   <section class="sec">${sectionHead('Price')}
-  ${customerBreakdown(m, { stage: 'ready', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true })}</section>
+  ${customerBreakdown(m, { stage: 'ready', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true, wayBack: sel ?? '' })}</section>
   ${alert}
 </main>
 ${actionBar({
     ctaLabel: zero ? (refund > 0 ? `Confirm${sel ? ` ${CHOICE_WORD[sel]}` : ''} and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : payLabel(m.balance),
-    ctaAct: zero ? 'confirm' : 'pay', disabled: off, busy: confirming, busyLabel: 'Confirming…', lead: barLead(r, { zero }),
+    ctaAct: zero ? 'confirm' : 'pay', disabled: off, busy: confirming, busyLabel: 'Confirming…',
+    /* K-46 (D-303): Pay carries its caption — or, disabled, the reason it waits — as its own second line; a $0 balance keeps the lead */
+    ...(zero ? { lead: barLead(r, { zero }) } : sameCard ? {} : { ctaSub: barLead(r) }),   // "Use another card" (the card just failed) carries no charge line
     secondaryLabel: `Message ${first}`, secondaryAct: 'message',
   })}`;
 }
@@ -228,8 +229,7 @@ function sheetHtml(r, { cardId, busy = false } = {}) {
   <div class="${ID}-sheet__group" role="radiogroup" aria-label="Pay with"${busy ? ' aria-disabled="true"' : ''}>${rows}</div>
   </div>
   <div class="${ID}-sheet__go">
-  <p class="t-small c-600">${CHARGE_CAPTION[a.returnOption] ?? CHARGE_CAPTION.pickup}</p>
-  ${cta(payLabel(a.money.balance), { busy, busyLabel: 'Paying…', attrs: 'data-act="pay-ok"' })}
+  ${cta(payLabel(a.money.balance), { busy, busyLabel: 'Paying…', sub: CHARGE_CAPTION[a.returnOption] ?? CHARGE_CAPTION.pickup, subId: 'pay-sheet-sub', attrs: 'data-act="pay-ok"' })}
   </div>
 </div>`;
 }

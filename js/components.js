@@ -145,13 +145,18 @@ import { statusWord } from './focus.js';
  * `disabled` emits `disabled aria-disabled="true"`. `busy` = a spinner + `busyLabel` (else the label),
  * `aria-busy="true"` and `aria-disabled` (not `disabled`, AU-P1-2c: handlers guard on [aria-busy]); the spinner does not rotate under reduced motion / html.is-test.
  */
-export function cta(label, { variant = 'default', disabled = false, busy = false, busyLabel = '', attrs = '', softDisabled = false } = {}) {
-  const cls = ['cta', variant === 'secondary' ? 'cta--secondary' : '', variant === 'danger' ? 'cta--danger' : '', disabled || softDisabled ? 'cta--disabled' : '', busy ? 'cta--busy' : ''].filter(Boolean).join(' ');
+/* K-46 (D-303) · two-line variant: `sub` = a smaller second line inside the button ("Pay $144.00" over "Charged at pickup"; while it is
+   disabled, the reason it waits). With `subId` the button is named by its first line and DESCRIBED by the second (aria-describedby),
+   so a screen reader reads the reason on the disabled button too; the second line stays through busy, so the button keeps its height. */
+export function cta(label, { variant = 'default', disabled = false, busy = false, busyLabel = '', attrs = '', softDisabled = false, sub = '', subId = '' } = {}) {
+  const cls = ['cta', variant === 'secondary' ? 'cta--secondary' : '', variant === 'danger' ? 'cta--danger' : '', disabled || softDisabled ? 'cta--disabled' : '', busy ? 'cta--busy' : '', sub ? 'cta--two' : ''].filter(Boolean).join(' ');
   /* M7 (D-196): `softDisabled` looks disabled and says so (aria-disabled) but has no `disabled` attribute, so a tap reaches the screen */
   /* AU-P1-2c: a busy button stays focusable (aria-disabled + aria-busy, NOT `disabled`) so keyboard focus survives the repaint; every handler guards on [aria-busy] */
   const off = busy ? ' aria-disabled="true" aria-busy="true"' : disabled ? ' disabled aria-disabled="true"' : softDisabled ? ' aria-disabled="true"' : '';
-  const inner = busy ? `<span class="cta__spinner" aria-hidden="true"></span><span>${busyLabel || label}</span>` : label;
-  return `<button type="button" class="${cls}"${off} ${attrs}>${inner}</button>`;
+  const one = busy ? `<span class="cta__spinner" aria-hidden="true"></span><span>${busyLabel || label}</span>` : label;
+  if (!sub) return `<button type="button" class="${cls}"${off} ${attrs}>${one}</button>`;
+  const aria = subId ? ` aria-labelledby="${subId}-main" aria-describedby="${subId}"` : '';
+  return `<button type="button" class="${cls}"${off}${aria} ${attrs}><span class="cta__main"${subId ? ` id="${subId}-main"` : ''}>${one}</span><span class="cta__sub"${subId ? ` id="${subId}"` : ''}>${sub}</span></button>`;
 }
 
 /**
@@ -1572,16 +1577,16 @@ export function bookingSteps(current = 0) {
  * left and one <b data-money> amount on the right; never trailing text after the <b> (it becomes a third item). `note` sits under the buttons and, when
  * `disabled`, is linked to the CTA with aria-describedby (the reason it is off). `busy` locks both buttons.
  */
-export function actionBar({ ctaLabel = '', ctaAct = '', disabled = false, softDisabled = false, busy = false, busyLabel = '', lead = '', note = '', secondaryLabel = '', secondaryAct = '', secondaryIcon = '', tertiaryLabel = '', tertiaryAct = '', tertiaryTone = 'default' } = {}) {
+export function actionBar({ ctaLabel = '', ctaAct = '', ctaSub = '', disabled = false, softDisabled = false, busy = false, busyLabel = '', lead = '', note = '', secondaryLabel = '', secondaryAct = '', secondaryIcon = '', tertiaryLabel = '', tertiaryAct = '', tertiaryTone = 'default' } = {}) {
   const noteId = `action-bar-note-${ctaAct || 'cta'}`;
   const leadId = `action-bar-lead-${ctaAct || 'cta'}`;
-  const describe = (disabled || softDisabled) && (note || lead) ? ` aria-describedby="${note ? noteId : leadId}"` : '';
+  const describe = !ctaSub && (disabled || softDisabled) && (note || lead) ? ` aria-describedby="${note ? noteId : leadId}"` : '';   // a two-line cta (K-46) is described by its own second line
   /* M7 (A5.9, D-195): the secondary and tertiary are text links under the one filled primary, in one centred row */
   const second = secondaryLabel ? textLink(secondaryLabel, { act: secondaryAct, disabled: busy, icon: secondaryIcon }) : '';
   const third = tertiaryLabel ? textLink(tertiaryLabel, { act: tertiaryAct, tone: tertiaryTone === 'danger' ? 'danger' : 'default', disabled: busy }) : '';
   return `<div class="action-bar${busy ? ' action-bar--busy' : ''}">
   ${lead ? `<p class="action-bar__lead t-small c-600" id="${leadId}">${lead}</p>` : ''}
-  ${ctaLabel ? cta(ctaLabel, { disabled, softDisabled, busy, busyLabel, attrs: `data-act="${ctaAct}"${describe}` }) : ''}
+  ${ctaLabel ? cta(ctaLabel, { disabled, softDisabled, busy, busyLabel, sub: ctaSub, subId: ctaSub ? `action-bar-sub-${ctaAct || 'cta'}` : '', attrs: `data-act="${ctaAct}"${describe}` }) : ''}
   ${second || third ? `<div class="action-bar__links">${second}${third}</div>` : ''}
   ${note ? `<p class="action-bar__note t-small c-600" id="${noteId}">${note}</p>` : ''}
 </div>`;
@@ -1666,6 +1671,11 @@ export const HOME_FEE_CAPTION = 'Flat, per visit';
 export const HOME_FEE_HELP = 'Charged once per home visit, no matter how long it takes.';
 /** Deposit status words by the appointment's deposit state (payments.deposit.state). */
 const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', captured: 'Paid', released: 'Released', refunded: 'Refunded', kept: 'Kept' };
+/** K-44 (D-302) · D-303: "when is the balance charged", by the way back — ONE map for every customer surface: the c-ready Pay caption
+ * and pay sheet, the Balance row (ready + held stages), and after paying the c-booking head label + timeline line and the c-bookings
+ * row caption, so none can drift. `chargedWhen` falls back to "Charged at handoff" while no way back is chosen. */
+export const CHARGE_CAPTION = { pickup: 'Charged at pickup', courier: 'Charged on delivery' };
+export const chargedWhen = (wayBack) => CHARGE_CAPTION[wayBack] ?? 'Charged at handoff';
 /**
  * The customer's breakdown by stage — estimate | booked | ready | paid. Zero rows are omitted.
  * `q` is the quote() object in cents. `tailorFirst` names whose prices the services are.
@@ -1673,14 +1683,15 @@ const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', capture
  * appointment instead of the stage: a pending request is only a hold ("On hold"), accepted money is "Paid".
  * Without it, estimate reads "Due today" and every later stage reads "Paid".
  * The total reads "Estimated total" for `estimate` AND `booked` (D-49) until `confirmed` (the fitting or an approved price change).
+ * `wayBack` (ready + held stages, D-303): pickup | courier once chosen — the Balance row then says when, in the Pay caption's words.
  */
-export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '', confirmed = false, refundState = '', servicesCaption = '', courierCaption = '' } = {}) {
+export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '', confirmed = false, refundState = '', servicesCaption = '', courierCaption = '', wayBack = '' } = {}) {
   const est = (stage === 'estimate' || stage === 'booked') && !confirmed;   // D-49: still an estimate until the fitting (or a price change) confirms it
   const deposit = depositState ? (DEPOSIT_STATUS[depositState] ?? 'Paid') : stage === 'estimate' ? 'Due today' : 'Paid';
   /* K-27 (Study-1 A2): `held` = picked a way back, the balance is on hold; `charged` = captured before the handoff (unclaimed after 7 days) */
   const settled = stage === 'paid' || stage === 'held' || stage === 'charged';
   const balance = (stage === 'ready' || stage === 'held') && q.balance === 0 ? 'Nothing to pay'
-    : { paid: 'Paid', held: 'Charged at handoff', charged: 'Charged', ready: 'Charged at handoff' }[stage] ?? 'Due when ready';   // D-156; K-44 (D-302): the balance is never "On hold" / "Hold now" to her
+    : { paid: 'Paid', held: chargedWhen(wayBack), charged: 'Charged', ready: chargedWhen(wayBack) }[stage] ?? 'Due when ready';   // D-156; K-44 (D-302): the balance is never "On hold" / "Hold now" to her
   const rows = [
     { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
     q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee, caption: HOME_FEE_CAPTION },
@@ -1890,32 +1901,39 @@ export function textArea({ id, label, value = '', rows = 4, max, maxlength = nul
 }
 
 /**
- * Service row — a checkbox row; when checked, a whole-dollar `$` price input (`#price-<id>`) and a live take-home
- * line on its own full-width line under the row, aligned with the service name (`data-take`; hidden while null; M6-V-01). `payoutText` = the amount already formatted for its column (money.js `fmtColumn`, D-70); default `fmt(payoutCents)`.
- * `range` (Study-1 C3): the "Most NYC tailors charge $20–$30." line under the row, ticked or not (`data-range`).
+ * Service row — a checkbox row; when checked, a whole-dollar `$` price input (`#price-<id>`) with the payout slot directly under it,
+ * right-aligned (K-45, D-303): "Your payout: $22.50" (`data-take`, live as she types), "Your payout: —" while there is no usable price
+ * (sr-only "not set yet"), and the error ("Enter a price.") in the same slot. No Taily fee on the row — the screen states it once above
+ * the list. `payoutText` = the amount already formatted for its column (money.js `fmtColumn`, D-70); default `fmt(payoutCents)`.
+ * `range` (Study-1 C3): the "Most NYC tailors charge $20–$30." line under the garments caption, ticked or not (`data-range`); the
+ * amount range is one unbreakable run, so a narrow column breaks only before it.
  * states: unchecked · checked, empty · checked with price + payout · error.
  */
-/** "Your payout $22.50 · Taily fee −$2.50" (CP-S03; the fee is a deduction, as fmtNeg prints it) — two nowrap halves, so a narrow column breaks at the dot, never inside an amount (D-172). */
-export const takeHtml = (take, fee = '') => `<span class="service-row__part">Your payout ${take}${fee ? '\u00a0·' : ''}</span>${fee ? ` <span class="service-row__part">Taily fee −${fee}</span>` : ''}`;
-export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', feeText = '', error = '', range = '' } = {}) {
-  const takeHidden = payoutCents == null;
+/** The payout slot's words: "Your payout: $22.50", or "Your payout: —" + sr-only "not set yet" before a price (K-45). */
+export const takeHtml = (take) => `Your payout: ${take ? take : '<span aria-hidden="true">—</span><span class="sr-only">not set yet</span>'}`;
+/** The payout slot under a service row's price box (`data-take`); the screen repaints its innerHTML with `takeHtml` as she types. */
+export const servicePay = (id, take = '') => `<p class="service-row__pay t-small c-600 tabular" id="price-${esc(id)}-pay" data-money data-take>${takeHtml(take)}</p>`;
+/** "Most NYC tailors charge $20–$30." with the amount range (and its full stop) kept on one line. */
+const rangeHtml = (range) => esc(range).replace(/(\S*\$\S*)$/, '<span class="nb">$1</span>');
+export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', error = '', range = '' } = {}) {
+  const take = payoutCents == null ? '' : (payoutText || fmt(payoutCents));
   /* caption as a list (garment types) → one nowrap span per item with its " ·" kept inside (no-break space), and a plain
      space between spans: a line only breaks between whole names and never starts with a "·" */
   const captionHtml = Array.isArray(caption)
     ? caption.map((c, i) => `<span class="service-row__part">${esc(c)}${i < caption.length - 1 ? '\u00a0·' : ''}</span>`).join(' ') : '';
+  const pid = `price-${esc(id)}`;
   return `<div class="service-row-wrap${error ? ' service-row-wrap--error' : ''}" data-service="${esc(id)}">
   <div class="service-row${checked ? ' service-row--on' : ''}">
-    <div class="service-row__check">${checkRow({ id: `svc-${id}`, label, caption: Array.isArray(caption) ? '' : caption, captionHtml, checked, attrs: `data-act="svc" data-id="${esc(id)}"` })}</div>
+    <div class="service-row__check">${checkRow({ id: `svc-${id}`, label, caption: Array.isArray(caption) ? '' : caption, captionHtml, checked, attrs: `data-act="svc" data-id="${esc(id)}"` })}
+    ${range ? `<p class="service-row__range t-small c-600 tabular" data-money data-range>${rangeHtml(range)}</p>` : ''}</div>
     ${checked ? `<div class="service-row__price">
       <div class="field__box service-row__box${error ? ' service-row__box--error' : ''}">
         <span class="field__affix" aria-hidden="true">$</span>
-        <input class="field__input" id="price-${esc(id)}" name="price-${esc(id)}" type="text" inputmode="numeric" autocomplete="off" value="${esc(price)}" aria-label="Price for ${esc(label)}"${error ? ` aria-invalid="true" aria-describedby="price-${esc(id)}-msg"` : ''}>
+        <input class="field__input" id="${pid}" name="${pid}" type="text" inputmode="numeric" autocomplete="off" value="${esc(price)}" aria-label="Price for ${esc(label)}"${error ? ` aria-invalid="true" aria-describedby="${pid}-msg"` : ` aria-describedby="${pid}-pay"`}>
       </div>
+      ${error ? `<p class="field__msg field__msg--error service-row__pay" id="${pid}-msg" role="alert">${esc(error)}</p>` : servicePay(id, take)}
     </div>` : ''}
   </div>
-  ${range ? `<p class="service-row__range t-small c-600" data-money data-range>${esc(range)}</p>` : ''}
-  ${checked ? `<span class="service-row__take t-small w-600 c-700" data-money data-take${takeHidden ? ' hidden' : ''}>${takeHidden ? '' : `${takeHtml(payoutText || fmt(payoutCents), feeText)}`}</span>` : ''}
-  ${error ? `<p class="field__msg field__msg--error" id="price-${esc(id)}-msg" role="alert">${esc(error)}</p>` : ''}
 </div>`;
 }
 

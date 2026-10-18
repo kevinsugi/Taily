@@ -25,7 +25,7 @@ const bookAgain = (S, a) => { S.T.bookAgain(a.id); S.state.ui.booking = { tailor
 export const FLOWS_c_booking = [
   { ...CB, key: 'c-booking--handoff-problem', title: 'You reported a problem', note: 'Study-1 A3 (default 5): picked up without the code, then reported — the countdown stopped, Amara told; I got it still closes it',
     setup: (S) => { S.driveTo('problem'); },
-    expect: { has: ['Problem reported · sort it out in chat', 'You reported a problem. We’ve stopped the automatic completion and told Amara.', 'I got it', 'Charged at handoff'], not: ['Completes automatically', 'I didn’t get it', 'On hold'], sel: '.banner--warning' } },
+    expect: { has: ['Problem reported · sort it out in chat', 'You reported a problem. We’ve stopped the automatic completion and told Amara.', 'I got it', 'Charged at pickup'], not: ['Charged at handoff', 'Completes automatically', 'I didn’t get it', 'On hold'], sel: '.banner--warning' } },
   { ...CB, key: 'c-booking--handoff-unclaimed', title: 'Charged after 7 days', note: 'Study-1 A2: still not picked up 7 days after the hold — the hold is charged, the order stays open with its code',
     setup: (S) => { S.driveTo('unclaimed'); },
     expect: { has: [`We charged your ${BAL} balance after 7 days. Amara still keeps it for you until you pick it up.`, 'Charged', 'YOUR PICKUP CODE', `Ready · ${BAL} charged`, 'I got it'], not: 'On hold', sel: '[data-pickup-code]' } },

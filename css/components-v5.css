@@ -312,6 +312,12 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .cta:disabled, .cta--disabled { cursor: not-allowed; }
 .cta:disabled:active, .cta--disabled:active { transform: none; }
 .cta--busy { cursor: progress; }
+/* K-46 (D-303) · the two-line cta: "Pay $144.00" over a 12 / 500 line ("Charged at pickup", neutral-300 on ink 9.6:1); disabled, the
+   reason in neutral-600 / 600 on neutral-200 (5.1:1). Grows past 54 px only when a line wraps (320 px, 200% text). */
+.cta--two { height: auto; min-height: 54px; flex-direction: column; gap: var(--space-2); padding: var(--space-8) var(--space-16); text-align: center; }
+.cta__main { display: inline-flex; align-items: center; gap: var(--space-8); font-variant-numeric: tabular-nums lining-nums; }
+.cta__sub { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 500; color: var(--neutral-300); text-wrap: balance; }
+.cta--two:disabled .cta__sub, .cta--two.cta--disabled .cta__sub { color: var(--neutral-600); font-weight: 600; }
 .cta__spinner {
   flex-shrink: 0; width: var(--size-16); height: var(--size-16); border-radius: var(--radius-full);
   border: 2px solid var(--white); border-top-color: transparent;
@@ -509,20 +515,22 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 
 /* ---------- service row ---------- */
 .service-row-wrap { display: flex; flex-direction: column; gap: var(--space-4); }
-.service-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-12); min-height: 56px; }
+.service-row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-8); min-height: 56px; }
 .service-row__check { flex: 1 1 0; min-width: 0; }
 .service-row__check .check-row { min-height: 56px; align-items: center; }
 .service-row__check .check-row__text { padding-block: var(--space-8); }
 .service-row__check .check-row__caption { text-wrap: pretty; }
 .service-row__part { white-space: nowrap; }
-.service-row__price { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-4); flex-shrink: 0; width: 96px; padding-top: var(--space-4); }
-.service-row__box { width: 100%; min-height: 48px; }
+.service-row__price { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-4); flex-shrink: 0; width: 104px; padding-top: var(--space-4); }
+.service-row__box { width: 96px; min-height: 48px; }
 .service-row__box .field__input { padding-left: var(--space-4); padding-right: var(--space-8); font-variant-numeric: tabular-nums; }
 .service-row__box--error { box-shadow: inset 0 0 0 1px var(--error); }
 .service-row__box--error:focus-within { box-shadow: inset 0 0 0 2px var(--error); }
-/* take-home line: its own full-width line under the row, indented to the service name (24 box + 12 gap), so it never runs past the card (M6-V-01) */
-.service-row__take { display: block; padding-left: calc(var(--size-24) + var(--space-12)); padding-bottom: var(--space-8); font-variant-numeric: tabular-nums; text-wrap: pretty; }
-.service-row__take[hidden] { display: none; }
+/* K-45 (D-303) · the payout slot sits directly under today's 96 px box, right-aligned, in a FIXED 104 column (typing never re-wraps the
+   name beside it). The slot may reach 8 px further left, into the 8 px gap: "Your payout: $22.50" (107 px) stays on one line and hangs
+   ~3 px past the column, never into the name column; a 3-digit payout wraps under itself. The slot is there from the first tick ("—"),
+   so the row never jumps as she types; the error takes the same slot. */
+.service-row__pay { margin: 0 0 0 calc(-1 * var(--space-8)); text-align: right; text-wrap: balance; }
 .service-row-wrap--error .check-row__box { box-shadow: inset 0 0 0 1px var(--error); }
 
 /* ---------- day hours ---------- */
@@ -1244,6 +1252,8 @@ a.cta-small { text-decoration: none; }
   .service-row { flex-wrap: wrap; row-gap: var(--space-4); }   /* to-services: the price box drops under its label */
   .service-row__check { flex-basis: 100%; }
   .service-row__price { width: 100%; align-items: stretch; padding-left: calc(var(--size-24) + var(--space-12)); padding-top: 0; }
+  .service-row__box { width: 100%; }
+  .service-row__pay { margin-left: 0; }
   /* a saved-item tag (c-cards, c-addresses) or a row amount (t-earnings) goes on its own line under the title / sub */
   .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 0; row-gap: var(--space-4); }
   .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) > .list-row__lead { grid-column: 1; grid-row: 1 / span 2; margin-right: var(--space-12); }
@@ -1380,8 +1390,8 @@ a.cta-small { text-decoration: none; }
 .text-area__notice:empty { display: none; }
 /* C1 · the live card preview stays in view while the fields under it scroll (the onboarding bar scrolls away, so top 0) */
 .customer-preview--sticky { position: sticky; top: 0; z-index: var(--z-sticky); margin-inline: calc(-1 * var(--space-20)); padding: var(--space-12) var(--space-20); background: var(--neutral-50); box-shadow: 0 1px 0 var(--hairline); }
-/* C3 · the "Most NYC tailors charge" line, indented to the service name like the take-home line */
-.service-row__range { margin: 0; padding-left: calc(var(--size-24) + var(--space-12)); padding-bottom: var(--space-8); font-variant-numeric: tabular-nums; text-wrap: pretty; }
+/* C3 · the "Most NYC tailors charge" line, under the garments caption in the name column (K-45), indented to the service name */
+.service-row__range { margin: 0; padding-left: calc(var(--size-24) + var(--space-12)); padding-bottom: var(--space-8); }
 /* C5 · neighborhood picker: one collapsible group per borough */
 .hood-picker { display: flex; flex-direction: column; gap: var(--space-8); }
 .hood-picker__label, .hood-picker__help { margin: 0; }

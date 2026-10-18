@@ -89,10 +89,9 @@
 
 /* Study-1 B2: the private General notes take the old note's place, on the section rhythm */
 .t-adjust__notes { display: contents; }
-/* Study-1 B1: edit after the fitting — due date, reason + photo, work done so far */
+/* Study-1 B1: edit after the fitting — due date, reason + photo */
 .t-adjust__due-change { display: flex; }
 .t-adjust__due-change .text-link { margin-left: calc(-1 * var(--space-8)); }
 .t-adjust__why .text-area { margin: 0; }
 .t-adjust__photo { display: flex; align-items: center; gap: var(--space-16); }
 .t-adjust__photo-add .list-row { padding-inline: 0; }
-.t-adjust__work-done .field { margin: 0; }

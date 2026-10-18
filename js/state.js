@@ -23,7 +23,7 @@
    ============================================================ */
 import { POLICY } from './money-config.js';
 import {
-  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout, fmtExact, partialQuote,
+  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout, fmtExact,
 } from './money.js';
 import {
   toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, payoutDay,
@@ -612,7 +612,7 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
     payments: { deposit: { cents: money.deposit, state: 'authorized' }, balance: { cents: money.balance, state: 'pending' } },
     priceChange: null, returnOption: null, courier: null, cancel: null, review: null,
     docs: {}, docSeq: 0,                                        // K-02 (D-175): the tailor's working fitting documentation
-    edit: null, outcome: null,                                  // Study-1 B1: the post-fitting edit; 'partial' once Sarah declined one
+    edit: null,                                                 // Study-1 B1: the post-fitting edit (K-30: approve only, never declined)
     notes: [], noteSeq: 0,                                      // Study-1 B2: the tailor's private General notes
     history: [{ status: 'requested', at: nowIso() }],
   };
@@ -1012,11 +1012,9 @@ export function messageAboutPriceChange(id) {
   a.priceChange.state = 'messaged';
   return succeed(a);
 }
-/** Quote from the booked appointment's own lines; the captured deposit never changes (D-23). A declined post-fitting edit (Study-1 B1)
-    prices the work done so far instead (`partialQuote`), plus the courier when she picks it. */
+/** Quote from the booked appointment's own lines; the captured deposit never changes (D-23). */
 function repriceMoney(a, rush = a.money.rush) {
   const courier = a.courier?.state === 'ready' ? a.courier.cents : 0;
-  if (a.outcome === 'partial') return partialQuote({ workDone: a.edit.workDone, homeFee: a.edit.homeFee ?? a.money.homeFee, courier, deposit: a.payments.deposit.cents });
   const q = quote({
     lines: a.lines, homeFee: a.money.homeFee, rush, courier, deposit: a.payments.deposit.cents,
   });
@@ -1219,7 +1217,7 @@ export function courierDelivered(id) {
   return succeed(a);
 }
 
-/* ---------- Study-1 B1: edit the job after the fitting (K-30, defaults 11–13) ---------- */
+/* ---------- Study-1 B1: edit the job after the fitting (K-30 overruled: approve only; defaults 11, 13) ---------- */
 const lineSig = (l) => `${lineKey(l)}:${l.cents}`;
 const sameLines = (x, y) => x.map(lineSig).sort().join('|') === y.map(lineSig).sort().join('|');
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -1232,8 +1230,8 @@ export function editQuote(a, lines, needBy = a.job.needBy) {
   q.rushDays = rush === a.money.rush ? a.money.rushDays : r.days;
   return q;
 }
-/** An edit (sent, or a draft `{ lines, needBy, workDone }`) against the approved order: the change rows (`priceChangeView` vs `a.lines`), both
-    quotes, the due dates, and what Sarah pays if she declines (`ifDeclined`, `partialQuote`). Null without an edit. */
+/** An edit (sent, or a draft `{ lines, needBy }`) against the approved order: the change rows (`priceChangeView` vs `a.lines`), both
+    quotes and the due dates. Null without an edit. */
 export function jobEditView(appt, e = appt?.edit) {
   if (!appt || !e) return null;
   const lines = e.lines ?? appt.lines;
@@ -1241,20 +1239,18 @@ export function jobEditView(appt, e = appt?.edit) {
   const needBy = e.needBy ?? appt.job.needBy;
   const needByWas = e.state === 'pending' || !e.state ? appt.job.needBy : (e.needByWas ?? appt.job.needBy);
   const after = editQuote(appt, lines, needBy);
-  const workDone = Number.isInteger(e.workDone) ? e.workDone : null;
   return {
     garments: pv.garments, counts: pv.counts, changed: pv.changed, before: appt.money, after, delta: after.total - appt.money.total,
     needBy, needByWas, dueChanged: needBy !== needByWas, reason: e.reason ?? '', reasonMasked: !!e.reasonMasked, photo: e.photo ?? null,
-    workDone, ifDeclined: workDone == null ? null : partialQuote({ workDone, homeFee: appt.money.homeFee, deposit: appt.payments.deposit.cents }),
     sentAt: e.sentAt ?? null, state: e.state ?? null, revisions: e.revisions ?? 0,
   };
 }
 /** The tailor edits the job between the fitting and Mark ready (status `in-progress`). Price, due date or the work need Sarah's approval:
     `lines` = the whole order against the APPROVED one (same rules as the final order), `needBy` an ISO day from today on, `reason` required
-    (masked, ≤ NOTE_MAX), `photo` optional, `workDone` = whole-dollar cents $0 … the approved total (what she pays if she declines). One
-    pending edit at a time: sending again replaces it (default 13). Errors: not-in-progress · no-items · <line errors> · due-invalid ·
-    no-change · reason-required · reason-long · work-done-required · work-done-invalid. */
-export function sendJobEdit(id, { lines, needBy = null, reason = '', photo = false, workDone = null } = {}) {
+    (masked, ≤ NOTE_MAX), `photo` optional. It can't be declined (K-30): if Sarah disagrees she messages the tailor, who revises it — one
+    pending edit at a time, sending again replaces it (default 13). Errors: not-in-progress · no-items · <line errors> · due-invalid ·
+    no-change · reason-required · reason-long. */
+export function sendJobEdit(id, { lines, needBy = null, reason = '', photo = false } = {}) {
   const a = must(id);
   if (a.status !== 'in-progress') return fail('not-in-progress');
   if (!Array.isArray(lines) || !lines.length) return fail('no-items');
@@ -1267,8 +1263,6 @@ export function sendJobEdit(id, { lines, needBy = null, reason = '', photo = fal
   const why = String(reason ?? '').trim();
   if (!why) return fail('reason-required');
   if ([...why].length > TAILOR_LIMITS.NOTE_MAX) return fail('reason-long');
-  if (workDone == null || workDone === '') return fail('work-done-required');
-  if (!Number.isInteger(workDone) || workDone % 100 !== 0 || workDone < 0 || workDone > a.money.total) return fail('work-done-invalid');
   const masked = maskContact(why);
   const revising = a.edit?.state === 'pending';
   a.editSeq = (a.editSeq ?? 0) + 1;
@@ -1276,7 +1270,7 @@ export function sendJobEdit(id, { lines, needBy = null, reason = '', photo = fal
     lines: clone(lines), marks: priceMarks(a.lines, lines), changed, needBy: due, needByWas: a.job.needBy,
     reason: masked.text, reasonMasked: masked.masked,
     photo: photo ? { id: `e${a.editSeq}`, at: nowIso(), tone: (a.editSeq - 1) % 4 } : null,
-    workDone, sentAt: nowIso(), state: 'pending', revisions: revising ? (a.edit.revisions ?? 0) + 1 : 0, decidedAt: null,
+    sentAt: nowIso(), state: 'pending', revisions: revising ? (a.edit.revisions ?? 0) + 1 : 0, decidedAt: null,
   };
   const first = firstName(tailorById(a.tailorId));
   if (revising) say(a, `${first} updated the changes to your order`, 'You updated your changes');
@@ -1297,25 +1291,6 @@ export function approveJobEdit(id) {
   a.payments.balance.cents = q.balance;
   Object.assign(e, { state: 'approved', decidedAt: nowIso() });
   say(a, 'You approved the changes', `${state.customer.first} approved your changes`);
-  return succeed(a);
-}
-/** Sarah declines (default 12): she pays only the work done so far and gets the garment back — the job goes straight to `ready` with every
-    way back offered, priced by `partialQuote` (balance = work done − deposit, a refund when negative), and carries `outcome: 'partial'` to
-    completion ("Returned, partial work"). */
-export function declineJobEdit(id) {
-  const a = must(id);
-  if (a.status !== 'in-progress' || a.edit?.state !== 'pending') return fail('not-pending');
-  const e = a.edit;
-  Object.assign(e, { state: 'declined', decidedAt: nowIso(), homeFee: a.money.homeFee });
-  a.outcome = 'partial';
-  a.money = repriceMoney(a);
-  const tailor = tailorById(a.tailorId);
-  a.returnOffer = Object.keys(RETURN_LABEL).filter((k) => tailor.returns?.[k] === true);
-  setStatus(a, 'ready');
-  a.payments.balance = { cents: a.money.balance, state: 'due' };
-  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-156: settled at the return choice
-  const amt = fmtExact(e.workDone);
-  say(a, `You declined the changes. You pay ${amt} for the work done so far.`, `${state.customer.first} declined your changes. She pays ${amt} for the work done so far.`);
   return succeed(a);
 }
 
@@ -1557,7 +1532,7 @@ export const T = {
   requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, withdrawSuggestion, findAnotherTailor,
   tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow, reportTailorNoShow,
   startFitting, addFittingPhoto, removeFittingPhoto, restoreFittingPhoto, setFittingComment, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
-  sendJobEdit, approveJobEdit, declineJobEdit, addNote, updateNote, removeNote, restoreNote, addNotePhoto, removeNotePhoto,
+  sendJobEdit, approveJobEdit, addNote, updateNote, removeNote, restoreNote, addNotePhoto, removeNotePhoto,
   chooseReturn, holdBalance, confirmPickup, markHandedOver, confirmReceived, reportNotReceived, courierDelivered, bookAgain, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick, suggestLapseAt,

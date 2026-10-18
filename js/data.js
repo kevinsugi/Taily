@@ -104,9 +104,9 @@ export const ROUTING_BANKS = { '021000021': 'Chase', '026009593': 'Bank of Ameri
 export const SHOP_RADIUS_MI = 5;                        // shop visits list shops within this distance (D-19)
 
 const ALL = Object.keys(GARMENT_TYPES);
-/** Service catalog: id → { label, garments: [GARMENT_TYPES keys], base }. 'bridal' is not offered by the seed tailor.
+/** Service catalog: id → { label, garments: [GARMENT_TYPES keys], base }. K-33: no bridal service (removed from the catalog).
     `base` = the typical NYC price in whole dollars (Study-1 C3: the recommended range is base ± MONEY.PRICE_RANGE_SPREAD, rounded to
-    MONEY.PRICE_ROUND, via money.js) — equal to Amara's seed price for the ten she offers; bridal 250 (proposed). */
+    MONEY.PRICE_ROUND, via money.js) — equal to Amara's seed price for each of the ten. */
 export const SERVICES = {
   'hem-pants': { label: 'Hem pants', garments: ['Suit Pant', 'Pants / Jeans'], base: 25 },
   taper: { label: 'Taper legs', garments: ['Suit Pant', 'Pants / Jeans'], base: 40 },
@@ -118,7 +118,6 @@ export const SERVICES = {
   'dress-take-in': { label: 'Take in dress', garments: ['Formal Dress', 'Dress / Jumpsuit'], base: 65 },
   zipper: { label: 'Replace zipper', garments: ['Suit Pant', 'Pants / Jeans', 'Skirt', 'Dress / Jumpsuit', 'Jacket'], base: 30 },
   repair: { label: 'Repair or patch', garments: ALL, base: 20 },
-  bridal: { label: 'Bridal gown alterations', garments: ['Formal Dress'], base: 250 },
 };
 /** Service ids that apply to a garment type, catalog order. */
 export const servicesForType = (type) => Object.keys(SERVICES).filter((id) => SERVICES[id].garments.includes(type));

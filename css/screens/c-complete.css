@@ -41,5 +41,3 @@
 /* Study-1 A4: the 7-day review reminder, a notification card above the linen stage (the stage then starts under it, not bled up) */
 .c-complete__reminder { margin-bottom: var(--rhythm-group); }
 .c-complete__reminder + .linen-stage { margin-top: 0; }
-/* Study-1 B1: the partial-work line under the stage */
-.c-complete__partial { margin: var(--rhythm-block) 0 0; text-wrap: pretty; }

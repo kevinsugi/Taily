@@ -12,8 +12,8 @@
    in the order has one of each) and an optional comment. Photos and saved comments live on the appointment (T.addFittingPhoto …),
    not in the draft; `comments` holds only the editors that are open with unsaved text.
    Modes: 'new' (from the fitting) · 'revise' (Sarah hasn't approved yet) · 'edit' (Study-1 B1, K-30: after the fitting, before Mark
-   ready — the same cards against the APPROVED order, plus the due date, a required reason, an optional photo and "Work done so far";
-   Sarah approves or declines; draft adds { needBy, reason, photo, workDone, seedSig }).
+   ready — the same cards against the APPROVED order, plus the due date, a required reason and an optional photo; Sarah approves or
+   messages, never declines (K-30 overruled) — the tailor revises by sending again; draft adds { needBy, reason, photo, seedSig }).
    K-31 (Study-1 B2): the whole-order "Note to Sarah" is gone — the tailor's private General notes take its place (new / revise).
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
@@ -28,7 +28,7 @@ import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, banner, emptyState, listRow, optionRow, textArea, deltaFigure, tailorBreakdown, actionBar, changeSummary,
   sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, garmentHead, docsEditor, wireGarmentDocs, sectionHead, textLink,
-  field, privateNotes, wirePrivateNotes, openAttachSheet, photoStub, dueChange, wirePhotoViewer, visitBlock,
+  privateNotes, wirePrivateNotes, openAttachSheet, photoStub, dueChange, wirePhotoViewer, visitBlock,
 } from '../components.js';
 
 const ID = 't-adjust';
@@ -93,7 +93,6 @@ function ensureDraft(a) {
     d.needBy = e?.needBy ?? a.job.needBy;
     d.reason ??= e?.reason ?? '';
     d.photo ??= !!e?.photo;
-    d.workDone ??= e ? String(e.workDone / 100) : '';
   }
   d.prices ??= {};
   d.removed ??= [];
@@ -180,19 +179,12 @@ function isEdited(a, d, garments) {
 /** Study-1 B1: everything the edit would send, as one string (Back asks first when it moved since the screen opened). */
 function editSig(a, d, garments = build(a, d)) {
   const rows = liveRows(garments).map((r) => `${r.key}:${r.raw}`).sort().join('|');
-  return [rows, d.needBy, (d.reason ?? '').trim(), d.photo ? 1 : 0, String(d.workDone ?? '').trim()].join('#');
+  return [rows, d.needBy, (d.reason ?? '').trim(), d.photo ? 1 : 0].join('#');
 }
 /** The edit's lines changed vs the APPROVED order, or its due date did — else there is nothing to send. */
 function editChanged(a, d, garments) {
   const cur = previewLines(garments).map(lineSig).sort().join('|');
   return cur !== a.lines.map(lineSig).sort().join('|') || d.needBy !== a.job.needBy;
-}
-/** "Work done so far": whole dollars, $0 … the approved total → { cents } | { error }. */
-function parseWorkDone(raw, a) {
-  const t = String(raw ?? '').trim().replace(/^\$\s*/, '');
-  if (!/^\d+$/.test(t)) return { error: 'work-done' };
-  const c = cents(Number(t));
-  return c > a.money.total ? { error: 'work-done' } : { cents: c };
 }
 
 /** Errors the screen shows after Send was pressed. */
@@ -200,12 +192,10 @@ function checks(d, garments) {
   const rows = liveRows(garments);
   const fields = {};
   for (const r of rows) if (r.parsed.error) fields[r.key] = r.parsed.error;
-  const out = { fields, empty: rows.length === 0, reason: '', workDone: '' };
+  const out = { fields, empty: rows.length === 0, reason: '' };
   if (isEdit(d)) {
-    const a = getAppt(d.apptId);
     const why = (d.reason ?? '').trim();
     out.reason = !why ? `Tell ${firstOf()} why you’re changing it.` : [...why].length > TAILOR_LIMITS.NOTE_MAX ? `Keep the reason under ${TAILOR_LIMITS.NOTE_MAX} characters.` : '';
-    out.workDone = parseWorkDone(d.workDone, a).error ? `Enter a whole-dollar amount up to ${fmtExact(a.money.total)}.` : '';
   }
   return out;
 }
@@ -375,7 +365,7 @@ function dueOptions(a) {
 function editView(a, d, chromeHtml) {
   const first = firstOf();
   const garments = build(a, d);
-  const errors = d.tried ? checks(d, garments) : { fields: {}, empty: false, reason: '', workDone: '' };
+  const errors = d.tried ? checks(d, garments) : { fields: {}, empty: false, reason: '' };
   const none = liveRows(garments).length === 0;
   const bad = liveRows(garments).filter((r) => r.parsed.error).length;
   const busy = !!d.busy;
@@ -386,7 +376,6 @@ function editView(a, d, chromeHtml) {
   const same = !bad && !none && !ev.changed;
   const atMax = garments.length >= MAX_ITEMS;
   const ctx = { a, d, missing: new Map(), first, edit: true };
-  const total = fmtExact(a.money.total);
   const hero = `<p class="t-caps c-600 ${ID}__eyebrow">After the fitting</p><h1 class="t-title">Edit the job</h1>`
     + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Notes and photos are yours to change. A new price, due date or work needs ${esc(first)}’s approval.</p></div><!--/notes-->`;
   const due = d.needBy !== a.job.needBy
@@ -416,10 +405,6 @@ function editView(a, d, chromeHtml) {
   ${sectionHead('Why it’s changing', { id: `${ID}-why` })}
   ${textArea({ id: 'edit-reason', label: `Reason for the change (${first} sees this)`, value: d.reason ?? '', rows: 3, max: TAILOR_LIMITS.NOTE_MAX, helper: 'Phone numbers and emails are hidden.', error: errors.reason })}
   ${photo}
-  </section>
-  <section class="sec ${ID}__work-done">
-  ${field({ id: 'work-done', label: 'Work done so far', value: d.workDone ?? '', inputmode: 'numeric', prefix: '$', maxlength: 4, autocomplete: 'off',
-    helper: `What ${first} pays if she says no. Up to ${total}.`, error: errors.workDone })}
   </section>
   <section class="sec" aria-labelledby="${ID}-changes">
   ${sectionHead('What changes', { id: `${ID}-changes` })}
@@ -666,7 +651,7 @@ function saveOpenComments(a, d) {
   return true;
 }
 
-/** Study-1 B1: send the edit. Reason and work done are checked here first, each error next to its field; then the model's own guards. */
+/** Study-1 B1: send the edit. The reason is checked here first, each error next to its field; then the model's own guards. */
 function sendEdit(a) {
   const d = ui();
   if (d.busy) return;
@@ -674,16 +659,16 @@ function sendEdit(a) {
   const garments = build(a, d);
   const errors = checks(d, garments);
   const firstBad = Object.keys(errors.fields)[0];
-  if (firstBad || errors.empty || errors.reason || errors.workDone) {
+  if (firstBad || errors.empty || errors.reason) {
     const row = garments.flatMap((g) => g.rows).find((r) => r.key === firstBad);
-    rerender(row ? `#${q(inputId(row))}` : errors.reason ? '#edit-reason' : errors.workDone ? '#work-done' : null);
+    rerender(row ? `#${q(inputId(row))}` : errors.reason ? '#edit-reason' : null);
     if (errors.empty) document.querySelector('#screen [data-live="empty"]')?.scrollIntoView({ block: 'center' });
     return;
   }
   const lines = liveRows(garments).map((r) => ({
     garmentId: r.garmentId, garmentType: r.garmentType, serviceId: r.serviceId, label: r.label, cents: r.parsed.cents,
   }));
-  const payload = { lines, needBy: d.needBy, reason: d.reason, photo: !!d.photo, workDone: parseWorkDone(d.workDone, a).cents };
+  const payload = { lines, needBy: d.needBy, reason: d.reason, photo: !!d.photo };
   const resend = a.edit?.state === 'pending';
   d.busy = true;
   rerender();
@@ -695,7 +680,7 @@ function sendEdit(a) {
       delete state.ui[ID];
       setFocus(a.id);
       go('t-job', { fresh: true });
-      toast(resend ? `Updated changes sent to ${firstOf()}.` : `Sent to ${firstOf()}. She can approve or decline.`, { tone: 'success' });
+      toast(resend ? `Updated changes sent to ${firstOf()}.` : `Sent to ${firstOf()}. She can approve or message you.`, { tone: 'success' });
     } else if (r.error === 'not-in-progress') {
       delete state.ui[ID];
       setFocus(a.id);
@@ -860,8 +845,6 @@ function wire(root) {
       const n = [...t.value].length;
       const count = root.querySelector('#edit-reason-count');
       if (count) { count.textContent = `${n} / ${TAILOR_LIMITS.NOTE_MAX}`; count.classList.toggle('text-area__count--over', n > TAILOR_LIMITS.NOTE_MAX); }
-    } else if (t.id === 'work-done') {
-      d.workDone = t.value;
     }
   });
 

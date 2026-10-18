@@ -138,7 +138,7 @@ export function galleryHtml() {
   v('skeleton');              col(C.skeleton({ kind: 'tailor-row', count: 2 }));
 
   h2('Price Row');
-  s.push(card(C.priceRow({ label: 'Hem pants', cents: 2500 }) + C.priceRow({ label: 'Take in or let out waist', cents: 3500, note: 'Per garment' }) + C.priceRow({ label: 'Bridal gown alterations', muted: true })));
+  s.push(card(C.priceRow({ label: 'Hem pants', cents: 2500 }) + C.priceRow({ label: 'Take in or let out waist', cents: 3500, note: 'Per garment' }) + C.priceRow({ label: 'Take in dress', muted: true })));
 
   h2('Stars · Rating summary · Review row');
   v('display 4 · input 3 (tap to try)'); row(C.stars({ value: 4 }), C.stars({ value: 3, input: true, name: 'demo-stars' }));
@@ -283,7 +283,7 @@ export function galleryHtml() {
     C.textArea({ id: 'g-bio2', label: 'About your work', max: 40, value: BIO }),
     C.textArea({ id: 'g-bio3', label: 'About your work', max: 280, error: 'Tell customers a little about your work.' }));
   v('Study-1 C1–C2: placeholder · at the 110 hard stop · a paste trimmed');
-  const LINE110 = 'Savile Row trained. Suits, bridal and eveningwear for 20 years. I pin every fitting myself, studio or at home.';
+  const LINE110 = 'Savile Row trained. Suits, shirts and eveningwear for 20 years. I pin every fitting myself, studio or at home.';
   col(
     C.textArea({ id: 'g-card0', label: 'Card line — the one sentence customers see in search results', maxlength: 110, rows: 3, placeholder: 'Example: I’ve been tailoring luxury clothes for 10 years and frequently work with designers for fashion week' }),
     C.textArea({ id: 'g-card1', label: 'Card line — the one sentence customers see in search results', maxlength: 110, rows: 3, value: LINE110 }),

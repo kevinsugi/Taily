@@ -34,7 +34,7 @@ const LABELS = {
 };
 const PLACEHOLDERS = {
   cardLine: 'Example: I’ve been tailoring luxury clothes for 10 years and frequently work with designers for fashion week',
-  bio: 'Example: I’ve tailored luxury and designer clothing for 10 years, including looks for fashion week. I specialize in suits, eveningwear and bridal, and I pin every fitting myself. I make home visits in SoHo, Tribeca, the West Village and Williamsburg.',
+  bio: 'Example: I’ve tailored luxury and designer clothing for 10 years, including looks for fashion week. I specialize in suits, coats and eveningwear, and I pin every fitting myself. I make home visits in SoHo, Tribeca, the West Village and Williamsburg.',
 };
 /* K-19: the card preview is drawn for the demo customer's sample job (suit jacket + suit pants, at her place); price and next opening fill in per job */
 const SAMPLE_NEXT = '2026-10-15T17:00';

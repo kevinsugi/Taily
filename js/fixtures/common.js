@@ -50,19 +50,19 @@ export const TARGETS = [
   /* Study-1 WS-A */
   'handed-over', 'problem', 'auto-completed', 'unclaimed', 'review-reminder', 'tailor-no-show', 'cant-make-it-late',
   /* Study-1 WS-B */
-  'edit-pending', 'edit-approved', 'edit-declined', 'partial-completed',
+  'edit-pending', 'edit-approved',
 ];
 
 /** Study-1 B1: the reason Amara gives with the fixtures' edit (copy, not money). */
 export const EDIT_REASON = 'The sleeve lining is torn and has to be replaced, so the sleeves take longer.';
 /** Study-1 B1: the edit the fixtures send on an in-progress job, through the real lines (JOB_EDIT: Shorten sleeves up $15, the due date three
-    days later, $40 of work done so far). `kind`: 'full' (price + due date + a photo) · 'price' (price only, no photo) · 'due' (due date only). */
+    days later). `kind`: 'full' (price + due date + a photo) · 'price' (price only, no photo) · 'due' (due date only). */
 export function jobEdit(appt, kind = 'full') {
   const lines = appt.lines.map((l) => ({ ...l }));
   if (kind !== 'due') for (const l of lines) if (l.serviceId === 'sleeves') l.cents = cents(AMARA.prices.sleeves + JOB_EDIT.sleevesUp);
   const needBy = kind === 'price' ? appt.job.needBy : isoDay(addDays(appt.job.needBy, JOB_EDIT.dueDays));
   const reason = kind === 'due' ? 'The lining fabric I ordered arrives on Monday, so I need a few more days.' : EDIT_REASON;
-  return { lines, needBy, reason, photo: kind === 'full', workDone: cents(JOB_EDIT.workDone) };
+  return { lines, needBy, reason, photo: kind === 'full' };
 }
 /** Study-1 B2: the private General notes the fixtures write (copy). */
 export const NOTE_TEXT = {
@@ -211,18 +211,12 @@ export function driveTo(target, opts = {}) {
   if (target === 'price-change') return getAppt(id);
   must(T.approvePriceChange(id), 'approvePriceChange');
   if (target === 'in-progress') return getAppt(id);
-  if (['edit-pending', 'edit-approved', 'edit-declined', 'partial-completed'].includes(target)) {
-    /* Study-1 B1: the next morning Amara edits the job (opts.edit = 'full' | 'price' | 'due'); Sarah approves, or declines → partial work */
+  if (['edit-pending', 'edit-approved'].includes(target)) {
+    /* Study-1 B1: the next morning Amara edits the job (opts.edit = 'full' | 'price' | 'due'); Sarah approves (K-30 overruled: no decline) */
     advanceClock(17 * 60);
     must(T.sendJobEdit(id, jobEdit(getAppt(id), opts.edit ?? 'full')), 'sendJobEdit');
     if (target === 'edit-pending') return getAppt(id);
-    if (target === 'edit-approved') return must(T.approveJobEdit(id), 'approveJobEdit');
-    must(T.declineJobEdit(id), 'declineJobEdit');
-    if (target === 'edit-declined') return getAppt(id);
-    must(T.chooseReturn(id, returnOption), 'chooseReturn');
-    must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
-    handOver(id, returnOption);
-    return getAppt(id);
+    return must(T.approveJobEdit(id), 'approveJobEdit');
   }
   must(T.markReady(id), 'markReady');
   if (target === 'ready') return getAppt(id);

@@ -52,10 +52,7 @@ function view() {
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${navBackMark()}
   ${reviewReminderDue(a) ? `<div class="${ID}__reminder">${reminderCard({ title: `How did ${first} do?`, text: 'It’s been a week since your order came back. Your review helps other customers.', act: 'leave-review', id: a.id })}</div>` : ''}
-  ${a.outcome === 'partial'
-    /* Study-1 B1: she declined the edit — clearly labelled, never "tailored to fit" */
-    ? linenStage({ eyebrow: `Returned, partial work · ${fmtDay(doneAt(a))}`, title: 'Your items are back with you.', rail: tagRail(items), label: 'Returned, partial work' })
-    : linenStage({ eyebrow: `${a.handoff?.completedBy === 'auto' ? 'Completed automatically' : 'Order complete'} · ${fmtDay(doneAt(a))}`, title: 'Back with you, tailored to fit.', rail: tagRail(items), label: 'Order complete' })}
+  ${linenStage({ eyebrow: `${a.handoff?.completedBy === 'auto' ? 'Completed automatically' : 'Order complete'} · ${fmtDay(doneAt(a))}`, title: 'Back with you, tailored to fit.', rail: tagRail(items), label: 'Order complete' })}
   <section class="${ID}__label" aria-label="Rate ${esc(first)}">
     <p class="t-caps ${ID}__by">Tailored by</p>
     <span class="${ID}__namerow"><span class="${ID}__name">${esc(t.name)}</span>${t.verified ? verifiedCheck({ years: t.years }) : ''}</span>
@@ -65,7 +62,6 @@ function view() {
     ${rating}
     <p class="t-small c-600 ${ID}__hint">Tap a star to rate. Reviews show on ${esc(first)}’s profile as ${esc(customerShort())}${customerShort().endsWith('.') ? '' : '.'}</p>
   </section>
-  ${a.outcome === 'partial' ? `<p class="t-body c-700 ${ID}__partial" data-partial data-money>You declined ${esc(first)}’s changes and paid ${fmtExact(a.edit?.workDone ?? a.money.total)} for the work done so far.</p>` : ''}
   <section class="sec ${ID}__receipt">
     <button type="button" class="${ID}__row" data-act="receipt" aria-expanded="false" aria-controls="receipt-body">
       <span class="${ID}__rowicon" aria-hidden="true">${VISIT_ICONS.bag}</span>

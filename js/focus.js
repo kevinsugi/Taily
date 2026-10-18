@@ -85,7 +85,7 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
       if (how === 'courier') return customer ? { pill: 'awaiting-handoff', label: pick('Out for delivery', 'Courier') } : { pill: 'awaiting-handoff', label: pick('Courier booked', 'Courier') };
       return { pill: 'awaiting-handoff', label: pick('Ready for pickup', 'Pickup') };
     }
-    case 'completed': return { pill: 'completed', label: appt.outcome === 'partial' ? 'Partial work' : 'Completed' };   // Study-1 B1: "Returned, partial work"
+    case 'completed': return { pill: 'completed', label: 'Completed' };
     default: return { pill: appt.status, label: undefined };
   }
 }

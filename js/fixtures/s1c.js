@@ -10,7 +10,7 @@ import { onboardTo } from './common.js';
 import { fmt, priceRange } from '../money.js';
 
 /** C2: Kevin's 110-character test line (copy deck §5). */
-export const CARD_LINE_110 = 'Savile Row trained. Suits, bridal and eveningwear for 20 years. I pin every fitting myself, studio or at home.';
+export const CARD_LINE_110 = 'Savile Row trained. Suits, shirts and eveningwear for 20 years. I pin every fitting myself, studio or at home.';
 /** C2: a paste that runs past the limit — the field keeps the first 110 characters. */
 const PASTED = `${CARD_LINE_110} Book a fitting any weekday evening.`;
 const profileDraft = (patch = {}) => ({ name: AMARA.name, shopName: AMARA.shopName, cardLine: '', bio: '', photo: true, workPhotos: 0, ...patch });
@@ -47,7 +47,7 @@ export const FLOWS_to_services = [
   { key: 'to-services--recommended-none', screen: 'to-services', group: 'S1 · Onboarding', title: 'Services — recommended prices, nothing ticked',
     note: 'C3: nothing ticked: Use recommended prices is off and says why; every row shows its NYC range',
     setup: () => { onboardTo('services'); },
-    expect: { has: ['Use recommended prices', 'Tick the services you offer first.', range('hem-pants'), range('bridal')], sel: '[data-act="recommend"][disabled]' } },
+    expect: { has: ['Use recommended prices', 'Tick the services you offer first.', range('hem-pants'), range('dress-take-in')], not: 'Bridal', sel: '[data-act="recommend"][disabled]' } },
 ];
 
 /* C5 · the seed's shop + home settings as a typed draft */

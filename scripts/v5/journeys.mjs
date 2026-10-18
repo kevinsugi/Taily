@@ -23,8 +23,9 @@
      J15 pickup with the code (Study-1 A2–A4): Hold at the return choice, Sarah's code, a wrong code, the right code completes both sides, Job Done
      J16 drop-off (Study-1 A3): Delivered needs a photo -> the 47h countdown on both sides -> "I didn't get it" pauses it -> "I got it" completes
      J17 the clock (Study-1 A2–A3): +48 hours (Demo actions) auto-completes a delivered order; +7 days captures an unclaimed hold, the job stays open
-     J18 edit after the fitting (Study-1 B1–B2): a private note; Amara edits the job (price, reason, work done) -> Mark ready waits -> Sarah sees
-         "Amara edited your order" and declines -> partial balance held at the pickup -> the code -> "Returned, partial work" on both sides
+     J18 edit after the fitting (Study-1 B1–B2, K-30 overruled): a private note; Amara edits the job (price, reason) -> Mark ready waits ->
+         Sarah sees "Amara edited your order" (Approve / Message, no decline) and messages -> Amara revises (price back, later date) ->
+         Sarah approves -> Mark ready
      J14 the anchored popover (K-25): a garment thumb toggles it, another thumb moves it, Escape returns focus, it flips above near the
          window bottom, the Verified check shares its one slot; t-home's count cluster lists every item and the card still opens the request
 
@@ -36,7 +37,7 @@ import { SCENARIOS, SEED_SLOT, fmtExact, fmtNeg } from './money.mjs';
 import { SUGGESTED_SLOT, AMARA, JOB_EDIT } from '../../js/fixtures/money-scenarios.js';
 import { CHAT, FITTING_COMMENTS, EDIT_REASON, NOTE_TEXT } from '../../js/fixtures/common.js';
 import { CUSTOMER } from '../../js/data.js';
-import { fmtWhen, fmtDay } from '../../js/dates.js';
+import { fmtWhen, fmtDay, isoDay, addDays } from '../../js/dates.js';
 import { PAYOUT_DAYS } from '../../js/fixtures/money-scenarios.js';
 import { POLICY } from '../../js/money-config.js';
 
@@ -552,52 +553,64 @@ await journey('J17', 'the clock: +48 hours auto-completes a delivered order; +7 
   await at('J17 tailor: nothing paid out yet', 't-earnings', { not: fmtExact(S.seed.payout) });
 });
 
-/* ---------- J18 (Study-1 B1–B2) ---------- */
-await journey('J18', 'edit after the fitting: Sarah declines -> partial work -> pickup with the code -> Returned, partial work, both sides', async () => {
-  const work = fmtExact(S.partial.workDone);
-  const left = fmtExact(S.partial.balance);
+/* ---------- J18 (Study-1 B1–B2, K-30 overruled) ---------- */
+await journey('J18', 'edit after the fitting: Mark ready waits -> Sarah messages (no decline) -> Amara revises -> Sarah approves -> Mark ready', async () => {
+  const ask = 'Can we keep the sleeves at the price we agreed? A few more days is fine.';
+  const dueIso = isoDay(addDays('2026-10-23', JOB_EDIT.dueDays));   // the seed's need-by, three days later (the fixtures' edit)
+  const due = fmtDay(dueIso);
   await flow('t-job--in-progress');
   await click('[data-act="note-add"]');
   await page.fill('#note-text', NOTE_TEXT.measure);
   await press('[data-act="note-save"]');
   await at('J18 tailor: a private note on the job', 't-job', { has: ['Only you can see these notes.', NOTE_TEXT.measure] });
   await press('[data-act="edit-job"]');
-  await at('J18 tailor: edit the job after the fitting', 't-adjust', { has: ['AFTER THE FITTING', 'Edit the job', 'Change the price, the due date or the work to send it.'] });
+  await at('J18 tailor: edit the job after the fitting', 't-adjust', { has: ['AFTER THE FITTING', 'Edit the job', 'Change the price, the due date or the work to send it.'], not: 'Work done so far' });
   await page.fill('#price-g2-sleeves', String(AMARA.prices.sleeves + JOB_EDIT.sleevesUp));
   await press('[data-act="send"]');
-  await at('J18 tailor: the reason and work done are required', 't-adjust', { has: ['Tell Sarah why you’re changing it.', `Enter a whole-dollar amount up to ${fmtExact(S.seed.total)}.`] });
+  await at('J18 tailor: the reason is required', 't-adjust', { has: ['Tell Sarah why you’re changing it.'], not: 'whole-dollar amount' });
   await page.fill('#edit-reason', EDIT_REASON);
-  await page.fill('#work-done', String(S.partial.workDone / 100));
   await press('[data-act="send"]');
-  await at('J18 tailor: waiting on Sarah, Mark ready waits', 't-job', { has: ['Waiting on Sarah to approve your changes', 'Your reason', EDIT_REASON, 'Sarah hasn’t answered your changes yet.', fmtExact(S.edit.payout)] });
+  await at('J18 tailor: waiting on Sarah, Mark ready waits', 't-job', { has: ['Waiting on Sarah to approve your changes', 'Your reason', EDIT_REASON, 'Sarah hasn’t answered your changes yet.', fmtExact(S.edit.payout)], not: 'declines' });
   const off = await page.locator('#screen ~ .action-bar [data-act="mark-ready"], .action-bar [data-act="mark-ready"]').first().isDisabled();
   check('J18 tailor: Mark ready is off while the edit is pending', off, 'enabled');
   await flip();
   await click('[data-nav="bookings"]');
   await at('J18 customer: Bookings says approve', 'c-bookings', { has: ['Approve'] });
   await click('.appt-row');
-  await at('J18 customer: Amara edited your order', 'c-price-change', { has: ['Amara edited your order', 'Amara’s reason', EDIT_REASON, 'New price', fmtExact(S.edit.total), `If you decline, you pay ${work} for the work done so far and get your items back.`, 'Approve changes', 'Decline and get my items back'], not: [NOTE_TEXT.measure, 'Approve and start'] });
-  await click('[data-act="decline-edit"]');
-  await at('J18 customer: decline the changes?', 'c-price-change', { has: ['Decline the changes?', `You’ll pay ${work} for the work done so far. Your ${fmtExact(S.seed.deposit)} deposit counts toward it, so ${left} is left.`] });
-  await click('[data-act="decline-ok"]');
-  await at('J18 customer: partial work, choose a way back', 'c-ready', { has: ['Your items are ready to come back', 'Work done so far', `Hold ${left}`] });
-  await click('[data-act="return"][data-value="pickup"]');
-  await click('[data-act="pay"]');
-  await click('[data-act="pay-ok"]');
-  await at('J18 customer: on hold, the pickup code', 'c-booking', { has: ['On hold', left, 'YOUR PICKUP CODE', PICKUP_CODE] });
+  await at('J18 customer: Amara edited your order — approve or message, no decline', 'c-price-change', { has: ['Amara edited your order', 'Amara’s reason', EDIT_REASON, 'New price', fmtExact(S.edit.total), 'Approve changes', 'Message Amara'], not: [NOTE_TEXT.measure, 'Approve and start', 'Decline and get my items back', 'If you decline', 'Work done so far'] });
+  await click('[data-act="message"]');
+  await page.fill('#composer-input', ask);
+  await send();
+  await at('J18 customer: she tells Amara', 'c-thread', { has: [ask] });
   await flip();
-  await click('.appt-row');
-  await at('J18 tailor: the partial balance is on hold', 't-job', { has: [`In-store pickup · Sarah’s ${left} is on hold`, 'Picked up', NOTE_TEXT.measure] });
-  await click('[data-act="picked-up"]');
-  await page.fill('#handoff-code', PICKUP_CODE);
-  await press('[data-act="pickup-ok"]');
-  await at('J18 tailor: returned, partial work', 't-job', { has: ['Returned, partial work', `Sarah declined your changes and paid ${work} for the work done so far.`, fmtExact(S.partial.payout), 'Pending', NOTE_TEXT.measure], not: ['Nice work', 'Add a note'] });
+  await click('[data-nav="messages"]');
+  await click('.thread-row');
+  await at('J18 tailor: Sarah’s message', 't-thread', { has: [ask] });
   await click('[data-nav="home"]');
-  await at('J18 tailor: the Completed list says Partial work', 't-home', { has: ['COMPLETED', 'Partial work', fmtExact(S.partial.payout)] });
+  await click('.appt-row');
+  await at('J18 tailor: still waiting on Sarah', 't-job', { has: ['Waiting on Sarah to approve your changes'] });
+  await press('[data-act="edit-job"]');
+  await at('J18 tailor: revising replaces the pending changes', 't-adjust', { has: ['Sarah hasn’t answered your changes yet. Sending again replaces them.'] });
+  await page.fill('#price-g2-sleeves', String(AMARA.prices.sleeves));
+  await press('[data-act="edit-due"]');
+  await click(`[data-act="pick-due"][data-value="${dueIso}"]`);
+  await at('J18 tailor: the price back, a later due date', 't-adjust', { has: [`New due date ${due}`] });
+  await press('[data-act="send"]');
+  await at('J18 tailor: the revision is waiting on Sarah', 't-job', { has: ['Waiting on Sarah to approve your changes', `New due date ${due}`, fmtExact(S.seed.payout)], not: 'YOUR CHANGES' });
   await flip();
   await click('[data-nav="bookings"]');
   await click('.appt-row');
-  await at('J18 customer: returned, partial work', 'c-complete', { has: ['RETURNED, PARTIAL WORK', `Charged ${left}`, `You declined Amara’s changes and paid ${work} for the work done so far.`, 'Leave a review'], not: [NOTE_TEXT.measure, 'tailored to fit'] });
+  await at('J18 customer: the revised changes — the date only', 'c-price-change', { has: ['Amara edited your order', `New due date ${due}`, 'Total', fmtExact(S.seed.total), 'Approve changes'], not: ['WHAT CHANGED', 'New total', 'Decline and get my items back'] });
+  await click('[data-act="approve-edit"]');
+  await at('J18 customer: approved, Amara carries on', 'c-booking', { has: ['Amara is working on it'] });
+  await flip();
+  await click('.appt-row');
+  await at('J18 tailor: Sarah approved, Mark ready is back', 't-job', { has: ['Sarah approved your changes', NOTE_TEXT.measure] });
+  const on = await page.locator('.action-bar [data-act="mark-ready"]').first().isEnabled();
+  check('J18 tailor: Mark ready works once Sarah approved', on, 'disabled');
+  await click('[data-act="mark-ready"]');
+  await click('[data-act="ready-ok"]');
+  await at('J18 tailor: ready', 't-job', { has: ['Ready · Sarah is choosing how to get it back'] });
 });
 
 /* ---------- J14 (K-25) ---------- */

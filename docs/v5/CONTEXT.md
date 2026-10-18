@@ -506,3 +506,6 @@ Run it end to end: `npm run study` (`scripts/v5/study-run.mjs`, 390 px, through 
 - **Web-app shell** (a8, D-444): `manifest.json`, `assets/app-icon.svg`, theme-colour + Apple metas in index.html. `html.device-frame`
   (app.js `setTools`, components.html static) draws the 9:41 status bar; without it `--status-h` = the device's top inset and the bar is hidden.
   Deep link per appointment: the build's (D-445).
+- **Gallery** (K-53 a6, D-446): `galleryHtml({ part })` — 'core' (`sys-components`), 'since-k22' (`sys-components--since-k22`: everything
+  built since K-22 + live overlay openers `[data-gal-open]`), 'all' (components.html, whose `.screen` is `#screen`). Engineers' handoff:
+  `docs/v5/DESIGN-SYSTEM.md`; DESIGN.md is current through K-53.

@@ -736,6 +736,7 @@ export const SCREENS = [
   ] },
   { id: 'sys-components', m: 'M0', persona: 'system', title: 'Component gallery (every v5 component in each state) — visual baseline for the component layer', states: [
     { key: 'sys-components', m: 'M0', kind: 'frame' },
+    { key: 'sys-components--since-k22', m: 'SW', kind: 'state' },
   ] },
   { id: 'sys-texts', m: 'A1', persona: 'system', title: 'The text catalogue: every notification as a text, its trigger and landing screen (DG-2 A, D-02)', states: [
     { key: 'sys-texts', m: 'A1', kind: 'frame' },

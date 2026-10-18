@@ -31,3 +31,11 @@ export const FLOWS_t_earnings = [
     setup: (S) => { S.driveTo('in-progress'); },
     expect: { has: ['No earnings yet', 'ON THE WAY', `1 job · ${W_exact(W_SC.seed.payout)} after the Taily fee, so far. Each is paid the Friday after it’s complete.`, 'Sarah Chen'], sel: '.t-earnings__flight [data-act="open-job"]' } },
 ];
+
+/* ---------- sys-components: the gallery's second state — everything built since K-22 (K-53 a6) ---------- */
+export const FLOWS_sys_components = [
+  { ...at('sys-components'), key: 'sys-components--since-k22', title: 'Component gallery — since K-22 (K-53 a6)',
+    note: 'K-53 a6: strip-led pages, notices, handoff pieces and stages, private notes, Taily Help, policy pages, admin tools + ledger rows, availability controls, address fields, the live overlays (tap to open), the model-bound list',
+    setup: (S) => { S.state.ui['sys-components'] = { part: 'since-k22' }; },
+    expect: { has: ['Taily is reviewing', 'Show this code when you pick up.', 'Draft — counsel review required', 'Customers can book you at least', 'Test flows', 'Confirm sheet'], not: ['Toast tones'], sel: '[data-s="sys-components--since-k22"] [data-gal-open="confirm"]' } },
+];

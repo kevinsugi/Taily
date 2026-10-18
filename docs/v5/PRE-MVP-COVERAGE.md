@@ -6,7 +6,7 @@ D-01…D-24 verdicts), **K-49** (DG picks), **K-51** (texts), **K-52** (log in),
 tipping (D-20), masked calling (D-14), Figma (a5).
 
 Status: **fixed** = built as the review proposed (or as Kevin's verdict on it said) · **fixed-differently** = closed by a later Kevin call
-that changed the answer · **deferred-by-Kevin** = Kevin moved it after the MVP. "Sweep" = the commit that adds this file
+that changed the answer · **deferred-by-Kevin** = Kevin moved it after the MVP. "Sweep" = `9977768`, the commit that added this file
 (`pre-mvp: findings coverage sweep + leftovers`, decisions D-440…D-445).
 
 Commits: `528ad2e` the 44 small fixes SF-01…SF-44 (D-304) · `b1ab7a7` A1 texts, timers, visit day, courier (D-310…D-318) ·
@@ -181,7 +181,7 @@ Partly deferred inside a fixed item (named in its note): masked calling in S-32 
 | a3 final journey review + tag | in progress | — | a separate read-only reviewer is walking the happy paths now; tag `mvp-spec-1.0` after its P0 / P1 fixes |
 | a4 availability (S-34) | done | 4319301 (D-424…D-426), 1f24ef3 (D-432) | |
 | a5 Figma catch-up | deferred-by-Kevin | K-53 ("a5 Figma ignored") | |
-| a6 design-system handoff | next commit | `pre-mvp: design system docs + gallery up to date (K-53 a6)` | DESIGN.md, the gallery, docs/v5/DESIGN-SYSTEM.md |
+| a6 design-system handoff | done | `pre-mvp: design system docs + gallery up to date (K-53 a6)` (D-446) | DESIGN.md brought up to date, the gallery covers every shared component built since K-22 (`sys-components--since-k22` + live overlays), docs/v5/DESIGN-SYSTEM.md (engineering handoff) |
 | a7 copy freeze | next-but-one commit | `pre-mvp: copy deck for the freeze (K-53 a7)` | docs/v5/COPY-DECK.md + scripts/v5/copy-deck.mjs |
 | a8 remove prototype chrome, web-app shell | done (deep link left for the build) | 4319301 (D-422); **sweep** D-443, D-444, D-445 | Test flows admin-only (D-422). The sweep: `manifest.json` + theme colour + app icon + Apple web-app metas; the drawn 9:41 status bar only in the admin's test session (every harness / study boot, so no baseline moves) and the gallery — a real visitor's device draws its own (D-444); rem type (D-443). Deep-link route per appointment: left for the build — it needs persisted appointments and signed link tokens; the contract is written down (D-445) |
 | a9 keep the deferred list deferred | done | this file, below | |

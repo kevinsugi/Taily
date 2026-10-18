@@ -1,7 +1,7 @@
 /* ============================================================
    Component gallery — every v5 component in each state, side by side,
    on the seed data (Amara's row, Sarah's $160.00 / $16.00 / $144.00
-   breakdown, the tailor's −$12.50 / $147.50). One builder, two homes:
+   breakdown, the tailor's −$18.75 / $141.25 at the 15 fee). One builder, two homes:
    the `sys-components` screen (the visual baseline for the component
    layer) and the standalone /components.html page.
    ============================================================ */
@@ -14,12 +14,15 @@ import { reauthHtml, textBannerHtml, systemBanner } from './system.js';
 import { quote, fmt, fmtExact, cents, payoutFor, priceRange } from './money.js';
 import { ICON_CARD, ICON_CAMERA } from './icons.js';
 import { SCENARIOS, AMARA } from './fixtures/money-scenarios.js';
+import { policyPage } from './policies.js';
 
 /** Specimen garment id -> { type, docs } for the gallery's photo viewer (K-02). */
 const GALLERY_DOCS = {};
 
-/** The gallery's HTML (a string of labelled blocks). */
-export function galleryHtml() {
+/** The gallery's HTML (a string of labelled blocks). `part`: 'all' (components.html) · 'core' (the sys-components screen: everything up
+    to K-22 + the B1 checks) · 'since-k22' (K-53 a6: what was built since, its own Test-flows entry so no one baseline grows past what a
+    full-page screenshot handles). */
+export function galleryHtml({ part = 'all' } = {}) {
   const amara = TAILORS[0];
   /* Seed numbers: Sarah's job with Amara (the model's golden scenarios), in cents */
   const lines = [{ cents: 12500 }];
@@ -556,8 +559,105 @@ export function galleryHtml() {
     v('the background-check disclosure (placeholder copy, marked for counsel)');
     col(C.disclosureHtml());
   }
+  /* ---------------- K-53 a6 · everything built since K-22 (pre-MVP + MVP readiness) ---------------- */
+  const coreEnd = s.length;
+  const items = [{ type: 'Suit Pant', services: ['Hem pants'] }, { type: 'Suit Jacket', services: ['Shorten sleeves', 'Take in jacket sides'] }];
+  h2('Page strip + header (K-15 / K-17 strip-led pages) — requestStrip tones · pageHead(requestHead({ page }))');
+  v('action · warn (a case Taily owes) · done · calm · a request clock (warning, then error at 30 min)');
+  col(C.requestStrip({ tone: 'action', icon: 'check', text: 'Approve your final order · Amara changed it at the fitting' }),
+    C.requestStrip({ tone: 'warn', icon: 'chat', text: 'Taily is reviewing', right: 'Reply by Fri 5:00 PM' }),
+    C.requestStrip({ tone: 'done', icon: 'check', text: 'Taily decided', right: 'Fri, Oct 16' }),
+    C.requestStrip({ tone: 'calm', icon: 'clock', text: 'Request expired' }),
+    C.requestStrip({ status: 'requested', expiresAt: '2026-10-13T12:00', now: NOW, lead: 'New request · ' }));
+  v('page head: the person, the Verified check, the one amount with what it was (deltaLines)');
+  col(C.pageHead(C.requestHead({ page: true, name: amara.name, initials: amara.initials, check: C.verifiedCheck({ years: amara.years }), payoutCents: SCENARIOS.priceAdded.total, label: 'New total', lines: C.deltaLines(SCENARIOS.priceAdded.total, SCENARIOS.seed.total) })));
+  v('a tailor’s quote (noteQuote) · the edit’s due-date line (dueChange) · a photo she sent (photoFigure)');
+  col(C.noteQuote({ label: 'Amara’s reason', text: 'The jacket needs more room at the back, so the sides stay as they are.' }),
+    `<p class="t-body">${C.dueChange({ needBy: '2026-10-26', was: '2026-10-23' })}</p>`,
+    C.photoFigure({ photo: { id: 'g-e1', at: '2026-10-17T11:00', tone: 1 }, type: 'Suit Jacket', by: 'Amara', label: 'Photo from Amara' }));
+
+  h2('Notices and reminders (DG-2 A, K-28, K-41) — reminderCard · notice card · visitPrompt');
+  v('review reminder · a one-time notice with its 44 px ✕ (a cancellation someone else made)');
+  col(C.reminderCard({ title: 'How did Amara do?', text: 'Your order came back on Thu, Oct 15.', id: 'g-r1' }),
+    C.reminderCard({ title: 'Amara can’t make it today', text: `Your ${fmtExact(seed.deposit)} deposit is refunded. Your 2 items and 3 services are saved.`, actionLabel: 'Find another tailor', act: 'g-find', dismissAct: 'g-dismiss', notice: true, id: 'g-n1' }));
+  v('the visit reminder on Home: strip, the booking row, one rule in dollars, Confirm + Change or cancel');
+  col(C.visitPrompt({ text: 'Please confirm your visit', right: 'Free until 5:00 PM today', row: { ...ar, status: 'confirmed' }, rule: `Free to change until 5:00 PM today. After that, Amara keeps your <span data-money>${fmtExact(seed.deposit)}</span> deposit if you cancel.`, id: 'g-v1' }));
+
+  h2('Handoff (Study-1 A, K-40, K-44…K-47) — garmentStrip · pickupCode · when row · autoCompleteLine · stages');
+  v('the order as a strip (each thumb opens its services) · the pickup code · the When row, before and after a pick');
+  col(C.garmentStrip(items, 'Your order'), C.pickupCode({ code: '8153' }),
+    C.handoffWhenRow({ method: 'pickup' }), C.handoffWhenRow({ method: 'courier', text: 'Fri, Oct 16 · 5:00–5:30 PM', sub: `Courier ${fmtExact(SCENARIOS.courierQuote.cents)}` }));
+  v('autoCompleteLine'); col(`<p class="t-small c-600">${C.autoCompleteLine(47 * 3600000)}</p>`);
+  v('linen stage + tag rail (K-24 R3: "Your order is ready") · hang stage (K-21)');
+  col(`<div class="stage-demo">${C.linenStage({ eyebrow: 'Ready', title: 'Your order is ready', line: 'Amara finished 2 items.', rail: C.tagRail(items), label: 'Your order' })}</div>`,
+    C.hangStage({ types: items.map((g) => g.type), tag: ['Sarah C.', 'Ready'], left: 'Reyes Tailoring', right: 'Fri, Oct 16', label: 'Suit Pant and Suit Jacket hanging, ready' }));
+
+  h2('Private notes (Study-1 B2, K-31) — the tailor’s General notes');
+  v('a note with a photo · empty');
+  col(C.privateNotes({ id: 'g-notes', type: 'Suit Jacket', notes: [{ id: 'gn1', text: 'Sleeves: take up 1.5 cm, keep the buttons.', at: '2026-10-15T17:20', photos: [{ tone: 1 }] }] }),
+    C.privateNotes({ id: 'g-notes2', notes: [] }));
+
+  h2('Taily Help (DG-1 B, K-48.1) — Get help · case strip · thread head · protection row');
+  v('the person button on every order · the case strip: reviewing · replied · decided (in dollars)');
+  col(C.helpActions('g-help'),
+    C.caseStrip({ open: true, waiting: 'taily', replyBy: '2026-10-13T17:00', c: { id: 'g-k1' } }, { act: 'g-case' }),
+    C.caseStrip({ open: true, waiting: 'person', c: { id: 'g-k1' } }, { act: 'g-case' }),
+    C.caseStrip({ open: false, closedAt: '2026-10-16T12:00', decision: `We refunded your ${fmtExact(seed.deposit)} deposit.`, c: { id: 'g-k1' } }, { act: 'g-case' }));
+  v('the Help thread header · garment protection (c-pay, the courier card, Help)');
+  col(C.tailyHead('Usually replies within a few hours'), C.protectionRow('g-protect'));
+  v('Help home (c-help / t-help) on the seed: Message Taily, topics, contact, policies');
+  col(C.helpHome('customer'));
+
+  h2('Policy pages (D-380, K-53 b) — policySections: the counsel draft line, the version, the sections');
+  { const pg = policyPage('cancellation', 'customer'); col(C.policySections({ ...pg, sections: pg.sections.slice(0, 2) })); }
+
+  h2('Admin (K-48.1, K-52, K-53 c7) — the tools row · ledger rows · filters · totals');
+  v('adminTools (a-inbox, a-ledger foot): Test flows only in the admin’s session');
+  col(C.adminTools({ testFlows: true }));
+  v('a ledger day: money rows with a status word and a caption per event (refunds and releases negative)');
+  { const cap = (t) => `${t} · A-1001 · Sarah Chen · Amara Reyes`;
+    col(C.sectionHead('Tue, Oct 13', { count: 4 }), C.moneyRows([
+      { label: 'Deposit hold', cents: seed.deposit, caption: cap('10:02 AM'), status: 'Hold' },
+      { label: 'Deposit released', cents: seed.deposit, kind: 'negative', caption: cap('11:40 AM'), status: 'Released' },
+      { label: 'Taily fee', cents: seed.tailyFee, caption: cap('5:00 PM'), status: 'Taily' },
+      { label: 'Payout', cents: seed.payout, caption: cap('5:00 PM'), status: 'Due Fri, Oct 16' },
+    ])); }
+  v('filters (chip groups) · totals');
+  col(C.chipGroup({ name: 'g-lday', label: 'Day', options: [{ value: '', label: 'All days' }, { value: '2026-10-13', label: 'Tue, Oct 13' }], value: '' }),
+    C.moneyRows([{ label: 'On hold now', cents: seed.balance, caption: 'Deposits and balances authorized, not charged' }, { label: 'Refunded', cents: seed.deposit, kind: 'negative' }, { label: 'Taily revenue', cents: seed.tailyFee, kind: 'total', caption: 'Taily fees and courier fees, less any difference absorbed' }]));
+
+  h2('Availability (K-53 a4, S-34) — two windows a day · time off · minimum notice');
+  v('a split day (second window removable) · one window + Add more hours');
+  s.push(`<div class="info-card">${
+    C.dayHours({ sched: 'gx', day: 'sat', label: 'Saturday', windows: [['10:00 AM', '1:00 PM'], ['3:00 PM', '6:00 PM']] }) +
+    C.dayHours({ sched: 'gx', day: 'fri', label: 'Friday', windows: [['10:00 AM', '6:00 PM']], addable: true })}</div>`);
+  v('time off (whole days) · minimum notice');
+  col(`<div class="card card--list">${C.listRow({ title: 'Tue, Oct 20 – Sun, Oct 25', sub: '6 days', right: C.textLink('Remove', { act: 'g-remove-off' }), chevron: false })}</div>${C.textLink('+ Add time off', { act: 'g-add-off' })}`,
+    C.chipGroup({ name: 'g-notice', label: 'Customers can book you at least', options: [{ value: '3', label: '3 hours' }, { value: '12', label: '12 hours' }, { value: '24', label: '1 day' }, { value: '48', label: '2 days' }], value: '12' }));
+
+  h2('Forms since K-22 — addressFields (S-27) · the booking person block (personActions)');
+  col(`<div class="info-card">${C.addressFields({ values: { street: '145 N 7th St', unit: '2R', zip: '11211', notes: 'Buzz 2R, wait in the lobby' } })}</div>`,
+    C.personActions([{ label: 'Message', icon: C.ICON_CHAT, act: 'g-msg' }, { label: 'Call', icon: C.ICON_PHONE, act: 'g-call' }, C.helpAction('g-help')]));
+
+  h2('Sheets and overlays — tap to open (live)');
+  v('every confirm is a bottom sheet (P-32); each opener below runs the shared component');
+  s.push(`<div class="row gal-open">${[
+    ['confirm', 'Confirm sheet'], ['confirm-action', 'Confirm action'], ['leave', 'Leave sheet'], ['call', 'Call sheet'], ['safety', 'Safety sheet'],
+    ['unblock', 'Unblock sheet'], ['more', 'More menu'], ['info', 'Info sheet'], ['attach', 'Attach sheet'], ['photos', 'Photo viewer'], ['id', 'ID sheet'], ['background', 'Background check'],
+  ].map(([k, l]) => C.textLink(l, { act: 'gal-open', attrs: `data-gal-open="${k}"` })).join('')}</div>`);
+
+  h2('Model-bound sections — rendered on their screens (see the flow)');
+  v('each needs a live appointment or case, so the gallery points at its Test-flows entry instead of faking one');
+  col(`<ul class="t-small c-700 gal-list">${[
+    ['workList', 't-request · t-job'], ['receiptBlock', 'c-complete--receipt · c-receipt'], ['helpCase / helpThreadView / caseThread', 'c-case · t-case · a-case'],
+    ['openHandoffTime', 'c-ready--pick-time · c-booking--change-time'], ['openDocsViewer', 'c-price-change--docs'], ['to-fee (the only percent, K-53)', 'to-fee'],
+    ['ledger day groups + filters', 'a-ledger · a-ledger--order'], ['verification checklist on Shop', 't-shop--review'],
+  ].map(([c, f]) => `<li><b>${c}</b> — ${f}</li>`).join('')}</ul>`);
+  v('legacy (v4, not used by any v5 screen): trustBadges, trustCard — candidates to delete');
+
   /* the page has one h1 (its title, spoken only); a hero or thread-head demo is a specimen, so its title steps down to an h2 here */
-  return `<h1 class="sr-only">Component gallery</h1>\n${s.join('\n').replace(/<h1( class="(?:status-hero__title|thread-head__name)[^>]*)>([\s\S]*?)<\/h1>/g, '<h2$1>$2</h2>')}`;
+  const shown = part === 'core' ? s.slice(0, coreEnd) : part === 'since-k22' ? s.slice(coreEnd) : s;
+  return `<h1 class="sr-only">Component gallery</h1>\n${shown.join('\n').replace(/<h1( class="(?:status-hero__title|thread-head__name|linen-stage__title|request-card__name)[^>]*)>([\s\S]*?)<\/h1>/g, '<h2$1>$2</h2>')}`;
 }
 
 /** Attach the gallery's interactions (stars, toggles, chips, composer, toast buttons, scheduler position). */
@@ -566,5 +666,22 @@ export function wireGallery(root) {
   C.wireGarmentDocs(root, { lookup: (gid) => GALLERY_DOCS[gid] ?? null, by: 'Taken by Amara' });
   C.wirePhotoViewer(root);
   root.addEventListener('click', (e) => { const b = e.target.closest('[data-toast]'); if (b) C.toast(`A ${b.dataset.toast} toast`, { tone: b.dataset.toast }); });
+  /* K-53 a6: the live overlays — each button runs the shared opener (a no-op callback; nothing in the model changes) */
+  const closeOnAct = (holder, close) => holder.addEventListener('click', (e) => { if (e.target.closest('.confirm-sheet [data-act]')) close(); });
+  const OPEN = {
+    confirm: () => C.confirmSheet({ title: 'Cancel this booking?', body: `Amara keeps your ${fmtExact(1600)} deposit.`, primary: { label: 'Cancel booking', act: 'g-ok', variant: 'danger' }, secondary: { label: 'Keep booking', act: 'g-keep' } }, closeOnAct),
+    'confirm-action': () => C.confirmAction({ header: 'Refund the deposit?', body: `Refund Sarah’s ${fmtExact(1600)} deposit to her Visa •••• 4242.`, ok: 'Refund', busyLabel: 'Refunding…' }, () => null),
+    leave: () => C.leaveSheet({}, {}, closeOnAct),
+    call: () => C.openCallSheet({ first: 'Amara', onMessage: () => {} }),
+    safety: () => C.openSafetySheet({ who: 'customer', other: 'Amara', onDone: () => {}, onHelp: () => {} }),
+    unblock: () => C.openUnblockSheet({ who: 'customer', other: 'Amara', onDone: () => {} }),
+    more: () => C.openMoreMenu([{ label: 'Suggest a new time', act: 'g-move' }, { label: 'Get help', act: 'g-help' }, { label: 'Mark as no-show', act: 'g-ns', tone: 'danger' }]),
+    info: () => C.openInfoSheet('deposit'),
+    attach: () => C.openAttachSheet({ count: 0, peer: 'Amara' }, () => {}),
+    photos: () => C.openPhotoViewer({ title: 'Suit Jacket photos', count: 2, type: 'Suit Jacket' }),
+    id: () => C.openIdSheet(() => {}),
+    background: () => C.openBackgroundSheet({ onDone: () => {} }),
+  };
+  root.addEventListener('click', (e) => { const b = e.target.closest('[data-gal-open]'); if (b) OPEN[b.dataset.galOpen]?.(); });
   root.querySelectorAll('.scheduler').forEach((sc) => C.wireWheel(sc, null, 44));   // positions + keyboard (R1-2-C-01)
 }

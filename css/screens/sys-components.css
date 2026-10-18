@@ -28,3 +28,8 @@
 .gal .sheet-demo--tall { height: 600px; }
 .gal .text-banner-demo { position: relative; width: 100%; min-height: 136px; }
 .gal .text-banner-demo .text-banner { transform: none; }
+
+/* K-53 a6: the live-overlay openers and the model-bound list */
+.gal .gal-open { gap: var(--space-8); }
+.gal .gal-list { margin: 0; padding-left: var(--space-20); display: flex; flex-direction: column; gap: var(--space-4); }
+.gal .stage-demo { padding-top: var(--space-16); }   /* the linen stage bleeds up into the page padding on its screens */

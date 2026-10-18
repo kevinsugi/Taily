@@ -114,7 +114,7 @@ The `a-` persona is Kevin. Every new Help case, safety report / block and every 
 | id | M | Purpose | States |
 |---|---|---|---|
 | `sys-index` | M0 | Boot screen: milestones M0–M7 and every built screen / state as a deep link | `sys-index` ◆ |
-| `sys-components` | M0 | Component gallery (every v5 component in each state) — visual baseline for the component layer | `sys-components` ◆ |
+| `sys-components` | M0 | Component gallery (every v5 component in each state) — visual baseline for the component layer | `sys-components` ◆ · SW: `sys-components--since-k22` · (K-53 a6: everything built since K-22, incl. the live overlays) |
 | `sys-texts` | A1 | The text catalogue: every notification as a text, its trigger and landing screen (DG-2 A, D-02; js/texts.js, docs/v5/TEXTS.md) | `sys-texts` ◆ (to the customer) · `sys-texts--tailor` · · **A2:** `sys-texts--admin` · (the admin’s texts, "Taily admin: ") |
 
 System-wide patterns (M5) have no screen of their own: each key lands on a host screen.

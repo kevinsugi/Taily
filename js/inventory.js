@@ -415,7 +415,7 @@ export const SCREENS = [
     { key: 't-job--note-attach', m: 'S1', kind: 'overlay' },
     { key: 't-job--edit-pending', m: 'S1', kind: 'state' },
   ] },
-  { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Final order at the fitting (K-42; after the fitting: Change the order): add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
+  { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Final order at the fitting (K-42; after the fitting: Edit order): add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },
     { key: 't-adjust--edited', m: 'M4', kind: 'state' },
     { key: 't-adjust--item-added', m: 'M4', kind: 'state' },

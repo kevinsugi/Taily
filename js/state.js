@@ -31,7 +31,7 @@ import {
 import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
-  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType, HANDOFF_CODE_LEN,
+  TAILOR_LIMITS, CHARGE_WHEN, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType, HANDOFF_CODE_LEN,
   HOOD_BY_ID, zipsForHoods, NOTES_LIMITS,
 } from './data.js';
 
@@ -1215,7 +1215,7 @@ export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   setStatus(a, 'awaiting-handoff');
   const how = RETURN_LABEL[a.returnOption].toLowerCase();
   const amt = fmtExact(a.money.balance);
-  say(a, charge ? `You chose ${how}. You’ll be charged ${amt} at handoff.` : `You chose ${how}.`, charge ? `${state.customer.first} chose ${how}. Her ${amt} is on hold.` : `${state.customer.first} chose ${how}.`);
+  say(a, charge ? `You chose ${how}. You’ll be charged ${amt} ${CHARGE_WHEN[a.returnOption] ?? 'at handoff'}.` : `You chose ${how}.`, charge ? `${state.customer.first} chose ${how}. Her ${amt} is on hold.` : `${state.customer.first} chose ${how}.`);
   return succeed(a);
 }
 

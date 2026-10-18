@@ -50,7 +50,7 @@ export const FLOWS_t_job = [
     expect: { has: ['Add a photo', 'Take a photo', 'Choose from library', `Up to ${B_LIMITS.PHOTOS_MAX} photos per note. Only you see them.`], sel: '[data-s="attach"] [data-act="photo-library"]' } },
   { ...TJ, key: 't-job--edit-pending', title: 'Job — changes waiting on Sarah', note: 'Study-1 B1: the new payout if approved, your reason and photo, the new due date; Mark ready waits (default 13)',
     setup: (S) => { S.driveTo('edit-pending'); },
-    expect: { has: ['Waiting on Sarah to approve your changes', 'Your payout if approved', B_exact(B_SC.edit.payout), 'Your reason', B_REASON, `New due date ${B_day(NEW_DUE)}`, `was ${B_day(SEED_DUE)}`, 'YOUR CHANGES', 'New price', 'Sarah hasn’t answered your changes yet.', 'Change the order'], not: ['declines', 'Work done so far'], sel: '[data-act="mark-ready"][disabled]' } },
+    expect: { has: ['Waiting on Sarah to approve your changes', 'Your payout if approved', B_exact(B_SC.edit.payout), 'Your reason', B_REASON, `New due date ${B_day(NEW_DUE)}`, `was ${B_day(SEED_DUE)}`, 'YOUR CHANGES', 'New price', 'Sarah hasn’t answered your changes yet.', 'Edit order'], not: ['declines', 'Work done so far'], sel: '[data-act="mark-ready"][disabled]' } },
 ];
 
 export const FLOWS_t_adjust = [
@@ -62,14 +62,14 @@ export const FLOWS_t_adjust = [
       S.state.ui['t-adjust'] = { apptId: a.id, mode: 'new' };
     },
     expect: { has: ['GENERAL NOTES', 'Only you can see these notes.', B_PRICE_NOTES.added, B_NOTE.sketch, 'Add a note'], not: ['Note to Sarah', 'about the whole order'], sel: '[data-notes] .private-note__photos' } },
-  { ...TA, key: 't-adjust--edit', title: 'Change the order — after the fitting', note: 'Study-1 B1 (K-30): Sleeves up $15, the due date three days later, the reason, a photo; Send to Sarah (K-30 overruled: no work-done amount)',
+  { ...TA, key: 't-adjust--edit', title: 'Edit order — after the fitting', note: 'Study-1 B1 (K-30): Sleeves up $15, the due date three days later, the reason, a photo; Send to Sarah (K-30 overruled: no work-done amount)',
     setup: (S) => { editDraft(S); },
-    expect: { has: ['AFTER THE FITTING', 'Change the order', 'DUE DATE', `New due date ${B_day(NEW_DUE)}`, 'Reason for the change (Sarah sees this)', 'Remove photo', B_exact(B_SC.edit.total), B_exact(B_SC.edit.payout), `Sarah’s ${DEP} deposit stays the same.`, 'Send to Sarah'], not: ['Before', 'Pinned', 'Send to Sarah for approval', 'GENERAL NOTES', 'Work done so far'], sel: '[data-act="send"]:not([disabled])' } },
-  { ...TA, key: 't-adjust--edit-errors', title: 'Change the order — reason missing', note: 'Study-1 B1: Send with no reason — the error next to its field',
+    expect: { has: ['AFTER THE FITTING', 'Edit order', 'DUE DATE', `New due date ${B_day(NEW_DUE)}`, 'Reason for the change (Sarah sees this)', 'Remove photo', B_exact(B_SC.edit.total), B_exact(B_SC.edit.payout), `Sarah’s ${DEP} deposit stays the same.`, 'Send to Sarah'], not: ['Before', 'Pinned', 'Send to Sarah for approval', 'GENERAL NOTES', 'Work done so far'], sel: '[data-act="send"]:not([disabled])' } },
+  { ...TA, key: 't-adjust--edit-errors', title: 'Edit order — reason missing', note: 'Study-1 B1: Send with no reason — the error next to its field',
     setup: (S) => { editDraft(S, { filled: false }); },
     click: ['[data-act="send"]'],
     expect: { has: ['Tell Sarah why you’re changing it.', 'Add a photo so the customer sees why'], not: 'whole-dollar amount', sel: '#edit-reason[aria-invalid="true"]' } },
-  { ...TA, key: 't-adjust--edit-due', title: 'Change the order — the due date', note: 'Study-1 B1: Change the due date → a date list from a few days before to two weeks after the approved one',
+  { ...TA, key: 't-adjust--edit-due', title: 'Edit order — the due date', note: 'Study-1 B1: Change the due date → a date list from a few days before to two weeks after the approved one',
     setup: (S) => { editDraft(S, { filled: false }); },
     click: ['[data-act="edit-due"]'],
     expect: { has: ['Due date', 'Current due date', `${B_EDIT.dueDays} days later`, B_day(NEW_DUE)], sel: '[data-s="t-adjust--edit-due"] [aria-checked="true"]' } },

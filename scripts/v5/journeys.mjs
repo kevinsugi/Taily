@@ -580,7 +580,7 @@ await journey('J18', 'edit after the fitting: Mark ready waits -> Sarah messages
   await press('[data-act="note-save"]');
   await at('J18 tailor: a private note on the job', 't-job', { has: ['Only you can see these notes.', NOTE_TEXT.measure] });
   await press('[data-act="edit-job"]');
-  await at('J18 tailor: change the order after the fitting', 't-adjust', { has: ['AFTER THE FITTING', 'Change the order', 'Change the price, the due date or the work to send it.'], not: 'Work done so far' });
+  await at('J18 tailor: change the order after the fitting', 't-adjust', { has: ['AFTER THE FITTING', 'Edit order', 'Change the price, the due date or the work to send it.'], not: 'Work done so far' });
   await page.fill('#price-g2-sleeves', String(AMARA.prices.sleeves + JOB_EDIT.sleevesUp));
   await press('[data-act="send"]');
   await at('J18 tailor: the reason is required', 't-adjust', { has: ['Tell Sarah why you’re changing it.'], not: 'whole-dollar amount' });

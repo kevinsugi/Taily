@@ -215,9 +215,9 @@ function copyFor(key, a, t, v, pv) {
       if (last?.from === 'tailor') return { bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
       return { bar: { ctaLabel: `Reply to ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
     }
-    case 'in-progress': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', secondaryLabel: 'Change the order', secondaryAct: 'edit-job' } };   // Study-1 B1, K-42
-    /* default 13: one pending edit at a time — Mark ready waits; Change the order again replaces what Sarah is looking at */
-    case 'edit-pending': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', disabled: true, note: `${first} hasn’t answered your changes yet.`, secondaryLabel: 'Change the order', secondaryAct: 'edit-job' } };
+    case 'in-progress': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', secondaryLabel: 'Edit order', secondaryAct: 'edit-job' } };   // Study-1 B1, K-42
+    /* default 13: one pending edit at a time — Mark ready waits; Edit order again replaces what Sarah is looking at */
+    case 'edit-pending': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', disabled: true, note: `${first} hasn’t answered your changes yet.`, secondaryLabel: 'Edit order', secondaryAct: 'edit-job' } };
     case 'ready': return { bar: null };   // K-12 (D-237): Message lives in the header; nothing else is hers to do until Sarah chooses
     case 'handoff-pickup': return { bar: h.problemAt ? problemBar() : h.markedAt ? null : { ctaLabel: 'Picked up', ctaAct: 'picked-up' } };
     case 'handoff-courier': return { bar: null };   // default 6: the courier's delivery completes it

@@ -36,7 +36,8 @@ export const SLOT_HORIZON_DAYS = 28;                    // how far ahead slots a
 export const DECLINE_REASONS = ['Fully booked that week', 'Not work I take on', 'Too far for a home visit', 'Can’t finish by the need-by date'];
 export const CANT_MAKE_IT_REASONS = ['Family emergency', 'I’m unwell', 'Shop closed unexpectedly', 'Something came up'];
 export const VISIT_LABEL = { customer: { home: 'At my place', shop: 'At the shop' }, tailor: { home: 'Home visit', shop: 'Shop visit' } };
-export const RETURN_LABEL = { pickup: 'In-store pickup', courier: 'Taily courier' };   // K-37: Home drop-off is not a way back
+export const RETURN_LABEL = { pickup: 'In-store pickup', courier: 'Taily courier' };
+export const CHARGE_WHEN = { pickup: 'at pickup', courier: 'on delivery' };   // K-44 / D-303: when the balance is charged, by the way back (the one source)   // K-37: Home drop-off is not a way back
 export const PRIVACY_NOTE = 'Phone numbers and emails stay private on Taily.';
 export const ZIP_INFO = {                               // mock geography: neighborhood + miles from the seed shop
   '11211': { hood: 'Williamsburg', miles: 0.6 }, '11222': { hood: 'Greenpoint', miles: 1.4 },

@@ -12,7 +12,7 @@ import { state, T, tailorById, returnOffer, returnAddress, priceChangeView, slot
 import {
   chrome, headingRow, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
   sheetOverlay, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, wireGarmentDocs, textLink, sectionHead,
-  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime, COURIER_LOBBY, CHARGE_CAPTION,
+  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime, COURIER_LOBBY, CHARGE_CAPTION, chargedPhrase,
 } from '../components.js';
 import { fmtDay, fmtTime, fmtTimeRange, nb as datesNb } from '../dates.js';
 import * as A from '../account.js';
@@ -350,7 +350,7 @@ function openPay(r) {
           close();
           /* the router took the screen away mid-payment (browser Back): the charge still lands, say so */
           if (!onScreen()) {
-            if (res.ok) toast(`You’ll be charged ${fmtExact(res.appt.payments.balance.cents)} at handoff.`, { tone: 'success' });
+            if (res.ok) toast(`You’ll be charged ${fmtExact(res.appt.payments.balance.cents)} ${chargedPhrase(res.appt.returnOption)}.`, { tone: 'success' });
             else if (res.error === 'card-declined') toast('Your card was declined. Nothing was charged.', { tone: 'error' });
             return;
           }
@@ -358,7 +358,7 @@ function openPay(r) {
             const tail = handoffTail(res.appt, r);
             setFocus(a.id);
             go('c-booking', { fresh: true });
-            toast(`You’ll be charged ${fmtExact(res.appt.payments.balance.cents)} at handoff.${tail}`, { tone: 'success' });
+            toast(`You’ll be charged ${fmtExact(res.appt.payments.balance.cents)} ${chargedPhrase(res.appt.returnOption)}.${tail}`, { tone: 'success' });
           } else if (res.error === 'card-declined') {
             go(ID);
           } else {

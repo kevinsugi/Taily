@@ -1475,7 +1475,7 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   S.reset(); let a = driveTo('awaiting-handoff');
   eq([a.status, a.payments.balance.cents, a.payments.balance.state, a.payments.deposit.state, state.payouts.length], ['awaiting-handoff', SCENARIOS.seed.balance, 'held', 'captured', 0], 'S1-A2: picking pickup holds $144.00; the deposit stays captured; no payout yet');
   eq([a.handoff.code, a.handoff.code.length, S.handoffCode(a)], ['8153', DATA.HANDOFF_CODE_LEN, '8153'], 'S1-A3: the pickup code is 4 digits derived from the id (A-1001 → 8153)');
-  ok(/charged \$[\d,]+\.\d\d at handoff/.test(S.threadFor('amara').messages.at(-1).text) && !/%/.test(S.threadFor('amara').messages.at(-1).text), 'S1-A2 + K-44: the thread says what is charged at handoff, in dollars');
+  ok(/charged \$[\d,]+\.\d\d (at pickup|on delivery)\./.test(S.threadFor('amara').messages.at(-1).text) && !/%/.test(S.threadFor('amara').messages.at(-1).text), 'S1-A2 + K-44: the thread says what is charged at pickup / on delivery, in dollars');
   const c = driveTo('awaiting-handoff', { returnOption: 'courier' });
   eq([c.payments.balance.cents, c.payments.balance.state], [SCENARIOS.courier.balance, 'held'], 'S1-A2: the courier is part of the hold ($158.30 with the 5:00 PM window)');
   S.reset();

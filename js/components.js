@@ -1674,8 +1674,10 @@ const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', capture
 /** K-44 (D-302) · D-303: "when is the balance charged", by the way back — ONE map for every customer surface: the c-ready Pay caption
  * and pay sheet, the Balance row (ready + held stages), and after paying the c-booking head label + timeline line and the c-bookings
  * row caption, so none can drift. `chargedWhen` falls back to "Charged at handoff" while no way back is chosen. */
-export const CHARGE_CAPTION = { pickup: 'Charged at pickup', courier: 'Charged on delivery' };
+export const CHARGE_CAPTION = { pickup: `Charged ${DATA.CHARGE_WHEN.pickup}`, courier: `Charged ${DATA.CHARGE_WHEN.courier}` };
 export const chargedWhen = (wayBack) => CHARGE_CAPTION[wayBack] ?? 'Charged at handoff';
+/** The same timing inside a sentence: "You’ll be charged $144.00 at pickup." */
+export const chargedPhrase = (wayBack) => DATA.CHARGE_WHEN[wayBack] ?? 'at handoff';
 /**
  * The customer's breakdown by stage — estimate | booked | ready | paid. Zero rows are omitted.
  * `q` is the quote() object in cents. `tailorFirst` names whose prices the services are.

@@ -1,5 +1,5 @@
 /* ============================================================
-   t-adjust — T5 "Final order" at the fitting (K-42; the after-fitting edit mode = "Change the order") (M4-spec §C1, K-01 / D-120…D-124).
+   t-adjust — T5 "Final order" at the fitting (K-42; the after-fitting edit mode = "Edit order") (M4-spec §C1, K-01 / D-120…D-124).
    Amara edits the ticket with Sarah watching the total move: add or
    remove items and services, re-price, keep private notes, then send Sarah the
    FINAL order for approval — always sent, even unchanged. The draft
@@ -376,7 +376,7 @@ function editView(a, d, chromeHtml) {
   const same = !bad && !none && !ev.changed;
   const atMax = garments.length >= MAX_ITEMS;
   const ctx = { a, d, missing: new Map(), first, edit: true };
-  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">After the fitting</p><h1 class="t-title">Change the order</h1>`   /* K-42 */
+  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">After the fitting</p><h1 class="t-title">Edit order</h1>`   /* K-42 */
     + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Notes and photos are yours to change. A new price, due date or work needs ${esc(first)}’s approval.</p></div><!--/notes-->`;
   const due = d.needBy !== a.job.needBy
     ? dueChange({ needBy: d.needBy, was: a.job.needBy })

@@ -894,7 +894,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .skeleton__line--pill { width: 64px; height: 20px; border-radius: var(--radius-full); }
 .skeleton__line--amt { width: 48px; }
 
-/* ---------- system: offline banner, re-auth, push ask ---------- */
+/* ---------- system: offline banner, re-auth, text messages ---------- */
 #screen { --sys-banner-h: calc(var(--space-40) + var(--space-24)); }
 .sys-banner { position: absolute; top: var(--chrome-h); left: 0; z-index: var(--z-chrome); display: flex; align-items: center; gap: var(--space-12); width: 100%; max-width: var(--column); min-height: var(--sys-banner-h); padding: var(--space-8) var(--space-20); background: var(--warning-bg); color: var(--ink); box-shadow: inset 0 -1px 0 var(--warning); }
 .sys-banner__glyph { display: inline-flex; flex-shrink: 0; color: var(--warning-ink); }
@@ -902,14 +902,16 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .sys-banner__text { display: flex; flex-direction: column; flex: 1 1 0; min-width: 0; }
 .sys-banner__body { font-weight: 500; text-wrap: pretty; }
 .sys-banner__retry { flex-shrink: 0; min-width: 44px; min-height: 44px; padding-inline: var(--space-12); border-radius: var(--radius-full); box-shadow: inset 0 0 0 1px var(--ink); color: var(--ink); }
-/* D-167: the in-app push card, over the status bar; slides down unless motion is reduced (html.is-test sets it directly) */
-.push-banner { position: absolute; z-index: var(--z-banner); top: var(--space-8); left: var(--space-8); right: var(--space-8); display: flex; align-items: center; gap: var(--space-12); min-height: 64px; padding: var(--space-12) var(--space-16); border-radius: var(--radius-lg); background: var(--ink); color: var(--neutral-50); text-align: left; box-shadow: var(--shadow-overlay); transform: translateY(calc(-100% - var(--space-8))); transition: transform var(--dur-modal) var(--ease-out); }
-.push-banner--in { transform: translateY(0); }
-.push-banner__glyph { display: inline-flex; flex-shrink: 0; }
-.push-banner__glyph svg { width: var(--size-24); height: var(--size-24); }
-.push-banner__text { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.push-banner__body { color: var(--neutral-200); text-wrap: pretty; }
-@media (prefers-reduced-motion: reduce) { .push-banner { transition: none; } }
+/* K-43 (D-301, was D-167's push card): a text message from Taily over the status bar — the Messages banner: the sender, the text in a
+   bubble, its unique link; slides down unless motion is reduced (html.is-test sets it directly) */
+.text-banner { position: absolute; z-index: var(--z-banner); top: var(--space-8); left: var(--space-8); right: var(--space-8); display: flex; flex-direction: column; align-items: stretch; gap: var(--space-4); min-height: 64px; padding: var(--space-12) var(--space-16) var(--space-16); border-radius: var(--radius-lg); background: var(--white); color: var(--ink); text-align: left; box-shadow: var(--shadow-overlay), inset 0 0 0 1px var(--neutral-200); transform: translateY(calc(-100% - var(--space-8))); transition: transform var(--dur-modal) var(--ease-out); }
+.text-banner--in { transform: translateY(0); }
+.text-banner__head { display: flex; align-items: center; gap: var(--space-8); }
+.text-banner__glyph { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: var(--size-24); height: var(--size-24); border-radius: var(--radius-sm); background: var(--success); color: var(--white); }
+.text-banner__when { margin-left: auto; }
+.text-banner__bubble { align-self: flex-start; max-width: 100%; padding: var(--space-8) var(--space-12); border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--space-4); background: var(--neutral-100); color: var(--ink); text-wrap: pretty; }
+.text-banner__link { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .text-banner { transition: none; } }
 .sys-banner__retry:disabled { opacity: 0.6; }
 #screen.has-sys-banner .body { padding-top: calc(var(--body-top) + var(--sys-banner-h)); }
 
@@ -919,12 +921,6 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .reauth__resend:disabled { color: var(--neutral-600); text-decoration: none; cursor: default; }
 .reauth__actions { display: flex; flex-direction: column; gap: var(--space-12); }
 [data-s="sys-reauth"] .sheet__cancel { visibility: hidden; }   /* locked: no ✕ (D-139) */
-
-.modal--push { left: var(--space-20); right: var(--space-20); width: auto; top: 50%; translate: 0 -50%; align-items: center; text-align: center; gap: var(--space-12); max-height: calc(100% - var(--rhythm-major)); overflow-y: auto; }
-.modal__bell { display: inline-flex; align-items: center; justify-content: center; width: calc(var(--space-24) * 2); height: calc(var(--space-24) * 2); border-radius: var(--radius-full); background: var(--accent-bg); color: var(--accent-ink); }
-.modal__bell svg { width: var(--size-24); height: var(--size-24); }
-.modal--push .modal__title { text-align: center; }
-.modal--push .modal__body { margin: 0; text-wrap: pretty; font-size: var(--size-16); line-height: 1.4; color: var(--neutral-700); }   /* R5-1-T-06: beats the legacy .modal__body (14 / neutral-500) */
 
 /* M6-P-11: the shared receipt block (c-booking--completed, c-complete) */
 .receipt__how { margin-bottom: var(--space-8); }

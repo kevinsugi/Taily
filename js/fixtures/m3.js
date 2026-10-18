@@ -19,9 +19,6 @@ export const FLOWS_c_bookings = [
   { key: 'c-bookings', screen: 'c-bookings', group: 'M3 · Bookings', title: 'Bookings', note: 'A cancelled visit under Past, a second confirmed one under Upcoming',
     setup: (S) => { S.driveTo('cancelled-early'); cbAddRequest({ accept: true, after: CB_AFTER }); },
     expect: { has: ['Bookings', 'UPCOMING', 'PAST', 'Amara Reyes', 'Confirmed', 'Cancelled', cbWhen(CB_SEED)], sel: '.appt-row' } },
-  { key: 'c-bookings--push-denied', screen: 'c-bookings', group: 'M3 · Bookings', title: 'Bookings — notifications off', note: 'A request is waiting and notifications are off: the warning banner with Open Settings',
-    setup: (S) => { S.driveTo('requested'); S.sim.push = 'denied'; },
-    expect: { has: ['Notifications are off', 'Turn on notifications to hear the moment Amara replies', 'Open Settings', 'REQUESTS'], sel: '[data-act="push-settings"]' } },
   { key: 'c-bookings--empty', screen: 'c-bookings', group: 'M3 · Bookings', title: 'Bookings — empty', note: 'No bookings yet: a way to start one',
     expect: { has: ['No bookings yet', 'Start a booking'], not: 'UPCOMING', sel: '[data-empty="bookings"]' } },
   { key: 'c-bookings--ready', screen: 'c-bookings', group: 'M4 · Bookings', title: 'Bookings — ready, one completed', note: 'A ready order sits under In progress (since when, C-19) and says Choose a way back (K-27: the balance is held then); the completed one asks for a review',
@@ -89,7 +86,7 @@ export const FLOWS_c_booking = [
     expect: { has: ['Pickup Fri, Oct 16 · 5:30 PM', 'On hold', 'Sarah C.', '5 items · 6 services', 'IN-STORE PICKUP'], sel: '[data-hang] .hang__scroll[role="region"][tabindex="0"]', also: '[data-hang] .hang__slot--tag' } },   // K-21
   { key: 'c-booking--handoff-courier', screen: 'c-booking', group: 'M4 · Bookings', title: 'Courier booked', note: 'Taily courier: quote + fee = total, held with the balance; completes on delivery (Study-1 A3); K-40: the window she picked + when the courier collects, Change window',
     setup: (S) => { S.driveTo('awaiting-handoff', { returnOption: 'courier' }); },
-    expect: { has: ['Courier booked · arrives Fri, Oct 16 · 5:00–5:30 PM', 'Arrives Fri, Oct 16 · 5:00–5:30 PM', 'The courier collects from Amara at 4:45 PM', 'Change window', 'On hold', 'I got it', 'at Reyes Tailoring', 'TAILY COURIER', 'Paid by you', cbExact(CB_SC.courierQuote.quote), cbExact(CB_SC.courierQuote.markup), cbExact(CB_SC.courier.courier)], sel: '.visit-row--courier' } },   // K16-2-02: the same window as t-job--handoff-courier's strip; K-18 (3-J)
+    expect: { has: ['If you’re not home, the courier leaves it in your building’s lobby.', 'Courier booked · arrives Fri, Oct 16 · 5:00–5:30 PM', 'Arrives Fri, Oct 16 · 5:00–5:30 PM', 'The courier collects from Amara at 4:45 PM', 'Change window', 'On hold', 'I got it', 'at Reyes Tailoring', 'TAILY COURIER', 'Paid by you', cbExact(CB_SC.courierQuote.quote), cbExact(CB_SC.courierQuote.markup), cbExact(CB_SC.courier.courier)], sel: '.visit-row--courier' } },   // K16-2-02: the same window as t-job--handoff-courier's strip; K-18 (3-J)
   { key: 'c-booking--completed', screen: 'c-booking', group: 'M4 · Bookings', title: 'Completed and reviewed', note: 'Her own review, the receipt, and Book Amara again',
     setup: (S) => { S.driveTo('reviewed'); },
     expect: { has: ['All done with Amara', 'Completed Thu, Oct 15. Fitted Thu, Oct 15 · at my place', 'YOUR REVIEW', 'Perfect fit', 'Book Amara again'] } },
@@ -115,12 +112,9 @@ export const FLOWS_t_home = [
     expect: { has: ['Suit Pant', '1 service', 'Hem pants', 'Suit Jacket', '2 services', 'Shorten sleeves', 'Take in jacket sides'], sel: '.request-card .peek-cluster[aria-expanded="true"]', also: '#garment-pop[role="dialog"] .garment-pop__item:nth-child(2)' } },
   { key: 't-home--empty', screen: 't-home', group: 'M3 · Tailor', title: 'Home — nothing yet', note: 'No requests, nothing booked: Check your hours',
     expect: { has: ['No requests yet', 'Check your hours'], not: 'Your payout', sel: '[data-empty="home"]' } },
-  { key: 't-home--push-denied', screen: 't-home', group: 'M3 · Tailor', title: 'Home — notifications off', note: 'Warning banner with Open Settings, requests still listed',
-    setup: (S) => { c1Both(S); S.sim.push = 'denied'; },
-    expect: { has: ['Notifications are off', 'Open Settings', 'NEW REQUESTS'], sel: '[data-act="push-settings"]' } },
-  { key: 't-home--push', screen: 't-home', group: 'M3 · Tailor', title: 'Home — a push card for a new request', note: 'Notifications on: the card over the status bar, copy from the request (D-167)',
-    setup: (S) => { S.driveTo('requested'); S.sim.push = 'granted'; },
-    expect: { has: ['New request · Sarah C.', 'Home visit', 'Your payout', c1Exact(C1_SC.seed.payout), '2h to reply'], sel: '[data-act="push-open"]' } },
+  { key: 't-home--text', screen: 't-home', group: 'M3 · Tailor', title: 'Home — a text for a new request', note: 'K-43 (D-301, was the push card D-167): Taily texts her the request with its unique link; tapping it opens the request',
+    setup: (S) => { S.driveTo('requested'); S.sim.texts = 'on'; },
+    expect: { has: ['TEXT MESSAGE', 'Taily', 'New request from Sarah C.', 'Home visit', 'Your payout', c1Exact(C1_SC.seed.payout), '2h to reply', 'taily.app/r/'], sel: '.text-banner[data-act="text-open"]' } },
   /* extras beyond the spec table: states the screen draws that the table did not key */
   { key: 't-home--no-requests', screen: 't-home', group: 'M3 · Tailor', title: 'Home — only an upcoming visit', note: 'No new requests right now, the booked visit below',
     setup: (S) => { S.driveTo('confirmed'); },

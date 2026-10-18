@@ -20,13 +20,11 @@
 .gal .stepper-demo .stepper { margin-bottom: 0; }
 .gal .option-demo { display: flex; flex-direction: column; width: 100%; padding-inline: var(--space-16); border-radius: var(--radius-lg); background: var(--white); }
 
-/* M5 gallery demos: the system banner, a tall locked sheet and the push ask shown in flow, not pinned */
+/* M5 gallery demos: the system banner, a tall locked sheet and a text message shown in flow, not pinned */
 .gal .sys-demo { margin-inline: calc(-1 * var(--space-20)); }
 .gal .sys-demo .sys-banner { position: static; }
 .gal .verified-pop-demo { padding: var(--space-16) 0 var(--space-4); }
 .gal .verified-pop-demo .verified-pop { position: relative; animation: none; }
 .gal .sheet-demo--tall { height: 600px; }
-.gal .push-banner-demo { position: relative; width: 100%; height: 80px; }
-.gal .push-banner-demo .push-banner { transform: none; }
-.gal .push-demo { position: relative; width: 100%; padding: var(--space-24) 0; background: var(--neutral-100); border-radius: var(--radius-md); }
-.gal .push-demo .modal--push { position: static; translate: none; margin-inline: auto; }
+.gal .text-banner-demo { position: relative; width: 100%; min-height: 136px; }
+.gal .text-banner-demo .text-banner { transform: none; }

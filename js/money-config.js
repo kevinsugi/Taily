@@ -8,8 +8,11 @@ export const MONEY = Object.freeze({
   TAILY_FEE_RATE: 0.10,     // of the services subtotal only (not home-visit fee, rush, courier) — from the tailor's payout
   DEPOSIT_RATE: 0.10,       // of (services + home-visit fee), authorized at request, captured on accept
   COURIER_MARKUP: 0.10,     // on top of the courier quote, paid by the customer, kept by Taily
-  COURIER_BASE: 8.00,       // mocked Uber quote: $8 base …
-  COURIER_PER_MILE: 2.50,   // … + $2.50 per mile
+  COURIER_BASE: 8.00,       // prototype: simulated Uber API quote (K-43, D-299) — $8 base …
+  COURIER_PER_MILE: 2.50,   // … + $2.50 per mile (ZIP_INFO miles) …
+  COURIER_PEAK: 3.50,       // … + $3.50 for a delivery window starting in the evening peak (production: the live Uber API quote per window)
+  COURIER_PEAK_FROM_H: 17,  // prototype: the simulated peak = windows starting 5:00 PM …
+  COURIER_PEAK_TO_H: 19,    // … up to (not including) 7:00 PM
   FEE_EXAMPLE_SERVICES: 100, // the round services total the payouts step explains the Taily fee with (display only, not a rate, D-63)
   NO_SHOW_COMP: 25,         // floor the tailor is paid on a no-show (D-06)
   PRICE_RANGE_SPREAD: 0.20, // Study-1 C3: a service's recommended range = base ± this share, never rendered as a rate
@@ -35,5 +38,6 @@ export const POLICY = Object.freeze({
   COURIER_COLLECT_LEAD_MIN: 15, // K-40: the courier collects from the tailor this long before the delivery window starts (inside her open hours)
   COURIER_CHANGE_CUTOFF_MIN: 60, // K-40 (D-295): Sarah can move a courier window until this long before the collection
   REMINDER_LEAD_H: 2,       // K-41 (D-296): the 24-hour reminder goes out this long BEFORE the free window closes (CANCEL_WINDOW_H + this = 26 h before the visit)
-  REMINDER_NUDGE_H: 3,      // K-41 (D-296): one more push this long before the visit when Sarah never confirmed
+  REMINDER_NUDGE_H: 6,      // K-43 (D-300): one more text this long before the visit when Sarah never confirmed (was 3)
+  REMINDER_AUTOCANCEL_H: 3, // K-43 (D-300): still unconfirmed this long before the visit → the visit is cancelled (customer late-cancel money)
 });

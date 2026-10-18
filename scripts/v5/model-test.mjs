@@ -38,8 +38,8 @@ const $ = (dollars) => M.cents(dollars);
 /* ================= config + formatting ================= */
 section('config + formatting');
 ok(Object.isFrozen(MONEY) && Object.isFrozen(POLICY), 'MONEY and POLICY are frozen');
-eq([MONEY.TAILY_FEE_RATE, MONEY.DEPOSIT_RATE, MONEY.COURIER_MARKUP, MONEY.COURIER_BASE, MONEY.COURIER_PER_MILE, MONEY.NO_SHOW_COMP],
-  [0.10, 0.10, 0.10, 8, 2.5, 25], 'MONEY table matches the fee settings');
+eq([MONEY.TAILY_FEE_RATE, MONEY.DEPOSIT_RATE, MONEY.COURIER_MARKUP, MONEY.COURIER_BASE, MONEY.COURIER_PER_MILE, MONEY.COURIER_PEAK, MONEY.COURIER_PEAK_FROM_H, MONEY.COURIER_PEAK_TO_H, MONEY.NO_SHOW_COMP],
+  [0.10, 0.10, 0.10, 8, 2.5, 3.5, 17, 19, 25], 'MONEY table matches the fee settings (K-43: the simulated Uber quote has an evening peak)');
 eq([POLICY.CANCEL_WINDOW_H, POLICY.REQUEST_EXPIRY_H, POLICY.MAX_RETRIES, POLICY.EXPIRING_SOON_MIN, POLICY.NO_SHOW_WAIT_MIN, POLICY.MIN_LEAD_H],
   [24, 2, 2, 15, 15, 3], 'POLICY table matches');
 eq([M.fmt(2500), M.fmt(450), M.fmt(0), M.fmt(12345600)], ['$25', '$4.50', '$0', '$123,456'], 'fmt: whole dollars bare, else cents');
@@ -205,8 +205,12 @@ const goldenRow = (q, [services, home, rush, courier, total, deposit, balance, f
   goldenRow(M.estimate(amara(), { ...state.job, needBy: '2026-10-16' }, '2026-10-15T17:00'), [12500, 3500, 4000, 0, 20000, 1600, 18400, 1250, 18750], 'rush: need-by Fri Oct 16, visit Thu Oct 15 (1 day)');
   goldenRow(M.estimate(amara(), { ...state.job, visitType: 'shop' }, '2026-10-13T13:00'), [12500, 0, 0, 0, 12500, 1250, 11250, 1250, 11250], 'shop visit');
   goldenRow(M.quote({ lines, homeFee: 3500, courier: M.courierQuote(0.6).cents }), [12500, 3500, 0, 1045, 17045, 1600, 15445, 1250, 14750], 'seed + courier 0.6 mi');
-  eq(M.courierQuote(0.6), { miles: 0.6, quote: 950, markup: 95, cents: 1045 }, 'courierQuote(0.6) = ($8.00 + $2.50 x 0.6) plus markup = $10.45');
+  eq(M.courierQuote(0.6), { miles: 0.6, start: null, peak: false, quote: 950, markup: 95, cents: 1045 }, 'courierQuote(0.6) = ($8.00 + $2.50 x 0.6) plus markup = $10.45 (no window: off-peak)');
   eq(M.courierQuote(0).cents, 880, 'courierQuote(0) = $8.00 plus markup = $8.80');
+  // K-43 (D-299): a simulated Uber quote PER WINDOW — the evening peak (windows starting 5:00–6:59 PM) adds $3.50 before the Taily fee
+  eq([M.courierQuote(0.6, '2026-10-16T10:30').cents, M.courierQuote(0.6, '2026-10-16T16:30').cents, M.courierQuote(0.6, '2026-10-16T17:00').cents, M.courierQuote(0.6, '2026-10-16T18:30').cents, M.courierQuote(0.6, '2026-10-16T19:00').cents],
+    [1045, 1045, 1430, 1430, 1045], 'K-43: quotes differ by window — 10:30 AM / 4:30 PM $10.45, 5:00 / 6:30 PM (peak) $14.30, 7:00 PM $10.45');
+  eq(M.courierQuote(0.6, '2026-10-16T17:00'), { miles: 0.6, start: '2026-10-16T17:00', peak: true, quote: 1300, markup: 130, cents: 1430 }, 'K-43: the peak quote = ($8.00 + $1.50 + $3.50) + the Taily fee');
   const dep = 1600;
   const add = [...lines.map((l) => ({ ...l, cents: l.serviceId === 'sleeves' ? $(50) : l.cents })), { garmentId: 'g1', garmentType: 'Suit Pant', serviceId: 'taper', label: 'Taper legs', cents: $(40) }];
   goldenRow(M.quote({ lines: add, homeFee: 3500, deposit: dep }), [17000, 3500, 0, 0, 20500, 1600, 18900, 1700, 18800], 'price change: + Taper $40, Sleeves $45 -> $50 (deposit unchanged)');
@@ -228,7 +232,7 @@ const goldenRow = (q, [services, home, rush, courier, total, deposit, balance, f
   eq(row(SCENARIOS.seed), [12500, 3500, 0, 0, 16000, 1600, 14400, 1250, 14750], 'money.mjs: seed scenario matches the golden row');
   eq(row(SCENARIOS.rush), [12500, 3500, 4000, 0, 20000, 1600, 18400, 1250, 18750], 'money.mjs: rush scenario matches the golden row');
   eq(row(SCENARIOS.shop), [12500, 0, 0, 0, 12500, 1250, 11250, 1250, 11250], 'money.mjs: shop scenario matches the golden row');
-  eq(row(SCENARIOS.courier), [12500, 3500, 0, 1045, 17045, 1600, 15445, 1250, 14750], 'money.mjs: courier scenario matches the golden row');
+  eq(row(SCENARIOS.courier), [12500, 3500, 0, 1430, 17430, 1600, 15830, 1250, 14750], 'money.mjs: courier scenario matches the golden row (K-43: the fixtures’ 5:00 PM peak window)');
   eq(row(SCENARIOS.priceAdded), [17000, 3500, 0, 0, 20500, 1600, 18900, 1700, 18800], 'money.mjs: price-added scenario matches the golden row');
   eq(row(SCENARIOS.priceRemoved), [7000, 3500, 0, 0, 10500, 1600, 8900, 700, 9800], 'money.mjs: price-removed scenario matches the golden row');
   eq([SCENARIOS.lateCancel.kept, SCENARIOS.lateCancel.tailorPaid, SCENARIOS.earlyCancel.refund, SCENARIOS.noShow.paid], [1600, 1600, 1600, 2500], 'money.mjs: late cancel keeps $16.00, early refunds it, no-show pays $25.00');
@@ -746,6 +750,7 @@ section('fitting -> completed');
   documentFitting(b.id, { lines: P.lines });
   T.sendPriceChange(b.id, P.lines); T.approvePriceChange(b.id); T.markReady(b.id);
   T.chooseReturn(b.id, 'courier');
+  T.setHandoffSlot(b.id, '2026-10-16T17:00');   // K-43: the courier is priced with the window
   const c = S.getAppt(b.id);
   ok(c.money.courier > 0 && c.money.total === P.total + c.money.courier, 'courier is added to the total');
   eq(c.payments.refund?.cents ?? 0, c.money.refund, 'chooseReturn re-prices the pending refund with the courier (D-156)');
@@ -777,9 +782,13 @@ section('fitting -> completed');
   eq(T.chooseReturn(a.id, 'courier').appt.courier.state, 'loading', 'sim.courier loading -> courier loading');
   state.sim.courier = 'ok';
   const c = T.chooseReturn(a.id, 'courier');
-  eq([c.appt.courier.miles, c.appt.courier.cents, c.appt.courier.state], [0.6, 1045, 'ready'], 'courier: 0.6 mi quote $10.45');
-  goldenRow(c.appt.money, [12500, 3500, 0, 1045, 17045, 1600, 15445, 1250, 14750], 'courier chosen: total $170.45, balance $154.45, payout unchanged $147.50');
-  eq(c.appt.payments.balance.cents, 15445, 'balance payment follows the courier charge');
+  eq([c.appt.courier.miles, c.appt.courier.cents, c.appt.courier.state, c.appt.money.total], [0.6, 0, 'ready', 16000], 'K-43: courier chosen, no window yet — priced per window, so nothing added yet');
+  T.setHandoffSlot(a.id, '2026-10-16T12:00');
+  eq([c.appt.courier.cents, c.appt.money.total], [1045, 17045], 'K-43: an off-peak window (noon) — its quote $10.45');
+  T.setHandoffSlot(a.id, '2026-10-16T17:00');
+  eq([c.appt.courier.miles, c.appt.courier.cents, c.appt.courier.state], [0.6, 1430, 'ready'], 'K-43: the 5:00 PM window (peak) — 0.6 mi quote $14.30');
+  goldenRow(c.appt.money, [12500, 3500, 0, 1430, 17430, 1600, 15830, 1250, 14750], 'courier window picked: total $174.30, balance $158.30, payout unchanged $147.50');
+  eq(c.appt.payments.balance.cents, 15830, 'balance payment follows the picked window’s courier charge');
   const p0 = T.chooseReturn(a.id, 'pickup');
   eq([p0.appt.courier, p0.appt.money.total, p0.appt.payments.balance.cents], [null, 16000, 14400], 'switching back to pickup drops the courier charge');
   guard(T.holdBalance(a.id, 'visa-4242'), 'slot-required', 'K-40: holdBalance needs the pickup time');
@@ -1139,9 +1148,9 @@ section('M4 model');
   guard(T.chooseReturn(a.id, 'courier'), 'not-offered', 'chooseReturn: a way not in the offer fails');
   const b = driveTo('in-progress'); T.markReady(b.id);
   eq(S.returnOffer(S.getAppt(b.id)), ['pickup', 'courier'], 'markReady default offers every Shop return, in RETURN_LABEL order (K-37: no drop-off)');
-  const cq = M.courierQuote(0.6);
-  eq([cq.quote + cq.markup, cq.cents, SCENARIOS.courierQuote.cents], [1045, 1045, 1045], 'courierQuote: quote + markup = total (SCENARIOS.courierQuote)');
-  const c = driveTo('ready', { returnOption: 'courier' }); T.chooseReturn(c.id, 'courier');
+  const cq = M.courierQuote(0.6, '2026-10-16T17:00');
+  eq([cq.quote + cq.markup, cq.cents, SCENARIOS.courierQuote.cents, SCENARIOS.courierOffPeak.cents], [1430, 1430, 1430, 1045], 'courierQuote: quote + markup = total (SCENARIOS.courierQuote = the fixtures’ 5:00 PM window; courierOffPeak)');
+  const c = driveTo('ready', { returnOption: 'courier' }); T.chooseReturn(c.id, 'courier'); T.setHandoffSlot(c.id, '2026-10-16T17:00');
   eq([S.getAppt(c.id).courier.quote, S.getAppt(c.id).courier.markup, S.getAppt(c.id).courier.cents], [SCENARIOS.courierQuote.quote, SCENARIOS.courierQuote.markup, SCENARIOS.courierQuote.cents], 'a.courier stores quote + markup + total');
 }
 {
@@ -1468,7 +1477,7 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   eq([a.handoff.code, a.handoff.code.length, S.handoffCode(a)], ['8153', DATA.HANDOFF_CODE_LEN, '8153'], 'S1-A3: the pickup code is 4 digits derived from the id (A-1001 → 8153)');
   ok(/on hold/.test(S.threadFor('amara').messages.at(-1).text) && !/%/.test(S.threadFor('amara').messages.at(-1).text), 'S1-A2: the thread says what is on hold, in dollars');
   const c = driveTo('awaiting-handoff', { returnOption: 'courier' });
-  eq([c.payments.balance.cents, c.payments.balance.state], [SCENARIOS.courier.balance, 'held'], 'S1-A2: the courier is part of the hold ($154.45)');
+  eq([c.payments.balance.cents, c.payments.balance.state], [SCENARIOS.courier.balance, 'held'], 'S1-A2: the courier is part of the hold ($158.30 with the 5:00 PM window)');
   S.reset();
   {
     const r = driveTo('fitting', { visitType: 'shop' });
@@ -1721,8 +1730,13 @@ section('K-40 (T1): the handoff time');
   eq([h.ok, a.handoff.slot.start, a.handoff.heldAt, a.payments.balance.cents], [true, '2026-10-16T17:00', '2026-10-15T17:00', SCENARIOS.courier.balance], 'K-40: the hold keeps the window; the 7-day clock starts at the hold (D-295)');
   guard(T.setHandoffSlot(a.id, '2026-10-16T17:00'), 'no-change', 'K-40: moving to the same window is no change');
   const mv = T.setHandoffSlot(a.id, '2026-10-16T18:00');
-  eq([mv.ok, a.handoff.moved.from.start, a.handoff.slot.collectAt, a.payments.balance.cents], [true, '2026-10-16T17:00', '2026-10-16T17:45', SCENARIOS.courier.balance], 'K-40: Sarah moves the window — the old one is kept, the flat price unchanged');
+  eq([mv.ok, a.handoff.moved.from.start, a.handoff.slot.collectAt, a.payments.balance.cents], [true, '2026-10-16T17:00', '2026-10-16T17:45', SCENARIOS.courier.balance], 'K-40: Sarah moves the window — the old one is kept; 6:00 PM is also peak, so the same quote');
   eq([last().text, last().tailorText], ['You moved your delivery to Fri, Oct 16 · 6:00–6:30 PM', 'Sarah moved her delivery to Fri, Oct 16 · 6:00–6:30 PM'], 'K-40: Amara is told in the thread');
+  const off = SCENARIOS.courierQuote.cents - SCENARIOS.courierOffPeak.cents;
+  T.setHandoffSlot(a.id, '2026-10-16T12:00');
+  eq([a.courier.cents, a.payments.balance.cents, a.payments.balance.state, a.money.payout], [SCENARIOS.courierOffPeak.cents, SCENARIOS.courier.balance - off, 'held', SCENARIOS.seed.payout], 'K-43 (D-299): moving to an off-peak window re-quotes it — the hold drops by the difference; the payout never moves');
+  T.setHandoffSlot(a.id, '2026-10-16T18:00');
+  eq([a.courier.cents, a.payments.balance.cents], [SCENARIOS.courierQuote.cents, SCENARIOS.courier.balance], 'K-43: back to a peak window — the peak quote again');
   S.setClock('2026-10-16T16:44');
   ok(S.handoffChangeable(a), 'K-40: movable until 60 min before the collection');
   S.setClock('2026-10-16T16:45');
@@ -1756,7 +1770,7 @@ section('K-40 (T1): the handoff time');
 section('K-41 (R3): the 24-hour reminder');
 {
   const H = 3600000;
-  eq([POLICY.REMINDER_LEAD_H, POLICY.REMINDER_NUDGE_H], [2, 3], 'K-41: the reminder goes out 2 h before the free window closes; one nudge 3 h before the visit');
+  eq([POLICY.REMINDER_LEAD_H, POLICY.REMINDER_NUDGE_H, POLICY.REMINDER_AUTOCANCEL_H], [2, 6, 3], 'K-41 + K-43: the reminder goes out 2 h before the free window closes; one nudge 6 h before the visit; unconfirmed 3 h before → cancelled');
   S.reset();
   let a = driveTo('confirmed');
   eq([a.reminder, S.reminderState(a), S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null }, null, true], 'K-41: a fresh booking — nothing sent, eligible (booked 55 h ahead)');
@@ -1790,7 +1804,7 @@ section('K-41 (R3): the 24-hour reminder');
   T.confirmVisit(a.id);
   T.tailorCantMakeIt(a.id, 'x');
   eq([a.cancel.late, a.cancel.refund], [false, 1600], 'K-41: a tailor cancel after Sarah confirmed, 25 h ahead, is not late; refunded in full');
-  // no answer: the visit stays booked, one nudge 3 h before, the 24 h rule
+  // no answer: the visit stays booked, one nudge 6 h before (K-43), the 24 h rule
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
   S.advanceClock(2 * 60);
@@ -1798,11 +1812,13 @@ section('K-41 (R3): the 24-hour reminder');
   S.advanceClock(1);
   eq([S.reminderState(a), a.status, M.cancelTerms(a, S.now()).window, 'confirmed' in M.cancelTerms(a, S.now())], ['missed', 'confirmed', 'late', false], 'K-41: unanswered at 24 h — still booked, the plain 24 h rule');
   eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label], ['Your move', 'Not confirmed'], 'K-41: the words when missed');
-  S.advanceClock(21 * 60 - 2);
-  eq(a.reminder.nudgedAt, null, 'K-41: no nudge before 3 h');
+  S.advanceClock(18 * 60 - 2);
+  eq(a.reminder.nudgedAt, null, 'K-43: no nudge before 6 h');
   S.advanceClock(1);
-  eq(a.reminder.nudgedAt, '2026-10-15T14:00', 'K-41: one nudge 3 h before the visit');
-  ok(T.confirmVisit(a.id).ok && S.reminderState(a) === 'confirmed', 'K-41: Confirm still works after 24 h (it only tells Amara)');
+  eq(a.reminder.nudgedAt, '2026-10-15T11:00', 'K-43: one nudge 6 h before the visit (was 3 h)');
+  ok(T.confirmVisit(a.id).ok && S.reminderState(a) === 'confirmed', 'K-41: Confirm still works after 24 h (it keeps the visit)');
+  S.advanceClock(4 * 60);
+  eq([a.status, a.cancel], ['confirmed', null], 'K-43: a visit confirmed after the nudge is not cancelled at 3 h');
   S.setClock('2026-10-15T17:15');
   eq([S.reminderState(a), T.markNoShow(a.id).ok, a.cancel.tailorPaid], [null, true, 2500], 'K-41: at the visit the reminder is over; the no-show rule is unchanged ($25.00)');
   S.reset(); a = driveTo('confirmed');
@@ -1810,6 +1826,31 @@ section('K-41 (R3): the 24-hour reminder');
   S.setClock('2026-10-15T17:00');
   guard(T.confirmVisit(a.id), 'visit-started', 'K-41: no confirm once the visit started');
   guard(T.confirmVisit(driveTo('in-progress').id), 'not-confirmed', 'K-41: only a confirmed visit');
+  // K-43 (D-300): asked, never confirmed, 3 h before → cancelled by tick(); the customer late-cancel money (the deposit is kept, paid to Amara)
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
+  const garments = state.job.garments.length;
+  S.advanceClock(Math.round((S.autoCancelAt(a) - S.now()) / 60000) - 1);
+  eq([a.status, S.reminderState(a), a.reminder.nudgedAt], ['confirmed', 'missed', '2026-10-15T11:00'], 'K-43: a minute before 3 h — still booked, nudged at 6 h');
+  const ac = S.advanceClock(1).expired;
+  eq([ac, a.status, a.cancel], [[a.id], 'cancelled', { by: 'system', reason: 'unconfirmed', at: '2026-10-15T14:00', refund: 0, kept: 1600, tailorPaid: 1600 }], 'K-43: at 3 h tick() cancels it — reason unconfirmed, stamped 2:00 PM, Amara keeps the $16.00 deposit');
+  eq([a.payments.deposit.state, state.payouts.map(({ createdAt, ...p }) => p)], ['kept', [{ apptId: a.id, cents: 1600, state: 'pending', date: '2026-10-16', kind: 'kept-deposit' }]], 'K-43: the kept deposit is a pending payout (D-05: no Taily fee), the Friday after');
+  eq([garments, state.job.garments.length], [0, 2], 'K-43: the draft order comes back so she can rebook');
+  const lastMsg = S.threadFor('amara').messages.at(-1);
+  eq([lastMsg.text, lastMsg.tailorText].map((x) => x.replace(/\s/g, ' ')), ['We cancelled the visit because you didn’t confirm by 2:00 PM', 'We cancelled the visit because Sarah didn’t confirm by 2:00 PM'], 'K-43: both threads say why');
+  eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label, S.reminderState(a)], ['Cancelled', 'Cancelled', null], 'K-43: both sides read Cancelled');
+  eq(S.advanceClock(60).expired, [], 'K-43: cancelled once');
+  // a confirmed visit is untouched at 3 h; a visit never asked (booked < 26 h ahead) is never auto-cancelled
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 12);
+  T.confirmVisit(a.id);
+  S.advanceClock(Math.round((S.autoCancelAt(a) - S.now()) / 60000) + 30);
+  eq([a.status, a.reminder.nudgedAt, a.cancel], ['confirmed', null, null], 'K-43: a confirmed visit is untouched at 3 h (no nudge either)');
+  // a jump from the reminder past the visit still cancels it at its own time (and stamps the nudge at its time)
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
+  S.advanceClock(48 * 60);
+  eq([a.status, a.cancel.reason, a.cancel.at, a.reminder.nudgedAt], ['cancelled', 'unconfirmed', '2026-10-15T14:00', '2026-10-15T11:00'], 'K-43: +48 h from the reminder — cancelled at 2:00 PM, nudged at 11:00 AM');
   // a clock jump past the visit sends nothing
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(56 * 60);
@@ -1821,7 +1862,7 @@ section('K-41 (R3): the 24-hour reminder');
   T.tailorAccept(late.id);
   ok((D.toDate(slot).getTime() - S.now()) < 26 * H && !S.reminderEligible(late), 'K-41: booked < 26 h ahead — no reminder');
   S.advanceClock(Math.round((D.toDate(slot).getTime() - S.now()) / 60000) - 60);
-  eq([late.reminder.sentAt, late.reminder.nudgedAt, S.reminderState(late)], [null, null, null], 'K-41: … and no nudge either');
+  eq([late.reminder.sentAt, late.reminder.nudgedAt, S.reminderState(late), late.status], [null, null, null, 'confirmed'], 'K-41: … and no nudge either; K-43: never asked, so never auto-cancelled');
   // rescheduling from the prompt: the new time gets its own reminder, or none when < 26 h out
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));

@@ -13,7 +13,7 @@
    is always in dollars; the courier is never her money.
    ============================================================ */
 import { register, render as go, registered, personaHome, currentScreen } from '../app.js';
-import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable, slotText, handoffMissed, reminderState, freeUntil } from '../state.js';
+import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable, slotText, handoffMissed, reminderState, freeUntil, autoCancelAt } from '../state.js';
 import { focusAppt, redirectIfMoved, statusWord, setFocus } from '../focus.js';
 import { myTailor, requestView, jobAddress, payoutOf, inbox, payoutLine } from '../tailor-data.js';
 import { CANT_MAKE_IT_REASONS, RETURN_LABEL, HANDOFF_CODE_LEN } from '../data.js';
@@ -69,6 +69,7 @@ function heroCopy(a, v) {
       note: `<p class="t-body c-700 ${ID}__note">She cancelled more than ${POLICY.CANCEL_WINDOW_H} hours before the visit, so nothing is owed. The time is open again for new requests.</p>`,
     };
   }
+  if (kind === 'unconfirmed') return { title: 'Visit cancelled', note: '' };   // K-43 (D-300): the strip + rule line say why (autoCancelView)
   if (kind === 'customer-late') {
     return {
       title: `${firstOf()} cancelled`,
@@ -90,7 +91,7 @@ function heroCopy(a, v) {
 function cancelMoney(a) {
   const kind = cancelKind(a);
   const p = payoutOf(a);
-  if (!p || !['no-show', 'customer-late'].includes(kind)) return '';
+  if (!p || !['no-show', 'customer-late', 'unconfirmed'].includes(kind)) return '';
   const label = kind === 'no-show' ? 'No-show pay' : 'Kept deposit';
   return `<div class="${ID}__money">${moneyRows([{ label, cents: a.cancel.tailorPaid, kind: 'total', status: payoutLine(p).short }])}</div>`;
 }
@@ -453,7 +454,7 @@ function m4View(a, v, key) {
     case 'handoff-pickup':
       body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(`${visitBlock([...timeRows(a), ...placeRows(t.shopName, 'bag', shopLine(t))], { title: 'In-store pickup' })}${onlySarah(a)}`)}${work}${notes}${payout}`; break;
     case 'handoff-courier':
-      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(`${visitBlock([...timeRows(a), { icon: 'truck', value: esc(`${t.shop?.enabled ? t.shopName : 'Your home'} → ${homeStreet()}`), detail: `Paid by ${firstOf()} · nothing comes out of your payout` }], { title: 'Taily courier' })}${onlySarah(a)}`)}${work}${notes}${payout}`; break;
+      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(`${visitBlock([...timeRows(a), { icon: 'truck', value: esc(`${t.shop?.enabled ? t.shopName : 'Your home'} → ${homeStreet()}`), detail: [`Paid by ${firstOf()} · nothing comes out of your payout`, `If ${firstOf()} isn’t home, the courier leaves it in her building’s lobby. It still counts as delivered.`] }], { title: 'Taily courier' })}${onlySarah(a)}`)}${work}${notes}${payout}`; break;
     default: body = completedBody(a, v, t, updated);   // completed (K-20)
   }
   return `${chrome('home', { persona: 'tailor' })}
@@ -485,7 +486,7 @@ function view() {
   /* K16-2-03 (D-245): the reason she gave is a row of the Visit block with the chat tile, the same shape c-booking--cant-make-it shows Sarah */
   const reasonRow = cancelKind(a) === 'tailor-cant-make-it' && a.cancel?.note ? [{ icon: 'chat', value: esc(a.cancel.note), detail: 'Your reason' }] : [];
   /* K-41 (R3, D-296): Sarah's answer to the 24-hour reminder — a K-16 strip states it, the title stops repeating "confirmed", one rule line */
-  const rem = cancelled ? null : reminderView(a);
+  const rem = cancelled ? autoCancelView(a) : reminderView(a);
   const hero = statusHero({ variant: cancelled ? 'declined' : 'confirmed', pill: false, title: rem?.title ?? h.title, body: '', extra: h.note });
   const top = rem
     ? `${navBackMark()}${requestStrip({ page: true, ...rem.strip })}${headingRow(hero, { back: false, trailing: moreItems(a) ? moreMenu() : '' })}<p class="t-small c-600 ${ID}__rule">${rem.rule}</p>`
@@ -521,9 +522,17 @@ function reminderView(a) {
     return { title, strip: { tone: 'done', icon: 'check', text: `${first} confirmed for ${day}`, right: fmtTime(rem.confirmedAt) },
       rule: `If she cancels now, you keep her ${dep} deposit. If she isn’t home, you’re paid ${noShow}.` };
   }
-  const from = fmtTime(addMinutes(a.slot.start, POLICY.NO_SHOW_WAIT_MIN));
+  /* K-43 (D-300): no answer by REMINDER_AUTOCANCEL_H before the visit cancels it — and the kept deposit is hers */
+  const by = fmtTime(autoCancelAt(a));
   return { title, strip: { tone: 'warn', icon: 'clock', text: `${first} hasn’t confirmed`, right: day === 'today' ? `Visit ${at}` : `Visit ${day} ${at}` },
-    rule: `The visit is still on${rem.nudgedAt ? ` and we reminded her at ${fmtTime(rem.nudgedAt)}` : ''}. If she isn’t home, mark a no-show from ${from} and you’re paid ${noShow}.` };
+    rule: `${rem.nudgedAt ? `We reminded her at ${fmtTime(rem.nudgedAt)}. ` : ''}If she doesn’t confirm by ${by}, we cancel the visit and you keep her ${dep} deposit.` };
+}
+/** K-43 (D-300): a visit Taily cancelled because Sarah never confirmed — the strip says so, the rule line says when and what she keeps. */
+function autoCancelView(a) {
+  if (cancelKind(a) !== 'unconfirmed') return null;
+  const first = firstOf();
+  return { title: 'Visit cancelled', strip: { tone: 'warn', icon: 'clock', text: `${first} didn’t confirm · visit cancelled`, right: fmtTime(a.cancel.at) },
+    rule: `We cancelled it ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit because she didn’t confirm, so you keep her ${fmtExact(a.cancel.kept)} deposit.` };
 }
 
 /* ---------- sheets ---------- */

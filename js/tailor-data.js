@@ -105,7 +105,7 @@ function payoutItem(p) {
   const appt = getAppt(p.apptId);
   const day = appt ? fmtDay(appt.slot.start) : '';
   const types = appt ? [...new Set(appt.job.garments.map((g) => g.type))].join(', ') : '';
-  const sub = p.kind === 'kept-deposit' ? 'Late cancellation · deposit kept'
+  const sub = p.kind === 'kept-deposit' ? (appt?.cancel?.reason === 'unconfirmed' ? 'Not confirmed · deposit kept' : 'Late cancellation · deposit kept')   // K-43 (D-300)
     : p.kind === 'no-show' ? `No-show · ${day}`
       : `${types} · ${day}`;
   return { apptId: p.apptId, cents: p.cents, kind: p.kind, title: appt ? customerName(appt) : '', sub, retried: !!p.retried };

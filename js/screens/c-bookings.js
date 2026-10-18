@@ -5,7 +5,7 @@
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { state, apptsFor, tailorById, statusScreen, now, priceChangeView } from '../state.js';
-import { chrome, headingRow, apptRow, emptyState, banner, toast, esc, sectionHead, heroGarment } from '../components.js';
+import { chrome, headingRow, apptRow, emptyState, sectionHead, heroGarment } from '../components.js';
 import { fmtColumn } from '../money.js';
 import { fmtWhen, fmtCountdown, toDate } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
@@ -104,8 +104,9 @@ function rowFor(a, kind, fmtAmt) {
       if (r === 'tailor-cant-make-it') row.place = `${first} cancelled`;
       else if (r === 'tailor-no-show') row.place = `${first} didn’t show up`;   // K-29
       else if (r === 'customer-early' || r === 'customer-late') row.place = 'You cancelled';
+      else if (r === 'unconfirmed') row.place = 'Not confirmed in time';   // K-43 (D-300): cancelled by Taily
     }
-    row.kept = a.status === 'declined' || (a.status === 'cancelled' && ['tailor-cant-make-it', 'tailor-no-show', 'customer-late', 'no-show'].includes(a.cancel?.reason));
+    row.kept = a.status === 'declined' || (a.status === 'cancelled' && ['tailor-cant-make-it', 'tailor-no-show', 'customer-late', 'no-show', 'unconfirmed'].includes(a.cancel?.reason));
   }
   return apptRow(row);
 }
@@ -142,12 +143,7 @@ function view() {
     ${sectionHead(TITLES[kind], { id: `${ID}-${kind}` })}
     <div class="${ID}__rows">${list.map((a) => rowFor(a, kind, fmtAmt)).join('')}</div>
   </section>`).join('\n  ');
-  /* M6-X-11: notifications off while a request waits — the reply is the thing she would miss (the tailor's Home has the same banner, D-85) */
-  const waiting = groups.requests.find((a) => a.status === 'requested');
-  const push = state.sim.push === 'denied' && waiting
-    ? `<div class="${ID}__push">${banner({ tone: 'warning', title: 'Notifications are off', text: `Turn on notifications to hear the moment ${esc(firstOf(tailorById(waiting.tailorId)))} replies.`, actionLabel: 'Open Settings', actionAct: 'push-settings' })}</div>` : '';
   return `${head}
-  ${push}
   ${blocks}
 </main>`;
 }
@@ -161,10 +157,6 @@ function wire(root) {
       if (!a) return;
       setFocus(a.id);
       go(statusScreen(a, 'customer'));
-    } else if (el.dataset.act === 'push-settings') {
-      state.sim.push = 'granted';                 // prototype stand-in for the OS toggle (D-85)
-      go(ID);
-      toast('Notifications are on');
     } else if (el.dataset.act === 'home') go('c-job', { fresh: true });
   });
 }

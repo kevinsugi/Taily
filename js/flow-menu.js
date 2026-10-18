@@ -13,13 +13,13 @@
    presses screen buttons, so the screens must be registered first).
    ============================================================ */
 
-import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, reminderAt, reminderEligible, freeUntil } from './state.js';
+import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, reminderAt, reminderEligible, freeUntil, autoCancelAt, textLink } from './state.js';
 import { ALL_FLOWS, findFlow, prepareFlow, personaForScreen } from './flows.js';
 import { setFocus } from './focus.js';
 import { toast } from './components.js';
 import { fmtWhen, fmtTime, dayWord } from './dates.js';
 import { fmtExact } from './money.js';
-import { pushBanner } from './system.js';
+import { textBanner } from './system.js';
 import { STUDY_TITLE, STUDY_SCRIPT } from './study.js';
 
 let render = null;
@@ -173,7 +173,7 @@ const demoAppt = () => (state.ui.apptId ? getAppt(state.ui.apptId) : null) ?? ac
 function runDemo(kind) {
   const a = demoAppt();
   let msg;
-  const before = a?.reminder ? { ...a.reminder } : null;
+  const before = a?.reminder ? { ...a.reminder, status: a.status } : null;
   if (kind === 'courier') {
     const r = a ? T.courierDelivered(a.id) : { ok: false };
     msg = r.ok ? 'The courier delivered it.' : 'No courier delivery to complete.';
@@ -192,25 +192,29 @@ function runDemo(kind) {
   const id = document.getElementById('screen')?.dataset.screen;
   if (id) render(id, { replace: true });
   toast(msg);
-  if (a && state.persona === 'customer') remindPush(a, before);
+  if (a && state.persona === 'customer') remindText(a, before);
 }
 
-/** K-41 (R3): the reminder (or its one nudge) went out during a Demo action → the customer's in-app push (D-167). The reminder opens Home
-    (Confirm is one tap there); the nudge opens the booking. */
-function remindPush(a, before) {
+/** K-41 (R3) + K-43 (D-301): the reminder, its one nudge, or the auto-cancel happened during a Demo action → the customer's text message
+    (an SMS with its unique link; tapping it routes in, as the push did). The reminder opens Home (Confirm is one tap there); the nudge and
+    the cancel open the booking. */
+function remindText(a, before) {
   const r = a.reminder;
   if (!r) return;
   const t = state.tailors.find((x) => x.id === a.tailorId);
   const first = (t?.name || 'Your tailor').split(' ')[0];
   const day = dayWord(a.slot.start, now());
+  const at = fmtTime(a.slot.start);
   const dep = fmtExact(a.payments.deposit.cents);
   const place = a.job.visitType === 'home' ? 'at your place' : `at ${t?.shopName ?? 'the shop'}`;
-  if (r.sentAt && !before?.sentAt && !r.confirmedAt && now() < freeUntil(a)) {
-    pushBanner({ title: `Still on for ${day}?`, body: `${first} · ${fmtWhen(a.slot.start)} ${place}. Free to change until ${fmtTime(freeUntil(a))} ${dayWord(freeUntil(a), now())}.`,
-      onOpen: () => { setFocus(a.id); render('c-job'); } });
-  } else if (r.nudgedAt && !before?.nudgedAt && !r.confirmedAt) {
-    pushBanner({ title: `${first} arrives at ${fmtTime(a.slot.start)}`, body: `You haven’t confirmed. If you cancel now or aren’t home, ${first} keeps your ${dep} deposit.`,
-      onOpen: () => { setFocus(a.id); render('c-booking'); } });
+  const text = (event, body, screen) => textBanner({ body, link: textLink(a.id, event), onOpen: () => { setFocus(a.id); render(screen); } });
+  if (a.status === 'cancelled' && a.cancel?.reason === 'unconfirmed' && before?.status === 'confirmed') {
+    text('auto-cancel', `We cancelled your ${at} visit with ${first} because you didn’t confirm by ${fmtTime(a.cancel.at)}. ${first} keeps your ${dep} deposit.`, 'c-booking');
+  } else if (r.sentAt && !before?.sentAt && !r.confirmedAt && now() < freeUntil(a)) {
+    text('reminder', `Still on for ${day}? ${first} · ${fmtWhen(a.slot.start)} ${place}. Free to change until ${fmtTime(freeUntil(a))} ${dayWord(freeUntil(a), now())}. Confirm or change:`, 'c-job');
+  } else if (r.nudgedAt && !before?.nudgedAt && !r.confirmedAt && a.status === 'confirmed') {
+    const by = autoCancelAt(a);
+    text('nudge', `You haven’t confirmed your ${at} visit with ${first} ${day}. Confirm by ${fmtTime(by)} or we’ll cancel it, and ${first} keeps your ${dep} deposit.`, 'c-booking');
   }
 }
 

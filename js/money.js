@@ -46,11 +46,16 @@ export const tailyFeeFor = (services) => round(MONEY.TAILY_FEE_RATE * services);
 /** What the tailor takes home. The courier never reaches the tailor (D-04). */
 export const payoutFor = ({ services, homeFee = 0, rush = 0 }) => services - tailyFeeFor(services) + homeFee + rush;
 
-/** The mocked Uber quote, the Taily courier fee on top, and their sum (D-100). */
-export function courierQuote(miles) {
-  const uber = cents(MONEY.COURIER_BASE + MONEY.COURIER_PER_MILE * miles);
+/* K-39/K-43: PROTOTYPE DATA SOURCE (production: live Uber API quote). The Uber quote for ONE delivery window, simulated and deterministic
+   from the distance and the window's start: COURIER_BASE + COURIER_PER_MILE × miles, + COURIER_PEAK for a window starting from
+   COURIER_PEAK_FROM_H to before COURIER_PEAK_TO_H (local wall clock). The Taily courier fee (COURIER_MARKUP) goes on top (D-100); `cents`
+   is what Sarah pays. No `start` = the off-peak quote. */
+export function courierQuote(miles, start = null) {
+  const h = start ? Number(String(start).slice(11, 13)) : -1;
+  const peak = h >= MONEY.COURIER_PEAK_FROM_H && h < MONEY.COURIER_PEAK_TO_H;
+  const uber = cents(MONEY.COURIER_BASE + MONEY.COURIER_PER_MILE * miles + (peak ? MONEY.COURIER_PEAK : 0));
   const total = round(uber * (1 + MONEY.COURIER_MARKUP));
-  return { miles, quote: uber, markup: total - uber, cents: total };
+  return { miles, start, peak, quote: uber, markup: total - uber, cents: total };
 }
 
 /** The one price object every surface prints. `deposit` is passed by a booked

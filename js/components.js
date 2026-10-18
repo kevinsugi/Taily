@@ -134,7 +134,7 @@ import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
 import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb } from './dates.js';
 import { POLICY } from './money-config.js';
-import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText } from './state.js';
+import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor } from './state.js';
 import { scheduler, slotColumns, readSlot, windowColumns, readWindow, whenNote, SCHED_ROW } from './scheduler.js';   // K-40: the handoff time sheet (scheduler.js imports this file back; both only call across at run time)
 import { withLatency } from './sim.js';
 import { inbox } from './tailor-data.js';
@@ -3088,18 +3088,21 @@ export function handoffWhenRow({ method = 'pickup', text = '', sub = '', act = '
   })}</div>`;
 }
 
-/** The courier line under a window: "Courier $10.45 · collects from Amara at 4:45 PM". */
+/** The courier line under a window: "Courier $13.75 · collects from Amara at 4:45 PM" — K-43 (D-299): that window's own Uber quote + the
+    Taily fee, so it changes as she scrolls the wheel. */
 const courierNote = (cents, first, w) => `<span class="t-small c-600">Courier <span data-money>${fmtExact(cents)}</span> · collects from ${esc(first)} at ${esc(fmtTime(w.collectAt))}</span>`;
+/** K-43 (D-298): a courier delivery never comes back — the line wherever the courier is chosen or booked. */
+export const COURIER_LOBBY = 'If you’re not home, the courier leaves it in your building’s lobby.';
 
 /**
  * The handoff time sheet (K-40 T1): the existing Scheduler in a sheet, fed by `handoffSlots(appt)` — pickup = Day · Hour · Minute · AM/PM
- * (readSlot snaps to an open start), courier = Day · Arrives (30-minute delivery windows, the courier fee and the collection time in the
- * note). `mode` 'pick' (c-ready: Use this time / Cancel; instant) | 'change' (c-booking: Move my pickup / Keep current time; the
+ * (readSlot snaps to an open start), courier = Day · Arrives (30-minute delivery windows; the note under the wheel prints the window's own
+ * courier price — K-43 (D-299): a simulated Uber quote per window — and the collection time, updating as she scrolls). `mode` 'pick' (c-ready: Use this time / Cancel; instant) | 'change' (c-booking: Move my pickup / Keep current time; the
  * simulated wait, the current slot left out). Calls `T.setHandoffSlot` (customer only); `onDone(appt)` after it succeeds.
- *   first  the tailor's first name · place  the line under the header · courierCents  the flat courier price (courier)
+ *   first  the tailor's first name · place  the line under the header
  *   dataS  the overlay's data-s · onMessage  the "no open times" Message button
  */
-export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', place = '', courierCents = 0, dataS = '', onDone, onMessage } = {}) {
+export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', place = '', dataS = '', onDone, onMessage } = {}) {
   const courier = appt.returnOption === 'courier';
   const change = mode === 'change';
   const cur = appt.handoff?.slot ?? null;
@@ -3126,14 +3129,14 @@ export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', pla
   let picked = (!change && cur && slots.find((x) => x.start === cur.start)) || near;
   const label = change ? (courier ? 'New window' : 'New time') : (courier ? 'Arrives' : 'Pickup');
   const note = (x) => (courier
-    ? `<span class="t-caps">${esc(label)}</span> <span class="t-small w-600">${esc(slotText(x))}</span><br>${courierNote(courierCents, first, x)}`
+    ? `<span class="t-caps">${esc(label)}</span> <span class="t-small w-600">${esc(slotText(x))}</span><br>${courierNote(courierQuoteFor(appt, x).cents, first, x)}`
     : whenNote(label, x.start));
   const columns = () => (courier ? windowColumns(slots, picked.start) : slotColumns(slots.map((x) => x.start), picked.start));
   const now = change && cur ? `<p class="t-small c-600 handoff-sheet__now" data-now>${courier ? 'Arrives' : 'Booked for'} <span class="nb">${esc(slotText(cur))}</span></p>`
     : place ? `<p class="t-small c-600 handoff-sheet__now">${esc(place)}</p>` : '';
   const fine = change
-    ? (courier ? `You can change the window until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. ${esc(first)} is told right away.` : `${esc(first)} is told right away. Your pickup code stays the same.`)
-    : (courier ? `Taily books the courier to collect from ${esc(first)} before your window. You can change it until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects.`
+    ? (courier ? `You can change the window until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. The price is the new window’s quote, and ${esc(first)} is told right away. ${COURIER_LOBBY}` : `${esc(first)} is told right away. Your pickup code stays the same.`)
+    : (courier ? `Each window has its own Uber price. Taily books the courier to collect from ${esc(first)} before your window. You can change it until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. ${COURIER_LOBBY}`
       : `Only times ${esc(first)}’s shop is open, in the next ${POLICY.HANDOFF_PICK_DAYS} days. You can change it later from your booking.`);
   const okLabel = change ? (courier ? 'Move my delivery' : 'Move my pickup') : (courier ? 'Use this window' : 'Use this time');
   const html = (busy = false, error = '') => `<div class="handoff-sheet"${busy ? ' aria-busy="true"' : ''}>

@@ -10,11 +10,11 @@
 import { register, render as go, registered } from '../app.js';
 import {
   state, T, tailorById, openSlots, justConfirmed, now, returnAddress, priceChangeView, courierWindow, autoCompleteLeft, statusScreen,
-  slotText, handoffChangeable, handoffMissed, reminderState, freeUntil,
+  slotText, handoffChangeable, handoffMissed, reminderState, freeUntil, autoCancelAt,
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
-  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, andList, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR,
+  sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, andList, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR, COURIER_LOBBY,
   actionBar, pickupCode, autoCompleteLine, balanceCardLabel, openHandoffTime,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
@@ -91,6 +91,11 @@ function cancelledView(a, t, first) {
       body: a.cancel?.afterConfirm   // K-41 (D-296)
         ? `${first} kept your deposit because you cancelled after confirming the visit. Nothing else is charged.`
         : `${first} kept your deposit because you cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit. Nothing else is charged.`,
+      status: 'Kept',
+    },
+    unconfirmed: {   // K-43 (D-300): cancelled by Taily 3 hours before, inside the 24 h window — the late-cancel money
+      title: 'Visit cancelled',
+      body: `We cancelled your visit because you didn’t confirm by ${fmtTime(a.cancel?.at ?? a.slot.start)}. ${first} keeps your ${fmtExact(dep)} deposit for the time set aside.`,
       status: 'Kept',
     },
     'tailor-cant-make-it': {
@@ -206,10 +211,11 @@ function reminderCopy(a, r, first, deposit) {
       rule: `If you cancel now or aren’t home, ${esc(first)} keeps your ${money(deposit)} deposit.`,
     };
   }
-  /* missed: the window closed with no answer — the visit stays booked; Confirm only tells the tailor */
+  /* missed: the free window closed with no answer — the visit stays booked until REMINDER_AUTOCANCEL_H before it (K-43, D-300); Confirm keeps it */
+  const by = fmtTime(autoCancelAt(a));
   return {
-    strip: { tone: 'warn', icon: 'clock', text: 'You haven’t confirmed yet', right: day === 'today' ? `Visit ${at}` : `Visit ${day} ${at}` },
-    rule: `${esc(first)} is still coming. If you cancel now or aren’t home, she keeps your ${money(deposit)} deposit.`,
+    strip: { tone: 'warn', icon: 'clock', text: `Confirm by ${by} or we’ll cancel the visit`, right: day === 'today' ? `Visit ${at}` : `Visit ${day} ${at}` },
+    rule: `If you don’t confirm by ${by}, we cancel it and ${esc(first)} keeps your ${money(deposit)} deposit. She keeps it too if you cancel now or aren’t home.`,
     bar: { ctaLabel: 'Confirm, I’ll be home', ctaAct: 'confirm-visit', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' },
   };
 }
@@ -332,7 +338,7 @@ function handoffView(a, t, first) {
         ...(w ? [{ icon: 'clock', value: esc(`Arrives ${when}`), strong: true, detail: [movedFrom, `The courier collects from ${f} at ${esc(fmtTime(w.collectAt))}`].filter(Boolean) }] : []),
         {
           icon: 'truck', cls: 'visit-row--courier', value: esc(`${t.shopName} → ${returnAddress()}`),
-          detail: [`${esc(a.courier?.miles ?? 0)} mi · Uber via Taily`, 'Paid by you'],
+          detail: [`${esc(a.courier?.miles ?? 0)} mi · Uber via Taily`, 'Paid by you', esc(COURIER_LOBBY)],   // K-43 (D-298)
         },
       ], { title: 'Taily courier', flush: true })}${personActions([...change, message])}`,
       steps: [{ state: 'current', title: 'Courier booked', sub: when ? `Arrives ${esc(when)}` : '' }, leave],
@@ -577,7 +583,7 @@ function openReschedule(a, first) {
 function openChangeTime(a, first) {
   const courier = a.returnOption === 'courier';
   openHandoffTime(a, {
-    mode: 'change', first, courierCents: a.courier?.cents ?? 0,
+    mode: 'change', first,
     dataS: courier ? `${ID}--change-window` : `${ID}--change-time`,
     onDone: (appt) => { go(ID); toast(`Moved to ${slotText(appt.handoff.slot)}. ${first} has been told.`); },
     onMessage: () => go('c-thread'),

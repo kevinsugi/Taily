@@ -3,8 +3,8 @@
    what is coming up. Focal: the first request card's take-home
    figure (the only .t-money money on the page). A card has no Accept
    of its own (D-75): the decision is one tap on t-request.
-   Push denied (D-85): a warning banner; "Open Settings" turns
-   notifications on in the prototype.
+   K-43 (D-301): notifications are text messages to her verified
+   phone — no push, so no "notifications off" banner and no ask.
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { state, T, now, apptsFor, priceChangeView, suggestLapseAt, autoCompleteLeft, jobEditView, slotText, handoffMissed, courierWindow } from '../state.js';
@@ -14,10 +14,9 @@ import { fmtColumn } from '../money.js';
 import { fmtWhen, fmtTime, fmtDay, fmtTimeRange, toDate, dayDiff } from '../dates.js';
 import { POLICY } from '../money-config.js';
 import {
-  chrome, headingRow, banner, emptyState, requestCard, apptRow, toast, esc, sectionHead, textLink,
+  chrome, headingRow, emptyState, requestCard, apptRow, toast, esc, sectionHead, textLink,
   heroGarment,
 } from '../components.js';
-import { openPushPrompt } from '../system.js';
 
 const ID = 't-home';
 const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -83,7 +82,6 @@ function view(s) {
     return `${head}<main class="body ${ID}">
   ${hello}
   ${paused}
-  ${s.sim.push === 'denied' ? `<div class="hero ${ID}__push">${pushBanner()}</div>` : ''}
   <div class="${ID}__empty" data-empty="home">${emptyState({
     title: 'No requests yet',
     body: `When a customer books you, the request shows up here. You’ll have ${POLICY.REQUEST_EXPIRY_H} hours to answer each one.`,
@@ -166,7 +164,6 @@ function view(s) {
   ${hello}
   ${paused}
   <p class="t-small c-600 hero ${ID}__sum">${dateLine()} · ${summary.join(', ')}</p>
-  ${s.sim.push === 'denied' ? `<div class="hero ${ID}__push">${pushBanner()}</div>` : ''}
   ${group('New requests', 'new', fresh.length || null, fresh.length
     ? `<div class="${ID}__list">${cards}</div>`
     : `<p class="t-body c-600 ${ID}__none">No new requests right now.</p>`)}
@@ -176,14 +173,6 @@ function view(s) {
   ${progress.length ? group('In progress', 'progress', progress.length, `<div class="${ID}__list">${progressRows}</div>`) : ''}
   ${recent.length ? group('Completed', 'completed', recent.length, `<div class="${ID}__list">${recentRows}</div>`) : ''}
 </main>`;
-}
-
-function pushBanner() {
-  return banner({
-    tone: 'warning', title: 'Notifications are off',
-    text: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications so you don’t miss one.`,
-    actionLabel: 'Open Settings', actionAct: 'push-settings',
-  });
 }
 
 function wire(root) {
@@ -200,19 +189,7 @@ function wire(root) {
       go(ID);
       toast('You’re taking requests again', { tone: 'success' });
     } else if (act === 'hours') { delete state.ui['to-availability']; go('to-availability'); }   // edit mode: a fresh draft from the saved week
-    else if (act === 'push-settings') {
-      state.sim.push = 'granted';                 // prototype stand-in for the OS toggle (D-85)
-      go(ID);
-      toast('Notifications are on');
-    }
   });
-  /* D-139: the soft ask, at the moment of value. "Not now" leaves the denied banner above (D-85). */
-  if (state.sim.push === 'prompt') {
-    openPushPrompt({
-      title: 'Don’t miss a request',
-      body: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications and we’ll tell you the moment one comes in.`,
-    }, { onDone: () => go(ID, { replace: true }) });
-  }
 }
 
 register(ID, view, wire);

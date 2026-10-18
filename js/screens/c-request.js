@@ -18,7 +18,6 @@ import { fmtExact, cancelTerms } from '../money.js';
 import { fmtWhen, fmtTime, addMinutes, isoMinute, toDate } from '../dates.js';
 import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
 import { POLICY } from '../money-config.js';
-import { openPushPrompt } from '../system.js';
 
 const ID = 'c-request';
 
@@ -332,15 +331,6 @@ function wire(root) {
       default: break;
     }
   }, { signal: ac.signal });
-  /* D-139: the soft notification ask while a request waits. Only the Test flows set 'prompt' on this side. */
-  const wait = focusAppt(ID);
-  if (state.sim.push === 'prompt' && wait?.status === 'requested') {
-    const first = firstOf(tailorById(wait.tailorId));
-    openPushPrompt({
-      title: `Know when ${first} replies`,
-      body: `${first} has ${POLICY.REQUEST_EXPIRY_H} hours to reply. Turn on notifications to hear back the moment ${first} replies.`,
-    }, { onDone: () => go(ID, { replace: true }) });
-  }
 }
 
 register(ID, view, wire);

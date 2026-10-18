@@ -10,8 +10,7 @@ import * as C from './components.js';
 import { scheduler, slotColumns, whenNote } from './scheduler.js';
 import { TAILORS, DEMO_NOW, FITTING_LIMITS } from './data.js';
 import { FITTING_COMMENTS } from './fixtures/common.js';
-import { POLICY } from './money-config.js';
-import { reauthHtml, pushPromptHtml, pushBannerHtml, systemBanner } from './system.js';
+import { reauthHtml, textBannerHtml, systemBanner } from './system.js';
 import { quote, fmt, fmtExact, cents, payoutFor, priceRange } from './money.js';
 import { ICON_CARD, ICON_CAMERA } from './icons.js';
 import { SCENARIOS, AMARA } from './fixtures/money-scenarios.js';
@@ -484,15 +483,13 @@ export function galleryHtml() {
   h2('Money rows — tailor breakdown with rush (D-165: one order everywhere)');
   col(C.tailorBreakdown(rush));
 
-  h2('System (M5) — offline banner · re-auth sheet · push ask');
+  h2('System (M5) — offline banner · re-auth sheet · text message');
   v('offline banner'); s.push(`<div class="sys-demo">${systemBanner({ sim: { network: 'offline' } })}</div>`);
   v('re-auth sheet (locked, no ✕) · with an error');
   s.push(`<div class="sheet-demo sheet-demo--tall" data-s="sys-reauth">${C.sheet(`<div class="reauth">${reauthHtml({ phone: '(718) 555-0142', msToResend: 30000 })}</div>`, { header: 'Sign in again', open: true, confirm: false })}</div>`);
   s.push(`<div class="sheet-demo sheet-demo--tall" data-s="sys-reauth">${C.sheet(`<div class="reauth">${reauthHtml({ phone: '(718) 555-0142', code: '123456', error: 'code-wrong' })}</div>`, { header: 'Sign in again', open: true, confirm: false })}</div>`);
-  v('push ask (soft ask before the OS prompt)');
-  s.push(`<div class="row"><div class="push-demo">${pushPromptHtml({ title: 'Don’t miss a request', body: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications to reply in time.` })}</div></div>`);
-  v('in-app push card (D-167): a new request, over the status bar');
-  s.push(`<div class="push-banner-demo">${pushBannerHtml({ title: 'New request · Sarah C.', body: `Home visit Thu, Oct 15 · Your payout ${fmtExact(seed.payout)} · 2h to reply` })}</div>`);
+  v('text message (K-43, D-301 — was the push card, D-167): a new request, over the status bar; the link opens it');
+  s.push(`<div class="text-banner-demo">${textBannerHtml({ body: `New request from Sarah C. · Home visit Thu, Oct 15 · Your payout ${fmtExact(seed.payout)} · 2h to reply.`, link: 'taily.app/r/8F3K2Q' })}</div>`);
   /* ---------------- M7 · polish (K-03) ---------------- */
   h2('M7 · polish — nav icons, flow bar');
   const navDemo = (html) => s.push(`<div style="position:relative;height:56px;width:390px;margin-inline:-20px">${html.replace('<nav class="top-nav"', '<nav class="top-nav" style="top:0"')}</div>`);

@@ -25,8 +25,12 @@ const seed = estimate(AMARA, job(), SEED_SLOT);
 const rush = estimate(AMARA, job({ needBy: '2026-10-16' }), SEED_SLOT);                 // visit Thu, need-by Fri: 1 day
 const shop = estimate(AMARA, job({ visitType: 'shop' }), '2026-10-15T10:00');
 
-/* seed + a 0.6 mi Taily courier (Williamsburg), on top of the booked lines */
-const courierQuoted = courierQuote(0.6);
+/* seed + a 0.6 mi Taily courier (Williamsburg), on top of the booked lines. K-43 (D-299): the quote is per delivery window — the fixtures'
+   window (Fri, Oct 16 · 5:00–5:30 PM, the evening peak) and an off-peak one (the first window the sheet opens on, 10:30 AM) */
+export const COURIER_WINDOW = '2026-10-16T17:00';
+export const COURIER_OFFPEAK_WINDOW = '2026-10-16T10:30';
+const courierQuoted = courierQuote(0.6, COURIER_WINDOW);
+const courierOffPeak = courierQuote(0.6, COURIER_OFFPEAK_WINDOW);
 const courierCents = courierQuoted.cents;
 const courier = quote({ lines: seed.lines, homeFee: seed.homeFee, rush: seed.rush, courier: courierCents });
 
@@ -66,7 +70,7 @@ const lateCancel = cancelTerms(booked, toDate(addMinutes(SEED_SLOT, -120)).getTi
 const earlyCancel = cancelTerms(booked, toDate(addMinutes(SEED_SLOT, -72 * 60)).getTime());
 
 export const SCENARIOS = Object.freeze({
-  seed, rush, shop, courier, courierQuote: courierQuoted, priceAdded, priceRemoved, priceRepriced, priceItem, priceItemRemoved, priceBelowDeposit,
+  seed, rush, shop, courier, courierQuote: courierQuoted, courierOffPeak, priceAdded, priceRemoved, priceRepriced, priceItem, priceItemRemoved, priceBelowDeposit,
   edit,
   lateCancel: { ...lateCancel, tailorPaid: lateCancel.kept },
   earlyCancel,

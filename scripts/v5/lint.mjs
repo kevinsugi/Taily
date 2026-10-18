@@ -91,7 +91,7 @@ rule('css (v5): font-size only from the scale tokens', sizeOff);
 /* M7 (D-193, D-194): no --info / --media-placeholder colour tokens outside tokens.css; a blurred box-shadow only on overlays */
 const tokenOff = [];
 const shadowOff = [];
-const OVERLAY_SEL = /\.(sheet|modal|toast|push-banner|scheduler-popup|filter-pill__dropdown|selector__menu)\b/;
+const OVERLAY_SEL = /\.(sheet|modal|toast|text-banner|scheduler-popup|filter-pill__dropdown|selector__menu)\b/;
 /* M7-2-C-02: the blurred-shadow scan also covers the shared v4 sheet css/components.css (the --info scan stays v5-only) */
 for (const f of cssFiles.filter((f) => V5_CSS(f) || /css\/components\.css$/.test(f))) {
   const src = stripComments(lines(f));

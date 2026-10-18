@@ -82,8 +82,8 @@ function wire(root) {
     if (!a) return;
     if (a.dataset.act === 'rush') go('t-rush');
     else if (a.dataset.act === 'shop') {
-      /* D-139: first launch — the soft notification ask shows on Home (t-home), where requests will arrive */
-      if (state.sim.push === 'default') state.sim.push = 'prompt';
+      /* K-43 (D-301): no notification ask — new requests are texted to her verified phone from now on */
+      state.sim.texts = 'on';
       go('t-shop', { fresh: true });
     }
     else if (a.dataset.act === 'as-customer') {

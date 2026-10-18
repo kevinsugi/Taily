@@ -12,7 +12,7 @@ import { state, T, tailorById, returnOffer, returnAddress, priceChangeView, slot
 import {
   chrome, headingRow, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
   sheetOverlay, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, wireGarmentDocs, textLink, sectionHead,
-  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime,
+  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime, COURIER_LOBBY,
 } from '../components.js';
 import { fmtDay, fmtTime, fmtTimeRange, nb as datesNb } from '../dates.js';
 import * as A from '../account.js';
@@ -174,7 +174,7 @@ function view() {
   const courier = sel === 'courier' && (courierState !== 'ready' || r.slot)
     ? `<div class="${ID}__courier">${courierCard({
       state: courierState, ...(courierState === 'ready' ? c : { miles: c?.miles ?? ZIP_INFO[a.job.zip]?.miles ?? 0 }),   // the distance is known before the price
-      from: t.shopName, to: streetOf(), note: 'Added to your balance.',
+      from: t.shopName, to: streetOf(), note: `Added to your balance. ${COURIER_LOBBY}`,   // K-43 (D-298): it never comes back
     })}${courierState === 'failed' && offered.length === 1 ? textLink(`Message ${first}`, { act: 'message' }) : ''}</div>` : '';
   /* K-27 (Study-1 A2): what holding means, and the unclaimed rule, shown where the way back is chosen */
   const bal = m.balance;
@@ -268,7 +268,6 @@ function openWhen(r) {
   openHandoffTime(a, {
     mode: 'pick', first,
     place: courier ? `${t.shopName} → ${streetOf()} · ${a.courier?.miles ?? 0} mi` : `${t.shopName} · ${t.shop?.street ?? ''}`,
-    courierCents: a.courier?.cents ?? 0,
     dataS: courier ? `${ID}--courier-window` : `${ID}--pick-time`,
     onDone: () => go(ID),
     onMessage: () => { setFocus(a.id); go('c-thread'); },

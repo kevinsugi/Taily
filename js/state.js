@@ -26,7 +26,7 @@ import {
   cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout, fmtExact,
 } from './money.js';
 import {
-  toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, fmtDay, fmtTimeRange, payoutDay,
+  toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, fmtDay, fmtTime, fmtTimeRange, payoutDay,
 } from './dates.js';
 import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
@@ -45,9 +45,9 @@ const HOUR_MS = 3600000;
 const DAY_MS = 24 * HOUR_MS;
 
 function freshSim() {
-  /* network 'online'|'offline' · send 'ok'|'fail' (one-shot, D-130) · session 'valid'|'expired' · push 'default'|'prompt'|'granted'|'denied'
-     · payout 'ok'|'failed' · server 'ok'|'error' (one-shot, D-140) */
-  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', push: 'default', send: 'ok', session: 'valid', payout: 'ok', server: 'ok' };
+  /* network 'online'|'offline' · send 'ok'|'fail' (one-shot, D-130) · session 'valid'|'expired' · texts 'off'|'on' (K-43, D-301: the
+     tailor's new-request text shows on screen — on after onboarding; off by default so a flow's baseline stays still) · payout 'ok'|'failed' · server 'ok'|'error' (one-shot, D-140) */
+  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok' };
 }
 function fresh() {
   return {
@@ -112,7 +112,7 @@ export function tick() {
       }
       if (auto <= state.clock.now) { completeHandoff(a, 'auto', a.handoff.autoAt); expired.push(a.id); }
     } else if (a.status === 'confirmed' && remindTick(a)) {
-      expired.push(a.id);   // K-41: the 24-hour reminder (or its one nudge) went out
+      expired.push(a.id);   // K-41: the 24-hour reminder (or its one nudge) went out; K-43: or the unconfirmed visit was cancelled
     }
   }
   return expired;
@@ -1141,6 +1141,7 @@ export function setHandoffSlot(id, slot) {
   if (!match) return fail('slot-invalid');
   if (a.status === 'awaiting-handoff' && prev?.start === match.start) return fail('no-change');
   a.handoff = { ...(a.handoff ?? {}), slot: { ...match } };
+  if (a.returnOption === 'courier') { quoteCourier(a); repriceReturn(a); }   // K-43 (D-299): the Uber quote is per window — a move re-quotes the hold
   if (a.status === 'awaiting-handoff') {
     a.handoff.moved = { from: prev, at: nowIso() };
     const what = a.returnOption === 'courier' ? 'delivery' : 'pickup';
@@ -1165,21 +1166,30 @@ export function chooseReturn(id, option) {
   if (a.returnOption !== option && a.handoff?.slot) a.handoff = null;   // K-40: a pickup time is not a courier window
   a.returnOption = option;
   if (option === 'courier') {
-    const quoted = courierQuote(ZIP_INFO[a.job.zip]?.miles ?? 0);
     const s = state.sim.courier;
-    const ready = s !== 'fail' && s !== 'loading';
-    a.courier = {
-      miles: quoted.miles, quote: ready ? quoted.quote : 0, markup: ready ? quoted.markup : 0, cents: ready ? quoted.cents : 0,
-      state: s === 'fail' ? 'failed' : s === 'loading' ? 'loading' : 'ready',
-    };
+    a.courier = { miles: ZIP_INFO[a.job.zip]?.miles ?? 0, quote: 0, markup: 0, cents: 0, state: s === 'fail' ? 'failed' : s === 'loading' ? 'loading' : 'ready' };
+    quoteCourier(a);   // K-43: priced per window — nothing until she picks one
   } else {
     a.courier = null;
   }
+  repriceReturn(a);
+  return succeed(a);
+}
+/** The return's money after the way back or the courier window changed: re-priced (the deposit stays), the balance (held or not) follows. */
+function repriceReturn(a) {
   a.money = repriceMoney(a);
   a.payments.balance.cents = a.money.balance;
-  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-156: re-priced with the courier
+  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: a.payments.refund?.state === 'refunded' ? 'refunded' : 'pending' };   // D-156: re-priced with the courier
   else delete a.payments.refund;
-  return succeed(a);
+}
+/** K-43 (D-299): the simulated Uber quote for one courier window of this appointment (the distance to Sarah's ZIP + the window's start). */
+export const courierQuoteFor = (appt, slot) => courierQuote(ZIP_INFO[appt?.job?.zip]?.miles ?? 0, typeof slot === 'string' ? slot : slot?.start ?? null);
+/** K-43 (D-299): put the picked window's quote on `a.courier` (0 until a window is picked, or while the price is loading / failed). */
+function quoteCourier(a) {
+  const c = a.courier;
+  if (!c) return;
+  const q = c.state === 'ready' && a.handoff?.slot?.end ? courierQuoteFor(a, a.handoff.slot) : null;
+  Object.assign(c, { quote: q?.quote ?? 0, markup: q?.markup ?? 0, cents: q?.cents ?? 0 });
 }
 
 /** K-27 (Study-1 A2): picking a way back HOLDS the balance (services + rush + courier − deposit) on the card; nothing is charged until the
@@ -1462,7 +1472,8 @@ export function removeNotePhoto(id, noteId, photoId) {
    No new status: `a.reminder = { sentAt, confirmedAt, nudgedAt }`. tick() sends it CANCEL_WINDOW_H + REMINDER_LEAD_H before the visit
    (26 h: Reschedule and Cancel on it are still free for 2 h) to a visit whose time was set before then (booked or moved < 26 h ahead: no
    prompt, the plain 24 h rule), and one nudge REMINDER_NUDGE_H before the visit if she never confirmed. confirmVisit closes the free window
-   early (money.js cancelTerms). Silence never cancels a visit. */
+   early (money.js cancelTerms). K-43 (D-300): a visit she was asked about and still hasn't confirmed REMINDER_AUTOCANCEL_H before it starts
+   is cancelled by tick() at that time (reason 'unconfirmed', the customer late-cancel money: the tailor keeps the deposit). */
 function freshReminder() { return { sentAt: null, confirmedAt: null, nudgedAt: null }; }
 /** When the current visit time was set: the last accept (or accepted suggestion) or reschedule. Epoch ms. */
 function slotSetAt(a) {
@@ -1475,17 +1486,39 @@ export const reminderAt = (a) => toDate(a.slot.start).getTime() - (POLICY.CANCEL
 export const freeUntil = (a) => toDate(a.slot.start).getTime() - POLICY.CANCEL_WINDOW_H * HOUR_MS;
 /** The one nudge's time (epoch ms): REMINDER_NUDGE_H before the visit. */
 export const nudgeAt = (a) => toDate(a.slot.start).getTime() - POLICY.REMINDER_NUDGE_H * HOUR_MS;
+/** K-43 (D-300): when an unconfirmed visit is cancelled (epoch ms): REMINDER_AUTOCANCEL_H before the visit. */
+export const autoCancelAt = (a) => toDate(a.slot.start).getTime() - POLICY.REMINDER_AUTOCANCEL_H * HOUR_MS;
 /** A confirmed visit whose time was set at or before its reminder time gets the reminder. */
 export const reminderEligible = (a) => !!a && a.status === 'confirmed' && slotSetAt(a) <= reminderAt(a);
 function remindTick(a) {
   const r = (a.reminder ??= freshReminder());
   const t = state.clock.now;
   const start = toDate(a.slot.start).getTime();
-  if (t >= start) return false;
   let moved = false;
-  if (!r.sentAt && reminderEligible(a) && t >= reminderAt(a)) { r.sentAt = isoMinute(new Date(reminderAt(a))); moved = true; }
-  if (r.sentAt && !r.confirmedAt && !r.nudgedAt && t >= nudgeAt(a)) { r.nudgedAt = isoMinute(new Date(Math.max(nudgeAt(a), toDate(r.sentAt).getTime()))); moved = true; }
+  if (t < start) {   // a clock jump past the start sends nothing
+    if (!r.sentAt && reminderEligible(a) && t >= reminderAt(a)) { r.sentAt = isoMinute(new Date(reminderAt(a))); moved = true; }
+    if (r.sentAt && !r.confirmedAt && !r.nudgedAt && t >= nudgeAt(a)) { r.nudgedAt = isoMinute(new Date(Math.max(nudgeAt(a), toDate(r.sentAt).getTime()))); moved = true; }
+  }
+  /* K-43: asked, never confirmed, REMINDER_AUTOCANCEL_H before → cancelled, stamped at that time (also when the clock jumped past it) */
+  if (r.sentAt && !r.confirmedAt && t >= autoCancelAt(a)) {
+    if (!r.nudgedAt) r.nudgedAt = isoMinute(new Date(Math.max(nudgeAt(a), toDate(r.sentAt).getTime())));
+    autoCancel(a);
+    return true;
+  }
   return moved;
+}
+/** K-43 (D-300): the visit she never confirmed is cancelled at `autoCancelAt` (stamped then). Inside the 24 h window, so it follows the
+    customer late-cancel rule: the deposit is kept and paid to the tailor (D-05); the order comes back as the draft so she can rebook. */
+function autoCancel(a) {
+  const at = isoMinute(new Date(autoCancelAt(a)));
+  const kept = a.payments.deposit.cents;
+  setStatus(a, 'cancelled');
+  a.history[a.history.length - 1].at = at;
+  a.payments.deposit.state = 'kept';
+  a.cancel = { by: 'system', reason: 'unconfirmed', at, refund: 0, kept, tailorPaid: kept };
+  addPayout(a, kept, 'kept-deposit', at);
+  restoreDraftIfEmpty(a);
+  post(a.tailorId, 'system', `We cancelled the visit because you didn’t confirm by ${fmtTime(at)}`, { at, tailorText: `We cancelled the visit because ${state.customer.first} didn’t confirm by ${fmtTime(at)}` });
 }
 /** Where the reminder stands, before the visit starts: null (none sent) · 'asked' (sent, free window open, her move) · 'confirmed' ·
     'missed' (sent, never confirmed, the free window closed — the visit stays booked). */
@@ -1509,6 +1542,18 @@ export function confirmVisit(id) {
   if (state.clock.now >= toDate(a.slot.start).getTime()) return fail('visit-started');
   a.reminder.confirmedAt = nowIso();
   return succeed(a);
+}
+
+/* ---------- K-43 (D-301): notifications are text messages ----------
+   Taily is a web app first: every notification is an SMS to the verified phone with a short unique link back into the app. */
+const LINK_ABC = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+/** The text's unique link, deterministic per appointment + event ("taily.app/r/8F3K2Q"): FNV-1a of `${apptId}:${event}`, 6 characters. */
+export function textLink(apptId, event) {
+  let h = 0x811c9dc5;
+  for (const ch of `${apptId}:${event}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  let out = '';
+  for (let i = 0; i < 6; i += 1) { h = Math.imul(h ^ (h >>> 13), 0x5bd1e995) >>> 0; out += LINK_ABC[h & 31]; }
+  return `taily.app/r/${out}`;
 }
 
 /** K-28 (Study-1 A4): a completed order with no review, REVIEW_REMINDER_D or more after it completed → the reminder card + Leave a review. */

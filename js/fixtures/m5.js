@@ -32,7 +32,6 @@ import * as TE_M from './money-scenarios.js';
 import { setFocus as TE_setFocus } from '../focus.js';
 import { fmtExact as TE_exact, fmtNeg as TE_neg } from '../money.js';
 import { fmtDay as TE_day } from '../dates.js';
-import { POLICY as TE_POLICY } from '../money-config.js';
 import { CUSTOMER as TE_CUSTOMER } from '../data.js';
 
 const TE_SC = () => TE_M.SCENARIOS;
@@ -279,16 +278,6 @@ export const FLOWS_sys_session_expired_tailor = [
   { key: 'sys-session-expired-tailor', screen: 't-home', group: 'M5 · System', title: 'Session expired — tailor', note: 'The same locked re-auth sheet on Amara’s Home: the code goes to her own number',
     setup: (S) => { S.driveTo('requested'); S.sim.session = 'expired'; },
     expect: { has: ['Sign in again', TM_AMARA.phone, 'Verify', 'Sign out'], sel: '[data-s="sys-reauth"]' } },
-];
-export const FLOWS_sys_push_prompt = [
-  { key: 'sys-push-prompt', screen: 't-home', group: 'M5 · System', title: 'Notifications ask — tailor', note: 'The soft ask on Home: the benefit first, Not now equal weight',
-    setup: (S) => { S.driveTo('requested'); S.sim.push = 'prompt'; },
-    expect: { has: ['Turn on notifications', 'Not now', `expire after ${TE_POLICY.REQUEST_EXPIRY_H} hours`], sel: '[data-s="sys-push"]' } },
-];
-export const FLOWS_sys_push_prompt_customer = [
-  { key: 'sys-push-prompt-customer', screen: 'c-request', group: 'M5 · System', title: 'Notifications ask — customer', note: 'Test flows only: while a request waits, “Know when Amara replies”',
-    setup: (S) => { S.driveTo('requested'); S.sim.push = 'prompt'; },
-    expect: { has: ['Know when Amara replies', 'Turn on notifications', 'Not now'], sel: '[data-s="sys-push"]' } },
 ];
 export const FLOWS_sys_error_toast = [
   { key: 'sys-error-toast', screen: 'c-pay', group: 'M5 · System', title: 'Request failed — server error', note: 'The next send fails once: banner above the button says nothing was held, toast echoes it, Pay stays enabled',

@@ -4,11 +4,11 @@
      systemBanner(s)            the offline banner (html, or '' while online)
      wireSystem(root, id, …)    Retry on that banner; the re-auth sheet when the session expired
      openReauth(who, …)         locked "Sign in again" sheet: code, Verify, Resend, Sign out
-     openPushPrompt(…)          the soft "Turn on notifications" ask
-     pushBanner(…)              the in-app push card: a new request reaches the tailor (D-167)
+     textBanner(…)              a text message from Taily (K-43, D-301: every notification is an SMS with a unique link;
+                                no push, so no permission ask) — a new request reaches the tailor (D-167)
    Every wait goes through withLatency; every failure says what happened and what did not.
    ============================================================ */
-import { state, now } from './state.js';
+import { state, now, textLink } from './state.js';
 import * as A from './account.js';
 import { withLatency } from './sim.js';
 import { POLICY } from './money-config.js';
@@ -16,7 +16,7 @@ import { myTailor, inbox, requestView } from './tailor-data.js';
 import { setFocus } from './focus.js';
 import { fmtExact } from './money.js';
 import { fmtDay, fmtCountdown, toDate } from './dates.js';
-import { sheetOverlay, modalOverlay, codeInput, cta, toast, esc, ICON_WIFI_OFF, ICON_BELL } from './components.js';
+import { sheetOverlay, codeInput, cta, toast, esc, ICON_WIFI_OFF, ICON_CHAT } from './components.js';
 
 /** Screens that run before / outside a signed-in session: no re-auth sheet on them (the offline banner still shows). */
 export const SYSTEM_EXEMPT = ['c-welcome', 'c-phone', 'c-code', 'c-name', 't-phone', 't-code', 'sys-index', 'sys-components'];
@@ -63,7 +63,7 @@ export function wireSystem(root, screenId, { go } = {}) {
   });
 
   if (state.sim.session === 'expired' && !SYSTEM_EXEMPT.includes(screenId)) openReauth(state.persona, { go, screenId });
-  else if (state.persona === 'tailor' && !SYSTEM_EXEMPT.includes(screenId)) pushNewRequests(root, { go });
+  else if (state.persona === 'tailor' && !SYSTEM_EXEMPT.includes(screenId)) textNewRequests(root, { go });
 }
 
 /* ---------- re-auth ---------- */
@@ -171,75 +171,33 @@ export function openReauth(who = 'customer', { go, screenId } = {}) {
   });
 }
 
-/* ---------- push ask ---------- */
-/** The push ask's modal markup (also the gallery's). */
-export function pushPromptHtml({ title = '', body = '' } = {}) {
-  return `<div class="modal modal--push" role="alertdialog" aria-modal="true" aria-labelledby="push-title" aria-describedby="push-body">
-  <span class="modal__bell" aria-hidden="true">${ICON_BELL}</span>
-  <h2 class="modal__title t-h2" id="push-title">${esc(title)}</h2>
-  <p class="t-body c-700 modal__body" id="push-body">${esc(body)}</p>
-  <div class="modal__actions">
-    ${cta('Turn on notifications', { attrs: 'data-act="push-on"' })}
-    ${cta('Not now', { variant: 'secondary', attrs: 'data-act="push-later"' })}
-  </div>
-</div>`;
-}
-
-/**
- * The soft notification ask (dataS `sys-push`, `role="alertdialog"`): Turn on → `sim.push = 'granted'` + toast;
- * Not now / Escape / scrim → `'denied'`. Both then `onDone()` so the host re-renders its denied banner / note.
- */
-export function openPushPrompt({ title = '', body = '' } = {}, { onDone } = {}) {
-  const html = pushPromptHtml({ title, body });
-  return modalOverlay(html, { dataS: 'sys-push' }, (holder, close) => {
-    let settled = false;
-    const settle = (granted) => {
-      if (settled) return;
-      settled = true;
-      state.sim.push = granted ? 'granted' : 'denied';
-      close();
-      onDone?.();
-      if (granted) toast('Notifications are on', { tone: 'success' });
-    };
-    holder.addEventListener('click', (e) => {
-      const a = e.target.closest('[data-act]');
-      if (!a) return;
-      if (a.dataset.act === 'push-on') settle(true);
-      else if (a.dataset.act === 'push-later' || a.dataset.act === 'modal-dismiss') settle(false);
-    });
-    /* Escape: the chassis closes the modal; record the "not now" with it */
-    holder.ownerDocument.addEventListener('keydown', function onKey(e) {
-      if (!holder.isConnected) { holder.ownerDocument.removeEventListener('keydown', onKey); return; }
-      if (e.key === 'Escape') settle(false);
-    });
-  });
-}
-
-/* ---------- in-app push (D-167) ---------- */
-/** The push card's markup (also the gallery's): a button, so the whole card is one tap target. */
-export function pushBannerHtml({ title = '', body = '', act = 'push-open' } = {}) {
-  return `<button type="button" class="push-banner" data-act="${esc(act)}">
-  <span class="push-banner__glyph" aria-hidden="true">${ICON_BELL}</span>
-  <span class="push-banner__text"><span class="push-banner__title t-small w-700">${esc(title)}</span><span class="push-banner__body t-small" data-money>${esc(body)}</span></span>
+/* ---------- text messages (K-43, D-301; was the in-app push, D-167) ---------- */
+/** A text message's markup (also the gallery's): the Messages banner — "Taily", the text in a bubble, its unique link. A button, so the
+    whole message is one tap target (the link routes into the app, as the push did). */
+export function textBannerHtml({ body = '', link = '', act = 'text-open' } = {}) {
+  return `<button type="button" class="text-banner" data-act="${esc(act)}" data-text-link="${esc(link)}">
+  <span class="text-banner__head"><span class="text-banner__glyph" aria-hidden="true">${ICON_CHAT}</span><span class="t-caps c-600">Text message</span><span class="text-banner__when t-small c-600">now</span></span>
+  <span class="text-banner__from t-small w-700">Taily</span>
+  <span class="text-banner__bubble t-small" data-money>${esc(body)} <span class="text-banner__link">${esc(link)}</span></span>
 </button>`;
 }
 
 /**
- * A notification card over the status bar of `root` (the screen). One at a time; it dismisses itself after 6 s (not under
+ * A text from Taily over the status bar of `root` (the screen). One at a time; it dismisses itself after 6 s (not under
  * `html.is-test`, so a baseline is stable) and slides in only when motion is allowed. Tapping it dismisses it and runs `onOpen`.
  */
-export function pushBanner({ title = '', body = '', act = 'push-open', onOpen } = {}, root = document.getElementById('screen')) {
+export function textBanner({ body = '', link = '', act = 'text-open', onOpen } = {}, root = document.getElementById('screen')) {
   if (!root) return null;
-  root.querySelector('.push-banner')?.remove();
-  root.insertAdjacentHTML('beforeend', pushBannerHtml({ title, body, act }));
-  const el = root.querySelector('.push-banner');
+  root.querySelector('.text-banner')?.remove();
+  root.insertAdjacentHTML('beforeend', textBannerHtml({ body, link, act }));
+  const el = root.querySelector('.text-banner');
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('is-test');
-  if (calm) el.classList.add('push-banner--in'); else requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('push-banner--in')));
+  if (calm) el.classList.add('text-banner--in'); else requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('text-banner--in')));
   let timer = null;
   const dismiss = () => {
     clearTimeout(timer);
     if (!el.isConnected) return;
-    el.classList.remove('push-banner--in');
+    el.classList.remove('text-banner--in');
     if (calm) el.remove(); else setTimeout(() => el.remove(), 250);
   };
   el.addEventListener('click', () => { dismiss(); onOpen?.(); });
@@ -248,21 +206,21 @@ export function pushBanner({ title = '', body = '', act = 'push-open', onOpen } 
 }
 
 /**
- * Tailor persona, notifications on: a request she has not been told about arrives as a push card ("New request · Sarah C."),
- * and tapping it opens that request. While notifications are off (or it is the customer's side) new requests are only
- * remembered — they were seen on Home, so turning notifications on later never replays them.
+ * Tailor persona, texts on: a request she has not been told about arrives as a text ("New request from Sarah C. …" + its link), and
+ * tapping it opens that request. While texts are off (or it is the customer's side) new requests are only remembered — they were seen on
+ * Home, so turning texts on later never replays them.
  */
-function pushNewRequests(root, { go } = {}) {
+function textNewRequests(root, { go } = {}) {
   const seen = (state.ui.pushSeen ??= []);
   const fresh = inbox().requests.filter((a) => a.status === 'requested' && !seen.includes(a.id));
   fresh.forEach((a) => seen.push(a.id));
-  if (state.sim.push !== 'granted' || !fresh.length) return;
+  if (state.sim.texts !== 'on' || !fresh.length) return;
   const a = fresh.reduce((x, y) => (x.requestedAt >= y.requestedAt ? x : y));
   const v = requestView(a);
   const left = fmtCountdown(toDate(a.expiresAt).getTime() - now());
-  pushBanner({
-    title: `New request · ${v.customer.name}`,
-    body: `${v.visitLabel} ${fmtDay(a.slot.start)} · Your payout ${fmtExact(v.payout)} · ${left} to reply`,
+  textBanner({
+    body: `New request from ${v.customer.name} · ${v.visitLabel} ${fmtDay(a.slot.start)} · Your payout ${fmtExact(v.payout)} · ${left} to reply.`,
+    link: textLink(a.id, 'request'),
+    onOpen: () => { setFocus(a.id); go?.('t-request'); },
   }, root);
-  root.querySelector('.push-banner')?.addEventListener('click', () => { setFocus(a.id); go?.('t-request'); });
 }

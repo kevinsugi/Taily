@@ -28,8 +28,10 @@
      J18 edit after the fitting (Study-1 B1–B2, K-30 overruled): a private note; Amara edits the job (price, reason) -> Mark ready waits ->
          Sarah sees "Amara edited your order" (Approve / Message, no decline) and messages -> Amara revises (price back, later date) ->
          Sarah approves -> Mark ready
-     J19 the 24-hour reminder (K-41, R3): Demo "To the reminder" (26 h before) -> the push -> the Home card -> Confirm -> Amara sees
+     J19 the 24-hour reminder (K-41, R3): Demo "To the reminder" (26 h before) -> the text (K-43) -> the Home card -> Confirm -> Amara sees
          "Sarah confirmed" on t-home and t-job -> Sarah cancels 25 h ahead -> the confirm closed the free window, Amara keeps the $16.00
+     J20 no reply (K-43): the reminder -> the nudge text at 6 h ("Confirm by 2:00 PM or we'll cancel it") -> both sides warn -> at 3 h the
+         visit is cancelled (cancel text, c-booking cancelled, t-job "Sarah didn't confirm · visit cancelled", Amara keeps the $16.00)
      J14 the anchored popover (K-25): a garment thumb toggles it, another thumb moves it, Escape returns focus, it flips above near the
          window bottom, the Verified check shares its one slot; t-home's count cluster lists every item and the card still opens the request
 
@@ -283,7 +285,8 @@ await journey('J6b', 'no changes still needs approval', async () => {
 
 /* ---------- J7 (D-143) ---------- */
 await journey('J7', 'courier return: the three courier amounts match on both sides and stay out of the payout', async () => {
-  const cq = S.courierQuote;
+  const cq = S.courierOffPeak;                          // K-43 (D-299): the sheet opens on the first window (10:30 AM, off-peak) — its own quote
+  const held = S.seed.balance + cq.cents;
   await flow('t-job--in-progress');
   await click('[data-act="mark-ready"]');
   await click('[data-act="ready-ok"]');
@@ -293,18 +296,18 @@ await journey('J7', 'courier return: the three courier amounts match on both sid
   await click('.appt-row');
   await at('J7 customer: ready', 'c-ready');
   await click('[data-act="return"][data-value="courier"]');
-  await at('J7 customer: courier chosen, the window first (K-40)', 'c-ready', { has: ['Pick a delivery window', 'plus the courier fee', 'Pick a delivery window first.'], not: ['Uber quote', `Hold ${fmtExact(S.courier.balance)}`] });
+  await at('J7 customer: courier chosen, the window first (K-40)', 'c-ready', { has: ['Pick a delivery window', 'plus the courier fee', 'Pick a delivery window first.'], not: ['Uber quote', `Hold ${fmtExact(held)}`] });
   await click('[data-act="pick-time"]');
-  await at('J7 customer: the window sheet prices the courier', 'c-ready', { has: ['Pick a delivery window', `Courier ${fmtExact(cq.cents)} · collects from Amara at`, 'Use this window'] });
+  await at('J7 customer: the window sheet prices the courier per window, and says a missed delivery is left in the lobby', 'c-ready', { has: ['Pick a delivery window', `Courier ${fmtExact(cq.cents)} · collects from Amara at`, 'Each window has its own Uber price.', 'If you’re not home, the courier leaves it in your building’s lobby.', 'Use this window'] });
   await click('[data-act="ht-ok"]');
-  await at('J7 customer: courier quote', 'c-ready', { has: ['Fri, Oct 16 · 10:30–11:00 AM', fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Hold ${fmtExact(S.courier.balance)}`] });
+  await at('J7 customer: courier quote', 'c-ready', { has: ['Fri, Oct 16 · 10:30–11:00 AM', fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Hold ${fmtExact(held)}`] });
   await click('[data-act="pay"]');
   await click('[data-act="pay-ok"]');
-  await at('J7 customer: courier booked', 'c-booking', { has: ['Courier booked · arrives Fri, Oct 16 · 10:30–11:00 AM', 'The courier collects from Amara at 10:15 AM', fmtExact(cq.cents)] });
+  await at('J7 customer: courier booked', 'c-booking', { has: ['Courier booked · arrives Fri, Oct 16 · 10:30–11:00 AM', 'The courier collects from Amara at 10:15 AM', fmtExact(cq.cents), 'If you’re not home, the courier leaves it in your building’s lobby.'] });
   await flip();
   await click('.appt-row');
   await at('J7 tailor: courier booked, not her money', 't-job', {
-    has: ['Courier collects 10:15 AM · arrives 10:30–11:00 AM', 'Only she can change it.', 'Paid by Sarah · nothing comes out of your payout', fmtExact(S.seed.payout)],
+    has: ['Courier collects 10:15 AM · arrives 10:30–11:00 AM', 'Only she can change it.', 'Paid by Sarah · nothing comes out of your payout', 'If Sarah isn’t home, the courier leaves it in her building’s lobby.', fmtExact(S.seed.payout)],
     not: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), 'Handed to courier'],
   });
 });
@@ -631,9 +634,9 @@ await journey('J19', 'the 24-hour reminder: the Home card, Confirm, Amara sees i
   const dep = fmtExact(S.seed.deposit);
   await flow('c-booking--confirmed');
   await demo('reminder');
-  await at('J19 customer: the push and the prompt on the booking', 'c-booking', { has: ['Still on for tomorrow?', 'Confirm by 5:00 PM today', 'Confirm for tomorrow'] });
-  await click('.push-banner');
-  await at('J19 customer: the push opens Home — the prompt card', 'c-job', { has: ['Still on for tomorrow?', 'Free until 5:00 PM', 'Your move', `Once you confirm, Amara keeps your ${dep} deposit if you cancel or aren’t home.`, 'Change or cancel'] });
+  await at('J19 customer: the text and the prompt on the booking', 'c-booking', { has: ['TEXT MESSAGE', 'Taily', 'Still on for tomorrow?', 'Confirm or change:', 'taily.app/r/', 'Confirm by 5:00 PM today', 'Confirm for tomorrow'] });
+  await click('.text-banner');
+  await at('J19 customer: the text’s link opens Home — the prompt card', 'c-job', { has: ['Still on for tomorrow?', 'Free until 5:00 PM', 'Your move', `Once you confirm, Amara keeps your ${dep} deposit if you cancel or aren’t home.`, 'Change or cancel'] });
   await flip();
   await at('J19 tailor: not confirmed yet', 't-home', { has: ['Not confirmed yet'] });
   await flip();
@@ -655,6 +658,30 @@ await journey('J19', 'the 24-hour reminder: the Home card, Confirm, Amara sees i
   await flip();
   await page.evaluate(() => window.Taily.render('t-job'));
   await at('J19 tailor: Sarah cancelled, Amara keeps the deposit', 't-job', { has: ['Sarah cancelled', 'She cancelled after confirming the visit, so you keep her deposit.', fmtExact(S.lateCancel.tailorPaid)] });
+});
+
+/* ---------- J20 (K-43, D-300 / D-301) ---------- */
+await journey('J20', 'no reply to the reminder: the nudge text at 6 h, then the visit is cancelled at 3 h — both sides, the deposit kept', async () => {
+  const dep = fmtExact(S.seed.deposit);
+  await flow('c-booking--reminder');                                   // Wed 3:00 PM: asked, no answer
+  await advance(19 * 60);                                              // Thu 10:00 AM (the model clock; no text yet)
+  await demo('h1');                                                    // Thu 11:00 AM: 6 h before → the nudge
+  await at('J20 customer: the nudge arrives as a text', 'c-booking', { has: ['TEXT MESSAGE', 'You haven’t confirmed your 5:00 PM visit with Amara today.', `Confirm by 2:00 PM or we’ll cancel it, and Amara keeps your ${dep} deposit.`, 'taily.app/r/'] });
+  await click('.text-banner');
+  await at('J20 customer: the booking warns before it happens', 'c-booking', { has: ['Confirm by 2:00 PM or we’ll cancel the visit', 'Visit 5:00 PM', 'Confirm, I’ll be home'], not: 'TEXT MESSAGE' });
+  await flip();
+  await page.evaluate(() => window.Taily.render('t-job'));
+  await at('J20 tailor: Sarah hasn’t confirmed — the auto-cancel rule', 't-job', { has: ['Sarah hasn’t confirmed', `We reminded her at 11:00 AM. If she doesn’t confirm by 2:00 PM, we cancel the visit and you keep her ${dep} deposit.`] });
+  await flip();
+  await page.evaluate(() => window.Taily.render('c-booking'));
+  await demo('h1');
+  await demo('h1');
+  await at('J20 customer: 1:00 PM — still booked', 'c-booking', { has: ['Confirm by 2:00 PM or we’ll cancel the visit'] });
+  await demo('h1');                                                    // Thu 2:00 PM: 3 h before → cancelled
+  await at('J20 customer: the cancel text and the cancelled booking', 'c-booking', { has: [`We cancelled your 5:00 PM visit with Amara because you didn’t confirm by 2:00 PM. Amara keeps your ${dep} deposit.`, 'Visit cancelled', `We cancelled your visit because you didn’t confirm by 2:00 PM. Amara keeps your ${dep} deposit for the time set aside.`, 'Kept', 'Book Amara again'], not: 'Confirm, I’ll be home' });
+  await flip();
+  await page.evaluate(() => window.Taily.render('t-job'));
+  await at('J20 tailor: Sarah didn’t confirm · visit cancelled, the deposit is hers', 't-job', { has: ['Sarah didn’t confirm · visit cancelled', 'Visit cancelled', `you keep her ${dep} deposit`, 'Kept deposit', fmtExact(S.lateCancel.tailorPaid)], not: 'Mark as no-show' });
 });
 
 /* ---------- J14 (K-25) ---------- */

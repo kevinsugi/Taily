@@ -20,7 +20,7 @@
      J11 payout lifecycle: completed -> Pending (the Friday) -> the Friday run -> Paid, fee and payout in dollars (D-24, D-136)
      J12 a suggested time lapses: both sides end it and the hold is released (D-154)
      J13 Book now on the profile opens the picker on the next opening; one tap confirms it into review (K-18)
-     J15 pickup with the code (Study-1 A2–A4, K-40): pick the time (Hold waits for it), Hold, move the time (Amara sees it), Sarah's code, a wrong code,
+     J15 pickup with the code (Study-1 A2–A4, K-40): pick the time (Pay waits for it), Pay (K-44: still a hold underneath), move the time (Amara sees it), Sarah's code, a wrong code,
          the right code completes both sides, Job Done
      J16 pickup without the code (Study-1 A3, K-37 — was the drop-off): Amara marks it picked up -> the 47h countdown on both sides -> "I didn't get it"
          pauses it -> "I got it" completes
@@ -296,11 +296,11 @@ await journey('J7', 'courier return: the three courier amounts match on both sid
   await click('.appt-row');
   await at('J7 customer: ready', 'c-ready');
   await click('[data-act="return"][data-value="courier"]');
-  await at('J7 customer: courier chosen, the window first (K-40)', 'c-ready', { has: ['Pick a delivery window', 'plus the courier fee', 'Pick a delivery window first.'], not: ['Uber quote', `Hold ${fmtExact(held)}`] });
+  await at('J7 customer: courier chosen, the window first (K-40)', 'c-ready', { has: ['Pick a delivery window', 'plus the courier fee', 'Pick a delivery window first.'], not: ['Uber quote', `Pay ${fmtExact(held)}`, 'Hold $'] });
   await click('[data-act="pick-time"]');
   await at('J7 customer: the window sheet prices the courier per window, and says a missed delivery is left in the lobby', 'c-ready', { has: ['Pick a delivery window', `Courier ${fmtExact(cq.cents)} · collects from Amara at`, 'Each window has its own Uber price.', 'If you’re not home, the courier leaves it in your building’s lobby.', 'Use this window'] });
   await click('[data-act="ht-ok"]');
-  await at('J7 customer: courier quote', 'c-ready', { has: ['Fri, Oct 16 · 10:30–11:00 AM', fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Hold ${fmtExact(held)}`] });
+  await at('J7 customer: courier quote', 'c-ready', { has: ['Fri, Oct 16 · 10:30–11:00 AM', fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Pay ${fmtExact(held)}`, 'Charged on delivery'] });
   await click('[data-act="pay"]');
   await click('[data-act="pay-ok"]');
   await at('J7 customer: courier booked', 'c-booking', { has: ['Courier booked · arrives Fri, Oct 16 · 10:30–11:00 AM', 'The courier collects from Amara at 10:15 AM', fmtExact(cq.cents), 'If you’re not home, the courier leaves it in your building’s lobby.'] });
@@ -476,15 +476,15 @@ await journey('J15', 'pickup with the code: hold at the choice, the code, a wron
   const bal = fmtExact(S.seed.balance);
   await flow('c-ready');
   await click('[data-act="return"][data-value="pickup"]');
-  await at('J15 customer: what holding means; the time first (K-40)', 'c-ready', { has: [`Hold ${bal}`, `We’ll hold ${bal} now and charge it when you get your garments.`, 'If you haven’t got it 7 days after you choose', 'Pick a time', 'Pick a pickup time first.'], not: `Pay ${bal}` });
+  await at('J15 customer: when she is charged; the time first (K-40)', 'c-ready', { has: [`Pay ${bal}`, `You’ll be charged ${bal} when you get your garments.`, 'If you haven’t got it 7 days after you choose', 'Pick a time', 'Pick a pickup time first.'], not: [`Hold ${bal}`, 'Charged at pickup'] });
   await click('[data-act="pick-time"]');
   await at('J15 customer: the Scheduler sheet', 'c-ready', { has: ['Pick a pickup time', 'Fri, Oct 16 · 10:00 AM', 'Use this time'] });
   await click('[data-act="ht-ok"]');
-  await at('J15 customer: the time picked, Hold is on', 'c-ready', { has: ['Fri, Oct 16 · 10:00 AM', 'Pickup Fri, Oct 16 · 10:00 AM · Free', `Hold ${bal}`], not: 'Pick a pickup time first.' });
+  await at('J15 customer: the time picked, Pay is on', 'c-ready', { has: ['Fri, Oct 16 · 10:00 AM', 'Charged at pickup', `Pay ${bal}`], not: 'Pick a pickup time first.' });
   await click('[data-act="pay"]');
-  await at('J15 customer: the hold sheet', 'c-ready', { has: ['Hold the balance', `Hold ${bal}`] });
+  await at('J15 customer: the pay sheet', 'c-ready', { has: ['Pay the balance', 'Charged at pickup', `Pay ${bal}`] });
   await click('[data-act="pay-ok"]');
-  await at('J15 customer: on hold, the pickup code', 'c-booking', { has: ['Pickup Fri, Oct 16 · 10:00 AM · show your code at the shop', 'On hold', bal, 'YOUR PICKUP CODE', PICKUP_CODE, 'I got it', 'Change time'], not: 'Paid in full' });
+  await at('J15 customer: pending, the pickup code', 'c-booking', { has: ['Pickup Fri, Oct 16 · 10:00 AM · show your code at the shop', `Payment ${bal} · Charged at handoff`, 'Charged at handoff', 'YOUR PICKUP CODE', PICKUP_CODE, 'I got it', 'Change time'], not: 'Paid in full' });
   await click('[data-act="change-time"]');
   await at('J15 customer: change the time', 'c-booking', { has: ['Change pickup time', 'Booked for Fri, Oct 16 · 10:00 AM', 'NEW TIME', 'Move my pickup'] });
   await click('[data-act="ht-ok"]');
@@ -525,7 +525,7 @@ await journey('J16', 'pickup without the code: Amara marks it, the countdown bot
   await at('J16 customer: problem reported, the countdown stopped', 'c-booking', { has: ['You reported a problem. We’ve stopped the automatic completion and told Amara.', 'I got it'], not: ['Completes automatically', 'I didn’t get it'] });
   await advance(3 * 24 * 60);
   await paint('c-booking');
-  await at('J16 customer: three days on, still open (paused)', 'c-booking', { has: ['You reported a problem', 'On hold'] });
+  await at('J16 customer: three days on, still open (paused)', 'c-booking', { has: ['You reported a problem', 'Charged at handoff'] });
   await flip();
   await click('.appt-row');
   await at('J16 tailor: Sarah didn’t get it', 't-job', { has: ['Sarah says she didn’t get it. Sort it out in chat.', 'Message Sarah'], not: 'Completes automatically' });
@@ -533,7 +533,7 @@ await journey('J16', 'pickup without the code: Amara marks it, the countdown bot
   await click('[data-nav="bookings"]');
   await click('.appt-row');
   await click('[data-act="got-it"]');
-  await at('J16 customer: got everything?', 'c-booking', { has: ['Got everything?', `We’ll charge the ${fmtExact(S.seed.balance)} on hold and close the order.`, 'Yes, I got it', 'Not yet'] });
+  await at('J16 customer: got everything?', 'c-booking', { has: ['Got everything?', `We’ll charge your ${fmtExact(S.seed.balance)} balance and close the order.`, 'Yes, I got it', 'Not yet'] });
   await click('[data-act="got-ok"]');
   await at('J16 customer: Job Done', 'c-complete', { has: ['ORDER COMPLETE', `Charged ${fmtExact(S.seed.balance)}`, 'Leave a review'] });
   await flip();
@@ -561,7 +561,7 @@ await journey('J17', 'the clock: +48 hours auto-completes a marked pickup; +7 da
   await at('J17 customer: a week later, the review reminder on Home', 'c-job', { has: ['How did Amara do?', 'It’s been a week since your order came back. Your review helps other customers.', 'Leave a review'] });
   await flow('c-booking--handoff-pickup');
   await demo('d7');
-  await at('J17 customer: charged after 7 days, still open', 'c-booking', { has: [`We charged the ${bal} on hold after 7 days. Amara still keeps it for you until you pick it up.`, 'Charged', 'YOUR PICKUP CODE', `Ready · ${bal} charged`], not: 'On hold' });
+  await at('J17 customer: charged after 7 days, still open', 'c-booking', { has: [`We charged your ${bal} balance after 7 days. Amara still keeps it for you until you pick it up.`, 'Charged', 'YOUR PICKUP CODE', `Ready · ${bal} charged`], not: 'On hold' });
   await flip();
   await click('.appt-row');
   await at('J17 tailor: charged, paid at the handoff', 't-job', { has: [`Sarah’s ${bal} was charged after 7 days. You’re paid when she picks it up.`, 'Picked up'] });

@@ -22,16 +22,16 @@ export const FLOWS_c_ready = [
     setup: (S) => { const a = S.driveTo('ready'); S.T.chooseReturn(a.id, 'pickup'); },
     click: ['[data-act="pick-time"]'],
     expect: { has: ['Pick a pickup time', 'Reyes Tailoring · 312 Metropolitan Ave', 'PICKUP', 'Fri, Oct 16 · 10:00 AM', 'Only times Amara’s shop is open, in the next 7 days. You can change it later from your booking.', 'Use this time', 'Cancel'], sel: '[data-s="c-ready--pick-time"] [data-scheduler]', also: '[data-s="c-ready--pick-time"] [data-act="ht-ok"]' } },
-  { ...CR, key: 'c-ready--time-picked', title: 'Pickup time picked', note: 'K-40 T1: the When row reads the time in ink with an ink ring; the bar says when; Hold is on',
+  { ...CR, key: 'c-ready--time-picked', title: 'Pickup time picked', note: 'K-40 T1: the When row reads the time in ink with an ink ring; the bar says when it is charged (K-44); Pay is on',
     setup: (S) => { const a = S.driveTo('ready'); S.T.chooseReturn(a.id, 'pickup'); D1_pick(a.id); },
-    expect: { has: ['Fri, Oct 16 · 5:30 PM', 'Pickup time · Amara has it ready then', 'Pickup Fri, Oct 16 · 5:30 PM · Free', `Hold ${BAL}`, `We’ll hold ${BAL} now`], not: ['Pick a pickup time first.', 'Pick a time'], sel: '.when-row.is-set', also: '[data-act="pay"]:not([disabled])' } },
+    expect: { has: ['Fri, Oct 16 · 5:30 PM', 'Pickup time · Amara has it ready then', 'Charged at pickup', `Pay ${BAL}`, `You’ll be charged ${BAL} when you get your`], not: ['Pick a pickup time first.', 'Pick a time', 'Hold $', 'We’ll hold'], sel: '.when-row.is-set', also: '[data-act="pay"]:not([disabled])' } },
   { ...CR, key: 'c-ready--courier-window', title: 'Pick a delivery window', note: 'K-40 T1 + K-43: Taily courier chosen — Day · Arrives wheel of 30-minute windows; that window’s own Uber price (it changes as she scrolls) and the collection time under it; a missed delivery is left in the lobby',
     setup: (S) => { const a = S.driveTo('ready'); S.T.chooseReturn(a.id, 'courier'); },
     click: ['[data-act="pick-time"]'],
     expect: { has: ['Pick a delivery window', 'Reyes Tailoring → 145 N 7th St, 2R · 0.6 mi', 'ARRIVES', 'Fri, Oct 16 · 10:30–11:00 AM', `Courier ${COURIER_OFF} · collects from Amara at 10:15 AM`, 'Each window has its own Uber price.', 'Taily books the courier to collect from Amara before your window.', LOBBY, 'Use this window'], not: COURIER, sel: '[data-s="c-ready--courier-window"] [data-scheduler]' } },
-  { ...CR, key: 'c-ready--courier-picked', title: 'Delivery window picked', note: 'K-40 T1 + K-43: the window in the When row, the courier card (that window’s Uber quote + Taily fee, the lobby line) and the hold with the courier; Hold is on',
+  { ...CR, key: 'c-ready--courier-picked', title: 'Delivery window picked', note: 'K-40 T1 + K-43: the window in the When row, the courier card (that window’s Uber quote + Taily fee, the lobby line) and the charge line with the courier; Pay is on, the bar says when it is charged (K-44)',
     setup: (S) => { const a = S.driveTo('ready'); S.T.chooseReturn(a.id, 'courier'); D1_pick(a.id); },
-    expect: { has: ['Fri, Oct 16 · 5:00–5:30 PM', 'Delivery window · courier collects 4:45 PM', `${COURIER} · Uber to your door`, 'Uber quote', 'Taily courier fee', 'Courier · arrives Fri 5:00–5:30 PM', `Hold ${D1_exact(D1_SC.courier.balance)}`, `We’ll hold ${D1_exact(D1_SC.courier.balance)} now`, LOBBY], not: ['plus the courier fee', 'Uber, today', COURIER_OFF], sel: '.when-row.is-set', also: '[data-act="pay"]:not([disabled])' } },
+    expect: { has: ['Fri, Oct 16 · 5:00–5:30 PM', 'Delivery window · courier collects 4:45 PM', `${COURIER} · Uber to your door`, 'Uber quote', 'Taily courier fee', 'Charged on delivery', `Pay ${D1_exact(D1_SC.courier.balance)}`, `You’ll be charged ${D1_exact(D1_SC.courier.balance)} when you get your`, LOBBY], not: ['plus the courier fee', 'Hold $', 'Uber, today', COURIER_OFF], sel: '.when-row.is-set', also: '[data-act="pay"]:not([disabled])' } },
 ];
 
 /* ---------- customer: c-booking — the picked time, Change time, a missed pickup ---------- */
@@ -49,7 +49,7 @@ export const FLOWS_c_booking = [
     expect: { has: ['Pickup Sat, Oct 17 · 2:00 PM · show your code at the shop', 'You moved it from Fri, Oct 16 · 5:30 PM', 'Open Sat 1:00 PM – 5:00 PM', 'Change time', 'YOUR PICKUP CODE'] } },
   { ...CB, key: 'c-booking--pickup-missed', title: 'Missed pickup', note: 'K-40 (D-295): the pickup time passed — no fee, she picks a new time; the 7-day clock keeps running from the hold',
     setup: (S) => { S.driveTo('awaiting-handoff'); S.setClock('2026-10-16T18:00'); },
-    expect: { has: ['You missed your pickup at 5:30 PM · pick a new time', 'You missed this time. Pick a new one, no fee.', 'Pick a new time', 'On hold'], not: 'Change time', sel: '[data-strip="warn"]', also: '[data-act="change-time"]' } },
+    expect: { has: ['You missed your pickup at 5:30 PM · pick a new time', 'You missed this time. Pick a new one, no fee.', 'Pick a new time', 'Charged at handoff'], not: ['Change time', 'On hold'], sel: '[data-strip="warn"]', also: '[data-act="change-time"]' } },
 ];
 
 /* ---------- tailor: t-job — Sarah's time, only she can move it ---------- */

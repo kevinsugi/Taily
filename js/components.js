@@ -1205,7 +1205,7 @@ const INFO = {
   pricing: () => ({ title: 'How pricing works', lines: [
     'Estimates use each tailor’s own price list.',
     'At the fitting, the tailor sends you the final order. Nothing changes until you approve it.',
-    'When your order is ready, we hold the balance and charge it when you get your items.'] }),   // K-27 (Study-1 A2)
+    'When your order is ready, you pay the balance in the app. You’re charged when you get your items.'] }),   // K-27 (Study-1 A2); K-44 wording
   deposit: () => ({ title: 'About the deposit', lines: [
     'The deposit is held on your card, and charged only when the tailor accepts.',
     'It comes off your final total.',
@@ -1680,7 +1680,7 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
   /* K-27 (Study-1 A2): `held` = picked a way back, the balance is on hold; `charged` = captured before the handoff (unclaimed after 7 days) */
   const settled = stage === 'paid' || stage === 'held' || stage === 'charged';
   const balance = (stage === 'ready' || stage === 'held') && q.balance === 0 ? 'Nothing to pay'
-    : { paid: 'Paid', held: 'On hold', charged: 'Charged', ready: 'Hold now' }[stage] ?? 'Due when ready';   // D-156
+    : { paid: 'Paid', held: 'Charged at handoff', charged: 'Charged', ready: 'Charged at handoff' }[stage] ?? 'Due when ready';   // D-156; K-44 (D-302): the balance is never "On hold" / "Hold now" to her
   const rows = [
     { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
     q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee, caption: HOME_FEE_CAPTION },

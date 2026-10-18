@@ -87,7 +87,7 @@ function rowFor(a, kind, fmtAmt) {
     else if (a.status === 'awaiting-handoff') {
       const b = a.payments.balance;
       row.amountText = fmtAmt(b.cents > 0 ? b.cents : a.money.total);
-      row.amountCaption = b.state === 'captured' ? 'Charged' : b.cents > 0 ? 'On hold' : 'Paid';   // Study-1 A2
+      row.amountCaption = b.state === 'captured' ? 'Charged' : b.cents > 0 ? 'Charged at handoff' : 'Paid';   // Study-1 A2; K-44 (D-302): the short status, not "On hold"
     }
   }
   if (kind === 'past' && a.status === 'completed') {

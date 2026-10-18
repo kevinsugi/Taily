@@ -107,7 +107,7 @@ export function tick() {
         const at = isoMinute(new Date(cap));
         captureHold(a, 'unclaimed', at);
         const amt = fmtExact(a.payments.balance.cents);
-        post(a.tailorId, 'system', `We charged the ${amt} on hold after ${POLICY.UNCLAIMED_CAPTURE_D} days`, { at, tailorText: `${state.customer.first}’s ${amt} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days` });
+        post(a.tailorId, 'system', `We charged your ${amt} balance after ${POLICY.UNCLAIMED_CAPTURE_D} days`, { at, tailorText: `${state.customer.first}’s ${amt} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days` });
         expired.push(a.id);
       }
       if (auto <= state.clock.now) { completeHandoff(a, 'auto', a.handoff.autoAt); expired.push(a.id); }
@@ -1215,7 +1215,7 @@ export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   setStatus(a, 'awaiting-handoff');
   const how = RETURN_LABEL[a.returnOption].toLowerCase();
   const amt = fmtExact(a.money.balance);
-  say(a, charge ? `You chose ${how}. ${amt} is on hold.` : `You chose ${how}.`, charge ? `${state.customer.first} chose ${how}. Her ${amt} is on hold.` : `${state.customer.first} chose ${how}.`);
+  say(a, charge ? `You chose ${how}. You’ll be charged ${amt} at handoff.` : `You chose ${how}.`, charge ? `${state.customer.first} chose ${how}. Her ${amt} is on hold.` : `${state.customer.first} chose ${how}.`);
   return succeed(a);
 }
 

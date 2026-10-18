@@ -346,15 +346,16 @@ function handoffView(a, t, first) {
   }[how];
 
   const strip = requestStrip({ page: true, ...cfg.strip });
-  /* K-27: the one amount is the balance on hold (or charged after 7 days), with the card under it; a $0 balance has nothing on hold (D-156) */
+  /* K-27: the one amount is the balance on hold (or charged after 7 days), with the card under it; a $0 balance has nothing on hold (D-156).
+     K-44 (D-302): customer-side the held balance reads "Payment $X · Charged at handoff" (short: "Charged at handoff"), never "On hold" */
   const head = pageHead(requestHead({
     page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
-    ...(held > 0 ? { payoutCents: held, label: charged ? 'Charged' : 'On hold', lines: [balanceCardLabel(a)] } : { payoutCents: a.money.total, label: 'Paid in full' }),
+    ...(held > 0 ? { payoutCents: held, label: charged ? 'Charged' : 'Charged at handoff', lines: [balanceCardLabel(a)] } : { payoutCents: a.money.total, label: 'Paid in full' }),
   }));
   const alert = problem
     ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `You reported a problem. We’ve stopped the automatic completion and told ${f}.` })}</div>`
     : charged && bal.captureReason === 'unclaimed'
-      ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `We charged the ${money(held)} on hold after ${POLICY.UNCLAIMED_CAPTURE_D} days. ${f} still keeps it for you until you ${how === 'pickup' ? 'pick it up' : 'get it'}.` })}</div>` : '';
+      ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `We charged your ${money(held)} balance after ${POLICY.UNCLAIMED_CAPTURE_D} days. ${f} still keeps it for you until you ${how === 'pickup' ? 'pick it up' : 'get it'}.` })}</div>` : '';
   const stage = hangStage({
     types: items.map((g) => g.type), tag: [sarah, cfg.tag], left: `${plural(items.length, 'item')} · ${plural(services, 'service')}`, right: cfg.right,
     label: `${plural(items.length, 'item')} ready: ${andList(items.map((g) => g.type))}, hung on a rail with a tag: ${sarah}, ${cfg.tag}`,   // K-21: every garment is drawn, so the label names every one
@@ -363,7 +364,7 @@ function handoffView(a, t, first) {
   const handoff = how === 'pickup' && !marked
     ? pickupCode({ code: h.code ?? '' })
     : marked ? autoCompleteLine(autoCompleteLeft(a)) : '';
-  const heldLine = held > 0 ? (charged ? `Ready · ${money(held)} charged` : `Ready · ${money(held)} on hold`) : 'Ready · nothing to pay';
+  const heldLine = held > 0 ? (charged ? `Ready · ${money(held)} charged` : `Payment ${money(held)} · Charged at handoff`) : 'Ready · nothing to pay';
   const steps = timeline([{ state: 'done', title: 'Booked, fitted, tailored', sub: heldLine }, ...cfg.steps]);
   const courierCaption = how === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {};
   const breakdown = customerBreakdown(a.money, { stage: charged ? 'charged' : 'held', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '', ...courierCaption });
@@ -595,7 +596,7 @@ function openChangeTime(a, first) {
 function openGotIt(a, first) {
   const held = a.payments.balance.state === 'held' ? a.payments.balance.cents : 0;
   const html = (busy = false) => `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
-  <p class="t-body c-700">${held > 0 ? `We’ll charge the ${money(held)} on hold and close the order.` : 'We’ll close the order.'}</p>
+  <p class="t-body c-700">${held > 0 ? `We’ll charge your ${money(held)} balance and close the order.` : 'We’ll close the order.'}</p>
   ${cta('Yes, I got it', { busy, busyLabel: 'Closing…', attrs: 'data-act="got-ok"' })}
   ${cta('Not yet', { variant: 'secondary', disabled: busy, attrs: 'data-act="got-keep"' })}
 </div>`;

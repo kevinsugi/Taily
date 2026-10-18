@@ -23,6 +23,7 @@
 .c-ready-sheet p { margin: 0; }
 .c-ready-sheet__pay { display: flex; flex-direction: column; gap: var(--rhythm-tight); }   /* P2-1: the label and its group are one sub-group with their own gap (was a -8 margin cancelling the sheet's 16) */
 .c-ready-sheet__group { display: flex; flex-direction: column; }
+.c-ready-sheet__go { display: flex; flex-direction: column; gap: var(--rhythm-tight); }   /* K-44: the charge caption hugs the Pay button, as the action-bar lead does */
 .c-ready-sheet__group[aria-disabled="true"] { opacity: 0.6; pointer-events: none; }
 @media (max-width: 300px) { .c-ready__group .option-row__lead { display: none; } .c-ready__opt { flex-wrap: wrap; column-gap: var(--space-12); } }   /* K9-2-03 zoom tier (D-233): the decorative way-back glyph yields its 44 px so the shop + street wrap between words, not inside "Metropolitan"; "Free" drops under a way back that needs the whole line */
 /* K-27 (Study-1 A2): the hold line and the unclaimed rule under the ways back */

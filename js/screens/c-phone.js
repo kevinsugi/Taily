@@ -4,12 +4,14 @@
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
 import { state } from '../state.js';
-import { statusBar, headingRow, field, actionBar } from '../components.js';
+import { statusBar, headingRow, field, actionBar, toast } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 
 const ID = 'c-phone';
-const HELPER = 'US numbers only. Message and data rates may apply.';
+const HELPER = 'We’ll text you a sign-in code and updates about your bookings from Taily. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.';   // SF-05
+/** SF-24: the terms notice sits with the button that creates the account (kept apart from the SMS helper). */
+const TERMS = '<span>By tapping Send code, you agree to Taily’s <button type="button" class="c-phone__link" data-act="terms" data-hit="inline">Terms</button> and <button type="button" class="c-phone__link" data-act="privacy" data-hit="inline">Privacy Policy</button>.</span>';
 const ERRORS = { 'phone-invalid': 'Enter a 10-digit US number, like (718) 555-0142.' };
 
 const ui = () => (state.ui[ID] ??= {});
@@ -26,7 +28,7 @@ function view(s) {
     error: ERRORS[d.error] ?? '', disabled: !!d.busy,
   })}
 </main>
-${actionBar({ ctaLabel: 'Send code', ctaAct: 'send-code', busy: !!d.busy, busyLabel: 'Sending code…' })}`;
+${actionBar({ ctaLabel: 'Send code', ctaAct: 'send-code', busy: !!d.busy, busyLabel: 'Sending code…', lead: TERMS })}`;
 }
 
 function wire(root) {
@@ -62,6 +64,7 @@ function wire(root) {
   /* the action bar is a sibling of main: bind to this render's own nodes, never to root */
   root.querySelector('.action-bar').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="send-code"]')) send();
+    else if (e.target.closest('[data-act="terms"], [data-act="privacy"]')) toast('Terms and Privacy aren’t in this prototype yet.');   // SF-24: as c-welcome
   });
 
   function send() {

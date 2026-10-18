@@ -10,7 +10,7 @@
    accepts. Which appointment: focusAppt (D-72).
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
-import { state, T, now, TERMINAL, suggestLapseAt } from '../state.js';
+import { state, T, now, TERMINAL, suggestLapseAt, getAppt } from '../state.js';
 import { requestView, suggestPrice } from '../tailor-data.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 import { fmtExact } from '../money.js';
@@ -20,7 +20,7 @@ import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, navBackMark, requestStrip, requestHead, visitBlock, workList, tailorBreakdown, actionBar, cta, emptyState,
-  chipGroup, sheetOverlay, toast, esc, wirePhotoViewer, sectionHead, infoButton,
+  chipGroup, sheetOverlay, toast, esc, wirePhotoViewer, sectionHead, infoButton, textLink, ICON_CHAT,
 } from '../components.js';
 
 const ID = 't-request';
@@ -36,11 +36,12 @@ const payoutSection = (v, money = v.money) => `<section class="sec" aria-labelle
 
 function visitSection(a, v, { title, asked = '', addressNote = '', start = a.slot.start, end = v.whenEnd, extra = [] } = {}) {
   const days = dayDiff(start, a.job.needBy);
+  const rush = a.status === 'suggested' ? suggestPrice(a, start).rush : a.money.rush;
   /* K-10 (D-235): icon rows — calendar (date + length), map-pin (place), clock (needed by) */
   const rows = [
     { icon: 'calendar', value: esc(title), strong: true, detail: [...(asked ? [asked] : []), `${esc(v.visitLabel)} · ${v.minutes} min, until ${esc(end)}`] },
     { icon: 'map-pin', value: `<span class="${ID}__place">${esc(v.place)}</span>`, detail: addressNote ? esc(addressNote) : '' },
-    { icon: 'clock', value: `Needed by <span class="nb">${esc(v.needBy)}</span>`, detail: `${plural(days, 'day', 'days')} after the visit` },
+    { icon: 'clock', value: `Needed by <span class="nb">${esc(v.needBy)}</span>`, detail: `${plural(days, 'day', 'days')} after the visit${rush ? ` · rush, ${fmtExact(rush)} to you` : ''}` },   // SF-37
     ...extra,
   ];
   return `<section class="sec ${ID}__visit" aria-label="The visit">${visitBlock(rows, { title: '', flush: true })}</section>`;
@@ -74,7 +75,7 @@ function view(s) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}">
   ${headingRow('<h1 class="t-title">Request</h1>')}
   <div class="${ID}__empty" data-empty="no-request">${emptyState({
-    title: 'No open requests', body: 'New requests show up on Home.', art: 'Suit Pant', ctaLabel: 'Go to Home', ctaAct: 'home',
+    title: 'No open requests', body: 'New requests show up on Home.', art: 'Suit Pant', ctaLabel: 'Back to Home', ctaAct: 'home',
   })}</div>
 </main>`;
   }
@@ -141,7 +142,7 @@ ${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
   const strip = requestStrip({ expiresAt: a.expiresAt, now: now(), lead: 'New request · ', page: true });
   const again = v.retries > 0 ? `<p class="t-body c-700">${esc(sarah)} sent this again after it expired.</p>` : '';
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}">
-  ${top(v, { strip, note: again })}
+  ${top(v, { strip, note: `${again}<p>${textLink(`Message ${esc(sarah)}`, { act: 'message', icon: ICON_CHAT })}</p>` })}
   ${visitSection(a, v, { title: v.when, addressNote: a.job.visitType === 'home' ? 'Full address after you accept' : '' })}
   ${workSection(v, { final, breakdown: true })}
   ${payoutSection(v)}
@@ -193,6 +194,7 @@ function openDecline(a) {
             const r = T.tailorDecline(a.id, ui().reason ?? '');
             close();
             if (currentScreen() !== ID) return;
+            if (!r.ok && raced(a)) return;
             go(ID);
             if (r.ok) toast('Request declined');
             else toast('That request has already changed.', { tone: 'error' });
@@ -255,6 +257,15 @@ function wire(root) {
   });
 }
 
+/** SF-17: Sarah withdrew (or chose another tailor) while Amara was answering — say so and go Home, never "try again". True when handled. */
+function raced(a) {
+  const n = getAppt(a.id);
+  if (n?.status !== 'cancelled' || !['withdrawn', 'switched'].includes(n.cancel?.reason)) return false;
+  go('t-home', { fresh: true });
+  toast(`${state.customer.first} ${n.cancel.reason === 'switched' ? 'chose another tailor' : 'withdrew this request'}.`);
+  return true;
+}
+
 function accept(a) {
   if (ui().busy) return;
   ui().busy = 'accept';
@@ -271,7 +282,7 @@ function accept(a) {
       T.tick();
       go(ID);
       toast('This request expired before you accepted.', { tone: 'error' });
-    } else {
+    } else if (!raced(a)) {
       go(ID);
       toast('Couldn’t accept the request. Try again.', { tone: 'error' });
     }

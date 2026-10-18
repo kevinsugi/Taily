@@ -68,5 +68,6 @@
 .c-tailor__place .meta-row__glyph { height: 21px; line-height: 21px; color: var(--neutral-600); }   /* R1-2-C-04: the 16px line icon centres on the first text line */
 .c-tailor__place > .t-small { padding-left: var(--icon-hang); }   /* text hangs under the glyph box (meta-row gap + --glyph-box) */
 .c-tailor__reviews { display: flex; flex-direction: column; }
+.c-tailor__reviews-note { margin: 0 0 var(--space-8); }   /* SF-39: whose reviews these are */
 /* Study-1 A4: a "Book again" draft names the tailor above the portrait */
 .c-tailor__again { margin: 0 0 var(--space-12); }

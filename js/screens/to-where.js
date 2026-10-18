@@ -9,7 +9,7 @@ import { register, render as go, back, currentScreen } from '../app.js';
 import { state, T, SECTIONS } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, toggle, field, hoodPicker, hoodMap, customerPreview, miniProfile,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, toggle, field, hoodPicker, hoodMap, customerPreview, miniProfile,
   actionBar, wireToggles, toast, modalOverlay, leaveModal, esc, infoButton, HOME_FEE_HELP,
 } from '../components.js';
 import { withLatency } from '../sim.js';
@@ -95,7 +95,10 @@ function feePreview(raw) {
 
 /** D-61: no shop → no in-store pickup. Tell her before she saves, and again in the toast (R2-2-T-07). */
 const PICKUP_NOTE = 'In-store pickup will turn off too — customers can’t collect from a shop you don’t have.';
+/** SF-23: pickup is her ONLY way back (courier off) — turning the shop off leaves her with none, so say what that means. */
+const PICKUP_ONLY_NOTE = 'In-store pickup will turn off too. It’s your only way to get orders back, so customers can’t book you until you turn on the Taily courier.';
 const pickupGoesOff = (d) => !d.shop.enabled && !!myTailor().returns?.pickup;
+const pickupOnly = () => !!myTailor().returns?.pickup && !myTailor().returns?.courier;
 
 function shopCard(d) {
   const s = d.shop;
@@ -106,7 +109,7 @@ function shopCard(d) {
     ${field({ id: 'shopZip', label: 'ZIP code', inputmode: 'numeric', maxlength: 5, autocomplete: 'postal-code', value: s.zip ?? '', helper: HELP.shopZip(d), error: errOf('shopZip') })}
   </div>` : ''}
 </section>
-${pickupGoesOff(d) ? `<p class="to-where__pickup-note t-small c-600" data-pickup-note>${PICKUP_NOTE}</p>` : ''}</div>`;
+${pickupGoesOff(d) ? `<p class="to-where__pickup-note t-small c-600" data-pickup-note>${pickupOnly() ? PICKUP_ONLY_NOTE : PICKUP_NOTE}</p>` : ''}</div>`;
 }
 
 /** The borough groups shown open: what she opened or closed, else every borough holding a pick. */
@@ -126,14 +129,7 @@ function homeCard(d) {
 function resumeBanner() {
   if (editing() || !state.ui.onboarding?.resumed) return '';
   const t = myTailor();
-  const done = ONBOARDING_STEPS.filter((s) => t.onboarding[s.id]).map((s) => s.label);
-  const left = ONBOARDING_STEPS.length - done.length;
-  const names = done.map((l, i) => (i ? l[0].toLowerCase() + l.slice(1) : l));
-  const list = names.length < 2 ? names[0] ?? 'Nothing' : names.length === 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
-  return banner({
-    tone: 'info', title: 'Pick up where you left off', dismissible: true,
-    text: `${list} ${names.length < 2 ? 'is' : 'are'} done. ${left} ${left === 1 ? 'step' : 'steps'} to go before customers can book you.`,
-  });
+  return banner({ tone: 'info', title: 'Pick up where you left off', dismissible: true, text: resumeText(t) });   // SF-43
 }
 
 function barHtml() {
@@ -155,7 +151,7 @@ function view() {
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
   ${mode ? headingRow(title) : `<div class="heading-block ${ID}__title">${title}</div>`}
-  <p class="to-where__lead t-body c-600">Turn on one or both.</p>
+  <p class="to-where__lead t-body c-600">Turn on one or both.</p>${mode ? editScopeNote() : ''}
   <div class="to-where__cards">
     ${shopCard(d)}
     ${homeCard(d)}
@@ -244,12 +240,14 @@ function submit() {
     if (currentScreen() !== ID) return;
     const wasEditing = editing();
     const pickupOff = pickupGoesOff(draft());
+    const noWayBack = pickupOff && pickupOnly();   // SF-23
     persist();
     state.ui[ID] = {};
     if (state.ui.onboarding) state.ui.onboarding.resumed = false;
     if (wasEditing) {
       back() || go('t-shop');
-      toast(pickupOff ? 'Saved. In-store pickup is off. Customers see the change now.' : 'Saved. Customers see the change now.', { tone: 'success' });
+      if (noWayBack) toast('Saved. Customers can’t book you until you add a return option.', { tone: 'warning', action: 'Return options', onAction: () => go('to-returns') });   // SF-23
+      else toast(pickupOff ? 'Saved. In-store pickup is off. New requests use this now.' : 'Saved. New requests use this now.', { tone: 'success' });   // SF-43
     } else {
       go(NEXT);
     }

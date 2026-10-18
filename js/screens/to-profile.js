@@ -12,7 +12,7 @@ import { myTailor } from '../tailor-data.js';
 import { TAILOR_LIMITS, GARMENT_TYPES, TAILORS, SEED_JOB, ZIP_INFO, hoodNames } from '../data.js';
 import { estimate, fmt } from '../money.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, field, textArea, avatar, textLink, photoTile, photoStub,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, headingRow, banner, field, textArea, avatar, textLink, photoTile, photoStub,
   customerPreview, tailorRow, actionBar, sheetOverlay, modalOverlay, leaveModal, listRow, toast, esc, wireTextLimit,
 } from '../components.js';
 import { withLatency } from '../sim.js';
@@ -66,13 +66,7 @@ function errorCopy(code, d) {
 /* ---------- resume banner (onboarding) ---------- */
 function resumeBanner(t) {
   if (!state.ui.onboarding?.resumed) return '';
-  const done = ONBOARDING_STEPS.filter((s) => t.onboarding?.[s.id]);
-  const left = ONBOARDING_STEPS.length - done.length;
-  const was = done.length === 1 ? `${done[0].label} is done.` : done.length ? `${done.length} steps are done: ${done.map((s) => s.label).join(', ')}.` : '';
-  return `<div class="${ID}__resume">${banner({
-    tone: 'info', title: 'Pick up where you left off',
-    text: `${was} ${left} ${left === 1 ? 'step' : 'steps'} to go before customers can book you.`.trim(), dismissible: true,
-  })}</div>`;
+  return `<div class="${ID}__resume">${banner({ tone: 'info', title: 'Pick up where you left off', text: resumeText(t), dismissible: true })}</div>`;   // SF-43
 }
 
 /* ---------- pieces ---------- */
@@ -81,7 +75,7 @@ function previewHtml(d) {
   const t = myTailor();
   const hood = t.shop?.hood || hoodNames(t.home?.hoods)[0] || ZIP_INFO[SEED_JOB.zip]?.hood || '';
   return tailorRow({
-    id: 'preview', name: d.name.trim() || 'Your name', initials: initialsOf(d.name), photo: d.photo || null, verified: true, years: t.years ?? 0,
+    id: 'preview', name: d.name.trim() || 'Your name', initials: initialsOf(d.name), photo: d.photo || null, verified: !!t.verified, years: t.years ?? 0,
     rating: t.rating?.count > 0 ? t.rating : null, quote: estimate(TAILORS[0], SEED_JOB, SAMPLE_NEXT), nextOpening: SAMPLE_NEXT,
     visitType: 'home', cardLine: d.cardLine, hood, format: fmt,
   });
@@ -124,7 +118,7 @@ function view(s) {
   <div class="${ID}__work-block">
     <p class="t-small w-600 c-700" id="${ID}-work-label">Photos of your work (optional)</p>
     ${workPhotos(d)}
-    <p class="t-small c-600">Up to ${WORK_PHOTOS_MAX}.</p>
+    <p class="t-small c-600">Up to ${WORK_PHOTOS_MAX}. Before-and-after shots in daylight work best. Ask before showing a customer’s face.</p>
   </div>
 </main>
 ${editing
@@ -136,7 +130,7 @@ ${editing
 const cameraGlyph = () => { const t = document.createElement('template'); t.innerHTML = avatar({ photo: true }); return t.content.firstChild.innerHTML; };
 const hangerGlyph = () => { const t = document.createElement('template'); t.innerHTML = avatar({ glyph: true }); return t.content.firstChild.innerHTML; };
 function openPhoto(header, onAdd) {
-  const html = `<div class="${ID}__sheet-list">${listRow({ title: 'Take photo', act: 'photo-take' })}${listRow({ title: 'Choose from library', act: 'photo-library' })}</div>
+  const html = `<div class="${ID}__sheet-list">${listRow({ title: 'Take a photo', act: 'photo-take' })}${listRow({ title: 'Choose from library', act: 'photo-library' })}</div>
 <div class="${ID}__sheet-foot">${textLink('Cancel', { act: 'photo-cancel' })}</div>`;
   sheetOverlay(html, { header, dataS: `${ID}-photo`, confirm: false }, (holder, close) => {
     const add = () => { onAdd(); close(); go(ID); toast('Photo added'); };

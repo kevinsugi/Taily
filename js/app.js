@@ -236,7 +236,10 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   /* M6-A-04: a new screen moves focus to its h1 so a screen reader starts at the title; an open overlay keeps the focus it set */
   if (prevScreen !== id && el.isConnected && !overlayOpen() && !el.contains(document.activeElement)) {   // a wire() that focused a field keeps it
     const h1 = el.querySelector('h1');
-    if (h1) { h1.tabIndex = -1; h1.focus({ preventScroll: true }); }
+    if (h1) {
+      if (el.querySelector('#page-strip')) h1.setAttribute('aria-describedby', 'page-strip');   // SF-19: the state strip above the title is read with it
+      h1.tabIndex = -1; h1.focus({ preventScroll: true });
+    }
   }
   return true;
 }
@@ -391,7 +394,8 @@ function onPopState(e) {
 function announce(id) {
   const status = document.getElementById('route-status');
   const h1 = document.querySelector('#screen h1')?.textContent.trim();
-  const name = h1 || SCREENS.find((s) => s.id === id)?.title || id;
+  const strip = document.querySelector('#screen .request-card__strip--page')?.textContent.replace(/\s+/g, ' ').trim();   // SF-19: the state, then the title
+  const name = [strip, h1 || SCREENS.find((s) => s.id === id)?.title || id].filter(Boolean).join(' — ');
   if (status) status.textContent = name;
   document.title = `${name} · Taily`;
 }

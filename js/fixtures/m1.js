@@ -15,12 +15,12 @@ import { draftAgain as CT_draftAgain } from './common.js';
 export const FLOWS_c_welcome = [
   { key: 'c-welcome', screen: 'c-welcome', group: 'M1 · Sign in', title: 'Welcome', note: 'Signed out: phone first, Apple / Google quieter',
     setup: () => { A.signOut(); },
-    expect: { has: ['Continue with phone', 'Continue with Apple', 'Continue with Google', 'held, not charged', 'Join Taily'], not: 'Bookings', sel: '[data-act="phone"]' } },
+    expect: { has: ['Continue with phone', 'Continue with Apple', 'Continue with Google', 'held, not charged', 'Sign in or join'], not: 'Bookings', sel: '[data-act="phone"]' } },
 ];
 export const FLOWS_c_phone = [
   { key: 'c-phone', screen: 'c-phone', group: 'M1 · Sign in', title: 'Your phone number', note: 'Empty field, Send code enabled',
     setup: () => { A.signOut(); },
-    expect: { has: ['Your phone number', 'Mobile number', '+1', 'Send code'], sel: '#phone' } },
+    expect: { has: ['Your phone number', 'Mobile number', '+1', 'Send code', 'Reply STOP to opt out, HELP for help.', 'By tapping Send code, you agree to Taily’s Terms and Privacy Policy.'], sel: '#phone' } },
   { key: 'c-phone--invalid', screen: 'c-phone', group: 'M1 · Sign in', title: 'Your phone number — invalid', note: '718555 then Send code',
     setup: (S) => { A.signOut(); S.state.ui['c-phone'] = { phone: '718555' }; },
     click: ['[data-act="send-code"]'],
@@ -89,9 +89,9 @@ export const FLOWS_c_job = [
     click: ['[data-act="add-garment"][data-type="Suit Pant"]'],
     expect: { has: ['Suit Pant', 'Choose what needs doing'], not: ['what needs doing?', '$'], sel: '[data-act="pick-services"]' } },
   { key: 'c-job--photo', screen: 'c-job', group: 'M1 · Booking', title: 'What needs work — add a photo',
-    note: 'Take photo / Choose from library',
+    note: 'Take a photo / Choose from library',
     click: ['[data-act="add-photo"][data-id="g1"]'],
-    expect: { has: ['Add a photo', 'Take photo', 'Choose from library'] } },
+    expect: { has: ['Add a photo', 'Take a photo', 'Choose from library'] } },
 ];
 export const FLOWS_c_where = [
   { key: 'c-where', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — at my place',
@@ -167,7 +167,7 @@ export const FLOWS_c_tailors = [
   { key: 'c-tailors--declined', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — declined',
     note: 'Amara declined this job; her row is dimmed',
     setup: (S) => { S.driveTo('declined'); },
-    expect: { has: ['Declined this request', 'Amara declined this request', 'Your items and services are saved', 'Start a new request', 'Change need-by date', 'Change ZIP'], not: ['Est.', 'Next opening', 'Sort:'], sel: '.tailor-row--declined' } },
+    expect: { has: ['Declined this request', 'Amara declined this request', 'Your items are saved for other tailors. To book Amara, start over with different work.', 'Start over with new items', 'Change need-by date', 'Change ZIP'], not: ['Est.', 'Next opening', 'Sort:'], sel: '.tailor-row--declined' } },
   { key: 'c-tailors--sort', screen: 'c-tailors', group: 'M1 · Booking', title: 'Tailors near you — sort sheet',
     note: 'Sort by: four options',
     click: ['[data-act="sort"]'],
@@ -195,7 +195,7 @@ export const FLOWS_c_tailor = [
   { key: 'c-tailor--declined', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — declined',
     note: 'Amara declined this request; the way forward is a new request',
     setup: (S) => { S.driveTo('declined'); },
-    expect: { has: ['Amara declined this request', 'Your items and services are saved', 'Start a new request', 'Not available for this request'], not: ['Ask a question', 'Est. $', 'Book now takes this time'], sel: '.c-tailor__split .cta[data-act="book-now"][disabled]' } },
+    expect: { has: ['Amara declined this request', 'Your items are saved for other tailors. To book Amara, start over with different work.', 'Start over with new items', 'Not available for this request'], not: ['Ask a question', 'Est. $', 'Book now takes this time'], sel: '.c-tailor__split .cta[data-act="book-now"][disabled]' } },
   { key: 'c-tailor--reviewed', screen: 'c-tailor', group: 'M4 · Completed', title: 'Tailor profile — with Sarah’s new review',
     note: 'After a 5-star review: Sarah C. first, the count is one higher',
     setup: (S) => { const a = S.driveTo('reviewed'); S.state.ui.booking = { tailorId: a.tailorId, from: 'review' }; },
@@ -213,7 +213,7 @@ export const FLOWS_c_book = [
 ];
 export const FLOWS_c_pay = [
   { key: 'c-pay', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request', note: 'Seed job: the deposit is held, not charged',
-    expect: { has: ['Review and send request', fmtExact(SCENARIOS.seed.services), 'Home visit fee', 'Flat, per visit', fmtExact(SCENARIOS.seed.homeFee), fmtExact(SCENARIOS.seed.total), 'Held today', `Hold ${fmtExact(SCENARIOS.seed.deposit)} and send request`, 'Visa •••• 4242', 'released in full'] } },
+    expect: { has: ['Review and send request', fmtExact(SCENARIOS.seed.services), 'Home visit fee', 'Flat, per visit', fmtExact(SCENARIOS.seed.homeFee), fmtExact(SCENARIOS.seed.total), 'Held today', `Hold ${fmtExact(SCENARIOS.seed.deposit)} and send request`, 'Visa •••• 4242', 'released in full', `We’ll text you the day before to confirm. If you don’t confirm 3 hours before the visit, we cancel it and Amara keeps the ${fmtExact(SCENARIOS.seed.deposit)} deposit.`] } },
   { key: 'c-pay--rush', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — rush', note: 'Need-by Fri, Oct 16: a rush fee row, same deposit',
     setup: (S) => { S.T.setJob({ needBy: '2026-10-16' }); },
     expect: { has: ['Rush fee', fmtExact(SCENARIOS.rush.rush), fmtExact(SCENARIOS.rush.total), `Hold ${fmtExact(SCENARIOS.rush.deposit)}`] } },

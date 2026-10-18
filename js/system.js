@@ -174,11 +174,13 @@ export function openReauth(who = 'customer', { go, screenId } = {}) {
 /* ---------- text messages (K-43, D-301; was the in-app push, D-167) ---------- */
 /** A text message's markup (also the gallery's): the Messages banner — "Taily", the text in a bubble, its unique link. A button, so the
     whole message is one tap target (the link routes into the app, as the push did). */
+/** SF-05: every text body starts with the brand, as carriers require ("Taily: New request from …"). */
+const TEXT_PREFIX = 'Taily: ';
 export function textBannerHtml({ body = '', link = '', act = 'text-open' } = {}) {
   return `<button type="button" class="text-banner" data-act="${esc(act)}" data-text-link="${esc(link)}">
   <span class="text-banner__head"><span class="text-banner__glyph" aria-hidden="true">${ICON_CHAT}</span><span class="t-caps c-600">Text message</span><span class="text-banner__when t-small c-600">now</span></span>
   <span class="text-banner__from t-small w-700">Taily</span>
-  <span class="text-banner__bubble t-small" data-money>${esc(body)} <span class="text-banner__link">${esc(link)}</span></span>
+  <span class="text-banner__bubble t-small" data-money>${esc(`${TEXT_PREFIX}${body}`)} <span class="text-banner__link">${esc(link)}</span></span>
 </button>`;
 }
 

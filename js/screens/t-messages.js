@@ -36,7 +36,7 @@ function view(s) {
   let body;
   if (!loaded) body = `<div class="${ID}__list" data-loading="true"><div class="thread-list">${skeleton({ kind: 'thread-row', count: 3 })}</div></div>`;
   else if (!threads.length) {
-    body = `<div class="${ID}__empty" data-empty="no-threads">${emptyState({ title: 'No messages yet', art: 'Shirt / Blouse', body: 'When a customer asks a question or sends a request, the conversation shows up here.', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>`;
+    body = `<div class="${ID}__empty" data-empty="no-threads">${emptyState({ title: 'No messages yet', art: 'Shirt / Blouse', body: 'When a customer asks a question or sends a request, the conversation shows up here.', ctaLabel: 'Back to Home', ctaAct: 'home' })}</div>`;
   } else body = `<div class="thread-list ${ID}__list">${rowsHtml()}</div>`;
   return `${chrome('messages', { persona: 'tailor' })}
 <main class="body ${ID}">

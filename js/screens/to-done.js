@@ -9,7 +9,8 @@ import { state, tailorsFor, eligible } from '../state.js';
 import { myTailor, MY_TAILOR_ID, tailorRowProps } from '../tailor-data.js';
 import { ZIP_INFO, VISIT_LABEL, CUSTOMER } from '../data.js';
 import { POLICY } from '../money-config.js';
-import { statusBar, customerPreview, tailorRow, miniProfile, actionBar, garmentIcon, sectionHead } from '../components.js';
+import { statusBar, customerPreview, tailorRow, miniProfile, actionBar, garmentIcon, sectionHead, esc } from '../components.js';
+import * as A from '../account.js';
 
 const ID = 'to-done';
 
@@ -38,7 +39,8 @@ function whyNotShown(t, job) {
 const STEPS = [
   'A customer sends a request with their garments and a time.',
   'Accept, suggest another time, or decline.',
-  'At the fitting, send the final order. You start once the customer approves.',
+  'At the fitting, photograph each item before and pinned, then send the final order. You start once the customer approves.',   // SF-30
+  'You’re paid the Friday after the customer has her order.',
 ];
 
 /** "suit pant and suit jacket" / "a, b and c" — names in running text, no "·" chain (M7). */
@@ -65,7 +67,7 @@ function view(s) {
 <main class="body body--with-bar ${ID}">
   <span class="${ID}__art" aria-hidden="true">${garmentIcon('Suit Jacket', { size: 'hero' })}</span>
   <h1 class="t-display ${ID}__title">You’re bookable</h1>
-  <p class="t-body c-600 ${ID}__lead">Customers near you can book you now. You have ${hours} hour${hours === 1 ? '' : 's'} to reply to each request.</p>
+  <p class="t-body c-600 ${ID}__lead">Customers near you can book you now. We’ll text each new request to ${esc(A.formatPhone(myTailor().phone))}. You have ${hours} hour${hours === 1 ? '' : 's'} to reply.</p>
   <div class="${ID}__preview">${customerPreview({ title, head: 'Preview', html: row ?? mini, caption })}</div>
   <section class="sec" aria-labelledby="${ID}-next-h">
     ${sectionHead('What happens next', { id: `${ID}-next-h` })}

@@ -43,6 +43,7 @@ const stepOf = (a) => (a.status === 'awaiting-handoff' ? returnStep(a, 'tailor')
 function handoffLine(a) {
   const h = a.handoff ?? {};
   if (h.problemAt) return `${state.customer.first} didn’t get it · sort it out in chat`;
+  if (handoffMissed(a)) return `${state.customer.first} missed her ${fmtTime(h.slot.start)} pickup`;   // SF-12
   const left = autoCompleteLeft(a);
   if (left != null) return `Picked up · completes in ${left <= 3600000 ? 'less than 1h' : `${Math.floor((left - 1) / 3600000)}h`}`;   // the same count as autoCompleteLine
   return null;

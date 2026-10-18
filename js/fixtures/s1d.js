@@ -49,7 +49,7 @@ export const FLOWS_c_booking = [
     expect: { has: ['Pickup Sat, Oct 17 · 2:00 PM · show your code at the shop', 'You moved it from Fri, Oct 16 · 5:30 PM', 'Open Sat 1:00 PM – 5:00 PM', 'Change time', 'YOUR PICKUP CODE'] } },
   { ...CB, key: 'c-booking--pickup-missed', title: 'Missed pickup', note: 'K-40 (D-295): the pickup time passed — no fee, she picks a new time; the 7-day clock keeps running from the hold',
     setup: (S) => { S.driveTo('awaiting-handoff'); S.setClock('2026-10-16T18:00'); },
-    expect: { has: ['You missed your pickup at 5:30 PM · pick a new time', 'You missed this time. Pick a new one, no fee.', 'Pick a new time', 'Charged at pickup'], not: ['Charged at handoff', 'Change time', 'On hold'], sel: '[data-strip="warn"]', also: '[data-act="change-time"]' } },
+    expect: { has: ['You missed your pickup at Fri, Oct 16 · 5:30 PM · pick a new time', 'You missed this time. Pick a new one, no fee.', 'Pick a new time', 'Charged at pickup'], not: ['Charged at handoff', 'Change time', 'On hold'], sel: '[data-strip="warn"]', also: '[data-act="change-time"]' } },
 ];
 
 /* ---------- tailor: t-job — Sarah's time, only she can move it ---------- */

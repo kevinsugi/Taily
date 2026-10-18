@@ -78,7 +78,6 @@ function confirmHtml(c, { busy = false, error = '' } = {}) {
   if (c.default && u.next) lines.push(`${nb(nextLabel)} becomes your default.`);
   lines.push('You can add it again any time.');
   return `<div class="${ID}-sheet" data-view="confirm">
-  <h2 class="t-h2 ${ID}-sheet__title">Remove <span class="${ID}-sheet__nowrap">${esc(label(c))}</span>?</h2>
   <div class="${ID}-sheet__body">${lines.map((l) => `<p class="t-body c-600">${l}</p>`).join('')}</div>
   ${error ? banner({ tone: 'error', title: error, text: 'Nothing was removed.' }) : ''}
   <div class="${ID}-sheet__actions ${ID}-sheet__actions--stack">
@@ -147,14 +146,14 @@ function openSheet({ cardId = null } = {}) {
       if (holder.dataset.locked === 'true') return;
       const c = current();
       if (!c) { gone(); return; }
-      swap(confirmHtml(c, { busy: true }), 'Remove card', 'confirm'); lock(true);
+      swap(confirmHtml(c, { busy: true }), `Remove ${label(c)}?`, 'confirm'); lock(true);
       withLatency(() => {
         if (!holder.isConnected) return;
         const res = A.removeCard(c.id);
         lock(false);
         if (!res.ok) {                                                       // action failed: the banner sits above the buttons, the button stays on
           const why = res.error === 'in-use' ? 'This card is paying for your open booking' : 'Couldn’t remove this card';
-          swap(confirmHtml(c, { error: why }), 'Remove card', 'confirm');
+          swap(confirmHtml(c, { error: why }), `Remove ${label(c)}?`, 'confirm');
           return;
         }
         close({ instant: true });
@@ -185,7 +184,7 @@ function openSheet({ cardId = null } = {}) {
       if (!a) return;
       switch (a.dataset.act) {
         case 'make-default': makeDefault(); break;
-        case 'remove': { const c = current(); if (c) { swap(confirmHtml(c), 'Remove card', 'confirm'); holder.querySelector('[data-act="remove-keep"]')?.focus(); } break; }
+        case 'remove': { const c = current(); if (c) { swap(confirmHtml(c), `Remove ${label(c)}?`, 'confirm'); holder.querySelector('[data-act="remove-keep"]')?.focus(); } break; }
         case 'remove-ok': removeCard(); break;
         case 'remove-keep': { const c = current(); if (c) { swap(cardHtml(c), label(c), 'card'); holder.querySelector('[data-act="remove"]')?.focus(); } break; }
         case 'add-from-sheet': swap(addHtml(), 'Add a card', 'add'); holder.querySelector('#cc-number')?.focus(); break;

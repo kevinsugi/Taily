@@ -8,7 +8,7 @@ import { register, render as go, back, currentScreen } from '../app.js';
 import { state, T, SECTIONS } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, checkRow, customerPreview,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, checkRow, customerPreview,
   actionBar, toast, modalOverlay, leaveModal, returnsRows, sectionHead, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
@@ -73,14 +73,7 @@ function previewHtml(d) {
 function resumeBanner() {
   if (editing() || !state.ui.onboarding?.resumed) return '';
   const t = myTailor();
-  const done = ONBOARDING_STEPS.filter((s) => t.onboarding[s.id]).map((s) => s.label);
-  const left = ONBOARDING_STEPS.length - done.length;
-  const names = done.map((l, i) => (i ? l[0].toLowerCase() + l.slice(1) : l));
-  const list = names.length < 2 ? names[0] ?? 'Nothing' : names.length === 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
-  return banner({
-    tone: 'info', title: 'Pick up where you left off', dismissible: true,
-    text: `${list} ${names.length < 2 ? 'is' : 'are'} done. ${left} ${left === 1 ? 'step' : 'steps'} to go before customers can book you.`,
-  });
+  return banner({ tone: 'info', title: 'Pick up where you left off', dismissible: true, text: resumeText(t) });   // SF-43
 }
 
 function barHtml() {
@@ -110,7 +103,7 @@ function view() {
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
   ${mode ? headingRow(TITLE) : `<div class="heading-block ${ID}__title">${TITLE}</div>`}
-  <p class="to-returns__lead t-body c-600">Pick every option you offer.</p>
+  <p class="to-returns__lead t-body c-600">Pick every option you offer.</p>${mode ? editScopeNote() : ''}
   <div class="card to-returns__card${err ? ' to-returns__card--error' : ''}" role="group" aria-label="Return options"${err ? ' aria-describedby="returns-msg"' : ''}>${rows}</div>
   <p class="field__msg field__msg--error to-returns__error" id="returns-msg" role="alert"${err ? '' : ' hidden'}>${esc(err)}</p>
   ${customerPreview({ html: previewHtml(d) })}
@@ -183,7 +176,7 @@ function submit() {
     if (state.ui.onboarding) state.ui.onboarding.resumed = false;
     if (wasEditing) {
       back() || go('t-shop');
-      toast('Saved. Customers see the change now.', { tone: 'success' });
+      toast('Saved. New requests use this now.', { tone: 'success' });
     } else {
       go(NEXT);
     }

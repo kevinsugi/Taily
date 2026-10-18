@@ -1886,5 +1886,37 @@ section('K-41 (R3): the 24-hour reminder');
   eq([S.reminderState(a), a.job.visitType], ['asked', 'shop'], 'K-41: a shop visit gets the prompt too');
 }
 
+/* ---------- design-director review (D-304) ---------- */
+section('SF-22: saving Where rechecks Returns and Availability');
+{
+  S.reset();
+  T.setTailorSection('availability', { availability: { shop: structuredClone(amara().availability.shop), home: {} } });   // t-shop--incomplete
+  ok(!S.bookable(amara()), 'SF-22: home visits on with no home hours — not bookable');
+  T.setTailorSection('where', { home: { ...structuredClone(amara().home), enabled: false } });
+  eq([amara().onboarding.availability, S.bookable(amara())], [true, true], 'SF-22: turning home visits off makes her bookable again');
+  T.setTailorSection('returns', { returns: { pickup: true, courier: false } });
+  T.setTailorSection('where', { shop: { ...structuredClone(amara().shop), enabled: false }, home: { ...structuredClone(amara().home), enabled: true } });
+  eq(amara().onboarding.returns, false, 'SF-22: shop off with pickup as the only way back — Returns needs attention');
+}
+section('SF-01: a decline on a second request never closes a live thread');
+{
+  driveTo('in-progress');
+  const b = EARN.addRequest();
+  T.tailorDecline(b.id);
+  eq(S.threadReadOnly('amara'), false, 'SF-01: the first job is still live, so the thread stays writable');
+  S.reset();
+  driveTo('declined');
+  eq(S.threadReadOnly('amara'), true, 'SF-01: a decline with nothing live still closes it');
+}
+section('SF-13: handoff times stop at the 7-day charge while the balance is held');
+{
+  const a = driveTo('awaiting-handoff');
+  S.advanceClock(5 * 24 * 60);
+  const last = S.handoffSlots(S.getAppt(a.id)).at(-1);
+  ok(last && D.toDate(last.start).getTime() <= S.unclaimedAt(a), 'SF-13: no pickup time after the capture');
+  S.advanceClock(3 * 24 * 60);   // captured: the job stays open and any time is fine again
+  ok(S.getAppt(a.id).payments.balance.state === 'captured' && S.handoffSlots(S.getAppt(a.id)).length > 0, 'SF-13: after the capture she can still pick a time');
+}
+
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);
 if (failed) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }

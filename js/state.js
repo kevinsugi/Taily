@@ -200,10 +200,11 @@ export function threadsFor(reader = 'customer') {
     }))
     .sort((a, b) => (a.last.at < b.last.at ? 1 : a.last.at > b.last.at ? -1 : msgNum(b.last) - msgNum(a.last)));
 }
-/** Read-only after a decline, until the customer books this tailor again. */
+/** Read-only after a decline, until the customer books this tailor again — and never while another job with her is still live (SF-01). */
 export function threadReadOnly(tailorId) {
-  const latest = state.appts.filter((a) => a.tailorId === tailorId).pop();
-  return !!latest && latest.status === 'declined';
+  const mine = state.appts.filter((a) => a.tailorId === tailorId);
+  const latest = mine[mine.length - 1];
+  return !!latest && latest.status === 'declined' && !mine.some((a) => !TERMINAL.includes(a.status) && a.status !== 'expired');
 }
 function post(tailorId, from, text, extra = {}) {
   const msg = { id: `m${++msgSeq}`, from, text, photos: 0, at: nowIso(), masked: false, ...extra };
@@ -404,6 +405,8 @@ export function setTailorSection(section, patch) {
   }
   const v = validateSection(section, t);
   t.onboarding[section] = v.ok;
+  /* SF-22: where she works decides what Returns (pickup needs a shop) and Availability (hours per way she works) need — recheck both */
+  if (section === 'where') for (const dep of ['returns', 'availability']) t.onboarding[dep] = validateSection(dep, t).ok;
   if (bookable(t)) t.live = true;
   return { ok: true, tailor: t, valid: v.ok, errors: v.errors, soft, bookable: bookable(t), live: !!t.live };
 }
@@ -1084,7 +1087,9 @@ export function handoffSlots(appt, method = appt?.returnOption) {
   const step = POLICY.HANDOFF_SLOT_MIN;
   const lead = POLICY.COURIER_COLLECT_LEAD_MIN;
   const from = state.clock.now;
-  const until = from + POLICY.HANDOFF_PICK_DAYS * DAY_MS;
+  /* SF-13 (D-295(1)'s intent): once the balance is held, no time past the 7-day charge (after a capture the job stays open, so no cap) */
+  const capAt = appt?.status === 'awaiting-handoff' && appt.payments?.balance?.state === 'held' ? (unclaimedAt(appt) ?? Infinity) : Infinity;
+  const until = Math.min(from + POLICY.HANDOFF_PICK_DAYS * DAY_MS, capAt);
   const at = (d, m) => { const x = new Date(d); x.setHours(Math.floor(m / 60), m % 60, 0, 0); return x; };   // wall-clock (DST-safe)
   const out = [];
   for (let d = strip(new Date(from)); d.getTime() < until; d = addDays(d, 1)) {
@@ -1213,7 +1218,7 @@ export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
     markedBy: null, markedAt: null, marks: 0, autoAt: null, problemAt: null, completedBy: null, completedAt: null,
   };
   setStatus(a, 'awaiting-handoff');
-  const how = RETURN_LABEL[a.returnOption].toLowerCase();
+  const how = a.returnOption === 'courier' ? RETURN_LABEL.courier : RETURN_LABEL.pickup.toLowerCase();   // SF-36: "Taily courier" keeps its capital
   const amt = fmtExact(a.money.balance);
   say(a, charge ? `You chose ${how}. You’ll be charged ${amt} ${CHARGE_WHEN[a.returnOption] ?? 'at handoff'}.` : `You chose ${how}.`, charge ? `${state.customer.first} chose ${how}. Her ${amt} is on hold.` : `${state.customer.first} chose ${how}.`);
   return succeed(a);

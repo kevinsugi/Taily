@@ -9,7 +9,7 @@ import { state, T, tailorById, estimateNext, eligible, nextOpening, apptsFor } f
 import {
   chrome, flowBar, avatar, verifiedCheck, reviewRow, priceRow, metaRow, cta, navBackMark,
   sectionHead, textLink, infoButton, stitchDivider, ICON_CHAT,
-  actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, esc, hoodSentence, HOME_FEE_CAPTION, HOME_FEE_HELP,
+  actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, esc, hoodSentence, HOME_FEE_CAPTION, HOME_FEE_HELP, shopPlace,
 } from '../components.js';
 import { ICON_CAMERA, VISIT_ICONS } from '../icons.js';
 import { cents, fmtColumn } from '../money.js';
@@ -124,7 +124,7 @@ function where(t, job) {
   const blocks = [];
   if (t.shop?.enabled) {
     const miles = ZIP_INFO[job.zip]?.miles;
-    blocks.push(`<div class="c-tailor__place">${metaRow('', esc(`${t.shopName}, ${t.shop.street}, ${t.shop.city}, ${t.shop.state} ${t.shop.zip}`), { icon: 'shop' })}${miles != null ? `<p class="t-small c-600">${miles.toFixed(1)} mi from you</p>` : ''}</div>`);
+    blocks.push(`<div class="c-tailor__place">${metaRow('', esc(shopPlace(t, { full: true })), { icon: 'shop' })}${miles != null ? `<p class="t-small c-600">${miles.toFixed(1)} mi from you</p>` : ''}</div>`);
   }
   if (t.home?.enabled) {
     const fee = t.home.fee > 0 ? `${F(cents(t.home.fee))} home visit fee · ${HOME_FEE_HELP}` : 'No home visit fee';   // C4: flat, per visit
@@ -143,7 +143,8 @@ function reviews(t) {
   if (!count && !(t.reviews ?? []).length) return section('Reviews', '<p class="t-body c-600">No reviews yet.</p>', { key: 'reviews', domId: 'reviews' });
   const list = (t.reviews ?? []).slice(0, REVIEWS_SHOWN)
     .map((r) => reviewRow({ name: r.name, initials: r.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos, photoType: r.photoType })).join('');
-  return section('Reviews', `<div class="c-tailor__reviews">${list}</div>
+  return section('Reviews', `<p class="t-small c-600 c-tailor__reviews-note">From customers who booked through Taily.</p>
+    <div class="c-tailor__reviews">${list}</div>
     <div class="c-tailor__more">${textLink(`See all ${count} reviews`, { act: 'all-reviews' })}</div>`, { key: 'reviews', domId: 'reviews' });
 }
 
@@ -176,7 +177,7 @@ function view(s) {
   ${identity(t)}
   ${stats(t, job)}
   ${preview ? `<div class="c-tailor__preview">${readOnlyBanner({ text: 'You’re viewing your own profile', ctaLabel: 'Back to Taily for tailors', ctaAct: 'exit-preview' })}</div>` : ''}
-  ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} declined this request`, text: `Your items and services are saved. You can still book ${esc(first)} for other work.` })}</div>` : ''}
+  ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} declined this request`, text: `Your items are saved for other tailors. To book ${esc(first)}, start over with different work.` })}</div>` : ''}
   ${booking ? split(next, job, { ok: el.ok, reason: reasonNote(el, job) }) : ''}
   ${about(t)}
   ${profile ? '' : estimateCard(q, job)}
@@ -188,7 +189,7 @@ ${preview ? ''
   : profile
     ? actionBar({ ctaLabel: `Book ${esc(first)} again`, ctaAct: 'book-again', secondaryLabel: 'Ask a question', secondaryAct: 'ask', secondaryIcon: ICON_CHAT })
     : declined
-    ? actionBar({ ctaLabel: 'Start a new request', ctaAct: 'new-job', note: `${esc(first)} declined this request` })
+    ? actionBar({ ctaLabel: 'Start over with new items', ctaAct: 'new-job', note: `${esc(first)} declined this request` })
     : actionBar({ ctaLabel: 'Pick a time', ctaAct: 'pick-time', disabled: !el.ok, note: el.ok ? '' : reasonNote(el, job), secondaryLabel: 'Ask a question', secondaryAct: 'ask', secondaryIcon: ICON_CHAT })}`;
 }
 

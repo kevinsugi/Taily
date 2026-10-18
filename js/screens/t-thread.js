@@ -59,7 +59,7 @@ function view(s) {
     return `${chrome('messages', { persona: 'tailor' })}
 <main class="body ${ID}">
   ${headingRow('<h1 class="t-title">Messages</h1>', { back: false })}
-  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No conversation yet', body: 'Messages with a customer show up here once they send a request.', art: 'Shirt / Blouse', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
+  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No conversation yet', body: 'Messages with a customer show up here once they send a request.', art: 'Shirt / Blouse', ctaLabel: 'Back to Home', ctaAct: 'home' })}</div>
 </main>`;
   }
   const u = ui();

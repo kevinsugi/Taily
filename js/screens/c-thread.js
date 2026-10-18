@@ -87,9 +87,9 @@ function view(s) {
     : emptyBlock(t);
   const foot = closed
     ? readOnlyBanner({
-      text: `${first} declined this request, so this chat is closed. To talk again, send ${first} a new request.`,
+      text: `${first} declined this request, so this chat is closed. To talk again, start a new request with ${first}.`,   // SF-28
       ctaLabel: 'Find another tailor', ctaAct: 'find-another',
-      secondaryLabel: `New request to ${first}`, secondaryAct: 'new-job',
+      secondaryLabel: 'Start a new request', secondaryAct: 'new-job',
     })
     : composer({
       value: draft, placeholder: `Message ${first}`, hint: maskContact(draft).masked ? HINT : '', photos: u.photos ?? 0, max: MAX_PHOTOS(), disabled: !!u.sending, photoType,

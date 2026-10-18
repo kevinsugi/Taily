@@ -6,7 +6,7 @@
    tick() sends the reminder and its nudge) + T.confirmVisit; money strings come from SCENARIOS.
    ============================================================ */
 import { SCENARIOS as E1_SC } from './money-scenarios.js';
-import { fmtExact as E1_exact } from '../money.js';
+import { fmtExact as E1_exact, fmt as E1_fmt } from '../money.js';
 import { reminderAt as E1_reminderAt } from '../state.js';
 
 const DEP = E1_exact(E1_SC.seed.deposit);
@@ -46,7 +46,7 @@ export function autoCancelled(S) {
 export const FLOWS_c_job = [
   { ...CJ, key: 'c-job--reminder', title: 'Home — still on for tomorrow?', note: 'K-41 (R3): 26 hours before the visit the booking row becomes the prompt card — strip, the row (Your move), one dollar rule, Confirm and Change or cancel inline',
     setup: (S) => { toReminder(S); },
-    expect: { has: ['Still on for tomorrow?', 'Free until 5:00 PM', 'Your move', `Once you confirm, Amara keeps your ${DEP} deposit if you cancel or aren’t home.`, 'Confirm', 'Change or cancel', 'BOOK SOMETHING ELSE'], not: ['All set', 'Confirmed'], sel: '[data-visit-prompt] [data-act="confirm-visit"]', also: '[data-visit-prompt] [data-strip="action"]' } },
+    expect: { has: ['Still on for tomorrow?', 'Free until 5:00 PM', 'Your move', `Once you confirm, Amara keeps your ${E1_fmt(E1_SC.seed.deposit)} deposit if you cancel or aren’t home.`, 'Confirm', 'Change or cancel', 'BOOK SOMETHING ELSE'], not: ['All set', 'Confirmed'], sel: '[data-visit-prompt] [data-act="confirm-visit"]', also: '[data-visit-prompt] [data-strip="action"]' } },
 ];
 
 /* ---------- customer: c-booking — the same moment, then confirmed / missed / a cancel after confirming ---------- */

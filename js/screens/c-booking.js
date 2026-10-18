@@ -10,12 +10,12 @@
 import { register, render as go, registered } from '../app.js';
 import {
   state, T, tailorById, openSlots, justConfirmed, now, returnAddress, priceChangeView, courierWindow, autoCompleteLeft, statusScreen,
-  slotText, handoffChangeable, handoffMissed, reminderState, freeUntil, autoCancelAt,
+  slotText, handoffChangeable, handoffMissed, reminderState, freeUntil, autoCancelAt, unclaimedAt,
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
   sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, andList, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR, COURIER_LOBBY,
-  actionBar, pickupCode, autoCompleteLine, balanceCardLabel, openHandoffTime, chargedWhen,
+  actionBar, pickupCode, autoCompleteLine, balanceCardLabel, openHandoffTime, chargedWhen, shopPlace,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
@@ -60,7 +60,7 @@ const sec = (inner, cls = '') => `<section class="sec${cls ? ` ${cls}` : ''}">${
     name, then Message + Add to calendar (a confirmed booking only; Directions is Amara's side — the visit is at Sarah's place or Amara's shop). */
 function visitSection(a, t, { extra = [] } = {}) {
   const actions = [{ label: 'Message', icon: ICON_CHAT, act: 'message' }];
-  if (a.status === 'confirmed') {
+  if (a.status === 'confirmed' && now() < toDate(a.slot.start).getTime()) {   // SF-11: nothing to add once the visit has started
     const href = calendarHref({ uid: a.id, start: a.slot.start, end: a.slot.end, stamp: isoMinute(new Date(now())), summary: `${VISIT_LABEL.customer[a.job.visitType]} with ${t.name}`, location: whereOf(a, t) });
     actions.push({ label: 'Add to calendar', icon: ICON_CALENDAR, href, act: 'add-to-calendar', attrs: 'download="taily-visit.ics"' });
   }
@@ -102,13 +102,13 @@ function cancelledView(a, t, first) {
       title: `${esc(first)} can’t make it`,
       /* K-29 (Study-1 A5): a tailor cancel inside the window says so; the refund is the same */
       body: a.cancel?.late
-        ? `${first} cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before your visit. Your ${fmtExact(dep)} deposit is refunded in full.`
-        : 'Your deposit is refunded in full, and your items and services are saved so you can book someone else.',
+        ? `${first} cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before your visit. Your ${fmtExact(dep)} deposit is refunded in full. It can take a few business days to show on your card.`
+        : 'Your deposit is refunded in full, and your items and services are saved so you can book someone else. It can take a few business days to show on your card.',   // SF-39
       status: 'Refunded',
     },
     'tailor-no-show': {
       title: `${esc(first)} didn’t show up`,
-      body: `Your ${fmtExact(dep)} deposit is refunded in full.`,
+      body: `Your ${fmtExact(dep)} deposit is refunded in full. It can take a few business days to show on your card.`,
       status: 'Refunded',
     },
     'no-show': {
@@ -163,22 +163,29 @@ function liveView(a, t, first) {
   const r = confirmed ? reminderState(a) : null;
   const rem = r ? reminderCopy(a, r, first, deposit) : null;
 
+  const away = a.job.visitType === 'home' ? 'aren’t home' : 'don’t come to the shop';   // SF-10: a shop visit is not "home"
+  const started = now() >= toDate(a.slot.start).getTime();   // SF-11
   const steps = timeline([
     { state: 'done', title: 'Booked', sub: fmtWhen(confirmedAt(a)) },
-    { state: 'current', title: 'Visit and fitting', sub: `You approve the final order` },
+    { state: 'current', title: 'Visit and fitting', sub: `${esc(first)} pins and photographs your garments · you approve the final order` },   // SF-34
     { state: 'todo', title: 'Tailoring' },
     { state: 'todo', title: 'Ready', sub: `Pay the balance, est. ${money(a.money.balance)}` },
     { state: 'todo', title: 'Back with you' },
   ]);
-  const policy = r === 'confirmed'
-    ? `You confirmed on ${esc(fmtDay(a.reminder.confirmedAt))} at ${esc(fmtTime(a.reminder.confirmedAt))}. If you cancel now or aren’t home, ${esc(first)} keeps your ${money(deposit)} deposit.`
+  const reportAt = toDate(a.slot.start).getTime() + POLICY.NO_SHOW_WAIT_MIN * 60000;
+  const policy = started
+    ? (now() >= reportAt
+      ? `Your visit was at ${esc(fmtTime(a.slot.start))}. If ${esc(first)} didn’t come, tap Tailor didn’t show up? to get your ${money(deposit)} back.`   // SF-11
+      : `Your visit is at ${esc(fmtTime(a.slot.start))}. If ${esc(first)} hasn’t come by ${esc(fmtTime(reportAt))}, you can tell us here and get your ${money(deposit)} back.`)
+    : r === 'confirmed'
+    ? `You confirmed on ${esc(fmtDay(a.reminder.confirmedAt))} at ${esc(fmtTime(a.reminder.confirmedAt))}. If you cancel now or ${away}, ${esc(first)} keeps your ${money(deposit)} deposit.`
     : early
     ? `Free cancellation until ${cutoff}. After that, ${esc(first)} keeps the ${money(deposit)} deposit.`
     : `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel now, ${esc(first)} keeps your ${money(deposit)} deposit.`;
   /* K-29 (Study-1 A5, default 8): from NO_SHOW_WAIT_MIN after the start, while still confirmed, Sarah can report that the tailor didn't come */
   const noShow = confirmed && now() >= toDate(a.slot.start).getTime() + POLICY.NO_SHOW_WAIT_MIN * 60000;
-  const links = !confirmed ? '' : `<div class="page-actions__links">${noShow ? textLink('Tailor didn’t show up?', { act: 'tailor-no-show' }) : ''}${early ? textLink('Reschedule', { act: 'reschedule' }) : ''}${textLink('Cancel booking', { act: 'cancel', tone: 'danger' })}</div>`;
-  const late = confirmed && !early ? `<p class="t-small c-600 ${ID}__late">To change the time now, message ${esc(first)}.</p>` : '';
+  const links = !confirmed ? '' : `<div class="page-actions__links">${noShow ? textLink('Tailor didn’t show up?', { act: 'tailor-no-show' }) : ''}${early ? textLink('Reschedule', { act: 'reschedule' }) : ''}${started ? '' : textLink('Cancel booking', { act: 'cancel', tone: 'danger' })}</div>`;
+  const late = confirmed && !early && !started ? `<p class="t-small c-600 ${ID}__late">To change the time now, message ${esc(first)}.</p>` : '';
   const actions = rem?.bar ? '' : `<div class="page-actions">
     ${late}
     ${links}
@@ -196,27 +203,28 @@ function liveView(a, t, first) {
 /** K-41 (R3, D-296): the reminder's strip, rule line and bar on c-booking, per reminder state. */
 function reminderCopy(a, r, first, deposit) {
   const at = fmtTime(a.slot.start);
+  const away = a.job.visitType === 'home' ? 'aren’t home' : 'don’t come to the shop';   // SF-10
   const day = dayWord(a.slot.start, now());
   const until = freeUntil(a);
   if (r === 'asked') {
     return {
       strip: { tone: 'action', icon: 'clock', text: `Confirm by ${fmtTime(until)} ${dayWord(until, now())}`, right: `${fmtCountdown(until - now())} left` },
-      rule: `Free to reschedule or cancel until then. Once you confirm, ${esc(first)} keeps your ${money(deposit)} deposit if you cancel or aren’t home.`,
+      rule: `Free to reschedule or cancel until then. Once you confirm, ${esc(first)} keeps your ${money(deposit)} deposit if you cancel or ${away}.`,
       bar: { ctaLabel: `Confirm for ${day}`, ctaAct: 'confirm-visit', secondaryLabel: 'Reschedule', secondaryAct: 'reschedule', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' },
     };
   }
   if (r === 'confirmed') {
     return {
       strip: { tone: 'done', icon: 'check', text: `Confirmed for ${day} · ${at}` },
-      rule: `If you cancel now or aren’t home, ${esc(first)} keeps your ${money(deposit)} deposit.`,
+      rule: `If you cancel now or ${away}, ${esc(first)} keeps your ${money(deposit)} deposit.`,
     };
   }
   /* missed: the free window closed with no answer — the visit stays booked until REMINDER_AUTOCANCEL_H before it (K-43, D-300); Confirm keeps it */
   const by = fmtTime(autoCancelAt(a));
   return {
     strip: { tone: 'warn', icon: 'clock', text: `Confirm by ${by} or we’ll cancel the visit`, right: day === 'today' ? `Visit ${at}` : `Visit ${day} ${at}` },
-    rule: `If you don’t confirm by ${by}, we cancel it and ${esc(first)} keeps your ${money(deposit)} deposit. She keeps it too if you cancel now or aren’t home.`,
-    bar: { ctaLabel: 'Confirm, I’ll be home', ctaAct: 'confirm-visit', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' },
+    rule: `If you don’t confirm by ${by}, we cancel it and ${esc(first)} keeps your ${money(deposit)} deposit. She keeps it too if you cancel now or ${away}.`,
+    bar: { ctaLabel: a.job.visitType === 'home' ? 'Confirm, I’ll be home' : 'Confirm, I’ll be there', ctaAct: 'confirm-visit', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' },
   };
 }
 
@@ -243,7 +251,7 @@ function m4Timeline(a, first) {
     { state: 'done', title: 'Booked', sub: fmtWhen(confirmedAt(a)) },
     /* K-17 (D-243, R5): "Fitted Thu, Oct 15 · at my place" lives on the done step, not as a fourth header line */
     { state: s2, title: 'Visit and fitting', sub: s2 === 'done' ? `<span class="${ID}__step-line">${fittedText(a)}</span><span class="${ID}__step-line">Order approved</span>` : s2 === 'current' ? `${esc(first)} goes through the order with you` : '' },
-    { state: s3, title: 'Tailoring' },
+    { state: s3, title: 'Tailoring', sub: s3 === 'current' ? `Due ${esc(fmtDay(a.job.needBy))}` : '' },   // SF-26
     { state: s4, title: 'Ready', sub: paid ? `Paid ${money(a.payments.balance.cents)}` : s4 === 'current' ? 'Pay the balance' : at >= progress ? `Pay the ${money(a.money.balance)} balance` : `Pay the balance, est. ${money(a.money.balance)}` },
     { state: s5, title: 'Back with you' },   // R1: the title says the state, the timeline doesn't echo it
   ]);
@@ -313,12 +321,12 @@ function handoffView(a, t, first) {
     pickup: {
       strip: problem ? { tone: 'warn', icon: 'chat', text: 'Problem reported · sort it out in chat' }
         : marked ? { tone: 'action', icon: 'bag', text: `${first} marked it picked up` }
-          : missed ? { tone: 'warn', icon: 'clock', text: `You missed your pickup at ${fmtTime(slot.start)} · pick a new time` }
+          : missed ? { tone: 'warn', icon: 'clock', text: `You missed your pickup at ${fmtWhen(slot.start)} · pick a new time` }
             : { tone: 'done', icon: 'bag', text: when ? `Pickup ${when} · show your code at the shop` : 'Ready for pickup · show your code at the shop' },
       tag: 'Ready', right: `at ${t.shopName}`,
       place: () => {
         const addr = `${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim();
-        const dir = { label: 'Directions', icon: ICON_DIRECTIONS, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${t.shopName}, ${addr}`)}`, act: 'directions', attrs: 'target="_blank" rel="noopener"' };
+        const dir = { label: 'Directions', icon: ICON_DIRECTIONS, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shopPlace(t, { full: true }))}`, act: 'directions', attrs: 'target="_blank" rel="noopener"' };
         const time = when && !marked ? [{
           icon: 'calendar', value: esc(when), strong: true,
           detail: missed ? 'You missed this time. Pick a new one, no fee.' : movedFrom || `Your pickup time · ${f} has it ready then`,
@@ -326,7 +334,7 @@ function handoffView(a, t, first) {
         return `${visitBlock([...time, { icon: 'bag', value: shopName, detail: [esc(addr), ...(hours ? [esc(hours)] : [])] }], { title: 'In-store pickup', flush: true })}${personActions([dir, ...(marked ? [] : change), message])}`;
       },
       steps: problem ? [trouble, leave] : marked ? [confirm, leave] : [
-        { state: 'current', title: 'Pick it up at the shop', sub: when ? esc(when) : hours ? esc(hours.replace(/^Open /, '').replace(/^./, (c) => c.toUpperCase())) : '' },
+        { state: 'current', title: 'Pick it up at the shop', sub: missed ? 'Pick a new time' : when ? esc(when) : hours ? esc(hours.replace(/^Open /, '').replace(/^./, (c) => c.toUpperCase())) : '' },
         { state: 'todo', title: `Show ${f} your code` },
         leave,
       ],
@@ -355,7 +363,7 @@ function handoffView(a, t, first) {
   }));
   const alert = problem
     ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `You reported a problem. We’ve stopped the automatic completion and told ${f}.` })}</div>`
-    : charged && bal.captureReason === 'unclaimed'
+    : charged && bal.captureReason === 'unclaimed' && !marked   // SF-15: once she marked it picked up, the countdown speaks
       ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `We charged your ${money(held)} balance after ${POLICY.UNCLAIMED_CAPTURE_D} days. ${f} still keeps it for you until you ${how === 'pickup' ? 'pick it up' : 'get it'}.` })}</div>` : '';
   const stage = hangStage({
     types: items.map((g) => g.type), tag: [sarah, cfg.tag], left: `${plural(items.length, 'item')} · ${plural(services, 'service')}`, right: cfg.right,
@@ -367,6 +375,9 @@ function handoffView(a, t, first) {
     : marked ? autoCompleteLine(autoCompleteLeft(a)) : '';
   const heldLine = held > 0 ? (charged ? `Ready · ${money(held)} charged` : `Payment ${money(held)} · ${chargedWhen(how)}`) : 'Ready · nothing to pay';
   const steps = timeline([{ state: 'done', title: 'Booked, fitted, tailored', sub: heldLine }, ...cfg.steps]);
+  /* SF-14: after paying, the 7-day charge date (not once she marked it picked up — that countdown speaks — or while a problem is open) */
+  const captureLine = bal.state === 'held' && held > 0 && !problem && !marked && unclaimedAt(a)
+    ? `<p class="t-small c-600 ${ID}__capture">If you haven’t got it by ${esc(fmtWhen(unclaimedAt(a)))}, we’ll charge the ${money(held)} then.</p>` : '';
   const courierCaption = how === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {};
   const breakdown = customerBreakdown(a.money, { stage: charged ? 'charged' : 'held', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '', wayBack: how, ...courierCaption });
   const order = a.lines?.length ? orderSection(a, first) : '';
@@ -381,7 +392,7 @@ function handoffView(a, t, first) {
   ${stage}
   ${handoff ? sec(`<div class="${ID}__handoff">${handoff}</div>`) : ''}
   ${sec(cfg.place())}
-  ${sec(`${sectionHead('What happens next')}${steps}`)}
+  ${sec(`${sectionHead('What happens next')}${steps}${captureLine}`)}
   ${order}
   ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${breakdown}`)}
   ${quiet}
@@ -627,7 +638,7 @@ function openGotIt(a, first) {
 /** "I didn't get it" (A3, default 5): stops the automatic completion and tells the tailor; nothing is charged meanwhile. */
 function openNotReceived(a, first) {
   const html = (busy = false) => `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
-  <p class="t-body c-700">We’ll stop the automatic completion and tell ${esc(first)}. Nothing is charged while you sort it out in chat.</p>
+  <p class="t-body c-700">We’ll stop the automatic completion and tell ${esc(first)}. ${a.payments.balance.state === 'held' ? 'Nothing is charged while you sort it out in chat.' : `You’ve already been charged ${money(a.payments.balance.cents)}. We’ll keep the order open while you sort it out in chat.`}</p>
   ${cta('Report a problem', { variant: 'danger', busy, busyLabel: 'Reporting…', attrs: 'data-act="nr-ok"' })}
   ${cta('Keep waiting', { variant: 'secondary', disabled: busy, attrs: 'data-act="nr-keep"' })}
 </div>`;

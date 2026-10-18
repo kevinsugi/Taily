@@ -6,16 +6,16 @@
    (onboarding) / the bank fields (edit).
    ============================================================ */
 import { register, render as go, back, currentScreen } from '../app.js';
-import { state, T, nowIso } from '../state.js';
+import { state, T, nowIso, SECTIONS } from '../state.js';
 import { myTailor, payoutsView } from '../tailor-data.js';
 import { fmtDay, payoutDay } from '../dates.js';
 import { ROUTING_BANKS } from '../data.js';
-import { MONEY } from '../money-config.js';
+import { MONEY, POLICY } from '../money-config.js';
 import { cents, fmt, fmtExact, tailyFeeFor, payoutFor } from '../money.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, field, sectionHead, infoButton,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, headingRow, banner, field, sectionHead, infoButton,
   actionBar, modalOverlay, leaveModal, toast, esc,
 } from '../components.js';
 
@@ -52,15 +52,11 @@ function accountErrorFor(code, d) {
   if (code === 'account-invalid' && !String(d.account ?? '').trim() && p?.last4 && d.routing !== String(p.routing ?? '')) return 'Enter the account number for your new bank.';
   return ERRORS[code] ?? '';
 }
-const listLabels = (arr) => (arr.length < 3 ? arr.join(' and ') : `${arr.slice(0, -1).join(', ')} and ${arr[arr.length - 1]}`);
 
 /** "Pick up where you left off" — only when the tailor arrives from a step that left something incomplete. */
 function resumeBanner(t) {
   if (!state.ui.onboarding?.resumed) return '';
-  const done = ONBOARDING_STEPS.filter((s) => t.onboarding?.[s.id]);
-  const left = ONBOARDING_STEPS.length - done.length;
-  const names = done.length ? `${listLabels(done.map((s) => s.label))} ${done.length === 1 ? 'is' : 'are'} done.` : 'Nothing is done yet.';
-  return banner({ tone: 'info', title: 'Pick up where you left off', text: `${names} ${left} step${left === 1 ? '' : 's'} to go before customers can book you.`, dismissible: true });
+  return banner({ tone: 'info', title: 'Pick up where you left off', text: resumeText(t), dismissible: true });   // SF-43
 }
 
 function feeCard() {
@@ -112,14 +108,14 @@ function view(s) {
   </section>`;
   const bar = editing
     ? actionBar({ ctaLabel: 'Save changes', ctaAct: 'save', disabled: !dirty && !busy, note: dirty || busy ? '' : 'No changes yet.', busy, busyLabel: 'Saving…' })
-    : actionBar({ ctaLabel: 'Finish and go live', ctaAct: 'next', busy, busyLabel: 'Setting up payouts…' });
+    : actionBar({ ctaLabel: 'Finish and go live', ctaAct: 'next', busy, busyLabel: 'Setting up payouts…', lead: 'By going live you agree to the Taily Tailor Agreement.' });   // SF-06
   return `${onboardingHeader({ editing, active: u.from === 'earnings' ? 'earnings' : 'shop' })}
 <main class="body body--with-bar ${ID}${editing ? ` ${ID}--edit` : ''}">
   ${editing ? '' : onboardingSteps('payouts', ONBOARDING_STEPS.filter((st) => t.onboarding?.[st.id]).map((st) => st.id))}
   ${editing ? '' : resumeBanner(t)}
   ${head}
   ${editing ? returnedBanner() : ''}
-  <p class="t-body c-600 ${ID}__lead">Every Friday, Taily pays you for the jobs you completed before that day.</p>
+  <p class="t-body c-600 ${ID}__lead">Taily pays you every Friday for jobs completed by then. A job is complete when the customer has her order: at pickup, on delivery, or ${POLICY.HANDOFF_AUTO_H} hours after you mark it handed over.</p>
   ${editing ? '' : feeCard()}
   ${fields}
 </main>
@@ -238,7 +234,10 @@ function wire(root) {
 
   /* D-57: save what she typed (the setter ignores what is not valid; no errors shown), sign out, t-phone with the saved banner */
   function finishLater() {
-    T.setPayouts({ ...draftOf() });
+    /* SF-02: saving valid bank details on the last open step would make her bookable (live) — Finish later never takes her live */
+    const t = myTailor();
+    const wouldGoLive = SECTIONS.filter((sec) => sec !== 'payouts').every((sec) => t.onboarding[sec]);
+    if (!wouldGoLive) T.setPayouts({ ...draftOf() });
     state.ui['t-phone'] = { saved: true, phone: myTailor().phone };
     A.signOut('tailor');
     go('t-phone', { fresh: true });

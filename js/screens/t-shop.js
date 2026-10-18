@@ -11,6 +11,7 @@ import { cents, fmt } from '../money.js';
 import * as A from '../account.js';
 import {
   chrome, headingRow, banner, customerPreview, tailorRow, miniProfile, listRow, textLink, sectionHead, statusPill, toggle, wireToggles, toast, ONBOARDING_STEPS, esc,
+  modalOverlay, cta,
 } from '../components.js';
 
 const ID = 't-shop';
@@ -109,7 +110,7 @@ function view(s) {
     ${sectionHead('Your setup', { id: `${ID}-setup-h` })}
     <div class="card card--list ${ID}__setup">${rows}</div>
   </section>
-  <div class="${ID}__out">${textLink('Sign out', { act: 'sign-out', tone: 'muted' })}</div>
+  <div class="${ID}__out">${textLink('Sign out', { act: 'sign-out', tone: 'danger' })}</div>
 </main>`;
 }
 
@@ -130,10 +131,29 @@ function wire(root) {
     else if (act === 'fix') {
       const missing = ONBOARDING_STEPS.find((st) => !myTailor().onboarding?.[st.id]);
       if (missing) goTo(missing.id);
-    } else if (act === 'sign-out') {
+    } else if (act === 'sign-out') openSignOut();
+  });
+}
+
+/* SF-44: the same confirm as the customer's account (c-account) — focus on the safe choice */
+const signOutModal = () => `<div class="modal modal--leave" role="alertdialog" aria-modal="true" aria-labelledby="${ID}-so-title" aria-describedby="${ID}-so-body">
+  <h2 class="modal__title t-h2" id="${ID}-so-title">Sign out of Taily?</h2>
+  <p class="leave-modal__body" id="${ID}-so-body">You’ll need your phone number and a code to sign back in. Your jobs and requests stay as they are.</p>
+  <div class="modal__actions">
+    ${cta('Sign out', { variant: 'danger', attrs: 'data-act="sign-out-ok"' })}
+    ${cta('Stay signed in', { variant: 'secondary', attrs: 'data-act="sign-out-keep"' })}
+  </div>
+</div>`;
+function openSignOut() {
+  modalOverlay(signOutModal(), { dataS: 'sign-out' }, (holder, close) => {
+    const keep = holder.querySelector('[data-act="sign-out-keep"]');
+    keep.addEventListener('click', () => close());
+    keep.focus();
+    holder.querySelector('[data-act="sign-out-ok"]').addEventListener('click', () => {
       A.signOut('tailor');
+      close({ instant: true });
       go('t-phone', { fresh: true });
-    }
+    });
   });
 }
 function goTo(section) {

@@ -5,7 +5,7 @@
    overlapping the asked-for visit (D-77).
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
-import { state, T } from '../state.js';
+import { state, T, getAppt } from '../state.js';
 import { suggestSlots, suggestPrice } from '../tailor-data.js';
 import { focusAppt, setFocus } from '../focus.js';
 import { fmtExact } from '../money.js';
@@ -41,7 +41,7 @@ function view() {
   if (!a) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}">
   <div class="${ID}__empty" data-empty="no-request">${emptyState({
-    title: 'No open requests', body: 'New requests show up on Home.', art: 'Suit Pant', ctaLabel: 'Go to Home', ctaAct: 'home',
+    title: 'No open requests', body: 'New requests show up on Home.', art: 'Suit Pant', ctaLabel: 'Back to Home', ctaAct: 'home',
   })}</div>
 </main>`;
   }
@@ -68,7 +68,7 @@ function view() {
     columns: slotColumns(slots, picked), inline: true, compact: true, cta: '', note: whenNote(`${sarah} sees`, picked),
   })}</div>
   <div class="${ID}__price" data-sched-price aria-live="polite">${priceLines(a, picked)}</div>
-  <p class="t-small c-600 ${ID}__by">Answer by ${fmtTime(a.expiresAt)}.</p>
+  <p class="t-small c-600 ${ID}__by">Send it by ${fmtTime(a.expiresAt)}, or the request expires.</p>
 </main>
 ${actionBar({ ctaLabel: 'Send suggestion', ctaAct: 'send-suggestion', busy: !!d.busy, busyLabel: 'Sending…' })}`;
 }
@@ -131,6 +131,11 @@ function send(a, slots, store) {
       T.tick();
       go('t-request', { replace: true });
       toast('This request expired.', { tone: 'error' });
+    } else if (getAppt(a.id)?.status === 'cancelled' && ['withdrawn', 'switched'].includes(getAppt(a.id).cancel?.reason)) {
+      /* SF-17: Sarah withdrew (or chose another tailor) while Amara picked a time */
+      state.ui[ID] = {};
+      go('t-home', { fresh: true });
+      toast(`${state.customer.first} ${getAppt(a.id).cancel.reason === 'switched' ? 'chose another tailor' : 'withdrew this request'}.`);
     } else {
       go('t-request', { replace: true });
       toast('Couldn’t send your suggestion. Try again.', { tone: 'error' });

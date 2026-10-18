@@ -4,7 +4,7 @@
    Taily fee sits under Services with what it was taken from; the
    courier is never Amara's money (D-04). Failed → the pill and the one
    meta line under the figure carry it (K-17 #7: no banner repeating them)
-   and a sticky "Fix bank details".
+   and a sticky "Update bank details".
    ============================================================ */
 import { register, render as go, back, personaHome } from '../app.js';
 import { state } from '../state.js';
@@ -100,7 +100,7 @@ function view() {
     ${sectionHead('How it adds up', { id: `${ID}-sum` })}
     <div class="${ID}__sum">${sum}</div>
   </section>
-</main>${failed ? actionBar({ ctaLabel: 'Fix bank details', ctaAct: 'fix-bank' }) : ''}`;
+</main>${failed ? actionBar({ ctaLabel: 'Update bank details', ctaAct: 'fix-bank' }) : ''}`;
 }
 
 function wire(root) {

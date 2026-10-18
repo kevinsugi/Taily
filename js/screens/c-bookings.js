@@ -4,10 +4,10 @@
    Focal: the first row of the first non-empty section.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, apptsFor, tailorById, statusScreen, now, priceChangeView } from '../state.js';
+import { state, apptsFor, tailorById, statusScreen, now, priceChangeView, jobEditView, handoffMissed, slotText } from '../state.js';
 import { chrome, headingRow, apptRow, emptyState, sectionHead, heroGarment, chargedWhen } from '../components.js';
 import { fmtColumn } from '../money.js';
-import { fmtWhen, fmtCountdown, toDate } from '../dates.js';
+import { fmtWhen, fmtTime, fmtCountdown, toDate } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { setFocus, statusWord, sinceText } from '../focus.js';
@@ -82,12 +82,17 @@ function rowFor(a, kind, fmtAmt) {
     if (a.status === 'price-change') {
       row.amountText = fmtAmt(priceChangeView(a).after.total);
       row.amountCaption = 'Reply needed'; row.captionTone = 'action';
+    } else if (a.status === 'in-progress' && a.edit?.state === 'pending') {   // SF-12: the edit waits on her
+      row.amountText = fmtAmt(jobEditView(a).after.total); row.amountCaption = 'Reply needed'; row.captionTone = 'action';
     } else if (a.status === 'in-progress') { row.amountText = fmtAmt(a.money.total); row.amountCaption = 'Total'; }
     else if (a.status === 'ready') { row.amountText = fmtAmt(a.money.balance); row.amountCaption = 'Choose a way back'; row.captionTone = 'action'; }   // K-27: held at the choice, not paid
     else if (a.status === 'awaiting-handoff') {
       const b = a.payments.balance;
       row.amountText = fmtAmt(b.cents > 0 ? b.cents : a.money.total);
       row.amountCaption = b.state === 'captured' ? 'Charged' : b.cents > 0 ? chargedWhen(a.returnOption) : 'Paid';   // Study-1 A2; K-44 (D-302): the short status, not "On hold"; D-303: by the way back
+      /* SF-12: the picked time (or the missed one) and where she gets it, not the fitting's place */
+      if (a.handoff?.slot) row.when = handoffMissed(a) ? `Missed ${fmtTime(a.handoff.slot.start)} pickup` : slotText(a.handoff.slot);
+      row.place = a.returnOption === 'courier' ? 'Delivered to my place' : `At ${t.shopName || t.shop?.street || 'the shop'}`;
     }
   }
   if (kind === 'past' && a.status === 'completed') {
@@ -135,6 +140,7 @@ function view() {
   const fmtAmt = fmtColumn([
     ...live.map((a) => a.money.total),
     ...live.filter((a) => a.status === 'price-change').map((a) => priceChangeView(a).after.total),
+    ...live.filter((a) => a.status === 'in-progress' && a.edit?.state === 'pending').map((a) => jobEditView(a).after.total),
     ...live.filter((a) => a.status === 'ready' || a.status === 'awaiting-handoff').map((a) => a.payments.balance?.cents ?? a.money.balance),
     ...groups.past.map((a) => (a.status === 'completed' ? a.money.total : a.payments.deposit.cents)),
   ]);

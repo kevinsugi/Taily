@@ -14,7 +14,7 @@ import {
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
 import { fmtExact, estimate, cancelTerms } from '../money.js';
-import { fmtWhen, addMinutes } from '../dates.js';
+import { fmtWhen, addMinutes, toDate } from '../dates.js';
 import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
 import { POLICY } from '../money-config.js';
 
@@ -41,6 +41,14 @@ function cancelRow(slot, depositCents, first) {
   }
   const cutoff = addMinutes(slot, -POLICY.CANCEL_WINDOW_H * 60);
   return metaRow(GLYPH.check, `Free cancellation until ${fmtWhen(cutoff)}. After that, ${esc(first)} keeps the ${money(depositCents)} deposit.`);
+}
+
+/** SF-04: the reminder and its auto-cancel, said before she pays — only when a reminder will go out (the visit is at least
+    CANCEL_WINDOW_H + REMINDER_LEAD_H away, D-296). */
+function reminderRow(slot, depositCents, first) {
+  const away = toDate(slot).getTime() - now();
+  if (away < (POLICY.REMINDER_LEAD_H + POLICY.CANCEL_WINDOW_H) * 3600000) return '';
+  return metaRow(GLYPH.clock, `We’ll text you the day before to confirm. If you don’t confirm ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and ${esc(first)} keeps the ${money(depositCents)} deposit.`);
 }
 
 /* ---------- data ---------- */
@@ -134,6 +142,7 @@ function view() {
   <section class="sec c-pay__hold" aria-label="The deposit hold">${infoCard([
     metaRow(GLYPH.lock, `We hold ${money(q.deposit)} now. You’re only charged if ${esc(first)} accepts. If ${esc(first)} declines or doesn’t reply, it’s released in full.`),
     cancelRow(r.slot, q.deposit, first),
+    reminderRow(r.slot, q.deposit, first),
   ].join(''))}</section>
   <section class="sec" aria-labelledby="pay-h-method">
     ${sectionHead('Pay with', { id: 'pay-h-method' })}

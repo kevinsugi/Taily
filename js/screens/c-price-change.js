@@ -94,18 +94,20 @@ function editView(a, chromeHtml) {
   const after = ev.after;
   const busy = !!ui().busy;
   const priced = ev.changed;
+  const moved = ev.after.total !== ev.before.total;   // SF-03: a due-date-only edit can move the money (a rush fee drops)
   const strip = requestStrip({ page: true, tone: 'action', icon: 'check', text: `${first} edited your order`, right: ev.sentAt ? `Sent ${fmtTime(ev.sentAt)}` : '' });
   const head = pageHead(requestHead({
     page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
-    payoutCents: after.total, label: priced ? 'New total' : 'Total', lines: priced ? deltaLines(after.total, ev.before.total) : [],
+    payoutCents: after.total, label: priced || moved ? 'New total' : 'Total', lines: priced || moved ? deltaLines(after.total, ev.before.total) : [],
   }));
   const rows = [
     { label: 'Services', cents: after.services, caption: `${first}’s new prices` },
     after.homeFee > 0 && { label: 'Home visit fee', cents: after.homeFee, caption: HOME_FEE_CAPTION },
     after.rush > 0 && { label: 'Rush fee', cents: after.rush },
-    { label: priced ? 'New total' : 'Total', cents: after.total, kind: 'total' },
+    ev.before.rush > after.rush && !after.rush && { label: 'Rush fee', caption: 'Removed · later due date', cents: 0 },   // SF-03
+    { label: priced || moved ? 'New total' : 'Total', cents: after.total, kind: 'total' },
     { label: 'Deposit', cents: after.deposit, caption: 'Stays the same', status: 'Paid' },
-    { label: priced ? 'New balance' : 'Balance', cents: after.balance, status: 'Due when ready' },
+    { label: priced || moved ? 'New balance' : 'Balance', cents: after.balance, status: 'Due when ready' },
     after.refund > 0 && { label: 'Refund to your card', cents: after.refund, caption: 'When your order is ready' },
   ].filter(Boolean);
   const items = returnedItems(a);
@@ -124,7 +126,7 @@ function editView(a, chromeHtml) {
 </main>
 ${actionBar({
     ctaLabel: 'Approve changes', ctaAct: 'approve-edit', busy, busyLabel: 'Approving…',
-    lead: `<span>${priced ? 'New balance' : 'Balance'}, due when it’s ready</span><b data-money>${fmtExact(after.balance)}</b>`,
+    lead: `<span>${priced || moved ? 'New balance' : 'Balance'}, due when it’s ready</span><b data-money>${fmtExact(after.balance)}</b>`,
     secondaryLabel: `Message ${first}`, secondaryAct: 'message',
   })}`;
 }

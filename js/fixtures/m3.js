@@ -114,7 +114,7 @@ export const FLOWS_t_home = [
     expect: { has: ['No requests yet', 'Check your hours'], not: 'Your payout', sel: '[data-empty="home"]' } },
   { key: 't-home--text', screen: 't-home', group: 'M3 · Tailor', title: 'Home — a text for a new request', note: 'K-43 (D-301, was the push card D-167): Taily texts her the request with its unique link; tapping it opens the request',
     setup: (S) => { S.driveTo('requested'); S.sim.texts = 'on'; },
-    expect: { has: ['TEXT MESSAGE', 'Taily', 'New request from Sarah C.', 'Home visit', 'Your payout', c1Exact(C1_SC.seed.payout), '2h to reply', 'taily.app/r/'], sel: '.text-banner[data-act="text-open"]' } },
+    expect: { has: ['TEXT MESSAGE', 'Taily', 'Taily: New request from Sarah C.', 'Home visit', 'Your payout', c1Exact(C1_SC.seed.payout), '2h to reply', 'taily.app/r/'], sel: '.text-banner[data-act="text-open"]' } },
   /* extras beyond the spec table: states the screen draws that the table did not key */
   { key: 't-home--no-requests', screen: 't-home', group: 'M3 · Tailor', title: 'Home — only an upcoming visit', note: 'No new requests right now, the booked visit below',
     setup: (S) => { S.driveTo('confirmed'); },
@@ -194,7 +194,7 @@ export const FLOWS_t_request = [
     click: ['[data-act="decline"]', '[data-act="decline-ok"]'],
     expect: { has: 'Declining…', sel: '[data-act="decline-ok"][aria-busy="true"]' } },
   { key: 't-request--none', screen: 't-request', group: 'M3 · Tailor', title: 'Request — nothing open', note: 'No request to show: a way back to Home',
-    expect: { has: ['No open requests', 'Go to Home'], not: 'Accept', sel: '[data-empty="no-request"]' } },
+    expect: { has: ['No open requests', 'Back to Home'], not: 'Accept', sel: '[data-empty="no-request"]' } },
 ];
 
 export const FLOWS_t_suggest = [
@@ -241,7 +241,7 @@ export const FLOWS_c_request = [
 export const FLOWS_c_tailors = [
   { key: 'c-tailors--none-left', screen: 'c-tailors', group: 'M3 · Request outcomes', title: 'Tailors near you — none left', note: 'Every tailor hidden after the last no-reply (D-83)',
     setup: (S) => { S.driveTo('expired-final'); S.T.findAnotherTailor(S.appt.id); },
-    expect: { has: ['No other tailors for this request yet', 'didn’t reply in time, and no other tailors cover', 'A later need-by date or another ZIP may open more.', 'Change need-by date', 'Change ZIP'], not: ['is hidden', 'We’ll let you know'], sel: '[data-empty="none-left"]' } },
+    expect: { has: ['No other tailors for this request yet', 'We won’t show Amara for this request again, and no other tailors cover', 'Another ZIP may open more.', 'Change need-by date', 'Change ZIP'], not: ['is hidden', 'We’ll let you know'], sel: '[data-empty="none-left"]' } },
 ];
 
 /* ---------- C2 · Tailor job (t-job, t-thread stub) — own helpers, prefixed tj ---------- */
@@ -292,7 +292,7 @@ export const FLOWS_t_job = [
     expect: { has: ['Visit rescheduled', 'Moved from 5:00 PM'], not: ['moved this visit to', 'Visit with Sarah Chen'], sel: '.visit-row' } },
   { key: 't-job--empty', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — nothing booked', note: 'Only an open request: no job to show, way back to Home',
     setup: (S) => { S.driveTo('requested'); },
-    expect: { has: ['No upcoming jobs', 'You have 1 request to answer on Home.', 'Go to Home'], not: 'Message Sarah', sel: '[data-empty="no-job"]' } },
+    expect: { has: ['No upcoming jobs', 'You have 1 request to answer on Home.', 'Back to Home'], not: 'Message Sarah', sel: '[data-empty="no-job"]' } },
 ];
 
 export const FLOWS_t_thread = [

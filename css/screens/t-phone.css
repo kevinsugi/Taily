@@ -3,6 +3,8 @@
 .t-phone__lead { margin: var(--rhythm-tight) 0 0; }
 .t-phone__saved { margin-top: var(--rhythm-section); }
 .t-phone__field { margin-top: var(--rhythm-section); }
+.t-phone__legal { margin: var(--rhythm-group) 0 0; }   /* SF-06: the Tailor Terms under the phone field */
+.t-phone__legal .t-phone__link { position: relative; z-index: 1; }
 .t-phone__steps { margin: var(--rhythm-section) 0 0; }
 .t-phone__other { margin: var(--rhythm-group) 0 0; }
 .t-phone__link {

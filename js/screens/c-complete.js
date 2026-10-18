@@ -7,10 +7,9 @@
    Leave a review · Book Amara again · Message; 7 days on with no review, the reminder card (reviewReminderDue).
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorById, priceChangeView, reviewReminderDue } from '../state.js';
+import { state, T, tailorById, priceChangeView } from '../state.js';
 import {
   chrome, navBackMark, receiptBlock, balanceCardLabel, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, verifiedCheck, returnedItems, linenStage, tagRail,
-  reminderCard,
 } from '../components.js';
 import { CHEVRON_RIGHT, VISIT_ICONS } from '../icons.js';
 import { fmtExact } from '../money.js';
@@ -30,7 +29,7 @@ function receiptLine(a) {
   const paid = a.payments.balance?.cents ?? 0;
   const refund = a.payments.refund?.cents ?? 0;
   if (paid <= 0 && refund > 0) return `${fmtExact(refund)} refunded · ${balanceCardLabel(a, a.cardId)}`;
-  return `Charged ${fmtExact(paid)} · ${card}`;   // K-27: the hold, captured at the handoff
+  return `Paid ${fmtExact(a.money.total)} · ${card}`;   // SF-25: what she paid in all (the breakdown below splits deposit and balance)
 }
 
 
@@ -46,12 +45,12 @@ function view() {
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const first = firstOf(t);
   const items = returnedItems(a);
+  /* SF-39: no review-reminder card here — the inline stars below already ask (a week on, Home still carries the card) */
   /* M7-1-A-06: the heading is the group's visible label; a star tap carries the rating into c-review (D-107) */
   const rating = stars({ input: true, name: 'rate' }).replace('aria-label="Your rating"', 'aria-labelledby="rate-label"');
   const meta = [t.shopName, t.shop?.hood, `for ${customerShort()}`].filter(Boolean).join(' · ');
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${navBackMark()}
-  ${reviewReminderDue(a) ? `<div class="${ID}__reminder">${reminderCard({ title: `How did ${first} do?`, text: 'It’s been a week since your order came back. Your review helps other customers.', act: 'leave-review', id: a.id })}</div>` : ''}
   ${linenStage({ eyebrow: `${a.handoff?.completedBy === 'auto' ? 'Completed automatically' : 'Order complete'} · ${fmtDay(doneAt(a))}`, title: 'Back with you, tailored to fit.', rail: tagRail(items), label: 'Order complete' })}
   <section class="${ID}__label" aria-label="Rate ${esc(first)}">
     <p class="t-caps ${ID}__by">Tailored by</p>

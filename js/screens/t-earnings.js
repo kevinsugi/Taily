@@ -66,7 +66,7 @@ function view() {
   <div class="${ID}__empty" data-empty="earnings">${emptyState({
     title: 'No earnings yet',
     body: 'When you complete a job, its payout shows up here. Taily pays out every Friday.',
-    art: 'Accessories', ctaLabel: 'Go to Home', ctaAct: 'home',
+    art: 'Accessories', ctaLabel: 'Back to Home', ctaAct: 'home',
   })}</div>
 </main>`;
   }
@@ -80,7 +80,7 @@ function view() {
       : {
         tone: 'error', title: 'Your Friday payout didn’t go through',
         text: `${esc(bank)} returned it. Update your bank details to get paid.`,   // K-17 #7: the amount is the figure below, once
-        actionLabel: 'Fix bank details', actionAct: 'fix-bank',
+        actionLabel: 'Update bank details', actionAct: 'fix-bank',
       })}</div>` : '';
 
   /* the next Friday: one figure, the jobs that add up to it */
@@ -92,7 +92,7 @@ function view() {
     ${hero({ label: 'Next payout', cents: failed.cents + next.cents, caption: `Sends ${fmtDay(day)} once you update your bank details` })}
     <p class="t-small c-600 ${ID}__after">${plural(all.length, 'job', 'jobs')} · ${feeNote(all)}</p>
     ${listOf(`${failed.items.map((i) => jobRow(i, { tag: 'Returned' })).join('')}${next.items.map((i) => jobRow(i)).join('')}`)}
-    <div class="${ID}__fix">${cta('Fix bank details', { attrs: 'data-act="fix-bank"' })}</div>
+    <div class="${ID}__fix">${cta('Update bank details', { attrs: 'data-act="fix-bank"' })}</div>
   </section>`;
   } else if (next) {
     const again = next.items.some((i) => i.retried);

@@ -95,3 +95,4 @@
 .t-adjust__why .text-area { margin: 0; }
 .t-adjust__photo { display: flex; align-items: center; gap: var(--space-16); }
 .t-adjust__photo-add .list-row { padding-inline: 0; }
+.t-adjust__consent { margin: var(--space-4) 0 0; }   /* SF-34: the photo-consent line under the fitting intro */

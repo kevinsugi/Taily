@@ -11,7 +11,7 @@ import { RUSH_TIERS, TAILOR_LIMITS } from '../data.js';
 import { cents, fmt } from '../money.js';
 import { withLatency } from '../sim.js';
 import {
-  chrome, headingRow, toggle, field, customerPreview, rushLadder, sectionHead, actionBar, modalOverlay, leaveModal, toast, wireToggles,
+  chrome, headingRow, toggle, field, customerPreview, rushLadder, sectionHead, actionBar, modalOverlay, leaveModal, toast, wireToggles, editScopeNote,
 } from '../components.js';
 
 const ID = 't-rush';
@@ -65,7 +65,7 @@ function view(s) {
   return `${chrome('shop', { persona: 'tailor' })}
 <main class="body body--with-bar ${ID}">
   ${headingRow('<h1 class="t-title">Rush fees</h1>')}
-  <p class="t-body c-600 ${ID}__lead">Charge extra when a customer needs it back soon after the visit. 4 days or more is always free.</p>
+  <p class="t-body c-600 ${ID}__lead">Charge extra when a customer needs it back soon after the visit. 4 days or more is always free.</p>${editScopeNote()}
   <div class="${ID}__toggle">${toggle({ id: 'rush-on', label: 'Charge rush fees', checked: d.on, disabled: busy })}</div>
   ${tiers}
   <p class="t-small c-600 ${ID}__note">Rush fees are yours in full.</p>
@@ -144,7 +144,7 @@ function wire(root) {
       if (currentScreen() !== ID) return;
       delete state.ui[ID];
       back() || go('t-shop');
-      toast('Rush fees saved', { tone: 'success' });
+      toast('Saved. New requests use this now.', { tone: 'success' });
     });
   }
 }

@@ -14,14 +14,14 @@ import * as A from '../account.js';
 export const FLOWS_t_phone = [
   { key: 't-phone', screen: 't-phone', group: 'M2 · Tailor sign-up', title: 'Tailor sign-up — phone', note: 'Signed out: empty field, the six-step promise, Book one link',
     setup: () => { A.signOut('tailor'); },
-    expect: { has: ['FOR TAILORS', 'Mobile number', 'Send code', 'six short steps'], sel: '#phone' } },
+    expect: { has: ['FOR TAILORS', 'Sign in or join with your mobile number.', 'Mobile number', 'Send code', 'New to Taily? Six short steps', 'Reply STOP to opt out', 'By continuing you agree to Taily’s Tailor Terms and Privacy Policy.'], sel: '#phone' } },
   { key: 't-phone--invalid', screen: 't-phone', group: 'M2 · Tailor sign-up', title: 'Tailor sign-up — invalid', note: '347555 then Send code',
     setup: (S) => { A.signOut('tailor'); S.state.ui['t-phone'] = { phone: '347555' }; },
     click: ['[data-act="send-code"]'],
     expect: { has: 'Enter a 10-digit US number', sel: '#phone[aria-invalid="true"]' } },
   { key: 't-phone--saved', screen: 't-phone', group: 'M2 · Tailor sign-up', title: 'Tailor sign-up — progress saved', note: 'After Finish later: success banner, number pre-filled',
     setup: (S) => { onboardTo('services'); A.signOut('tailor'); S.state.ui['t-phone'] = { saved: true, phone: NEW_TAILOR_PHONE }; },
-    expect: { has: ['Your progress is saved', NEW_TAILOR_PHONE], sel: '.banner--success' } },
+    expect: { has: ['Your progress is saved', NEW_TAILOR_PHONE], not: 'Six short steps', sel: '.banner--success' } },
 ];
 export const FLOWS_t_code = [
   { key: 't-code', screen: 't-code', group: 'M2 · Tailor sign-up', title: 'Tailor sign-up — enter the code', note: 'Resend countdown frozen at 0:30',
@@ -69,7 +69,7 @@ export const FLOWS_to_services = [
     expect: { has: 'Pick at least one service to continue.', not: ['Your payout', 'services on your profile'], sel: '[data-act="next"][disabled]' } },
   { key: 'to-services--resume', screen: 'to-services', group: 'M2 · Onboarding', title: 'Services and prices — resumed', note: 'Signed back in: the pick-up-where-you-left-off banner',
     setup: (S) => { onboardTo('services'); S.state.ui.onboarding = { resumed: true }; },
-    expect: { has: ['Pick up where you left off', 'Profile is done', '5 steps to go'] } },
+    expect: { has: ['Pick up where you left off', '1 of 6 steps done. 5 to go before customers can book you.'] } },
   { key: 'to-services--edit', screen: 'to-services', group: 'M2 · Shop', title: 'Services and prices — edit', note: 'Live tailor: ten ticked, Save changes waits for a change',
     expect: { has: ['Services and prices', 'Save changes', '10 selected', `Your payout: ${fmtExact(payoutFor({ services: cents(AMARA.prices['hem-pants']) }))}`], not: 'Taily fee −' } },
   { key: 'to-services--unsaved', screen: 'to-services', group: 'M2 · Shop', title: 'Services and prices — leave without saving', note: 'Changed one price, then Back',
@@ -140,7 +140,7 @@ export const FLOWS_to_payouts = [
     expect: { has: ['Enter the name on the account', 'Enter the 9-digit routing number', 'Account numbers are 4 to 17 digits'], sel: '#holder[aria-invalid="true"]' } },
   { key: 'to-payouts--edit', screen: 'to-payouts', group: 'M2 · Shop', title: 'Payouts — edit', note: 'Live tailor: current bank, account blank keeps it, Save changes waits for a change',
     expect: { has: ['Save changes', `${AMARA.payouts.bank} •••• ${AMARA.payouts.last4}`, 'Leave blank to keep'], not: 'Step 6 of 6' } },
-  { key: 'to-payouts--returned', screen: 'to-payouts', group: 'M5 · Earnings', title: 'Payouts — a payout didn’t go through', note: 'Fix bank details from Earnings: the returned amount, the bank, and the Friday it sends again after a save',
+  { key: 'to-payouts--returned', screen: 'to-payouts', group: 'M5 · Earnings', title: 'Payouts — a payout didn’t go through', note: 'Update bank details from Earnings: the returned amount, the bank, and the Friday it sends again after a save',
     setup: () => { earningsTo('failed'); },
     get expect() {
       return { has: [`Your ${fmtExact(SCENARIOS.seed.payout)} payout didn’t go through`, `${AMARA.payouts.bank} •••• ${AMARA.payouts.last4} returned it`, `we’ll send it again on ${fmtDay(PAYOUT_DAYS.second)}`, 'Save changes'], sel: '.banner--error' };
@@ -149,7 +149,7 @@ export const FLOWS_to_payouts = [
 export const FLOWS_to_done = [
   { key: 'to-done', screen: 'to-done', group: 'M2 · Onboarding', title: 'You’re bookable', note: 'Live: her row as a customer sees it, what happens next',
     setup: () => { onboardTo('done'); },
-    expect: { has: ['bookable', 'PREVIEW', 'How a customer in Williamsburg sees you', fmt(SCENARIOS.seed.total), 'Est.', AMARA.cardLine, 'WHAT HAPPENS NEXT', 'Go to my shop'], sel: '.customer-preview .tailor-row' } },
+    expect: { has: ['bookable', 'PREVIEW', 'How a customer in Williamsburg sees you', fmt(SCENARIOS.seed.total), 'Est.', AMARA.cardLine, 'WHAT HAPPENS NEXT', `We’ll text each new request to ${NEW_TAILOR_PHONE}.`, 'You’re paid the Friday after the customer has her order.', 'Go to my shop'], sel: '.customer-preview .tailor-row' } },
 ];
 export const FLOWS_t_shop = [
   { key: 't-shop', screen: 't-shop', group: 'M2 · Shop', title: 'Your shop', note: 'Bookable: preview of her row, seven setup rows with summaries',

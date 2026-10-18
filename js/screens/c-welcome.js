@@ -31,7 +31,7 @@ function view(s) {
   <div class="${ID}__gap"></div>
   ${btn('google', 'secondary')}
   <p class="t-small c-600 ${ID}__legal">By continuing you agree to Taily’s <button type="button" class="${ID}__link" data-act="terms" data-hit="inline">Terms</button> and <button type="button" class="${ID}__link" data-act="privacy" data-hit="inline">Privacy Policy</button>.</p>
-  <p class="t-small c-600 ${ID}__tailor">Are you a tailor? <button type="button" class="${ID}__link" data-act="tailor" data-hit="inline">Join Taily</button></p>
+  <p class="t-small c-600 ${ID}__tailor">Are you a tailor? <button type="button" class="${ID}__link" data-act="tailor" data-hit="inline">Sign in or join</button></p>
 </main>`;
 }
 

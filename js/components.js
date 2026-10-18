@@ -132,7 +132,7 @@ export { NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTI
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
 import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
-import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb } from './dates.js';
+import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb, dayWord } from './dates.js';
 import { POLICY } from './money-config.js';
 import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor } from './state.js';
 import { scheduler, slotColumns, readSlot, windowColumns, readWindow, whenNote, SCHED_ROW } from './scheduler.js';   // K-40: the handoff time sheet (scheduler.js imports this file back; both only call across at run time)
@@ -758,12 +758,15 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
  * prototype's scope (calendar, profile, reviews). Ink pill, bottom of
  * the viewport, auto-dismisses.
  */
-export function toast(msg, { tone = 'neutral', action = '', onAction = null, ms = action ? 5000 : tone === 'error' ? 6000 : 4000 } = {}) {
+export function toast(msg, { tone = 'neutral', action = '', onAction = null, ms = action ? 10000 : tone === 'error' ? 6000 : 4000 } = {}) {
   document.querySelector('.toast')?.remove();
   const el = document.createElement('div');
   el.className = tone === 'neutral' ? 'toast' : `toast toast--${tone}`;   // v5: neutral | success | warning | error | info
-  el.setAttribute('role', tone === 'error' ? 'alert' : 'status');
   el.textContent = msg;
+  /* SF-20: screen readers hear the toast through a live region that is always in the page (a region added with its text is often missed);
+     the visible toast carries no role of its own */
+  const live = document.getElementById(tone === 'error' ? 'toast-alert' : 'toast-live');
+  if (live) { live.textContent = ''; requestAnimationFrame(() => { live.textContent = msg; }); }
   if (action) {   // an inline action (Undo): the toast takes pointer events for its button
     el.classList.add('toast--action');
     const btn = document.createElement('button');
@@ -776,10 +779,20 @@ export function toast(msg, { tone = 'neutral', action = '', onAction = null, ms 
   if (bar) el.style.bottom = `${bar.offsetHeight + 12}px`;
   document.documentElement.classList.add('has-toast');   // the persona toggle steps aside
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('toast--in')));
-  setTimeout(() => {
+  const hide = () => {
     el.classList.remove('toast--in');
     setTimeout(() => { el.remove(); if (!document.querySelector('.toast')) document.documentElement.classList.remove('has-toast'); }, 300);
-  }, ms);
+  };
+  let timer = setTimeout(hide, ms);
+  if (action) {
+    /* SF-20: an action toast (10 s) waits while the pointer or focus is on it, then gets its full time again */
+    const pause = () => clearTimeout(timer);
+    const resume = () => { clearTimeout(timer); timer = setTimeout(hide, ms); };
+    el.addEventListener('pointerenter', pause);
+    el.addEventListener('focusin', pause);
+    el.addEventListener('pointerleave', resume);
+    el.addEventListener('focusout', (e) => { if (!el.contains(e.relatedTarget)) resume(); });
+  }
 }
 
 /** Remove every toast now (a screen change does this — D-71: a toast never outlives its screen). */
@@ -1215,6 +1228,8 @@ const INFO = {
     'The deposit is held on your card, and charged only when the tailor accepts.',
     'It comes off your final total.',
     `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the tailor keeps the deposit.`,
+    'The day before, we text you to confirm. Once you confirm, the tailor keeps the deposit if you cancel or aren’t there.',   // SF-04 (K-41 / K-43)
+    `If you don’t confirm ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and the tailor keeps the deposit.`,
     'If the tailor cancels or doesn’t show up, you get it back in full.'] }),   // K-29 (Study-1 A5)
   fitting: (c) => ({ title: 'At the fitting', lines: [
     'You can add or remove items and services, and change prices.',
@@ -1225,7 +1240,7 @@ const INFO = {
     'Customers pay for the courier. It never comes out of your payout.',
     `If a customer cancels within ${POLICY.CANCEL_WINDOW_H} hours, you keep their deposit, with no fee.`] }),
   payouts: () => ({ title: 'When you get paid', lines: [
-    'Taily pays out every Friday for jobs you completed before that day.',
+    'Taily pays out every Friday for jobs completed before that day.',   // SF-31: complete = the customer has her order
     'Job payouts are after the Taily fee. Kept deposits and no-show pay have no fee.'] }),
   privacy: () => ({ title: 'Your privacy', lines: [
     'Phone numbers and emails stay private on Taily.',
@@ -1556,10 +1571,11 @@ export function stepper({ steps = [], current = 0, done = [], variant = 'default
   <ol class="stepper__bar">${steps.map((_, i) => `<li class="stepper__seg stepper__seg--${state(i)}"${i === ci ? ' aria-current="step"' : ''}><span class="sr-only">${esc(labels[i])}</span></li>`).join('')}</ol>
 </nav>`;
   }
-  return `<div class="stepper">
+  /* SF-42: a list a screen reader can walk — each step says its name and whether it is done; the current one is aria-current (same visuals) */
+  return `<nav class="stepper" aria-label="Setup progress">
   <p class="stepper__text">Step ${ci + 1} of ${steps.length} · ${esc(labels[ci] ?? '')}</p>
-  <div class="stepper__bar" role="img" aria-label="Step ${ci + 1} of ${steps.length}">${steps.map((_, i) => `<span class="stepper__seg stepper__seg--${state(i)}"></span>`).join('')}</div>
-</div>`;
+  <ol class="stepper__bar">${steps.map((_, i) => `<li class="stepper__seg stepper__seg--${state(i)}"${i === ci ? ' aria-current="step"' : ''}><span class="sr-only">${esc(labels[i])}${state(i) === 'done' ? ', done' : ''}</span></li>`).join('')}</ol>
+</nav>`;
 }
 
 /** The five booking steps, shown as the first thing in .body on c-job → c-where → c-tailors → c-tailor → c-book / c-pay. */
@@ -1674,10 +1690,12 @@ const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', capture
 /** K-44 (D-302) · D-303: "when is the balance charged", by the way back — ONE map for every customer surface: the c-ready Pay caption
  * and pay sheet, the Balance row (ready + held stages), and after paying the c-booking head label + timeline line and the c-bookings
  * row caption, so none can drift. `chargedWhen` falls back to "Charged at handoff" while no way back is chosen. */
+/** SF-33: the shop as one place line, skipping an empty business name — "Reyes Tailoring, 145 Bedford Ave" (+ city, state ZIP when `full`). */
+export const shopPlace = (t, { full = false } = {}) => [t?.shopName, t?.shop?.street, full && t?.shop ? `${t.shop.city}, ${t.shop.state} ${t.shop.zip}` : ''].filter(Boolean).join(', ');
 export const CHARGE_CAPTION = { pickup: `Charged ${DATA.CHARGE_WHEN.pickup}`, courier: `Charged ${DATA.CHARGE_WHEN.courier}` };
-export const chargedWhen = (wayBack) => CHARGE_CAPTION[wayBack] ?? 'Charged at handoff';
+export const chargedWhen = (wayBack) => CHARGE_CAPTION[wayBack] ?? 'Charged when you get it';   // SF-39: no way back chosen yet
 /** The same timing inside a sentence: "You’ll be charged $144.00 at pickup." */
-export const chargedPhrase = (wayBack) => DATA.CHARGE_WHEN[wayBack] ?? 'at handoff';
+export const chargedPhrase = (wayBack) => DATA.CHARGE_WHEN[wayBack] ?? 'when you get it';
 /**
  * The customer's breakdown by stage — estimate | booked | ready | paid. Zero rows are omitted.
  * `q` is the quote() object in cents. `tailorFirst` names whose prices the services are.
@@ -1853,6 +1871,15 @@ export const ONBOARDING_STEPS = [
   { id: 'availability', label: 'Availability', screen: 'to-availability' },
   { id: 'payouts', label: 'Payouts', screen: 'to-payouts' },
 ];
+
+/** SF-43: the line under the intro of every live-shop editor (services, where, returns, availability, rush): what a save changes. */
+export const editScopeNote = () => '<p class="t-small c-600 edit-scope" data-edit-scope>Changes apply to new requests. Jobs you’ve already booked keep their price, place and times.</p>';
+
+/** SF-43: the resume banner's one sentence on every onboarding step — "3 of 6 steps done. 3 to go before customers can book you." */
+export function resumeText(tailor) {
+  const done = ONBOARDING_STEPS.filter((s) => tailor?.onboarding?.[s.id]).length;
+  return `${done} of ${ONBOARDING_STEPS.length} steps done. ${ONBOARDING_STEPS.length - done} to go before customers can book you.`;
+}
 
 /** "Step 2 of 6 · Services and prices" over six segments. `current` = id or index; `done` = ids (non-contiguous allowed). */
 export function onboardingSteps(current = 'profile', done = []) {
@@ -2038,7 +2065,12 @@ const STRIP_TONES = ['warn', 'action', 'done', 'calm'];
  * clock). `lead` prefixes the requested text ("New request · "); `text` + `tone` force a fixed line for an ended request (declined, expired);
  * `page` bleeds it across the screen under the nav (K-15) instead of across a card. Empty string when there is nothing to show.
  */
-export function requestStrip({ status = 'requested', expiresAt = null, now = null, lapseAt = null, when = '', lead = '', text = '', tone: forced = '', page = false, icon = 'clock', right = '' } = {}) {
+export function requestStrip(opts = {}) {
+  const html = stripHtml(opts);
+  /* SF-19: the page's one state strip is named for the router (announce + the h1's description) */
+  return opts.page && html ? html.replace(/^<(div|span) /, '<$1 id="page-strip" ') : html;
+}
+function stripHtml({ status = 'requested', expiresAt = null, now = null, lapseAt = null, when = '', lead = '', text = '', tone: forced = '', page = false, icon = 'clock', right = '' } = {}) {
   const suggested = status === 'suggested';
   const ms = suggested || expiresAt == null ? null : toMs(expiresAt) - toMs(now);
   const lapseMs = suggested && lapseAt ? toMs(lapseAt) - toMs(now) : null;
@@ -2056,7 +2088,7 @@ export function requestStrip({ status = 'requested', expiresAt = null, now = nul
     let shown = forced; let end = right;
     if (lapseAt != null && !right) {
       const left = toMs(lapseAt) - toMs(now);
-      end = left <= 0 ? 'Expired' : `${fmtCountdown(left)} left · by ${fmtTime(lapseAt)}`;
+      end = left <= 0 ? 'Expired' : `${fmtCountdown(left)} left · by ${isoDay(lapseAt) === isoDay(toMs(now)) ? fmtTime(lapseAt) : `${dayWord(lapseAt, toMs(now))} ${fmtTime(lapseAt)}`}`;   // SF-35: a deadline on another day names it
       if (forced === 'warn' && left > 0 && left <= POLICY.EXPIRING_SOON_MIN * 60000) shown = 'urgent';
     }
     return `<div class="request-card__strip request-card__strip--${shown}${pageCls}${end ? ' request-card__strip--split' : ''}" data-strip="${forced}">${STRIP_ICONS[icon] ?? ''}<span class="request-card__strip-lead">${esc(text)}</span>${end ? `<span class="request-card__strip-clock">${esc(end)}</span>` : ''}</div>`;
@@ -2246,7 +2278,7 @@ export function changeList({ garments = [], format = fmtExact, docs = null, comm
       amt = `<span class="change-list__amts"><s class="change-list__was t-small"><span class="sr-only">was </span>${format(r.from)}</s><span class="change-list__amt t-body w-600">${format(r.to)}</span></span>`;
     } else if (r.kind === 'removed') {
       text = `<span class="change-list__label change-list__label--struck t-body"><s>${label}</s></span>${tag('Removed', 'removed')}`;
-      amt = `<s class="change-list__amt change-list__amt--struck t-body"><span class="sr-only">removed, was </span>${format(r.from)}</s>`;
+      amt = `<s class="change-list__amt change-list__amt--struck t-body"><span class="sr-only">was </span>${format(r.from)}</s>`;   // SF-42: the visible Removed tag already says it
     }
     return `<div class="change-list__row change-list__row--${kind}" role="listitem" data-kind="${wholeNew ? 'added' : kind}"><span class="change-list__text">${text}</span>${amt}</div>`;
   };
@@ -2842,7 +2874,7 @@ export function photoFigure({ photo, type = '', by = '', label = 'Photo' } = {})
   if (!photo) return '';
   return `<figure class="photo-figure" data-photo-figure>
   <span class="photo-figure__frame">${photoStub({ type, tone: photo.tone ?? 0, size: 'stage', alt: label, seed: photo.id })}</span>
-  <figcaption class="t-small c-600">${esc([by ? `Taken by ${by}` : '', photo.at ? `${fmtDay(photo.at)}, ${fmtTime(photo.at)}` : ''].filter(Boolean).join(' · '))}</figcaption>
+  <figcaption class="t-small c-600">${esc([by ? `Taken by ${by}` : '', photo.at ? fmtWhen(photo.at) : ''].filter(Boolean).join(' · '))}</figcaption>
 </figure>`;
 }
 
@@ -2861,11 +2893,11 @@ export function reminderCard({ title = '', text = '', actionLabel = 'Leave a rev
 /** K-41 (R3, D-296): the 24-hour reminder on Home — the booking row turns into a card: the accent state strip across its top (`text` ·
     `right`, e.g. "Still on for tomorrow?" · "Free until 5:00 PM"), the appt row (`row` = apptRow's options), ONE rule line in dollars
     (`rule`, HTML: money in <span data-money>), then Confirm (filled) and "Change or cancel" (opens the booking) inline. */
-export function visitPrompt({ text = '', right = '', row = {}, rule = '', id = '', confirmAct = 'confirm-visit', changeAct = 'open-appt' } = {}) {
+export function visitPrompt({ text = '', right = '', row = {}, rule = '', id = '', confirmAct = 'confirm-visit', changeAct = 'open-appt', tone = 'action' } = {}) {
   noPercent(rule, 'visitPrompt');
   const idAttr = id ? ` data-id="${esc(id)}"` : '';
   return `<section class="visit-prompt" aria-label="${esc(text)}" data-visit-prompt>
-  ${requestStrip({ tone: 'action', icon: 'clock', text, right })}
+  ${requestStrip({ tone, icon: 'clock', text, right })}
   ${apptRow(row)}
   <p class="t-small c-600 visit-prompt__rule">${rule}</p>
   <div class="visit-prompt__actions">${ctaSmall('Confirm', { filled: true, attrs: `data-act="${esc(confirmAct)}"${idAttr}` })}${ctaSmall('Change or cancel', { attrs: `data-act="${esc(changeAct)}"${idAttr}` })}</div>
@@ -2876,14 +2908,14 @@ export function visitPrompt({ text = '', right = '', row = {}, rule = '', id = '
 /* Study-1 WS-B (K-30, K-31): the tailor's private General notes (B2) and the edit's due-date line (B1). */
 
 /** B2 copy: the empty line and the field errors of the note editor. */
-export const NOTE_EMPTY = 'Measurements, fabric notes, reminders. Only you see them.';
+export const NOTE_EMPTY = 'Measurements, fabric notes, reminders.';   // SF-40: the lock line above already says only she sees them
 const NOTE_ERRORS = {
   'note-empty': 'Write something or add a photo.',
   'note-long': `Keep the note under ${DATA.NOTES_LIMITS.TEXT_MAX} characters.`,
   'too-many-photos': `Up to ${DATA.NOTES_LIMITS.PHOTOS_MAX} photos per note.`,
 };
-/** "Fri, Oct 16, 10:00 AM" (+ " · Edited"). */
-const noteStamp = (n) => `${fmtDay(n.updatedAt ?? n.at)}, ${fmtTime(n.updatedAt ?? n.at)}${n.updatedAt ? ' · Edited' : ''}`;
+/** "Fri, Oct 16 · 10:00 AM" (+ " · Edited"). */
+const noteStamp = (n) => `${fmtWhen(n.updatedAt ?? n.at)}${n.updatedAt ? ' · Edited' : ''}`;   // SF-40: one date format ("Fri, Oct 16 · 10:00 AM")
 
 /**
  * Private notes (Study-1 B2, K-31) — "General notes": the lock line "Only you can see these notes.", every note (text, its photos as one

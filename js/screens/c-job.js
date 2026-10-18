@@ -4,15 +4,18 @@
    Focal: the garment grid while empty; the "Your items" list once filled.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, activeAppt, statusScreen, tailorById, priceChangeView, reviewReminder, apptsFor, reminderDue, freeUntil, now } from '../state.js';
+import {
+  state, T, activeAppt, statusScreen, tailorById, priceChangeView, reviewReminder, apptsFor, freeUntil, now, visitReminder, reminderState, autoCancelAt,
+  jobEditView, handoffMissed, slotText,
+} from '../state.js';
 import {
   chrome, bookingSteps, garmentTile, photoTile, actionBar, checkRow, cta, listRow, apptRow,
-  sheetOverlay, toast, esc, garmentHead, sectionHead, textLink, reminderCard, visitPrompt,
+  sheetOverlay, toast, esc, garmentHead, sectionHead, textLink, reminderCard, visitPrompt, chargedWhen,
 } from '../components.js';
 import { GARMENT_TYPES, SERVICES, MAX_ITEMS, itemsLabel, servicesForType } from '../data.js';
 import { CHEVRON_RIGHT } from '../icons.js';
 import { fmtColumn, fmtExact } from '../money.js';
-import { fmtWhen, fmtTime, dayWord } from '../dates.js';
+import { fmtWhen, fmtTime, fmtDay, dayWord } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
 import { setFocus, statusWord } from '../focus.js';
 
@@ -52,6 +55,9 @@ function itemCard(g) {
 </article>`;
 }
 
+/** SF-39: the day the order came back (the handoff, else the completed step). */
+const cameBack = (a) => a.handoff?.completedAt ?? [...a.history].reverse().find((h) => h.status === 'completed')?.at ?? a.slot.start;
+
 /** The tailor of a "Book again" draft (Study-1 A4): `ui.booking.again` and an order with her that came back; else null. */
 function againTailor() {
   const b = state.ui.booking;
@@ -60,9 +66,11 @@ function againTailor() {
   return t && apptsFor('customer').some((a) => a.tailorId === t.id && a.status === 'completed') ? t : null;
 }
 
-/** D-168: Home leads with the booking in flight — one appointment row, then the wizard under "Book something else". */
+/** D-168: Home leads with the booking in flight — one appointment row, then the wizard under "Book something else".
+    SF-08: the booking that needs her leads — the reminder first, then a reply she owes (new time, final order, edit, way back). */
 function activeRow() {
-  const a = activeAppt();
+  const a = visitReminder() ?? apptsFor('customer').find((x) => reminderState(x) === 'missed')
+    ?? apptsFor('customer').find((x) => ['price-change', 'ready', 'suggested'].includes(x.status) || x.edit?.state === 'pending') ?? activeAppt();
   if (!a) return '';
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const w = statusWord(a, 'customer', { short: true });
@@ -72,20 +80,43 @@ function activeRow() {
   };
   let cents = a.money.total;
   if (a.status === 'price-change') { cents = priceChangeView(a).after.total; row.amountCaption = 'Approve order'; row.captionTone = 'action'; }
+  else if (a.status === 'in-progress' && a.edit?.state === 'pending') { cents = jobEditView(a).after.total; row.amountCaption = 'Approve changes'; row.captionTone = 'action'; }   // SF-12
   else if (a.status === 'ready') { cents = a.money.balance; row.amountCaption = 'Choose a way back'; row.captionTone = 'action'; }   // K-27: the balance is held, not paid, at this step
   else if (a.status === 'suggested') { row.amountCaption = 'New time'; row.captionTone = 'action'; }
-  const fmtAmt = fmtColumn([cents]);
+  else if (a.status === 'awaiting-handoff') {
+    /* SF-12: the c-bookings rule — the held balance and when it is charged; the picked time and where she gets it */
+    const b = a.payments.balance;
+    cents = b.cents > 0 ? b.cents : a.money.total;
+    row.amountCaption = b.state === 'captured' ? 'Charged' : b.cents > 0 ? chargedWhen(a.returnOption) : 'Paid';
+    if (a.handoff?.slot) row.when = handoffMissed(a) ? `Missed ${fmtTime(a.handoff.slot.start)} pickup` : slotText(a.handoff.slot);
+    row.place = a.returnOption === 'courier' ? 'Delivered to my place' : `At ${t.shopName || t.shop?.street || 'the shop'}`;
+  }
+  /* K-41 (R3, D-296) + SF-09: while the reminder waits on her (asked, or missed and not yet cancelled) the row becomes the prompt card */
+  const r = reminderState(a);
+  const prompt = r === 'asked' || r === 'missed';
+  const fmtAmt = fmtColumn(prompt ? [cents, a.payments.deposit.cents] : [cents]);   // SF-39: one precision for the row and the deposit rule
   if (a.status !== 'requested' && a.status !== 'suggested' && a.status !== 'expired') row.amountText = ['confirmed', 'fitting'].includes(a.status) ? `Est. ${fmtAmt(cents)}` : fmtAmt(cents);
-  /* K-41 (R3, D-296): while the 24-hour reminder waits on her, the row becomes the prompt card — Confirm one tap from the push */
   const first = (t.name || 'The tailor').split(' ')[0];
-  const inner = reminderDue(a)
-    ? visitPrompt({
+  const dep = `<span data-money>${fmtAmt(a.payments.deposit.cents)}</span>`;
+  const away = a.job.visitType === 'home' ? 'aren’t home' : 'don’t come to the shop';   // SF-10
+  let inner = apptRow(row);
+  if (r === 'asked') {
+    inner = visitPrompt({
       id: a.id, row,
       text: `Still on for ${dayWord(a.slot.start, now())}?`,
       right: `Free until ${fmtTime(freeUntil(a))}`,
-      rule: `Once you confirm, ${esc(first)} keeps your <span data-money>${fmtExact(a.payments.deposit.cents)}</span> deposit if you cancel or aren’t home.`,
-    })
-    : apptRow(row);
+      rule: `Once you confirm, ${esc(first)} keeps your ${dep} deposit if you cancel or ${away}.`,
+    });
+  } else if (r === 'missed') {
+    /* SF-09 (D-304, overrides D-296(4)): Home keeps the Confirm card once the free window closed unanswered — the c-booking missed rule */
+    const by = fmtTime(autoCancelAt(a));
+    inner = visitPrompt({
+      id: a.id, row, tone: 'warn',
+      text: `Confirm by ${by} or we’ll cancel`,
+      right: dayWord(a.slot.start, now()) === 'today' ? `Visit ${fmtTime(a.slot.start)}` : `Visit ${dayWord(a.slot.start, now())} ${fmtTime(a.slot.start)}`,
+      rule: `If you don’t confirm by ${by}, we cancel it and ${esc(first)} keeps your ${dep} deposit. She keeps it too if you cancel now or ${away}.`,
+    });
+  }
   return `<section class="${ID}__active" data-active-appt aria-label="Your booking">${inner}</section>
   <p class="t-caps c-600 ${ID}__book-else">Book something else</p>`;
 }
@@ -109,7 +140,7 @@ function view() {
   /* Study-1 A4 (K-28): 7 days after an order came back with no review, the reminder card leads Home */
   const due = reviewReminder();
   const dueFirst = due ? (tailorById(due.tailorId)?.name || 'your tailor').split(' ')[0] : '';
-  const reminder = due ? `<div class="${ID}__reminder">${reminderCard({ title: `How did ${esc(dueFirst)} do?`, text: 'It’s been a week since your order came back. Your review helps other customers.', act: 'review-reminder', id: due.id })}</div>` : '';
+  const reminder = due ? `<div class="${ID}__reminder">${reminderCard({ title: `How did ${esc(dueFirst)} do?`, text: `Your order came back on ${fmtDay(cameBack(due))}. Your review helps other customers.`, act: 'review-reminder', id: due.id })}</div>` : '';
   /* Study-1 A4 (default 9): "Book Amara again" starts here with her named; Next then goes straight to her profile */
   const again = againTailor();
   return `${chrome('home')}<main class="body body--with-bar ${ID}">
@@ -120,6 +151,7 @@ function view() {
   <h1 class="t-title job__title">What needs work?</h1>
   <p class="t-body c-600 job__lead">Tap a garment to add it.</p>
   <div class="tile-grid job__grid"${full ? ' data-max="true"' : ''}>${tiles}</div>
+  <p class="sr-only" aria-live="polite" data-tile-live></p>
   ${helper ? `<p class="t-small c-600 job__helper" data-helper>${helper}</p>` : ''}
   ${items}
 </main>${actionBar({
@@ -159,7 +191,7 @@ function openServices(root, id) {
 function openPhoto(root, id) {
   const g = state.job.garments.find((x) => x.id === id);
   if (!g || g.photos >= MAX_PHOTOS) return;
-  const html = `<div class="job-photo__list">${listRow({ title: 'Take photo', act: 'photo-take' })}${listRow({ title: 'Choose from library', act: 'photo-library' })}</div>
+  const html = `<div class="job-photo__list">${listRow({ title: 'Take a photo', act: 'photo-take' })}${listRow({ title: 'Choose from library', act: 'photo-library' })}</div>
 <div class="job-photo__cancel">${textLink('Cancel', { act: 'photo-cancel', tone: 'muted' })}</div>`;
   sheetOverlay(html, { header: 'Add a photo', dataS: `${ID}-photo`, confirm: false }, (holder, close) => {
     const add = () => {
@@ -196,6 +228,10 @@ function wire(root) {
       go(ID);   // the router puts focus back on the same tile / − / + (AU-P1-2a)
       /* K-23 (reverses D-226): adding a garment only adds it — the item shows "Choose what needs doing" under Your items, and Next still requires a service */
       if (added) focusTile(type);
+      /* SF-42: say the new count ("2 Suit Jackets" / "0 Suit Jacket") — the re-render replaces the group, so its label alone is not announced */
+      const n = state.job.garments.filter((g) => g.type === type).length;
+      const live = document.querySelector('#screen [data-tile-live]');
+      if (live) { live.textContent = ''; requestAnimationFrame(() => { live.textContent = `${n} ${n === 1 ? type : GARMENT_TYPES[type]?.plural ?? type}`; }); }
       return;
     }
     const remind = e.target.closest('[data-act="review-reminder"]');
@@ -209,7 +245,7 @@ function wire(root) {
     }
     const open = e.target.closest('[data-act="open-appt"]');
     if (open) {
-      const a = activeAppt();
+      const a = (open.dataset.id && apptsFor('customer').find((x) => x.id === open.dataset.id)) || activeAppt();   // SF-08: the row shown may not be activeAppt()
       if (a) { setFocus(a.id); go(statusScreen(a, 'customer')); }
       return;
     }

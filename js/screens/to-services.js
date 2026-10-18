@@ -14,7 +14,7 @@ import { SERVICES, GARMENT_TYPES, TAILOR_LIMITS } from '../data.js';
 import { cents, fmt, fmtExact, payoutFor, tailyFeeFor, fmtColumn, priceRange } from '../money.js';
 import { MONEY } from '../money-config.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, serviceRow, priceRow,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, serviceRow, priceRow,
   actionBar, modalOverlay, leaveModal, toast, esc, takeHtml, servicePay, sectionHead, infoButton, ctaSmall,
 } from '../components.js';
 import { withLatency } from '../sim.js';
@@ -77,13 +77,7 @@ function recommendHtml(d) {
 
 function resumeBanner(t) {
   if (!state.ui.onboarding?.resumed) return '';
-  const done = ONBOARDING_STEPS.filter((s) => t.onboarding?.[s.id]);
-  const left = ONBOARDING_STEPS.length - done.length;
-  const was = done.length === 1 ? `${done[0].label} is done.` : done.length ? `${done.length} steps are done: ${done.map((s) => s.label).join(', ')}.` : '';
-  return `<div class="${ID}__resume">${banner({
-    tone: 'info', title: 'Pick up where you left off',
-    text: `${was} ${left} ${left === 1 ? 'step' : 'steps'} to go before customers can book you.`.trim(), dismissible: true,
-  })}</div>`;
+  return `<div class="${ID}__resume">${banner({ tone: 'info', title: 'Pick up where you left off', text: resumeText(t), dismissible: true })}</div>`;   // SF-43
 }
 
 /* ---------- pieces ---------- */
@@ -116,7 +110,7 @@ function view() {
   return `${onboardingHeader({ editing })}
 <main class="body body--with-bar ${ID}">
   ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="heading-block ${ID}__title">${title}</div>`}
-  <p class="t-body c-600 ${ID}__lead">${INTRO}</p>
+  <p class="t-body c-600 ${ID}__lead">${INTRO}</p>${editing ? editScopeNote() : ''}
   <div class="${ID}__fee"><p class="t-small c-600 ${ID}__take-note" data-money>${feeLine()}</p>${infoButton('fee', { label: 'The Taily fee' })}</div>
   <section class="sec" aria-labelledby="${ID}-list-label">
     ${sectionHead('Services', { id: `${ID}-list-label`, aside: `<span class="t-small c-600 tabular" data-selected>${selectedText(d)}</span>` })}
@@ -269,7 +263,7 @@ function wire(root) {
       ui().busy = false;
       T.setTailorSection(STEP, { prices: cleaned(false) });
       if (state.ui.onboarding) state.ui.onboarding.resumed = false;
-      if (editing) { state.ui[ID] = {}; back() || go('t-shop'); toast('Saved. Customers see the change now.', { tone: 'success' }); return; }
+      if (editing) { state.ui[ID] = {}; back() || go('t-shop'); toast('Saved. New requests use this now.', { tone: 'success' }); return; }
       go(ONBOARDING_STEPS[ONBOARDING_STEPS.findIndex((s) => s.id === STEP) + 1].screen);
     });
   }

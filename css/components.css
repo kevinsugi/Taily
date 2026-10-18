@@ -28,7 +28,10 @@
    CTA — Figma 229:5030. Default | Secondary. h54, r20, 16 SemiBold.
    ============================================================ */
 .cta {
-  height: 54px;
+  height: auto;                       /* SF-21: grows with a label that wraps (54 px whenever it fits one line) */
+  min-height: 54px;
+  padding-block: var(--space-12);
+  text-align: center;
   width: 100%;
   display: flex;
   align-items: center;

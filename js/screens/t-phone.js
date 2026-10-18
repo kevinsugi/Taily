@@ -6,12 +6,12 @@
    ============================================================ */
 import { register, render as go, back, currentScreen } from '../app.js';
 import { state } from '../state.js';
-import { statusBar, headingRow, field, actionBar, banner, esc } from '../components.js';
+import { statusBar, headingRow, field, actionBar, banner, esc, toast } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 
 const ID = 't-phone';
-const HELPER = 'US numbers only. Message and data rates may apply.';
+const HELPER = 'We’ll text you a sign-in code, new requests and updates about your jobs from Taily. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.';   // SF-05
 const ERRORS = { 'phone-invalid': 'Enter a 10-digit US number, like (718) 555-0142.' };
 
 const ui = () => (state.ui[ID] ??= {});
@@ -21,7 +21,7 @@ function view(s) {
   return `${statusBar()}
 <main class="body body--with-bar ${ID}">
   ${headingRow(`<p class="t-caps c-600 ${ID}__eyebrow">For tailors</p><h1 class="t-title">Get booked by customers nearby</h1>`)}
-  <p class="t-body c-600 ${ID}__lead">Set your own prices and hours.</p>
+  <p class="t-body c-600 ${ID}__lead">Sign in or join with your mobile number.</p>
   ${d.saved && d.phone ? `<div class="${ID}__saved">${banner({
     tone: 'success', title: 'Your progress is saved',
     text: `Sign in with ${esc(A.formatPhone(d.phone))} to pick up where you left off.`,
@@ -31,7 +31,8 @@ function view(s) {
     placeholder: '(718) 555-0142', value: A.formatPhone(d.phone ?? ''), helper: HELPER,
     error: ERRORS[d.error] ?? '', disabled: !!d.busy,
   })}</div>
-  <p class="t-small c-600 ${ID}__steps">Next: six short steps, about 10 minutes. You can finish later.</p>
+  <p class="t-small c-600 ${ID}__legal">By continuing you agree to Taily’s <button type="button" class="${ID}__link" data-act="terms" data-hit="inline">Tailor Terms</button> and <button type="button" class="${ID}__link" data-act="privacy" data-hit="inline">Privacy Policy</button>.</p>
+  ${d.saved ? '' : `<p class="t-small c-600 ${ID}__steps">New to Taily? Six short steps, about 10 minutes. You can finish later.</p>`}
   <p class="t-small c-600 ${ID}__other">Looking for a tailor? <button type="button" class="${ID}__link" data-act="customer" data-hit="inline">Book one</button></p>
 </main>
 ${actionBar({ ctaLabel: 'Send code', ctaAct: 'send-code', busy: !!d.busy, busyLabel: 'Sending code…' })}`;
@@ -80,6 +81,7 @@ function wire(root) {
   });
   root.querySelector('main').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="customer"]') && !ui().busy) go('c-welcome', { fresh: true });
+    if (e.target.closest('[data-act="terms"], [data-act="privacy"]')) toast('Terms and Privacy aren’t in this prototype yet.');   // SF-06: as c-welcome
   });
 
   function send() {

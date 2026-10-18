@@ -12,7 +12,7 @@ import { state, T, tailorById, returnOffer, returnAddress, priceChangeView, slot
 import {
   chrome, headingRow, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
   sheetOverlay, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, wireGarmentDocs, textLink, sectionHead,
-  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime, COURIER_LOBBY, CHARGE_CAPTION, chargedPhrase,
+  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime, COURIER_LOBBY, CHARGE_CAPTION, chargedPhrase, shopPlace, navBackMark,
 } from '../components.js';
 import { fmtDay, fmtTime, fmtTimeRange, nb as datesNb } from '../dates.js';
 import * as A from '../account.js';
@@ -82,7 +82,7 @@ function shownMoney(r) {
 function subOf(k, r) {
   const { t, first, c, courierState } = r;
   /* P1-3 (D-224): .nb only on the date / time; the shop + street run breaks between words (a word longer than the line still breaks, D-233) rather than run under the radio */
-  if (k === 'pickup') return `<span class="c-ready__place">${esc(`${t.shopName}, ${t.shop?.street ?? ''}`)}</span>`;
+  if (k === 'pickup') return `<span class="c-ready__place">${esc(shopPlace(t))}</span>`;
   if (r.sel === 'courier' && courierState === 'ready' && r.slot) return `${money(c.cents)} · Uber to your door`;
   if (r.sel === 'courier' && courierState === 'loading') return 'Getting a price…';
   if (r.sel === 'courier' && courierState === 'failed') return 'Price unavailable';
@@ -96,8 +96,8 @@ const payLabel = (cents) => `Pay ${fmtExact(cents)}`;
 function barLead(r, { zero = false } = {}) {
   if (!r.sel) return 'Choose how to get it back first.';
   if (r.sel === 'courier' && r.courierState === 'loading') return 'Waiting for the courier price.';
-  if (r.sel === 'courier' && r.courierState === 'failed') return 'Get a courier price, or pick another way back.';
-  if (!r.slot) return r.sel === 'courier' ? 'Pick a delivery window first. The courier fee is added then.' : 'Pick a pickup time first.';
+  if (r.sel === 'courier' && r.courierState === 'failed') return 'Get a price or choose pickup.';   // SF-41
+  if (!r.slot) return r.sel === 'courier' ? 'Pick a delivery window first.' : 'Pick a pickup time first.';   // SF-41
   if (!zero) return CHARGE_CAPTION[r.sel];
   if (r.sel === 'courier') return `<span>Courier · arrives ${esc(fmtDay(r.slot.start).slice(0, 3))} ${esc(fmtTimeRange(r.slot.start, r.slot.end))}</span>${money(r.c.cents)}`;   // the lead is a flex row: words left, the amount right
   return `Pickup ${esc(datesNb(slotText(r.slot)))} · Free`;
@@ -192,7 +192,7 @@ function view() {
   <p class="t-small c-600">If you haven’t got it ${POLICY.UNCLAIMED_CAPTURE_D} days after you choose, we’ll charge the ${money(bal)} then. ${esc(first)} still keeps it for you until you do.</p>
 </div>`;
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}">
-  ${hero}
+  ${navBackMark()}${hero}
   <section class="sec">${sectionHead(only ? 'Getting it back' : 'How do you want it back?', { id: 'ready-ways' })}
   <div class="${ID}__group card card--list" role="radiogroup" aria-labelledby="ready-ways">${rows}</div>
   ${single}
@@ -266,7 +266,7 @@ function choose(a, k) {
 /** The toast's second sentence after the hold (K-40): when and where it comes back. */
 const handoffTail = (appt, r) => (appt.returnOption === 'courier'
   ? ` The courier arrives ${slotText(appt.handoff?.slot)}.`
-  : ` Pick it up at ${r.t.shopName}, ${slotText(appt.handoff?.slot)}.`);
+  : ` Pick it up at ${r.t.shopName || r.t.shop.street}, ${slotText(appt.handoff?.slot)}.`);
 
 /** K-40 (T1): the When row opens the Scheduler sheet — pick the pickup time or the courier window (customer only). */
 function openWhen(r) {
@@ -275,7 +275,7 @@ function openWhen(r) {
   const courier = a.returnOption === 'courier';
   openHandoffTime(a, {
     mode: 'pick', first,
-    place: courier ? `${t.shopName} → ${streetOf()} · ${a.courier?.miles ?? 0} mi` : `${t.shopName} · ${t.shop?.street ?? ''}`,
+    place: courier ? `${t.shopName || t.shop?.street || 'Your tailor'} → ${streetOf()} · ${a.courier?.miles ?? 0} mi` : [t.shopName, t.shop?.street].filter(Boolean).join(' · '),
     dataS: courier ? `${ID}--courier-window` : `${ID}--pick-time`,
     onDone: () => go(ID),
     onMessage: () => { setFocus(a.id); go('c-thread'); },

@@ -74,7 +74,7 @@ function empty(kind, job) {
   const hidden = tailorById((job.hiddenTailors ?? [])[0]);
   const hf = esc((hidden?.name || 'The tailor').split(' ')[0]);
   return `<div data-empty="none-left">${emptyState({ art: 'Suit Pant', title: 'No other tailors for this request yet',
-    body: `${hf} didn’t reply in time, and no other tailors cover ${esc(job.zip)} yet. A later need-by date or another ZIP may open more.`,
+    body: `We won’t show ${hf} for this request again, and no other tailors cover ${esc(job.zip)} yet. Another ZIP may open more.`,   // SF-27: true for every way it ends
     ctaLabel: 'Change need-by date', ctaAct: 'later',
     secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>`;
 }
@@ -100,8 +100,8 @@ function declinedBanner(job) {
   return `<div class="c-tailors__banner">${banner({
     tone: 'warning',
     title: names.length === 1 ? `${esc(names[0])} declined this request` : `${names.length} tailors declined this request`,
-    text: `Your items and services are saved. You can still book ${names.length === 1 ? esc(names[0]) : 'them'} for other work.`,
-    actionLabel: 'Start a new request', actionAct: 'new-job',
+    text: `Your items are saved for other tailors. To book ${names.length === 1 ? esc(names[0]) : 'them'}, start over with different work.`,   // SF-28
+    actionLabel: 'Start over with new items', actionAct: 'new-job',
   })}</div>`;
 }
 

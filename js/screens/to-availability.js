@@ -8,7 +8,7 @@ import { register, render as go, back, currentScreen } from '../app.js';
 import { state, T, SECTIONS } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, chipGroup, dayHours, actionBar,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, chipGroup, dayHours, actionBar,
   wireToggles, wireChipGroups, sheetOverlay, toast, modalOverlay, leaveModal, sectionHead,
 } from '../components.js';
 import { scheduler, timeColumns, readTime, wireTimeWheel, timeLabel, timeMinutes } from '../scheduler.js';
@@ -98,14 +98,7 @@ function weekHtml(s) {
 function resumeBanner() {
   if (editing() || !state.ui.onboarding?.resumed) return '';
   const t = myTailor();
-  const done = ONBOARDING_STEPS.filter((s) => t.onboarding[s.id]).map((s) => s.label);
-  const left = ONBOARDING_STEPS.length - done.length;
-  const names = done.map((l, i) => (i ? l[0].toLowerCase() + l.slice(1) : l));
-  const list = names.length < 2 ? names[0] ?? 'Nothing' : names.length === 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
-  return banner({
-    tone: 'info', title: 'Pick up where you left off', dismissible: true,
-    text: `${list} ${names.length < 2 ? 'is' : 'are'} done. ${left} ${left === 1 ? 'step' : 'steps'} to go before customers can book you.`,
-  });
+  return banner({ tone: 'info', title: 'Pick up where you left off', dismissible: true, text: resumeText(t) });   // SF-43
 }
 
 function barHtml() {
@@ -153,7 +146,7 @@ function view() {
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
   ${mode ? headingRow(TITLE) : `<div class="heading-block ${ID}__title">${TITLE}</div>`}
-  <p class="to-availability__lead t-body c-600">Set your usual week.</p>
+  <p class="to-availability__lead t-body c-600">${mode ? 'Set your usual week.' : 'We filled in a typical week. Change any day that doesn’t match yours. Customers can book every open slot.'}</p>${mode ? editScopeNote() : ''}
   <div class="to-availability__body">${body(list, seg)}</div>
 </main>${barHtml()}`;
 }
@@ -242,7 +235,7 @@ function submit() {
     if (state.ui.onboarding) state.ui.onboarding.resumed = false;
     if (wasEditing) {
       back() || go('t-shop');
-      toast('Saved. Customers see the change now.', { tone: 'success' });
+      toast('Saved. New requests use this now.', { tone: 'success' });
     } else {
       go(NEXT);
     }

@@ -15,7 +15,7 @@ Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.m
 | `js/account.js` | DOM-free sign-in model (D-33): `phoneDigits formatPhone validatePhone signOut sendCode codeStatus resendCode verifyCode saveName signInWith addCard useOtherMethod` | component builder |
 | `js/account-ui.js` | pre-MVP B2 (DG-3 A): the shared account UI both personas use — `openSignOut(who, { go })`, `openDeleteAccount(who, { go, onSee })` + `blockedWords` + `seeBlocker`, `phoneChangeView(who, id, { nav })` + `wirePhoneChange(root, who, id, { go, done })`, `legalView(docId, id)` | component builder |
 | `js/money.js` | money fns, integer cents in/out, `fmt / fmtExact / fmtNeg / fmtColumn` | model |
-| `js/policies.js` | THE policy + legal pages (A2's Help policies + B2's legal pages, unified at the merge, D-380): `POLICIES` (garment · cancellation · payments · disputes · safety · terms · privacy · accessibility · tailor-terms · tailor-agreement; `legal: <COUNSEL row>` marks a legal page), `policyList(who)` (Help), `LEGAL_FOR { customer, tailor }` (Account rows), `policyTitle(key)`, `policyPage(key, who)` → `{ key, title, version, sections [{ title, lines, list? }], counsel, counselLine, legal }`, `protectionLine()`, `HELP_CONTACT`, `LEGAL_VERSION` (logged at sign-up), `COMPANY` (receipt entity placeholder); every number from POLICY / MONEY; COUNSEL placeholders | model |
+| `js/policies.js` | THE policy + legal pages (A2's Help policies + B2's legal pages, unified at the merge, D-380): `POLICIES` (garment · cancellation · payments · disputes · safety · terms · privacy · accessibility · sms · tailor-terms · tailor-agreement; `legal: <COUNSEL row>` marks a legal page, `draft: true` = a full K-53 b draft under IN SHORT, D-429), `policyList(who)` (Help), `LEGAL_FOR { customer, tailor }` (Account rows), `policyTitle(key)`, `policyPage(key, who)` → `{ key, title, version, sections [{ title, lines, list? }], draft, draftLine, legal }`, `protectionLine()`, `HELP_CONTACT` (+ `backup`, `after`, D-430), `LEGAL_VERSION` (logged at sign-up), `COMPANY` (Taily Group LLC, Brooklyn, NY), `DRAFT_LINE`; every number from POLICY / MONEY, the fee via money.js; COUNSEL comments | model |
 | `js/texts.js` | pre-MVP A1: the TEXT CATALOGUE — `TEXTS[event] = { to, land, trigger, body(ctx), owner? }`, `TEXT_EVENTS`, `textCtx({ a, t, cust, now, x })`; DOM- and state-free; `docs/v5/TEXTS.md` is generated from it (`node scripts/v5/texts-doc.mjs`) | model |
 | `js/dates.js` | ISO date helpers + formatters | model |
 | `js/data.js` | catalog (`GARMENT_TYPES`, `GARMENT_ICONS`, `SERVICES`), seed (`TAILORS` = Amara, `CUSTOMER` = Sarah, `SEED_JOB`, `BLANK_TAILOR`), `DEMO_NOW`, `ZIP_INFO`, labels | model |
@@ -28,8 +28,8 @@ Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.m
 | `js/fixtures/m#.js` | that milestone's `FLOWS_<screen_id>` arrays (one per screen, pre-scaffolded) | each builder: own array only |
 | `js/fixtures/common.js` | `driveTo(target, opts)` | model |
 | `js/fixtures/money-scenarios.js` · `scripts/v5/money.mjs` | `SCENARIOS` (seed, rush, shop, courier, priceAdded, priceRemoved, lateCancel, earlyCancel, noShow) computed from `estimate()` / `quote()` on the seed; fixture `expect`s import the first, Node scripts the second. Never type a dollar amount | model |
-| `js/flows.js` · `js/flow-menu.js` | Test-flows registry + menu; `setBootLatency(v)` (app.js boot) — `resetDemo()` restores `sim.latency` to it, so a `'hold'` flow never leaks (D-35) | integrator |
-| `js/app.js` | router, `SCREEN_MODULES`, persona gate | integrator |
+| `js/flows.js` · `js/flow-menu.js` | Test-flows registry + menu; `setBootLatency(v)` (app.js boot) — `resetDemo()` restores `sim.latency` to it, so a `'hold'` flow never leaks (D-35); `setAdminTools(on)` — while the admin's tools are on, `resetDemo()` signs him in (D-422); menu `openMenu()` / `closeMenu()` | integrator |
+| `js/app.js` | router, `SCREEN_MODULES`, persona gate; the admin gate (a-* → a-login without `session.admin`, D-421) and the Test-flows tools gate (`html.tools-on`; `unlockTools` / `lockTools` / `openTestFlows` / `toolsAvailable`, D-422); `?admin` boots a-login | integrator |
 | `js/inventory.js` | `MILESTONES`, `BUILT`, `SCREENS` (mirror of SCREENS.md; generated: `node scripts/v5/lib/gen-inventory.mjs`) | integrator |
 | `index.html` | CSS links | integrator |
 | `scripts/v5/*.mjs` | `check` → model test → flows (+ journeys) → visual → hygiene | integrator |
@@ -426,3 +426,30 @@ Run it end to end: `npm run study` (`scripts/v5/study-run.mjs`, 390 px, through 
 - **state.js.** Reminder: `promptAt(a)`, the nudge only inside the free window (D-383). Visit check close (D-384): `closeUnrecorded` → `closeAsNoShow` (her I'm here: cancel `{ by: 'system', reason: 'no-show', evidence: 'here' }`) or "Not confirmed" (`reason: 'no-record', held, holdUntil, disputedAt, disputedBy`, the deposit stays captured); `depositOnHold(a)`; `T.disputeUnconfirmed(id, who)`; a Help message on the order while on hold disputes too; tick()'s `cancelled` timer keeps it for the tailor after `VISIT_HOLD_DISPUTE_H`; the admin's keep / refund work on a held deposit, `adminCloseCase` → `decide-first` while a disputed one is held. `endSuggestion` no longer hides the tailor (D-385).
 - **Fixtures / journeys.** s1e `toReminder` = the nudge moment (Wed 3:00 PM), `toReminder48` = the reminder (Tue 5:00 PM); s1f / s2a / s2c helpers use `nudgeAt`. J19 / J20 / J23 rewritten, J33 added; the journeys' text() ignores the open Test-flows panel.
 
+## MVP readiness, track L (K-52 / K-53; D-420…D-431; flows `js/fixtures/s3l.js`, inventory milestone `RL`)
+
+- **Log in (K-52, D-420).** account.js `hasAccount(raw, who)`, `sendLoginCode(raw, who)` → `{ ok, phone }` | `phone-invalid` | `no-account` (no code, no
+  pending, never a silent sign-up; then the usual `verifyCode`). Screens: **`c-login`** (Welcome back; unknown → "No account with this number." + Create one →
+  c-phone with the number); c-welcome "Already have an account? Log in" + "Are you a tailor? Log in or Join Taily"; **t-phone modes** `state.ui['t-phone'].mode`
+  'join' (default) | 'login' (also after Finish later; `data-mode`).
+- **The admin's sign-in (K-52, D-421).** `state.session.admin = { signedIn, email, at, test?, pending: { email, sentAt, step: 'code'|'second' } }` (seed signed
+  out; `reset()` KEEPS it). account.js `adminSendCode(email)` (`email-invalid` `not-admin`; `ADMIN_ACCOUNT` in data.js) · `adminStatus()` · `adminResendCode()` ·
+  `adminVerifyCode(code)` (`no-code` `code-format` `code-expired` `code-wrong` → step 'second') · `adminVerifySecond(code)` (→ signed in) · `adminSignOut()` ·
+  `adminSignedIn()` · `adminTestSession({ test })`. Screen **`a-login`** (`?admin`; three steps; then `unlockTools()` and `state.ui['a-login'].next` or a-inbox).
+  app.js render(): any a-* id but a-login without the session → a-login. a-inbox ends with `[data-admin-tools]`: Test flows · Sign out.
+- **Test flows are the admin's (K-53 a8, D-422).** `html.tools-on` gates `.stage-caption` (css/flow-menu.css). On: a test boot (`?test=1` / `?flow=` / `?study=`:
+  tools on + `adminTestSession()` at boot) or his sign-in (sessionStorage `taily-admin` remembers the tab). Off: a plain visit, a cold `?screen=` link, his Sign out
+  (not in a test boot). The first input loads the tools only while on. Harness paths unchanged; study-run 39/39.
+- **Phone only (K-53 Q9, D-423).** `POLICY.SOCIAL_SIGN_IN` false; `A.socialSignIn()` (= the flag || `state.sim.social === 'on'`).
+- **Availability (K-53 a4 / S-34, D-424…D-426).** state.js `DAY_WINDOWS_MAX` 2 (rules `<type>-<day>`: `windows-overlap`, `windows-max`), `noticeChoices()` (MIN_LEAD_H
+  + `POLICY.NOTICE_OPTIONS_H`), `noticeHours(t)` (openSlots' lead), `tailor.notice`, `tailor.timeOff [{ id, from, to }]` (rules `off-<id>`: `off-required` `off-range`
+  `off-past` `off-far` (`POLICY.TIME_OFF_AHEAD_D`) `off-overlap`), `timeOffOn(t, day)` (openSlots skips the day), `timeOffList(t)`, `bookedDuring(t, from, to)`;
+  saved with the hours: `setTailorSection('availability', { availability, timeOff, notice })`. Component `dayHours({ windows, addable })` (`data-win`,
+  `remove-window`, `add-window`, `.day-hours--split`). to-availability: TIME OFF card + "Add time off" sheet (dataS `to-availability-off`, two day wheels) and
+  MINIMUM NOTICE chips; t-shop's Availability row adds the notice / next time off. **handoffSlots (track M's) does not read time off yet** (D-426).
+- **Background check last (K-53 Q8, D-427).** `VERIFY_ITEMS` id · years · payout · background; `reviewChecks` runs the background check only after the other
+  three; `firstChecksPassed(t)`, `approvedPendingBackground(t)`; components `APPROVED_PENDING_LINE`, reviewPill "Approved · background check pending".
+- **Slow texts (K-53 Q10, D-428).** state.js `slowTextAt(ms)` (POLICY `SLOW_TEXT_FROM_H` 8 / `SLOW_TEXT_TO_H` 21): the 72 h waiting nudges and the review reminder
+  only. **Legal drafts (D-429)**, Help hours + backup (D-430), `tailor-data.js previewJob(job)` (D-431). SYSTEM_EXEMPT adds c-login, a-login.
+- **Journeys** J34 (log in), J35 (unknown number, customer + tailor), J36 (the admin gate on a plain visit → email → code → second factor → Test flows → Sign out),
+  J37 (time off + notice → the customer's next opening moves); J31 turns `sim.social` on; J32 reads the drafts.

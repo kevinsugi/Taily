@@ -2310,17 +2310,17 @@ section('A1: notices, chat texts, handoff texts, payouts, review reminder (DG-2,
 section('B1 · DG-4 the four checks (option B)');
 {
   S.reset();
-  eq(S.verifyView(amara()).items.map((i) => [i.id, i.state]), [['id', 'verified'], ['background', 'verified'], ['years', 'verified'], ['payout', 'verified']], 'DG-4: the seed tailor passed all four checks, in Kevin\'s order');
+  eq(S.verifyView(amara()).items.map((i) => [i.id, i.state]), [['id', 'verified'], ['years', 'verified'], ['payout', 'verified'], ['background', 'verified']], 'DG-4: the seed tailor passed all four checks, in Kevin\'s order (K-53 Q8: the background check last)');
   ok(S.isVerified(amara()) && S.listed(amara()), 'DG-4: the Verified check is derived from the checks; the seed is listed');
   ok(POLICY.LIVE_REQUIRES_VERIFIED === true, 'D-352: the policy switch defaults to gated (listed only once every check passed)');
   T.blankTailor();
-  eq(S.verifyView(amara()).needsYou, ['id', 'background', 'years', 'payout'], 'DG-4: a blank tailor owes every check');
+  eq(S.verifyView(amara()).needsYou, ['id', 'years', 'payout', 'background'], 'DG-4: a blank tailor owes every check');
   EARN.onboardTo('submitted');
   const v = S.verifyView(amara());
-  eq([v.passed, v.pending, !!amara().submitted, !!amara().live, S.tailorsFor(state.job).rows.length], [1, ['id', 'background', 'payout'], true, false, 0], 'DG-4: submitted — years passed, three pending, not listed');
+  eq([v.passed, v.pending, !!amara().submitted, !!amara().live, S.tailorsFor(state.job).rows.length], [1, ['id', 'payout', 'background'], true, false, 0], 'DG-4: submitted — years passed, three pending, not listed');
   ok(!TD.tailorRowProps({ tailor: amara(), quote: {}, distanceMi: 0.6 }).verified, 'DG-4: no Verified check while the review runs');
   const r = T.reviewChecks({ id: 'needs-info' });
-  eq([S.checkState(amara(), 'id'), S.checkState(amara(), 'background'), r.live], ['needs-info', 'verified', false], 'DG-4: a check that needs info keeps her unlisted');
+  eq([S.checkState(amara(), 'id'), S.checkState(amara(), 'background'), r.live], ['needs-info', 'pending', false], 'DG-4: a check that needs info keeps her unlisted (K-53 Q8: the background check waits for it)');
 }
 {
   EARN.onboardTo('submitted');
@@ -2644,7 +2644,7 @@ section('A2 · B-05 the HELP reply; D-21 garment protection');
   const cap = M.fmt(M.cents(MONEY.GARMENT_PROTECTION_CAP));
   eq(POL.protectionLine(), `Garment protection: Taily covers loss or damage up to ${cap} per order.`, 'D-21: the one-line promise, the cap from MONEY');
   const page = POL.policyPage('garment', 'customer');
-  ok(page.counsel && page.counselLine.startsWith('Draft for counsel') && page.sections.flatMap((x) => x.lines).some((l) => l.includes(`within ${POLICY.GARMENT_REPORT_H} hours`)), 'D-21: COUNSEL draft, the 48-hour window from POLICY');
+  ok(page.draft && page.draftLine === POL.DRAFT_LINE && page.sections.flatMap((x) => x.lines).some((l) => l.includes(`within ${POLICY.GARMENT_REPORT_H} hours`)), 'D-21: COUNSEL draft (K-53 b: Draft — counsel review required), the 48-hour window from POLICY');
   const all = ['customer', 'tailor'].flatMap((w) => Object.keys(POL.POLICIES).flatMap((k) => POL.policyPage(k, w).sections.flatMap((x) => x.lines)));
   ok(all.length > 20 && !all.some((l) => /%|undefined|NaN/.test(l)), 'A2: every policy line prints dollars, never a percentage');
   eq(POL.policyList('tailor').map((x) => x.key)[0], 'payments', 'A2: the tailor’s Help leads with getting paid');
@@ -2784,14 +2784,164 @@ section('B2 · S-25 a receipt she can keep');
 }
 section('B2 · S-23 / S-24 legal pages (COUNSEL placeholders) — one policy module since the merge (D-380)');
 {
-  const LEGAL_KEYS = ['accessibility', 'cancellation', 'privacy', 'tailor-agreement', 'tailor-terms', 'terms'];
-  eq(Object.keys(POL.POLICIES).filter((k) => POL.POLICIES[k].legal).sort(), LEGAL_KEYS, 'S-23: the six legal pages (B2’s refunds = A2’s cancellation)');
+  const LEGAL_KEYS = ['accessibility', 'cancellation', 'garment', 'privacy', 'safety', 'sms', 'tailor-agreement', 'tailor-terms', 'terms'];
+  eq(Object.keys(POL.POLICIES).filter((k) => POL.POLICIES[k].legal).sort(), LEGAL_KEYS, 'S-23 → K-53 b: the nine legal drafts (B2’s refunds = A2’s cancellation; + garment protection, safety, text messages)');
   ok(LEGAL_KEYS.every((k) => ['customer', 'tailor'].every((w) => { const p = POL.policyPage(k, w); return p.legal && p.version === POL.LEGAL_VERSION && p.sections.length && !p.sections.flatMap((x) => x.lines).some((l) => /%|undefined|NaN/.test(l)); })),
     'S-23: every legal page has its COUNSEL row, the version line, a summary, and no percentages');
-  eq([POL.LEGAL_FOR.customer, POL.LEGAL_FOR.tailor], [['terms', 'privacy', 'cancellation', 'accessibility'], ['tailor-terms', 'tailor-agreement', 'privacy']], 'DG-3 A: each persona’s Account lists its pages');
+  eq([POL.LEGAL_FOR.customer, POL.LEGAL_FOR.tailor], [['terms', 'privacy', 'cancellation', 'sms', 'accessibility'], ['tailor-terms', 'tailor-agreement', 'privacy', 'sms']], 'DG-3 A: each persona’s Account lists its pages (K-53 b: + Text message terms)');
   ok(POL.policyPage('cancellation', 'customer').sections.flatMap((x) => x.lines).join(' ').includes(`${POLICY.CANCEL_WINDOW_H} hours`), 'S-24: the cancellation and refunds page reads POLICY');
-  eq(POL.policyList('customer').map((x) => x.key).slice(-3), ['terms', 'privacy', 'accessibility'], 'D-380: Help lists the legal pages after the Help policies');
-  eq([POL.policyPage('garment').legal, POL.policyPage('garment').version, POL.policyPage('nope').key], [0, '', 'garment'], 'D-380: a Help policy has no version line; unknown keys fall back');
+  eq(POL.policyList('customer').map((x) => x.key).slice(-4), ['terms', 'privacy', 'sms', 'accessibility'], 'D-380: Help lists the legal pages after the Help policies');
+  eq([POL.policyPage('payments').legal, POL.policyPage('payments').version, POL.policyPage('nope').key], [0, '', 'garment'], 'D-380: a Help policy has no version line; unknown keys fall back');
+}
+
+/* ================= MVP readiness, track L (K-52 / K-53; D-420…D-431) ================= */
+section('L · K-52 Log in: a code only to a number with an account (D-420)');
+{
+  S.reset();
+  A.signOut();
+  guard(A.sendLoginCode('718555'), 'phone-invalid', 'K-52: Log in checks the number first');
+  guard(A.sendLoginCode('(917) 555-0186'), 'no-account', 'K-52: an unknown number has no account — no silent sign-up');
+  eq(state.session.customer.pending, null, 'K-52: … and no code went out');
+  const r = A.sendLoginCode(DATA.CUSTOMER.phone);
+  eq([r.ok, r.phone, state.session.customer.pending?.login, A.codeStatus()?.isNew], [true, DATA.CUSTOMER.phone, true, false], 'K-52: her own number gets the code (the same code step)');
+  const v = A.verifyCode('123456');
+  eq([v.ok, v.isNew, state.session.customer.signedIn], [true, false, true], 'K-52: the code signs her in');
+  ok(A.hasAccount(DATA.CUSTOMER.phone) && !A.hasAccount('(917) 555-0186'), 'K-52: hasAccount');
+  A.signOut('tailor');
+  guard(A.sendLoginCode('(646) 555-0101', 'tailor'), 'no-account', 'K-52: the tailor’s Log in too');
+  ok(A.sendLoginCode(amara().phone, 'tailor').ok, 'K-52: … her shop’s number gets the code');
+  S.reset();
+  A.deleteAccount('customer');
+  guard(A.sendLoginCode(DATA.CUSTOMER.phone), 'no-account', 'K-52: a deleted account can’t log in (the number signs up fresh)');
+}
+section('L · K-52 the admin’s sign-in: email, a code by email, a second factor (D-421)');
+{
+  S.reset();
+  A.adminSignOut();
+  ok(!A.adminSignedIn(), 'K-52: the admin starts signed out');
+  guard(A.adminSendCode('kevin@'), 'email-invalid', 'K-52: an email that isn’t one');
+  guard(A.adminSendCode('sarah.chen@example.com'), 'not-admin', 'K-52: only the Taily admin account signs in here');
+  guard(A.adminVerifyCode('123456'), 'no-code', 'K-52: no code before the email');
+  ok(A.adminSendCode(` ${DATA.ADMIN_ACCOUNT.email.toUpperCase()} `).ok, 'K-52: his email (any case, trimmed) gets a code');
+  eq([A.adminStatus().step, A.adminStatus().msToResend > 0], ['code', true], 'K-52: step 1 waits for the emailed code');
+  guard(A.adminResendCode(), 'too-soon', 'K-52: resend waits CODE_RESEND_S');
+  guard(A.adminVerifySecond('123456'), 'no-code', 'K-52: the second factor only after the emailed code');
+  guard(A.adminVerifyCode('12'), 'code-format', 'K-52: six digits');
+  guard(A.adminVerifyCode('000000'), 'code-wrong', 'K-52: the demo’s wrong code');
+  ok(A.adminVerifyCode('123456').ok && A.adminStatus().step === 'second' && !A.adminSignedIn(), 'K-52: the emailed code is not enough on its own');
+  guard(A.adminVerifySecond('000000'), 'code-wrong', 'K-52: a wrong authenticator code');
+  ok(A.adminVerifySecond('123456').ok && A.adminSignedIn() && state.session.admin.email === DATA.ADMIN_ACCOUNT.email, 'K-52: both codes → signed in');
+  S.reset();
+  ok(A.adminSignedIn(), 'D-422: reset() (driveTo / onboardTo inside a Test flow) keeps the admin’s session');
+  A.adminSignOut();
+  ok(!A.adminSignedIn(), 'K-52: Sign out');
+  A.adminSendCode(DATA.ADMIN_ACCOUNT.email);
+  S.advanceClock(POLICY.CODE_TTL_MIN + 1);
+  guard(A.adminVerifyCode('123456'), 'code-expired', 'K-52: the emailed code expires after CODE_TTL_MIN');
+  A.adminTestSession();
+  ok(A.adminSignedIn() && state.session.admin.test, 'D-422: the Test-flows tools sign him in (a test session)');
+  A.adminSignOut();
+}
+section('L · K-53 Q9 phone-only sign-in for the pilot (D-423)');
+{
+  S.reset();
+  eq([POLICY.SOCIAL_SIGN_IN, A.socialSignIn()], [false, false], 'K-53 Q9: Apple / Google are off (the policy flag)');
+  state.sim.social = 'on';
+  ok(A.socialSignIn(), 'D-423: the kept code shows again with the sim knob (a Test flow)');
+  ok(A.signInWith('apple').ok, 'D-423: the social code path still works');
+  S.reset();
+}
+section('L · K-53 a4 / S-34 availability: two windows a day, minimum notice, time off (D-424…D-426)');
+{
+  S.reset();
+  const base = structuredClone(amara().availability);
+  const v = (patch) => S.validateSection('availability', { ...amara(), availability: base, ...patch }).errors;
+  eq(v({ availability: { ...base, shop: { ...base.shop, tue: [['10:00', '14:00'], ['17:00', '20:00']] } } }), {}, 'D-424: a split day (two windows) is valid');
+  eq(v({ availability: { ...base, shop: { ...base.shop, tue: [['10:00', '14:00'], ['14:00', '18:00']] } } }), {}, 'D-424: touching windows are fine');
+  eq(v({ availability: { ...base, shop: { ...base.shop, tue: [['10:00', '14:00'], ['13:00', '16:00']] } } })['shop-tue'], 'windows-overlap', 'D-424: two windows of a day can’t overlap');
+  eq(v({ availability: { ...base, shop: { ...base.shop, tue: [['09:00', '10:00'], ['11:00', '12:00'], ['13:00', '14:00']] } } })['shop-tue'], 'windows-max', `D-424: up to ${S.DAY_WINDOWS_MAX} windows a day`);
+  eq([S.noticeChoices(), v({ notice: 24 }).notice, v({ notice: 5 }).notice], [[POLICY.MIN_LEAD_H, 12, 24, 48], undefined, 'notice-invalid'], 'D-425: notice = Taily’s minimum, then 12 / 24 / 48 hours');
+  eq([
+    v({ timeOff: [{ id: 'a', from: '2026-10-20', to: '2026-10-19' }] })['off-a'], v({ timeOff: [{ id: 'a', from: '2026-10-01', to: '2026-10-05' }] })['off-a'],
+    v({ timeOff: [{ id: 'a', from: '2027-06-01', to: '2027-06-02' }] })['off-a'], v({ timeOff: [{ id: 'a', from: '2026-10-19', to: '2026-10-21' }, { id: 'b', from: '2026-10-21', to: '2026-10-23' }] })['off-b'],
+    v({ timeOff: [{ id: 'a', from: '', to: '2026-10-21' }] })['off-a'], v({ timeOff: [{ id: 'a', from: '2026-10-13', to: '2026-10-13' }] })['off-a'],
+  ], ['off-range', 'off-past', 'off-far', 'off-overlap', 'off-required', undefined], 'D-426: time off — last day after the first, not over, within TIME_OFF_AHEAD_D, no overlap; today is fine');
+  eq([S.nextOpening('amara', 'home'), S.nextOpening('amara', 'shop')], ['2026-10-15T17:00', '2026-10-13T13:00'], 'S-34: the seed openings (Taily’s 3 hours of notice)');
+  const r = T.setTailorSection('availability', { availability: base, timeOff: [{ id: 't1', from: '2026-10-15', to: '2026-10-17' }], notice: 24 });
+  eq([r.ok, r.valid, amara().notice, amara().timeOff.length], [true, true, 24, 1], 'S-34: Save stores the time off and the notice with the hours');
+  eq(S.nextOpening('amara', 'home'), '2026-10-19T17:00', 'D-426: time off Thu–Sat hides those days (next: Mon)');
+  ok(!S.openSlots('amara', 'shop').some((x) => x.startsWith('2026-10-15') || x.startsWith('2026-10-16') || x.startsWith('2026-10-17')), 'D-426: no shop opening on a day off either');
+  eq(S.nextOpening('amara', 'shop'), '2026-10-14T10:00', 'D-425: 24 hours of notice — Tuesday afternoon is gone, Wednesday opens first');
+  T.setTailorSection('availability', { availability: base, timeOff: [], notice: 48 });
+  eq(S.nextOpening('amara', 'shop'), '2026-10-15T10:00', 'D-425: 48 hours of notice');
+  eq(S.noticeHours({ notice: 1 }), POLICY.MIN_LEAD_H, 'D-425: never under Taily’s minimum');
+  T.setTailorSection('availability', { availability: { ...base, shop: { ...base.shop, tue: [['10:00', '12:00'], ['15:00', '17:00']] } }, timeOff: [], notice: POLICY.MIN_LEAD_H });
+  const tue = S.openSlots('amara', 'shop').filter((x) => x.startsWith('2026-10-20'));
+  eq([tue[0], tue.includes('2026-10-20T12:00'), tue.includes('2026-10-20T15:00'), tue.at(-1)], ['2026-10-20T10:00', false, true, '2026-10-20T16:30'], 'D-424: a split Tuesday opens in both windows, never in the break');
+  S.reset();
+  const a = driveTo('confirmed');
+  T.setTailorSection('availability', { availability: structuredClone(amara().availability), timeOff: [{ id: 't1', from: '2026-10-15', to: '2026-10-15' }] });
+  eq([S.bookedDuring(amara(), '2026-10-15', '2026-10-15').map((x) => x.id), S.getAppt(a.id).status], [[a.id], 'confirmed'], 'D-426: a visit already booked inside time off stays booked (and is named)');
+  S.setClock('2026-10-16T10:00');
+  eq(S.timeOffList(amara()), [], 'D-426: past time off drops off the list');
+  S.reset();
+}
+section('L · K-53 Q8 the background check runs last (D-427)');
+{
+  S.reset();
+  EARN.onboardTo('submitted');
+  eq(S.verifyView(amara()).items.map((i) => i.id), ['id', 'years', 'payout', 'background'], 'K-53 Q8: ID and profile photo → Years → Payout and tax info → Background check');
+  T.reviewChecks({ id: 'needs-info' });
+  eq([S.checkState(amara(), 'payout'), S.checkState(amara(), 'background'), S.firstChecksPassed(amara()), S.approvedPendingBackground(amara())], ['verified', 'pending', false, false], 'D-427: the background check waits while another check needs her');
+  T.uploadId();
+  const r = T.reviewChecks({ background: 'pending' });
+  eq([S.firstChecksPassed(amara()), S.approvedPendingBackground(amara()), r.live, S.listed(amara())], [true, true, false, false], 'D-427: “You’re approved, pending your background check” — still not listed (K-49)');
+  const r2 = T.reviewChecks();
+  eq([S.checkState(amara(), 'background'), r2.wentLive, S.listed(amara())], ['verified', true, true], 'D-427: the background check clears last — live and listed');
+  EARN.onboardTo('submitted');
+  T.reviewChecks();
+  eq([S.checksPassed(amara()), !!amara().live], [true, true], 'D-427: one review with every check pending still runs them in order and passes all four');
+  EARN.onboardTo('submitted');
+  T.reviewChecks({ background: 'needs-info' });
+  eq(S.checkState(amara(), 'background'), 'needs-info', 'D-427: the background result lands once the first three passed in the same review');
+  S.reset();
+}
+section('L · K-53 Q10 slow reminders only 8:00 AM–9:00 PM (D-428)');
+{
+  const at = (iso) => D.toDate(iso).getTime();
+  const iso = (ms) => D.isoMinute(new Date(ms));
+  eq([iso(S.slowTextAt(at('2026-10-15T12:00'))), iso(S.slowTextAt(at('2026-10-15T20:59'))), iso(S.slowTextAt(at('2026-10-15T21:00'))), iso(S.slowTextAt(at('2026-10-15T23:30'))), iso(S.slowTextAt(at('2026-10-16T06:15'))), iso(S.slowTextAt(at('2026-10-16T08:00')))],
+    ['2026-10-15T12:00', '2026-10-15T20:59', '2026-10-16T08:00', '2026-10-16T08:00', '2026-10-16T08:00', '2026-10-16T08:00'], 'D-428: a due time at night moves to the next 8:00 AM');
+  S.reset();
+  const a = driveTo('fitting');
+  S.setClock('2026-10-15T22:00');
+  documentFitting(a.id);
+  ok(T.sendPriceChange(a.id, S.getAppt(a.id).lines).ok, 'D-428 probe: the final order goes out at 10:00 PM');
+  const tx = (e) => state.outbox.filter((m) => m.apptId === a.id && m.event === e);
+  S.setClock('2026-10-16T22:00'); S.tick();
+  eq(tx('final-order-24h').map((m) => m.at), ['2026-10-16T22:00'], 'D-428: the 24 h text is not a slow one — it goes at 10:00 PM');
+  S.setClock('2026-10-18T22:00'); S.tick();
+  eq(tx('final-order-72h').length, 0, 'D-428: the 72 h nudge waits through the night');
+  S.setClock('2026-10-19T08:00'); S.tick();
+  eq(tx('final-order-72h').map((m) => m.at), ['2026-10-19T08:00'], 'D-428: … and goes at 8:00 AM');
+  S.reset();
+}
+section('L · D-431 the tailor’s preview after a request; K-53 b the legal drafts (D-429)');
+{
+  S.reset();
+  driveTo('requested');
+  eq([state.job.garments.length, TD.previewJob().garments.map((g) => g.type)], [0, ['Suit Pant', 'Suit Jacket']], 'D-431: an empty draft previews the sample items');
+  ok(TD.ownRow(TD.previewJob()).row?.quote.total === SCENARIOS.seed.total, 'D-431: … priced like the seed job (not the home fee alone)');
+  S.reset();
+  ok(TD.previewJob() === state.job, 'D-431: a draft with items previews itself');
+  const keys = Object.keys(POL.POLICIES).filter((k) => POL.POLICIES[k].legal);
+  ok(keys.every((k) => ['customer', 'tailor'].every((w) => { const p = POL.policyPage(k, w); return p.draft && p.draftLine === 'Draft — counsel review required' && p.sections.length >= 5; })), 'K-53 b: every legal page is a full draft (5+ sections) marked Draft — counsel review required');
+  const words = keys.flatMap((k) => ['customer', 'tailor'].flatMap((w) => POL.policyPage(k, w).sections.flatMap((x) => x.lines))).join(' ');
+  ok(!/%|undefined|NaN|percent/.test(words), 'K-53 b: no percentages anywhere in the drafts (money in dollars)');
+  ok(POL.COMPANY.name === 'Taily Group LLC' && words.includes('Taily Group LLC') && words.includes('Brooklyn, NY'), 'K-53 c1: the entity is Taily Group LLC, Brooklyn');
+  ok(words.includes(`${M.fmtExact(M.tailyFeeFor(M.cents(MONEY.FEE_EXAMPLE_SERVICES)))} of every ${M.fmtExact(M.cents(MONEY.FEE_EXAMPLE_SERVICES))}`), 'K-53 b: the Taily fee in the agreement is dollars from money.js');
+  ok(['Reply STOP', 'Msg & data rates may apply', '8:00 AM to 9:00 PM'].every((x) => words.includes(x)), 'K-53 b: the SMS terms — STOP / HELP, rates, the slow-reminder hours from POLICY');
+  ok(POL.HELP_CONTACT.backup && POL.HELP_CONTACT.hours, 'K-53 Q10: Help hours and the backup admin line');
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

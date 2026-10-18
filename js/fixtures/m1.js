@@ -13,9 +13,9 @@ import { servicesForType } from '../data.js';
 import { draftAgain as CT_draftAgain } from './common.js';
 
 export const FLOWS_c_welcome = [
-  { key: 'c-welcome', screen: 'c-welcome', group: 'M1 · Sign in', title: 'Welcome', note: 'Signed out: phone first, Apple / Google quieter',
+  { key: 'c-welcome', screen: 'c-welcome', group: 'M1 · Sign in', title: 'Welcome', note: 'Signed out: phone only for the pilot (K-53 Q9, D-423), Log in for a returning customer (K-52), the tailor’s Log in / Join',
     setup: () => { A.signOut(); },
-    expect: { has: ['Continue with phone', 'Continue with Apple', 'Continue with Google', 'held, not charged', 'Sign in or join'], not: 'Bookings', sel: '[data-act="phone"]' } },
+    expect: { has: ['Continue with phone', 'held, not charged', 'Already have an account? Log in', 'Are you a tailor? Log in or Join Taily'], not: ['Bookings', 'Continue with Apple', 'Continue with Google'], sel: '[data-act="phone"]', also: '[data-act="log-in"]' } },
 ];
 export const FLOWS_c_phone = [
   { key: 'c-phone', screen: 'c-phone', group: 'M1 · Sign in', title: 'Your phone number', note: 'Empty field, Send code enabled',

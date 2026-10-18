@@ -46,6 +46,10 @@
      J31 Apple, then a required phone + code (D-07 / B-09) → the names from the provider → Home; the K-49 deposit button V3 on the way
      J32 the tracks meet (merge A2 + B2, D-380): Account → Help, Shop → Help, the one policy page from Account / c-pay / Help / signed out,
          and Unblock on c-tailor
+     J34 Log in as a returning customer (K-52): Welcome → Log in → her number → the same code step → Home
+     J35 Log in with an unknown number: no account, no code, no sign-up; Create one → c-phone with the number; the tailor’s Log in → Join
+     J36 the admin gate (K-52, K-53 a8): no Test flows on a plain visit; a-* → a-login; email → code → second factor → inbox + Test flows; Sign out
+     J37 time off + notice (K-53 a4, S-34): Thu–Sat off and 24 h notice in to-availability → Shop summary → the customer’s next opening is Monday
      J14 the anchored popover (K-25): a garment thumb toggles it, another thumb moves it, Escape returns focus, it flips above near the
          window bottom, the Verified check shares its one slot; t-home's count cluster lists every item and the card still opens the request
 
@@ -1046,7 +1050,8 @@ await journey('J30', 'delete account: blocked while a visit is open, then allowe
 });
 
 await journey('J31', 'Continue with Apple, then a required phone + code; the names come from Apple (D-07 / B-09); the deposit button V3 (K-49)', async () => {
-  await page.evaluate(async () => { (await import('/js/account.js')).signOut(); window.Taily.render('c-welcome', { fresh: true }); });
+  /* K-53 Q9 (D-423): Apple / Google are off for the pilot — the kept code path, shown with the sim knob */
+  await page.evaluate(async () => { (await import('/js/account.js')).signOut(); (await import('/js/state.js')).state.sim.social = 'on'; window.Taily.render('c-welcome', { fresh: true }); });
   await settle(page);
   await press('[data-act="apple"]');
   await at('J31 Apple no longer skips the phone', 'c-phone', { has: ['Add your mobile number', 'Almost done with Apple.'] });
@@ -1069,19 +1074,19 @@ await journey('J32', 'the tracks meet: Account → Help, Shop → Help, the one 
   await press('[data-act="help"]');
   await at('J32 Account → Help opens Taily Help (no "next build" guard)', 'c-help', { has: ['Message Taily', 'POLICIES', 'Terms of service'] });
   await press('[data-act="policy"][data-policy="privacy"]');
-  await at('J32 Help → Privacy policy: the legal page on c-policy', 'c-policy', { has: ['Privacy policy', 'Draft of Oct 18, 2026', 'IN SHORT', 'Full text coming soon (counsel review)', 'Get help'] });
+  await at('J32 Help → Privacy policy: the legal page on c-policy', 'c-policy', { has: ['Privacy policy', 'Draft — counsel review required', 'Draft of Oct 18, 2026', 'IN SHORT', 'WHO SEES WHAT', 'Get help'] });
   await flow('c-account');
   await press('[data-act="policy"][data-policy="cancellation"]');
-  await at('J32 Account → Cancellation and refunds: A2’s policy and B2’s refunds page are one', 'c-policy', { has: ['Cancellation and refunds', 'Cancel for free until 24 hours before your visit.', 'If your tailor doesn’t accept within 2 hours, or declines, your deposit is released in full.', 'Full text coming soon (counsel review)'] });
+  await at('J32 Account → Cancellation and refunds: A2’s policy and B2’s refunds page are one', 'c-policy', { has: ['Cancellation and refunds', 'Cancel for free until 24 hours before your visit.', 'If your tailor doesn’t accept within 2 hours, or declines, your deposit is released in full.', 'Draft — counsel review required'] });
   await flow('c-pay');
   await press('[data-act="refunds"]');
   await at('J32 c-pay → Cancellation and refunds', 'c-policy', { has: ['Cancellation and refunds'] });
   await flow('c-pay');
   await press('[data-act="garment-protection"]');
-  await at('J32 c-pay → garment protection (A2) on the same page', 'c-policy', { has: ['Garment protection', 'Draft for counsel'] });
+  await at('J32 c-pay → garment protection (A2) on the same page', 'c-policy', { has: ['Garment protection', 'Draft — counsel review required'] });
   await flow('c-welcome');
   await press('[data-act="terms"]');
-  await at('J32 signed out: Terms from c-welcome, no tabs, no Get help', 'c-policy', { has: ['Terms of service', 'Full text coming soon (counsel review)'], not: ['Get help'] });
+  await at('J32 signed out: Terms from c-welcome, no tabs, no Get help', 'c-policy', { has: ['Terms of service', 'Draft — counsel review required', 'Taily Group LLC'], not: ['Get help'] });
   const tabs = await page.evaluate(() => document.querySelectorAll('#screen [data-nav]').length);
   check('J32 signed out: no tabs on the legal page', tabs === 0, String(tabs));
   await flow('t-shop');
@@ -1123,6 +1128,116 @@ await journey('J33', 'a “Not confirmed” visit disputed: That’s not right �
   await flip();                                                          // → customer
   await page.evaluate(() => window.Taily.render('c-booking'));
   await at('J33 customer: refunded by Taily', 'c-booking', { has: [`Taily refunded your ${dep} deposit`, 'Refunded'] });
+});
+
+/* ---------- J34–J37 (MVP readiness, track L: K-52 / K-53, D-420…D-428) ---------- */
+await journey('J34', 'Log in as a returning customer: Welcome → Log in → her number → the same code step → Home (K-52)', async () => {
+  await page.evaluate(async () => { (await import('/js/account.js')).signOut(); window.Taily.render('c-welcome', { fresh: true }); });
+  await settle(page);
+  await at('J34 the welcome: phone only, Log in for a returning customer (K-53 Q9)', 'c-welcome', { has: ['Continue with phone', 'Already have an account? Log in'], not: ['Continue with Apple'] });
+  await press('[data-act="log-in"]');
+  await at('J34 Welcome back', 'c-login', { has: ['Welcome back', 'Log in with your mobile number.'] });
+  await page.fill('#screen #phone', CUSTOMER.phone);
+  await press('.action-bar [data-act="send-code"]');
+  await at('J34 the same code step', 'c-code', { has: ['Enter the code', `We texted a 6-digit code to ${CUSTOMER.phone}.`] });
+  await page.fill('#screen #code', '123456');
+  await settle(page);
+  await at('J34 signed in: Home', 'c-job', {});
+  const s = await model((S) => ({ in: S.state.session.customer.signedIn, first: S.state.customer.first }));
+  check('J34 signed in as Sarah (no name step for an existing account)', s.in === true && s.first === CUSTOMER.first, JSON.stringify(s));
+});
+
+await journey('J35', 'Log in with an unknown number: no account, no code, no sign-up — Create one carries the number to sign-up (K-52)', async () => {
+  await page.evaluate(async () => { (await import('/js/account.js')).signOut(); window.Taily.render('c-login', { fresh: true }); });
+  await settle(page);
+  await page.fill('#screen #phone', NEW_NUMBER);
+  await press('.action-bar [data-act="send-code"]');
+  await at('J35 said next to the field, one way on', 'c-login', { has: ['No account with this number.', 'Create one'] });
+  const s = await model((S) => ({ pending: S.state.session.customer.pending ?? null, in: S.state.session.customer.signedIn, codes: S.state.outbox.length }));
+  check('J35 no code sent, nobody signed up', s.pending === null && s.in === false, JSON.stringify(s));
+  await press('[data-unknown] [data-act="create"]');
+  await at('J35 Create one → the sign-up path', 'c-phone', { has: ['Your phone number', 'Send code'] });
+  const carried = await page.evaluate(() => document.querySelector('#screen #phone')?.value);
+  check('J35 the number came along', carried === NEW_NUMBER, carried);
+  await press('.action-bar [data-act="send-code"]');
+  await page.fill('#screen #code', '123456');
+  await settle(page);
+  await at('J35 a new account: the name step', 'c-name', { has: ['What should we call you?'] });
+  /* the tailor's Log in, the same rule */
+  await page.evaluate(async () => { (await import('/js/account.js')).signOut('tailor'); window.Taily.render('c-welcome', { fresh: true }); });
+  await settle(page);
+  await press('[data-act="tailor-login"]');
+  await at('J35 tailor: Log in', 't-phone', { has: ['Welcome back', 'Log in to your shop with your mobile number.'] });
+  await page.fill('#screen #phone', '(646) 555-0101');
+  await press('.action-bar [data-act="send-code"]');
+  await at('J35 tailor: no account with this number', 't-phone', { has: ['No account with this number.', 'Join Taily'] });
+  await press('[data-unknown] [data-act="mode-join"]');
+  await at('J35 tailor: Join with the same number', 't-phone', { has: ['Join Taily with your mobile number.', 'Already on Taily? Log in'] });
+});
+
+await journey('J36', 'The admin gate: no Test flows for a customer; every a-* screen needs his sign-in (email → code → second factor); then Test flows from the inbox; Sign out hides them (K-52, K-53 a8)', async () => {
+  await h.goto('/');                                                    // a plain visit (not a test boot)
+  await page.mouse.move(100, 300); await page.mouse.move(120, 320);
+  await settle(page);
+  const plain = await page.evaluate(() => ({ tools: document.documentElement.classList.contains('tools-on'), shown: !!document.querySelector('#flow-trigger') && getComputedStyle(document.querySelector('.stage-caption')).display !== 'none' }));
+  check('J36 a plain visit: the Test-flows tools stay hidden after input', !plain.tools && !plain.shown, JSON.stringify(plain));
+  await page.evaluate(() => window.Taily.render('a-case'));
+  await page.waitForSelector('#screen[data-screen="a-login"]', { timeout: 3000 }).catch(() => {});
+  await at('J36 a-case without the admin’s session → his sign-in', 'a-login', { has: ['TAILY ADMIN', 'Sign in', 'Email me a code'] });
+  await h.goto('/?admin');
+  await at('J36 ?admin is his own entry', 'a-login', { has: ['For the Taily team only.'] });
+  await page.fill('#screen #admin-email', 'sarah.chen@example.com');
+  await press('.action-bar [data-act="send"]');
+  await page.waitForSelector('#screen #admin-email[aria-invalid="true"]', { timeout: 3000 }).catch(() => {});
+  await at('J36 not an admin email', 'a-login', { has: ['This email isn’t a Taily admin account.'] });
+  await page.fill('#screen #admin-email', 'kevin@taily.app');
+  await press('.action-bar [data-act="send"]');
+  await page.waitForSelector('#screen #admin-code', { timeout: 3000 });
+  await at('J36 step 1: the code by email', 'a-login', { has: ['Check your email', 'kevin@taily.app'] });
+  await page.fill('#screen #admin-code', '123456');
+  await page.waitForSelector('#screen #admin-second', { timeout: 3000 });
+  await at('J36 step 2: the authenticator code', 'a-login', { has: ['Two-step check'] });
+  const half = await model((S) => S.state.session.admin.signedIn);
+  check('J36 the emailed code alone does not sign him in', half === false, String(half));
+  await page.fill('#screen #admin-second', '123456');
+  await page.waitForSelector('#screen[data-screen="a-inbox"]', { timeout: 3000 });
+  await at('J36 signed in: the inbox', 'a-inbox', { has: ['Inbox', 'Test flows', 'Sign out'] });
+  const on = await page.evaluate(() => ({ tools: document.documentElement.classList.contains('tools-on'), shown: getComputedStyle(document.querySelector('.stage-caption')).display !== 'none' }));
+  check('J36 the Test-flows tools come on for the admin', on.tools && on.shown, JSON.stringify(on));
+  await press('[data-admin-tools] [data-act="test-flows"]');
+  await page.waitForSelector('#flow-menu:not([hidden])', { timeout: 3000 }).catch(() => {});
+  const open = await page.evaluate(() => document.querySelector('#flow-menu')?.hidden === false);
+  check('J36 Test flows opens from the admin inbox', open, String(open));
+  await page.keyboard.press('Escape');
+  await press('[data-admin-tools] [data-act="admin-sign-out"]');
+  await at('J36 Sign out → his sign-in', 'a-login', { has: ['Sign in'] });
+  const off = await page.evaluate(() => ({ tools: document.documentElement.classList.contains('tools-on'), kept: sessionStorage.getItem('taily-admin') }));
+  check('J36 signed out: the tools are gone and the tab forgets him', !off.tools && off.kept === null, JSON.stringify(off));
+  await h.goto('/?test=1');                                              // the harness's boots stay an admin test session
+  const test = await page.evaluate(() => ({ tools: document.documentElement.classList.contains('tools-on') }));
+  check('J36 ?test=1 is an admin test session (the harness keeps the tools)', test.tools, JSON.stringify(test));
+});
+
+await journey('J37', 'Time off hides openings: Amara adds Thu–Sat off in her shop → customers’ next opening moves to Monday; 24 hours of notice (K-53 a4, S-34)', async () => {
+  await flow('to-availability--edit');
+  await at('J37 her availability', 'to-availability', { has: ['TIME OFF', 'No time off set.', 'MINIMUM NOTICE'] });
+  await press('[data-act="add-off"]');
+  await at('J37 the time-off sheet', 'to-availability', { has: ['Pick your first and last day off.'] });
+  const cols = page.locator('[data-s="to-availability-off"] .wheel__col--scroll');
+  await cols.nth(0).focus();
+  for (let i = 0; i < 2; i++) await page.keyboard.press('ArrowDown');   // Tue Oct 13 → Thu Oct 15
+  await cols.nth(1).focus();
+  for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowDown');   // → Sat Oct 17
+  await click('[data-s="to-availability-off"] [data-act="off-done"]');
+  await at('J37 the range is listed', 'to-availability', { has: ['Thu, Oct 15 to Sat, Oct 17', '3 days'] });
+  await press('[data-chip-group="notice"] [data-value="24"]');
+  await press('.action-bar [data-act="save"]');
+  await at('J37 saved: Shop says it', 't-shop', { has: ['24 hours notice', 'Off Oct 15 to Oct 17'] });
+  const m = await model((S) => ({ home: S.nextOpening('amara', 'home'), off: S.state.tailors[0].timeOff.map((o) => `${o.from}/${o.to}`), notice: S.state.tailors[0].notice }));
+  check('J37 the model: Thu–Sat off, 24 h notice, next home opening Mon 5:00 PM', m.home === '2026-10-19T17:00' && m.off.join() === '2026-10-15/2026-10-17' && m.notice === 24, JSON.stringify(m));
+  await flip();                                                          // tailor → customer
+  await paint('c-tailors');
+  await at('J37 the customer sees Monday as the next opening', 'c-tailors', { has: [`Next opening ${fmtWhen('2026-10-19T17:00')}`], not: [`Next opening ${fmtWhen('2026-10-15T17:00')}`] });
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

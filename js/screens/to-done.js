@@ -7,19 +7,20 @@
    Focal: the title + the customer preview of her tailor row.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, waitlisted, verifyView } from '../state.js';
-import { myTailor, MY_TAILOR_ID, tailorRowProps, ownRow } from '../tailor-data.js';
+import { state, waitlisted, verifyView, approvedPendingBackground } from '../state.js';
+import { myTailor, MY_TAILOR_ID, tailorRowProps, ownRow, previewJob } from '../tailor-data.js';
 import { ZIP_INFO, VISIT_LABEL, CUSTOMER, TAILOR_LIMITS, placeForZip } from '../data.js';
 import { POLICY } from '../money-config.js';
-import { statusBar, customerPreview, tailorRow, miniProfile, actionBar, garmentIcon, sectionHead, esc, verifyChecklist, REVIEW_TIME, checksLine } from '../components.js';
+import { statusBar, customerPreview, tailorRow, miniProfile, actionBar, garmentIcon, sectionHead, esc, verifyChecklist, REVIEW_TIME, checksLine, APPROVED_PENDING_LINE } from '../components.js';
 import * as A from '../account.js';
 
 const ID = 'to-done';
 
 /** Her row as a customer with the demo job gets it (D-65) — built whether or not she is listed yet (D-359); null when it doesn't fit. */
 function previewRow() {
-  const { row } = ownRow(state.job);
-  return row ? tailorRow(tailorRowProps(row, state.job)) : null;
+  const job = previewJob();   // K-53 L (D-431): the sample items when the draft is empty
+  const { row } = ownRow(job);
+  return row ? tailorRow(tailorRowProps(row, job)) : null;
 }
 
 /** No row → why the demo customer's sample job doesn't reach her, in words (D-65 / R2-2-T-02). */
@@ -74,10 +75,10 @@ ${actionBar({ ctaLabel: 'Done', ctaAct: 'sign-out', secondaryLabel: 'Change year
 function view(s) {
   const t = myTailor();
   if (waitlisted(t) && !t.live) return waitlistView(t);
-  const job = s.job;
   const live = !!t.live;
   const v = verifyView(t);
   const row = previewRow();
+  const job = previewJob(s.job);
   const hood = placeForZip(job.zip)?.hood || ZIP_INFO[job.zip]?.hood || 'Brooklyn';
   /* a row → "How a customer in <hood> sees you"; no row → that customer wouldn't see her at all, so the neutral title (as t-shop) */
   const title = !row ? 'What customers will see' : live ? `How a customer in ${hood} sees you` : `How a customer in ${hood} will see you`;
@@ -92,10 +93,13 @@ function view(s) {
   const head = live
     ? `<h1 class="t-display ${ID}__title">You’re bookable</h1>
   <p class="t-body c-600 ${ID}__lead">Customers near you can book you now. We’ll text each new request to ${phone}. You have ${hours} hour${hours === 1 ? '' : 's'} to reply.</p>`
-    : `<h1 class="t-display ${ID}__title">Submitted</h1>
+    : approvedPendingBackground(t)   /* K-53 Q8 (D-427): ID, years and payout passed — the background check (run last) is the one left */
+      ? `<h1 class="t-display ${ID}__title">You’re approved</h1>
+  <p class="t-body c-600 ${ID}__lead" data-approved>${APPROVED_PENDING_LINE} Most checks take ${REVIEW_TIME}. We’ll text ${phone} when customers can book you.</p>`
+      : `<h1 class="t-display ${ID}__title">Submitted</h1>
   <p class="t-body c-600 ${ID}__lead">${needs
     ? `${needs === 1 ? 'One check needs' : `${needs} checks need`} you before we can finish the review. You’ll find ${needs === 1 ? 'it' : 'them'} in your shop.`
-    : `We’re checking your ID, background and payout details. Most reviews take ${REVIEW_TIME}. We’ll text ${phone} when customers can book you.`}</p>`;
+    : `We’re checking your ID and payout details first, then your background check. Most reviews take ${REVIEW_TIME}. We’ll text ${phone} when customers can book you.`}</p>`;
   const checks = live ? '' : `<section class="sec ${ID}__checks" aria-labelledby="${ID}-checks-h">
     ${sectionHead('Your checks', { id: `${ID}-checks-h`, aside: `<span class="t-small c-600 tabular">${esc(checksLine(t))}</span>` })}
     ${verifyChecklist(t, { interactive: false })}

@@ -19,6 +19,8 @@
   visibility: hidden;
 }
 html.has-input .stage-caption { visibility: visible; }
+/* K-53 a8 (D-422): the Test-flows tools are the admin's — gone unless he signed in (or a ?test=1 / ?flow= / ?study= boot), html.tools-on */
+html:not(.tools-on) .stage-caption { display: none; }
 /* step above a toast (toast sits at bottom 24 + ~36 tall) */
 html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) + var(--space-8)); transition: bottom 200ms var(--ease-out); }
 /* K-04 / AU-P1-2: on a phone the pill docks at the TOP so it never covers a sticky CTA or a toast; the panel opens below it */

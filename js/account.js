@@ -1,5 +1,7 @@
 /* ============================================================
    Taily v5 — the customer sign-in model (D-33). DOM-free.
+   K-52 (D-420 / D-421): + Log in (`sendLoginCode`, never a silent sign-up) and the admin's own sign-in (email → a code by email →
+   a second factor; state.session.admin).
    Simulated: any 6 digits verify except 000000 (the demo's wrong
    code); Sarah's number is an existing account, any other number
    is a new one (→ the name step). Mutates only
@@ -9,7 +11,7 @@
    ============================================================ */
 import { state, now, nowIso, blankTailor, nextSection, TERMINAL, deleteBlocker, newJob } from './state.js';
 import { POLICY } from './money-config.js';
-import { SHOP_CITY, placeForZip, BLANK_CUSTOMER, BOOKING_LIMITS } from './data.js';
+import { SHOP_CITY, placeForZip, BLANK_CUSTOMER, BOOKING_LIMITS, ADMIN_ACCOUNT } from './data.js';
 import { LEGAL_VERSION } from './policies.js';
 
 const WRONG_CODE = '000000';
@@ -133,6 +135,86 @@ export function signInWith(provider) {
 }
 /** The Apple / Google sign-in still waiting for its phone step, or null. */
 export const socialPending = () => state.session.customer?.social ?? null;
+/** K-53 Q9 (D-423): Continue with Apple / Google show only while POLICY.SOCIAL_SIGN_IN is on (off for the pilot: phone only). The code stays;
+    `state.sim.social = 'on'` shows them in a Test flow (c-welcome--social) without changing the policy. */
+export const socialSignIn = () => !!POLICY.SOCIAL_SIGN_IN || state.sim.social === 'on';
+
+/* ---------- K-52 (D-420): Log in — a returning person's number, the same code step, never a silent sign-up ---------- */
+/** Is there an account on this number? (customer: Sarah's seed number; tailor: the shop's phone, D-55). A deleted account has none. */
+export function hasAccount(raw, who = 'customer') {
+  const known = who === 'tailor' ? state.tailors[0]?.phone : state.customer?.phone;
+  return !!known && phoneDigits(raw) === phoneDigits(known);
+}
+/** The Log in path's Send code: a code only to a number that has an account. → `{ ok, phone }` | `phone-invalid` | `no-account`
+    (the screen offers "Create one", which is the sign-up path's Send code). */
+export function sendLoginCode(raw, who = 'customer') {
+  const v = validatePhone(raw);
+  if (!v.ok) return v;
+  if (!hasAccount(raw, who)) return fail('no-account');
+  session(who).pending = { phone: formatPhone(raw), sentAt: now(), isNew: false, login: true };
+  return { ok: true, phone: session(who).pending.phone };
+}
+
+/* ---------- K-52 (D-421): the admin's own sign-in — email, a code by email, then a second factor (simulated) ----------
+   Its own entry (`?admin`, a-login), never linked from the customer or tailor app. Any 6 digits verify except 000000 (the demo's wrong
+   code) at both steps. state.session.admin = { signedIn, email, at, test?, pending: { email, sentAt, step: 'code' | 'second' } }. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const admin = () => (state.session.admin ??= { signedIn: false, pending: null });
+/** Signed in as the admin (a-* screens need it, D-421). */
+export const adminSignedIn = () => !!state.session.admin?.signedIn;
+/** Step 1: the admin's email → a code by email. Errors: email-invalid · not-admin (only the Taily admin account signs in here). */
+export function adminSendCode(raw) {
+  const email = String(raw ?? '').trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return fail('email-invalid');
+  if (email !== ADMIN_ACCOUNT.email) return fail('not-admin');
+  state.session.admin = { signedIn: false, pending: { email, sentAt: now(), step: 'code' } };
+  return { ok: true, email };
+}
+/** `{ email, step, msToResend, expired }` for the sign-in in flight; null without one. */
+export function adminStatus() {
+  const p = admin().pending;
+  if (!p) return null;
+  return { email: p.email, step: p.step, msToResend: Math.max(0, p.sentAt + POLICY.CODE_RESEND_S * 1000 - now()), expired: p.step === 'code' && now() >= p.sentAt + POLICY.CODE_TTL_MIN * 60000 };
+}
+export function adminResendCode() {
+  const st = adminStatus();
+  if (!st || st.step !== 'code') return fail('no-code');
+  if (st.msToResend > 0) return fail('too-soon');
+  admin().pending.sentAt = now();
+  return { ok: true };
+}
+const sixDigits = (code) => String(code ?? '').replace(/\s/g, '');
+/** Step 2: the emailed code. no-code · code-format · code-expired · code-wrong → else the second factor is next. */
+export function adminVerifyCode(code) {
+  const st = adminStatus();
+  if (!st || st.step !== 'code') return fail('no-code');
+  const d = sixDigits(code);
+  if (!/^\d{6}$/.test(d)) return fail('code-format');
+  if (st.expired) return fail('code-expired');
+  if (d === WRONG_CODE) return fail('code-wrong');
+  admin().pending.step = 'second';
+  return { ok: true, next: 'second' };
+}
+/** Step 3: the 6-digit code from the authenticator app (simulated). no-code · code-format · code-wrong → signed in. */
+export function adminVerifySecond(code) {
+  const st = adminStatus();
+  if (!st || st.step !== 'second') return fail('no-code');
+  const d = sixDigits(code);
+  if (!/^\d{6}$/.test(d)) return fail('code-format');
+  if (d === WRONG_CODE) return fail('code-wrong');
+  state.session.admin = { signedIn: true, email: st.email, at: nowIso(), pending: null };
+  return { ok: true };
+}
+export function adminSignOut() {
+  state.session.admin = { signedIn: false, pending: null };
+  return { ok: true };
+}
+/** K-53 a8 (D-422): the Test-flows tools are the admin's — a flow (and the harness's ?test=1 / ?flow= / ?study= boot) runs inside his signed-in
+    session. Called by flows.js resetDemo / app.js boot, never by a screen. */
+export function adminTestSession({ test = true } = {}) {
+  state.session.admin = { signedIn: true, email: ADMIN_ACCOUNT.email, at: nowIso(), test, pending: null };
+  return { ok: true };
+}
 
 /* ---------- Account v2 (DG-3 option A, pre-MVP B2) ---------- */
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

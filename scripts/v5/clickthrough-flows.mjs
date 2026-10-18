@@ -320,6 +320,20 @@ if (!DUMP && !ONLY.length) {
     return { persona: document.documentElement.dataset.persona, screen: document.getElementById('screen')?.dataset.screen, appts: S.state.appts.length };
   });
   check('menu: View as Admin opens the admin inbox, state kept', adm.persona === 'admin' && adm.screen === 'a-inbox' && adm.appts === before.appts, JSON.stringify(adm));
+  /* K-53 a8 (D-422): the admin opens Test flows from his inbox too */
+  await page.evaluate(() => document.querySelector('#screen [data-admin-tools] [data-act="test-flows"]')?.click());
+  await settle(page);
+  check('menu: the admin inbox’s Test flows opens the panel', await page.evaluate(() => document.querySelector('#flow-menu')?.hidden === false));
+  await page.keyboard.press('Escape');
+  /* K-53 a8 (D-422): a plain visit (a customer or a tailor) never gets the Test-flows tools — not even after input; ?test=1 / ?flow= / ?study= are admin test sessions */
+  await h.goto('/');
+  await page.mouse.move(100, 300); await page.mouse.move(120, 320);
+  await settle(page);
+  const plain = await page.evaluate(() => ({ tools: document.documentElement.classList.contains('tools-on'), trigger: !!document.querySelector('#flow-trigger')?.getClientRects().length }));
+  check('menu: hidden on a plain visit (only the signed-in admin gets Test flows)', !plain.tools && !plain.trigger, JSON.stringify(plain));
+  await h.goto('/?screen=a-inbox');
+  await page.waitForSelector('#screen[data-screen="a-login"]', { timeout: 3000 }).catch(() => {});
+  check('menu: a cold a-* link without the admin’s session lands on a-login (K-52)', (await landing()).screen === 'a-login');
 
   for (const f of [first, all[all.length - 1]].filter((e, i, a) => a.indexOf(e) === i)) {
     await h.goto(`/?test=1&flow=${encodeURIComponent(f.key)}`);

@@ -60,9 +60,9 @@ export const FLOWS_c_change_phone = [
 /* ---------- the legal pages (S-23 / S-24, COUNSEL placeholders) — on c-policy since the A2 + B2 merge (D-380) ---------- */
 const legal = (doc, key, title, line, { signedOut = false } = {}) => ({
   screen: 'c-policy', group: G, key, title: `Legal — ${title}${signedOut ? ' (signed out)' : ''}`,
-  note: `S-23 / S-24: a short summary + "Full text coming soon (counsel review)" (COUNSEL, docs/v5/COUNSEL.md)${signedOut ? '; from c-welcome’s Terms link before sign-up: no tabs, no Get help' : ''}`,
+  note: `S-23 / S-24: IN SHORT + the full draft under "Draft — counsel review required" (K-53 b, COUNSEL, docs/v5/COUNSEL.md)${signedOut ? '; from c-welcome’s Terms link before sign-up: no tabs, no Get help' : ''}`,
   setup: (S) => { if (signedOut) D_A.signOut('customer'); S.state.ui.policy = doc; },
-  expect: { has: [title, 'IN SHORT', line, 'Draft of Oct 18, 2026', 'Full text coming soon (counsel review)'], ...(signedOut ? { not: ['Get help'] } : {}), sel: `[data-doc="${doc}"] [data-counsel]` },
+  expect: { has: [title, 'IN SHORT', line, 'Draft of Oct 18, 2026', 'Draft — counsel review required'], ...(signedOut ? { not: ['Get help'] } : {}), sel: `[data-doc="${doc}"] [data-counsel]` },
 });
 export const FLOWS_c_policy = [
   legal('terms', 'c-policy--terms', 'Terms of service', 'Taily is a marketplace. You book independent tailors through it, and each tailor does the work.', { signedOut: true }),
@@ -73,9 +73,9 @@ export const FLOWS_c_policy = [
 /* ---------- c-receipt: a receipt she can keep (S-25) ---------- */
 const doneOrder = (S) => { const a = S.driveTo('completed'); focus(S, a); return a; };
 export const FLOWS_c_receipt = [
-  { screen: 'c-receipt', group: G, key: 'c-receipt', title: 'Receipt', note: 'S-25: number and date, from (Taily, placeholder entity) and billed to, what she paid for, each charge with its date and card; no email on file yet',
+  { screen: 'c-receipt', group: G, key: 'c-receipt', title: 'Receipt', note: 'S-25: number and date, from (Taily Group LLC, K-53 c1) and billed to, what she paid for, each charge with its date and card; no email on file yet',
     setup: (S) => { doneOrder(S); },
-    get expect() { return { has: ['Receipt', 'TLY-261013-', 'FROM', 'Taily, Inc.', 'an independent tailor booked through Taily.', 'BILLED TO', 'Sarah Chen', 'WHAT YOU PAID FOR', 'PAYMENTS', 'Deposit', 'Balance', 'Paid in all', D_exact(D_SC.seed.deposit), D_exact(D_SC.seed.balance), D_exact(D_SC.seed.total), 'Visa •••• 4242', 'Add an email in Personal info to get receipts by email.', 'Add an email'], not: 'Email receipt', sel: '[data-no-email]' }; } },
+    get expect() { return { has: ['Receipt', 'TLY-261013-', 'FROM', 'Taily Group LLC', 'an independent tailor booked through Taily.', 'BILLED TO', 'Sarah Chen', 'WHAT YOU PAID FOR', 'PAYMENTS', 'Deposit', 'Balance', 'Paid in all', D_exact(D_SC.seed.deposit), D_exact(D_SC.seed.balance), D_exact(D_SC.seed.total), 'Visa •••• 4242', 'Add an email in Personal info to get receipts by email.', 'Add an email'], not: 'Email receipt', sel: '[data-no-email]' }; } },
   { screen: 'c-receipt', group: G, key: 'c-receipt--email', title: 'Receipt — email on file', note: 'S-25: with an email (Personal info) the bar offers Email receipt (PROTOTYPE: no mail service)',
     setup: (S) => { doneOrder(S); D_A.saveProfile({ email: EMAIL }); },
     expect: { has: ['Email receipt', `To ${EMAIL}`, EMAIL], not: 'Add an email', sel: '.action-bar [data-act="email"]' } },
@@ -162,9 +162,9 @@ export const FLOWS_t_change_phone = [
 ];
 const tLegal = (doc, key, title, line, { signedOut = false } = {}) => ({
   screen: 't-policy', group: G, key, title: `Legal (tailor) — ${title}${signedOut ? ' (signed out)' : ''}`,
-  note: `S-23: COUNSEL placeholder summary (docs/v5/COUNSEL.md #2), on t-policy since the merge (D-380)${signedOut ? '; from t-phone’s Tailor Terms link: no tabs' : ''}`,
+  note: `S-23 → K-53 b: the full draft under its summary (docs/v5/COUNSEL.md #2), on t-policy since the merge (D-380)${signedOut ? '; from t-phone’s Tailor Terms link: no tabs' : ''}`,
   setup: (S) => { if (signedOut) D_A.signOut('tailor'); S.state.ui.policy = doc; },
-  expect: { has: [title, line, 'Full text coming soon (counsel review)'], ...(signedOut ? { not: ['Get help'] } : {}), sel: `[data-doc="${doc}"]` },
+  expect: { has: [title, line, 'Draft — counsel review required'], ...(signedOut ? { not: ['Get help'] } : {}), sel: `[data-doc="${doc}"]` },
 });
 export const FLOWS_t_policy = [
   tLegal('tailor-terms', 't-policy--terms', 'Tailor terms of service', 'You run your own business. You set your prices, hours and the areas you visit.', { signedOut: true }),

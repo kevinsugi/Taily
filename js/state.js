@@ -50,13 +50,15 @@ function freshSim() {
      tailor's new-request text shows on screen — on after onboarding; off by default so a flow's baseline stays still) · payout 'ok'|'failed' · server 'ok'|'error' (one-shot, D-140) */
   /* pre-MVP A1: sms 'ok'|'undelivered' (a text to an opted-in number never arrives, D-02) · capture 'ok'|'declined' (one-shot: the next charge of a
      held balance fails, D-04) · DG-4 (D-351): payoutSetup = what the payments partner's hosted onboarding returns ('verifying' | 'verified' | 'action-needed') */
-  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok', sms: 'ok', capture: 'ok', payoutSetup: 'verifying' };
+  /* K-53 Q9 (D-423): social 'off'|'on' — show Continue with Apple / Google although POLICY.SOCIAL_SIGN_IN is off (a Test flow only) */
+  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok', sms: 'ok', capture: 'ok', payoutSetup: 'verifying', social: 'off' };
 }
 function fresh() {
   return {
     persona: 'customer',                       // 'customer' | 'tailor' (D-21)
     clock: { now: toDate(DEMO_NOW).getTime() }, // frozen demo clock (D-09)
-    session: { customer: { signedIn: true }, tailor: { signedIn: true } },
+    /* K-52 (D-421): the admin signs in on his own (a-login); the Test-flows tools sign him in for a flow (D-422, flows.js resetDemo) */
+    session: { customer: { signedIn: true }, tailor: { signedIn: true }, admin: { signedIn: false, pending: null } },
     customer: clone(CUSTOMER),
     tailors: clone(TAILORS),
     job: clone(SEED_JOB),
@@ -84,12 +86,15 @@ let textSeq = 0;
 let caseSeq = 0;
 let caseMsgSeq = 0;
 
-/** Restore every field to the seed. Keeps `sim.latency`. */
+/** Restore every field to the seed. Keeps `sim.latency` and the admin's session (K-52 / K-53 a8, D-422: his sign-in is not demo data —
+    a Test flow's driveTo / onboardTo reset must not sign him out of the tools he is using). */
 export function reset() {
   const latency = state.sim.latency;
+  const admin = state.session?.admin;
   const f = fresh();
   for (const k of Object.keys(f)) state[k] = f[k];
   state.sim.latency = latency;
+  if (admin) state.session.admin = admin;
   apptSeq = 1000; msgSeq = 0; garmentSeq = 0; textSeq = 0; caseSeq = 0; caseMsgSeq = 0;
   return state;
 }
@@ -145,7 +150,7 @@ function timersFor(a) {
 function waitTexts(a, fromIso, marks, events, { stopAt = Infinity, x = {} } = {}) {
   const t = state.clock.now;
   const due = [['h24', POLICY.WAIT_REMIND_1_H], ['h72', POLICY.WAIT_REMIND_2_H]]
-    .map(([k, h], i) => ({ k, at: msOf(fromIso) + h * HOUR_MS, ev: events[i] }))
+    .map(([k, h], i) => ({ k, at: k === 'h72' ? slowTextAt(msOf(fromIso) + h * HOUR_MS) : msOf(fromIso) + h * HOUR_MS, ev: events[i] }))   // K-53 Q10: the 72 h nudge is a slow text
     .filter((d) => t >= d.at && !marks[d.k]);
   due.forEach((d) => { marks[d.k] = stampAt(d.at); });
   const last = due[due.length - 1];
@@ -392,8 +397,20 @@ function completedTimers(a) {
   if (a.review || a.reviewTextAt || a.handoff?.completedBy === 'abandoned') return;
   const at = a.handoff?.completedAt ?? [...a.history].reverse().find((h) => h.status === 'completed')?.at;
   if (!at) return;
-  const due = msOf(at) + POLICY.REVIEW_REMINDER_D * DAY_MS;
+  const due = slowTextAt(msOf(at) + POLICY.REVIEW_REMINDER_D * DAY_MS);   // K-53 Q10: a slow text
   if (state.clock.now >= due) { a.reviewTextAt = stampAt(due); notify(a, 'review-reminder', { at: a.reviewTextAt }); }
+}
+/** K-53 Q10 (D-428): when a SLOW reminder (the 72 h nudges, the review reminder) may go — its due time when that falls between
+    POLICY.SLOW_TEXT_FROM_H and SLOW_TEXT_TO_H (local, wall clock), else the next SLOW_TEXT_FROM_H. Time-critical texts (codes, requests, visit
+    reminders, the auto-cancel, holds and charges) never pass through here and go round the clock. Epoch ms in, epoch ms out. */
+export function slowTextAt(ms) {
+  const d = new Date(ms);
+  const m = d.getHours() * 60 + d.getMinutes();
+  if (m >= POLICY.SLOW_TEXT_FROM_H * 60 && m < POLICY.SLOW_TEXT_TO_H * 60) return ms;
+  const next = new Date(d);
+  if (m >= POLICY.SLOW_TEXT_TO_H * 60) next.setDate(next.getDate() + 1);
+  next.setHours(POLICY.SLOW_TEXT_FROM_H, 0, 0, 0);
+  return next.getTime();
 }
 /** When a suggested time stops being open (D-154): `MIN_LEAD_H` before it starts, or `SUGGEST_EXPIRY_H` after it was suggested,
     whichever comes first. Epoch ms. */
@@ -622,6 +639,10 @@ export function verifyView(tailor = state.tailors[0]) {
 }
 /** Every check passed. */
 export const checksPassed = (tailor) => !!tailor && verifyView(tailor).allPassed;
+/** K-53 Q8 (D-427): the checks before the background check (ID and profile photo, years tailoring, payout and tax info) all passed. */
+export const firstChecksPassed = (tailor) => !!tailor && VERIFY_ITEMS.filter((v) => v.id !== 'background').every((v) => checkState(tailor, v.id) === 'verified');
+/** "You're approved, pending your background check": the first three passed, the background check (run last) still in review. */
+export const approvedPendingBackground = (tailor) => firstChecksPassed(tailor) && checkState(tailor, 'background') === 'pending';
 /** K-15 (D-350): the Verified check customers see — only when every check passed. Derived, never stored (no hard-coded `verified`). */
 export const isVerified = (tailor) => checksPassed(tailor);
 /** Set up, not waitlisted, and — while POLICY.LIVE_REQUIRES_VERIFIED (Kevin: gated) — every check passed. */
@@ -667,6 +688,24 @@ const blank = (v) => v === null || v === undefined || (typeof v === 'string' && 
 const isWhole = (n) => Number.isInteger(n);
 const zip5 = (z) => /^\d{5}$/.test(String(z ?? ''));
 const overlaps = (a, b) => (a ?? []).some(([o1, c1]) => (b ?? []).some(([o2, c2]) => o1 < c2 && o2 < c1));   // touching is fine
+/** K-53 a4 (S-34, D-424): a day holds at most this many windows per way she works (a split shift: 10–2, then 5–8). */
+export const DAY_WINDOWS_MAX = 2;
+/** K-53 a4 (D-425): the minimum-notice choices in hours — Taily's own MIN_LEAD_H (the shortest, the default) then POLICY.NOTICE_OPTIONS_H. */
+export const noticeChoices = () => [POLICY.MIN_LEAD_H, ...POLICY.NOTICE_OPTIONS_H];
+/** A tailor's minimum notice in hours (never under Taily's MIN_LEAD_H). */
+export const noticeHours = (t) => Math.max(POLICY.MIN_LEAD_H, Number(t?.notice ?? POLICY.MIN_LEAD_H) || POLICY.MIN_LEAD_H);
+/** K-53 a4 (D-426): her time off, soonest first — `[{ id, from, to }]`, whole days, both ends included. Past ranges drop off the list. */
+export const timeOffList = (t) => [...(t?.timeOff ?? [])].filter((o) => o.to >= isoDay(state.clock.now)).sort((a, b) => (a.from < b.from ? -1 : 1));
+/** The time-off range a day falls in (ISO day or date), or null. */
+export function timeOffOn(t, day) {
+  const d = isoDay(day);
+  return (t?.timeOff ?? []).find((o) => o.from <= d && d <= o.to) ?? null;
+}
+/** Visits already booked inside a time-off range (they stay booked, D-426): open appointments of this tailor whose visit day is in it. */
+export function bookedDuring(t, from, to) {
+  return state.appts.filter((a) => a.tailorId === t?.id && ['requested', 'suggested', 'confirmed'].includes(a.status)
+    && from <= isoDay(a.status === 'suggested' ? a.suggested.start : a.slot.start) && isoDay(a.status === 'suggested' ? a.suggested.start : a.slot.start) <= to);
+}
 const SECTION_RULES = {
   profile: (d) => {
     const e = {};
@@ -739,11 +778,27 @@ const SECTION_RULES = {
       if (!hasWindow(av[type])) e[type] = 'hours-required';
       for (const [day, wins] of Object.entries(av[type] ?? {})) {
         if ((wins ?? []).some(([o, c]) => minutesOf(o) >= minutesOf(c))) e[`${type}-${day}`] = 'hours-range';
+        /* K-53 a4 (S-34, D-424): up to two windows a day (a split shift), never overlapping each other — touching is fine */
+        else if ((wins ?? []).length > DAY_WINDOWS_MAX) e[`${type}-${day}`] = 'windows-max';
+        else if ((wins ?? []).some((w, i) => wins.some((v, j) => j > i && overlaps([w], [v])))) e[`${type}-${day}`] = 'windows-overlap';
       }
     }
     if (d.shop?.enabled && d.home?.enabled) {
       for (const day of Object.keys(av.shop ?? {})) if (overlaps(av.shop[day], av.home?.[day])) e[`overlap-${day}`] = 'hours-overlap';
     }
+    /* K-53 a4 (S-34): minimum notice (D-425) and time off (D-426) */
+    if (d.notice != null && !noticeChoices().includes(Number(d.notice))) e.notice = 'notice-invalid';
+    const today = isoDay(state.clock.now);
+    const far = isoDay(addDays(state.clock.now, POLICY.TIME_OFF_AHEAD_D));
+    const offs = (d.timeOff ?? []);
+    offs.forEach((o, i) => {
+      const k = `off-${o.id ?? i}`;
+      if (!ISO_DAY.test(o.from ?? '') || !ISO_DAY.test(o.to ?? '')) e[k] = 'off-required';
+      else if (o.to < o.from) e[k] = 'off-range';
+      else if (o.to < today) e[k] = 'off-past';
+      else if (o.from > far) e[k] = 'off-far';
+      else if (offs.some((p, j) => j !== i && ISO_DAY.test(p.from ?? '') && ISO_DAY.test(p.to ?? '') && p.from <= o.to && o.from <= p.to)) e[k] = 'off-overlap';
+    });
     return e;
   },
   payouts: (d) => {
@@ -949,13 +1004,15 @@ export function reviewChecks(outcome = {}) {
   const res = (id) => outcome[id] ?? (checkState(t, id) === 'pending' ? 'verified' : null);
   const idR = res('id');
   if (idR && checkState(t, 'id') !== 'not-started') t.verify.id = { state: idR, at };
-  const bgR = res('background');
-  if (bgR && checkState(t, 'background') !== 'not-started') t.verify.background = { ...t.verify.background, state: bgR, at };
   const pR = res('payout');
   if (pR && (t.payouts?.status ?? 'not-started') !== 'not-started') {
     if (pR === 'verified') Object.assign(t.payouts, { status: t.payouts.status === 'paused' ? 'paused' : 'verified', identity: 'verified', tax: t.payouts.tax === 'needs-info' ? 'needs-info' : 'verified', issue: t.payouts.status === 'paused' ? t.payouts.issue : null });
     else Object.assign(t.payouts, { status: 'action-needed', identity: 'needs-info', issue: 'dob-mismatch' });
   }
+  /* K-53 Q8 (D-427): the background check runs last — only once the other three passed (in this review or an earlier one); until then it
+     waits. `background: 'pending'` holds it (the "You're approved, pending your background check" moment). */
+  const bgR = outcome.background ?? (checkState(t, 'background') === 'pending' && firstChecksPassed(t) ? 'verified' : null);
+  if (bgR && bgR !== 'pending' && checkState(t, 'background') !== 'not-started' && firstChecksPassed(t)) t.verify.background = { ...t.verify.background, state: bgR, at };
   t.onboarding.profile = validateSection('profile', t).ok;
   const wentLive = syncLive(t);
   return { ok: true, tailor: t, live: !!t.live, wentLive, view: verifyTexts(t, checksBefore) };
@@ -983,19 +1040,21 @@ function busyIntervals(tailorId, exclude) {
   return out;
 }
 /** Open visit starts (ISO strings) for one tailor: the tailor's own weekly hours, 9 AM–9 PM, on :00 / :30,
-    at least MIN_LEAD_H ahead, on a day before `until` (the need-by, D-18), clear of that tailor's other bookings. */
+    at least her minimum notice ahead (noticeHours ≥ MIN_LEAD_H, K-53 a4), never on a day off (timeOffOn), on a day before `until`
+    (the need-by, D-18), clear of that tailor's other bookings. */
 export function openSlots(tailorId, visitType, { until = null, exclude = null } = {}) {
   const t = tailorById(tailorId);
   if (!t || !t[visitType]?.enabled) return [];
   const windows = t.availability?.[visitType] ?? {};
   const dur = VISIT_MINUTES[visitType];
-  const earliest = state.clock.now + POLICY.MIN_LEAD_H * HOUR_MS;
+  const earliest = state.clock.now + noticeHours(t) * HOUR_MS;   // K-53 a4 (D-425): her minimum notice, never under MIN_LEAD_H
   const today = strip(new Date(state.clock.now));
   const horizon = addDays(today, SLOT_HORIZON_DAYS);
   const busy = busyIntervals(tailorId, exclude);
   const slots = [];
   for (let d = today; d < horizon; d = addDays(d, 1)) {
     if (until && dayDiff(d, until) < 1) break;
+    if (timeOffOn(t, d)) continue;                                 // K-53 a4 (D-426): a day off has no openings
     for (const [open, close] of windows[weekdayKey(d)] ?? []) {
       const from = Math.max(minutesOf(open), DAY_START_MIN);
       const to = Math.min(minutesOf(close), DAY_END_MIN);

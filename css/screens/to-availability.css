@@ -9,6 +9,16 @@
 .to-availability__head { margin-top: var(--rhythm-section); }
 .to-availability__body > .to-availability__head:first-child { margin-top: 0; }
 .to-availability__error { margin: var(--space-8) 0 0; }
+/* K-53 a4 (S-34): time off + minimum notice under the week (D-425, D-426) */
+.to-availability__off { margin-top: var(--rhythm-group); }
+.to-availability__off .list-row__right .text-link { margin-right: calc(-1 * var(--space-8)); }
+.to-availability__off-error { display: block; margin-top: var(--space-4); }
+.to-availability__off-add { margin-top: var(--space-4); }
+.to-availability__off-add .text-link { margin-left: calc(-1 * var(--space-8)); }
+.to-availability__notice { margin-top: var(--rhythm-group); }
+.to-availability__off-labels { display: flex; gap: var(--space-12); margin-top: var(--rhythm-group); }
+.to-availability__off-labels span { flex: 1 1 0; }
+.to-availability__off-sheet-error { margin: var(--space-8) 0 0; }
 .screen-sheet[data-s^="to-availability"] .sheet__cancel,
 .screen-sheet[data-s^="to-availability"] .sheet__confirm { min-width: 44px; min-height: 44px; }
 .screen-sheet[data-s^="to-availability"] .scheduler__cta { min-height: 44px; }

@@ -138,7 +138,7 @@ import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb, dayWord }
 import { POLICY } from './money-config.js';
 import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor, verifyView, checkState,
   caseById, caseView, caseMessages, casesFor, caseOfAppt, openCaseOfAppt, helpTopics, topicLabel, REPORT_REASONS, isBlocked, blockedBy, getAppt, tailorById,
-  maskContact, deliveryReportOpen, adminInbox } from './state.js';
+  maskContact, deliveryReportOpen, adminInbox, firstChecksPassed, approvedPendingBackground } from './state.js';
 import { protectionLine, policyList, HELP_CONTACT } from './policies.js';
 import { scheduler, slotColumns, readSlot, windowColumns, readWindow, whenNote, SCHED_ROW } from './scheduler.js';   // K-40: the handoff time sheet (scheduler.js imports this file back; both only call across at run time)
 import { withLatency } from './sim.js';
@@ -1949,7 +1949,10 @@ export function checkWords(t, id) {
     out.sub = st === 'verified' ? `Matched ${fmtDay(t.verify.id.at)}` : { pending: 'We’re matching your ID to your profile photo', 'needs-info': 'Your ID didn’t match your photo. Add it again', 'not-started': 'Add a photo ID to your profile' }[st];
     if (st === 'needs-info' || st === 'not-started') out.act = 'check-id';
   } else if (id === 'background') {
-    out.sub = st === 'verified' ? `Cleared ${fmtDay(t.verify.background.at)}` : { pending: `Usually ${REVIEW_TIME}. We’ll text you`, 'needs-info': 'We need a few more details. Check your texts', 'not-started': 'Agree to start it' }[st];
+    /* K-53 Q8 (D-427): it runs last — while the other three are still open it waits for them */
+    const waits = st === 'pending' && !firstChecksPassed(t);
+    out.sub = st === 'verified' ? `Cleared ${fmtDay(t.verify.background.at)}` : waits ? 'Runs last, once your other checks pass' : { pending: `Usually ${REVIEW_TIME}. We’ll text you`, 'needs-info': 'We need a few more details. Check your texts', 'not-started': 'Agree to start it. It runs last' }[st];
+    if (waits) out.pillLabel = 'Waiting';
     if (st === 'not-started') out.act = 'check-background';
   } else if (id === 'years') {
     out.sub = st === 'not-started' ? 'Add it to your profile' : st === 'waitlist' ? `${yearsWord(t.years)} · Taily tailors have at least ${DATA.TAILOR_LIMITS.YEARS_MIN}` : yearsWord(t.years);
@@ -1980,13 +1983,16 @@ export function reviewPill(t) {
   const v = verifyView(t);
   if (v.items.some((i) => i.state === 'waitlist')) return statusPill('check-waitlist', 'On the waitlist');
   if (v.needsYou.length) return statusPill('check-needs', `Needs you · ${v.passed} of ${v.total} checks`);
+  if (approvedPendingBackground(t)) return statusPill('under-review', 'Approved · background check pending');   // K-53 Q8 (D-427)
   return statusPill('under-review', `Under review · ${v.passed} of ${v.total} checks`);
 }
+/** K-53 Q8 (D-427): the line once ID, years and payout passed and only the background check (run last) is left. */
+export const APPROVED_PENDING_LINE = 'You’re approved, pending your background check.';
 
 /** DG-4 (D-354 counsel): the background-check disclosure — PLACEHOLDER copy, final FCRA disclosure + authorization, summary of rights and
     the NYC Fair Chance Act notice come from counsel (docs/v5/COUNSEL.md). Shown as its own sheet (a stand-alone disclosure). */
 export const BACKGROUND_DISCLOSURE = [
-  'Before customers can book you, Taily orders a background check (a consumer report) from a background check company. It confirms who you are and looks at criminal records.',
+  'Before customers can book you, Taily orders a background check (a consumer report) from a background check company. It confirms who you are and looks at criminal records. We run it last, once your other checks pass.',   // K-53 Q8 (D-427)
   'You can ask for a copy of the report and dispute anything in it that’s wrong. In New York City, Taily follows the Fair Chance Act: if something in the report might matter, we tell you and give you time to respond before we decide.',
 ];
 export const COUNSEL_DRAFT = 'Draft for counsel: the final disclosure, authorization and summary of your rights go here.';
@@ -2123,13 +2129,21 @@ export function serviceRow({ id, label, caption = '', checked = false, price = '
  * Day hours — one weekday row: label + on/off switch (`#day-<sched>-<day>`); when open, two 44 px time buttons
  * (data-act="time", data-edge="open|close"), else "Closed". `open` / `close` are labels ("10:00 AM"). states: closed · open · error.
  */
-export function dayHours({ sched, day, label, open = null, close = null, error = '' } = {}) {
-  const on = open != null;
+/* K-53 a4 (S-34, D-424): `windows` = [[openLabel, closeLabel], …] (up to two: a split day) replaces open / close; the second row carries a
+   44 px ✕ (`data-act="remove-window"`), and `addable` adds "Add more hours" (`data-act="add-window"`) under a day with one window.
+   Time buttons carry `data-win` (0 | 1). */
+export function dayHours({ sched, day, label, open = null, close = null, error = '', windows = null, addable = false } = {}) {
+  const wins = windows ?? (open != null ? [[open, close ?? '']] : []);
+  const on = wins.length > 0;
   const id = `day-${sched}-${day}`;
-  const btn = (edge, text, what) => `<button type="button" class="day-hours__time t-body" data-act="time" data-sched="${esc(sched)}" data-day="${esc(day)}" data-edge="${edge}" aria-label="${esc(label)} ${what}: ${esc(text)}">${esc(text)}</button>`;
-  return `<div class="day-hours${on ? ' day-hours--open' : ''}${error ? ' day-hours--error' : ''}" data-day-row="${esc(day)}">
+  const nth = (i) => (wins.length > 1 ? (i ? ' (second hours)' : ' (first hours)') : '');
+  const btn = (i, edge, text, what) => `<button type="button" class="day-hours__time t-body" data-act="time" data-sched="${esc(sched)}" data-day="${esc(day)}" data-edge="${edge}" data-win="${i}" aria-label="${esc(label)}${nth(i)} ${what}: ${esc(text)}">${esc(text)}</button>`;
+  const row = ([o, c], i) => `<div class="day-hours__times"${i ? ' data-second' : ''}>${btn(i, 'open', o, 'opens')}<span class="day-hours__dash c-500" aria-hidden="true">–</span>${btn(i, 'close', c, 'closes')}${i
+    ? `<button type="button" class="day-hours__remove" data-act="remove-window" data-sched="${esc(sched)}" data-day="${esc(day)}" data-win="${i}" aria-label="Remove the second hours on ${esc(label)}">${ICON_CLOSE}</button>` : ''}</div>`;
+  return `<div class="day-hours${on ? ' day-hours--open' : ''}${wins.length > 1 ? ' day-hours--split' : ''}${error ? ' day-hours--error' : ''}" data-day-row="${esc(day)}">
   ${toggle({ id, label, checked: on, helper: on ? '' : 'Closed' })}
-  ${on ? `<div class="day-hours__times">${btn('open', open, 'opens')}<span class="day-hours__dash c-500" aria-hidden="true">–</span>${btn('close', close ?? '', 'closes')}</div>` : ''}
+  ${wins.map(row).join('')}
+  ${on && addable && wins.length === 1 ? `<button type="button" class="day-hours__add t-small w-600" data-act="add-window" data-sched="${esc(sched)}" data-day="${esc(day)}">+ Add more hours</button>` : ''}
   ${error ? `<p class="field__msg field__msg--error day-hours__error" role="alert">${esc(error)}</p>` : ''}
 </div>`;
 }
@@ -3505,13 +3519,11 @@ export function policySections(page) {
   const sec = (x) => `<section class="sec policy__sec"><h2 class="t-caps c-600 policy__title">${esc(x.title)}</h2>${x.list
     ? `<ul class="policy__list">${x.lines.map((l) => `<li class="t-body c-700" data-money>${esc(l)}</li>`).join('')}</ul>`
     : x.lines.map(line).join('')}</section>`;
-  return `${page.version ? `<p class="t-small c-600 policy__version">${esc(page.version)}</p>` : ''}
-  ${page.sections.map(sec).join('')}
-  ${page.counsel ? `<p class="t-small c-600 policy__counsel" data-counsel>${ICON_INFO}<span>${esc(page.counselLine)}</span></p>` : ''}
-  ${page.legal ? `<section class="sec policy__full" data-counsel aria-label="Full text">
-    <p class="t-body w-600">Full text coming soon (counsel review)</p>
-    <p class="t-small c-600">This page is a short summary while our lawyers finish the full text. If anything here is unclear, ask us through Help.</p>
-  </section>` : ''}`;
+  /* K-53 b (D-429): a legal draft opens with "Draft — counsel review required" (data-counsel: COUNSEL.md names the page), then the version
+     line, IN SHORT and the full draft's sections; the old "Full text coming soon" block is gone */
+  return `${page.draft ? `<p class="t-small w-600 policy__draft" data-counsel data-draft role="note">${ICON_INFO}<span>${esc(page.draftLine)}</span></p>` : ''}
+  ${page.version ? `<p class="t-small c-600 policy__version">${esc(page.version)}</p>` : ''}
+  ${page.sections.map(sec).join('')}`;
 }
 
 /** Help home (c-help / t-help): Message Taily, your cases, topics, contact, policies. */
@@ -3539,7 +3551,8 @@ export function helpHome(who) {
   <section class="sec">${sectionHead('Get help with')}<div class="card card--list help-home__list">${topics}</div></section>
   <section class="sec">${sectionHead('Policies')}<div class="card card--list help-home__list">${policies}</div></section>
   <section class="sec help-home__contact">${sectionHead('Contact Taily')}
-    ${infoCard([infoRow('Text', `<span class="help-home__select">${esc(HELP_CONTACT.text)}</span>`), infoRow('Email', `<span class="help-home__select">${esc(HELP_CONTACT.email)}</span>`), infoRow('Hours', esc(HELP_CONTACT.hours))].join(''))}
+    ${infoCard([infoRow('Text', `<span class="help-home__select">${esc(HELP_CONTACT.text)}</span>`), infoRow('Email', `<span class="help-home__select">${esc(HELP_CONTACT.email)}</span>`), infoRow('Help hours', esc(HELP_CONTACT.hours))].join(''))}
+    <p class="t-small c-600 help-home__note" data-help-backup>${esc(HELP_CONTACT.backup)} ${esc(HELP_CONTACT.after)}</p>
   </section>`;
 }
 /** A case's name in a person's list: the topic they picked, a review's subject, or "Safety report". */

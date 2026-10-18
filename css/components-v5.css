@@ -1422,3 +1422,11 @@ a.cta-small { text-decoration: none; }
 .handoff-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
 .handoff-sheet p { margin: 0; }
 .handoff-sheet__wheel { display: flex; justify-content: center; }
+
+/* K-41 (R3, D-296): the 24-hour reminder card on Home — the strip across the card, the booking row flat inside it, the rule, Confirm inline */
+.visit-prompt { display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-16); overflow: hidden; border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: inset 0 0 0 1px var(--card-ring); }
+.visit-prompt > .request-card__strip { flex-wrap: wrap; row-gap: var(--space-4); margin: calc(-1 * var(--space-16)) calc(-1 * var(--space-16)) 0; }   /* at 200% zoom the time wraps under the question */
+.visit-prompt .appt-row { margin: 0; padding: 0; background: none; box-shadow: none; }
+.visit-prompt__rule { margin: 0; text-wrap: pretty; }
+.visit-prompt__actions { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+.visit-prompt__actions .cta-small { flex: 1 1 0; min-width: fit-content; justify-content: center; }   /* equal halves; at 200% zoom they stack */

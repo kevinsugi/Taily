@@ -4,15 +4,15 @@
    Focal: the garment grid while empty; the "Your items" list once filled.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, activeAppt, statusScreen, tailorById, priceChangeView, reviewReminder, apptsFor } from '../state.js';
+import { state, T, activeAppt, statusScreen, tailorById, priceChangeView, reviewReminder, apptsFor, reminderDue, freeUntil, now } from '../state.js';
 import {
   chrome, bookingSteps, garmentTile, photoTile, actionBar, checkRow, cta, listRow, apptRow,
-  sheetOverlay, toast, esc, garmentHead, sectionHead, textLink, reminderCard,
+  sheetOverlay, toast, esc, garmentHead, sectionHead, textLink, reminderCard, visitPrompt,
 } from '../components.js';
 import { GARMENT_TYPES, SERVICES, MAX_ITEMS, itemsLabel, servicesForType } from '../data.js';
 import { CHEVRON_RIGHT } from '../icons.js';
-import { fmtColumn } from '../money.js';
-import { fmtWhen } from '../dates.js';
+import { fmtColumn, fmtExact } from '../money.js';
+import { fmtWhen, fmtTime, dayWord } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
 import { setFocus, statusWord } from '../focus.js';
 
@@ -76,7 +76,17 @@ function activeRow() {
   else if (a.status === 'suggested') { row.amountCaption = 'New time'; row.captionTone = 'action'; }
   const fmtAmt = fmtColumn([cents]);
   if (a.status !== 'requested' && a.status !== 'suggested' && a.status !== 'expired') row.amountText = ['confirmed', 'fitting'].includes(a.status) ? `Est. ${fmtAmt(cents)}` : fmtAmt(cents);
-  return `<section class="${ID}__active" data-active-appt aria-label="Your booking">${apptRow(row)}</section>
+  /* K-41 (R3, D-296): while the 24-hour reminder waits on her, the row becomes the prompt card — Confirm one tap from the push */
+  const first = (t.name || 'The tailor').split(' ')[0];
+  const inner = reminderDue(a)
+    ? visitPrompt({
+      id: a.id, row,
+      text: `Still on for ${dayWord(a.slot.start, now())}?`,
+      right: `Free until ${fmtTime(freeUntil(a))}`,
+      rule: `Once you confirm, ${esc(first)} keeps your <span data-money>${fmtExact(a.payments.deposit.cents)}</span> deposit if you cancel or aren’t home.`,
+    })
+    : apptRow(row);
+  return `<section class="${ID}__active" data-active-appt aria-label="Your booking">${inner}</section>
   <p class="t-caps c-600 ${ID}__book-else">Book something else</p>`;
 }
 
@@ -190,6 +200,13 @@ function wire(root) {
     }
     const remind = e.target.closest('[data-act="review-reminder"]');
     if (remind) { setFocus(remind.dataset.id); state.ui['c-review'] = { apptId: remind.dataset.id }; go('c-review'); return; }
+    const yes = e.target.closest('[data-act="confirm-visit"]');
+    if (yes) {
+      const res = T.confirmVisit(yes.dataset.id);
+      go(ID);
+      if (res.ok) toast(`You’re confirmed. See you ${dayWord(res.appt.slot.start, now())} at ${fmtTime(res.appt.slot.start)}.`, { tone: 'success' });
+      return;
+    }
     const open = e.target.closest('[data-act="open-appt"]');
     if (open) {
       const a = activeAppt();

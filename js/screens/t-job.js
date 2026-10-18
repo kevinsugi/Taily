@@ -13,14 +13,14 @@
    is always in dollars; the courier is never her money.
    ============================================================ */
 import { register, render as go, registered, personaHome, currentScreen } from '../app.js';
-import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable, slotText, handoffMissed } from '../state.js';
+import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable, slotText, handoffMissed, reminderState, freeUntil } from '../state.js';
 import { focusAppt, redirectIfMoved, statusWord, setFocus } from '../focus.js';
 import { myTailor, requestView, jobAddress, payoutOf, inbox, payoutLine } from '../tailor-data.js';
 import { CANT_MAKE_IT_REASONS, RETURN_LABEL, HANDOFF_CODE_LEN } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { fmtExact, noShowPayout, cancelTerms } from '../money.js';
 import { withLatency } from '../sim.js';
-import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime, fmtTimeRange, dayDiff } from '../dates.js';
+import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime, fmtTimeRange, dayDiff, dayWord } from '../dates.js';
 import {
   chrome, headingRow, statusHero, personBlock, calendarHref, cta, tailorBreakdown, moneyRows, workList,
   emptyState, sheetOverlay, chipGroup, wireChipGroups, toast, esc, wirePhotoViewer,
@@ -72,7 +72,7 @@ function heroCopy(a, v) {
   if (kind === 'customer-late') {
     return {
       title: `${firstOf()} cancelled`,
-      note: `<p class="t-body c-700 ${ID}__note">She cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit, so you keep her deposit.</p>`,   // the "Kept deposit" row has the amount
+      note: `<p class="t-body c-700 ${ID}__note">${c.afterConfirm ? 'She cancelled after confirming the visit' : `She cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit`}, so you keep her deposit.</p>`,   // the "Kept deposit" row has the amount; K-41: after her confirm
     };
   }
   if (a.status === 'confirmed' && justConfirmed(a)) {
@@ -206,7 +206,7 @@ function copyFor(key, a, t, v, pv) {
     case 'visit': return { ...base, title: 'Time for the fitting',
       note: note(`It’s time for the fitting. Start it when you’re with ${first}.`),
       bar: { ctaLabel: 'Start fitting', ctaAct: 'start-fitting', busy: busy === 'start', busyLabel: 'Starting…' } };
-    case 'fitting': return { bar: { ctaLabel: 'Edit the job', ctaAct: 'edit-order' } };
+    case 'fitting': return { bar: { ctaLabel: 'Final order', ctaAct: 'edit-order' } };   // K-42: the button names the screen it opens
     case 'waiting': return { bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
     case 'messaged': {
       /* D-112: Amara already answered → the move is Sarah's (the waiting layout) until she speaks again */
@@ -214,9 +214,9 @@ function copyFor(key, a, t, v, pv) {
       if (last?.from === 'tailor') return { bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
       return { bar: { ctaLabel: `Reply to ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
     }
-    case 'in-progress': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', secondaryLabel: 'Edit the job', secondaryAct: 'edit-job' } };   // Study-1 B1
-    /* default 13: one pending edit at a time — Mark ready waits; Edit the job again replaces what Sarah is looking at */
-    case 'edit-pending': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', disabled: true, note: `${first} hasn’t answered your changes yet.`, secondaryLabel: 'Edit the job', secondaryAct: 'edit-job' } };
+    case 'in-progress': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', secondaryLabel: 'Change the order', secondaryAct: 'edit-job' } };   // Study-1 B1, K-42
+    /* default 13: one pending edit at a time — Mark ready waits; Change the order again replaces what Sarah is looking at */
+    case 'edit-pending': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', disabled: true, note: `${first} hasn’t answered your changes yet.`, secondaryLabel: 'Change the order', secondaryAct: 'edit-job' } };
     case 'ready': return { bar: null };   // K-12 (D-237): Message lives in the header; nothing else is hers to do until Sarah chooses
     case 'handoff-pickup': return { bar: h.problemAt ? problemBar() : h.markedAt ? null : { ctaLabel: 'Picked up', ctaAct: 'picked-up' } };
     case 'handoff-courier': return { bar: null };   // default 6: the courier's delivery completes it
@@ -484,16 +484,46 @@ function view() {
   const was = !cancelled && last?.status === 'rescheduled' && last?.from ? (sameDay(last.from, a.slot.start) ? fmtTime(last.from) : `${fmtDay(last.from)}, ${fmtTime(last.from)}`) : '';
   /* K16-2-03 (D-245): the reason she gave is a row of the Visit block with the chat tile, the same shape c-booking--cant-make-it shows Sarah */
   const reasonRow = cancelKind(a) === 'tailor-cant-make-it' && a.cancel?.note ? [{ icon: 'chat', value: esc(a.cancel.note), detail: 'Your reason' }] : [];
-  const hero = statusHero({ variant: cancelled ? 'declined' : 'confirmed', pill: false, title: h.title, body: '', extra: h.note });
+  /* K-41 (R3, D-296): Sarah's answer to the 24-hour reminder — a K-16 strip states it, the title stops repeating "confirmed", one rule line */
+  const rem = cancelled ? null : reminderView(a);
+  const hero = statusHero({ variant: cancelled ? 'declined' : 'confirmed', pill: false, title: rem?.title ?? h.title, body: '', extra: h.note });
+  const top = rem
+    ? `${navBackMark()}${requestStrip({ page: true, ...rem.strip })}${headingRow(hero, { back: false, trailing: moreItems(a) ? moreMenu() : '' })}<p class="t-small c-600 ${ID}__rule">${rem.rule}</p>`
+    : backHead(hero, a);
   return `${chrome('home', { persona: 'tailor' })}
 <main class="body ${ID}" data-appt="${esc(a.id)}">
-  ${backHead(hero, a)}
+  ${top}
   ${sec(visitCard(a, v, { was, extra: reasonRow }), { first: true })}
   ${cancelled ? cancelMoney(a) : ''}
   ${workSec(a, v)}
   ${cancelled ? '' : payoutSec(a, v, `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after ${esc(firstOf())} gets her order.</p>`)}
   ${cancelled ? `<div class="page-actions">${textLink('Back to Home', { act: 'home' })}</div>` : ''}
 </main>`;
+}
+
+/** K-41 (R3, D-296): the reminder on t-job before the visit — asked (waiting on Sarah) · confirmed · missed (never answered). Null when none was sent. */
+function reminderView(a) {
+  const r = reminderState(a);
+  if (!r) return null;
+  const first = firstOf();
+  const at = fmtTime(a.slot.start);
+  const day = dayWord(a.slot.start, now());
+  const title = day === 'today' || day === 'tomorrow' ? `Visit ${day}` : null;
+  const dep = fmtExact(a.payments.deposit.cents);
+  const noShow = fmtExact(noShowPayout(a.payments.deposit.cents));
+  const rem = a.reminder;
+  if (r === 'asked') {
+    const until = freeUntil(a);
+    return { title, strip: { tone: 'warn', icon: 'clock', text: `Waiting on ${first} to confirm`, right: `Asked ${fmtTime(rem.sentAt)}` },
+      rule: `We asked ${esc(first)} if she’s still on. She can change for free until ${fmtTime(until)} ${dayWord(until, now())}.` };
+  }
+  if (r === 'confirmed') {
+    return { title, strip: { tone: 'done', icon: 'check', text: `${first} confirmed for ${day}`, right: fmtTime(rem.confirmedAt) },
+      rule: `If she cancels now, you keep her ${dep} deposit. If she isn’t home, you’re paid ${noShow}.` };
+  }
+  const from = fmtTime(addMinutes(a.slot.start, POLICY.NO_SHOW_WAIT_MIN));
+  return { title, strip: { tone: 'warn', icon: 'clock', text: `${first} hasn’t confirmed`, right: day === 'today' ? `Visit ${at}` : `Visit ${day} ${at}` },
+    rule: `The visit is still on${rem.nudgedAt ? ` and we reminded her at ${fmtTime(rem.nudgedAt)}` : ''}. If she isn’t home, mark a no-show from ${from} and you’re paid ${noShow}.` };
 }
 
 /* ---------- sheets ---------- */
@@ -510,7 +540,7 @@ function openCantMakeIt(a) {
   const deposit = a.payments.deposit.cents;
   ui().reason = null;
   /* K-29 (Study-1 A5): inside CANCEL_WINDOW_H the sheet warns that Sarah is refunded and may not find someone else in time */
-  const late = cancelTerms(a, now()).window === 'late';
+  const late = cancelTerms(a, now()).window === 'late' && !cancelTerms(a, now()).confirmed;   // K-41: Sarah's confirm is not the 24 h
   const warn = late ? banner({ tone: 'warning', text: `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. ${esc(firstOf())} will be refunded her ${fmtExact(deposit)} deposit in full, and she may not find another tailor in time.` }) : '';
   sheetOverlay(`<div class="${ID}-sheet">
   ${warn}

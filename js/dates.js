@@ -28,6 +28,8 @@ export function dayDiff(a, b) {
   const x = toDate(a); const y = toDate(b);
   return Math.round((Date.UTC(y.getFullYear(), y.getMonth(), y.getDate()) - Date.UTC(x.getFullYear(), x.getMonth(), x.getDate())) / MS_DAY);
 }
+/** K-41: "today" / "tomorrow" for `d` seen from `from`, else the day ("Thu, Oct 15"). */
+export const dayWord = (d, from) => { const n = dayDiff(from, d); return n === 0 ? 'today' : n === 1 ? 'tomorrow' : fmtDay(d); };
 export const weekdayKey = (d) => WEEKDAY_KEYS[toDate(d).getDay()];
 /** '17:30' → 1050. */
 export const minutesOf = (hhmm) => { const [h, m] = String(hhmm).split(':'); return Number(h) * 60 + Number(m ?? 0); };

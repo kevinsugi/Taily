@@ -2838,6 +2838,20 @@ export function reminderCard({ title = '', text = '', actionLabel = 'Leave a rev
 </section>`;
 }
 
+/** K-41 (R3, D-296): the 24-hour reminder on Home — the booking row turns into a card: the accent state strip across its top (`text` ·
+    `right`, e.g. "Still on for tomorrow?" · "Free until 5:00 PM"), the appt row (`row` = apptRow's options), ONE rule line in dollars
+    (`rule`, HTML: money in <span data-money>), then Confirm (filled) and "Change or cancel" (opens the booking) inline. */
+export function visitPrompt({ text = '', right = '', row = {}, rule = '', id = '', confirmAct = 'confirm-visit', changeAct = 'open-appt' } = {}) {
+  noPercent(rule, 'visitPrompt');
+  const idAttr = id ? ` data-id="${esc(id)}"` : '';
+  return `<section class="visit-prompt" aria-label="${esc(text)}" data-visit-prompt>
+  ${requestStrip({ tone: 'action', icon: 'clock', text, right })}
+  ${apptRow(row)}
+  <p class="t-small c-600 visit-prompt__rule">${rule}</p>
+  <div class="visit-prompt__actions">${ctaSmall('Confirm', { filled: true, attrs: `data-act="${esc(confirmAct)}"${idAttr}` })}${ctaSmall('Change or cancel', { attrs: `data-act="${esc(changeAct)}"${idAttr}` })}</div>
+</section>`;
+}
+
 /* ===== S1-B ===== */
 /* Study-1 WS-B (K-30, K-31): the tailor's private General notes (B2) and the edit's due-date line (B1). */
 

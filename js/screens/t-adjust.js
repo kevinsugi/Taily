@@ -1,5 +1,5 @@
 /* ============================================================
-   t-adjust — T5 "Edit the job" at the fitting (M4-spec §C1, K-01 / D-120…D-124).
+   t-adjust — T5 "Final order" at the fitting (K-42; the after-fitting edit mode = "Change the order") (M4-spec §C1, K-01 / D-120…D-124).
    Amara edits the ticket with Sarah watching the total move: add or
    remove items and services, re-price, keep private notes, then send Sarah the
    FINAL order for approval — always sent, even unchanged. The draft
@@ -299,7 +299,7 @@ function view() {
   const deposit = pv.after.deposit;
   const edited = isEdited(a, d, garments);
   const atMax = garments.length >= MAX_ITEMS;
-  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">At the fitting</p><h1 class="t-title">${revise ? 'Edit the order you sent' : 'Edit the job'}</h1>`
+  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">At the fitting</p><h1 class="t-title">Final order</h1>`   /* K-42 (D-297): one title at the fitting, first send or revise */
     + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Photograph each item before and after pinning, then send ${esc(first)} the final order.</p></div><!--/notes-->`;
   /* K-02 (D-178): the card says what is missing, the bar says how many items still need photos */
   const gaps = docsMissing(a, liveIds(garments));
@@ -376,7 +376,7 @@ function editView(a, d, chromeHtml) {
   const same = !bad && !none && !ev.changed;
   const atMax = garments.length >= MAX_ITEMS;
   const ctx = { a, d, missing: new Map(), first, edit: true };
-  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">After the fitting</p><h1 class="t-title">Edit the job</h1>`
+  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">After the fitting</p><h1 class="t-title">Change the order</h1>`   /* K-42 */
     + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Notes and photos are yours to change. A new price, due date or work needs ${esc(first)}’s approval.</p></div><!--/notes-->`;
   const due = d.needBy !== a.job.needBy
     ? dueChange({ needBy: d.needBy, was: a.job.needBy })

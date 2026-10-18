@@ -5,7 +5,7 @@
    setFocus(appt.id) first, the screen reads focusAppt(ID), and its
    wire() calls redirectIfMoved(ID, go).
    ============================================================ */
-import { state, getAppt, apptsFor, statusScreen, lastSpeakerSince, now } from './state.js';
+import { state, getAppt, apptsFor, statusScreen, lastSpeakerSince, now, reminderState } from './state.js';
 import { fmtTime, fmtDay, isoDay } from './dates.js';
 
 /** c- customer · t- / to- tailor. sys- screens keep the current persona. */
@@ -60,7 +60,14 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
     case 'declined': return { pill: 'declined', label: 'Declined' };
     case 'expired': return { pill: 'expired', label: 'No reply' };
     case 'cancelled': return { pill: 'cancelled', label: appt.cancel?.reason === 'no-show' ? 'No-show' : 'Cancelled' };
-    case 'confirmed': return { pill: 'confirmed', label: 'Confirmed' };
+    case 'confirmed': {
+      /* K-41 (R3, D-296): the 24-hour reminder's answer has its own words ("Confirmed" already means Amara accepted) */
+      const r = reminderState(appt);
+      if (r === 'asked') return customer ? { pill: 'action', label: 'Your move' } : { pill: 'waiting', label: 'Not confirmed yet' };
+      if (r === 'confirmed') return customer ? { pill: 'completed', label: 'All set' } : { pill: 'completed', label: `${sarah} confirmed` };
+      if (r === 'missed') return customer ? { pill: 'action', label: 'Your move' } : { pill: 'waiting', label: 'Not confirmed' };
+      return { pill: 'confirmed', label: 'Confirmed' };
+    }
     case 'fitting': return customer ? { pill: 'fitting', label: 'Fitting' } : { pill: 'action', label: 'Fitting' };   // M7-1-T-03: photographing and sending is Amara's move (D-95)
     case 'price-change':
       if (customer) return { pill: 'action', label: pick('Approve order', 'Approve') };

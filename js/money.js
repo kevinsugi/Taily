@@ -87,9 +87,12 @@ export function estimate(tailor, job, slotIso = null) {
 export function cancelTerms(appt, nowMs) {
   const deposit = appt.payments?.deposit?.cents ?? appt.money?.deposit ?? 0;
   const hoursAhead = (toDate(appt.slot.start).getTime() - nowMs) / 3600000;
-  return hoursAhead >= POLICY.CANCEL_WINDOW_H
-    ? { window: 'early', refund: deposit, kept: 0 }
-    : { window: 'late', refund: 0, kept: deposit };
+  if (hoursAhead < POLICY.CANCEL_WINDOW_H) return { window: 'late', refund: 0, kept: deposit };
+  /* K-41 (D-296): confirming at the 24-hour reminder closes the free window early — `confirmed: true` says why it is late
+     (the tailor's own cancel warning is about the 24 hours, not Sarah's confirm) */
+  const confirmedAt = appt.reminder?.confirmedAt;
+  if (confirmedAt && toDate(confirmedAt).getTime() <= nowMs) return { window: 'late', refund: 0, kept: deposit, confirmed: true };
+  return { window: 'early', refund: deposit, kept: 0 };
 }
 
 export const noShowPayout = (deposit) => Math.max(deposit, cents(MONEY.NO_SHOW_COMP));

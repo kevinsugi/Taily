@@ -4,6 +4,7 @@
 /* hero (+ the demoted "Fitted …" line) → the first group */
 .c-booking > .sec:first-of-type { margin-top: var(--rhythm-major); }
 .c-booking__policy { margin: var(--space-4) 0 0; text-wrap: pretty; }
+.c-booking__rule { margin: var(--space-8) 0 0; text-wrap: pretty; }   /* K-41: the reminder rule line under the title */
 .c-booking__late, .page-actions > p { text-wrap: pretty; }
 .c-booking__late { margin: 0; text-align: center; }
 /* a cancelled visit: the old time stays, dimmed */

@@ -28,6 +28,8 @@
      J18 edit after the fitting (Study-1 B1–B2, K-30 overruled): a private note; Amara edits the job (price, reason) -> Mark ready waits ->
          Sarah sees "Amara edited your order" (Approve / Message, no decline) and messages -> Amara revises (price back, later date) ->
          Sarah approves -> Mark ready
+     J19 the 24-hour reminder (K-41, R3): Demo "To the reminder" (26 h before) -> the push -> the Home card -> Confirm -> Amara sees
+         "Sarah confirmed" on t-home and t-job -> Sarah cancels 25 h ahead -> the confirm closed the free window, Amara keeps the $16.00
      J14 the anchored popover (K-25): a garment thumb toggles it, another thumb moves it, Escape returns focus, it flips above near the
          window bottom, the Verified check shares its one slot; t-home's count cluster lists every item and the card still opens the request
 
@@ -208,7 +210,7 @@ await journey('J5', "tailor can't make it -> customer refunded", async () => {
 await journey('J6', 'edit the job -> Sarah approves -> tailoring, both sides read the same ticket', async () => {
   await flow('t-job--visit');
   await click('[data-act="start-fitting"]');
-  await at('J6 Start fitting lands on the editor', 't-adjust', { has: ['Edit the job', 'No changes'] });
+  await at('J6 Start fitting lands on the editor', 't-adjust', { has: ['Final order', 'No changes'] });
   await click('[data-act="add-item"]');
   await click('[data-act="pick-type"][data-value="Pants / Jeans"]');
   await click('[data-act="pick-service"][data-value="hem-pants"]');
@@ -259,9 +261,9 @@ await journey('J6', 'edit the job -> Sarah approves -> tailoring, both sides rea
 await journey('J6b', 'no changes still needs approval', async () => {
   await flow('t-job--fitting');
   await click('[data-act="edit-order"]');
-  await at('J6b editor, nothing touched', 't-adjust', { has: ['Edit the job', 'No changes', 'Add before and pinned photos for 2 items'] });
+  await at('J6b editor, nothing touched', 't-adjust', { has: ['Final order', 'No changes', 'Add before and pinned photos for 2 items'] });
   await press('[data-act="send"]');
-  await at('J6b Send is off until every item has photos', 't-adjust', { has: ['Edit the job', 'Add before and pinned photos for 2 items'] });
+  await at('J6b Send is off until every item has photos', 't-adjust', { has: ['Final order', 'Add before and pinned photos for 2 items'] });
   for (const g of ['g1', 'g2']) {
     await click(`[data-garment="${g}"] [data-act="add-doc"][data-kind="before"]`);
     await click(`[data-garment="${g}"] [data-act="add-doc"][data-kind="pinned"]`);
@@ -575,7 +577,7 @@ await journey('J18', 'edit after the fitting: Mark ready waits -> Sarah messages
   await press('[data-act="note-save"]');
   await at('J18 tailor: a private note on the job', 't-job', { has: ['Only you can see these notes.', NOTE_TEXT.measure] });
   await press('[data-act="edit-job"]');
-  await at('J18 tailor: edit the job after the fitting', 't-adjust', { has: ['AFTER THE FITTING', 'Edit the job', 'Change the price, the due date or the work to send it.'], not: 'Work done so far' });
+  await at('J18 tailor: change the order after the fitting', 't-adjust', { has: ['AFTER THE FITTING', 'Change the order', 'Change the price, the due date or the work to send it.'], not: 'Work done so far' });
   await page.fill('#price-g2-sleeves', String(AMARA.prices.sleeves + JOB_EDIT.sleevesUp));
   await press('[data-act="send"]');
   await at('J18 tailor: the reason is required', 't-adjust', { has: ['Tell Sarah why you’re changing it.'], not: 'whole-dollar amount' });
@@ -622,6 +624,37 @@ await journey('J18', 'edit after the fitting: Mark ready waits -> Sarah messages
   await click('[data-act="mark-ready"]');
   await click('[data-act="ready-ok"]');
   await at('J18 tailor: ready', 't-job', { has: ['Ready · Sarah is choosing how to get it back'] });
+});
+
+/* ---------- J19 (K-41, R3) ---------- */
+await journey('J19', 'the 24-hour reminder: the Home card, Confirm, Amara sees it, a cancel after confirming keeps the deposit', async () => {
+  const dep = fmtExact(S.seed.deposit);
+  await flow('c-booking--confirmed');
+  await demo('reminder');
+  await at('J19 customer: the push and the prompt on the booking', 'c-booking', { has: ['Still on for tomorrow?', 'Confirm by 5:00 PM today', 'Confirm for tomorrow'] });
+  await click('.push-banner');
+  await at('J19 customer: the push opens Home — the prompt card', 'c-job', { has: ['Still on for tomorrow?', 'Free until 5:00 PM', 'Your move', `Once you confirm, Amara keeps your ${dep} deposit if you cancel or aren’t home.`, 'Change or cancel'] });
+  await flip();
+  await at('J19 tailor: not confirmed yet', 't-home', { has: ['Not confirmed yet'] });
+  await flip();
+  await click('[data-nav="home"]');
+  await click('[data-visit-prompt] [data-act="confirm-visit"]');
+  await at('J19 customer: confirmed — Home says All set', 'c-job', { has: ['All set'], not: 'Still on for tomorrow?' });
+  await flip();
+  await at('J19 tailor: Upcoming says Sarah confirmed', 't-home', { has: ['Sarah confirmed'], not: 'Not confirmed' });
+  await click('.appt-row');
+  await at('J19 tailor: the job says it, with her side of the money', 't-job', { has: ['Sarah confirmed for tomorrow', 'Visit tomorrow', `If she cancels now, you keep her ${dep} deposit. If she isn’t home, you’re paid ${fmtExact(S.noShow.paid)}.`] });
+  await flip();
+  await click('[data-nav="bookings"]');
+  await click('.appt-row');
+  await at('J19 customer: confirmed for tomorrow, Reschedule gone', 'c-booking', { has: ['Confirmed for tomorrow · 5:00 PM', `If you cancel now or aren’t home, Amara keeps your ${dep} deposit.`, 'To change the time now, message Amara.'], not: 'Reschedule' });
+  await click('[data-act="cancel"]');
+  await at('J19 customer: cancelling 25 hours ahead keeps the deposit', 'c-booking', { has: ['You confirmed this visit, so Amara keeps your', `Cancel and lose the ${dep} deposit`], not: 'comes back in full' });
+  await click('[data-act="cancel-ok"]');
+  await at('J19 customer: cancelled, deposit kept', 'c-booking', { has: ['Booking cancelled', 'you cancelled after confirming the visit', 'Kept'] });
+  await flip();
+  await page.evaluate(() => window.Taily.render('t-job'));
+  await at('J19 tailor: Sarah cancelled, Amara keeps the deposit', 't-job', { has: ['Sarah cancelled', 'She cancelled after confirming the visit, so you keep her deposit.', fmtExact(S.lateCancel.tailorPaid)] });
 });
 
 /* ---------- J14 (K-25) ---------- */

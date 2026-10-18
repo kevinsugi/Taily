@@ -13,11 +13,13 @@
    presses screen buttons, so the screens must be registered first).
    ============================================================ */
 
-import { state, T, getAppt, activeAppt, advanceClock, nowIso } from './state.js';
+import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, reminderAt, reminderEligible, freeUntil } from './state.js';
 import { ALL_FLOWS, findFlow, prepareFlow, personaForScreen } from './flows.js';
 import { setFocus } from './focus.js';
 import { toast } from './components.js';
-import { fmtWhen } from './dates.js';
+import { fmtWhen, fmtTime, dayWord } from './dates.js';
+import { fmtExact } from './money.js';
+import { pushBanner } from './system.js';
 import { STUDY_TITLE, STUDY_SCRIPT } from './study.js';
 
 let render = null;
@@ -163,7 +165,7 @@ function panelHtml() {
 const isOpen = () => !$('#flow-menu')?.hidden;
 
 /* ---------- Demo actions (Study-1 §3): act on the live state, no reset ---------- */
-const DEMO = [['courier', 'Courier delivers'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days']];
+const DEMO = [['courier', 'Courier delivers'], ['reminder', 'To the reminder'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days']];   // K-41: the clock to the 24-hour reminder
 const DEMO_MIN = { h1: 60, h48: 48 * 60, d7: 7 * 24 * 60 };
 /** The appointment the demo acts on: the one on screen (focused), else the customer's active one, else the newest. */
 const demoAppt = () => (state.ui.apptId ? getAppt(state.ui.apptId) : null) ?? activeAppt() ?? state.appts[state.appts.length - 1] ?? null;
@@ -171,9 +173,16 @@ const demoAppt = () => (state.ui.apptId ? getAppt(state.ui.apptId) : null) ?? ac
 function runDemo(kind) {
   const a = demoAppt();
   let msg;
+  const before = a?.reminder ? { ...a.reminder } : null;
   if (kind === 'courier') {
     const r = a ? T.courierDelivered(a.id) : { ok: false };
     msg = r.ok ? 'The courier delivered it.' : 'No courier delivery to complete.';
+  } else if (kind === 'reminder') {
+    /* K-41: straight to the moment the 24-hour reminder goes out (26 h before the visit) */
+    if (a && reminderEligible(a) && !a.reminder?.sentAt && now() < reminderAt(a)) {
+      advanceClock(Math.ceil((reminderAt(a) - now()) / 60000));
+      msg = `Clock moved to ${fmtWhen(nowIso())}. The visit reminder went out.`;
+    } else msg = 'No visit reminder to send.';
   } else {
     advanceClock(DEMO_MIN[kind]);
     msg = `Clock moved to ${fmtWhen(nowIso())}.`;
@@ -183,6 +192,26 @@ function runDemo(kind) {
   const id = document.getElementById('screen')?.dataset.screen;
   if (id) render(id, { replace: true });
   toast(msg);
+  if (a && state.persona === 'customer') remindPush(a, before);
+}
+
+/** K-41 (R3): the reminder (or its one nudge) went out during a Demo action → the customer's in-app push (D-167). The reminder opens Home
+    (Confirm is one tap there); the nudge opens the booking. */
+function remindPush(a, before) {
+  const r = a.reminder;
+  if (!r) return;
+  const t = state.tailors.find((x) => x.id === a.tailorId);
+  const first = (t?.name || 'Your tailor').split(' ')[0];
+  const day = dayWord(a.slot.start, now());
+  const dep = fmtExact(a.payments.deposit.cents);
+  const place = a.job.visitType === 'home' ? 'at your place' : `at ${t?.shopName ?? 'the shop'}`;
+  if (r.sentAt && !before?.sentAt && !r.confirmedAt && now() < freeUntil(a)) {
+    pushBanner({ title: `Still on for ${day}?`, body: `${first} · ${fmtWhen(a.slot.start)} ${place}. Free to change until ${fmtTime(freeUntil(a))} ${dayWord(freeUntil(a), now())}.`,
+      onOpen: () => { setFocus(a.id); render('c-job'); } });
+  } else if (r.nudgedAt && !before?.nudgedAt && !r.confirmedAt) {
+    pushBanner({ title: `${first} arrives at ${fmtTime(a.slot.start)}`, body: `You haven’t confirmed. If you cancel now or aren’t home, ${first} keeps your ${dep} deposit.`,
+      onOpen: () => { setFocus(a.id); render('c-booking'); } });
+  }
 }
 
 function paintTab(which) {

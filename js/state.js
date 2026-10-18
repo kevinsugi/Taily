@@ -88,9 +88,10 @@ const succeed = (appt, extra = {}) => ({ ok: true, appt, ...extra });
 export const now = () => state.clock.now;
 export const nowIso = () => isoMinute(new Date(state.clock.now));
 export function setClock(iso) { state.clock.now = toDate(iso).getTime(); return state.clock.now; }
-/** Run every timer that is due: expire `requested` appointments whose reply window passed, lapse suggested times (D-154) and, on
-    `awaiting-handoff` (Study-1 A2–A3), capture an unclaimed hold and auto-complete a marked handoff — each stamped at its own due time,
-    in time order. A reported problem pauses both handoff timers. Returns the ids that moved. */
+/** Run every timer that is due: expire `requested` appointments whose reply window passed, lapse suggested times (D-154), on
+    `awaiting-handoff` (Study-1 A2–A3) capture an unclaimed hold and auto-complete a marked handoff, and on `confirmed` (K-41) send the
+    24-hour reminder and its one nudge — each stamped at its own due time, in time order. A reported problem pauses both handoff timers.
+    Returns the ids that moved. */
 export function tick() {
   const expired = [];
   for (const a of state.appts) {
@@ -110,6 +111,8 @@ export function tick() {
         expired.push(a.id);
       }
       if (auto <= state.clock.now) { completeHandoff(a, 'auto', a.handoff.autoAt); expired.push(a.id); }
+    } else if (a.status === 'confirmed' && remindTick(a)) {
+      expired.push(a.id);   // K-41: the 24-hour reminder (or its one nudge) went out
     }
   }
   return expired;
@@ -614,6 +617,7 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
     docs: {}, docSeq: 0,                                        // K-02 (D-175): the tailor's working fitting documentation
     edit: null,                                                 // Study-1 B1: the post-fitting edit (K-30: approve only, never declined)
     notes: [], noteSeq: 0,                                      // Study-1 B2: the tailor's private General notes
+    reminder: freshReminder(),                                  // K-41 (D-296): the 24-hour reminder — sent, confirmed, nudged (no new status)
     history: [{ status: 'requested', at: nowIso() }],
   };
   state.appts.push(appt);
@@ -750,7 +754,7 @@ export function cancelBooking(id) {
     a.cancel = { by: 'customer', reason: 'customer-early', at: nowIso(), refund: terms.refund, kept: 0, tailorPaid: 0 };
   } else {
     a.payments.deposit.state = 'kept';
-    a.cancel = { by: 'customer', reason: 'customer-late', at: nowIso(), refund: 0, kept: terms.kept, tailorPaid: terms.kept };   // D-05
+    a.cancel = { by: 'customer', reason: 'customer-late', at: nowIso(), refund: 0, kept: terms.kept, tailorPaid: terms.kept, ...(terms.confirmed ? { afterConfirm: true } : {}) };   // D-05; K-41: late because she had confirmed
     addPayout(a, terms.kept, 'kept-deposit');
   }
   restoreDraftIfEmpty(a);
@@ -765,6 +769,7 @@ export function rescheduleBooking(id, slotStart) {
   if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(slotStart)) return fail('slot-unavailable');
   const from = a.slot.start;
   a.slot = { start: slotStart, end: slotEnd(slotStart, a.job.visitType) };
+  a.reminder = freshReminder();                                                      // K-41 (D-296): the new time gets its own reminder (none when < 26 h out)
   repriceForSlot(a, slotStart);                                                      // D-155: rush = min(booked, new slot); the deposit stays
   a.history.push({ status: 'rescheduled', at: nowIso(), from });                     // R3-1-T-10: t-job says what it moved from
   say(a, `You moved the visit to ${fmtWhen(slotStart)}`, `${state.customer.first} moved the visit to ${fmtWhen(slotStart)}`);
@@ -777,7 +782,7 @@ export function tailorCantMakeIt(id, reason = '') {
   setStatus(a, 'cancelled');
   a.payments.deposit.state = 'refunded';
   /* K-29 (Study-1 A5): inside CANCEL_WINDOW_H the tailor was warned; the refund is the same (in full), the cancel is marked late */
-  const late = cancelTerms(a, state.clock.now).window === 'late';
+  const late = cancelTerms(a, state.clock.now).window === 'late' && !cancelTerms(a, state.clock.now).confirmed;   // K-41: Sarah's confirm is not the 24 h
   a.cancel = { by: 'tailor', reason: 'tailor-cant-make-it', note: reason, at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0, late };
   restoreDraft(a);
   say(a, `${firstName(tailorById(a.tailorId))} can’t make it`, 'You can’t make it');
@@ -1453,6 +1458,59 @@ export function removeNotePhoto(id, noteId, photoId) {
   return succeed(a);
 }
 
+/* ---------- K-41 (R3, D-296): the 24-hour reminder ----------
+   No new status: `a.reminder = { sentAt, confirmedAt, nudgedAt }`. tick() sends it CANCEL_WINDOW_H + REMINDER_LEAD_H before the visit
+   (26 h: Reschedule and Cancel on it are still free for 2 h) to a visit whose time was set before then (booked or moved < 26 h ahead: no
+   prompt, the plain 24 h rule), and one nudge REMINDER_NUDGE_H before the visit if she never confirmed. confirmVisit closes the free window
+   early (money.js cancelTerms). Silence never cancels a visit. */
+function freshReminder() { return { sentAt: null, confirmedAt: null, nudgedAt: null }; }
+/** When the current visit time was set: the last accept (or accepted suggestion) or reschedule. Epoch ms. */
+function slotSetAt(a) {
+  const h = [...a.history].reverse().find((x) => x.status === 'confirmed' || x.status === 'rescheduled');
+  return toDate(h?.at ?? a.requestedAt).getTime();
+}
+/** When the reminder goes out (epoch ms): CANCEL_WINDOW_H + REMINDER_LEAD_H before the visit. */
+export const reminderAt = (a) => toDate(a.slot.start).getTime() - (POLICY.CANCEL_WINDOW_H + POLICY.REMINDER_LEAD_H) * HOUR_MS;
+/** When the free window closes by the clock (epoch ms): CANCEL_WINDOW_H before the visit (Confirm can close it earlier). */
+export const freeUntil = (a) => toDate(a.slot.start).getTime() - POLICY.CANCEL_WINDOW_H * HOUR_MS;
+/** The one nudge's time (epoch ms): REMINDER_NUDGE_H before the visit. */
+export const nudgeAt = (a) => toDate(a.slot.start).getTime() - POLICY.REMINDER_NUDGE_H * HOUR_MS;
+/** A confirmed visit whose time was set at or before its reminder time gets the reminder. */
+export const reminderEligible = (a) => !!a && a.status === 'confirmed' && slotSetAt(a) <= reminderAt(a);
+function remindTick(a) {
+  const r = (a.reminder ??= freshReminder());
+  const t = state.clock.now;
+  const start = toDate(a.slot.start).getTime();
+  if (t >= start) return false;
+  let moved = false;
+  if (!r.sentAt && reminderEligible(a) && t >= reminderAt(a)) { r.sentAt = isoMinute(new Date(reminderAt(a))); moved = true; }
+  if (r.sentAt && !r.confirmedAt && !r.nudgedAt && t >= nudgeAt(a)) { r.nudgedAt = isoMinute(new Date(Math.max(nudgeAt(a), toDate(r.sentAt).getTime()))); moved = true; }
+  return moved;
+}
+/** Where the reminder stands, before the visit starts: null (none sent) · 'asked' (sent, free window open, her move) · 'confirmed' ·
+    'missed' (sent, never confirmed, the free window closed — the visit stays booked). */
+export function reminderState(a) {
+  if (!a || a.status !== 'confirmed' || !a.reminder?.sentAt) return null;
+  if (state.clock.now >= toDate(a.slot.start).getTime()) return null;
+  if (a.reminder.confirmedAt) return 'confirmed';
+  return state.clock.now <= freeUntil(a) ? 'asked' : 'missed';   // the 'until' is inclusive, like cancelTerms (M6-M-11)
+}
+/** The prompt is up (Home card, c-booking strip + Confirm): the reminder went out and the free window is still open. */
+export const reminderDue = (a) => reminderState(a) === 'asked';
+/** The customer's visit whose reminder is waiting on her, or null. */
+export const visitReminder = () => apptsFor('customer').find(reminderDue) ?? null;
+/** Sarah answers the reminder: still on. Customer side; a confirmed visit, the reminder sent, before the visit starts. Closes the free
+    window (cancelTerms → late); after the 24 h mark it only tells the tailor. No thread line, no push to the tailor (she sees the state). */
+export function confirmVisit(id) {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  if (!a.reminder?.sentAt) return fail('not-asked');
+  if (a.reminder.confirmedAt) return fail('already-confirmed');
+  if (state.clock.now >= toDate(a.slot.start).getTime()) return fail('visit-started');
+  a.reminder.confirmedAt = nowIso();
+  return succeed(a);
+}
+
 /** K-28 (Study-1 A4): a completed order with no review, REVIEW_REMINDER_D or more after it completed → the reminder card + Leave a review. */
 export function reviewReminderDue(appt) {
   if (!appt || appt.status !== 'completed' || appt.review) return false;
@@ -1604,7 +1662,7 @@ export function priceChangeView(appt, lines = appt?.priceChange?.lines ?? appt?.
 export const T = {
   setJob, newJob, addGarment, removeGarment, setServices, validateJob,
   requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, withdrawSuggestion, findAnotherTailor,
-  tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow, reportTailorNoShow,
+  tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, confirmVisit, tailorCantMakeIt, markNoShow, reportTailorNoShow,
   startFitting, addFittingPhoto, removeFittingPhoto, restoreFittingPhoto, setFittingComment, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
   sendJobEdit, approveJobEdit, addNote, updateNote, removeNote, restoreNote, addNotePhoto, removeNotePhoto,
   chooseReturn, setHandoffSlot, holdBalance, confirmPickup, markHandedOver, confirmReceived, reportNotReceived, courierDelivered, bookAgain, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,

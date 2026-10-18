@@ -1753,5 +1753,97 @@ section('K-40 (T1): the handoff time');
   amara().shop.enabled = true;
 }
 
+section('K-41 (R3): the 24-hour reminder');
+{
+  const H = 3600000;
+  eq([POLICY.REMINDER_LEAD_H, POLICY.REMINDER_NUDGE_H], [2, 3], 'K-41: the reminder goes out 2 h before the free window closes; one nudge 3 h before the visit');
+  S.reset();
+  let a = driveTo('confirmed');
+  eq([a.reminder, S.reminderState(a), S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null }, null, true], 'K-41: a fresh booking — nothing sent, eligible (booked 55 h ahead)');
+  eq(D.isoMinute(new Date(S.reminderAt(a))), '2026-10-14T15:00', 'K-41: the reminder time = 26 h before Thu 5:00 PM');
+  guard(T.confirmVisit(a.id), 'not-asked', 'K-41: nothing to confirm before the reminder');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) - 1);
+  eq(a.reminder.sentAt, null, 'K-41: not sent a minute early');
+  const moved = S.advanceClock(1).expired;
+  eq([a.reminder.sentAt, moved, S.reminderState(a), S.reminderDue(a), S.visitReminder()?.id], ['2026-10-14T15:00', [a.id], 'asked', true, a.id], 'K-41: tick() sends it at 26 h — her move');
+  eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label], ['Your move', 'Not confirmed yet'], 'K-41: the words while asked');
+  eq(M.cancelTerms(a, S.now()), { window: 'early', refund: 1600, kept: 0 }, 'K-41: still free at the reminder (26 h ahead)');
+  S.advanceClock(12);
+  const c = T.confirmVisit(a.id);
+  eq([c.ok, a.reminder.confirmedAt, S.reminderState(a), S.reminderDue(a), a.status], [true, '2026-10-14T15:12', 'confirmed', false, 'confirmed'], 'K-41: confirmVisit stamps confirmedAt, no new status');
+  guard(T.confirmVisit(a.id), 'already-confirmed', 'K-41: confirm once');
+  eq(M.cancelTerms(a, S.now()), { window: 'late', refund: 0, kept: 1600, confirmed: true }, 'K-41: confirming closes the free window early (25 h ahead → the deposit is kept)');
+  eq(M.cancelTerms({ ...a, reminder: { ...a.reminder } }, D.toDate('2026-10-14T15:11').getTime()).window, 'early', 'K-41: before the confirm it was still early');
+  guard(T.rescheduleBooking(a.id, S.openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id })[0]), 'too-late', 'K-41: no free reschedule once confirmed');
+  eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label, statusWord(a, 'tailor').pill], ['All set', 'Sarah confirmed', 'completed'], 'K-41: the words once confirmed');
+  S.advanceClock(23 * 60);
+  eq(a.reminder.nudgedAt, null, 'K-41: no nudge for a confirmed visit');
+  // a cancel after confirming keeps the deposit (paid to the tailor, D-05)
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 12);
+  T.confirmVisit(a.id);
+  const cx = T.cancelBooking(a.id);
+  eq([cx.ok, a.cancel.reason, a.cancel.kept, a.cancel.tailorPaid, a.payments.deposit.state], [true, 'customer-late', 1600, 1600, 'kept'], 'K-41: cancelled after confirming, 25 h ahead — Amara keeps the $16.00 deposit');
+  // the tailor cancelling a confirmed visit 25 h ahead is not "late" (that is the 24 h, not Sarah's confirm)
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 12);
+  T.confirmVisit(a.id);
+  T.tailorCantMakeIt(a.id, 'x');
+  eq([a.cancel.late, a.cancel.refund], [false, 1600], 'K-41: a tailor cancel after Sarah confirmed, 25 h ahead, is not late; refunded in full');
+  // no answer: the visit stays booked, one nudge 3 h before, the 24 h rule
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
+  S.advanceClock(2 * 60);
+  eq([S.reminderState(a), M.cancelTerms(a, S.now()).window], ['asked', 'early'], 'K-41: exactly 24 h ahead is still free (inclusive, M6-M-11)');
+  S.advanceClock(1);
+  eq([S.reminderState(a), a.status, M.cancelTerms(a, S.now()).window, 'confirmed' in M.cancelTerms(a, S.now())], ['missed', 'confirmed', 'late', false], 'K-41: unanswered at 24 h — still booked, the plain 24 h rule');
+  eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label], ['Your move', 'Not confirmed'], 'K-41: the words when missed');
+  S.advanceClock(21 * 60 - 2);
+  eq(a.reminder.nudgedAt, null, 'K-41: no nudge before 3 h');
+  S.advanceClock(1);
+  eq(a.reminder.nudgedAt, '2026-10-15T14:00', 'K-41: one nudge 3 h before the visit');
+  ok(T.confirmVisit(a.id).ok && S.reminderState(a) === 'confirmed', 'K-41: Confirm still works after 24 h (it only tells Amara)');
+  S.setClock('2026-10-15T17:15');
+  eq([S.reminderState(a), T.markNoShow(a.id).ok, a.cancel.tailorPaid], [null, true, 2500], 'K-41: at the visit the reminder is over; the no-show rule is unchanged ($25.00)');
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 30);
+  S.setClock('2026-10-15T17:00');
+  guard(T.confirmVisit(a.id), 'visit-started', 'K-41: no confirm once the visit started');
+  guard(T.confirmVisit(driveTo('in-progress').id), 'not-confirmed', 'K-41: only a confirmed visit');
+  // a clock jump past the visit sends nothing
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(56 * 60);
+  eq([a.reminder.sentAt, a.reminder.nudgedAt], [null, null], 'K-41: a jump past the start sends nothing');
+  // booked less than 26 h ahead: no prompt, the plain 24 h rule
+  S.reset(); S.setClock('2026-10-14T16:00');
+  const slot = S.nextOpening('amara', 'home', { until: state.job.needBy });
+  const late = T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' }).appt;
+  T.tailorAccept(late.id);
+  ok((D.toDate(slot).getTime() - S.now()) < 26 * H && !S.reminderEligible(late), 'K-41: booked < 26 h ahead — no reminder');
+  S.advanceClock(Math.round((D.toDate(slot).getTime() - S.now()) / 60000) - 60);
+  eq([late.reminder.sentAt, late.reminder.nudgedAt, S.reminderState(late)], [null, null, null], 'K-41: … and no nudge either');
+  // rescheduling from the prompt: the new time gets its own reminder, or none when < 26 h out
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
+  const open = S.openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id });
+  const far = open.find((x) => D.toDate(x).getTime() - S.now() > 48 * H);
+  ok(T.rescheduleBooking(a.id, far).ok, 'K-41: Reschedule from the prompt (inside the free window)');
+  eq([a.reminder, S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null }, true], 'K-41: the new time starts a fresh reminder');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
+  eq(a.reminder.sentAt, D.isoMinute(new Date(S.reminderAt(a))), 'K-41: its reminder goes out 26 h before the new time');
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 60);   // Wed 4:00 PM, still free
+  const near = S.openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).find((x) => x !== a.slot.start && D.toDate(x).getTime() - S.now() < 26 * H);
+  ok(near && T.rescheduleBooking(a.id, near).ok, 'K-41: moved to a time < 26 h out');
+  S.advanceClock(Math.round((D.toDate(near).getTime() - S.now()) / 60000) - 30);
+  eq([a.reminder.sentAt, S.reminderState(a), M.cancelTerms(a, S.now()).window], [null, null, 'late'], 'K-41: no second prompt; the plain 24 h rule');
+  // a shop visit gets the same prompt and rule
+  S.reset(); T.setJob({ visitType: 'shop' });
+  const shopSlot = S.openSlots('amara', 'shop', { until: state.job.needBy }).find((x) => D.toDate(x).getTime() - S.now() > 30 * H);
+  a = T.requestBooking({ tailorId: 'amara', slotStart: shopSlot, cardId: 'visa-4242' }).appt; T.tailorAccept(a.id);
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
+  eq([S.reminderState(a), a.job.visitType], ['asked', 'shop'], 'K-41: a shop visit gets the prompt too');
+}
+
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);
 if (failed) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }

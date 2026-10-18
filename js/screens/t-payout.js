@@ -45,7 +45,7 @@ function words(p) {
 /** M6-P-18: why this payout is a kept deposit / no-show pay, said once under the job, with the calm pill the job itself wears. */
 function keptLine(a, p) {
   const w = statusWord(a, 'tailor');
-  const why = p.kind === 'no-show' ? `${esc(state.customer.first)} didn’t show up` : `Cancelled by ${esc(state.customer.first)} within ${POLICY.CANCEL_WINDOW_H} hours`;
+  const why = p.kind === 'no-show' ? `${esc(state.customer.first)} didn’t show up` : a.cancel?.afterConfirm ? `Cancelled by ${esc(state.customer.first)} after she confirmed` : `Cancelled by ${esc(state.customer.first)} within ${POLICY.CANCEL_WINDOW_H} hours`;
   return `<div class="${ID}__why">${statusPill(w.pill, w.label)}<p class="t-small c-600">${why}</p></div>`;
 }
 

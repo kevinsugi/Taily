@@ -10,7 +10,7 @@
 import { register, render as go, registered } from '../app.js';
 import {
   state, T, tailorById, openSlots, justConfirmed, now, returnAddress, priceChangeView, courierWindow, autoCompleteLeft, statusScreen,
-  slotText, handoffChangeable, handoffMissed,
+  slotText, handoffChangeable, handoffMissed, reminderState, freeUntil,
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
@@ -19,7 +19,7 @@ import {
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
-import { fmtWhen, fmtTime, fmtDay, addMinutes, toDate, isoMinute } from '../dates.js';
+import { fmtWhen, fmtTime, fmtDay, addMinutes, toDate, isoMinute, dayWord, fmtCountdown } from '../dates.js';
 import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
@@ -88,7 +88,9 @@ function cancelledView(a, t, first) {
     },
     'customer-late': {
       title: 'Booking cancelled',
-      body: `${first} kept your deposit because you cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit. Nothing else is charged.`,
+      body: a.cancel?.afterConfirm   // K-41 (D-296)
+        ? `${first} kept your deposit because you cancelled after confirming the visit. Nothing else is charged.`
+        : `${first} kept your deposit because you cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit. Nothing else is charged.`,
       status: 'Kept',
     },
     'tailor-cant-make-it': {
@@ -152,6 +154,9 @@ function liveView(a, t, first) {
       variant: 'confirmed',
     })
     : head(a, { pill: confirmed ? 'confirmed' : a.status, title: `Your visit with ${esc(first)}`, variant: 'confirmed' });
+  /* K-41 (R3, D-296): the 24-hour reminder — a state strip leads (no pill), one rule line in dollars under the title; Confirm in the bar */
+  const r = confirmed ? reminderState(a) : null;
+  const rem = r ? reminderCopy(a, r, first, deposit) : null;
 
   const steps = timeline([
     { state: 'done', title: 'Booked', sub: fmtWhen(confirmedAt(a)) },
@@ -160,24 +165,53 @@ function liveView(a, t, first) {
     { state: 'todo', title: 'Ready', sub: `Pay the balance, est. ${money(a.money.balance)}` },
     { state: 'todo', title: 'Back with you' },
   ]);
-  const policy = early
+  const policy = r === 'confirmed'
+    ? `You confirmed on ${esc(fmtDay(a.reminder.confirmedAt))} at ${esc(fmtTime(a.reminder.confirmedAt))}. If you cancel now or aren’t home, ${esc(first)} keeps your ${money(deposit)} deposit.`
+    : early
     ? `Free cancellation until ${cutoff}. After that, ${esc(first)} keeps the ${money(deposit)} deposit.`
     : `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel now, ${esc(first)} keeps your ${money(deposit)} deposit.`;
   /* K-29 (Study-1 A5, default 8): from NO_SHOW_WAIT_MIN after the start, while still confirmed, Sarah can report that the tailor didn't come */
   const noShow = confirmed && now() >= toDate(a.slot.start).getTime() + POLICY.NO_SHOW_WAIT_MIN * 60000;
   const links = !confirmed ? '' : `<div class="page-actions__links">${noShow ? textLink('Tailor didn’t show up?', { act: 'tailor-no-show' }) : ''}${early ? textLink('Reschedule', { act: 'reschedule' }) : ''}${textLink('Cancel booking', { act: 'cancel', tone: 'danger' })}</div>`;
   const late = confirmed && !early ? `<p class="t-small c-600 ${ID}__late">To change the time now, message ${esc(first)}.</p>` : '';
+  const actions = rem?.bar ? '' : `<div class="page-actions">
+    ${late}
+    ${links}
+  </div>`;
 
-  return `${chrome(bookingTab())}<main class="body ${ID}" data-s="${ID}">
-  ${hero}
+  return `${chrome(bookingTab())}<main class="body${rem?.bar ? ' body--with-bar' : ''} ${ID}" data-s="${ID}">
+  ${rem ? `${navBackMark()}${requestStrip({ page: true, ...rem.strip })}${head(a, { pill: false, title: `Your visit with ${esc(first)}`, variant: 'confirmed' }).replace(/^<!--nav-back-->/, '')}<p class="t-small c-600 ${ID}__rule">${rem.rule}</p>` : hero}
   ${visitSection(a, t)}
   ${sec(`${sectionHead('What happens next')}${steps}`)}
   ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}${confirmed ? `<p class="t-small c-600 ${ID}__policy">${policy}</p>` : ''}`)}
-  <div class="page-actions">
-    ${late}
-    ${links}
-  </div>
-</main>`;
+  ${actions}
+</main>${rem?.bar ? actionBar(rem.bar) : ''}`;
+}
+
+/** K-41 (R3, D-296): the reminder's strip, rule line and bar on c-booking, per reminder state. */
+function reminderCopy(a, r, first, deposit) {
+  const at = fmtTime(a.slot.start);
+  const day = dayWord(a.slot.start, now());
+  const until = freeUntil(a);
+  if (r === 'asked') {
+    return {
+      strip: { tone: 'action', icon: 'clock', text: `Confirm by ${fmtTime(until)} ${dayWord(until, now())}`, right: `${fmtCountdown(until - now())} left` },
+      rule: `Free to reschedule or cancel until then. Once you confirm, ${esc(first)} keeps your ${money(deposit)} deposit if you cancel or aren’t home.`,
+      bar: { ctaLabel: `Confirm for ${day}`, ctaAct: 'confirm-visit', secondaryLabel: 'Reschedule', secondaryAct: 'reschedule', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' },
+    };
+  }
+  if (r === 'confirmed') {
+    return {
+      strip: { tone: 'done', icon: 'check', text: `Confirmed for ${day} · ${at}` },
+      rule: `If you cancel now or aren’t home, ${esc(first)} keeps your ${money(deposit)} deposit.`,
+    };
+  }
+  /* missed: the window closed with no answer — the visit stays booked; Confirm only tells the tailor */
+  return {
+    strip: { tone: 'warn', icon: 'clock', text: 'You haven’t confirmed yet', right: day === 'today' ? `Visit ${at}` : `Visit ${day} ${at}` },
+    rule: `${esc(first)} is still coming. If you cancel now or aren’t home, she keeps your ${money(deposit)} deposit.`,
+    bar: { ctaLabel: 'Confirm, I’ll be home', ctaAct: 'confirm-visit', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' },
+  };
 }
 
 /* ---------- M4: fitting → completed (D-110) ---------- */
@@ -433,6 +467,8 @@ function cancelSheetHtml(a, terms, first, busy = false, error = '') {
     : [{ label: 'Deposit paid', cents: deposit }, { label: 'Refund', cents: 0 }, { label: `Kept by ${first}`, cents: terms.kept, kind: 'total' }];
   const text = early
     ? `You’re cancelling more than ${POLICY.CANCEL_WINDOW_H} hours before the visit, so your ${money(terms.refund)} deposit comes back in full.`
+    : terms.confirmed   // K-41 (D-296): confirming at the reminder closed the free window early
+    ? `You confirmed this visit, so ${esc(first)} keeps your ${money(terms.kept)} deposit for the time set aside. Nothing else is charged.`
     : `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel now, ${esc(first)} keeps your ${money(terms.kept)} deposit for the time set aside. Nothing else is charged.`;
   const label = early ? `Cancel and get ${fmtExact(terms.refund)} back` : `Cancel and lose the ${fmtExact(terms.kept)} deposit`;
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
@@ -672,6 +708,13 @@ function wire(root) {
     switch (act) {
       case 'message': go('c-thread'); break;
       case 'cancel': if (a) openCancel(a, firstOf(t)); break;
+      case 'confirm-visit': {   // K-41 (R3): the reminder's Confirm
+        if (!a) break;
+        const res = T.confirmVisit(a.id);
+        go(ID);
+        if (res.ok) toast(`You’re confirmed. See you ${dayWord(a.slot.start, now())} at ${fmtTime(a.slot.start)}.`, { tone: 'success' });
+        break;
+      }
       case 'reschedule': if (a) openReschedule(a, firstOf(t)); break;
       case 'change-time': if (a) openChangeTime(a, firstOf(t)); break;
       case 'book-again':

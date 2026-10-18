@@ -34,4 +34,6 @@ export const POLICY = Object.freeze({
   HANDOFF_SLOT_MIN: 30,     // K-40: pickup times start every half hour of the open hours; a courier delivery window is this long
   COURIER_COLLECT_LEAD_MIN: 15, // K-40: the courier collects from the tailor this long before the delivery window starts (inside her open hours)
   COURIER_CHANGE_CUTOFF_MIN: 60, // K-40 (D-295): Sarah can move a courier window until this long before the collection
+  REMINDER_LEAD_H: 2,       // K-41 (D-296): the 24-hour reminder goes out this long BEFORE the free window closes (CANCEL_WINDOW_H + this = 26 h before the visit)
+  REMINDER_NUDGE_H: 3,      // K-41 (D-296): one more push this long before the visit when Sarah never confirmed
 });

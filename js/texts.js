@@ -226,8 +226,8 @@ export const TEXTS = {
     body: () => 'Texts are on. We’ll text you new requests and job updates. Msg & data rates may apply. Reply STOP to opt out, HELP for help.' },
   verified: { to: 'tailor', land: 't-shop', owner: 'B1', trigger: 'Verification passes (DG-4)',
     body: () => 'You’re verified. Customers near you can book you now.' },
-  'insurance-expiring': { to: 'tailor', land: 't-shop', owner: 'B1', trigger: '30 and 7 days before her insurance expires (DG-4)',
-    body: (c) => `Your insurance certificate expires ${c.x.date ?? 'soon'}. Upload the new one to stay verified:` },
+  'check-action-needed': { to: 'tailor', land: 't-shop', owner: 'B1', trigger: 'A verification check needs something from her (DG-4 B: ID & Profile Photo, Background Check, Years Tailoring, Payout & Tax Info; no insurance — Taily provides it)',
+    body: (c) => `We need one more thing to verify you: ${c.x.check ?? 'your ID'}. Finish it here:` },
   'taily-replied-t': { to: 'tailor', land: 't-case', owner: 'A2', trigger: 'Taily support replies (DG-1)',
     body: (c) => `We replied about your job with ${c.cf}. Read it:` },
 };

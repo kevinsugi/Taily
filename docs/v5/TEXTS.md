@@ -114,5 +114,5 @@ Rows marked A2 / B1 are fired by those tracks (support, verification) through th
 | 38 | `new-review` | Taily: Sarah left you 5 stars. Read her review: <link> | The customer leaves a review | t-job | A1 |
 | 39 | `texts-on-t` | Taily: Texts are on. We’ll text you new requests and job updates. Msg & data rates may apply. Reply STOP to opt out, HELP for help. <link> | She turns texts back on (or replies START) | t-texts | A1 |
 | 40 | `verified` | Taily: You’re verified. Customers near you can book you now. <link> | Verification passes (DG-4) | t-shop | B1 |
-| 41 | `insurance-expiring` | Taily: Your insurance certificate expires Mar 1, 2027. Upload the new one to stay verified: <link> | 30 and 7 days before her insurance expires (DG-4) | t-shop | B1 |
+| 41 | `check-action-needed` | Taily: We need one more thing to verify you: your ID. Finish it here: <link> | A verification check needs something from her (DG-4 B: ID & Profile Photo, Background Check, Years Tailoring, Payout & Tax Info; no insurance — Taily provides it) | t-shop | B1 |
 | 42 | `taily-replied-t` | Taily: We replied about your job with Sarah. Read it: <link> | Taily support replies (DG-1) | t-case | A2 |

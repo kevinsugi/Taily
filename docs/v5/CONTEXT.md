@@ -133,7 +133,7 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
 - **Texts (D-02, DG-2 A, K-48.4 no quiet hours).** EVERY notification is a text: `notify(appt, event, { at, x })` (state.js; also on `T`) renders
   `TEXTS[event]` into `state.outbox` → `{ id, seq, event, to: 'customer'|'tailor', apptId, key, body, link, at, land, status: 'delivered'|'off'|'undelivered' }`.
   Owners: A1 fires its rows from the transitions / tick(); **A2 fires `taily-replied`, `case-decided`, `taily-replied-t`; B1 fires `verified`,
-  `insurance-expiring`** (add a row to js/texts.js for any new event, then `node scripts/v5/texts-doc.mjs`). Selectors `textsFor(who)`,
+  `check-action-needed`** (add a row to js/texts.js for any new event, then `node scripts/v5/texts-doc.mjs`). Selectors `textsFor(who)`,
   `textsOn(who)`; prefs `state.texts = { customer, tailor }` (`on`, `stoppedAt`, `changedAt`); transitions `setTexts(who, on)` (on → a
   confirmation text), `textReply(who, 'STOP'|'START'|'HELP')`; `A.saveName({ first, last, texts })` (the unticked opt-in on c-name).
   Display (system.js): `showNewText(sinceSeq, { go })` after a Demo action, live while `sim.texts === 'on'`; `drawText(entry)`, `newestText(who, since)`,

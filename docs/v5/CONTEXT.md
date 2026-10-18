@@ -509,3 +509,5 @@ Run it end to end: `npm run study` (`scripts/v5/study-run.mjs`, 390 px, through 
 - **Gallery** (K-53 a6, D-446): `galleryHtml({ part })` — 'core' (`sys-components`), 'since-k22' (`sys-components--since-k22`: everything
   built since K-22 + live overlay openers `[data-gal-open]`), 'all' (components.html, whose `.screen` is `#screen`). Engineers' handoff:
   `docs/v5/DESIGN-SYSTEM.md`; DESIGN.md is current through K-53.
+- **Copy deck** (K-53 a7, D-447): `node scripts/v5/copy-deck.mjs` → `docs/v5/COPY-DECK.md` (every state's visible copy by persona →
+  screen → state, deduped; the 94 texts; policy headings + In short; COUNSEL / made-up placeholders). Rerun after any copy edit.

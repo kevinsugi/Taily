@@ -110,7 +110,7 @@ function activeRow() {
       id: a.id, row,
       text: 'Please confirm your visit',   // K-51: as the reminder text (C7) asks it
       right: `Free until ${fmtTime(freeUntil(a))} ${dayWord(freeUntil(a), now())}`,
-      rule: `Once you confirm, ${esc(first)} keeps your ${dep} deposit if you cancel or ${away}.`,
+      rule: `After that, ${esc(first)} keeps your ${dep} deposit if you cancel or ${away}.`,   // K-53: confirming doesn't end the free window
     });
   } else if (r === 'missed' && !autoCancelArmed(a)) {
     /* D-02 (pre-MVP A1): the reminder text never reached her, so nothing will cancel the visit — the plain 24 h rule */

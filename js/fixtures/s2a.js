@@ -6,10 +6,10 @@
    setClock + tick) + real transitions (T.*) and sim knobs; money strings come from SCENARIOS.
    ============================================================ */
 import { SCENARIOS as A2_SC } from './money-scenarios.js';
-import { fmtExact as A2_exact } from '../money.js';
+import { fmtExact as A2_exact, HOLD_DAYS as A2_HOLD_DAYS } from '../money.js';
 import { POLICY as A2_POLICY } from '../money-config.js';
 import { nudgeAt as A2_nudgeAt, moveSlots as A2_moveSlots } from '../state.js';
-import { pickHandoff as A2_pick, handoffPick as A2_handoffPick } from './common.js';
+import { pickHandoff as A2_pick, handoffPick as A2_handoffPick, toHoldEnd as A2_toHoldEnd } from './common.js';
 import { autoCancelled as A2_autoCancelled } from './s1e.js';
 
 const DEP = A2_exact(A2_SC.seed.deposit);
@@ -167,9 +167,9 @@ export const FLOWS_c_booking = [
   { ...at('c-booking'), key: 'c-booking--pickup-open', title: 'Pickup time started — Confirm received', note: 'D-09 / K-48.3: “Confirm received” (was “I got it”) shows once the pickup time has started (or Amara marked it)',
     setup: (S) => { const a = S.driveTo('awaiting-handoff'); S.setClock(a.handoff.slot.start); },
     expect: { has: ['Confirm received', 'YOUR PICKUP CODE'], not: ['I got it', 'I didn’t get it'], sel: '.action-bar [data-act="got-it"]' } },
-  { ...at('c-booking'), key: 'c-booking--defaulted-pickup', title: 'Ready 14 days — set to in-store pickup', note: 'D-03: no way back chosen in 14 days — in-store pickup, the balance held, the capture clock started; she picks a time',
-    setup: (S) => { S.driveTo('ready'); S.advanceClock(A2_POLICY.READY_DEFAULT_D * 24 * 60); },
-    expect: { has: ['We set it to in-store pickup · pick a time', 'Pick a time', 'YOUR PICKUP CODE', 'Charged at pickup'], not: 'Confirm received', sel: '[data-act="change-time"]' } },
+  { ...at('c-booking'), key: 'c-booking--defaulted-pickup', title: 'Ready 4 days — charged, set to in-store pickup', note: 'K-53 (was D-03’s 14 days): no way back chosen by the ready hold’s last day — the balance is charged anyway and it is set to in-store pickup; she picks a time',
+    setup: (S) => { const a = S.driveTo('ready'); A2_toHoldEnd(a.id); },
+    expect: { has: ['We set it to in-store pickup · pick a time', 'Pick a time', 'YOUR PICKUP CODE', `Ready · ${BAL} charged`, `We charged your ${BAL} balance ${A2_HOLD_DAYS} days after your order was ready.`], not: ['Confirm received', 'Charged at pickup'], sel: '[data-act="change-time"]' } },
   { ...at('c-booking'), key: 'c-booking--courier-out', title: 'Out for delivery', note: 'S-35: Amara handed it to the courier',
     setup: (S) => { courierOut(S); },
     expect: { has: ['Out for delivery · arrives 5:00–5:30 PM', 'The courier has it · collected from Amara at 4:45 PM', 'Out for delivery'], not: ['Change window', 'Confirm received'] } },
@@ -275,7 +275,7 @@ export const FLOWS_t_job = [
     expect: { has: ['Marked as a no-show', 'Sarah says she was there. Your no-show pay is on hold while Taily looks into it.', NO_SHOW] } },
   { ...at('t-job'), key: 't-job--reminder-unarmed', title: 'Job — Sarah hasn’t confirmed, texts off', note: 'D-02: no delivered reminder, no auto-cancel',
     setup: (S) => { missedUnarmed(S); },
-    expect: { has: ['Sarah hasn’t confirmed', `The visit is still on. If she cancels now, you keep her ${DEP} deposit. If she isn’t home, you’re paid ${NO_SHOW}.`], not: 'we cancel the visit' } },
+    expect: { has: ['Sarah hasn’t confirmed', `The visit is still on. If she cancels now or isn’t home, you keep her ${DEP} deposit.`], not: 'we cancel the visit' } },
 ];
 export const FLOWS_t_suggest = [
   { ...at('t-suggest'), key: 't-suggest--move', title: 'Suggest a new time (confirmed visit)', note: 'D-12: the same wheel for a confirmed visit; Sarah accepts or keeps her time',

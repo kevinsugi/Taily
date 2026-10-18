@@ -9,6 +9,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TEXT_EVENTS, textCtx, textNo } from '../../js/texts.js';
 import { POLICY } from '../../js/money-config.js';
+import { HOLD_DAYS } from '../../js/money.js';
 import * as S from '../../js/state.js';
 import { driveTo } from '../../js/fixtures/common.js';
 
@@ -20,7 +21,8 @@ const AT = {
   'request-sent': ['requested'], request: ['requested'], 'request-soon': ['requested'], expired: ['expired'],
   accepted: ['confirmed'], suggested: ['suggested'], declined: ['declined'], 'suggestion-ended': ['suggested'], 'suggestion-accepted': ['confirmed'],
   withdrawn: ['requested'], switched: ['suggested'],
-  reminder: ['confirmed', {}, '2026-10-13T17:00'], nudge: ['confirmed', {}, '2026-10-14T15:00'],   // K-51: 48 h and 26 h before Thu 5:00 PM 'auto-cancel': ['confirmed', {}, '2026-10-15T14:00'], 'auto-cancel-t': ['confirmed', {}, '2026-10-15T14:00'],
+  reminder: ['confirmed', {}, '2026-10-13T17:00'], nudge: ['confirmed', {}, '2026-10-14T15:00'],   // K-51: 48 h and 26 h before Thu 5:00 PM
+  'auto-cancel': ['confirmed', {}, '2026-10-15T14:00'], 'auto-cancel-t': ['confirmed', {}, '2026-10-15T14:00'], 'free-window-closed': ['confirmed', {}, '2026-10-14T17:00'],   // K-53
   'cant-make-it': ['confirmed'], 'cancelled-early': ['confirmed'], 'cancelled-late': ['confirmed', {}, '2026-10-15T09:00'], rescheduled: ['confirmed'],
   'tailor-move': ['confirmed'], 'move-accepted': ['confirmed'], 'move-kept': ['confirmed'],
   'tailor-on-way': ['confirmed', {}, '2026-10-15T16:20'], 'tailor-here': ['confirmed', {}, '2026-10-15T16:58'], 'customer-on-way': ['confirmed', { visitType: 'shop' }, '2026-10-15T16:20'], 'customer-here': ['confirmed', { visitType: 'shop' }, '2026-10-15T16:58'],
@@ -29,7 +31,7 @@ const AT = {
   'no-show-marked': ['no-show'], 'no-show-disputed': ['no-show'], 'tailor-no-show': ['tailor-no-show'], 'no-show-disputed-c': ['tailor-no-show'],
   'final-order': ['price-change'], 'final-order-updated': ['price-change'], 'final-order-24h': ['price-change'], 'final-order-72h': ['price-change'], 'final-order-review': ['price-change'], 'final-order-review-t': ['price-change'], 'final-approved': ['in-progress'],
   'edit-sent': ['edit-pending'], 'edit-24h': ['edit-pending'], 'edit-72h': ['edit-pending'], 'edit-withdrawn': ['edit-pending'], 'edit-approved': ['edit-approved'],
-  ready: ['ready'], 'ready-24h': ['ready'], 'ready-72h': ['ready'], 'ready-default': ['ready'], 'ready-default-t': ['ready'],
+  ready: ['ready'], 'ready-24h': ['ready'], 'ready-72h': ['ready'], 'ready-default': ['ready', {}, '2026-10-19T17:00', true], 'ready-default-t': ['ready', {}, '2026-10-19T17:00', true],   // K-53: the hold's last day
   'courier-on-way': ['awaiting-handoff', { returnOption: 'courier' }], 'courier-booked': ['awaiting-handoff', { returnOption: 'courier' }], delivered: ['awaiting-handoff', { returnOption: 'courier' }, '2026-10-16T17:12'],
   'delivery-failed': ['awaiting-handoff', { returnOption: 'courier' }], 'delivery-failed-t': ['awaiting-handoff', { returnOption: 'courier' }], 'delivery-missing-t': ['completed', { returnOption: 'courier' }],
   'pickup-today': ['awaiting-handoff', {}, '2026-10-16T15:30'], 'missed-pickup': ['awaiting-handoff', {}, '2026-10-16T18:00'],
@@ -90,15 +92,16 @@ reminder to an opted-in number; otherwise the plain ${POLICY.CANCEL_WINDOW_H}-ho
 "Your fitting has started. Please take all notes here:" (it replaces a second start reminder, so she never gets two at once). Chat: a text for
 the first unread message, then at most one per conversation every ${POLICY.CHAT_TEXT_GAP_MIN} minutes while messages stay unread. Waiting
 states: reminders at ${POLICY.WAIT_REMIND_1_H} h and ${POLICY.WAIT_REMIND_2_H} h; a final order unanswered ${POLICY.FINAL_ORDER_REVIEW_D} days goes to Taily review;
-a ready order with no way back for ${POLICY.READY_DEFAULT_D} days defaults to in-store pickup; the unclaimed charge on day ${POLICY.UNCLAIMED_CAPTURE_D};
-an uncollected order closes ${POLICY.ABANDONED_CLOSE_D} days after the charge. "Did the visit happen?" ${POLICY.VISIT_CHECK_H} h after the start, the admin
+K-53: the balance is held on her saved card when the order is ready (a ${POLICY.BALANCE_HOLD_H}-hour hold); every time offered falls within ${HOLD_DAYS} days of
+ready, and on that day the balance is charged — with no way back chosen, the order is set to in-store pickup; an uncollected order closes ${POLICY.ABANDONED_CLOSE_D} days after the charge. "Did the visit happen?" ${POLICY.VISIT_CHECK_H} h after the start, the admin
 ${POLICY.VISIT_CHECK_ADMIN_H} h after the START (K-48.5, Kevin's K-50 fix); ${POLICY.VISIT_CHECK_CANCEL_H} h after asking it is decided by the evidence (K-51): the tailor
 tapped I'm here → the customer's no-show; nothing recorded → closed "Not confirmed" with the deposit on hold, and the tailor keeps it if neither side
 disputes within ${POLICY.VISIT_HOLD_DISPUTE_H} h. Pickup today ${POLICY.PICKUP_REMIND_H} h before the pickup time.
 
 **The visit reminder (K-51).** The reminder (C7) ${POLICY.REMINDER_H} h before the visit; the nudge (C8) ${POLICY.REMINDER_NUDGE_H} h before it if she hasn't confirmed
 ("Confirm by" = the ${POLICY.CANCEL_WINDOW_H} h free window's end). Booked less than ${POLICY.REMINDER_H} h ahead: no C7, the nudge is the first ask; less than
-${POLICY.REMINDER_NUDGE_H} h: no prompt, the plain ${POLICY.CANCEL_WINDOW_H}-hour rule. Still unconfirmed ${POLICY.REMINDER_AUTOCANCEL_H} h before the visit (after a delivered C7 or C8) → cancelled (C9, K-43).
+${POLICY.REMINDER_NUDGE_H} h: no prompt, the plain ${POLICY.CANCEL_WINDOW_H}-hour rule. Confirming no longer closes the free window early (K-53): it always ends ${POLICY.CANCEL_WINDOW_H} h before the visit,
+and still unconfirmed then (after a delivered C7 or C8) she gets the free-window-closed text. Still unconfirmed ${POLICY.REMINDER_AUTOCANCEL_H} h before the visit → cancelled (C9, K-43).
 
 **Numbering (K-51).** C1… to the customer, T1… to the tailor, A1… to the admin, in catalogue order (\`textNo(id)\`); new texts go at the end of their block.
 

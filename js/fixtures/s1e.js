@@ -53,7 +53,7 @@ export function autoCancelled(S) {
 export const FLOWS_c_job = [
   { ...CJ, key: 'c-job--reminder', title: 'Home — still on for tomorrow?', note: 'K-41 (R3): 26 hours before the visit the booking row becomes the prompt card — strip, the row (Your move), one dollar rule, Confirm and Change or cancel inline',
     setup: (S) => { toReminder(S); },
-    expect: { has: ['Please confirm your visit', 'Free until 5:00 PM today', 'Your move', `Once you confirm, Amara keeps your ${E1_fmt(E1_SC.seed.deposit)} deposit if you cancel or aren’t home.`, 'Confirm', 'Change or cancel', 'BOOK SOMETHING ELSE'], not: ['All set', 'Confirmed'], sel: '[data-visit-prompt] [data-act="confirm-visit"]', also: '[data-visit-prompt] [data-strip="action"]' } },
+    expect: { has: ['Please confirm your visit', 'Free until 5:00 PM today', 'Your move', `After that, Amara keeps your ${E1_fmt(E1_SC.seed.deposit)} deposit if you cancel or aren’t home.`, 'Confirm', 'Change or cancel', 'BOOK SOMETHING ELSE'], not: ['All set', 'Confirmed'], sel: '[data-visit-prompt] [data-act="confirm-visit"]', also: '[data-visit-prompt] [data-strip="action"]' } },
 ];
 
 /* ---------- K-51: the reminder (C7) at 48 h — the same card a day earlier, free for another day ---------- */
@@ -67,20 +67,20 @@ FLOWS_c_job.push(
 export const FLOWS_c_booking = [
   { ...CB, key: 'c-booking--reminder', title: 'Booking — confirm by 5:00 PM', note: 'K-41 (R3): the prompt on the booking — strip with the time left, the rule under the title, Confirm in the bar, Reschedule and Cancel still free',
     setup: (S) => { toReminder(S); },
-    expect: { has: ['Confirm by 5:00 PM today', '2h left', 'Your visit with Amara', `Free to change or cancel until Wed, Oct 14 · 5:00 PM. Once you confirm, Amara keeps your ${DEP} deposit if you cancel or aren’t home.`, 'Confirm for tomorrow', 'Reschedule', 'Cancel booking', 'Free cancellation until Wed, Oct 14 · 5:00 PM'], sel: '[data-strip="action"]', also: '.action-bar [data-act="confirm-visit"]' } },
-  { ...CB, key: 'c-booking--reminder-confirmed', title: 'Booking — confirmed for tomorrow', note: 'K-41 (R3): after Confirm (3:12 PM) the free window is closed — the rule under the title and under Price; Reschedule is gone',
+    expect: { has: ['Confirm by 5:00 PM today', '2h left', 'Your visit with Amara', `Free to change or cancel until Wed, Oct 14 · 5:00 PM. After that, Amara keeps your ${DEP} deposit if you cancel or aren’t home.`, 'Confirm for tomorrow', 'Reschedule', 'Cancel booking', 'Free cancellation until Wed, Oct 14 · 5:00 PM'], sel: '[data-strip="action"]', also: '.action-bar [data-act="confirm-visit"]' } },
+  { ...CB, key: 'c-booking--reminder-confirmed', title: 'Booking — confirmed for tomorrow', note: 'K-41 (R3) → K-53: after Confirm (3:12 PM) the free window stays open until 24 hours before (5:00 PM) — Reschedule and a free cancel are still there',
     setup: (S) => { confirmedAtReminder(S); },
-    expect: { has: ['Confirmed for tomorrow · 5:00 PM', `If you cancel now or aren’t home, Amara keeps your ${DEP} deposit.`, `You confirmed on Wed, Oct 14 at 3:12 PM. If you cancel now or aren’t home, Amara keeps your ${DEP} deposit.`, 'To change the time now, message Amara.', 'Cancel booking'], not: ['Reschedule', 'Confirm for tomorrow', 'Free cancellation until'], sel: '[data-strip="done"]' } },
+    expect: { has: ['Confirmed for tomorrow · 5:00 PM', `Still free to change or cancel until Wed, Oct 14 · 5:00 PM. After that, Amara keeps your ${DEP} deposit if you cancel or aren’t home.`, `You confirmed on Wed, Oct 14 at 3:12 PM. Free cancellation until Wed, Oct 14 · 5:00 PM. After that, Amara keeps the ${DEP} deposit.`, 'Reschedule', 'Cancel booking'], not: ['Confirm for tomorrow', 'To change the time now'], sel: '[data-strip="done"]' } },
   { ...CB, key: 'c-booking--reminder-missed', title: 'Booking — not confirmed', note: 'K-41 (D-296) + K-43 (D-300): no answer by the 24-hour mark — still booked, one nudge 6 hours before (11:00 AM); confirm by 2:00 PM or the visit is cancelled',
     setup: (S) => { missedReminder(S); },
     expect: { has: ['Confirm by 2:00 PM or we’ll cancel the visit', 'Visit 5:00 PM', `If you don’t confirm by 2:00 PM, we cancel it and Amara keeps your ${DEP} deposit. She keeps it too if you cancel now or aren’t home.`, 'Confirm, I’ll be home', 'Cancel booking', 'The visit is less than 24 hours away.'], not: ['Reschedule', 'Confirm for'], sel: '[data-strip="warn"]', also: '.action-bar [data-act="confirm-visit"]' } },
   { ...CB, key: 'c-booking--auto-cancelled', title: 'Booking — cancelled, not confirmed', note: 'K-43 (D-300): still no answer at 2:00 PM (3 hours before) — Taily cancels the visit; inside 24 h, so Amara keeps the deposit; the order is back to rebook',
     setup: (S) => { autoCancelled(S); },
     expect: { has: ['Visit cancelled', `We cancelled your visit because you didn’t confirm by 2:00 PM. Amara keeps your ${DEP} deposit for the time set aside.`, 'Kept', 'Book Amara again', 'Find another tailor'], not: ['Confirm, I’ll be home', 'Refunded'], sel: '.page-actions [data-act="book-again"]' } },
-  { ...CB, key: 'c-booking--cancel-confirmed', title: 'Cancel after confirming', note: 'K-41 (R3): confirming closed the free window early — cancelling now, even 25 hours ahead, keeps the deposit',
+  { ...CB, key: 'c-booking--cancel-confirmed', title: 'Cancel after confirming — still free', note: 'K-53 (D-383 follow-up, was K-41): confirming no longer closes the free window — cancelling 25 hours ahead refunds the deposit in full',
     setup: (S) => { confirmedAtReminder(S); },
     click: ['[data-act="cancel"]'],
-    expect: { has: ['Cancel this booking?', `You confirmed this visit, so Amara keeps your ${DEP} deposit for the time set aside. Nothing else is charged.`, 'Kept by Amara', `Cancel and lose the ${DEP} deposit`, 'Keep booking'], not: 'comes back in full', sel: '[data-s="c-booking--cancel-late"]' } },
+    expect: { has: ['Cancel this booking?', `so your ${DEP} deposit comes back in full`, 'Refund to your card', `Cancel and get ${DEP} back`, 'Keep booking'], not: ['You confirmed this visit', 'Kept by Amara'], sel: '[data-s="c-booking--cancel"]' } },
 ];
 
 /* ---------- tailor: t-job — the state, never a prompt of her own ---------- */
@@ -90,7 +90,7 @@ export const FLOWS_t_job = [
     expect: { has: ['Waiting on Sarah to confirm', 'Asked Tue, Oct 13', 'Visit tomorrow', 'We asked Sarah to confirm. She can change for free until Wed, Oct 14 · 5:00 PM.'], not: 'Visit confirmed', sel: '[data-strip="warn"]' } },
   { ...TJ, key: 't-job--reminder-confirmed', title: 'Job — Sarah confirmed', note: 'K-41 (R3): her side of the money in one line, in dollars',
     setup: (S) => { confirmedAtReminder(S); },
-    expect: { has: ['Sarah confirmed for tomorrow', '3:12 PM', 'Visit tomorrow', `If she cancels now, you keep her ${DEP} deposit. If she isn’t home, you’re paid ${NO_SHOW}.`], not: 'Visit confirmed', sel: '[data-strip="done"]' } },
+    expect: { has: ['Sarah confirmed for tomorrow', '3:12 PM', 'Visit tomorrow', `She can still change for free until Wed, Oct 14 · 5:00 PM. After that, you keep her ${DEP} deposit if she cancels or isn’t home.`], not: 'Visit confirmed', sel: '[data-strip="done"]' } },
   { ...TJ, key: 't-job--reminder-missed', title: 'Job — Sarah hasn’t confirmed', note: 'K-41 (D-296) + K-43 (D-300): the visit is still on; the nudge went out Wed 3:00 PM (K-51: 26 h); no answer by 2:00 PM cancels it and Amara keeps the deposit',
     setup: (S) => { missedReminder(S); },
     expect: { has: ['Sarah hasn’t confirmed', 'Visit 5:00 PM', 'Visit today', `We reminded her Wed, Oct 14 · 3:00 PM. If she doesn’t confirm by 2:00 PM, we cancel the visit and you keep her ${DEP} deposit.`], sel: '[data-strip="warn"]' } },

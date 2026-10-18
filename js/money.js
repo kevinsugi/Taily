@@ -49,11 +49,12 @@ export const payoutFor = ({ services, homeFee = 0, rush = 0 }) => services - tai
 /* K-39/K-43: PROTOTYPE DATA SOURCE (production: live Uber API quote). The Uber quote for ONE delivery window, simulated and deterministic
    from the distance and the window's start: COURIER_BASE + COURIER_PER_MILE × miles, + COURIER_PEAK for a window starting from
    COURIER_PEAK_FROM_H to before COURIER_PEAK_TO_H (local wall clock). The Taily courier fee (COURIER_MARKUP) goes on top (D-100); `cents`
-   is what Sarah pays. No `start` = the off-peak quote. */
-export function courierQuote(miles, start = null) {
+   is what Sarah pays. No `start` = the off-peak quote. K-53 (Q6): `drift` (cents) = how far Uber's live price at Pay moved from the
+   window's estimate (PROTOTYPE: state.sim.courierDrift; production: the fresh Uber quote). */
+export function courierQuote(miles, start = null, { drift = 0 } = {}) {
   const h = start ? Number(String(start).slice(11, 13)) : -1;
   const peak = h >= MONEY.COURIER_PEAK_FROM_H && h < MONEY.COURIER_PEAK_TO_H;
-  const uber = cents(MONEY.COURIER_BASE + MONEY.COURIER_PER_MILE * miles + (peak ? MONEY.COURIER_PEAK : 0));
+  const uber = cents(MONEY.COURIER_BASE + MONEY.COURIER_PER_MILE * miles + (peak ? MONEY.COURIER_PEAK : 0)) + Math.round(drift);
   const total = round(uber * (1 + MONEY.COURIER_MARKUP));
   return { miles, start, peak, quote: uber, markup: total - uber, cents: total };
 }
@@ -88,19 +89,35 @@ export function estimate(tailor, job, slotIso = null) {
 }
 
 /** Cancel terms at `nowMs`: the window ahead or more (inclusive, M6-M-11) → full refund; inside → the
-    the tailor keeps the deposit, paid in full, no Taily fee (D-05). */
+    the tailor keeps the deposit, paid in full, no Taily fee (D-05). K-53 (D-383 follow-up): confirming at the reminder no longer closes
+    the free window early — it always ends CANCEL_WINDOW_H before the visit. */
 export function cancelTerms(appt, nowMs) {
   const deposit = appt.payments?.deposit?.cents ?? appt.money?.deposit ?? 0;
   const hoursAhead = (toDate(appt.slot.start).getTime() - nowMs) / 3600000;
   if (hoursAhead < POLICY.CANCEL_WINDOW_H) return { window: 'late', refund: 0, kept: deposit };
-  /* K-41 (D-296): confirming at the 24-hour reminder closes the free window early — `confirmed: true` says why it is late
-     (the tailor's own cancel warning is about the 24 hours, not Sarah's confirm) */
-  const confirmedAt = appt.reminder?.confirmedAt;
-  if (confirmedAt && toDate(confirmedAt).getTime() <= nowMs) return { window: 'late', refund: 0, kept: deposit, confirmed: true };
   return { window: 'early', refund: deposit, kept: 0 };
 }
 
-export const noShowPayout = (deposit) => Math.max(deposit, cents(MONEY.NO_SHOW_COMP));
+/** K-53 (Q7): what the tailor is paid on a customer no-show — the deposit only (the D-06 floor is gone; Taily never tops up). */
+export const noShowPayout = (deposit) => deposit;
+
+/** K-53 (d2): the whole days of the balance hold placed at Ready (POLICY.BALANCE_HOLD_H 114 → 4): times are offered and the hold is captured
+    within them, measured from the ready time. */
+export const HOLD_DAYS = Math.floor(POLICY.BALANCE_HOLD_H / 24);
+
+/** K-53: the Taily fee as a whole percent ("15") — the ONE place a rate becomes a number on screen, for to-fee only (the lint fails any other
+    screen that prints it; everywhere else the fee is dollars). */
+export const feePercent = () => Math.round(MONEY.TAILY_FEE_RATE * 100);
+
+/** K-53 (Q6): the courier at Pay. `seen` = the window's price she saw (cents, Uber + Taily fee), `fresh` = the re-quote at Pay
+    (courierQuote shape). She never pays more than she saw unless the difference is above COURIER_ABSORB: up to it Taily absorbs it;
+    a lower fresh price is what she pays. → { cents (what she pays), absorbed (Taily's cost), repriced (true: above the cap — she must see it) } */
+export function courierAtPay(seen, fresh) {
+  const diff = fresh.cents - seen;
+  if (diff <= 0) return { cents: fresh.cents, absorbed: 0, repriced: false };
+  if (diff <= cents(MONEY.COURIER_ABSORB)) return { cents: seen, absorbed: diff, repriced: false };
+  return { cents: fresh.cents, absorbed: 0, repriced: true };
+}
 
 /** Study-1 C3: what most NYC tailors charge for a service — its catalog `base` ± `PRICE_RANGE_SPREAD`, each end rounded to the
     nearest `PRICE_ROUND` dollars; `mid` = the rounded midpoint ("Use recommended prices"). Cents; null for an unknown service. */

@@ -38,6 +38,8 @@ const SCREEN_MODULES = [
   'c-help', 't-help', 'c-case', 't-case', 'c-policy', 't-policy', 'a-inbox', 'a-case',
   /* pre-MVP B2 · Account v2 (DG-3 A), receipts (S-25), all reviews (S-26) */
   'c-profile', 'c-change-phone', 'c-receipt', 'c-reviews', 't-change-phone',   // the legal pages are c-policy / t-policy (D-380)
+  /* pre-MVP K-53 (track M) · the Taily fee explainer (onboarding), the admin Ledger */
+  'to-fee', 'a-ledger',
 ];
 
 /** Every screen id the router can load. A screen not yet imported is "known": render() loads it first. */
@@ -83,7 +85,7 @@ export function personaHome(persona = state.persona) {
 const NAV_ROUTES = {
   customer: { home: 'c-job', bookings: 'c-bookings', messages: 'c-messages', account: 'c-account' },
   tailor: { home: 't-home', shop: 't-shop', earnings: 't-earnings', messages: 't-messages' },
-  admin: { inbox: 'a-inbox' },
+  admin: { inbox: 'a-inbox', ledger: 'a-ledger' },
 };
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */

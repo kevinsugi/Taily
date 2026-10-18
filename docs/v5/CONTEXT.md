@@ -85,7 +85,8 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   `courierQuote(miles) → { miles, cents }`, `quote({ lines, homeFee, rush, courier, deposit }) → { services, homeFee, rush,
   courier, total, deposit, balance, refund, tailyFee, payout }`, `estimate(tailor, job, slotIso?)` (= quote + `rushDays`, `lines`,
   `missing`; the rush tier is read from `slotIso`, null → no rush, D-28), `cancelTerms(appt, nowMs) → { window: 'early'|'late',
-  refund, kept }`, `noShowPayout(deposit)`, `fmt` (`$25` / `$4.50`), `fmtExact` (`$16.00`), `fmtNeg` (`−$12.50`), `fmtColumn(cents[]) → fmt | fmtExact` (D-70).
+  refund, kept }`, `noShowPayout(deposit)` (K-53: = the deposit), `fmt` (`$25` / `$4.50`), `fmtExact` (`$16.00`), `fmtNeg` (`−$18.75`), `fmtColumn(cents[]) → fmt | fmtExact` (D-70);
+  K-53: `HOLD_DAYS`, `feePercent()` (to-fee only), `courierQuote(miles, start, { drift })`, `courierAtPay(seen, fresh) → { cents, absorbed, repriced }`.
 - statuses (`STATUSES`; `TERMINAL` = declined cancelled completed): `requested suggested declined expired confirmed fitting
   price-change in-progress ready awaiting-handoff completed cancelled` (`cancel.reason`: `withdrawn switched customer-early
   customer-late tailor-cant-make-it no-show`). `awaiting-handoff` = after the customer picks a way back, until the handoff is confirmed (Study-1 A1; was `returning`). `appt.payments.deposit.state`: `authorized captured released refunded kept`.
@@ -106,7 +107,7 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   errors, bookable, live }`, `validateSection(section, data) → { ok, errors }`, `blankTailor()` (D-20), `bookable(tailor)`.
 - Study-1 WS-A selectors: `handoffCode(appt)` · `autoCompleteLeft(appt)` (ms or null) · `unclaimedAt(appt)` · `reviewReminderDue(appt)` · `reviewReminder()`.
   `payments.balance.state`: `pending due failed held none captured` (+ `captureReason: 'handoff' | 'unclaimed'`, `capturedAt`); `a.handoff` = D-270.
-  `tick()` also captures an unclaimed hold (heldAt + `UNCLAIMED_CAPTURE_D`) and auto-completes at `autoAt` (`HANDOFF_AUTO_H`); a problem pauses both.
+  `tick()` also captures an unclaimed hold (K-53: on the ready hold's last day, `unclaimedAt` = ready + HOLD_DAYS) and auto-completes at `autoAt` (`HANDOFF_AUTO_H`); a problem pauses the 48 h only.
   Components (S1-A block): `pickupCode({ code })` · `autoCompleteLine(msLeft, { who })` · `deliveryPhoto({ photo, type, by })` · `reminderCard({ title, text, actionLabel, act, id })`;
   `customerBreakdown` stages `held` ("On hold") / `charged` ("Charged"), `ready` balance reads "Hold now". `driveTo` targets + `handed-over problem auto-completed
   unclaimed review-reminder tailor-no-show cant-make-it-late`; `handOver(id, how)` (common.js). Test-flows panel: Demo actions row (D-277).
@@ -128,7 +129,7 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
 - Seed: Amara Reyes (Reyes Tailoring, 312 Metropolitan Ave, Williamsburg 11211; home zips 11211 11222 11206 11237,
   home fee $35, rush $40 / $25 / $15 for ≤1 / 2 / 3 days). Sarah Chen, 145 N 7th St 2R, 11211. Demo clock Tue Oct 13
   10:00 AM. Seed job: Suit Pant hem $25 + Suit Jacket sleeves $45 + sides $55 → services $125.00, home fee $35.00,
-  total $160.00, deposit $16.00, balance $144.00, Taily fee −$12.50, payout $147.50.
+  total $160.00, deposit $16.00, balance $144.00, Taily fee −$18.75 (K-53: 15), payout $141.25.
 
 ## Pre-MVP A1 (K-48): texts, waiting states, card window, visit day, courier (D-310 … D-318)
 
@@ -149,9 +150,9 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
 - **Notices (DG-2 A).** `noticesFor(persona)` (cancellations ≤ NOTICE_WINDOW_H before the visit, by the other side or Taily, unseen, until the visit
   time), `dismissNotice(id, persona)` (`a.noticeSeen`); `reminderCard({ …, dismissAct, notice })` = the 44 px ✕ variant. `dismissReviewReminder(id)` (P-04).
 - **Waiting states (D-03).** tick(): price-change texts 24 / 72 h then review at FINAL_ORDER_REVIEW_D; edit texts 24 / 72 h + `withdrawJobEdit(id)`;
-  ready texts 24 / 72 h, at READY_DEFAULT_D `defaultReturn` (pickup, held, `handoff.slot` null, `defaultedAt`); the day-6 capture pays the tailor;
+  ready texts 24 / 72 h, K-53: on the hold's last day (ready + HOLD_DAYS) `defaultReturn` (pickup, CAPTURED, the tailor paid, `handoff.slot` null, `defaultedAt`); the last-day capture pays the tailor;
   ABANDONED_CLOSE_D after it → `completedBy: 'abandoned'`; a problem open PROBLEM_REVIEW_H → review. `overdue(a)`.
-- **Card window (D-04).** UNCLAIMED_CAPTURE_D 6, HANDOFF_PICK_DAYS 5; `unclaimedAt` never moves; `balance.state 'capture-failed'` (`sim.capture =
+- **Card window (D-04 → K-53).** The hold placed at ready lives BALANCE_HOLD_H; times end by `unclaimedAt` (ready + HOLD_DAYS), which never moves; `balance.state 'capture-failed'` (`sim.capture =
   'declined'`, one-shot) → `retryCapture(id, cardId)`; a dearer courier window fails `card-declined` with a declining card.
 - **Confirm received (D-09 / K-48.3).** `confirmReceivedOpen(a)`; `confirmReceived` fails `too-early` before it.
 - **Visit day.** `visitToolsOpen(a)`, `visitPing(id, who, 'on-my-way'|'here')`, `a.visitDay = { tailor: { onWayAt, hereAt }, customer: {…}, startTextAt,
@@ -163,9 +164,9 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   `deliveryReportOpen(a)` / `reportMissingDelivery(id)`.
 - **Offline (S-12).** money / accept transitions fail `offline` (requestBooking, tryAgain, tailorAccept, acceptSuggestion, holdBalance, confirmPickup,
   confirmReceived, retryCapture, courierCollected, a held setHandoffSlot).
-- **POLICY (A1).** WAIT_REMIND_1_H 24 · WAIT_REMIND_2_H 72 · FINAL_ORDER_REVIEW_D 7 · READY_DEFAULT_D 14 · ABANDONED_CLOSE_D 30 · PROBLEM_REVIEW_H 72 ·
+- **POLICY (A1).** WAIT_REMIND_1_H 24 · WAIT_REMIND_2_H 72 · FINAL_ORDER_REVIEW_D 7 · ABANDONED_CLOSE_D 30 · PROBLEM_REVIEW_H 72 ·
   VISIT_CHECK_H 2 · VISIT_CHECK_ADMIN_H 4 (after the START since A2 / K-50) · VISIT_CHECK_CANCEL_H 24 (after asking; K-51: closed by evidence) · VISIT_HOLD_DISPUTE_H 72 (K-51) · TRAVEL_BUFFER_MIN 30 · START_REMIND_MIN 60 ·
-  CHAT_TEXT_GAP_MIN 15 · PICKUP_REMIND_H 2 · NOTICE_WINDOW_H 48 · VISIT_TOOLS_H 3 · COURIER_REPORT_H 24 (+ UNCLAIMED_CAPTURE_D 6, HANDOFF_PICK_DAYS 5).
+  CHAT_TEXT_GAP_MIN 15 · PICKUP_REMIND_H 2 · NOTICE_WINDOW_H 48 · VISIT_TOOLS_H 3 · COURIER_REPORT_H 24 (K-53: + BALANCE_HOLD_H 114; READY_DEFAULT_D, UNCLAIMED_CAPTURE_D, HANDOFF_PICK_DAYS retired).
 - **Screens.** `c-texts`, `t-texts` (A1's), `sys-texts` (the catalogue board; A2 adds its Admin tab); A2 built `c-help`, `t-help`, `c-case`, `t-case`, `a-inbox`, `a-case` (+ `c-policy`, `t-policy`).
   Demo actions add "Courier can’t deliver" and "Reply STOP". Fixtures: `js/fixtures/s2a.js` (milestone `A1` in inventory.js); journeys J22–J24.
 
@@ -425,4 +426,31 @@ Run it end to end: `npm run study` (`scripts/v5/study-run.mjs`, 390 px, through 
 - **texts.js.** `textNo(id)` → 'C7' / 'T19' / 'A1' (by recipient, catalogue order; add rows at the END of a block). A row may carry `alt: { label, x }` (TEXTS.md prints both wordings). `textCtx` reads `x.payday` (the payout's own date) first. C17 / T19 (`visit-closed(-t)`) take `x.outcome` ('held' | 'no-show') and `x.until`.
 - **state.js.** Reminder: `promptAt(a)`, the nudge only inside the free window (D-383). Visit check close (D-384): `closeUnrecorded` → `closeAsNoShow` (her I'm here: cancel `{ by: 'system', reason: 'no-show', evidence: 'here' }`) or "Not confirmed" (`reason: 'no-record', held, holdUntil, disputedAt, disputedBy`, the deposit stays captured); `depositOnHold(a)`; `T.disputeUnconfirmed(id, who)`; a Help message on the order while on hold disputes too; tick()'s `cancelled` timer keeps it for the tailor after `VISIT_HOLD_DISPUTE_H`; the admin's keep / refund work on a held deposit, `adminCloseCase` → `decide-first` while a disputed one is held. `endSuggestion` no longer hides the tailor (D-385).
 - **Fixtures / journeys.** s1e `toReminder` = the nudge moment (Wed 3:00 PM), `toReminder48` = the reminder (Tue 5:00 PM); s1f / s2a / s2c helpers use `nudgeAt`. J19 / J20 / J23 rewritten, J33 added; the journeys' text() ignores the open Test-flows panel.
+
+## Pre-MVP K-53, track M — the balance held at Ready, fee 15, no-show = deposit, the Ledger, the free window (D-400…D-411)
+
+- **money-config / money.js.** `MONEY.TAILY_FEE_RATE` 0.15 · `MONEY.COURIER_ABSORB` 3.00 · `NO_SHOW_COMP` gone (`noShowPayout(d) = d`) · `POLICY.BALANCE_HOLD_H` 114
+  (READY_DEFAULT_D / UNCLAIMED_CAPTURE_D / HANDOFF_PICK_DAYS retired) · money.js `HOLD_DAYS` (= 4, re-exported by state.js), `feePercent()` (ONLY to-fee),
+  `courierQuote(miles, start, { drift })`, `courierAtPay(seen, fresh)`; `cancelTerms` has no `confirmed` any more (the free window always ends 24 h before).
+- **state.js — the hold at Ready (D-400…D-402).** `markReady` → `placeReadyHold`: `payments.balance = { cents, state: 'held', heldAt, by: 'ready', cardId, readyCents,
+  holds: [{ cents, cardId, at, by, releasedAt? }] }` (declined: `state 'failed', failedBy 'ready'`). `readyAtOf(a)`, `unclaimedAt(a)` = ready + HOLD_DAYS (the hold's
+  last day); `handoffSlots` ends every time by it (after a capture: HOLD_DAYS from now). `holdBalance` = Pay CONFIRMS against it (same card: nothing new;
+  another card / a failed ready hold: a fresh hold `by: 'pay'`; a declined new card: `payFailed`, the ready hold stays); courier: re-quoted
+  (`sim.courierDrift`), absorbed ≤ $3.00 (`courier.pay = { uber, markup, absorbed }`) or `courier-repriced` (`cents`, `was`; `courier.repricedFrom`), held on top
+  (`balance.courierCents`). readyTimers: on the last day `defaultReturn` captures ('unclaimed') and sets in-store pickup (awaiting-handoff, the payout queued,
+  C30 / T29); no shop → captured, stays ready, `ready-no-way-back` review; a failed hold → `capture-failed`. `setHandoffSlot` after Pay: a pricier window =
+  `payments.courierCharges[]` (charged now; `courierExtras(a)`), the capture stays what was authorized. `receiptView` adds `'courier-change'` charges.
+- **state.js — `ledger({ day, apptId, person })` (D-408)** → `{ rows, totals, options }`, derived (no stored log): rows `{ id, at, apptId, ref, customer, tailor, who,
+  kind, label, flow: hold|in|out|release|revenue|cost|tailor|note, cents, note?, state?, date? }` newest first; totals `{ held, charged, refunded, released, revenue,
+  uber, kept, paid, pending, heldPayouts }`; options `{ days, orders, people }` (person keys `customer:<id>` / `tailor:<id>`).
+- **Free window (D-409).** `reminder.closedTextAt`; remindTick sends C48 `free-window-closed` one minute after `freeUntil` while unconfirmed + armed; `afterConfirm` gone.
+- **Screens.** New `to-fee` (step 2's first page: to-profile → to-fee → to-services; `to-fee--shop` from Services and prices → "What the fee covers") and `a-ledger`
+  (admin nav: Inbox · Ledger, `NAV_ICONS.ledger`; filters = chip groups in `state.ui['a-ledger']`). c-ready: the hold copy, "Update your card" (`[data-hold-failed]`),
+  "The courier price changed" (`[data-repriced]`), `dueNow`; c-booking: the courier "Window change $X · charged …" line + the move toast; t-job: `readyFine`
+  (`[data-ready-hold]`), the defaulted / last-day notes; components.js `untilWords(appt)`. c-receipt label `courier-change`.
+- **Lint.** scripts/v5/lint.mjs: `feePercent` / `TAILY_FEE_RATE` only in money.js, money-config.js, to-fee.js. clickthrough-flows: any visible "\d%" fails except
+  to-fee's `[data-fee-rate]` (`PERCENT_OK`).
+- **Fixtures / journeys.** `js/fixtures/s3m.js` (inventory milestone `K53`); common.js `toHoldEnd(id)` (driveTo 'unclaimed' uses it). Journeys J34 (held at Ready →
+  Pay confirms → the code captures → the Ledger), J35 (never chosen → charged, in-store pickup), J36 (courier: absorbed at Pay, a pricier window charged on its own);
+  J15 / J17 / J19 updated. TEXTS.md: 94 texts (C48 new).
 

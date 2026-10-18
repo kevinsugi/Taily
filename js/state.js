@@ -16,15 +16,17 @@
 
    Status machine:
      requested → confirmed → fitting → price-change → in-progress → ready → awaiting-handoff → completed
-       (awaiting-handoff, Study-1 A1–A3: the balance is HELD when Sarah picks a way back and captured at the handoff — pickup code,
-        "I got it", courier delivery, or HANDOFF_AUTO_H after Amara marks it; still open after UNCLAIMED_CAPTURE_D → captured, job stays open)
+       (K-53: the balance is HELD on the saved card when Amara marks it ready; Sarah's Pay confirms the way back + time against that hold
+        (awaiting-handoff); captured at the handoff — pickup code, Confirm received, courier delivery, or HANDOFF_AUTO_H after Amara marks it —
+        or on the hold's last day (ready + HOLD_DAYS): still open then → captured, the job stays open; nothing chosen → in-store pickup)
      requested → suggested → confirmed | cancelled(switched | withdrawn)
      requested → declined (terminal) · expired → requested (Try again) · confirmed → cancelled(...)
    ============================================================ */
 import { POLICY } from './money-config.js';
 import {
-  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout, fmtExact,
+  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, courierAtPay, cancelTerms, noShowPayout, fmtExact, HOLD_DAYS,
 } from './money.js';
+export { HOLD_DAYS };
 import {
   toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, fmtDay, fmtTime, fmtTimeRange, payoutDay,
 } from './dates.js';
@@ -49,8 +51,9 @@ function freshSim() {
   /* network 'online'|'offline' · send 'ok'|'fail' (one-shot, D-130) · session 'valid'|'expired' · texts 'off'|'on' (K-43, D-301: the
      tailor's new-request text shows on screen — on after onboarding; off by default so a flow's baseline stays still) · payout 'ok'|'failed' · server 'ok'|'error' (one-shot, D-140) */
   /* pre-MVP A1: sms 'ok'|'undelivered' (a text to an opted-in number never arrives, D-02) · capture 'ok'|'declined' (one-shot: the next charge of a
-     held balance fails, D-04) · DG-4 (D-351): payoutSetup = what the payments partner's hosted onboarding returns ('verifying' | 'verified' | 'action-needed') */
-  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok', sms: 'ok', capture: 'ok', payoutSetup: 'verifying' };
+     held balance fails, D-04) · DG-4 (D-351): payoutSetup = what the payments partner's hosted onboarding returns ('verifying' | 'verified' | 'action-needed') ·
+     K-53 (Q6): courierDrift = cents Uber's live price moved from a window's estimate when she taps Pay (0 = the same) */
+  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok', sms: 'ok', capture: 'ok', payoutSetup: 'verifying', courierDrift: 0 };
 }
 function fresh() {
   return {
@@ -105,9 +108,9 @@ export function setClock(iso) { state.clock.now = toDate(iso).getTime(); return 
     (a text alone does not count): expire `requested` appointments whose reply window passed, lapse suggested times (D-154); on `confirmed`
     the reminder at 48 h, its nudge at 26 h and the auto-cancel (K-41 / K-51, K-43 — only after a delivered text, D-02), a tailor's move
     proposal that ran out (D-12) and "Did the visit happen?" (D-11 / K-48.5: ask at start + VISIT_CHECK_H, the admin at + VISIT_CHECK_ADMIN_H;
-    K-51: closed by evidence at + VISIT_CHECK_CANCEL_H, a "Not confirmed" deposit kept by the tailor after VISIT_HOLD_DISPUTE_H); the waiting states' reminder texts and ends (D-03: a final order → Taily review, a ready order →
-    in-store pickup); on `awaiting-handoff` the day-6 capture (D-04, which pays the tailor), the auto-completion of a marked pickup, a problem
-    open too long → review, an abandoned order closed. Texts (start reminders, pickup today, missed pickup, review reminder) ride along. */
+    K-51: closed by evidence at + VISIT_CHECK_CANCEL_H, a "Not confirmed" deposit kept by the tailor after VISIT_HOLD_DISPUTE_H); the waiting states' reminder texts and ends (D-03: a final order → Taily review; K-53: a ready
+    order on the hold's last day → captured, in-store pickup); on `awaiting-handoff` the capture on the hold's last day (K-53, which pays the tailor), the auto-completion of a marked pickup, a problem
+    open too long → review, an abandoned order closed. Texts (start reminders, the free window's end, pickup today, missed pickup, review reminder) ride along. */
 export function tick() {
   const moved = [];
   for (const a of state.appts) if (timersFor(a)) moved.push(a.id);
@@ -305,43 +308,54 @@ function editTimers(a) {
   if (e?.state !== 'pending') return;
   waitTexts(a, e.sentAt, (e.nudges ??= {}), ['edit-24h', 'edit-72h']);
 }
-/** D-03: a ready order with no way back — reminder texts at 24 h and 72 h; after READY_DEFAULT_D it defaults to in-store pickup. */
+/** D-03 → K-53: a ready order with no way back confirmed — reminder texts at 24 h and 72 h; on the hold's last day (ready + HOLD_DAYS) the
+    balance is captured anyway and it defaults to in-store pickup (defaultReturn). */
 function readyTimers(a) {
-  const readyAt = [...a.history].reverse().find((h) => h.status === 'ready')?.at;
+  const readyAt = readyAtOf(a);
   if (!readyAt) return false;
-  const end = msOf(readyAt) + POLICY.READY_DEFAULT_D * DAY_MS;
-  waitTexts(a, readyAt, (a.readyNudges ??= {}), ['ready-24h', 'ready-72h'], { stopAt: end });
+  const end = unclaimedAt(a);
+  waitTexts(a, readyAt, (a.readyNudges ??= {}), ['ready-24h', 'ready-72h'], { stopAt: end, x: { until: stampAt(end) } });
   if (state.clock.now >= end && !a.readyDefaultAt) { defaultReturn(a, stampAt(end)); return true; }
   return false;
 }
-/** D-03: READY_DEFAULT_D after ready with no way back chosen — in-store pickup (when she has a shop), the balance held on the booking card,
-    which starts the capture clock (D-04). No shop to pick up from → a Taily review instead. A card that declines leaves it ready, payment failed. */
+/** K-53 (replaces D-03 / D-312's 14-day default): the hold's last day with no way back confirmed — "what is most important is we keep the
+    money": the balance hold is captured anyway and the order is set to in-store pickup (when she has a shop) — awaiting-handoff with no
+    time yet, the tailor paid at the charge (D-03), both texted. A hold that failed at ready and was never fixed → 'capture-failed' (Update
+    card; retryCapture pays the tailor). No shop to pick up from → captured all the same, the order stays ready and goes to Taily review. */
 function defaultReturn(a, at) {
   a.readyDefaultAt = at;
   const t = tailorById(a.tailorId);
-  if (!returnOffer(a).includes('pickup') || !t?.shop?.enabled) { openTailyReview(a, 'ready-no-way-back', { at }); return; }
-  a.returnOption = 'pickup';
-  a.courier = null;
-  repriceReturn(a);
-  const charge = a.money.balance > 0;
-  if (charge && state.sim.card === 'declined') {
-    a.payments.balance.state = 'failed'; a.payments.balance.failedCardId = a.cardId;
-    notify(a, 'card-failed', { at }); notify(a, 'card-failed-t', { at });
+  const shop = returnOffer(a).includes('pickup') && !!t?.shop?.enabled;
+  if (shop) {
+    a.returnOption = 'pickup';
+    a.courier = null;
+    if (a.handoff?.slot) a.handoff = null;
+    repriceReturn(a);
+  }
+  const b = a.payments.balance;
+  if (b.state === 'held') captureHold(a, 'unclaimed', at);
+  else if (b.state === 'failed' && b.cents > 0) Object.assign(b, { state: 'capture-failed', failedAt: at, failReason: 'unclaimed' });
+  if (a.payments.refund?.cents > 0) a.payments.refund.state = 'refunded';   // D-156: nothing to pay — the difference goes back
+  const paid = b.state === 'captured';
+  if (paid) addPayout(a, a.money.payout, 'job', at);                       // D-03: the tailor is paid at the charge
+  if (!shop) {
+    if (paid) post(a.tailorId, 'system', `We charged your ${fmtExact(b.cents)} balance after ${HOLD_DAYS} days`, { at, tailorText: `${state.customer.first}’s ${fmtExact(b.cents)} was charged after ${HOLD_DAYS} days` });
+    openTailyReview(a, 'ready-no-way-back', { at });
     return;
   }
-  a.payments.balance = { cents: a.money.balance, state: charge ? 'held' : 'none', heldAt: at };
-  if (a.payments.refund?.cents > 0) a.payments.refund.state = 'refunded';
-  a.balanceCardId = a.cardId;
+  a.balanceCardId = a.balanceCardId ?? b.cardId ?? a.cardId;
   a.handoff = freshHandoff(a, at, null);
   a.handoff.defaultedAt = at;
   setStatus(a, 'awaiting-handoff');
   a.history[a.history.length - 1].at = at;
-  post(a.tailorId, 'system', `Ready for ${POLICY.READY_DEFAULT_D} days, so we set it to in-store pickup`, { at, tailorText: `${state.customer.first} didn’t choose in ${POLICY.READY_DEFAULT_D} days, so we set it to in-store pickup` });
-  notify(a, 'ready-default', { at });
-  notify(a, 'ready-default-t', { at });
+  post(a.tailorId, 'system', paid ? `Ready for ${HOLD_DAYS} days, so we charged your ${fmtExact(b.cents)} balance and set it to in-store pickup` : `Ready for ${HOLD_DAYS} days, so we set it to in-store pickup`,
+    { at, tailorText: paid ? `${state.customer.first} didn’t choose in ${HOLD_DAYS} days, so we charged her ${fmtExact(b.cents)} balance and set it to in-store pickup` : `${state.customer.first} didn’t choose in ${HOLD_DAYS} days, so we set it to in-store pickup` });
+  if (b.state === 'capture-failed') { notify(a, 'card-failed', { at }); notify(a, 'card-failed-t', { at }); return; }
+  notify(a, 'ready-default', { at, x: { charged: paid ? b.cents : 0 } });
+  notify(a, 'ready-default-t', { at, x: { charged: paid ? b.cents : 0 } });
 }
-/** awaiting-handoff (Study-1 A2–A3, D-03, D-04): pickup-today / missed-pickup texts, the day-6 capture (pays the tailor; a reported problem no
-    longer pushes it past the card hold — it captures and goes to review), the HANDOFF_AUTO_H auto-completion (paused by a problem), a problem
+/** awaiting-handoff (Study-1 A2–A3, D-03, D-04 → K-53): pickup-today / missed-pickup texts, the capture on the hold's last day (ready +
+    HOLD_DAYS; pays the tailor; a reported problem never pushes it past the card hold — it captures and goes to review), the HANDOFF_AUTO_H auto-completion (paused by a problem), a problem
     open PROBLEM_REVIEW_H → review, and ABANDONED_CLOSE_D after the charge → closed. */
 function handoffTimers(a) {
   const h = a.handoff;
@@ -363,7 +377,7 @@ function handoffTimers(a) {
     const at = stampAt(cap);
     const amt = fmtExact(b.cents);
     if (captureHold(a, h.problemAt ? 'before-expiry' : 'unclaimed', at)) {
-      post(a.tailorId, 'system', `We charged your ${amt} balance after ${POLICY.UNCLAIMED_CAPTURE_D} days`, { at, tailorText: `${state.customer.first}’s ${amt} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days` });
+      post(a.tailorId, 'system', `We charged your ${amt} balance ${HOLD_DAYS} days after it was ready`, { at, tailorText: `${state.customer.first}’s ${amt} was charged ${HOLD_DAYS} days after it was ready` });
       if (h.problemAt) openTailyReview(a, 'problem-open', { at });   // D-04: the hold can't outlive the card; the payout waits for the review
       else {
         addPayout(a, a.money.payout, 'job', at);                       // D-03: the tailor is paid at the unclaimed charge
@@ -1291,7 +1305,7 @@ export function cancelBooking(id) {
     a.cancel = { by: 'customer', reason: 'customer-early', at: nowIso(), refund: terms.refund, kept: 0, tailorPaid: 0 };
   } else {
     a.payments.deposit.state = 'kept';
-    a.cancel = { by: 'customer', reason: 'customer-late', at: nowIso(), refund: 0, kept: terms.kept, tailorPaid: terms.kept, ...(terms.confirmed ? { afterConfirm: true } : {}) };   // D-05; K-41: late because she had confirmed
+    a.cancel = { by: 'customer', reason: 'customer-late', at: nowIso(), refund: 0, kept: terms.kept, tailorPaid: terms.kept };   // D-05 (K-53: confirming no longer makes it late)
     addPayout(a, terms.kept, 'kept-deposit');
   }
   restoreDraftIfEmpty(a);
@@ -1322,7 +1336,7 @@ export function tailorCantMakeIt(id, reason = '') {
   setStatus(a, 'cancelled');
   a.payments.deposit.state = 'refunded';
   /* K-29 (Study-1 A5): inside CANCEL_WINDOW_H the tailor was warned; the refund is the same (in full), the cancel is marked late */
-  const late = cancelTerms(a, state.clock.now).window === 'late' && !cancelTerms(a, state.clock.now).confirmed;   // K-41: Sarah's confirm is not the 24 h
+  const late = cancelTerms(a, state.clock.now).window === 'late';
   a.cancel = { by: 'tailor', reason: 'tailor-cant-make-it', note: reason, at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0, late };
   restoreDraft(a);
   say(a, `${firstName(tailorById(a.tailorId))} can’t make it`, 'You can’t make it');
@@ -1714,11 +1728,21 @@ export function markReady(id, { returns } = {}) {
   if (offer.some((k) => !on.includes(k)) || (Array.isArray(returns) && returns.some((k) => !RETURN_LABEL[k]))) return fail('not-offered');
   a.returnOffer = offer;
   setStatus(a, 'ready');
-  a.payments.balance = { cents: a.money.balance, state: 'due' };
+  placeReadyHold(a);                                                                          // K-53: the balance is held at once
   if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-23, D-156: settled by holdBalance
   say(a, 'Ready. Choose how to get it back.', `You marked it ready. Waiting for ${state.customer.first} to choose how to get it back.`);
-  notify(a, 'ready');
+  notify(a, 'ready', { x: { holdFailed: a.payments.balance.state === 'failed', until: stampAt(unclaimedAt(a)) } });
   return succeed(a);
+}
+/** K-53 (d2): Amara marked it ready — Taily holds the balance on Sarah's saved booking card at once (a merchant-initiated authorization: no
+    3-D Secure; it lives BALANCE_HOLD_H, so every time offered and the capture fall inside its whole days). A decline leaves it 'failed'
+    (`failedBy: 'ready'`): c-ready asks her to update her card and Pay places the hold then. A $0 balance holds nothing (D-156). */
+function placeReadyHold(a) {
+  const at = nowIso();
+  const amount = a.money.balance;
+  if (amount <= 0) { a.payments.balance = { cents: amount, state: 'none' }; return; }
+  if (state.sim.card === 'declined') { a.payments.balance = { cents: amount, state: 'failed', failedCardId: a.cardId, failedAt: at, failedBy: 'ready' }; return; }
+  a.payments.balance = { cents: amount, state: 'held', heldAt: at, by: 'ready', cardId: a.cardId, readyCents: amount, holds: [{ cents: amount, cardId: a.cardId, at, by: 'ready' }] };
 }
 
 /** Where the courier delivers (D-106: Sarah's saved address, also for shop visits), as ONE line on both sides:
@@ -1737,8 +1761,9 @@ export function courierWindow(appt) {
 
 /* ---------- K-40 (T1): the handoff time ---------- */
 /** The times Sarah can pick for getting her order back (D-295), from the tailor's open hours — her shop hours; a tailor with no shop: her
-    home-visit hours, and the courier collects from her home address — from now until HANDOFF_PICK_DAYS ahead (so a pick never outlasts the
-    UNCLAIMED_CAPTURE_D clock that starts at the hold). Pickup (needs a shop): a start every HANDOFF_SLOT_MIN that the hours still cover,
+    home-visit hours, and the courier collects from her home address. K-53: every time ENDS inside the balance hold placed at ready —
+    by `unclaimedAt` (ready + HOLD_DAYS), measured from the ready date; once the balance was charged, HOLD_DAYS from now. Pickup (needs a
+    shop): a start every HANDOFF_SLOT_MIN that the hours still cover,
     `[{ start }]`. Courier: HANDOFF_SLOT_MIN delivery windows starting by closing time whose collection (COURIER_COLLECT_LEAD_MIN before)
     is inside the hours and more than COURIER_CHANGE_CUTOFF_MIN away, `[{ start, end, collectAt }]`. A pickup never blocks her calendar. */
 export function handoffSlots(appt, method = appt?.returnOption) {
@@ -1750,9 +1775,9 @@ export function handoffSlots(appt, method = appt?.returnOption) {
   const step = POLICY.HANDOFF_SLOT_MIN;
   const lead = POLICY.COURIER_COLLECT_LEAD_MIN;
   const from = state.clock.now;
-  /* SF-13 (D-295(1)'s intent): once the balance is held, no time past the 7-day charge (after a capture the job stays open, so no cap) */
-  const capAt = appt?.status === 'awaiting-handoff' && appt.payments?.balance?.state === 'held' ? (unclaimedAt(appt) ?? Infinity) : Infinity;
-  const until = Math.min(from + POLICY.HANDOFF_PICK_DAYS * DAY_MS, capAt);
+  /* K-53: inside the hold's life from the READY date (after a capture the job stays open: HOLD_DAYS from now) */
+  const capAt = ['ready', 'awaiting-handoff'].includes(appt?.status) && appt.payments?.balance?.state !== 'captured' ? (unclaimedAt(appt) ?? Infinity) : Infinity;
+  const until = Math.min(from + HOLD_DAYS * DAY_MS, capAt);
   const at = (d, m) => { const x = new Date(d); x.setHours(Math.floor(m / 60), m % 60, 0, 0); return x; };   // wall-clock (DST-safe)
   const out = [];
   for (let d = strip(new Date(from)); d.getTime() < until; d = addDays(d, 1)) {
@@ -1762,14 +1787,14 @@ export function handoffSlots(appt, method = appt?.returnOption) {
       if (method === 'pickup') {
         for (let m = Math.ceil(o / step) * step; m + step <= c; m += step) {
           const x = at(d, m).getTime();
-          if (x > from && x <= until) out.push({ start: isoMinute(new Date(x)) });
+          if (x > from && x + step * MIN_MS <= until) out.push({ start: isoMinute(new Date(x)) });
         }
         continue;
       }
       for (let m = Math.ceil((o + lead) / step) * step; m <= c; m += step) {
         const x = at(d, m).getTime();
         const collect = x - lead * MIN_MS;
-        if (collect - POLICY.COURIER_CHANGE_CUTOFF_MIN * MIN_MS <= from || x > until) continue;
+        if (collect - POLICY.COURIER_CHANGE_CUTOFF_MIN * MIN_MS <= from || x + step * MIN_MS > until) continue;
         out.push({ start: isoMinute(new Date(x)), end: isoMinute(new Date(x + step * MIN_MS)), collectAt: isoMinute(new Date(collect)) });
       }
     }
@@ -1800,8 +1825,9 @@ export function handoffChangeable(appt) {
 }
 /** Customer only (the tailor never sets it): pick the handoff time from `handoffSlots` (a slot object or its start ISO). On a ready order
     it is part of the choice (Pay needs it); once held she can move it (`handoffChangeable`) — confirmed at once, no tailor approval,
-    the tailor is told (thread + text). A courier move re-quotes (D-299) and a higher price is a new card authorization (B-14: a decline keeps
-    the old window, `card-declined`); after a failed delivery the new window costs nothing more (S-35). Errors: not-ready · return-required ·
+    the tailor is told (thread + text). A courier move re-quotes (D-299); K-53: after Pay a pricier window is charged at once as its own
+    courier charge (`payments.courierCharges`, B-14: a decline keeps the old window, `card-declined`), a cheaper one is captured for less;
+    after a failed delivery the new window costs nothing more (S-35). Errors: not-ready · return-required ·
     already-marked · too-late · slot-invalid · no-change · card-declined · offline. */
 export function setHandoffSlot(id, slot) {
   const a = must(id);
@@ -1821,13 +1847,19 @@ export function setHandoffSlot(id, slot) {
   const before = { handoff: clone(a.handoff ?? null), courier: clone(a.courier ?? null), money: clone(a.money), balance: clone(a.payments.balance), refund: clone(a.payments.refund ?? null) };
   a.handoff = { ...(a.handoff ?? {}), slot: { ...match } };
   if (a.returnOption === 'courier' && !returned) { quoteCourier(a); repriceReturn(a); }   // K-43 (D-299): the Uber quote is per window
-  if (a.status === 'awaiting-handoff' && before.balance.state === 'held' && a.payments.balance.cents > before.balance.cents && state.sim.card === 'declined') {
-    /* B-14 / D-04: a higher courier price needs a new authorization — declined, so nothing moves */
+  /* K-53: after Pay a hold can't be raised — a pricier window is charged now as its own courier charge (B-14: a decline keeps the old window) */
+  const extra = a.status === 'awaiting-handoff' && a.returnOption === 'courier' && !returned ? (a.courier?.cents ?? 0) - (before.courier?.cents ?? 0) : 0;
+  if (extra > 0 && state.sim.card === 'declined') {
     Object.assign(a, { handoff: before.handoff, courier: before.courier, money: before.money });
     a.payments.balance = before.balance;
     if (before.refund) a.payments.refund = before.refund; else delete a.payments.refund;
     return fail('card-declined');
   }
+  if (extra > 0) {
+    (a.payments.courierCharges ??= []).push({ cents: extra, at: nowIso(), from: prev?.start ?? null, to: match.start, cardId: a.balanceCardId ?? a.cardId, uber: (a.courier.quote ?? 0) - (before.courier?.quote ?? 0) });
+    a.payments.balance.cents = Math.max(0, a.money.balance - courierExtras(a));
+  }
+  if (a.status === 'awaiting-handoff' && a.returnOption === 'courier' && !returned && a.courier) a.courier.pay = { uber: a.courier.quote, markup: a.courier.markup, absorbed: 0, at: nowIso() };   // re-quoted at the move
   if (a.status === 'awaiting-handoff') {
     a.handoff.moved = prev ? { from: prev, at: nowIso() } : null;
     if (!prev) a.handoff.slotSetAt = nowIso();
@@ -1868,10 +1900,12 @@ export function chooseReturn(id, option) {
 /** The return's money after the way back or the courier window changed: re-priced (the deposit stays), the balance (held or not) follows. */
 function repriceReturn(a) {
   a.money = repriceMoney(a);
-  a.payments.balance.cents = a.money.balance;
+  a.payments.balance.cents = Math.max(0, a.money.balance - courierExtras(a));   // K-53: a window change already charged on its own is not captured twice
   if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: a.payments.refund?.state === 'refunded' ? 'refunded' : 'pending' };   // D-156: re-priced with the courier
   else delete a.payments.refund;
 }
+/** K-53: the courier window changes after Pay that were charged on their own (a pricier window = a separate courier charge), in cents. */
+export const courierExtras = (a) => (a?.payments?.courierCharges ?? []).reduce((n, x) => n + x.cents, 0);
 /** K-43 (D-299): the simulated Uber quote for one courier window of this appointment (the distance to Sarah's ZIP + the window's start). */
 export const courierQuoteFor = (appt, slot) => courierQuote(courierMiles(appt), typeof slot === 'string' ? slot : slot?.start ?? null);   // S-42: from where the courier collects
 /** K-43 (D-299): put the picked window's quote on `a.courier` (0 until a window is picked, or while the price is loading / failed). */
@@ -1880,10 +1914,16 @@ function quoteCourier(a) {
   if (!c) return;
   const q = c.state === 'ready' && a.handoff?.slot?.end ? courierQuoteFor(a, a.handoff.slot) : null;
   Object.assign(c, { quote: q?.quote ?? 0, markup: q?.markup ?? 0, cents: q?.cents ?? 0 });
+  delete c.repricedFrom; delete c.repricedAt;   // K-53: a new window is a new price
 }
 
-/** K-27 (Study-1 A2): picking a way back HOLDS the balance (services + rush + courier − deposit) on the card; nothing is charged until the
-    handoff (or UNCLAIMED_CAPTURE_D later). A $0 balance holds nothing and settles a D-156 refund as before. Moves to awaiting-handoff. */
+/** K-53 (was K-27: "picking a way back HOLDS the balance"): Pay CONFIRMS the way back + time against the balance hold placed at ready
+    ("Pay $144.00 · Charged at pickup"). The hold stays on the card it is on; paying with another card — or after the ready hold failed —
+    places a fresh hold on that card (customer-initiated) and releases the old one. Courier (Q6): re-quoted now (PROTOTYPE: sim.courierDrift
+    for Uber's live price); Taily absorbs a rise up to COURIER_ABSORB (she pays the price she saw), a bigger one sets the new price and fails
+    `courier-repriced` (`cents`, `was`) so she sees it first; the courier is authorized on top of the balance hold (`courierCents`). Charged
+    at the handoff, or on the hold's last day (unclaimedAt). A $0 balance holds nothing and settles a D-156 refund. Moves to awaiting-handoff.
+    Errors: not-ready · offline · return-required · courier-unavailable · slot-required · slot-gone · card-declined · needs-3ds · courier-repriced. */
 export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   const a = must(id);
   if (a.status !== 'ready') return fail('not-ready');
@@ -1893,13 +1933,55 @@ export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   const slot = a.handoff?.slot ?? null;                                                       // K-40: the time comes first
   if (!slot) return fail('slot-required');
   if (!handoffSlots(a).some((x) => x.start === slot.start)) return fail('slot-gone');
-  const charge = a.money.balance > 0;                                                         // M6-M-03: a $0 balance only settles the refund, nothing to decline
-  if (charge && state.sim.card === 'declined') { a.payments.balance.state = 'failed'; a.payments.balance.failedCardId = cardId; return fail('card-declined'); }
-  if (charge && state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
-  a.payments.balance = { cents: a.money.balance, state: charge ? 'held' : 'none', heldAt: nowIso() };
+  const b = a.payments.balance;
+  const card = cardId ?? b.cardId ?? a.cardId;
+  /* K-53 (Q6): the courier is re-quoted when she taps Pay */
+  let pay = null;
+  if (a.returnOption === 'courier') {
+    const c = a.courier;
+    const fresh = courierQuote(c.miles, slot.start, { drift: state.sim.courierDrift ?? 0 });
+    const r = courierAtPay(c.cents, fresh);
+    if (r.repriced) {
+      const was = c.cents;
+      Object.assign(c, { quote: fresh.quote, markup: fresh.markup, cents: fresh.cents, repricedFrom: was, repricedAt: nowIso() });
+      repriceReturn(a);
+      return fail('courier-repriced', { cents: fresh.cents, was });
+    }
+    if (fresh.cents < c.cents) Object.assign(c, { quote: fresh.quote, markup: fresh.markup, cents: fresh.cents });   // cheaper now: she pays less
+    pay = { uber: fresh.quote, markup: fresh.markup, absorbed: r.absorbed, at: nowIso() };   // what Taily pays Uber and keeps (the ledger)
+    repriceReturn(a);
+  }
+  const amount = a.money.balance;
+  const charge = amount > 0;                                                                  // M6-M-03: a $0 balance only settles the refund, nothing to decline
+  const courierPart = a.returnOption === 'courier' ? a.money.courier : 0;
+  const captured = b.state === 'captured';                                                    // charged on the hold's last day (no shop to default to)
+  const rehold = charge && !captured && (b.state !== 'held' || card !== b.cardId);            // the ready hold failed, or another card
+  const auth = charge && (rehold || courierPart > 0);                                         // anything new to authorize now
+  if (auth && state.sim.card === 'declined') {
+    b.payFailed = { cardId: card, at: nowIso() };                                             // a held ready hold stays where it is
+    if (b.state !== 'held' && b.state !== 'captured') { b.state = 'failed'; b.failedCardId = card; }
+    return fail('card-declined');
+  }
+  if (auth && state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
+  const at = nowIso();
+  if (captured) {   // K-53: the balance was already charged — a courier is its own charge now
+    if (courierPart > 0) (a.payments.courierCharges ??= []).push({ cents: courierPart, at, from: null, to: slot.start, cardId: card, uber: pay?.uber ?? 0 });
+    b.cents = Math.max(0, a.money.balance - courierExtras(a));
+    delete b.payFailed;
+  } else if (charge) {
+    const holds = (b.holds ?? []).map((h) => (rehold && !h.releasedAt ? { ...h, releasedAt: at } : h));
+    if (rehold) holds.push({ cents: amount - courierPart, cardId: card, at, by: 'pay' });
+    a.payments.balance = {
+      cents: amount, state: 'held', heldAt: rehold ? at : b.heldAt, by: rehold ? 'pay' : b.by, cardId: card,
+      readyCents: amount - courierPart, courierCents: courierPart, courierHeldAt: courierPart ? at : null, holds,
+    };
+  } else {
+    a.payments.balance = { cents: 0, state: 'none', holds: (b.holds ?? []).map((h) => (h.releasedAt ? h : { ...h, releasedAt: at })) };
+  }
+  if (pay) a.courier.pay = pay;
   if (a.payments.refund?.cents > 0) a.payments.refund.state = 'refunded';                   // D-156
-  a.balanceCardId = cardId;
-  a.handoff = freshHandoff(a, nowIso(), slot);
+  a.balanceCardId = card;
+  a.handoff = freshHandoff(a, at, slot);
   setStatus(a, 'awaiting-handoff');
   const how = a.returnOption === 'courier' ? RETURN_LABEL.courier : RETURN_LABEL.pickup.toLowerCase();   // SF-36: "Taily courier" keeps its capital
   const amt = fmtExact(a.money.balance);
@@ -1922,12 +2004,14 @@ export function handoffCode(appt) {
   const n = Number(String(appt?.id ?? '').replace(/\D/g, '')) || 0;
   return String((n * 7919 + 1234) % (10 ** HANDOFF_CODE_LEN)).padStart(HANDOFF_CODE_LEN, '0');
 }
-/** When an unclaimed hold is captured: the hold + UNCLAIMED_CAPTURE_D (D-04: day 6, inside the card hold's life — a reported problem no
-    longer pushes it later). Epoch ms; null without a hold. */
+/** K-53: when the order was (last) marked ready — ISO, or null before. */
+export const readyAtOf = (appt) => [...(appt?.history ?? [])].reverse().find((h) => h.status === 'ready')?.at ?? null;
+/** K-53 (replaces D-04's day 6 from Pay): the hold's last day — ready + HOLD_DAYS, inside the BALANCE_HOLD_H life of the hold placed at
+    ready. Still not handed over then → the balance is captured (and a ready order with no way back confirmed is set to in-store pickup); a
+    reported problem never pushes it later. Every pickup time / courier window offered ends by it. Epoch ms; null before ready. */
 export function unclaimedAt(appt) {
-  const h = appt?.handoff;
-  if (!h?.heldAt) return null;
-  return toDate(h.heldAt).getTime() + POLICY.UNCLAIMED_CAPTURE_D * DAY_MS;
+  const r = readyAtOf(appt);
+  return r ? toDate(r).getTime() + HOLD_DAYS * DAY_MS : null;
 }
 /** ms until the automatic completion; null while nothing counts down (not marked yet, a problem is open, or it is no longer awaiting the handoff). */
 export function autoCompleteLeft(appt) {
@@ -2271,11 +2355,12 @@ export function removeNotePhoto(id, noteId, photoId) {
    No new status: `a.reminder = { sentAt, confirmedAt, nudgedAt, texted }`. K-51: tick() sends the reminder (C7, "Please confirm your
    appointment") REMINDER_H (48 h) before the visit to a visit whose time was set before then, and the nudge (C8, "Confirm by <the free
    window's end> or cancel it without penalty") REMINDER_NUDGE_H (26 h) before it if she hasn't confirmed. Booked or moved < 48 h ahead: no
-   C7, the nudge is the first ask (`sentAt` = the nudge); < 26 h ahead: no prompt at all, the plain 24 h rule. confirmVisit closes the free
-   window early (money.js cancelTerms, K-41). K-43 (D-300): a visit she was asked about and still hasn't confirmed REMINDER_AUTOCANCEL_H
+   C7, the nudge is the first ask (`sentAt` = the nudge); < 26 h ahead: no prompt at all, the plain 24 h rule. K-53 (D-383 follow-up):
+   confirming no longer closes the free window early — it always ends CANCEL_WINDOW_H before the visit; still unconfirmed then (and the 3 h
+   auto-cancel armed), the free-window-closed text goes (`closedTextAt`). K-43 (D-300): a visit she was asked about and still hasn't confirmed REMINDER_AUTOCANCEL_H
    before it starts is cancelled by tick() at that time (reason 'unconfirmed', the customer late-cancel money: the tailor keeps the deposit) —
    only when one of the two texts was DELIVERED (D-02, `texted`). */
-function freshReminder() { return { sentAt: null, confirmedAt: null, nudgedAt: null }; }
+function freshReminder() { return { sentAt: null, confirmedAt: null, nudgedAt: null, closedTextAt: null }; }
 /** When the current visit time was set: the last accept (or accepted suggestion) or reschedule. Epoch ms. */
 function slotSetAt(a) {
   const h = [...a.history].reverse().find((x) => x.status === 'confirmed' || x.status === 'rescheduled');
@@ -2283,7 +2368,7 @@ function slotSetAt(a) {
 }
 /** When the reminder (C7) goes out (epoch ms): REMINDER_H before the visit (K-51: 48 h). */
 export const reminderAt = (a) => toDate(a.slot.start).getTime() - POLICY.REMINDER_H * HOUR_MS;
-/** When the free window closes by the clock (epoch ms): CANCEL_WINDOW_H before the visit (Confirm can close it earlier). */
+/** When the free window closes (epoch ms): CANCEL_WINDOW_H before the visit — K-53: confirming no longer closes it earlier. */
 export const freeUntil = (a) => toDate(a.slot.start).getTime() - POLICY.CANCEL_WINDOW_H * HOUR_MS;
 /** The nudge's time (C8, epoch ms): REMINDER_NUDGE_H before the visit (K-51: 26 h, 2 h before the free window closes). */
 export const nudgeAt = (a) => toDate(a.slot.start).getTime() - POLICY.REMINDER_NUDGE_H * HOUR_MS;
@@ -2311,6 +2396,12 @@ function remindTick(a) {
         if (notify(a, 'nudge', { at: r.nudgedAt }).status === 'delivered') r.texted = true;
       }
       moved = true;
+    }
+    /* K-53 (D-383 follow-up): the free window ended and she still hasn't confirmed — one text so there is no silent gap before the auto-cancel
+       (only when a delivered text armed it; a clock that jumped past the auto-cancel sends the cancel text instead) */
+    if (r.sentAt && r.texted && !r.confirmedAt && !r.closedTextAt && t > freeUntil(a) && t < autoCancelAt(a)) {   // the 'until' is inclusive (M6-M-11)
+      r.closedTextAt = isoMinute(new Date(freeUntil(a) + MIN_MS));
+      notify(a, 'free-window-closed', { at: r.closedTextAt });
     }
   }
   /* K-43: asked, never confirmed, REMINDER_AUTOCANCEL_H before → cancelled, stamped at that time (also when the clock jumped past it).
@@ -2351,8 +2442,8 @@ export function reminderState(a) {
 export const reminderDue = (a) => reminderState(a) === 'asked';
 /** The customer's visit whose reminder is waiting on her, or null. */
 export const visitReminder = () => apptsFor('customer').find(reminderDue) ?? null;
-/** Sarah answers the reminder: still on. Customer side; a confirmed visit, the reminder sent, before the visit starts. Closes the free
-    window (cancelTerms → late); after the 24 h mark it only tells the tailor. No thread line, no push to the tailor (she sees the state). */
+/** Sarah answers the reminder: still on. Customer side; a confirmed visit, the reminder sent, before the visit starts. K-53: it no longer
+    closes the free window (that always ends CANCEL_WINDOW_H before the visit); it stops the auto-cancel and tells the tailor. No thread line, no push to the tailor (she sees the state). */
 export function confirmVisit(id) {
   const a = must(id);
   if (a.status !== 'confirmed') return fail('not-confirmed');
@@ -2446,7 +2537,8 @@ export function deleteBlocker(who = 'customer') {
 /** S-25: the receipt number — stable per order ("TLY-261013-1001": the request date + the order number). */
 export const receiptNumber = (a) => `TLY-${isoDay(a.requestedAt).slice(2).replace(/-/g, '')}-${String(a.id).replace(/\D/g, '')}`;
 /** S-25 (pre-MVP B2): what she paid and when, for the receipt page. `charges` = the deposit (charged at the accept, or kept on a late cancel /
-    no-show) and the balance (charged at the handoff or the day-6 capture); `refunds` = a refunded deposit or the courier overage (D-156).
+    no-show), the balance (charged at the handoff or on the hold's last day, K-53) and any courier window change charged on its own (K-53,
+    'courier-change'); `refunds` = a refunded deposit or the courier overage (D-156).
     Each `{ kind, cents, at, cardId }`. `paid` = charges − refunds. null for an order nothing was ever charged on. */
 export function receiptView(a) {
   if (!a) return null;
@@ -2457,6 +2549,7 @@ export function receiptView(a) {
   const refunds = [];
   if (accepted && ['captured', 'kept', 'refunded'].includes(d.state)) charges.push({ kind: 'deposit', cents: d.cents, at: accepted, cardId: a.cardId });
   if (b?.state === 'captured' && b.cents > 0) charges.push({ kind: 'balance', cents: b.cents, at: b.capturedAt ?? null, cardId: b.retriedCardId ?? a.balanceCardId ?? a.cardId });
+  for (const x of a.payments.courierCharges ?? []) charges.push({ kind: 'courier-change', cents: x.cents, at: x.at, cardId: x.cardId });
   if (d.state === 'refunded' && accepted) refunds.push({ kind: 'deposit', cents: a.cancel?.refund ?? d.cents, at: a.cancel?.at ?? null, cardId: a.cardId });
   if (a.payments.refund?.state === 'refunded' && a.payments.refund.cents > 0) refunds.push({ kind: 'overage', cents: a.payments.refund.cents, at: b?.capturedAt ?? null, cardId: a.cardId });
   if (!charges.length) return null;
@@ -2474,6 +2567,108 @@ export function emailReceipt(id) {
   return succeed(a, { to });
 }
 
+/* ---------- K-53 (c7): the admin Ledger — every money event across every appointment, read-only and DERIVED from the payments, holds, ----------
+   courier records and payouts (PROTOTYPE of the Stripe event log; the books live in QuickBooks Online / Xero fed from Stripe). */
+const LEDGER_LABEL = {
+  'deposit-hold': 'Deposit hold', 'deposit-capture': 'Deposit captured', 'deposit-release': 'Deposit hold released', 'deposit-refund': 'Deposit refunded',
+  'deposit-kept': 'Deposit kept by the tailor', 'deposit-on-hold': 'Deposit on hold (not confirmed)',
+  'balance-hold': 'Balance hold', 'balance-hold-moved': 'Balance hold released (moved to another card)', 'balance-hold-failed': 'Balance hold declined',
+  'courier-hold': 'Courier hold', 'balance-capture': 'Balance captured', 'capture-failed': 'Balance charge failed', 'balance-release': 'Balance hold released',
+  'balance-refund': 'Balance refunded', 'overage-refund': 'Overage refunded', 'courier-change': 'Courier window change, charged on its own',
+  fee: 'Taily fee', 'courier-uber': 'Courier, paid to Uber', 'courier-fee': 'Taily courier fee', 'courier-absorbed': 'Courier difference absorbed by Taily',
+  payout: 'Payout queued', 'payout-paid': 'Payout sent', 'payout-failed': 'Payout sent back',
+};
+/** What kind of line it is: 'hold' (an authorization, no money moved) · 'in' (charged to the customer's card) · 'out' (back to the customer) ·
+    'release' (a hold let go) · 'revenue' (Taily's) · 'cost' (Taily pays: Uber, an absorbed difference) · 'tailor' (to the tailor) · 'note'. */
+const LEDGER_FLOW = {
+  'deposit-hold': 'hold', 'balance-hold': 'hold', 'courier-hold': 'hold', 'deposit-on-hold': 'hold', 'balance-hold-failed': 'note', 'capture-failed': 'note',
+  'deposit-capture': 'in', 'balance-capture': 'in', 'courier-change': 'in',
+  'deposit-refund': 'out', 'balance-refund': 'out', 'overage-refund': 'out',
+  'deposit-release': 'release', 'balance-release': 'release', 'balance-hold-moved': 'release',
+  fee: 'revenue', 'courier-fee': 'revenue', 'courier-absorbed': 'cost', 'courier-uber': 'cost',
+  'deposit-kept': 'tailor', payout: 'tailor', 'payout-paid': 'tailor', 'payout-failed': 'note',
+};
+const CAPTURE_WHY = { handoff: 'at the handoff', unclaimed: 'on the hold’s last day', 'before-expiry': 'before the hold ended (problem open)', taily: 'by Taily' };
+const PAYOUT_KIND = { job: 'job', 'no-show': 'no-show pay', 'kept-deposit': 'kept deposit' };
+function ledgerRowsOf(a) {
+  const rows = [];
+  const cust = a.customerId === state.customer.id || !a.customerId ? `${state.customer.first} ${state.customer.last ?? ''}`.trim() || 'Customer' : 'Customer';
+  const tail = tailorById(a.tailorId)?.name ?? 'Tailor';
+  const who = [`customer:${a.customerId ?? state.customer.id}`, `tailor:${a.tailorId}`];
+  const add = (kind, cents, at, extra = {}) => { if (at) rows.push({ id: `${a.id}:${kind}:${rows.length}`, at, apptId: a.id, ref: `#${String(a.id).replace(/\D/g, '')}`, customer: cust, tailor: tail, who, kind, label: LEDGER_LABEL[kind], flow: LEDGER_FLOW[kind], cents, ...extra }); };
+  const d = a.payments?.deposit;
+  const b = a.payments?.balance;
+  const last = a.history[a.history.length - 1]?.at ?? null;
+  const accepted = a.history.find((h) => h.status === 'confirmed')?.at ?? null;
+  if (d) {
+    add('deposit-hold', d.cents, a.requestedAt);
+    if (accepted && ['captured', 'kept', 'refunded'].includes(d.state)) add('deposit-capture', d.cents, accepted);
+    if (d.state === 'released') add('deposit-release', d.cents, a.cancel?.at ?? last);
+    if (d.state === 'refunded') add('deposit-refund', a.cancel?.refund || d.cents, d.refundedAt ?? a.cancel?.at ?? last);
+    if (d.state === 'kept') add('deposit-kept', d.cents, a.cancel?.keptAt ?? a.cancel?.at ?? last);
+    if (depositOnHold(a)) add('deposit-on-hold', d.cents, a.cancel.at, { note: a.cancel.disputedAt ? 'disputed' : `until ${fmtWhen(a.cancel.holdUntil)}` });
+  }
+  if (b) {
+    for (const h of b.holds ?? []) {
+      add('balance-hold', h.cents, h.at, { note: h.by === 'ready' ? 'placed at ready' : 'placed at Pay', cardId: h.cardId });
+      if (h.releasedAt) add('balance-hold-moved', h.cents, h.releasedAt, { cardId: h.cardId });
+    }
+    if (b.failedBy === 'ready' && b.failedAt) add('balance-hold-failed', b.cents, b.failedAt, { note: 'nothing held' });
+    if (b.courierCents > 0) add('courier-hold', b.courierCents, b.courierHeldAt);
+    if (b.state === 'captured') add('balance-capture', b.cents, b.capturedAt, { note: CAPTURE_WHY[b.captureReason] ?? '' });
+    if (b.state === 'capture-failed') add('capture-failed', b.cents, b.failedAt);
+    if (b.state === 'released') add('balance-release', b.cents, b.releasedAt);
+    if (b.state === 'refunded') add('balance-refund', b.cents, b.refundedAt);
+    if (b.state === 'captured' && a.returnOption === 'courier' && a.courier) {
+      const p = a.courier.pay ?? { uber: a.courier.quote, markup: a.courier.markup, absorbed: 0 };
+      add('courier-uber', p.uber, b.capturedAt);
+      add('courier-fee', p.markup, b.capturedAt);
+      if (p.absorbed > 0) add('courier-absorbed', p.absorbed, b.capturedAt);
+    }
+  }
+  for (const x of a.payments?.courierCharges ?? []) add('courier-change', x.cents, x.at, { note: x.to ? `to ${slotText({ start: x.to })}` : '' });
+  if (a.payments?.refund?.state === 'refunded' && a.payments.refund.cents > 0) add('overage-refund', a.payments.refund.cents, b?.capturedAt ?? last);
+  for (const p of state.payouts.filter((x) => x.apptId === a.id)) {
+    if (p.kind === 'job') add('fee', a.money.tailyFee, p.createdAt);
+    add('payout', p.cents, p.createdAt, { note: PAYOUT_KIND[p.kind] ?? p.kind, state: p.state === 'pending' && p.held ? 'held' : p.state, date: p.date });
+    if (p.state === 'paid') add('payout-paid', p.cents, p.paidAt, { note: `${p.bank || 'Bank'} •••• ${p.last4 ?? ''}`.trim() });
+    if (p.state === 'failed') add('payout-failed', p.cents, p.failedAt);
+  }
+  return rows;
+}
+/** K-53 (c7): the Ledger. `filter` = { day: 'YYYY-MM-DD', apptId, person: 'customer:<id>' | 'tailor:<id>' } (each optional). → { rows
+    (newest first), totals, options: { days, orders, people } } — totals in cents: held (holds still open now on the filtered orders), charged, refunded, released,
+    revenue (Taily fees + courier fees − absorbed), uber (courier pass-through), kept (deposits kept by tailors), paid / pending / heldPayouts. */
+export function ledger(filter = {}) {
+  /* newest first; events in the same minute keep their real order, reversed (a capture above its hold) */
+  const all = state.appts.flatMap(ledgerRowsOf).map((r, i) => ({ r, i })).sort((x, y) => (x.r.at < y.r.at ? 1 : x.r.at > y.r.at ? -1 : y.i - x.i)).map((x) => x.r);
+  const people = [...new Map(all.flatMap((r) => [[r.who[0], r.customer], [r.who[1], r.tailor]])).entries()].map(([key, label]) => ({ key, label }));
+  const options = {
+    days: [...new Set(all.map((r) => isoDay(r.at)))],
+    orders: [...new Map(all.map((r) => [r.apptId, `${r.ref} · ${r.customer} · ${r.tailor}`])).entries()].map(([id, label]) => ({ id, label })),
+    people,
+  };
+  const rows = all.filter((r) => (!filter.day || isoDay(r.at) === filter.day) && (!filter.apptId || r.apptId === filter.apptId)
+    && (!filter.person || r.who.includes(filter.person)));
+  const sum = (pred) => rows.filter(pred).reduce((n, r) => n + r.cents, 0);
+  const appts = [...new Set(rows.map((r) => r.apptId))].map(getAppt);
+  const heldNow = appts.reduce((n, a) => n + (a.payments.deposit?.state === 'authorized' ? a.payments.deposit.cents : 0) + (a.payments.balance?.state === 'held' ? a.payments.balance.cents : 0)
+    + (depositOnHold(a) ? a.payments.deposit.cents : 0), 0);
+  const totals = {
+    held: heldNow,
+    charged: sum((r) => r.flow === 'in'),
+    refunded: sum((r) => r.flow === 'out'),
+    released: sum((r) => r.flow === 'release'),
+    revenue: sum((r) => r.flow === 'revenue') - sum((r) => r.kind === 'courier-absorbed'),
+    uber: sum((r) => r.kind === 'courier-uber'),
+    kept: sum((r) => r.kind === 'deposit-kept'),
+    paid: sum((r) => r.kind === 'payout-paid'),
+    pending: sum((r) => r.kind === 'payout' && r.state === 'pending'),
+    heldPayouts: sum((r) => r.kind === 'payout' && r.state === 'held'),
+  };
+  return { rows, totals, options };
+}
+
 /* ---------- K-48.1 / K-48.5: what the admin is told, and the cases Taily reviews (the admin + Help UI is track A2's) ---------- */
 const REVIEW_WHY = {
   'final-order-unanswered': (a) => `Final order unanswered ${POLICY.FINAL_ORDER_REVIEW_D} days`,
@@ -2484,7 +2679,7 @@ const REVIEW_WHY = {
   'no-show-disputed': (a) => `${state.customer.first} says she was there (no-show)`,
   'tailor-no-show-disputed': (a) => `${firstName(tailorById(a.tailorId))} says she came (tailor no-show)`,
   'delivery-missing': (a) => 'A courier delivery didn’t reach the customer',
-  'ready-no-way-back': (a) => `Ready ${POLICY.READY_DEFAULT_D} days, no in-store pickup to default to`,
+  'ready-no-way-back': (a) => `Ready ${HOLD_DAYS} days, charged, no in-store pickup to default to`,
 };
 /** Tell the admin (K-48.1: support = the CEO). Kinds: 'review' (an A1 review opened) · 'case' (a Help case) · 'safety' (a report or a block) ·
     'message' (someone wrote on an open case). Every one is also a text to the admin ('admin-case' / 'admin-message', js/texts.js). */
@@ -2776,8 +2971,8 @@ const REVIEW_SAY = {
     ? `You told us the courier delivery didn’t reach you. We’re checking the courier’s photo and reply by ${by}.`
     : `${state.customer.first} says the courier delivery didn’t reach her. We’re checking with the courier and reply by ${by}. Nothing for you to do yet.`),
   'ready-no-way-back': (a, side, by) => (side === 'customer'
-    ? `Your order has been ready for ${POLICY.READY_DEFAULT_D} days. Pick how to get it back on your booking, or tell us here what’s going on.`
-    : `${state.customer.first} hasn’t picked a way back in ${POLICY.READY_DEFAULT_D} days, and you don’t offer in-store pickup. We’re contacting her and reply by ${by}.`),
+    ? `Your order has been ready for ${HOLD_DAYS} days, so we charged the balance. Pick how to get it back on your booking, or tell us here what’s going on.`
+    : `${state.customer.first} hasn’t picked a way back in ${HOLD_DAYS} days, and you don’t offer in-store pickup. We charged her balance and are contacting her; we reply by ${by}.`),
 };
 /** How a review that ended on its own reads in the case (A1's ends). */
 const REVIEW_ENDED = {

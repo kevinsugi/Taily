@@ -92,7 +92,7 @@ export const FLOWS_c_booking = [
 FLOWS_t_job.push(
   { screen: 't-job', group: G, key: 't-job--reminder-confirmed-shop', title: 'Job — Sarah confirmed a shop visit', note: 'SF-10: the no-show line says “doesn’t come”, not “isn’t home”',
     setup: (S) => { const a = shopVisit(S); toReminder(S, a, 12); S.T.confirmVisit(a.id); },
-    expect: { has: [`If she cancels now, you keep her ${SHOP_DEP} deposit. If she doesn’t come, you’re paid ${NO_SHOW}.`], not: 'isn’t home', sel: '[data-strip="done"]' } },
+    expect: { has: [`you keep her ${SHOP_DEP} deposit if she cancels or doesn’t come.`], not: 'isn’t home', sel: '[data-strip="done"]' } },
 );
 
 /* ---------- SF-12: Home and Bookings rows say the handoff and a pending edit ---------- */
@@ -115,11 +115,11 @@ export const FLOWS_c_bookings = [
 
 /* ---------- SF-13 / SF-14 / SF-15: the 7-day charge on the customer's side ---------- */
 FLOWS_c_booking.push(
-  { screen: 'c-booking', group: G, key: 'c-booking--change-time-capped', title: 'Pick a new time — up to the day-6 charge', note: 'SF-13 + D-04: four days after paying, the sheet offers no time after the charge (Wed, Oct 21 · 5:00 PM)',
-    setup: (S) => { S.driveTo('awaiting-handoff'); S.advanceClock(4 * 24 * 60); },
+  { screen: 'c-booking', group: G, key: 'c-booking--change-time-capped', title: 'Pick a new time — up to the hold’s last day', note: 'SF-13 + D-04 → K-53: a day after paying, the sheet offers no time after the ready hold’s last day (Mon, Oct 19 · 5:00 PM; the shop is closed Sun and Mon)',
+    setup: (S) => { S.driveTo('awaiting-handoff'); S.advanceClock(1 * 24 * 60); },
     click: ['[data-act="change-time"]'],
-    expect: { has: ['Wed, Oct 21'], not: ['Thu, Oct 22', 'Fri, Oct 23'], sel: '[data-s="c-booking--change-time"]' } },
-  { screen: 'c-booking', group: G, key: 'c-booking--not-received-charged', title: 'Didn’t get it — after the 7-day charge', note: 'SF-15: the sheet says she was already charged; the unclaimed banner gives way to the picked-up countdown',
+    expect: { has: ['Sat, Oct 17'], not: ['Tue, Oct 20', 'Wed, Oct 21'], sel: '[data-s="c-booking--change-time"]' } },
+  { screen: 'c-booking', group: G, key: 'c-booking--not-received-charged', title: 'Didn’t get it — after the hold’s last-day charge', note: 'SF-15 (K-53: the charge on the ready hold’s last day): the sheet says she was already charged; the unclaimed banner gives way to the picked-up countdown',
     setup: (S) => { const a = S.driveTo('unclaimed'); S.T.markHandedOver(a.id); },
     click: ['[data-act="not-got-it"]'],
     expect: { has: ['Didn’t get it?', `You’ve already been charged ${F1_exact(F1_SC.seed.balance)}. We’ll keep the order open while you sort it out in chat.`], not: ['Nothing is charged while', 'We charged your'], sel: '[data-s="c-booking--not-received"]' } },

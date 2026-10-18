@@ -8,7 +8,9 @@
         (0.10 / .1 / 10% / 24% ...) — rates live in one file
      4. `%` in money copy: a fee / deposit / refund / payout / balance /
         courier / total string with a percentage in it (money copy is
-        dollars, always)
+        dollars, always); K-53: the fee rate (feePercent / TAILY_FEE_RATE)
+        is read only by money.js and js/screens/to-fee.js — the one
+        screen that shows it as a percent
      5. Date.now() / argument-less new Date() in js/screens/ and
         js/components.js — time comes from the demo clock
      6. a screen file importing another screen file
@@ -175,6 +177,16 @@ for (const [f, src] of code) {
 }
 rule('js: no rate literals outside js/money-config.js', rateOff);
 rule('js: no % in money copy (dollar amounts only)', moneyOff);
+
+/* K-53: the Taily fee shows as a percent on ONE screen — to-fee (money.js feePercent); no other file reads the rate or prints it */
+const FEE_RATE_OK = /^js\/(money|money-config)\.js$|^js\/screens\/to-fee\.js$/;
+const feeRateOff = [];
+for (const [f, src] of code) {
+  const r = rel(f);
+  if (FEE_RATE_OK.test(r) || r.startsWith('js/fixtures/')) continue;   // fixtures may build the expected words
+  src.forEach((l, i) => { if (/\bfeePercent\b|\bTAILY_FEE_RATE\b/.test(l)) feeRateOff.push(`${r}:${i + 1}  the fee rate outside to-fee  ${l.trim().slice(0, 80)}`); });
+}
+rule('js (K-53): the fee percent only on to-fee (feePercent / TAILY_FEE_RATE)', feeRateOff);
 
 const dateOff = [];
 for (const [f, src] of code) {

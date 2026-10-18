@@ -1,0 +1,13 @@
+/* to-fee — K-53: the Taily fee explained (onboarding step 2's first page). Layout only; tokens only. */
+.to-fee__title { margin-top: var(--rhythm-block); }
+.to-fee__lead { margin: var(--rhythm-tight) 0 0; text-wrap: pretty; }
+.to-fee__head { margin: 0; }
+.to-fee__head [data-fee-rate] { font-variant-numeric: tabular-nums lining-nums; }
+.to-fee__list { list-style: none; margin: var(--rhythm-tight) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-12); }
+.to-fee__item { display: flex; align-items: flex-start; gap: var(--space-12); }
+.to-fee__dot { flex: none; width: var(--space-8); height: var(--space-8); margin-top: var(--space-8); border-radius: var(--radius-full); background: var(--accent-base); }
+.to-fee__text { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.to-fee__line { text-wrap: pretty; }
+.to-fee__more { margin: var(--rhythm-tight) 0 0; text-wrap: pretty; }
+.to-fee__sentence { margin: 0 0 var(--space-8); }
+.to-fee__extra { margin: var(--space-8) 0 0; text-wrap: pretty; }

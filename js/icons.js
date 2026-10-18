@@ -118,6 +118,8 @@ export const NAV_ICONS = {
   earnings: NAV24('<rect x="3" y="6" width="18" height="12" rx="2.25"/><circle cx="12" cy="12" r="2.75"/><path d="M6.75 9.75h.01M17.25 14.25h.01"/>'),
   /* pre-MVP A2: the admin's inbox tray */
   inbox: NAV24('<path d="M3.75 13.5 6 5.25h12l2.25 8.25v5.25H3.75z"/><path d="M3.75 13.5h4.5l1.5 2.25h4.5l1.5-2.25h4.5"/>'),
+  /* K-53 (c7): the admin's ledger — an open book with ruled lines */
+  ledger: NAV24('<path d="M12 6.75c-1.75-1.5-4.5-2.25-8.25-2.25v13.5c3.75 0 6.5.75 8.25 2.25 1.75-1.5 4.5-2.25 8.25-2.25V4.5c-3.75 0-6.5.75-8.25 2.25z"/><path d="M12 6.75v13.5"/><path d="M6.25 9h3M6.25 12h3M14.75 9h3M14.75 12h3"/>'),
 };
 /* 16 px line glyphs (same family, 1.5 stroke) */
 export const ICON_INFO = `<svg class="icon-16" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.25v4M8 4.9h.01"/></svg>`;

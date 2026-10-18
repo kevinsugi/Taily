@@ -4,7 +4,7 @@
    Every milestone's Test-flows setup reuses it. DOM-free.
    ============================================================ */
 import {
-  state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt, handoffCode, handoffSlots,
+  state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt, handoffCode, handoffSlots, unclaimedAt, now,
 } from '../state.js';
 import { addMinutes, addDays, isoMinute, isoDay } from '../dates.js';
 import { TAILORS, CUSTOMER, DEMO_NOW, DECLINE_REASONS, CANT_MAKE_IT_REASONS } from '../data.js';
@@ -242,7 +242,7 @@ export function driveTo(target, opts = {}) {
   pickHandoff(id);                                                          // K-40: the time comes before the hold
   must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
   if (target === 'awaiting-handoff') return getAppt(id);
-  if (target === 'unclaimed') { advanceClock(POLICY.UNCLAIMED_CAPTURE_D * 24 * 60); return getAppt(id); }   // the hold is captured, the job stays open
+  if (target === 'unclaimed') { toHoldEnd(id); return getAppt(id); }   // K-53: the hold's last day — captured, the job stays open
   if (['handed-over', 'problem', 'auto-completed'].includes(target)) {
     must(T.markHandedOver(id), 'markHandedOver');                            // pickup: marked without the code
     if (target === 'handed-over') return getAppt(id);
@@ -254,6 +254,11 @@ export function driveTo(target, opts = {}) {
   if (target === 'completed') return getAppt(id);
   if (target === 'review-reminder') { advanceClock(POLICY.REVIEW_REMINDER_D * 24 * 60); return getAppt(id); }
   return must(T.leaveReview(id, { stars: 5, text: 'Perfect fit, and she was on time.', photos: 0 }), 'leaveReview');
+}
+
+/** K-53: run the clock to the balance hold's last day (ready + HOLD_DAYS, state.js unclaimedAt) — the capture / the default to pickup fire. */
+export function toHoldEnd(id) {
+  return advanceClock(Math.round((unclaimedAt(getAppt(id)) - now()) / 60000));
 }
 
 /** D-158: sending a request spent the draft (an empty job). A fixture that wants another request for the same job puts it back from the

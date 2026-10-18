@@ -22,10 +22,11 @@ export const MILESTONES = [
   { id: 'A1', name: 'Pre-MVP A1: texts, timers, visit day, courier' },
   { id: 'PM', name: 'Pre-MVP fix pass (K-48)' },
   { id: 'A2', name: 'Pre-MVP A2: Taily Help, the admin, disputes, report / block, garment protection' },
+  { id: 'K53', name: 'Pre-MVP K-53 M: hold at Ready, fee 15 + the fee page, no-show = deposit, the admin Ledger, the free window’s end' },
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM', 'A2'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM', 'A2', 'K53'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
@@ -224,6 +225,8 @@ export const SCREENS = [
     { key: 'c-booking--taily-cancelled', m: 'A2', kind: 'state' },
     { key: 'c-booking--get-help', m: 'A2', kind: 'state' },
     { key: 'c-booking--note', m: 'PM', kind: 'state' },
+    { key: 'c-booking--courier-pricier', m: 'K53', kind: 'state' },
+    { key: 'c-booking--free-window-closed', m: 'K53', kind: 'state' },
   ] },
   { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01) · with the tailor’s Before / Pinned photos and comments (K-02)', states: [
     { key: 'c-price-change', m: 'M4', kind: 'frame' },
@@ -255,6 +258,9 @@ export const SCREENS = [
     { key: 'c-ready--courier-window', m: 'S1', kind: 'overlay' },
     { key: 'c-ready--courier-picked', m: 'S1', kind: 'state' },
     { key: 'c-ready--offline', m: 'A1', kind: 'state' },
+    { key: 'c-ready--hold-failed', m: 'K53', kind: 'state' },
+    { key: 'c-ready--courier-repriced', m: 'K53', kind: 'state' },
+    { key: 'c-ready--text', m: 'K53', kind: 'state' },
   ] },
   { id: 'c-complete', m: 'M4', persona: 'customer', title: 'C11 order completed: stitch stage + garment tags, Amara’s label with stars, receipt row (K-17)', states: [
     { key: 'c-complete', m: 'M4', kind: 'frame' },
@@ -326,6 +332,7 @@ export const SCREENS = [
     { key: 'c-receipt', m: 'PM', kind: 'frame' },
     { key: 'c-receipt--email', m: 'PM', kind: 'state' },
     { key: 'c-receipt--sent', m: 'PM', kind: 'state' },
+    { key: 'c-receipt--courier-change', m: 'K53', kind: 'state' },
   ] },
   { id: 'c-reviews', m: 'PM', persona: 'customer', title: 'All of a tailor’s reviews, newest first, booked through Taily (S-26)', states: [
     { key: 'c-reviews', m: 'PM', kind: 'frame' },
@@ -372,6 +379,10 @@ export const SCREENS = [
     { key: 'to-profile--edit', m: 'M2', kind: 'state' },
     { key: 'to-profile--id-sheet', m: 'PM', kind: 'overlay' },
     { key: 'to-profile--id-added', m: 'PM', kind: 'state' },
+  ] },
+  { id: 'to-fee', m: 'K53', persona: 'tailor', title: 'The Taily fee (K-53): step 2 opens on what Taily’s share covers + a worked dollar example — the ONLY screen that shows the rate as a percent', states: [
+    { key: 'to-fee', m: 'K53', kind: 'frame' },
+    { key: 'to-fee--shop', m: 'K53', kind: 'state' },
   ] },
   { id: 'to-services', m: 'M2', persona: 'tailor', title: 'O2 tick services + set a price each', states: [
     { key: 'to-services', m: 'M2', kind: 'frame' },
@@ -598,6 +609,8 @@ export const SCREENS = [
     { key: 't-job--case-decided', m: 'A2', kind: 'state' },
     { key: 't-job--taily-cancelled', m: 'A2', kind: 'state' },
     { key: 't-job--access-notes', m: 'PM', kind: 'state' },
+    { key: 't-job--ready-hold-failed', m: 'K53', kind: 'state' },
+    { key: 't-job--defaulted', m: 'K53', kind: 'state' },
   ] },
   { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Final order at the fitting (K-42; after the fitting: Edit order): add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },
@@ -673,6 +686,15 @@ export const SCREENS = [
     { key: 'a-case--general', m: 'A2', kind: 'state' },
     { key: 'a-case--safety', m: 'A2', kind: 'state' },
     { key: 'a-case--visit-unanswered', m: 'A2', kind: 'state' },
+  ] },
+  { id: 'a-ledger', m: 'K53', persona: 'admin', title: 'Admin Ledger (K-53, c7): every money event across appointments with day / order / person filters and totals, all dollars (read-only)', states: [
+    { key: 'a-ledger', m: 'K53', kind: 'frame' },
+    { key: 'a-ledger--empty', m: 'K53', kind: 'state' },
+    { key: 'a-ledger--order', m: 'K53', kind: 'state' },
+    { key: 'a-ledger--day', m: 'K53', kind: 'state' },
+    { key: 'a-ledger--person', m: 'K53', kind: 'state' },
+    { key: 'a-ledger--courier', m: 'K53', kind: 'state' },
+    { key: 'a-ledger--no-show', m: 'K53', kind: 'state' },
   ] },
   { id: 'sys-index', m: 'M0', persona: 'system', title: 'Boot screen: milestones M0–M7 and every built screen / state as a deep link', states: [
     { key: 'sys-index', m: 'M0', kind: 'frame' },

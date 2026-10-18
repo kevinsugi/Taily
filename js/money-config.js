@@ -5,7 +5,8 @@
    reads from here; the hygiene lint fails on a rate literal elsewhere.
    ============================================================ */
 export const MONEY = Object.freeze({
-  TAILY_FEE_RATE: 0.10,     // of the services subtotal only (not home-visit fee, rush, courier) — from the tailor's payout
+  TAILY_FEE_RATE: 0.15,     // K-53 (was 0.10): of the services subtotal only (not home-visit fee, rush, courier) — from the tailor's payout.
+                            //   Rendered as a percent ONLY on to-fee (money.js feePercent; the lint scopes it); everywhere else in dollars
   DEPOSIT_RATE: 0.10,       // of (services + home-visit fee), authorized at request, captured on accept
   COURIER_MARKUP: 0.10,     // on top of the courier quote, paid by the customer, kept by Taily
   COURIER_BASE: 8.00,       // prototype: simulated Uber API quote (K-43, D-299) — $8 base …
@@ -14,7 +15,8 @@ export const MONEY = Object.freeze({
   COURIER_PEAK_FROM_H: 17,  // prototype: the simulated peak = windows starting 5:00 PM …
   COURIER_PEAK_TO_H: 19,    // … up to (not including) 7:00 PM
   FEE_EXAMPLE_SERVICES: 100, // the round services total the payouts step explains the Taily fee with (display only, not a rate, D-63)
-  NO_SHOW_COMP: 25,         // floor the tailor is paid on a no-show (D-06)
+  COURIER_ABSORB: 3.00,     // K-53 (Q6): at Pay the courier is re-quoted; Taily absorbs a difference above the window price she saw up to this —
+                            //   more than this and she sees the new price first. (K-53, Q7: the D-06 no-show floor NO_SHOW_COMP is gone — the deposit only)
   PRICE_RANGE_SPREAD: 0.20, // Study-1 C3: a service's recommended range = base ± this share, never rendered as a rate
   PRICE_ROUND: 5,           // Study-1 C3: range ends rounded to the nearest $5
   GARMENT_PROTECTION_CAP: 500, // D-21 (pre-MVP A2): Taily's garment protection pays up to this per order for loss or damage (COUNSEL: placeholder cap)
@@ -32,9 +34,12 @@ export const POLICY = Object.freeze({
   CODE_RESEND_S: 30,        // "Resend code" unlocks 30 s after the last send (D-33)
   JUST_BOOKED_MIN: 60,      // a booking reads as just confirmed (You’re booked / You accepted) this long after the accept (D-73)
   HANDOFF_AUTO_H: 48,       // Study-1 A3: a pickup the tailor marked without Sarah's code completes on its own after this long (K-37: no drop-off)
-  UNCLAIMED_CAPTURE_D: 6,   // Study-1 A2 + D-04 (K-48): the held balance is captured this many days after the hold if the order is still not handed over — by day 6, inside a card hold's 7-day life (was 7)
+  BALANCE_HOLD_H: 114,      // K-53 (d2, Q5): the balance hold Taily places ON ITS OWN when the tailor marks the order ready (a merchant-initiated
+                            //   authorization on the saved card) lives this long — Visa's 4 days 18 hours. Measured from the READY time: every pickup
+                            //   time and courier window offered ends inside its whole days (4), and it is captured at the handoff or on that last day
+                            //   (ready + 4 days) — with no way back / time chosen by then: captured anyway, set to in-store pickup. (Retires D-312's
+                            //   READY_DEFAULT_D 14, D-04's UNCLAIMED_CAPTURE_D 6 from Pay and HANDOFF_PICK_DAYS 5.)
   REVIEW_REMINDER_D: 7,     // Study-1 A4: the review reminder shows this many days after completion when no review was left
-  HANDOFF_PICK_DAYS: 5,     // K-40 (D-295) + D-04 (K-48): a pickup time / courier window can be picked up to this many days ahead (was 7; stays before the day-6 capture)
   HANDOFF_SLOT_MIN: 30,     // K-40: pickup times start every half hour of the open hours; a courier delivery window is this long
   COURIER_COLLECT_LEAD_MIN: 15, // K-40: the courier collects from the tailor this long before the delivery window starts (inside her open hours)
   COURIER_CHANGE_CUTOFF_MIN: 60, // K-40 (D-295): Sarah can move a courier window until this long before the collection
@@ -48,8 +53,7 @@ export const POLICY = Object.freeze({
   WAIT_REMIND_1_H: 24,      // D-03: first reminder text for an unanswered final order / edit / ready order
   WAIT_REMIND_2_H: 72,      // D-03: the second (last) reminder text
   FINAL_ORDER_REVIEW_D: 7,  // D-03: a final order unanswered this long goes to Taily review
-  READY_DEFAULT_D: 14,      // D-03: a ready order with no way back chosen this long defaults to in-store pickup and starts the capture clock
-  ABANDONED_CLOSE_D: 30,    // D-03: an order still not collected this long after the charge is closed
+  ABANDONED_CLOSE_D: 30,    // D-03: an order still not collected this long after the charge (K-53: at the latest the hold's last day) is closed
   PROBLEM_REVIEW_H: 72,     // D-01 (K-48.1): a reported handoff problem still open this long goes to Taily review
   VISIT_CHECK_H: 2,         // D-11 (K-48.5): the visit start + this with nothing recorded → ask both "Did the visit happen?"
   VISIT_CHECK_ADMIN_H: 4,   // K-48.5 (Kevin, K-50): still unanswered this long after the visit START → the admin is notified (the ask is at start + VISIT_CHECK_H)

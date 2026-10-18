@@ -19,7 +19,7 @@ import { COMPANY } from '../policies.js';
 const ID = 'c-receipt';
 const ui = () => (state.ui[ID] ??= {});
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
-const LABEL = { deposit: 'Deposit', balance: 'Balance' };
+const LABEL = { deposit: 'Deposit', balance: 'Balance', 'courier-change': 'Courier window change' };   // K-53: a pricier window after Pay, its own charge
 const REFUND_LABEL = { deposit: 'Deposit refunded', overage: 'Courier difference refunded' };
 
 function view(s) {

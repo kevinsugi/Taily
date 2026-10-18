@@ -5,6 +5,7 @@
 .to-services__fee { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--rhythm-tight); }
 .to-services__fee .info-btn { margin-block: calc(-1 * var(--space-12)); margin-right: calc(-1 * var(--space-12)); }
 .to-services__take-note { margin: 0; flex: 1; min-width: 0; }
+.to-services__fee-page .text-link { padding-inline: 0; min-height: 44px; }   /* K-53: → to-fee */
 .to-services__list-error { margin: 0; }
 .to-services__list-error[hidden] { display: none; }
 .to-services__card .service-row-wrap { padding-block: var(--space-4); box-shadow: inset 0 -1px 0 var(--hairline); }

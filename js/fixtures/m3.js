@@ -266,10 +266,10 @@ export const FLOWS_t_job = [
     setup: (S) => { S.driveTo('confirmed'); S.advanceClock(TJ_POLICY.JUST_BOOKED_MIN); },
     click: ['[data-act="more"]', '[data-act="cant-make-it"]'],
     expect: { has: ['Cancel this appointment?', tjExact(TJ_SC.seed.deposit), 'Her order stays saved', 'Family emergency', 'Keep the visit', 'Cancel appointment'], not: 'less than 24 hours away', sel: '[data-act="cant-ok"]' } },
-  { key: 't-job--no-show', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — no-show sheet', note: '20 minutes past the start: you keep her deposit and are paid',
+  { key: 't-job--no-show', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — no-show sheet', note: '20 minutes past the start: you keep her deposit (K-53, Q7: the deposit only — no floor)',
     setup: (S) => { const a = S.driveTo('confirmed'); S.setClock(tjIso(tjAdd(TJ_SLOT, TJ_POLICY.NO_SHOW_WAIT_MIN + 5))); S.T.visitPing(a.id, 'tailor', 'here'); },   // D-14 (K-48): I'm here first
     click: ['[data-act="more"]', '[data-act="no-show"]'],
-    expect: { has: ['Mark Sarah as a no-show?', `You’re paid ${tjExact(TJ_SC.noShow.paid)} in total`, `${tjExact(TJ_SC.seed.deposit)} deposit isn’t refunded`, 'Keep waiting'], sel: '[data-act="no-show-ok"]' } },
+    expect: { has: ['Mark Sarah as a no-show?', `You keep Sarah’s ${tjExact(TJ_SC.noShow.paid)} deposit for your time. It isn’t refunded.`, 'Keep waiting'], not: 'in total', sel: '[data-act="no-show-ok"]' } },
   { key: 't-job--cant-make-it-done', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — you cancelled', note: 'Visit cancelled, Sarah refunded, reason shown, street hidden',
     setup: (S) => { S.driveTo('cant-make-it'); },
     expect: { has: ['Visit cancelled', `We told Sarah and refunded her ${tjExact(TJ_SC.earlyCancel.refund)} deposit`, 'Family emergency', 'Your reason'], not: ['145 N 7th St', 'Your reason: '] } },

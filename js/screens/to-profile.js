@@ -305,7 +305,7 @@ function wire(root) {
       if (editing) { state.ui[ID] = {}; back() || go('t-shop'); toast('Saved. Customers see the change now.', { tone: 'success' }); return; }
       /* D-18 (D-353): under the minimum years she goes on the waitlist — her profile is kept, nothing else to set up */
       if (waitlisted(myTailor())) { state.ui[ID] = {}; go('to-done', { fresh: true }); return; }
-      go(ONBOARDING_STEPS[ONBOARDING_STEPS.findIndex((s) => s.id === STEP) + 1].screen);
+      go('to-fee');   // K-53: step 2 opens on the Taily fee page, then Services and prices
     });
   }
   function finishLater() {

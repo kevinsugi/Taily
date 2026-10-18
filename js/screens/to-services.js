@@ -15,7 +15,7 @@ import { cents, fmt, fmtExact, payoutFor, tailyFeeFor, fmtColumn, priceRange, li
 import { MONEY } from '../money-config.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, serviceRow, priceRow,
-  actionBar, modalOverlay, leaveModal, leaveSheet, toast, esc, takeHtml, servicePay, sectionHead, infoButton, ctaSmall,
+  actionBar, modalOverlay, leaveModal, leaveSheet, toast, esc, takeHtml, servicePay, sectionHead, infoButton, ctaSmall, textLink,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -130,6 +130,7 @@ function view() {
   <p class="t-body c-600 ${ID}__lead">${INTRO}</p>
   <p class="t-small c-600 ${ID}__every" data-every-item>${EVERY_ITEM}</p>${editing ? editScopeNote() : ''}
   <div class="${ID}__fee"><p class="t-small c-600 ${ID}__take-note" data-money>${feeLine()}</p>${infoButton('fee', { label: 'The Taily fee' })}</div>
+  <div class="${ID}__fee-page">${textLink('What the fee covers', { act: 'fee-page' })}</div>
   <section class="sec" aria-labelledby="${ID}-list-label">
     ${sectionHead('Services', { id: `${ID}-list-label`, aside: `<span class="t-small c-600 tabular" data-selected>${selectedText(d)}</span>` })}
     ${recommendHtml(d)}
@@ -259,7 +260,7 @@ function wire(root) {
     btn.addEventListener('click', () => {
       if (ui().busy) return;
       if (editing) return isDirty() ? askLeave() : leave();
-      back() || go('to-profile');
+      back() || go('to-fee');   // K-53: the fee page opens step 2
     });
   });
 
@@ -316,6 +317,7 @@ function wire(root) {
   }
   main.addEventListener('click', (e) => {
     if (e.target.closest('[data-act="recommend"]:not([disabled])')) { recommend(); return; }
+    if (e.target.closest('[data-act="fee-page"]')) { go('to-fee'); return; }   // K-53: the draft stays in state.ui
     const a = e.target.closest('[data-act="dismiss"]');
     if (!a) return;
     if (state.ui.onboarding) state.ui.onboarding.resumed = false;

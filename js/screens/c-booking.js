@@ -21,7 +21,7 @@ import {
 } from '../components.js';
 import { VISIT_ICONS } from '../icons.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
-import { fmtExact, cancelTerms } from '../money.js';
+import { fmtExact, cancelTerms, HOLD_DAYS } from '../money.js';
 import { fmtWhen, fmtTime, fmtDay, fmtTimeRange, addMinutes, toDate, isoMinute, dayWord, fmtCountdown } from '../dates.js';
 import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
 import { POLICY } from '../money-config.js';
@@ -116,9 +116,7 @@ function cancelledView(a, t, first) {
     },
     'customer-late': {
       title: 'Booking cancelled',
-      body: a.cancel?.afterConfirm   // K-41 (D-296)
-        ? `${first} kept your deposit because you cancelled after confirming the visit. Nothing else is charged.`
-        : `${first} kept your deposit because you cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit. Nothing else is charged.`,
+      body: `${first} kept your deposit because you cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit. Nothing else is charged.`,   // K-53: confirming no longer makes a cancel late
       status: 'Kept',
     },
     unconfirmed: {   // K-43 (D-300): cancelled by Taily 3 hours before, inside the 24 h window — the late-cancel money
@@ -236,7 +234,7 @@ function liveView(a, t, first) {
       ? `Your visit was at ${esc(fmtTime(a.slot.start))}. If ${esc(first)} didn’t come, tap Tailor didn’t show up? to get your ${money(deposit)} back.`   // SF-11
       : `Your visit is at ${esc(fmtTime(a.slot.start))}. If ${esc(first)} hasn’t come by ${esc(fmtTime(reportAt))}, you can tell us here and get your ${money(deposit)} back.`)
     : r === 'confirmed'
-    ? `You confirmed on ${esc(fmtDay(a.reminder.confirmedAt))} at ${esc(fmtTime(a.reminder.confirmedAt))}. If you cancel now or ${away}, ${esc(first)} keeps your ${money(deposit)} deposit.`
+    ? `You confirmed on ${esc(fmtDay(a.reminder.confirmedAt))} at ${esc(fmtTime(a.reminder.confirmedAt))}. ${early ? `Free cancellation until ${cutoff}. After that, ${esc(first)} keeps the ${money(deposit)} deposit.` : `If you cancel now or ${away}, ${esc(first)} keeps your ${money(deposit)} deposit.`}`   // K-53: confirming doesn't end the free window
     : early
     ? `Free cancellation until ${cutoff}. After that, ${esc(first)} keeps the ${money(deposit)} deposit.`
     : `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel now, ${esc(first)} keeps your ${money(deposit)} deposit.`;
@@ -268,14 +266,16 @@ function reminderCopy(a, r, first, deposit) {
   if (r === 'asked') {
     return {
       strip: { tone: 'action', icon: 'clock', text: `Confirm by ${fmtTime(until)} ${dayWord(until, now())}`, right: `${fmtCountdown(until - now())} left` },
-      rule: `Free to change or cancel until ${esc(fmtWhen(until))}. Once you confirm, ${esc(first)} keeps your ${money(deposit)} deposit if you cancel or ${away}.`,   // K-51: as the reminder text (C7) says it
+      rule: `Free to change or cancel until ${esc(fmtWhen(until))}. After that, ${esc(first)} keeps your ${money(deposit)} deposit if you cancel or ${away}.`,   // K-51: as C7 says it; K-53: confirming doesn't end the free window
       bar: { ctaLabel: `Confirm for ${day}`, ctaAct: 'confirm-visit', secondaryLabel: 'Reschedule', secondaryAct: 'reschedule', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' },
     };
   }
   if (r === 'confirmed') {
     return {
       strip: { tone: 'done', icon: 'check', text: `Confirmed for ${day} · ${at}` },
-      rule: `If you cancel now or ${away}, ${esc(first)} keeps your ${money(deposit)} deposit.`,
+      rule: now() <= until   // K-53: confirming no longer closes the free window
+        ? `Still free to change or cancel until ${esc(fmtWhen(until))}. After that, ${esc(first)} keeps your ${money(deposit)} deposit if you cancel or ${away}.`
+        : `If you cancel now or ${away}, ${esc(first)} keeps your ${money(deposit)} deposit.`,
     };
   }
   const confirmLabel = a.job.visitType === 'home' ? 'Confirm, I’ll be home' : 'Confirm, I’ll be there';
@@ -388,6 +388,13 @@ function shopHoursOn(t, iso) {
     pickup code, or the auto-complete countdown) · the labelled place block led by the picked time (K-40) with its buttons (Change time) · what's left to do ·
     Your order · Price. "I got it" closes it on every way back (A3): the sticky bar with "I didn't get it" once Amara marked it handed over,
     else a quiet outline button at the end. */
+/** K-53: the courier window changes charged on their own after Pay — one line, "Window change $3.85 · charged Thu, Oct 15". */
+function extraLine(a) {
+  const xs = a.payments.courierCharges ?? [];
+  if (!xs.length) return [];
+  const sum = xs.reduce((n, x) => n + x.cents, 0);
+  return [`Window change <span data-money>${fmtExact(sum)}</span> · charged ${esc(fmtDay(xs.at(-1).at))}`];
+}
 function handoffView(a, t, first) {
   const f = esc(first);
   const shopName = esc(t.shopName);
@@ -451,7 +458,7 @@ function handoffView(a, t, first) {
         ...(w && trip?.state !== 'returned' ? [{ icon: 'clock', value: esc(`Arrives ${when}`), strong: true, detail: [movedFrom, trip?.state === 'out' ? `The courier has it · collected from ${f} at ${esc(fmtTime(trip.outAt))}` : `The courier collects from ${f} at ${esc(fmtTime(w.collectAt))}`].filter(Boolean) }] : []),
         {
           icon: 'truck', cls: 'visit-row--courier', value: esc(`${t.shopName} → ${returnAddress()}`),
-          detail: [`${esc(a.courier?.miles ?? 0)} mi · Uber via Taily`, 'Paid by you', esc(COURIER_LOBBY)],   // K-43 (D-298)
+          detail: [`${esc(a.courier?.miles ?? 0)} mi · Uber via Taily`, 'Paid by you', ...extraLine(a), esc(COURIER_LOBBY)],   // K-43 (D-298); K-53: a window change charged on its own
         },
       ], { title: 'Taily courier', flush: true })}${personActions([...change, message])}${helpRow()}<div class="${ID}__protection">${protectionRow()}</div>`,
       steps: trip?.state === 'returned' ? [{ state: 'current', title: 'Pick a new delivery window', sub: `No extra charge. It’s back with ${f}.` }, leave]
@@ -473,7 +480,7 @@ function handoffView(a, t, first) {
     : problem
     ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `You reported a problem. We’ve stopped the automatic completion and told ${f}.` })}</div>`
     : charged && bal.captureReason === 'unclaimed' && !marked   // SF-15: once she marked it picked up, the countdown speaks
-      ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `We charged your ${money(held)} balance after ${POLICY.UNCLAIMED_CAPTURE_D} days. ${f} still keeps it for you until you ${how === 'pickup' ? 'pick it up' : 'get it'}.` })}</div>` : '';
+      ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `We charged your ${money(held)} balance ${HOLD_DAYS} days after your order was ready. ${f} still keeps it for you until you ${how === 'pickup' ? 'pick it up' : 'get it'}.` })}</div>` : '';   // K-53: the hold's last day
   const stage = hangStage({
     types: items.map((g) => g.type), tag: [sarah, cfg.tag], left: `${plural(items.length, 'item')} · ${plural(services, 'service')}`, right: cfg.right,
     label: `${plural(items.length, 'item')} ready: ${andList(items.map((g) => g.type))}, hung on a rail with a tag: ${sarah}, ${cfg.tag}`,   // K-21: every garment is drawn, so the label names every one
@@ -607,8 +614,6 @@ function cancelSheetHtml(a, terms, first, busy = false, error = '') {
     : [{ label: 'Deposit paid', cents: deposit }, { label: 'Refund', cents: 0 }, { label: `Kept by ${first}`, cents: terms.kept, kind: 'total' }];
   const text = early
     ? `You’re cancelling more than ${POLICY.CANCEL_WINDOW_H} hours before the visit, so your ${money(terms.refund)} deposit comes back in full.`
-    : terms.confirmed   // K-41 (D-296): confirming at the reminder closed the free window early
-    ? `You confirmed this visit, so ${esc(first)} keeps your ${money(terms.kept)} deposit for the time set aside. Nothing else is charged.`
     : `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel now, ${esc(first)} keeps your ${money(terms.kept)} deposit for the time set aside. Nothing else is charged.`;
   const label = early ? `Cancel and get ${fmtExact(terms.refund)} back` : `Cancel and lose the ${fmtExact(terms.kept)} deposit`;
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
@@ -716,10 +721,17 @@ function openReschedule(a, first) {
 /* ---------- K-40 (T1): move the handoff time — the shared Scheduler sheet (components.js openHandoffTime) ---------- */
 function openChangeTime(a, first) {
   const courier = a.returnOption === 'courier';
+  const charges = a.payments.courierCharges?.length ?? 0;
   openHandoffTime(a, {
     mode: 'change', first,
     dataS: courier ? `${ID}--change-window` : `${ID}--change-time`,
-    onDone: (appt) => { go(ID); toast(`Moved to ${slotText(appt.handoff.slot)}. ${first} has been told.`); },
+    onDone: (appt) => {
+      go(ID);
+      const extra = (appt.payments.courierCharges?.length ?? 0) > charges ? appt.payments.courierCharges.at(-1) : null;   // K-53: a pricier window after Pay is its own charge
+      toast(extra
+        ? `Moved to ${slotText(appt.handoff.slot)}. The new window costs ${fmtExact(extra.cents)} more, charged now. ${first} has been told.`
+        : `Moved to ${slotText(appt.handoff.slot)}. ${first} has been told.`);
+    },
     onMessage: () => go('c-thread'),
   });
 }

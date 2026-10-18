@@ -38,12 +38,12 @@ From Core Journey v5 + Kevin's answers. Anything not here that an agent must dec
 - Prices come from each tailor's per-service price list. Estimates are shown from it.
 - **Home-visit fee**: tailor-set, home visits only, goes to the tailor in full.
 - **Rush fee**: kept. A **per-tailor rush ladder** (e.g. ≤1 day / 2 days / 3 days → $ amounts, 4+ days free) that the tailor edits in Shop → *Rush fees*. Shown in list estimates and the breakdown when the need-by date triggers it.
-- **Taily fee**: 10% of the services subtotal (excludes home-visit fee, rush fee and courier — DEFAULTED for rush, flagged). Deducted from the tailor's payout; shown to the tailor as "Taily fee −$36.00".
+- **Taily fee**: 15% (K-53, Oct 18 2026; was 10%) of the services subtotal (excludes home-visit fee, rush fee and courier — DEFAULTED for rush, flagged). Deducted from the tailor's payout; shown to the tailor as "Taily fee −$36.00".
 - **Deposit** = 10% of (services + home-visit fee), shown as a dollar amount. Authorized when the request is sent, captured when the tailor accepts. Declined / expired → hold released in full.
 - **Cancellation**: more than 24 h before the visit → full refund. Within 24 h → deposit kept (covers the non-refundable home-visit fee).
 - **Balance** (remaining services + rush + courier) is paid when the order is Ready.
 - **Price change** after the fitting: tailor sends adjusted prices → customer **Approves or Messages** the tailor. No reject/cancel path at this step; disputes are settled in chat. The deposit is unchanged; the balance changes.
-- **No-show**: v4 $25 compensation to the tailor is **kept**.
+- **No-show**: the tailor keeps the deposit, nothing more (K-53, Oct 18 2026: the v4 $25 floor is removed; Taily never tops up).
 - All rates live in one config table, `js/money-config.js`, mirroring the doc's "Taily fee settings" table. No hard-coded rates elsewhere.
 
 **Requests**

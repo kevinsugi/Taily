@@ -6,7 +6,7 @@
    (c-ready, c-ready--pay, c-booking--handoff-*, c-complete, t-job--handoff-*, t-job--cancel).
    ============================================================ */
 import { SCENARIOS as A1_SC } from './money-scenarios.js';
-import { fmtExact as A1_exact, fmt as A1_fmt } from '../money.js';
+import { fmtExact as A1_exact, fmt as A1_fmt, HOLD_DAYS as A1_HOLD_DAYS } from '../money.js';
 import { POLICY as A1_POLICY } from '../money-config.js';
 import { isoMinute as A1_iso, addMinutes as A1_add } from '../dates.js';
 import { earningsTo as A1_earningsTo } from './common.js';
@@ -26,9 +26,9 @@ export const FLOWS_c_booking = [
   { ...CB, key: 'c-booking--handoff-problem', title: 'You reported a problem', note: 'Study-1 A3 (default 5): picked up without the code, then reported — the countdown stopped, Amara told; Confirm received (K-48.3) still closes it',
     setup: (S) => { S.driveTo('problem'); },
     expect: { has: ['Problem reported · sort it out in chat', 'You reported a problem. We’ve stopped the automatic completion and told Amara.', 'Confirm received', 'Charged at pickup'], not: ['Charged at handoff', 'Completes automatically', 'I didn’t get it', 'On hold'], sel: '.banner--warning' } },
-  { ...CB, key: 'c-booking--handoff-unclaimed', title: `Charged after ${A1_POLICY.UNCLAIMED_CAPTURE_D} days`, note: `Study-1 A2 + D-04: still not picked up ${A1_POLICY.UNCLAIMED_CAPTURE_D} days after the hold — the hold is charged, the order stays open with its code; the pickup time passed, so Confirm received shows (D-09)`,
+  { ...CB, key: 'c-booking--handoff-unclaimed', title: `Charged on the hold’s last day`, note: `Study-1 A2 + D-04 → K-53: still not picked up ${A1_HOLD_DAYS} days after it was ready — the hold is charged, the order stays open with its code; the pickup time passed, so Confirm received shows (D-09)`,
     setup: (S) => { S.driveTo('unclaimed'); },
-    expect: { has: [`We charged your ${BAL} balance after ${A1_POLICY.UNCLAIMED_CAPTURE_D} days. Amara still keeps it for you until you pick it up.`, 'Charged', 'YOUR PICKUP CODE', `Ready · ${BAL} charged`, 'Confirm received'], not: ['On hold', 'I got it'], sel: '[data-pickup-code]' } },
+    expect: { has: [`We charged your ${BAL} balance ${A1_HOLD_DAYS} days after your order was ready. Amara still keeps it for you until you pick it up.`, 'Charged', 'YOUR PICKUP CODE', `Ready · ${BAL} charged`, 'Confirm received'], not: ['On hold', 'I got it'], sel: '[data-pickup-code]' } },
   { ...CB, key: 'c-booking--got-it', title: 'Confirm you received it?', note: 'Study-1 A3 + K-48.3: Confirm received (was “I got it”) asks once, then charges the hold and closes the order (Amara marked it picked up without the code)',
     setup: (S) => { S.driveTo('handed-over'); },
     click: ['[data-act="got-it"]'],
@@ -106,9 +106,9 @@ export const FLOWS_t_job = [
   { ...TJ, key: 't-job--handoff-problem', title: 'Job — Sarah didn’t get it', note: 'Study-1 A3 (default 5): marked picked up without the code, Sarah says she didn’t get it — countdown stopped; Message Sarah',
     setup: (S) => { S.driveTo('problem'); },
     expect: { has: ['Sarah says she didn’t get it. Sort it out in chat.', 'Message Sarah'], not: ['Completes automatically', 'Mark delivered again', 'Only Sarah can change the time'], sel: '[data-strip="action"]' } },
-  { ...TJ, key: 't-job--handoff-unclaimed', title: `Job — charged after ${A1_POLICY.UNCLAIMED_CAPTURE_D} days`, note: 'Study-1 A2 + D-03: Sarah’s hold was charged — the payout goes out now (D-03); keep the order 30 days',
+  { ...TJ, key: 't-job--handoff-unclaimed', title: `Job — charged on the hold’s last day`, note: 'Study-1 A2 + D-03 → K-53: Sarah’s hold was charged 4 days after ready — the payout goes out now (D-03); keep the order 30 days',
     setup: (S) => { S.driveTo('unclaimed'); },
-    expect: { has: [`Sarah’s ${BAL} was charged after ${A1_POLICY.UNCLAIMED_CAPTURE_D} days, so your payout is on its way`, 'Keep her order until', 'Picked up', 'Sarah missed her Fri, Oct 16 · 5:30 PM pickup · she picks a new time', 'Sarah missed this time. She picks a new one.'], sel: '[data-unclaimed]' } },
+    expect: { has: [`Sarah’s ${BAL} was charged ${A1_HOLD_DAYS} days after it was ready, so your payout is on its way`, 'Keep her order until', 'Picked up', 'Sarah missed her Fri, Oct 16 · 5:30 PM pickup · she picks a new time', 'Sarah missed this time. She picks a new one.'], sel: '[data-unclaimed]' } },
   { ...TJ, key: 't-job--completed-auto', title: 'Job — completed automatically', note: 'Study-1 A3: 48h after she marked it picked up without the code, no problem; the payout the Friday after',
     setup: (S) => { S.driveTo('auto-completed'); },
     expect: { has: ['COMPLETED AUTOMATICALLY · SARAH’S ORDER', 'Nice work, Amara.', 'Picked up at your shop · Thu, Oct 15', PAYOUT, 'Pending', 'Arrives Fri, Oct 23'], sel: '.linen-stage .tag-rail__tag' } },

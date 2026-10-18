@@ -51,7 +51,7 @@ const LOGO = `<svg class="top-nav__logo" viewBox="0 0 131.5 60.74" width="74" he
 export const NAV = {
   customer: [['home', 'Home'], ['bookings', 'Bookings'], ['messages', 'Messages'], ['account', 'Account']],
   tailor: [['home', 'Home'], ['shop', 'Shop'], ['messages', 'Messages'], ['earnings', 'Earnings']],   // K-04 / CR-6b: Messages before Earnings
-  admin: [['inbox', 'Inbox']],   // pre-MVP A2 (K-48.1): Kevin's admin view — one tab
+  admin: [['inbox', 'Inbox'], ['ledger', 'Ledger']],   // pre-MVP A2 (K-48.1): Kevin's admin view; K-53 (c7): + the Ledger
 };
 /**
  * Top nav (M7 A5.2, D-187): the logo and four 44 x 44 ICON links. The label is the link's aria-label + title. `badges` (D-164):
@@ -133,12 +133,12 @@ import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_
 export { NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR };
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
 import * as DATA from './data.js';
-import { fmt, fmtExact, fmtNeg, cents } from './money.js';
+import { fmt, fmtExact, fmtNeg, cents, HOLD_DAYS } from './money.js';
 import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb, dayWord } from './dates.js';
 import { POLICY } from './money-config.js';
 import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor, verifyView, checkState,
   caseById, caseView, caseMessages, casesFor, caseOfAppt, openCaseOfAppt, helpTopics, topicLabel, REPORT_REASONS, isBlocked, blockedBy, getAppt, tailorById,
-  maskContact, deliveryReportOpen, adminInbox } from './state.js';
+  maskContact, deliveryReportOpen, adminInbox, unclaimedAt } from './state.js';
 import { protectionLine, policyList, HELP_CONTACT } from './policies.js';
 import { scheduler, slotColumns, readSlot, windowColumns, readWindow, whenNote, SCHED_ROW } from './scheduler.js';   // K-40: the handoff time sheet (scheduler.js imports this file back; both only call across at run time)
 import { withLatency } from './sim.js';
@@ -1248,7 +1248,7 @@ const INFO = {
     'The deposit is held on your card, and charged only when the tailor accepts.',
     'It comes off your final total.',
     `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the tailor keeps the deposit.`,
-    `${POLICY.REMINDER_H} hours before the visit, we text you to confirm. Once you confirm, the tailor keeps the deposit if you cancel or aren’t there.`,   // SF-04 (K-41 / K-43) → K-51
+    `${POLICY.REMINDER_H} hours before the visit, we text you to confirm. Confirming doesn’t end the free cancellation.`,   // SF-04 (K-41 / K-43) → K-51 → K-53: the free window always ends 24 h before
     `If you don’t confirm ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and the tailor keeps the deposit.`,
     'If the tailor cancels or doesn’t show up, you get it back in full.'] }),   // K-29 (Study-1 A5)
   fitting: (c) => ({ title: 'At the fitting', lines: [
@@ -3352,6 +3352,11 @@ export function openCallSheet({ first = '', onMessage } = {}) {
     });
   });
 }
+/** K-53: how far ahead she can pick — "until Mon, Oct 19 · 5:00 PM" while the ready hold is open (unclaimedAt), else "in the next 4 days". */
+export function untilWords(appt) {
+  const end = ['ready', 'awaiting-handoff'].includes(appt?.status) && appt.payments?.balance?.state !== 'captured' ? unclaimedAt(appt) : null;
+  return end ? `until ${fmtWhen(end)}` : `in the next ${HOLD_DAYS} days`;
+}
 /** K-43 (D-298): a courier delivery never comes back — the line wherever the courier is chosen or booked. */
 export const COURIER_LOBBY = 'If you’re not home, the courier leaves it in your building’s lobby.';
 
@@ -3374,7 +3379,7 @@ export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', pla
   const keepLabel = change ? (courier ? 'Keep current window' : 'Keep current time') : 'Cancel';
   if (!slots.length) {
     sheetOverlay(`<div class="handoff-sheet">
-  <p class="t-body c-700">${esc(first)} has no ${change ? 'other ' : ''}open ${courier ? 'delivery windows' : 'pickup times'} in the next ${POLICY.HANDOFF_PICK_DAYS} days. Message ${esc(first)} to find a time that works.</p>
+  <p class="t-body c-700">${esc(first)} has no ${change ? 'other ' : ''}open ${courier ? 'delivery windows' : 'pickup times'} ${esc(untilWords(appt))}. Message ${esc(first)} to find a time that works.</p>
   ${cta(`Message ${esc(first)}`, { attrs: 'data-act="ht-message"' })}
   ${cta(keepLabel, { variant: 'secondary', attrs: 'data-act="ht-keep"' })}
 </div>`, { header, dataS: `${dataS}-none`, confirm: false }, (holder, close) => {
@@ -3398,9 +3403,9 @@ export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', pla
     : place ? `<p class="t-small c-600 handoff-sheet__now">${esc(place)}</p>` : '';
   const fine = redeliver ? `No extra charge. Taily books the courier to collect from ${esc(first)} again before your window. ${COURIER_LOBBY}`
     : change
-    ? (courier ? `You can change the window until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. The price is the new window’s quote, and ${esc(first)} is told right away. ${COURIER_LOBBY}` : `${esc(first)} is told right away. Your pickup code stays the same.`)
-    : (courier ? `Each window has its own Uber price. Taily books the courier to collect from ${esc(first)} before your window. You can change it until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. ${COURIER_LOBBY}`
-      : `Only times ${esc(first)}’s shop is open, in the next ${POLICY.HANDOFF_PICK_DAYS} days. You can change it later from your booking.`);
+    ? (courier ? `You can change the window until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. A window that costs more is charged now, on its own; ${esc(first)} is told right away. ${COURIER_LOBBY}` : `${esc(first)} is told right away. Your pickup code stays the same.`)   // K-53: the hold can't be raised
+    : (courier ? `Each window has its own Uber price, checked again when you pay. Taily books the courier to collect from ${esc(first)} before your window. You can change it until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. ${COURIER_LOBBY}`
+      : `Only times ${esc(first)}’s shop is open, ${esc(untilWords(appt))}. You can change it later from your booking.`);
   const okLabel = change && cur ? (courier ? 'Move my delivery' : 'Move my pickup') : (courier ? 'Use this window' : 'Use this time');
   const html = (busy = false, error = '') => `<div class="handoff-sheet"${busy ? ' aria-busy="true"' : ''}>
   ${error ? banner({ tone: 'error', text: error }) : ''}

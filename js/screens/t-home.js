@@ -62,7 +62,7 @@ function noticeCard(a) {
   const p = payoutOf(a);
   const paid = p ? ` It comes with your payout on ${fmtDay(p.date)}.` : '';
   const cfg = {
-    'customer-late': { title: `${sarah} cancelled ${ref}`, text: `${a.cancel.afterConfirm ? 'She cancelled after confirming' : `She cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before`}, so you keep her ${dep} deposit.${paid}` },
+    'customer-late': { title: `${sarah} cancelled ${ref}`, text: `She cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before, so you keep her ${dep} deposit.${paid}` },   // K-53: confirming no longer makes a cancel late
     'customer-early': { title: `${sarah} cancelled ${ref}`, text: `She cancelled more than ${POLICY.CANCEL_WINDOW_H} hours ahead, so nothing is owed. The time is open again.` },
     unconfirmed: { title: `We cancelled ${ref}`, text: `${sarah} didn’t confirm by ${fmtTime(a.cancel.at)}, so you keep her ${dep} deposit.${paid}` },
     'tailor-no-show': { title: `${sarah} says you didn’t come`, text: `Her ${dep} deposit was refunded. If you were there, tell us on the visit.` },

@@ -9,7 +9,7 @@
    B2's js/legal.js + c-legal / t-legal (terms, privacy, refunds, accessibility, tailor terms, tailor agreement).
    ============================================================ */
 import { POLICY, MONEY } from './money-config.js';
-import { fmt, cents } from './money.js';
+import { fmt, cents, HOLD_DAYS } from './money.js';
 
 /** Taily's contact details on the Help page (PROTOTYPE placeholders: the real number and address come with the support tooling). */
 export const HELP_CONTACT = Object.freeze({ text: '(718) 555-0100', email: 'help@taily.app', hours: 'Every day, 8:00 AM to 9:00 PM' });
@@ -62,7 +62,7 @@ export const POLICIES = {
         'If you cancel, she gets her deposit back in full. Please cancel only when you have to.',
       ] : [
         `Cancel for free until ${POLICY.CANCEL_WINDOW_H} hours before your visit. After that, your tailor keeps the deposit for the time set aside.`,
-        `${POLICY.REMINDER_H} hours before your visit, we text you to confirm. If you don’t confirm by ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and the deposit is kept.`,   // K-51
+        `${POLICY.REMINDER_H} hours before your visit, we text you to confirm. Confirming doesn’t end your free window. If you don’t confirm by ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and the deposit is kept.`,   // K-51; K-53: the free window always ends 24 h before
         'If your tailor cancels or doesn’t show up, your deposit is refunded in full.',
       ] },
       { title: 'Refunds', lines: ['A refund goes back to the card you paid with. It can take 5 to 10 business days to show.'] },
@@ -81,7 +81,8 @@ export const POLICIES = {
       { title: 'The deposit', lines: ['We hold the deposit when you send a request and charge it only if your tailor accepts. If she declines or doesn’t reply, it’s released.'] },
       { title: 'The balance', lines: [
         'You approve the final order at the fitting before any work starts.',
-        `When it’s ready, we hold the balance when you choose how to get it back and charge it at the handoff. If you haven’t collected it ${POLICY.UNCLAIMED_CAPTURE_D} days later, we charge it then.`,
+        `When it’s ready, we hold the balance on your saved card. Choose how to get it back within ${HOLD_DAYS} days. We charge it when you get it, or on day ${HOLD_DAYS} if you haven’t by then. If you haven’t chosen, we also set it to in-store pickup.`,   // K-53 (d2)
+        'A courier is priced again when you pay. If you then move to a window that costs more, the difference is charged on its own.',   // K-53 (Q6)
       ] },
       { title: 'A charge you don’t recognize', lines: [`Open the order and tap Get help, then “A charge or refund”. We reply within ${POLICY.HELP_REPLY_H} hours.`] },
     ]),
@@ -91,7 +92,7 @@ export const POLICIES = {
     sub: () => 'When something didn’t happen the way it should',
     sections: (who) => [
       { title: 'No-shows', lines: [
-        `A tailor can mark a no-show ${POLICY.NO_SHOW_WAIT_MIN} minutes after the start, and only after tapping I’m here when she arrived.`,
+        `A tailor can mark a no-show ${POLICY.NO_SHOW_WAIT_MIN} minutes after the start, and only after tapping I’m here when she arrived. She keeps the deposit.`,   // K-53 (Q7): the deposit only
         `A customer can report that the tailor didn’t come ${POLICY.NO_SHOW_WAIT_MIN} minutes after the start. The deposit is refunded.`,
         `If nothing is recorded, we ask you both “Did the visit happen?” ${POLICY.VISIT_CHECK_H} hours after the start. With no answer after ${POLICY.VISIT_CHECK_CANCEL_H} more hours, we decide by what was recorded: if the tailor tapped I’m here, it counts as the customer’s no-show.`,
         `If nothing was recorded at all, we close the visit as not confirmed and hold the deposit. If neither of you disputes it within ${POLICY.VISIT_HOLD_DISPUTE_H} hours, the tailor keeps it.`,   // K-51 (replaces the refund)

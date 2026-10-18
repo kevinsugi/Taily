@@ -19,7 +19,7 @@ import { focusAppt, redirectIfMoved, statusWord, setFocus } from '../focus.js';
 import { myTailor, requestView, jobAddress, payoutOf, inbox, payoutLine } from '../tailor-data.js';
 import { CANT_MAKE_IT_REASONS, RETURN_LABEL, HANDOFF_CODE_LEN, CHARGE_WHEN } from '../data.js';
 import { POLICY } from '../money-config.js';
-import { fmtExact, noShowPayout, cancelTerms } from '../money.js';
+import { fmtExact, noShowPayout, cancelTerms, HOLD_DAYS } from '../money.js';
 import { withLatency } from '../sim.js';
 import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime, fmtTimeRange, dayDiff, dayWord } from '../dates.js';
 import {
@@ -91,7 +91,7 @@ function heroCopy(a, v) {
   if (kind === 'customer-late') {
     return {
       title: `${firstOf()} cancelled`,
-      note: `<p class="t-body c-700 ${ID}__note">${c.afterConfirm ? 'She cancelled after confirming the visit' : `She cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit`}, so you keep her deposit.</p>`,   // the "Kept deposit" row has the amount; K-41: after her confirm
+      note: `<p class="t-body c-700 ${ID}__note">She cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before the visit, so you keep her deposit.</p>`,   // K-53: confirming no longer makes a cancel late   // the "Kept deposit" row has the amount; K-41: after her confirm
     };
   }
   if (a.status === 'confirmed' && justConfirmed(a)) {
@@ -204,7 +204,7 @@ function moreItems(a) {
   if (t < startMs) items.push({ label: 'Cancel appointment', sub: `${firstOf()} gets her ${fmtExact(a.payments.deposit.cents)} deposit back`, act: 'cant-make-it', tone: 'danger' });   // K-29 (Study-1 A5)
   /* D-14 (K-48): "I'm here" first — it is the evidence */
   const here = !!a.visitDay?.tailor?.hereAt;
-  items.push({ label: 'Mark as no-show', sub: !here ? 'Tap I’m here when you arrive first' : t < startMs + wait * 60000 ? `Available from ${from} if ${firstOf()} isn’t there` : `You’re paid ${fmtExact(noShowPayout(a.payments.deposit.cents))} for your time`, act: 'no-show', tone: 'danger' });
+  items.push({ label: 'Mark as no-show', sub: !here ? 'Tap I’m here when you arrive first' : t < startMs + wait * 60000 ? `Available from ${from} if ${firstOf()} isn’t there` : `You keep her ${fmtExact(noShowPayout(a.payments.deposit.cents))} deposit`, act: 'no-show', tone: 'danger' });   // K-53 (Q7): the deposit only
   return [...items, ...help];
 }
 /** DG-1 B (pre-MVP A2): the job's Taily Help case — "Taily is reviewing · Reply by …", "Taily replied", or the decision in dollars. */
@@ -359,14 +359,27 @@ function priceBlocks(a, pv, key) {
   ${tailorBreakdown(pv.after)}`, { id: `${ID}-take` })}`;
 }
 
+/** K-53 (d2): the ready job's fine print — her balance is held on her card from the moment it was marked ready; she chooses by the hold's
+    last day, else it is charged (and set to in-store pickup when there is a shop) and the payout goes out. */
+function readyFine(a, first) {
+  const b = a.payments.balance;
+  const courier = returnOffer(a).includes('courier') ? ' (plus the courier if she picks it)' : '';
+  if (!(a.money.balance > 0)) return `<p class="t-small c-600 ${ID}__fine">${first} has nothing more to pay; ${fmtExact(a.money.refund)} of her deposit goes back to her.</p>`;
+  const end = unclaimedAt(a);
+  const pickup = returnOffer(a).includes('pickup') && myTailor().shop?.enabled;
+  const lead = b.state === 'failed'
+    ? `${first}’s card didn’t go through for her ${fmtExact(b.cents)} balance. We asked her to update it.`
+    : `We’re holding ${first}’s ${fmtExact(b.readyCents ?? b.cents)} balance on her card${courier}.`;
+  return `<p class="t-small c-600 ${ID}__fine" data-ready-hold>${lead} She chooses by ${esc(fmtWhen(end))}. If she hasn’t, we charge it${pickup ? ' and set it to in-store pickup' : ''}, and your payout goes out.</p>`;
+}
 /** Study-1 A2–A3 under the header of a handoff: the countdown once she marked it, and the unclaimed capture. */
 function handoffNotes(a) {
   const b = a.payments.balance;
   const parts = [
     b.state === 'capture-failed' ? `<p class="t-body c-700 ${ID}__note" data-card-failed>Payment issue on ${esc(firstOf())}’s side. Your payout is waiting until she updates her card. We told her.</p>` : '',   // D-04
     autoCompleteLine(autoCompleteLeft(a), { who: firstOf() }),
-    b.state === 'captured' && b.captureReason === 'unclaimed'   // D-03 (pre-MVP A1): she is paid at the unclaimed charge; the order is kept ABANDONED_CLOSE_D
-      ? `<p class="t-body c-700 ${ID}__note" data-unclaimed>${esc(firstOf())}’s ${fmtExact(b.cents)} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days, so your payout is on its way${payoutOf(a) ? ` (${fmtDay(payoutOf(a).date)})` : ''}. Keep her order until ${fmtDay(toDate(b.capturedAt).getTime() + POLICY.ABANDONED_CLOSE_D * 86400000)}.</p>` : '',
+    b.state === 'captured' && b.captureReason === 'unclaimed'   // D-03 → K-53: she is paid at the charge on the hold's last day; the order is kept ABANDONED_CLOSE_D
+      ? `<p class="t-body c-700 ${ID}__note" data-unclaimed>${a.handoff?.defaultedAt ? `${esc(firstOf())} didn’t choose in ${HOLD_DAYS} days, so we charged her ${fmtExact(b.cents)} and set it to in-store pickup. Your payout is on its way` : `${esc(firstOf())}’s ${fmtExact(b.cents)} was charged ${HOLD_DAYS} days after it was ready, so your payout is on its way`}${payoutOf(a) ? ` (${fmtDay(payoutOf(a).date)})` : ''}. Keep her order until ${fmtDay(toDate(b.capturedAt).getTime() + POLICY.ABANDONED_CLOSE_D * 86400000)}.</p>` : '',
   ].filter(Boolean);
   return parts.length ? sec(`<div class="${ID}__handoff">${parts.join('')}</div>`, { first: true }) : '';
 }
@@ -535,7 +548,7 @@ function m4View(a, v, key) {
     case 'ready':
       body = `${head({ trail: personButtons(message) })}
   ${sec(visitBlock(returnOffer(a).map((k) => ({ icon: RETURN_ICON[k], value: RETURN_LABEL[k] })), { title: 'Return options you offered' }))}
-  <p class="t-small c-600 ${ID}__fine">${a.money.balance > 0 ? `${first} pays the ${fmtExact(a.money.balance)} balance` : `${first} has nothing more to pay; ${fmtExact(a.money.refund)} of her deposit goes back to her`}${returnOffer(a).includes('courier') ? ', plus the courier if she picks it' : ''}.</p>${work}${notes}${payout}`; break;
+  ${readyFine(a, first)}${work}${notes}${payout}`; break;
     case 'handoff-pickup':
       body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(`${visitBlock([...timeRows(a), ...placeRows(t.shopName, 'bag', shopLine(t))], { title: 'In-store pickup' })}${onlySarah(a)}`)}${work}${notes}${payout}`; break;
     case 'handoff-courier':
@@ -608,7 +621,7 @@ function reminderView(a) {
   const day = dayWord(a.slot.start, now());
   const title = day === 'today' || day === 'tomorrow' ? `Visit ${day}` : null;
   const dep = fmtExact(a.payments.deposit.cents);
-  const noShow = fmtExact(noShowPayout(a.payments.deposit.cents));
+  const away = a.job.visitType === 'home' ? 'isn’t home' : 'doesn’t come';   // SF-10
   const rem = a.reminder;
   if (r === 'asked') {
     const until = freeUntil(a);
@@ -617,11 +630,13 @@ function reminderView(a) {
   }
   if (r === 'confirmed') {
     return { title, strip: { tone: 'done', icon: 'check', text: `${first} confirmed for ${day}`, right: fmtTime(rem.confirmedAt) },
-      rule: `If she cancels now, you keep her ${dep} deposit. If she ${a.job.visitType === 'home' ? 'isn’t home' : 'doesn’t come'}, you’re paid ${noShow}.` };   // SF-10
+      rule: now() <= freeUntil(a)   // K-53: confirming no longer closes her free window; the no-show pay is the deposit (Q7)
+        ? `She can still change for free until ${esc(fmtWhen(freeUntil(a)))}. After that, you keep her ${dep} deposit if she cancels or ${away}.`
+        : `If she cancels now or ${away}, you keep her ${dep} deposit.` };
   }
   if (!autoCancelArmed(a)) {   // D-02 (pre-MVP A1): the reminder text never reached her — nothing cancels the visit
     return { title, strip: { tone: 'warn', icon: 'clock', text: `${first} hasn’t confirmed`, right: day === 'today' ? `Visit ${at}` : `Visit ${day} ${at}` },
-      rule: `The visit is still on. If she cancels now, you keep her ${dep} deposit. If she ${a.job.visitType === 'home' ? 'isn’t home' : 'doesn’t come'}, you’re paid ${noShow}.` };
+      rule: `The visit is still on. If she cancels now or ${away}, you keep her ${dep} deposit.` };   // K-53 (Q7): the no-show pay is the deposit
   }
   /* K-43 (D-300): no answer by REMINDER_AUTOCANCEL_H before the visit cancels it — and the kept deposit is hers */
   const by = fmtTime(autoCancelAt(a));
@@ -650,7 +665,7 @@ function openCantMakeIt(a) {
   const deposit = a.payments.deposit.cents;
   ui().reason = null;
   /* K-29 (Study-1 A5): inside CANCEL_WINDOW_H the sheet warns that Sarah is refunded and may not find someone else in time */
-  const late = cancelTerms(a, now()).window === 'late' && !cancelTerms(a, now()).confirmed;   // K-41: Sarah's confirm is not the 24 h
+  const late = cancelTerms(a, now()).window === 'late';
   const warn = late ? banner({ tone: 'warning', text: `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. ${esc(firstOf())} will be refunded her ${fmtExact(deposit)} deposit in full, and she may not find another tailor in time.` }) : '';
   sheetOverlay(`<div class="${ID}-sheet">
   ${warn}
@@ -695,7 +710,7 @@ function openNoShow(a) {
   const deposit = a.payments.deposit.cents;
   const minutes = Math.max(0, Math.round((now() - toDate(a.slot.start).getTime()) / 60000));
   sheetOverlay(`<div class="${ID}-sheet">
-  <p class="t-body c-700">It’s ${fmtTime(isoMinute(new Date(now())))}, ${plural(minutes, 'minute')} past the start. You’re paid ${fmtExact(noShowPayout(deposit))} in total for your time. ${esc(firstOf())}’s ${fmtExact(deposit)} deposit isn’t refunded.</p>
+  <p class="t-body c-700">It’s ${fmtTime(isoMinute(new Date(now())))}, ${plural(minutes, 'minute')} past the start. You keep ${esc(firstOf())}’s ${fmtExact(noShowPayout(deposit))} deposit for your time. It isn’t refunded.</p>
   <div class="${ID}-sheet__actions">
     ${cta('Mark as no-show', { variant: 'danger', busyLabel: 'Saving…', attrs: 'data-act="no-show-ok"' })}
     ${cta('Keep waiting', { variant: 'secondary', attrs: 'data-act="no-show-keep"' })}
@@ -743,7 +758,7 @@ function sheetReadyBody(a, keys, picked, { busy = false, error = false } = {}) {
   const first = esc(firstOf());
   const line = (k) => (k === 'pickup' ? `At ${shopPlace(t)}` : `${firstOf()} pays the courier. It’s not taken from your payout.`);
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
-  <p class="t-body c-700 ${ID}-sheet__intro">${first} is told right away, picks how to get it back from the options you tick, then pays the ${fmtExact(a.money.balance)} balance.</p>
+  <p class="t-body c-700 ${ID}-sheet__intro">${first} is told right away, and we hold her ${fmtExact(a.money.balance)} balance on her card. She picks how to get it back from the options you tick within ${HOLD_DAYS} days.</p>
   <fieldset class="${ID}-sheet__ways" data-ways>
     <legend class="t-small w-600 c-600">Return options for this order</legend>
     ${keys.map((k) => checkRow({ id: `ret-${k}`, label: RETURN_LABEL[k], caption: line(k), checked: picked[k] !== false, disabled: busy })).join('')}

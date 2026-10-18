@@ -1,5 +1,6 @@
 /* ============================================================
-   c-ready — C10 pick a way back, then PAY the balance (K-27, Study-1 A2: authorized now, charged at the handoff; K-44 wording).
+   c-ready — C10 pick a way back, then PAY the balance (K-27 → K-53: the balance is already HELD on her saved card since Amara marked it
+   ready; Pay confirms the way back + time against that hold — charged at the handoff, or on the hold's last day; K-44 wording).
    Focal: the "How do you want it back?" radio group; the amount lives in the Pay button.
    Only the options Amara offers for this order render (returnOffer); nothing is pre-chosen
    unless there is exactly one. The Taily courier is three dollar lines before Pay enables.
@@ -8,18 +9,18 @@
    Which appointment: focusAppt (D-72). Screen-local flags: state.ui['c-ready'] { apptId, quoting, cardId }.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorById, returnOffer, returnAddress, priceChangeView, slotText, courierMiles } from '../state.js';
+import { state, T, tailorById, returnOffer, returnAddress, priceChangeView, slotText, courierMiles, unclaimedAt } from '../state.js';
 import {
   chrome, headingRow, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
   sheetOverlay, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, wireGarmentDocs, textLink, sectionHead,
   linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime, COURIER_LOBBY, CHARGE_CAPTION, chargedPhrase, shopPlace, navBackMark, helpActions,
+  untilWords, balanceCardLabel,
 } from '../components.js';
-import { fmtDay, fmtTime, fmtTimeRange, nb as datesNb } from '../dates.js';
+import { fmtDay, fmtTime, fmtTimeRange, fmtWhen, nb as datesNb } from '../dates.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
 import { fmtExact } from '../money.js';
 import { RETURN_LABEL } from '../data.js';
-import { POLICY } from '../money-config.js';
 import { META_ICONS } from '../icons.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 
@@ -50,7 +51,10 @@ function read() {
   const sel = u.quoting ? 'courier' : (a.returnOption ?? (offered.length === 1 ? offered[0] : null));
   const c = a.courier;
   const courierState = sel === 'courier' ? (u.quoting || c?.state === 'loading' || !c ? 'loading' : c.state) : null;
-  const failed = a.payments.balance.state === 'failed';
+  const b = a.payments.balance;
+  /* K-53: the hold placed at ready failed (nothing held yet: Update card), or a Pay attempt declined (the ready hold, if any, is untouched) */
+  const failed = b.state === 'failed' || !!b.payFailed;
+  const holdFailed = b.state === 'failed' && b.failedBy === 'ready' && !b.payFailed;
   const cards = state.customer.cards ?? [];
   const methods = [
     ...cards.map((x) => ({ id: x.id, label: `${x.brand} •••• ${x.last4}`, sub: `Expires ${x.exp}`, kind: 'card' })),
@@ -58,7 +62,7 @@ function read() {
   ];
   const def = cards.find((x) => x.default) ?? cards[0];
   /* after a decline, "Pay another way" must not start on the card that was just declined (R4-2-C-04) */
-  const failedId = failed ? (a.payments.balance.failedCardId ?? u.cardId ?? def?.id ?? null) : null;
+  const failedId = failed ? (b.payFailed?.cardId ?? b.failedCardId ?? u.cardId ?? def?.id ?? null) : null;
   if (failedId) {
     const m = methods.find((x) => x.id === failedId);
     if (m) m.declined = true;
@@ -69,7 +73,7 @@ function read() {
   const method = methods.find((m) => m.id === want) ?? methods[0];
   /* K-40: the time picked for the chosen way back (a.handoff.slot; cleared when the way back changes) */
   const slot = sel && a.returnOption === sel ? (a.handoff?.slot ?? null) : null;
-  return { a, t, u, first: firstOf(t), offered, sel, c, courierState, failed, failedId, methods, method, slot };
+  return { a, t, u, first: firstOf(t), offered, sel, c, courierState, failed, holdFailed, failedId, methods, method, slot };
 }
 /** K-40: the courier fee is only added once a delivery window is picked — until then the money reads as without it. */
 function shownMoney(r) {
@@ -91,6 +95,8 @@ function subOf(k, r) {
 
 /** K-44 (D-302): the balance CTA label lives here only (Kevin is still choosing the verb) — the action bar and the pay sheet both use it. */
 const payLabel = (cents) => `Pay ${fmtExact(cents)}`;
+/** K-53: what Pay still covers — the balance, or only the courier once the balance was charged on the hold's last day (no shop to default to). */
+const dueNow = (a, m) => (a.payments.balance.state === 'captured' ? m.courier : m.balance);
 /* K-44 (D-302) → K-46: the Pay button's second line, by the way back (CHARGE_CAPTION, components.js) — shared with the Balance row (D-303). */
 /** CR-1b: the action-bar lead — why Pay waits; once it can go, the K-44 caption (a $0 balance: what was chosen, nothing is charged). */
 function barLead(r, { zero = false } = {}) {
@@ -108,7 +114,7 @@ function whenRow(r) {
   if (!sel || (sel === 'courier' && courierState !== 'ready')) return '';
   const sub = sel === 'courier'
     ? (slot ? `Delivery window · courier collects ${esc(fmtTime(slot.collectAt))}` : `Courier windows from ${esc(first)}’s open hours`)
-    : (slot ? `Pickup time · ${esc(first)} has it ready then` : `From ${esc(first)}’s open hours, next ${POLICY.HANDOFF_PICK_DAYS} days`);
+    : (slot ? `Pickup time · ${esc(first)} has it ready then` : `From ${esc(first)}’s open hours, ${esc(untilWords(r.a))}`);   // K-53: inside the hold
   return `<div class="${ID}__when">${handoffWhenRow({ method: sel, text: slot ? slotText(slot) : '', sub, act: 'pick-time' })}</div>`;
 }
 const noLonger = (a) => `${firstOf(tailorById(a.tailorId) ?? state.tailors[0])} no longer offers that option. Pick another way back.`;
@@ -164,10 +170,16 @@ function view() {
   const hero = `${linenStage({ eyebrow: readyAt ? `Finished · ${fmtDay(readyAt)}` : 'Finished', title: 'Your order is ready', rail: stage, label: 'Your order is ready' })}
   <p class="t-body ${ID}__intro">${body}</p>`;
   /* C-11: one decline pattern (D-140) — the banner sits directly above the action bar, the way forward is another card */
+  const card = esc(balanceCardLabel(a, a.payments.balance.cardId ?? a.cardId));
+  const repriced = sel === 'courier' && c?.repricedFrom != null && r.slot;   // K-53 (Q6): Uber's price at Pay rose more than Taily absorbs
   const alert = r.u.offline   // S-12 (pre-MVP A1): nothing is held while offline
     ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'You’re offline', text: 'Nothing was charged. Pay again when you’re back.' })}</div>`
+    : r.holdFailed && !zero   // K-53: the hold placed at ready didn't go through
+    ? `<div class="${ID}__alert" data-hold-failed>${banner({ tone: 'error', title: 'Update your card', text: `We couldn’t hold the ${fmtExact(m.balance)} balance on your ${card}. Nothing was charged. Pay with another card to get your order.`, actionLabel: 'Update card', actionAct: 'pay' })}</div>`
     : failed && !zero
     ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Your card was declined', text: 'Nothing was charged. Try another card.', actionLabel: 'Use another card', actionAct: 'pay' })}</div>`
+    : repriced
+    ? `<div class="${ID}__alert" data-repriced>${banner({ tone: 'warning', title: 'The courier price changed', text: `Uber’s price for your window is now ${fmtExact(c.cents)}, up from ${fmtExact(c.repricedFrom)}. Pay again to confirm, or pick another window.` })}</div>`
     : '';
   const sameCard = failed && r.method?.id === r.failedId;                 // the failed card is still the one selected
   /* "Free" sits in the row's value slot (right-aligned, t-body w-600) */
@@ -182,16 +194,20 @@ function view() {
       state: courierState, ...(courierState === 'ready' ? c : { miles: c?.miles ?? courierMiles(a) }),   // the distance is known before the price
       from: t.shopName, to: streetOf(), note: `Added to your balance. ${COURIER_LOBBY}`, protection: true,   // K-43 (D-298): it never comes back; D-21 (A2): garment protection
     })}${courierState === 'failed' && offered.length === 1 ? textLink(`Message ${first}`, { act: 'message' }) : ''}</div>` : '';
-  /* K-27 (Study-1 A2) + K-44: when she is charged, and the unclaimed rule, shown where the way back is chosen */
+  /* K-27 + K-44 → K-53: the balance is already on hold on her card; when she is charged, and the hold's last day, shown where the way back is chosen */
   const bal = m.balance;
   const things = items.length > 1 ? 'garments' : 'garment';
-  const feeLater = sel === 'courier' && courierState === 'ready' && !r.slot;   // K-40: the courier fee joins the hold with the window
-  const hold = zero ? '' : feeLater ? `<div class="${ID}__hold" data-hold>
-  <p class="t-body c-700">You’ll be charged ${money(bal)} plus the courier fee when you get your ${things}.</p>
-  <p class="t-small c-600">If you haven’t got it ${POLICY.UNCLAIMED_CAPTURE_D} days after you choose, we’ll charge it then. ${esc(first)} still keeps it for you until you do.</p>
-</div>` : `<div class="${ID}__hold" data-hold>
-  <p class="t-body c-700">You’ll be charged ${money(bal)} when you get your ${things}.</p>
-  <p class="t-small c-600">If you haven’t got it ${POLICY.UNCLAIMED_CAPTURE_D} days after you choose, we’ll charge the ${money(bal)} then. ${esc(first)} still keeps it for you until you do.</p>
+  const feeLater = sel === 'courier' && courierState === 'ready' && !r.slot;   // K-40: the courier fee joins with the window
+  const held = a.payments.balance.state === 'held';
+  const ready = a.payments.balance.readyCents ?? bal;
+  const lead = held
+    ? `We’re holding ${money(ready)} on your ${card}. You’re charged${feeLater || (sel === 'courier' && bal > ready) ? ' that plus the courier' : ''} when you get your ${things}.`
+    : `You’ll be charged ${money(bal)}${feeLater ? ' plus the courier fee' : ''} when you get your ${things}.`;
+  const end = unclaimedAt(a);
+  const pickupDefault = offered.includes('pickup') && t.shop?.enabled;
+  const hold = zero ? '' : `<div class="${ID}__hold" data-hold>
+  <p class="t-body c-700">${lead}</p>
+  ${end ? `<p class="t-small c-600" data-hold-end>Choose by ${esc(datesNb(fmtWhen(end)))}. If you haven’t by then, we charge the ${money(ready)}${pickupDefault ? ' and set it to in-store pickup' : ''}. ${esc(first)} still keeps it for you.</p>` : ''}
 </div>`;
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${navBackMark()}${hero}
@@ -208,7 +224,7 @@ function view() {
   ${alert}
 </main>
 ${actionBar({
-    ctaLabel: zero ? (refund > 0 ? `Confirm${sel ? ` ${CHOICE_WORD[sel]}` : ''} and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : payLabel(m.balance),
+    ctaLabel: zero ? (refund > 0 ? `Confirm${sel ? ` ${CHOICE_WORD[sel]}` : ''} and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : payLabel(dueNow(a, m)),
     ctaAct: zero ? 'confirm' : 'pay', disabled: off, busy: confirming, busyLabel: 'Confirming…',
     /* K-46 (D-303): Pay carries its caption — or, disabled, the reason it waits — as its own second line; a $0 balance keeps the lead */
     ...(zero ? { lead: barLead(r, { zero }) } : sameCard ? {} : { ctaSub: barLead(r) }),   // "Use another card" (the card just failed) carries no charge line
@@ -226,13 +242,13 @@ function sheetHtml(r, { cardId, busy = false } = {}) {
   })).join('');
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   ${moneyRows([{ label: 'Balance', cents: a.money.balance, kind: 'total' }])}
-  <p class="t-small c-600">Your ${money(a.payments.deposit.cents)} deposit is already taken off.</p>
+  <p class="t-small c-600">Your ${money(a.payments.deposit.cents)} deposit is already taken off.${a.payments.balance.state === 'held' ? ` The balance is on hold on your ${esc(balanceCardLabel(a, a.payments.balance.cardId))}; another card moves the hold.` : ''}</p>
   <div class="${ID}-sheet__pay">
   <p class="t-caps c-600">Pay with</p>
   <div class="${ID}-sheet__group" role="radiogroup" aria-label="Pay with"${busy ? ' aria-disabled="true"' : ''}>${rows}</div>
   </div>
   <div class="${ID}-sheet__go">
-  ${cta(payLabel(a.money.balance), { busy, busyLabel: 'Paying…', sub: CHARGE_CAPTION[a.returnOption] ?? CHARGE_CAPTION.pickup, subId: 'pay-sheet-sub', attrs: 'data-act="pay-ok"' })}
+  ${cta(payLabel(dueNow(a, a.money)), { busy, busyLabel: 'Paying…', sub: CHARGE_CAPTION[a.returnOption] ?? CHARGE_CAPTION.pickup, subId: 'pay-sheet-sub', attrs: 'data-act="pay-ok"' })}
   <p class="t-small c-600 ${ID}-sheet__pending">Your bank may show it as pending until then.</p>
   </div>
 </div>`;
@@ -368,7 +384,7 @@ function openPay(r) {
             setFocus(a.id);
             go('c-booking', { fresh: true });
             toast(`You’ll be charged ${fmtExact(res.appt.payments.balance.cents)} ${chargedPhrase(res.appt.returnOption)}.${tail}`, { tone: 'success' });
-          } else if (res.error === 'card-declined') {
+          } else if (res.error === 'card-declined' || res.error === 'courier-repriced') {   // K-53 (Q6): the new courier price shows in the banner
             go(ID);
           } else if (res.error === 'offline') {   // S-12
             u.offline = true;

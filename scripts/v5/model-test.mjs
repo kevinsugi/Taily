@@ -36,12 +36,16 @@ const throws = (fn, desc) => { let t = false; try { fn(); } catch { t = true; } 
 const section = (name) => { if (process.argv.includes('--verbose')) console.log(`\n# ${name}`); };
 const amara = () => state.tailors[0];
 const $ = (dollars) => M.cents(dollars);
+/* K-53: the Taily fee rate moved (0.10 → 0.15), so the golden rows derive the fee and the payout from MONEY instead of typing them */
+const FEE = (services) => Math.round(services * MONEY.TAILY_FEE_RATE + 1e-9);
+const PAYOUT = (services, home = 0, rush = 0) => services - FEE(services) + home + rush;
 
 /* ================= config + formatting ================= */
 section('config + formatting');
 ok(Object.isFrozen(MONEY) && Object.isFrozen(POLICY), 'MONEY and POLICY are frozen');
-eq([MONEY.TAILY_FEE_RATE, MONEY.DEPOSIT_RATE, MONEY.COURIER_MARKUP, MONEY.COURIER_BASE, MONEY.COURIER_PER_MILE, MONEY.COURIER_PEAK, MONEY.COURIER_PEAK_FROM_H, MONEY.COURIER_PEAK_TO_H, MONEY.NO_SHOW_COMP],
-  [0.10, 0.10, 0.10, 8, 2.5, 3.5, 17, 19, 25], 'MONEY table matches the fee settings (K-43: the simulated Uber quote has an evening peak)');
+eq([MONEY.TAILY_FEE_RATE, MONEY.DEPOSIT_RATE, MONEY.COURIER_MARKUP, MONEY.COURIER_BASE, MONEY.COURIER_PER_MILE, MONEY.COURIER_PEAK, MONEY.COURIER_PEAK_FROM_H, MONEY.COURIER_PEAK_TO_H, MONEY.COURIER_ABSORB, 'NO_SHOW_COMP' in MONEY],
+  [0.15, 0.10, 0.10, 8, 2.5, 3.5, 17, 19, 3, false], 'MONEY table matches the fee settings (K-43: the simulated Uber quote has an evening peak; K-53: fee 15, courier absorb $3.00, no no-show floor)');
+eq([POLICY.BALANCE_HOLD_H, M.HOLD_DAYS, 'READY_DEFAULT_D' in POLICY, 'UNCLAIMED_CAPTURE_D' in POLICY, 'HANDOFF_PICK_DAYS' in POLICY], [114, 4, false, false, false], 'K-53: the ready hold lives 4 days 18 hours → 4 whole days; the 14-day default, the day-6 capture and the 5-day pick are retired');
 eq([POLICY.CANCEL_WINDOW_H, POLICY.REQUEST_EXPIRY_H, POLICY.MAX_RETRIES, POLICY.EXPIRING_SOON_MIN, POLICY.NO_SHOW_WAIT_MIN, POLICY.MIN_LEAD_H],
   [24, 2, 2, 15, 15, 3], 'POLICY table matches');
 eq([M.fmt(2500), M.fmt(450), M.fmt(0), M.fmt(12345600)], ['$25', '$4.50', '$0', '$123,456'], 'fmt: whole dollars bare, else cents');
@@ -203,10 +207,10 @@ const goldenRow = (q, [services, home, rush, courier, total, deposit, balance, f
   const { 'dress-take-in': _unpriced, ...fewer } = amara().prices;
   const miss = M.linesFor({ ...amara(), prices: fewer }, [{ id: 'g1', type: 'Formal Dress', services: ['dress-take-in', 'dress-hem'] }]);
   eq([miss.length, miss.missing], [1, [{ garmentId: 'g1', serviceId: 'dress-take-in' }]], 'linesFor skips an unpriced service and reports it in .missing');
-  goldenRow(M.estimate(amara(), state.job, '2026-10-15T17:00'), [12500, 3500, 0, 0, 16000, 1600, 14400, 1250, 14750], 'seed, home, need-by Fri Oct 23');
-  goldenRow(M.estimate(amara(), { ...state.job, needBy: '2026-10-16' }, '2026-10-15T17:00'), [12500, 3500, 4000, 0, 20000, 1600, 18400, 1250, 18750], 'rush: need-by Fri Oct 16, visit Thu Oct 15 (1 day)');
-  goldenRow(M.estimate(amara(), { ...state.job, visitType: 'shop' }, '2026-10-13T13:00'), [12500, 0, 0, 0, 12500, 1250, 11250, 1250, 11250], 'shop visit');
-  goldenRow(M.quote({ lines, homeFee: 3500, courier: M.courierQuote(0.6).cents }), [12500, 3500, 0, 1045, 17045, 1600, 15445, 1250, 14750], 'seed + courier 0.6 mi');
+  goldenRow(M.estimate(amara(), state.job, '2026-10-15T17:00'), [12500, 3500, 0, 0, 16000, 1600, 14400, FEE(12500), PAYOUT(12500, 3500, 0)], 'seed, home, need-by Fri Oct 23');
+  goldenRow(M.estimate(amara(), { ...state.job, needBy: '2026-10-16' }, '2026-10-15T17:00'), [12500, 3500, 4000, 0, 20000, 1600, 18400, FEE(12500), PAYOUT(12500, 3500, 4000)], 'rush: need-by Fri Oct 16, visit Thu Oct 15 (1 day)');
+  goldenRow(M.estimate(amara(), { ...state.job, visitType: 'shop' }, '2026-10-13T13:00'), [12500, 0, 0, 0, 12500, 1250, 11250, FEE(12500), PAYOUT(12500, 0, 0)], 'shop visit');
+  goldenRow(M.quote({ lines, homeFee: 3500, courier: M.courierQuote(0.6).cents }), [12500, 3500, 0, 1045, 17045, 1600, 15445, FEE(12500), PAYOUT(12500, 3500, 0)], 'seed + courier 0.6 mi');
   eq(M.courierQuote(0.6), { miles: 0.6, start: null, peak: false, quote: 950, markup: 95, cents: 1045 }, 'courierQuote(0.6) = ($8.00 + $2.50 x 0.6) plus markup = $10.45 (no window: off-peak)');
   eq(M.courierQuote(0).cents, 880, 'courierQuote(0) = $8.00 plus markup = $8.80');
   // K-43 (D-299): a simulated Uber quote PER WINDOW — the evening peak (windows starting 5:00–6:59 PM) adds $3.50 before the Taily fee
@@ -215,14 +219,15 @@ const goldenRow = (q, [services, home, rush, courier, total, deposit, balance, f
   eq(M.courierQuote(0.6, '2026-10-16T17:00'), { miles: 0.6, start: '2026-10-16T17:00', peak: true, quote: 1300, markup: 130, cents: 1430 }, 'K-43: the peak quote = ($8.00 + $1.50 + $3.50) + the Taily fee');
   const dep = 1600;
   const add = [...lines.map((l) => ({ ...l, cents: l.serviceId === 'sleeves' ? $(50) : l.cents })), { garmentId: 'g1', garmentType: 'Suit Pant', serviceId: 'taper', label: 'Taper legs', cents: $(40) }];
-  goldenRow(M.quote({ lines: add, homeFee: 3500, deposit: dep }), [17000, 3500, 0, 0, 20500, 1600, 18900, 1700, 18800], 'price change: + Taper $40, Sleeves $45 -> $50 (deposit unchanged)');
-  goldenRow(M.quote({ lines: lines.filter((l) => l.serviceId !== 'jacket-sides'), homeFee: 3500, deposit: dep }), [7000, 3500, 0, 0, 10500, 1600, 8900, 700, 9800], 'price change: - Take in jacket sides');
-  eq([M.depositFor(12500, 3500), M.depositFor(12500, 0), M.tailyFeeFor(12500), M.tailyFeeFor(17000), M.payoutFor({ services: 12500, homeFee: 3500, rush: 0 })], [1600, 1250, 1250, 1700, 14750], 'depositFor / tailyFeeFor / payoutFor');
-  eq([M.tailyFeeFor(4500), M.depositFor(4550, 0), M.depositFor(4450, 0)], [450, 455, 445], 'half-up rounding to the cent, once per order');
-  eq([M.tailyFeeFor(12505), M.tailyFeeFor(12495)], [1251, 1250], 'tailyFeeFor rounds half-up (1250.5 -> 1251)');
+  goldenRow(M.quote({ lines: add, homeFee: 3500, deposit: dep }), [17000, 3500, 0, 0, 20500, 1600, 18900, FEE(17000), PAYOUT(17000, 3500, 0)], 'price change: + Taper $40, Sleeves $45 -> $50 (deposit unchanged)');
+  goldenRow(M.quote({ lines: lines.filter((l) => l.serviceId !== 'jacket-sides'), homeFee: 3500, deposit: dep }), [7000, 3500, 0, 0, 10500, 1600, 8900, FEE(7000), PAYOUT(7000, 3500, 0)], 'price change: - Take in jacket sides');
+  eq([M.depositFor(12500, 3500), M.depositFor(12500, 0), M.tailyFeeFor(12500), M.tailyFeeFor(17000), M.payoutFor({ services: 12500, homeFee: 3500, rush: 0 })], [1600, 1250, FEE(12500), FEE(17000), PAYOUT(12500, 3500)], 'depositFor / tailyFeeFor / payoutFor');
+  eq([M.tailyFeeFor(4500), M.depositFor(4550, 0), M.depositFor(4450, 0)], [FEE(4500), 455, 445], 'half-up rounding to the cent, once per order');
+  ok(Array.from({ length: 400 }, (_, i) => 12300 + i).every((c) => M.tailyFeeFor(c) === Math.floor(c * MONEY.TAILY_FEE_RATE + 0.5 + 1e-9)), 'tailyFeeFor rounds half-up at any rate (K-53: 15 → 12510 × 0.15 = 1876.5 → 1877)');
+  eq([M.tailyFeeFor(12510), M.feePercent()], [Math.round(12510 * MONEY.TAILY_FEE_RATE + 1e-9), Math.round(MONEY.TAILY_FEE_RATE * 100)], 'K-53: feePercent is the rate as a whole number (to-fee only)');
   eq([M.quote({ lines }).refund, M.quote({ lines, homeFee: 0, deposit: 99999 }).refund, M.quote({ lines, deposit: 99999 }).balance], [0, 87499, 0], 'quote: refund = deposit above total, balance never negative (D-23)');
-  eq(M.noShowPayout(1600), 2500, 'no-show -> tailor paid max(deposit $16.00, $25.00) = $25.00');
-  eq(M.noShowPayout(3100), 3100, 'no-show -> a deposit above $25.00 is paid in full');
+  eq(M.noShowPayout(1600), 1600, 'K-53 (Q7): no-show -> the tailor is paid the deposit only ($16.00) — no floor, Taily never tops up');
+  eq(M.noShowPayout(3100), 3100, 'no-show -> a bigger deposit is paid in full');
   ok(M.payoutFor({ services: 12500, homeFee: 3500, rush: 0 }) === M.quote({ lines, homeFee: 3500, courier: 5000 }).payout, 'the courier charge never reaches the tailor payout (D-04)');
   ok(!('missing' in M.quote({ lines })), 'quote has no stray fields');
 }
@@ -231,13 +236,13 @@ const goldenRow = (q, [services, home, rush, courier, total, deposit, balance, f
 {
   const row = (q) => [q.services, q.homeFee, q.rush, q.courier, q.total, q.deposit, q.balance, q.tailyFee, q.payout];
   eq(SEED_SLOT, '2026-10-15T17:00', 'money.mjs: seed slot is Thu Oct 15 5 PM');
-  eq(row(SCENARIOS.seed), [12500, 3500, 0, 0, 16000, 1600, 14400, 1250, 14750], 'money.mjs: seed scenario matches the golden row');
-  eq(row(SCENARIOS.rush), [12500, 3500, 4000, 0, 20000, 1600, 18400, 1250, 18750], 'money.mjs: rush scenario matches the golden row');
-  eq(row(SCENARIOS.shop), [12500, 0, 0, 0, 12500, 1250, 11250, 1250, 11250], 'money.mjs: shop scenario matches the golden row');
-  eq(row(SCENARIOS.courier), [12500, 3500, 0, 1430, 17430, 1600, 15830, 1250, 14750], 'money.mjs: courier scenario matches the golden row (K-43: the fixtures’ 5:00 PM peak window)');
-  eq(row(SCENARIOS.priceAdded), [17000, 3500, 0, 0, 20500, 1600, 18900, 1700, 18800], 'money.mjs: price-added scenario matches the golden row');
-  eq(row(SCENARIOS.priceRemoved), [7000, 3500, 0, 0, 10500, 1600, 8900, 700, 9800], 'money.mjs: price-removed scenario matches the golden row');
-  eq([SCENARIOS.lateCancel.kept, SCENARIOS.lateCancel.tailorPaid, SCENARIOS.earlyCancel.refund, SCENARIOS.noShow.paid], [1600, 1600, 1600, 2500], 'money.mjs: late cancel keeps $16.00, early refunds it, no-show pays $25.00');
+  eq(row(SCENARIOS.seed), [12500, 3500, 0, 0, 16000, 1600, 14400, FEE(12500), PAYOUT(12500, 3500, 0)], 'money.mjs: seed scenario matches the golden row');
+  eq(row(SCENARIOS.rush), [12500, 3500, 4000, 0, 20000, 1600, 18400, FEE(12500), PAYOUT(12500, 3500, 4000)], 'money.mjs: rush scenario matches the golden row');
+  eq(row(SCENARIOS.shop), [12500, 0, 0, 0, 12500, 1250, 11250, FEE(12500), PAYOUT(12500, 0, 0)], 'money.mjs: shop scenario matches the golden row');
+  eq(row(SCENARIOS.courier), [12500, 3500, 0, 1430, 17430, 1600, 15830, FEE(12500), PAYOUT(12500, 3500, 0)], 'money.mjs: courier scenario matches the golden row (K-43: the fixtures’ 5:00 PM peak window)');
+  eq(row(SCENARIOS.priceAdded), [17000, 3500, 0, 0, 20500, 1600, 18900, FEE(17000), PAYOUT(17000, 3500, 0)], 'money.mjs: price-added scenario matches the golden row');
+  eq(row(SCENARIOS.priceRemoved), [7000, 3500, 0, 0, 10500, 1600, 8900, FEE(7000), PAYOUT(7000, 3500, 0)], 'money.mjs: price-removed scenario matches the golden row');
+  eq([SCENARIOS.lateCancel.kept, SCENARIOS.lateCancel.tailorPaid, SCENARIOS.earlyCancel.refund, SCENARIOS.noShow.paid], [1600, 1600, 1600, SCENARIOS.seed.deposit], 'money.mjs: late cancel keeps $16.00, early refunds it, no-show pays the deposit (K-53)');
 }
 
 /* ================= rush ladder ================= */
@@ -261,9 +266,9 @@ S.reset();
 }
 {
   S.reset(); const a = driveTo('requested', { rush: true });
-  goldenRow(a.money, [12500, 3500, 4000, 0, 20000, 1600, 18400, 1250, 18750], 'driveTo rush: booked quote matches the rush golden row');
+  goldenRow(a.money, [12500, 3500, 4000, 0, 20000, 1600, 18400, FEE(12500), PAYOUT(12500, 3500, 4000)], 'driveTo rush: booked quote matches the rush golden row');
   eq(a.payments.deposit.cents, 1600, 'rush does not change the deposit (services + home visit only)');
-  eq(M.tailyFeeFor(a.money.services), 1250, 'rush is outside the Taily fee base');
+  eq(M.tailyFeeFor(a.money.services), FEE(12500), 'rush is outside the Taily fee base');
 }
 
 /* ================= request / accept / suggest / decline / expire ================= */
@@ -454,10 +459,10 @@ section('cancellation');
   guard(T.markNoShow(a.id), 'not-here', 'D-14 (K-48): Mark as no-show needs the tailor’s “I’m here” first');
   T.visitPing(a.id, 'tailor', 'here');
   const n = T.markNoShow(a.id);
-  eq([n.appt.status, n.appt.cancel.reason, n.appt.cancel.tailorPaid, n.appt.payments.deposit.state], ['cancelled', 'no-show', 2500, 'kept'], 'markNoShow at 15 min: deposit kept, tailor paid $25.00 (D-06)');
-  eq((({ createdAt, ...p }) => p)(state.payouts[0]), { apptId: a.id, cents: 2500, state: 'pending', date: '2026-10-16', kind: 'no-show' }, 'no-show pay is a pending payout');
+  eq([n.appt.status, n.appt.cancel.reason, n.appt.cancel.tailorPaid, n.appt.payments.deposit.state], ['cancelled', 'no-show', 1600, 'kept'], 'markNoShow at 15 min: deposit kept, the tailor paid the deposit (K-53: no floor)');
+  eq((({ createdAt, ...p }) => p)(state.payouts[0]), { apptId: a.id, cents: 1600, state: 'pending', date: '2026-10-16', kind: 'no-show' }, 'no-show pay is a pending payout');
   const b = driveTo('no-show');
-  eq(b.cancel.tailorPaid, 2500, 'driveTo no-show');
+  eq(b.cancel.tailorPaid, b.payments.deposit.cents, 'driveTo no-show');
 }
 // reschedule
 {
@@ -545,7 +550,7 @@ section('fitting -> completed');
   eq([m.appt.priceChange.state, m.appt.status], ['messaged', 'price-change'], 'messageAboutPriceChange keeps the status, marks messaged');
   guard(T.messageAboutPriceChange(a.id), 'not-pending', 'messaging twice is a guard failure');
   const ap = T.approvePriceChange(a.id);
-  goldenRow(ap.appt.money, [17000, 3500, 0, 0, 20500, 1600, 18900, 1700, 18800], 'approvePriceChange (after messaging): deposit $16.00 kept, balance $189.00, Taily fee $17.00, payout $188.00');
+  goldenRow(ap.appt.money, [17000, 3500, 0, 0, 20500, 1600, 18900, FEE(17000), PAYOUT(17000, 3500, 0)], 'approvePriceChange (after messaging): deposit $16.00 kept, balance $189.00, Taily fee $17.00, payout $188.00');
   eq([ap.appt.status, ap.appt.payments.deposit.cents, ap.appt.payments.balance.cents, ap.appt.lines.length, ap.appt.priceChange.state], ['in-progress', 1600, 18900, 4, 'approved'], 'approve: lines replaced, balance updated, status in-progress');
   guard(T.approvePriceChange(a.id), 'not-pending', 'approve twice fails');
 }
@@ -560,13 +565,16 @@ section('fitting -> completed');
 }
 // R4-2-C-04 / D-118: a declined balance remembers the card that was declined
 {
-  S.reset(); const a = driveTo('ready'); T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id);
+  S.reset(); const a = driveTo('in-progress');
   state.sim.card = 'declined';
+  T.markReady(a.id);
+  eq([a.status, a.payments.balance.state, a.payments.balance.failedCardId, a.payments.balance.failedBy], ['ready', 'failed', 'visa-4242', 'ready'], 'K-53: the card declines the hold at ready → failed, ready (Update card)');
+  T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id);
   guard(T.holdBalance(a.id, 'visa-4242'), 'card-declined', 'declined balance');
   eq([a.payments.balance.state, a.payments.balance.failedCardId], ['failed', 'visa-4242'], 'the declined card is recorded');
   state.sim.card = 'ok';
   const paid = T.holdBalance(a.id, 'apple-pay');
-  eq([paid.ok, a.payments.balance.state, a.payments.balance.failedCardId], [true, 'held', undefined], 'holding with another way clears it');
+  eq([paid.ok, a.payments.balance.state, a.payments.balance.failedCardId, a.payments.balance.by, a.payments.balance.cardId], [true, 'held', undefined, 'pay', 'apple-pay'], 'paying with another way places the hold on it (K-53: customer-initiated) and clears the decline');
   // refund line: payments untouched until Ready
 }
 // price change: removed
@@ -574,13 +582,13 @@ section('fitting -> completed');
   S.reset(); const a = driveTo('price-change', { priceChange: 'removed' });
   eq(a.priceChange.marks, [{ garmentId: 'g2', serviceId: 'jacket-sides', kind: 'removed', from: 5500, to: null }], 'price change marks: removed');
   const ap = T.approvePriceChange(a.id);
-  goldenRow(ap.appt.money, [7000, 3500, 0, 0, 10500, 1600, 8900, 700, 9800], 'removing a service: deposit kept, balance $89.00, payout $98.00');
+  goldenRow(ap.appt.money, [7000, 3500, 0, 0, 10500, 1600, 8900, FEE(7000), PAYOUT(7000, 3500, 0)], 'removing a service: deposit kept, balance $89.00, payout $98.00');
   eq(ap.appt.money.refund, 0, 'no refund while the total is above the deposit');
 }
 {
   S.reset(); const a = driveTo('price-change', { priceChange: 'repriced' });
   eq(a.priceChange.marks.map((m) => m.kind), ['repriced'], 'repriced mark');
-  goldenRow(T.approvePriceChange(a.id).appt.money, [12500 + 500, 3500, 0, 0, 16500, 1600, 14900, 1300, 15200], 'repriced: Sleeves $45 -> $50');
+  goldenRow(T.approvePriceChange(a.id).appt.money, [12500 + 500, 3500, 0, 0, 16500, 1600, 14900, FEE(13000), PAYOUT(13000, 3500)], 'repriced: Sleeves $45 -> $50');
 }
 // a suggested time lapses or is withdrawn (D-154)
 {
@@ -769,7 +777,8 @@ section('fitting -> completed');
   guard(T.chooseReturn(a.id, 'pickup'), 'not-ready', 'chooseReturn needs ready');
   guard(T.holdBalance(a.id, 'visa-4242'), 'not-ready', 'holdBalance needs ready');
   const r = T.markReady(a.id);
-  eq([r.appt.status, r.appt.payments.balance], ['ready', { cents: 14400, state: 'due' }], 'markReady: balance $144.00 due');
+  const rb = r.appt.payments.balance;
+  eq([r.appt.status, rb.state, rb.cents, rb.by, rb.cardId, rb.heldAt, S.unclaimedAt(r.appt) - D.toDate(rb.heldAt).getTime()], ['ready', 'held', 14400, 'ready', 'visa-4242', S.nowIso(), M.HOLD_DAYS * 86400000], 'K-53: markReady holds the $144.00 balance on the saved card at once; captured by ready + 4 days');
   guard(T.markReady(a.id), 'not-in-progress', 'markReady twice fails');
   guard(T.holdBalance(a.id, 'visa-4242'), 'return-required', 'holdBalance needs a return choice');
   guard(T.chooseReturn(a.id, 'carrier-pigeon'), 'not-offered', 'chooseReturn: unknown option');
@@ -791,26 +800,26 @@ section('fitting -> completed');
   eq([c.appt.courier.cents, c.appt.money.total], [1045, 17045], 'K-43: an off-peak window (noon) — its quote $10.45');
   T.setHandoffSlot(a.id, '2026-10-16T17:00');
   eq([c.appt.courier.miles, c.appt.courier.cents, c.appt.courier.state], [0.6, 1430, 'ready'], 'K-43: the 5:00 PM window (peak) — 0.6 mi quote $14.30');
-  goldenRow(c.appt.money, [12500, 3500, 0, 1430, 17430, 1600, 15830, 1250, 14750], 'courier window picked: total $174.30, balance $158.30, payout unchanged $147.50');
+  goldenRow(c.appt.money, [12500, 3500, 0, 1430, 17430, 1600, 15830, FEE(12500), PAYOUT(12500, 3500, 0)], 'courier window picked: total $174.30, balance $158.30, payout unchanged $147.50');
   eq(c.appt.payments.balance.cents, 15830, 'balance payment follows the picked window’s courier charge');
   const p0 = T.chooseReturn(a.id, 'pickup');
   eq([p0.appt.courier, p0.appt.money.total, p0.appt.payments.balance.cents], [null, 16000, 14400], 'switching back to pickup drops the courier charge');
   guard(T.holdBalance(a.id, 'visa-4242'), 'slot-required', 'K-40: holdBalance needs the pickup time');
   EARN.pickHandoff(a.id);
   state.sim.card = 'declined';
-  guard(T.holdBalance(a.id, 'visa-4242'), 'card-declined', 'holdBalance with a declined card fails');
-  eq([S.getAppt(a.id).status, S.getAppt(a.id).payments.balance.state], ['ready', 'failed'], 'a declined card leaves it ready, balance failed');
+  guard(T.holdBalance(a.id, 'apple-pay'), 'card-declined', 'K-53: paying with another card needs a new hold — declined');
+  eq([S.getAppt(a.id).status, S.getAppt(a.id).payments.balance.state, S.getAppt(a.id).payments.balance.cardId, S.getAppt(a.id).payments.balance.payFailed?.cardId], ['ready', 'held', 'visa-4242', 'apple-pay'], 'a declined new card leaves it ready, the ready hold where it was');
   state.sim.card = '3ds';
-  guard(T.holdBalance(a.id, 'visa-4242'), 'needs-3ds', 'holdBalance with 3-D Secure needs the challenge');
+  guard(T.holdBalance(a.id, 'apple-pay'), 'needs-3ds', 'holdBalance on a new card with 3-D Secure needs the challenge');
   state.sim.card = 'ok';
   const pay = T.holdBalance(a.id, 'visa-4242');
-  eq([pay.appt.status, pay.appt.payments.balance.cents, pay.appt.payments.balance.state], ['awaiting-handoff', 14400, 'held'], 'holdBalance: awaiting-handoff, balance held (K-27)');
+  eq([pay.appt.status, pay.appt.payments.balance.cents, pay.appt.payments.balance.state, pay.appt.payments.balance.by, pay.appt.payments.balance.payFailed], ['awaiting-handoff', 14400, 'held', 'ready', undefined], 'K-53: Pay confirms pickup + time against the ready hold (no new authorization)');
   guard(T.holdBalance(a.id, 'visa-4242'), 'not-ready', 'hold twice fails');
   guard(T.leaveReview(a.id, { stars: 5 }), 'not-completed', 'leaveReview needs completed');
   eq(state.payouts.length, 0, 'nothing is paid out while the order waits for the handoff');
   const done = T.confirmPickup(a.id, S.handoffCode(a));
   eq(done.appt.status, 'completed', 'the pickup code completes it');
-  eq(state.payouts.map(({ createdAt, ...p }) => p), [{ apptId: a.id, cents: 14750, state: 'pending', date: '2026-10-16', kind: 'job' }], 'completion creates a pending payout of $147.50 (not the courier)');
+  eq(state.payouts.map(({ createdAt, ...p }) => p), [{ apptId: a.id, cents: PAYOUT(12500, 3500), state: 'pending', date: '2026-10-16', kind: 'job' }], 'completion creates a pending payout (services − fee + home visit, not the courier)');
   guard(T.confirmPickup(a.id, S.handoffCode(a)), 'not-awaiting-handoff', 'confirming twice fails');
   guard(T.leaveReview(a.id, { stars: 0 }), 'stars-required', 'leaveReview: 0 stars');
   guard(T.leaveReview(a.id, { stars: 6 }), 'stars-required', 'leaveReview: 6 stars');
@@ -829,14 +838,14 @@ section('fitting -> completed');
 // shop job money end to end
 {
   S.reset(); const a = driveTo('completed', { visitType: 'shop' });
-  goldenRow(a.money, [12500, 0, 0, 0, 12500, 1250, 11250, 1250, 11250], 'shop job through completion keeps the shop golden row');
-  eq(state.payouts[0].cents, 11250, 'shop job payout $112.50');
+  goldenRow(a.money, [12500, 0, 0, 0, 12500, 1250, 11250, FEE(12500), PAYOUT(12500, 0, 0)], 'shop job through completion keeps the shop golden row');
+  eq(state.payouts[0].cents, PAYOUT(12500), 'shop job payout = services − the Taily fee');
   eq(a.slot.end, D.isoMinute(D.addMinutes(a.slot.start, 30)), 'shop visits are 30 minutes');
 }
 {
   S.reset(); const a = driveTo('completed');
-  goldenRow(a.money, [12500, 3500, 0, 0, 16000, 1600, 14400, 1250, 14750], 'home job through completion keeps the home golden row');
-  eq(state.payouts[0].cents, 14750, 'home job payout $147.50');
+  goldenRow(a.money, [12500, 3500, 0, 0, 16000, 1600, 14400, FEE(12500), PAYOUT(12500, 3500, 0)], 'home job through completion keeps the home golden row');
+  eq(state.payouts[0].cents, PAYOUT(12500, 3500), 'home job payout = services − fee + home visit');
   ok(a.money.payout === a.money.services - a.money.tailyFee + a.money.homeFee + a.money.rush, 'payout = services - Taily fee + home-visit fee + rush');
   ok(a.money.tailyFee === M.tailyFeeFor(a.money.services), 'Taily fee is computed on services only');
 }
@@ -956,7 +965,7 @@ section('tailor-data');
   eq([TD.inbox().requests.map((x) => x.id), TD.inbox().upcoming.length], [[a.id], 0], 'inbox: a pending request is in requests');
   eq(TD.jobAddress(a), 'Williamsburg · 11211', 'jobAddress before accepting: neighborhood + zip');
   const v = TD.requestView(a);
-  eq([v.visitLabel, v.place, v.when, v.needBy, v.estimate, v.tailyFee, v.payout, v.expiresAt], ['Home visit', 'Williamsburg · 11211', 'Thu, Oct 15 · 5:00\u00a0PM', 'Fri, Oct 23', 12500, 1250, 14750, '2026-10-13T12:00'], 'requestView: visit label, place, when, need-by, estimate, Taily fee, payout, expiry');
+  eq([v.visitLabel, v.place, v.when, v.needBy, v.estimate, v.tailyFee, v.payout, v.expiresAt], ['Home visit', 'Williamsburg · 11211', 'Thu, Oct 15 · 5:00\u00a0PM', 'Fri, Oct 23', 12500, FEE(12500), PAYOUT(12500, 3500), '2026-10-13T12:00'], 'requestView: visit label, place, when, need-by, estimate, Taily fee, payout, expiry');
   eq(v.garments.map((g) => [g.type, g.services.map((s) => s.label)]), [['Suit Pant', ['Hem pants']], ['Suit Jacket', ['Shorten sleeves', 'Take in jacket sides']]], 'requestView: garments with their service labels');
   T.tailorAccept(a.id);
   eq(TD.jobAddress(S.getAppt(a.id)), '145 N 7th St, 2R, Brooklyn, NY 11211', 'jobAddress after accepting: full street + unit');
@@ -1464,7 +1473,7 @@ section('M6 batch 4');
 {
   S.reset();
   ok(S.STATUSES.includes('awaiting-handoff') && !S.STATUSES.includes('returning'), 'S1-0: awaiting-handoff replaces returning');
-  eq([POLICY.HANDOFF_AUTO_H, POLICY.UNCLAIMED_CAPTURE_D, POLICY.REVIEW_REMINDER_D, MONEY.PRICE_RANGE_SPREAD, MONEY.PRICE_ROUND], [48, 6, 7, 0.20, 5], 'S1-0: Study-1 timers and price-range settings (D-04: the capture by day 6)');
+  eq([POLICY.HANDOFF_AUTO_H, M.HOLD_DAYS, POLICY.REVIEW_REMINDER_D, MONEY.PRICE_RANGE_SPREAD, MONEY.PRICE_ROUND], [48, 4, 7, 0.20, 5], 'S1-0: Study-1 timers and price-range settings (K-53: the capture on the ready hold’s last day, ready + 4 days)');
   eq([DATA.HANDOFF_CODE_LEN, DATA.NOTES_LIMITS], [4, { TEXT_MAX: 500, PHOTOS_MAX: 4 }], 'S1-0: handoff code length and private-note limits');
   ok(Object.values(DATA.SERVICES).every((s) => Number.isInteger(s.base) && s.base > 0), 'S1-0: every service has a whole-dollar base price');
   ok(Object.entries(amara().prices).every(([id, p]) => DATA.SERVICES[id].base === p) , 'S1-0: base = Amara’s seed price');
@@ -1520,10 +1529,10 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   guard(T.reportNotReceived(a.id), 'already-reported', 'S1-A3: one report at a time');
   eq(S.autoCompleteLeft(a), null, 'S1-A3: a reported problem stops the countdown');
   T.advanceClock(8 * DAY);
-  eq([a.status, a.payments.balance.state, a.payments.balance.captureReason, S.tailyReviewOf(a)?.reason, state.payouts.length], ['awaiting-handoff', 'captured', 'before-expiry', 'problem-open', 0], 'D-04 (K-48): a problem pauses the 48 h, but the hold is still captured by day 6 (inside the card hold) and goes to Taily review; no payout while it is open');
+  eq([a.status, a.payments.balance.state, a.payments.balance.captureReason, S.tailyReviewOf(a)?.reason, state.payouts.length], ['awaiting-handoff', 'captured', 'before-expiry', 'problem-open', 0], 'D-04 (K-48) → K-53: a problem pauses the 48 h, but the hold is still captured on its last day (inside the card hold) and goes to Taily review; no payout while it is open');
   const re = T.markHandedOver(a.id);
   eq([re.ok, a.handoff.problemAt, a.handoff.marks, hours(S.autoCompleteLeft(a))], [true, null, 2, POLICY.HANDOFF_AUTO_H], 'S1-A3 (default 5): marked picked up again clears the problem and restarts 48 h');
-  eq(S.unclaimedAt(a), D.toDate(a.handoff.heldAt).getTime() + POLICY.UNCLAIMED_CAPTURE_D * 24 * 3600000, 'D-04: the day-6 capture never moves out (a problem no longer pauses it)');
+  eq(S.unclaimedAt(a), D.toDate(S.readyAtOf(a)).getTime() + M.HOLD_DAYS * 24 * 3600000, 'K-53: the capture on the hold’s last day (ready + 4 days) never moves out (a problem no longer pauses it)');
   T.reportNotReceived(a.id);
   const got = T.confirmReceived(a.id);
   eq([got.ok, a.status, a.handoff.completedBy, a.payments.balance.captureReason, state.payouts.length], [true, 'completed', 'customer', 'before-expiry', 1], 'S1-A3 + K-48.3: "Confirm received" completes it even after a reported problem; the payout is queued then');
@@ -1542,14 +1551,14 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   guard(T.confirmPickup(a.id, '8153'), 'not-pickup', 'S1-A3: no pickup code on a courier return');
   T.courierDelivered(a.id);
   eq([a.status, a.handoff.completedBy, a.payments.balance.state, state.payouts[0].cents], ['completed', 'courier', 'captured', SCENARIOS.seed.payout], 'S1-A3: courier delivery completes it; the payout never includes the courier');
-  // A2 unclaimed: 7 days after the hold → captured, the job stays open, the payout waits for the handoff
+  // A2 unclaimed → K-53: on the ready hold's last day (ready + HOLD_DAYS) → captured, the job stays open, the tailor is paid then
   S.reset(); a = driveTo('awaiting-handoff');
-  const heldAt = a.handoff.heldAt;
-  T.advanceClock(POLICY.UNCLAIMED_CAPTURE_D * DAY - 1);
-  eq(a.payments.balance.state, 'held', 'S1-A2: still held a minute before 7 days');
+  const capAt = S.unclaimedAt(a);
+  T.advanceClock(Math.round((capAt - S.now()) / 60000) - 1);
+  eq(a.payments.balance.state, 'held', 'K-53: still held a minute before the hold’s last day');
   T.advanceClock(1);
-  eq([a.status, a.payments.balance.state, a.payments.balance.captureReason, a.payments.balance.capturedAt, state.payouts.length], ['awaiting-handoff', 'captured', 'unclaimed', D.isoMinute(D.addMinutes(heldAt, POLICY.UNCLAIMED_CAPTURE_D * DAY)), 1], 'S1-A2 + D-03/D-04: 6 days after the hold it is captured (unclaimed); the job stays open; the tailor is paid now');
-  ok(S.threadFor('amara').messages.some((m) => m.text === `We charged your ${M.fmtExact(SCENARIOS.seed.balance)} balance after ${POLICY.UNCLAIMED_CAPTURE_D} days`), 'S1-A2: the thread says it was charged');
+  eq([a.status, a.payments.balance.state, a.payments.balance.captureReason, a.payments.balance.capturedAt, state.payouts.length], ['awaiting-handoff', 'captured', 'unclaimed', D.isoMinute(new Date(capAt)), 1], 'S1-A2 + D-03 → K-53: on the hold’s last day it is captured (unclaimed); the job stays open; the tailor is paid now');
+  ok(S.threadFor('amara').messages.some((m) => m.text === `We charged your ${M.fmtExact(SCENARIOS.seed.balance)} balance ${M.HOLD_DAYS} days after it was ready`), 'S1-A2: the thread says it was charged');
   T.confirmPickup(a.id, a.handoff.code);
   eq([a.status, a.payments.balance.captureReason, state.payouts.length], ['completed', 'unclaimed', 1], 'S1-A2: the handoff later completes it without a second charge or a second payout');
   // A4 review reminder (K-28: a selector, no status)
@@ -1714,10 +1723,11 @@ section('K-40 (T1): the handoff time');
   S.reset(); let a = driveTo('ready');                                    // Thu, Oct 15 · 5:00 PM — the shop closed at 4:00 PM
   const picks = S.handoffSlots(a, 'pickup');
   eq(picks[0], { start: '2026-10-16T10:00' }, 'K-40: pickup times start at the next opening (nothing left today)');
-  eq([...new Set(picks.map((x) => x.start.slice(0, 10)))], ['2026-10-16', '2026-10-17', '2026-10-20'], 'K-40 + D-04: the shop’s open days in the next 5 days (HANDOFF_PICK_DAYS)');
+  eq([...new Set(picks.map((x) => x.start.slice(0, 10)))], ['2026-10-16', '2026-10-17'], 'K-40 → K-53: the shop’s open days before the hold’s last day (ready Thu 5:00 PM + 4 days = Mon 5:00 PM; closed Sun, Mon)');
   const fri = picks.filter((x) => x.start.startsWith('2026-10-16'));
   eq([fri.length, fri.at(-1).start], [16, '2026-10-16T17:30'], 'K-40: Fri pickups every 30 min; the last one ends at closing');
-  ok(picks.every((x) => D.toDate(x.start).getTime() <= S.now() + POLICY.HANDOFF_PICK_DAYS * DAY_MS), 'K-40: never more than HANDOFF_PICK_DAYS ahead');
+  ok(picks.every((x) => D.toDate(x.start).getTime() + POLICY.HANDOFF_SLOT_MIN * 60000 <= S.unclaimedAt(a)), 'K-53: every pickup ends inside the ready hold (by ready + 4 days)');
+  ok(S.handoffSlots(a, 'courier').every((x) => D.toDate(x.end).getTime() <= S.unclaimedAt(a)), 'K-53: every courier window ends inside the ready hold');
   const wins = S.handoffSlots(a, 'courier').filter((x) => x.start.startsWith('2026-10-16'));
   eq([wins[0], wins.at(-1).start, wins.length], [{ start: '2026-10-16T10:30', end: '2026-10-16T11:00', collectAt: '2026-10-16T10:15' }, '2026-10-16T18:00', 16], 'K-40: courier windows — collected 15 min before, inside her open hours; the last starts at closing');
   eq(S.handoffSlots(a, 'dropoff'), [], 'K-37: no times for a way back that does not exist');
@@ -1739,7 +1749,7 @@ section('K-40 (T1): the handoff time');
   eq(S.courierWindow(a), { from: '2026-10-16T17:00', to: '2026-10-16T17:30', collectAt: '2026-10-16T16:45' }, 'K-40: the window and its collection time');
   eq(S.slotText(a.handoff.slot), 'Fri, Oct 16 · 5:00–5:30 PM', 'K-40: slotText for a window');
   const h = T.holdBalance(a.id, 'visa-4242');
-  eq([h.ok, a.handoff.slot.start, a.handoff.heldAt, a.payments.balance.cents], [true, '2026-10-16T17:00', '2026-10-15T17:00', SCENARIOS.courier.balance], 'K-40: the hold keeps the window; the 7-day clock starts at the hold (D-295)');
+  eq([h.ok, a.handoff.slot.start, a.handoff.heldAt, a.payments.balance.cents, a.payments.balance.courierCents, a.payments.balance.readyCents], [true, '2026-10-16T17:00', '2026-10-15T17:00', SCENARIOS.courier.balance, SCENARIOS.courierQuote.cents, SCENARIOS.seed.balance], 'K-40 → K-53: Pay keeps the window; the courier is held on top of the ready hold');
   guard(T.setHandoffSlot(a.id, '2026-10-16T17:00'), 'no-change', 'K-40: moving to the same window is no change');
   const mv = T.setHandoffSlot(a.id, '2026-10-16T18:00');
   eq([mv.ok, a.handoff.moved.from.start, a.handoff.slot.collectAt, a.payments.balance.cents], [true, '2026-10-16T17:00', '2026-10-16T17:45', SCENARIOS.courier.balance], 'K-40: Sarah moves the window — the old one is kept; 6:00 PM is also peak, so the same quote');
@@ -1748,7 +1758,7 @@ section('K-40 (T1): the handoff time');
   T.setHandoffSlot(a.id, '2026-10-16T12:00');
   eq([a.courier.cents, a.payments.balance.cents, a.payments.balance.state, a.money.payout], [SCENARIOS.courierOffPeak.cents, SCENARIOS.courier.balance - off, 'held', SCENARIOS.seed.payout], 'K-43 (D-299): moving to an off-peak window re-quotes it — the hold drops by the difference; the payout never moves');
   T.setHandoffSlot(a.id, '2026-10-16T18:00');
-  eq([a.courier.cents, a.payments.balance.cents], [SCENARIOS.courierQuote.cents, SCENARIOS.courier.balance], 'K-43: back to a peak window — the peak quote again');
+  eq([a.courier.cents, a.payments.balance.cents, a.payments.courierCharges.map((x) => x.cents)], [SCENARIOS.courierQuote.cents, SCENARIOS.courier.balance - off, [off]], 'K-43 → K-53: back to a peak window after Pay — the difference is charged on its own (the hold can’t be raised)');
   S.setClock('2026-10-16T16:44');
   ok(S.handoffChangeable(a), 'K-40: movable until 60 min before the collection');
   S.setClock('2026-10-16T16:45');
@@ -1787,7 +1797,7 @@ section('K-41 → K-51: the visit reminder (48 h) and its nudge (26 h)');
   eq([POLICY.REMINDER_H, POLICY.REMINDER_NUDGE_H, POLICY.REMINDER_AUTOCANCEL_H, POLICY.REMINDER_LEAD_H], [48, 26, 3, undefined], 'K-51: the reminder 48 h before the visit, the nudge 26 h before; K-43: unconfirmed 3 h before → cancelled');
   S.reset();
   let a = driveTo('confirmed');
-  eq([a.reminder, S.reminderState(a), S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null }, null, true], 'K-41: a fresh booking — nothing sent, eligible (booked 55 h ahead)');
+  eq([a.reminder, S.reminderState(a), S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null, closedTextAt: null }, null, true], 'K-41: a fresh booking — nothing sent, eligible (booked 55 h ahead)');
   eq([iso(S.reminderAt(a)), iso(S.nudgeAt(a)), iso(S.promptAt(a))], ['2026-10-13T17:00', '2026-10-14T15:00', '2026-10-13T17:00'], 'K-51: the reminder Tue 5:00 PM (48 h), the nudge Wed 3:00 PM (26 h) before Thu 5:00 PM');
   guard(T.confirmVisit(a.id), 'not-asked', 'K-41: nothing to confirm before the reminder');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) - 1);
@@ -1805,9 +1815,7 @@ section('K-41 → K-51: the visit reminder (48 h) and its nudge (26 h)');
   const c = T.confirmVisit(a.id);
   eq([c.ok, a.reminder.confirmedAt, S.reminderState(a), S.reminderDue(a), a.status], [true, '2026-10-14T15:12', 'confirmed', false, 'confirmed'], 'K-41: confirmVisit stamps confirmedAt, no new status');
   guard(T.confirmVisit(a.id), 'already-confirmed', 'K-41: confirm once');
-  eq(M.cancelTerms(a, S.now()), { window: 'late', refund: 0, kept: 1600, confirmed: true }, 'K-41: confirming closes the free window early (25 h ahead → the deposit is kept)');
-  eq(M.cancelTerms({ ...a, reminder: { ...a.reminder } }, D.toDate('2026-10-14T15:11').getTime()).window, 'early', 'K-41: before the confirm it was still early');
-  guard(T.rescheduleBooking(a.id, S.openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id })[0]), 'too-late', 'K-41: no free reschedule once confirmed');
+  eq(M.cancelTerms(a, S.now()), { window: 'early', refund: 1600, kept: 0 }, 'K-53: confirming no longer closes the free window early (25 h ahead → still free)');
   eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label, statusWord(a, 'tailor').pill], ['All set', 'Sarah confirmed', 'completed'], 'K-41: the words once confirmed');
   S.advanceClock(23 * 60);
   eq([words('nudge').length, a.status], [1, 'confirmed'], 'K-51: nothing more after the confirm');
@@ -1817,12 +1825,17 @@ section('K-41 → K-51: the visit reminder (48 h) and its nudge (26 h)');
   T.confirmVisit(a.id);
   S.advanceClock(24 * 60);
   eq([a.reminder.nudgedAt, words('nudge').length], [null, 0], 'K-51: confirmed at the reminder — no nudge');
-  // a cancel after confirming keeps the deposit (paid to the tailor, D-05)
+  // K-53 (D-383 follow-up): a cancel after confirming is still free until 24 h before (it was "late" under K-41)
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 12);
   T.confirmVisit(a.id);
   const cx = T.cancelBooking(a.id);
-  eq([cx.ok, a.cancel.reason, a.cancel.kept, a.cancel.tailorPaid, a.payments.deposit.state], [true, 'customer-late', 1600, 1600, 'kept'], 'K-41: cancelled after confirming, 48 h ahead — Amara keeps the $16.00 deposit');
+  eq([cx.ok, a.cancel.reason, a.cancel.refund, a.cancel.kept, a.payments.deposit.state, 'afterConfirm' in a.cancel], [true, 'customer-early', 1600, 0, 'refunded', false], 'K-53: cancelled after confirming, 48 h ahead — refunded in full');
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 12);
+  T.confirmVisit(a.id);
+  const rs = T.rescheduleBooking(a.id, S.openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id })[0]);
+  eq([rs.ok, a.reminder.confirmedAt], [true, null], 'K-53: a free reschedule after confirming (the new time asks again)');
   // the tailor cancelling a confirmed visit 25 h ahead is not "late" (that is the 24 h, not Sarah's confirm)
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(Math.round((S.nudgeAt(a) - S.now()) / 60000) + 12);
@@ -1835,13 +1848,14 @@ section('K-41 → K-51: the visit reminder (48 h) and its nudge (26 h)');
   eq([S.reminderState(a), M.cancelTerms(a, S.now()).window], ['asked', 'early'], 'K-41: exactly 24 h ahead is still free (inclusive, M6-M-11)');
   S.advanceClock(1);
   eq([S.reminderState(a), a.status, M.cancelTerms(a, S.now()).window, 'confirmed' in M.cancelTerms(a, S.now())], ['missed', 'confirmed', 'late', false], 'K-41: unanswered at 24 h — still booked, the plain 24 h rule');
+  eq([a.reminder.closedTextAt, words('free-window-closed')], [D.isoMinute(new Date(S.freeUntil(a) + 60000)), ['Your free change window for your 5:00 PM visit with Amara has closed. Confirm now so it isn’t cancelled:']], 'K-53: the free window closed unconfirmed — one text, no silent gap before the 3 h auto-cancel');
   eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label], ['Your move', 'Not confirmed'], 'K-41: the words when missed');
   ok(T.confirmVisit(a.id).ok && S.reminderState(a) === 'confirmed', 'K-41: Confirm still works after 24 h (it keeps the visit)');
   S.advanceClock(Math.round((S.autoCancelAt(a) - S.now()) / 60000) + 60);
   eq([a.status, a.cancel], ['confirmed', null], 'K-43: a visit confirmed after the free window is not cancelled at 3 h');
   S.setClock('2026-10-15T17:15');
   T.visitPing(a.id, 'tailor', 'here');
-  eq([S.reminderState(a), T.markNoShow(a.id).ok, a.cancel.tailorPaid], [null, true, 2500], 'K-41: at the visit the reminder is over; the no-show rule is unchanged ($25.00)');
+  eq([S.reminderState(a), T.markNoShow(a.id).ok, a.cancel.tailorPaid], [null, true, a.payments.deposit.cents], 'K-41: at the visit the reminder is over; the no-show rule (K-53: the deposit only)');
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 30);
   S.setClock('2026-10-15T17:00');
@@ -1898,7 +1912,7 @@ section('K-41 → K-51: the visit reminder (48 h) and its nudge (26 h)');
   const open = S.openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id });
   const far = open.find((x) => D.toDate(x).getTime() - S.now() > 48 * H);
   ok(T.rescheduleBooking(a.id, far).ok, 'K-41: Reschedule from the prompt (inside the free window)');
-  eq([a.reminder, S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null }, true], 'K-41: the new time starts a fresh reminder');
+  eq([a.reminder, S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null, closedTextAt: null }, true], 'K-41: the new time starts a fresh reminder');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
   eq(a.reminder.sentAt, iso(S.reminderAt(a)), 'K-51: its reminder goes out 48 h before the new time');
   S.reset(); a = driveTo('confirmed');
@@ -1937,12 +1951,12 @@ section('SF-01: a decline on a second request never closes a live thread');
   driveTo('declined');
   eq(S.threadReadOnly('amara'), true, 'SF-01: a decline with nothing live still closes it');
 }
-section('SF-13: handoff times stop at the 7-day charge while the balance is held');
+section('SF-13 → K-53: handoff times stop at the ready hold’s last day while the balance is held');
 {
   const a = driveTo('awaiting-handoff');
-  S.advanceClock(5 * 24 * 60);
+  S.advanceClock(1 * 24 * 60);
   const last = S.handoffSlots(S.getAppt(a.id)).at(-1);
-  ok(last && D.toDate(last.start).getTime() <= S.unclaimedAt(a), 'SF-13: no pickup time after the capture');
+  ok(last && D.toDate(last.start).getTime() + POLICY.HANDOFF_SLOT_MIN * 60000 <= S.unclaimedAt(a), 'SF-13: no pickup time after the capture');
   S.advanceClock(3 * 24 * 60);   // captured: the job stays open and any time is fine again
   ok(S.getAppt(a.id).payments.balance.state === 'captured' && S.handoffSlots(S.getAppt(a.id)).length > 0, 'SF-13: after the capture she can still pick a time');
 }
@@ -2053,9 +2067,12 @@ section('A1: waiting states end (D-03)');
   S.advanceClock(24 * HR); S.advanceClock(48 * HR);
   eq([evs('ready').length, evs('ready-24h').length, evs('ready-72h').length], [1, 1, 1], 'D-03: ready texts at ready, 24 h and 72 h');
   const readyAt = a.history.find((h) => h.status === 'ready').at;
+  const end = D.isoMinute(D.addMinutes(readyAt, M.HOLD_DAYS * DY));
   S.advanceClock(14 * DY);
-  eq([a.status, a.returnOption, a.payments.balance.state, a.handoff.slot, a.handoff.defaultedAt, a.handoff.heldAt], ['awaiting-handoff', 'pickup', 'held', null, D.isoMinute(D.addMinutes(readyAt, 14 * DY)), D.isoMinute(D.addMinutes(readyAt, 14 * DY))], 'D-03: 14 days ready → in-store pickup, the balance held, the capture clock started (no time yet)');
+  eq([a.status, a.returnOption, a.payments.balance.state, a.payments.balance.captureReason, a.payments.balance.capturedAt, a.handoff.slot, a.handoff.defaultedAt, state.payouts.map((p) => [p.kind, p.cents])],
+    ['awaiting-handoff', 'pickup', 'captured', 'unclaimed', end, null, end, [['job', SCENARIOS.seed.payout]]], 'K-53 (was D-03’s 14 days): on the hold’s last day (ready + 4 days) — charged anyway, set to in-store pickup (no time yet), the tailor paid');
   eq([evs('ready-default').length, evs('ready-default-t').length, S.handoffChangeable(a), S.confirmReceivedOpen(a)], [1, 1, true, false], 'D-03: both are told; she can pick a time; no Confirm received yet');
+  ok(evs('ready-default')[0].body.includes(`we charged your ${M.fmtExact(SCENARIOS.seed.balance)} balance and set it to in-store pickup`) && evs('ready-72h')[0].body.includes(`or we’ll charge the ${M.fmtExact(SCENARIOS.seed.balance)}`), 'K-53: the texts say so (72 h ahead of it, and when it happens)');
   const pick = S.handoffSlots(a)[0];
   ok(T.setHandoffSlot(a.id, pick).ok && a.handoff.slot.start === pick.start && evs('pickup-set').length === 1, 'D-03: she picks the pickup time later; the tailor is texted');
 
@@ -2075,7 +2092,7 @@ section('A1: the card window (D-04)');
 {
   const DY = 24 * 60;
   S.reset(); let a = driveTo('awaiting-handoff');
-  ok(S.handoffSlots(a).every((x) => D.toDate(x.start).getTime() <= S.now() + POLICY.HANDOFF_PICK_DAYS * 24 * 3600000) && POLICY.HANDOFF_PICK_DAYS === 5, 'D-04: pick days capped at 5');
+  ok(S.handoffSlots(a).every((x) => D.toDate(x.start).getTime() <= S.unclaimedAt(a)) && M.HOLD_DAYS === 4, 'D-04 → K-53: pick days capped by the ready hold (4 days from ready)');
   state.sim.capture = 'declined';
   const r = T.confirmPickup(a.id, a.handoff.code);
   eq([r.ok, a.status, a.payments.balance.state, state.payouts.length, S.statusScreen(a, 'customer'), state.sim.capture], [true, 'completed', 'capture-failed', 0, 'c-booking', 'ok'], 'D-04: the charge fails at the handoff — completed, card needs attention, no payout yet');
@@ -2180,8 +2197,8 @@ section('A1: the visit day (D-11, D-12, D-13, D-14, S-32)');
   /* K-51: she tapped I'm here and nobody answered → the customer's no-show */
   S.reset(); a = sure(); S.setClock('2026-10-15T16:55'); T.visitPing(a.id, 'tailor', 'here'); S.setClock('2026-10-15T19:00'); S.tick(); S.advanceClock(24 * HR);
   eq([a.status, a.cancel.reason, a.cancel.by, a.cancel.evidence, a.payments.deposit.state, a.cancel.tailorPaid, state.payouts.map((p) => [p.kind, p.cents]), S.openReviews().length],
-    ['cancelled', 'no-show', 'system', 'here', 'kept', 2500, [['no-show', 2500]], 0], 'K-51: her I’m here + no answer → the customer’s no-show (the no-show rule, $25.00), the review closed');
-  ok(evs('visit-closed').at(-1).body.includes('tapped I’m here') && evs('visit-closed-t').at(-1).body.includes('$25.00 no-show pay'), 'K-51: C17 / T19 say so');
+    ['cancelled', 'no-show', 'system', 'here', 'kept', SCENARIOS.seed.deposit, [['no-show', SCENARIOS.seed.deposit]], 0], 'K-51: her I’m here + no answer → the customer’s no-show (the no-show rule, K-53: the deposit only), the review closed');
+  ok(evs('visit-closed').at(-1).body.includes('tapped I’m here') && evs('visit-closed-t').at(-1).body.includes(`${M.fmtExact(SCENARIOS.seed.deposit)} no-show pay`), 'K-51: C17 / T19 say so');
   ok(T.disputeNoShow(a.id, 'customer').ok, 'K-51: she can still say “That’s not right”');
   S.reset(); a = sure(); S.setClock('2026-10-15T19:00'); S.tick();
   ok(T.answerVisitCheck(a.id, 'happened').ok, 'D-11: Sarah says it happened');
@@ -2244,7 +2261,7 @@ section('A1: offline blocks money (S-12)');
   eq([a.status, a.payments.deposit.state], ['requested', 'authorized'], 'S-12: nothing captured');
   S.reset(); a = driveTo('ready'); T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id); state.sim.network = 'offline';
   guard(T.holdBalance(a.id, 'visa-4242'), 'offline', 'S-12: Pay fails offline');
-  eq([a.status, a.payments.balance.state], ['ready', 'due'], 'S-12: nothing held');
+  eq([a.status, a.payments.balance.state, a.payments.balance.by], ['ready', 'held', 'ready'], 'S-12: nothing changes (K-53: the ready hold stays as it was)');
 }
 section('A1: notices, chat texts, handoff texts, payouts, review reminder (DG-2, B-06)');
 {
@@ -2792,6 +2809,123 @@ section('B2 · S-23 / S-24 legal pages (COUNSEL placeholders) — one policy mod
   ok(POL.policyPage('cancellation', 'customer').sections.flatMap((x) => x.lines).join(' ').includes(`${POLICY.CANCEL_WINDOW_H} hours`), 'S-24: the cancellation and refunds page reads POLICY');
   eq(POL.policyList('customer').map((x) => x.key).slice(-3), ['terms', 'privacy', 'accessibility'], 'D-380: Help lists the legal pages after the Help policies');
   eq([POL.policyPage('garment').legal, POL.policyPage('garment').version, POL.policyPage('nope').key], [0, '', 'garment'], 'D-380: a Help policy has no version line; unknown keys fall back');
+}
+
+/* ================= pre-MVP K-53, track M: the balance held at Ready, the courier at Pay, fee 15, no-show = deposit, the Ledger, the free window ================= */
+section('K-53 M · the balance held at Ready (d2, Q5)');
+{
+  const DAY = 24 * 3600000;
+  const evs = (e) => state.outbox.filter((m) => m.event === e);
+  S.reset(); let a = driveTo('ready');
+  const b = a.payments.balance;
+  eq([a.status, b.state, b.by, b.cardId, b.cents, b.holds.length, S.readyAtOf(a)], ['ready', 'held', 'ready', a.cardId, SCENARIOS.seed.balance, 1, b.heldAt], 'K-53: marking it ready holds the balance on the saved card at once (merchant-initiated)');
+  eq(S.unclaimedAt(a) - D.toDate(S.readyAtOf(a)).getTime(), M.HOLD_DAYS * DAY, 'K-53: the hold’s last day = ready + 4 whole days of the 4 d 18 h hold');
+  ok(M.HOLD_DAYS * 24 < POLICY.BALANCE_HOLD_H, 'K-53: the capture day falls inside the hold’s life');
+  ok(['pickup', 'courier'].every((m) => S.handoffSlots(a, m).every((x) => D.toDate(x.end ?? D.addMinutes(x.start, POLICY.HANDOFF_SLOT_MIN)).getTime() <= S.unclaimedAt(a))), 'K-53: every pickup time and courier window offered ends inside the hold, from the READY date');
+  ok(evs('ready')[0].body.includes(`We’re holding ${M.fmtExact(SCENARIOS.seed.balance)} on your Visa`) && evs('ready')[0].body.includes('by Mon, Oct 19'), 'K-53: the ready text says the hold and the day to choose by');
+  /* Pay confirms the way back + time against the ready hold — no second authorization, nothing moves on the card */
+  T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id);
+  const p = T.holdBalance(a.id, 'visa-4242');
+  eq([p.ok, a.status, a.payments.balance.by, a.payments.balance.holds.length, a.payments.balance.heldAt, a.payments.balance.courierCents], [true, 'awaiting-handoff', 'ready', 1, b.heldAt, 0], 'K-53: Pay confirms pickup + time against the ready hold');
+  T.confirmPickup(a.id, a.handoff.code);
+  eq([a.payments.balance.state, a.payments.balance.captureReason, state.payouts.map((x) => x.cents)], ['captured', 'handoff', [SCENARIOS.seed.payout]], 'K-53: captured at the handoff');
+  /* another card at Pay moves the hold: the ready one released, a customer-initiated one placed */
+  S.reset(); a = driveTo('ready'); T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id);
+  T.holdBalance(a.id, 'apple-pay');
+  eq([a.payments.balance.cardId, a.payments.balance.by, a.payments.balance.holds.map((h) => [h.cardId, h.by, !!h.releasedAt])], ['apple-pay', 'pay', [['visa-4242', 'ready', true], ['apple-pay', 'pay', false]]], 'K-53: paying with another card moves the hold (the ready one released)');
+  /* never chosen: the hold's last day — captured anyway, in-store pickup, the tailor paid, both texted */
+  S.reset(); a = driveTo('ready');
+  const end = S.unclaimedAt(a);
+  S.advanceClock(Math.round((end - S.now()) / 60000) - 1);
+  eq([a.status, a.payments.balance.state], ['ready', 'held'], 'K-53: a minute before the hold’s last day, still ready and held');
+  S.advanceClock(1);
+  eq([a.status, a.returnOption, a.handoff.slot, a.payments.balance.state, a.payments.balance.capturedAt, state.payouts.length, evs('ready-default').length, evs('ready-default-t').length],
+    ['awaiting-handoff', 'pickup', null, 'captured', D.isoMinute(new Date(end)), 1, 1, 1], 'K-53 (Q5): on the hold’s last day — charged, set to in-store pickup, the tailor paid, both texted');
+  ok(evs('ready-default-t')[0].body.includes(`Your ${M.fmtExact(SCENARIOS.seed.payout)} payout comes`), 'K-53: the tailor’s text says her payout');
+  ok(S.handoffSlots(a).length > 0 && S.handoffChangeable(a), 'K-53: after the charge she can still pick a time (HOLD_DAYS from now)');
+  S.advanceClock(POLICY.ABANDONED_CLOSE_D * 24 * 60);
+  eq([a.status, a.handoff.completedBy], ['completed', 'abandoned'], 'K-53: the 30-day abandoned close counts from that charge');
+  /* a hold that failed at ready and was never fixed: the last day defaults to pickup, the charge failed → Update card */
+  S.reset(); a = driveTo('in-progress'); state.sim.card = 'declined'; T.markReady(a.id); state.sim.card = 'ok';
+  ok(evs('ready').at(-1).body.includes('didn’t go through') && a.payments.balance.failedBy === 'ready', 'K-53: the card declined the hold at ready — her text says Update your card');
+  S.advanceClock(5 * 24 * 60);
+  eq([a.status, a.returnOption, a.payments.balance.state, state.payouts.length, evs('card-failed').length], ['awaiting-handoff', 'pickup', 'capture-failed', 0, 1], 'K-53: never fixed — set to pickup, the charge failed (Update card), no payout yet');
+  ok(T.retryCapture(a.id, 'apple-pay').ok && state.payouts.length === 1, 'K-53: Update card charges it and pays the tailor');
+  /* a tailor with no shop: charged anyway on the last day, the order stays ready, Taily reviews */
+  S.reset(); a = driveTo('in-progress'); amara().shop.enabled = false; T.markReady(a.id, { returns: ['courier'] });
+  S.advanceClock(5 * 24 * 60);
+  eq([a.status, a.payments.balance.state, S.tailyReviewOf(a)?.reason, state.payouts.length], ['ready', 'captured', 'ready-no-way-back', 1], 'K-53: no shop to default to — charged anyway, Taily review, the tailor paid');
+  T.chooseReturn(a.id, 'courier'); const w = S.handoffSlots(a, 'courier')[0]; T.setHandoffSlot(a.id, w);
+  const pc = T.holdBalance(a.id, 'visa-4242');
+  eq([pc.ok, a.payments.courierCharges.map((x) => x.cents), a.payments.balance.cents], [true, [a.courier.cents], SCENARIOS.seed.balance], 'K-53: the courier picked after that charge is its own charge (the balance isn’t charged twice)');
+}
+section('K-53 M · the courier at Pay (Q6)');
+{
+  const OFF = '2026-10-16T16:30';
+  const seen = M.courierQuote(0.6, OFF).cents;
+  S.reset(); let a = driveTo('ready'); T.chooseReturn(a.id, 'courier'); T.setHandoffSlot(a.id, OFF);
+  state.sim.courierDrift = 200;
+  const p = T.holdBalance(a.id, 'visa-4242');
+  const fresh = M.courierQuote(0.6, OFF, { drift: 200 });
+  eq([p.ok, a.courier.cents, a.courier.pay.absorbed, a.courier.pay.uber, a.payments.balance.courierCents, a.payments.balance.readyCents], [true, seen, fresh.cents - seen, fresh.quote, seen, SCENARIOS.seed.balance],
+    'K-53: re-quoted at Pay — a rise up to $3.00 is absorbed by Taily; she pays what she saw; the courier is held on top of the ready hold');
+  eq(M.courierAtPay(1000, { cents: 900 }), { cents: 900, absorbed: 0, repriced: false }, 'courierAtPay: a lower price is what she pays');
+  eq(M.courierAtPay(1000, { cents: 1000 + M.cents(MONEY.COURIER_ABSORB) }), { cents: 1000, absorbed: M.cents(MONEY.COURIER_ABSORB), repriced: false }, 'courierAtPay: exactly the cap is absorbed');
+  eq(M.courierAtPay(1000, { cents: 1001 + M.cents(MONEY.COURIER_ABSORB) }).repriced, true, 'courierAtPay: above the cap she sees it first');
+  S.reset(); a = driveTo('ready'); T.chooseReturn(a.id, 'courier'); EARN.pickHandoff(a.id);
+  state.sim.courierDrift = 500;
+  const up = M.courierQuote(0.6, a.handoff.slot.start, { drift: 500 }).cents;
+  const r = T.holdBalance(a.id, 'visa-4242');
+  eq([r.ok, r.error, r.cents, r.was, a.status, a.courier.cents, a.courier.repricedFrom, a.money.courier], [false, 'courier-repriced', up, SCENARIOS.courierQuote.cents, 'ready', up, SCENARIOS.courierQuote.cents, up], 'K-53: above $3.00 → courier-repriced, the new price set, nothing booked');
+  const r2 = T.holdBalance(a.id, 'visa-4242');
+  eq([r2.ok, a.courier.cents, a.courier.pay.absorbed], [true, up, 0], 'K-53: Pay again at the new price books it');
+  /* a pricier window after Pay → its own charge (a decline keeps the old window); the receipt and the ledger show it */
+  S.reset(); a = driveTo('ready'); T.chooseReturn(a.id, 'courier'); T.setHandoffSlot(a.id, OFF); T.holdBalance(a.id, 'visa-4242');
+  state.sim.card = 'declined';
+  guard(T.setHandoffSlot(a.id, '2026-10-16T17:00'), 'card-declined', 'K-53: a declined card keeps the old window');
+  state.sim.card = 'ok';
+  const mv = T.setHandoffSlot(a.id, '2026-10-16T17:00');
+  const extra = SCENARIOS.courierQuote.cents - seen;
+  eq([mv.ok, a.payments.courierCharges.map((x) => x.cents), a.payments.balance.cents, a.money.total], [true, [extra], SCENARIOS.seed.balance + seen, SCENARIOS.courier.total], 'K-53: the pricier window is charged now on its own; the capture stays what was authorized');
+  T.courierDelivered(a.id);
+  const rv = S.receiptView(a);
+  eq([rv.charges.map((x) => x.kind), rv.paid], [['deposit', 'balance', 'courier-change'], SCENARIOS.courier.total], 'K-53: the receipt lists the window change; she paid the total once');
+  const L = S.ledger({ apptId: a.id });
+  eq([L.rows.filter((x) => x.kind === 'courier-change').map((x) => x.cents), L.rows.find((x) => x.kind === 'courier-uber').cents, L.rows.find((x) => x.kind === 'courier-fee').cents], [[extra], SCENARIOS.courierQuote.quote, SCENARIOS.courierQuote.markup], 'K-53: the ledger has the change, Uber’s pass-through and Taily’s courier fee');
+}
+section('K-53 M · fee 15, no-show = deposit, the Ledger, the free window');
+{
+  eq([MONEY.TAILY_FEE_RATE, M.feePercent(), SCENARIOS.seed.tailyFee, SCENARIOS.seed.payout], [0.15, 15, FEE(12500), PAYOUT(12500, 3500)], 'K-53: the Taily fee is 15 — the seed fee and payout derive from it');
+  eq(M.payoutFor({ services: M.cents(MONEY.FEE_EXAMPLE_SERVICES) }), M.cents(MONEY.FEE_EXAMPLE_SERVICES) - FEE(M.cents(MONEY.FEE_EXAMPLE_SERVICES)), 'K-53: to-fee’s example — on a $100.00 job she keeps the services less the fee');
+  S.reset(); let a = driveTo('no-show');
+  eq([a.cancel.kept, a.cancel.tailorPaid, state.payouts.map((p) => [p.kind, p.cents])], [a.payments.deposit.cents, a.payments.deposit.cents, [['no-show', a.payments.deposit.cents]]], 'K-53 (Q7): a no-show pays the tailor the deposit only');
+  const L = S.ledger();
+  eq([L.rows.filter((r) => r.kind === 'deposit-kept').map((r) => r.cents), L.rows.filter((r) => r.kind === 'payout').map((r) => [r.cents, r.note])], [[SCENARIOS.seed.deposit], [[SCENARIOS.seed.deposit, 'no-show pay']]], 'K-53: the ledger shows the kept deposit and the no-show pay');
+  /* the Ledger: a completed job + a declined request, filters and totals */
+  S.reset(); driveTo('completed');
+  const b = EARN.addRequest(); T.tailorDecline(b.id, DATA.DECLINE_REASONS[0]);
+  S.setClock('2026-10-16T18:00'); T.settlePayouts();
+  const all = S.ledger();
+  const kinds = all.rows.map((r) => r.kind);
+  ok(['deposit-hold', 'deposit-capture', 'balance-hold', 'balance-capture', 'fee', 'payout', 'payout-paid', 'deposit-release'].every((k) => kinds.includes(k)), 'K-53 (c7): every money event is a row');
+  ok(all.rows.every((r, i, xs) => i === 0 || xs[i - 1].at >= r.at), 'K-53: newest first');
+  eq([all.totals.charged, all.totals.released, all.totals.revenue, all.totals.paid, all.totals.pending, all.totals.held], [SCENARIOS.seed.deposit + SCENARIOS.seed.balance, SCENARIOS.seed.deposit, SCENARIOS.seed.tailyFee, SCENARIOS.seed.payout, 0, 0], 'K-53: the totals (charged, released, Taily revenue, paid out)');
+  eq([S.ledger({ apptId: b.id }).rows.map((r) => r.kind).sort(), S.ledger({ day: '2026-10-16' }).rows.map((r) => r.kind), S.ledger({ person: 'tailor:amara' }).rows.length], [['deposit-hold', 'deposit-release'], ['payout-paid'], all.rows.length], 'K-53: the order, day and person filters');
+  eq([all.options.orders.length, all.options.people.map((p) => p.key)], [2, ['customer:sarah', 'tailor:amara']], 'K-53: the filter options come from the events');
+  ok(all.rows.every((r) => Number.isInteger(r.cents) && r.label && !/%/.test(`${r.label} ${r.note ?? ''}`)), 'K-53: integer cents, labelled, never a percent');
+  /* the free window: confirming no longer closes it; its end texts an unconfirmed (armed) visit once */
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
+  T.confirmVisit(a.id);
+  eq(M.cancelTerms(a, S.now()).window, 'early', 'K-53: confirmed 48 h ahead — still free');
+  S.advanceClock(Math.round((S.freeUntil(a) - S.now()) / 60000) + 5);
+  eq([M.cancelTerms(a, S.now()).window, state.outbox.filter((m) => m.event === 'free-window-closed').length], ['late', 0], 'K-53: the window ends 24 h before; a confirmed visit gets no free-window text');
+  S.reset(); a = driveTo('confirmed'); state.texts.customer.on = false;
+  S.advanceClock(Math.round((S.freeUntil(a) - S.now()) / 60000) + 5);
+  eq([S.autoCancelArmed(a), state.outbox.filter((m) => m.event === 'free-window-closed').length], [false, 0], 'K-53: no delivered reminder (texts off) — no auto-cancel, so no free-window text');
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.autoCancelAt(a) - S.now()) / 60000) + 5);
+  eq([a.status, state.outbox.filter((m) => m.event === 'free-window-closed').length, state.outbox.filter((m) => m.event === 'auto-cancel').length, TX.textNo('free-window-closed')], ['cancelled', 0, 1, `C${TX.TEXT_EVENTS.filter(([, r]) => r.to === 'customer').length}`], 'K-53: a clock that jumps past the auto-cancel sends only the cancel text (no stale “confirm now”); the new text is the last customer row');
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

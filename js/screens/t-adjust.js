@@ -1,28 +1,34 @@
 /* ============================================================
-   t-adjust — T5 "Edit the job" at the fitting (M4-spec §C1, K-01 / D-120…D-124).
+   t-adjust — T5 "Final order" at the fitting (K-42; the after-fitting edit mode = "Change the order") (M4-spec §C1, K-01 / D-120…D-124).
    Amara edits the ticket with Sarah watching the total move: add or
-   remove items and services, re-price, add a note, then send Sarah the
+   remove items and services, re-price, keep private notes, then send Sarah the
    FINAL order for approval — always sent, even unchanged. The draft
    always edits against the BOOKED order (D-121), so the marks here are
    the marks Sarah sees: New item / New / New price / Removed. Focal: the
    garment cards; the outcome rides in the action bar lead.
    Draft lives in state.ui['t-adjust'] (D-34):
-     { apptId, mode: 'new'|'revise', prices, removed, added, items, removedItems, note, tried, seq, comments, commentErrors }
+     { apptId, mode: 'new'|'revise'|'edit', prices, removed, added, items, removedItems, tried, seq, comments, commentErrors, noteDraft }
    K-02 (D-175…D-183): every card also documents the garment — Before / Pinned photos (REQUIRED: Send stays off until every item
    in the order has one of each) and an optional comment. Photos and saved comments live on the appointment (T.addFittingPhoto …),
    not in the draft; `comments` holds only the editors that are open with unsaved text.
-   Modes: 'new' (from the fitting) · 'revise' (Sarah hasn't approved yet).
+   Modes: 'new' (from the fitting) · 'revise' (Sarah hasn't approved yet) · 'edit' (Study-1 B1, K-30: after the fitting, before Mark
+   ready — the same cards against the APPROVED order, plus the due date, a required reason and an optional photo; Sarah approves or
+   messages, never declines (K-30 overruled) — the tailor revises by sending again; draft adds { needBy, reason, photo, seedSig }).
+   K-31 (Study-1 B2): the whole-order "Note to Sarah" is gone — the tailor's private General notes take its place (new / revise).
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
-import { state, T, getAppt, apptsFor, priceChangeView, docsOf, docsMissing, docsDiffer, nextItemId } from '../state.js';
+import { state, T, getAppt, apptsFor, priceChangeView, docsOf, docsMissing, docsDiffer, nextItemId, jobEditView, notesEditable, now } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import { setFocus } from '../focus.js';
 import { fmt, fmtExact, fmtColumn, cents } from '../money.js';
 import { SERVICES, GARMENT_TYPES, servicesForType, TAILOR_LIMITS, MAX_ITEMS, FITTING_LIMITS, DOC_LABEL } from '../data.js';
+import { fmtDay, isoDay, addDays, dayDiff } from '../dates.js';
+import { ICON_CAMERA } from '../icons.js';
 import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, banner, emptyState, listRow, optionRow, textArea, deltaFigure, tailorBreakdown, actionBar, changeSummary,
   sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, garmentHead, docsEditor, wireGarmentDocs, sectionHead, textLink,
+  privateNotes, wirePrivateNotes, openAttachSheet, photoStub, dueChange, wirePhotoViewer, visitBlock,
 } from '../components.js';
 
 const ID = 't-adjust';
@@ -34,22 +40,25 @@ const keyOf = (garmentId, serviceId) => `${garmentId}:${serviceId}`;
 const inputId = (r) => `price-${r.garmentId}-${r.serviceId}`;
 
 /* ---------- which appointment, which draft ---------- */
-const adjustable = (a) => !!a && ADJUSTABLE.includes(a.status) && apptsFor('tailor').includes(a);
+/** At the fitting (or revising the sent order); with `edit` (Study-1 B1) also a job in progress. */
+const adjustable = (a, edit = false) => !!a && apptsFor('tailor').includes(a) && (ADJUSTABLE.includes(a.status) || (edit && a.status === 'in-progress'));
 
 /** The appointment being edited: the draft's own, else the focused one, else the newest in a fitting / price-change. */
 function target() {
+  const edit = state.ui[ID]?.mode === 'edit';
   const own = getAppt(state.ui[ID]?.apptId);
-  if (adjustable(own)) return own;
+  if (adjustable(own, edit)) return own;
   const focused = getAppt(state.ui.apptId);
-  if (adjustable(focused)) return focused;
-  return apptsFor('tailor').find(adjustable) ?? null;
+  if (adjustable(focused, edit)) return focused;
+  return apptsFor('tailor').find((a) => adjustable(a)) ?? null;
 }
+const isEdit = (d) => d?.mode === 'edit';
 
 const nSeq = (items) => Math.max(0, ...items.map((i) => Number(String(i.id).slice(1)) || 0)) + 1;
 
-/** Revise: rebuild the draft from the order Sarah is looking at, against the BOOKED order (D-121). */
-function draftFromSent(a) {
-  const sent = a.priceChange?.lines ?? a.lines;
+/** Revise: rebuild the draft from the order Sarah is looking at, against the BOOKED order (D-121). Edit (Study-1 B1): from the pending
+    edit's lines against the APPROVED order (`a.lines`). */
+function draftFromSent(a, sent = a.priceChange?.lines ?? a.lines) {
   const list = myTailor().prices ?? {};
   const bookedLine = new Map(a.lines.map((l) => [keyOf(l.garmentId, l.serviceId), l]));
   const bookedIds = new Set(a.lines.map((l) => l.garmentId));
@@ -67,27 +76,35 @@ function draftFromSent(a) {
   }
   const removed = a.lines.filter((l) => !sentKeys.has(keyOf(l.garmentId, l.serviceId))).map((l) => keyOf(l.garmentId, l.serviceId));
   const removedItems = [...bookedIds].filter((id) => !sentIds.has(id));
-  return { prices, removed, added, items, removedItems, note: a.priceChange?.note ?? '', seq: nSeq(items) };
+  return { prices, removed, added, items, removedItems, seq: nSeq(items) };
 }
 
 /** Make sure `state.ui['t-adjust']` is a full draft for `a` (a flow may hand over only { apptId, mode }). */
 function ensureDraft(a) {
-  const mode = a.status === 'price-change' ? 'revise' : 'new';
+  const mode = a.status === 'price-change' ? 'revise' : a.status === 'in-progress' ? 'edit' : 'new';
   let d = state.ui[ID];
   if (!d || d.apptId !== a.id) d = state.ui[ID] = { apptId: a.id, mode };
   d.mode ??= mode;
   if (d.mode === 'revise' && d.prices === undefined) Object.assign(d, draftFromSent(a));
+  if (d.mode === 'edit' && d.needBy === undefined) {
+    /* Study-1 B1: a pending edit is the starting point (sending again replaces it, default 13) */
+    const e = a.edit?.state === 'pending' ? a.edit : null;
+    if (e && d.prices === undefined) Object.assign(d, draftFromSent(a, e.lines));
+    d.needBy = e?.needBy ?? a.job.needBy;
+    d.reason ??= e?.reason ?? '';
+    d.photo ??= !!e?.photo;
+  }
   d.prices ??= {};
   d.removed ??= [];
   d.added ??= [];
   d.items ??= [];
   d.removedItems ??= [];
-  d.note ??= '';
   d.tried ??= false;
   d.comments ??= {};
   d.commentErrors ??= {};
   /* D-182: an added item never reuses the id of a discarded item that still has photos */
   d.seq = Math.max(d.seq ?? 0, nSeq(d.items), Number(nextItemId(a).slice(1)));
+  if (isEdit(d)) d.seedSig ??= editSig(a, d);
   return d;
 }
 
@@ -146,18 +163,28 @@ const previewLines = (garments) => liveRows(garments).map((r) => ({
 }));
 
 const lineSig = (l) => `${l.garmentId}:${l.serviceId}:${l.cents}`;
-/** Anything Back would throw away: new → any edit or a note; revise → the draft differs from what was sent (D-123). */
+/** Anything Back would throw away: new → any edit; revise → the draft differs from what was sent (D-123); edit → anything moved since it opened. */
 function isEdited(a, d, garments) {
   const rows = liveRows(garments);
   if (rows.some((r) => r.parsed.error)) return true;
   /* K-02: an open comment editor whose text differs from the saved comment is an edit (photos and saved comments are already saved) */
   if (Object.entries(d.comments ?? {}).some(([gid, text]) => text.trim() !== docsOf(a, gid).comment)) return true;
+  if (isEdit(d)) return editSig(a, d, garments) !== d.seedSig;
   if (d.mode === 'revise') {
     const sent = (a.priceChange?.lines ?? a.lines).map(lineSig).sort().join('|');
-    return previewLines(garments).map(lineSig).sort().join('|') !== sent || d.note.trim() !== (a.priceChange?.note ?? '')
-      || docsDiffer(a, liveIds(garments));
+    return previewLines(garments).map(lineSig).sort().join('|') !== sent || docsDiffer(a, liveIds(garments));
   }
-  return priceChangeView(a, previewLines(garments)).changed || d.note.trim() !== '';
+  return priceChangeView(a, previewLines(garments)).changed;
+}
+/** Study-1 B1: everything the edit would send, as one string (Back asks first when it moved since the screen opened). */
+function editSig(a, d, garments = build(a, d)) {
+  const rows = liveRows(garments).map((r) => `${r.key}:${r.raw}`).sort().join('|');
+  return [rows, d.needBy, (d.reason ?? '').trim(), d.photo ? 1 : 0].join('#');
+}
+/** The edit's lines changed vs the APPROVED order, or its due date did — else there is nothing to send. */
+function editChanged(a, d, garments) {
+  const cur = previewLines(garments).map(lineSig).sort().join('|');
+  return cur !== a.lines.map(lineSig).sort().join('|') || d.needBy !== a.job.needBy;
 }
 
 /** Errors the screen shows after Send was pressed. */
@@ -165,11 +192,12 @@ function checks(d, garments) {
   const rows = liveRows(garments);
   const fields = {};
   for (const r of rows) if (r.parsed.error) fields[r.key] = r.parsed.error;
-  return {
-    fields,
-    empty: rows.length === 0,
-    note: d.note.trim().length > TAILOR_LIMITS.NOTE_MAX ? `Keep the note under ${TAILOR_LIMITS.NOTE_MAX} characters.` : '',
-  };
+  const out = { fields, empty: rows.length === 0, reason: '' };
+  if (isEdit(d)) {
+    const why = (d.reason ?? '').trim();
+    out.reason = !why ? `Tell ${firstOf()} why you’re changing it.` : [...why].length > TAILOR_LIMITS.NOTE_MAX ? `Keep the reason under ${TAILOR_LIMITS.NOTE_MAX} characters.` : '';
+  }
+  return out;
 }
 
 /* ---------- view ---------- */
@@ -214,6 +242,7 @@ function addable(g) {
   return servicesForType(g.type).filter((id) => typeof prices[id] === 'number' && !g.rows.some((r) => r.serviceId === id));
 }
 
+/** `ctx.edit` (Study-1 B1): the fitting photos stay locked after approval (D-175), so an edit's cards have no docs block. */
 function garmentHtml(g, errors, busy, ctx) {
   const dis = busy ? ' disabled' : '';
   if (g.gone) {
@@ -230,7 +259,7 @@ function garmentHtml(g, errors, busy, ctx) {
     <div class="card ${ID}__card${g.isNew ? ` ${ID}__card--new` : ''}">
       <div class="${ID}__head">${garmentHead({ type: g.type, tag: g.isNew ? tag('New item', 'new-item') : '', as: 'h2' })}</div>
       ${g.rows.map((r) => rowHtml(r, errors, busy, g.isNew)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: '+ Add a service', act: 'add-service' }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${dis}`)}</div>` : ''}
-      ${docsEditor({
+      ${ctx.edit ? '' : docsEditor({
     garmentId: g.id, type: g.type, docs: docsOf(ctx.a, g.id), missing: ctx.missing.get(g.id) ?? { before: false, pinned: false },
     commentDraft: ctx.d.comments[g.id] ?? null, commentError: ctx.d.commentErrors[g.id] ? `Keep the comment under ${FITTING_LIMITS.COMMENT_MAX} characters.` : '', busy, first: ctx.first, tried: ctx.d.tried,
   })}
@@ -251,10 +280,11 @@ function view() {
 </main>`;
   }
   const d = ensureDraft(a);
+  if (isEdit(d)) return editView(a, d, chromeHtml);
   const first = firstOf();
   const revise = d.mode === 'revise';
   const garments = build(a, d);
-  const errors = d.tried ? checks(d, garments) : { fields: {}, empty: false, note: '' };
+  const errors = d.tried ? checks(d, garments) : { fields: {}, empty: false };
   /* no service left: the figures hold the booked values until one is added back (R4-1-T-04) */
   const none = liveRows(garments).length === 0;
   const real = priceChangeView(a, previewLines(garments));
@@ -269,7 +299,7 @@ function view() {
   const deposit = pv.after.deposit;
   const edited = isEdited(a, d, garments);
   const atMax = garments.length >= MAX_ITEMS;
-  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">At the fitting</p><h1 class="t-title">${revise ? 'Edit the order you sent' : 'Edit the job'}</h1>`
+  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">At the fitting</p><h1 class="t-title">Final order</h1>`   /* K-42 (D-297): one title at the fitting, first send or revise */
     + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Photograph each item before and after pinning, then send ${esc(first)} the final order.</p></div><!--/notes-->`;
   /* K-02 (D-178): the card says what is missing, the bar says how many items still need photos */
   const gaps = docsMissing(a, liveIds(garments));
@@ -293,7 +323,7 @@ function view() {
     <div class="card ${ID}__card ${ID}__card--add">${listRow({ title: '+ Add an item', act: 'add-item' }).replace('data-act="add-item"', `data-act="add-item"${atMax || busy ? ' disabled aria-disabled="true"' : ''}`)}${atMax ? `<p class="t-small c-600 ${ID}__max">Up to ${MAX_ITEMS} items on one job.</p>` : ''}</div>
   </div>
   <div class="${ID}__empty-err" data-live="empty">${errors.empty ? banner({ tone: 'error', text: 'Keep at least one item with a service on this job.' }) : ''}</div>
-  <section class="sec ${ID}__note">${textArea({ id: 'adjust-note', label: `Note to ${first} about the whole order (optional)`, value: d.note, rows: 3, max: TAILOR_LIMITS.NOTE_MAX, helper: 'Phone numbers and emails are hidden.', error: errors.note })}</section>
+  ${notesHtml(a, d, busy)}
   <section class="sec" aria-labelledby="${ID}-changes">
   ${sectionHead('What changes', { id: `${ID}-changes` })}
   <div class="${ID}__summary" data-live="summary">${bad ? '' : changeSummary(real.counts)}</div>
@@ -314,6 +344,86 @@ ${actionBar({
   })}`;
 }
 
+/** K-31 (Study-1 B2): the private General notes in place of the old whole-order note to the customer. */
+function notesHtml(a, d, busy) {
+  if (!notesEditable(a)) return '';
+  return `<div class="${ID}__notes">${privateNotes({ notes: a.notes ?? [], draft: d.noteDraft ?? null, type: a.job.garments[0]?.type ?? '', id: `${ID}-notes`, busy })}</div>`;
+}
+
+/* ---------- Study-1 B1: edit the job after the fitting (K-30) ---------- */
+/** "Fri, Oct 26" + "3 days later" for the due-date sheet: tomorrow on, from a few days before the approved date to two weeks after it. */
+function dueOptions(a) {
+  const from = isoDay(addDays(now(), 1));
+  const out = [];
+  for (let i = -3; i <= 14; i += 1) {
+    const day = isoDay(addDays(a.job.needBy, i));
+    if (day < from) continue;
+    out.push({ day, sub: i === 0 ? 'Current due date' : `${Math.abs(i)} day${Math.abs(i) === 1 ? '' : 's'} ${i > 0 ? 'later' : 'earlier'}` });
+  }
+  return out;
+}
+function editView(a, d, chromeHtml) {
+  const first = firstOf();
+  const garments = build(a, d);
+  const errors = d.tried ? checks(d, garments) : { fields: {}, empty: false, reason: '' };
+  const none = liveRows(garments).length === 0;
+  const bad = liveRows(garments).filter((r) => r.parsed.error).length;
+  const busy = !!d.busy;
+  const lines = none ? a.lines : previewLines(garments);
+  const ev = jobEditView(a, { lines, needBy: d.needBy });
+  const pending = a.edit?.state === 'pending';
+  const changed = editChanged(a, d, garments);
+  const same = !bad && !none && !ev.changed;
+  const atMax = garments.length >= MAX_ITEMS;
+  const ctx = { a, d, missing: new Map(), first, edit: true };
+  const hero = `<p class="t-caps c-600 ${ID}__eyebrow">After the fitting</p><h1 class="t-title">Change the order</h1>`   /* K-42 */
+    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Notes and photos are yours to change. A new price, due date or work needs ${esc(first)}’s approval.</p></div><!--/notes-->`;
+  const due = d.needBy !== a.job.needBy
+    ? dueChange({ needBy: d.needBy, was: a.job.needBy })
+    : `<span>${esc(fmtDay(d.needBy))}</span>`;
+  const daysOut = dayDiff(a.slot.start, d.needBy);
+  const photo = d.photo
+    ? `<div class="${ID}__photo">${photoStub({ type: a.job.garments[0]?.type ?? '', tone: 0, size: 'tile', alt: 'Photo for the change' })}${textLink('Remove photo', { act: 'edit-photo-remove', tone: 'danger', disabled: busy })}</div>`
+    : `<div class="card card--list ${ID}__photo-add">${listRow({ title: `Add a photo so the customer sees why`, sub: 'Optional', act: 'edit-photo', lead: ICON_CAMERA, chevron: false })}</div>`;
+  const pair = `<span class="${ID}__lead-pair">${esc(first)} <span class="nb">pays <b data-money>${fmtExact(ev.after.total)}</b></span></span><span class="${ID}__lead-pair"><span class="nb">Your payout <b data-money>${fmtExact(ev.after.payout)}</b></span></span>`;
+  const lead = none ? 'Add an item or service to see the new total' : bad ? `Fix ${bad} price${bad > 1 ? 's' : ''} to see the new total` : `<span class="${ID}__lead">${pair}</span>`;
+  const off = !busy && !changed;
+  return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--edit" data-appt="${esc(a.id)}"${d.tried ? ' data-tried="true"' : ''}>
+  ${headingRow(hero)}
+  <div class="${ID}__content"${busy ? ' inert aria-busy="true"' : ''}>
+  ${pending ? `<div class="${ID}__info">${banner({ tone: 'info', text: `${esc(first)} hasn’t answered your changes yet. Sending again replaces them.` })}</div>` : ''}
+  <div class="${ID}__garments">${garments.map((g) => garmentHtml(g, errors, busy, ctx)).join('')}
+    <div class="card ${ID}__card ${ID}__card--add">${listRow({ title: '+ Add an item', act: 'add-item' }).replace('data-act="add-item"', `data-act="add-item"${atMax || busy ? ' disabled aria-disabled="true"' : ''}`)}${atMax ? `<p class="t-small c-600 ${ID}__max">Up to ${MAX_ITEMS} items on one job.</p>` : ''}</div>
+  </div>
+  <div class="${ID}__empty-err" data-live="empty">${errors.empty ? banner({ tone: 'error', text: 'Keep at least one item with a service on this job.' }) : ''}</div>
+  <section class="sec" aria-labelledby="${ID}-due">
+  ${sectionHead('Due date', { id: `${ID}-due` })}
+  ${visitBlock([{ icon: 'clock', value: due, strong: true, detail: `${daysOut} day${daysOut === 1 ? '' : 's'} after the fitting` }], { title: '', action: '' })}
+  <div class="${ID}__due-change">${textLink('Change the due date', { act: 'edit-due', disabled: busy })}</div>
+  </section>
+  <section class="sec ${ID}__why" aria-labelledby="${ID}-why">
+  ${sectionHead('Why it’s changing', { id: `${ID}-why` })}
+  ${textArea({ id: 'edit-reason', label: `Reason for the change (${first} sees this)`, value: d.reason ?? '', rows: 3, max: TAILOR_LIMITS.NOTE_MAX, helper: 'Phone numbers and emails are hidden.', error: errors.reason })}
+  ${photo}
+  </section>
+  <section class="sec" aria-labelledby="${ID}-changes">
+  ${sectionHead('What changes', { id: `${ID}-changes` })}
+  <div class="${ID}__summary" data-live="summary">${bad ? '' : ev.changed ? changeSummary(ev.counts) : '<p class="t-body c-700">Same items, same price.</p>'}</div>
+  <div class="${ID}__figures${same ? ` ${ID}__figures--none` : ''}" data-live="figures">${same ? '' : `
+    ${bad ? dashFigure(`${first} pays`) : deltaFigure({ label: `${first} pays`, cents: ev.after.total, was: ev.before.total })}
+    ${bad ? dashFigure('Your payout') : deltaFigure({ label: 'Your payout', cents: ev.after.payout, was: ev.before.payout })}`}
+  </div>
+  <div class="${ID}__breakdown" data-live="breakdown">${bad ? '' : tailorBreakdown(ev.after)}</div>
+  <p class="t-small c-600 ${ID}__fine" data-money>${esc(first)}’s ${fmtExact(a.payments.deposit.cents)} deposit stays the same.</p>
+  </section>
+  </div>
+</main>
+${actionBar({
+    ctaLabel: `Send to ${first}`, ctaAct: 'send', disabled: off, busy, busyLabel: 'Sending…',
+    note: off ? 'Change the price, the due date or the work to send it.' : '', lead,
+  })}`;
+}
+
 /* ---------- in-place updates (typing never re-renders the field) ---------- */
 function patch(root) {
   const tpl = document.createElement('template');
@@ -325,7 +435,7 @@ function patch(root) {
   const bar = root.querySelector('.action-bar');
   const nextBar = tpl.content.querySelector('.action-bar');
   if (bar && nextBar && bar.outerHTML !== nextBar.outerHTML) bar.replaceWith(nextBar);
-  /* invalid state of the inputs and the note, copied without touching the focused element */
+  /* invalid state of the inputs, copied without touching the focused element */
   tpl.content.querySelectorAll('.field__input[data-key]').forEach((next) => {
     const cur = root.querySelector(`#${CSS.escape(next.id)}`);
     if (!cur) return;
@@ -334,16 +444,6 @@ function patch(root) {
     }
     cur.closest('.field__box')?.classList.toggle(`${ID}__box--error`, next.hasAttribute('aria-invalid'));
   });
-  const noteNext = tpl.content.querySelector(`.${ID}__note .text-area`);
-  const noteCur = root.querySelector(`.${ID}__note .text-area`);
-  if (noteNext && noteCur) {
-    const msgNext = noteNext.querySelector('.field__msg');
-    const msgCur = noteCur.querySelector('.field__msg');
-    if (msgNext && msgCur) { msgCur.textContent = msgNext.textContent; msgCur.className = msgNext.className; if (msgNext.hasAttribute('role')) msgCur.setAttribute('role', 'alert'); else msgCur.removeAttribute('role'); }
-    noteCur.classList.toggle('field--error', noteNext.classList.contains('field--error'));
-    const ta = noteCur.querySelector('textarea');
-    if (noteNext.classList.contains('field--error')) ta.setAttribute('aria-invalid', 'true'); else ta.removeAttribute('aria-invalid');
-  }
 }
 
 /** Re-render the screen, keep the scroll, and put focus on `sel` (a selector inside #screen). */
@@ -436,7 +536,10 @@ function openAddItem() {
 }
 
 function openLeave(a) {
-  modalOverlay(leaveModal({ title: 'Leave without sending?', body: `${firstOf()} can’t approve the order until you send it. Your photos and comments are saved. Item and price changes aren’t.` }), { dataS: `${ID}-leave` }, (holder, close) => {
+  const body = isEdit(ui())
+    ? `Your changes aren’t sent. ${firstOf()} keeps the order she approved until you send them.`   // Study-1 B1
+    : `${firstOf()} can’t approve the order until you send it. Your photos and comments are saved. Item and price changes aren’t.`;
+  modalOverlay(leaveModal({ title: 'Leave without sending?', body }), { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => {
       close({ instant: true });
@@ -548,17 +651,74 @@ function saveOpenComments(a, d) {
   return true;
 }
 
+/** Study-1 B1: send the edit. The reason is checked here first, each error next to its field; then the model's own guards. */
+function sendEdit(a) {
+  const d = ui();
+  if (d.busy) return;
+  d.tried = true;
+  const garments = build(a, d);
+  const errors = checks(d, garments);
+  const firstBad = Object.keys(errors.fields)[0];
+  if (firstBad || errors.empty || errors.reason) {
+    const row = garments.flatMap((g) => g.rows).find((r) => r.key === firstBad);
+    rerender(row ? `#${q(inputId(row))}` : errors.reason ? '#edit-reason' : null);
+    if (errors.empty) document.querySelector('#screen [data-live="empty"]')?.scrollIntoView({ block: 'center' });
+    return;
+  }
+  const lines = liveRows(garments).map((r) => ({
+    garmentId: r.garmentId, garmentType: r.garmentType, serviceId: r.serviceId, label: r.label, cents: r.parsed.cents,
+  }));
+  const payload = { lines, needBy: d.needBy, reason: d.reason, photo: !!d.photo };
+  const resend = a.edit?.state === 'pending';
+  d.busy = true;
+  rerender();
+  withLatency(() => {
+    d.busy = false;
+    if (currentScreen() !== ID) return;
+    const r = T.sendJobEdit(a.id, payload);
+    if (r.ok) {
+      delete state.ui[ID];
+      setFocus(a.id);
+      go('t-job', { fresh: true });
+      toast(resend ? `Updated changes sent to ${firstOf()}.` : `Sent to ${firstOf()}. She can approve or message you.`, { tone: 'success' });
+    } else if (r.error === 'not-in-progress') {
+      delete state.ui[ID];
+      setFocus(a.id);
+      go('t-job', { replace: true });
+      toast('This job can’t be edited any more.', { tone: 'error' });
+    } else {
+      rerender();
+      toast(r.error === 'no-change' ? 'Change the price, the due date or the work to send it.' : 'Couldn’t send the changes. Try again.', { tone: 'error' });
+    }
+  });
+}
+
+function openDue(a) {
+  const d = ui();
+  const rows = dueOptions(a).map((o) => optionRow({ name: 'due', value: o.day, title: esc(fmtDay(o.day)), sub: o.sub, checked: o.day === d.needBy, act: 'pick-due' })).join('');
+  sheetOverlay(`<div class="${ID}-sheet"><div role="radiogroup" aria-label="Due date">${rows}</div></div>`, { header: 'Due date', confirm: false, dataS: `${ID}--edit-due` }, (holder, close) => {
+    holder.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-act="pick-due"]');
+      if (!el) return;
+      d.needBy = el.dataset.value;
+      close({ instant: true });
+      rerender('[data-act="edit-due"]');
+    });
+  });
+}
+
 function send(a) {
   const d = ui();
   if (d.busy) return;
+  if (isEdit(d)) { sendEdit(a); return; }
   if (!saveOpenComments(a, d)) return;
   d.tried = true;
   const garments = build(a, d);
   const errors = checks(d, garments);
   const firstBad = Object.keys(errors.fields)[0];
-  if (firstBad || errors.empty || errors.note) {
+  if (firstBad || errors.empty) {
     const row = garments.flatMap((g) => g.rows).find((r) => r.key === firstBad);
-    rerender(row ? `#${q(inputId(row))}` : errors.note ? '#adjust-note' : null);
+    rerender(row ? `#${q(inputId(row))}` : null);
     if (errors.empty) document.querySelector('#screen [data-live="empty"]')?.scrollIntoView({ block: 'center' });
     return;
   }
@@ -572,14 +732,13 @@ function send(a) {
   const lines = liveRows(garments).map((r) => ({
     garmentId: r.garmentId, garmentType: r.garmentType, serviceId: r.serviceId, label: r.label, cents: r.parsed.cents,
   }));
-  const note = d.note;
   const revise = d.mode === 'revise';
   d.busy = true;
   rerender();
   withLatency(() => {
     d.busy = false;
     if (currentScreen() !== ID) return;
-    const r = T.sendPriceChange(a.id, lines, { note });
+    const r = T.sendPriceChange(a.id, lines);
     if (r.ok) {
       delete state.ui[ID];
       setFocus(a.id);
@@ -617,7 +776,7 @@ function wire(root) {
       if (ui().busy) return;
       if (isEdited(a, ui(), build(a, ui()))) {
         /* D-196: leaving with photos missing shows what is missing, behind the modal */
-        if (docsMissing(a, liveIds(build(a, ui()))).length && !ui().tried) { ui().tried = true; rerender(); }
+        if (!isEdit(ui()) && docsMissing(a, liveIds(build(a, ui()))).length && !ui().tried) { ui().tried = true; rerender(); }
         openLeave(a);
       } else leave(a);
     });
@@ -641,6 +800,10 @@ function wire(root) {
       delete d.commentErrors[gid];
       rerender(commentTrigger(a, gid));
     } else if (act === 'send') send(a);
+    else if (act === 'edit-due') openDue(a);
+    else if (act === 'edit-photo') {
+      openAttachSheet({ count: 0, max: 1, note: `${firstOf()} sees this photo with your reason.` }, () => { d.photo = true; rerender('[data-act="edit-photo-remove"]'); });
+    } else if (act === 'edit-photo-remove') { d.photo = false; rerender('[data-act="edit-photo"]'); }
     else if (act === 'add-service') openAdd(a, el.dataset.garment);
     else if (act === 'add-item') openAddItem();
     else if (act === 'remove-line') removeLine(a, el.dataset.key);
@@ -677,14 +840,27 @@ function wire(root) {
     } else if (t.matches('.field__input[data-key]')) {
       d.prices[t.dataset.key] = t.value;
       patch(root);
-    } else if (t.id === 'adjust-note') {
-      d.note = t.value;
+    } else if (t.id === 'edit-reason') {
+      d.reason = t.value;
       const n = [...t.value].length;
-      const count = root.querySelector('#adjust-note-count');
+      const count = root.querySelector('#edit-reason-count');
       if (count) { count.textContent = `${n} / ${TAILOR_LIMITS.NOTE_MAX}`; count.classList.toggle('text-area__count--over', n > TAILOR_LIMITS.NOTE_MAX); }
-      patch(root);
     }
   });
+
+  /* K-31 (Study-1 B2): the private General notes (new / revise; an edit after the fitting keeps them on the job page) */
+  wirePhotoViewer(root);
+  if (!isEdit(d) && notesEditable(a)) {
+    wirePrivateNotes(root, {
+      draft: () => ui()?.noteDraft ?? null,
+      setDraft: (nd) => { if (nd) ui().noteDraft = nd; else delete ui().noteDraft; },
+      notes: () => a.notes ?? [],
+      save: (nd) => (nd.id ? T.updateNote(a.id, nd.id, { text: nd.text, photos: nd.photos }) : T.addNote(a.id, { text: nd.text, photos: nd.photos })),
+      remove: (noteId) => T.removeNote(a.id, noteId),
+      restore: (note, index) => T.restoreNote(a.id, note, index),
+      rerender,
+    });
+  }
 }
 
 register(ID, view, wire);

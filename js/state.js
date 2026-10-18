@@ -15,35 +15,39 @@
    money-config.js. Decisions: D-03 … D-27 in docs/v5/DECISIONS.md.
 
    Status machine:
-     requested → confirmed → fitting → price-change → in-progress → ready → returning → completed
+     requested → confirmed → fitting → price-change → in-progress → ready → awaiting-handoff → completed
+       (awaiting-handoff, Study-1 A1–A3: the balance is HELD when Sarah picks a way back and captured at the handoff — pickup code,
+        "I got it", courier delivery, or HANDOFF_AUTO_H after Amara marks it; still open after UNCLAIMED_CAPTURE_D → captured, job stays open)
      requested → suggested → confirmed | cancelled(switched | withdrawn)
      requested → declined (terminal) · expired → requested (Try again) · confirmed → cancelled(...)
    ============================================================ */
 import { POLICY } from './money-config.js';
 import {
-  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout,
+  cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout, fmtExact,
 } from './money.js';
 import {
-  toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, payoutDay,
+  toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, fmtDay, fmtTime, fmtTimeRange, payoutDay,
 } from './dates.js';
 import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
-  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType,
+  TAILOR_LIMITS, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType, HANDOFF_CODE_LEN,
+  HOOD_BY_ID, zipsForHoods, NOTES_LIMITS,
 } from './data.js';
 
-export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning', 'completed', 'cancelled'];
+export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff', 'completed', 'cancelled'];
 export const TERMINAL = ['declined', 'cancelled', 'completed'];
 export const SECTIONS = ['profile', 'services', 'where', 'returns', 'availability', 'payouts'];
 
 const clone = (x) => structuredClone(x);
 const MIN_MS = 60000;
 const HOUR_MS = 3600000;
+const DAY_MS = 24 * HOUR_MS;
 
 function freshSim() {
-  /* network 'online'|'offline' · send 'ok'|'fail' (one-shot, D-130) · session 'valid'|'expired' · push 'default'|'prompt'|'granted'|'denied'
-     · payout 'ok'|'failed' · server 'ok'|'error' (one-shot, D-140) */
-  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', push: 'default', send: 'ok', session: 'valid', payout: 'ok', server: 'ok' };
+  /* network 'online'|'offline' · send 'ok'|'fail' (one-shot, D-130) · session 'valid'|'expired' · texts 'off'|'on' (K-43, D-301: the
+     tailor's new-request text shows on screen — on after onboarding; off by default so a flow's baseline stays still) · payout 'ok'|'failed' · server 'ok'|'error' (one-shot, D-140) */
+  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok' };
 }
 function fresh() {
   return {
@@ -84,7 +88,10 @@ const succeed = (appt, extra = {}) => ({ ok: true, appt, ...extra });
 export const now = () => state.clock.now;
 export const nowIso = () => isoMinute(new Date(state.clock.now));
 export function setClock(iso) { state.clock.now = toDate(iso).getTime(); return state.clock.now; }
-/** Expire every `requested` appointment whose reply window has passed. Returns the expired ids. */
+/** Run every timer that is due: expire `requested` appointments whose reply window passed, lapse suggested times (D-154), on
+    `awaiting-handoff` (Study-1 A2–A3) capture an unclaimed hold and auto-complete a marked handoff, and on `confirmed` (K-41) send the
+    24-hour reminder and its one nudge — each stamped at its own due time, in time order. A reported problem pauses both handoff timers.
+    Returns the ids that moved. */
 export function tick() {
   const expired = [];
   for (const a of state.appts) {
@@ -93,6 +100,19 @@ export function tick() {
     } else if (a.status === 'suggested' && state.clock.now >= suggestLapseAt(a)) {
       endSuggestion(a, `${firstName(tailorById(a.tailorId))}’s suggested time passed`, 'Your suggested time passed', 'lapsed');   // D-154
       expired.push(a.id);
+    } else if (a.status === 'awaiting-handoff' && a.handoff && !a.handoff.problemAt) {
+      const auto = a.handoff.autoAt ? toDate(a.handoff.autoAt).getTime() : Infinity;
+      const cap = a.payments.balance.state === 'held' ? unclaimedAt(a) : Infinity;
+      if (cap <= state.clock.now && cap < auto) {
+        const at = isoMinute(new Date(cap));
+        captureHold(a, 'unclaimed', at);
+        const amt = fmtExact(a.payments.balance.cents);
+        post(a.tailorId, 'system', `We charged the ${amt} on hold after ${POLICY.UNCLAIMED_CAPTURE_D} days`, { at, tailorText: `${state.customer.first}’s ${amt} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days` });
+        expired.push(a.id);
+      }
+      if (auto <= state.clock.now) { completeHandoff(a, 'auto', a.handoff.autoAt); expired.push(a.id); }
+    } else if (a.status === 'confirmed' && remindTick(a)) {
+      expired.push(a.id);   // K-41: the 24-hour reminder (or its one nudge) went out; K-43: or the unconfirmed visit was cancelled
     }
   }
   return expired;
@@ -293,9 +313,10 @@ const SECTION_RULES = {
       if (!zip5(d.shop.zip)) e.shopZip = 'zip-invalid';
     }
     if (d.home?.enabled) {
-      const zips = d.home.zips ?? [];
-      if (!zips.length) e.zips = 'zips-required';
-      else if (!zips.every(zip5)) e.zips = 'zip-invalid';
+      /* Study-1 C5: the neighborhoods are the source of truth; `home.zips` is derived from them (setTailorSection) */
+      const hoods = d.home.hoods ?? [];
+      if (!hoods.length) e.hoods = 'hoods-required';
+      else if (!hoods.every((id) => HOOD_BY_ID[id])) e.hoods = 'hood-unknown';
       const fee = d.home.fee;
       if (blank(fee) || Number.isNaN(Number(fee))) e.fee = 'fee-missing';
       else if (!isWhole(Number(fee)) || Number(fee) < 0 || Number(fee) > TAILOR_LIMITS.FEE_MAX) e.fee = 'fee-invalid';
@@ -373,6 +394,7 @@ export function setTailorSection(section, patch) {
     delete rest[k];
   }
   deepMerge(t, rest);
+  if (section === 'where' && t.home) t.home.zips = zipsForHoods(t.home.hoods);   // Study-1 C5: zips follow the neighborhoods, so eligible() keeps matching on zips
   let soft = {};
   if (section === 'profile') {
     soft = validateSection(section, t).soft;                    // D-162: what she typed, before the mask
@@ -543,8 +565,8 @@ function restoreDraft(appt) {
 function restoreDraftIfEmpty(appt) {
   if (!(state.job.garments ?? []).length) restoreDraft(appt);
 }
-function addPayout(appt, centsAmount, kind) {
-  state.payouts.push({ apptId: appt.id, cents: centsAmount, state: 'pending', date: payoutDay(nowIso()), kind, createdAt: nowIso() });   // the following Friday (D-24)
+function addPayout(appt, centsAmount, kind, at = nowIso()) {
+  state.payouts.push({ apptId: appt.id, cents: centsAmount, state: 'pending', date: payoutDay(at), kind, createdAt: at });   // the following Friday (D-24)
 }
 /** The weekly Friday run (D-136): every pending payout due by today is paid — or, with `sim.payout = 'failed'`, sent back — with the bank
     snapshotted. Never called by tick() / advanceClock(); fixtures call it. */
@@ -593,6 +615,9 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
     payments: { deposit: { cents: money.deposit, state: 'authorized' }, balance: { cents: money.balance, state: 'pending' } },
     priceChange: null, returnOption: null, courier: null, cancel: null, review: null,
     docs: {}, docSeq: 0,                                        // K-02 (D-175): the tailor's working fitting documentation
+    edit: null,                                                 // Study-1 B1: the post-fitting edit (K-30: approve only, never declined)
+    notes: [], noteSeq: 0,                                      // Study-1 B2: the tailor's private General notes
+    reminder: freshReminder(),                                  // K-41 (D-296): the 24-hour reminder — sent, confirmed, nudged (no new status)
     history: [{ status: 'requested', at: nowIso() }],
   };
   state.appts.push(appt);
@@ -729,7 +754,7 @@ export function cancelBooking(id) {
     a.cancel = { by: 'customer', reason: 'customer-early', at: nowIso(), refund: terms.refund, kept: 0, tailorPaid: 0 };
   } else {
     a.payments.deposit.state = 'kept';
-    a.cancel = { by: 'customer', reason: 'customer-late', at: nowIso(), refund: 0, kept: terms.kept, tailorPaid: terms.kept };   // D-05
+    a.cancel = { by: 'customer', reason: 'customer-late', at: nowIso(), refund: 0, kept: terms.kept, tailorPaid: terms.kept, ...(terms.confirmed ? { afterConfirm: true } : {}) };   // D-05; K-41: late because she had confirmed
     addPayout(a, terms.kept, 'kept-deposit');
   }
   restoreDraftIfEmpty(a);
@@ -744,6 +769,7 @@ export function rescheduleBooking(id, slotStart) {
   if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(slotStart)) return fail('slot-unavailable');
   const from = a.slot.start;
   a.slot = { start: slotStart, end: slotEnd(slotStart, a.job.visitType) };
+  a.reminder = freshReminder();                                                      // K-41 (D-296): the new time gets its own reminder (none when < 26 h out)
   repriceForSlot(a, slotStart);                                                      // D-155: rush = min(booked, new slot); the deposit stays
   a.history.push({ status: 'rescheduled', at: nowIso(), from });                     // R3-1-T-10: t-job says what it moved from
   say(a, `You moved the visit to ${fmtWhen(slotStart)}`, `${state.customer.first} moved the visit to ${fmtWhen(slotStart)}`);
@@ -755,9 +781,25 @@ export function tailorCantMakeIt(id, reason = '') {
   if (a.status !== 'confirmed') return fail('not-confirmed');
   setStatus(a, 'cancelled');
   a.payments.deposit.state = 'refunded';
-  a.cancel = { by: 'tailor', reason: 'tailor-cant-make-it', note: reason, at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
+  /* K-29 (Study-1 A5): inside CANCEL_WINDOW_H the tailor was warned; the refund is the same (in full), the cancel is marked late */
+  const late = cancelTerms(a, state.clock.now).window === 'late' && !cancelTerms(a, state.clock.now).confirmed;   // K-41: Sarah's confirm is not the 24 h
+  a.cancel = { by: 'tailor', reason: 'tailor-cant-make-it', note: reason, at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0, late };
   restoreDraft(a);
   say(a, `${firstName(tailorById(a.tailorId))} can’t make it`, 'You can’t make it');
+  return succeed(a);
+}
+
+/** K-29 (Study-1 A5): Sarah reports that the tailor didn't show up — from NO_SHOW_WAIT_MIN after the start, while still confirmed (first report
+    wins: a visit Amara started, or a no-show she marked, has moved on). Cancelled, deposit refunded in full, the order back as the draft, no payout. */
+export function reportTailorNoShow(id) {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  if (state.clock.now < toDate(a.slot.start).getTime() + POLICY.NO_SHOW_WAIT_MIN * MIN_MS) return fail('too-early');
+  setStatus(a, 'cancelled');
+  a.payments.deposit.state = 'refunded';
+  a.cancel = { by: 'customer', reason: 'tailor-no-show', at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
+  restoreDraft(a);
+  say(a, `You reported that ${firstName(tailorById(a.tailorId))} didn’t show up`, `${state.customer.first} reported you didn’t show up`);
   return succeed(a);
 }
 
@@ -891,39 +933,44 @@ function priceMarks(oldLines, newLines) {
   for (const [k, l] of before) if (!after.has(k)) marks.push({ garmentId: l.garmentId, serviceId: l.serviceId, kind: 'removed', from: l.cents, to: null });
   return marks;
 }
+/** The order checks a final order (K-01) and a post-fitting edit (Study-1 B1) share, against `a.lines` (booked, or approved once the
+    work started): price-invalid · garment-type · service-type · service-not-offered · duplicate-line · max-items. Null when fine. */
+function lineErrors(a, lines) {
+  const lo = cents(1);
+  const hi = cents(TAILOR_LIMITS.PRICE_MAX);
+  if (lines.some((l) => !Number.isInteger(l.cents) || l.cents % 100 !== 0 || l.cents < lo || l.cents > hi)) return 'price-invalid';
+  const bookedType = new Map(a.lines.map((l) => [l.garmentId, l.garmentType]));
+  for (const l of lines) {
+    if (!GARMENT_TYPES[l.garmentType] || (bookedType.has(l.garmentId) && bookedType.get(l.garmentId) !== l.garmentType)) return 'garment-type';
+    if (!servicesForType(l.garmentType).includes(l.serviceId)) return 'service-type';
+  }
+  const tailor = tailorById(a.tailorId);
+  const booked = new Set(a.lines.map(lineKey));
+  if (lines.some((l) => !booked.has(lineKey(l)) && typeof tailor?.prices?.[l.serviceId] !== 'number')) return 'service-not-offered';
+  if (new Set(lines.map(lineKey)).size !== lines.length) return 'duplicate-line';
+  if (new Set(lines.map((l) => l.garmentId)).size > MAX_ITEMS) return 'max-items';
+  return null;
+}
 /** "Send the final order" (K-01, D-120/D-121). First send: `fitting` → `price-change`. Revise (D-101): while the order is still `pending`
     or `messaged`, sending again replaces it (status unchanged, `state` back to `pending`, `revisions` + 1). `lines` is the whole final
     order; a new item is lines on a `garmentId` that is not booked, removing an item = sending none of its lines. An unchanged order is
-    allowed (`changed: false`). Marks are always vs the BOOKED lines. The note is masked (D-101). */
-export function sendPriceChange(id, lines, { note = '' } = {}) {
+    allowed (`changed: false`). Marks are always vs the BOOKED lines. Study-1 B2 (K-31): no note travels with the order any more — the
+    tailor's whole-order note is a private General note (`addNote`). */
+export function sendPriceChange(id, lines) {
   const a = must(id);
   const revising = a.status === 'price-change' && ['pending', 'messaged'].includes(a.priceChange?.state);
   if (a.status !== 'fitting' && !revising) return fail('not-fitting');
   if (!Array.isArray(lines) || !lines.length) return fail('no-items');
-  const lo = cents(1);
-  const hi = cents(TAILOR_LIMITS.PRICE_MAX);
-  if (lines.some((l) => !Number.isInteger(l.cents) || l.cents % 100 !== 0 || l.cents < lo || l.cents > hi)) return fail('price-invalid');
-  const bookedType = new Map(a.lines.map((l) => [l.garmentId, l.garmentType]));
-  for (const l of lines) {
-    if (!GARMENT_TYPES[l.garmentType] || (bookedType.has(l.garmentId) && bookedType.get(l.garmentId) !== l.garmentType)) return fail('garment-type');
-    if (!servicesForType(l.garmentType).includes(l.serviceId)) return fail('service-type');
-  }
+  const bad = lineErrors(a, lines);
+  if (bad) return fail(bad);
   const tailor = tailorById(a.tailorId);
-  const booked = new Set(a.lines.map(lineKey));
-  if (lines.some((l) => !booked.has(lineKey(l)) && typeof tailor?.prices?.[l.serviceId] !== 'number')) return fail('service-not-offered');
-  if (new Set(lines.map(lineKey)).size !== lines.length) return fail('duplicate-line');
-  if (new Set(lines.map((l) => l.garmentId)).size > MAX_ITEMS) return fail('max-items');
   const sentIds = [...new Set(lines.map((l) => l.garmentId))];
   const gaps = docsMissing(a, sentIds);
   if (gaps.length) return fail('photos-missing', { missing: gaps });                    // K-02 (D-178)
-  const text = String(note ?? '').trim();
-  if (text.length > TAILOR_LIMITS.NOTE_MAX) return fail('note-long');
-  const masked = maskContact(text);
   const revisions = revising ? (a.priceChange.revisions ?? 0) + 1 : 0;
   const marks = priceMarks(a.lines, lines);
   a.priceChange = {
-    lines: clone(lines), marks, changed: marks.length > 0, sentAt: nowIso(), state: 'pending',
-    note: masked.text, noteMasked: masked.masked, revisions,
+    lines: clone(lines), marks, changed: marks.length > 0, sentAt: nowIso(), state: 'pending', revisions,
     docs: Object.fromEntries(sentIds.map((gid) => [gid, clone(docsOf(a, gid))])),          // K-02 (D-175): the snapshot Sarah sees
   };
   const first = firstName(tailor);
@@ -944,6 +991,13 @@ export function approvePriceChange(id) {
   a.money = repriceMoney(a);
   a.payments.balance.cents = a.money.balance;
   a.priceChange.state = 'approved';
+  a.job.garments = garmentsFromLines(a);
+  setStatus(a, 'in-progress');
+  say(a, 'You approved the order', `${state.customer.first} approved the order`);
+  return succeed(a);
+}
+/** `job.garments` rebuilt from `a.lines` (D-121): the kept garments in their order with their services, then new items (`added: true`). */
+function garmentsFromLines(a) {
   const byGarment = new Map();
   for (const l of a.lines) {
     if (!byGarment.has(l.garmentId)) byGarment.set(l.garmentId, { type: l.garmentType, services: [] });
@@ -955,10 +1009,7 @@ export function approvePriceChange(id) {
     if (hit) { garments.push({ ...g, services: hit.services }); byGarment.delete(g.id); }
   }
   for (const [gid, hit] of byGarment) garments.push({ id: gid, type: hit.type, services: hit.services, photos: 0, added: true });
-  a.job.garments = garments;
-  setStatus(a, 'in-progress');
-  say(a, 'You approved the order', `${state.customer.first} approved the order`);
-  return succeed(a);
+  return garments;
 }
 export function messageAboutPriceChange(id) {
   const a = must(id);
@@ -968,9 +1019,9 @@ export function messageAboutPriceChange(id) {
 }
 /** Quote from the booked appointment's own lines; the captured deposit never changes (D-23). */
 function repriceMoney(a, rush = a.money.rush) {
+  const courier = a.courier?.state === 'ready' ? a.courier.cents : 0;
   const q = quote({
-    lines: a.lines, homeFee: a.money.homeFee, rush,
-    courier: a.courier?.state === 'ready' ? a.courier.cents : 0, deposit: a.payments.deposit.cents,
+    lines: a.lines, homeFee: a.money.homeFee, rush, courier, deposit: a.payments.deposit.cents,
   });
   q.rushDays = a.money.rushDays;
   return q;
@@ -990,6 +1041,7 @@ function repriceForSlot(a, slotStart) {
 export function markReady(id, { returns } = {}) {
   const a = must(id);
   if (a.status !== 'in-progress') return fail('not-in-progress');
+  if (a.edit?.state === 'pending') return fail('edit-pending');                                // Study-1 B1 (default 13)
   const tailor = tailorById(a.tailorId);
   const on = Object.keys(RETURN_LABEL).filter((k) => tailor.returns?.[k] === true);
   const offer = returns === undefined ? on : Object.keys(RETURN_LABEL).filter((k) => Array.isArray(returns) && returns.includes(k));
@@ -998,28 +1050,105 @@ export function markReady(id, { returns } = {}) {
   a.returnOffer = offer;
   setStatus(a, 'ready');
   a.payments.balance = { cents: a.money.balance, state: 'due' };
-  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-23, D-156: settled by payBalance
+  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-23, D-156: settled by holdBalance
   say(a, 'Ready. Choose how to get it back.', `You marked it ready. Waiting for ${state.customer.first} to choose how to get it back.`);
   return succeed(a);
 }
 
-/** Where a drop-off or courier delivers (D-106: Sarah's saved address, also for shop visits), as ONE line on both sides:
+/** Where the courier delivers (D-106: Sarah's saved address, also for shop visits), as ONE line on both sides:
     street + unit ("145 N 7th St, 2R"). The visit block alone adds the city (R4-2-C-06). */
 export function returnAddress() {
   const ad = state.customer.address ?? {};
   return [ad.street, ad.unit].filter(Boolean).join(', ');
 }
 
-/** D-160 (moved here from tailor-data.js, K16-2-02 / D-245): the courier's pickup window (the tailor's strip and the customer's route block): the next half hour an hour after Sarah paid the balance, 30 minutes long.
-    `{ from, to }` as ISO minutes; null when no courier is booked. */
+/** K-40 (D-295, replaces D-160's "an hour after she paid"): the courier window Sarah picked — `{ from, to, collectAt }` as ISO minutes
+    (the courier collects from the tailor COURIER_COLLECT_LEAD_MIN before `from`); null when no courier window is picked. */
 export function courierWindow(appt) {
-  if (appt.returnOption !== 'courier' || !appt.courier) return null;
-  const paidAt = [...appt.history].reverse().find((h) => h.status === 'returning')?.at ?? appt.history[appt.history.length - 1]?.at;
-  if (!paidAt) return null;
-  const t = toDate(paidAt);
-  const m = t.getHours() * 60 + t.getMinutes() + 60;
-  const start = new Date(t); start.setHours(0, 0, 0, 0); start.setMinutes(Math.ceil(m / 30) * 30);
-  return { from: isoMinute(start), to: isoMinute(addMinutes(isoMinute(start), 30)) };
+  const s = appt?.returnOption === 'courier' ? appt.handoff?.slot : null;
+  return s?.end ? { from: s.start, to: s.end, collectAt: s.collectAt } : null;
+}
+
+/* ---------- K-40 (T1): the handoff time ---------- */
+/** The times Sarah can pick for getting her order back (D-295), from the tailor's open hours — her shop hours; a tailor with no shop: her
+    home-visit hours, and the courier collects from her home address — from now until HANDOFF_PICK_DAYS ahead (so a pick never outlasts the
+    UNCLAIMED_CAPTURE_D clock that starts at the hold). Pickup (needs a shop): a start every HANDOFF_SLOT_MIN that the hours still cover,
+    `[{ start }]`. Courier: HANDOFF_SLOT_MIN delivery windows starting by closing time whose collection (COURIER_COLLECT_LEAD_MIN before)
+    is inside the hours and more than COURIER_CHANGE_CUTOFF_MIN away, `[{ start, end, collectAt }]`. A pickup never blocks her calendar. */
+export function handoffSlots(appt, method = appt?.returnOption) {
+  const t = appt ? tailorById(appt.tailorId) : null;
+  if (!t || !RETURN_LABEL[method]) return [];
+  const shop = !!t.shop?.enabled;
+  if (method === 'pickup' && !shop) return [];
+  const hours = (shop ? t.availability?.shop : t.availability?.home) ?? {};
+  const step = POLICY.HANDOFF_SLOT_MIN;
+  const lead = POLICY.COURIER_COLLECT_LEAD_MIN;
+  const from = state.clock.now;
+  const until = from + POLICY.HANDOFF_PICK_DAYS * DAY_MS;
+  const at = (d, m) => { const x = new Date(d); x.setHours(Math.floor(m / 60), m % 60, 0, 0); return x; };   // wall-clock (DST-safe)
+  const out = [];
+  for (let d = strip(new Date(from)); d.getTime() < until; d = addDays(d, 1)) {
+    for (const [open, close] of hours[weekdayKey(d)] ?? []) {
+      const o = minutesOf(open);
+      const c = minutesOf(close);
+      if (method === 'pickup') {
+        for (let m = Math.ceil(o / step) * step; m + step <= c; m += step) {
+          const x = at(d, m).getTime();
+          if (x > from && x <= until) out.push({ start: isoMinute(new Date(x)) });
+        }
+        continue;
+      }
+      for (let m = Math.ceil((o + lead) / step) * step; m <= c; m += step) {
+        const x = at(d, m).getTime();
+        const collect = x - lead * MIN_MS;
+        if (collect - POLICY.COURIER_CHANGE_CUTOFF_MIN * MIN_MS <= from || x > until) continue;
+        out.push({ start: isoMinute(new Date(x)), end: isoMinute(new Date(x + step * MIN_MS)), collectAt: isoMinute(new Date(collect)) });
+      }
+    }
+  }
+  return out;
+}
+/** A picked handoff time as one line: "Fri, Oct 16 · 5:30 PM" (pickup) · "Fri, Oct 16 · 5:00–5:30 PM" (a courier window). */
+export const slotText = (slot) => (!slot?.start ? '' : slot.end ? `${fmtDay(slot.start)} · ${fmtTimeRange(slot.start, slot.end)}` : fmtWhen(slot.start));
+/** A pickup time that passed (HANDOFF_SLOT_MIN after its start) with nothing marked: no fee, she picks a new one (D-295). */
+export function handoffMissed(appt) {
+  const s = appt?.handoff?.slot;
+  return appt?.status === 'awaiting-handoff' && appt.returnOption === 'pickup' && !!s && !appt.handoff.markedAt
+    && state.clock.now >= toDate(s.start).getTime() + POLICY.HANDOFF_SLOT_MIN * MIN_MS;
+}
+/** Can Sarah move the time now (D-295)? Pickup: before the slot starts, or once it was missed; courier: until COURIER_CHANGE_CUTOFF_MIN
+    before the collection. Never once Amara marked it picked up, or after it is completed. */
+export function handoffChangeable(appt) {
+  const s = appt?.handoff?.slot;
+  if (appt?.status !== 'awaiting-handoff' || !s || appt.handoff.markedAt) return false;
+  if (appt.returnOption === 'courier') return state.clock.now < toDate(s.collectAt).getTime() - POLICY.COURIER_CHANGE_CUTOFF_MIN * MIN_MS;
+  return state.clock.now < toDate(s.start).getTime() || handoffMissed(appt);
+}
+/** Customer only (the tailor never sets it): pick the handoff time from `handoffSlots` (a slot object or its start ISO). On a ready order
+    it is part of the choice (Hold needs it); once held she can move it (`handoffChangeable`) — confirmed at once, no tailor approval,
+    the tailor is told in the thread and on her job. Errors: not-ready · return-required · already-marked · too-late · slot-invalid · no-change. */
+export function setHandoffSlot(id, slot) {
+  const a = must(id);
+  if (a.status !== 'ready' && a.status !== 'awaiting-handoff') return fail('not-ready');
+  if (!a.returnOption) return fail('return-required');
+  const prev = a.handoff?.slot ?? null;
+  if (a.status === 'awaiting-handoff') {
+    if (a.handoff.markedAt) return fail('already-marked');
+    if (!handoffChangeable(a)) return fail('too-late');
+  }
+  const start = typeof slot === 'string' ? slot : slot?.start;
+  const match = handoffSlots(a).find((x) => x.start === start);
+  if (!match) return fail('slot-invalid');
+  if (a.status === 'awaiting-handoff' && prev?.start === match.start) return fail('no-change');
+  a.handoff = { ...(a.handoff ?? {}), slot: { ...match } };
+  if (a.returnOption === 'courier') { quoteCourier(a); repriceReturn(a); }   // K-43 (D-299): the Uber quote is per window — a move re-quotes the hold
+  if (a.status === 'awaiting-handoff') {
+    a.handoff.moved = { from: prev, at: nowIso() };
+    const what = a.returnOption === 'courier' ? 'delivery' : 'pickup';
+    const when = slotText(match);
+    say(a, `You moved your ${what} to ${when}`, `${state.customer.first} moved her ${what} to ${when}`);
+  }
+  return succeed(a);
 }
 
 /** The ways back on a ready order, RETURN_LABEL order. */
@@ -1034,48 +1163,415 @@ export function chooseReturn(id, option) {
   const a = must(id);
   if (a.status !== 'ready') return fail('not-ready');
   if (!RETURN_LABEL[option] || !returnOffer(a).includes(option) || !tailorById(a.tailorId).returns?.[option]) return fail('not-offered');
+  if (a.returnOption !== option && a.handoff?.slot) a.handoff = null;   // K-40: a pickup time is not a courier window
   a.returnOption = option;
   if (option === 'courier') {
-    const quoted = courierQuote(ZIP_INFO[a.job.zip]?.miles ?? 0);
     const s = state.sim.courier;
-    const ready = s !== 'fail' && s !== 'loading';
-    a.courier = {
-      miles: quoted.miles, quote: ready ? quoted.quote : 0, markup: ready ? quoted.markup : 0, cents: ready ? quoted.cents : 0,
-      state: s === 'fail' ? 'failed' : s === 'loading' ? 'loading' : 'ready',
-    };
+    a.courier = { miles: ZIP_INFO[a.job.zip]?.miles ?? 0, quote: 0, markup: 0, cents: 0, state: s === 'fail' ? 'failed' : s === 'loading' ? 'loading' : 'ready' };
+    quoteCourier(a);   // K-43: priced per window — nothing until she picks one
   } else {
     a.courier = null;
   }
-  a.money = repriceMoney(a);
-  a.payments.balance.cents = a.money.balance;
-  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-156: re-priced with the courier
-  else delete a.payments.refund;
+  repriceReturn(a);
   return succeed(a);
 }
+/** The return's money after the way back or the courier window changed: re-priced (the deposit stays), the balance (held or not) follows. */
+function repriceReturn(a) {
+  a.money = repriceMoney(a);
+  a.payments.balance.cents = a.money.balance;
+  if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: a.payments.refund?.state === 'refunded' ? 'refunded' : 'pending' };   // D-156: re-priced with the courier
+  else delete a.payments.refund;
+}
+/** K-43 (D-299): the simulated Uber quote for one courier window of this appointment (the distance to Sarah's ZIP + the window's start). */
+export const courierQuoteFor = (appt, slot) => courierQuote(ZIP_INFO[appt?.job?.zip]?.miles ?? 0, typeof slot === 'string' ? slot : slot?.start ?? null);
+/** K-43 (D-299): put the picked window's quote on `a.courier` (0 until a window is picked, or while the price is loading / failed). */
+function quoteCourier(a) {
+  const c = a.courier;
+  if (!c) return;
+  const q = c.state === 'ready' && a.handoff?.slot?.end ? courierQuoteFor(a, a.handoff.slot) : null;
+  Object.assign(c, { quote: q?.quote ?? 0, markup: q?.markup ?? 0, cents: q?.cents ?? 0 });
+}
 
-export function payBalance(id, cardId = null, { threeDS = false } = {}) {
+/** K-27 (Study-1 A2): picking a way back HOLDS the balance (services + rush + courier − deposit) on the card; nothing is charged until the
+    handoff (or UNCLAIMED_CAPTURE_D later). A $0 balance holds nothing and settles a D-156 refund as before. Moves to awaiting-handoff. */
+export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   const a = must(id);
   if (a.status !== 'ready') return fail('not-ready');
   if (!a.returnOption) return fail('return-required');
   if (a.returnOption === 'courier' && a.courier?.state !== 'ready') return fail('courier-unavailable');
+  const slot = a.handoff?.slot ?? null;                                                       // K-40: the time comes first
+  if (!slot) return fail('slot-required');
+  if (!handoffSlots(a).some((x) => x.start === slot.start)) return fail('slot-gone');
   const charge = a.money.balance > 0;                                                         // M6-M-03: a $0 balance only settles the refund, nothing to decline
   if (charge && state.sim.card === 'declined') { a.payments.balance.state = 'failed'; a.payments.balance.failedCardId = cardId; return fail('card-declined'); }
   if (charge && state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
-  a.payments.balance = { cents: a.money.balance, state: 'paid' };
+  a.payments.balance = { cents: a.money.balance, state: charge ? 'held' : 'none', heldAt: nowIso() };
   if (a.payments.refund?.cents > 0) a.payments.refund.state = 'refunded';                   // D-156
   a.balanceCardId = cardId;
-  setStatus(a, 'returning');
-  say(a, 'You paid the balance', `${state.customer.first} paid the balance`);
+  a.handoff = {
+    code: handoffCode(a), heldAt: nowIso(), pausedMs: 0, slot, moved: null,
+    markedBy: null, markedAt: null, marks: 0, autoAt: null, problemAt: null, completedBy: null, completedAt: null,
+  };
+  setStatus(a, 'awaiting-handoff');
+  const how = RETURN_LABEL[a.returnOption].toLowerCase();
+  const amt = fmtExact(a.money.balance);
+  say(a, charge ? `You chose ${how}. ${amt} is on hold.` : `You chose ${how}.`, charge ? `${state.customer.first} chose ${how}. Her ${amt} is on hold.` : `${state.customer.first} chose ${how}.`);
   return succeed(a);
 }
 
-export function markCompleted(id) {
+/* ---------- Study-1 A2–A3: the handoff ---------- */
+/** The customer's pickup code: HANDOFF_CODE_LEN digits derived from the appointment id, so it is the same on every reload (A-1001 → 8153). */
+export function handoffCode(appt) {
+  const n = Number(String(appt?.id ?? '').replace(/\D/g, '')) || 0;
+  return String((n * 7919 + 1234) % (10 ** HANDOFF_CODE_LEN)).padStart(HANDOFF_CODE_LEN, '0');
+}
+/** When an unclaimed hold is captured: the hold + UNCLAIMED_CAPTURE_D, plus the time a reported problem paused it. Epoch ms; null without a hold. */
+export function unclaimedAt(appt) {
+  const h = appt?.handoff;
+  if (!h?.heldAt) return null;
+  return toDate(h.heldAt).getTime() + POLICY.UNCLAIMED_CAPTURE_D * DAY_MS + (h.pausedMs ?? 0);
+}
+/** ms until the automatic completion; null while nothing counts down (not marked yet, a problem is open, or it is no longer awaiting the handoff). */
+export function autoCompleteLeft(appt) {
+  const h = appt?.handoff;
+  if (appt?.status !== 'awaiting-handoff' || !h?.autoAt || h.problemAt) return null;
+  return Math.max(0, toDate(h.autoAt).getTime() - state.clock.now);
+}
+function captureHold(a, reason, at = nowIso()) {
+  const b = a.payments.balance;
+  if (b.state !== 'held') return false;
+  Object.assign(b, { state: 'captured', captureReason: reason, capturedAt: at });
+  return true;
+}
+/** The one way into `completed` (A3): capture what is still held, stamp the completion (at `at` — an auto-completion is stamped at its
+    `autoAt`), queue the payout for the Friday after. `by`: 'code' | 'customer' | 'courier' | 'auto'. */
+function completeHandoff(a, by, at = nowIso()) {
+  captureHold(a, 'handoff', at);
+  a.status = 'completed';
+  a.history.push({ status: 'completed', at });
+  Object.assign(a.handoff, { completedBy: by, completedAt: at });
+  addPayout(a, a.money.payout, 'job', at);                           // pending until the weekly run (D-24)
+  post(a.tailorId, 'system', by === 'auto' ? 'Completed automatically' : 'Completed', { at, tailorText: by === 'auto' ? 'Completed automatically' : 'Completed' });
+}
+const guardHandoff = (a) => (a.status !== 'awaiting-handoff' ? fail('not-awaiting-handoff') : null);
+
+/** Tailor, in-store pickup: Sarah's code completes it right away. Errors: code-format (not HANDOFF_CODE_LEN digits) · code-wrong. */
+export function confirmPickup(id, code) {
   const a = must(id);
-  if (a.status !== 'returning') return fail('not-returning');
-  setStatus(a, 'completed');
-  addPayout(a, a.money.payout, 'job');                               // pending until the weekly run (D-24)
-  say(a, 'Completed');
+  const g = guardHandoff(a); if (g) return g;
+  if (a.returnOption !== 'pickup') return fail('not-pickup');
+  const c = String(code ?? '').trim();
+  if (!new RegExp(`^\\d{${HANDOFF_CODE_LEN}}$`).test(c)) return fail('code-format');
+  if (c !== a.handoff.code) return fail('code-wrong');
+  completeHandoff(a, 'code');
   return succeed(a);
+}
+/** Tailor, in-store pickup: Sarah picked it up without her code — marked picked up (K-37: no drop-off any more). Starts the HANDOFF_AUTO_H
+    countdown. After Sarah reported a problem she can mark it again, which clears the problem and restarts it. Errors: courier · already-marked. */
+export function markHandedOver(id) {
+  const a = must(id);
+  const g = guardHandoff(a); if (g) return g;
+  if (a.returnOption !== 'pickup') return fail('courier');
+  const h = a.handoff;
+  if (h.markedAt && !h.problemAt) return fail('already-marked');
+  if (h.problemAt) { h.pausedMs += state.clock.now - toDate(h.problemAt).getTime(); h.problemAt = null; }
+  h.marks += 1;
+  Object.assign(h, { markedBy: 'tailor', markedAt: nowIso(), autoAt: isoMinute(new Date(state.clock.now + POLICY.HANDOFF_AUTO_H * HOUR_MS)) });
+  say(a, `${firstName(tailorById(a.tailorId))} marked it picked up`, 'You marked it picked up');
+  return succeed(a);
+}
+/** Customer, any way back: "I got it" completes it right away (also after she reported a problem). */
+export function confirmReceived(id) {
+  const a = must(id);
+  const g = guardHandoff(a); if (g) return g;
+  completeHandoff(a, 'customer');
+  return succeed(a);
+}
+/** Customer: "I didn't get it" once the tailor marked it — stops the automatic completion and the unclaimed capture until it is sorted out. */
+export function reportNotReceived(id) {
+  const a = must(id);
+  const g = guardHandoff(a); if (g) return g;
+  if (!a.handoff.markedAt) return fail('not-marked');
+  if (a.handoff.problemAt) return fail('already-reported');
+  a.handoff.problemAt = nowIso();
+  say(a, 'You said you didn’t get it', `${state.customer.first} says she didn’t get it`);
+  return succeed(a);
+}
+/** The Taily courier dropped it at Sarah's door: completes right away (simulated by the Test-flows Demo action). */
+export function courierDelivered(id) {
+  const a = must(id);
+  const g = guardHandoff(a); if (g) return g;
+  if (a.returnOption !== 'courier') return fail('not-courier');
+  completeHandoff(a, 'courier');
+  return succeed(a);
+}
+
+/* ---------- Study-1 B1: edit the job after the fitting (K-30 overruled: approve only; defaults 11, 13) ---------- */
+const lineSig = (l) => `${lineKey(l)}:${l.cents}`;
+const sameLines = (x, y) => x.map(lineSig).sort().join('|') === y.map(lineSig).sort().join('|');
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** The price of an edit: the edited lines, the rush for the (new) need-by date — never above what was approved, so a later date can only
+    lower it — and the captured deposit. Cents, `quote()` shape. */
+export function editQuote(a, lines, needBy = a.job.needBy) {
+  const r = rushFor(tailorById(a.tailorId), a.slot.start, needBy);
+  const rush = Math.min(a.money.rush, r.cents);
+  const q = quote({ lines, homeFee: a.money.homeFee, rush, deposit: a.payments.deposit.cents });
+  q.rushDays = rush === a.money.rush ? a.money.rushDays : r.days;
+  return q;
+}
+/** An edit (sent, or a draft `{ lines, needBy }`) against the approved order: the change rows (`priceChangeView` vs `a.lines`), both
+    quotes and the due dates. Null without an edit. */
+export function jobEditView(appt, e = appt?.edit) {
+  if (!appt || !e) return null;
+  const lines = e.lines ?? appt.lines;
+  const pv = priceChangeView(appt, lines);
+  const needBy = e.needBy ?? appt.job.needBy;
+  const needByWas = e.state === 'pending' || !e.state ? appt.job.needBy : (e.needByWas ?? appt.job.needBy);
+  const after = editQuote(appt, lines, needBy);
+  return {
+    garments: pv.garments, counts: pv.counts, changed: pv.changed, before: appt.money, after, delta: after.total - appt.money.total,
+    needBy, needByWas, dueChanged: needBy !== needByWas, reason: e.reason ?? '', reasonMasked: !!e.reasonMasked, photo: e.photo ?? null,
+    sentAt: e.sentAt ?? null, state: e.state ?? null, revisions: e.revisions ?? 0,
+  };
+}
+/** The tailor edits the job between the fitting and Mark ready (status `in-progress`). Price, due date or the work need Sarah's approval:
+    `lines` = the whole order against the APPROVED one (same rules as the final order), `needBy` an ISO day from today on, `reason` required
+    (masked, ≤ NOTE_MAX), `photo` optional. It can't be declined (K-30): if Sarah disagrees she messages the tailor, who revises it — one
+    pending edit at a time, sending again replaces it (default 13). Errors: not-in-progress · no-items · <line errors> · due-invalid ·
+    no-change · reason-required · reason-long. */
+export function sendJobEdit(id, { lines, needBy = null, reason = '', photo = false } = {}) {
+  const a = must(id);
+  if (a.status !== 'in-progress') return fail('not-in-progress');
+  if (!Array.isArray(lines) || !lines.length) return fail('no-items');
+  const bad = lineErrors(a, lines);
+  if (bad) return fail(bad);
+  const due = needBy ?? a.job.needBy;
+  if (!ISO_DAY.test(String(due)) || due < isoDay(nowIso())) return fail('due-invalid');
+  const changed = !sameLines(a.lines, lines);
+  if (!changed && due === a.job.needBy) return fail('no-change');
+  const why = String(reason ?? '').trim();
+  if (!why) return fail('reason-required');
+  if ([...why].length > TAILOR_LIMITS.NOTE_MAX) return fail('reason-long');
+  const masked = maskContact(why);
+  const revising = a.edit?.state === 'pending';
+  a.editSeq = (a.editSeq ?? 0) + 1;
+  a.edit = {
+    lines: clone(lines), marks: priceMarks(a.lines, lines), changed, needBy: due, needByWas: a.job.needBy,
+    reason: masked.text, reasonMasked: masked.masked,
+    photo: photo ? { id: `e${a.editSeq}`, at: nowIso(), tone: (a.editSeq - 1) % 4 } : null,
+    sentAt: nowIso(), state: 'pending', revisions: revising ? (a.edit.revisions ?? 0) + 1 : 0, decidedAt: null,
+  };
+  const first = firstName(tailorById(a.tailorId));
+  if (revising) say(a, `${first} updated the changes to your order`, 'You updated your changes');
+  else say(a, `${first} edited your order`, `You sent your changes to ${state.customer.first}`);
+  return succeed(a);
+}
+/** Sarah approves: the edited lines and due date replace the approved ones (money re-quoted, deposit unchanged) and the work continues. */
+export function approveJobEdit(id) {
+  const a = must(id);
+  if (a.status !== 'in-progress' || a.edit?.state !== 'pending') return fail('not-pending');
+  const e = a.edit;
+  const q = editQuote(a, e.lines, e.needBy);
+  e.needByWas = a.job.needBy;
+  a.lines = clone(e.lines);
+  a.job.needBy = e.needBy;
+  a.job.garments = garmentsFromLines(a);
+  a.money = q;
+  a.payments.balance.cents = q.balance;
+  Object.assign(e, { state: 'approved', decidedAt: nowIso() });
+  say(a, 'You approved the changes', `${state.customer.first} approved your changes`);
+  return succeed(a);
+}
+
+/* ---------- Study-1 B2: private General notes (K-31, default 14) ---------- */
+const NOTE_OPEN = ['fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'];
+/** The tailor's private notes are hers from the fitting until the job is completed (then read-only). Nobody else ever reads them. */
+export const notesEditable = (a) => !!a && NOTE_OPEN.includes(a.status);
+const photoCount = (photos) => (typeof photos === 'number' ? photos : Array.isArray(photos) ? photos.length : 0);
+/** A note's photos: `photos` = a count of new photos, or an array whose entries with an `id` are kept and the rest are new. */
+function notePhotos(a, photos) {
+  const list = typeof photos === 'number' ? Array.from({ length: photos }, () => ({})) : Array.isArray(photos) ? photos : [];
+  return list.map((p) => {
+    if (p?.id) return clone(p);
+    a.notePhotoSeq = (a.notePhotoSeq ?? 0) + 1;
+    return { id: `np${a.notePhotoSeq}`, at: nowIso(), tone: (a.notePhotoSeq - 1) % 4 };
+  });
+}
+function noteError(a, text, photos) {
+  if (!notesEditable(a)) return 'notes-closed';
+  const t = String(text ?? '').trim();
+  if (!t && !photoCount(photos)) return 'note-empty';
+  if ([...t].length > NOTES_LIMITS.TEXT_MAX) return 'note-long';
+  if (photoCount(photos) > NOTES_LIMITS.PHOTOS_MAX) return 'too-many-photos';
+  return null;
+}
+/** Errors: notes-closed · note-empty (no text and no photo) · note-long · too-many-photos. */
+export function addNote(id, { text = '', photos = [] } = {}) {
+  const a = must(id);
+  const err = noteError(a, text, photos);
+  if (err) return fail(err);
+  a.noteSeq = (a.noteSeq ?? 0) + 1;
+  const note = { id: `note${a.noteSeq}`, text: String(text ?? '').trim(), photos: notePhotos(a, photos), at: nowIso(), updatedAt: null };
+  (a.notes ??= []).push(note);
+  return succeed(a, { note });
+}
+/** Replace a note's text and / or photos (omitted = unchanged). Errors as addNote + not-found. */
+export function updateNote(id, noteId, { text, photos } = {}) {
+  const a = must(id);
+  if (!notesEditable(a)) return fail('notes-closed');
+  const note = (a.notes ?? []).find((n) => n.id === noteId);
+  if (!note) return fail('not-found');
+  const nextText = text === undefined ? note.text : text;
+  const nextPhotos = photos === undefined ? note.photos : photos;
+  const err = noteError(a, nextText, nextPhotos);
+  if (err) return fail(err);
+  Object.assign(note, { text: String(nextText ?? '').trim(), photos: notePhotos(a, nextPhotos), updatedAt: nowIso() });
+  return succeed(a, { note });
+}
+export function removeNote(id, noteId) {
+  const a = must(id);
+  if (!notesEditable(a)) return fail('notes-closed');
+  const index = (a.notes ?? []).findIndex((n) => n.id === noteId);
+  if (index < 0) return fail('not-found');
+  const [note] = a.notes.splice(index, 1);
+  return succeed(a, { note, index });
+}
+/** Undo a removeNote: the same note back at `index`. */
+export function restoreNote(id, note, index) {
+  const a = must(id);
+  if (!notesEditable(a)) return fail('notes-closed');
+  if (!note?.id || (a.notes ?? []).some((n) => n.id === note.id)) return fail('duplicate');
+  const at = Math.max(0, Math.min(Number.isInteger(index) ? index : a.notes.length, a.notes.length));
+  a.notes.splice(at, 0, clone(note));
+  return succeed(a);
+}
+export function addNotePhoto(id, noteId) {
+  const a = must(id);
+  const note = (a.notes ?? []).find((n) => n.id === noteId);
+  if (!notesEditable(a)) return fail('notes-closed');
+  if (!note) return fail('not-found');
+  if (note.photos.length >= NOTES_LIMITS.PHOTOS_MAX) return fail('too-many-photos');
+  const [photo] = notePhotos(a, 1);
+  note.photos.push(photo);
+  note.updatedAt = nowIso();
+  return succeed(a, { photo });
+}
+/** Errors: notes-closed · not-found · note-empty (it was the note's only content). */
+export function removeNotePhoto(id, noteId, photoId) {
+  const a = must(id);
+  const note = (a.notes ?? []).find((n) => n.id === noteId);
+  if (!notesEditable(a)) return fail('notes-closed');
+  if (!note || !note.photos.some((p) => p.id === photoId)) return fail('not-found');
+  if (!note.text && note.photos.length === 1) return fail('note-empty');
+  note.photos = note.photos.filter((p) => p.id !== photoId);
+  note.updatedAt = nowIso();
+  return succeed(a);
+}
+
+/* ---------- K-41 (R3, D-296): the 24-hour reminder ----------
+   No new status: `a.reminder = { sentAt, confirmedAt, nudgedAt }`. tick() sends it CANCEL_WINDOW_H + REMINDER_LEAD_H before the visit
+   (26 h: Reschedule and Cancel on it are still free for 2 h) to a visit whose time was set before then (booked or moved < 26 h ahead: no
+   prompt, the plain 24 h rule), and one nudge REMINDER_NUDGE_H before the visit if she never confirmed. confirmVisit closes the free window
+   early (money.js cancelTerms). K-43 (D-300): a visit she was asked about and still hasn't confirmed REMINDER_AUTOCANCEL_H before it starts
+   is cancelled by tick() at that time (reason 'unconfirmed', the customer late-cancel money: the tailor keeps the deposit). */
+function freshReminder() { return { sentAt: null, confirmedAt: null, nudgedAt: null }; }
+/** When the current visit time was set: the last accept (or accepted suggestion) or reschedule. Epoch ms. */
+function slotSetAt(a) {
+  const h = [...a.history].reverse().find((x) => x.status === 'confirmed' || x.status === 'rescheduled');
+  return toDate(h?.at ?? a.requestedAt).getTime();
+}
+/** When the reminder goes out (epoch ms): CANCEL_WINDOW_H + REMINDER_LEAD_H before the visit. */
+export const reminderAt = (a) => toDate(a.slot.start).getTime() - (POLICY.CANCEL_WINDOW_H + POLICY.REMINDER_LEAD_H) * HOUR_MS;
+/** When the free window closes by the clock (epoch ms): CANCEL_WINDOW_H before the visit (Confirm can close it earlier). */
+export const freeUntil = (a) => toDate(a.slot.start).getTime() - POLICY.CANCEL_WINDOW_H * HOUR_MS;
+/** The one nudge's time (epoch ms): REMINDER_NUDGE_H before the visit. */
+export const nudgeAt = (a) => toDate(a.slot.start).getTime() - POLICY.REMINDER_NUDGE_H * HOUR_MS;
+/** K-43 (D-300): when an unconfirmed visit is cancelled (epoch ms): REMINDER_AUTOCANCEL_H before the visit. */
+export const autoCancelAt = (a) => toDate(a.slot.start).getTime() - POLICY.REMINDER_AUTOCANCEL_H * HOUR_MS;
+/** A confirmed visit whose time was set at or before its reminder time gets the reminder. */
+export const reminderEligible = (a) => !!a && a.status === 'confirmed' && slotSetAt(a) <= reminderAt(a);
+function remindTick(a) {
+  const r = (a.reminder ??= freshReminder());
+  const t = state.clock.now;
+  const start = toDate(a.slot.start).getTime();
+  let moved = false;
+  if (t < start) {   // a clock jump past the start sends nothing
+    if (!r.sentAt && reminderEligible(a) && t >= reminderAt(a)) { r.sentAt = isoMinute(new Date(reminderAt(a))); moved = true; }
+    if (r.sentAt && !r.confirmedAt && !r.nudgedAt && t >= nudgeAt(a)) { r.nudgedAt = isoMinute(new Date(Math.max(nudgeAt(a), toDate(r.sentAt).getTime()))); moved = true; }
+  }
+  /* K-43: asked, never confirmed, REMINDER_AUTOCANCEL_H before → cancelled, stamped at that time (also when the clock jumped past it) */
+  if (r.sentAt && !r.confirmedAt && t >= autoCancelAt(a)) {
+    if (!r.nudgedAt) r.nudgedAt = isoMinute(new Date(Math.max(nudgeAt(a), toDate(r.sentAt).getTime())));
+    autoCancel(a);
+    return true;
+  }
+  return moved;
+}
+/** K-43 (D-300): the visit she never confirmed is cancelled at `autoCancelAt` (stamped then). Inside the 24 h window, so it follows the
+    customer late-cancel rule: the deposit is kept and paid to the tailor (D-05); the order comes back as the draft so she can rebook. */
+function autoCancel(a) {
+  const at = isoMinute(new Date(autoCancelAt(a)));
+  const kept = a.payments.deposit.cents;
+  setStatus(a, 'cancelled');
+  a.history[a.history.length - 1].at = at;
+  a.payments.deposit.state = 'kept';
+  a.cancel = { by: 'system', reason: 'unconfirmed', at, refund: 0, kept, tailorPaid: kept };
+  addPayout(a, kept, 'kept-deposit', at);
+  restoreDraftIfEmpty(a);
+  post(a.tailorId, 'system', `We cancelled the visit because you didn’t confirm by ${fmtTime(at)}`, { at, tailorText: `We cancelled the visit because ${state.customer.first} didn’t confirm by ${fmtTime(at)}` });
+}
+/** Where the reminder stands, before the visit starts: null (none sent) · 'asked' (sent, free window open, her move) · 'confirmed' ·
+    'missed' (sent, never confirmed, the free window closed — the visit stays booked). */
+export function reminderState(a) {
+  if (!a || a.status !== 'confirmed' || !a.reminder?.sentAt) return null;
+  if (state.clock.now >= toDate(a.slot.start).getTime()) return null;
+  if (a.reminder.confirmedAt) return 'confirmed';
+  return state.clock.now <= freeUntil(a) ? 'asked' : 'missed';   // the 'until' is inclusive, like cancelTerms (M6-M-11)
+}
+/** The prompt is up (Home card, c-booking strip + Confirm): the reminder went out and the free window is still open. */
+export const reminderDue = (a) => reminderState(a) === 'asked';
+/** The customer's visit whose reminder is waiting on her, or null. */
+export const visitReminder = () => apptsFor('customer').find(reminderDue) ?? null;
+/** Sarah answers the reminder: still on. Customer side; a confirmed visit, the reminder sent, before the visit starts. Closes the free
+    window (cancelTerms → late); after the 24 h mark it only tells the tailor. No thread line, no push to the tailor (she sees the state). */
+export function confirmVisit(id) {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  if (!a.reminder?.sentAt) return fail('not-asked');
+  if (a.reminder.confirmedAt) return fail('already-confirmed');
+  if (state.clock.now >= toDate(a.slot.start).getTime()) return fail('visit-started');
+  a.reminder.confirmedAt = nowIso();
+  return succeed(a);
+}
+
+/* ---------- K-43 (D-301): notifications are text messages ----------
+   Taily is a web app first: every notification is an SMS to the verified phone with a short unique link back into the app. */
+const LINK_ABC = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+/** The text's unique link, deterministic per appointment + event ("taily.app/r/8F3K2Q"): FNV-1a of `${apptId}:${event}`, 6 characters. */
+export function textLink(apptId, event) {
+  let h = 0x811c9dc5;
+  for (const ch of `${apptId}:${event}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+  let out = '';
+  for (let i = 0; i < 6; i += 1) { h = Math.imul(h ^ (h >>> 13), 0x5bd1e995) >>> 0; out += LINK_ABC[h & 31]; }
+  return `taily.app/r/${out}`;
+}
+
+/** K-28 (Study-1 A4): a completed order with no review, REVIEW_REMINDER_D or more after it completed → the reminder card + Leave a review. */
+export function reviewReminderDue(appt) {
+  if (!appt || appt.status !== 'completed' || appt.review) return false;
+  const at = appt.handoff?.completedAt ?? [...appt.history].reverse().find((h) => h.status === 'completed')?.at;
+  return !!at && state.clock.now >= toDate(at).getTime() + POLICY.REVIEW_REMINDER_D * DAY_MS;
+}
+/** The customer's newest order whose review reminder is due, or null. */
+export const reviewReminder = () => apptsFor('customer').find(reviewReminderDue) ?? null;
+
+/** Study-1 A4 "Book [tailor] again": a fresh draft for the same place — visit type, ZIP and address — with no garments. */
+export function bookAgain(id) {
+  const a = must(id);
+  const { visitType, zip, address } = a.job;
+  newJob();
+  Object.assign(state.job, { visitType, zip, address: address ? clone(address) : state.job.address });
+  return { ok: true, appt: a, job: state.job };
 }
 
 export function leaveReview(id, { stars, text = '', photos = 0 } = {}) {
@@ -1151,7 +1647,8 @@ export function statusScreen(appt, persona = state.persona) {
   if (persona === 'tailor') return ['requested', 'suggested', 'declined', 'expired'].includes(s) ? 't-request' : 't-job';
   if (['requested', 'suggested', 'declined', 'expired'].includes(s)) return 'c-request';
   if (s === 'price-change') return 'c-price-change';
-  if (s === 'ready' && appt.payments.balance.state !== 'paid') return 'c-ready';
+  if (s === 'in-progress' && appt.edit?.state === 'pending') return 'c-price-change';   // Study-1 B1: the edit Sarah has to answer
+  if (s === 'ready') return 'c-ready';                              // holding the balance moves it on to awaiting-handoff (K-27)
   if (s === 'completed' && !appt.review) return 'c-complete';
   return 'c-booking';
 }
@@ -1202,7 +1699,7 @@ export function priceChangeView(appt, lines = appt?.priceChange?.lines ?? appt?.
   return {
     garments, before: m, after, delta: after.total - m.total,
     changed: garments.some((g) => g.rows.some((r) => r.kind !== 'same')), counts,
-    note: pc?.note ?? '', noteMasked: !!pc?.noteMasked, sentAt: pc?.sentAt ?? null, state: pc?.state ?? null, revisions: pc?.revisions ?? 0,
+    sentAt: pc?.sentAt ?? null, state: pc?.state ?? null, revisions: pc?.revisions ?? 0,
   };
 }
 
@@ -1210,9 +1707,10 @@ export function priceChangeView(appt, lines = appt?.priceChange?.lines ?? appt?.
 export const T = {
   setJob, newJob, addGarment, removeGarment, setServices, validateJob,
   requestBooking, withdrawRequest, tailorAccept, tailorSuggest, acceptSuggestion, withdrawSuggestion, findAnotherTailor,
-  tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow,
+  tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, confirmVisit, tailorCantMakeIt, markNoShow, reportTailorNoShow,
   startFitting, addFittingPhoto, removeFittingPhoto, restoreFittingPhoto, setFittingComment, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
-  chooseReturn, payBalance, markCompleted, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
+  sendJobEdit, approveJobEdit, addNote, updateNote, removeNote, restoreNote, addNotePhoto, removeNotePhoto,
+  chooseReturn, setHandoffSlot, holdBalance, confirmPickup, markHandedOver, confirmReceived, reportNotReceived, courierDelivered, bookAgain, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick, suggestLapseAt,
 };

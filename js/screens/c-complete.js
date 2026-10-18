@@ -3,12 +3,14 @@
    A stitch sews itself across a linen stage and the garments swing in on tags from it; Amara's woven
    "Tailored by" label carries the five stars (a star tap carries the rating into c-review, D-107) and the
    receipt is one row that opens in place. A completed order Sarah has not reviewed lands here
-   (statusScreen); a reviewed one lands on c-booking.
+   (statusScreen); a reviewed one lands on c-booking. Study-1 A4 (K-28): Job Done without a fit check — the bar is
+   Leave a review · Book Amara again · Message; 7 days on with no review, the reminder card (reviewReminderDue).
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, tailorById, priceChangeView } from '../state.js';
+import { state, T, tailorById, priceChangeView, reviewReminderDue } from '../state.js';
 import {
   chrome, navBackMark, receiptBlock, balanceCardLabel, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, verifiedCheck, returnedItems, linenStage, tagRail,
+  reminderCard,
 } from '../components.js';
 import { CHEVRON_RIGHT, VISIT_ICONS } from '../icons.js';
 import { fmtExact } from '../money.js';
@@ -28,7 +30,7 @@ function receiptLine(a) {
   const paid = a.payments.balance?.cents ?? 0;
   const refund = a.payments.refund?.cents ?? 0;
   if (paid <= 0 && refund > 0) return `${fmtExact(refund)} refunded · ${balanceCardLabel(a, a.cardId)}`;
-  return `Paid ${fmtExact(a.money.total)} in full · ${card}`;
+  return `Charged ${fmtExact(paid)} · ${card}`;   // K-27: the hold, captured at the handoff
 }
 
 
@@ -49,7 +51,8 @@ function view() {
   const meta = [t.shopName, t.shop?.hood, `for ${customerShort()}`].filter(Boolean).join(' · ');
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${navBackMark()}
-  ${linenStage({ eyebrow: `Order complete · ${fmtDay(doneAt(a))}`, title: 'Back with you, tailored to fit.', rail: tagRail(items), label: 'Order complete' })}
+  ${reviewReminderDue(a) ? `<div class="${ID}__reminder">${reminderCard({ title: `How did ${first} do?`, text: 'It’s been a week since your order came back. Your review helps other customers.', act: 'leave-review', id: a.id })}</div>` : ''}
+  ${linenStage({ eyebrow: `${a.handoff?.completedBy === 'auto' ? 'Completed automatically' : 'Order complete'} · ${fmtDay(doneAt(a))}`, title: 'Back with you, tailored to fit.', rail: tagRail(items), label: 'Order complete' })}
   <section class="${ID}__label" aria-label="Rate ${esc(first)}">
     <p class="t-caps ${ID}__by">Tailored by</p>
     <span class="${ID}__namerow"><span class="${ID}__name">${esc(t.name)}</span>${t.verified ? verifiedCheck({ years: t.years }) : ''}</span>
@@ -68,7 +71,7 @@ function view() {
     <div class="${ID}__receipt-body" id="receipt-body" hidden>${receiptBlock(a, first)}</div>
   </section>
 </main>
-${actionBar({ secondaryLabel: `Message ${esc(first)}`, secondaryAct: 'message' })}`;
+${actionBar({ ctaLabel: 'Leave a review', ctaAct: 'leave-review', secondaryLabel: `Book ${esc(first)} again`, secondaryAct: 'book-again', tertiaryLabel: `Message ${esc(first)}`, tertiaryAct: 'message' })}`;
 }
 
 function wire(root) {
@@ -110,6 +113,8 @@ function wire(root) {
       row.setAttribute('aria-expanded', String(open));
       root.querySelector('#receipt-body').hidden = !open;
     } else if (act === 'message') { if (a) setFocus(a.id, { keepFrom: true }); go('c-thread'); }
+    else if (act === 'leave-review' && a) { setFocus(a.id, { keepFrom: true }); state.ui['c-review'] = { apptId: a.id }; go('c-review'); }
+    else if (act === 'book-again' && a) { T.bookAgain(a.id); state.ui.booking = { tailorId: a.tailorId, again: true }; go('c-job', { fresh: true }); }   // Study-1 A4 (default 9)
     else if (act === 'done') go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings', { fresh: true });
   });
 }

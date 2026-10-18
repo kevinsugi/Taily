@@ -8,12 +8,16 @@
    States are data: added · item-added · item-removed · removed ·
    repriced · messaged · unchanged · revised.
    Which appointment: focusAppt (D-72).
+   Study-1 B1 (K-30): the same screen is "Amara edited your order" when the tailor edits the job after the fitting (in progress, edit
+   pending): her reason (+ photo), the new due date, what changed, the new total — Approve changes / Message, like the fitting (K-30
+   overruled: no decline; if Sarah disagrees she messages and the tailor revises). K-31: the tailor's whole-order note is private now.
    ============================================================ */
 import { register, render as go, registered, currentScreen } from '../app.js';
-import { state, T, tailorById, priceChangeView } from '../state.js';
+import { state, T, tailorById, priceChangeView, jobEditView } from '../state.js';
 import {
   chrome, banner, emptyState, deltaLines, noteQuote, changeList, withPhotos, wirePhotoViewer, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs, sectionHead,
-  navBackMark, requestStrip, requestHead, pageHead, verifiedCheck,
+  navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, HOME_FEE_CAPTION,
+  photoFigure, dueChange, visitBlock, returnedItems,
 } from '../components.js';
 import { fmtExact } from '../money.js';
 import { fmtTime } from '../dates.js';
@@ -28,7 +32,7 @@ const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
 function view() {
   const a = focusAppt(ID);
   const chromeHtml = chrome('bookings');
-  if (!a || !a.priceChange) {
+  if (!a || (!a.priceChange && a.edit?.state !== 'pending')) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}--none">
   <div class="${ID}__empty" data-empty="no-change">${emptyState({
     title: 'No final order to review', body: 'After your fitting, the order your tailor sends shows up here.',
@@ -36,6 +40,7 @@ function view() {
   })}</div>
 </main>`;
   }
+  if (a.status === 'in-progress' && a.edit?.state === 'pending') return editView(a, chromeHtml);
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const first = firstOf(t);
   const pv = priceChangeView(a);
@@ -58,7 +63,7 @@ function view() {
   }));
   const rows = [
     { label: 'Services', cents: after.services, caption: `${first}’s final prices` },
-    after.homeFee > 0 && { label: 'Home-visit fee', cents: after.homeFee },
+    after.homeFee > 0 && { label: 'Home visit fee', cents: after.homeFee, caption: HOME_FEE_CAPTION },
     after.rush > 0 && { label: 'Rush fee', cents: after.rush },
     { label: changed ? 'New total' : 'Total', cents: after.total, kind: 'total' },
     { label: 'Deposit', cents: after.deposit, caption: 'Stays the same', status: 'Paid' },
@@ -67,7 +72,6 @@ function view() {
   ].filter(Boolean);
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${messaged ? '--messaged' : ''}" data-changed="${changed}" data-appt="${esc(a.id)}">
   ${navBackMark()}${strip}${head}
-  ${pv.note ? `<div class="${ID}__quote">${noteQuote({ label: `${first}’s note on the order`, text: pv.note })}${pv.noteMasked ? `<p class="t-small c-600 ${ID}__masked">Phone numbers and emails in this note are hidden.</p>` : ''}</div>` : ''}
   <section class="sec">${sectionHead(changed ? 'What changed' : 'Your order')}
   ${changed ? `<div class="${ID}__summary">${changeSummary(pv.counts)}</div>` : ''}
   ${changeList({ garments: withPhotos(pv.garments, a.job), docs: a.priceChange.docs ?? null, commentLabel: `${first}’s comment` })}</section>
@@ -80,6 +84,71 @@ ${actionBar({
     lead: `<span>${changed ? 'New balance' : 'Balance'}, due when it’s ready</span><b data-money>${fmtExact(after.balance)}</b>`,
     secondaryLabel: messaged ? 'Open chat' : `Message ${first}`, secondaryAct: 'message',
   })}`;
+}
+
+/* ---------- Study-1 B1: "Amara edited your order" ---------- */
+function editView(a, chromeHtml) {
+  const t = tailorById(a.tailorId) ?? state.tailors[0];
+  const first = firstOf(t);
+  const ev = jobEditView(a);
+  const after = ev.after;
+  const busy = !!ui().busy;
+  const priced = ev.changed;
+  const strip = requestStrip({ page: true, tone: 'action', icon: 'check', text: `${first} edited your order`, right: ev.sentAt ? `Sent ${fmtTime(ev.sentAt)}` : '' });
+  const head = pageHead(requestHead({
+    page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
+    payoutCents: after.total, label: priced ? 'New total' : 'Total', lines: priced ? deltaLines(after.total, ev.before.total) : [],
+  }));
+  const rows = [
+    { label: 'Services', cents: after.services, caption: `${first}’s new prices` },
+    after.homeFee > 0 && { label: 'Home visit fee', cents: after.homeFee, caption: HOME_FEE_CAPTION },
+    after.rush > 0 && { label: 'Rush fee', cents: after.rush },
+    { label: priced ? 'New total' : 'Total', cents: after.total, kind: 'total' },
+    { label: 'Deposit', cents: after.deposit, caption: 'Stays the same', status: 'Paid' },
+    { label: priced ? 'New balance' : 'Balance', cents: after.balance, status: 'Due when ready' },
+    after.refund > 0 && { label: 'Refund to your card', cents: after.refund, caption: 'When your order is ready' },
+  ].filter(Boolean);
+  const items = returnedItems(a);
+  return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--edit" data-edit="pending" data-appt="${esc(a.id)}">
+  ${navBackMark()}${strip}${head}
+  <div class="${ID}__quote">${noteQuote({ label: `${first}’s reason`, text: ev.reason })}${ev.reasonMasked ? `<p class="t-small c-600 ${ID}__masked">Phone numbers and emails in this reason are hidden.</p>` : ''}</div>
+  ${ev.photo ? `<div class="${ID}__photo">${photoFigure({ photo: ev.photo, type: a.job.garments.find((g) => g.id === a.edit?.marks?.[0]?.garmentId)?.type ?? items[0]?.type ?? '', by: first, label: `Photo from ${first}` })}</div>` : ''}
+  ${ev.dueChanged ? `<section class="sec">${visitBlock([{ icon: 'clock', value: dueChange({ needBy: ev.needBy, was: ev.needByWas }), strong: true }], { title: '' })}</section>` : ''}
+  ${priced ? `<section class="sec">${sectionHead('What changed')}
+  <div class="${ID}__summary">${changeSummary(ev.counts)}</div>
+  ${changeList({ garments: withPhotos(ev.garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: `${first}’s comment` })}</section>` : ''}
+  <section class="sec">${sectionHead('Price')}
+  ${moneyRows(rows)}
+  <p class="t-small c-600 ${ID}__hint" data-edit-hint>Something not right? Message ${esc(first)} to change it before the work is finished.</p></section>
+  ${ui().error ? `<div class="${ID}__fail" role="alert">${banner({ tone: 'error', title: 'Couldn’t save your answer', text: 'Nothing changed, and nothing was charged. Try again.' })}</div>` : ''}
+</main>
+${actionBar({
+    ctaLabel: 'Approve changes', ctaAct: 'approve-edit', busy, busyLabel: 'Approving…',
+    lead: `<span>${priced ? 'New balance' : 'Balance'}, due when it’s ready</span><b data-money>${fmtExact(after.balance)}</b>`,
+    secondaryLabel: `Message ${first}`, secondaryAct: 'message',
+  })}`;
+}
+
+function approveEdit(a) {
+  if (ui().busy) return;
+  ui().busy = true;
+  ui().error = false;
+  go(ID);
+  withLatency(() => {
+    ui().busy = false;
+    if (currentScreen() !== ID) return;
+    const r = T.approveJobEdit(a.id);
+    const first = firstOf(tailorById(a.tailorId));
+    if (r.ok) {
+      setFocus(a.id);
+      go('c-booking', { fresh: true });
+      toast(`Changes approved. ${first} carries on with the work.`, { tone: 'success' });
+    } else {
+      ui().error = true;
+      go(ID);
+      toast('Couldn’t approve the changes', { tone: 'error' });
+    }
+  });
 }
 
 function approve(a) {
@@ -121,7 +190,7 @@ function wire(root) {
     by: `Taken by ${first}`,
     lookup: (gid) => {
       const docs = a?.priceChange?.docs?.[gid];
-      const type = priceChangeView(a).garments.find((g) => g.id === gid)?.type ?? '';
+      const type = (a?.edit?.state === 'pending' ? jobEditView(a) : priceChangeView(a)).garments.find((g) => g.id === gid)?.type ?? '';
       return docs ? { type, docs } : null;
     },
   });
@@ -133,6 +202,7 @@ function wire(root) {
     if (act === 'bookings') go('c-bookings', { fresh: true });
     else if (!a) return;
     else if (act === 'approve') approve(a);
+    else if (act === 'approve-edit') approveEdit(a);
     else if (act === 'message') go('c-thread');   // opening the chat changes nothing; Sarah's first message marks it (R4-2-C-02)
   });
 }

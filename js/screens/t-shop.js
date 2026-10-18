@@ -47,7 +47,7 @@ const SUMMARY = {
   where: (t) => {
     const parts = [];
     if (t.shop?.enabled) parts.push(`Shop at ${t.shop.street}`);
-    if (t.home?.enabled) parts.push(`Home visits in ${plural(t.home.zips.length, 'ZIP code', 'ZIP codes')}, ${t.home.fee > 0 ? `${fmt(cents(t.home.fee))} fee` : 'no fee'}`);
+    if (t.home?.enabled) parts.push(`Home visits in ${plural((t.home.hoods ?? []).length, 'neighborhood', 'neighborhoods')}, ${t.home.fee > 0 ? `${fmt(cents(t.home.fee))} fee` : 'no fee'}`);   // C5: neighborhoods, not ZIP codes
     return parts.join(' · ') || 'Not set up yet';
   },
   returns: (t) => Object.keys(RETURN_LABEL).filter((k) => t.returns?.[k])

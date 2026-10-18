@@ -19,19 +19,16 @@ export const FLOWS_c_bookings = [
   { key: 'c-bookings', screen: 'c-bookings', group: 'M3 · Bookings', title: 'Bookings', note: 'A cancelled visit under Past, a second confirmed one under Upcoming',
     setup: (S) => { S.driveTo('cancelled-early'); cbAddRequest({ accept: true, after: CB_AFTER }); },
     expect: { has: ['Bookings', 'UPCOMING', 'PAST', 'Amara Reyes', 'Confirmed', 'Cancelled', cbWhen(CB_SEED)], sel: '.appt-row' } },
-  { key: 'c-bookings--push-denied', screen: 'c-bookings', group: 'M3 · Bookings', title: 'Bookings — notifications off', note: 'A request is waiting and notifications are off: the warning banner with Open Settings',
-    setup: (S) => { S.driveTo('requested'); S.sim.push = 'denied'; },
-    expect: { has: ['Notifications are off', 'Turn on notifications to hear the moment Amara replies', 'Open Settings', 'REQUESTS'], sel: '[data-act="push-settings"]' } },
   { key: 'c-bookings--empty', screen: 'c-bookings', group: 'M3 · Bookings', title: 'Bookings — empty', note: 'No bookings yet: a way to start one',
     expect: { has: ['No bookings yet', 'Start a booking'], not: 'UPCOMING', sel: '[data-empty="bookings"]' } },
-  { key: 'c-bookings--ready', screen: 'c-bookings', group: 'M4 · Bookings', title: 'Bookings — ready to pay, one completed', note: 'A ready order sits under In progress (since when, C-19) and says Pay now; the completed one asks for a review',
+  { key: 'c-bookings--ready', screen: 'c-bookings', group: 'M4 · Bookings', title: 'Bookings — ready, one completed', note: 'A ready order sits under In progress (since when, C-19) and says Choose a way back (K-27: the balance is held then); the completed one asks for a review',
     setup: (S) => {
       S.driveTo('completed');
       const b = cbAddRequest({ accept: true, after: CB_AFTER });
       S.setClock(b.slot.start);
       S.T.startFitting(b.id); S.documentFitting(b.id); S.T.sendPriceChange(b.id, b.lines); S.T.approvePriceChange(b.id); S.T.markReady(b.id);
     },
-    expect: { has: ['IN PROGRESS', 'PAST', 'Since ', 'Pay now', 'Completed', 'Leave a review'], not: 'UPCOMING', sel: '[data-section="progress"] .appt-row' } },
+    expect: { has: ['IN PROGRESS', 'PAST', 'Since ', 'Choose a way back', 'Completed', 'Leave a review'], not: 'UPCOMING', sel: '[data-section="progress"] .appt-row' } },
 ];
 export const FLOWS_c_booking = [
   { key: 'c-booking--confirmed', screen: 'c-booking', group: 'M3 · Bookings', title: 'Booked with Amara', note: 'Just accepted: Amara leads the Visit block (check after the name, rows under it, Message + Add to calendar), deposit Paid, same time and prices as her ticket',
@@ -81,18 +78,15 @@ export const FLOWS_c_booking = [
   { key: 'c-booking--docs', screen: 'c-booking', group: 'M4 · Bookings', title: 'Your order — with the fitting photos', note: 'K-04: Your order keeps each garment’s icon and Amara’s comment; the item row shows her fitting photos (Before + Pinned) in place of yours, opened in the viewer',
     setup: (S) => { S.driveTo('in-progress', { docs: 'full' }); },
     expect: { has: ['YOUR ORDER', 'photos', 'Amara’s comment', cbFC.g2], sel: '[data-garment="g1"] [data-act="view-photos"][data-source="fitting"]' } },
-  { key: 'c-booking--returning-pickup', screen: 'c-booking', group: 'M4 · Bookings', title: 'Ready for pickup', note: 'Paid in full; pick it up at the shop',
-    setup: (S) => { S.driveTo('returning'); },
-    expect: { has: ['Ready for pickup', 'Open tomorrow 10:00 AM', 'Amara Reyes', 'Paid in full', 'Sarah C.', '2 items · 3 services', 'IN-STORE PICKUP', 'Reyes Tailoring', 'Directions', 'Message', 'WHAT HAPPENS NEXT', 'Pick it up at the shop', 'Ready · paid'], not: ['Message Amara', 'marks the order completed when you have it'], sel: '[data-hang] .hang__item' } },   // K-18 (3-J)
-  { key: 'c-booking--returning-pickup-many', screen: 'c-booking', group: 'M4 · Bookings', title: 'Ready for pickup — five items', note: 'K-21 sliding rail: every garment hangs on its thread (K-22), three show and the fourth peeks, Sarah’s tag pinned at the right end',
-    setup: (S) => { S.driveTo('returning', { items: cbMany }); },
-    expect: { has: ['Ready for pickup', 'Paid in full', 'Sarah C.', '5 items · 6 services', 'IN-STORE PICKUP'], sel: '[data-hang] .hang__scroll[role="region"][tabindex="0"]', also: '[data-hang] .hang__slot--tag' } },   // K-21
-  { key: 'c-booking--returning-dropoff', screen: 'c-booking', group: 'M4 · Bookings', title: 'Amara will drop it off', note: 'Home drop-off: she messages to agree a time',
-    setup: (S) => { S.driveTo('returning', { returnOption: 'dropoff' }); },
-    expect: { has: ['Amara will drop it off · agree on a time in chat', 'Paid in full', 'To your door', '145 N 7th St', 'Brooklyn, NY', 'HOME DROP-OFF', 'Time to agree', 'Agree on a time with Amara', 'Amara brings it to your door'], sel: '[data-hang] .hang__tag' } },   // K-18 (3-J)
-  { key: 'c-booking--returning-courier', screen: 'c-booking', group: 'M4 · Bookings', title: 'On its way to you', note: 'Taily courier: quote + fee = total, paid with the balance',
-    setup: (S) => { S.driveTo('returning', { returnOption: 'courier' }); },
-    expect: { has: ['On its way', 'Arrives 6:00–6:30 PM', 'With courier', 'TAILY COURIER', 'Paid by you', cbExact(CB_SC.courierQuote.quote), cbExact(CB_SC.courierQuote.markup), cbExact(CB_SC.courier.courier)], sel: '.visit-row--courier' } },   // K16-2-02: the same window as t-job--courier's strip; K-18 (3-J)
+  { key: 'c-booking--handoff-pickup', screen: 'c-booking', group: 'M4 · Bookings', title: 'Ready for pickup', note: 'The balance on hold (K-27); the pickup code to show at the shop (Study-1 A3); K-40: the time she picked leads the place block, Change time beside Directions',
+    setup: (S) => { S.driveTo('awaiting-handoff'); },
+    expect: { has: ['Pickup Fri, Oct 16 · 5:30 PM · show your code at the shop', 'Your pickup time · Amara has it ready then', 'Open Fri 10:00 AM', 'Amara Reyes', 'On hold', 'Visa •••• 4242', 'Sarah C.', '2 items · 3 services', 'YOUR PICKUP CODE', '8153', 'Show this code when you pick up.', 'IN-STORE PICKUP', 'Reyes Tailoring', 'Directions', 'Change time', 'Message', 'WHAT HAPPENS NEXT', 'Pick it up at the shop', 'Show Amara your code', 'Leave a review', `Ready · ${cbExact(CB_SC.seed.balance)} on hold`, 'I got it'], not: ['Message Amara', 'Paid in full', 'Rate the fit', 'marks it completed', 'I didn’t get it', 'agree on a time'], sel: '[data-hang] .hang__item', also: '[data-act="change-time"]' } },   // K-18 (3-J)
+  { key: 'c-booking--handoff-pickup-many', screen: 'c-booking', group: 'M4 · Bookings', title: 'Ready for pickup — five items', note: 'K-21 sliding rail: every garment hangs on its thread (K-22), three show and the fourth peeks, Sarah’s tag pinned at the right end',
+    setup: (S) => { S.driveTo('awaiting-handoff', { items: cbMany }); },
+    expect: { has: ['Pickup Fri, Oct 16 · 5:30 PM', 'On hold', 'Sarah C.', '5 items · 6 services', 'IN-STORE PICKUP'], sel: '[data-hang] .hang__scroll[role="region"][tabindex="0"]', also: '[data-hang] .hang__slot--tag' } },   // K-21
+  { key: 'c-booking--handoff-courier', screen: 'c-booking', group: 'M4 · Bookings', title: 'Courier booked', note: 'Taily courier: quote + fee = total, held with the balance; completes on delivery (Study-1 A3); K-40: the window she picked + when the courier collects, Change window',
+    setup: (S) => { S.driveTo('awaiting-handoff', { returnOption: 'courier' }); },
+    expect: { has: ['If you’re not home, the courier leaves it in your building’s lobby.', 'Courier booked · arrives Fri, Oct 16 · 5:00–5:30 PM', 'Arrives Fri, Oct 16 · 5:00–5:30 PM', 'The courier collects from Amara at 4:45 PM', 'Change window', 'On hold', 'I got it', 'at Reyes Tailoring', 'TAILY COURIER', 'Paid by you', cbExact(CB_SC.courierQuote.quote), cbExact(CB_SC.courierQuote.markup), cbExact(CB_SC.courier.courier)], sel: '.visit-row--courier' } },   // K16-2-02: the same window as t-job--handoff-courier's strip; K-18 (3-J)
   { key: 'c-booking--completed', screen: 'c-booking', group: 'M4 · Bookings', title: 'Completed and reviewed', note: 'Her own review, the receipt, and Book Amara again',
     setup: (S) => { S.driveTo('reviewed'); },
     expect: { has: ['All done with Amara', 'Completed Thu, Oct 15. Fitted Thu, Oct 15 · at my place', 'YOUR REVIEW', 'Perfect fit', 'Book Amara again'] } },
@@ -118,12 +112,9 @@ export const FLOWS_t_home = [
     expect: { has: ['Suit Pant', '1 service', 'Hem pants', 'Suit Jacket', '2 services', 'Shorten sleeves', 'Take in jacket sides'], sel: '.request-card .peek-cluster[aria-expanded="true"]', also: '#garment-pop[role="dialog"] .garment-pop__item:nth-child(2)' } },
   { key: 't-home--empty', screen: 't-home', group: 'M3 · Tailor', title: 'Home — nothing yet', note: 'No requests, nothing booked: Check your hours',
     expect: { has: ['No requests yet', 'Check your hours'], not: 'Your payout', sel: '[data-empty="home"]' } },
-  { key: 't-home--push-denied', screen: 't-home', group: 'M3 · Tailor', title: 'Home — notifications off', note: 'Warning banner with Open Settings, requests still listed',
-    setup: (S) => { c1Both(S); S.sim.push = 'denied'; },
-    expect: { has: ['Notifications are off', 'Open Settings', 'NEW REQUESTS'], sel: '[data-act="push-settings"]' } },
-  { key: 't-home--push', screen: 't-home', group: 'M3 · Tailor', title: 'Home — a push card for a new request', note: 'Notifications on: the card over the status bar, copy from the request (D-167)',
-    setup: (S) => { S.driveTo('requested'); S.sim.push = 'granted'; },
-    expect: { has: ['New request · Sarah C.', 'Home visit', 'Your payout', c1Exact(C1_SC.seed.payout), '2h to reply'], sel: '[data-act="push-open"]' } },
+  { key: 't-home--text', screen: 't-home', group: 'M3 · Tailor', title: 'Home — a text for a new request', note: 'K-43 (D-301, was the push card D-167): Taily texts her the request with its unique link; tapping it opens the request',
+    setup: (S) => { S.driveTo('requested'); S.sim.texts = 'on'; },
+    expect: { has: ['TEXT MESSAGE', 'Taily', 'New request from Sarah C.', 'Home visit', 'Your payout', c1Exact(C1_SC.seed.payout), '2h to reply', 'taily.app/r/'], sel: '.text-banner[data-act="text-open"]' } },
   /* extras beyond the spec table: states the screen draws that the table did not key */
   { key: 't-home--no-requests', screen: 't-home', group: 'M3 · Tailor', title: 'Home — only an upcoming visit', note: 'No new requests right now, the booked visit below',
     setup: (S) => { S.driveTo('confirmed'); },
@@ -191,9 +182,9 @@ export const FLOWS_t_request = [
   { key: 't-request--expired-final', screen: 't-request', group: 'M3 · Tailor', title: 'Request — expired for good', note: 'No retries left: the job has gone to other tailors',
     setup: (S) => { S.driveTo('expired-final'); },
     expect: { has: ['This request expired', 'Sarah can now book another tailor.', 'Back to Home'], not: 'send it again' } },
-  { key: 't-request--shop', screen: 't-request', group: 'M3 · Tailor', title: 'Request — a shop visit', note: 'Her own shop address, no "after you accept" caption, no home-visit fee',
+  { key: 't-request--shop', screen: 't-request', group: 'M3 · Tailor', title: 'Request — a shop visit', note: 'Her own shop address, no "after you accept" caption, no home visit fee',
     setup: (S) => { S.driveTo('requested', { visitType: 'shop' }); },
-    expect: { has: ['Shop visit', 'Metropolitan Ave', 'Accept'], not: ['Full address after you accept', 'Home-visit fee'] } },
+    expect: { has: ['Shop visit', 'Metropolitan Ave', 'Accept'], not: ['Full address after you accept', 'Home visit fee'] } },
   { key: 't-request--accepting', screen: 't-request', group: 'M3 · Tailor', title: 'Request — accepting', note: 'Latency held: Accept busy, the other buttons locked',
     setup: (S) => { S.driveTo('requested'); S.sim.latency = 'hold'; },
     click: ['[data-act="accept"]'],
@@ -267,14 +258,14 @@ export const FLOWS_t_job = [
   { key: 't-job', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — upcoming', note: 'An hour after the accept: Visit confirmed (no status pill, K-17 R1), the person block, I can’t make it',
     setup: (S) => { S.driveTo('confirmed'); S.advanceClock(TJ_POLICY.JUST_BOOKED_MIN); },
     expect: { has: ['Visit confirmed', '145 N 7th St'], not: ['You accepted', 'Visit with Sarah Chen'], sel: '[data-act="more"]' } },
-  { key: 't-job--more', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — the ••• menu', note: 'M7 (D-195): I can’t make it and Mark as no-show live behind the ••• at the top right',
+  { key: 't-job--more', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — the ••• menu', note: 'M7 (D-195): Cancel appointment (K-29, was I can’t make it) and Mark as no-show live behind the ••• at the top right',
     setup: (S) => { S.driveTo('confirmed'); S.advanceClock(TJ_POLICY.JUST_BOOKED_MIN); },
     click: ['[data-act="more"]'],
-    expect: { has: ['I can’t make it', 'Mark as no-show'], sel: '[data-s="more"]' } },
-  { key: 't-job--cant-make-it', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — can’t make it sheet', note: 'Deposit refunded in full, optional reason chips, Keep the visit',
+    expect: { has: ['Cancel appointment', `Sarah gets her ${tjExact(TJ_SC.seed.deposit)} deposit back`, 'Mark as no-show'], not: 'I can’t make it', sel: '[data-s="more"]' } },
+  { key: 't-job--cancel', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — cancel appointment sheet', note: 'K-29 (was “can’t make it”): deposit refunded in full, optional reason chips, Keep the visit; 24 h or more ahead, no warning',
     setup: (S) => { S.driveTo('confirmed'); S.advanceClock(TJ_POLICY.JUST_BOOKED_MIN); },
     click: ['[data-act="more"]', '[data-act="cant-make-it"]'],
-    expect: { has: ['make it?', tjExact(TJ_SC.seed.deposit), 'Her order stays saved', 'Family emergency', 'Keep the visit'], sel: '[data-act="cant-ok"]' } },
+    expect: { has: ['Cancel this appointment?', tjExact(TJ_SC.seed.deposit), 'Her order stays saved', 'Family emergency', 'Keep the visit', 'Cancel appointment'], not: 'less than 24 hours away', sel: '[data-act="cant-ok"]' } },
   { key: 't-job--no-show', screen: 't-job', group: 'M3 · Tailor job', title: 'Job — no-show sheet', note: '20 minutes past the start: you keep her deposit and are paid',
     setup: (S) => { S.driveTo('confirmed'); S.setClock(tjIso(tjAdd(TJ_SLOT, TJ_POLICY.NO_SHOW_WAIT_MIN + 5))); },
     click: ['[data-act="more"]', '[data-act="no-show"]'],

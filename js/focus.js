@@ -5,7 +5,7 @@
    setFocus(appt.id) first, the screen reads focusAppt(ID), and its
    wire() calls redirectIfMoved(ID, go).
    ============================================================ */
-import { state, getAppt, apptsFor, statusScreen, lastSpeakerSince, now } from './state.js';
+import { state, getAppt, apptsFor, statusScreen, lastSpeakerSince, now, reminderState } from './state.js';
 import { fmtTime, fmtDay, isoDay } from './dates.js';
 
 /** c- customer · t- / to- tailor. sys- screens keep the current persona. */
@@ -60,20 +60,34 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
     case 'declined': return { pill: 'declined', label: 'Declined' };
     case 'expired': return { pill: 'expired', label: 'No reply' };
     case 'cancelled': return { pill: 'cancelled', label: appt.cancel?.reason === 'no-show' ? 'No-show' : 'Cancelled' };
-    case 'confirmed': return { pill: 'confirmed', label: 'Confirmed' };
+    case 'confirmed': {
+      /* K-41 (R3, D-296): the 24-hour reminder's answer has its own words ("Confirmed" already means Amara accepted) */
+      const r = reminderState(appt);
+      if (r === 'asked') return customer ? { pill: 'action', label: 'Your move' } : { pill: 'waiting', label: 'Not confirmed yet' };
+      if (r === 'confirmed') return customer ? { pill: 'completed', label: 'All set' } : { pill: 'completed', label: `${sarah} confirmed` };
+      if (r === 'missed') return customer ? { pill: 'action', label: 'Your move' } : { pill: 'waiting', label: 'Not confirmed' };
+      return { pill: 'confirmed', label: 'Confirmed' };
+    }
     case 'fitting': return customer ? { pill: 'fitting', label: 'Fitting' } : { pill: 'action', label: 'Fitting' };   // M7-1-T-03: photographing and sending is Amara's move (D-95)
     case 'price-change':
       if (customer) return { pill: 'action', label: pick('Approve order', 'Approve') };
       if (appt.priceChange?.state !== 'messaged') return waiting;
       /* D-112: once Amara has answered, the move is Sarah's again */
       return lastSpeakerSince(appt)?.from === 'tailor' ? waiting : { pill: 'action', label: pick(`Reply to ${sarah}`, 'Reply') };
-    case 'in-progress': return { pill: 'in-progress', label: 'In progress' };
+    case 'in-progress':
+      /* Study-1 B1: a post-fitting edit waiting on Sarah is her move */
+      if (appt.edit?.state === 'pending') return customer ? { pill: 'action', label: pick('Approve changes', 'Approve') } : waiting;
+      return { pill: 'in-progress', label: 'In progress' };
     case 'ready': return customer ? { pill: 'action', label: 'Ready' } : waiting;
-    case 'returning': {
+    case 'awaiting-handoff': {
       const how = appt.returnOption ?? 'pickup';
-      if (how === 'dropoff') return customer ? { pill: 'returning', label: pick('Coming to you', 'Drop-off') } : { pill: 'action', label: 'To drop off' };
-      if (how === 'courier') return customer ? { pill: 'returning', label: pick('Out for delivery', 'Courier') } : { pill: 'returning', label: pick('Courier booked', 'Courier') };
-      return { pill: 'returning', label: pick('Ready for pickup', 'Pickup') };
+      const h = appt.handoff ?? {};
+      /* Study-1 A3: a reported problem is Amara's move; a handoff she marked is Sarah's to confirm (or the countdown completes it) */
+      if (h.problemAt) return customer ? { pill: 'waiting', label: pick('Problem reported', 'Problem') } : { pill: 'action', label: pick(`${sarah} didn’t get it`, 'Problem') };
+      if (h.markedAt) return customer ? { pill: 'action', label: pick('Confirm you got it', 'Picked up') } : { pill: 'awaiting-handoff', label: 'Picked up' };
+      /* K-40: the courier is booked for the window Sarah picked (it is not on its way until it collects) */
+      if (how === 'courier') return { pill: 'awaiting-handoff', label: pick('Courier booked', 'Courier') };
+      return { pill: 'awaiting-handoff', label: pick('Ready for pickup', 'Pickup') };
     }
     case 'completed': return { pill: 'completed', label: 'Completed' };
     default: return { pill: appt.status, label: undefined };
@@ -87,12 +101,8 @@ export function sinceText(appt) {
   return `since ${isoDay(at) === isoDay(now()) ? fmtTime(at) : fmtDay(at)}`;
 }
 
-/** The return step word on a returning order (D-106, D-170), one source for the t-home rows and the status words:
-    tailor — Ready for pickup · To drop off · Courier booked; customer — (pickup) Ready for pickup · Drop-off · Out for delivery. */
-export function returnStep(appt, persona = state.persona) {
-  const how = appt?.returnOption ?? 'pickup';
-  const customer = persona !== 'tailor';
-  if (how === 'dropoff') return customer ? 'Drop-off' : 'To drop off';
-  if (how === 'courier') return customer ? 'Out for delivery' : 'Courier booked';
-  return 'Ready for pickup';
+/** The return step word on an awaiting-handoff order (D-106, D-170), one source for the t-home rows and the status words:
+    Ready for pickup · Courier booked, on both sides (K-37: no drop-off; K-40: the courier is booked for Sarah's window). */
+export function returnStep(appt) {
+  return appt?.returnOption === 'courier' ? 'Courier booked' : 'Ready for pickup';
 }

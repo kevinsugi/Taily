@@ -7,3 +7,6 @@
 .c-price-change__quote .note-quote { margin-top: 0; }
 .c-price-change__summary { margin-bottom: var(--space-4); }
 .c-price-change__fail { margin-top: var(--rhythm-group); }
+/* Study-1 B1: the edit — her reason, the photo, the Message hint (K-30 overruled: no decline) */
+.c-price-change__photo { margin-top: var(--rhythm-group); }
+.c-price-change__hint { margin: var(--space-8) 0 0; text-wrap: pretty; }

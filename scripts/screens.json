@@ -167,7 +167,7 @@
       "c-tailors--shop": "968:6196",
       "c-book--preset": "968:6624",
       "c-complete--many": "969:6627",
-      "c-booking--returning-pickup-many": "967:6062",
+      "c-booking--handoff-pickup-many": "967:6062",
       "to-profile--card-line": "970:7123",
       "to-profile--photo-missing": "970:7042",
       "t-job--completed-rated": "971:5434",

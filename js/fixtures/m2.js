@@ -6,7 +6,7 @@
 
 import { SCENARIOS, AMARA, PAYOUT_DAYS } from './money-scenarios.js';
 import { fmtDay } from '../dates.js';
-import { fmt, fmtExact, cents, tailyFeeFor, payoutFor } from '../money.js';
+import { fmt, fmtExact, cents, tailyFeeFor, payoutFor, priceRange } from '../money.js';
 import { MONEY } from '../money-config.js';
 import { onboardTo, NEW_TAILOR_PHONE, earningsTo } from './common.js';
 import * as A from '../account.js';
@@ -41,14 +41,10 @@ export const FLOWS_t_code = [
 export const FLOWS_to_profile = [
   { key: 'to-profile', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile', note: 'Step 1 of 6: blank tailor, name focal, card line + live list-card preview, Finish later',
     setup: () => { onboardTo('profile'); },
-    expect: { has: ['Step 1 of 6', 'Your profile', 'Your name', 'Your card line', 'What customers see on the list. Up to 110 characters.', '0 / 110', 'About your work', 'YOUR CARD ON THE LIST', 'Shown for a sample job', 'Finish later'], not: ['Save changes', 'Optional.'], sel: '#name' } },
+    expect: { has: ['Step 1 of 6', 'Your profile', 'Your name', 'Card line — the one sentence customers see in search results', '0 / 110', 'About — the full bio on your profile', 'YOUR CARD ON THE LIST', 'Shown for a sample job', 'Finish later'], not: ['Save changes', 'Optional.'], sel: '#name', also: ['.customer-preview--sticky', '#cardLine[maxlength="110"][placeholder^="Example: I’ve been tailoring"]', '#bio[placeholder^="Example: I’ve tailored luxury"]'] } },
   { key: 'to-profile--card-line', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile — card line', note: 'Amara’s card line typed in: 106 / 110, and the list card shows it in the margin note (K-19)',
     setup: (S) => { onboardTo('profile'); S.state.ui['to-profile'] = { draft: { name: AMARA.name, shopName: AMARA.shopName, cardLine: AMARA.cardLine, bio: AMARA.bio, photo: true, workPhotos: 0 } }; },
-    expect: { has: ['Your card line', AMARA.cardLine, '106 / 110', 'YOUR CARD ON THE LIST', AMARA.name, 'Comes to you · from Williamsburg', fmt(SCENARIOS.seed.total), 'Est.'], sel: '.customer-preview .tailor-row__line' } },
-  { key: 'to-profile--card-line-over', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile — card line too long', note: 'A card line over 110: the counter turns error, Next says why',
-    setup: (S) => { onboardTo('profile'); S.state.ui['to-profile'] = { draft: { name: AMARA.name, shopName: '', cardLine: `${AMARA.cardLine} ${AMARA.cardLine}`.slice(0, 124), bio: AMARA.bio, photo: true, workPhotos: 0 } }; },
-    click: ['[data-act="next"]'],
-    expect: { has: ['124 / 110', 'Keep it to 110 characters — you’re at 124.'], sel: '#cardLine[aria-invalid="true"]', also: ['.text-area__count--over'] } },
+    expect: { has: ['Card line — the one sentence customers see in search results', AMARA.cardLine, '106 / 110', 'YOUR CARD ON THE LIST', AMARA.name, 'Comes to you · from Williamsburg', fmt(SCENARIOS.seed.total), 'Est.'], sel: '.customer-preview .tailor-row__line' } },
   { key: 'to-profile--photo-missing', screen: 'to-profile', group: 'M2 · Onboarding', title: 'Profile — photo missing', note: 'Everything filled in but the profile photo: Next says "Add a profile photo" (K-19)',
     setup: (S) => { onboardTo('profile'); S.state.ui['to-profile'] = { draft: { name: AMARA.name, shopName: '', cardLine: AMARA.cardLine, bio: AMARA.bio, photo: false, workPhotos: 0 } }; },
     click: ['[data-act="next"]'],
@@ -58,12 +54,12 @@ export const FLOWS_to_profile = [
     click: ['[data-act="next"]'],
     expect: { has: ['Enter your name', 'Write the line customers see on the list.', 'Add a profile photo.', 'Keep it to 300 characters'], sel: '#name[aria-invalid="true"]', also: ['#cardLine[aria-invalid="true"]', '.to-profile__photo--error'] } },
   { key: 'to-profile--edit', screen: 'to-profile', group: 'M2 · Shop', title: 'Profile — edit', note: 'Live tailor: Save changes waits for a change; the card line sits before About',
-    expect: { has: ['Your profile', 'Save changes', 'No changes yet', AMARA.name, 'Your card line', AMARA.cardLine, '106 / 110', 'YOUR CARD ON THE LIST'], not: 'Step 1 of 6', sel: '[data-act="save"][disabled]' } },
+    expect: { has: ['Your profile', 'Save changes', 'No changes yet', AMARA.name, 'Card line — the one sentence customers see in search results', AMARA.cardLine, '106 / 110', 'YOUR CARD ON THE LIST'], not: 'Step 1 of 6', sel: '[data-act="save"][disabled]' } },
 ];
 export const FLOWS_to_services = [
   { key: 'to-services', screen: 'to-services', group: 'M2 · Onboarding', title: 'Services and prices', note: 'Step 2 of 6: three ticked, a live "Your payout · Taily fee" under each price',
     setup: (S) => { onboardTo('services'); S.state.ui['to-services'] = { draft: { prices: { 'hem-pants': AMARA.prices['hem-pants'], sleeves: AMARA.prices.sleeves, repair: AMARA.prices.repair } } }; },
-    expect: { has: ['Step 2 of 6', 'Services and prices', '3 selected', `Your payout ${fmtExact(payoutFor({ services: cents(AMARA.prices['hem-pants']) }))} · Taily fee −${fmtExact(tailyFeeFor(cents(AMARA.prices['hem-pants'])))}`, `Taily keeps ${fmtExact(tailyFeeFor(cents(MONEY.FEE_EXAMPLE_SERVICES)))} of every ${fmtExact(cents(MONEY.FEE_EXAMPLE_SERVICES))} of services. Home-visit and rush fees are yours in full.`, 'Bridal gown alterations'], sel: '#price-hem-pants' } },
+    expect: { has: ['Step 2 of 6', 'Services and prices', 'This is what customers see when they book. Set what you’d charge for a typical job. You can adjust after the fitting, but the customer has to approve big changes.', 'Use recommended prices', `Most NYC tailors charge ${fmt(priceRange('hem-pants').low)}–${fmt(priceRange('hem-pants').high)}.`, '3 selected', `Your payout ${fmtExact(payoutFor({ services: cents(AMARA.prices['hem-pants']) }))} · Taily fee −${fmtExact(tailyFeeFor(cents(AMARA.prices['hem-pants'])))}`, `Taily keeps ${fmtExact(tailyFeeFor(cents(MONEY.FEE_EXAMPLE_SERVICES)))} of every ${fmtExact(cents(MONEY.FEE_EXAMPLE_SERVICES))} of services. Home visit and rush fees are yours in full.`, 'Take in dress', 'Repair or patch'], not: 'Bridal', sel: '#price-hem-pants' } },
   { key: 'to-services--missing-price', screen: 'to-services', group: 'M2 · Onboarding', title: 'Services and prices — missing price', note: 'Hem pants ticked with no price, then Next',
     setup: (S) => { onboardTo('services'); S.state.ui['to-services'] = { draft: { prices: { 'hem-pants': null, sleeves: AMARA.prices.sleeves } } }; },
     click: ['[data-act="next"]'],
@@ -82,38 +78,38 @@ export const FLOWS_to_services = [
     expect: { has: ['Leave without saving', 'Keep editing', 'Discard changes'], sel: '[data-act="keep-editing"]' } },
 ];
 /* C2 · to-where — the seed's own shop + home settings as a typed draft (stands in for typing) */
-const WHERE_DRAFT = () => ({ shop: { enabled: true, street: AMARA.shop.street, zip: AMARA.shop.zip }, home: { enabled: true, zips: [...AMARA.home.zips], fee: AMARA.home.fee } });
+const WHERE_DRAFT = () => ({ shop: { enabled: true, street: AMARA.shop.street, zip: AMARA.shop.zip }, home: { enabled: true, hoods: [...AMARA.home.hoods], fee: AMARA.home.fee } });
 export const FLOWS_to_where = [
-  { key: 'to-where', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work', note: 'Step 3 of 6: shop and home visits on, ZIPs and home-visit fee',
+  { key: 'to-where', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work', note: 'Step 3 of 6: shop and home visits on, neighborhoods (Brooklyn open, tile map) and the flat home visit fee',
     setup: (S) => { onboardTo('where'); S.state.ui['to-where'] = { draft: WHERE_DRAFT() }; },
-    expect: { has: ['Step 3 of 6', 'Where do you work', 'Customers come to your shop', 'You visit customers at home', 'Williamsburg', `Includes ${fmt(cents(AMARA.home.fee))} home-visit fee`], sel: '#home-on[aria-checked="true"]' } },
-  { key: 'to-where--home-only', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work — home visits only', note: 'Shop switched off: its fields disappear, ZIPs and fee stay',
+    expect: { has: ['Step 3 of 6', 'Where do you work', 'Customers come to your shop', 'You visit customers at home', 'Neighborhoods you visit', 'Where customers can book a home visit', 'Brooklyn', '4 selected', 'Williamsburg', '4 neighborhoods highlighted', 'Home visit fee (flat, per visit)', 'Charged once per home visit, no matter how long it takes.', `Includes ${fmt(cents(AMARA.home.fee))} home visit fee`], not: ['ZIP codes you cover', 'Paid to you in full'], sel: '#home-on[aria-checked="true"]', also: ['[data-act="hood"][data-id="williamsburg"][aria-pressed="true"]', '.hood-map__tile.is-on[data-hood="bushwick"]'] } },
+  { key: 'to-where--home-only', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work — home visits only', note: 'Shop switched off: its fields disappear, neighborhoods and fee stay',
     setup: (S) => { onboardTo('where'); const W = WHERE_DRAFT(); S.state.ui['to-where'] = { draft: { ...W, shop: { enabled: false, street: '', zip: '' } } }; },
-    expect: { has: 'ZIP codes you cover', not: 'Shop street address', sel: '#shop-on[aria-checked="false"]' } },
+    expect: { has: 'Neighborhoods you visit', not: 'Shop street address', sel: '#shop-on[aria-checked="false"]' } },
   { key: 'to-where--none', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work — nothing on', note: 'Both switches off, then Next',
-    setup: (S) => { onboardTo('where'); S.state.ui['to-where'] = { draft: { shop: { enabled: false, street: '', zip: '' }, home: { enabled: false, zips: [], fee: null } } }; },
+    setup: (S) => { onboardTo('where'); S.state.ui['to-where'] = { draft: { shop: { enabled: false, street: '', zip: '' }, home: { enabled: false, hoods: [], fee: null } } }; },
     click: ['[data-act="next"]'],
     expect: { has: 'Turn on your shop, home visits, or both' } },
-  { key: 'to-where--zip-invalid', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work — bad ZIP', note: '1121 typed in Add a ZIP code, then Add',
-    setup: (S) => { onboardTo('where'); S.state.ui['to-where'] = { draft: WHERE_DRAFT(), zipInput: '1121' }; },
-    click: ['[data-act="zip-add"]'],
-    expect: { has: 'Enter a 5-digit ZIP code', sel: '#zip-add[aria-invalid="true"]' } },
+  { key: 'to-where--zip-invalid', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work — bad shop ZIP', note: 'Shop ZIP 1121, then Next (home visits pick neighborhoods, Study-1 C5)',
+    setup: (S) => { onboardTo('where'); const W = WHERE_DRAFT(); S.state.ui['to-where'] = { draft: { ...W, shop: { ...W.shop, zip: '1121' } } }; },
+    click: ['[data-act="next"]'],
+    expect: { has: 'Enter a 5-digit ZIP code', sel: '#shopZip[aria-invalid="true"]' } },
   { key: 'to-where--fee-missing', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work — fee missing', note: 'Home visits on, fee blank, then Next',
     setup: (S) => { onboardTo('where'); const W = WHERE_DRAFT(); S.state.ui['to-where'] = { draft: { ...W, home: { ...W.home, fee: null } } }; },
     click: ['[data-act="next"]'],
-    expect: { has: 'Enter your home-visit fee, or 0 for none', sel: '#fee[aria-invalid="true"]' } },
-  { key: 'to-where--edit', screen: 'to-where', group: 'M2 · Shop', title: 'Where you work — edit', note: 'Live tailor: current shop and ZIPs, Save changes waits for a change',
-    expect: { has: ['Save changes', 'No changes yet', '11237'], not: 'Step 3 of 6', sel: `#street[value="${AMARA.shop.street}"]` } },
+    expect: { has: 'Enter your home visit fee, or 0 for none', sel: '#fee[aria-invalid="true"]' } },
+  { key: 'to-where--edit', screen: 'to-where', group: 'M2 · Shop', title: 'Where you work — edit', note: 'Live tailor: current shop and neighborhoods, Save changes waits for a change',
+    expect: { has: ['Save changes', 'No changes yet', 'Bushwick', '4 selected'], not: 'Step 3 of 6', sel: `#street[value="${AMARA.shop.street}"]` } },
 ];
 export const FLOWS_to_returns = [
-  { key: 'to-returns', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options', note: 'Step 4 of 6: pickup and drop-off pre-ticked from what she offers, courier off',
+  { key: 'to-returns', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options', note: 'Step 4 of 6: pickup pre-ticked (she has a shop), courier off; K-37: no Home drop-off',
     setup: () => { onboardTo('returns'); },
-    expect: { has: ['Step 4 of 6', 'How do customers get their orders back', 'In-store pickup', 'Home drop-off', 'Taily courier', 'nothing comes out of your payout'], sel: '#ret-pickup:checked' } },
-  { key: 'to-returns--none', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options — none picked', note: 'All three off, then Next',
-    setup: (S) => { onboardTo('returns'); S.state.ui['to-returns'] = { draft: { pickup: false, dropoff: false, courier: false } }; },
+    expect: { has: ['Step 4 of 6', 'How do customers get their orders back', 'In-store pickup', 'Taily courier', 'nothing comes out of your payout'], not: 'Home drop-off', sel: '#ret-pickup:checked' } },
+  { key: 'to-returns--none', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options — none picked', note: 'Both off, then Next',
+    setup: (S) => { onboardTo('returns'); S.state.ui['to-returns'] = { draft: { pickup: false, courier: false } }; },
     click: ['[data-act="next"]'],
     expect: { has: 'Pick at least one return option.' } },
-  { key: 'to-returns--edit', screen: 'to-returns', group: 'M2 · Shop', title: 'Return options — edit', note: 'Live tailor: all three offered, Save changes waits for a change',
+  { key: 'to-returns--edit', screen: 'to-returns', group: 'M2 · Shop', title: 'Return options — edit', note: 'Live tailor: both offered, Save changes waits for a change',
     expect: { has: ['Save changes', 'Taily courier'], not: 'Step 4 of 6', sel: '#ret-courier:checked' } },
 ];
 export const FLOWS_to_availability = [
@@ -137,7 +133,7 @@ export const FLOWS_to_availability = [
 export const FLOWS_to_payouts = [
   { key: 'to-payouts', screen: 'to-payouts', group: 'M2 · Onboarding', title: 'Payouts', note: 'Step 6 of 6: the fee sentence in dollars, then the bank fields',
     setup: () => { onboardTo('payouts'); },
-    expect: { has: ['Step 6 of 6', 'How you get paid', `On ${fmtExact(cents(MONEY.FEE_EXAMPLE_SERVICES))} of services, Taily keeps ${fmtExact(tailyFeeFor(cents(MONEY.FEE_EXAMPLE_SERVICES)))} and your payout is ${fmtExact(payoutFor({ services: cents(MONEY.FEE_EXAMPLE_SERVICES) }))}`, 'Home-visit and rush fees are yours in full', 'Finish and go live'] } },
+    expect: { has: ['Step 6 of 6', 'How you get paid', `On ${fmtExact(cents(MONEY.FEE_EXAMPLE_SERVICES))} of services, Taily keeps ${fmtExact(tailyFeeFor(cents(MONEY.FEE_EXAMPLE_SERVICES)))} and your payout is ${fmtExact(payoutFor({ services: cents(MONEY.FEE_EXAMPLE_SERVICES) }))}`, 'Home visit and rush fees are yours in full', 'Finish and go live'] } },
   { key: 'to-payouts--invalid', screen: 'to-payouts', group: 'M2 · Onboarding', title: 'Payouts — invalid', note: 'Empty name, 5-digit routing, 2-digit account, then Finish',
     setup: (S) => { onboardTo('payouts'); S.state.ui['to-payouts'] = { draft: { holder: '', routing: '02100', account: '12' } }; },
     click: ['[data-act="next"]'],

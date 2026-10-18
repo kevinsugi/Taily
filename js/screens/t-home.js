@@ -3,21 +3,20 @@
    what is coming up. Focal: the first request card's take-home
    figure (the only .t-money money on the page). A card has no Accept
    of its own (D-75): the decision is one tap on t-request.
-   Push denied (D-85): a warning banner; "Open Settings" turns
-   notifications on in the prototype.
+   K-43 (D-301): notifications are text messages to her verified
+   phone — no push, so no "notifications off" banner and no ask.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, now, apptsFor, priceChangeView, suggestLapseAt } from '../state.js';
+import { state, T, now, apptsFor, priceChangeView, suggestLapseAt, autoCompleteLeft, jobEditView, slotText, handoffMissed, courierWindow } from '../state.js';
 import { myTailor, inbox, requestView, customerName, customerInitials, payoutOf, payoutLine, suggestPrice } from '../tailor-data.js';
 import { setFocus, statusWord, returnStep } from '../focus.js';
 import { fmtColumn } from '../money.js';
-import { fmtWhen, fmtTime, fmtDay, toDate } from '../dates.js';
+import { fmtWhen, fmtTime, fmtDay, fmtTimeRange, toDate, dayDiff } from '../dates.js';
 import { POLICY } from '../money-config.js';
 import {
-  chrome, headingRow, banner, emptyState, requestCard, apptRow, toast, esc, sectionHead, textLink,
+  chrome, headingRow, emptyState, requestCard, apptRow, toast, esc, sectionHead, textLink,
   heroGarment,
 } from '../components.js';
-import { openPushPrompt } from '../system.js';
 
 const ID = 't-home';
 const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -37,21 +36,41 @@ function pillOf(a) {
 const shortPlace = (p) => { const parts = p.split(', '); return parts.length > 2 ? parts.slice(0, -2).join(', ') : p; };
 
 /** Where a job past its visit stands, as the row's time line (R4-1-T-06, D-113, D-169): the step, and when it is due. The visit
-    itself is behind her, so the line leads with the need-by date. A returning order names how it goes back (D-106). */
+    itself is behind her, so the line leads with the need-by date. An awaiting-handoff order names how it goes back (D-106). */
 const STEP = { fitting: 'Started', 'price-change': 'Order sent', 'in-progress': 'Tailoring', ready: 'Ready' };
-const stepOf = (a) => (a.status === 'returning' ? returnStep(a, 'tailor') : STEP[a.status]);
+const stepOf = (a) => (a.status === 'awaiting-handoff' ? returnStep(a, 'tailor') : STEP[a.status]);
+/** Study-1 A3: a handoff she marked counts down; a reported problem says so (the need-by date no longer matters once it is handed over). */
+function handoffLine(a) {
+  const h = a.handoff ?? {};
+  if (h.problemAt) return `${state.customer.first} didn’t get it · sort it out in chat`;
+  const left = autoCompleteLeft(a);
+  if (left != null) return `Picked up · completes in ${left <= 3600000 ? 'less than 1h' : `${Math.floor((left - 1) / 3600000)}h`}`;   // the same count as autoCompleteLine
+  return null;
+}
 /* K-17 (D-243, #9): an "In progress" row's pill already says it (and so does its section), so its line is only the due date — one line, no "Tailoring ·" */
-const sinceLine = (a) => (a.status === 'in-progress' ? `Needed by ${fmtDay(a.job.needBy)}` : `${stepOf(a)} · needed by ${fmtDay(a.job.needBy)}`);
+const sinceLine = (a) => (a.status === 'in-progress' ? (a.edit?.state === 'pending' ? `Changes sent · needed by ${fmtDay(a.job.needBy)}` : `Needed by ${fmtDay(a.job.needBy)}`) : handoffLine(a) ?? `${stepOf(a)} · needed by ${fmtDay(a.job.needBy)}`);
 /** Confirmed and not started = Upcoming; the visit itself and everything after = In progress. */
 const started = (a) => a.status !== 'confirmed' || now() >= toDate(a.slot.start).getTime();
+/** K-40: a held handoff with the time Sarah picked (not marked, no problem, not missed) is an appointment again → Upcoming, at that time. */
+const handoffSlot = (a) => (a.status === 'awaiting-handoff' && a.handoff?.slot && !a.handoff.markedAt && !a.handoff.problemAt && !handoffMissed(a) ? a.handoff.slot : null);
+const upcomingAt = (a) => { const h = handoffSlot(a); return h ? (h.collectAt ?? h.start) : a.slot.start; };
+/** The row's when line for a handoff: "Picks up Fri, Oct 16 · 5:30 PM" · "Courier collects Fri 4:45 PM". */
+const handoffWhen = (a) => { const h = handoffSlot(a); return a.returnOption === 'courier' ? `Courier collects ${fmtDay(h.collectAt).slice(0, 3)} ${fmtTime(h.collectAt)}` : `Picks up ${slotText(h)}`; };
+/** Where the order is handed over (fixes a pickup row that showed Sarah's address): the shop, or her door for the courier. */
+function handoffPlace(a) {
+  if (a.returnOption !== 'courier') return 'At your shop';
+  const w = courierWindow(a);
+  return w ? `Arrives at ${state.customer.first}’s ${fmtTimeRange(w.from, w.to)}` : `Courier to ${state.customer.first}’s`;
+}
 
 function view(s) {
   const t = myTailor();
   const { requests, upcoming: booked } = inbox();
-  const upcoming = booked.filter((a) => !started(a));
-  const progress = booked.filter(started).sort((a, b) => toDate(a.job.needBy) - toDate(b.job.needBy) || toDate(a.slot.start) - toDate(b.slot.start));   // D-169: soonest due first
+  const upcoming = booked.filter((a) => !started(a) || handoffSlot(a)).sort((a, b) => toDate(upcomingAt(a)) - toDate(upcomingAt(b)));
+  const progress = booked.filter((a) => started(a) && !handoffSlot(a)).sort((a, b) => toDate(a.job.needBy) - toDate(b.job.needBy) || toDate(a.slot.start) - toDate(b.slot.start));   // D-169: soonest due first
+  /* Study-1 A4 (default 10): every completed job, newest first, with what it paid out */
   const recent = apptsFor('tailor').filter((a) => a.status === 'completed')
-    .sort((a, b) => toDate(b.history[b.history.length - 1].at) - toDate(a.history[a.history.length - 1].at)).slice(0, 1);
+    .sort((a, b) => toDate(b.history[b.history.length - 1].at) - toDate(a.history[a.history.length - 1].at));
   const first = firstOf(t);
   const head = `${chrome('home', { persona: 'tailor' })}`;
   const hello = headingRow(`<h1 class="t-title">Hi, ${esc(first)}</h1>`, { back: false });
@@ -63,7 +82,6 @@ function view(s) {
     return `${head}<main class="body ${ID}">
   ${hello}
   ${paused}
-  ${s.sim.push === 'denied' ? `<div class="hero ${ID}__push">${pushBanner()}</div>` : ''}
   <div class="${ID}__empty" data-empty="home">${emptyState({
     title: 'No requests yet',
     body: `When a customer books you, the request shows up here. You’ll have ${POLICY.REQUEST_EXPIRY_H} hours to answer each one.`,
@@ -78,7 +96,16 @@ function view(s) {
   const waiting = requests.filter((a) => a.status === 'suggested');
   const summary = [fresh.length ? plural(fresh.length, 'new request', 'new requests') : 'No new requests'];
   if (waiting.length) summary.push(`${waiting.length} waiting on ${s.customer.first}`);
-  if (upcoming.length) summary.push(plural(upcoming.length, 'upcoming visit', 'upcoming visits'));
+  const visits = upcoming.filter((a) => !handoffSlot(a));
+  const handoffs = upcoming.filter(handoffSlot);
+  if (visits.length) summary.push(plural(visits.length, 'upcoming visit', 'upcoming visits'));
+  if (handoffs.length) {
+    /* K-40: "1 pickup tomorrow" / "1 courier pickup tomorrow" / "2 pickups this week" */
+    const word = handoffs.every((a) => a.returnOption === 'courier') ? ['courier pickup', 'courier pickups'] : handoffs.every((a) => a.returnOption !== 'courier') ? ['pickup', 'pickups'] : ['handoff', 'handoffs'];
+    const days = [...new Set(handoffs.map((a) => dayDiff(now(), upcomingAt(a))))];
+    const when = days.length === 1 && days[0] === 0 ? ' today' : days.length === 1 && days[0] === 1 ? ' tomorrow' : ' coming up';
+    summary.push(`${plural(handoffs.length, word[0], word[1])}${when}`);
+  }
   if (progress.length) summary.push(plural(progress.length, 'job in progress', 'jobs in progress'));
 
   const sameDay = (x, y) => x.slice(0, 10) === y.slice(0, 10);
@@ -100,26 +127,32 @@ function view(s) {
   const waitCards = waiting.map(card).join('');
 
   /* D-117: a price change waiting on Sarah shows the take-home t-job leads with, captioned as conditional */
-  const pending = (a) => a.status === 'price-change' && a.priceChange && a.priceChange.state !== 'approved';
-  const takeHome = (a) => (pending(a) ? priceChangeView(a).after.payout : a.money.payout);
+  const editing = (a) => a.status === 'in-progress' && a.edit?.state === 'pending';   // Study-1 B1: changes waiting on Sarah
+  const pending = (a) => editing(a) || (a.status === 'price-change' && a.priceChange && a.priceChange.state !== 'approved');
+  const takeHome = (a) => (editing(a) ? jobEditView(a).after.payout : pending(a) ? priceChangeView(a).after.payout : a.money.payout);
   const money = fmtColumn(booked.map(takeHome));
   const rowsOf = (list) => list.map((a) => {
     const p = pillOf(a);
     const post = a.status !== 'confirmed';
+    const handing = a.status === 'awaiting-handoff';
     return apptRow({
-      id: a.id, name: customerName(a), initials: customerInitials(), when: post ? sinceLine(a) : fmtWhen(a.slot.start), place: shortPlace(requestView(a).place),
+      id: a.id, name: customerName(a), initials: customerInitials(), when: handoffSlot(a) ? handoffWhen(a) : post ? sinceLine(a) : fmtWhen(a.slot.start),
+      place: handing ? handoffPlace(a) : shortPlace(requestView(a).place),
       status: p.status, pillLabel: p.label, amountText: money(takeHome(a)), amountCaption: pending(a) ? `If ${s.customer.first} approves` : 'Your payout',
     });
   }).join('');
   const rows = rowsOf(upcoming);
   const progressRows = rowsOf(progress);
+  const doneMoney = fmtColumn(recent.map((a) => a.money.payout));
   const recentRows = recent.map((a) => {
     const po = payoutOf(a);
     const w = statusWord(a, 'tailor', { short: true });
+    /* "Paid Fri, Oct 16" once the Friday run paid it; "Payout pending" until then; the bank's return in the error tone */
+    const caption = po?.state === 'paid' ? payoutLine(po).short : po?.state === 'failed' ? payoutLine(po).short : 'Payout pending';
     return apptRow({
       id: a.id, name: customerName(a), initials: customerInitials(), when: `Completed ${fmtDay(a.history[a.history.length - 1].at)}`, place: shortPlace(requestView(a).place),
-      status: w.pill, pillLabel: w.label, amountText: fmtColumn([a.money.payout])(a.money.payout),
-      amountCaption: po ? payoutLine(po).short : 'Payout pending', captionTone: po?.state === 'failed' ? 'error' : 'default', muted: true,
+      status: w.pill, pillLabel: w.label, amountText: doneMoney(a.money.payout),
+      amountCaption: caption, captionTone: po?.state === 'failed' ? 'error' : 'default', muted: true,
     });
   }).join('');
 
@@ -131,7 +164,6 @@ function view(s) {
   ${hello}
   ${paused}
   <p class="t-small c-600 hero ${ID}__sum">${dateLine()} · ${summary.join(', ')}</p>
-  ${s.sim.push === 'denied' ? `<div class="hero ${ID}__push">${pushBanner()}</div>` : ''}
   ${group('New requests', 'new', fresh.length || null, fresh.length
     ? `<div class="${ID}__list">${cards}</div>`
     : `<p class="t-body c-600 ${ID}__none">No new requests right now.</p>`)}
@@ -139,16 +171,8 @@ function view(s) {
   ${upcoming.length || !progress.length ? group('Upcoming', 'upcoming', upcoming.length || null,
     upcoming.length ? `<div class="${ID}__list">${rows}</div>` : `<p class="t-body c-600 ${ID}__none">${apptsFor('tailor').length ? 'Nothing upcoming.' : 'Nothing booked yet.'}</p>`) : ''}
   ${progress.length ? group('In progress', 'progress', progress.length, `<div class="${ID}__list">${progressRows}</div>`) : ''}
-  ${recent.length ? group('Recent', 'recent', null, `<div class="${ID}__list">${recentRows}</div>`) : ''}
+  ${recent.length ? group('Completed', 'completed', recent.length, `<div class="${ID}__list">${recentRows}</div>`) : ''}
 </main>`;
-}
-
-function pushBanner() {
-  return banner({
-    tone: 'warning', title: 'Notifications are off',
-    text: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications so you don’t miss one.`,
-    actionLabel: 'Open Settings', actionAct: 'push-settings',
-  });
 }
 
 function wire(root) {
@@ -165,19 +189,7 @@ function wire(root) {
       go(ID);
       toast('You’re taking requests again', { tone: 'success' });
     } else if (act === 'hours') { delete state.ui['to-availability']; go('to-availability'); }   // edit mode: a fresh draft from the saved week
-    else if (act === 'push-settings') {
-      state.sim.push = 'granted';                 // prototype stand-in for the OS toggle (D-85)
-      go(ID);
-      toast('Notifications are on');
-    }
   });
-  /* D-139: the soft ask, at the moment of value. "Not now" leaves the denied banner above (D-85). */
-  if (state.sim.push === 'prompt') {
-    openPushPrompt({
-      title: 'Don’t miss a request',
-      body: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications and we’ll tell you the moment one comes in.`,
-    }, { onDone: () => go(ID, { replace: true }) });
-  }
 }
 
 register(ID, view, wire);

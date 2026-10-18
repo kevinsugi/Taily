@@ -5,11 +5,11 @@
    About, photos, Your estimate, reviews. Focal: Book now / the action bar's Pick a time (Ask a question is a link under it).
    ============================================================ */
 import { register, render as go, back, currentScreen, previousScreen } from '../app.js';
-import { state, T, tailorById, estimateNext, eligible, nextOpening } from '../state.js';
+import { state, T, tailorById, estimateNext, eligible, nextOpening, apptsFor } from '../state.js';
 import {
   chrome, flowBar, avatar, verifiedCheck, reviewRow, priceRow, metaRow, cta, navBackMark,
   sectionHead, textLink, infoButton, stitchDivider, ICON_CHAT,
-  actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, esc,
+  actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, esc, hoodSentence, HOME_FEE_CAPTION, HOME_FEE_HELP,
 } from '../components.js';
 import { ICON_CAMERA, VISIT_ICONS } from '../icons.js';
 import { cents, fmtColumn } from '../money.js';
@@ -111,18 +111,14 @@ const allAmounts = (t, q) => [...q.lines.map((l) => l.cents), q.homeFee, q.rush,
 
 function estimateCard(q, job) {
   const rows = q.lines.map((l) => priceRow({ label: `${l.garmentType} · ${l.label}`, cents: l.cents, format: F }));
-  if (job.visitType === 'home' && q.homeFee > 0) rows.push(priceRow({ label: 'Home-visit fee', cents: q.homeFee, format: F }));
+  if (job.visitType === 'home' && q.homeFee > 0) rows.push(priceRow({ label: 'Home visit fee', cents: q.homeFee, note: HOME_FEE_CAPTION, format: F }));
   if (q.rush > 0) rows.push(priceRow({ label: 'Rush fee', cents: q.rush, note: `Need-by ${q.rushDays} day${q.rushDays === 1 ? '' : 's'} after the visit`, format: F }));
   const total = `${stitchDivider()}<div class="c-tailor__total w-600">${priceRow({ label: 'Estimated total', cents: q.total, format: F })}</div>`;
   return section('Your estimate', `<div class="c-tailor__estimate">${rows.join('')}${total}</div>`, { key: 'estimate', cls: 'c-tailor__sec--estimate', aside: infoButton('pricing', { label: 'How pricing works' }) });
 }
 
-/** CP-C13: "Williamsburg, Greenpoint, East Williamsburg and Bushwick" — each neighbourhood once, in ZIP order. */
-function hoodList(zips = []) {
-  const names = [...new Set(zips.map((z) => ZIP_INFO[z]?.hood).filter(Boolean))];
-  if (!names.length) return zips.join(', ');
-  return names.length < 2 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
-}
+/** CP-C13 / Study-1 C5: "Williamsburg, Greenpoint, East Williamsburg and Bushwick" — her neighborhoods, in the order she picked them. */
+const hoodList = (t) => hoodSentence(t.home?.hoods ?? []);
 
 function where(t, job) {
   const blocks = [];
@@ -131,7 +127,8 @@ function where(t, job) {
     blocks.push(`<div class="c-tailor__place">${metaRow('', esc(`${t.shopName}, ${t.shop.street}, ${t.shop.city}, ${t.shop.state} ${t.shop.zip}`), { icon: 'shop' })}${miles != null ? `<p class="t-small c-600">${miles.toFixed(1)} mi from you</p>` : ''}</div>`);
   }
   if (t.home?.enabled) {
-    blocks.push(`<div class="c-tailor__place">${metaRow('', esc(`Comes to you in ${hoodList(t.home.zips)}`), { icon: 'home' })}<p class="t-small c-600">${esc(t.home.zips.join(', '))}</p><p class="t-small c-600" data-money>${F(cents(t.home.fee))} home-visit fee</p></div>`);
+    const fee = t.home.fee > 0 ? `${F(cents(t.home.fee))} home visit fee · ${HOME_FEE_HELP}` : 'No home visit fee';   // C4: flat, per visit
+    blocks.push(`<div class="c-tailor__place">${metaRow('', esc(`Comes to you in ${hoodList(t)}`), { icon: 'home' })}<p class="t-small c-600" data-money>${esc(fee)}</p></div>`);
   }
   return blocks.length ? section('Where', blocks.join('')) : '';
 }
@@ -171,7 +168,10 @@ function view(s) {
   const declined = el.reason === 'declined';
   const first = q.tailorFirst;
   const booking = !preview && !profile;   // opened from c-tailors: the flow bar owns Back and the exit (D-186)
+  /* Study-1 A4: a "Book again" draft names the tailor it is for (only once an order with her came back) */
+  const again = booking && state.ui.booking?.again && state.ui.booking.tailorId === t.id && apptsFor('customer').some((a) => a.tailorId === t.id && a.status === 'completed');
   return `${booking ? flowBar({ step: 2 }) : chrome(profile ? 'bookings' : 'home')}<main class="body ${preview ? '' : 'body--with-bar '}${ID}${profile ? ` ${ID}--profile` : ''}">
+  ${again ? `<p class="t-small c-600 ${ID}__again" data-again>Booking again with ${esc(first)}</p>` : ''}
   ${booking ? '' : navBackMark()}${portrait(t)}
   ${identity(t)}
   ${stats(t, job)}

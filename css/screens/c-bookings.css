@@ -2,4 +2,3 @@
 .c-bookings { gap: 0; padding-bottom: var(--space-40); }
 .c-bookings__section { gap: var(--space-4); }
 .c-bookings__rows { display: flex; flex-direction: column; gap: var(--space-12); }
-.c-bookings__push { margin-top: var(--rhythm-block); }

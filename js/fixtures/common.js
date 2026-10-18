@@ -4,15 +4,15 @@
    Every milestone's Test-flows setup reuses it. DOM-free.
    ============================================================ */
 import {
-  state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt,
+  state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt, handoffCode, handoffSlots,
 } from '../state.js';
-import { addMinutes, isoMinute } from '../dates.js';
+import { addMinutes, addDays, isoMinute, isoDay } from '../dates.js';
 import { TAILORS, CUSTOMER, DEMO_NOW, DECLINE_REASONS, CANT_MAKE_IT_REASONS } from '../data.js';
 import { cents } from '../money.js';
 import { suggestSlots } from '../tailor-data.js';
 import * as A from '../account.js';
 import { POLICY } from '../money-config.js';
-import { PAYOUT_DAYS, SECOND_SLOT_AFTER } from './money-scenarios.js';
+import { PAYOUT_DAYS, SECOND_SLOT_AFTER, JOB_EDIT } from './money-scenarios.js';
 
 const AMARA = TAILORS[0];
 
@@ -45,9 +45,51 @@ export function askAmara({ reply = true } = {}) {
 
 export const TARGETS = [
   'requested', 'suggested', 'declined', 'expired', 'expired-2', 'expired-final', 'confirmed', 'cancelled-early',
-  'cancelled-late', 'cant-make-it', 'no-show', 'fitting', 'price-change', 'in-progress', 'ready', 'returning',
+  'cancelled-late', 'cant-make-it', 'no-show', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff',
   'completed', 'reviewed',
+  /* Study-1 WS-A */
+  'handed-over', 'problem', 'auto-completed', 'unclaimed', 'review-reminder', 'tailor-no-show', 'cant-make-it-late',
+  /* Study-1 WS-B */
+  'edit-pending', 'edit-approved',
 ];
+
+/** Study-1 B1: the reason Amara gives with the fixtures' edit (copy, not money). */
+export const EDIT_REASON = 'The sleeve lining is torn and has to be replaced, so the sleeves take longer.';
+/** Study-1 B1: the edit the fixtures send on an in-progress job, through the real lines (JOB_EDIT: Shorten sleeves up $15, the due date three
+    days later). `kind`: 'full' (price + due date + a photo) · 'price' (price only, no photo) · 'due' (due date only). */
+export function jobEdit(appt, kind = 'full') {
+  const lines = appt.lines.map((l) => ({ ...l }));
+  if (kind !== 'due') for (const l of lines) if (l.serviceId === 'sleeves') l.cents = cents(AMARA.prices.sleeves + JOB_EDIT.sleevesUp);
+  const needBy = kind === 'price' ? appt.job.needBy : isoDay(addDays(appt.job.needBy, JOB_EDIT.dueDays));
+  const reason = kind === 'due' ? 'The lining fabric I ordered arrives on Monday, so I need a few more days.' : EDIT_REASON;
+  return { lines, needBy, reason, photo: kind === 'full' };
+}
+/** Study-1 B2: the private General notes the fixtures write (copy). */
+export const NOTE_TEXT = {
+  measure: 'Sleeve 24 1/2 in. finished. Keep the working buttonholes.',
+  sketch: 'Sketch of the new lining pattern attached.',
+};
+
+/** Study-1 A3: the handoff each way back completes with — pickup: Sarah's code; courier: the courier delivers (K-37: no drop-off).
+    Throws on failure. */
+export function handOver(id, how = getAppt(id).returnOption) {
+  if (how === 'courier') return must(T.courierDelivered(id), 'courierDelivered');
+  return must(T.confirmPickup(id, handoffCode(getAppt(id))), 'confirmPickup');
+}
+
+/** K-40 (T1): the handoff times the fixtures pick, as wall-clock "HH:MM" — the pickup Fri, Oct 16 · 5:30 PM, the courier window
+    Fri, Oct 16 · 5:00–5:30 PM (the courier collects 4:45 PM) — and the times a change moves them to (Sat, Oct 17 · 2:00 PM; Fri 6:00–6:30 PM). */
+export const HANDOFF_PICK = { pickup: '17:30', courier: '17:00' };
+export const HANDOFF_MOVE = { pickup: '2026-10-17T14:00', courier: '2026-10-16T18:00' };
+/** The open handoff slot at `at` ("HH:MM" = the first day that has it, or a full ISO start), else the first open slot. */
+export function handoffPick(id, method = getAppt(id).returnOption, at = HANDOFF_PICK[method]) {
+  const slots = handoffSlots(getAppt(id), method);
+  return slots.find((x) => (at.length > 5 ? x.start === at : x.start.slice(11, 16) === at)) ?? slots[0] ?? null;
+}
+/** Pick the handoff time through the real transition (Sarah's move on c-ready / c-booking). Throws on failure. */
+export function pickHandoff(id, at) {
+  return must(T.setHandoffSlot(id, handoffPick(id, undefined, at)), 'setHandoffSlot');
+}
 
 const must = (r, step) => {
   if (!r.ok) throw new Error(`driveTo: ${step} failed (${r.error})`);
@@ -93,7 +135,8 @@ export function documentFitting(id, { lines = getAppt(id).lines, level = 'min' }
   return getAppt(id);
 }
 
-/** The tailor's note per recipe (copy, not money) — driveTo sends it with the final order (A6). */
+/** The tailor's note per recipe (copy, not money). K-31 (Study-1 B2): driveTo writes it as a PRIVATE General note at the fitting — it no
+    longer travels with the final order. */
 export const PRICE_NOTES = {
   added: 'The sleeve lining has to move too, and tapering the legs will sit better with the shorter jacket.',
   removed: 'Once the sleeves are done the jacket sides already fit, so I took that off.',
@@ -119,7 +162,7 @@ export function setGarments(items) {
   }
 }
 
-/** driveTo(target, { docs = 'none' | 'min' | 'full' (default 'none' at the fitting, 'min' after), ask = false, visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced' | 'item' | 'item-removed' | 'unchanged', returnOption = 'pickup', items = null ([type, service ids] in place of the seed garments, e.g. MANY_ITEMS) }) → appt.
+/** driveTo(target, { docs = 'none' | 'min' | 'full' (default 'none' at the fitting, 'min' after), ask = false, visitType = 'home', rush = false, priceChange = 'added' | 'removed' | 'repriced' | 'item' | 'item-removed' | 'unchanged', returnOption = 'pickup', items = null ([type, service ids] in place of the seed garments, e.g. MANY_ITEMS), edit = 'full' | 'price' | 'due' (Study-1 B1 targets) }) → appt.
     `price-change` carries a change (default 'added'); later targets send the unchanged order and approve it (K-01, D-120)
     unless `priceChange` is passed explicitly. */
 export function driveTo(target, opts = {}) {
@@ -156,6 +199,14 @@ export function driveTo(target, opts = {}) {
     return must(T.cancelBooking(id), 'cancelBooking');
   }
   if (target === 'cant-make-it') return must(T.tailorCantMakeIt(id, CANT_MAKE_IT_REASONS[0]), 'tailorCantMakeIt');
+  if (target === 'cant-make-it-late') {
+    setClock(isoMinute(addMinutes(getAppt(id).slot.start, -8 * 60)));         // inside the 24 h window (K-29)
+    return must(T.tailorCantMakeIt(id, CANT_MAKE_IT_REASONS[0]), 'tailorCantMakeIt');
+  }
+  if (target === 'tailor-no-show') {
+    setClock(isoMinute(addMinutes(getAppt(id).slot.start, 20)));
+    return must(T.reportTailorNoShow(id), 'reportTailorNoShow');
+  }
   if (target === 'no-show') {
     setClock(isoMinute(addMinutes(getAppt(id).slot.start, 20)));
     return must(T.markNoShow(id), 'markNoShow');
@@ -167,17 +218,35 @@ export function driveTo(target, opts = {}) {
   if (docs === 'none') throw new Error('driveTo: docs "none" past the fitting would fail the send (photos-missing)');
   const recipe = target === 'price-change' || 'priceChange' in opts ? priceChange : 'unchanged';
   documentFitting(id, { lines: changedLines(getAppt(id), recipe), level: docs });
-  must(T.sendPriceChange(id, changedLines(getAppt(id), recipe), { note: PRICE_NOTES[recipe] ?? '' }), 'sendPriceChange');
+  if (PRICE_NOTES[recipe]) must(T.addNote(id, { text: PRICE_NOTES[recipe] }), 'addNote');
+  must(T.sendPriceChange(id, changedLines(getAppt(id), recipe)), 'sendPriceChange');
   if (target === 'price-change') return getAppt(id);
   must(T.approvePriceChange(id), 'approvePriceChange');
   if (target === 'in-progress') return getAppt(id);
+  if (['edit-pending', 'edit-approved'].includes(target)) {
+    /* Study-1 B1: the next morning Amara edits the job (opts.edit = 'full' | 'price' | 'due'); Sarah approves (K-30 overruled: no decline) */
+    advanceClock(17 * 60);
+    must(T.sendJobEdit(id, jobEdit(getAppt(id), opts.edit ?? 'full')), 'sendJobEdit');
+    if (target === 'edit-pending') return getAppt(id);
+    return must(T.approveJobEdit(id), 'approveJobEdit');
+  }
   must(T.markReady(id), 'markReady');
   if (target === 'ready') return getAppt(id);
   must(T.chooseReturn(id, returnOption), 'chooseReturn');
-  must(T.payBalance(id, 'visa-4242'), 'payBalance');
-  if (target === 'returning') return getAppt(id);
-  must(T.markCompleted(id), 'markCompleted');
+  pickHandoff(id);                                                          // K-40: the time comes before the hold
+  must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
+  if (target === 'awaiting-handoff') return getAppt(id);
+  if (target === 'unclaimed') { advanceClock(POLICY.UNCLAIMED_CAPTURE_D * 24 * 60); return getAppt(id); }   // the hold is captured, the job stays open
+  if (['handed-over', 'problem', 'auto-completed'].includes(target)) {
+    must(T.markHandedOver(id), 'markHandedOver');                            // pickup: marked without the code
+    if (target === 'handed-over') return getAppt(id);
+    if (target === 'problem') return must(T.reportNotReceived(id), 'reportNotReceived');
+    advanceClock(POLICY.HANDOFF_AUTO_H * 60);                                 // the countdown runs out: completed automatically
+    return getAppt(id);
+  }
+  handOver(id, returnOption);
   if (target === 'completed') return getAppt(id);
+  if (target === 'review-reminder') { advanceClock(POLICY.REVIEW_REMINDER_D * 24 * 60); return getAppt(id); }
   return must(T.leaveReview(id, { stars: 5, text: 'Perfect fit, and she was on time.', photos: 0 }), 'leaveReview');
 }
 
@@ -232,17 +301,18 @@ export function onboardTo(step, { phone = NEW_TAILOR_PHONE } = {}) {
 }
 
 /** completeJob(id, { returnOption = 'pickup' }) — the real chain on an accepted appointment: fitting → final order (unchanged) →
-    approve → ready → return → balance → completed. Throws on failure. */
+    approve → ready → return → hold → handOver (Study-1 A3) → completed. Throws on failure. */
 export function completeJob(id, { returnOption = 'pickup' } = {}) {
   setClock(getAppt(id).slot.start);
   must(T.startFitting(id), 'startFitting');
   documentFitting(id);
-  must(T.sendPriceChange(id, getAppt(id).lines.map((l) => ({ ...l })), { note: '' }), 'sendPriceChange');
+  must(T.sendPriceChange(id, getAppt(id).lines.map((l) => ({ ...l }))), 'sendPriceChange');
   must(T.approvePriceChange(id), 'approvePriceChange');
   must(T.markReady(id), 'markReady');
   must(T.chooseReturn(id, returnOption), 'chooseReturn');
-  must(T.payBalance(id, 'visa-4242'), 'payBalance');
-  return must(T.markCompleted(id), 'markCompleted');
+  pickHandoff(id);
+  must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
+  return handOver(id, returnOption);
 }
 
 /** earningsTo(kind) — kind: 'pending' | 'paid' | 'failed' | 'kept' (M5 A7).

@@ -4,6 +4,7 @@
 /* hero (+ the demoted "Fitted …" line) → the first group */
 .c-booking > .sec:first-of-type { margin-top: var(--rhythm-major); }
 .c-booking__policy { margin: var(--space-4) 0 0; text-wrap: pretty; }
+.c-booking__rule { margin: var(--space-8) 0 0; text-wrap: pretty; }   /* K-41: the reminder rule line under the title */
 .c-booking__late, .page-actions > p { text-wrap: pretty; }
 .c-booking__late { margin: 0; text-align: center; }
 /* a cancelled visit: the old time stays, dimmed */
@@ -15,3 +16,7 @@
 .c-booking__review .review-row { padding: 0; }   /* flat: a review is reference content (A4) */
 /* D-169 + K-17 R5: the demoted visit time lives on the timeline's done step, one line per fact */
 .c-booking__step-line { display: block; }
+/* Study-1 A3: the handoff block (pickup code, or the drop-off photo + countdown) and the page-level notice above the stage */
+.c-booking__handoff { display: flex; flex-direction: column; gap: var(--space-12); }
+.c-booking__alert { margin: 0 0 var(--rhythm-group); }
+.c-booking__got-hint { margin: 0; text-align: center; text-wrap: pretty; }

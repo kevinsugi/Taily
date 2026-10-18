@@ -5,7 +5,7 @@
    archived in js/v4/tailor-data.js.
    ============================================================ */
 import { state, apptsFor, tailorById, openSlots, getAppt, docsFor } from './state.js';
-import { SERVICES, VISIT_LABEL, VISIT_MINUTES, ZIP_INFO } from './data.js';
+import { SERVICES, VISIT_LABEL, VISIT_MINUTES, ZIP_INFO, hoodNames } from './data.js';
 import { rushFor, payoutFor } from './money.js';
 import { toDate, fmtWhen, fmtDay, fmtTime, dayDiff, payoutDay, isoDay, addMinutes, isoMinute } from './dates.js';
 
@@ -13,7 +13,7 @@ export const MY_TAILOR_ID = 'amara';
 export const myTailor = () => tailorById(MY_TAILOR_ID);
 
 const PENDING = ['requested', 'suggested'];
-const ACTIVE = ['confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'returning'];
+const ACTIVE = ['confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'];
 
 /** Tailor's Home: `requests` = waiting on a reply (soonest expiry first), `upcoming` = booked work (soonest visit first). */
 export function inbox() {
@@ -105,7 +105,7 @@ function payoutItem(p) {
   const appt = getAppt(p.apptId);
   const day = appt ? fmtDay(appt.slot.start) : '';
   const types = appt ? [...new Set(appt.job.garments.map((g) => g.type))].join(', ') : '';
-  const sub = p.kind === 'kept-deposit' ? 'Late cancellation · deposit kept'
+  const sub = p.kind === 'kept-deposit' ? (appt?.cancel?.reason === 'unconfirmed' ? 'Not confirmed · deposit kept' : 'Late cancellation · deposit kept')   // K-43 (D-300)
     : p.kind === 'no-show' ? `No-show · ${day}`
       : `${types} · ${day}`;
   return { apptId: p.apptId, cents: p.cents, kind: p.kind, title: appt ? customerName(appt) : '', sub, retried: !!p.retried };
@@ -171,7 +171,7 @@ export function suggestPrice(appt, slotIso) {
 /** K-19: the props `tailorRow` takes for one `tailorsFor(...).rows` entry (rating only when there are reviews; the card line; street + area for the place line). */
 export function tailorRowProps(r, job = state.job, extra = {}) {
   const t = r.tailor;
-  const hood = t.shop?.hood || ZIP_INFO[t.shop?.zip]?.hood || ZIP_INFO[(t.home?.zips ?? [])[0]]?.hood || '';
+  const hood = t.shop?.hood || ZIP_INFO[t.shop?.zip]?.hood || hoodNames(t.home?.hoods)[0] || ZIP_INFO[(t.home?.zips ?? [])[0]]?.hood || '';
   return {
     id: t.id, name: t.name, initials: t.initials, photo: t.photo, verified: t.verified, years: t.years,
     rating: t.rating?.count > 0 ? t.rating : null, distanceMi: r.distanceMi, quote: r.quote, nextOpening: r.nextOpening,

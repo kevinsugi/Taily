@@ -10,9 +10,8 @@ import * as C from './components.js';
 import { scheduler, slotColumns, whenNote } from './scheduler.js';
 import { TAILORS, DEMO_NOW, FITTING_LIMITS } from './data.js';
 import { FITTING_COMMENTS } from './fixtures/common.js';
-import { POLICY } from './money-config.js';
-import { reauthHtml, pushPromptHtml, pushBannerHtml, systemBanner } from './system.js';
-import { quote, fmt, fmtExact, cents, payoutFor } from './money.js';
+import { reauthHtml, textBannerHtml, systemBanner } from './system.js';
+import { quote, fmt, fmtExact, cents, payoutFor, priceRange } from './money.js';
 import { ICON_CARD, ICON_CAMERA } from './icons.js';
 import { SCENARIOS, AMARA } from './fixtures/money-scenarios.js';
 
@@ -50,7 +49,7 @@ export function galleryHtml() {
   row(C.ctaSmall('Message'), C.ctaSmall('Reschedule'));
 
   h2('Status dot + word — 312:826 + v5 keys (19, M7 A5.6)');
-  row(...['requested','confirmed','ready','completed','declined','cancelled','new-request','awaiting-customer','tailoring','suggested','fitting','price-change','in-progress','returning','withdrawn','expired','action','bookable','paused'].map((k) => C.statusPill(k)));
+  row(...['requested','confirmed','ready','completed','declined','cancelled','new-request','awaiting-customer','tailoring','suggested','fitting','price-change','in-progress','awaiting-handoff','withdrawn','expired','action','bookable','paused'].map((k) => C.statusPill(k)));
 
   h2('Top nav — customer · tailor');
   v('NAV.customer (Bookings active)');
@@ -98,7 +97,7 @@ export function galleryHtml() {
     { state: 'todo', title: 'Ready for return' },
   ]));
   s.push(C.infoCard([C.metaRow('◉','145 N 7th St, 2R — At my place'), C.metaRow('▤','Thu, Oct 15 · 5:00 PM')].join('')));
-  s.push(C.feeRow('$35', 'Home-visit fee', { line: true, caption: 'Amara comes to you' }));
+  s.push(C.feeRow('$35', 'Home visit fee', { line: true, caption: 'Amara comes to you' }));
 
   h2('Modal · Method rows · Link row');
   s.push(`<div class="row"><div class="modal modal--center" style="position:static"><span class="modal__badge">✂</span><h2 class="modal__title">Talk it over with Amara</h2><p class="modal__body">Prices are set by the tailor.</p><div class="modal__actions">${C.cta('Sounds good')}</div></div></div>`);
@@ -138,7 +137,7 @@ export function galleryHtml() {
   v('skeleton');              col(C.skeleton({ kind: 'tailor-row', count: 2 }));
 
   h2('Price Row');
-  s.push(card(C.priceRow({ label: 'Hem pants', cents: 2500 }) + C.priceRow({ label: 'Take in or let out waist', cents: 3500, note: 'Per garment' }) + C.priceRow({ label: 'Bridal gown alterations', muted: true })));
+  s.push(card(C.priceRow({ label: 'Hem pants', cents: 2500 }) + C.priceRow({ label: 'Take in or let out waist', cents: 3500, note: 'Per garment' }) + C.priceRow({ label: 'Take in dress', muted: true })));
 
   h2('Stars · Rating summary · Review row');
   v('display 4 · input 3 (tap to try)'); row(C.stars({ value: 4 }), C.stars({ value: 3, input: true, name: 'demo-stars' }));
@@ -213,7 +212,7 @@ export function galleryHtml() {
   col(C.toggle({ id: 'g-t1', label: 'Home visits', checked: true, helper: 'Customers in your ZIP list can book you.' }), C.toggle({ id: 'g-t2', label: 'Shop visits' }), C.toggle({ id: 'g-t3', label: 'Taily courier', disabled: true, helper: 'Not available yet' }));
 
   h2('Check row');
-  col(C.checkRow({ id: 'g-c1', label: 'Pickup at the shop', checked: true }), C.checkRow({ id: 'g-c2', label: 'Home drop-off', caption: 'You bring it back' }), C.checkRow({ id: 'g-c3', label: 'I agree to the cancellation terms', error: 'Please agree to continue.' }), C.checkRow({ id: 'g-c4', label: 'Taily courier', caption: 'Not available in your ZIP yet', disabled: true }));
+  col(C.checkRow({ id: 'g-c1', label: 'Pickup at the shop', checked: true }), C.checkRow({ id: 'g-c2', label: 'Taily courier', caption: 'The customer pays for it' }), C.checkRow({ id: 'g-c3', label: 'I agree to the cancellation terms', error: 'Please agree to continue.' }), C.checkRow({ id: 'g-c4', label: 'Taily courier', caption: 'Not available in your ZIP yet', disabled: true }));
 
   h2('Chip group · segmented');
   col(
@@ -282,6 +281,12 @@ export function galleryHtml() {
     C.textArea({ id: 'g-bio1', label: 'About your work', max: 280, value: BIO, helper: 'A line or two: what you do best.' }),
     C.textArea({ id: 'g-bio2', label: 'About your work', max: 40, value: BIO }),
     C.textArea({ id: 'g-bio3', label: 'About your work', max: 280, error: 'Tell customers a little about your work.' }));
+  v('Study-1 C1–C2: placeholder · at the 110 hard stop · a paste trimmed');
+  const LINE110 = 'Savile Row trained. Suits, shirts and eveningwear for 20 years. I pin every fitting myself, studio or at home.';
+  col(
+    C.textArea({ id: 'g-card0', label: 'Card line — the one sentence customers see in search results', maxlength: 110, rows: 3, placeholder: 'Example: I’ve been tailoring luxury clothes for 10 years and frequently work with designers for fashion week' }),
+    C.textArea({ id: 'g-card1', label: 'Card line — the one sentence customers see in search results', maxlength: 110, rows: 3, value: LINE110 }),
+    C.textArea({ id: 'g-card2', label: 'Card line — the one sentence customers see in search results', maxlength: 110, rows: 3, value: LINE110, notice: 'Trimmed to 110 characters.' }));
 
   h2('Service row');
   col(
@@ -289,13 +294,13 @@ export function galleryHtml() {
     C.serviceRow({ id: 'g-hem1', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true }),
     C.serviceRow({ id: 'g-hem2', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true, price: '25', payoutCents: take(25) }),
     C.serviceRow({ id: 'g-hem3', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true, price: 'abc', error: 'Enter a price in whole dollars.' }));
+  v('Study-1 C3: with the NYC range');
+  { const r = priceRange('hem-pants'); col(C.serviceRow({ id: 'g-hem4', label: 'Hem pants', caption: 'Suit Pant · Pants / Jeans', checked: true, price: '25', payoutCents: take(25), range: `Most NYC tailors charge ${fmt(r.low)}–${fmt(r.high)}.` })); }
 
-  h2('ZIP list');
-  const ZIPS = ['11211', '11222', '11206', '11237'];
-  v('empty (with suggestions)'); col(C.zipList({ suggestions: ZIPS }));
-  v('4 zips'); col(C.zipList({ zips: ZIPS, suggestions: [...ZIPS, '11201'] }));
-  v('input error'); col(C.zipList({ zips: ZIPS.slice(0, 2), input: '1121', inputError: 'Enter a 5-digit ZIP code.' }));
-  v('list error'); col(C.zipList({ error: 'Add at least one ZIP code you cover.' }));
+  h2('Neighborhood picker + tile map (Study-1 C5)');
+  const HOODS = amara.home.hoods;
+  v('Amara: Brooklyn open, four picked'); col(card(C.hoodPicker({ selected: HOODS, open: ['brooklyn'], map: C.hoodMap({ selected: HOODS }) })));
+  v('none picked · error'); col(card(C.hoodPicker({ error: 'Pick at least one neighborhood.', map: C.hoodMap() })));
 
   h2('Day hours');
   v('closed · open · error');
@@ -478,15 +483,13 @@ export function galleryHtml() {
   h2('Money rows — tailor breakdown with rush (D-165: one order everywhere)');
   col(C.tailorBreakdown(rush));
 
-  h2('System (M5) — offline banner · re-auth sheet · push ask');
+  h2('System (M5) — offline banner · re-auth sheet · text message');
   v('offline banner'); s.push(`<div class="sys-demo">${systemBanner({ sim: { network: 'offline' } })}</div>`);
   v('re-auth sheet (locked, no ✕) · with an error');
   s.push(`<div class="sheet-demo sheet-demo--tall" data-s="sys-reauth">${C.sheet(`<div class="reauth">${reauthHtml({ phone: '(718) 555-0142', msToResend: 30000 })}</div>`, { header: 'Sign in again', open: true, confirm: false })}</div>`);
   s.push(`<div class="sheet-demo sheet-demo--tall" data-s="sys-reauth">${C.sheet(`<div class="reauth">${reauthHtml({ phone: '(718) 555-0142', code: '123456', error: 'code-wrong' })}</div>`, { header: 'Sign in again', open: true, confirm: false })}</div>`);
-  v('push ask (soft ask before the OS prompt)');
-  s.push(`<div class="row"><div class="push-demo">${pushPromptHtml({ title: 'Don’t miss a request', body: `Requests expire after ${POLICY.REQUEST_EXPIRY_H} hours. Turn on notifications to reply in time.` })}</div></div>`);
-  v('in-app push card (D-167): a new request, over the status bar');
-  s.push(`<div class="push-banner-demo">${pushBannerHtml({ title: 'New request · Sarah C.', body: `Home visit Thu, Oct 15 · Your payout ${fmtExact(seed.payout)} · 2h to reply` })}</div>`);
+  v('text message (K-43, D-301 — was the push card, D-167): a new request, over the status bar; the link opens it');
+  s.push(`<div class="text-banner-demo">${textBannerHtml({ body: `New request from Sarah C. · Home visit Thu, Oct 15 · Your payout ${fmtExact(seed.payout)} · 2h to reply.`, link: 'taily.app/r/8F3K2Q' })}</div>`);
   /* ---------------- M7 · polish (K-03) ---------------- */
   h2('M7 · polish — nav icons, flow bar');
   const navDemo = (html) => s.push(`<div style="position:relative;height:56px;width:390px;margin-inline:-20px">${html.replace('<nav class="top-nav"', '<nav class="top-nav" style="top:0"')}</div>`);

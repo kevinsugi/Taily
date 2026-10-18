@@ -134,7 +134,9 @@ import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
 import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb } from './dates.js';
 import { POLICY } from './money-config.js';
-import { state, apptsFor, threadsFor, priceChangeView } from './state.js';
+import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor } from './state.js';
+import { scheduler, slotColumns, readSlot, windowColumns, readWindow, whenNote, SCHED_ROW } from './scheduler.js';   // K-40: the handoff time sheet (scheduler.js imports this file back; both only call across at run time)
+import { withLatency } from './sim.js';
 import { inbox } from './tailor-data.js';
 import { statusWord } from './focus.js';
 
@@ -177,7 +179,7 @@ const PILL_VARIANTS = {
   'fitting':               { tone: 'progress', label: 'Fitting' },
   'price-change':          { tone: 'pending',  label: 'Price change' },
   'in-progress':           { tone: 'progress', label: 'In progress' },
-  'returning':             { tone: 'done',     label: 'On its way' },
+  'awaiting-handoff':      { tone: 'done',     label: 'On its way' },
   /* R3-1-C-12: a no-fault outcome (Sarah cancelled early, a plain no reply) — the neutral tone */
   'calm':                  { tone: 'calm',     label: 'Cancelled' },
   'withdrawn':             { tone: 'stop',     label: 'Withdrawn' },
@@ -1203,17 +1205,18 @@ const INFO = {
   pricing: () => ({ title: 'How pricing works', lines: [
     'Estimates use each tailor’s own price list.',
     'At the fitting, the tailor sends you the final order. Nothing changes until you approve it.',
-    'You pay the balance when your order is ready.'] }),
+    'When your order is ready, we hold the balance and charge it when you get your items.'] }),   // K-27 (Study-1 A2)
   deposit: () => ({ title: 'About the deposit', lines: [
     'The deposit is held on your card, and charged only when the tailor accepts.',
     'It comes off your final total.',
-    `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the tailor keeps the deposit.`] }),
+    `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the tailor keeps the deposit.`,
+    'If the tailor cancels or doesn’t show up, you get it back in full.'] }),   // K-29 (Study-1 A5)
   fitting: (c) => ({ title: 'At the fitting', lines: [
     'You can add or remove items and services, and change prices.',
     `${c.first || 'The customer'} approves the final order before you start.`] }),
   fee: () => ({ title: 'The Taily fee', lines: [
     'Taily’s fee comes only from your service prices.',
-    'Home-visit and rush fees are yours in full.',
+    'Home visit and rush fees are yours in full.',
     'Customers pay for the courier. It never comes out of your payout.',
     `If a customer cancels within ${POLICY.CANCEL_WINDOW_H} hours, you keep their deposit, with no fee.`] }),
   payouts: () => ({ title: 'When you get paid', lines: [
@@ -1658,6 +1661,9 @@ export function moneyRows(rows = []) {
   }).join('');
   return `<div class="money-rows" data-money>${html}</div>`;
 }
+/** Study-1 C4: the home visit fee is flat — the customer rows' caption and the profile's helper sentence (one wording everywhere). */
+export const HOME_FEE_CAPTION = 'Flat, per visit';
+export const HOME_FEE_HELP = 'Charged once per home visit, no matter how long it takes.';
 /** Deposit status words by the appointment's deposit state (payments.deposit.state). */
 const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', captured: 'Paid', released: 'Released', refunded: 'Refunded', kept: 'Kept' };
 /**
@@ -1671,16 +1677,19 @@ const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', capture
 export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', depositState = '', confirmed = false, refundState = '', servicesCaption = '', courierCaption = '' } = {}) {
   const est = (stage === 'estimate' || stage === 'booked') && !confirmed;   // D-49: still an estimate until the fitting (or a price change) confirms it
   const deposit = depositState ? (DEPOSIT_STATUS[depositState] ?? 'Paid') : stage === 'estimate' ? 'Due today' : 'Paid';
-  const balance = stage === 'ready' && q.balance === 0 ? 'Nothing to pay' : stage === 'paid' ? 'Paid' : stage === 'ready' ? 'Due now' : 'Due when ready';   // D-156
+  /* K-27 (Study-1 A2): `held` = picked a way back, the balance is on hold; `charged` = captured before the handoff (unclaimed after 7 days) */
+  const settled = stage === 'paid' || stage === 'held' || stage === 'charged';
+  const balance = (stage === 'ready' || stage === 'held') && q.balance === 0 ? 'Nothing to pay'
+    : { paid: 'Paid', held: 'On hold', charged: 'Charged', ready: 'Hold now' }[stage] ?? 'Due when ready';   // D-156
   const rows = [
     { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
-    q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
+    q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee, caption: HOME_FEE_CAPTION },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush, caption: `Need-by ${q.rushDays ?? 1} day${(q.rushDays ?? 1) === 1 ? '' : 's'} after the visit` },
     q.courier > 0 && { label: 'Taily courier', cents: q.courier, ...(courierCaption ? { caption: courierCaption } : {}) },
     { label: est ? 'Estimated total' : 'Total', cents: q.total, kind: 'total' },
     { label: 'Deposit', cents: q.deposit, status: deposit },
     { label: 'Balance', cents: q.balance, status: balance },
-    (stage === 'ready' || stage === 'paid') && q.refund > 0 && { label: 'Refund to your card', cents: q.refund, status: refundState === 'refunded' || (!refundState && stage === 'paid') ? 'Refunded' : 'After you choose' },   // D-156
+    (stage === 'ready' || settled) && q.refund > 0 && { label: 'Refund to your card', cents: q.refund, status: refundState === 'refunded' || (!refundState && settled) ? 'Refunded' : 'After you choose' },   // D-156
   ].filter(Boolean);
   return moneyRows(rows);
 }
@@ -1703,20 +1712,20 @@ export function receiptBlock(a, tailorFirst = '') {
     : refund > 0 ? `${fmtExact(refund)} refunded to ${balanceCardLabel(a, a.cardId)}.` : '';
   /* M7-1-C-05: what was paid for — the approved lines with their garments — between the return line and the totals */
   const order = a.lines?.length ? `<div class="receipt__order">${changeList({ garments: withPhotos(priceChangeView(a, a.lines).garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: `${tailorFirst || 'Tailor'}’s comment` })}</div>` : '';
-  return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', dropoff: 'home', courier: 'truck' }[how] })}</div>
+  return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', courier: 'truck' }[how] })}</div>
   ${stitchDivider()}
   ${order}
   ${customerBreakdown(a.money, { stage: 'paid', tailorFirst, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '' })}
   ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}`;
 }
 /** The tailor's breakdown — no courier row (D-04). One order everywhere (D-165, amends D-137): Services, the Taily fee (a negative
-    row, "On the $125.00 of services only" — its base), Home-visit fee, Rush fee, then the total. */
+    row, "On the $125.00 of services only" — its base), Home visit fee, Rush fee, then the total. */
 export function tailorBreakdown(q, { total = true } = {}) {
   /* D-172: the per-job figure is "Your payout"; "payout" is the bank transfer. `total: false` = the figure is already the card's hero (M6-P-33). */
   return moneyRows([
     { label: 'Services', cents: q.services },
     { label: 'Taily fee', cents: q.tailyFee, kind: 'negative', caption: `On the ${fmtExact(q.services)} of services only` },
-    q.homeFee > 0 && { label: 'Home-visit fee', cents: q.homeFee },
+    q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush },
     total && { label: 'Your payout', cents: q.payout, kind: 'total' },
   ].filter(Boolean));
@@ -1851,25 +1860,31 @@ export function onboardingHeader({ editing = false, back = true, active = 'shop'
 }
 
 /**
- * Text area — the field chassis (label, inset box, helper / error) plus a live "n / max" counter. No `maxlength`
+ * Text area — the field chassis (label, inset box, helper / error) plus a live "n / max" counter. No `maxlength` by default
  * (a paste must be able to show the over-max error). The counter is `data-count` (screens update it in place on
  * `input`); over max it turns --error. states: empty · typing · over max · error.
+ * Study-1 C1–C2: `placeholder` = grey example text (native, never a value). `maxlength` = a hard stop (wire it with
+ * `wireTextLimit`): typing stops at it, a paste is cut to fit with `notice` ("Trimmed to 110 characters.", live) under the box,
+ * and AT the limit the counter and the box ring take the error tone while the field stays valid (`.text-area--full`).
  */
-export function textArea({ id, label, value = '', rows = 4, max, helper = '', error = '' } = {}) {
+export function textArea({ id, label, value = '', rows = 4, max, maxlength = null, placeholder = '', notice = '', helper = '', error = '' } = {}) {
   const msg = error || helper;
   const msgId = `${id}-msg`;
   const countId = `${id}-count`;
   const n = [...String(value ?? '')].length;
-  const over = max != null && n > max;
-  const describedBy = [msg ? msgId : '', max != null ? countId : ''].filter(Boolean).join(' ');
-  return `<div class="field text-area${error ? ' field--error' : ''}">
+  const cap = maxlength ?? max;
+  const over = cap != null && n > cap;
+  const full = maxlength != null && n >= maxlength;
+  const describedBy = [msg ? msgId : '', cap != null ? countId : '', maxlength != null ? `${id}-notice` : ''].filter(Boolean).join(' ');
+  return `<div class="field text-area${error ? ' field--error' : ''}${full ? ' text-area--full' : ''}">
   <label class="field__label" for="${id}">${esc(label)}</label>
   <div class="field__box text-area__box">
-    <textarea class="text-area__input" id="${id}" name="${id}" rows="${rows}"${error ? ' aria-invalid="true"' : ''}${describedBy ? ` aria-describedby="${describedBy}"` : ''}>${esc(value)}</textarea>
+    <textarea class="text-area__input" id="${id}" name="${id}" rows="${rows}"${maxlength != null ? ` maxlength="${maxlength}" data-maxlength="${maxlength}"` : ''}${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}${error ? ' aria-invalid="true"' : ''}${describedBy ? ` aria-describedby="${describedBy}"` : ''}>${esc(value)}</textarea>
   </div>
   <div class="text-area__foot">
-    ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : '<span></span>'}
-    ${max != null ? `<span class="text-area__count t-small c-600${over ? ' text-area__count--over' : ''}" id="${countId}" data-count data-max="${max}" aria-live="off">${n} / ${max}</span>` : ''}
+    ${maxlength != null ? `<div class="text-area__foot-text">${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : ''}<p class="text-area__notice t-small w-600 c-700" id="${id}-notice" aria-live="polite" data-notice>${esc(notice)}</p></div>`
+    : msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : '<span></span>'}
+    ${cap != null ? `<span class="text-area__count t-small c-600${over || full ? ' text-area__count--over' : ''}" id="${countId}" data-count data-max="${cap}" aria-live="off">${n} / ${cap}</span>` : ''}
   </div>
 </div>`;
 }
@@ -1877,11 +1892,12 @@ export function textArea({ id, label, value = '', rows = 4, max, helper = '', er
 /**
  * Service row — a checkbox row; when checked, a whole-dollar `$` price input (`#price-<id>`) and a live take-home
  * line on its own full-width line under the row, aligned with the service name (`data-take`; hidden while null; M6-V-01). `payoutText` = the amount already formatted for its column (money.js `fmtColumn`, D-70); default `fmt(payoutCents)`.
+ * `range` (Study-1 C3): the "Most NYC tailors charge $20–$30." line under the row, ticked or not (`data-range`).
  * states: unchecked · checked, empty · checked with price + payout · error.
  */
 /** "Your payout $22.50 · Taily fee −$2.50" (CP-S03; the fee is a deduction, as fmtNeg prints it) — two nowrap halves, so a narrow column breaks at the dot, never inside an amount (D-172). */
 export const takeHtml = (take, fee = '') => `<span class="service-row__part">Your payout ${take}${fee ? '\u00a0·' : ''}</span>${fee ? ` <span class="service-row__part">Taily fee −${fee}</span>` : ''}`;
-export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', feeText = '', error = '' } = {}) {
+export function serviceRow({ id, label, caption = '', checked = false, price = '', payoutCents = null, payoutText = '', feeText = '', error = '', range = '' } = {}) {
   const takeHidden = payoutCents == null;
   /* caption as a list (garment types) → one nowrap span per item with its " ·" kept inside (no-break space), and a plain
      space between spans: a line only breaks between whole names and never starts with a "·" */
@@ -1897,31 +1913,9 @@ export function serviceRow({ id, label, caption = '', checked = false, price = '
       </div>
     </div>` : ''}
   </div>
+  ${range ? `<p class="service-row__range t-small c-600" data-money data-range>${esc(range)}</p>` : ''}
   ${checked ? `<span class="service-row__take t-small w-600 c-700" data-money data-take${takeHidden ? ' hidden' : ''}>${takeHidden ? '' : `${takeHtml(payoutText || fmt(payoutCents), feeText)}`}</span>` : ''}
   ${error ? `<p class="field__msg field__msg--error" id="price-${esc(id)}-msg" role="alert">${esc(error)}</p>` : ''}
-</div>`;
-}
-
-/**
- * ZIP list — removable 44 px chips (ZIP + neighborhood), an add field (`#zip-add`) with an Add button, "+ zip"
- * suggestion chips (only those not already listed) and a list-level error. states: empty · 4 zips · input error · list error.
- */
-export function zipList({ zips = [], input = '', error = '', inputError = '', suggestions = [] } = {}) {
-  const chips = zips.map((z) => {
-    const hood = ZIP_INFO[z]?.hood ?? '';
-    return `<button type="button" class="zip-chip" data-act="zip-remove" data-zip="${esc(z)}" aria-label="Remove ${esc(z)}${hood ? ` ${esc(hood)}` : ''}"><span class="zip-chip__zip">${esc(z)}</span>${hood ? `<span class="zip-chip__hood">${esc(hood)}</span>` : ''}<span class="zip-chip__x" aria-hidden="true">✕</span></button>`;
-  }).join('');
-  const sugg = suggestions.filter((z) => !zips.includes(z))
-    .map((z) => `<button type="button" class="zip-chip zip-chip--suggest" data-act="zip-suggest" data-zip="${esc(z)}" aria-label="Add ${esc(z)}${ZIP_INFO[z] ? ` ${esc(ZIP_INFO[z].hood)}` : ''}">+ ${esc(z)}</button>`).join('');
-  return `<div class="zip-list${error ? ' zip-list--error' : ''}" data-zip-list>
-  <p class="zip-list__label t-small w-600 c-700" id="zip-list-label">ZIP codes you cover</p>
-  <div class="zip-list__chips" role="group" aria-labelledby="zip-list-label">${chips || '<span class="zip-list__none t-small c-600">No ZIP codes yet.</span>'}</div>
-  <div class="zip-list__add">
-    ${field({ id: 'zip-add', label: 'Add a ZIP code', value: input, inputmode: 'numeric', maxlength: 5, autocomplete: 'off', error: inputError })}
-    <div class="zip-list__add-btn">${ctaSmall('Add', { attrs: 'data-act="zip-add"' })}</div>
-  </div>
-  ${sugg ? `<div class="zip-list__suggest" role="group" aria-label="Suggested ZIP codes">${sugg}</div>` : ''}
-  ${error ? `<p class="field__msg field__msg--error" role="alert">${esc(error)}</p>` : ''}
 </div>`;
 }
 
@@ -1944,9 +1938,10 @@ export function dayHours({ sched, day, label, open = null, close = null, error =
  * Customer preview — "What customers see": a caps label over an INERT container (so a tailorRow button inside is
  * neither focusable nor clickable) on --neutral-100, then an optional caption. `html` is trusted markup built from customer components.
  */
-export function customerPreview({ title = 'What customers see', head = '', html = '', caption = '' } = {}) {
-  /* `head` (B5 P3-9): a short caps word shown instead of the sentence title, which stays the section's accessible name */
-  return `<section class="customer-preview" aria-label="${esc(title)}">
+export function customerPreview({ title = 'What customers see', head = '', html = '', caption = '', sticky = false } = {}) {
+  /* `head` (B5 P3-9): a short caps word shown instead of the sentence title, which stays the section's accessible name.
+     `sticky` (Study-1 C1): pinned to the top of the viewport on the page ground while the fields under it scroll. */
+  return `<section class="customer-preview${sticky ? ' customer-preview--sticky' : ''}" aria-label="${esc(title)}">
   <p class="customer-preview__title t-caps c-600">${esc(head || title)}</p>
   <div class="customer-preview__body" role="group" aria-disabled="true" inert>${html}</div>
   ${caption ? `<p class="customer-preview__caption t-small c-600">${esc(caption)}</p>` : ''}
@@ -1972,11 +1967,10 @@ export function miniProfile({ name = '', initials = '', photo = null, shopName =
 }
 
 /** The customer's "Getting it back" rows (c-tailor), one metaRow per return option she offers. `returns` = { pickup,
-    dropoff, courier }. `empty` (string) renders when nothing is ticked; '' renders nothing. */
+    courier } (K-37: no drop-off). `empty` (string) renders when nothing is ticked; '' renders nothing. */
 export function returnsRows(returns = {}, { empty = '' } = {}) {
   const rows = [];
   if (returns?.pickup) rows.push(metaRow('', 'In-store pickup · Free', { icon: 'bag' }));
-  if (returns?.dropoff) rows.push(metaRow('', 'Home drop-off · Free', { icon: 'home' }));
   if (returns?.courier) rows.push(metaRow('', 'Taily courier — priced when your order is ready, before you pay', { icon: 'truck' }));
   if (!rows.length) return empty ? `<p class="returns-rows returns-rows--empty t-body c-600">${esc(empty)}</p>` : '';
   return `<div class="returns-rows">${rows.join('')}</div>`;
@@ -2407,9 +2401,11 @@ export function threadRow({ id = '', act = 'open-thread', name = '', initials = 
  * Attach sheet — "Add a photo" with Take a photo / Choose from library (`[data-act="photo-camera"]` / `photo-library`, 56 px rows).
  * Either calls `onAdd()` then closes. `count` = photos already on the message; `max` defaults to CHAT_LIMITS.PHOTOS_MAX. dataS `attach`.
  */
-export function openAttachSheet({ count = 0, max = CHAT_PHOTO_CAP(), peer = '' } = {}, onAdd) {
+export function openAttachSheet({ count = 0, max = CHAT_PHOTO_CAP(), peer = '', note = '' } = {}, onAdd) {
+  /* Study-1 B2: `note` replaces the chat line (a private note / an edit photo says who sees it) */
+  const line = note ? `${esc(note)}${count > 0 ? ` ${count} added.` : ''}` : `Show ${esc(peer || 'them')} the garment. Up to ${max}&nbsp;per&nbsp;message.${count > 0 ? ` ${count} added.` : ''}`;
   const body = `<div class="attach-sheet">
-  <p class="t-small c-600 attach-sheet__note">Show ${esc(peer || 'them')} the garment. Up to ${max}&nbsp;per&nbsp;message.${count > 0 ? ` ${count} added.` : ''}</p>
+  <p class="t-small c-600 attach-sheet__note">${line}</p>
   <div class="attach-sheet__rows">
     ${listRow({ title: 'Take a photo', act: 'photo-camera', lead: ICON_CAMERA, chevron: false })}
     ${listRow({ title: 'Choose from library', act: 'photo-library', lead: ICON_IMAGE, chevron: false })}
@@ -2793,6 +2789,400 @@ export function wireGarmentDocs(root, { lookup, by = '', editable = false, onRem
     if (!info) return;
     openDocsViewer({
       garmentId: photo.dataset.garment, type: info.type, docs: info.docs, kind: photo.dataset.kind, index: Number(photo.dataset.index) || 0, by, editable, onRemove,
+    });
+  });
+}
+
+/* ===== S1-A ===== */
+/* Study-1 WS-A (K-27…K-29): the handoff — pickup code, the auto-complete countdown, the delivery photo, the review reminder. */
+
+/** The customer's pickup code card: caps label, the digits as the one sans figure (K-12 money style, tabular), the line under it.
+    The digits are spelled out for screen readers ("8 1 5 3"). */
+export function pickupCode({ code = '', label = 'Your pickup code', helper = 'Show this code when you pick up.' } = {}) {
+  return `<section class="pickup-code" aria-label="${esc(label)}" data-pickup-code>
+  <p class="t-caps c-600">${esc(label)}</p>
+  <p class="t-money pickup-code__digits"><span aria-hidden="true">${esc(code)}</span><span class="sr-only">${esc(String(code).split('').join(' '))}</span></p>
+  <p class="t-small c-600">${esc(helper)}</p>
+</section>`;
+}
+
+/** "Completes automatically in 47h unless you report a problem" (Study-1 A3, default 3): `msLeft` from `autoCompleteLeft(appt)`; the
+    whole hours still ahead ("47h" right after the mark), in the last hour "less than 1h". `who` = 'you' (Sarah) or the customer's first name. */
+export function autoCompleteLine(msLeft, { who = 'you' } = {}) {
+  if (msLeft == null) return '';
+  const h = Math.floor(Math.max(0, msLeft - 1) / 3600000);   // whole hours still ahead: "47h" right after the mark, "less than 1h" in the last hour
+  const when = h < 1 ? 'less than 1h' : `${h}h`;
+  const unless = who === 'you' ? 'unless you report a problem' : `unless ${who} reports a problem`;
+  return `<p class="t-small c-700 auto-line" data-auto-complete>${META_ICONS.clock}<span>Completes automatically in ${esc(when)} ${esc(unless)}</span></p>`;
+}
+
+/** A photo the tailor sent with a post-fitting edit (Study-1 B1; a photo stub of the garment) with who took it and when. K-37: the
+    drop-off photo it was first built for is gone with Home drop-off. */
+export function photoFigure({ photo, type = '', by = '', label = 'Photo' } = {}) {
+  if (!photo) return '';
+  return `<figure class="photo-figure" data-photo-figure>
+  <span class="photo-figure__frame">${photoStub({ type, tone: photo.tone ?? 0, size: 'stage', alt: label, seed: photo.id })}</span>
+  <figcaption class="t-small c-600">${esc([by ? `Taken by ${by}` : '', photo.at ? `${fmtDay(photo.at)}, ${fmtTime(photo.at)}` : ''].filter(Boolean).join(' · '))}</figcaption>
+</figure>`;
+}
+
+/** The review reminder (Study-1 A4, K-28): a notification card — bell, title, one line, the "Leave a review" button (`act`, `data-id`). */
+export function reminderCard({ title = '', text = '', actionLabel = 'Leave a review', act = 'review-reminder', id = '' } = {}) {
+  return `<section class="card reminder-card" role="status" aria-label="${esc(title)}" data-reminder>
+  <span class="reminder-card__icon" aria-hidden="true">${ICON_BELL}</span>
+  <div class="reminder-card__body">
+    <p class="t-body w-600">${esc(title)}</p>
+    <p class="t-small c-600">${esc(text)}</p>
+    ${ctaSmall(actionLabel, { attrs: `data-act="${esc(act)}"${id ? ` data-id="${esc(id)}"` : ''}` })}
+  </div>
+</section>`;
+}
+
+/** K-41 (R3, D-296): the 24-hour reminder on Home — the booking row turns into a card: the accent state strip across its top (`text` ·
+    `right`, e.g. "Still on for tomorrow?" · "Free until 5:00 PM"), the appt row (`row` = apptRow's options), ONE rule line in dollars
+    (`rule`, HTML: money in <span data-money>), then Confirm (filled) and "Change or cancel" (opens the booking) inline. */
+export function visitPrompt({ text = '', right = '', row = {}, rule = '', id = '', confirmAct = 'confirm-visit', changeAct = 'open-appt' } = {}) {
+  noPercent(rule, 'visitPrompt');
+  const idAttr = id ? ` data-id="${esc(id)}"` : '';
+  return `<section class="visit-prompt" aria-label="${esc(text)}" data-visit-prompt>
+  ${requestStrip({ tone: 'action', icon: 'clock', text, right })}
+  ${apptRow(row)}
+  <p class="t-small c-600 visit-prompt__rule">${rule}</p>
+  <div class="visit-prompt__actions">${ctaSmall('Confirm', { filled: true, attrs: `data-act="${esc(confirmAct)}"${idAttr}` })}${ctaSmall('Change or cancel', { attrs: `data-act="${esc(changeAct)}"${idAttr}` })}</div>
+</section>`;
+}
+
+/* ===== S1-B ===== */
+/* Study-1 WS-B (K-30, K-31): the tailor's private General notes (B2) and the edit's due-date line (B1). */
+
+/** B2 copy: the empty line and the field errors of the note editor. */
+export const NOTE_EMPTY = 'Measurements, fabric notes, reminders. Only you see them.';
+const NOTE_ERRORS = {
+  'note-empty': 'Write something or add a photo.',
+  'note-long': `Keep the note under ${DATA.NOTES_LIMITS.TEXT_MAX} characters.`,
+  'too-many-photos': `Up to ${DATA.NOTES_LIMITS.PHOTOS_MAX} photos per note.`,
+};
+/** "Fri, Oct 16, 10:00 AM" (+ " · Edited"). */
+const noteStamp = (n) => `${fmtDay(n.updatedAt ?? n.at)}, ${fmtTime(n.updatedAt ?? n.at)}${n.updatedAt ? ' · Edited' : ''}`;
+
+/**
+ * Private notes (Study-1 B2, K-31) — "General notes": the lock line "Only you can see these notes.", every note (text, its photos as one
+ * thumbnail row that opens the viewer, when, Edit), then "Add a note"; no sharing anywhere. `draft` = the open editor
+ * `{ id: noteId | null, text, photos: [{ tone }], error }` (in place of that note, or last for a new one): a textArea `#note-text`,
+ * the photo tray (`[data-act="note-remove-photo"][data-index]`), "Add photo" (`note-add-photo`), Save note / Cancel / Delete note.
+ * `readOnly` (a completed job) drops every control. `type` = the garment the photo stubs draw.
+ */
+export function privateNotes({ notes = [], draft = null, readOnly = false, type = '', id = 'notes', busy = false } = {}) {
+  const max = DATA.NOTES_LIMITS;
+  const dis = busy || !!draft;
+  const thumbs = (n) => (n.photos.length ? `<button type="button" class="private-note__photos" data-act="view-photo" data-count="${n.photos.length}" data-type="${esc(type)}" data-title="${n.photos.length === 1 ? 'Note photo' : 'Note photos'}" aria-label="Open ${n.photos.length === 1 ? 'the photo' : `${n.photos.length} photos`} in this note">${n.photos.map((p) => `<span class="private-note__thumb">${photoStub({ type, tone: p.tone ?? 0, size: 'thumb', seed: p.id })}</span>`).join('')}</button>` : '');
+  const editor = () => {
+    const tray = draft.photos.length ? `<div class="composer__tray private-notes__tray" role="list" aria-label="Photos in this note">${draft.photos.map((p, i) => `<span class="composer__thumb" role="listitem"><span class="composer__thumb-tile" aria-hidden="true">${photoStub({ type, tone: p.tone ?? i, size: 'fill' })}</span><button type="button" class="composer__remove" data-act="note-remove-photo" data-index="${i}" aria-label="Remove photo ${i + 1}"${busy ? ' disabled' : ''}>${ICON_CLOSE}</button></span>`).join('')}</div>` : '';
+    const full = draft.photos.length >= max.PHOTOS_MAX;
+    return `<li class="private-note private-note--editing" data-note-editor${draft.id ? ` data-note="${esc(draft.id)}"` : ''}>
+    ${textArea({ id: 'note-text', label: draft.id ? 'Edit note' : 'New note', value: draft.text ?? '', rows: 4, max: max.TEXT_MAX, error: draft.error ? NOTE_ERRORS[draft.error] ?? '' : '' })}
+    ${tray}
+    ${full ? `<p class="t-small c-600 private-notes__max">Up to ${max.PHOTOS_MAX} photos per note.</p>` : `<div class="private-notes__add-photo">${textLink('Add photo', { act: 'note-add-photo', icon: ICON_CAMERA, disabled: busy })}</div>`}
+    <div class="private-notes__actions">
+      ${ctaSmall(busy ? 'Saving…' : 'Save note', { filled: true, attrs: `data-act="note-save"${busy ? ' disabled aria-busy="true"' : ''}` })}
+      ${textLink('Cancel', { act: 'note-cancel', tone: 'muted', disabled: busy })}
+      ${draft.id ? textLink('Delete note', { act: 'note-delete', tone: 'danger', disabled: busy }): ''}
+    </div>
+  </li>`;
+  };
+  const item = (n) => (draft && draft.id === n.id ? editor() : `<li class="private-note" data-note="${esc(n.id)}">
+    ${n.text ? `<p class="t-body private-note__text">${esc(n.text)}</p>` : ''}
+    ${thumbs(n)}
+    <div class="private-note__foot"><p class="t-small c-600">${esc(noteStamp(n))}</p>${readOnly ? '' : textLink('Edit', { act: 'note-edit', disabled: dis, attrs: `data-note="${esc(n.id)}" aria-label="Edit this note"` })}</div>
+  </li>`);
+  const rows = [...notes.map(item), draft && !draft.id ? editor() : ''].join('');
+  return `<section class="sec private-notes" aria-labelledby="${esc(id)}-head" data-notes>
+  ${sectionHead('General notes', { id: `${id}-head`, count: notes.length || null })}
+  <p class="t-small c-700 private-notes__lock" data-private>${ICON_LOCK}<span>Only you can see these notes.</span></p>
+  ${rows ? `<ul class="private-notes__list" role="list">${rows}</ul>` : `<p class="t-body c-600 private-notes__empty">${esc(NOTE_EMPTY)}</p>`}
+  ${readOnly || draft ? '' : `<div class="private-notes__add">${textLink('Add a note', { act: 'note-add', icon: ICON_EDIT, disabled: busy })}</div>`}
+</section>`;
+}
+
+/**
+ * Wire `privateNotes` on a screen (t-job, t-adjust). The host keeps the editor draft and the model calls:
+ * `{ draft() → d | null, setDraft(d | null), notes() → [], save(d) → { ok, error }, remove(noteId) → { ok, note, index },
+ *    restore(note, index), rerender(focusSel), type }`. Add photo opens the attach sheet (camera or library); Delete note offers Undo.
+ */
+export function wirePrivateNotes(root, { draft, setDraft, notes, save, remove, restore, rerender, type = '' }) {
+  const max = DATA.NOTES_LIMITS.PHOTOS_MAX;
+  root.addEventListener('input', (e) => {
+    if (e.target.id !== 'note-text' || !draft()) return;
+    draft().text = e.target.value;
+    const n = [...e.target.value].length;
+    const count = root.querySelector('#note-text-count');
+    if (count) { count.textContent = `${n} / ${DATA.NOTES_LIMITS.TEXT_MAX}`; count.classList.toggle('text-area__count--over', n > DATA.NOTES_LIMITS.TEXT_MAX); }
+  });
+  root.addEventListener('click', (e) => {
+    if (e.target.closest('.screen-sheet--overlay')) return;
+    const el = e.target.closest('[data-act^="note-"]');
+    if (!el || el.disabled || el.getAttribute('aria-disabled') === 'true') return;
+    const act = el.dataset.act;
+    const d = draft();
+    if (act === 'note-add') { setDraft({ id: null, text: '', photos: [], error: '' }); rerender('#note-text'); }
+    else if (act === 'note-edit') {
+      const n = notes().find((x) => x.id === el.dataset.note);
+      if (!n) return;
+      setDraft({ id: n.id, text: n.text, photos: n.photos.map((p) => ({ ...p })), error: '' });
+      rerender('#note-text');
+    } else if (!d) return;
+    else if (act === 'note-cancel') { setDraft(null); rerender('[data-act="note-add"]'); }
+    else if (act === 'note-add-photo') {
+      openAttachSheet({ count: d.photos.length, max, note: `Up to ${max} photos per note. Only you see them.` }, () => {
+        d.photos.push({ tone: d.photos.length % 4 });
+        if (d.error === 'note-empty') d.error = '';
+        rerender(d.photos.length >= max ? '#note-text' : '[data-act="note-add-photo"]');
+      });
+    } else if (act === 'note-remove-photo') {
+      d.photos.splice(Number(el.dataset.index), 1);
+      rerender('[data-act="note-add-photo"]');
+    } else if (act === 'note-save') {
+      const r = save(d);
+      if (r?.ok) { setDraft(null); rerender('[data-act="note-add"]'); toast('Note saved. Only you can see it.', { tone: 'success' }); }
+      else { d.error = r?.error ?? 'note-empty'; rerender('#note-text'); }
+    } else if (act === 'note-delete') {
+      const r = remove(d.id);
+      if (!r?.ok) { toast('Couldn’t delete the note. Try again.', { tone: 'error' }); return; }
+      setDraft(null);
+      rerender('[data-act="note-add"]');
+      toast('Note deleted.', { action: 'Undo', onAction: () => { if (restore(r.note, r.index)?.ok) rerender(`[data-act="note-edit"][data-note="${r.note.id}"]`); } });
+    }
+  });
+}
+
+/** B1: "New due date Fri, Oct 26 · was Fri, Oct 23" — one line, the old date muted. */
+export function dueChange({ needBy, was } = {}) {
+  return `<span class="due-change">New due date <span class="due-change__part">${esc(fmtDay(needBy))}</span> <span class="c-600">· was <span class="due-change__part">${esc(fmtDay(was))}</span></span></span>`;
+}
+
+/* ===== S1-C ===== */
+/* Study-1 C2: the hard stop for a `textArea({ maxlength })`. Typing stops at the limit (native maxlength); a paste that would
+   overflow is cut to fit (never refused) and the field says "Trimmed to N characters." until the next keystroke. The counter
+   and the box ring take the error tone AT the limit (`.text-area--full`) — the field stays valid. Returns `paste(text)`, the
+   same path a real paste takes (a Test-flows entry replays a paste through it). */
+export function wireTextLimit(root, id) {
+  const el = root.querySelector(`#${id}`);
+  if (!el?.dataset.maxlength) return () => false;
+  const max = Number(el.dataset.maxlength);
+  const wrap = el.closest('.text-area');
+  const count = root.querySelector(`#${id}-count`);
+  const notice = root.querySelector(`#${id}-notice`);
+  let trimmed = false;
+  const paint = () => {
+    const n = [...el.value].length;
+    if (count) { count.textContent = `${n} / ${max}`; count.classList.toggle('text-area__count--over', n >= max); }
+    wrap?.classList.toggle('text-area--full', n >= max);
+    if (notice) notice.textContent = trimmed ? `Trimmed to ${max} characters.` : '';
+  };
+  const paste = (text) => {
+    const v = el.value;
+    const a = el.selectionStart ?? v.length;
+    const b = el.selectionEnd ?? v.length;
+    const room = Math.max(0, max - (v.length - (b - a)));
+    let ins = String(text ?? '').replace(/\r\n?/g, '\n');
+    const cut = ins.length > room;
+    if (cut) { ins = ins.slice(0, room); if (/[\uD800-\uDBFF]$/.test(ins)) ins = ins.slice(0, -1); }
+    el.setRangeText(ins, a, b, 'end');
+    trimmed = cut;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    return cut;
+  };
+  el.addEventListener('paste', (e) => { e.preventDefault(); paste(e.clipboardData?.getData('text/plain') ?? ''); });
+  el.addEventListener('input', (e) => { if (e.isTrusted) trimmed = false; paint(); });
+  return paste;
+}
+
+/* Study-1 C5 — neighborhoods instead of ZIP codes (to-where). */
+const hoodsIn = (borough) => DATA.NEIGHBORHOODS.filter((n) => n.borough === borough);
+/** "Williamsburg, Greenpoint and Bushwick" — names in the order given. */
+export function hoodSentence(ids = []) {
+  const names = DATA.hoodNames(ids);
+  return names.length < 2 ? names[0] ?? '' : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+/**
+ * Neighborhood picker (D-254): one collapsible group per borough — a 48 px head button (borough · "n selected" · chevron,
+ * `data-act="borough" data-id`, aria-expanded) over a wrap of 44 px toggle chips (`data-act="hood" data-id`, aria-pressed).
+ * `open` = the borough ids shown expanded. `map` = trusted markup (hoodMap) between the helper and the groups. `error` rings
+ * the groups and prints under them. states: none · some · error.
+ */
+export function hoodPicker({ selected = [], open = [], error = '', map = '', label = 'Neighborhoods you visit', helper = 'Where customers can book a home visit' } = {}) {
+  const groups = DATA.BOROUGHS.map((b) => {
+    const hoods = hoodsIn(b.id);
+    const n = hoods.filter((h) => selected.includes(h.id)).length;
+    const on = open.includes(b.id);
+    const chips = hoods.map((h) => {
+      const picked = selected.includes(h.id);
+      return `<button type="button" class="chip hood-chip${picked ? ' chip--selected' : ''}" data-act="hood" data-id="${esc(h.id)}" aria-pressed="${picked}">${esc(h.name)}</button>`;
+    }).join('');
+    return `<div class="hood-group${on ? ' is-open' : ''}" data-borough="${esc(b.id)}">
+    <button type="button" class="hood-group__head" data-act="borough" data-id="${esc(b.id)}" aria-expanded="${on}" aria-controls="hoods-${esc(b.id)}">
+      <span class="hood-group__name t-body w-600">${esc(b.name)}</span>
+      <span class="hood-group__count t-small ${n ? 'w-600 c-ink' : 'c-600'}">${n ? `${n} selected` : 'None'}</span>
+      <span class="hood-group__chev" aria-hidden="true">${CHEVRON_DOWN}</span>
+    </button>
+    <div class="hood-group__chips" id="hoods-${esc(b.id)}" role="group" aria-label="${esc(`${b.name} neighborhoods`)}"${on ? '' : ' hidden'}>${chips}</div>
+  </div>`;
+  }).join('');
+  return `<div class="hood-picker${error ? ' hood-picker--error' : ''}" data-hood-picker>
+  <p class="hood-picker__label t-small w-600 c-700" id="hood-picker-label">${esc(label)}</p>
+  ${helper ? `<p class="hood-picker__help t-small c-600" id="hood-picker-help">${esc(helper)}</p>` : ''}
+  ${map}
+  <div class="hood-picker__groups" role="group" aria-labelledby="hood-picker-label"${helper ? ' aria-describedby="hood-picker-help"' : ''}>${groups}</div>
+  ${error ? `<p class="field__msg field__msg--error" id="hoods-msg" role="alert">${esc(error)}</p>` : ''}
+</div>`;
+}
+/* the tile map's layout (tile units): where each borough's own tile grid sits, and where its caps label goes — mock geography */
+const HOOD_MAP = {
+  bronx: { at: [4, 0], label: [5, 0] },
+  manhattan: { at: [3, 3], label: [3, 3], end: true },
+  queens: { at: [6, 3], label: [7, 3] },
+  brooklyn: { at: [5, 6], label: [7, 6] },
+  'staten-island': { at: [1, 6], label: [2, 9] },
+};
+const HOOD_TILE = 20;
+const HOOD_STEP = 24;
+/**
+ * Neighborhood map (C5): an inline SVG tile map, one rounded tile per neighborhood grouped by borough, selected = accent.
+ * No external map. `role="img"` with the selection as its name; a caption counts the picks.
+ */
+export function hoodMap({ selected = [] } = {}) {
+  const cols = 10; const rows = 10;
+  const w = cols * HOOD_STEP - (HOOD_STEP - HOOD_TILE);
+  const h = rows * HOOD_STEP - (HOOD_STEP - HOOD_TILE);
+  const tiles = DATA.NEIGHBORHOODS.map((n) => {
+    const [ox, oy] = HOOD_MAP[n.borough]?.at ?? [0, 0];
+    const on = selected.includes(n.id);
+    return `<rect class="hood-map__tile${on ? ' is-on' : ''}" data-hood="${esc(n.id)}" x="${(ox + n.tile.x) * HOOD_STEP}" y="${(oy + n.tile.y) * HOOD_STEP}" width="${HOOD_TILE}" height="${HOOD_TILE}" rx="4"><title>${esc(n.name)}</title></rect>`;
+  }).join('');
+  const labels = DATA.BOROUGHS.map((b) => {
+    const m = HOOD_MAP[b.id];
+    if (!m) return '';
+    const x = m.end ? m.label[0] * HOOD_STEP - 6 : m.label[0] * HOOD_STEP + 2;
+    const y = m.label[1] * HOOD_STEP + HOOD_TILE / 2;
+    return `<text class="hood-map__label" x="${x}" y="${y}" dominant-baseline="middle"${m.end ? ' text-anchor="end"' : ''}>${esc(b.name.toUpperCase())}</text>`;
+  }).join('');
+  const names = hoodSentence(selected);
+  const n = DATA.hoodNames(selected).length;
+  return `<figure class="hood-map" data-hood-map>
+  <svg class="hood-map__svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(n ? `Map: home visits in ${names}` : 'Map: no neighborhoods picked yet')}">${tiles}${labels}</svg>
+  <figcaption class="hood-map__caption t-small c-600">${n ? `${n} ${n === 1 ? 'neighborhood' : 'neighborhoods'} highlighted` : 'Pick neighborhoods below to see them here.'}</figcaption>
+</figure>`;
+}
+
+/* ===== K-40 (T1) ===== */
+/* The handoff time: the When row under the chosen way back (c-ready) and the Scheduler sheet that picks or moves it (c-ready, c-booking). */
+
+/** The When row (K-40 T1): a card--list row under the chosen way back — "Pick a time ›" / "Pick a delivery window ›" in accent ink until
+    she picks, then the time itself in ink with an ink ring ("Fri, Oct 16 · 5:30 PM ›"). `text` = the picked time ('' = not picked). */
+export function handoffWhenRow({ method = 'pickup', text = '', sub = '', act = 'pick-time' } = {}) {
+  const ask = method === 'courier' ? 'Pick a delivery window' : 'Pick a time';
+  const what = method === 'courier' ? 'Delivery window' : 'Pickup time';
+  const title = text ? `<span class="when-row__val">${esc(text)}</span>` : `<span class="when-row__ask">${ask}</span>`;
+  return `<div class="card card--list when-row${text ? ' is-set' : ''}" data-when>${listRow({
+    lead: META_ICONS.clock, title, sub, act, attrs: `aria-label="${esc(`${what}: ${text || 'not picked'}`)}"`,
+  })}</div>`;
+}
+
+/** The courier line under a window: "Courier $13.75 · collects from Amara at 4:45 PM" — K-43 (D-299): that window's own Uber quote + the
+    Taily fee, so it changes as she scrolls the wheel. */
+const courierNote = (cents, first, w) => `<span class="t-small c-600">Courier <span data-money>${fmtExact(cents)}</span> · collects from ${esc(first)} at ${esc(fmtTime(w.collectAt))}</span>`;
+/** K-43 (D-298): a courier delivery never comes back — the line wherever the courier is chosen or booked. */
+export const COURIER_LOBBY = 'If you’re not home, the courier leaves it in your building’s lobby.';
+
+/**
+ * The handoff time sheet (K-40 T1): the existing Scheduler in a sheet, fed by `handoffSlots(appt)` — pickup = Day · Hour · Minute · AM/PM
+ * (readSlot snaps to an open start), courier = Day · Arrives (30-minute delivery windows; the note under the wheel prints the window's own
+ * courier price — K-43 (D-299): a simulated Uber quote per window — and the collection time, updating as she scrolls). `mode` 'pick' (c-ready: Use this time / Cancel; instant) | 'change' (c-booking: Move my pickup / Keep current time; the
+ * simulated wait, the current slot left out). Calls `T.setHandoffSlot` (customer only); `onDone(appt)` after it succeeds.
+ *   first  the tailor's first name · place  the line under the header
+ *   dataS  the overlay's data-s · onMessage  the "no open times" Message button
+ */
+export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', place = '', dataS = '', onDone, onMessage } = {}) {
+  const courier = appt.returnOption === 'courier';
+  const change = mode === 'change';
+  const cur = appt.handoff?.slot ?? null;
+  const all = handoffSlots(appt);
+  const slots = change ? all.filter((x) => x.start !== cur?.start) : all;
+  const header = change ? (courier ? 'Change delivery window' : 'Change pickup time') : (courier ? 'Pick a delivery window' : 'Pick a pickup time');
+  const keepLabel = change ? (courier ? 'Keep current window' : 'Keep current time') : 'Cancel';
+  if (!slots.length) {
+    sheetOverlay(`<div class="handoff-sheet">
+  <p class="t-body c-700">${esc(first)} has no ${change ? 'other ' : ''}open ${courier ? 'delivery windows' : 'pickup times'} in the next ${POLICY.HANDOFF_PICK_DAYS} days. Message ${esc(first)} to find a time that works.</p>
+  ${cta(`Message ${esc(first)}`, { attrs: 'data-act="ht-message"' })}
+  ${cta(keepLabel, { variant: 'secondary', attrs: 'data-act="ht-keep"' })}
+</div>`, { header, dataS: `${dataS}-none`, confirm: false }, (holder, close) => {
+      holder.addEventListener('click', (e) => {
+        const act = e.target.closest('[data-act]')?.dataset.act;
+        if (act === 'ht-keep') close();
+        else if (act === 'ht-message') { close({ instant: true }); onMessage?.(); }
+      });
+    });
+    return;
+  }
+  /* settle on the current pick (c-ready: what she picked before; c-booking: the nearest other time), else the first */
+  const near = cur ? slots.reduce((b, x) => (Math.abs(new Date(x.start) - new Date(cur.start)) < Math.abs(new Date(b.start) - new Date(cur.start)) ? x : b), slots[0]) : slots[0];
+  let picked = (!change && cur && slots.find((x) => x.start === cur.start)) || near;
+  const label = change ? (courier ? 'New window' : 'New time') : (courier ? 'Arrives' : 'Pickup');
+  const note = (x) => (courier
+    ? `<span class="t-caps">${esc(label)}</span> <span class="t-small w-600">${esc(slotText(x))}</span><br>${courierNote(courierQuoteFor(appt, x).cents, first, x)}`
+    : whenNote(label, x.start));
+  const columns = () => (courier ? windowColumns(slots, picked.start) : slotColumns(slots.map((x) => x.start), picked.start));
+  const now = change && cur ? `<p class="t-small c-600 handoff-sheet__now" data-now>${courier ? 'Arrives' : 'Booked for'} <span class="nb">${esc(slotText(cur))}</span></p>`
+    : place ? `<p class="t-small c-600 handoff-sheet__now">${esc(place)}</p>` : '';
+  const fine = change
+    ? (courier ? `You can change the window until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. The price is the new window’s quote, and ${esc(first)} is told right away. ${COURIER_LOBBY}` : `${esc(first)} is told right away. Your pickup code stays the same.`)
+    : (courier ? `Each window has its own Uber price. Taily books the courier to collect from ${esc(first)} before your window. You can change it until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. ${COURIER_LOBBY}`
+      : `Only times ${esc(first)}’s shop is open, in the next ${POLICY.HANDOFF_PICK_DAYS} days. You can change it later from your booking.`);
+  const okLabel = change ? (courier ? 'Move my delivery' : 'Move my pickup') : (courier ? 'Use this window' : 'Use this time');
+  const html = (busy = false, error = '') => `<div class="handoff-sheet"${busy ? ' aria-busy="true"' : ''}>
+  ${error ? banner({ tone: 'error', text: error }) : ''}
+  ${now}
+  <div class="handoff-sheet__wheel">${scheduler({ columns: columns(), compact: true, cta: '', inline: true, note: note(picked) })}</div>
+  <p class="t-small c-600">${fine}</p>
+  ${cta(okLabel, { busy, busyLabel: change ? 'Moving…' : 'Saving…', attrs: 'data-act="ht-ok"' })}
+  ${cta(keepLabel, { variant: 'secondary', disabled: busy, attrs: 'data-act="ht-keep"' })}
+</div>`;
+  sheetOverlay(html(), { header, dataS, confirm: false }, (holder, close) => {
+    let busy = false;
+    const onWheel = () => {
+      const x = courier ? readWindow(holder, slots) : slots.find((s) => s.start === readSlot(holder, slots.map((y) => y.start)));
+      if (!x) return;
+      picked = x;
+      const n = holder.querySelector('[data-sched-note]');
+      if (n) { n.innerHTML = note(x); n.hidden = false; }
+    };
+    const paint = (error = '') => {
+      holder.querySelector('.handoff-sheet').outerHTML = html(busy, error);
+      holder.dataset.locked = String(busy);
+      wireWheel(holder, onWheel, SCHED_ROW);
+    };
+    wireWheel(holder, onWheel, SCHED_ROW);
+    const commit = () => {
+      const res = T.setHandoffSlot(appt.id, picked);
+      busy = false;
+      if (!res.ok) {
+        paint(res.error === 'too-late' ? `It’s too late to move it now. Message ${first} to change it.` : 'That time isn’t open any more. Pick another one.');
+        return;
+      }
+      holder.dataset.locked = 'false';
+      close({ instant: true });
+      onDone?.(res.appt, picked);
+    };
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (busy || !act) return;
+      if (act === 'ht-keep') close();
+      else if (act === 'ht-ok') {
+        onWheel();
+        if (!change) { commit(); return; }
+        busy = true; paint();
+        withLatency(() => { if (holder.isConnected) commit(); });
+      }
     });
   });
 }

@@ -4,7 +4,8 @@
    is js/flows.js) under three tabs: Customer, Tailor, System. Choosing
    an entry resets the demo, runs the entry's setup through the real
    transitions and opens the screen live; the footer flip switches
-   persona WITHOUT resetting anything.
+   persona WITHOUT resetting anything; the Demo actions row (Study-1) moves the
+   demo clock or delivers the courier on the live state, also without a reset.
 
    Lives in .stage-caption, OUTSIDE .screen, and stays hidden until the
    first input (html.has-input) — the diff harness never sees it.
@@ -12,8 +13,13 @@
    presses screen buttons, so the screens must be registered first).
    ============================================================ */
 
-import { state } from './state.js';
+import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, reminderAt, reminderEligible, freeUntil, autoCancelAt, textLink } from './state.js';
 import { ALL_FLOWS, findFlow, prepareFlow, personaForScreen } from './flows.js';
+import { setFocus } from './focus.js';
+import { toast } from './components.js';
+import { fmtWhen, fmtTime, dayWord } from './dates.js';
+import { fmtExact } from './money.js';
+import { textBanner } from './system.js';
 import { STUDY_TITLE, STUDY_SCRIPT } from './study.js';
 
 let render = null;
@@ -143,6 +149,12 @@ function panelHtml() {
     ${TABS.map(([id, label]) => `<button type="button" class="flow-menu__tab" role="tab" data-tab="${id}" aria-selected="false">${label}</button>`).join('')}
   </div>
   <div class="flow-menu__list" role="tabpanel" data-flow-list></div>
+  <div class="flow-menu__demo" role="group" aria-labelledby="flow-demo-label">
+    <span class="flow-menu__demo-label" id="flow-demo-label">Demo actions</span>
+    <div class="flow-menu__demo-btns">
+      ${DEMO.map(([id, label]) => `<button type="button" class="flow-menu__demo-btn" data-demo="${id}">${label}</button>`).join('')}
+    </div>
+  </div>
   <div class="flow-menu__foot">
     <button type="button" class="flow-menu__switch" id="persona-toggle">View as Tailor</button>
     <span class="flow-menu__hint">Keeps the current state</span>
@@ -151,6 +163,60 @@ function panelHtml() {
 }
 
 const isOpen = () => !$('#flow-menu')?.hidden;
+
+/* ---------- Demo actions (Study-1 §3): act on the live state, no reset ---------- */
+const DEMO = [['courier', 'Courier delivers'], ['reminder', 'To the reminder'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days']];   // K-41: the clock to the 24-hour reminder
+const DEMO_MIN = { h1: 60, h48: 48 * 60, d7: 7 * 24 * 60 };
+/** The appointment the demo acts on: the one on screen (focused), else the customer's active one, else the newest. */
+const demoAppt = () => (state.ui.apptId ? getAppt(state.ui.apptId) : null) ?? activeAppt() ?? state.appts[state.appts.length - 1] ?? null;
+/** Run a Demo action, then re-render the current screen; its wire() forwards (redirectIfMoved) when the appointment moved on. */
+function runDemo(kind) {
+  const a = demoAppt();
+  let msg;
+  const before = a?.reminder ? { ...a.reminder, status: a.status } : null;
+  if (kind === 'courier') {
+    const r = a ? T.courierDelivered(a.id) : { ok: false };
+    msg = r.ok ? 'The courier delivered it.' : 'No courier delivery to complete.';
+  } else if (kind === 'reminder') {
+    /* K-41: straight to the moment the 24-hour reminder goes out (26 h before the visit) */
+    if (a && reminderEligible(a) && !a.reminder?.sentAt && now() < reminderAt(a)) {
+      advanceClock(Math.ceil((reminderAt(a) - now()) / 60000));
+      msg = `Clock moved to ${fmtWhen(nowIso())}. The visit reminder went out.`;
+    } else msg = 'No visit reminder to send.';
+  } else {
+    advanceClock(DEMO_MIN[kind]);
+    msg = `Clock moved to ${fmtWhen(nowIso())}.`;
+  }
+  if (a) setFocus(a.id, { keepFrom: true });   // so the screen showing it follows it (c-booking → c-complete)
+  close();
+  const id = document.getElementById('screen')?.dataset.screen;
+  if (id) render(id, { replace: true });
+  toast(msg);
+  if (a && state.persona === 'customer') remindText(a, before);
+}
+
+/** K-41 (R3) + K-43 (D-301): the reminder, its one nudge, or the auto-cancel happened during a Demo action → the customer's text message
+    (an SMS with its unique link; tapping it routes in, as the push did). The reminder opens Home (Confirm is one tap there); the nudge and
+    the cancel open the booking. */
+function remindText(a, before) {
+  const r = a.reminder;
+  if (!r) return;
+  const t = state.tailors.find((x) => x.id === a.tailorId);
+  const first = (t?.name || 'Your tailor').split(' ')[0];
+  const day = dayWord(a.slot.start, now());
+  const at = fmtTime(a.slot.start);
+  const dep = fmtExact(a.payments.deposit.cents);
+  const place = a.job.visitType === 'home' ? 'at your place' : `at ${t?.shopName ?? 'the shop'}`;
+  const text = (event, body, screen) => textBanner({ body, link: textLink(a.id, event), onOpen: () => { setFocus(a.id); render(screen); } });
+  if (a.status === 'cancelled' && a.cancel?.reason === 'unconfirmed' && before?.status === 'confirmed') {
+    text('auto-cancel', `We cancelled your ${at} visit with ${first} because you didn’t confirm by ${fmtTime(a.cancel.at)}. ${first} keeps your ${dep} deposit.`, 'c-booking');
+  } else if (r.sentAt && !before?.sentAt && !r.confirmedAt && now() < freeUntil(a)) {
+    text('reminder', `Still on for ${day}? ${first} · ${fmtWhen(a.slot.start)} ${place}. Free to change until ${fmtTime(freeUntil(a))} ${dayWord(freeUntil(a), now())}. Confirm or change:`, 'c-job');
+  } else if (r.nudgedAt && !before?.nudgedAt && !r.confirmedAt && a.status === 'confirmed') {
+    const by = autoCancelAt(a);
+    text('nudge', `You haven’t confirmed your ${at} visit with ${first} ${day}. Confirm by ${fmtTime(by)} or we’ll cancel it, and ${first} keeps your ${dep} deposit.`, 'c-booking');
+  }
+}
 
 function paintTab(which) {
   tab = which;
@@ -245,6 +311,7 @@ export function initFlowMenu(renderFn, { home } = {}) {
     paintTab(b.dataset.tab);
     $('[data-flow-list]').scrollTop = 0;
   }));
+  document.querySelectorAll('[data-demo]').forEach((b) => b.addEventListener('click', () => runDemo(b.dataset.demo)));
   $('[data-flow-list]').addEventListener('click', (e) => {
     const step = e.target.closest('[data-study-step]');
     if (step) { if (step.getAttribute('aria-disabled') !== 'true') stepStudy(Number(step.dataset.studyStep)); return; }

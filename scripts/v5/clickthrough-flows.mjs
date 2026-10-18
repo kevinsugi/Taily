@@ -253,7 +253,7 @@ for (const f of all.filter((e) => matches(e.key))) {
     if (msg) problems.push(msg);
     /* K9-2-04 (D-233): at 195 no text may overprint other text in the same layer (scripts/v5/lib/overlap.mjs) */
     if (w === 195) {
-      const ov = await page.evaluate(textOverlaps, { OVERLAY_SEL });
+      const ov = await page.evaluate(textOverlaps, { OVERLAY_SEL: `${OVERLAY_SEL}, .text-banner` });   // K-43 (D-301): a text message floats over the app (its own layer), like the OS banner it stands for
       if (ov.length) problems.push(`overlap@195: ${ov.slice(0, 3).join('; ')}${ov.length > 3 ? ` (+${ov.length - 3})` : ''}`);
     }
   }

@@ -13,7 +13,7 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 | M7 World-class polish | **done** (f81baad) | | V5 masters + all frames re-synced | before/after: https://claude.ai/artifact/DaSb9aAmGFEF2RSJAJ4SDa |
 | M6 Final pass | in progress: audit triaged into `docs/v5/M6-fixlist.md`, fix batches running (decisions D-154…D-174 logged) | | | |
 
-**Next action:** (Oct 16 2026) V5 is current through K-22 + D-251, and Figma is synced through K-22 (D-252: 29 frames re-drawn in place, 9 new frames, Hang Stage / Linen Stage / Tag / Request Strip masters added, Tailor Row rebuilt as the K-19 Q card). Open: hybrid F (https://claude.ai/artifact/M3qxVyXYEDedJhxWVeQc2Z) parked — Kevin chose A for now. Remaining revise candidates are all addressed by K-16 (see docs/v5/REVISE-CANDIDATES.md).
+**Next action:** (Oct 17 2026) main = V5 = abfc18b: K-23..K-26 plus the tailor usability Study-1 build (feat/tailor-study-1, merged --no-ff; spec docs/v5/STUDY-1-spec.md, verdicts K-27..K-43, defaults D-254..D-301; review https://claude.ai/artifact/FyW4Po18fdrqCJALDEraqV). Figma is synced only through K-22 (D-252) — the K-23..K-43 screens (handoff stage, time picker, reminder, texts, onboarding C1–C5, notes, Final order / Change the order) need a Figma sync. Open: hybrid F parked.
 
 ## Queued after M7 — impeccable (Kevin, Oct 14) — REVIEW GATE
 Run `/impeccable:impeccable` (Operate mode; launcher binary download approved by Kevin's "yes"):

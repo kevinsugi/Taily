@@ -5,7 +5,7 @@
    archived in js/v4/tailor-data.js.
    ============================================================ */
 import { state, apptsFor, tailorById, openSlots, getAppt, docsFor, isVerified, nextOpening, milesToShop, coversJob } from './state.js';
-import { SERVICES, VISIT_LABEL, VISIT_MINUTES, ZIP_INFO, hoodNames, SHOP_RADIUS_MI, placeForZip } from './data.js';
+import { SERVICES, VISIT_LABEL, VISIT_MINUTES, ZIP_INFO, hoodNames, SHOP_RADIUS_MI, placeForZip, SEED_JOB } from './data.js';
 import { rushFor, payoutFor, estimate } from './money.js';
 import { toDate, fmtWhen, fmtDay, fmtTime, dayDiff, payoutDay, isoDay, addMinutes, isoMinute } from './dates.js';
 
@@ -182,6 +182,12 @@ export function tailorRowProps(r, job = state.job, extra = {}) {
 /** P-29 / S-39 (D-359): HER row as a customer with `job` would get it — built the way tailorsFor builds it, but whether or not she is
     listed yet (under review, paused): `{ row, reason }`, `row` = a tailorsFor-shaped entry or null, `reason` = why that customer would not
     see her ('zip' | 'shop-off' | 'services' | 'nothing-open' | null). Previews (to-done, t-shop) print it with tailorRowProps. */
+/** K-53 L (D-431): the job a tailor's own previews price (t-shop "What customers see", to-done): the customer's draft while it has items,
+    else the seed sample's items on the same ZIP and visit type — after a request is sent the draft is empty, and the preview read
+    "Example: , home visit" with only the home fee. */
+export function previewJob(job = state.job) {
+  return job?.garments?.length ? job : { ...job, garments: structuredClone(SEED_JOB.garments), visitType: job?.visitType ?? SEED_JOB.visitType, zip: job?.zip ?? SEED_JOB.zip };
+}
 export function ownRow(job = state.job) {
   const t = myTailor();
   const none = (reason) => ({ row: null, reason });

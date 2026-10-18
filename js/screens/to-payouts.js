@@ -55,7 +55,7 @@ function backgroundBlock(t, u) {
   }
   const err = u.errors?.consent ? CONSENT_ERR : '';
   return `<section class="sec ${ID}__bg" aria-labelledby="${ID}-bg-h">${head}
-  <p class="t-body c-700 ${ID}__bg-lead">Customers book tailors Taily has checked. A background check company confirms who you are and looks at criminal records. It usually takes ${REVIEW_TIME}.</p>
+  <p class="t-body c-700 ${ID}__bg-lead">Customers book tailors Taily has checked. A background check company confirms who you are and looks at criminal records. It runs last, once your ID, years and payout details pass, and usually takes ${REVIEW_TIME}.</p>
   <div class="${ID}__bg-read">${textLink('Read the disclosure', { act: 'disclosure', attrs: 'aria-haspopup="dialog"' })}</div>
   ${checkRow({ id: 'bg-consent', label: 'I agree to a background check', caption: 'I’ve read the disclosure.', checked: !!u.consent, error: err, attrs: 'data-act="consent"' })}
 </section>`;

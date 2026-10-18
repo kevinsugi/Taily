@@ -7,6 +7,8 @@
 .t-phone__legal .t-phone__link { position: relative; z-index: 1; }
 .t-phone__steps { margin: var(--rhythm-section) 0 0; }
 .t-phone__other { margin: var(--rhythm-group) 0 0; }
+.t-phone__switch { margin: var(--space-12) 0 0; }   /* K-52 (D-420): Join ⇄ Log in */
+.t-phone__create { margin: var(--space-12) 0 0; }
 .t-phone__link {
   display: inline; padding: var(--space-12) var(--space-4); margin: calc(var(--space-12) * -1) calc(var(--space-4) * -1);
   font: inherit; font-weight: 600; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px;

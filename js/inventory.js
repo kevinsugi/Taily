@@ -23,15 +23,17 @@ export const MILESTONES = [
   { id: 'PM', name: 'Pre-MVP fix pass (K-48)' },
   { id: 'A2', name: 'Pre-MVP A2: Taily Help, the admin, disputes, report / block, garment protection' },
   { id: 'K53', name: 'Pre-MVP K-53 M: hold at Ready, fee 15 + the fee page, no-show = deposit, the admin Ledger, the free window’s end' },
+  { id: 'RL', name: 'MVP readiness L: log in, admin sign-in, availability, legal drafts (K-52 / K-53)' },
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM', 'A2', 'K53'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM', 'A2', 'K53', 'RL'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
     { key: 'c-welcome', m: 'M1', kind: 'frame' },
     { key: 'c-welcome--deleted', m: 'PM', kind: 'state' },
+    { key: 'c-welcome--social', m: 'RL', kind: 'state' },
   ] },
   { id: 'c-phone', m: 'M1', persona: 'customer', title: 'Enter US phone number', states: [
     { key: 'c-phone', m: 'M1', kind: 'frame' },
@@ -39,11 +41,17 @@ export const SCREENS = [
     { key: 'c-phone--sending', m: 'M1', kind: 'state' },
     { key: 'c-phone--social', m: 'PM', kind: 'frame' },
   ] },
+  { id: 'c-login', m: 'RL', persona: 'customer', title: 'Log in (K-52): Welcome back, her number, the same code step; an unknown number says so (Create one), never a silent sign-up', states: [
+    { key: 'c-login', m: 'RL', kind: 'frame' },
+    { key: 'c-login--unknown', m: 'RL', kind: 'frame' },
+    { key: 'c-login--invalid', m: 'RL', kind: 'state' },
+  ] },
   { id: 'c-code', m: 'M1', persona: 'customer', title: '6-digit SMS code', states: [
     { key: 'c-code', m: 'M1', kind: 'frame' },
     { key: 'c-code--wrong', m: 'M1', kind: 'state' },
     { key: 'c-code--expired', m: 'M1', kind: 'state' },
     { key: 'c-code--resend', m: 'M1', kind: 'state' },
+    { key: 'c-code--login', m: 'RL', kind: 'state' },
   ] },
   { id: 'c-name', m: 'M1', persona: 'customer', title: 'First + last name (new accounts only)', states: [
     { key: 'c-name', m: 'M1', kind: 'frame' },
@@ -299,6 +307,7 @@ export const SCREENS = [
     { key: 'c-help', m: 'A2', kind: 'frame' },
     { key: 'c-help--empty', m: 'A2', kind: 'state' },
     { key: 'c-help--safety', m: 'A2', kind: 'overlay' },
+    { key: 'c-help--contact', m: 'RL', kind: 'state' },
   ] },
   { id: 'c-case', m: 'A2', persona: 'customer', title: 'The Taily Help thread (DG-1 B): order attached, topic chips, Taily is reviewing · Reply by, the decision in dollars', states: [
     { key: 'c-case', m: 'A2', kind: 'frame' },
@@ -317,6 +326,7 @@ export const SCREENS = [
     { key: 'c-policy--terms', m: 'PM', kind: 'frame' },
     { key: 'c-policy--privacy', m: 'PM', kind: 'state' },
     { key: 'c-policy--accessibility', m: 'PM', kind: 'state' },
+    { key: 'c-policy--sms', m: 'RL', kind: 'state' },
   ] },
   { id: 'c-profile', m: 'PM', persona: 'customer', title: 'Account → Personal info: names, an optional email for receipts, the phone with Change (DG-3 A)', states: [
     { key: 'c-profile', m: 'PM', kind: 'frame' },
@@ -361,6 +371,8 @@ export const SCREENS = [
     { key: 't-phone--invalid', m: 'M2', kind: 'state' },
     { key: 't-phone--saved', m: 'M2', kind: 'state' },
     { key: 't-phone--deleted', m: 'PM', kind: 'state' },
+    { key: 't-phone--login', m: 'RL', kind: 'frame' },
+    { key: 't-phone--login-unknown', m: 'RL', kind: 'state' },
   ] },
   { id: 't-code', m: 'M2', persona: 'tailor', title: 'SMS code (same errors as `c-code`)', states: [
     { key: 't-code', m: 'M2', kind: 'frame' },
@@ -422,6 +434,11 @@ export const SCREENS = [
     { key: 'to-availability--empty', m: 'M2', kind: 'state' },
     { key: 'to-availability--overlap', m: 'M2', kind: 'state' },
     { key: 'to-availability--edit', m: 'M2', kind: 'state' },
+    { key: 'to-availability--two-windows', m: 'RL', kind: 'frame' },
+    { key: 'to-availability--windows-overlap', m: 'RL', kind: 'state' },
+    { key: 'to-availability--time-off', m: 'RL', kind: 'frame' },
+    { key: 'to-availability--time-off-booked', m: 'RL', kind: 'state' },
+    { key: 'to-availability--time-off-sheet', m: 'RL', kind: 'overlay' },
   ] },
   { id: 'to-payouts', m: 'M2', persona: 'tailor', title: 'O6 background check consent + the Taily fee in dollars + the payments partner\'s hosted payout step (DG-4 B, D-06); edit: the partner\'s status', states: [
     { key: 'to-payouts', m: 'M2', kind: 'frame' },
@@ -438,6 +455,7 @@ export const SCREENS = [
     { key: 'to-done--bookable', m: 'PM', kind: 'frame' },
     { key: 'to-done--needs-you', m: 'PM', kind: 'state' },
     { key: 'to-done--waitlist', m: 'PM', kind: 'frame' },
+    { key: 'to-done--approved', m: 'RL', kind: 'frame' },
   ] },
   { id: 't-shop', m: 'M2', persona: 'tailor', title: 'T7 Shop: every onboarding section with its summary, Edit each, Rush fees row', states: [
     { key: 't-shop', m: 'M2', kind: 'frame' },
@@ -451,6 +469,9 @@ export const SCREENS = [
     { key: 't-shop--delete-blocked', m: 'PM', kind: 'overlay' },
     { key: 't-shop--delete-payout', m: 'PM', kind: 'overlay' },
     { key: 't-shop--delete', m: 'PM', kind: 'overlay' },
+    { key: 't-shop--after-request', m: 'RL', kind: 'state' },
+    { key: 't-shop--availability', m: 'RL', kind: 'state' },
+    { key: 't-shop--approved', m: 'RL', kind: 'state' },
   ] },
   { id: 't-texts', m: 'A1', persona: 'tailor', title: 'Shop → Texts: requests and job texts on / off, the STOP state (D-02)', states: [
     { key: 't-texts', m: 'A1', kind: 'frame' },
@@ -472,6 +493,8 @@ export const SCREENS = [
     { key: 't-policy--terms', m: 'PM', kind: 'frame' },
     { key: 't-policy--agreement', m: 'PM', kind: 'state' },
     { key: 't-policy--privacy', m: 'PM', kind: 'state' },
+    { key: 't-policy--sms', m: 'RL', kind: 'state' },
+    { key: 't-policy--fee', m: 'RL', kind: 'state' },
   ] },
   { id: 't-change-phone', m: 'PM', persona: 'tailor', title: 'Shop → Account → Phone number: a code to the new number (DG-3 A)', states: [
     { key: 't-change-phone', m: 'PM', kind: 'frame' },
@@ -670,10 +693,18 @@ export const SCREENS = [
     { key: 't-thread--more', m: 'A2', kind: 'overlay' },
     { key: 't-thread--blocked', m: 'A2', kind: 'state' },
   ] },
+  { id: 'a-login', m: 'RL', persona: 'admin', title: 'The admin\'s own sign-in (K-52): email, a code by email, then the authenticator code; ?admin, linked from nowhere in the app; every a-* screen needs it', states: [
+    { key: 'a-login', m: 'RL', kind: 'frame' },
+    { key: 'a-login--not-admin', m: 'RL', kind: 'state' },
+    { key: 'a-login--code', m: 'RL', kind: 'frame' },
+    { key: 'a-login--code-wrong', m: 'RL', kind: 'state' },
+    { key: 'a-login--second', m: 'RL', kind: 'frame' },
+  ] },
   { id: 'a-inbox', m: 'A2', persona: 'admin', title: 'Admin inbox (K-48.1: support = the CEO): open cases, notifications newest first, unread count', states: [
     { key: 'a-inbox', m: 'A2', kind: 'frame' },
     { key: 'a-inbox--empty', m: 'A2', kind: 'state' },
     { key: 'a-inbox--closed', m: 'A2', kind: 'state' },
+    { key: 'a-inbox--tools', m: 'RL', kind: 'state' },
   ] },
   { id: 'a-case', m: 'A2', persona: 'admin', title: 'One case for the admin: the order’s money, the actions (refund / keep deposit, release / capture hold, cancel, pause / release payout), close with outcome, reply to either side', states: [
     { key: 'a-case', m: 'A2', kind: 'frame' },

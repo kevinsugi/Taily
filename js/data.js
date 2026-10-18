@@ -25,11 +25,13 @@ export const GARMENT_TYPES = {
 export const TRUST_BADGES = ['ID verified', 'Background check', 'Insured'];
 /** DG-4 option B (K-48 / D-05 / D-06, D-350): the four checks behind the Verified check, in Kevin's order. Every one must pass before a tailor
     is listed (POLICY.LIVE_REQUIRES_VERIFIED) and before the Verified check shows. No insurance item: insurance is provided by Taily (Kevin). */
+/* K-53 Q8 (D-427): the background check runs LAST (NYC Fair Chance Act: a conditional approval first) — ID and profile photo → Years
+   tailoring → Payout and tax info → Background check. Still not listed until all four pass (K-49). */
 export const VERIFY_ITEMS = [
   { id: 'id', label: 'ID and profile photo' },
-  { id: 'background', label: 'Background check' },
   { id: 'years', label: 'Years tailoring' },
   { id: 'payout', label: 'Payout and tax info' },
+  { id: 'background', label: 'Background check' },
 ];
 export const itemsLabel = (n, word = 'Item') => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -229,6 +231,9 @@ export const BOOKING_LIMITS = { NOTE_MAX: 200, ACCESS_MAX: 140 };
 /** DG-3 A (pre-MVP B2): the record a deleted customer account leaves behind — signed out, nothing personal; past orders stay with the old id. */
 export const BLANK_CUSTOMER = { id: 'customer-new', first: '', last: '', initials: '', phone: '', email: '', addresses: [], address: null, cards: [], applePay: false };
 export const CHAT_LIMITS = { PHOTOS_MAX: 3 };
+/** K-52 (D-421): the one Taily admin (Kevin, K-48.1). PROTOTYPE: the address is a placeholder; production signs in through the real identity
+    provider with a code by email and an authenticator app (the second factor). A backup admin (K-53 Q10) is a second account like this. */
+export const ADMIN_ACCOUNT = Object.freeze({ email: 'kevin@taily.app', name: 'Kevin' });
 /** K-02 (D-176): fitting documentation. Up to 4 Before and 4 Pinned photos per garment, a comment of up to 200 characters. */
 export const FITTING_LIMITS = { PHOTOS_MAX: 4, COMMENT_MAX: 200 };
 export const DOC_KINDS = ['before', 'pinned'];

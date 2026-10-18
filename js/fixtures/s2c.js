@@ -137,7 +137,7 @@ export const FLOWS_t_case = [
 export const FLOWS_c_policy = [
   { ...at('c-policy'), key: 'c-policy', title: 'Garment protection', note: 'D-21: a dollar cap per order (MONEY) and a 48-hour report window (POLICY); COUNSEL placeholder copy, marked on the page',
     setup: (S) => { S.state.ui.policy = 'garment'; },
-    expect: { has: ['Garment protection', `Taily pays to repair or replace it, up to ${CAP} per order.`, `Tell us within ${C2_POLICY.GARMENT_REPORT_H} hours of getting your order back.`, 'Draft for counsel', 'Get help'], not: '%', sel: '[data-counsel]' } },
+    expect: { has: ['Garment protection', `Taily pays to repair or replace it, up to ${CAP} per order.`, `Tell us within ${C2_POLICY.GARMENT_REPORT_H} hours of getting your order back.`, 'Draft — counsel review required', 'Get help'], not: '%', sel: '[data-counsel]' } },
   { ...at('c-policy'), key: 'c-policy--cancellation', title: 'Cancellation and refunds', note: 'Help → Policies: every number from POLICY',
     setup: (S) => { S.state.ui.policy = 'cancellation'; },
     expect: { has: ['Cancellation and refunds', `Cancel for free until ${C2_POLICY.CANCEL_WINDOW_H} hours before your visit.`, 'It can take 5 to 10 business days to show.'], not: 'Draft for counsel' } },
@@ -145,7 +145,7 @@ export const FLOWS_c_policy = [
 export const FLOWS_t_policy = [
   { ...at('t-policy'), key: 't-policy', title: 'Garment protection (tailor)', note: 'D-21: Taily insures what she works on, up to the cap; she never pays the customer herself',
     setup: (S) => { S.state.ui.policy = 'garment'; },
-    expect: { has: ['Garment protection', `Taily insures the garments you work on through Taily, up to ${CAP} per order.`, 'You don’t pay the customer yourself.', 'Draft for counsel'] } },
+    expect: { has: ['Garment protection', `Taily insures the garments you work on through Taily, up to ${CAP} per order.`, 'You don’t pay the customer yourself.', 'Draft — counsel review required'] } },
   { ...at('t-policy'), key: 't-policy--safety', title: 'Safety (tailor)', note: 'S-32: 911 first, report or block, privacy',
     setup: (S) => { S.state.ui.policy = 'safety'; },
     expect: { has: ['Safety', 'Call 911 first. Then tell us what happened.', 'From a chat, tap More, then Report or Block.', 'A job already booked stays until Taily contacts you both.'] } },

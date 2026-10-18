@@ -12,9 +12,9 @@ import { onboardTo, NEW_TAILOR_PHONE, earningsTo } from './common.js';
 import * as A from '../account.js';
 
 export const FLOWS_t_phone = [
-  { key: 't-phone', screen: 't-phone', group: 'M2 · Tailor sign-up', title: 'Tailor sign-up — phone', note: 'Signed out: empty field, the six-step promise, Book one link',
+  { key: 't-phone', screen: 't-phone', group: 'M2 · Tailor sign-up', title: 'Tailor sign-up — phone', note: 'Signed out: Join (K-52: Log in is its own mode), the six-step promise, Book one link',
     setup: () => { A.signOut('tailor'); },
-    expect: { has: ['FOR TAILORS', 'Sign in or join with your mobile number.', 'Mobile number', 'Send code', 'New to Taily? Six short steps', 'Reply STOP to opt out', 'By continuing you agree to Taily’s Tailor Terms and Privacy Policy.'], sel: '#phone' } },
+    expect: { has: ['FOR TAILORS', 'Join Taily with your mobile number.', 'Mobile number', 'Send code', 'Six short steps, about 10 minutes', 'Already on Taily? Log in', 'Reply STOP to opt out', 'By continuing you agree to Taily’s Tailor Terms and Privacy Policy.'], sel: '[data-mode="join"] #phone' } },
   { key: 't-phone--invalid', screen: 't-phone', group: 'M2 · Tailor sign-up', title: 'Tailor sign-up — invalid', note: '347555 then Send code',
     setup: (S) => { A.signOut('tailor'); S.state.ui['t-phone'] = { phone: '347555' }; },
     click: ['[data-act="send-code"]'],

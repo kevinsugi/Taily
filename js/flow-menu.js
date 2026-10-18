@@ -9,6 +9,9 @@
 
    Lives in .stage-caption, OUTSIDE .screen, and stays hidden until the
    first input (html.has-input) — the diff harness never sees it.
+   K-53 a8 (D-422): and only while the admin's tools are on (html.tools-on:
+   he signed in at a-login, or a ?test=1 / ?flow= / ?study= boot) —
+   never for a customer or a tailor.
    Initialised by app.js after the screen modules (an entry's `click`
    presses screen buttons, so the screens must be registered first).
    ============================================================ */
@@ -249,6 +252,11 @@ export function openStudy(n = 1) {
   if (isOpen()) close();
   open();
 }
+
+/** K-53 a8 (D-422): a-inbox's "Test flows" button opens the panel (app.js openTestFlows, only while the admin's tools are on). */
+export function openMenu() { if (!isOpen()) open(); }
+/** The admin signed out: the panel closes before the tools hide (app.js lockTools). */
+export function closeMenu() { close(); }
 
 function close({ focusTrigger = false } = {}) {
   const menu = $('#flow-menu');

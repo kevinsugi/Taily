@@ -14,7 +14,7 @@
    Because the state is genuine you can keep clicking forward, or flip
    persona with "View as …" — both sides stay in step.
 
-   Entries live in js/fixtures/m0.js … m6.js + s1a … s1f.js + s2a.js + s2b.js + s2c.js + s2d.js + s3m.js (one `FLOWS_<screen_id>`
+   Entries live in js/fixtures/m0.js … m6.js + s1a … s1f.js + s2a.js … s2d.js + s3m.js + s3l.js (one `FLOWS_<screen_id>`
    array per screen); ALL_FLOWS concatenates every FLOWS_* export.
    `S = { state, T, driveTo, setClock, advanceClock, sim, job, tailor, appt }`.
    Keys are URL-safe: `?flow=<key>` boots straight into a state.
@@ -41,11 +41,13 @@ import * as S2B from './fixtures/s2b.js';   // pre-MVP fix pass B1: supply side 
 import * as S2C from './fixtures/s2c.js';   // pre-MVP A2: Taily Help, the admin, disputes, report / block, garment protection (K-48.1, DG-1 B)
 import * as S2D from './fixtures/s2d.js';   // pre-MVP fix pass B2: Account v2, deposit button V3, sign-in + phone, receipts, reviews, notes (K-48 / K-49, D-370…D-379)
 import * as S3M from './fixtures/s3m.js';   // pre-MVP K-53 track M: hold at Ready, courier re-quote, the fee page, no-show = deposit, the admin Ledger, the free window's end
+import * as S3L from './fixtures/s3l.js';   // MVP readiness, track L (K-52 / K-53): log in, the admin's sign-in, availability, legal drafts, checks order (D-420…)
+import { adminTestSession } from './account.js';
 
 /** Every `FLOWS_*` array of every milestone, in inventory order (module namespaces list their exports alphabetically,
     so the screen's position in js/inventory.js is the sort key; a stable sort keeps each screen's own entry order). */
 const ORDER = new Map(SCREENS.map((s, i) => [s.id, i]));
-export const ALL_FLOWS = [M0, M1, M2, M3, M4, M5, M6, S1A, S1B, S1C, S1D, S1E, S1F, S2A, S2B, S2C, S2D, S3M]
+export const ALL_FLOWS = [M0, M1, M2, M3, M4, M5, M6, S1A, S1B, S1C, S1D, S1E, S1F, S2A, S2B, S2C, S2D, S3M, S3L]
   .flatMap((mod) => Object.keys(mod).filter((k) => k.startsWith('FLOWS_')).flatMap((k) => mod[k]))
   .sort((a, b) => (ORDER.get(a.screen) ?? 1e6) - (ORDER.get(b.screen) ?? 1e6));
 
@@ -66,11 +68,17 @@ export function setBootLatency(v) {
   state.sim.latency = v;
 }
 
-/** Back to the app's boot state: the seed, no screen-local UI flags, the boot latency, customer persona. */
+/** K-53 a8 (D-422): the Test-flows tools are the admin's — while they are on (app.js: he signed in, or a test boot) every flow runs inside
+    his signed-in session, so an a-* entry opens without a-login (K-52's "a Test-flows shortcut still allowed"). */
+let adminTools = false;
+export function setAdminTools(on) { adminTools = !!on; }
+
+/** Back to the app's boot state: the seed, no screen-local UI flags, the boot latency, customer persona (+ the admin's session, above). */
 export function resetDemo() {
   reset();
   state.ui = {};
   state.sim.latency = bootLatency;
+  if (adminTools) adminTestSession();
 }
 
 /** The toolkit every setup composes. Getters, so a `driveTo` inside a setup (which resets) is seen by later reads. */

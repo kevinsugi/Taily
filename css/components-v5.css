@@ -542,6 +542,14 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .day-hours__time:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 .day-hours--error .day-hours__time { box-shadow: inset 0 0 0 1px var(--error); }
 .day-hours__error { padding-bottom: var(--space-8); }
+/* K-53 a4 (S-34, D-424): a split day — the second window's ✕ and "Add more hours" */
+.day-hours__times[data-second] { margin-top: calc(-1 * var(--space-4)); }
+.day-hours--split .day-hours__time { min-width: 0; flex: 1 1 0; }   /* both rows share the width with the ✕ (no overflow at 320) */
+.day-hours--split .day-hours__times:not([data-second])::after { content: ""; flex: 0 0 var(--touch); margin-left: calc(-1 * var(--space-4)); }   /* the first row keeps the ✕'s column, so the times line up */
+.day-hours__remove { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 var(--touch); width: var(--touch); height: var(--touch); margin-left: calc(-1 * var(--space-4)); border-radius: var(--radius-full); color: var(--neutral-600); }
+.day-hours__remove svg { width: var(--size-16); height: var(--size-16); }
+.day-hours__remove:focus-visible, .day-hours__add:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.day-hours__add { align-self: flex-start; min-height: var(--touch); margin-top: calc(-1 * var(--space-8)); padding-inline: 0; color: var(--accent-ink); background: none; border: 0; }
 
 /* ---------- customer preview ---------- */
 .customer-preview { display: flex; flex-direction: column; gap: var(--space-8); }
@@ -1509,19 +1517,19 @@ a.cta-small { text-decoration: none; }
 .help-home__ask { display: flex; flex-direction: column; gap: var(--space-12); }
 .help-home__ask p { margin: 0; }
 .help-home__list .list-row { min-height: 64px; }
+.help-home__note { margin: var(--space-8) 0 0; text-wrap: pretty; }   /* K-53 Q10 (D-430): the backup admin + after-hours line */
 .help-home__dot { display: inline-block; width: var(--space-8); height: var(--space-8); margin-left: var(--space-4); border-radius: var(--radius-full); background: var(--accent-base); vertical-align: middle; }
 .help-home__select { user-select: text; font-variant-numeric: tabular-nums; }
 .policy { gap: 0; padding-bottom: var(--space-40); }
 .policy__sec { display: flex; flex-direction: column; gap: var(--space-8); }
 .policy__title, .policy__line { margin: 0; }
-.policy__counsel { display: flex; gap: var(--space-8); align-items: flex-start; margin: var(--rhythm-block) 0 0; padding: var(--space-12); border-radius: var(--radius-md); background: var(--neutral-100); }
-.policy__counsel svg { flex-shrink: 0; margin-top: var(--space-4); }
 /* the legal pages (B2's c-legal / t-legal, unified into c-policy / t-policy at the merge, D-380): the version line, IN SHORT as a list, the counsel block */
 .policy__version { margin: var(--space-4) 0 0; }
 .policy__list { display: flex; flex-direction: column; gap: var(--space-12); margin: 0; padding-left: var(--space-20); }
 .policy__list li { text-wrap: pretty; }
-.policy__full { gap: var(--space-4); padding: var(--space-16); border-radius: var(--radius-lg); background: var(--neutral-100); }
-.policy__full p { margin: 0; }
+/* K-53 b (D-429): the draft line at the top of every legal draft (the "Full text coming soon" block is retired) */
+.policy__draft { display: flex; gap: var(--space-8); align-items: flex-start; margin: var(--space-4) 0 0; padding: var(--space-12); border-radius: var(--radius-md); background: var(--warning-bg); color: var(--warning-ink); }
+.policy__draft svg { flex-shrink: 0; margin-top: var(--space-4); }
 .protection-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-8); row-gap: 0; }
 .protection-row > svg { flex-shrink: 0; color: var(--success); }
 .protection-row > span { flex: 1 1 200px; min-width: 0; }

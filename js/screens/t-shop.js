@@ -10,15 +10,17 @@
    Delete account (blocked while a job or a payout is open) in the shared confirm sheet (P-32).
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, sectionsDone, listed, verifyView, collectAddress, textsOn } from '../state.js';
-import { myTailor, tailorRowProps, ownRow } from '../tailor-data.js';
+import { state, T, sectionsDone, listed, verifyView, collectAddress, textsOn, approvedPendingBackground, noticeHours, timeOffList } from '../state.js';
+import { myTailor, tailorRowProps, ownRow, previewJob } from '../tailor-data.js';
+import { POLICY } from '../money-config.js';
+import { fmtShort } from '../dates.js';
 import { VISIT_LABEL, RETURN_LABEL } from '../data.js';
 import { cents, fmt } from '../money.js';
 import { openSignOut, openDeleteAccount, seeBlocker } from '../account-ui.js';
 import { LEGAL_FOR, policyTitle } from '../policies.js';
 import {
   chrome, headingRow, banner, customerPreview, tailorRow, miniProfile, listRow, textLink, sectionHead, statusPill, toggle, wireToggles, toast, ONBOARDING_STEPS, esc,
-  verifyChecklist, reviewPill, checksLine, openIdSheet, openBackgroundSheet, REVIEW_TIME,
+  verifyChecklist, reviewPill, checksLine, openIdSheet, openBackgroundSheet, REVIEW_TIME, APPROVED_PENDING_LINE,
 } from '../components.js';
 
 const ID = 't-shop';
@@ -35,7 +37,7 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 /** Her row as a customer with the demo job gets it (D-65) — P-29 (D-359): built the K-19 way even while she is paused or under review;
     null when the demo job doesn't fit her area, services or hours. */
 function previewRow() {
-  const job = state.job;
+  const job = previewJob();   // K-53 L (D-431): after a request the draft is empty — the sample items, not "Example: , home visit"
   const { row } = ownRow(job);
   return row ? tailorRow(tailorRowProps(row, job)) : null;
 }
@@ -70,6 +72,10 @@ const SUMMARY = {
     const days = (kind) => Object.keys(t.availability?.[kind] ?? {}).length;
     if (t.shop?.enabled) parts.push(days('shop') ? `Shop ${plural(days('shop'), 'day', 'days')}` : 'Shop: none set');
     if (t.home?.enabled) parts.push(days('home') ? `Home visits ${plural(days('home'), 'day', 'days')}` : 'Home visits: none set');
+    /* K-53 a4 (S-34): her notice when longer than Taily's, and the next time off */
+    if (parts.length && noticeHours(t) > POLICY.MIN_LEAD_H) parts.push(`${noticeHours(t)} hours notice`);
+    const off = timeOffList(t)[0];
+    if (parts.length && off) parts.push(`Off ${fmtShort(off.from)}${off.to !== off.from ? ` to ${fmtShort(off.to)}` : ''}`);
     return parts.join(' · ') || 'Not set up yet';
   },
   /* DG-4 (B mirror): the payments partner's status rides on the bank line */
@@ -105,7 +111,7 @@ const FINISH = { profile: ['your profile', 'profile'], services: ['your services
 
 function view(s) {
   const t = myTailor();
-  const job = s.job;
+  const job = previewJob(s.job);
   const ok = listed(t);
   const setUp = sectionsDone(t);
   const v = verifyView(t);
@@ -128,7 +134,7 @@ function view(s) {
       : banner({ tone: 'warning', title: 'Customers can’t book you right now', text: `Finish ${finish[0]} so customers can book you${t.live ? ' again' : ''}.`, actionLabel: `Finish ${finish[1]}`, actionAct: 'fix' });
   const checks = !ok && !v.allPassed ? `<section class="sec ${ID}__checks" id="${ID}-checks" aria-labelledby="${ID}-checks-h">
     ${sectionHead('Your checks', { id: `${ID}-checks-h` })}
-    <p class="t-small c-600 ${ID}__checks-lead">Customers can book you once all ${v.total} pass. Most reviews take ${REVIEW_TIME}.</p>
+    <p class="t-small c-600 ${ID}__checks-lead"${approvedPendingBackground(t) ? ' data-approved' : ''}>${approvedPendingBackground(t) ? `${APPROVED_PENDING_LINE} Customers can book you once it clears.` : `Customers can book you once all ${v.total} pass. Most reviews take ${REVIEW_TIME}.`}</p>
     ${verifyChecklist(t)}
   </section>` : '';
   const row = previewRow();

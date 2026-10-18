@@ -71,6 +71,12 @@ export const POLICY = Object.freeze({
      background check, years tailoring, payout and tax info). false = listed while the review runs (the Verified check still waits). */
   LIVE_REQUIRES_VERIFIED: true,
   PAYOUT_FIX_D: 9,          // DG-4 prototype: the payments partner's deadline to confirm paused tax info (production: the partner's own date)
+  /* ---- MVP readiness, track L (K-52 / K-53) ---- */
+  SOCIAL_SIGN_IN: false,    // K-53 Q9: phone-only sign-in for the pilot — Continue with Apple / Google stay in the code, hidden while false (D-423)
+  NOTICE_OPTIONS_H: Object.freeze([12, 24, 48]), // K-53 a4 (S-34): a tailor's minimum-notice choices after Taily's own MIN_LEAD_H, the shortest (D-425)
+  TIME_OFF_AHEAD_D: 180,    // K-53 a4 (S-34): time off can be set up to this many days ahead
+  SLOW_TEXT_FROM_H: 8,      // K-53 Q10: slow reminders (the 72 h nudges, the review reminder) go out only from 8:00 AM …
+  SLOW_TEXT_TO_H: 21,       // … until 9:00 PM; one that falls due at night goes the next morning. Time-critical texts stay round the clock (D-428)
   /* ---- pre-MVP A2 (K-48.1, DG-1 B): Taily Help ---- */
   HELP_REPLY_H: 24,         // D-01: Taily replies to a Help message within this long ("Reply by …" on the case strip)
   GARMENT_REPORT_H: 48,     // D-21: loss or damage is reported within this long of getting the order back (garment protection)

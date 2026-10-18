@@ -3,10 +3,12 @@
    overdue in the stop tone), then every notification newest first (new Help cases, safety reports and blocks, messages on a case, and
    every A1 review: a final order unanswered 7 days, a handoff problem, K-48.5's unanswered visit, the D-14 disputes …), then closed
    cases. The nav badge and the summary line count the unread notifications. Each row opens a-case.
+   K-52 / K-53 a8 (D-421, D-422): his session's own row at the end — Test flows (the panel, only for the signed-in admin) and Sign out
+   (→ a-login; the tools hide again).
    ============================================================ */
-import { register, render as go } from '../app.js';
+import { register, render as go, toolsAvailable, wireAdminTools } from '../app.js';
 import { state, T, adminInbox, getAppt, tailorById, caseById } from '../state.js';
-import { chrome, headingRow, sectionHead, statusPill, emptyState, esc } from '../components.js';
+import { chrome, headingRow, sectionHead, statusPill, emptyState, esc, adminTools } from '../components.js';
 import { fmtDay, fmtTime, isoDay } from '../dates.js';
 
 const ID = 'a-inbox';
@@ -55,13 +57,15 @@ function view() {
   ${box.open.length ? `<section class="sec">${sectionHead('Open cases', { count: box.open.length })}<div class="${ID}__list">${box.open.map(caseRow).join('')}</div></section>` : ''}
   ${box.notifications.length ? `<section class="sec">${sectionHead('Notifications', { count: box.unread ? `${box.unread} unread` : '' })}<div class="${ID}__notes card card--list">${box.notifications.map(noteRow).join('')}</div></section>` : ''}
   ${box.closed.length ? `<section class="sec">${sectionHead('Closed')}<div class="${ID}__list">${box.closed.map(caseRow).join('')}</div></section>` : ''}`}
+  ${adminTools({ testFlows: toolsAvailable() })}
 </main>`;
 }
 
 function wire(root) {
+  wireAdminTools(root);   // K-52 / K-53 a8 (D-421, D-422): Test flows · Sign out, the same row as a-ledger
   root.addEventListener('click', (e) => {
     const el = e.target.closest('[data-act]');
-    if (!el) return;
+    if (!el || el.closest('[data-admin-tools]')) return;
     if (el.dataset.act === 'open-note') {
       T.adminMarkRead(el.dataset.id);
       if (el.dataset.case && caseById(el.dataset.case)) { state.ui['a-case'] = { caseId: el.dataset.case }; go('a-case'); } else go(ID, { replace: true });

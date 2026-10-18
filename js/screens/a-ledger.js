@@ -6,9 +6,9 @@
    radio chip groups; the totals follow the filters. All dollars. Second tab of the admin nav (Inbox · Ledger).
    PROTOTYPE note in the footer: the books live in QuickBooks Online or Xero, fed from Stripe.
    ============================================================ */
-import { register, render as go } from '../app.js';
+import { register, render as go, toolsAvailable, wireAdminTools } from '../app.js';
 import { state, ledger } from '../state.js';
-import { chrome, headingRow, sectionHead, moneyRows, chipGroup, wireChipGroups, emptyState, esc } from '../components.js';
+import { chrome, headingRow, sectionHead, moneyRows, chipGroup, wireChipGroups, emptyState, esc, adminTools } from '../components.js';
 import { fmtDay, fmtTime, isoDay } from '../dates.js';
 
 const ID = 'a-ledger';
@@ -84,10 +84,12 @@ function view() {
   </section>
   ${rows.length ? dayGroups(rows) : `<p class="t-body c-600 ${ID}__nothing" data-empty="filtered">Nothing matches these filters.</p>`}`}
   <p class="t-small c-600 ${ID}__books" data-books>Prototype: the books live in QuickBooks Online or Xero, fed from Stripe. This view reads the same events, so every line here has a Stripe event behind it.</p>
+  ${adminTools({ testFlows: toolsAvailable() })}
 </main>`;
 }
 
 function wire(root) {
+  wireAdminTools(root);   // the L + M merge: Test flows · Sign out at the foot of both admin tabs
   wireChipGroups(root);
   root.addEventListener('chip', (e) => {
     const { name, value } = e.detail;

@@ -114,7 +114,7 @@ export const FLOWS_to_fee = [
 export const FLOWS_a_ledger = [
   { screen: 'a-ledger', group: G, key: 'a-ledger', title: 'Ledger', note: 'K-53 (c7): every money event, newest first, grouped by day, with totals — a completed pickup job (deposit, the balance held at ready, captured at pickup, the Taily fee, the payout paid on Friday) and a declined request (its deposit hold released)',
     setup: (S) => { ledgerDemo(S); },
-    expect: { has: ['Ledger', 'TOTALS', 'Taily revenue', 'Deposit hold', 'Deposit hold released', 'Balance hold', 'placed at ready', 'Balance captured', 'Taily fee', M3_exact(M3_SC.seed.tailyFee), 'Payout sent', 'QuickBooks Online or Xero'], sel: '[data-totals]' } },
+    expect: { has: ['Ledger', 'TOTALS', 'Taily revenue', 'Deposit hold', 'Deposit hold released', 'Balance hold', 'placed at ready', 'Balance captured', 'Taily fee', M3_exact(M3_SC.seed.tailyFee), 'Payout sent', 'QuickBooks Online or Xero', 'Test flows', 'Sign out'], sel: '[data-totals]', also: '[data-admin-tools] [data-act="admin-sign-out"]' } },   // the L + M merge: his tools row on both admin tabs
   { screen: 'a-ledger', group: G, key: 'a-ledger--empty', title: 'Ledger — nothing yet', note: 'K-53 (c7): no request sent, no money moved',
     expect: { has: ['No money yet', 'QuickBooks Online or Xero'], sel: '[data-empty="ledger"]' } },
   { screen: 'a-ledger', group: G, key: 'a-ledger--order', title: 'Ledger — one order', note: 'K-53 (c7): filtered to the declined request — its hold and the release; the totals follow',

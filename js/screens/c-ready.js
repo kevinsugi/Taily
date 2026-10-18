@@ -3,16 +3,18 @@
    Focal: the "How do you want it back?" radio group; the amount lives in the Hold button.
    Only the options Amara offers for this order render (returnOffer); nothing is pre-chosen
    unless there is exactly one. The Taily courier is three dollar lines before Pay enables.
+   K-40 (T1): a When row under the chosen way back opens the Scheduler in a sheet (openHandoffTime) — a pickup time, or a courier
+   delivery window (its fee shows once a window is picked); Hold waits for it. K-37: no Home drop-off.
    Which appointment: focusAppt (D-72). Screen-local flags: state.ui['c-ready'] { apptId, quoting, cardId }.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorById, returnOffer, returnAddress, priceChangeView } from '../state.js';
+import { state, T, tailorById, returnOffer, returnAddress, priceChangeView, slotText } from '../state.js';
 import {
   chrome, headingRow, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
   sheetOverlay, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, wireGarmentDocs, textLink, sectionHead,
-  linenStage, hangStage, returnedItems, andList,
+  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime,
 } from '../components.js';
-import { fmtDay } from '../dates.js';
+import { fmtDay, fmtTime, fmtTimeRange, nb as datesNb } from '../dates.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
 import { fmtExact } from '../money.js';
@@ -24,9 +26,8 @@ import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 const ID = 'c-ready';
 
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
-const nb = (text) => `<span class="nb">${esc(text)}</span>`;
 const money = (cents) => `<span data-money>${fmtExact(cents)}</span>`;
-const ICON = { pickup: META_ICONS.bag, dropoff: META_ICONS.home, courier: META_ICONS.truck };
+const ICON = { pickup: META_ICONS.bag, courier: META_ICONS.truck };
 const CARD_GLYPH = '<svg width="28" height="20" viewBox="0 0 28 20" fill="none" aria-hidden="true"><rect x="0.75" y="0.75" width="26.5" height="18.5" rx="3.25" stroke="currentColor" stroke-width="1.5"/><path d="M1 6.5h26" stroke="currentColor" stroke-width="1.5"/><path d="M4.5 14h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
 /** Screen-local flags, scoped to the appointment on screen (a different order starts clean). */
@@ -66,18 +67,26 @@ function read() {
     : failedId ? (methods.find((x) => x.id !== failedId)?.id ?? failedId)
       : (def?.id ?? 'apple-pay');
   const method = methods.find((m) => m.id === want) ?? methods[0];
-  return { a, t, u, first: firstOf(t), offered, sel, c, courierState, failed, failedId, methods, method };
+  /* K-40: the time picked for the chosen way back (a.handoff.slot; cleared when the way back changes) */
+  const slot = sel && a.returnOption === sel ? (a.handoff?.slot ?? null) : null;
+  return { a, t, u, first: firstOf(t), offered, sel, c, courierState, failed, failedId, methods, method, slot };
+}
+/** K-40: the courier fee is only added once a delivery window is picked — until then the money reads as without it. */
+function shownMoney(r) {
+  const m = r.a.money;
+  if (!(r.sel === 'courier' && !r.slot && m.courier > 0)) return m;
+  const total = m.total - m.courier;
+  return { ...m, courier: 0, total, balance: Math.max(0, total - m.deposit), refund: Math.max(0, m.deposit - total) };
 }
 
 function subOf(k, r) {
   const { t, first, c, courierState } = r;
   /* P1-3 (D-224): .nb only on the date / time; the shop + street run breaks between words (a word longer than the line still breaks, D-233) rather than run under the radio */
   if (k === 'pickup') return `<span class="c-ready__place">${esc(`${t.shopName}, ${t.shop?.street ?? ''}`)}</span>`;
-  if (k === 'dropoff') return `${esc(first)} brings it to <span class="c-ready__place">${esc(streetOf())}</span>`;
-  if (r.sel === 'courier' && courierState === 'ready') return `${money(c.cents)} · delivered today`;
+  if (r.sel === 'courier' && courierState === 'ready' && r.slot) return `${money(c.cents)} · Uber to your door`;
   if (r.sel === 'courier' && courierState === 'loading') return 'Getting a price…';
   if (r.sel === 'courier' && courierState === 'failed') return 'Price unavailable';
-  return `${nb('Uber, today')} · priced when you choose it`;
+  return 'Uber · priced when you pick a window';   // K-40: never "today" — the window decides when
 }
 
 /** CR-1b: the action-bar lead — why Hold waits, and once it can go, what was chosen. */
@@ -85,12 +94,22 @@ function barLead(r) {
   if (!r.sel) return 'Choose how to get it back first.';
   if (r.sel === 'courier' && r.courierState === 'loading') return 'Waiting for the courier price.';
   if (r.sel === 'courier' && r.courierState === 'failed') return 'Get a courier price, or pick another way back.';
-  if (r.sel === 'courier') return `Courier · ${money(r.c.cents)}`;
-  return `${esc(RETURN_LABEL[r.sel])} · Free`;
+  if (!r.slot) return r.sel === 'courier' ? 'Pick a delivery window first. The courier fee is added then.' : 'Pick a pickup time first.';
+  if (r.sel === 'courier') return `<span>Courier · arrives ${esc(fmtDay(r.slot.start).slice(0, 3))} ${esc(fmtTimeRange(r.slot.start, r.slot.end))}</span>${money(r.c.cents)}`;   // the lead is a flex row: words left, the amount right
+  return `Pickup ${esc(datesNb(slotText(r.slot)))} · Free`;
+}
+/** K-40: the When row under the chosen way back (pickup, or a priced courier). */
+function whenRow(r) {
+  const { sel, slot, first, courierState } = r;
+  if (!sel || (sel === 'courier' && courierState !== 'ready')) return '';
+  const sub = sel === 'courier'
+    ? (slot ? `Delivery window · courier collects ${esc(fmtTime(slot.collectAt))}` : `Courier windows from ${esc(first)}’s open hours`)
+    : (slot ? `Pickup time · ${esc(first)} has it ready then` : `From ${esc(first)}’s open hours, next ${POLICY.HANDOFF_PICK_DAYS} days`);
+  return `<div class="${ID}__when">${handoffWhenRow({ method: sel, text: slot ? slotText(slot) : '', sub, act: 'pick-time' })}</div>`;
 }
 const noLonger = (a) => `${firstOf(tailorById(a.tailorId) ?? state.tailors[0])} no longer offers that option. Pick another way back.`;
 /** CP-C47: the way back, as a word in a sentence ("Confirm pickup and get $6.50 back"). */
-const CHOICE_WORD = { pickup: 'pickup', dropoff: 'drop-off', courier: 'courier' };
+const CHOICE_WORD = { pickup: 'pickup', courier: 'courier' };
 
 /* ---------- view ---------- */
 /** "Your order" (K-2-01, D-127): what the balance pays for — the approved lines, plain rows, as on c-booking and Amara's "The work". */
@@ -112,13 +131,14 @@ function view() {
 </main>`;
   }
   const { a, t, first, offered, sel, c, courierState, failed } = r;
-  const off = !sel || (sel === 'courier' && courierState !== 'ready');
-  const zero = a.money.balance === 0;                                     // D-156: the final order is worth less than the deposit
-  const refund = a.money.refund;
+  const off = !sel || (sel === 'courier' && courierState !== 'ready') || !r.slot;   // K-40: Hold waits for the time too
+  const m = shownMoney(r);
+  const zero = m.balance === 0;                                           // D-156: the final order is worth less than the deposit
+  const refund = m.refund;
   const confirming = !!r.u.confirming;
   /* one way back offered → nothing to choose (R4-1-C-05, D-113) */
   const only = offered.length === 1 ? offered[0] : null;
-  const LINE_FOR = { pickup: `pick it up at ${esc(t.shopName)}`, dropoff: `${esc(first)} brings it to your door`, courier: 'a courier brings it today' };
+  const LINE_FOR = { pickup: `pick it up at ${esc(t.shopName)}`, courier: 'a courier brings it to your door' };
   const body = zero && refund > 0
       ? `${esc(first)} finished the work. Your final total is less than your deposit, so the difference comes back to your card.`   // R5: the amount is on the button and in Price
       : zero
@@ -150,15 +170,21 @@ function view() {
   })).join('');
   const single = offered.length === 1
     ? `<p class="t-small c-600 ${ID}__single">${esc(first)} offers ${esc(RETURN_LABEL[offered[0]].toLowerCase())} for this order.</p>` : '';
-  const courier = sel === 'courier'
+  /* K-40: the courier card (and its fee) once a window is picked; the wait / failure states as before */
+  const courier = sel === 'courier' && (courierState !== 'ready' || r.slot)
     ? `<div class="${ID}__courier">${courierCard({
       state: courierState, ...(courierState === 'ready' ? c : { miles: c?.miles ?? ZIP_INFO[a.job.zip]?.miles ?? 0 }),   // the distance is known before the price
       from: t.shopName, to: streetOf(), note: 'Added to your balance.',
     })}${courierState === 'failed' && offered.length === 1 ? textLink(`Message ${first}`, { act: 'message' }) : ''}</div>` : '';
   /* K-27 (Study-1 A2): what holding means, and the unclaimed rule, shown where the way back is chosen */
-  const bal = a.money.balance;
-  const hold = zero ? '' : `<div class="${ID}__hold" data-hold>
-  <p class="t-body c-700">We’ll hold ${money(bal)} now and charge it when you get your ${items.length > 1 ? 'garments' : 'garment'}.</p>
+  const bal = m.balance;
+  const things = items.length > 1 ? 'garments' : 'garment';
+  const feeLater = sel === 'courier' && courierState === 'ready' && !r.slot;   // K-40: the courier fee joins the hold with the window
+  const hold = zero ? '' : feeLater ? `<div class="${ID}__hold" data-hold>
+  <p class="t-body c-700">We’ll hold ${money(bal)} plus the courier fee now and charge it when you get your ${things}.</p>
+  <p class="t-small c-600">If you haven’t got it ${POLICY.UNCLAIMED_CAPTURE_D} days after you choose, we’ll charge it then. ${esc(first)} still keeps it for you until you do.</p>
+</div>` : `<div class="${ID}__hold" data-hold>
+  <p class="t-body c-700">We’ll hold ${money(bal)} now and charge it when you get your ${things}.</p>
   <p class="t-small c-600">If you haven’t got it ${POLICY.UNCLAIMED_CAPTURE_D} days after you choose, we’ll charge the ${money(bal)} then. ${esc(first)} still keeps it for you until you do.</p>
 </div>`;
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}">
@@ -166,15 +192,16 @@ function view() {
   <section class="sec">${sectionHead(only ? 'Getting it back' : 'How do you want it back?', { id: 'ready-ways' })}
   <div class="${ID}__group card card--list" role="radiogroup" aria-labelledby="ready-ways">${rows}</div>
   ${single}
+  ${whenRow(r)}
   ${courier}
   ${hold}</section>
   ${orderSection(a)}
   <section class="sec">${sectionHead('Price')}
-  ${customerBreakdown(a.money, { stage: 'ready', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true })}</section>
+  ${customerBreakdown(m, { stage: 'ready', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true })}</section>
   ${alert}
 </main>
 ${actionBar({
-    ctaLabel: zero ? (refund > 0 ? `Confirm${sel ? ` ${CHOICE_WORD[sel]}` : ''} and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : `Hold ${fmtExact(a.money.balance)}`,
+    ctaLabel: zero ? (refund > 0 ? `Confirm${sel ? ` ${CHOICE_WORD[sel]}` : ''} and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : `Hold ${fmtExact(m.balance)}`,
     ctaAct: zero ? 'confirm' : 'pay', disabled: off, busy: confirming, busyLabel: 'Confirming…', lead: barLead(r),
     secondaryLabel: `Message ${first}`, secondaryAct: 'message',
   })}`;
@@ -228,6 +255,26 @@ function choose(a, k) {
   go(ID);
 }
 
+/** The toast's second sentence after the hold (K-40): when and where it comes back. */
+const handoffTail = (appt, r) => (appt.returnOption === 'courier'
+  ? ` The courier arrives ${slotText(appt.handoff?.slot)}.`
+  : ` Pick it up at ${r.t.shopName}, ${slotText(appt.handoff?.slot)}.`);
+
+/** K-40 (T1): the When row opens the Scheduler sheet — pick the pickup time or the courier window (customer only). */
+function openWhen(r) {
+  const { a, t, first } = r;
+  if (!a.returnOption && r.sel) T.chooseReturn(a.id, r.sel);          // a single offer is pre-chosen on screen only
+  const courier = a.returnOption === 'courier';
+  openHandoffTime(a, {
+    mode: 'pick', first,
+    place: courier ? `${t.shopName} → ${streetOf()} · ${a.courier?.miles ?? 0} mi` : `${t.shopName} · ${t.shop?.street ?? ''}`,
+    courierCents: a.courier?.cents ?? 0,
+    dataS: courier ? `${ID}--courier-window` : `${ID}--pick-time`,
+    onDone: () => go(ID),
+    onMessage: () => { setFocus(a.id); go('c-thread'); },
+  });
+}
+
 /** D-156: nothing to pay (the final order is worth less than the deposit) — no pay sheet; confirming settles the refund. */
 function confirmZero(r) {
   const { a, u } = r;
@@ -244,9 +291,7 @@ function confirmZero(r) {
       return;
     }
     if (res.ok) {
-      const how = res.appt.returnOption;
-      const tail = how === 'pickup' ? ` Ready for pickup at ${r.t.shopName}.`
-        : how === 'dropoff' ? ` ${r.first} will drop it off.` : ' Your courier is on the way.';
+      const tail = handoffTail(res.appt, r);
       setFocus(a.id);
       go('c-booking', { fresh: true });
       toast(res.appt.money.refund > 0 ? `${fmtExact(res.appt.money.refund)} is on its way back to your card.${tail}` : `Confirmed.${tail}`, { tone: 'success' });
@@ -303,9 +348,7 @@ function openPay(r) {
             return;
           }
           if (res.ok) {
-            const how = res.appt.returnOption;
-            const tail = how === 'pickup' ? ` Ready for pickup at ${r.t.shopName}.`
-              : how === 'dropoff' ? ` ${r.first} will drop it off.` : ' Your courier is on the way.';
+            const tail = handoffTail(res.appt, r);
             setFocus(a.id);
             go('c-booking', { fresh: true });
             toast(`${fmtExact(res.appt.payments.balance.cents)} is on hold.${tail}`, { tone: 'success' });
@@ -362,6 +405,7 @@ function wire(root) {
       case 'return': if (el.dataset.value !== r.sel) choose(a, el.dataset.value); break;
       case 'courier-retry': state.sim.courier = 'ok'; choose(a, 'courier'); break;   // D-105
       case 'pay': openPay(read()); break;
+      case 'pick-time': openWhen(read()); break;
       case 'confirm': confirmZero(read()); break;
       case 'message': setFocus(a.id); go('c-thread'); break;
       default:

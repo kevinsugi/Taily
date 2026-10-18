@@ -1333,13 +1333,13 @@ a.cta-small { text-decoration: none; }
 }
 
 /* ===== S1-A ===== */
-/* Study-1 WS-A: pickup code, auto-complete line, delivery photo, review reminder */
+/* Study-1 WS-A: pickup code, auto-complete line, the photo figure (B1 edit photo), review reminder */
 .pickup-code { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-16) var(--space-20); border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: inset 0 0 0 1px var(--card-ring); }
 .pickup-code__digits { letter-spacing: 0.24em; font-variant-numeric: tabular-nums lining-nums; color: var(--ink); }
 .auto-line { display: flex; align-items: flex-start; gap: var(--space-8); margin: 0; }
 .auto-line svg { flex: none; width: var(--size-16); height: var(--size-16); margin-top: var(--space-2); color: var(--neutral-600); }
-.delivery-photo { display: flex; flex-direction: column; gap: var(--space-8); margin: 0; }
-.delivery-photo__frame { display: block; width: 128px; }
+.photo-figure { display: flex; flex-direction: column; gap: var(--space-8); margin: 0; }
+.photo-figure__frame { display: block; width: 128px; }
 .reminder-card { display: flex; gap: var(--space-12); align-items: flex-start; }
 .reminder-card__icon { flex: none; display: inline-flex; align-items: center; justify-content: center; width: var(--space-40); height: var(--space-40); border-radius: var(--radius-full); background: var(--accent-bg); color: var(--accent-ink); }
 .reminder-card__icon svg { width: var(--size-24); height: var(--size-24); }
@@ -1413,3 +1413,12 @@ a.cta-small { text-decoration: none; }
 .hood-map__caption { margin: 0; text-align: center; }
 /* C3 · a disabled outline small button (to-services "Use recommended prices" before anything is ticked) */
 .cta-small:disabled:not(.cta-small--filled) { background: var(--neutral-100); color: var(--neutral-500-ink); box-shadow: inset 0 0 0 1px var(--neutral-200); cursor: not-allowed; }
+
+/* ===== K-40 (T1) ===== the handoff time: the When row under the chosen way back, and the Scheduler sheet */
+.when-row .list-row__lead { color: var(--neutral-600); }
+.when-row__ask { color: var(--accent-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.when-row__val { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+.when-row.is-set { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.handoff-sheet { display: flex; flex-direction: column; gap: var(--space-16); width: 100%; }
+.handoff-sheet p { margin: 0; }
+.handoff-sheet__wheel { display: flex; justify-content: center; }

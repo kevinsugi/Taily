@@ -4,7 +4,7 @@
    Every milestone's Test-flows setup reuses it. DOM-free.
    ============================================================ */
 import {
-  state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt, handoffCode,
+  state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt, handoffCode, handoffSlots,
 } from '../state.js';
 import { addMinutes, addDays, isoMinute, isoDay } from '../dates.js';
 import { TAILORS, CUSTOMER, DEMO_NOW, DECLINE_REASONS, CANT_MAKE_IT_REASONS } from '../data.js';
@@ -70,13 +70,25 @@ export const NOTE_TEXT = {
   sketch: 'Sketch of the new lining pattern attached.',
 };
 
-/** Study-1 A3: the handoff each way back completes with — pickup: Sarah's code; courier: the courier delivers; drop-off: Amara marks it
-    delivered with a photo and Sarah taps "I got it". Throws on failure. */
+/** Study-1 A3: the handoff each way back completes with — pickup: Sarah's code; courier: the courier delivers (K-37: no drop-off).
+    Throws on failure. */
 export function handOver(id, how = getAppt(id).returnOption) {
-  if (how === 'pickup') return must(T.confirmPickup(id, handoffCode(getAppt(id))), 'confirmPickup');
   if (how === 'courier') return must(T.courierDelivered(id), 'courierDelivered');
-  must(T.markHandedOver(id, { photo: true }), 'markHandedOver');
-  return must(T.confirmReceived(id), 'confirmReceived');
+  return must(T.confirmPickup(id, handoffCode(getAppt(id))), 'confirmPickup');
+}
+
+/** K-40 (T1): the handoff times the fixtures pick, as wall-clock "HH:MM" — the pickup Fri, Oct 16 · 5:30 PM, the courier window
+    Fri, Oct 16 · 5:00–5:30 PM (the courier collects 4:45 PM) — and the times a change moves them to (Sat, Oct 17 · 2:00 PM; Fri 6:00–6:30 PM). */
+export const HANDOFF_PICK = { pickup: '17:30', courier: '17:00' };
+export const HANDOFF_MOVE = { pickup: '2026-10-17T14:00', courier: '2026-10-16T18:00' };
+/** The open handoff slot at `at` ("HH:MM" = the first day that has it, or a full ISO start), else the first open slot. */
+export function handoffPick(id, method = getAppt(id).returnOption, at = HANDOFF_PICK[method]) {
+  const slots = handoffSlots(getAppt(id), method);
+  return slots.find((x) => (at.length > 5 ? x.start === at : x.start.slice(11, 16) === at)) ?? slots[0] ?? null;
+}
+/** Pick the handoff time through the real transition (Sarah's move on c-ready / c-booking). Throws on failure. */
+export function pickHandoff(id, at) {
+  return must(T.setHandoffSlot(id, handoffPick(id, undefined, at)), 'setHandoffSlot');
 }
 
 const must = (r, step) => {
@@ -221,11 +233,12 @@ export function driveTo(target, opts = {}) {
   must(T.markReady(id), 'markReady');
   if (target === 'ready') return getAppt(id);
   must(T.chooseReturn(id, returnOption), 'chooseReturn');
+  pickHandoff(id);                                                          // K-40: the time comes before the hold
   must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
   if (target === 'awaiting-handoff') return getAppt(id);
   if (target === 'unclaimed') { advanceClock(POLICY.UNCLAIMED_CAPTURE_D * 24 * 60); return getAppt(id); }   // the hold is captured, the job stays open
   if (['handed-over', 'problem', 'auto-completed'].includes(target)) {
-    must(T.markHandedOver(id, { photo: returnOption === 'dropoff' }), 'markHandedOver');   // pickup: marked without the code
+    must(T.markHandedOver(id), 'markHandedOver');                            // pickup: marked without the code
     if (target === 'handed-over') return getAppt(id);
     if (target === 'problem') return must(T.reportNotReceived(id), 'reportNotReceived');
     advanceClock(POLICY.HANDOFF_AUTO_H * 60);                                 // the countdown runs out: completed automatically
@@ -297,6 +310,7 @@ export function completeJob(id, { returnOption = 'pickup' } = {}) {
   must(T.approvePriceChange(id), 'approvePriceChange');
   must(T.markReady(id), 'markReady');
   must(T.chooseReturn(id, returnOption), 'chooseReturn');
+  pickHandoff(id);
   must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
   return handOver(id, returnOption);
 }

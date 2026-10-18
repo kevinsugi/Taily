@@ -14,7 +14,7 @@
    Because the state is genuine you can keep clicking forward, or flip
    persona with "View as …" — both sides stay in step.
 
-   Entries live in js/fixtures/m0.js … m6.js + s1a … s1c.js (one `FLOWS_<screen_id>`
+   Entries live in js/fixtures/m0.js … m6.js + s1a … s1d.js (one `FLOWS_<screen_id>`
    array per screen); ALL_FLOWS concatenates every FLOWS_* export.
    `S = { state, T, driveTo, setClock, advanceClock, sim, job, tailor, appt }`.
    Keys are URL-safe: `?flow=<key>` boots straight into a state.
@@ -33,11 +33,12 @@ import * as M6 from './fixtures/m6.js';
 import * as S1A from './fixtures/s1a.js';   // Study-1 workstreams (STUDY-1-spec.md §4)
 import * as S1B from './fixtures/s1b.js';
 import * as S1C from './fixtures/s1c.js';
+import * as S1D from './fixtures/s1d.js';   // K-40 (T1) handoff time + K-37 no drop-off
 
 /** Every `FLOWS_*` array of every milestone, in inventory order (module namespaces list their exports alphabetically,
     so the screen's position in js/inventory.js is the sort key; a stable sort keeps each screen's own entry order). */
 const ORDER = new Map(SCREENS.map((s, i) => [s.id, i]));
-export const ALL_FLOWS = [M0, M1, M2, M3, M4, M5, M6, S1A, S1B, S1C]
+export const ALL_FLOWS = [M0, M1, M2, M3, M4, M5, M6, S1A, S1B, S1C, S1D]
   .flatMap((mod) => Object.keys(mod).filter((k) => k.startsWith('FLOWS_')).flatMap((k) => mod[k]))
   .sort((a, b) => (ORDER.get(a.screen) ?? 1e6) - (ORDER.get(b.screen) ?? 1e6));
 

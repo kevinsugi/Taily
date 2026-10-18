@@ -8,12 +8,12 @@
 
    M4 (M4-spec §C2, D-103): from the visit start the same screen walks
    the job — visit → fitting → waiting / messaged → in-progress →
-   ready → awaiting-handoff (pickup / dropoff / courier) → completed. Each
+   ready → awaiting-handoff (pickup / courier; K-37 no drop-off) → completed. Each
    state has ONE next thing in a sticky action bar; "what I take home"
    is always in dollars; the courier is never her money.
    ============================================================ */
 import { register, render as go, registered, personaHome, currentScreen } from '../app.js';
-import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable } from '../state.js';
+import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable, slotText, handoffMissed } from '../state.js';
 import { focusAppt, redirectIfMoved, statusWord, setFocus } from '../focus.js';
 import { myTailor, requestView, jobAddress, payoutOf, inbox, payoutLine } from '../tailor-data.js';
 import { CANT_MAKE_IT_REASONS, RETURN_LABEL, HANDOFF_CODE_LEN } from '../data.js';
@@ -22,16 +22,15 @@ import { fmtExact, noShowPayout, cancelTerms } from '../money.js';
 import { withLatency } from '../sim.js';
 import { toDate, addMinutes, isoMinute, fmtWhen, fmtDay, fmtTime, fmtTimeRange, dayDiff } from '../dates.js';
 import {
-  chrome, headingRow, statusHero, personBlock, calendarHref, cta, listRow, tailorBreakdown, moneyRows, workList,
+  chrome, headingRow, statusHero, personBlock, calendarHref, cta, tailorBreakdown, moneyRows, workList,
   emptyState, sheetOverlay, chipGroup, wireChipGroups, toast, esc, wirePhotoViewer,
   actionBar, checkRow, noteQuote, changeList, withPhotos, changeSummary, deltaText, statusPill, wireGarmentDocs,
   navBackMark, requestStrip, requestHead, pageHead, personActions, personButtons, visitBlock,
   sectionHead, textLink, infoButton, moreMenu, openMoreMenu, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR,
   linenStage, tagRail, returnedItems, stars,
-  banner, codeInput, autoCompleteLine, deliveryPhoto, photoStub, ICON_IMAGE,
+  banner, codeInput, autoCompleteLine, photoFigure,
   privateNotes, wirePrivateNotes, dueChange,
 } from '../components.js';
-import { ICON_CAMERA } from '../icons.js';
 
 const ID = 't-job';
 const ui = () => (state.ui[ID] ??= {});
@@ -169,7 +168,7 @@ function backHead(hero, a) {
 /* ============================================================
    M4 — the job after the visit starts (M4-spec §C2)
    ============================================================ */
-const RETURN_ICON = { pickup: 'bag', dropoff: 'home', courier: 'truck' };
+const RETURN_ICON = { pickup: 'bag', courier: 'truck' };
 /** "2:00–2:30 PM" (D-160): the pickup window — the same string c-booking's courier route block prints (K16-2-02). */
 function courierWhen(a) {
   const w = courierWindow(a);
@@ -186,7 +185,7 @@ function stateKey(a) {
   if (a.status === 'cancelled') return null;
   if (a.status === 'confirmed') return now() >= toDate(a.slot.start).getTime() ? 'visit' : null;
   if (a.status === 'price-change') return a.priceChange?.state === 'messaged' ? 'messaged' : 'waiting';
-  if (a.status === 'awaiting-handoff') return { dropoff: 'handoff-dropoff', courier: 'handoff-courier' }[a.returnOption] ?? 'handoff-pickup';
+  if (a.status === 'awaiting-handoff') return a.returnOption === 'courier' ? 'handoff-courier' : 'handoff-pickup';
   if (a.status === 'in-progress' && a.edit?.state === 'pending') return 'edit-pending';   // Study-1 B1: waiting on Sarah's answer
   return a.status; // fitting · in-progress · ready · completed
 }
@@ -200,8 +199,8 @@ function copyFor(key, a, t, v, pv) {
   const base = { pill: word.pill, label: word.label };
   const busy = ui().busy;
   const h = a.handoff ?? {};
-  /* Study-1 A3: pickup → Picked up (Sarah's code); drop-off → Delivered (a photo); once marked, nothing until Sarah answers or the countdown
-     ends; a reported problem → talk to Sarah (and, for a drop-off, mark it delivered again with a new photo). The courier needs no tap. */
+  /* Study-1 A3: pickup → Picked up (Sarah's code); once marked, nothing until Sarah answers or the countdown ends; a reported problem →
+     talk to Sarah. The courier needs no tap. K-40: only Sarah sets or moves the time, so Message is all Amara has for it. */
   const problemBar = (extra = {}) => ({ ctaLabel: `Message ${first}`, ctaAct: 'message', ...extra });
   switch (key) {
     case 'visit': return { ...base, title: 'Time for the fitting',
@@ -220,7 +219,6 @@ function copyFor(key, a, t, v, pv) {
     case 'edit-pending': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', disabled: true, note: `${first} hasn’t answered your changes yet.`, secondaryLabel: 'Edit the job', secondaryAct: 'edit-job' } };
     case 'ready': return { bar: null };   // K-12 (D-237): Message lives in the header; nothing else is hers to do until Sarah chooses
     case 'handoff-pickup': return { bar: h.problemAt ? problemBar() : h.markedAt ? null : { ctaLabel: 'Picked up', ctaAct: 'picked-up' } };
-    case 'handoff-dropoff': return { bar: h.problemAt ? problemBar({ secondaryLabel: 'Mark delivered again', secondaryAct: 'delivered' }) : h.markedAt ? null : { ctaLabel: 'Delivered', ctaAct: 'delivered' } };
     case 'handoff-courier': return { bar: null };   // default 6: the courier's delivery completes it
     default: return { ...base, bar: null };   // completed — K-20: the linen stage carries the title and the record line
   }
@@ -246,23 +244,26 @@ function stripFor(key, a, v, pv) {
         : { tone: 'calm', icon: 'clock', text: 'In progress', right: daysLeft(a) };
     case 'edit-pending': return { tone: 'warn', icon: 'clock', text: `Waiting on ${first} to approve your changes`, right: a.edit?.sentAt ? `Sent ${fmtTime(a.edit.sentAt)}` : '' };
     case 'ready': return { tone: 'warn', icon: 'clock', text: `Ready · ${first} is choosing how to get it back` };
-    case 'handoff-pickup':
-    case 'handoff-dropoff': {
+    case 'handoff-pickup': {
       const h = a.handoff ?? {};
-      const pickup = key === 'handoff-pickup';
       if (h.problemAt) return { tone: 'action', icon: 'chat', text: `${first} says she didn’t get it. Sort it out in chat.` };
-      if (h.markedAt) return pickup ? { tone: 'done', icon: 'bag', text: 'Marked as picked up' } : { tone: 'done', icon: 'home', text: `Delivered · photo sent to ${first}` };
-      if (!pickup) return { tone: 'action', icon: 'home', text: 'Home drop-off · agree on a time in chat' };
+      if (h.markedAt) return { tone: 'done', icon: 'bag', text: 'Marked as picked up' };
       const b = a.payments.balance;
-      return { tone: 'done', icon: 'bag', text: b.state === 'held' && b.cents > 0 ? `In-store pickup · ${first}’s ${fmtExact(b.cents)} is on hold` : `In-store pickup · waiting for ${first}` };
+      const held = b.state === 'held' && b.cents > 0;
+      /* K-40: the time Sarah picked leads; a move she made is Amara's news (accent) with the old time on the row under it */
+      if (h.slot && handoffMissed(a)) return { tone: 'warn', icon: 'clock', text: `${first} missed her ${fmtTime(h.slot.start)} pickup · she picks a new time` };
+      if (h.slot && h.moved?.from) return { tone: 'action', icon: 'bag', text: `${first} moved her pickup to ${slotText(h.slot)}` };
+      if (h.slot) return { tone: 'done', icon: 'bag', text: `${first} picks up ${slotText(h.slot)}${held ? ` · ${fmtExact(b.cents)} on hold` : ''}` };
+      return { tone: 'done', icon: 'bag', text: held ? `In-store pickup · ${first}’s ${fmtExact(b.cents)} is on hold` : `In-store pickup · waiting for ${first}` };
     }
-    default: { // courier
-      const when = courierWhen(a);
-      return { tone: 'done', icon: 'truck', text: `Courier booked${when ? ` · arrives ${when}` : ''} · completes on delivery` };
+    default: { // courier (K-40: the window Sarah picked; the courier collects COURIER_COLLECT_LEAD_MIN before it)
+      const w = courierWindow(a);
+      if (w && a.handoff?.moved?.from) return { tone: 'action', icon: 'truck', text: `${first} moved her delivery to ${slotText(a.handoff.slot)}` };
+      return { tone: 'done', icon: 'truck', text: w ? `Courier collects ${fmtTime(w.collectAt)} · arrives ${courierWhen(a)}` : 'Courier booked · completes on delivery' };
     }
   }
 }
-const STRIPPED = ['fitting', 'waiting', 'messaged', 'in-progress', 'edit-pending', 'ready', 'handoff-pickup', 'handoff-dropoff', 'handoff-courier'];
+const STRIPPED = ['fitting', 'waiting', 'messaged', 'in-progress', 'edit-pending', 'ready', 'handoff-pickup', 'handoff-courier'];
 
 /** What changed + the payout if approved (waiting / messaged), under the header. K-17 R3: at most ONE quote, the latest — Sarah's message, or
     Amara's reply once she has answered it, else the note that went with the order. */
@@ -286,13 +287,10 @@ function priceBlocks(a, pv, key) {
   ${tailorBreakdown(pv.after)}`, { id: `${ID}-take` })}`;
 }
 
-/** Study-1 A2–A3 under the header of a handoff: the drop-off photo she sent, the countdown once she marked it, and the unclaimed capture. */
+/** Study-1 A2–A3 under the header of a handoff: the countdown once she marked it, and the unclaimed capture. */
 function handoffNotes(a) {
-  const h = a.handoff ?? {};
   const b = a.payments.balance;
-  const items = returnedItems(a);
   const parts = [
-    h.photo && a.returnOption === 'dropoff' ? deliveryPhoto({ photo: h.photo, type: items[0]?.type ?? '', by: 'you' }) : '',
     autoCompleteLine(autoCompleteLeft(a), { who: firstOf() }),
     b.state === 'captured' && b.captureReason === 'unclaimed'
       ? `<p class="t-body c-700 ${ID}__note" data-unclaimed>${esc(firstOf())}’s ${fmtExact(b.cents)} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days. You’re paid when she ${a.returnOption === 'pickup' ? 'picks it up' : 'gets it'}.</p>` : '',
@@ -300,13 +298,35 @@ function handoffNotes(a) {
   return parts.length ? sec(`<div class="${ID}__handoff">${parts.join('')}</div>`, { first: true }) : '';
 }
 
+/** K-40: the handoff time Sarah picked, as the first row of the place block — "Fri, Oct 16 · 5:30 PM" (pickup) or
+    "Collects Fri, Oct 16 · 4:45 PM" (courier) — with where it came from, or the time it was moved from. */
+function timeRows(a) {
+  const h = a.handoff ?? {};
+  if (!h.slot || h.markedAt) return [];
+  const first = firstOf();
+  const moved = h.moved?.from ? `${first} moved it from ${slotText(h.moved.from)}` : '';
+  if (a.returnOption === 'courier') {
+    return [{ icon: 'clock', strong: true, value: esc(`Collects ${fmtDay(h.slot.collectAt)} · ${fmtTime(h.slot.collectAt)}`),
+      detail: [moved, `Have it bagged by then · arrives at ${first}’s ${courierWhen(a)}`].filter(Boolean).map(esc) }];
+  }
+  return [{ icon: 'calendar', strong: true, value: esc(slotText(h.slot)),
+    detail: esc(handoffMissed(a) ? `${first} missed this time. She picks a new one.` : moved || `${first} picked this time from your open hours`) }];
+}
+/** K-40: the tailor can't set or move the handoff time — one line and Message. */
+function onlySarah(a) {
+  if (!a.handoff?.slot || a.handoff.markedAt || a.handoff.problemAt) return '';
+  const first = esc(firstOf());
+  const text = a.returnOption === 'courier' ? `${first} picked the window. Only she can change it.` : `Only ${first} can change the time. Need a different one?`;
+  return `<p class="t-small c-600 ${ID}__only">${text} ${textLink(`Message ${first}`, { act: 'message' })}</p>`;
+}
+
 /* ---------- K-20 (A2b) the completed job: the linen stage, then the payout flat, then the breakdown and The work ---------- */
-const RETURN_DONE = { pickup: 'Picked up at your shop', dropoff: 'Dropped off at ', courier: 'Delivered by Taily courier' };
+const RETURN_DONE = { pickup: 'Picked up at your shop', courier: 'Delivered by Taily courier' };
 const doneAt = (a) => a.history.filter((h) => h.status === 'completed').pop()?.at ?? a.history[a.history.length - 1]?.at;
 /** "Picked up at your shop · Thu, Oct 15" — how it went back and when: the stage's one line under the title. */
 function returnedLine(a) {
   const how = a.returnOption ?? 'pickup';
-  return `${how === 'dropoff' ? `${RETURN_DONE.dropoff}${firstOf()}’s` : RETURN_DONE[how]} · ${fmtDay(doneAt(a))}`;
+  return `${RETURN_DONE[how] ?? RETURN_DONE.pickup} · ${fmtDay(doneAt(a))}`;
 }
 /** Sarah's rating as ONE flat row (K-20 A2b): stars · "Sarah C. · Fri, Oct 16", then her line in quotes. Only once she has rated. */
 function reviewLine(r) {
@@ -371,7 +391,7 @@ function editBlocks(a, ev) {
   const items = returnedItems(a);
   const due = ev.dueChanged ? sec(visitBlock([{ icon: 'clock', value: dueChange({ needBy: ev.needBy, was: ev.needByWas }), strong: true }], { title: '' }), { first: true }) : '';
   return `<div class="${ID}__quote">${noteQuote({ label: 'Your reason', text: ev.reason })}</div>
-  ${ev.photo ? `<div class="${ID}__edit-photo">${deliveryPhoto({ photo: ev.photo, type: a.job.garments.find((g) => g.id === a.edit?.marks?.[0]?.garmentId)?.type ?? items[0]?.type ?? '', by: 'you', label: 'Photo for the change' })}</div>` : ''}
+  ${ev.photo ? `<div class="${ID}__edit-photo">${photoFigure({ photo: ev.photo, type: a.job.garments.find((g) => g.id === a.edit?.marks?.[0]?.garmentId)?.type ?? items[0]?.type ?? '', by: 'you', label: 'Photo for the change' })}</div>` : ''}
   ${due}
   ${ev.changed ? sec(`${sectionHead('Your changes', { id: `${ID}-changes` })}
   <div class="${ID}__summary">${changeSummary(ev.counts)}</div>
@@ -431,11 +451,9 @@ function m4View(a, v, key) {
   ${sec(visitBlock(returnOffer(a).map((k) => ({ icon: RETURN_ICON[k], value: RETURN_LABEL[k] })), { title: 'Return options you offered' }))}
   <p class="t-small c-600 ${ID}__fine">${first} pays the ${fmtExact(a.money.balance)} balance, plus the courier if she picks it.</p>${work}${notes}${payout}`; break;
     case 'handoff-pickup':
-      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(visitBlock(placeRows(t.shopName, 'bag', shopLine(t)), { title: 'In-store pickup' }))}${work}${notes}${payout}`; break;
-    case 'handoff-dropoff':
-      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(visitBlock(placeRows(`${firstOf()}’s home`, 'home', homeStreet()), { title: 'Home drop-off' }))}${work}${notes}${payout}`; break;
+      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(`${visitBlock([...timeRows(a), ...placeRows(t.shopName, 'bag', shopLine(t))], { title: 'In-store pickup' })}${onlySarah(a)}`)}${work}${notes}${payout}`; break;
     case 'handoff-courier':
-      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(visitBlock([{ icon: 'truck', value: esc(`${t.shopName} → ${homeStreet()}`), detail: `Paid by ${firstOf()} · nothing comes out of your payout` }], { title: 'Taily courier' }))}${work}${notes}${payout}`; break;
+      body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(`${visitBlock([...timeRows(a), { icon: 'truck', value: esc(`${t.shop?.enabled ? t.shopName : 'Your home'} → ${homeStreet()}`), detail: `Paid by ${firstOf()} · nothing comes out of your payout` }], { title: 'Taily courier' })}${onlySarah(a)}`)}${work}${notes}${payout}`; break;
     default: body = completedBody(a, v, t, updated);   // completed (K-20)
   }
   return `${chrome('home', { persona: 'tailor' })}
@@ -582,7 +600,7 @@ const failToast = () => toast('Couldn’t save this. Try again.', { tone: 'error
 function sheetReadyBody(a, keys, picked, { busy = false, error = false } = {}) {
   const t = myTailor();
   const first = esc(firstOf());
-  const line = (k) => (k === 'pickup' ? `At ${t.shopName}, ${t.shop.street}` : k === 'dropoff' ? `You bring it to ${homeStreet()}` : `${firstOf()} pays the courier. It’s not taken from your payout.`);
+  const line = (k) => (k === 'pickup' ? `At ${t.shopName}, ${t.shop.street}` : `${firstOf()} pays the courier. It’s not taken from your payout.`);
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   <p class="t-body c-700 ${ID}-sheet__intro">${first} is told right away, picks how to get it back from the options you tick, then pays the ${fmtExact(a.money.balance)} balance.</p>
   <fieldset class="${ID}-sheet__ways" data-ways>
@@ -630,7 +648,7 @@ function openMarkReady(a) {
   });
 }
 
-/* ---------- Study-1 A3: Picked up (Sarah's code) · Delivered (a photo) ---------- */
+/* ---------- Study-1 A3: Picked up (Sarah's code) ---------- */
 function pickedUpBody({ code = '', error = '', busy = false } = {}) {
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   ${codeInput({ id: 'handoff-code', length: HANDOFF_CODE_LEN, value: code, error, label: `${HANDOFF_CODE_LEN}-digit code`, helper: `${firstOf()} sees it on her booking.` })}
@@ -686,49 +704,6 @@ function openPickedUp(a) {
           delete ui().code;
           go(ID);
           toast(`Done. ${firstOf()} has her order.`, { tone: 'success' });
-        });
-      }
-    });
-  });
-}
-
-function deliveredBody(a, { photo = false, tried = false, busy = false } = {}) {
-  const type = returnedItems(a)[0]?.type ?? '';
-  const err = tried && !photo;
-  const slot = photo
-    ? `<div class="${ID}-sheet__photo">${photoStub({ type, tone: a.handoff?.marks ?? 0, size: 'tile', alt: 'Drop-off photo' })}${textLink('Remove photo', { act: 'remove-delivery-photo', tone: 'danger', disabled: busy })}</div>`
-    : `<div class="${ID}-sheet__rows attach-sheet__rows" role="group" aria-label="Add a photo"${err ? ' aria-describedby="delivered-err"' : ''}>
-    ${listRow({ title: 'Take a photo', act: 'photo-camera', lead: ICON_CAMERA, chevron: false })}
-    ${listRow({ title: 'Choose from library', act: 'photo-library', lead: ICON_IMAGE, chevron: false })}
-  </div>
-  ${err ? `<p class="field__msg field__msg--error" id="delivered-err" role="alert" data-err>Add a photo to mark it delivered.</p>` : ''}`;
-  return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
-  <p class="t-body c-700">Add a photo of the drop-off. ${esc(firstOf())} sees it.</p>
-  ${slot}
-  <div class="${ID}-sheet__actions">
-    ${cta('Mark delivered', { busy, busyLabel: 'Saving…', attrs: 'data-act="delivered-ok"' })}
-  </div>
-</div>`;
-}
-function openDelivered(a) {
-  const d = { photo: false, tried: false, busy: false };
-  sheetOverlay(deliveredBody(a, d), { header: 'Mark as delivered', dataS: `${ID}--delivered`, confirm: false }, (holder, close) => {
-    const paint = () => { holder.querySelector(`.${ID}-sheet`).outerHTML = deliveredBody(a, d); holder.dataset.locked = String(d.busy); };
-    holder.addEventListener('click', (e) => {
-      const act = e.target.closest('[data-act]')?.dataset.act;
-      if (d.busy || !act) return;
-      if (act === 'photo-camera' || act === 'photo-library') { d.photo = true; paint(); }
-      else if (act === 'remove-delivery-photo') { d.photo = false; paint(); }
-      else if (act === 'delivered-ok') {
-        if (!d.photo) { d.tried = true; paint(); holder.querySelector('[data-act="photo-camera"]')?.focus(); return; }
-        d.busy = true; paint();
-        withLatency(() => {
-          const r = T.markHandedOver(a.id, { photo: true });
-          d.busy = false; holder.dataset.locked = 'false';
-          close({ instant: true });
-          go(ID);
-          if (r.ok) toast(`Marked delivered. ${firstOf()} has the photo.`, { tone: 'success' });
-          else failToast();
         });
       }
     });
@@ -792,7 +767,6 @@ function wire(root) {
       go('t-adjust');
     } else if (act === 'mark-ready' && a) openMarkReady(a);
     else if (act === 'picked-up' && a) openPickedUp(a);
-    else if (act === 'delivered' && a) openDelivered(a);
     else if (act === 'more' && a) openMoreMenu(moreItems(a) ?? [], { title: 'More' });
     else if (act === 'cant-make-it' && a) openCantMakeIt(a);
     else if (act === 'no-show' && a) {

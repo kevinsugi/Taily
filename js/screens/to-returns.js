@@ -1,6 +1,6 @@
 /* ============================================================
    to-returns — O4 Return options. M2 spec §C2.
-   How finished orders get back: in-store pickup, home drop-off, Taily courier.
+   How finished orders get back: in-store pickup, Taily courier (K-37: Home drop-off is not offered).
    Focal: the three option rows. Two modes (D-56): onboarding (not live yet) and edit (live).
    Drafts live in state.ui['to-returns'].draft (D-34).
    ============================================================ */
@@ -22,33 +22,34 @@ const PREV = ONBOARDING_STEPS[STEP - 1]?.screen ?? 't-phone';
 const NEXT = ONBOARDING_STEPS[STEP + 1]?.screen ?? 'to-done';
 
 const TITLE = '<h1 class="t-title">How do customers get their orders back?</h1>';
-const KEYS = ['pickup', 'dropoff', 'courier'];
+const KEYS = ['pickup', 'courier'];
 const ui = () => (state.ui[ID] ??= {});
 const editing = () => !!myTailor().live;
 const hasShop = () => !!myTailor().shop?.enabled;
 
 const ROWS = {
   pickup: { label: RETURN_LABEL.pickup, caption: 'The customer collects it from your shop.' },
-  dropoff: { label: RETURN_LABEL.dropoff, caption: 'You bring it back to the customer’s door.' },
   courier: { label: RETURN_LABEL.courier, caption: 'We send a courier. The customer pays for it — nothing comes out of your payout.' },
 };
 const NEEDS_SHOP = 'Needs a shop. Turn it on in Where you work.';
+const COURIER_HOME = 'We send a courier to collect it from your home. The customer pays for it — nothing comes out of your payout.';
 const MSG = {
   'return-required': 'Pick at least one return option.',
   'pickup-needs-shop': NEEDS_SHOP,
 };
 
 /* ---------- draft ⇄ model ---------- */
-/** The model's options — a tailor who has set none starts from what she offers: pickup with a shop, drop-off with home visits (D-61). */
+/** The model's options — a tailor who has set none starts from what she offers (D-61, K-37 / D-295): pickup with a shop; without one,
+    the Taily courier (it collects from her home address). */
 function fromTailor(t) {
   const r = t.returns ?? {};
   const none = !KEYS.some((k) => r[k]);
-  if (none && !t.onboarding.returns) return { pickup: !!t.shop?.enabled, dropoff: !!t.home?.enabled, courier: false };
-  return { pickup: !!r.pickup, dropoff: !!r.dropoff, courier: !!r.courier };
+  if (none && !t.onboarding.returns) return { pickup: !!t.shop?.enabled, courier: !t.shop?.enabled };
+  return { pickup: !!r.pickup, courier: !!r.courier };
 }
 const draft = () => (ui().draft ??= fromTailor(myTailor()));
 /** What is really on: in-store pickup needs a shop. */
-const effective = (d) => ({ pickup: !!d.pickup && hasShop(), dropoff: !!d.dropoff, courier: !!d.courier });
+const effective = (d) => ({ pickup: !!d.pickup && hasShop(), courier: !!d.courier });
 const dirty = () => JSON.stringify(effective(draft())) !== JSON.stringify(effective(fromTailor(myTailor())))
   || (editing() && !myTailor().onboarding[SECTION]);
 
@@ -101,7 +102,7 @@ function view() {
   const rows = KEYS.map((k) => {
     const off = k === 'pickup' && !hasShop();
     return checkRow({
-      id: `ret-${k}`, label: ROWS[k].label, caption: off ? NEEDS_SHOP : ROWS[k].caption, checked: eff[k], disabled: off,
+      id: `ret-${k}`, label: ROWS[k].label, caption: off ? NEEDS_SHOP : k === 'courier' && !hasShop() ? COURIER_HOME : ROWS[k].caption, checked: eff[k], disabled: off,
       error: '', attrs: `data-act="ret" data-id="${k}"`,
     });
   }).join('');

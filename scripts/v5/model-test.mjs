@@ -552,7 +552,7 @@ section('fitting -> completed');
 }
 // R4-2-C-04 / D-118: a declined balance remembers the card that was declined
 {
-  S.reset(); const a = driveTo('ready'); T.chooseReturn(a.id, 'pickup');
+  S.reset(); const a = driveTo('ready'); T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id);
   state.sim.card = 'declined';
   guard(T.holdBalance(a.id, 'visa-4242'), 'card-declined', 'declined balance');
   eq([a.payments.balance.state, a.payments.balance.failedCardId], ['failed', 'visa-4242'], 'the declined card is recorded');
@@ -716,10 +716,9 @@ section('fitting -> completed');
 {
   const a = driveTo('awaiting-handoff', { returnOption: 'pickup' });
   eq([returnStep(a, 'tailor'), returnStep(a, 'customer')], ['Ready for pickup', 'Ready for pickup'], 'returnStep: pickup');
-  const d = driveTo('awaiting-handoff', { returnOption: 'dropoff' });
-  eq([returnStep(d, 'tailor'), returnStep(d, 'customer')], ['To drop off', 'Drop-off'], 'returnStep: drop-off');
   const c = driveTo('awaiting-handoff', { returnOption: 'courier' });
-  eq([returnStep(c, 'tailor'), returnStep(c, 'customer')], ['Courier booked', 'Out for delivery'], 'returnStep: courier');
+  eq([returnStep(c, 'tailor'), returnStep(c, 'customer')], ['Courier booked', 'Courier booked'], 'returnStep: courier (K-40: booked for her window, both sides)');
+  throws(() => driveTo('awaiting-handoff', { returnOption: 'dropoff' }), 'K-37: Home drop-off is not a way back any more');
 }
 // price change below the deposit -> refund (D-23, D-156)
 {
@@ -735,6 +734,7 @@ section('fitting -> completed');
   ok(/After you choose/.test(C.customerBreakdown(S.getAppt(b.id).money, { stage: 'ready' })), 'D-156: the refund row reads "After you choose" while pending');
   T.chooseReturn(b.id, 'pickup');
   eq(S.getAppt(b.id).payments.refund, { cents: P.refund, state: 'pending' }, 'chooseReturn keeps the pending refund (D-156)');
+  EARN.pickHandoff(b.id);
   const paid = T.holdBalance(b.id, 'visa-4242');
   eq([paid.ok, S.getAppt(b.id).payments.refund], [true, { cents: P.refund, state: 'refunded' }], 'holdBalance settles the refund (D-156)');
   ok(/Refunded/.test(C.customerBreakdown(S.getAppt(b.id).money, { stage: 'paid' })), 'D-156: the refund row reads "Refunded" once settled');
@@ -764,9 +764,10 @@ section('fitting -> completed');
   guard(T.markReady(a.id), 'not-in-progress', 'markReady twice fails');
   guard(T.holdBalance(a.id, 'visa-4242'), 'return-required', 'holdBalance needs a return choice');
   guard(T.chooseReturn(a.id, 'carrier-pigeon'), 'not-offered', 'chooseReturn: unknown option');
-  amara().returns.dropoff = false;
-  guard(T.chooseReturn(a.id, 'dropoff'), 'not-offered', 'chooseReturn: an option the tailor does not offer');
-  amara().returns.dropoff = true;
+  guard(T.chooseReturn(a.id, 'dropoff'), 'not-offered', 'K-37: Home drop-off is not offered');
+  amara().returns.courier = false;
+  guard(T.chooseReturn(a.id, 'courier'), 'not-offered', 'chooseReturn: an option the tailor does not offer');
+  amara().returns.courier = true;
   // courier
   state.sim.courier = 'fail';
   const f = T.chooseReturn(a.id, 'courier');
@@ -781,6 +782,8 @@ section('fitting -> completed');
   eq(c.appt.payments.balance.cents, 15445, 'balance payment follows the courier charge');
   const p0 = T.chooseReturn(a.id, 'pickup');
   eq([p0.appt.courier, p0.appt.money.total, p0.appt.payments.balance.cents], [null, 16000, 14400], 'switching back to pickup drops the courier charge');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'slot-required', 'K-40: holdBalance needs the pickup time');
+  EARN.pickHandoff(a.id);
   state.sim.card = 'declined';
   guard(T.holdBalance(a.id, 'visa-4242'), 'card-declined', 'holdBalance with a declined card fails');
   eq([S.getAppt(a.id).status, S.getAppt(a.id).payments.balance.state], ['ready', 'failed'], 'a declined card leaves it ready, balance failed');
@@ -901,7 +904,7 @@ section('tailor sections');
   eq(T.setTailorSection('where', { home: { enabled: true, hoods: ['williamsburg'], fee: 35 } }).valid, true, 'where: home visits with a neighborhood + fee -> valid (Study-1 C5)');
   eq(T.setTailorSection('where', { home: { hoods: [] } }).errors, { hoods: 'hoods-required' }, 'where: home visits need a neighborhood');
   T.setTailorSection('where', { home: { hoods: ['williamsburg'] } });
-  eq(T.setTailorSection('returns', { returns: { dropoff: true } }).valid, true, 'returns: one option is enough');
+  eq(T.setTailorSection('returns', { returns: { courier: true } }).valid, true, 'returns: one option is enough');
   eq(T.setTailorSection('returns', { returns: { pickup: true } }).errors, { pickup: 'pickup-needs-shop' }, 'returns: pickup needs a shop (D-61)');
   T.setTailorSection('returns', { returns: { pickup: false } });
   eq(T.setTailorSection('availability', {}).errors, { home: 'hours-required' }, 'availability: home visits need hours');
@@ -1127,14 +1130,15 @@ section('M4 model');
   S.reset(); const a = driveTo('in-progress');
   guard(T.markReady(a.id, { returns: [] }), 'return-required', 'markReady with no way back fails');
   guard(T.markReady(a.id, { returns: ['carrier-pigeon'] }), 'return-required', 'markReady: an unknown key is not an offer');
-  amara().returns.dropoff = false;
-  guard(T.markReady(a.id, { returns: ['dropoff'] }), 'not-offered', 'markReady: a way the shop does not offer fails');
-  amara().returns.dropoff = true;
+  guard(T.markReady(a.id, { returns: ['dropoff'] }), 'return-required', 'K-37: drop-off is not a way back (an unknown key)');
+  amara().returns.courier = false;
+  guard(T.markReady(a.id, { returns: ['courier'] }), 'not-offered', 'markReady: a way the shop does not offer fails');
+  amara().returns.courier = true;
   const r = T.markReady(a.id, { returns: ['pickup'] });
   eq([r.ok, S.returnOffer(r.appt)], [true, ['pickup']], 'markReady({ returns: [pickup] }) -> returnOffer = [pickup]');
   guard(T.chooseReturn(a.id, 'courier'), 'not-offered', 'chooseReturn: a way not in the offer fails');
   const b = driveTo('in-progress'); T.markReady(b.id);
-  eq(S.returnOffer(S.getAppt(b.id)), ['pickup', 'dropoff', 'courier'].filter((k) => amara().returns[k]), 'markReady default offers every Shop return, in RETURN_LABEL order');
+  eq(S.returnOffer(S.getAppt(b.id)), ['pickup', 'courier'], 'markReady default offers every Shop return, in RETURN_LABEL order (K-37: no drop-off)');
   const cq = M.courierQuote(0.6);
   eq([cq.quote + cq.markup, cq.cents, SCENARIOS.courierQuote.cents], [1045, 1045, 1045], 'courierQuote: quote + markup = total (SCENARIOS.courierQuote)');
   const c = driveTo('ready', { returnOption: 'courier' }); T.chooseReturn(c.id, 'courier');
@@ -1470,6 +1474,7 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
     const r = driveTo('fitting', { visitType: 'shop' });
     documentFitting(r.id, { lines: SCENARIOS.priceBelowDeposit.lines });
     T.sendPriceChange(r.id, SCENARIOS.priceBelowDeposit.lines); T.approvePriceChange(r.id); T.markReady(r.id); T.chooseReturn(r.id, 'pickup');
+    EARN.pickHandoff(r.id);
     const z = T.holdBalance(r.id, 'visa-4242');
     eq([z.ok, z.appt.payments.balance.cents, z.appt.payments.balance.state, z.appt.payments.refund.state], [true, 0, 'none', 'refunded'], 'S1-A2 (D-156): a total below the deposit holds nothing and refunds at the choice');
   }
@@ -1482,14 +1487,12 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   const done = T.confirmPickup(a.id, ' 8153 ');
   eq([done.ok, a.status, a.payments.balance.state, a.payments.balance.captureReason, a.handoff.completedBy], [true, 'completed', 'captured', 'handoff', 'code'], 'S1-A3: the right code completes it right away and captures the hold');
   eq(state.payouts.map((p) => [p.cents, p.date, p.kind]), [[SCENARIOS.seed.payout, PAYOUT_DAYS.first, 'job']], 'S1-A3: the payout is queued for the Friday after the handoff');
-  // A3 drop-off: Delivered needs a photo; 48 h countdown; "I didn't get it" pauses; "I got it" completes
-  S.reset(); a = driveTo('awaiting-handoff', { returnOption: 'dropoff' });
+  // A3 pickup without the code (K-37: the drop-off is gone): 48 h countdown; "I didn't get it" pauses; "I got it" completes
+  S.reset(); a = driveTo('awaiting-handoff');
   guard(T.reportNotReceived(a.id), 'not-marked', 'S1-A3: nothing to object to before Amara marks it');
-  guard(T.confirmPickup(a.id, '8153'), 'not-pickup', 'S1-A3: no pickup code on a drop-off');
-  guard(T.markHandedOver(a.id), 'photo-required', 'S1-A3: Delivered needs a photo');
-  T.markHandedOver(a.id, { photo: true });
-  eq([hours(S.autoCompleteLeft(a)), a.handoff.photo.tone, a.handoff.markedBy], [POLICY.HANDOFF_AUTO_H, 0, 'tailor'], 'S1-A3: Delivered with a photo starts the 48 h countdown');
-  guard(T.markHandedOver(a.id, { photo: true }), 'already-marked', 'S1-A3: marking twice without a problem fails');
+  T.markHandedOver(a.id);
+  eq([hours(S.autoCompleteLeft(a)), a.handoff.markedBy, 'photo' in a.handoff], [POLICY.HANDOFF_AUTO_H, 'tailor', false], 'S1-A3: picked up without the code starts the 48 h countdown (no photo)');
+  guard(T.markHandedOver(a.id), 'already-marked', 'S1-A3: marking twice without a problem fails');
   T.advanceClock(H);
   ok(/in 46h unless you report a problem/.test(C.autoCompleteLine(S.autoCompleteLeft(a))) && /unless Sarah reports a problem/.test(C.autoCompleteLine(S.autoCompleteLeft(a), { who: 'Sarah' })), 'S1-A3: an hour later the line reads 46h (whole hours still ahead), worded per side');
   eq([C.autoCompleteLine(48 * 3600000).includes('in 47h'), C.autoCompleteLine(3600000).includes('less than 1h'), C.autoCompleteLine(null)], [true, true, ''], 'S1-A3 (default 3): 47h right after the mark, less than 1h in the last hour, nothing while paused');
@@ -1498,14 +1501,14 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   eq(S.autoCompleteLeft(a), null, 'S1-A3: a reported problem stops the countdown');
   T.advanceClock(8 * DAY);
   eq([a.status, a.payments.balance.state], ['awaiting-handoff', 'held'], 'S1-A3 (default 2): a problem pauses BOTH the 48 h and the 7-day timers');
-  const re = T.markHandedOver(a.id, { photo: true });
-  eq([re.ok, a.handoff.problemAt, a.handoff.photo.tone, hours(S.autoCompleteLeft(a))], [true, null, 1, POLICY.HANDOFF_AUTO_H], 'S1-A3 (default 5): Delivered again with a new photo clears the problem and restarts 48 h');
+  const re = T.markHandedOver(a.id);
+  eq([re.ok, a.handoff.problemAt, a.handoff.marks, hours(S.autoCompleteLeft(a))], [true, null, 2, POLICY.HANDOFF_AUTO_H], 'S1-A3 (default 5): marked picked up again clears the problem and restarts 48 h');
   ok(S.unclaimedAt(a) > S.unclaimedAt({ handoff: { ...a.handoff, pausedMs: 0 } }), 'S1-A3: the 7-day capture moves out by the paused time');
   T.reportNotReceived(a.id);
   const got = T.confirmReceived(a.id);
   eq([got.ok, a.status, a.handoff.completedBy, a.payments.balance.captureReason], [true, 'completed', 'customer', 'handoff'], 'S1-A3: "I got it" completes it even after a reported problem');
   // A3 48 h auto-complete, stamped at autoAt
-  S.reset(); a = driveTo('handed-over', { returnOption: 'dropoff' });
+  S.reset(); a = driveTo('handed-over');
   const autoAt = a.handoff.autoAt;
   T.advanceClock(POLICY.HANDOFF_AUTO_H * H - 1);
   eq(a.status, 'awaiting-handoff', 'S1-A3: one minute before the 48 h it is still open');
@@ -1516,6 +1519,7 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   // A3 courier
   S.reset(); a = driveTo('awaiting-handoff', { returnOption: 'courier' });
   guard(T.markHandedOver(a.id), 'courier', 'S1-A3 (default 6): no tailor mark on a courier return');
+  guard(T.confirmPickup(a.id, '8153'), 'not-pickup', 'S1-A3: no pickup code on a courier return');
   T.courierDelivered(a.id);
   eq([a.status, a.handoff.completedBy, a.payments.balance.state, state.payouts[0].cents], ['completed', 'courier', 'captured', SCENARIOS.seed.payout], 'S1-A3: courier delivery completes it; the payout never includes the courier');
   // A2 unclaimed: 7 days after the hold → captured, the job stays open, the payout waits for the handoff
@@ -1678,6 +1682,75 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   const hp = C.hoodPicker({ selected: ['williamsburg'], open: ['brooklyn'] });
   ok(hp.includes('aria-pressed="true"') && hp.includes('1 selected') && (hp.match(/data-act="borough"/g) ?? []).length === 5, 'S1-C: hoodPicker = five borough groups, picks pressed');
   ok((C.hoodMap({ selected: ['williamsburg', 'soho'] }).match(/hood-map__tile is-on/g) ?? []).length === 2, 'S1-C: hoodMap lights one tile per pick');
+}
+
+
+/* ===== K-40 ===== */
+section('K-40 (T1): the handoff time');
+{
+  const DAY_MS = 24 * 3600000;
+  const last = () => S.threadFor('amara').messages.at(-1);
+  S.reset(); let a = driveTo('ready');                                    // Thu, Oct 15 · 5:00 PM — the shop closed at 4:00 PM
+  const picks = S.handoffSlots(a, 'pickup');
+  eq(picks[0], { start: '2026-10-16T10:00' }, 'K-40: pickup times start at the next opening (nothing left today)');
+  eq([...new Set(picks.map((x) => x.start.slice(0, 10)))], ['2026-10-16', '2026-10-17', '2026-10-20', '2026-10-21', '2026-10-22'], 'K-40: the shop’s open days in the next 7 days (D-295)');
+  const fri = picks.filter((x) => x.start.startsWith('2026-10-16'));
+  eq([fri.length, fri.at(-1).start], [16, '2026-10-16T17:30'], 'K-40: Fri pickups every 30 min; the last one ends at closing');
+  ok(picks.every((x) => D.toDate(x.start).getTime() <= S.now() + POLICY.HANDOFF_PICK_DAYS * DAY_MS), 'K-40: never more than HANDOFF_PICK_DAYS ahead');
+  const wins = S.handoffSlots(a, 'courier').filter((x) => x.start.startsWith('2026-10-16'));
+  eq([wins[0], wins.at(-1).start, wins.length], [{ start: '2026-10-16T10:30', end: '2026-10-16T11:00', collectAt: '2026-10-16T10:15' }, '2026-10-16T18:00', 16], 'K-40: courier windows — collected 15 min before, inside her open hours; the last starts at closing');
+  eq(S.handoffSlots(a, 'dropoff'), [], 'K-37: no times for a way back that does not exist');
+  guard(T.setHandoffSlot(a.id, '2026-10-16T17:30'), 'return-required', 'K-40: the time needs a way back first');
+  T.chooseReturn(a.id, 'pickup');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'slot-required', 'K-40: Hold needs a picked time');
+  guard(T.setHandoffSlot(a.id, '2026-10-16T18:00'), 'slot-invalid', 'K-40: a pickup ending after closing is not open');
+  guard(T.setHandoffSlot(a.id, '2026-10-19T12:00'), 'slot-invalid', 'K-40: a closed day (Mon) is not open');
+  guard(T.setHandoffSlot(a.id, '2026-10-23T12:00'), 'slot-invalid', 'K-40: more than 7 days ahead is not open');
+  const msgs = S.threadFor('amara').messages.length;
+  const p = T.setHandoffSlot(a.id, '2026-10-16T17:30');
+  eq([p.ok, a.handoff.slot, a.status, S.threadFor('amara').messages.length], [true, { start: '2026-10-16T17:30' }, 'ready', msgs], 'K-40: picked on the ready order, confirmed at once; no thread line before the hold');
+  eq(S.slotText(a.handoff.slot), 'Fri, Oct 16 · 5:30 PM', 'K-40: slotText for a pickup');
+  T.chooseReturn(a.id, 'courier');
+  eq(a.handoff, null, 'K-40: switching the way back clears the time (a pickup time is not a courier window)');
+  guard(T.holdBalance(a.id, 'visa-4242'), 'slot-required', 'K-40: Hold needs a courier window too');
+  guard(T.setHandoffSlot(a.id, '2026-10-16T10:00'), 'slot-invalid', 'K-40: no courier window before the collection fits her open hours (10:00 opens, the first window is 10:30)');
+  T.setHandoffSlot(a.id, { start: '2026-10-16T17:00' });
+  eq(S.courierWindow(a), { from: '2026-10-16T17:00', to: '2026-10-16T17:30', collectAt: '2026-10-16T16:45' }, 'K-40: the window and its collection time');
+  eq(S.slotText(a.handoff.slot), 'Fri, Oct 16 · 5:00–5:30 PM', 'K-40: slotText for a window');
+  const h = T.holdBalance(a.id, 'visa-4242');
+  eq([h.ok, a.handoff.slot.start, a.handoff.heldAt, a.payments.balance.cents], [true, '2026-10-16T17:00', '2026-10-15T17:00', SCENARIOS.courier.balance], 'K-40: the hold keeps the window; the 7-day clock starts at the hold (D-295)');
+  guard(T.setHandoffSlot(a.id, '2026-10-16T17:00'), 'no-change', 'K-40: moving to the same window is no change');
+  const mv = T.setHandoffSlot(a.id, '2026-10-16T18:00');
+  eq([mv.ok, a.handoff.moved.from.start, a.handoff.slot.collectAt, a.payments.balance.cents], [true, '2026-10-16T17:00', '2026-10-16T17:45', SCENARIOS.courier.balance], 'K-40: Sarah moves the window — the old one is kept, the flat price unchanged');
+  eq([last().text, last().tailorText], ['You moved your delivery to Fri, Oct 16 · 6:00–6:30 PM', 'Sarah moved her delivery to Fri, Oct 16 · 6:00–6:30 PM'], 'K-40: Amara is told in the thread');
+  S.setClock('2026-10-16T16:44');
+  ok(S.handoffChangeable(a), 'K-40: movable until 60 min before the collection');
+  S.setClock('2026-10-16T16:45');
+  ok(!S.handoffChangeable(a), 'K-40 (D-295): fixed from 60 min before the collection');
+  guard(T.setHandoffSlot(a.id, '2026-10-16T18:30'), 'too-late', 'K-40: too late to move the courier');
+  // pickup: before the slot, not during it, again once it was missed (no fee, the clock keeps running)
+  S.reset(); a = driveTo('awaiting-handoff');
+  eq([a.handoff.slot.start, a.handoff.moved], ['2026-10-16T17:30', null], 'K-40: driveTo picks Fri 5:30 PM through setHandoffSlot');
+  ok(S.handoffChangeable(a) && !S.handoffMissed(a), 'K-40: before the slot she can move it');
+  ok(S.openSlots('amara', 'shop').includes('2026-10-16T17:30'), 'K-40 (D-295): a pickup does not block the tailor’s calendar');
+  S.setClock('2026-10-16T17:40');
+  ok(!S.handoffChangeable(a) && !S.handoffMissed(a), 'K-40: during the slot it is neither movable nor missed');
+  guard(T.setHandoffSlot(a.id, '2026-10-17T14:00'), 'too-late', 'K-40: no move once the slot started');
+  S.setClock('2026-10-16T18:00');
+  ok(S.handoffMissed(a) && S.handoffChangeable(a), 'K-40 (D-295): a missed pickup — she picks a new time');
+  eq([a.payments.balance.state, a.status], ['held', 'awaiting-handoff'], 'K-40 (D-295): a missed pickup costs nothing');
+  const unclaimed = S.unclaimedAt(a);
+  const np = T.setHandoffSlot(a.id, '2026-10-17T14:00');
+  eq([np.ok, S.handoffMissed(a), a.handoff.moved.from.start, S.unclaimedAt(a)], [true, false, '2026-10-16T17:30', unclaimed], 'K-40: the new time; the 7-day clock still runs from the hold');
+  T.markHandedOver(a.id);
+  guard(T.setHandoffSlot(a.id, '2026-10-20T12:00'), 'already-marked', 'K-40: nothing to move once Amara marked it picked up');
+  guard(T.setHandoffSlot(driveTo('in-progress').id, '2026-10-16T17:30'), 'not-ready', 'K-40: no handoff time before Ready');
+  // a tailor without a shop: no pickup; the courier collects from her home in her home-visit hours
+  S.reset(); a = driveTo('ready'); amara().shop.enabled = false;
+  eq(S.handoffSlots(a, 'pickup'), [], 'K-37 / D-295: no pickup without a shop');
+  const hw = S.handoffSlots(a, 'courier');
+  eq([hw[0].start, hw[0].collectAt], ['2026-10-15T18:30', '2026-10-15T18:15'], 'D-295: home-only — courier windows from her home-visit hours (same day while she is open)');
+  amara().shop.enabled = true;
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

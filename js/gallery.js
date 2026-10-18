@@ -213,7 +213,7 @@ export function galleryHtml() {
   col(C.toggle({ id: 'g-t1', label: 'Home visits', checked: true, helper: 'Customers in your ZIP list can book you.' }), C.toggle({ id: 'g-t2', label: 'Shop visits' }), C.toggle({ id: 'g-t3', label: 'Taily courier', disabled: true, helper: 'Not available yet' }));
 
   h2('Check row');
-  col(C.checkRow({ id: 'g-c1', label: 'Pickup at the shop', checked: true }), C.checkRow({ id: 'g-c2', label: 'Home drop-off', caption: 'You bring it back' }), C.checkRow({ id: 'g-c3', label: 'I agree to the cancellation terms', error: 'Please agree to continue.' }), C.checkRow({ id: 'g-c4', label: 'Taily courier', caption: 'Not available in your ZIP yet', disabled: true }));
+  col(C.checkRow({ id: 'g-c1', label: 'Pickup at the shop', checked: true }), C.checkRow({ id: 'g-c2', label: 'Taily courier', caption: 'The customer pays for it' }), C.checkRow({ id: 'g-c3', label: 'I agree to the cancellation terms', error: 'Please agree to continue.' }), C.checkRow({ id: 'g-c4', label: 'Taily courier', caption: 'Not available in your ZIP yet', disabled: true }));
 
   h2('Chip group · segmented');
   col(

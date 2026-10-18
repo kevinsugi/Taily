@@ -28,3 +28,5 @@
 /* K-27 (Study-1 A2): the hold line and the unclaimed rule under the ways back */
 .c-ready__hold { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-4); }
 .c-ready__hold p { margin: 0; }
+/* K-40 (T1): the When row directly under the chosen way back */
+.c-ready__when { margin-top: var(--rhythm-group); }

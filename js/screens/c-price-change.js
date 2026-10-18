@@ -17,7 +17,7 @@ import { state, T, tailorById, priceChangeView, jobEditView } from '../state.js'
 import {
   chrome, banner, emptyState, deltaLines, noteQuote, changeList, withPhotos, wirePhotoViewer, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs, sectionHead,
   navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, HOME_FEE_CAPTION,
-  deliveryPhoto, dueChange, visitBlock, returnedItems,
+  photoFigure, dueChange, visitBlock, returnedItems,
 } from '../components.js';
 import { fmtExact } from '../money.js';
 import { fmtTime } from '../dates.js';
@@ -112,7 +112,7 @@ function editView(a, chromeHtml) {
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--edit" data-edit="pending" data-appt="${esc(a.id)}">
   ${navBackMark()}${strip}${head}
   <div class="${ID}__quote">${noteQuote({ label: `${first}’s reason`, text: ev.reason })}${ev.reasonMasked ? `<p class="t-small c-600 ${ID}__masked">Phone numbers and emails in this reason are hidden.</p>` : ''}</div>
-  ${ev.photo ? `<div class="${ID}__photo">${deliveryPhoto({ photo: ev.photo, type: a.job.garments.find((g) => g.id === a.edit?.marks?.[0]?.garmentId)?.type ?? items[0]?.type ?? '', by: first, label: `Photo from ${first}` })}</div>` : ''}
+  ${ev.photo ? `<div class="${ID}__photo">${photoFigure({ photo: ev.photo, type: a.job.garments.find((g) => g.id === a.edit?.marks?.[0]?.garmentId)?.type ?? items[0]?.type ?? '', by: first, label: `Photo from ${first}` })}</div>` : ''}
   ${ev.dueChanged ? `<section class="sec">${visitBlock([{ icon: 'clock', value: dueChange({ needBy: ev.needBy, was: ev.needByWas }), strong: true }], { title: '' })}</section>` : ''}
   ${priced ? `<section class="sec">${sectionHead('What changed')}
   <div class="${ID}__summary">${changeSummary(ev.counts)}</div>

@@ -134,7 +134,9 @@ import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
 import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb } from './dates.js';
 import { POLICY } from './money-config.js';
-import { state, apptsFor, threadsFor, priceChangeView } from './state.js';
+import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText } from './state.js';
+import { scheduler, slotColumns, readSlot, windowColumns, readWindow, whenNote, SCHED_ROW } from './scheduler.js';   // K-40: the handoff time sheet (scheduler.js imports this file back; both only call across at run time)
+import { withLatency } from './sim.js';
 import { inbox } from './tailor-data.js';
 import { statusWord } from './focus.js';
 
@@ -1710,7 +1712,7 @@ export function receiptBlock(a, tailorFirst = '') {
     : refund > 0 ? `${fmtExact(refund)} refunded to ${balanceCardLabel(a, a.cardId)}.` : '';
   /* M7-1-C-05: what was paid for — the approved lines with their garments — between the return line and the totals */
   const order = a.lines?.length ? `<div class="receipt__order">${changeList({ garments: withPhotos(priceChangeView(a, a.lines).garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: `${tailorFirst || 'Tailor'}’s comment` })}</div>` : '';
-  return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', dropoff: 'home', courier: 'truck' }[how] })}</div>
+  return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', courier: 'truck' }[how] })}</div>
   ${stitchDivider()}
   ${order}
   ${customerBreakdown(a.money, { stage: 'paid', tailorFirst, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '' })}
@@ -1965,11 +1967,10 @@ export function miniProfile({ name = '', initials = '', photo = null, shopName =
 }
 
 /** The customer's "Getting it back" rows (c-tailor), one metaRow per return option she offers. `returns` = { pickup,
-    dropoff, courier }. `empty` (string) renders when nothing is ticked; '' renders nothing. */
+    courier } (K-37: no drop-off). `empty` (string) renders when nothing is ticked; '' renders nothing. */
 export function returnsRows(returns = {}, { empty = '' } = {}) {
   const rows = [];
   if (returns?.pickup) rows.push(metaRow('', 'In-store pickup · Free', { icon: 'bag' }));
-  if (returns?.dropoff) rows.push(metaRow('', 'Home drop-off · Free', { icon: 'home' }));
   if (returns?.courier) rows.push(metaRow('', 'Taily courier — priced when your order is ready, before you pay', { icon: 'truck' }));
   if (!rows.length) return empty ? `<p class="returns-rows returns-rows--empty t-body c-600">${esc(empty)}</p>` : '';
   return `<div class="returns-rows">${rows.join('')}</div>`;
@@ -2815,11 +2816,12 @@ export function autoCompleteLine(msLeft, { who = 'you' } = {}) {
   return `<p class="t-small c-700 auto-line" data-auto-complete>${META_ICONS.clock}<span>Completes automatically in ${esc(when)} ${esc(unless)}</span></p>`;
 }
 
-/** The drop-off photo the tailor attached when she marked it delivered (a photo stub of the first garment) with who took it and when. */
-export function deliveryPhoto({ photo, type = '', by = '', label = 'Drop-off photo' } = {}) {
+/** A photo the tailor sent with a post-fitting edit (Study-1 B1; a photo stub of the garment) with who took it and when. K-37: the
+    drop-off photo it was first built for is gone with Home drop-off. */
+export function photoFigure({ photo, type = '', by = '', label = 'Photo' } = {}) {
   if (!photo) return '';
-  return `<figure class="delivery-photo" data-delivery-photo>
-  <span class="delivery-photo__frame">${photoStub({ type, tone: photo.tone ?? 0, size: 'stage', alt: label, seed: photo.id })}</span>
+  return `<figure class="photo-figure" data-photo-figure>
+  <span class="photo-figure__frame">${photoStub({ type, tone: photo.tone ?? 0, size: 'stage', alt: label, seed: photo.id })}</span>
   <figcaption class="t-small c-600">${esc([by ? `Taken by ${by}` : '', photo.at ? `${fmtDay(photo.at)}, ${fmtTime(photo.at)}` : ''].filter(Boolean).join(' · '))}</figcaption>
 </figure>`;
 }
@@ -3056,4 +3058,114 @@ export function hoodMap({ selected = [] } = {}) {
   <svg class="hood-map__svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(n ? `Map: home visits in ${names}` : 'Map: no neighborhoods picked yet')}">${tiles}${labels}</svg>
   <figcaption class="hood-map__caption t-small c-600">${n ? `${n} ${n === 1 ? 'neighborhood' : 'neighborhoods'} highlighted` : 'Pick neighborhoods below to see them here.'}</figcaption>
 </figure>`;
+}
+
+/* ===== K-40 (T1) ===== */
+/* The handoff time: the When row under the chosen way back (c-ready) and the Scheduler sheet that picks or moves it (c-ready, c-booking). */
+
+/** The When row (K-40 T1): a card--list row under the chosen way back — "Pick a time ›" / "Pick a delivery window ›" in accent ink until
+    she picks, then the time itself in ink with an ink ring ("Fri, Oct 16 · 5:30 PM ›"). `text` = the picked time ('' = not picked). */
+export function handoffWhenRow({ method = 'pickup', text = '', sub = '', act = 'pick-time' } = {}) {
+  const ask = method === 'courier' ? 'Pick a delivery window' : 'Pick a time';
+  const what = method === 'courier' ? 'Delivery window' : 'Pickup time';
+  const title = text ? `<span class="when-row__val">${esc(text)}</span>` : `<span class="when-row__ask">${ask}</span>`;
+  return `<div class="card card--list when-row${text ? ' is-set' : ''}" data-when>${listRow({
+    lead: META_ICONS.clock, title, sub, act, attrs: `aria-label="${esc(`${what}: ${text || 'not picked'}`)}"`,
+  })}</div>`;
+}
+
+/** The courier line under a window: "Courier $10.45 · collects from Amara at 4:45 PM". */
+const courierNote = (cents, first, w) => `<span class="t-small c-600">Courier <span data-money>${fmtExact(cents)}</span> · collects from ${esc(first)} at ${esc(fmtTime(w.collectAt))}</span>`;
+
+/**
+ * The handoff time sheet (K-40 T1): the existing Scheduler in a sheet, fed by `handoffSlots(appt)` — pickup = Day · Hour · Minute · AM/PM
+ * (readSlot snaps to an open start), courier = Day · Arrives (30-minute delivery windows, the courier fee and the collection time in the
+ * note). `mode` 'pick' (c-ready: Use this time / Cancel; instant) | 'change' (c-booking: Move my pickup / Keep current time; the
+ * simulated wait, the current slot left out). Calls `T.setHandoffSlot` (customer only); `onDone(appt)` after it succeeds.
+ *   first  the tailor's first name · place  the line under the header · courierCents  the flat courier price (courier)
+ *   dataS  the overlay's data-s · onMessage  the "no open times" Message button
+ */
+export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', place = '', courierCents = 0, dataS = '', onDone, onMessage } = {}) {
+  const courier = appt.returnOption === 'courier';
+  const change = mode === 'change';
+  const cur = appt.handoff?.slot ?? null;
+  const all = handoffSlots(appt);
+  const slots = change ? all.filter((x) => x.start !== cur?.start) : all;
+  const header = change ? (courier ? 'Change delivery window' : 'Change pickup time') : (courier ? 'Pick a delivery window' : 'Pick a pickup time');
+  const keepLabel = change ? (courier ? 'Keep current window' : 'Keep current time') : 'Cancel';
+  if (!slots.length) {
+    sheetOverlay(`<div class="handoff-sheet">
+  <p class="t-body c-700">${esc(first)} has no ${change ? 'other ' : ''}open ${courier ? 'delivery windows' : 'pickup times'} in the next ${POLICY.HANDOFF_PICK_DAYS} days. Message ${esc(first)} to find a time that works.</p>
+  ${cta(`Message ${esc(first)}`, { attrs: 'data-act="ht-message"' })}
+  ${cta(keepLabel, { variant: 'secondary', attrs: 'data-act="ht-keep"' })}
+</div>`, { header, dataS: `${dataS}-none`, confirm: false }, (holder, close) => {
+      holder.addEventListener('click', (e) => {
+        const act = e.target.closest('[data-act]')?.dataset.act;
+        if (act === 'ht-keep') close();
+        else if (act === 'ht-message') { close({ instant: true }); onMessage?.(); }
+      });
+    });
+    return;
+  }
+  /* settle on the current pick (c-ready: what she picked before; c-booking: the nearest other time), else the first */
+  const near = cur ? slots.reduce((b, x) => (Math.abs(new Date(x.start) - new Date(cur.start)) < Math.abs(new Date(b.start) - new Date(cur.start)) ? x : b), slots[0]) : slots[0];
+  let picked = (!change && cur && slots.find((x) => x.start === cur.start)) || near;
+  const label = change ? (courier ? 'New window' : 'New time') : (courier ? 'Arrives' : 'Pickup');
+  const note = (x) => (courier
+    ? `<span class="t-caps">${esc(label)}</span> <span class="t-small w-600">${esc(slotText(x))}</span><br>${courierNote(courierCents, first, x)}`
+    : whenNote(label, x.start));
+  const columns = () => (courier ? windowColumns(slots, picked.start) : slotColumns(slots.map((x) => x.start), picked.start));
+  const now = change && cur ? `<p class="t-small c-600 handoff-sheet__now" data-now>${courier ? 'Arrives' : 'Booked for'} <span class="nb">${esc(slotText(cur))}</span></p>`
+    : place ? `<p class="t-small c-600 handoff-sheet__now">${esc(place)}</p>` : '';
+  const fine = change
+    ? (courier ? `You can change the window until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. ${esc(first)} is told right away.` : `${esc(first)} is told right away. Your pickup code stays the same.`)
+    : (courier ? `Taily books the courier to collect from ${esc(first)} before your window. You can change it until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects.`
+      : `Only times ${esc(first)}’s shop is open, in the next ${POLICY.HANDOFF_PICK_DAYS} days. You can change it later from your booking.`);
+  const okLabel = change ? (courier ? 'Move my delivery' : 'Move my pickup') : (courier ? 'Use this window' : 'Use this time');
+  const html = (busy = false, error = '') => `<div class="handoff-sheet"${busy ? ' aria-busy="true"' : ''}>
+  ${error ? banner({ tone: 'error', text: error }) : ''}
+  ${now}
+  <div class="handoff-sheet__wheel">${scheduler({ columns: columns(), compact: true, cta: '', inline: true, note: note(picked) })}</div>
+  <p class="t-small c-600">${fine}</p>
+  ${cta(okLabel, { busy, busyLabel: change ? 'Moving…' : 'Saving…', attrs: 'data-act="ht-ok"' })}
+  ${cta(keepLabel, { variant: 'secondary', disabled: busy, attrs: 'data-act="ht-keep"' })}
+</div>`;
+  sheetOverlay(html(), { header, dataS, confirm: false }, (holder, close) => {
+    let busy = false;
+    const onWheel = () => {
+      const x = courier ? readWindow(holder, slots) : slots.find((s) => s.start === readSlot(holder, slots.map((y) => y.start)));
+      if (!x) return;
+      picked = x;
+      const n = holder.querySelector('[data-sched-note]');
+      if (n) { n.innerHTML = note(x); n.hidden = false; }
+    };
+    const paint = (error = '') => {
+      holder.querySelector('.handoff-sheet').outerHTML = html(busy, error);
+      holder.dataset.locked = String(busy);
+      wireWheel(holder, onWheel, SCHED_ROW);
+    };
+    wireWheel(holder, onWheel, SCHED_ROW);
+    const commit = () => {
+      const res = T.setHandoffSlot(appt.id, picked);
+      busy = false;
+      if (!res.ok) {
+        paint(res.error === 'too-late' ? `It’s too late to move it now. Message ${first} to change it.` : 'That time isn’t open any more. Pick another one.');
+        return;
+      }
+      holder.dataset.locked = 'false';
+      close({ instant: true });
+      onDone?.(res.appt, picked);
+    };
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (busy || !act) return;
+      if (act === 'ht-keep') close();
+      else if (act === 'ht-ok') {
+        onWheel();
+        if (!change) { commit(); return; }
+        busy = true; paint();
+        withLatency(() => { if (holder.isConnected) commit(); });
+      }
+    });
+  });
 }

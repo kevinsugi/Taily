@@ -26,7 +26,7 @@ import {
   cents, linesFor, quote, estimate, rushFor, depositFor, courierQuote, cancelTerms, noShowPayout, fmtExact,
 } from './money.js';
 import {
-  toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, payoutDay,
+  toDate, isoMinute, isoDay, addDays, addMinutes, strip, dayDiff, weekdayKey, minutesOf, fmtWhen, fmtDay, fmtTimeRange, payoutDay,
 } from './dates.js';
 import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
@@ -1050,23 +1050,99 @@ export function markReady(id, { returns } = {}) {
   return succeed(a);
 }
 
-/** Where a drop-off or courier delivers (D-106: Sarah's saved address, also for shop visits), as ONE line on both sides:
+/** Where the courier delivers (D-106: Sarah's saved address, also for shop visits), as ONE line on both sides:
     street + unit ("145 N 7th St, 2R"). The visit block alone adds the city (R4-2-C-06). */
 export function returnAddress() {
   const ad = state.customer.address ?? {};
   return [ad.street, ad.unit].filter(Boolean).join(', ');
 }
 
-/** D-160 (moved here from tailor-data.js, K16-2-02 / D-245): the courier's pickup window (the tailor's strip and the customer's route block): the next half hour an hour after Sarah paid the balance, 30 minutes long.
-    `{ from, to }` as ISO minutes; null when no courier is booked. */
+/** K-40 (D-295, replaces D-160's "an hour after she paid"): the courier window Sarah picked — `{ from, to, collectAt }` as ISO minutes
+    (the courier collects from the tailor COURIER_COLLECT_LEAD_MIN before `from`); null when no courier window is picked. */
 export function courierWindow(appt) {
-  if (appt.returnOption !== 'courier' || !appt.courier) return null;
-  const paidAt = [...appt.history].reverse().find((h) => h.status === 'awaiting-handoff')?.at ?? appt.history[appt.history.length - 1]?.at;
-  if (!paidAt) return null;
-  const t = toDate(paidAt);
-  const m = t.getHours() * 60 + t.getMinutes() + 60;
-  const start = new Date(t); start.setHours(0, 0, 0, 0); start.setMinutes(Math.ceil(m / 30) * 30);
-  return { from: isoMinute(start), to: isoMinute(addMinutes(isoMinute(start), 30)) };
+  const s = appt?.returnOption === 'courier' ? appt.handoff?.slot : null;
+  return s?.end ? { from: s.start, to: s.end, collectAt: s.collectAt } : null;
+}
+
+/* ---------- K-40 (T1): the handoff time ---------- */
+/** The times Sarah can pick for getting her order back (D-295), from the tailor's open hours — her shop hours; a tailor with no shop: her
+    home-visit hours, and the courier collects from her home address — from now until HANDOFF_PICK_DAYS ahead (so a pick never outlasts the
+    UNCLAIMED_CAPTURE_D clock that starts at the hold). Pickup (needs a shop): a start every HANDOFF_SLOT_MIN that the hours still cover,
+    `[{ start }]`. Courier: HANDOFF_SLOT_MIN delivery windows starting by closing time whose collection (COURIER_COLLECT_LEAD_MIN before)
+    is inside the hours and more than COURIER_CHANGE_CUTOFF_MIN away, `[{ start, end, collectAt }]`. A pickup never blocks her calendar. */
+export function handoffSlots(appt, method = appt?.returnOption) {
+  const t = appt ? tailorById(appt.tailorId) : null;
+  if (!t || !RETURN_LABEL[method]) return [];
+  const shop = !!t.shop?.enabled;
+  if (method === 'pickup' && !shop) return [];
+  const hours = (shop ? t.availability?.shop : t.availability?.home) ?? {};
+  const step = POLICY.HANDOFF_SLOT_MIN;
+  const lead = POLICY.COURIER_COLLECT_LEAD_MIN;
+  const from = state.clock.now;
+  const until = from + POLICY.HANDOFF_PICK_DAYS * DAY_MS;
+  const at = (d, m) => { const x = new Date(d); x.setHours(Math.floor(m / 60), m % 60, 0, 0); return x; };   // wall-clock (DST-safe)
+  const out = [];
+  for (let d = strip(new Date(from)); d.getTime() < until; d = addDays(d, 1)) {
+    for (const [open, close] of hours[weekdayKey(d)] ?? []) {
+      const o = minutesOf(open);
+      const c = minutesOf(close);
+      if (method === 'pickup') {
+        for (let m = Math.ceil(o / step) * step; m + step <= c; m += step) {
+          const x = at(d, m).getTime();
+          if (x > from && x <= until) out.push({ start: isoMinute(new Date(x)) });
+        }
+        continue;
+      }
+      for (let m = Math.ceil((o + lead) / step) * step; m <= c; m += step) {
+        const x = at(d, m).getTime();
+        const collect = x - lead * MIN_MS;
+        if (collect - POLICY.COURIER_CHANGE_CUTOFF_MIN * MIN_MS <= from || x > until) continue;
+        out.push({ start: isoMinute(new Date(x)), end: isoMinute(new Date(x + step * MIN_MS)), collectAt: isoMinute(new Date(collect)) });
+      }
+    }
+  }
+  return out;
+}
+/** A picked handoff time as one line: "Fri, Oct 16 · 5:30 PM" (pickup) · "Fri, Oct 16 · 5:00–5:30 PM" (a courier window). */
+export const slotText = (slot) => (!slot?.start ? '' : slot.end ? `${fmtDay(slot.start)} · ${fmtTimeRange(slot.start, slot.end)}` : fmtWhen(slot.start));
+/** A pickup time that passed (HANDOFF_SLOT_MIN after its start) with nothing marked: no fee, she picks a new one (D-295). */
+export function handoffMissed(appt) {
+  const s = appt?.handoff?.slot;
+  return appt?.status === 'awaiting-handoff' && appt.returnOption === 'pickup' && !!s && !appt.handoff.markedAt
+    && state.clock.now >= toDate(s.start).getTime() + POLICY.HANDOFF_SLOT_MIN * MIN_MS;
+}
+/** Can Sarah move the time now (D-295)? Pickup: before the slot starts, or once it was missed; courier: until COURIER_CHANGE_CUTOFF_MIN
+    before the collection. Never once Amara marked it picked up, or after it is completed. */
+export function handoffChangeable(appt) {
+  const s = appt?.handoff?.slot;
+  if (appt?.status !== 'awaiting-handoff' || !s || appt.handoff.markedAt) return false;
+  if (appt.returnOption === 'courier') return state.clock.now < toDate(s.collectAt).getTime() - POLICY.COURIER_CHANGE_CUTOFF_MIN * MIN_MS;
+  return state.clock.now < toDate(s.start).getTime() || handoffMissed(appt);
+}
+/** Customer only (the tailor never sets it): pick the handoff time from `handoffSlots` (a slot object or its start ISO). On a ready order
+    it is part of the choice (Hold needs it); once held she can move it (`handoffChangeable`) — confirmed at once, no tailor approval,
+    the tailor is told in the thread and on her job. Errors: not-ready · return-required · already-marked · too-late · slot-invalid · no-change. */
+export function setHandoffSlot(id, slot) {
+  const a = must(id);
+  if (a.status !== 'ready' && a.status !== 'awaiting-handoff') return fail('not-ready');
+  if (!a.returnOption) return fail('return-required');
+  const prev = a.handoff?.slot ?? null;
+  if (a.status === 'awaiting-handoff') {
+    if (a.handoff.markedAt) return fail('already-marked');
+    if (!handoffChangeable(a)) return fail('too-late');
+  }
+  const start = typeof slot === 'string' ? slot : slot?.start;
+  const match = handoffSlots(a).find((x) => x.start === start);
+  if (!match) return fail('slot-invalid');
+  if (a.status === 'awaiting-handoff' && prev?.start === match.start) return fail('no-change');
+  a.handoff = { ...(a.handoff ?? {}), slot: { ...match } };
+  if (a.status === 'awaiting-handoff') {
+    a.handoff.moved = { from: prev, at: nowIso() };
+    const what = a.returnOption === 'courier' ? 'delivery' : 'pickup';
+    const when = slotText(match);
+    say(a, `You moved your ${what} to ${when}`, `${state.customer.first} moved her ${what} to ${when}`);
+  }
+  return succeed(a);
 }
 
 /** The ways back on a ready order, RETURN_LABEL order. */
@@ -1081,6 +1157,7 @@ export function chooseReturn(id, option) {
   const a = must(id);
   if (a.status !== 'ready') return fail('not-ready');
   if (!RETURN_LABEL[option] || !returnOffer(a).includes(option) || !tailorById(a.tailorId).returns?.[option]) return fail('not-offered');
+  if (a.returnOption !== option && a.handoff?.slot) a.handoff = null;   // K-40: a pickup time is not a courier window
   a.returnOption = option;
   if (option === 'courier') {
     const quoted = courierQuote(ZIP_INFO[a.job.zip]?.miles ?? 0);
@@ -1107,6 +1184,9 @@ export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   if (a.status !== 'ready') return fail('not-ready');
   if (!a.returnOption) return fail('return-required');
   if (a.returnOption === 'courier' && a.courier?.state !== 'ready') return fail('courier-unavailable');
+  const slot = a.handoff?.slot ?? null;                                                       // K-40: the time comes first
+  if (!slot) return fail('slot-required');
+  if (!handoffSlots(a).some((x) => x.start === slot.start)) return fail('slot-gone');
   const charge = a.money.balance > 0;                                                         // M6-M-03: a $0 balance only settles the refund, nothing to decline
   if (charge && state.sim.card === 'declined') { a.payments.balance.state = 'failed'; a.payments.balance.failedCardId = cardId; return fail('card-declined'); }
   if (charge && state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
@@ -1114,8 +1194,8 @@ export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   if (a.payments.refund?.cents > 0) a.payments.refund.state = 'refunded';                   // D-156
   a.balanceCardId = cardId;
   a.handoff = {
-    code: handoffCode(a), heldAt: nowIso(), pausedMs: 0,
-    markedBy: null, markedAt: null, photo: null, marks: 0, autoAt: null, problemAt: null, completedBy: null, completedAt: null,
+    code: handoffCode(a), heldAt: nowIso(), pausedMs: 0, slot, moved: null,
+    markedBy: null, markedAt: null, marks: 0, autoAt: null, problemAt: null, completedBy: null, completedAt: null,
   };
   setStatus(a, 'awaiting-handoff');
   const how = RETURN_LABEL[a.returnOption].toLowerCase();
@@ -1171,24 +1251,18 @@ export function confirmPickup(id, code) {
   completeHandoff(a, 'code');
   return succeed(a);
 }
-/** Tailor marks it handed over without Sarah's confirmation: a drop-off needs a photo (Sarah sees it); a pickup without the code needs none.
-    Starts the HANDOFF_AUTO_H countdown. After a reported problem she can mark it again (a new photo), which clears the problem and restarts it. */
-export function markHandedOver(id, { photo = false } = {}) {
+/** Tailor, in-store pickup: Sarah picked it up without her code — marked picked up (K-37: no drop-off any more). Starts the HANDOFF_AUTO_H
+    countdown. After Sarah reported a problem she can mark it again, which clears the problem and restarts it. Errors: courier · already-marked. */
+export function markHandedOver(id) {
   const a = must(id);
   const g = guardHandoff(a); if (g) return g;
-  if (a.returnOption === 'courier') return fail('courier');
+  if (a.returnOption !== 'pickup') return fail('courier');
   const h = a.handoff;
   if (h.markedAt && !h.problemAt) return fail('already-marked');
-  const dropoff = a.returnOption === 'dropoff';
-  if (dropoff && !photo) return fail('photo-required');
   if (h.problemAt) { h.pausedMs += state.clock.now - toDate(h.problemAt).getTime(); h.problemAt = null; }
   h.marks += 1;
-  Object.assign(h, {
-    markedBy: 'tailor', markedAt: nowIso(), autoAt: isoMinute(new Date(state.clock.now + POLICY.HANDOFF_AUTO_H * HOUR_MS)),
-    photo: dropoff ? { id: `h${h.marks}`, at: nowIso(), tone: (h.marks - 1) % 4 } : null,
-  });
-  const first = firstName(tailorById(a.tailorId));
-  say(a, dropoff ? `${first} marked it delivered` : `${first} marked it picked up`, dropoff ? 'You marked it delivered' : 'You marked it picked up');
+  Object.assign(h, { markedBy: 'tailor', markedAt: nowIso(), autoAt: isoMinute(new Date(state.clock.now + POLICY.HANDOFF_AUTO_H * HOUR_MS)) });
+  say(a, `${firstName(tailorById(a.tailorId))} marked it picked up`, 'You marked it picked up');
   return succeed(a);
 }
 /** Customer, any way back: "I got it" completes it right away (also after she reported a problem). */
@@ -1533,7 +1607,7 @@ export const T = {
   tailorDecline, expireRequest, tryAgain, cancelBooking, rescheduleBooking, tailorCantMakeIt, markNoShow, reportTailorNoShow,
   startFitting, addFittingPhoto, removeFittingPhoto, restoreFittingPhoto, setFittingComment, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
   sendJobEdit, approveJobEdit, addNote, updateNote, removeNote, restoreNote, addNotePhoto, removeNotePhoto,
-  chooseReturn, holdBalance, confirmPickup, markHandedOver, confirmReceived, reportNotReceived, courierDelivered, bookAgain, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
+  chooseReturn, setHandoffSlot, holdBalance, confirmPickup, markHandedOver, confirmReceived, reportNotReceived, courierDelivered, bookAgain, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick, suggestLapseAt,
 };

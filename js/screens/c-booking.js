@@ -3,23 +3,24 @@
    ways to change it. Focal: the visit time (the first row of the Visit group, .t-figure).
    States: just confirmed · upcoming · cancel sheets (early / late) ·
    reschedule sheet · cancelled (early / late) · Amara can't make it ·
-   no-show · M4: fitting · in progress · awaiting-handoff (pickup / drop-off /
-   courier; Study-1 A3: code, delivered, problem, unclaimed) · completed (reviewed) · Study-1 A5: tailor
+   no-show · M4: fitting · in progress · awaiting-handoff (pickup / courier, K-37 no drop-off;
+   Study-1 A3: code, marked, problem, unclaimed; K-40: the picked time + Change time) · completed (reviewed) · Study-1 A5: tailor
    no-show (link, sheet, result), tailor cancelled late. Which appointment: focusAppt (D-72).
    ============================================================ */
 import { register, render as go, registered } from '../app.js';
 import {
   state, T, tailorById, openSlots, justConfirmed, now, returnAddress, priceChangeView, courierWindow, autoCompleteLeft, statusScreen,
+  slotText, handoffChangeable, handoffMissed,
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
   sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, andList, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR,
-  actionBar, pickupCode, autoCompleteLine, deliveryPhoto, balanceCardLabel,
+  actionBar, pickupCode, autoCompleteLine, balanceCardLabel, openHandoffTime,
 } from '../components.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
-import { fmtWhen, fmtTime, fmtDay, fmtTimeRange, addMinutes, toDate, isoMinute } from '../dates.js';
-import { VISIT_LABEL, VISIT_MINUTES, SHOP_CITY } from '../data.js';
+import { fmtWhen, fmtTime, fmtDay, addMinutes, toDate, isoMinute } from '../dates.js';
+import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
 import { focusAppt, redirectIfMoved, statusWord, bookingTab, setFocus } from '../focus.js';
@@ -227,15 +228,18 @@ function shopHoursLine(t) {
   return '';
 }
 
-/** P-27 + K-18 (3-J): the drop-off address in two lines — the street, then city, state and ZIP (Sarah's saved address, D-106). */
-function dropoffLines() {
-  const ad = state.customer.address ?? {};
-  return [returnAddress(), [ad.city ?? SHOP_CITY.city, `${ad.state ?? SHOP_CITY.state} ${ad.zip ?? ''}`.trim()].filter(Boolean).join(', ')];
+/** K-40: the shop hours on the day of the picked pickup ("Open Fri 10:00 AM – 6:00 PM"), else the next hours from now. */
+function shopHoursOn(t, iso) {
+  if (!iso) return shopHoursLine(t);
+  const d = toDate(iso);
+  const key = DOW_KEYS[d.getDay()];
+  const w = (t.availability?.shop?.[key] ?? []).find(([o, c]) => minsOf(o) <= d.getHours() * 60 + d.getMinutes() && d.getHours() * 60 + d.getMinutes() < minsOf(c)) ?? t.availability?.shop?.[key]?.[0];
+  return w ? `Open ${DOW_NAME[key]} ${timeLabel(minsOf(w[0]))} – ${timeLabel(minsOf(w[1]))}` : shopHoursLine(t);
 }
 
 /** K-18 (D-249), 3-J "Edge-to-edge linen stage": the three return options share one screen skeleton —
     strip (the state) · header row (Amara, what is on hold) · the hanging stage (her garments, Sarah's tag) · the handoff block (Study-1 A3: the
-    pickup code, or the drop-off photo and the auto-complete countdown) · the labelled place block with its buttons · what's left to do ·
+    pickup code, or the auto-complete countdown) · the labelled place block led by the picked time (K-40) with its buttons (Change time) · what's left to do ·
     Your order · Price. "I got it" closes it on every way back (A3): the sticky bar with "I didn't get it" once Amara marked it handed over,
     else a quiet outline button at the end. */
 function handoffView(a, t, first) {
@@ -245,13 +249,19 @@ function handoffView(a, t, first) {
   const h = a.handoff ?? {};
   const marked = !!h.markedAt;
   const problem = !!h.problemAt;
-  const hours = shopHoursLine(t);
-  const w = how === 'courier' && a.courier ? courierWindow(a) : null;
-  const win = w ? fmtTimeRange(w.from, w.to) : '';
+  const slot = h.slot ?? null;
+  const when = slotText(slot);
+  const missed = handoffMissed(a);
+  const canMove = handoffChangeable(a);
+  const hours = shopHoursOn(t, how === 'pickup' ? slot?.start : null);
+  const w = how === 'courier' ? courierWindow(a) : null;
   const items = returnedItems(a);
   const services = items.reduce((n, g) => n + g.services.length, 0);
   const sarah = `${state.customer.first} ${(state.customer.last ?? '').charAt(0)}.`.replace(/ \.$/, '');
   const message = { label: 'Message', icon: ICON_CHAT, act: 'message' };
+  /* K-40: Sarah moves the time with the same Scheduler sheet (until the slot / an hour before the courier collects) */
+  const change = canMove ? [{ label: how === 'courier' ? 'Change window' : missed ? 'Pick a new time' : 'Change time', icon: ICON_CALENDAR, act: 'change-time' }] : [];
+  const movedFrom = h.moved?.from ? `You moved it from ${esc(slotText(h.moved.from))}` : '';
   const bal = a.payments.balance;
   const held = bal.cents ?? 0;
   const charged = bal.state === 'captured';
@@ -263,43 +273,35 @@ function handoffView(a, t, first) {
     pickup: {
       strip: problem ? { tone: 'warn', icon: 'chat', text: 'Problem reported · sort it out in chat' }
         : marked ? { tone: 'action', icon: 'bag', text: `${first} marked it picked up` }
-          : { tone: 'done', icon: 'bag', text: 'Ready for pickup · show your code at the shop' },
+          : missed ? { tone: 'warn', icon: 'clock', text: `You missed your pickup at ${fmtTime(slot.start)} · pick a new time` }
+            : { tone: 'done', icon: 'bag', text: when ? `Pickup ${when} · show your code at the shop` : 'Ready for pickup · show your code at the shop' },
       tag: 'Ready', right: `at ${t.shopName}`,
       place: () => {
         const addr = `${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim();
         const dir = { label: 'Directions', icon: ICON_DIRECTIONS, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${t.shopName}, ${addr}`)}`, act: 'directions', attrs: 'target="_blank" rel="noopener"' };
-        return `${visitBlock([{ icon: 'bag', value: shopName, detail: [esc(addr), ...(hours ? [esc(hours)] : [])] }], { title: 'In-store pickup', flush: true })}${personActions([dir, message])}`;
+        const time = when && !marked ? [{
+          icon: 'calendar', value: esc(when), strong: true,
+          detail: missed ? 'You missed this time. Pick a new one, no fee.' : movedFrom || `Your pickup time · ${f} has it ready then`,
+        }] : [];
+        return `${visitBlock([...time, { icon: 'bag', value: shopName, detail: [esc(addr), ...(hours ? [esc(hours)] : [])] }], { title: 'In-store pickup', flush: true })}${personActions([dir, ...(marked ? [] : change), message])}`;
       },
       steps: problem ? [trouble, leave] : marked ? [confirm, leave] : [
-        { state: 'current', title: 'Pick it up at the shop', sub: hours ? esc(hours.replace(/^Open /, '').replace(/^./, (c) => c.toUpperCase())) : '' },
+        { state: 'current', title: 'Pick it up at the shop', sub: when ? esc(when) : hours ? esc(hours.replace(/^Open /, '').replace(/^./, (c) => c.toUpperCase())) : '' },
         { state: 'todo', title: `Show ${f} your code` },
         leave,
       ],
     },
-    dropoff: {
-      strip: problem ? { tone: 'warn', icon: 'chat', text: 'Problem reported · sort it out in chat' }
-        : marked ? { tone: 'action', icon: 'home', text: `${first} delivered it · photo below` }
-          : { tone: 'action', icon: 'home', text: `${first} will drop it off · agree on a time in chat` },
-      tag: marked ? 'Delivered' : 'To your door', right: marked ? 'at your door' : 'coming to you',
-      place: () => {
-        const [street, city] = dropoffLines();
-        return `${visitBlock([
-          { icon: 'home', value: esc(street), detail: esc(city) },
-          ...(marked ? [] : [{ icon: 'clock', value: 'Time to agree', detail: `${f} will message you a time` }]),
-        ], { title: 'Home drop-off', flush: true })}${personActions([message])}`;
-      },
-      steps: problem ? [trouble, leave] : marked
-        ? [{ state: 'done', title: `${f} brought it to your door`, sub: esc(`${fmtDay(h.markedAt)}, ${fmtTime(h.markedAt)}`) }, confirm, leave]
-        : [{ state: 'current', title: `Agree on a time with ${f}`, sub: 'In chat' }, { state: 'todo', title: `${f} brings it to your door` }, leave],
-    },
     courier: {
-      strip: { tone: 'done', icon: 'truck', text: win ? `On its way · arrives ${win}` : 'On its way' },
-      tag: 'With courier', right: 'in the courier’s bag',
-      place: () => `${visitBlock([{
-        icon: 'truck', cls: 'visit-row--courier', value: esc(`${t.shopName} → ${returnAddress()}`),
-        detail: [`${esc(a.courier?.miles ?? 0)} mi${win ? ` · arrives ${esc(win)}` : ''}`, 'Uber via Taily · Paid by you'],
-      }], { title: 'Taily courier', flush: true })}${personActions([message])}`,
-      steps: [{ state: 'current', title: 'On its way to you', sub: win ? `Arrives ${esc(win)}` : '' }, leave],
+      strip: { tone: 'done', icon: 'truck', text: when ? `Courier booked · arrives ${when}` : 'Courier booked' },
+      tag: 'Ready', right: `at ${t.shopName}`,
+      place: () => `${visitBlock([
+        ...(w ? [{ icon: 'clock', value: esc(`Arrives ${when}`), strong: true, detail: [movedFrom, `The courier collects from ${f} at ${esc(fmtTime(w.collectAt))}`].filter(Boolean) }] : []),
+        {
+          icon: 'truck', cls: 'visit-row--courier', value: esc(`${t.shopName} → ${returnAddress()}`),
+          detail: [`${esc(a.courier?.miles ?? 0)} mi · Uber via Taily`, 'Paid by you'],
+        },
+      ], { title: 'Taily courier', flush: true })}${personActions([...change, message])}`,
+      steps: [{ state: 'current', title: 'Courier booked', sub: when ? `Arrives ${esc(when)}` : '' }, leave],
     },
   }[how];
 
@@ -317,10 +319,10 @@ function handoffView(a, t, first) {
     types: items.map((g) => g.type), tag: [sarah, cfg.tag], left: `${plural(items.length, 'item')} · ${plural(services, 'service')}`, right: cfg.right,
     label: `${plural(items.length, 'item')} ready: ${andList(items.map((g) => g.type))}, hung on a rail with a tag: ${sarah}, ${cfg.tag}`,   // K-21: every garment is drawn, so the label names every one
   });
-  /* Study-1 A3: the code to show at the shop; once Amara marked it, her photo (drop-off) and the countdown */
+  /* Study-1 A3: the code to show at the shop; once Amara marked it, the countdown */
   const handoff = how === 'pickup' && !marked
     ? pickupCode({ code: h.code ?? '' })
-    : marked ? `${how === 'dropoff' ? deliveryPhoto({ photo: h.photo, type: items[0]?.type ?? '', by: first }) : ''}${autoCompleteLine(autoCompleteLeft(a))}` : '';
+    : marked ? autoCompleteLine(autoCompleteLeft(a)) : '';
   const heldLine = held > 0 ? (charged ? `Ready · ${money(held)} charged` : `Ready · ${money(held)} on hold`) : 'Ready · nothing to pay';
   const steps = timeline([{ state: 'done', title: 'Booked, fitted, tailored', sub: heldLine }, ...cfg.steps]);
   const courierCaption = how === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {};
@@ -535,6 +537,17 @@ function openReschedule(a, first) {
   });
 }
 
+/* ---------- K-40 (T1): move the handoff time — the shared Scheduler sheet (components.js openHandoffTime) ---------- */
+function openChangeTime(a, first) {
+  const courier = a.returnOption === 'courier';
+  openHandoffTime(a, {
+    mode: 'change', first, courierCents: a.courier?.cents ?? 0,
+    dataS: courier ? `${ID}--change-window` : `${ID}--change-time`,
+    onDone: (appt) => { go(ID); toast(`Moved to ${slotText(appt.handoff.slot)}. ${first} has been told.`); },
+    onMessage: () => go('c-thread'),
+  });
+}
+
 /* ---------- Study-1 A3 / A5 sheets ---------- */
 /** "I got it" (A3): any way back; completes the order right away and charges what is on hold. */
 function openGotIt(a, first) {
@@ -660,6 +673,7 @@ function wire(root) {
       case 'message': go('c-thread'); break;
       case 'cancel': if (a) openCancel(a, firstOf(t)); break;
       case 'reschedule': if (a) openReschedule(a, firstOf(t)); break;
+      case 'change-time': if (a) openChangeTime(a, firstOf(t)); break;
       case 'book-again':
         if (a.status === 'completed') { T.bookAgain(a.id); state.ui.booking = { tailorId: a.tailorId, again: true }; go('c-job', { fresh: true }); }   // Study-1 A4 (default 9)
         else { state.ui.booking = { tailorId: a.tailorId }; go('c-book'); }

@@ -27,7 +27,11 @@ export const POLICY = Object.freeze({
   CODE_TTL_MIN: 10,         // a sign-in SMS code works for 10 min, then it expires (D-33)
   CODE_RESEND_S: 30,        // "Resend code" unlocks 30 s after the last send (D-33)
   JUST_BOOKED_MIN: 60,      // a booking reads as just confirmed (You’re booked / You accepted) this long after the accept (D-73)
-  HANDOFF_AUTO_H: 48,       // Study-1 A3: a handoff the tailor marked (drop-off photo / pickup without code) completes on its own after this long
+  HANDOFF_AUTO_H: 48,       // Study-1 A3: a pickup the tailor marked without Sarah's code completes on its own after this long (K-37: no drop-off)
   UNCLAIMED_CAPTURE_D: 7,   // Study-1 A2: the held balance is captured this many days after the hold if the order is still not handed over
   REVIEW_REMINDER_D: 7,     // Study-1 A4: the review reminder shows this many days after completion when no review was left
+  HANDOFF_PICK_DAYS: 7,     // K-40 (D-295): a pickup time / courier window can be picked up to this many days ahead (= UNCLAIMED_CAPTURE_D)
+  HANDOFF_SLOT_MIN: 30,     // K-40: pickup times start every half hour of the open hours; a courier delivery window is this long
+  COURIER_COLLECT_LEAD_MIN: 15, // K-40: the courier collects from the tailor this long before the delivery window starts (inside her open hours)
+  COURIER_CHANGE_CUTOFF_MIN: 60, // K-40 (D-295): Sarah can move a courier window until this long before the collection
 });

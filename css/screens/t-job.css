@@ -63,9 +63,11 @@
   html:not(.is-test) .t-job__rev .stars__star:nth-child(5) { animation-delay: 1520ms; }
   html:not(.is-test) .t-job__rev-quote { animation: t-job-count 500ms var(--ease-out) 1600ms both; }
 }
-/* Study-1 A3: the handoff notes under the header (drop-off photo, countdown, unclaimed capture) and the Delivered sheet's photo */
+/* Study-1 A3: the handoff notes under the header (countdown, unclaimed capture); K-37: the Delivered sheet is gone */
 .t-job__handoff { display: flex; flex-direction: column; gap: var(--space-12); }
-.t-job-sheet__photo { display: flex; align-items: center; gap: var(--space-16); }
+/* K-40: only Sarah sets the handoff time — the line and its Message link under the place block */
+.t-job__only { margin: var(--rhythm-group) 0 0; text-wrap: pretty; }
+.t-job__only .text-link { display: inline-flex; align-items: center; min-height: 44px; vertical-align: middle; }
 .t-job-sheet__actions .text-link { align-self: center; }
 /* Study-1 B1: the edit waiting on Sarah (her reason, the photo) */
 .t-job__edit-photo { margin-top: var(--rhythm-group); }

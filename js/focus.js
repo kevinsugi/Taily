@@ -77,12 +77,9 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
       const h = appt.handoff ?? {};
       /* Study-1 A3: a reported problem is Amara's move; a handoff she marked is Sarah's to confirm (or the countdown completes it) */
       if (h.problemAt) return customer ? { pill: 'waiting', label: pick('Problem reported', 'Problem') } : { pill: 'action', label: pick(`${sarah} didn’t get it`, 'Problem') };
-      if (h.markedAt) {
-        const done = how === 'dropoff' ? 'Delivered' : 'Picked up';
-        return customer ? { pill: 'action', label: pick('Confirm you got it', done) } : { pill: 'awaiting-handoff', label: done };
-      }
-      if (how === 'dropoff') return customer ? { pill: 'awaiting-handoff', label: pick('Coming to you', 'Drop-off') } : { pill: 'action', label: 'To drop off' };
-      if (how === 'courier') return customer ? { pill: 'awaiting-handoff', label: pick('Out for delivery', 'Courier') } : { pill: 'awaiting-handoff', label: pick('Courier booked', 'Courier') };
+      if (h.markedAt) return customer ? { pill: 'action', label: pick('Confirm you got it', 'Picked up') } : { pill: 'awaiting-handoff', label: 'Picked up' };
+      /* K-40: the courier is booked for the window Sarah picked (it is not on its way until it collects) */
+      if (how === 'courier') return { pill: 'awaiting-handoff', label: pick('Courier booked', 'Courier') };
       return { pill: 'awaiting-handoff', label: pick('Ready for pickup', 'Pickup') };
     }
     case 'completed': return { pill: 'completed', label: 'Completed' };
@@ -98,11 +95,7 @@ export function sinceText(appt) {
 }
 
 /** The return step word on an awaiting-handoff order (D-106, D-170), one source for the t-home rows and the status words:
-    tailor — Ready for pickup · To drop off · Courier booked; customer — (pickup) Ready for pickup · Drop-off · Out for delivery. */
-export function returnStep(appt, persona = state.persona) {
-  const how = appt?.returnOption ?? 'pickup';
-  const customer = persona !== 'tailor';
-  if (how === 'dropoff') return customer ? 'Drop-off' : 'To drop off';
-  if (how === 'courier') return customer ? 'Out for delivery' : 'Courier booked';
-  return 'Ready for pickup';
+    Ready for pickup · Courier booked, on both sides (K-37: no drop-off; K-40: the courier is booked for Sarah's window). */
+export function returnStep(appt) {
+  return appt?.returnOption === 'courier' ? 'Courier booked' : 'Ready for pickup';
 }

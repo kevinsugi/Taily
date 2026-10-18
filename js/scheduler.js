@@ -220,3 +220,51 @@ export function readSlot(root, slots) {
   });
   return iso;
 }
+
+/* ============================================================
+   K-40 (T1) — window mode: Taily courier delivery windows
+   `{ start, end, collectAt }` as a Day · Arrives wheel (the date
+   column of the slot mode, then one column of "5:00–5:30 PM").
+   ============================================================ */
+import { fmtTimeRange } from './dates.js';
+
+const winLabel = (w) => fmtTimeRange(w.start, w.end);
+/** [{ day, label, list: [window, …] }] — days that have a window, ascending. */
+function windowDays(windows) {
+  const byDay = new Map();
+  [...windows].sort((x, y) => x.start.localeCompare(y.start)).forEach((w) => {
+    const day = w.start.slice(0, 10);
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push(w);
+  });
+  return [...byDay].map(([day, list]) => ({ day, label: fmtSlotDay(list[0].start), list }));
+}
+/** The two Scheduler columns (Day 140 · Arrives 176) for a list of windows, settled on the window starting at `selectedStart` (default: the first). */
+export function windowColumns(windows, selectedStart = null, label = 'Arrives') {
+  const days = windowDays(windows);
+  if (!days.length) return [];
+  const di = Math.max(0, days.findIndex((d) => selectedStart && d.day === selectedStart.slice(0, 10)));
+  const list = days[di].list;
+  const wi = Math.max(0, list.findIndex((w) => w.start === selectedStart));
+  return [dateColumn(days.map((d) => d.label), di), { width: 176, rows: list.map(winLabel), sel: wi, label }];
+}
+/** Read the Day · Arrives wheels back as a window. When the day changed, the Arrives column is re-rowed for that day,
+    keeping the same window time when the new day has it (else the nearest row). */
+export function readWindow(root, windows) {
+  const days = windowDays(windows);
+  const cols = [...root.querySelectorAll('[data-scheduler] .wheel__col--scroll')].slice(-2);
+  if (!days.length || cols.length < 2) return null;
+  const rowsOf = (col) => [...col.querySelectorAll('.wheel__row')].map((r) => r.textContent.trim());
+  const day = days[Math.max(0, Math.min(days.length - 1, Number(cols[0].dataset.sel)))];
+  const rows = day.list.map(winLabel);
+  const cur = rowsOf(cols[1]);
+  let wi = Number(cols[1].dataset.sel);
+  if (cur.join('|') !== rows.join('|')) {
+    const same = rows.indexOf(cur[wi]);
+    wi = same >= 0 ? same : Math.min(rows.length - 1, wi);
+    cols[1].innerHTML = wheelRows({ rows, sel: wi });
+  }
+  wi = Math.max(0, Math.min(rows.length - 1, wi));
+  settle(cols[1], wi);
+  return day.list[wi];
+}

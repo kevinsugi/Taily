@@ -36,7 +36,7 @@ export const SLOT_HORIZON_DAYS = 28;                    // how far ahead slots a
 export const DECLINE_REASONS = ['Fully booked that week', 'Not work I take on', 'Too far for a home visit', 'Can’t finish by the need-by date'];
 export const CANT_MAKE_IT_REASONS = ['Family emergency', 'I’m unwell', 'Shop closed unexpectedly', 'Something came up'];
 export const VISIT_LABEL = { customer: { home: 'At my place', shop: 'At the shop' }, tailor: { home: 'Home visit', shop: 'Shop visit' } };
-export const RETURN_LABEL = { pickup: 'In-store pickup', dropoff: 'Home drop-off', courier: 'Taily courier' };
+export const RETURN_LABEL = { pickup: 'In-store pickup', courier: 'Taily courier' };   // K-37: Home drop-off is not a way back
 export const PRIVACY_NOTE = 'Phone numbers and emails stay private on Taily.';
 export const ZIP_INFO = {                               // mock geography: neighborhood + miles from the seed shop
   '11211': { hood: 'Williamsburg', miles: 0.6 }, '11222': { hood: 'Greenpoint', miles: 1.4 },
@@ -136,7 +136,7 @@ export const TAILORS = [
       'dress-hem': 50, 'dress-take-in': 65, zipper: 30, repair: 20,
     },
     rush: [{ days: 1, fee: 40 }, { days: 2, fee: 25 }, { days: 3, fee: 15 }],   // 4+ days free
-    returns: { pickup: true, dropoff: true, courier: true },
+    returns: { pickup: true, courier: true },
     availability: {                                     // no overlap between the two
       shop: { tue: [['10:00', '18:00']], wed: [['10:00', '18:00']], thu: [['10:00', '16:00']], fri: [['10:00', '18:00']], sat: [['13:00', '17:00']] },
       home: { mon: [['17:00', '20:00']], thu: [['17:00', '20:00']], sat: [['09:00', '12:00']] },
@@ -189,7 +189,7 @@ export const BLANK_TAILOR = {
   shop: { enabled: false, street: '', city: '', state: '', zip: '', hood: '' },
   home: { enabled: false, zips: [], fee: 0, hoods: [] },
   prices: {}, rush: [],
-  returns: { pickup: false, dropoff: false, courier: false },
+  returns: { pickup: false, courier: false },
   availability: { shop: {}, home: {} },
   rating: { avg: 0, count: 0 }, reviews: [],
   payouts: { bank: '', last4: '', holder: '', routing: '' },

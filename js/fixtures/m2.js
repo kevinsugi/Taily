@@ -102,14 +102,14 @@ export const FLOWS_to_where = [
     expect: { has: ['Save changes', 'No changes yet', 'Bushwick', '4 selected'], not: 'Step 3 of 6', sel: `#street[value="${AMARA.shop.street}"]` } },
 ];
 export const FLOWS_to_returns = [
-  { key: 'to-returns', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options', note: 'Step 4 of 6: pickup and drop-off pre-ticked from what she offers, courier off',
+  { key: 'to-returns', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options', note: 'Step 4 of 6: pickup pre-ticked (she has a shop), courier off; K-37: no Home drop-off',
     setup: () => { onboardTo('returns'); },
-    expect: { has: ['Step 4 of 6', 'How do customers get their orders back', 'In-store pickup', 'Home drop-off', 'Taily courier', 'nothing comes out of your payout'], sel: '#ret-pickup:checked' } },
-  { key: 'to-returns--none', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options — none picked', note: 'All three off, then Next',
-    setup: (S) => { onboardTo('returns'); S.state.ui['to-returns'] = { draft: { pickup: false, dropoff: false, courier: false } }; },
+    expect: { has: ['Step 4 of 6', 'How do customers get their orders back', 'In-store pickup', 'Taily courier', 'nothing comes out of your payout'], not: 'Home drop-off', sel: '#ret-pickup:checked' } },
+  { key: 'to-returns--none', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options — none picked', note: 'Both off, then Next',
+    setup: (S) => { onboardTo('returns'); S.state.ui['to-returns'] = { draft: { pickup: false, courier: false } }; },
     click: ['[data-act="next"]'],
     expect: { has: 'Pick at least one return option.' } },
-  { key: 'to-returns--edit', screen: 'to-returns', group: 'M2 · Shop', title: 'Return options — edit', note: 'Live tailor: all three offered, Save changes waits for a change',
+  { key: 'to-returns--edit', screen: 'to-returns', group: 'M2 · Shop', title: 'Return options — edit', note: 'Live tailor: both offered, Save changes waits for a change',
     expect: { has: ['Save changes', 'Taily courier'], not: 'Step 4 of 6', sel: '#ret-courier:checked' } },
 ];
 export const FLOWS_to_availability = [

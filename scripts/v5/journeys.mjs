@@ -20,9 +20,11 @@
      J11 payout lifecycle: completed -> Pending (the Friday) -> the Friday run -> Paid, fee and payout in dollars (D-24, D-136)
      J12 a suggested time lapses: both sides end it and the hold is released (D-154)
      J13 Book now on the profile opens the picker on the next opening; one tap confirms it into review (K-18)
-     J15 pickup with the code (Study-1 A2–A4): Hold at the return choice, Sarah's code, a wrong code, the right code completes both sides, Job Done
-     J16 drop-off (Study-1 A3): Delivered needs a photo -> the 47h countdown on both sides -> "I didn't get it" pauses it -> "I got it" completes
-     J17 the clock (Study-1 A2–A3): +48 hours (Demo actions) auto-completes a delivered order; +7 days captures an unclaimed hold, the job stays open
+     J15 pickup with the code (Study-1 A2–A4, K-40): pick the time (Hold waits for it), Hold, move the time (Amara sees it), Sarah's code, a wrong code,
+         the right code completes both sides, Job Done
+     J16 pickup without the code (Study-1 A3, K-37 — was the drop-off): Amara marks it picked up -> the 47h countdown on both sides -> "I didn't get it"
+         pauses it -> "I got it" completes
+     J17 the clock (Study-1 A2–A3): +48 hours (Demo actions) auto-completes a marked pickup; +7 days captures an unclaimed hold, the job stays open
      J18 edit after the fitting (Study-1 B1–B2, K-30 overruled): a private note; Amara edits the job (price, reason) -> Mark ready waits ->
          Sarah sees "Amara edited your order" (Approve / Message, no decline) and messages -> Amara revises (price back, later date) ->
          Sarah approves -> Mark ready
@@ -289,14 +291,18 @@ await journey('J7', 'courier return: the three courier amounts match on both sid
   await click('.appt-row');
   await at('J7 customer: ready', 'c-ready');
   await click('[data-act="return"][data-value="courier"]');
-  await at('J7 customer: courier quote', 'c-ready', { has: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Hold ${fmtExact(S.courier.balance)}`] });
+  await at('J7 customer: courier chosen, the window first (K-40)', 'c-ready', { has: ['Pick a delivery window', 'plus the courier fee', 'Pick a delivery window first.'], not: ['Uber quote', `Hold ${fmtExact(S.courier.balance)}`] });
+  await click('[data-act="pick-time"]');
+  await at('J7 customer: the window sheet prices the courier', 'c-ready', { has: ['Pick a delivery window', `Courier ${fmtExact(cq.cents)} · collects from Amara at`, 'Use this window'] });
+  await click('[data-act="ht-ok"]');
+  await at('J7 customer: courier quote', 'c-ready', { has: ['Fri, Oct 16 · 10:30–11:00 AM', fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Hold ${fmtExact(S.courier.balance)}`] });
   await click('[data-act="pay"]');
   await click('[data-act="pay-ok"]');
-  await at('J7 customer: out for delivery', 'c-booking', { has: ['On its way to you', fmtExact(cq.cents)] });
+  await at('J7 customer: courier booked', 'c-booking', { has: ['Courier booked · arrives Fri, Oct 16 · 10:30–11:00 AM', 'The courier collects from Amara at 10:15 AM', fmtExact(cq.cents)] });
   await flip();
   await click('.appt-row');
   await at('J7 tailor: courier booked, not her money', 't-job', {
-    has: ['Courier booked', 'arrives', 'completes on delivery', 'Paid by Sarah · nothing comes out of your payout', fmtExact(S.seed.payout)],
+    has: ['Courier collects 10:15 AM · arrives 10:30–11:00 AM', 'Only she can change it.', 'Paid by Sarah · nothing comes out of your payout', fmtExact(S.seed.payout)],
     not: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), 'Handed to courier'],
   });
 });
@@ -465,14 +471,22 @@ await journey('J15', 'pickup with the code: hold at the choice, the code, a wron
   const bal = fmtExact(S.seed.balance);
   await flow('c-ready');
   await click('[data-act="return"][data-value="pickup"]');
-  await at('J15 customer: what holding means', 'c-ready', { has: [`Hold ${bal}`, `We’ll hold ${bal} now and charge it when you get your garments.`, 'If you haven’t got it 7 days after you choose'], not: `Pay ${bal}` });
+  await at('J15 customer: what holding means; the time first (K-40)', 'c-ready', { has: [`Hold ${bal}`, `We’ll hold ${bal} now and charge it when you get your garments.`, 'If you haven’t got it 7 days after you choose', 'Pick a time', 'Pick a pickup time first.'], not: `Pay ${bal}` });
+  await click('[data-act="pick-time"]');
+  await at('J15 customer: the Scheduler sheet', 'c-ready', { has: ['Pick a pickup time', 'Fri, Oct 16 · 10:00 AM', 'Use this time'] });
+  await click('[data-act="ht-ok"]');
+  await at('J15 customer: the time picked, Hold is on', 'c-ready', { has: ['Fri, Oct 16 · 10:00 AM', 'Pickup Fri, Oct 16 · 10:00 AM · Free', `Hold ${bal}`], not: 'Pick a pickup time first.' });
   await click('[data-act="pay"]');
   await at('J15 customer: the hold sheet', 'c-ready', { has: ['Hold the balance', `Hold ${bal}`] });
   await click('[data-act="pay-ok"]');
-  await at('J15 customer: on hold, the pickup code', 'c-booking', { has: ['Ready for pickup · show your code at the shop', 'On hold', bal, 'YOUR PICKUP CODE', PICKUP_CODE, 'I got it'], not: 'Paid in full' });
+  await at('J15 customer: on hold, the pickup code', 'c-booking', { has: ['Pickup Fri, Oct 16 · 10:00 AM · show your code at the shop', 'On hold', bal, 'YOUR PICKUP CODE', PICKUP_CODE, 'I got it', 'Change time'], not: 'Paid in full' });
+  await click('[data-act="change-time"]');
+  await at('J15 customer: change the time', 'c-booking', { has: ['Change pickup time', 'Booked for Fri, Oct 16 · 10:00 AM', 'NEW TIME', 'Move my pickup'] });
+  await click('[data-act="ht-ok"]');
+  await at('J15 customer: moved', 'c-booking', { has: ['Pickup Fri, Oct 16 · 10:30 AM · show your code at the shop', 'You moved it from Fri, Oct 16 · 10:00 AM'] });
   await flip();
   await click('.appt-row');
-  await at('J15 tailor: Sarah’s balance is on hold', 't-job', { has: [`In-store pickup · Sarah’s ${bal} is on hold`, 'Picked up'], not: 'Mark completed' });
+  await at('J15 tailor: Sarah moved her pickup; only she can change it', 't-job', { has: ['Sarah moved her pickup to Fri, Oct 16 · 10:30 AM', 'Sarah moved it from Fri, Oct 16 · 10:00 AM', 'Only Sarah can change the time.', 'Picked up'], not: 'Mark completed' });
   await click('[data-act="picked-up"]');
   await page.fill('#handoff-code', '0000');
   await press('[data-act="pickup-ok"]');
@@ -491,18 +505,15 @@ await journey('J15', 'pickup with the code: hold at the choice, the code, a wron
 });
 
 /* ---------- J16 (Study-1 A3) ---------- */
-await journey('J16', 'drop-off: Delivered needs a photo, the countdown both sides, a reported problem pauses it, I got it completes', async () => {
-  await flow('t-job--handoff-dropoff');
-  await click('[data-act="delivered"]');
-  await press('[data-act="delivered-ok"]');
-  await at('J16 tailor: a photo is required', 't-job', { has: ['Mark as delivered', 'Add a photo of the drop-off. Sarah sees it.', 'Add a photo to mark it delivered.'] });
-  await click('[data-act="photo-camera"]');
-  await press('[data-act="delivered-ok"]');
-  await at('J16 tailor: delivered, the countdown', 't-job', { has: ['Delivered · photo sent to Sarah', 'Completes automatically in 47h unless Sarah reports a problem'], not: 'Mark as delivered' });
+await journey('J16', 'pickup without the code: Amara marks it, the countdown both sides, a reported problem pauses it, I got it completes', async () => {
+  await flow('t-job--handoff-pickup');
+  await click('[data-act="picked-up"]');
+  await press('[data-act="no-code"]');
+  await at('J16 tailor: marked picked up, the countdown', 't-job', { has: ['Marked as picked up', 'Completes automatically in 47h unless Sarah reports a problem'], not: ['Enter Sarah’s pickup code', 'Only Sarah can change the time'] });
   await flip();
   await click('[data-nav="bookings"]');
   await click('.appt-row');
-  await at('J16 customer: delivered, the photo and the countdown', 'c-booking', { has: ['Amara delivered it · photo below', 'Taken by Amara', 'Completes automatically in 47h unless you report a problem', 'I got it', 'I didn’t get it'] });
+  await at('J16 customer: marked, the countdown', 'c-booking', { has: ['Amara marked it picked up', 'Completes automatically in 47h unless you report a problem', 'I got it', 'I didn’t get it'], not: 'Change time' });
   await click('[data-act="not-got-it"]');
   await at('J16 customer: the report sheet', 'c-booking', { has: ['Didn’t get it?', 'We’ll stop the automatic completion and tell Amara. Nothing is charged while you sort it out in chat.', 'Report a problem', 'Keep waiting'] });
   await click('[data-act="nr-ok"]');
@@ -512,7 +523,7 @@ await journey('J16', 'drop-off: Delivered needs a photo, the countdown both side
   await at('J16 customer: three days on, still open (paused)', 'c-booking', { has: ['You reported a problem', 'On hold'] });
   await flip();
   await click('.appt-row');
-  await at('J16 tailor: Sarah didn’t get it', 't-job', { has: ['Sarah says she didn’t get it. Sort it out in chat.', 'Message Sarah', 'Mark delivered again'], not: 'Completes automatically' });
+  await at('J16 tailor: Sarah didn’t get it', 't-job', { has: ['Sarah says she didn’t get it. Sort it out in chat.', 'Message Sarah'], not: 'Completes automatically' });
   await flip();
   await click('[data-nav="bookings"]');
   await click('.appt-row');
@@ -522,15 +533,15 @@ await journey('J16', 'drop-off: Delivered needs a photo, the countdown both side
   await at('J16 customer: Job Done', 'c-complete', { has: ['ORDER COMPLETE', `Charged ${fmtExact(S.seed.balance)}`, 'Leave a review'] });
   await flip();
   await click('.appt-row');
-  await at('J16 tailor: completed', 't-job', { has: ['Nice work, Amara.', 'Dropped off at Sarah’s', fmtExact(S.seed.payout)] });
+  await at('J16 tailor: completed', 't-job', { has: ['Nice work, Amara.', 'Picked up at your shop', fmtExact(S.seed.payout)] });
 });
 
 /* ---------- J17 (Study-1 A2–A3) ---------- */
 /** A Demo action from the real Test-flows menu (moves the demo clock or delivers the courier on the live state). */
 const demo = async (id) => { await page.mouse.move(5, 5); await page.mouse.move(10, 10); await click('#flow-trigger'); await click(`[data-demo="${id}"]`); };   // the first input reveals the pinned control
-await journey('J17', 'the clock: +48 hours auto-completes a delivered order; +7 days captures an unclaimed hold and the job stays open', async () => {
+await journey('J17', 'the clock: +48 hours auto-completes a marked pickup; +7 days captures an unclaimed hold and the job stays open', async () => {
   const bal = fmtExact(S.seed.balance);
-  await flow('t-job--handoff-delivered');
+  await flow('t-job--handoff-pickup-marked');
   await advance(47 * 60);
   await paint('t-job');
   await at('J17 tailor: the last hour', 't-job', { has: ['Completes automatically in less than 1h unless Sarah reports a problem'] });

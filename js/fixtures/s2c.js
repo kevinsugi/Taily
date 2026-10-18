@@ -238,7 +238,11 @@ export const FLOWS_c_thread = [
     expect: { has: ['Report Amara', 'If you’re in danger, call 911 first. Only Taily sees this report.', 'They made me feel unsafe', 'Asked to pay or talk outside Taily', 'Send report'], sel: '[data-s="safety-report"] [data-act="sr-send"]' } },
   { ...at('c-thread'), key: 'c-thread--blocked', title: 'Chat — you blocked Amara', note: 'S-32: the chat closes both ways; neither can book the other; Taily is told',
     setup: (S) => { const a = S.driveTo('confirmed'); S.T.blockPerson('customer', { apptId: a.id }); },
-    expect: { has: ['You blocked Amara. You can’t message or book each other. Taily is looking into it.', 'Get help'], not: 'Message Amara', sel: '.read-only [data-act="get-help"]' } },
+    expect: { has: ['You blocked Amara. You can’t message or book each other. Taily is looking into it.', 'Get help', 'Unblock Amara'], not: 'Message Amara', sel: '.read-only [data-act="get-help"]' } },
+  { ...at('c-thread'), key: 'c-thread--unblock', title: 'Chat — Unblock Amara?', note: 'Merge A2 + B2: her own block can be undone from the closed chat; the safety case stays open for Taily (T.unblockPerson)',
+    setup: (S) => { const a = S.driveTo('confirmed'); S.T.blockPerson('customer', { apptId: a.id }); },
+    click: ['.read-only [data-act="unblock"]'],
+    expect: { has: ['Unblock Amara?', 'You’ll be able to book and message each other again. Taily still has your report.', 'Cancel'], sel: '[data-s="safety-unblock"] [data-act="cs-ok"]' } },
 ];
 export const FLOWS_t_thread = [
   { ...at('t-thread'), key: 't-thread--more', title: 'Chat ⋯ (tailor) — Report, Block, Get help', note: 'S-32: a tailor going into a stranger’s home can report or block',
@@ -252,7 +256,11 @@ export const FLOWS_t_thread = [
 export const FLOWS_c_tailor = [
   { ...at('c-tailor'), key: 'c-tailor--blocked', title: 'Profile — a tailor she blocked', note: 'S-32: blocked people can’t book or be booked (eligible: blocked)',
     setup: (S) => { S.T.blockPerson('customer', { tailorId: 'amara' }); },
-    expect: { has: ['You blocked this tailor'] } },
+    expect: { has: ['You blocked this tailor', 'You blocked Amara', 'You can’t book or message each other.', 'Unblock Amara'], sel: '[data-blocked] [data-act="unblock"]' } },
+  { ...at('c-tailor'), key: 'c-tailor--unblock', title: 'Profile — Unblock Amara?', note: 'Merge A2 + B2: the Unblock button on a tailor she blocked (T.unblockPerson)',
+    setup: (S) => { S.T.blockPerson('customer', { tailorId: 'amara' }); },
+    click: ['[data-blocked] [data-act="unblock"]'],
+    expect: { has: ['Unblock Amara?', 'Unblock Amara'], sel: '[data-s="safety-unblock"] [data-act="cs-ok"]' } },
 ];
 export const FLOWS_sys_texts = [
   { ...at('sys-texts'), key: 'sys-texts--admin', title: 'Text catalogue — to the admin', note: 'K-48.1: every new case and every Taily review texts Kevin ("Taily admin: …")',

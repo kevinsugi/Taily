@@ -40,6 +40,11 @@
      J27 a no-show dispute through Taily Help (pre-MVP A2, DG-1 B, D-14, K-48.1): Get help → "I was there" → That's not right → the admin's inbox →
          refund the deposit → close with outcome → both see the decision in dollars, both texted
      J28 the tailor's ⋯ Get help (DG-1 B): her topic + a message → the admin replies to her side → "Taily replied" on her thread, texted
+     J29 change phone (DG-3 A, pre-MVP B2): Account → Personal info → Change → a code to the new number → texts go to the new number
+     J30 delete account (DG-3 A): blocked while a visit is open (See the booking) → cancel it → Delete → signed out, the old number signs up fresh
+     J31 Apple, then a required phone + code (D-07 / B-09) → the names from the provider → Home; the K-49 deposit button V3 on the way
+     J32 the tracks meet (merge A2 + B2, D-380): Account → Help, Shop → Help, the one policy page from Account / c-pay / Help / signed out,
+         and Unblock on c-tailor
      J14 the anchored popover (K-25): a garment thumb toggles it, another thumb moves it, Escape returns focus, it flips above near the
          window bottom, the Verified check shares its one slot; t-home's count cluster lists every item and the card still opens the request
 
@@ -973,6 +978,114 @@ await journey('J28', 'the tailor’s ⋯ Get help: her topic and a message → t
   await flip();                                                          // admin → tailor
   await page.evaluate(() => window.Taily.render('t-case'));
   await at('J28 tailor: Taily replied', 't-case', { has: ['Taily replied', `The Friday after Sarah gets her order. Yours is ${fmtExact(S.seed.payout)}.`], not: 'Taily is reviewing' });
+});
+
+/* ---------- J29–J31 (pre-MVP B2, K-48 / K-49: Account v2, D-07 social sign-in + phone) ---------- */
+const NEW_NUMBER = '(917) 555-0186';
+await journey('J29', 'change phone: a code to the new number, then every text goes there (DG-3 A)', async () => {
+  await flow('c-account');
+  await at('J29 Account v2: three groups, Personal info first', 'c-account', { has: ['YOU', 'Personal info', 'BOOKINGS AND PAYMENT', 'HELP AND POLICIES', 'Delete account'] });
+  await press('[data-act="info"]');
+  await at('J29 Personal info: the number texts go to', 'c-profile', { has: ['Personal info', CUSTOMER.phone, 'Texts and sign-in codes go here'] });
+  await press('[data-act="change-phone"]');
+  await at('J29 change phone: the new number first', 'c-change-phone', { has: ['Change phone number', `Texts and sign-in codes go to ${CUSTOMER.phone} now.`] });
+  await page.fill('#screen #new-phone', CUSTOMER.phone);
+  await press('.action-bar [data-act="send-code"]');
+  await at('J29 the same number is refused, under the field', 'c-change-phone', { has: 'That’s the number you have now. Enter a new one.' });
+  await page.fill('#screen #new-phone', '9175550186');
+  await press('.action-bar [data-act="send-code"]');
+  await at('J29 a code went to the NEW number', 'c-change-phone', { has: ['Enter the code', `We texted a 6-digit code to ${NEW_NUMBER}.`] });
+  await page.fill('#screen #change-code', '000000');
+  await at('J29 a wrong code changes nothing', 'c-change-phone', { has: 'That code doesn’t match.' });
+  await page.fill('#screen #change-code', '123456');
+  await at('J29 verified: Personal info shows the new number', 'c-profile', { has: [NEW_NUMBER, 'Texts and sign-in codes go here'], not: CUSTOMER.phone });
+  /* the next text Taily sends her goes to the new number: Texts off and on again sends the confirmation text */
+  await page.evaluate(() => window.Taily.render('c-texts'));
+  await settle(page);
+  await press('#texts-booking');
+  await press('#texts-booking');
+  const last = await page.evaluate(async () => { const S = await import('/js/state.js'); const x = S.textsFor('customer').pop(); return { event: x?.event, phone: x?.phone }; });
+  check('J29 the next text goes to the new number', last.event === 'texts-on' && last.phone === NEW_NUMBER, JSON.stringify(last));
+  await at('J29 Texts names the new number', 'c-texts', { has: `We text ${NEW_NUMBER}.` });
+});
+
+await journey('J30', 'delete account: blocked while a visit is open, then allowed — what goes, what stays (DG-3 A)', async () => {
+  await flow('c-account--delete-blocked');
+  await at('J30 blocked with the reason', 'c-account', { has: [`Your visit with Amara on ${SEED_WHEN} is still open.`, 'See the booking'], not: 'This can’t be undone' });
+  await click('[data-act="delete-see"]');
+  await at('J30 See the booking opens it', 'c-booking', { has: 'Cancel booking' });
+  await press('[data-act="cancel"]');
+  await click('[data-act="cancel-ok"]');
+  const st = await page.evaluate(async () => { const S = await import('/js/state.js'); return S.state.appts[0]?.status; });
+  check('J30 the visit is cancelled', st === 'cancelled', st);
+  await press('[data-nav="account"]');
+  await press('[data-act="delete"]');
+  await at('J30 now the confirm: what goes, what stays', 'c-account', { has: ['Delete your account?', 'We keep receipts and messages for past orders, as the law requires.', 'This can’t be undone.'] });
+  await click('[data-act="delete-ok"]');
+  await at('J30 signed out, it says so', 'c-welcome', { has: ['Your account is deleted', 'Continue with phone'] });
+  const after = await page.evaluate(async () => { const S = await import('/js/state.js'); return { signedIn: S.state.session.customer.signedIn, first: S.state.customer.first, orders: S.apptsFor('customer').length, kept: S.state.appts.length }; });
+  check('J30 the account is gone; the order record stays (receipts)', !after.signedIn && after.first === '' && after.orders === 0 && after.kept === 1, JSON.stringify(after));
+  await press('[data-act="phone"]');
+  await page.fill('#screen #phone', CUSTOMER.phone);
+  await press('.action-bar [data-act="send-code"]');
+  await page.fill('#screen #code', '123456');
+  await at('J30 her old number signs up as a new account', 'c-name', { has: 'What should we call you?' });
+});
+
+await journey('J31', 'Continue with Apple, then a required phone + code; the names come from Apple (D-07 / B-09); the deposit button V3 (K-49)', async () => {
+  await page.evaluate(async () => { (await import('/js/account.js')).signOut(); window.Taily.render('c-welcome', { fresh: true }); });
+  await settle(page);
+  await press('[data-act="apple"]');
+  await at('J31 Apple no longer skips the phone', 'c-phone', { has: ['Add your mobile number', 'Almost done with Apple.'] });
+  const mid = await page.evaluate(async () => (await import('/js/state.js')).state.session.customer.signedIn);
+  check('J31 not signed in before the code', mid === false, String(mid));
+  await page.fill('#screen #phone', '9175550186');
+  await press('.action-bar [data-act="send-code"]');
+  await page.fill('#screen #code', '123456');
+  await at('J31 a new number: the names from Apple, the texts opt-in', 'c-name', { has: ['From your Apple account. Change it if you like.', 'Text me booking updates'] });
+  await press('.action-bar [data-act="save-name"]');
+  const done = await page.evaluate(async () => { const S = await import('/js/state.js'); return { signedIn: S.state.session.customer.signedIn, phone: S.state.customer.phone, agreed: !!S.state.customer.agreed?.at }; });
+  check('J31 signed in with the checked number; the terms agreement logged (S-24)', done.signedIn && done.phone === NEW_NUMBER && done.agreed, JSON.stringify(done));
+  await flow('c-pay');
+  await at('J31 the deposit button V3', 'c-pay', { has: [`Reserve · ${fmtExact(S.seed.deposit)} deposit`, 'Charged only if Amara accepts'] });
+});
+
+/* ---------- J32 (merge A2 + B2, D-380): Help from Account, the one policy / legal page, Unblock ---------- */
+await journey('J32', 'the tracks meet: Account → Help, Shop → Help, the one policy page everywhere, Unblock', async () => {
+  await flow('c-account');
+  await press('[data-act="help"]');
+  await at('J32 Account → Help opens Taily Help (no "next build" guard)', 'c-help', { has: ['Message Taily', 'POLICIES', 'Terms of service'] });
+  await press('[data-act="policy"][data-policy="privacy"]');
+  await at('J32 Help → Privacy policy: the legal page on c-policy', 'c-policy', { has: ['Privacy policy', 'Draft of Oct 18, 2026', 'IN SHORT', 'Full text coming soon (counsel review)', 'Get help'] });
+  await flow('c-account');
+  await press('[data-act="policy"][data-policy="cancellation"]');
+  await at('J32 Account → Cancellation and refunds: A2’s policy and B2’s refunds page are one', 'c-policy', { has: ['Cancellation and refunds', 'Cancel for free until 24 hours before your visit.', 'If your tailor doesn’t accept within 2 hours, or declines, your deposit is released in full.', 'Full text coming soon (counsel review)'] });
+  await flow('c-pay');
+  await press('[data-act="refunds"]');
+  await at('J32 c-pay → Cancellation and refunds', 'c-policy', { has: ['Cancellation and refunds'] });
+  await flow('c-pay');
+  await press('[data-act="garment-protection"]');
+  await at('J32 c-pay → garment protection (A2) on the same page', 'c-policy', { has: ['Garment protection', 'Draft for counsel'] });
+  await flow('c-welcome');
+  await press('[data-act="terms"]');
+  await at('J32 signed out: Terms from c-welcome, no tabs, no Get help', 'c-policy', { has: ['Terms of service', 'Full text coming soon (counsel review)'], not: ['Get help'] });
+  const tabs = await page.evaluate(() => document.querySelectorAll('#screen [data-nav]').length);
+  check('J32 signed out: no tabs on the legal page', tabs === 0, String(tabs));
+  await flow('t-shop');
+  await press('[data-act="help"]');
+  await at('J32 Shop → Help opens t-help', 't-help', { has: ['Message Taily'] });
+  await flow('t-shop');
+  await press('[data-act="policy"][data-policy="tailor-agreement"]');
+  await at('J32 Shop → Tailor agreement on t-policy', 't-policy', { has: ['Tailor agreement', 'You work with Taily as an independent contractor, not an employee.'] });
+  await flow('c-tailor--blocked');
+  await at('J32 a tailor she blocked: the reason and Unblock', 'c-tailor', { has: ['You blocked Amara', 'Unblock Amara'] });
+  await press('[data-blocked] [data-act="unblock"]');
+  await click('[data-s="safety-unblock"] [data-act="cs-ok"]');
+  await at('J32 unblocked: bookable again', 'c-tailor', { not: ['You blocked Amara'] });
+  const said = await page.evaluate(() => document.querySelector('.toast')?.textContent ?? '');
+  check('J32 the toast says so', said === 'Amara is unblocked.', said);
+  const blocked = await model((S) => S.isBlocked('amara'));
+  check('J32 the block is gone in the model (T.unblockPerson)', blocked === false, String(blocked));
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

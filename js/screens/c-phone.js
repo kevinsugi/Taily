@@ -1,10 +1,12 @@
 /* ============================================================
    c-phone — US phone number. Focal: the phone field. Validation
    happens on Send, never while typing (M1-spec §C1).
+   D-07 / B-09 (pre-MVP B2, D-372): after Continue with Apple / Google this is the required second step ("Add your mobile
+   number"): every text, sign-in code and the re-auth sheet go to it. S-24: Terms and Privacy open the legal pages (c-policy, D-380).
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
 import { state } from '../state.js';
-import { statusBar, headingRow, field, actionBar, toast } from '../components.js';
+import { statusBar, headingRow, field, actionBar } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 
@@ -18,10 +20,14 @@ const ui = () => (state.ui[ID] ??= {});
 
 function view(s) {
   const d = s.ui[ID] ?? {};
+  const social = A.socialPending();
+  const PROVIDER = { apple: 'Apple', google: 'Google' };
   return `${statusBar()}
-<main class="body body--with-bar ${ID}">
-  ${headingRow('<h1 class="t-title">Your phone number</h1>')}
-  <p class="t-body c-600 ${ID}__lead">We’ll text you a code to sign in. No passwords.</p>
+<main class="body body--with-bar ${ID}"${social ? ` data-social="${social.provider}"` : ''}>
+  ${headingRow(`<h1 class="t-title">${social ? 'Add your mobile number' : 'Your phone number'}</h1>`)}
+  <p class="t-body c-600 ${ID}__lead">${social
+    ? `Almost done with ${PROVIDER[social.provider]}. Add your mobile number: we text your sign-in codes there, and booking updates if you want them.`
+    : 'We’ll text you a code to sign in. No passwords.'}</p>
   ${field({
     id: 'phone', label: 'Mobile number', prefix: '+1', type: 'tel', inputmode: 'tel', autocomplete: 'tel-national',
     placeholder: '(718) 555-0142', value: A.formatPhone(d.phone ?? ''), helper: HELPER,
@@ -64,7 +70,10 @@ function wire(root) {
   /* the action bar is a sibling of main: bind to this render's own nodes, never to root */
   root.querySelector('.action-bar').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="send-code"]')) send();
-    else if (e.target.closest('[data-act="terms"], [data-act="privacy"]')) toast('Terms and Privacy aren’t in this prototype yet.');   // SF-24: as c-welcome
+    else {
+      const legal = e.target.closest('[data-act="terms"], [data-act="privacy"]');   // S-24 (pre-MVP B2): the legal pages, not a toast
+      if (legal) { state.ui.policy = legal.dataset.act; go('c-policy'); }   // D-380: the one policy / legal page
+    }
   });
 
   function send() {

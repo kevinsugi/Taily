@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { state, nextSection, onboarded, waitlisted } from './state.js';
-import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wirePopovers, withNavBack, modalOverlay, leaveModal, ONBOARDING_STEPS } from './components.js';
+import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wirePopovers, withNavBack, modalOverlay, leaveModal, leaveSheet, ONBOARDING_STEPS } from './components.js';
 import { SCREENS } from './inventory.js';
 import { systemBanner, wireSystem } from './system.js';
 
@@ -36,6 +36,8 @@ const SCREEN_MODULES = [
   'c-texts', 't-texts', 'sys-texts',
   /* pre-MVP A2 · Taily Help, the admin (K-48.1, DG-1 B) */
   'c-help', 't-help', 'c-case', 't-case', 'c-policy', 't-policy', 'a-inbox', 'a-case',
+  /* pre-MVP B2 · Account v2 (DG-3 A), receipts (S-25), all reviews (S-26) */
+  'c-profile', 'c-change-phone', 'c-receipt', 'c-reviews', 't-change-phone',   // the legal pages are c-policy / t-policy (D-380)
 ];
 
 /** Every screen id the router can load. A screen not yet imported is "known": render() loads it first. */
@@ -475,7 +477,7 @@ function wireTopNav() {
     /* S-22 (D-360): a Shop editor with unsaved changes asks first — the same Leave without saving? modal its Back uses */
     const here = screens.get(currentScreen());
     if (here?.canLeave && !here.canLeave()) {
-      modalOverlay(leaveModal(), { dataS: 'nav-unsaved' }, (holder, close) => {
+      leaveSheet({}, { dataS: 'nav-unsaved' }, (holder, close) => {
         holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
         holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => { close({ instant: true }); here.discard?.(); render(target); });
       });

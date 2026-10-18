@@ -10,7 +10,7 @@ import { state, T, SECTIONS, onboarded } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, toggle, field, hoodPicker, hoodMap, customerPreview,
-  actionBar, wireToggles, toast, modalOverlay, leaveModal, esc, infoButton, HOME_FEE_HELP, metaRow, hoodSentence, sectionHead,
+  actionBar, wireToggles, toast, modalOverlay, leaveModal, leaveSheet, esc, infoButton, HOME_FEE_HELP, metaRow, hoodSentence, sectionHead,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -249,7 +249,7 @@ function refreshBar(root) {
 
 /* ---------- leave / finish later ---------- */
 function openLeave() {
-  modalOverlay(leaveModal(), { dataS: `${ID}-leave` }, (holder, close) => {
+  leaveSheet({}, { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => {
       close();

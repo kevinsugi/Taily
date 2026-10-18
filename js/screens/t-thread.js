@@ -15,7 +15,7 @@ import { CHAT_LIMITS } from '../data.js';
 import {
   chrome, headingRow, privacyNote, composer, readOnlyBanner, emptyState, threadHead, threadContext,
   threadMessages, countdown, openAttachSheet, wireComposer, wirePhotoViewer, toast, esc, ICON_INFO,
-  heroGarment, moreMenu, openSafetySheet,
+  heroGarment, moreMenu, openSafetySheet, openUnblockSheet,
 } from '../components.js';
 import { fmtWhen } from '../dates.js';
 
@@ -75,7 +75,7 @@ function view(s) {
     : `<p class="t-body c-600 ${ID}__empty-text">No messages yet. Say hello or ask about the fit.</p>`;
   const blocked = isBlocked(MY_TAILOR_ID) ? blockedBy(MY_TAILOR_ID) : null;   // S-32 (pre-MVP A2): a block closes the chat both ways
   const foot = blocked
-    ? readOnlyBanner({ text: blocked === 'tailor' ? `You blocked ${firstName()}. You can’t message or book each other. Taily is looking into it.` : `This conversation is closed. You can’t message ${firstName()} here any more.`, ctaLabel: 'Get help', ctaAct: 'get-help' })
+    ? readOnlyBanner({ text: blocked === 'tailor' ? `You blocked ${firstName()}. You can’t message or book each other. Taily is looking into it.` : `This conversation is closed. You can’t message ${firstName()} here any more.`, ctaLabel: 'Get help', ctaAct: 'get-help', ...(blocked === 'tailor' ? { secondaryLabel: `Unblock ${firstName()}`, secondaryAct: 'unblock' } : {}) })
     : closed
     ? readOnlyBanner({ text: 'You declined this request, so the conversation is closed.', ctaLabel: 'Back to Home', ctaAct: 'home' })
     : composer({ value: draft, placeholder: `Message ${first}`, hint, photos: u.photos ?? 0, max: maxPhotos(), disabled: busy, photoType: gType });
@@ -151,6 +151,7 @@ function wire(root) {
     if (!el || e.target.closest('.screen-sheet--overlay')) return;
     const act = el.dataset.act;
     if (act === 'home') go(personaHome('tailor'));
+    else if (act === 'unblock') openUnblockSheet({ who: 'tailor', other: firstName(), tailorId: MY_TAILOR_ID, onDone: () => { go(ID); toast(`${firstName()} is unblocked.`, { tone: 'success' }); } });   // merge A2 + B2
     else if (act === 'more' || act === 'get-help') {   // S-32 + DG-1 B (pre-MVP A2): Report · Block · Get help
       const a = threadAppt(MY_TAILOR_ID);
       const help = () => { state.ui.help = { apptId: a?.id ?? null, caseId: null }; go('t-case'); };

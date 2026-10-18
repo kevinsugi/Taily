@@ -9,7 +9,7 @@ import { state, T, tailorById, estimateNext, eligible, nextOpening, apptsFor, is
 import {
   chrome, flowBar, avatar, verifiedCheck, reviewRow, priceRow, metaRow, cta, navBackMark,
   sectionHead, textLink, infoButton, stitchDivider, ICON_CHAT,
-  actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, esc, hoodSentence, HOME_FEE_CAPTION, HOME_FEE_HELP, shopPlace,
+  actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, openUnblockSheet, esc, hoodSentence, HOME_FEE_CAPTION, HOME_FEE_HELP, shopPlace,
 } from '../components.js';
 import { ICON_CAMERA, VISIT_ICONS } from '../icons.js';
 import { cents, fmtColumn } from '../money.js';
@@ -153,7 +153,7 @@ function reviews(t) {
 /** The tailor looking at her own profile from to-done (D-71): no booking stepper, no action bar, nothing to start. */
 /* view() runs before the router pushes this screen: then the screen we came from is currentScreen(); on a re-render it is previousScreen() */
 const cameFrom = () => (currentScreen() === ID ? previousScreen() : currentScreen());
-const isPreview = () => !!ui().preview && cameFrom() === 'to-done';
+const isPreview = () => !!ui().preview && ['to-done', 't-shop', 'c-reviews'].includes(cameFrom());   // DG-3 A (pre-MVP B2): also Shop → See your full profile
 
 /** Profile mode (R4-1-C-03): reached from a finished review, so there is no booking in progress — no stepper, no draft
     estimate, one "Book again" action. Fixtures land here with no history; a real visit comes from c-review. */
@@ -169,6 +169,7 @@ function view(s) {
   const el = eligible(t, job);
   const next = nextOpening(t.id, job.visitType, { until: job.needBy });
   const declined = el.reason === 'declined';
+  const iBlocked = el.reason === 'blocked' && blockedBy(t.id) === 'customer';   // S-32 (A2) + the merge's Unblock
   const first = q.tailorFirst;
   const booking = !preview && !profile;   // opened from c-tailors: the flow bar owns Back and the exit (D-186)
   /* Study-1 A4: a "Book again" draft names the tailor it is for (only once an order with her came back) */
@@ -180,6 +181,7 @@ function view(s) {
   ${stats(t, job)}
   ${preview ? `<div class="c-tailor__preview">${readOnlyBanner({ text: 'You’re viewing your own profile', ctaLabel: 'Back to Taily for tailors', ctaAct: 'exit-preview' })}</div>` : ''}
   ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} declined this request`, text: `Your items are saved for other tailors. To book ${esc(first)}, start over with different work.` })}</div>` : ''}
+  ${iBlocked && !preview ? `<div class="c-tailor__banner" data-blocked>${banner({ tone: 'info', title: `You blocked ${esc(first)}`, text: 'You can’t book or message each other.', actionLabel: `Unblock ${esc(first)}`, actionAct: 'unblock' })}</div>` : ''}
   ${booking ? split(next, job, { ok: el.ok, reason: reasonNote(el, job) }) : ''}
   ${about(t)}
   ${profile ? '' : estimateCard(q, job)}
@@ -204,7 +206,8 @@ function wire(root) {
     if (!el || el.disabled) return;
     switch (el.dataset.act) {
       case 'ask': go('c-thread'); break;
-      case 'exit-preview': ui().preview = false; back() || go('to-done'); break;
+      case 'unblock': { const first = (chosen().name || 'The tailor').split(' ')[0]; openUnblockSheet({ who: 'customer', other: first, tailorId: chosen().id, onDone: () => { go(ID); toast(`${first} is unblocked.`, { tone: 'success' }); } }); break; }   // merge A2 + B2
+      case 'exit-preview': ui().preview = false; back() || go('t-shop'); break;
       case 'pick-time': go('c-book'); break;
       case 'book-now': {   // K-18: the next opening goes into the booking draft, so the picker opens on it (one tap to confirm)
         const job = state.job; const t = chosen();
@@ -222,7 +225,7 @@ function wire(root) {
         break;
       }
       case 'more-work': openPhotoViewer({ title: `${(chosen().name || 'The tailor').split(' ')[0]}’s work`, count: Number(el.dataset.count) }); break;
-      case 'all-reviews': toast('Not built yet'); break;
+      case 'all-reviews': state.ui['c-reviews'] = { tailorId: chosen().id }; go('c-reviews'); break;   // S-26 (pre-MVP B2)
       case 'new-job': T.newJob(); go('c-job', { fresh: true }); break;
       default: break;
     }

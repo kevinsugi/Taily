@@ -7,6 +7,6 @@
 /* the address sheet (Make default · Remove address) and the add form */
 .c-addresses-sheet { display: flex; flex-direction: column; gap: var(--space-16); }
 .c-addresses-sheet[data-view="address"] { gap: var(--space-12); }
-.c-addresses-sheet__lines, .c-addresses-sheet__default { margin: 0; text-wrap: pretty; }
+.c-addresses-sheet__lines, .c-addresses-sheet__default, .c-addresses-sheet__notes { margin: 0; text-wrap: pretty; }
 .c-addresses-sheet__links { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-24); margin-top: var(--space-4); }
 .c-addresses-sheet__fields { display: flex; flex-direction: column; gap: var(--space-16); min-width: 0; margin: 0; padding: 0; border: 0; }

@@ -4,9 +4,9 @@
    Focal: the visit-type segmented control.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, now, tailorsFor, tailorById, eligible } from '../state.js';
+import { state, T, now, tailorsFor, tailorById, eligible, savedAddressOf } from '../state.js';
 import {
-  flowBar, headingRow, chipGroup, field, actionBar, cta, sheetOverlay, wireChipGroups, wireWheel, esc, ICON_ALERT,
+  flowBar, headingRow, chipGroup, field, actionBar, cta, sheetOverlay, wireChipGroups, wireWheel, esc, ICON_ALERT, addressFields, ADDRESS_ERRORS, optionRow, sectionHead,
 } from '../components.js';
 import { scheduler, dateColumn, dayRows, readScheduler, SCHED_ROW } from '../scheduler.js';
 import { addDays, strip, dayDiff, isoDay, fmtDay } from '../dates.js';
@@ -115,33 +115,49 @@ function setFieldError(holder, id, msg) {
   }
 }
 
+/* S-27 (pre-MVP B2, D-379): the address sheet starts with her saved addresses (one tap books there), then the same four fields as
+   Saved addresses — street, unit, ZIP (city from it), access notes — for an address used for this booking only. */
+const oneLine = (a) => `${a.street}${a.unit ? `, ${a.unit}` : ''}, ${a.city} ${a.zip}`;
+function addressSheetHtml(values, errors = {}) {
+  const saved = state.customer.addresses ?? [];
+  const current = savedAddressOf();
+  const picker = saved.length ? `<section class="where-sheet__saved" aria-labelledby="where-saved-h">
+  ${sectionHead('Saved addresses', { id: 'where-saved-h' })}
+  <div class="where-sheet__group" role="radiogroup" aria-labelledby="where-saved-h">${saved.map((a) => optionRow({
+    name: 'saved', value: a.id, title: esc(a.label), sub: esc(oneLine(a)), checked: current?.id === a.id, act: 'saved-address',
+  })).join('')}</div>
+</section>` : '';
+  return `<div class="where-sheet">
+${picker}
+<section class="where-sheet__other" aria-labelledby="where-other-h">
+  ${saved.length ? sectionHead('Another address', { id: 'where-other-h' }) : '<h2 class="sr-only" id="where-other-h">Your address</h2>'}
+  <div class="where-sheet__fields">${addressFields({ values, errors })}</div>
+  ${cta(saved.length ? 'Use this address' : 'Save address', { attrs: 'data-act="save-address"' })}
+</section>
+</div>`;
+}
+
 function openAddress() {
   const a = state.job.address ?? {};
-  const base = state.customer.address ?? {};
-  const html = `<div class="where-sheet__fields">
-  ${field({ id: 'street', label: 'Street address', value: a.street ?? '', autocomplete: 'address-line1' })}
-  ${field({ id: 'unit', label: 'Apt, suite or unit (optional)', value: a.unit ?? '', autocomplete: 'address-line2' })}
-  ${field({ id: 'city', label: 'City', value: a.city ?? base.city ?? '', autocomplete: 'address-level2' })}
-  ${field({ id: 'zip', label: 'ZIP code', value: a.zip ?? state.job.zip ?? '', inputmode: 'numeric', maxlength: 5, autocomplete: 'postal-code' })}
-</div>
-${cta('Save address', { attrs: 'data-act="save-address"' })}`;
-  sheetOverlay(html, { header: 'Your address', dataS: `${ID}-address`, confirm: false }, (holder, close) => {
-    holder.querySelector('#zip').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 5); });
+  const values = savedAddressOf() ? { zip: '' } : { street: a.street ?? '', unit: a.unit ?? '', zip: a.zip ?? state.job.zip ?? '', notes: a.notes ?? '' };
+  const done = () => requestAnimationFrame(() => document.querySelector('#screen [data-act="edit-address"]')?.focus({ preventScroll: true }));
+  sheetOverlay(addressSheetHtml(values), { header: 'Your address', dataS: `${ID}-address`, confirm: false }, (holder, close) => {
+    holder.addEventListener('input', (e) => { if (e.target.id === 'zip') e.target.value = e.target.value.replace(/\D/g, '').slice(0, 5); });
     const save = () => {
       const val = (id) => holder.querySelector(`#${id}`).value.trim();
-      const street = val('street'); const zip = val('zip');
-      const bad = {};
-      if (!street) bad.street = 'Enter your street address.';
-      if (!/^\d{5}$/.test(zip)) bad.zip = 'Enter a 5-digit ZIP code.';
-      ['street', 'zip'].forEach((id) => setFieldError(holder, id, bad[id] ?? ''));
-      const first = ['street', 'zip'].find((id) => bad[id]);
-      if (first) { holder.querySelector(`#${first}`).focus(); return; }
-      T.setJob({ address: { street, unit: val('unit'), city: val('city'), state: 'NY', zip }, zip });
+      const r = T.setJobAddress({ street: val('street'), unit: val('unit'), zip: val('zip'), notes: val('notes') });
+      ['street', 'zip', 'notes'].forEach((id) => setFieldError(holder, id, r.ok ? '' : (r.errors[id] ? ADDRESS_ERRORS[id] : '')));
+      if (!r.ok) { holder.querySelector(`#${['street', 'zip', 'notes'].find((id) => r.errors[id])}`)?.focus(); return; }
       close();
       go(ID);
-      requestAnimationFrame(() => document.querySelector('#screen [data-act="edit-address"]')?.focus({ preventScroll: true }));
+      done();
     };
-    holder.querySelector('[data-act="save-address"]').addEventListener('click', save);
+    holder.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-act]');
+      if (!el) return;
+      if (el.dataset.act === 'save-address') save();
+      else if (el.dataset.act === 'saved-address') { T.useSavedAddress(el.dataset.value); close(); go(ID); done(); }
+    });
   });
 }
 

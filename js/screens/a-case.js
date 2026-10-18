@@ -11,7 +11,7 @@ import {
 } from '../state.js';
 import {
   chrome, headingRow, sectionHead, requestStrip, visitBlock, moneyRows, listRow, cta, chipGroup, wireChipGroups, composer, wireComposer,
-  caseThread, confirmSheet, banner, infoCard, infoRow, emptyState, esc, toast, wirePhotoViewer, openAttachSheet,
+  caseThread, confirmAction, banner, infoCard, infoRow, emptyState, esc, toast, wirePhotoViewer, openAttachSheet,
 } from '../components.js';
 import { fmtWhen, fmtDay, fmtTime, isoDay } from '../dates.js';
 import { fmtExact } from '../money.js';
@@ -156,7 +156,7 @@ function wire(root) {
     else if (act === 'admin-act') {
       const x = adminActions(c).find((k) => k.kind === el.dataset.kind);
       if (!x) return;
-      confirmSheet({ header: x.label, body: esc(x.confirm), ok: x.label, danger: x.tone === 'danger', dataS: `${ID}--act`, busyLabel: 'Saving…' }, () => {
+      confirmAction({ header: x.label, body: esc(x.confirm), ok: x.label, danger: x.tone === 'danger', dataS: `${ID}--act`, busyLabel: 'Saving…' }, () => {
         const r = T.adminAct(c.id, x.kind);
         if (!r.ok) return ERRORS[r.error] ?? 'Couldn’t do that. Try again.';
         go(ID, { replace: true });
@@ -167,7 +167,7 @@ function wire(root) {
       const a = getAppt(c.apptId);
       const lines = decisionPreview(c.id);
       const body = Object.entries(lines).map(([s, l]) => `<span class="${ID}__preview"><span class="t-small w-600">${esc(nameOf(s, a))} reads:</span> ${esc(l)}</span>`).join('');
-      confirmSheet({ header: 'Close with outcome', body, ok: 'Close and tell them', dataS: `${ID}--close`, busyLabel: 'Closing…' }, () => {
+      confirmAction({ header: 'Close with outcome', body, ok: 'Close and tell them', dataS: `${ID}--close`, busyLabel: 'Closing…' }, () => {
         const r = T.adminCloseCase(c.id);
         if (!r.ok) return ERRORS[r.error] ?? 'Couldn’t close it. Try again.';
         go(ID, { replace: true });

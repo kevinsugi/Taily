@@ -9,7 +9,7 @@ import { state, T, SECTIONS, onboarded } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, chipGroup, dayHours, actionBar,
-  wireToggles, wireChipGroups, sheetOverlay, toast, modalOverlay, leaveModal, sectionHead,
+  wireToggles, wireChipGroups, sheetOverlay, toast, modalOverlay, leaveModal, leaveSheet, sectionHead,
 } from '../components.js';
 import { scheduler, timeColumns, readTime, wireTimeWheel, timeLabel, timeMinutes } from '../scheduler.js';
 import { withLatency } from '../sim.js';
@@ -191,7 +191,7 @@ function openTime(btn) {
 
 /* ---------- leave / finish later ---------- */
 function openLeave() {
-  modalOverlay(leaveModal(), { dataS: `${ID}-leave` }, (holder, close) => {
+  leaveSheet({}, { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => {
       close();

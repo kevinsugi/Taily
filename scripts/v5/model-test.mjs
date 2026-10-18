@@ -817,7 +817,7 @@ section('fitting -> completed');
   guard(T.leaveReview(a.id, { stars: 4.5 }), 'stars-required', 'leaveReview: fractional stars');
   guard(T.leaveReview(a.id, { stars: 5, photos: 4 }), 'too-many-photos', 'leaveReview: more than 3 photos');
   const rv = T.leaveReview(a.id, { stars: 5, text: 'Great.', photos: 3 });
-  eq([rv.appt.review.stars, rv.appt.review.photos, amara().rating, amara().reviews.length, amara().reviews[0].name], [5, 3, { avg: 4.9, count: 38 }, 5, 'Sarah C.'], 'leaveReview: saved, rating recomputed (avg to 1 decimal, count + 1), shown first on the profile');
+  eq([rv.appt.review.stars, rv.appt.review.photos, amara().rating, amara().reviews.length, amara().reviews[0].name], [5, 3, { avg: 4.9, count: 38 }, DATA.TAILORS[0].reviews.length + 1, 'Sarah C.'], 'leaveReview: saved, rating recomputed (avg to 1 decimal, count + 1), shown first on the profile');
   guard(T.leaveReview(a.id, { stars: 1 }), 'already-reviewed', 'one review per job');
 }
 {
@@ -1012,7 +1012,7 @@ section('account + sim');
   A.saveName({ first: 'Jo', last: 'Park' });
   eq([state.customer.first, state.customer.last, state.customer.initials, state.customer.phone, state.session.customer.signedIn, state.customer.cards.length], ['Jo', 'Park', 'JP', '(917) 555-0186', true, 1], 'saveName: names the customer, keeps the seed card');
   S.reset(); A.signOut();
-  eq([A.signInWith('apple').ok, state.session.customer.signedIn, A.signInWith('x').ok], [true, true, false], 'signInWith: apple / google only');
+  eq([A.signInWith('apple').ok, state.session.customer.signedIn, A.signInWith('x').ok], [true, false, false], 'signInWith: apple / google only — D-07 / B-09 (pre-MVP B2): not signed in until the phone code');
   eq(A.addCard({ number: '4242', exp: '13/28', cvc: '1', zip: '1121' }).errors, { number: 'card-number', exp: 'card-exp', cvc: 'card-cvc', zip: 'card-zip' }, 'addCard: per-field errors');
   eq(A.addCard({ number: '4000 0000 0000 0002', exp: '09/26', cvc: '123', zip: '11211' }).errors, { exp: 'card-exp' }, 'addCard: expiry before Oct 2026 is invalid');
   state.sim.card = 'declined';
@@ -2558,7 +2558,13 @@ section('A2 · S-32 report and block');
   eq([S.eligible(amara()).reason, S.tailorsFor().empty, S.threadReadOnly('amara')], ['blocked', 'none-left', true], 'S-32: she is no longer listed, and their chat closes');
   guard(T.sendMessage('amara', 'customer', { text: 'hi' }), 'read-only', 'S-32: no messages either way');
   eq(a.status, 'confirmed', 'S-32: the booking already made stays (Taily sorts it out)');
-  ok(T.unblockPerson('customer', { tailorId: 'amara' }).ok && !S.isBlocked('amara'), 'S-32: undo your own block');
+  state.sim.network = 'offline';
+  guard(T.unblockPerson('customer', { tailorId: 'amara' }), 'offline', 'S-32: offline unblocks nothing');
+  ok(S.isBlocked('amara'), 'S-32: … still blocked');
+  state.sim.network = 'online';
+  const ub = T.unblockPerson('customer', { tailorId: 'amara' });
+  ok(ub.ok && !S.isBlocked('amara') && !S.threadReadOnly('amara'), 'S-32: undo your own block (the Unblock button): the chat opens again');
+  eq([ub.case.state, ub.case.safety.block, S.caseMessages(ub.case, 'customer').at(-1).text], ['open', false, 'I unblocked Amara Reyes.'], 'merge: the safety case stays open for Taily and says so (the admin reads it there)');
   guard(T.unblockPerson('customer', { tailorId: 'amara' }), 'not-blocked', 'S-32: nothing to undo');
   S.reset();
   const slot = S.nextOpening('amara', 'home', { until: state.job.needBy });
@@ -2582,6 +2588,150 @@ section('A2 · B-05 the HELP reply; D-21 garment protection');
   const all = ['customer', 'tailor'].flatMap((w) => Object.keys(POL.POLICIES).flatMap((k) => POL.policyPage(k, w).sections.flatMap((x) => x.lines)));
   ok(all.length > 20 && !all.some((l) => /%|undefined|NaN/.test(l)), 'A2: every policy line prints dollars, never a percentage');
   eq(POL.policyList('tailor').map((x) => x.key)[0], 'payments', 'A2: the tailor’s Help leads with getting paid');
+}
+/* ================= pre-MVP B2 (K-48 / K-49): Account v2, social sign-in + phone, notes, receipts (D-370…D-379) ================= */
+section('B2 · DG-3 A delete account — blocked while open, then what goes and what stays');
+{
+  S.reset();
+  eq([S.deleteBlocker('customer'), S.deleteBlocker('tailor')], [null, null], 'DG-3 A: the seed has nothing open on either side');
+  const a = driveTo('confirmed');
+  const b = S.deleteBlocker('customer');
+  eq([b?.reason, b?.appt?.id], ['order', a.id], 'DG-3 A: an open visit blocks the customer');
+  const bt = S.deleteBlocker('tailor');
+  eq([bt?.reason, bt?.appt?.id], ['job', a.id], 'DG-3 A: the same visit blocks the tailor');
+  const r = A.deleteAccount('customer');
+  eq([r.ok, r.error, r.block?.reason, state.customer.first], [false, 'open', 'order', 'Sarah'], 'DG-3 A: deleteAccount refuses with the reason, nothing changes');
+  T.cancelBooking(a.id);
+  eq(S.deleteBlocker('customer'), null, 'DG-3 A: once cancelled she can delete');
+  const before = state.appts.length;
+  const ok = A.deleteAccount('customer');
+  eq([ok.ok, state.customer.first, state.customer.phone, state.customer.cards.length, state.customer.addresses.length, state.session.customer.signedIn, !!state.session.customer.deletedAt, S.textsOn('customer')],
+    [true, '', '', 0, 0, false, true, false], 'DG-3 A: name, number, cards and addresses go; signed out; texts off');
+  eq([state.appts.length, S.apptsFor('customer').length, state.customer.closed?.id], [before, 0, 'sarah'], 'DG-3 A: past orders stay (receipts, COUNSEL #9) with the old id, out of the new account');
+  eq(A.sendCode(DATA.CUSTOMER.phone).isNew, true, 'DG-3 A: her old number signs up as a new account');
+}
+{
+  S.reset();
+  const a = driveTo('ready');
+  T.chooseReturn(a.id, 'pickup');
+  eq(S.deleteBlocker('customer')?.reason, 'order', 'DG-3 A: an order being made blocks');
+  S.reset();
+  driveTo('completed');
+  const bt = S.deleteBlocker('tailor');
+  eq([bt?.reason, bt?.payout?.state], ['payout', 'pending'], 'DG-3 A: an unpaid payout blocks the tailor');
+  S.setClock(`${PAYOUT_DAYS.first}T18:00`);
+  T.settlePayouts();
+  eq(S.deleteBlocker('tailor'), null, 'DG-3 A: paid out and no open jobs: she can delete');
+  const r = A.deleteAccount('tailor');
+  eq([r.ok, amara().name, amara().live, S.listed(amara()), !!amara().closedAt, state.session.tailor.signedIn, state.payouts.length], [true, '', false, false, true, false, 1], 'DG-3 A: the shop is off Taily, payout records stay');
+  eq(S.tailorsFor(state.job).rows.length, 0, 'DG-3 A: a deleted tailor is never listed');
+}
+section('B2 · DG-3 A Personal info + change phone (texts go to the new number)');
+{
+  S.reset();
+  eq(DATA.CUSTOMER.email, '', 'DG-3 A: the seed has no email (sign-up never asked)');
+  eq(A.saveProfile({ first: '', last: 'Chen', email: 'sarah@' }).errors, { first: 'first-required', email: 'email-invalid' }, 'saveProfile: errors per field');
+  const sp = A.saveProfile({ first: 'Sarah', last: 'Chen', email: ' sarah.chen@example.com ' });
+  eq([sp.ok, sp.changed, state.customer.email], [true, true, 'sarah.chen@example.com'], 'saveProfile: an optional email for receipts');
+  guard(A.startPhoneChange('718555'), 'phone-invalid', 'change phone: a 10-digit number');
+  guard(A.startPhoneChange('(718) 555-0142'), 'phone-same', 'change phone: not the number she has');
+  eq(A.startPhoneChange('917 555 0186').phone, '(917) 555-0186', 'change phone: a code to the NEW number');
+  guard(A.verifyPhoneChange('000000'), 'code-wrong', 'change phone: the wrong code changes nothing');
+  eq(state.customer.phone, '(718) 555-0142', 'change phone: still the old number until the code checks out');
+  S.advanceClock(POLICY.CODE_TTL_MIN + 1);
+  guard(A.verifyPhoneChange('123456'), 'code-expired', 'change phone: the code expires');
+  A.resendPhoneChange();
+  const v = A.verifyPhoneChange('123456');
+  eq([v.ok, v.was, state.customer.phone, A.phoneChangeStatus()], [true, '(718) 555-0142', '(917) 555-0186', null], 'change phone: verified, the number is hers');
+  T.setTexts('customer', false); T.setTexts('customer', true);   // the "texts are on" confirmation text
+  const x = state.outbox.filter((m) => m.to === 'customer').pop();
+  eq([x?.event, x?.phone], ['texts-on', '(917) 555-0186'], 'J29 (model): the next text goes to the new number');
+}
+{
+  S.reset();
+  driveTo('confirmed');
+  ok(state.outbox.length && state.outbox.every((m) => m.phone === (m.to === 'tailor' ? amara().phone : state.customer.phone)), 'outbox: every text carries the number it went to');
+}
+{
+  S.reset();
+  T.textReply('customer', 'STOP');
+  A.startPhoneChange('(917) 555-0186'); A.verifyPhoneChange('123456');
+  eq([state.texts.customer.on, state.texts.customer.stoppedAt], [false, null], 'change phone: a STOP was the old number\'s (cleared); texts stay off until she turns them on');
+  S.reset();
+  A.startPhoneChange('(646) 555-0101', 'tailor'); A.verifyPhoneChange('123456', 'tailor');
+  eq(amara().phone, '(646) 555-0101', 'change phone (tailor): her new number');
+}
+section('B2 · D-07 / B-09 Apple or Google, then a required phone + code; S-24 the agreement is logged');
+{
+  S.reset(); A.signOut();
+  const r = A.signInWith('google');
+  eq([r.needsPhone, state.session.customer.signedIn, A.socialPending()?.provider], [true, false, 'google'], 'D-07: not signed in after the provider');
+  A.sendCode('(718) 555-0142');
+  eq([A.verifyCode('123456').isNew, state.session.customer.signedIn, A.socialPending()], [false, true, null], 'D-07: a known number signs her in after the code');
+  S.reset(); A.signOut();
+  A.signInWith('apple');
+  A.sendCode('(917) 555-0186');
+  eq([A.verifyCode('123456').isNew, state.session.customer.signedIn], [true, false], 'D-07: a new number goes on to the names');
+  A.saveName({ first: 'Sarah', last: 'Chen', texts: true });
+  eq([state.customer.phone, state.session.customer.signedIn, state.customer.agreed?.version], ['(917) 555-0186', true, POL.LEGAL_VERSION], 'S-24: the Terms version she agreed to is logged with the time');
+  ok(!!state.customer.agreed?.at, 'S-24: … and when');
+}
+section('B2 · S-27 notes for the tailor, access notes, saved addresses');
+{
+  S.reset();
+  eq(T.setJobAddress({ street: '', zip: '1', notes: 'x'.repeat(DATA.BOOKING_LIMITS.ACCESS_MAX + 1) }).errors, { street: 'street-required', zip: 'zip-invalid', notes: 'notes-long' }, 'S-27: the booking address rules');
+  eq(T.setJobAddress({ street: '40 Mercer St', unit: '2F', zip: '10013', notes: 'Buzz 2F' }).address, { street: '40 Mercer St', unit: '2F', city: 'New York', state: 'NY', zip: '10013', notes: 'Buzz 2F' }, 'S-27: city + state from the ZIP, access notes kept');
+  const w = A.addAddress({ label: 'Work', street: '1 Main St', unit: '', zip: '11201', notes: 'Front desk' });
+  eq([w.ok, w.address.notes], [true, 'Front desk'], 'S-27: a saved address keeps its access notes');
+  eq(T.useSavedAddress(w.address.id).address, { street: '1 Main St', unit: '', city: 'Brooklyn', state: 'NY', zip: '11201', notes: 'Front desk' }, 'S-27: book from a saved address');
+  eq(S.savedAddressOf()?.id, w.address.id, 'S-27: the sheet knows which saved address the booking uses');
+  guard(T.useSavedAddress('nope'), 'unknown-address', 'S-27: unknown address');
+  const u = A.updateAddress('home', { notes: 'Buzz 2R' });
+  eq([u.ok, state.customer.address.notes], [true, 'Buzz 2R'], 'S-27: edit a saved address; the default mirror carries the notes');
+  eq(A.updateAddress('home', { street: '' }).errors, { street: 'street-required' }, 'S-27: edit keeps the rules');
+}
+{
+  S.reset();
+  T.setJob({ note: 'Hem for 2-inch heels. Call me at 718 555 0142' });
+  const slot = S.openSlots('amara', 'home', { until: state.job.needBy })[0];
+  const r = T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' });
+  eq([r.ok, r.appt.job.note, r.appt.job.noteMasked, state.job.note], [true, 'Hem for 2-inch heels. Call me at [phone hidden]', true, undefined], 'S-27: the note rides with the request, masked like chat; the next draft starts empty');
+  S.reset();
+  T.setJob({ note: 'x'.repeat(DATA.BOOKING_LIMITS.NOTE_MAX + 1) });
+  guard(T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' }), 'note-long', 'S-27: the note has a limit; nothing is held');
+  eq(state.appts.length, 0, 'S-27: … and no request was made');
+}
+section('B2 · S-25 a receipt she can keep');
+{
+  S.reset();
+  const a = driveTo('completed');
+  const rv = S.receiptView(S.getAppt(a.id));
+  eq([rv.number, rv.charges.map((c) => c.kind), rv.charges.map((c) => c.cents), rv.paid, rv.refunds.length], [`TLY-261013-${a.id.replace(/\D/g, '')}`, ['deposit', 'balance'], [SCENARIOS.seed.deposit, SCENARIOS.seed.balance], SCENARIOS.seed.total, 0], 'S-25: number, the deposit + balance charges, paid in all = the total');
+  ok(rv.charges.every((c) => c.at && c.cardId), 'S-25: every charge has a date and a card');
+  guard(T.emailReceipt(a.id), 'no-email', 'S-25: Email receipt needs an email on file');
+  A.saveProfile({ email: 'sarah.chen@example.com' });
+  state.sim.network = 'offline';
+  guard(T.emailReceipt(a.id), 'offline', 'S-25: offline sends nothing');
+  state.sim.network = 'online';
+  const e = T.emailReceipt(a.id);
+  eq([e.ok, e.to, S.receiptView(S.getAppt(a.id)).emailedTo], [true, 'sarah.chen@example.com', 'sarah.chen@example.com'], 'S-25: emailed (PROTOTYPE: recorded, no mail service)');
+  S.reset();
+  const c = driveTo('cancelled-early');
+  const rc = S.receiptView(S.getAppt(c.id));
+  eq([rc.charges.length, rc.refunds.length, rc.paid], [1, 1, 0], 'S-25: an early cancel: charged at the accept, refunded in full');
+  S.reset();
+  eq(S.receiptView(driveTo('requested')), null, 'S-25: nothing charged, no receipt');
+}
+section('B2 · S-23 / S-24 legal pages (COUNSEL placeholders) — one policy module since the merge (D-380)');
+{
+  const LEGAL_KEYS = ['accessibility', 'cancellation', 'privacy', 'tailor-agreement', 'tailor-terms', 'terms'];
+  eq(Object.keys(POL.POLICIES).filter((k) => POL.POLICIES[k].legal).sort(), LEGAL_KEYS, 'S-23: the six legal pages (B2’s refunds = A2’s cancellation)');
+  ok(LEGAL_KEYS.every((k) => ['customer', 'tailor'].every((w) => { const p = POL.policyPage(k, w); return p.legal && p.version === POL.LEGAL_VERSION && p.sections.length && !p.sections.flatMap((x) => x.lines).some((l) => /%|undefined|NaN/.test(l)); })),
+    'S-23: every legal page has its COUNSEL row, the version line, a summary, and no percentages');
+  eq([POL.LEGAL_FOR.customer, POL.LEGAL_FOR.tailor], [['terms', 'privacy', 'cancellation', 'accessibility'], ['tailor-terms', 'tailor-agreement', 'privacy']], 'DG-3 A: each persona’s Account lists its pages');
+  ok(POL.policyPage('cancellation', 'customer').sections.flatMap((x) => x.lines).join(' ').includes(`${POLICY.CANCEL_WINDOW_H} hours`), 'S-24: the cancellation and refunds page reads POLICY');
+  eq(POL.policyList('customer').map((x) => x.key).slice(-3), ['terms', 'privacy', 'accessibility'], 'D-380: Help lists the legal pages after the Help policies');
+  eq([POL.policyPage('garment').legal, POL.policyPage('garment').version, POL.policyPage('nope').key], [0, '', 'garment'], 'D-380: a Help policy has no version line; unknown keys fall back');
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

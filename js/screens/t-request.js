@@ -42,6 +42,8 @@ function visitSection(a, v, { title, asked = '', addressNote = '', start = a.slo
     { icon: 'calendar', value: esc(title), strong: true, detail: [...(asked ? [asked] : []), `${esc(v.visitLabel)} · ${v.minutes} min, until ${esc(end)}`] },
     { icon: 'map-pin', value: `<span class="${ID}__place">${esc(v.place)}</span>`, detail: addressNote ? esc(addressNote) : '' },
     { icon: 'clock', value: `Needed by <span class="nb">${esc(v.needBy)}</span>`, detail: `${plural(days, 'day', 'days')} after the visit${rush ? ` · rush, ${fmtExact(rush)} to you` : ''}` },   // SF-37
+    /* S-27 (pre-MVP B2): the customer's note for her, as sent (masked like chat) */
+    ...(a.job.note ? [{ icon: 'chat', value: `Note from ${esc(v.customer.name.split(' ')[0])}`, detail: esc(`“${a.job.note}”`) }] : []),
     ...extra,
   ];
   return `<section class="sec ${ID}__visit" aria-label="The visit">${visitBlock(rows, { title: '', flush: true })}</section>`;

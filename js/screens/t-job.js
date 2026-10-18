@@ -147,8 +147,10 @@ function visitCard(a, v, { was = '', extra = [] } = {}) {
   /* K-10 (D-235): icon rows — calendar (date + length), map-pin (place), clock (needed by). K-17 R3: a moved visit says so on its own row (no banner above it). */
   const rows = [
     { icon: 'calendar', value: esc(fmtWhen(a.slot.start)), strong: true, detail: [...(was ? [`Moved from ${esc(was)}`] : []), `${esc(v.visitLabel)} · ${v.minutes} min, until ${v.whenEnd}`] },
-    { icon: 'map-pin', value: esc(jobAddress(a)) },
+    /* S-27 (pre-MVP B2): her access notes (buzzer, gate code) once the street is shown */
+    { icon: 'map-pin', value: esc(jobAddress(a)), detail: a.job.visitType === 'home' && a.job.address?.notes ? esc(`Access: ${a.job.address.notes}`) : '' },
     { icon: 'clock', value: `Needed by ${v.needBy}` },
+    ...(a.job.note ? [{ icon: 'chat', value: `Note from ${esc(firstOf())}`, detail: esc(`“${a.job.note}”`) }] : []),
     ...extra,
   ];
   return personCard(a, v, 'Visit', rows);

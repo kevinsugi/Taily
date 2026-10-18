@@ -5,16 +5,20 @@
    DG-4 option B (K-48, Kevin Oct 18; D-350…D-355): the four checks live here. Until all pass she isn't listed: the top card says
    "Under review · n of 4 checks" with Taking requests off ("Turns on when your checks clear."), the checklist follows with the one
    action each check needs; the setup list gains Verification and the Payouts row says the partner's status.
+   DG-3 option A (K-49, pre-MVP B2; D-370): the Account area under Your setup — Account (Phone number → t-change-phone, Texts →
+   t-texts, See your full profile), Help and policies (Help → t-help, Tailor terms, Tailor agreement, Privacy), then Sign out and
+   Delete account (blocked while a job or a payout is open) in the shared confirm sheet (P-32).
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { state, T, sectionsDone, listed, verifyView, collectAddress, textsOn } from '../state.js';
 import { myTailor, tailorRowProps, ownRow } from '../tailor-data.js';
 import { VISIT_LABEL, RETURN_LABEL } from '../data.js';
 import { cents, fmt } from '../money.js';
-import * as A from '../account.js';
+import { openSignOut, openDeleteAccount, seeBlocker } from '../account-ui.js';
+import { LEGAL_FOR, policyTitle } from '../policies.js';
 import {
   chrome, headingRow, banner, customerPreview, tailorRow, miniProfile, listRow, textLink, sectionHead, statusPill, toggle, wireToggles, toast, ONBOARDING_STEPS, esc,
-  modalOverlay, cta, verifyChecklist, reviewPill, checksLine, openIdSheet, openBackgroundSheet, REVIEW_TIME,
+  verifyChecklist, reviewPill, checksLine, openIdSheet, openBackgroundSheet, REVIEW_TIME,
 } from '../components.js';
 
 const ID = 't-shop';
@@ -152,9 +156,20 @@ function view(s) {
   </section>
   <section class="sec" aria-labelledby="${ID}-account-h">
     ${sectionHead('Account', { id: `${ID}-account-h` })}
-    <div class="card card--list ${ID}__account">${listRow({ title: 'Texts', sub: `${esc(t.phone ?? '')} · ${textsOn('tailor') ? 'new requests come here' : 'off'}`, act: 'texts' })}</div>
+    <div class="card card--list ${ID}__account">
+      ${listRow({ title: 'Phone number', sub: `${esc(t.phone ?? '')} · texts and sign-in codes`, act: 'phone' })}
+      ${listRow({ title: 'Texts', sub: textsOn('tailor') ? 'New requests and job updates on' : 'Off', act: 'texts' })}
+      ${listRow({ title: 'See your full profile', sub: 'As customers see it, with reviews', act: 'full-profile' })}
+    </div>
   </section>
-  <div class="${ID}__out">${textLink('Sign out', { act: 'sign-out', tone: 'danger' })}</div>
+  <section class="sec" aria-labelledby="${ID}-help-h">
+    ${sectionHead('Help and policies', { id: `${ID}-help-h` })}
+    <div class="card card--list ${ID}__account">
+      ${listRow({ title: 'Help', sub: 'Message Taily about a job, payouts or safety', act: 'help' })}
+      ${LEGAL_FOR.tailor.map((key) => listRow({ title: esc(policyTitle(key)), act: 'policy', attrs: `data-policy="${key}"` })).join('')}
+    </div>
+  </section>
+  <div class="page-actions ${ID}__out"><div class="page-actions__links">${textLink('Sign out', { act: 'sign-out', tone: 'muted' })}${textLink('Delete account', { act: 'delete', tone: 'danger' })}</div></div>
 </main>`;
 }
 
@@ -180,32 +195,20 @@ function wire(root) {
     else if (act === 'fix') {
       const missing = ONBOARDING_STEPS.find((st) => !myTailor().onboarding?.[st.id]);
       if (missing) goTo(missing.id);
-    } else if (act === 'sign-out') openSignOut();
+    } else if (act === 'sign-out') openSignOut('tailor', { go });
     else if (act === 'texts') go('t-texts');   // pre-MVP A1 (D-02)
+    /* DG-3 A (pre-MVP B2) */
+    else if (act === 'phone') { delete state.ui['t-change-phone']; go('t-change-phone'); }
+    else if (act === 'full-profile') {   // her public profile as a customer sees it (was reachable once, from to-done)
+      state.ui.booking = { ...state.ui.booking, from: undefined, tailorId: myTailor().id };
+      state.ui['c-tailor'] = { ...state.ui['c-tailor'], preview: true };
+      go('c-tailor');
+    } else if (act === 'help') go('t-help');   // track A2's Help home (DG-1 B)
+    else if (act === 'policy') { state.ui.policy = a.dataset.policy; go('t-policy'); }   // the legal pages (D-380)
+    else if (act === 'delete') openDeleteAccount('tailor', { go, onSee: (b) => seeBlocker('tailor', b, go) });
   });
 }
 
-/* SF-44: the same confirm as the customer's account (c-account) — focus on the safe choice */
-const signOutModal = () => `<div class="modal modal--leave" role="alertdialog" aria-modal="true" aria-labelledby="${ID}-so-title" aria-describedby="${ID}-so-body">
-  <h2 class="modal__title t-h2" id="${ID}-so-title">Sign out of Taily?</h2>
-  <p class="leave-modal__body" id="${ID}-so-body">You’ll need your phone number and a code to sign back in. Your jobs and requests stay as they are.</p>
-  <div class="modal__actions">
-    ${cta('Sign out', { variant: 'danger', attrs: 'data-act="sign-out-ok"' })}
-    ${cta('Stay signed in', { variant: 'secondary', attrs: 'data-act="sign-out-keep"' })}
-  </div>
-</div>`;
-function openSignOut() {
-  modalOverlay(signOutModal(), { dataS: 'sign-out' }, (holder, close) => {
-    const keep = holder.querySelector('[data-act="sign-out-keep"]');
-    keep.addEventListener('click', () => close());
-    keep.focus();
-    holder.querySelector('[data-act="sign-out-ok"]').addEventListener('click', () => {
-      A.signOut('tailor');
-      close({ instant: true });
-      go('t-phone', { fresh: true });
-    });
-  });
-}
 function goTo(section) {
   const screen = SCREEN_OF[section];
   if (!screen) return;

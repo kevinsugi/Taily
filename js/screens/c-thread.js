@@ -17,7 +17,7 @@ import {
   chrome, headingRow, privacyNote, emptyState, chipGroup, composer, readOnlyBanner, countdown,
   threadHead, threadContext, threadMessages, openAttachSheet,
   wireChipGroups, wireComposer, wirePhotoViewer, toast, esc,
-  heroGarment, moreMenu, openSafetySheet,
+  heroGarment, moreMenu, openSafetySheet, openUnblockSheet,
 } from '../components.js';
 import { fmtWhen } from '../dates.js';
 import { ICON_INFO } from '../icons.js';
@@ -87,7 +87,7 @@ function view(s) {
     : emptyBlock(t);
   const blocked = isBlocked(t.id) ? blockedBy(t.id) : null;   // S-32 (pre-MVP A2): a block closes the chat both ways
   const foot = blocked
-    ? readOnlyBanner({ text: blocked === 'customer' ? `You blocked ${first}. You can’t message or book each other. Taily is looking into it.` : `This conversation is closed. You can’t message ${first} here any more.`, ctaLabel: 'Get help', ctaAct: 'get-help' })
+    ? readOnlyBanner({ text: blocked === 'customer' ? `You blocked ${first}. You can’t message or book each other. Taily is looking into it.` : `This conversation is closed. You can’t message ${first} here any more.`, ctaLabel: 'Get help', ctaAct: 'get-help', ...(blocked === 'customer' ? { secondaryLabel: `Unblock ${first}`, secondaryAct: 'unblock' } : {}) })
     : closed
     ? readOnlyBanner({
       text: `${first} declined this request, so this chat is closed. To talk again, start a new request with ${first}.`,   // SF-28
@@ -224,6 +224,8 @@ function wire(root) {
       if (act === 'get-help') { help(); return; }
       openSafetySheet({ who: 'customer', other: firstName(t), apptId: a?.id ?? null, tailorId: t.id, mode: 'menu', onHelp: help,
         onDone: (c, kind) => { state.ui.help = { apptId: a?.id ?? null, caseId: c.id }; if (kind === 'block') go(ID); else go('c-case'); toast(kind === 'block' ? `${firstName(t)} is blocked. Taily has been told.` : 'Sent. Taily is looking into it.', { tone: 'success' }); } });
+    } else if (act === 'unblock') {   // merge A2 + B2: undo her own block
+      openUnblockSheet({ who: 'customer', other: firstName(t), tailorId: t.id, onDone: () => { go(ID); toast(`${firstName(t)} is unblocked.`, { tone: 'success' }); } });
     } else if (act === 'find-another') go('c-tailors');
     else if (act === 'new-job') { T.newJob(); go('c-job', { fresh: true }); }
   });

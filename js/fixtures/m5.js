@@ -162,7 +162,7 @@ const CA_mc = 'Mastercard •••• 4444';
 export const FLOWS_c_account = [
   { key: 'c-account', screen: 'c-account', group: CA_GROUP, title: 'Account home', note: 'Sarah after a finished order: profile, addresses, card, past orders',
     setup: (S) => { S.driveTo('reviewed'); },
-    expect: { has: ['Account', `${CA_CUSTOMER.first} ${CA_CUSTOMER.last}`, CA_CUSTOMER.phone, 'Saved addresses', CA_CUSTOMER.address.street, 'Payment methods', CA_visa, 'Past orders', 'Sign out'] } },
+    expect: { has: ['Account', `${CA_CUSTOMER.first} ${CA_CUSTOMER.last}`, CA_CUSTOMER.phone, 'YOU', 'Personal info', 'Texts', 'BOOKINGS AND PAYMENT', 'Saved addresses', CA_CUSTOMER.address.street, 'Payment methods', CA_visa, 'Past orders', 'HELP AND POLICIES', 'Help', 'Terms of service', 'Privacy policy', 'Cancellation and refunds', 'Accessibility', 'Sign out', 'Delete account'], not: 'sarah.chen@example.com' } },   // DG-3 A (pre-MVP B2)
   { key: 'c-account--sign-out', screen: 'c-account', group: CA_GROUP, title: 'Account — sign out confirm', note: 'The confirm names what stays: your bookings',
     click: ['[data-act="sign-out"]'],
     expect: { has: ['Sign out of Taily?', 'Stay signed in'], sel: '[data-s="sign-out"]' } },

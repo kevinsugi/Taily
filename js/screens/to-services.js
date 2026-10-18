@@ -15,7 +15,7 @@ import { cents, fmt, fmtExact, payoutFor, tailyFeeFor, fmtColumn, priceRange, li
 import { MONEY } from '../money-config.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, serviceRow, priceRow,
-  actionBar, modalOverlay, leaveModal, toast, esc, takeHtml, servicePay, sectionHead, infoButton, ctaSmall,
+  actionBar, modalOverlay, leaveModal, leaveSheet, toast, esc, takeHtml, servicePay, sectionHead, infoButton, ctaSmall,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -250,7 +250,7 @@ function wire(root) {
 
   /* ----- actions ----- */
   const leave = () => { state.ui[ID] = {}; back() || go('t-shop'); };
-  const askLeave = () => modalOverlay(leaveModal(), { dataS: `${ID}-leave` }, (holder, close) => {
+  const askLeave = () => leaveSheet({}, { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]').addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]').addEventListener('click', () => { close(); leave(); });
   });

@@ -323,9 +323,9 @@ export function galleryHtml() {
   v('1 tier'); col(`<p class="t-small c-600">${C.rushLadder(amara.rush.slice(0, 1))}</p>`);
   v('empty'); col(`<p class="t-small c-600">${C.rushLadder([])}</p>`);
 
-  h2('Leave modal');
-  s.push(`<div class="row"><div style="position:relative;width:390px;height:300px;margin-inline:-20px;background:var(--neutral-100)">${
-    C.leaveModal().replace('class="modal modal--leave"', 'class="modal modal--leave" style="position:absolute"')}</div></div>`);
+  h2('Confirm sheet — leave without saving, sign out, delete account (P-32, D-375: one container)');
+  s.push(`<div class="sheet-demo sheet-demo--tall">${C.sheet(`<div class="confirm-sheet"><div class="confirm-sheet__body"><p class="t-body c-700">Your changes will be lost.</p></div><div class="confirm-sheet__actions">${C.cta('Keep editing')}${C.cta('Discard changes', { variant: 'secondary' })}</div></div>`, { header: 'Leave without saving?', open: true, confirm: false })}</div>`);
+  s.push(`<div class="sheet-demo sheet-demo--tall">${C.sheet(`<div class="confirm-sheet"><div class="confirm-sheet__body"><p class="t-body c-700">We delete your name, phone number, email, addresses and saved cards, and sign you out.</p><p class="t-body w-600">This can’t be undone.</p></div><div class="confirm-sheet__actions">${C.cta('Delete account', { variant: 'danger' })}${C.cta('Keep my account', { variant: 'secondary' })}</div></div>`, { header: 'Delete your account?', open: true, confirm: false })}</div>`);
   /* ---------------- M3 · request loop ---------------- */
   h2('Request card — the tailor’s inbox ticket (D-75)');
   const rc = { id: 'A-1001', name: 'Sarah C.', initials: 'SC', visitLabel: 'Home visit', place: 'Williamsburg · 11211', when: 'Thu, Oct 15 · 5:00 PM', items: 2, services: 3, payoutCents: seed.payout, feeCents: seed.tailyFee, expiresAt: '2026-10-13T12:00', now: NOW, garments: [{ type: 'Suit Pant', services: ['Hem pants'] }, { type: 'Suit Jacket', services: ['Shorten sleeves', 'Take in jacket sides'] }] };

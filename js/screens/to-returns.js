@@ -9,7 +9,7 @@ import { state, T, SECTIONS, onboarded, collectAddress } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, checkRow, customerPreview,
-  actionBar, toast, modalOverlay, leaveModal, returnsRows, sectionHead, esc,
+  actionBar, toast, modalOverlay, leaveModal, leaveSheet, returnsRows, sectionHead, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -138,7 +138,7 @@ function clearError(root) {
 
 /* ---------- leave / finish later ---------- */
 function openLeave() {
-  modalOverlay(leaveModal(), { dataS: `${ID}-leave` }, (holder, close) => {
+  leaveSheet({}, { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => {
       close();

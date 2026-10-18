@@ -703,7 +703,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .appt-row {
   display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(0, max-content) var(--size-12); column-gap: var(--space-8); row-gap: var(--space-2); align-items: center;   /* P3-3: the status / amount column may shrink; the name column keeps the rest */
   width: 100%; min-height: 72px; padding: var(--space-12) var(--space-16); text-align: left;
-  border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200);
+  border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--card-ring-tap);   /* P-31 (D-374): one tap target */
   font-variant-numeric: tabular-nums;
 }
 .appt-row__avatar { grid-column: 1; grid-row: 1 / span 3; align-self: start; display: inline-flex; margin-right: var(--space-4); }
@@ -933,6 +933,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 /* M6-P-11: the shared receipt block (c-booking--completed, c-complete) */
 .receipt__how { margin-bottom: var(--space-8); }
 .receipt__card { margin: var(--space-12) 0 0; }
+.receipt__full { margin-top: var(--space-4); }   /* S-25 (pre-MVP B2) */
 
 /* D-173: Directions / Add to calendar are links that look like the small outline buttons */
 a.cta-small { text-decoration: none; }
@@ -1515,13 +1516,17 @@ a.cta-small { text-decoration: none; }
 .policy__title, .policy__line { margin: 0; }
 .policy__counsel { display: flex; gap: var(--space-8); align-items: flex-start; margin: var(--rhythm-block) 0 0; padding: var(--space-12); border-radius: var(--radius-md); background: var(--neutral-100); }
 .policy__counsel svg { flex-shrink: 0; margin-top: var(--space-4); }
+/* the legal pages (B2's c-legal / t-legal, unified into c-policy / t-policy at the merge, D-380): the version line, IN SHORT as a list, the counsel block */
+.policy__version { margin: var(--space-4) 0 0; }
+.policy__list { display: flex; flex-direction: column; gap: var(--space-12); margin: 0; padding-left: var(--space-20); }
+.policy__list li { text-wrap: pretty; }
+.policy__full { gap: var(--space-4); padding: var(--space-16); border-radius: var(--radius-lg); background: var(--neutral-100); }
+.policy__full p { margin: 0; }
 .protection-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-8); row-gap: 0; }
 .protection-row > svg { flex-shrink: 0; color: var(--success); }
 .protection-row > span { flex: 1 1 200px; min-width: 0; }
 .protection-row .text-link { margin-left: calc(-1 * var(--space-8)); }
-.confirm-sheet, .safety-report { display: flex; flex-direction: column; gap: var(--space-12); }
-.confirm-sheet p { margin: 0; }
-.confirm-sheet .t-body { display: flex; flex-direction: column; gap: var(--space-8); }
+.safety-report { display: flex; flex-direction: column; gap: var(--space-12); }   /* the confirm sheets are B2's .confirm-sheet (D-375) */
 .safety-report__reasons { display: flex; flex-direction: column; }
 .page-head .request-card__top > .request-head__more { flex: 0 0 auto; margin-right: calc(-1 * var(--space-12)); }
 /* the admin (a-inbox / a-case) */
@@ -1537,3 +1542,17 @@ a.cta-small { text-decoration: none; }
 .admin-note__dot { flex: 0 0 auto; width: var(--space-8); height: var(--space-8); border-radius: var(--radius-full); background: var(--accent-base); }
 .admin-note__text { flex: 1 1 auto; min-width: 0; }
 .admin-note__time { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+/* ---------- pre-MVP B2 ---------- */
+/* P-32 (D-375): the one confirm container — a bottom sheet (sign out, leave without saving, delete account, as cancel / remove / decline) */
+.confirm-sheet { display: flex; flex-direction: column; gap: var(--space-16); }
+.confirm-sheet__body { display: flex; flex-direction: column; gap: var(--space-8); }
+.confirm-sheet__body p { margin: 0; text-wrap: pretty; }
+.confirm-sheet__actions { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-4); }
+/* P-31 (D-374): a card that is one tap target carries a 3:1 outline against the page; list cards (rows with chevrons) keep the chalk ring */
+button.card, .card.request-card, .method-row { box-shadow: inset 0 0 0 1px var(--card-ring-tap); }   /* tailor row, thread context, request card, Pay with; .appt-row, .where__card, .c-complete__row set it in their own rules */
+/* DG-3 A (D-370 / D-371): the change-phone page, shared by both personas (js/account-ui.js) */
+.phone-change__lead { margin: var(--rhythm-tight) 0 var(--rhythm-block); text-wrap: pretty; }
+.phone-change__link, .phone-change__resend { position: relative; padding: 0; border: 0; background: none; font: inherit; color: var(--accent-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.phone-change__link::before { content: ''; position: absolute; inset: -12px -4px; }
+.phone-change__resend { display: inline-flex; align-items: center; min-height: 44px; margin-top: var(--space-8); font-size: var(--size-16); }
+.phone-change__wait { margin: var(--space-12) 0 0; }

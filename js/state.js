@@ -32,7 +32,7 @@ import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
   TAILOR_LIMITS, CHARGE_WHEN, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType, HANDOFF_CODE_LEN,
-  HOOD_BY_ID, zipsForHoods, NOTES_LIMITS, VERIFY_ITEMS, placeForZip, geocode, milesBetween, ZIP_XY,
+  HOOD_BY_ID, zipsForHoods, NOTES_LIMITS, VERIFY_ITEMS, placeForZip, geocode, milesBetween, ZIP_XY, BOOKING_LIMITS, SHOP_CITY,
 } from './data.js';
 import { TEXTS, textCtx } from './texts.js';
 
@@ -403,7 +403,7 @@ export function threadPreview(msg, reader = 'customer') {
 export function threadsFor(reader = 'customer') {
   const mineId = state.tailors[0].id;
   return Object.values(state.threads)
-    .filter((th) => th.messages.length && (reader === 'customer' || th.tailorId === mineId))
+    .filter((th) => th.messages.length && (reader === 'customer' ? (th.customerId ?? state.customer.id) === state.customer.id : th.tailorId === mineId))   // DG-3 A: a deleted account's threads stay with its old id
     .map((thread) => ({
       tailorId: thread.tailorId, thread, last: thread.messages[thread.messages.length - 1],
       unread: unreadCount(thread.tailorId, reader), appt: threadAppt(thread.tailorId), readOnly: threadReadOnly(thread.tailorId),
@@ -458,6 +458,31 @@ export function newJob() {
   state.job = { garments: [], visitType: 'home', zip: home?.zip ?? state.job.zip, address: home ? { ...home } : null, needBy: state.job.needBy, declinedBy: [], hiddenTailors: [] };
   return { ok: true, job: state.job };
 }
+/** S-27 (pre-MVP B2): the booking's address from the c-where sheet — street, unit, ZIP and optional access notes; city + state from the ZIP
+    (the same rules as Saved addresses). Errors `{ street: 'street-required', zip: 'zip-invalid', notes: 'notes-long' }`. */
+export function setJobAddress({ street = '', unit = '', zip = '', notes = '' } = {}) {
+  const errors = {};
+  if (!String(street).trim()) errors.street = 'street-required';
+  if (!/^\d{5}$/.test(String(zip).trim())) errors.zip = 'zip-invalid';
+  if ([...String(notes ?? '').trim()].length > BOOKING_LIMITS.ACCESS_MAX) errors.notes = 'notes-long';
+  if (Object.keys(errors).length) return { ok: false, errors };
+  const z = String(zip).trim();
+  const place = placeForZip(z);
+  const address = { street: String(street).trim(), unit: String(unit).trim(), city: place?.city ?? SHOP_CITY.city, state: place?.state ?? SHOP_CITY.state, zip: z,
+    ...(String(notes ?? '').trim() ? { notes: String(notes).trim() } : {}) };
+  Object.assign(state.job, { address, zip: z });
+  return { ok: true, job: state.job, address };
+}
+/** S-27: book from one of her saved addresses (c-where's picker). */
+export function useSavedAddress(id) {
+  const a = (state.customer.addresses ?? []).find((x) => x.id === id);
+  if (!a) return fail('unknown-address');
+  const address = { street: a.street, unit: a.unit ?? '', city: a.city, state: a.state, zip: a.zip, ...(a.notes ? { notes: a.notes } : {}) };
+  Object.assign(state.job, { address, zip: a.zip });
+  return { ok: true, job: state.job, address };
+}
+/** The saved address the draft's address came from (same street, unit and ZIP), or null. */
+export const savedAddressOf = (addr = state.job.address) => (addr ? (state.customer.addresses ?? []).find((x) => x.street === addr.street && (x.unit ?? '') === (addr.unit ?? '') && x.zip === addr.zip) ?? null : null);
 export function addGarment(type) {
   if (state.job.garments.length >= MAX_ITEMS) return fail('max-items');
   if (!GARMENT_TYPES[type]) return fail('unknown-type');
@@ -1023,6 +1048,10 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
   if (lines.missing.length) return fail('service-not-offered', { missing: lines.missing });
   if (state.sim.card === 'declined') return fail('card-declined');
   if (state.sim.card === '3ds' && !threeDS) return fail('needs-3ds');
+  /* S-27 (pre-MVP B2): her optional note for the tailor rides with the request, masked like chat */
+  const noteRaw = String(job.note ?? '').trim();
+  if ([...noteRaw].length > BOOKING_LIMITS.NOTE_MAX) return fail('note-long');
+  const noteMasked = noteRaw ? maskContact(noteRaw) : null;
 
   const homeFee = job.visitType === 'home' ? cents(tailor.home.fee) : 0;
   const rush = rushFor(tailor, slotStart, job.needBy);
@@ -1030,7 +1059,7 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
   money.rushDays = rush.days;
   const appt = {
     id: `A-${++apptSeq}`, customerId: state.customer.id, tailorId,
-    job: jobCopy(job), lines,
+    job: noteMasked ? { ...jobCopy(job), note: noteMasked.text, noteMasked: noteMasked.masked } : jobCopy(job), lines,
     slot: { start: slotStart, end: slotEnd(slotStart, job.visitType) },
     status: 'requested', requestedAt: nowIso(), expiresAt: expiryIso(), retries: 0,
     suggested: null, declineReason: '', cardId,
@@ -2287,7 +2316,9 @@ export function notify(a, event, { at = nowIso(), x = {} } = {}) {
   const body = def.body(textCtx({ a, t, cust: state.customer, now: toDate(at).getTime(), x }));
   const key = a?.id ?? to;
   const n = state.outbox.filter((m) => m.key === key && m.event === event).length;
-  const entry = { id: `x${++textSeq}`, seq: textSeq, event, to, apptId: a?.id ?? null, caseId: x.caseId ?? null, key, body, link: textLink(key, n ? `${event}:${n}` : event), at, land: def.land ?? null, status };
+  /* DG-3 A (pre-MVP B2): the number it went to — after a phone change every text goes to the new one (J29) */
+  const phone = to === 'tailor' ? (t ?? state.tailors[0])?.phone ?? '' : to === 'admin' ? '' : state.customer.phone ?? '';   // the admin's number is Taily's own (A2)
+  const entry = { id: `x${++textSeq}`, seq: textSeq, event, to, phone, apptId: a?.id ?? null, caseId: x.caseId ?? null, key, body, link: textLink(key, n ? `${event}:${n}` : event), at, land: def.land ?? null, status };
   state.outbox.push(entry);
   return entry;
 }
@@ -2313,6 +2344,59 @@ export function textReply(who, word) {
   if (w === 'START') return p.on ? { ok: true, prefs: p } : setTexts(who, true);
   if (w === 'HELP') return { ok: true, prefs: p, help: true, text: notify(null, who === 'tailor' ? 'help-reply-t' : 'help-reply') };   // B-05 (A2): HELP points at Taily Help
   return fail('unknown-reply');
+}
+
+/* ---------- pre-MVP B2: Account v2 (DG-3 option A) — what blocks deleting an account; receipts she can keep (S-25) ---------- */
+const OPEN_STATUSES = ['requested', 'suggested', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'];
+/** Why this person can't delete her account yet, or null. Customer: an open request / visit / order (`order`), a balance she still owes
+    (`unpaid`, D-04 capture-failed), a case Taily is still looking into (`review`). Tailor: an open request or job (`job`) and / or a payout
+    that hasn't reached her bank (`payout`, pending or failed). → `{ reason, appt, payout }`. */
+export function deleteBlocker(who = 'customer') {
+  if (who === 'tailor') {
+    const job = apptsFor('tailor').find((a) => OPEN_STATUSES.includes(a.status)) ?? null;
+    const payout = state.payouts.find((p) => p.state === 'pending' || p.state === 'failed') ?? null;
+    if (!job && !payout) return null;
+    return { reason: job && payout ? 'job-payout' : job ? 'job' : 'payout', appt: job, payout };
+  }
+  const mine = apptsFor('customer');
+  const open = mine.find((a) => OPEN_STATUSES.includes(a.status));
+  if (open) return { reason: 'order', appt: open, payout: null };
+  const owed = mine.find((a) => a.payments?.balance?.state === 'capture-failed');
+  if (owed) return { reason: 'unpaid', appt: owed, payout: null };
+  const review = mine.find((a) => a.tailyReview && !a.tailyReview.closedAt);
+  if (review) return { reason: 'review', appt: review, payout: null };
+  return null;
+}
+
+/** S-25: the receipt number — stable per order ("TLY-261013-1001": the request date + the order number). */
+export const receiptNumber = (a) => `TLY-${isoDay(a.requestedAt).slice(2).replace(/-/g, '')}-${String(a.id).replace(/\D/g, '')}`;
+/** S-25 (pre-MVP B2): what she paid and when, for the receipt page. `charges` = the deposit (charged at the accept, or kept on a late cancel /
+    no-show) and the balance (charged at the handoff or the day-6 capture); `refunds` = a refunded deposit or the courier overage (D-156).
+    Each `{ kind, cents, at, cardId }`. `paid` = charges − refunds. null for an order nothing was ever charged on. */
+export function receiptView(a) {
+  if (!a) return null;
+  const accepted = a.history.find((h) => h.status === 'confirmed')?.at ?? null;
+  const d = a.payments.deposit;
+  const b = a.payments.balance;
+  const charges = [];
+  const refunds = [];
+  if (accepted && ['captured', 'kept', 'refunded'].includes(d.state)) charges.push({ kind: 'deposit', cents: d.cents, at: accepted, cardId: a.cardId });
+  if (b?.state === 'captured' && b.cents > 0) charges.push({ kind: 'balance', cents: b.cents, at: b.capturedAt ?? null, cardId: b.retriedCardId ?? a.balanceCardId ?? a.cardId });
+  if (d.state === 'refunded' && accepted) refunds.push({ kind: 'deposit', cents: a.cancel?.refund ?? d.cents, at: a.cancel?.at ?? null, cardId: a.cardId });
+  if (a.payments.refund?.state === 'refunded' && a.payments.refund.cents > 0) refunds.push({ kind: 'overage', cents: a.payments.refund.cents, at: b?.capturedAt ?? null, cardId: a.cardId });
+  if (!charges.length) return null;
+  const sum = (xs) => xs.reduce((n, x) => n + x.cents, 0);
+  return { number: receiptNumber(a), issuedAt: [...a.history].reverse()[0]?.at ?? a.requestedAt, charges, refunds, paid: sum(charges) - sum(refunds), emailedAt: a.receipt?.emailedAt ?? null, emailedTo: a.receipt?.to ?? null };
+}
+/** S-25: "Email receipt" — PROTOTYPE: no mail service; records that it went (and to which address). Errors: no-email · no-receipt · offline. */
+export function emailReceipt(id) {
+  const a = must(id);
+  if (!receiptView(a)) return fail('no-receipt');
+  const to = String(state.customer.email ?? '').trim();
+  if (!to) return fail('no-email');
+  if (state.sim.network === 'offline') return fail('offline');
+  a.receipt = { emailedAt: nowIso(), to };
+  return succeed(a, { to });
 }
 
 /* ---------- K-48.1 / K-48.5: what the admin is told, and the cases Taily reviews (the admin + Help UI is track A2's) ---------- */
@@ -2923,13 +3007,22 @@ export function blockPerson(who, { apptId = null, tailorId = null } = {}) {
   if (fresh) caseToAdmin(c, a, 'safety'); else caseMessageToAdmin(c, who);
   return { ok: true, case: c };
 }
-/** Undo your own block. Errors: not-blocked. */
+/** Undo your own block (the Unblock button on c-tailor and the blocked thread, merge A2 + B2). The safety case stays open for Taily;
+    it gets a line saying so and the admin is told like any new message. Errors: not-blocked · offline. */
 export function unblockPerson(who, { tailorId = null } = {}) {
   const tid = tailorId ?? state.tailors[0].id;
   const i = state.blocks.findIndex((b) => b.by === who && b.tailorId === tid && b.customerId === state.customer.id);
   if (i < 0) return fail('not-blocked');
+  if (state.sim.network === 'offline') return fail('offline');
   state.blocks.splice(i, 1);
-  return { ok: true };
+  const c = state.cases.find((x) => x.kind === 'safety' && x.state === 'open' && x.opener === who && x.safety?.tailorId === tid);
+  if (c) {
+    c.safety.block = false;
+    caseLine(c, who, `I unblocked ${who === 'customer' ? tailorById(tid)?.name ?? 'the tailor' : customerFull()}.`, { from: who });
+    c.read[who] = lastNum(c);
+    caseMessageToAdmin(c, who);
+  }
+  return { ok: true, case: c ?? null };
 }
 
 /* ---------- DG-2 A: one-time notices on Home for a cancelled visit (a cancelled visit never just vanishes) ---------- */
@@ -3141,5 +3234,7 @@ export const T = {
   adminPausePayout, adminReleasePayout, adminCloseCase, adminMarkRead, adminAct, reportPerson, blockPerson, unblockPerson,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   uploadId, consentBackground, setupPayouts, pausePayouts, confirmTaxInfo, submitOnboarding, reviewChecks, joinAreaWaitlist,
+  /* pre-MVP B2 */
+  setJobAddress, useSavedAddress, emailReceipt,
   now, setClock, advanceClock, tick, suggestLapseAt,
 };

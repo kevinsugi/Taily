@@ -1525,6 +1525,16 @@ export function field({ id, label, value = '', type = 'text', inputmode, autocom
   ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : ''}
 </div>`;
 }
+/** S-27 (pre-MVP B2, D-379): THE address fields — Saved addresses (add, edit) and the booking's address sheet (c-where) use the same four:
+    street · apt, suite or unit · ZIP (city and state come from it, S-42) · access notes (optional, ≤ BOOKING_LIMITS.ACCESS_MAX; the tailor
+    sees them once she accepts). Markup only; `errors` = the model's codes (account.js addressErrors / state.js setJobAddress). */
+export const ADDRESS_ERRORS = { street: 'Enter your street address.', zip: 'Enter a 5-digit ZIP code.', notes: `Keep access notes to ${DATA.BOOKING_LIMITS.ACCESS_MAX} characters.` };
+export function addressFields({ values = {}, errors = {}, zipHelper = '', disabled = false } = {}) {
+  return `${field({ id: 'street', label: 'Street address', value: values.street ?? '', autocomplete: 'address-line1', error: errors.street ? ADDRESS_ERRORS.street : '', disabled })}
+  ${field({ id: 'unit', label: 'Apt, suite or unit (optional)', value: values.unit ?? '', autocomplete: 'address-line2', disabled })}
+  ${field({ id: 'zip', label: 'ZIP code', value: values.zip ?? '', inputmode: 'numeric', maxlength: 5, autocomplete: 'postal-code', helper: zipHelper, error: errors.zip ? ADDRESS_ERRORS.zip : '', disabled })}
+  ${field({ id: 'notes', label: 'Access notes (optional)', value: values.notes ?? '', maxlength: DATA.BOOKING_LIMITS.ACCESS_MAX, placeholder: 'Buzzer, gate code, where to wait', helper: 'Your tailor sees these once she accepts.', error: errors.notes ? ADDRESS_ERRORS.notes : '', disabled })}`;
+}
 /** Code input — one numeric one-time-code field, `length` digits, spaced for reading. `helper` replaces the default line under it (an error wins). */
 export function codeInput({ id, length = 6, value = '', error = '', label = 'Verification code', helper = '' } = {}) {
   const msgId = `${id}-msg`;
@@ -1768,7 +1778,8 @@ export function receiptBlock(a, tailorFirst = '') {
   ${stitchDivider()}
   ${order}
   ${customerBreakdown(a.money, { stage: failed ? 'unpaid' : 'paid', tailorFirst, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '' })}
-  ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}`;
+  ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}
+  ${failed ? '' : `<div class="receipt__full">${textLink('See full receipt', { act: 'full-receipt' })}</div>`}`;   // S-25 (pre-MVP B2): the receipt she can keep (c-receipt)
 }
 /** The tailor's breakdown — no courier row (D-04). One order everywhere (D-165, amends D-137): Services, the Taily fee (a negative
     row, "On the $125.00 of services only" — its base), Home visit fee, Rush fee, then the total. */
@@ -2181,7 +2192,37 @@ export function rushLadder(rush = []) {
 }
 
 /**
- * Leave modal — the "unsaved changes" alertdialog content for modalOverlay(leaveModal(…), { dataS }, wireFn).
+ * P-32 (pre-MVP B2, D-375) — THE container for a confirm that ends or loses something: a bottom sheet, the majority pattern (cancel a
+ * booking, decline, remove a card, withdraw changes…). Sign out, Leave without saving and Delete account moved here from the centred modal.
+ * `title` = the sheet header (the question), `body` = HTML lines under it, then the actions stacked full width: `primary`
+ * `{ label, act, variant: 'danger' | 'default', busyLabel }` and an optional `secondary` `{ label, act }` (outline). `wireFn(holder, close)`
+ * as sheetOverlay; returns close(). Focus the safe choice in wireFn (R5-1-C-03).
+ */
+export function confirmSheet({ title, body = '', primary, secondary = null, dataS = '' } = {}, wireFn) {
+  const bodyId = `confirm-body-${++sheetSeq}`;
+  const html = `<div class="confirm-sheet"${body ? ` aria-describedby="${bodyId}"` : ''}>
+  ${body ? `<div class="confirm-sheet__body" id="${bodyId}">${body}</div>` : ''}
+  <div class="confirm-sheet__actions">
+    ${cta(primary.label, { variant: primary.variant ?? 'danger', busyLabel: primary.busyLabel ?? '', attrs: `data-act="${esc(primary.act)}"` })}
+    ${secondary ? cta(secondary.label, { variant: 'secondary', attrs: `data-act="${esc(secondary.act)}"` }) : ''}
+  </div>
+</div>`;
+  return sheetOverlay(html, { header: esc(title), dataS, confirm: false }, (holder, close) => {
+    holder.querySelector('.sheet')?.setAttribute('role', 'alertdialog');
+    if (body) holder.querySelector('.sheet')?.setAttribute('aria-describedby', bodyId);
+    wireFn?.(holder, close);
+  });
+}
+/** P-32: "Leave without saving?" as the confirm sheet — Keep editing (primary) · Discard changes (secondary); the acts are unchanged. */
+export function leaveSheet({ title = 'Leave without saving?', body = 'Your changes will be lost.' } = {}, { dataS = '' } = {}, wireFn) {
+  return confirmSheet({
+    title, body: `<p class="t-body c-700">${esc(body)}</p>`, dataS,
+    primary: { label: 'Keep editing', act: 'keep-editing', variant: 'default' }, secondary: { label: 'Discard changes', act: 'discard' },
+  }, wireFn);
+}
+
+/**
+ * Leave modal — the "unsaved changes" alertdialog markup (gallery only since P-32: screens open leaveSheet()).
  * Keep editing (primary) · Discard changes (secondary).
  */
 export function leaveModal({ title = 'Leave without saving?', body = 'Your changes will be lost.' } = {}) {
@@ -3460,8 +3501,17 @@ export const protectionRow = (act = 'garment-protection') => `<div class="protec
 
 /** A policy page's body: the sections, then the counsel line on a draft. */
 export function policySections(page) {
-  return `${page.sections.map((s) => `<section class="sec policy__sec"><h2 class="t-caps c-600 policy__title">${esc(s.title)}</h2>${s.lines.map((l) => `<p class="t-body c-700 policy__line" data-money>${esc(l)}</p>`).join('')}</section>`).join('')}
-  ${page.counsel ? `<p class="t-small c-600 policy__counsel" data-counsel>${ICON_INFO}<span>${esc(page.counselLine)}</span></p>` : ''}`;
+  const line = (l) => `<p class="t-body c-700 policy__line" data-money>${esc(l)}</p>`;
+  const sec = (x) => `<section class="sec policy__sec"><h2 class="t-caps c-600 policy__title">${esc(x.title)}</h2>${x.list
+    ? `<ul class="policy__list">${x.lines.map((l) => `<li class="t-body c-700" data-money>${esc(l)}</li>`).join('')}</ul>`
+    : x.lines.map(line).join('')}</section>`;
+  return `${page.version ? `<p class="t-small c-600 policy__version">${esc(page.version)}</p>` : ''}
+  ${page.sections.map(sec).join('')}
+  ${page.counsel ? `<p class="t-small c-600 policy__counsel" data-counsel>${ICON_INFO}<span>${esc(page.counselLine)}</span></p>` : ''}
+  ${page.legal ? `<section class="sec policy__full" data-counsel aria-label="Full text">
+    <p class="t-body w-600">Full text coming soon (counsel review)</p>
+    <p class="t-small c-600">This page is a short summary while our lawyers finish the full text. If anything here is unclear, ask us through Help.</p>
+  </section>` : ''}`;
 }
 
 /** Help home (c-help / t-help): Message Taily, your cases, topics, contact, policies. */
@@ -3499,15 +3549,20 @@ export function helpCaseName(c, who) {
   return c.topic ? topicLabel(c.topic, who, c.apptId ? getAppt(c.apptId) : null) : 'Message to Taily';
 }
 
-/** A confirm sheet (the admin's money actions, a person's self-serve action from a Help thread): one filled button + Cancel. */
-export function confirmSheet({ header = '', body = '', ok = 'Confirm', danger = false, dataS = 'confirm', busyLabel = 'Saving…' } = {}, onOk) {
+/** A confirm that runs a model action (the admin's money actions, a person's self-serve action from a Help thread) — the P-32 confirm
+    sheet's markup (D-375: one container) with one filled button + Cancel, its own busy state and the error under the body. `onOk()`
+    returns an error line or null (A2, merged with B2's confirmSheet). */
+export function confirmAction({ header = '', body = '', ok = 'Confirm', danger = false, dataS = 'confirm', busyLabel = 'Saving…' } = {}, onOk) {
   const html = (busy = false, error = '') => `<div class="confirm-sheet"${busy ? ' aria-busy="true"' : ''}>
-  <p class="t-body c-700" data-money>${body}</p>
-  ${error ? `<p class="field__msg field__msg--error confirm-sheet__err" role="alert">${esc(error)}</p>` : ''}
-  ${cta(ok, { variant: danger ? 'danger' : 'default', busy, busyLabel, attrs: 'data-act="cs-ok"' })}
-  ${cta('Cancel', { variant: 'secondary', disabled: busy, attrs: 'data-act="cs-cancel"' })}
+  <div class="confirm-sheet__body"><p class="t-body c-700" data-money>${body}</p>
+  ${error ? `<p class="field__msg field__msg--error confirm-sheet__err" role="alert">${esc(error)}</p>` : ''}</div>
+  <div class="confirm-sheet__actions">
+    ${cta(ok, { variant: danger ? 'danger' : 'default', busy, busyLabel, attrs: 'data-act="cs-ok"' })}
+    ${cta('Cancel', { variant: 'secondary', disabled: busy, attrs: 'data-act="cs-cancel"' })}
+  </div>
 </div>`;
   return sheetOverlay(html(), { header, dataS, confirm: false }, (holder, close) => {
+    holder.querySelector('.sheet')?.setAttribute('role', 'alertdialog');
     let busy = false;
     holder.addEventListener('click', (e) => {
       const act = e.target.closest('[data-act]')?.dataset.act;
@@ -3523,6 +3578,20 @@ export function confirmSheet({ header = '', body = '', ok = 'Confirm', danger = 
         });
       }
     });
+  });
+}
+
+/** Undo your own block (merge A2 + B2: c-tailor's "You blocked this tailor" and the blocked thread's foot) — a confirm through
+    `T.unblockPerson`; the safety case stays open for Taily. `other` = the other person's first name; `onDone(result)` after it went in. */
+export function openUnblockSheet({ who = 'customer', other = '', tailorId = null, onDone } = {}) {
+  return confirmAction({
+    header: `Unblock ${other}?`, dataS: 'safety-unblock', ok: `Unblock ${other}`, busyLabel: 'Unblocking…',
+    body: `You’ll be able to ${who === 'tailor' ? 'take requests from' : 'book'} and message each other again. Taily still has your report.`,
+  }, () => {
+    const r = T.unblockPerson(who, { tailorId });
+    if (!r.ok) return r.error === 'offline' ? 'You’re offline. Nothing was changed.' : 'Couldn’t unblock. Try again.';
+    onDone?.(r);
+    return null;
   });
 }
 
@@ -3547,7 +3616,7 @@ export function openSafetySheet({ who = 'customer', other = '', apptId = null, t
     });
   }
   if (mode === 'block') {
-    return confirmSheet({
+    return confirmAction({
       header: `Block ${other}?`, dataS: 'safety-block', ok: `Block ${other}`, danger: true, busyLabel: 'Blocking…',
       body: `You won’t be able to book each other, and your chat closes. ${who === 'tailor' ? 'A job already booked' : 'A booking you already have'} stays until Taily contacts you both. Taily is told, and only Taily.`,
     }, () => {
@@ -3721,16 +3790,16 @@ export function wireHelpThread(root, who, { go, id, statusScreenOf }) {
       const other = who === 'tailor' ? state.customer.first : firstOfName(tailorById(a?.tailorId)?.name ?? state.tailors[0]?.name);
       openSafetySheet({ who, other, apptId: a?.id ?? null, mode: 'menu', onDone: (c) => { u.caseId = c.id; done('Sent. Taily is looking into it.'); } });
     } else if (act === 'hs-dispute' && a) {
-      confirmSheet({ header: 'Were you there?', dataS: 'help-dispute', ok: 'Tell Taily', busyLabel: 'Sending…', body: who === 'tailor' ? `Tell Taily you came. We look into it with ${state.customer.first} and message you both.` : `Tell Taily you were there. We look into it with ${firstOfName(tailorById(a.tailorId)?.name)} and message you both.` },
+      confirmAction({ header: 'Were you there?', dataS: 'help-dispute', ok: 'Tell Taily', busyLabel: 'Sending…', body: who === 'tailor' ? `Tell Taily you came. We look into it with ${state.customer.first} and message you both.` : `Tell Taily you were there. We look into it with ${firstOfName(tailorById(a.tailorId)?.name)} and message you both.` },
         () => { const r = T.disputeNoShow(a.id, who); if (!r.ok) return 'Couldn’t send this. Try again.'; u.caseId = openCaseOfAppt(a.id)?.id ?? u.caseId; done('Sent. Taily is looking into it.'); return null; });
     } else if (act === 'hs-no-show' && a) {
-      confirmSheet({ header: `${firstOfName(tailorById(a.tailorId)?.name)} didn’t show up?`, dataS: 'help-no-show', ok: 'Cancel and refund', danger: true, busyLabel: 'Cancelling…', body: `We cancel the visit and refund your ${fmtExact(a.payments.deposit.cents)} deposit in full. Your items are saved.` },
+      confirmAction({ header: `${firstOfName(tailorById(a.tailorId)?.name)} didn’t show up?`, dataS: 'help-no-show', ok: 'Cancel and refund', danger: true, busyLabel: 'Cancelling…', body: `We cancel the visit and refund your ${fmtExact(a.payments.deposit.cents)} deposit in full. Your items are saved.` },
         () => { const r = T.reportTailorNoShow(a.id); if (!r.ok) return 'Couldn’t cancel. Try again.'; done('Cancelled. Your deposit is refunded.'); return null; });
     } else if (act === 'hs-not-received' && a) {
-      confirmSheet({ header: 'Didn’t get it?', dataS: 'help-not-received', ok: 'I didn’t get it', busyLabel: 'Sending…', body: 'The order stays open and nothing more is charged while we sort it out.' },
+      confirmAction({ header: 'Didn’t get it?', dataS: 'help-not-received', ok: 'I didn’t get it', busyLabel: 'Sending…', body: 'The order stays open and nothing more is charged while we sort it out.' },
         () => { const r = T.reportNotReceived(a.id); if (!r.ok) return 'Couldn’t send this. Try again.'; done('Sent. Taily is looking into it.'); return null; });
     } else if (act === 'hs-missing' && a) {
-      confirmSheet({ header: 'Delivery didn’t reach you?', dataS: 'help-missing', ok: 'Tell Taily', busyLabel: 'Sending…', body: 'We check the courier’s drop-off photo with you and reply here.' },
+      confirmAction({ header: 'Delivery didn’t reach you?', dataS: 'help-missing', ok: 'Tell Taily', busyLabel: 'Sending…', body: 'We check the courier’s drop-off photo with you and reply here.' },
         () => { const r = T.reportMissingDelivery(a.id); if (!r.ok) return 'Couldn’t send this. Try again.'; u.caseId = openCaseOfAppt(a.id)?.id ?? u.caseId; done('Sent. Taily is looking into it.'); return null; });
     }
   });

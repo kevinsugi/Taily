@@ -32,3 +32,7 @@ Pre-MVP A2 placeholders (D-336, D-337): item 12's promise is `js/policies.js` `P
 (`MONEY.GARMENT_PROTECTION_CAP`) and a **48-hour** report window (`POLICY.GARMENT_REPORT_H`), "covered by Taily" (K-49: Taily provides the
 insurance), shown with a visible "Draft for counsel" line; item 16's reply promise is `POLICY.HELP_REPLY_H` (24 h); Help's contact
 details (`HELP_CONTACT`: a text number, an email, hours) are placeholders.
+
+Pre-MVP B2 (D-373, D-370, D-376): the legal pages' placeholder summaries live in `js/policies.js` since the A2 + B2 merge (D-380;
+`POLICIES` entries with `legal: <row>`, each naming its row above — was `js/legal.js` `LEGAL_DOCS`); `LEGAL_VERSION` is what sign-up logs with the time; `COMPANY` is the entity printed on receipts). Account deletion's "what goes,
+what stays" copy is `DELETE_WORDS` in `js/account-ui.js` (row 9). All marked `COUNSEL` in code comments.

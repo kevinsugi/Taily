@@ -271,8 +271,8 @@ if (!DUMP && !ONLY.length) {
   check('menu: trigger opens the panel', await page.evaluate(() => !document.querySelector('#flow-menu')?.hidden && document.querySelector('#flow-trigger').getAttribute('aria-expanded') === 'true'));
 
   const tabs = await page.$$eval('.flow-menu__tab', (t) => t.map((b) => b.dataset.tab));
-  check('menu: tabs are customer / tailor / system', ['customer', 'tailor', 'system'].every((t) => tabs.includes(t)), `tabs=${tabs.join(',')}`);
-  for (const t of ['customer', 'tailor', 'system']) {
+  check('menu: tabs are customer / tailor / admin / system', ['customer', 'tailor', 'admin', 'system'].every((t) => tabs.includes(t)), `tabs=${tabs.join(',')}`);
+  for (const t of ['customer', 'tailor', 'admin', 'system']) {
     if (!tabs.includes(t)) continue;
     await page.click(`.flow-menu__tab[data-tab="${t}"]`);
     const shown = await page.$$eval('[data-flow]', (els) => els.map((e) => e.dataset.flow));
@@ -311,6 +311,15 @@ if (!DUMP && !ONLY.length) {
   const flipped = before.persona === 'customer' ? 'tailor' : 'customer';
   check('menu: persona flip switches html[data-persona]', after.persona === flipped && after.statePersona === flipped, `before=${before.persona} after=${after.persona} state=${after.statePersona}`);
   check('menu: persona flip keeps state (need-by and appointments unchanged)', after.needBy === before.needBy && after.appts === before.appts, `needBy ${before.needBy} -> ${after.needBy}, appts ${before.appts} -> ${after.appts}`);
+  /* pre-MVP A2 (K-48.1): the admin persona — View as Admin lands on a-inbox with the same live state */
+  await page.click('#flow-trigger');
+  await page.click('#persona-admin');
+  await settle(page);
+  const adm = await page.evaluate(async () => {
+    const S = await import('/js/state.js');
+    return { persona: document.documentElement.dataset.persona, screen: document.getElementById('screen')?.dataset.screen, appts: S.state.appts.length };
+  });
+  check('menu: View as Admin opens the admin inbox, state kept', adm.persona === 'admin' && adm.screen === 'a-inbox' && adm.appts === before.appts, JSON.stringify(adm));
 
   for (const f of [first, all[all.length - 1]].filter((e, i, a) => a.indexOf(e) === i)) {
     await h.goto(`/?test=1&flow=${encodeURIComponent(f.key)}`);

@@ -13,7 +13,7 @@ export const MIN_TARGET = 44;
 
 /** The ids a flow entry's persona must land on, from its screen id. */
 export const personaOf = (entry) =>
-  entry.persona ?? (/^c-/.test(entry.screen) ? 'customer' : /^(t|to)-/.test(entry.screen) ? 'tailor' : null);
+  entry.persona ?? (/^c-/.test(entry.screen) ? 'customer' : /^(t|to)-/.test(entry.screen) ? 'tailor' : /^a-/.test(entry.screen) ? 'admin' : null);   // pre-MVP A2: a- = the admin
 
 export async function open({ path = '/?test=1' } = {}) {
   const server = await startServer();

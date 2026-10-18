@@ -21,10 +21,11 @@ export const MILESTONES = [
   { id: 'S1', name: 'Study-1 (tailor usability)' },
   { id: 'A1', name: 'Pre-MVP A1: texts, timers, visit day, courier' },
   { id: 'PM', name: 'Pre-MVP fix pass (K-48)' },
+  { id: 'A2', name: 'Pre-MVP A2: Taily Help, the admin, disputes, report / block, garment protection' },
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM', 'A2'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
@@ -99,6 +100,7 @@ export const SCREENS = [
     { key: 'c-tailor--verified', m: 'M7', kind: 'overlay' },
     { key: 'c-tailor--book-again', m: 'M7', kind: 'state' },
     { key: 'c-tailor--services', m: 'PM', kind: 'state' },
+    { key: 'c-tailor--blocked', m: 'A2', kind: 'state' },
   ] },
   { id: 'c-book', m: 'M1', persona: 'customer', title: 'C5a Pick a time: Scheduler limited to the tailor\'s open slots before the need-by', states: [
     { key: 'c-book', m: 'M1', kind: 'frame' },
@@ -143,6 +145,9 @@ export const SCREENS = [
     { key: 'c-thread--attach', m: 'M5', kind: 'overlay' },
     { key: 'c-thread--read-only', m: 'M5', kind: 'frame' },
     { key: 'c-thread--expired', m: 'M6', kind: 'state' },
+    { key: 'c-thread--more', m: 'A2', kind: 'overlay' },
+    { key: 'c-thread--report', m: 'A2', kind: 'overlay' },
+    { key: 'c-thread--blocked', m: 'A2', kind: 'state' },
   ] },
   { id: 'c-bookings', m: 'M3', persona: 'customer', title: 'Bookings tab: upcoming + past', states: [
     { key: 'c-bookings', m: 'M3', kind: 'frame' },
@@ -204,6 +209,9 @@ export const SCREENS = [
     { key: 'c-booking--card-failed', m: 'A1', kind: 'state' },
     { key: 'c-booking--update-card', m: 'A1', kind: 'overlay' },
     { key: 'c-booking--closed', m: 'A1', kind: 'state' },
+    { key: 'c-booking--case-decided', m: 'A2', kind: 'state' },
+    { key: 'c-booking--taily-cancelled', m: 'A2', kind: 'state' },
+    { key: 'c-booking--get-help', m: 'A2', kind: 'state' },
   ] },
   { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01) · with the tailor’s Before / Pinned photos and comments (K-02)', states: [
     { key: 'c-price-change', m: 'M4', kind: 'frame' },
@@ -245,6 +253,7 @@ export const SCREENS = [
     { key: 'c-complete--review-reminder', m: 'M7', kind: 'state' },
     { key: 'c-complete--courier-lobby', m: 'A1', kind: 'state' },
     { key: 'c-complete--courier-reported', m: 'A1', kind: 'state' },
+    { key: 'c-complete--help', m: 'A2', kind: 'state' },
   ] },
   { id: 'c-review', m: 'M4', persona: 'customer', title: 'Stars (1–5), optional text, up to 3 photos', states: [
     { key: 'c-review', m: 'M4', kind: 'frame' },
@@ -265,6 +274,26 @@ export const SCREENS = [
     { key: 'c-texts', m: 'A1', kind: 'frame' },
     { key: 'c-texts--stopped', m: 'A1', kind: 'state' },
     { key: 'c-texts--off', m: 'A1', kind: 'state' },
+  ] },
+  { id: 'c-help', m: 'A2', persona: 'customer', title: 'Help (DG-1 B shared page): Message Taily, her conversations, topics, contact, policies (Account → Help, B2)', states: [
+    { key: 'c-help', m: 'A2', kind: 'frame' },
+    { key: 'c-help--empty', m: 'A2', kind: 'state' },
+    { key: 'c-help--safety', m: 'A2', kind: 'overlay' },
+  ] },
+  { id: 'c-case', m: 'A2', persona: 'customer', title: 'The Taily Help thread (DG-1 B): order attached, topic chips, Taily is reviewing · Reply by, the decision in dollars', states: [
+    { key: 'c-case', m: 'A2', kind: 'frame' },
+    { key: 'c-case--open', m: 'A2', kind: 'state' },
+    { key: 'c-case--replied', m: 'A2', kind: 'state' },
+    { key: 'c-case--dispute', m: 'A2', kind: 'state' },
+    { key: 'c-case--decided', m: 'A2', kind: 'state' },
+    { key: 'c-case--no-show-step', m: 'A2', kind: 'state' },
+    { key: 'c-case--damage', m: 'A2', kind: 'state' },
+    { key: 'c-case--general', m: 'A2', kind: 'state' },
+    { key: 'c-case--safety', m: 'A2', kind: 'state' },
+  ] },
+  { id: 'c-policy', m: 'A2', persona: 'customer', title: 'One Help policy: garment protection (D-21, COUNSEL), cancellation, payments, disputes, safety', states: [
+    { key: 'c-policy', m: 'A2', kind: 'frame' },
+    { key: 'c-policy--cancellation', m: 'A2', kind: 'state' },
   ] },
   { id: 'c-addresses', m: 'M5', persona: 'customer', title: 'Saved addresses', states: [
     { key: 'c-addresses', m: 'M5', kind: 'frame' },
@@ -375,6 +404,20 @@ export const SCREENS = [
   { id: 't-texts', m: 'A1', persona: 'tailor', title: 'Shop → Texts: requests and job texts on / off, the STOP state (D-02)', states: [
     { key: 't-texts', m: 'A1', kind: 'frame' },
     { key: 't-texts--stopped', m: 'A1', kind: 'state' },
+  ] },
+  { id: 't-help', m: 'A2', persona: 'tailor', title: 'Help (tailor): Message Taily, her conversations, topics, contact, policies (Shop → Account → Help, B2)', states: [
+    { key: 't-help', m: 'A2', kind: 'frame' },
+    { key: 't-help--empty', m: 'A2', kind: 'state' },
+  ] },
+  { id: 't-case', m: 'A2', persona: 'tailor', title: 'The Taily Help thread (tailor): from the t-job ⋯ menu in every state, disputes, the decision in dollars', states: [
+    { key: 't-case', m: 'A2', kind: 'frame' },
+    { key: 't-case--help', m: 'A2', kind: 'state' },
+    { key: 't-case--replied', m: 'A2', kind: 'state' },
+    { key: 't-case--decided', m: 'A2', kind: 'state' },
+  ] },
+  { id: 't-policy', m: 'A2', persona: 'tailor', title: 'One Help policy (tailor): garment protection (D-21, COUNSEL), payments, disputes, safety', states: [
+    { key: 't-policy', m: 'A2', kind: 'frame' },
+    { key: 't-policy--safety', m: 'A2', kind: 'state' },
   ] },
   { id: 't-rush', m: 'M2', persona: 'tailor', title: 'T7 Rush fees editor (≤1 / 2 / 3 days → $; 4+ days free)', states: [
     { key: 't-rush', m: 'M2', kind: 'frame' },
@@ -501,6 +544,9 @@ export const SCREENS = [
     { key: 't-job--notes-before-visit', m: 'PM', kind: 'state' },
     { key: 't-job--name-peek', m: 'PM', kind: 'overlay' },
     { key: 't-job--handoff-courier-studio', m: 'PM', kind: 'state' },
+    { key: 't-job--more-help', m: 'A2', kind: 'overlay' },
+    { key: 't-job--case-decided', m: 'A2', kind: 'state' },
+    { key: 't-job--taily-cancelled', m: 'A2', kind: 'state' },
   ] },
   { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Final order at the fitting (K-42; after the fitting: Edit order): add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },
@@ -557,6 +603,25 @@ export const SCREENS = [
     { key: 't-thread--failed', m: 'M5', kind: 'state' },
     { key: 't-thread--photo', m: 'M5', kind: 'state' },
     { key: 't-thread--read-only', m: 'M5', kind: 'state' },
+    { key: 't-thread--more', m: 'A2', kind: 'overlay' },
+    { key: 't-thread--blocked', m: 'A2', kind: 'state' },
+  ] },
+  { id: 'a-inbox', m: 'A2', persona: 'admin', title: 'Admin inbox (K-48.1: support = the CEO): open cases, notifications newest first, unread count', states: [
+    { key: 'a-inbox', m: 'A2', kind: 'frame' },
+    { key: 'a-inbox--empty', m: 'A2', kind: 'state' },
+    { key: 'a-inbox--closed', m: 'A2', kind: 'state' },
+  ] },
+  { id: 'a-case', m: 'A2', persona: 'admin', title: 'One case for the admin: the order’s money, the actions (refund / keep deposit, release / capture hold, cancel, pause / release payout), close with outcome, reply to either side', states: [
+    { key: 'a-case', m: 'A2', kind: 'frame' },
+    { key: 'a-case--tailor-side', m: 'A2', kind: 'state' },
+    { key: 'a-case--refund', m: 'A2', kind: 'overlay' },
+    { key: 'a-case--close', m: 'A2', kind: 'overlay' },
+    { key: 'a-case--decide-first', m: 'A2', kind: 'overlay' },
+    { key: 'a-case--decided', m: 'A2', kind: 'state' },
+    { key: 'a-case--hold', m: 'A2', kind: 'state' },
+    { key: 'a-case--general', m: 'A2', kind: 'state' },
+    { key: 'a-case--safety', m: 'A2', kind: 'state' },
+    { key: 'a-case--visit-unanswered', m: 'A2', kind: 'state' },
   ] },
   { id: 'sys-index', m: 'M0', persona: 'system', title: 'Boot screen: milestones M0–M7 and every built screen / state as a deep link', states: [
     { key: 'sys-index', m: 'M0', kind: 'frame' },
@@ -567,5 +632,6 @@ export const SCREENS = [
   { id: 'sys-texts', m: 'A1', persona: 'system', title: 'The text catalogue: every notification as a text, its trigger and landing screen (DG-2 A, D-02)', states: [
     { key: 'sys-texts', m: 'A1', kind: 'frame' },
     { key: 'sys-texts--tailor', m: 'A1', kind: 'state' },
+    { key: 'sys-texts--admin', m: 'A2', kind: 'state' },
   ] },
 ];

@@ -14,6 +14,7 @@ Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.m
 | `js/sim.js` | `withLatency(done) → cancel()` — every simulated network wait: `state.sim.latency` instant → sync, normal → `LATENCY_MS` 700, hold → never (D-35). Set the busy flag first | component builder |
 | `js/account.js` | DOM-free sign-in model (D-33): `phoneDigits formatPhone validatePhone signOut sendCode codeStatus resendCode verifyCode saveName signInWith addCard useOtherMethod` | component builder |
 | `js/money.js` | money fns, integer cents in/out, `fmt / fmtExact / fmtNeg / fmtColumn` | model |
+| `js/policies.js` | pre-MVP A2: the Help policies (`POLICIES`, `policyList(who)`, `policyPage(key, who)`, `protectionLine()`, `HELP_CONTACT`); every number from POLICY / MONEY; D-21 garment protection is a COUNSEL draft | model |
 | `js/texts.js` | pre-MVP A1: the TEXT CATALOGUE — `TEXTS[event] = { to, land, trigger, body(ctx), owner? }`, `TEXT_EVENTS`, `textCtx({ a, t, cust, now, x })`; DOM- and state-free; `docs/v5/TEXTS.md` is generated from it (`node scripts/v5/texts-doc.mjs`) | model |
 | `js/dates.js` | ISO date helpers + formatters | model |
 | `js/data.js` | catalog (`GARMENT_TYPES`, `GARMENT_ICONS`, `SERVICES`), seed (`TAILORS` = Amara, `CUSTOMER` = Sarah, `SEED_JOB`, `BLANK_TAILOR`), `DEMO_NOW`, `ZIP_INFO`, labels | model |
@@ -67,7 +68,7 @@ meaningful default state (`?screen=c-request` shows the request, not "No open re
   Screen 390 wide, `--neutral-50`; status bar h44, top nav h56, `.body` padding-top `var(--body-top)` (116, K-04 / D-204; was 128), sides 20. Strokes inside →
   `box-shadow: inset 0 0 0 1px …`. Every tappable ≥ 44×44 (`data-hit="inline"` only for in-text links with a padded
   hit area). Visible labels, error next to the field, loading feedback, `prefers-reduced-motion`.
-- Persona comes from the id: `c-` customer, `t-` / `to-` tailor, `sys-` unchanged.
+- Persona comes from the id: `c-` customer, `t-` / `to-` tailor, `a-` admin (pre-MVP A2: Kevin, K-48.1), `sys-` unchanged.
 
 ## Tokens
 
@@ -162,10 +163,51 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
 - **Offline (S-12).** money / accept transitions fail `offline` (requestBooking, tryAgain, tailorAccept, acceptSuggestion, holdBalance, confirmPickup,
   confirmReceived, retryCapture, courierCollected, a held setHandoffSlot).
 - **POLICY (A1).** WAIT_REMIND_1_H 24 · WAIT_REMIND_2_H 72 · FINAL_ORDER_REVIEW_D 7 · READY_DEFAULT_D 14 · ABANDONED_CLOSE_D 30 · PROBLEM_REVIEW_H 72 ·
-  VISIT_CHECK_H 2 · VISIT_CHECK_ADMIN_H 4 (after asking) · VISIT_CHECK_CANCEL_H 24 (after asking) · TRAVEL_BUFFER_MIN 30 · START_REMIND_MIN 60 ·
+  VISIT_CHECK_H 2 · VISIT_CHECK_ADMIN_H 4 (after the START since A2 / K-50) · VISIT_CHECK_CANCEL_H 24 (after asking) · TRAVEL_BUFFER_MIN 30 · START_REMIND_MIN 60 ·
   CHAT_TEXT_GAP_MIN 15 · PICKUP_REMIND_H 2 · NOTICE_WINDOW_H 48 · VISIT_TOOLS_H 3 · COURIER_REPORT_H 24 (+ UNCLAIMED_CAPTURE_D 6, HANDOFF_PICK_DAYS 5).
-- **Screens.** `c-texts`, `t-texts` (A1's), `sys-texts` (the catalogue board); A2 owns `c-help`, `t-help`, `c-case`, `t-case`, `a-inbox`, `a-case`.
+- **Screens.** `c-texts`, `t-texts` (A1's), `sys-texts` (the catalogue board; A2 adds its Admin tab); A2 built `c-help`, `t-help`, `c-case`, `t-case`, `a-inbox`, `a-case` (+ `c-policy`, `t-policy`).
   Demo actions add "Courier can’t deliver" and "Reply STOP". Fixtures: `js/fixtures/s2a.js` (milestone `A1` in inventory.js); journeys J22–J24.
+
+## Pre-MVP A2 (K-48.1, K-49 DG-1 option B, D-14, S-32, D-21): Taily Help, the admin, report / block (D-330 … D-338)
+
+- **Cases (state.js).** `state.cases[]` = Taily Help threads: `{ id, ref 'TY-48nn', apptId|null, kind 'help'|'review'|'safety', opener, topic, reason,
+  sides, messages [{ id 'k#', side, from 'customer'|'tailor'|'taily'|'system', text, photos, masked, at, kind? 'ack'|'opening'|'decision' }], read
+  { customer, tailor, admin }, actions [{ kind, cents, at }], state 'open'|'closed', closedAt, outcome { key, at, lines { customer, tailor } }, safety }`.
+  A person reads only their SIDE (`caseMessages(c, side)`); one open case per order (`openCaseOfAppt` — safety cases never count). `HELP_TOPICS`,
+  `helpTopics(a, who)` (the chips for the order's state; `null` = general), `topicLabel(topic, who, a)`, `caseTitle(c)` (the admin's name for it),
+  `caseById`, `caseOfAppt(apptId, who)` (open, else latest), `casesFor(who)`, `caseUnread(c, reader)`, `caseReplyBy(c, side?)` (HELP_REPLY_H after the
+  first unanswered message), `caseView(c, reader) → { ref, open, title, replyBy, overdue, waiting 'taily'|'you'|null, decision, closedAt, unread, appt }`.
+  Transitions (on `T`): `openCase({ who, apptId, topic, text, photos })` (`unknown-person topic empty too-many-photos offline`; a topic is sent as her
+  words, Taily's ack follows), `sendCaseMessage(caseId, who, { text, photos })` (`unknown-case closed not-a-party empty too-many-photos offline
+  send-failed`; masked), `markCaseRead(caseId, reader)`.
+- **Reviews are cases.** `openTailyReview` (A1) → `reviewCase`: Taily's opening words to both sides in dollars; `closeReview(a, outcome)` closes the
+  review and its case (A1's approve / fitting-started / 24 h cancel use it). K-48.5 (K-50): the admin is told `VISIT_CHECK_ADMIN_H` 4 h after the
+  visit START.
+- **The admin (K-48.1).** Every new case / safety report / block / review → `state.admin.notifications` `{ id, kind 'review'|'case'|'safety'|'message',
+  apptId, caseId, text, at, read }` + a text `to: 'admin'` (`admin-case`, `admin-message`; "Taily admin: " prefix; `state.texts.admin`).
+  `adminInbox() → { open, closed, notifications, unread }`, `adminActions(c) → [{ kind, label, sub, cents, tone, confirm }]`, `decisionPreview(caseId)`,
+  `adminAct(caseId, kind)`; transitions `adminReply(caseId, side, { text })`, `adminRefundDeposit` (`deposit-<state>` `order-open`), `adminKeepDeposit`
+  (`deposit-refunded` `not-kept`), `adminReleaseHold` / `adminCaptureHold` (`no-hold`), `adminCancelOrder` (`not-cancellable`; cancel reason `'taily'`),
+  `adminPausePayout` (`no-payout`) / `adminReleasePayout` (`nothing-held`), `adminCloseCase(caseId, { outcome })` (`decide-first` while a payout is held;
+  texts `case-decided` / `taily-replied-t`, or `help-replied(-t)`), `adminMarkRead(id)`. All fail `unknown-case` / `closed` / `no-order` (money).
+- **Report / block (S-32).** `REPORT_REASONS`, `reportPerson(who, { apptId, tailorId, reason, text })` (`reason offline`), `blockPerson(who, { apptId,
+  tailorId })` (`already offline`), `unblockPerson`; `isBlocked(tailorId)`, `blockedBy(tailorId)` → eligible `'blocked'`, tailorsFor hides, requestBooking
+  / tryAgain / acceptSuggestion fail `blocked`, `threadReadOnly` true. A HELP reply texts `help-reply` / `help-reply-t` (→ c-help / t-help).
+- **Components.** `ICON_HELP ICON_SHIELD ICON_FLAG ICON_BLOCK`, `helpAction(act)` (the Get help person button), `helpActions()` (its own row),
+  `caseStrip(caseView)` (Taily is reviewing · Reply by … / Taily replied / Taily decided + the line in dollars + Open Taily Help `data-act="open-case"
+  data-case`), `tailyHead`, `caseThread(c, side, { reader })`, `protectionRow(act)` (D-21), `policySections(page)`, `helpHome(who)`,
+  `helpCaseName`, `confirmSheet({ header, body, ok, danger, dataS }, onOk → error|null)`, `openSafetySheet({ who, other, apptId, tailorId, mode:
+  'menu'|'report'|'block', onDone, onHelp })` (dataS `safety-menu` / `safety-report` / `safety-block`), `helpCase(who)` / `helpThreadView(who)` /
+  `wireHelpThread(root, who, { go, id, statusScreenOf })` (state.ui.help = `{ apptId, caseId }`), `requestHead({ more })` (t-job's ⋯),
+  `courierCard({ protection })`, statusPill keys `case-reply case-overdue case-waiting case-closed`, `NAV.admin`, `navBadges('admin')`.
+- **Screens.** `c-help` / `t-help` (Help home), `c-case` / `t-case` (the Help thread), `c-policy` / `t-policy` (state.ui.policy), `a-inbox`, `a-case`
+  (state.ui['a-case'] = `{ caseId, side }`). Entry points: c-booking person block (every state) + c-request / c-ready / c-complete / c-price-change
+  rows (`get-help`), t-job ⋯ in every state (`get-help`, `report-block`), c-thread / t-thread ⋯ (Report · Block · Get help), the case strips
+  (`open-case`), c-pay / c-ready courier card / c-booking courier block (`garment-protection` → c-policy). Test flows: Admin tab + "View as Admin".
+- **POLICY / MONEY (A2).** `HELP_REPLY_H` 24 · `GARMENT_REPORT_H` 48 · `MONEY.GARMENT_PROTECTION_CAP` 500. Fixtures `js/fixtures/s2c.js` (inventory
+  milestone `A2`); journeys J27 (a no-show dispute through Help → the admin refunds and closes) and J28 (the tailor's ⋯ Get help → the admin replies).
+- **For B2.** Link Account → Help (c-account) to `c-help` and Shop → Account → Help (t-shop) to `t-help`; legal pages (Terms, Privacy,
+  Accessibility, Tailor agreement) can be `POLICIES` entries in js/policies.js (+ `POLICY_ORDER`) rendered by c-policy / t-policy.
 
 ## Sign-in + sim (M1; `js/account.js`, `js/sim.js` — import as `import * as A from '../account.js'`)
 

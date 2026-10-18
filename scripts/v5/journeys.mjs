@@ -37,6 +37,9 @@
      J23 nothing recorded at the visit (D-11, K-48.5): the tailor's start texts (1 h before, then "Your fitting has started" at the start),
          "Did the visit happen?" to both at 2 h, the admin at 4 h, cancelled with a refund at 24 h
      J24 the courier's trip (S-35): Handed to courier → out for delivery → can't deliver → a new window at no charge → delivered (proof, 24 h to report)
+     J27 a no-show dispute through Taily Help (pre-MVP A2, DG-1 B, D-14, K-48.1): Get help → "I was there" → That's not right → the admin's inbox →
+         refund the deposit → close with outcome → both see the decision in dollars, both texted
+     J28 the tailor's ⋯ Get help (DG-1 B): her topic + a message → the admin replies to her side → "Taily replied" on her thread, texted
      J14 the anchored popover (K-25): a garment thumb toggles it, another thumb moves it, Escape returns focus, it flips above near the
          window bottom, the Verified check shares its one slot; t-home's count cluster lists every item and the card still opens the request
 
@@ -722,10 +725,12 @@ await journey('J23', 'nothing recorded at the visit: the tailor’s start texts,
   await flip();
   await page.evaluate(() => window.Taily.render('c-booking'));
   await at('J23 customer: the same question', 'c-booking', { has: ['Did your visit happen?', 'Yes, it happened', 'No, Amara didn’t come'] });
-  await advance(3 * 60);                                                 // 10:30 PM
-  await demo('h1');                                                      // 11:30 PM: 4 h unanswered
-  const n = await model((S) => ({ admin: S.state.admin.notifications.map((x) => x.kind), reviews: S.openReviews().map((x) => x.reason) }));
-  check('J23 K-48.5: unanswered 4 hours → the admin is notified (a review A2 surfaces)', JSON.stringify(n) === JSON.stringify({ admin: ['review'], reviews: ['visit-unanswered'] }), JSON.stringify(n));
+  await advance(60);                                                     // 8:30 PM: 3 h 30 after the start
+  const n0 = await model((S) => S.state.admin.notifications.length);
+  check('J23 K-48.5 (Kevin, K-50): not yet 4 hours after the start → the admin isn’t told', n0 === 0, String(n0));
+  await demo('h1');                                                      // 9:30 PM: past start + 4 h (9:00 PM)
+  const n = await model((S) => ({ admin: S.state.admin.notifications.map((x) => [x.kind, x.at]), reviews: S.openReviews().map((x) => x.reason), text: S.state.outbox.filter((m) => m.to === 'admin').map((m) => [m.event, m.at]) }));
+  check('J23 K-48.5 (Kevin, K-50): 4 hours after the START with no answer → the admin is notified and texted (a case A2 surfaces)', JSON.stringify(n) === JSON.stringify({ admin: [['review', '2026-10-15T21:00']], reviews: ['visit-unanswered'], text: [['admin-case', '2026-10-15T21:00']] }), JSON.stringify(n));
   await demo('h48');                                                     // past 24 h after asking
   await at('J23 customer: cancelled with a refund (text + booking)', 'c-booking', { has: [`Taily: Nobody told us your Thu, Oct 15 · 5:00 PM visit with Amara happened, so we cancelled it and refunded your ${dep} deposit.`, 'Visit cancelled', 'Refunded'] });
   await flip();
@@ -905,6 +910,69 @@ await journey('J26', 'Under 5 years goes to the waitlist; the nav asks before dr
   /* K-48.2: she stops pricing a service Sarah's job needs → not listed, and c-tailors says why */
   await flow('c-tailors--services');
   await at('J26 K-48.2: no tailor who skips an item', 'c-tailors', { has: 'No tailor near you does all of this yet', not: 'Est.' });
+});
+
+/* ---------- J27–J28 (pre-MVP A2, K-48.1 + K-49 DG-1 option B: Taily Help, the admin) ---------- */
+const asAdmin = async () => { await click('#flow-trigger'); await click('#persona-admin'); };
+await journey('J27', 'a no-show dispute through Taily Help: Get help → I was there → the admin refunds and closes → both see the outcome in dollars, both texted', async () => {
+  const dep = fmtExact(S.seed.deposit);
+  const pay = fmtExact(S.noShow.paid);
+  await flow('c-booking--no-show');                                     // Thu 5:20 PM: Amara marked a no-show (after her I'm here)
+  await press('.person-block__actions [data-act="get-help"]');
+  await at('J27 customer: Taily Help with the order attached', 'c-case', { has: ['Taily Help', 'Order with Amara', 'Hi Sarah. This is about your visit with Amara', 'I was there'] });
+  await press('[data-act="topic"][data-topic="no-show"]');
+  await at('J27 customer: her topic, Taily’s answer, the step', 'c-case', { has: ['I was there', 'Thanks, Sarah. Taily has your message', 'That’s not right'] });
+  await press('[data-act="hs-dispute"]');
+  await click('[data-s="help-dispute"] [data-act="cs-ok"]');
+  await at('J27 customer: Taily is reviewing, her deposit on hold until Taily decides', 'c-case', { has: ['Taily is reviewing', `Your ${dep} deposit stays on hold until we decide`] });
+  await page.evaluate(() => window.Taily.render('c-booking'));
+  await at('J27 customer: the booking carries the case strip', 'c-booking', { has: ['Taily is reviewing', 'Open Taily Help'] });
+  await asAdmin();
+  await at('J27 admin: the inbox (and a text to Kevin)', 'a-inbox', { has: ['No-show disputed', 'Sarah Chen · Amara Reyes', 'Waiting on you'] });
+  const t0 = await model((S) => S.state.outbox.filter((m) => m.to === 'admin').map((m) => m.event));
+  check('J27 K-48.1: the admin was texted the new case', t0.includes('admin-case'), JSON.stringify(t0));
+  await press('.admin-row[data-case]');
+  await at('J27 admin: the case — money and actions in dollars', 'a-case', { has: ['No-show disputed', 'Kept by tailor', 'On hold', 'Refund Sarah’s deposit', 'Amara keeps the deposit'] });
+  await press('[data-act="admin-act"][data-kind="refund-deposit"]');
+  await at('J27 admin: refund — confirm in dollars', 'a-case', { has: [`Refund Sarah’s ${dep} deposit to her card. Amara’s ${pay} isn’t paid out.`] });
+  await click('[data-s="a-case--act"] [data-act="cs-ok"]');
+  await at('J27 admin: refunded', 'a-case', { has: ['Refunded', 'Close with outcome'] });
+  await press('[data-act="close-case"]');
+  await click('[data-s="a-case--close"] [data-act="cs-ok"]');
+  await at('J27 admin: closed, both told', 'a-case', { has: ['Closed', 'OUTCOME', `We refunded your ${dep} deposit.`, 'Both were told the outcome.'] });
+  const texts = await model((S) => S.state.outbox.filter((m) => ['case-decided', 'taily-replied-t'].includes(m.event)).map((m) => [m.event, m.to, m.status]));
+  check('J27 both are texted the decision', JSON.stringify(texts) === JSON.stringify([['case-decided', 'customer', 'delivered'], ['taily-replied-t', 'tailor', 'delivered']]), JSON.stringify(texts));
+  await flip();                                                          // admin → tailor
+  await page.evaluate(() => window.Taily.render('t-job'));
+  await at('J27 tailor: the decision on her job', 't-job', { has: ['Taily decided', `We refunded Sarah’s ${dep} deposit, so you aren’t paid the ${pay}.`] });
+  await flip();                                                          // → customer
+  await page.evaluate(() => window.Taily.render('c-booking'));
+  await at('J27 customer: the decision on her booking', 'c-booking', { has: ['Taily decided', `We refunded your ${dep} deposit.`, 'Refunded'] });
+  const rv = await model((S) => ({ open: S.openReviews().length, outcome: S.state.appts[0].tailyReview?.outcome }));
+  check('J27 the order’s review is closed with the outcome', rv.open === 0 && rv.outcome === 'refund-deposit', JSON.stringify(rv));
+});
+
+await journey('J28', 'the tailor’s ⋯ Get help: her topic and a message → the admin replies to her side → Taily replied, texted', async () => {
+  await flow('t-job--in-progress');
+  await press('[data-act="more"]');
+  await click('[data-s="more"] [data-act="get-help"]');
+  await at('J28 tailor: Taily Help, the job attached', 't-case', { has: ['Taily Help', 'Job with Sarah', 'Hi Amara. This is about your job with Sarah', 'My payout'] });
+  await press('[data-act="topic"][data-topic="charge"]');
+  await page.fill('#composer-input', 'When does the payout for this job arrive?');
+  await send();
+  await at('J28 tailor: waiting on Taily', 't-case', { has: ['Taily is reviewing', 'My payout', 'When does the payout for this job arrive?'] });
+  await asAdmin();
+  await at('J28 admin: her case in the inbox', 'a-inbox', { has: ['Charge or payout question', 'Sarah Chen · Amara Reyes'] });
+  await press('.admin-row[data-case]');
+  await at('J28 admin: her side of the conversation', 'a-case', { has: ['When does the payout for this job arrive?'] });
+  await page.fill('#composer-input', `The Friday after Sarah gets her order. Yours is ${fmtExact(S.seed.payout)}.`);
+  await send();
+  await at('J28 admin: replied', 'a-case', { has: [`The Friday after Sarah gets her order. Yours is ${fmtExact(S.seed.payout)}.`] });
+  const tx = await model((S) => S.state.outbox.filter((m) => m.event === 'taily-replied-t').map((m) => [m.to, m.status, m.land]));
+  check('J28 she is texted the reply (taily-replied-t → t-case)', JSON.stringify(tx) === JSON.stringify([['tailor', 'delivered', 't-case']]), JSON.stringify(tx));
+  await flip();                                                          // admin → tailor
+  await page.evaluate(() => window.Taily.render('t-case'));
+  await at('J28 tailor: Taily replied', 't-case', { has: ['Taily replied', `The Friday after Sarah gets her order. Yours is ${fmtExact(S.seed.payout)}.`], not: 'Taily is reviewing' });
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

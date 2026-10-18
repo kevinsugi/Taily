@@ -16,6 +16,7 @@ import { setFocus, focusAppt, redirectIfMoved, statusWord, returnStep } from '..
 import * as C from '../../js/components.js';
 import * as TX from '../../js/texts.js';
 import * as A from '../../js/account.js';
+import * as POL from '../../js/policies.js';
 import { withLatency, LATENCY_MS } from '../../js/sim.js';
 
 const { state, T } = S;
@@ -1936,7 +1937,7 @@ section('A1: the text catalogue + notify (D-02, DG-2 A)');
   const MIN = 60000, HR = 3600000, DY = 24 * HR;
   const ev = (who, e) => state.outbox.filter((m) => m.to === who && m.event === e);
   const last = (who) => S.textsFor(who).at(-1);
-  ok(TX.TEXT_EVENTS.length >= 80 && TX.TEXT_EVENTS.every(([id, r]) => ['customer', 'tailor'].includes(r.to) && r.trigger && typeof r.body === 'function'), 'A1: every catalogue row has a recipient, a trigger and a body');
+  ok(TX.TEXT_EVENTS.length >= 80 && TX.TEXT_EVENTS.every(([id, r]) => ['customer', 'tailor', 'admin'].includes(r.to) && r.trigger && typeof r.body === 'function'), 'A1 + A2: every catalogue row has a recipient (customer, tailor, or the admin — K-48.1), a trigger and a body');
   S.reset(); let a = driveTo('awaiting-handoff');
   const ctx = TX.textCtx({ a, t: amara(), cust: state.customer, now: S.now(), x: { total: 20500, was: 16000, charged: 14400, cents: 14750, bank: 'Chase', last4: '6789', stars: 5, start: '2026-10-16T10:00' } });
   const bodies = TX.TEXT_EVENTS.map(([id, r]) => [id, r.body(ctx)]);
@@ -2118,11 +2119,11 @@ section('A1: the visit day (D-11, D-12, D-13, D-14, S-32)');
   S.advanceClock(1);
   eq([a.visitCheck?.askedAt, evs('visit-check').length, evs('visit-check-t').length], ['2026-10-15T19:00', 1, 1], 'D-11: start + 2 h with nothing recorded → both are asked by text');
   ok(S.visitCheckOpen(a, 'customer') && S.visitCheckOpen(a, 'tailor'), 'D-11: both screens ask');
-  S.advanceClock(4 * HR - 1);
-  eq(state.admin.notifications.length, 0, 'K-48.5: not before 4 hours');
+  S.advanceClock(2 * HR - 1);
+  eq(state.admin.notifications.length, 0, 'K-48.5 (Kevin, K-50): not before 4 hours after the START (8:59 PM)');
   S.advanceClock(1);
-  eq([state.admin.notifications.length, S.openReviews()[0]?.reason], [1, 'visit-unanswered'], 'K-48.5: unanswered 4 hours → the admin is notified');
-  S.advanceClock(20 * HR);
+  eq([state.admin.notifications.length, state.admin.notifications[0]?.at, S.openReviews()[0]?.reason], [1, '2026-10-15T21:00', 'visit-unanswered'], 'K-48.5 (Kevin, K-50): unanswered 4 hours after the START (9:00 PM, 2 h after asking) → the admin is notified');
+  S.advanceClock(22 * HR);
   eq([a.status, a.cancel.reason, a.payments.deposit.state, state.payouts.length, evs('visit-closed').length, evs('visit-closed-t').length, S.openReviews().length], ['cancelled', 'no-record', 'refunded', 0, 1, 1, 0], 'D-11: unanswered 24 hours → cancelled with a refund, both told, the case closed');
   S.reset(); a = sure(); S.setClock('2026-10-15T19:00'); S.tick();
   ok(T.answerVisitCheck(a.id, 'happened').ok, 'D-11: Sarah says it happened');
@@ -2382,6 +2383,205 @@ section('B1 · P-34 the area waitlist, D-17 tailor words');
   const a = driveTo('awaiting-handoff');
   const line = S.threadFor('amara').messages.find((m) => /chose in-store pickup/.test(m.tailorText ?? ''));
   ok(line && line.tailorText.includes(`She’s charged ${M.fmtExact(S.getAppt(a.id).money.balance)} at pickup.`), 'D-17: the tailor reads "charged at pickup", Sarah\'s words');
+}
+
+
+/* ---------- pre-MVP A2 (K-48.1, K-49 DG-1 option B, D-14, S-32, D-21): Taily Help, the admin, report / block ---------- */
+section('A2 · Taily Help cases (DG-1 B)');
+{
+  const adminTexts = () => state.outbox.filter((m) => m.to === 'admin');
+  S.reset();
+  let a = driveTo('awaiting-handoff');
+  guard(T.openCase({ who: 'admin', apptId: a.id, topic: 'charge' }), 'unknown-person', 'A2: only a customer or a tailor opens Help');
+  guard(T.openCase({ who: 'customer', apptId: a.id }), 'empty', 'A2: a topic or a message');
+  guard(T.openCase({ who: 'customer', apptId: a.id, topic: 'refund-me' }), 'topic', 'A2: topics come from HELP_TOPICS');
+  state.sim.network = 'offline';
+  guard(T.openCase({ who: 'customer', apptId: a.id, topic: 'charge' }), 'offline', 'A2: offline sends nothing');
+  eq(state.cases.length, 0, 'A2: … and opens no case');
+  state.sim.network = 'online';
+  let r = T.openCase({ who: 'customer', apptId: a.id, topic: 'charge', text: 'Call me at 718-555-0142' });
+  let c = r.case;
+  eq([r.ok, r.fresh, c.ref, c.kind, c.sides, c.apptId, c.messages.map((m) => [m.side, m.from, m.kind ?? ''])],
+    [true, true, 'TY-4821', 'help', ['customer'], a.id, [['customer', 'customer', ''], ['customer', 'customer', ''], ['customer', 'taily', 'ack']]], 'A2: a topic chip + a message open a case on her side, with Taily’s automatic answer');
+  eq([c.messages[0].text, c.messages[1].text, c.messages[1].masked], ['A charge or refund', 'Call me at [phone hidden]', true], 'A2: the chip is her first words; contact details are masked like every chat');
+  eq([state.admin.notifications.at(-1).kind, state.admin.notifications.at(-1).caseId, adminTexts().length, adminTexts()[0].event, adminTexts()[0].status, adminTexts()[0].caseId],
+    ['case', c.id, 1, 'admin-case', 'delivered', c.id], 'K-48.1: every new case notifies the admin (Kevin) and texts him');
+  ok(adminTexts()[0].body.startsWith(`New case TY-4821: Charge or payout question · from Sarah Chen · order ${a.id}`), 'K-48.1: the admin’s text names the case');
+  eq([S.caseReplyBy(c), S.caseView(c, 'customer').waiting, S.caseUnread(c, 'admin')], ['2026-10-16T17:00', 'taily', 2], `D-01: Taily owes a reply within ${POLICY.HELP_REPLY_H} hours`);
+  r = T.openCase({ who: 'tailor', apptId: a.id, topic: 'charge' });
+  eq([r.case.id, r.fresh, c.sides, S.caseMessages(c, 'tailor').map((m) => m.from), state.admin.notifications.at(-1).kind], [c.id, false, ['customer', 'tailor'], ['tailor', 'taily'], 'case'], 'A2: one open case per order — the tailor joins it on her own side (the admin, unread, isn’t texted twice inside the gap)');
+  ok(!S.caseMessages(c, 'customer').some((m) => m.side === 'tailor'), 'A2: a person never reads the other side');
+  guard(T.sendCaseMessage(c.id, 'customer', { text: ' ' }), 'empty', 'A2: empty');
+  state.sim.send = 'fail';
+  guard(T.sendCaseMessage(c.id, 'customer', { text: 'Hello?' }), 'send-failed', 'A2: a dropped send (one-shot)');
+  ok(T.sendCaseMessage(c.id, 'customer', { text: 'Hello?' }).ok, 'A2: … then it goes');
+  eq(adminTexts().length, 1, `A2: messages while unread text the admin at most once per ${POLICY.CHAT_TEXT_GAP_MIN} minutes`);
+  S.advanceClock(POLICY.CHAT_TEXT_GAP_MIN);
+  T.sendCaseMessage(c.id, 'customer', { text: 'Still here.' });
+  eq(adminTexts().map((m) => m.event), ['admin-case', 'admin-message'], 'A2: … and again after the gap');
+  r = T.adminReply(c.id, 'customer', { text: 'It’s held, not charged.' });
+  eq([r.ok, state.outbox.at(-1).event, state.outbox.at(-1).to, state.outbox.at(-1).caseId, S.caseView(c, 'customer').waiting, S.caseUnread(c, 'customer')],
+    [true, 'taily-replied', 'customer', c.id, 'you', 1], 'A2: the admin replies; she is texted (taily-replied) and it is her move');
+  T.markCaseRead(c.id, 'customer');
+  eq(S.caseUnread(c, 'customer'), 0, 'A2: opening the thread reads it');
+  guard(T.adminReply(c.id, 'admin', { text: 'x' }), 'side', 'A2: a reply goes to the customer or the tailor');
+  guard(T.adminReply(c.id, 'tailor', { text: '' }), 'empty', 'A2: an empty reply');
+  T.markCaseRead(c.id, 'admin');
+  eq([S.caseUnread(c, 'admin'), state.admin.notifications.filter((n) => n.caseId === c.id && !n.read).length], [0, 0], 'A2: the admin reading a case clears its notifications');
+  ok(T.adminCloseCase(c.id).ok && c.state === 'closed', 'A2: a question closes with no money moved');
+  eq([c.outcome.key, c.outcome.lines.customer], ['resolved', 'We looked into it. Nothing changes on your order.'], 'A2: … the outcome says so');
+  guard(T.sendCaseMessage(c.id, 'customer', { text: 'One more thing' }), 'closed', 'A2: a closed case takes no messages');
+  ok(T.openCase({ who: 'customer', apptId: a.id, topic: 'other' }).case.id !== c.id, 'A2: after a close, Get help starts a new case');
+
+  /* topics follow the order's state */
+  S.reset(); a = driveTo('confirmed');
+  ok(!S.helpTopics(a, 'customer').includes('no-show'), 'A2: no "didn’t come" before the visit');
+  S.setClock('2026-10-15T17:20');
+  eq(S.helpTopics(a, 'customer'), ['no-show', 'charge', 'safety', 'other'], 'A2: on the visit day the no-show topic leads');
+  eq(S.topicLabel('no-show', 'customer', a), 'Amara didn’t come', 'A2: in her words');
+  eq(S.topicLabel('no-show', 'tailor', a), 'Sarah wasn’t home', 'A2: … and in the tailor’s');
+  S.reset(); a = driveTo('price-change');
+  ok(S.helpTopics(a, 'customer')[0] === 'final-order' && S.helpTopics(a, 'customer').includes('damage'), 'A2: a final order stuck; garments can be damaged from the fitting on');
+  S.reset(); a = driveTo('completed');
+  ok(S.helpTopics(a, 'customer').includes('after-completion'), 'B-05: a problem after completion has a way in');
+  eq([S.helpTopics(null, 'customer'), S.helpTopics(null, 'tailor')], [['charge', 'damage', 'safety', 'other'], ['charge', 'safety', 'other']], 'A2: Help home (no order)');
+  S.reset();
+  const g = T.openCase({ who: 'tailor', text: 'How do I change my bank?' }).case;
+  eq([g.apptId, S.caseTitle(g)], [null, 'Message to Taily'], 'A2: a general case has no order');
+  guard(T.adminRefundDeposit(g.id), 'no-order', 'A2: no money to move on a general case');
+  T.adminReply(g.id, 'tailor', { text: 'Shop → Payouts → Update bank details.' });
+  eq(state.outbox.at(-1).event, 'help-replied-t', 'A2: a reply with no order texts help-replied-t');
+}
+
+section('A2 · disputes run as cases; the admin decides (D-14, K-48.1)');
+{
+  const evs = (e) => state.outbox.filter((m) => m.event === e);
+  S.reset();
+  let a = driveTo('no-show');
+  T.disputeNoShow(a.id, 'customer');
+  let c = S.openCaseOfAppt(a.id);
+  eq([c.kind, c.reason, c.sides, S.caseMessages(c, 'customer')[0].kind, S.openReviews()[0].reason, evs('admin-case').length],
+    ['review', 'no-show-disputed', ['customer', 'tailor'], 'opening', 'no-show-disputed', 1], 'D-14: “That’s not right” → a review case both see, Taily’s first words to each, the admin texted');
+  ok(S.caseMessages(c, 'tailor')[0].text.includes(`Your ${M.fmtExact(SCENARIOS.noShow.paid)} no-show pay is on hold while we look.`), 'D-14: the tailor reads her held pay in dollars');
+  eq(S.caseReplyBy(c), '2026-10-16T17:20', 'D-01: the decision is due 24 hours after the dispute');
+  eq(S.adminActions(c).map((x) => x.kind), ['refund-deposit', 'keep-deposit', 'release-payout'], 'A2: the admin’s options on a disputed no-show');
+  guard(T.adminCloseCase(c.id), 'decide-first', 'A2: a case can’t close while the no-show pay is on hold');
+  guard(T.adminCancelOrder(c.id), 'not-cancellable', 'A2: a cancelled visit can’t be cancelled again');
+  ok(T.adminRefundDeposit(c.id).ok, 'A2: refund the deposit');
+  eq([a.payments.deposit.state, a.cancel.refund, a.cancel.tailorPaid, a.cancel.decided, state.payouts.filter((p) => p.apptId === a.id).length], ['refunded', a.payments.deposit.cents, 0, 'refunded', 0], 'A2: … the deposit goes back and the no-show pay is dropped');
+  guard(T.adminRefundDeposit(c.id), 'deposit-refunded', 'A2: once');
+  ok(T.adminCloseCase(c.id).ok, 'A2: close with outcome');
+  eq([c.state, c.outcome.key, a.tailyReview.closedAt != null, a.tailyReview.outcome, S.openReviews().length], ['closed', 'refund-deposit', true, 'refund-deposit', 0], 'A2: the case and the order’s review close together');
+  eq([c.outcome.lines.customer, c.outcome.lines.tailor], [`We refunded your ${M.fmtExact(a.payments.deposit.cents)} deposit. It shows on your card in 5 to 10 business days.`, `We refunded Sarah’s ${M.fmtExact(a.payments.deposit.cents)} deposit, so you aren’t paid the ${M.fmtExact(SCENARIOS.noShow.paid)}.`], 'A2: the decision in dollars, per side');
+  eq([evs('case-decided').length, evs('taily-replied-t').length], [1, 1], 'A2: both are texted the outcome');
+
+  S.reset(); a = driveTo('no-show'); T.disputeNoShow(a.id, 'customer'); c = S.openCaseOfAppt(a.id);
+  ok(T.adminKeepDeposit(c.id).ok && !state.payouts.find((p) => p.apptId === a.id).held, 'A2: keep the deposit → the held no-show pay is released');
+  ok(T.adminCloseCase(c.id).ok && c.outcome.lines.tailor.startsWith(`You keep Sarah’s ${M.fmtExact(a.payments.deposit.cents)} deposit. Your ${M.fmtExact(SCENARIOS.noShow.paid)} goes out`), 'A2: … her line says when it goes out');
+  S.setClock(state.payouts[0].date + 'T10:00');
+  eq(T.settlePayouts().paid.length, 1, 'A2: … and the Friday run pays it');
+
+  S.reset(); a = driveTo('tailor-no-show'); T.disputeNoShow(a.id, 'tailor'); c = S.openCaseOfAppt(a.id);
+  guard(T.adminKeepDeposit(c.id), 'deposit-refunded', 'A2: Sarah’s report already refunded her — nothing to keep');
+  ok(T.adminCloseCase(c.id, { outcome: 'no-change' }).ok && c.outcome.key === 'no-change', 'A2: closed with no money moved');
+
+  /* the held balance: capture or release */
+  S.reset(); a = driveTo('problem');
+  c = T.openCase({ who: 'customer', apptId: a.id, topic: 'not-received' }).case;
+  eq(S.adminActions(c).map((x) => x.kind), ['capture-hold', 'release-hold', 'cancel'], 'A2: a held balance — capture, release, or cancel');
+  guard(T.adminRefundDeposit(c.id), 'order-open', 'A2: refund a live order’s deposit by cancelling it');
+  ok(T.adminReleaseHold(c.id).ok, 'A2: release the hold');
+  eq([a.status, a.cancel.reason, a.cancel.by, a.payments.balance.state, a.cancel.released, state.payouts.length], ['cancelled', 'taily', 'taily', 'released', SCENARIOS.seed.balance, 0], 'A2: … she isn’t charged, the order closes, nothing is paid out');
+  guard(T.adminReleaseHold(c.id), 'no-hold', 'A2: once');
+  S.reset(); a = driveTo('problem');
+  c = T.openCase({ who: 'customer', apptId: a.id, topic: 'not-received' }).case;
+  ok(T.adminCaptureHold(c.id).ok, 'A2: capture the hold');
+  eq([a.status, a.payments.balance.state, a.handoff.completedBy, state.payouts.map((p) => p.kind)], ['completed', 'captured', 'taily', ['job']], 'A2: … the order completes and the tailor’s payout queues');
+  T.adminCloseCase(c.id);
+  eq(c.sides, ['customer', 'tailor'], 'A2: money moved on an order → both people hear the outcome');
+
+  /* cancel; pause / release a payout */
+  S.reset(); a = driveTo('in-progress');
+  c = T.openCase({ who: 'customer', apptId: a.id, topic: 'other' }).case;
+  ok(T.adminCancelOrder(c.id).ok, 'A2: cancel a live order');
+  eq([a.status, a.cancel.reason, a.payments.deposit.state, a.cancel.refund, state.job.garments.length > 0], ['cancelled', 'taily', 'refunded', a.payments.deposit.cents, true], 'A2: … the deposit refunded, the items back as her draft');
+  S.reset(); a = driveTo('completed');
+  c = T.openCase({ who: 'tailor', apptId: a.id, topic: 'charge' }).case;
+  ok(T.adminPausePayout(c.id).ok && state.payouts[0].held, 'A2: pause the payout');
+  S.setClock(state.payouts[0].date + 'T10:00');
+  eq(T.settlePayouts().paid.length, 0, 'A2: … the Friday run skips it');
+  guard(T.adminPausePayout(c.id), 'no-payout', 'A2: nothing left to pause');
+  ok(T.adminReleasePayout(c.id).ok && T.settlePayouts().paid.length === 1, 'A2: release it, and it goes out');
+  guard(T.adminReleasePayout(c.id), 'nothing-held', 'A2: nothing held');
+  eq(T.adminAct(c.id, 'teleport').error, 'unknown-action', 'A2: adminAct runs only the listed actions');
+
+  /* A1's own ends close the case */
+  S.reset(); a = driveTo('price-change');
+  S.advanceClock(POLICY.FINAL_ORDER_REVIEW_D * 24 * 60);
+  c = S.openCaseOfAppt(a.id);
+  eq([c?.reason, c?.state], ['final-order-unanswered', 'open'], 'D-03: the 7-day review runs as a case');
+  T.approvePriceChange(a.id);
+  eq([c.state, S.caseMessages(c, 'customer').at(-1).text], ['closed', 'You approved the final order, so we closed this.'], 'A2: approving closes it, with a line that says why');
+
+  /* the inbox */
+  S.reset(); a = driveTo('no-show'); T.disputeNoShow(a.id, 'customer');
+  S.advanceClock(10); T.openCase({ who: 'tailor', text: 'Payout question' });
+  const box = S.adminInbox();
+  eq([box.open.length, box.notifications.length, box.unread, box.notifications[0].kind], [2, 2, 2, 'case'], 'K-48.1: the inbox — open cases, notifications newest first, unread');
+  T.adminMarkRead(box.notifications[0].id);
+  eq(S.adminInbox().unread, 1, 'A2: a notification is read');
+}
+
+section('A2 · K-48.5 the admin at start + 4 h (Kevin, K-50)');
+{
+  S.reset(); const a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000)); T.confirmVisit(a.id);
+  S.setClock('2026-10-15T20:59'); T.tick();
+  eq([a.visitCheck?.askedAt, state.admin.notifications.length], ['2026-10-15T19:00', 0], 'K-48.5: asked at start + 2 h; not yet at 8:59 PM');
+  S.setClock('2026-10-15T21:00'); T.tick();
+  const c = S.openCaseOfAppt(a.id);
+  eq([a.visitCheck.adminAt, c?.reason, c?.sides, state.outbox.filter((m) => m.event === 'admin-case').length], ['2026-10-15T21:00', 'visit-unanswered', ['customer', 'tailor'], 1], 'K-48.5: start + 4 h → the admin (a case, a text)');
+  S.setClock('2026-10-16T19:00'); T.tick();
+  eq([a.status, a.cancel.reason, c.state], ['cancelled', 'no-record', 'closed'], 'D-11: the 24 h cancel (after asking) still closes it');
+}
+
+section('A2 · S-32 report and block');
+{
+  S.reset(); let a = driveTo('confirmed');
+  guard(T.reportPerson('customer', { apptId: a.id, reason: 'spite' }), 'reason', 'S-32: a report names what happened');
+  let r = T.reportPerson('customer', { apptId: a.id, reason: 'unsafe', text: 'Text me at 718-555-0142' });
+  eq([r.ok, r.case.kind, r.case.safety.about, state.admin.notifications.at(-1).kind, S.caseMessages(r.case, 'customer')[1].masked], [true, 'safety', 'tailor', 'safety', true], 'S-32: a report opens a safety case the admin hears about at once');
+  ok(S.openCaseOfAppt(a.id) === null, 'S-32: a safety case never blocks the order’s own Help case');
+  S.reset(); a = driveTo('confirmed');
+  ok(T.blockPerson('customer', { apptId: a.id }).ok && S.isBlocked('amara') && S.blockedBy('amara') === 'customer', 'S-32: Sarah blocks Amara');
+  guard(T.blockPerson('customer', { apptId: a.id }), 'already', 'S-32: once');
+  eq([S.eligible(amara()).reason, S.tailorsFor().empty, S.threadReadOnly('amara')], ['blocked', 'none-left', true], 'S-32: she is no longer listed, and their chat closes');
+  guard(T.sendMessage('amara', 'customer', { text: 'hi' }), 'read-only', 'S-32: no messages either way');
+  eq(a.status, 'confirmed', 'S-32: the booking already made stays (Taily sorts it out)');
+  ok(T.unblockPerson('customer', { tailorId: 'amara' }).ok && !S.isBlocked('amara'), 'S-32: undo your own block');
+  guard(T.unblockPerson('customer', { tailorId: 'amara' }), 'not-blocked', 'S-32: nothing to undo');
+  S.reset();
+  const slot = S.nextOpening('amara', 'home', { until: state.job.needBy });
+  T.blockPerson('customer', { tailorId: 'amara' });
+  guard(T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' }), 'blocked', 'S-32: a blocked tailor can’t be booked');
+  S.reset(); a = driveTo('expired');
+  T.blockPerson('tailor', { apptId: a.id });
+  guard(T.tryAgain(a.id), 'blocked', 'S-32: a tailor’s block stops Send again too');
+}
+
+section('A2 · B-05 the HELP reply; D-21 garment protection');
+{
+  S.reset();
+  const r = T.textReply('customer', 'HELP');
+  eq([r.ok, r.help, r.text.event, r.text.land, r.text.status], [true, true, 'help-reply', 'c-help', 'delivered'], 'B-05: a HELP reply is answered with a text that points at Help');
+  eq(T.textReply('tailor', 'HELP').text.land, 't-help', 'B-05: … the tailor’s at hers');
+  const cap = M.fmt(M.cents(MONEY.GARMENT_PROTECTION_CAP));
+  eq(POL.protectionLine(), `Garment protection: Taily covers loss or damage up to ${cap} per order.`, 'D-21: the one-line promise, the cap from MONEY');
+  const page = POL.policyPage('garment', 'customer');
+  ok(page.counsel && page.counselLine.startsWith('Draft for counsel') && page.sections.flatMap((x) => x.lines).some((l) => l.includes(`within ${POLICY.GARMENT_REPORT_H} hours`)), 'D-21: COUNSEL draft, the 48-hour window from POLICY');
+  const all = ['customer', 'tailor'].flatMap((w) => Object.keys(POL.POLICIES).flatMap((k) => POL.policyPage(k, w).sections.flatMap((x) => x.lines)));
+  ok(all.length > 20 && !all.some((l) => /%|undefined|NaN/.test(l)), 'A2: every policy line prints dollars, never a percentage');
+  eq(POL.policyList('tailor').map((x) => x.key)[0], 'payments', 'A2: the tailor’s Help leads with getting paid');
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

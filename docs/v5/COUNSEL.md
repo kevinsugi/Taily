@@ -23,6 +23,12 @@ and have counsel review before launch.
 | 14 | Price transparency (all-in estimates incl. home + rush fees) | c-tailors, c-tailor, c-pay | NYC all-in / junk-fee rules as they apply to service marketplaces | NYC DCWP + FTC junk-fee guidance |
 | 15 | Sales tax on alterations | money config | NY treats alterations as non-taxable (TSB-M-02(4)S) — confirm, and revisit for other states | NY Dept. of Taxation TSB-M-02(4)S |
 | 16 | Support + dispute decisions by the CEO (K-48.1) | Help chat, admin view | Documented dispute policy, records, chargeback handling | Stripe disputes docs; marketplace dispute policies (Etsy, TaskRabbit) for structure |
+| 17 | Report / block + the safety copy (S-32, pre-MVP A2) | thread ⋯ (c-thread / t-thread), t-job ⋯, Help → Safety, the Safety policy page (c-policy / t-policy `safety`) | What Taily promises after a report (response time, `POLICY.HELP_REPLY_H` 24 h), "call 911 first" wording, what a block does to a booking already made, record keeping | Trust & safety pages of Rover, TaskRabbit, Uber; counsel |
 
 Placeholder copy in the app: legal pages render a short summary + "Full text coming soon (counsel review)". Search the code for
 `COUNSEL` to find every spot.
+
+Pre-MVP A2 placeholders (D-336, D-337): item 12's promise is `js/policies.js` `POLICIES.garment` — a **$500 per order** cap
+(`MONEY.GARMENT_PROTECTION_CAP`) and a **48-hour** report window (`POLICY.GARMENT_REPORT_H`), "covered by Taily" (K-49: Taily provides the
+insurance), shown with a visible "Draft for counsel" line; item 16's reply promise is `POLICY.HELP_REPLY_H` (24 h); Help's contact
+details (`HELP_CONTACT`: a text number, an email, hours) are placeholders.

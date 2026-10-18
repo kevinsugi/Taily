@@ -1,6 +1,6 @@
 # Taily text catalogue (pre-MVP A1 · D-02 / DG-2 A · K-43 D-301 · K-48.4)
 
-Generated from `js/texts.js` by `node scripts/v5/texts-doc.mjs` — do not edit by hand. 87 texts: 45 to the customer, 42 to the tailor.
+Generated from `js/texts.js` by `node scripts/v5/texts-doc.mjs` — do not edit by hand. 93 texts: 47 to the customer, 44 to the tailor, 2 to the admin.
 
 **Rules.** When the text service is connected, every notification is a text message (SMS) with its own unique link into the web app
 (`taily.app/r/XXXXXX`, shown here as `<link>`), for both people, no exceptions. Every text starts with "Taily: ". **No quiet hours**
@@ -15,12 +15,14 @@ reminder to an opted-in number; otherwise the plain 24-hour rule applies.
 the first unread message, then at most one per conversation every 15 minutes while messages stay unread. Waiting
 states: reminders at 24 h and 72 h; a final order unanswered 7 days goes to Taily review;
 a ready order with no way back for 14 days defaults to in-store pickup; the unclaimed charge on day 6;
-an uncollected order closes 30 days after the charge. "Did the visit happen?" 2 h after the start, the admin at
-+4 h, cancelled with a refund at +24 h. Pickup today 2 h before the pickup time.
+an uncollected order closes 30 days after the charge. "Did the visit happen?" 2 h after the start, the admin
+4 h after the START (K-48.5, Kevin's K-50 fix), cancelled with a refund 24 h after asking. Pickup today 2 h before the pickup time.
 
-Rows marked A2 / B1 are fired by those tracks (support, verification) through the same `notify()`.
+Rows marked A2 / B1 are fired by those tracks (support, verification) through the same `notify()`. **The admin (A2, K-48.1: support = the CEO)**
+gets a text for every new Help case, safety report or block and every Taily review (A1's included), and for a message on an open case (at most
+one per case every 15 minutes while unread); those texts start "Taily admin: ".
 
-## To the customer (45)
+## To the customer (47)
 
 | # | Event | Text (exactly as sent) | When it goes out | Link lands on | Fired by |
 |---|---|---|---|---|---|
@@ -69,8 +71,10 @@ Rows marked A2 / B1 are fired by those tracks (support, verification) through th
 | 43 | `texts-on` | Taily: Texts are on. We’ll text you about your bookings. Msg & data rates may apply. Reply STOP to opt out, HELP for help. <link> | She turns booking texts on (or replies START) | c-texts | A1 |
 | 44 | `taily-replied` | Taily: We replied about your order with Amara. Read it: <link> | Taily support replies (DG-1) | c-case | A2 |
 | 45 | `case-decided` | Taily: We looked into your order with Amara and made a decision. Details: <link> | Taily support decides a case (DG-1) | c-case | A2 |
+| 46 | `help-replied` | Taily: We replied to your message. Read it: <link> | Taily support replies to (or closes) a Help message with no order attached (DG-1) | c-case | A2 |
+| 47 | `help-reply` | Taily: Need help? Message Taily here, or open a booking and tap Get help. Reply STOP to opt out: <link> | She replies HELP to any Taily text (B-05: carriers require an answer) | c-help | A2 |
 
-## To the tailor (42)
+## To the tailor (44)
 
 | # | Event | Text (exactly as sent) | When it goes out | Link lands on | Fired by |
 |---|---|---|---|---|---|
@@ -116,3 +120,12 @@ Rows marked A2 / B1 are fired by those tracks (support, verification) through th
 | 40 | `verified` | Taily: You’re verified. Customers near you can book you now. <link> | Verification passes (DG-4) | t-shop | B1 |
 | 41 | `check-action-needed` | Taily: We need one more thing to verify you: your ID. Finish it here: <link> | A verification check needs something from her (DG-4 B: ID & Profile Photo, Background Check, Years Tailoring, Payout & Tax Info; no insurance — Taily provides it) | t-shop | B1 |
 | 42 | `taily-replied-t` | Taily: We replied about your job with Sarah. Read it: <link> | Taily support replies (DG-1) | t-case | A2 |
+| 43 | `help-replied-t` | Taily: We replied to your message. Read it: <link> | Taily support replies to (or closes) a Help message with no job attached (DG-1) | t-case | A2 |
+| 44 | `help-reply-t` | Taily: Need help? Message Taily here, or open a job and tap More, then Get help. Reply STOP to opt out: <link> | She replies HELP to any Taily text (B-05: carriers require an answer) | t-help | A2 |
+
+## To the admin (2)
+
+| # | Event | Text (exactly as sent) | When it goes out | Link lands on | Fired by |
+|---|---|---|---|---|---|
+| 1 | `admin-case` | Taily admin: New case TY-4821: No-show disputed · from Sarah Chen · order A-1001. Open it: <link> | A new Help case, a safety report or block, or any Taily review opens (A1’s reviews included; K-48.5: a visit nobody answered 4 hours after its start) | a-case | A2 |
+| 2 | `admin-message` | Taily admin: Sarah wrote on case TY-4821. Reply: <link> | Someone writes on an open case (at most one text per case every 15 minutes while unread) | a-case | A2 |

@@ -14,7 +14,7 @@
    ============================================================ */
 import { register, render as go, registered, personaHome, currentScreen } from '../app.js';
 import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable, slotText, handoffMissed, reminderState, freeUntil, autoCancelAt, unclaimedAt,
-  autoCancelArmed, proposalOf, visitToolsOpen, tailyReviewOf, collectAddress } from '../state.js';
+  autoCancelArmed, proposalOf, visitToolsOpen, tailyReviewOf, collectAddress, caseOfAppt, caseView } from '../state.js';
 import { focusAppt, redirectIfMoved, statusWord, setFocus } from '../focus.js';
 import { myTailor, requestView, jobAddress, payoutOf, inbox, payoutLine } from '../tailor-data.js';
 import { CANT_MAKE_IT_REASONS, RETURN_LABEL, HANDOFF_CODE_LEN, CHARGE_WHEN } from '../data.js';
@@ -31,7 +31,7 @@ import {
   linenStage, tagRail, returnedItems, stars,
   banner, codeInput, autoCompleteLine, photoFigure,
   privateNotes, wirePrivateNotes, dueChange, shopPlace,
-  ICON_PHONE, openCallSheet,
+  ICON_PHONE, openCallSheet, caseStrip, openSafetySheet, ICON_HELP,
 } from '../components.js';
 import { VISIT_ICONS } from '../icons.js';
 
@@ -63,8 +63,11 @@ function heroCopy(a, v) {
   if (kind === 'no-show') {
     return {
       title: 'Marked as a no-show',
-      note: `<p class="t-body c-700 ${ID}__note">${c.disputedAt ? `${first} says she was there. Your no-show pay is on hold while Taily looks into it.` : `${first} has been told, and her ${fmtExact(c.kept)} deposit isn’t refunded.`}</p>`,   // K-17 R5: what you are paid is the money row below; D-14: a dispute
+      note: `<p class="t-body c-700 ${ID}__note">${c.decided === 'refunded' ? `Taily refunded ${first}’s ${fmtExact(c.refund)} deposit, so this visit pays nothing.` : c.decided === 'kept' ? `Taily decided you keep ${first}’s ${fmtExact(c.kept)} deposit. Your no-show pay goes out on its Friday.` : c.disputedAt ? `${first} says she was there. Your no-show pay is on hold while Taily looks into it.` : `${first} has been told, and her ${fmtExact(c.kept)} deposit isn’t refunded.`}</p>`,   // K-17 R5: what you are paid is the money row below; D-14: a dispute
     };
+  }
+  if (kind === 'taily') {   // pre-MVP A2 (K-48.1): the admin cancelled the job or released the hold
+    return { title: 'Taily cancelled this job', note: `<p class="t-body c-700 ${ID}__note">${c.released ? `${first} isn’t charged the ${fmtExact(c.released)} balance. ` : ''}Nothing is paid out for this job. Taily’s message explains why.</p>` };
   }
   if (kind === 'no-record') {   // D-11 (K-48.5): nobody answered "Did the visit happen?" in 24 hours
     return { title: 'Visit cancelled', note: `<p class="t-body c-700 ${ID}__note">Nobody told us the visit happened, so we cancelled it and refunded ${first}’s deposit. Nothing is paid out.</p>` };
@@ -176,7 +179,13 @@ const payoutSec = (a, v, fineHtml = '') => sec(`${sectionHead('Your payout', { i
 
 /** ••• menu (D-195): "I can’t make it" before the visit starts, "Mark as no-show" once it has (its row says when). Null once neither applies. */
 function moreItems(a) {
-  if (a.status !== 'confirmed') return null;
+  if (!a) return null;
+  /* DG-1 option B (K-49, pre-MVP A2): the ⋯ menu shows in every state — Get help with this job, and S-32's Report or block */
+  const help = [
+    { label: 'Get help with this job', sub: 'Message Taily. The job is attached', act: 'get-help' },
+    { label: `Report or block ${firstOf()}`, sub: 'Only Taily sees a report', act: 'report-block' },
+  ];
+  if (a.status !== 'confirmed') return help;
   const startMs = toDate(a.slot.start).getTime();
   const wait = POLICY.NO_SHOW_WAIT_MIN;
   const t = now();
@@ -188,7 +197,12 @@ function moreItems(a) {
   /* D-14 (K-48): "I'm here" first — it is the evidence */
   const here = !!a.visitDay?.tailor?.hereAt;
   items.push({ label: 'Mark as no-show', sub: !here ? 'Tap I’m here when you arrive first' : t < startMs + wait * 60000 ? `Available from ${from} if ${firstOf()} isn’t there` : `You’re paid ${fmtExact(noShowPayout(a.payments.deposit.cents))} for your time`, act: 'no-show', tone: 'danger' });
-  return items;
+  return [...items, ...help];
+}
+/** DG-1 B (pre-MVP A2): the job's Taily Help case — "Taily is reviewing · Reply by …", "Taily replied", or the decision in dollars. */
+function caseBlock(a) {
+  const c = a ? caseOfAppt(a.id, 'tailor') : null;
+  return c ? `<div class="case-strip-wrap">${caseStrip(caseView(c, 'tailor'))}</div>` : '';
 }
 /** The heading (status · Back + title) with the ••• at the title row's right end (shown only while an action is available). */
 function backHead(hero, a) {
@@ -429,9 +443,11 @@ function completedBody(a, v, t, extra) {
     line: closed ? `Not collected within ${POLICY.ABANDONED_CLOSE_D} days of the charge · ${fmtDay(doneAt(a))}` : returnedLine(a), rail: tagRail(returnedItems(a)), label: closed ? 'Order closed' : 'Job completed', calm: failed || closed,
   });
   return `${navBackMark()}${stage}
+  ${caseBlock(a)}
   ${payoutBlock(a, t, extra)}
   ${workSec(a, v)}
-  ${notesSec(a)}`;
+  ${notesSec(a)}
+  <div class="page-actions"><div class="page-actions__links">${textLink('Get help with this job', { act: 'get-help', icon: ICON_HELP })}${textLink(`Report or block ${esc(firstOf())}`, { act: 'report-block', tone: 'muted' })}</div></div>`;   // DG-1 B: no heading row here, so the ⋯ items are links
 }
 
 /* ---------- Study-1 B2: private General notes (K-31) — from the accept on (D-19, K-48; was the fitting), editable until completed ---------- */
@@ -480,11 +496,11 @@ function m4View(a, v, key) {
      at the right with what it was under it (R2: kept under the amount) or her Message button — then one quote, then the content. */
   const strip = stripped ? requestStrip({ ...stripFor(key, a, v, pv), page: true }) : '';
   const person = { name: v.customer.name, initials: v.customer.initials, page: true };
-  const head = (opts) => `${navBackMark()}${strip}${pageHead(requestHead({ ...person, ...opts }), { foot: opts.foot ?? [] })}`;
+  const head = (opts) => `${navBackMark()}${strip}${pageHead(requestHead({ ...person, ...opts, more: moreMenu() }), { foot: opts.foot ?? [] })}${caseBlock(a)}`;   // DG-1 B: the ⋯ in every state
   const hero = stripped || key === 'completed' ? '' : statusHero({ variant: 'confirmed', pill: false, title: c.title, body: '', extra: c.note });
   let body;
   switch (key) {
-    case 'visit': body = `${backHead(hero, a)}${block(visitCard(a, v))}${work}${notes}${payout}`; break;   // D-19: notes from the accept
+    case 'visit': body = `${backHead(hero, a)}${caseBlock(a)}${block(visitCard(a, v))}${work}${notes}${payout}`; break;   // D-19: notes from the accept
     case 'fitting':
       body = `${head({ payoutCents: a.money.payout })}
   ${visitBlock([
@@ -553,6 +569,7 @@ function view() {
   return `${chrome('home', { persona: 'tailor' })}
 <main class="body ${ID}" data-appt="${esc(a.id)}">
   ${top}
+  ${caseBlock(a)}
   ${sec(visitCard(a, v, { was, extra: reasonRow }), { first: true })}
   ${cancelled ? cancelMoney(a) : ''}
   ${workSec(a, v)}
@@ -956,6 +973,14 @@ function wire(root) {
     else if (act === 'dispute' && a) openDisputeT(a);               // D-14
     else if (act === 'picked-up' && a) openPickedUp(a);
     else if (act === 'more' && a) openMoreMenu(moreItems(a) ?? [], { title: 'More' });
+    /* DG-1 option B (pre-MVP A2): Get help with this job → the Taily Help thread, the job attached; S-32 Report or block */
+    else if (act === 'get-help' && a) { setFocus(a.id); state.ui.help = { apptId: a.id, caseId: null }; go('t-case'); }
+    else if (act === 'open-case' && a) { state.ui.help = { apptId: a.id, caseId: e.target.closest('[data-case]')?.dataset.case ?? null }; go('t-case'); }
+    else if (act === 'report-block' && a) {
+      openSafetySheet({ who: 'tailor', other: firstOf(), apptId: a.id, mode: 'menu',
+        onDone: (c) => { state.ui.help = { apptId: a.id, caseId: c.id }; go('t-case'); toast('Sent. Taily is looking into it.', { tone: 'success' }); },
+        onHelp: () => { state.ui.help = { apptId: a.id, caseId: null }; go('t-case'); } });
+    }
     else if (act === 'cant-make-it' && a) openCantMakeIt(a);
     else if (act === 'no-show' && a) {
       /* the menu lists it from the start; the sheet itself opens once the wait is over */

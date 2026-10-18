@@ -51,6 +51,7 @@ const LOGO = `<svg class="top-nav__logo" viewBox="0 0 131.5 60.74" width="74" he
 export const NAV = {
   customer: [['home', 'Home'], ['bookings', 'Bookings'], ['messages', 'Messages'], ['account', 'Account']],
   tailor: [['home', 'Home'], ['shop', 'Shop'], ['messages', 'Messages'], ['earnings', 'Earnings']],   // K-04 / CR-6b: Messages before Earnings
+  admin: [['inbox', 'Inbox']],   // pre-MVP A2 (K-48.1): Kevin's admin view — one tab
 };
 /**
  * Top nav (M7 A5.2, D-187): the logo and four 44 x 44 ICON links. The label is the link's aria-label + title. `badges` (D-164):
@@ -108,6 +109,7 @@ export function chrome(active = 'home', { persona = 'customer', time = '9:41' } 
  * need her ("action" status word).
  */
 export function navBadges(persona = 'customer') {
+  if (persona === 'admin') return { inbox: adminInbox().unread };
   if (persona === 'tailor') {
     const replies = apptsFor('tailor').filter((a) => a.status === 'price-change' && statusWord(a, 'tailor').pill === 'action').length;
     return {
@@ -134,11 +136,14 @@ import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
 import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb, dayWord } from './dates.js';
 import { POLICY } from './money-config.js';
-import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor, verifyView, checkState } from './state.js';
+import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor, verifyView, checkState,
+  caseById, caseView, caseMessages, casesFor, caseOfAppt, openCaseOfAppt, helpTopics, topicLabel, REPORT_REASONS, isBlocked, blockedBy, getAppt, tailorById,
+  maskContact, deliveryReportOpen, adminInbox } from './state.js';
+import { protectionLine, policyList, HELP_CONTACT } from './policies.js';
 import { scheduler, slotColumns, readSlot, windowColumns, readWindow, whenNote, SCHED_ROW } from './scheduler.js';   // K-40: the handoff time sheet (scheduler.js imports this file back; both only call across at run time)
 import { withLatency } from './sim.js';
 import { inbox } from './tailor-data.js';
-import { statusWord } from './focus.js';
+import { statusWord, setFocus } from './focus.js';
 
 /**
  * CTA — variant: 'default' | 'secondary' | 'danger' (error fill + white text: the ONE filled button of a destructive confirm sheet, D-79).
@@ -200,6 +205,11 @@ const PILL_VARIANTS = {
   'check-todo':            { tone: 'calm',     label: 'Not started' },
   'check-waitlist':        { tone: 'stop',     label: 'Waitlist' },
   'under-review':          { tone: 'pending',  label: 'Under review' },
+  /* pre-MVP A2: a Taily Help case in the admin's inbox */
+  'case-reply':            { tone: 'action',   label: 'Waiting on you' },
+  'case-overdue':          { tone: 'stop',     label: 'Overdue' },
+  'case-waiting':          { tone: 'pending',  label: 'Waiting on them' },
+  'case-closed':           { tone: 'calm',     label: 'Closed' },
 };
 
 export function statusPill(status, label) {
@@ -2235,7 +2245,7 @@ function stripHtml({ status = 'requested', expiresAt = null, now = null, lapseAt
  * t-home card (inside its <button>, spans) and the t-request screen (`page`: the name is the h1, a 28 serif title; `info` makes the payout column
  * a button that opens the Taily-fee sheet, label + ⓘ). The customer carries no Verified check (K-15) — only tailors do.
  */
-export function requestHead({ name = '', initials = '', where = '', again = false, payoutCents = 0, label = 'Your payout', page = false, info = false, infoLabel = 'The Taily fee', check = '', lines = [], trail = '' } = {}) {
+export function requestHead({ name = '', initials = '', where = '', again = false, payoutCents = 0, label = 'Your payout', page = false, info = false, infoLabel = 'The Taily fee', check = '', lines = [], trail = '', more = '' } = {}) {
   const nameHtml = `${esc(name)}${again ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}`;
   const h1 = `<h1 class="request-card__name t-title">${nameHtml}</h1>`;
   const who = page
@@ -2247,7 +2257,8 @@ export function requestHead({ name = '', initials = '', where = '', again = fals
   const pay = trail ? `<span class="page-head__trail">${trail}</span>` : info
     ? `<button type="button" class="request-card__payside request-head__pay" data-info="fee" aria-haspopup="dialog" aria-label="${esc(`${label} ${fmtExact(payoutCents)}. ${infoLabel}`)}" data-money><span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span><span class="request-head__label t-small c-600">${cap}</span></button>`
     : `<span class="request-card__payside" data-money><span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span><span class="t-small c-600">${cap}</span>${sub}</span>`;
-  return `<span class="request-card__top">${avatar({ initials, size: 'sm' })}${who}${pay}</span>`;
+  /* pre-MVP A2 (DG-1 B): `more` = the ⋯ button (moreMenu()) at the row's far right — t-job's strip-led states carry Get help in it */
+  return `<span class="request-card__top">${avatar({ initials, size: 'sm' })}${who}${pay}${more ? `<span class="request-head__more">${more}</span>` : ''}</span>`;
 }
 
 /**
@@ -2484,7 +2495,7 @@ export function deltaFigure({ label = '', cents: amount = 0, was = null, caption
  * ready = Uber quote + Taily courier fee = Courier total + `note` ("Added to your balance." / "Paid by Sarah. Not taken from
  * your payout."); loading = skeleton + aria-live status; failed = role=alert + a secondary Try again (`retryAct`).
  */
-export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: total = 0, miles = 0, from = '', to = '', note = '', retryAct = 'courier-retry', variant = 'customer', window: pickup = '' } = {}) {
+export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: total = 0, miles = 0, from = '', to = '', note = '', retryAct = 'courier-retry', variant = 'customer', window: pickup = '', protection = false } = {}) {
   noPercent(note, 'courierCard');
   /* D-160 (amends D-106): the tailor's variant is the pickup window, from → to and who pays. No quote, fee or total rows: none of it is her money. */
   if (variant === 'tailor') {
@@ -2501,7 +2512,7 @@ export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: tot
   } else if (state === 'failed') {
     body = `<div class="courier-card__error" role="alert"><p class="t-body w-600 courier-card__error-title"><span class="courier-card__error-glyph" aria-hidden="true">${ICON_ALERT}</span>Couldn’t get a courier price</p><p class="t-small c-600">Uber didn’t answer. Try again, or pick another way back.</p></div>${cta('Try again', { variant: 'secondary', attrs: `data-act="${esc(retryAct)}"` })}`;
   } else {
-    body = `${moneyRows([{ label: 'Uber quote', cents: quote }, { label: 'Taily courier fee', cents: markup }, { label: 'Courier total', cents: total, kind: 'total' }])}${note ? `<p class="t-small c-600 courier-card__note">${esc(note)}</p>` : ''}`;
+    body = `${moneyRows([{ label: 'Uber quote', cents: quote }, { label: 'Taily courier fee', cents: markup }, { label: 'Courier total', cents: total, kind: 'total' }])}${note ? `<p class="t-small c-600 courier-card__note">${esc(note)}</p>` : ''}${protection ? protectionRow() : ''}`;   // D-21 (pre-MVP A2): garment protection
   }
   return `<div class="courier-card courier-card--${state}"${state === 'loading' ? ' aria-busy="true"' : ''} data-state="${state}">${head}${body}</div>`;
 }
@@ -3399,4 +3410,329 @@ export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', pla
       }
     });
   });
+}
+
+/* ============================================================
+   pre-MVP A2 (K-48.1, K-49 DG-1 option B, D-14, S-32, D-21): Taily Help — the shared pieces c-help / t-help, c-case / t-case,
+   c-policy / t-policy, a-inbox / a-case and the status screens use. Same rules as everything above: HTML strings, dollars only.
+   ============================================================ */
+/** A life ring (Get help). */
+export const ICON_HELP = GLYPH('<circle cx="8" cy="8" r="5.9"/><circle cx="8" cy="8" r="2.4"/><path d="M3.9 3.9l2.4 2.4M12.1 3.9 9.7 6.3M3.9 12.1l2.4-2.4M12.1 12.1 9.7 9.7"/>');
+/** A shield with a tick (garment protection). */
+export const ICON_SHIELD = GLYPH('<path d="M8 1.9 13 3.8v3.8c0 3-2.1 5.3-5 6.5-2.9-1.2-5-3.5-5-6.5V3.8z"/><path d="m5.8 8 1.5 1.5 3-3"/>');
+/** A flag (report). */
+export const ICON_FLAG = GLYPH('<path d="M3.5 14V2.5"/><path d="M3.5 3h8l-1.5 3 1.5 3h-8"/>');
+/** A circle with a slash (block). */
+export const ICON_BLOCK = GLYPH('<circle cx="8" cy="8" r="5.9"/><path d="M3.9 12.1l8.2-8.2"/>');
+
+/** DG-1 B: the "Get help" person button (customer status screens join it to Message / Add to calendar). */
+export const helpAction = (act = 'get-help') => ({ label: 'Get help', icon: ICON_HELP, act });
+/** The Get help button on its own row (a status screen with no person block: c-request, c-ready, c-complete, c-price-change). */
+export const helpActions = (act = 'get-help') => `<div class="help-entry"><div class="person-block__actions help-row">${personButtons([helpAction(act)])}</div></div>`;
+
+/** "Fri 5:00 PM" / "5:00 PM" (today) — a reply-by time on a strip. */
+const replyWhen = (iso, nowMs) => (isoDay(iso) === isoDay(nowMs) ? fmtTime(iso) : `${fmtShortDay(iso)} ${fmtTime(iso)}`);
+const fmtShortDay = (iso) => fmtDay(iso).split(',')[0];
+/** K-16: a case on a status screen — "Taily is reviewing · Reply by Fri 5:00 PM" (Taily owes the answer), "Taily replied · Read it", or
+    "Taily decided" with the outcome in dollars; then "Open Taily Help" (`act`, `data-case`). `v` = caseView(c, who). */
+export function caseStrip(v, { act = 'open-case', nowMs = state.clock.now } = {}) {
+  if (!v) return '';
+  let strip;
+  if (v.open && v.waiting === 'taily') strip = requestStrip({ tone: 'warn', icon: 'chat', text: 'Taily is reviewing', right: `Reply by ${replyWhen(v.replyBy, nowMs)}` });
+  else if (v.open) strip = requestStrip({ tone: 'action', icon: 'chat', text: 'Taily replied', right: 'Read it' });
+  else strip = requestStrip({ tone: 'done', icon: 'check', text: 'Taily decided', right: fmtDay(v.closedAt) });
+  const line = !v.open && v.decision ? `<p class="case-strip__line t-small c-700" data-money>${esc(v.decision)}</p>` : '';
+  return `<div class="case-strip" data-case-strip="${v.open ? (v.waiting === 'taily' ? 'reviewing' : 'replied') : 'decided'}">${strip}${line}${textLink('Open Taily Help', { act, icon: ICON_HELP, attrs: `data-case="${esc(v.c.id)}"` })}</div>`;
+}
+
+/** The Taily Help thread header (both personas and the admin's preview). */
+export const tailyHead = (sub = '') => threadHead({ initials: 'Ta', name: 'Taily Help', sub });
+
+/** One side of a case as a thread: Taily's words are "them" for a person, "me" for the admin (reader 'taily'). Acks and decisions are bubbles. */
+export function caseThread(c, side, { reader = side, now = null, failed = [], sending = null } = {}) {
+  const msgs = caseMessages(c, side).map((m) => ({ ...m, from: m.from === 'system' ? 'system' : m.from }));
+  return threadMessages(msgs, { reader, now, failed, sending, peer: reader === 'taily' ? (side === 'tailor' ? firstOfName(state.tailors[0]?.name) : state.customer.first) : '' });   // a person's masked note reads the standing rule
+}
+const firstOfName = (n) => String(n || 'The tailor').split(' ')[0];
+
+/** D-21: the garment protection line (c-pay, the courier card, Help) — a shield, the promise, and "How it works" (`act`). */
+export const protectionRow = (act = 'garment-protection') => `<div class="protection-row">${ICON_SHIELD}<span class="t-small c-700">${esc(protectionLine())}</span>${textLink('How it works', { act })}</div>`;
+
+/** A policy page's body: the sections, then the counsel line on a draft. */
+export function policySections(page) {
+  return `${page.sections.map((s) => `<section class="sec policy__sec"><h2 class="t-caps c-600 policy__title">${esc(s.title)}</h2>${s.lines.map((l) => `<p class="t-body c-700 policy__line" data-money>${esc(l)}</p>`).join('')}</section>`).join('')}
+  ${page.counsel ? `<p class="t-small c-600 policy__counsel" data-counsel>${ICON_INFO}<span>${esc(page.counselLine)}</span></p>` : ''}`;
+}
+
+/** Help home (c-help / t-help): Message Taily, your cases, topics, contact, policies. */
+export function helpHome(who) {
+  const cases = casesFor(who);
+  const caseRows = cases.map((c) => {
+    const v = caseView(c, who);
+    const a = v.appt;
+    const t = a ? tailorById(a.tailorId) : null;
+    const what = a ? (who === 'tailor' ? `Job with ${state.customer.first} · ${fmtDay(a.slot.start)}` : `Order with ${firstOfName(t?.name)} · ${fmtDay(a.slot.start)}`) : 'No order attached';
+    const status = v.open ? (v.waiting === 'taily' ? `Taily replies by ${replyWhen(v.replyBy, state.clock.now)}` : 'Taily replied') : `Closed ${fmtDay(v.closedAt)}`;
+    return listRow({
+      title: `${esc(helpCaseName(c, who))}${v.unread ? ` <span class="help-home__dot" aria-hidden="true"></span><span class="sr-only">, new reply</span>` : ''}`,
+      sub: `${esc(what)} · ${esc(status)}`, act: 'open-case', attrs: `data-case="${esc(c.id)}"`, lead: ICON_HELP,
+    });
+  }).join('');
+  const topics = helpTopics(null, who).map((k) => listRow({ title: esc(topicLabel(k, who)), act: k === 'safety' ? 'safety' : 'new-case', attrs: `data-topic="${esc(k)}"` })).join('');
+  const policies = policyList(who).map((p) => listRow({ title: esc(p.title), sub: esc(p.sub), act: 'policy', attrs: `data-policy="${esc(p.key)}"` })).join('');
+  return `<section class="sec help-home__ask">
+    <p class="t-body c-700">${who === 'tailor' ? 'About a job? Open it and tap More, then Get help, so we see it right away.' : 'About a booking? Open it and tap Get help, so we see it right away.'}</p>
+    ${cta('Message Taily', { attrs: 'data-act="new-case"' })}
+    <p class="t-small c-600">We reply here and by text within ${POLICY.HELP_REPLY_H} hours.</p>
+  </section>
+  ${cases.length ? `<section class="sec">${sectionHead('Your conversations', { count: cases.filter((c) => c.state === 'open').length ? `${cases.filter((c) => c.state === 'open').length} open` : '' })}<div class="card card--list help-home__list">${caseRows}</div></section>` : ''}
+  <section class="sec">${sectionHead('Get help with')}<div class="card card--list help-home__list">${topics}</div></section>
+  <section class="sec">${sectionHead('Policies')}<div class="card card--list help-home__list">${policies}</div></section>
+  <section class="sec help-home__contact">${sectionHead('Contact Taily')}
+    ${infoCard([infoRow('Text', `<span class="help-home__select">${esc(HELP_CONTACT.text)}</span>`), infoRow('Email', `<span class="help-home__select">${esc(HELP_CONTACT.email)}</span>`), infoRow('Hours', esc(HELP_CONTACT.hours))].join(''))}
+  </section>`;
+}
+/** A case's name in a person's list: the topic they picked, a review's subject, or "Safety report". */
+export function helpCaseName(c, who) {
+  if (c.kind === 'safety') return c.safety?.block ? 'You blocked someone' : 'Safety report';
+  if (c.kind === 'review') return { 'no-show-disputed': 'No-show', 'tailor-no-show-disputed': 'No-show', 'visit-disputed': 'Did the visit happen?', 'visit-unanswered': 'Did the visit happen?', 'final-order-unanswered': 'Final order', 'problem-open': 'Didn’t get the order', 'delivery-missing': 'Delivery', 'ready-no-way-back': 'Getting it back' }[c.reason] ?? 'Taily review';
+  return c.topic ? topicLabel(c.topic, who, c.apptId ? getAppt(c.apptId) : null) : 'Message to Taily';
+}
+
+/** A confirm sheet (the admin's money actions, a person's self-serve action from a Help thread): one filled button + Cancel. */
+export function confirmSheet({ header = '', body = '', ok = 'Confirm', danger = false, dataS = 'confirm', busyLabel = 'Saving…' } = {}, onOk) {
+  const html = (busy = false, error = '') => `<div class="confirm-sheet"${busy ? ' aria-busy="true"' : ''}>
+  <p class="t-body c-700" data-money>${body}</p>
+  ${error ? `<p class="field__msg field__msg--error confirm-sheet__err" role="alert">${esc(error)}</p>` : ''}
+  ${cta(ok, { variant: danger ? 'danger' : 'default', busy, busyLabel, attrs: 'data-act="cs-ok"' })}
+  ${cta('Cancel', { variant: 'secondary', disabled: busy, attrs: 'data-act="cs-cancel"' })}
+</div>`;
+  return sheetOverlay(html(), { header, dataS, confirm: false }, (holder, close) => {
+    let busy = false;
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (busy || !act) return;
+      if (act === 'cs-cancel') close();
+      else if (act === 'cs-ok') {
+        busy = true; holder.querySelector('.confirm-sheet').outerHTML = html(true);
+        withLatency(() => {
+          if (!holder.isConnected) return;
+          const err = onOk?.();
+          if (err) { busy = false; holder.querySelector('.confirm-sheet').outerHTML = html(false, err); return; }
+          close({ instant: true });
+        });
+      }
+    });
+  });
+}
+
+/** S-32: the safety sheets. `mode` 'menu' (Report · Block · Get help) | 'report' | 'block'. `other` = the other person's first name.
+    `onDone(case)` after a report or a block went in; `onHelp()` = the menu's Get help row. */
+export function openSafetySheet({ who = 'customer', other = '', apptId = null, tailorId = null, mode = 'menu', onDone, onHelp } = {}) {
+  if (mode === 'menu') {
+    const blocked = isBlocked(tailorId ?? state.tailors[0].id) && blockedBy(tailorId ?? state.tailors[0].id) === who;
+    const rows = [
+      listRow({ title: `Report ${esc(other)}`, sub: 'Tell Taily what happened. Only Taily sees it.', act: 'sf-report', lead: ICON_FLAG }),
+      blocked ? '' : listRow({ title: `<span class="more-item--danger">Block ${esc(other)}</span>`, sub: 'You can’t book each other, and this chat closes', act: 'sf-block', lead: ICON_BLOCK, chevron: false }),
+      onHelp ? listRow({ title: 'Get help', sub: 'Message Taily', act: 'sf-help', lead: ICON_HELP }) : '',
+    ].join('');
+    return sheetOverlay(`<div class="more-menu" role="group" aria-label="More">${rows}</div>`, { header: 'More', dataS: 'safety-menu', confirm: false }, (holder, close) => {
+      holder.addEventListener('click', (e) => {
+        const act = e.target.closest('[data-act]')?.dataset.act;
+        if (!act?.startsWith('sf-')) return;
+        close({ instant: true });
+        if (act === 'sf-help') onHelp?.();
+        else openSafetySheet({ who, other, apptId, tailorId, mode: act === 'sf-report' ? 'report' : 'block', onDone, onHelp });
+      });
+    });
+  }
+  if (mode === 'block') {
+    return confirmSheet({
+      header: `Block ${other}?`, dataS: 'safety-block', ok: `Block ${other}`, danger: true, busyLabel: 'Blocking…',
+      body: `You won’t be able to book each other, and your chat closes. ${who === 'tailor' ? 'A job already booked' : 'A booking you already have'} stays until Taily contacts you both. Taily is told, and only Taily.`,
+    }, () => {
+      const r = T.blockPerson(who, { apptId, tailorId });
+      if (!r.ok) return r.error === 'offline' ? 'You’re offline. Nothing was changed.' : 'Couldn’t block. Try again.';
+      onDone?.(r.case, 'block');
+      return null;
+    });
+  }
+  /* report: what happened (required) + optional details */
+  const draft = { reason: null, text: '' };
+  const html = (busy = false, error = '') => `<div class="safety-report"${busy ? ' aria-busy="true"' : ''}>
+  <p class="t-small c-600">If you’re in danger, call 911 first. Only Taily sees this report.</p>
+  <div class="safety-report__reasons" role="radiogroup" aria-label="What happened"${error === 'reason' ? ' aria-describedby="sr-reason-err"' : ''}>${REPORT_REASONS.map(([k, label]) => optionRow({ name: 'report', value: k, title: esc(label), checked: draft.reason === k, act: 'sr-reason' })).join('')}</div>
+  ${error === 'reason' ? '<p class="field__msg field__msg--error" id="sr-reason-err" role="alert">Pick what happened.</p>' : ''}
+  ${textArea({ id: 'sr-text', label: 'Anything else? (optional)', value: draft.text, rows: 3 })}
+  ${error && error !== 'reason' ? `<p class="field__msg field__msg--error" role="alert">${esc(error)}</p>` : ''}
+  ${cta('Send report', { busy, busyLabel: 'Sending…', attrs: 'data-act="sr-send"' })}
+</div>`;
+  return sheetOverlay(html(), { header: `Report ${other}`, dataS: 'safety-report', confirm: false }, (holder, close) => {
+    let busy = false;
+    const paint = (b, err) => { holder.querySelector('.safety-report').outerHTML = html(b, err); };
+    holder.addEventListener('input', (e) => { if (e.target.id === 'sr-text') draft.text = e.target.value; });
+    holder.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-act]');
+      if (busy || !el) return;
+      if (el.dataset.act === 'sr-reason') { draft.reason = el.dataset.value; paint(false, ''); holder.querySelector(`[data-value="${draft.reason}"]`)?.focus(); }
+      else if (el.dataset.act === 'sr-send') {
+        if (!draft.reason) { paint(false, 'reason'); return; }
+        busy = true; paint(true, '');
+        withLatency(() => {
+          if (!holder.isConnected) return;
+          const r = T.reportPerson(who, { apptId, tailorId, reason: draft.reason, text: draft.text });
+          if (!r.ok) { busy = false; paint(false, r.error === 'offline' ? 'You’re offline. Nothing was sent.' : 'Couldn’t send this. Try again.'); return; }
+          close({ instant: true });
+          onDone?.(r.case, 'report');
+        });
+      }
+    });
+  });
+}
+
+/* ---------- the Taily Help thread (c-case / t-case): one view + one wiring, two persona screens ---------- */
+const helpUi = () => (state.ui.help ??= {});
+/** The case the Help thread shows for `who`: the one asked for (state.ui.help.caseId), else the order's open case they're in, else null (a new
+    conversation: Taily's greeting and the topic chips). */
+export function helpCase(who) {
+  const u = helpUi();
+  const c = u.caseId ? caseById(u.caseId) : null;
+  if (c && c.sides.includes(who)) return c;
+  if (u.apptId) { const o = caseOfAppt(u.apptId, who); if (o?.state === 'open') return o; }
+  return null;
+}
+const helpAppt = (who) => { const c = helpCase(who); const id = c?.apptId ?? helpUi().apptId ?? null; return id ? getAppt(id) : null; };
+/** The self-serve step a topic can take right in the thread (an existing transition), or null. */
+function topicStep(c, a, who) {
+  if (!c || c.state !== 'open' || !a) return null;
+  const tf = firstOfName(tailorById(a.tailorId)?.name);
+  const dep = fmtExact(a.payments.deposit.cents);
+  if (c.topic === 'no-show' || c.kind === 'review') {
+    if (who === 'customer' && a.status === 'cancelled' && a.cancel?.reason === 'no-show' && !a.cancel.disputedAt) return { act: 'hs-dispute', label: 'That’s not right', body: `You were there? Tell Taily. ${tf}’s no-show pay waits until we decide.` };
+    if (who === 'tailor' && a.status === 'cancelled' && a.cancel?.reason === 'tailor-no-show' && !a.cancel.disputedAt) return { act: 'hs-dispute', label: 'That’s not right', body: `You came? Tell Taily. We look into it with ${state.customer.first}.` };
+    if (who === 'customer' && a.status === 'confirmed' && !a.visitDay?.tailor?.hereAt && state.clock.now >= toMsIso(a.slot.start) + POLICY.NO_SHOW_WAIT_MIN * 60000) return { act: 'hs-no-show', label: `Cancel and get my ${dep} back`, body: `${tf} isn’t there ${POLICY.NO_SHOW_WAIT_MIN} minutes after the start? Cancel the visit and your ${dep} deposit is refunded in full.` };
+  }
+  if (c.topic === 'not-received' && who === 'customer') {
+    if (a.status === 'awaiting-handoff' && a.handoff?.markedAt && !a.handoff.problemAt) return { act: 'hs-not-received', label: 'I didn’t get it', body: `${tf} marked it picked up. If you didn’t get it, tell us here and the order stays open.` };
+    if (deliveryReportOpen(a)) return { act: 'hs-missing', label: 'The delivery didn’t reach me', body: 'We check the courier’s drop-off photo with you.' };
+  }
+  if (c.topic === 'damage') return { act: 'hs-policy', label: 'How garment protection works', body: protectionLine(), link: true };
+  if (c.topic === 'safety' || c.kind === 'safety') return { act: 'hs-safety', label: who === 'tailor' ? `Report or block ${state.customer.first}` : `Report or block ${tf}`, body: 'Only Taily sees a report. Blocking stops new bookings and closes your chat.', link: true };
+  return null;
+}
+const toMsIso = (iso) => new Date(iso).getTime();
+
+export function helpThreadView(who) {
+  const u = helpUi();
+  const c = helpCase(who);
+  const a = helpAppt(who);
+  const v = c ? caseView(c, who) : null;
+  const nowMs = state.clock.now;
+  const tf = a ? firstOfName(tailorById(a.tailorId)?.name) : '';
+  const name = who === 'tailor' ? firstOfName(state.tailors[0]?.name) : state.customer.first;
+  const sub = c ? `${esc(c.ref)} · ${v.open ? (v.waiting === 'taily' ? `we reply by ${esc(replyWhen(v.replyBy, nowMs))}` : 'Taily replied') : 'closed'}` : `We reply within ${POLICY.HELP_REPLY_H} hours`;
+  /* the order it is pinned to (D-128's context row) */
+  let context;
+  if (a) {
+    const w = statusWord(a, who, { short: true });
+    const visit = DATA.VISIT_LABEL?.[who === 'tailor' ? 'tailor' : 'customer']?.[a.job?.visitType] ?? '';
+    context = threadContext({ pill: w.pill, pillLabel: w.label, title: fmtWhen(a.slot.start), sub: [who === 'tailor' ? `Job with ${state.customer.first}` : `Order with ${tf}`, visit, who === 'tailor' ? 'Open job' : 'View booking'].filter(Boolean).join(' · '), act: 'open-appt', id: a.id });
+  } else context = threadContext({ title: 'No order attached', sub: 'A general question for Taily' });
+  const strip = v ? (v.open ? (v.waiting === 'taily'
+    ? requestStrip({ tone: 'warn', icon: 'chat', text: 'Taily is reviewing', right: `Reply by ${replyWhen(v.replyBy, nowMs)}` })
+    : requestStrip({ tone: 'action', icon: 'chat', text: 'Taily replied', right: fmtTime(caseMessages(c, who).filter((m) => m.from === 'taily').at(-1)?.at ?? c.openedAt) }))
+    : requestStrip({ tone: 'done', icon: 'check', text: 'Taily decided', right: fmtDay(v.closedAt) })) : '';
+  let body;
+  if (c) {
+    body = caseThread(c, who, { reader: who, now: nowMs, failed: u.failed ?? [], sending: u.sending ?? null });
+  } else {
+    const hello = a
+      ? `Hi ${name}. This is about your ${who === 'tailor' ? `job with ${state.customer.first}` : `visit with ${tf}`} on ${fmtWhen(a.slot.start)}. What do you need help with?`
+      : `Hi ${name}. What can we help with?`;
+    const topics = helpTopics(a, who);
+    body = `${threadMessages([{ id: 'k0', from: 'taily', text: hello, at: isoMinuteMs(nowMs) }], { reader: who, now: nowMs })}
+  <div class="help-topics" role="group" aria-label="What do you need help with?">${topics.map((k) => `<button type="button" class="chip help-topics__chip" data-act="topic" data-topic="${esc(k)}"${u.sending ? ' disabled' : ''}>${esc(topicLabel(k, who, a))}</button>`).join('')}</div>`;
+  }
+  const step = topicStep(c, a, who);
+  const stepHtml = step ? `<div class="help-thread__step card">${step.body ? `<p class="t-small c-700" data-money>${esc(step.body)}</p>` : ''}${step.link ? textLink(step.label, { act: step.act }) : cta(step.label, { variant: 'secondary', attrs: `data-act="${step.act}"` })}</div>` : '';
+  const decided = v && !v.open && v.decision ? `<div class="help-thread__decision card" data-decision><p class="t-caps c-600">Taily decided · ${esc(fmtDay(v.closedAt))}</p><p class="t-body c-700" data-money>${esc(v.decision)}</p></div>` : '';
+  const foot = c && !v.open
+    ? `<div class="read-only">${banner({ tone: 'info', text: 'This conversation is closed. Need more help? Start a new one.' })}${cta('Start a new conversation', { attrs: 'data-act="new-conversation"' })}</div>`
+    : composer({ value: u.draft ?? '', placeholder: 'Message Taily', hint: maskContact(u.draft ?? '').masked ? 'Phone numbers and emails are hidden when you send.' : '', photos: u.photos ?? 0, disabled: !!u.sending });
+  return { context, strip, body: `${body}${stepHtml}${decided}`, foot, head: tailyHead(sub), caseId: c?.id ?? '' };
+}
+const isoMinuteMs = (ms) => { const d = new Date(ms); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+
+/** Wire the Help thread: chips open the case, the composer sends (opens it first), retry, photos, the order row, the self-serve step, the
+    safety sheets, a new conversation. `go(id)` re-renders / navigates; `statusScreenOf(a)` = where the order row goes. */
+export function wireHelpThread(root, who, { go, id, statusScreenOf }) {
+  const u = helpUi();
+  const foot = root.querySelector('.help-thread__foot') ?? root;
+  const input = foot.querySelector('.composer__input');
+  const c0 = helpCase(who);
+  if (c0) T.markCaseRead(c0.id, who);
+  const scrollEnd = () => { const f = () => window.scrollTo?.(0, document.documentElement.scrollHeight); if (typeof requestAnimationFrame === 'function') requestAnimationFrame(f); else f(); };
+  const deliver = (msg) => {
+    u.sending = { text: msg.text, photos: msg.photos, topic: msg.topic };
+    go(id); scrollEnd();
+    withLatency(() => {
+      const c = helpCase(who);
+      const a = helpAppt(who);
+      const r = c ? T.sendCaseMessage(c.id, who, { text: msg.text, photos: msg.photos }) : T.openCase({ who, apptId: a?.id ?? null, topic: msg.topic ?? null, text: msg.text, photos: msg.photos });
+      u.sending = null;
+      if (!r.ok) {
+        if (!msg.topic) u.failed = [...(u.failed ?? []), { id: `f${(u.seq = (u.seq ?? 0) + 1)}`, text: msg.text, photos: msg.photos }];
+        go(id); toast(r.error === 'offline' ? 'You’re offline. Nothing was sent.' : 'Message not sent', { tone: 'error' });
+        return;
+      }
+      u.caseId = r.case.id;
+      go(id); scrollEnd();
+    });
+  };
+  if (input) {
+    wireComposer(foot, (text) => { const photos = u.photos ?? 0; u.draft = ''; u.photos = 0; deliver({ text, photos }); });
+    input.addEventListener('input', () => {
+      u.draft = input.value;
+      const hint = foot.querySelector('#composer-hint');
+      if (hint) hint.innerHTML = maskContact(input.value).masked ? `${ICON_INFO}<span>Phone numbers and emails are hidden when you send.</span>` : '';
+    });
+  }
+  wirePhotoViewer(root);
+  const a = helpAppt(who);
+  const done = (msg) => { go(id); if (msg) toast(msg, { tone: 'success' }); };
+  root.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-act]');
+    if (!el || e.target.closest('.screen-sheet--overlay')) return;
+    const act = el.dataset.act;
+    if (act === 'topic') {
+      if (el.dataset.topic === 'safety' && !a) { openSafetySheet({ who, other: who === 'tailor' ? state.customer.first : firstOfName(state.tailors[0]?.name), mode: 'menu', onDone: (c) => { u.caseId = c.id; done('Sent. Taily is looking into it.'); } }); return; }
+      deliver({ text: '', photos: 0, topic: el.dataset.topic });
+    } else if (act === 'retry') {
+      const f = (u.failed ?? []).find((x) => x.id === el.dataset.id);
+      if (!f) return;
+      u.failed = u.failed.filter((x) => x !== f);
+      deliver(f);
+    } else if (act === 'attach-photo') openAttachSheet({ count: u.photos ?? 0, peer: 'Taily' }, () => { u.photos = Math.min(CHAT_PHOTO_CAP(), (u.photos ?? 0) + 1); go(id); });
+    else if (act === 'remove-attachment') { u.photos = Math.max(0, (u.photos ?? 0) - 1); go(id); }
+    else if (act === 'open-appt' && a) { setFocus(a.id); go(statusScreenOf(a)); }
+    else if (act === 'new-conversation') { u.caseId = null; u.apptId = null; u.failed = []; go(id); }
+    else if (act === 'hs-policy') { state.ui.policy = 'garment'; go(who === 'tailor' ? 't-policy' : 'c-policy'); }
+    else if (act === 'hs-safety') {
+      const other = who === 'tailor' ? state.customer.first : firstOfName(tailorById(a?.tailorId)?.name ?? state.tailors[0]?.name);
+      openSafetySheet({ who, other, apptId: a?.id ?? null, mode: 'menu', onDone: (c) => { u.caseId = c.id; done('Sent. Taily is looking into it.'); } });
+    } else if (act === 'hs-dispute' && a) {
+      confirmSheet({ header: 'Were you there?', dataS: 'help-dispute', ok: 'Tell Taily', busyLabel: 'Sending…', body: who === 'tailor' ? `Tell Taily you came. We look into it with ${state.customer.first} and message you both.` : `Tell Taily you were there. We look into it with ${firstOfName(tailorById(a.tailorId)?.name)} and message you both.` },
+        () => { const r = T.disputeNoShow(a.id, who); if (!r.ok) return 'Couldn’t send this. Try again.'; u.caseId = openCaseOfAppt(a.id)?.id ?? u.caseId; done('Sent. Taily is looking into it.'); return null; });
+    } else if (act === 'hs-no-show' && a) {
+      confirmSheet({ header: `${firstOfName(tailorById(a.tailorId)?.name)} didn’t show up?`, dataS: 'help-no-show', ok: 'Cancel and refund', danger: true, busyLabel: 'Cancelling…', body: `We cancel the visit and refund your ${fmtExact(a.payments.deposit.cents)} deposit in full. Your items are saved.` },
+        () => { const r = T.reportTailorNoShow(a.id); if (!r.ok) return 'Couldn’t cancel. Try again.'; done('Cancelled. Your deposit is refunded.'); return null; });
+    } else if (act === 'hs-not-received' && a) {
+      confirmSheet({ header: 'Didn’t get it?', dataS: 'help-not-received', ok: 'I didn’t get it', busyLabel: 'Sending…', body: 'The order stays open and nothing more is charged while we sort it out.' },
+        () => { const r = T.reportNotReceived(a.id); if (!r.ok) return 'Couldn’t send this. Try again.'; done('Sent. Taily is looking into it.'); return null; });
+    } else if (act === 'hs-missing' && a) {
+      confirmSheet({ header: 'Delivery didn’t reach you?', dataS: 'help-missing', ok: 'Tell Taily', busyLabel: 'Sending…', body: 'We check the courier’s drop-off photo with you and reply here.' },
+        () => { const r = T.reportMissingDelivery(a.id); if (!r.ok) return 'Couldn’t send this. Try again.'; u.caseId = openCaseOfAppt(a.id)?.id ?? u.caseId; done('Sent. Taily is looking into it.'); return null; });
+    }
+  });
+  if (u.opening) { u.opening = false; scrollEnd(); }
 }

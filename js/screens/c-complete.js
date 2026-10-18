@@ -7,10 +7,10 @@
    Leave a review · Book Amara again · Message; 7 days on with no review, the reminder card (reviewReminderDue).
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorById, priceChangeView, deliveryReportOpen, isVerified } from '../state.js';
+import { state, T, tailorById, priceChangeView, deliveryReportOpen, isVerified, caseOfAppt, caseView } from '../state.js';
 import {
   chrome, navBackMark, receiptBlock, balanceCardLabel, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, verifiedCheck, returnedItems, linenStage, tagRail,
-  visitBlock, textLink, toast,
+  visitBlock, textLink, toast, helpActions, caseStrip,
 } from '../components.js';
 import { CHEVRON_RIGHT, VISIT_ICONS } from '../icons.js';
 import { fmtExact } from '../money.js';
@@ -75,6 +75,7 @@ function view() {
     <p class="t-small c-600 ${ID}__hint">Tap a star to rate. Reviews show on ${esc(first)}’s profile as ${esc(customerShort())}${customerShort().endsWith('.') ? '' : '.'}</p>
   </section>
   ${delivered(a)}
+  ${caseOfAppt(a.id, 'customer') ? `<div class="case-strip-wrap">${caseStrip(caseView(caseOfAppt(a.id, 'customer'), 'customer'))}</div>` : ''}
   <section class="sec ${ID}__receipt">
     <button type="button" class="${ID}__row" data-act="receipt" aria-expanded="false" aria-controls="receipt-body">
       <span class="${ID}__rowicon" aria-hidden="true">${VISIT_ICONS.bag}</span>
@@ -83,6 +84,7 @@ function view() {
     </button>
     <div class="${ID}__receipt-body" id="receipt-body" hidden>${receiptBlock(a, first)}</div>
   </section>
+  ${helpActions()}
 </main>
 ${actionBar({ ctaLabel: 'Leave a review', ctaAct: 'leave-review', secondaryLabel: `Book ${esc(first)} again`, secondaryAct: 'book-again', tertiaryLabel: `Message ${esc(first)}`, tertiaryAct: 'message' })}`;
 }
@@ -126,6 +128,11 @@ function wire(root) {
       row.setAttribute('aria-expanded', String(open));
       root.querySelector('#receipt-body').hidden = !open;
     } else if (act === 'message') { if (a) setFocus(a.id, { keepFrom: true }); go('c-thread'); }
+    else if ((act === 'get-help' || act === 'open-case') && a) {   // DG-1 option B (pre-MVP A2): a problem after completion goes to Taily Help
+      setFocus(a.id, { keepFrom: true });
+      state.ui.help = { apptId: a.id, caseId: act === 'open-case' ? e.target.closest('[data-case]')?.dataset.case ?? null : null };
+      go('c-case');
+    }
     else if (act === 'leave-review' && a) { setFocus(a.id, { keepFrom: true }); state.ui['c-review'] = { apptId: a.id }; go('c-review'); }
     else if (act === 'book-again' && a) { T.bookAgain(a.id); state.ui.booking = { tailorId: a.tailorId, again: true }; go('c-job', { fresh: true }); }   // Study-1 A4 (default 9)
     else if (act === 'done') go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings', { fresh: true });

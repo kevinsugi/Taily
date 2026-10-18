@@ -13,11 +13,11 @@
    overruled: no decline; if Sarah disagrees she messages and the tailor revises). K-31: the tailor's whole-order note is private now.
    ============================================================ */
 import { register, render as go, registered, currentScreen } from '../app.js';
-import { state, T, tailorById, priceChangeView, jobEditView, isVerified } from '../state.js';
+import { state, T, tailorById, priceChangeView, jobEditView, isVerified, caseOfAppt, caseView } from '../state.js';
 import {
   chrome, banner, emptyState, deltaLines, noteQuote, changeList, withPhotos, wirePhotoViewer, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs, sectionHead,
   navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, HOME_FEE_CAPTION,
-  photoFigure, dueChange, visitBlock, returnedItems,
+  photoFigure, dueChange, visitBlock, returnedItems, helpActions, caseStrip,
 } from '../components.js';
 import { fmtExact } from '../money.js';
 import { fmtTime } from '../dates.js';
@@ -77,6 +77,8 @@ function view() {
   ${changeList({ garments: withPhotos(pv.garments, a.job), docs: a.priceChange.docs ?? null, commentLabel: `${first}’s comment` })}</section>
   <section class="sec">${sectionHead('Price')}
   ${moneyRows(rows)}</section>
+  ${caseBlock(a)}
+  ${helpActions()}
   ${ui().error ? `<div class="${ID}__fail" role="alert">${banner({ tone: 'error', title: 'Couldn’t approve the order', text: 'Nothing changed, and nothing was charged. Try again.' })}</div>` : ''}
 </main>
 ${actionBar({
@@ -84,6 +86,12 @@ ${actionBar({
     lead: `<span>${changed ? 'New balance' : 'Balance'}, due when it’s ready</span><b data-money>${fmtExact(after.balance)}</b>`,
     secondaryLabel: messaged ? 'Open chat' : `Message ${first}`, secondaryAct: 'message',
   })}`;
+}
+
+/** DG-1 B (pre-MVP A2): the order's Taily Help case, when there is one (a final order stuck, a review at 7 days). */
+function caseBlock(a) {
+  const c = caseOfAppt(a.id, 'customer');
+  return c ? `<div class="case-strip-wrap">${caseStrip(caseView(c, 'customer'))}</div>` : '';
 }
 
 /* ---------- Study-1 B1: "Amara edited your order" ---------- */
@@ -122,6 +130,8 @@ function editView(a, chromeHtml) {
   <section class="sec">${sectionHead('Price')}
   ${moneyRows(rows)}
   <p class="t-small c-600 ${ID}__hint" data-edit-hint>Something not right? Message ${esc(first)} to change it before the work is finished.</p></section>
+  ${caseBlock(a)}
+  ${helpActions()}
   ${ui().error ? `<div class="${ID}__fail" role="alert">${banner({ tone: 'error', title: 'Couldn’t save your answer', text: 'Nothing changed, and nothing was charged. Try again.' })}</div>` : ''}
 </main>
 ${actionBar({
@@ -205,7 +215,11 @@ function wire(root) {
     else if (!a) return;
     else if (act === 'approve') approve(a);
     else if (act === 'approve-edit') approveEdit(a);
-    else if (act === 'message') go('c-thread');   // opening the chat changes nothing; Sarah's first message marks it (R4-2-C-02)
+    else if (act === 'message') go('c-thread');
+    else if (act === 'get-help' || act === 'open-case') {   // DG-1 option B (pre-MVP A2): the final order stuck → Taily Help with the order attached
+      const a = focusAppt(ID);
+      if (a) { setFocus(a.id); state.ui.help = { apptId: a.id, caseId: act === 'open-case' ? e.target.closest('[data-case]')?.dataset.case ?? null : null }; go('c-case'); }
+    }   // opening the chat changes nothing; Sarah's first message marks it (R4-2-C-02)
   });
 }
 

@@ -35,6 +35,8 @@ const AT = {
   'pickup-today': ['awaiting-handoff', {}, '2026-10-16T15:30'], 'missed-pickup': ['awaiting-handoff', {}, '2026-10-16T18:00'],
   completed: ['completed'], 'job-done-t': ['completed'], 'review-reminder': ['completed'], 'new-review': ['reviewed'],
   'payout-sent': ['completed'], 'payout-failed': ['completed'],
+  /* pre-MVP A2 (K-48.1): Taily Help and the admin */
+  'taily-replied': ['no-show'], 'case-decided': ['no-show'], 'taily-replied-t': ['no-show'], 'admin-case': ['no-show'], 'admin-message': ['no-show'],
 };
 
 function ctxFor(id) {
@@ -53,20 +55,23 @@ function ctxFor(id) {
       total: pv?.after.total ?? ev?.after.total ?? a.money.total, was: pv?.before.total, charged: a.payments.balance.cents || a.money.balance,
       payout: ev?.after.payout ?? a.money.payout, cents: a.money.payout, bank: t.payouts?.bank, last4: t.payouts?.last4, stars: 5,
       start: id === 'suggested' ? a.suggested?.start : moveTo ?? a.slot.start, slot, at: S.nowIso(), to: 'lobby', date: 'Mar 1, 2027',
+      ref: 'TY-4821', why: `No-show disputed · from ${state.customer.first} ${state.customer.last} · order ${a.id}`, who: state.customer.first,   // A2: the admin's texts
     },
   });
 }
 
 const esc = (s) => String(s).replace(/\|/g, '\\|');
 const LAND = (r) => r.land ?? 'the appointment’s own screen (statusScreen)';
-const rows = (who) => TEXT_EVENTS.filter(([, r]) => r.to === who).map(([id, r], i) => `| ${i + 1} | \`${id}\` | ${esc(`Taily: ${r.body(ctxFor(id))} <link>`)} | ${esc(r.trigger)} | ${esc(LAND(r))} | ${r.owner ?? 'A1'} |`).join('\n');
+const PREFIX = { customer: 'Taily: ', tailor: 'Taily: ', admin: 'Taily admin: ' };   // A2 (K-48.1): the admin's texts carry their own prefix
+const rows = (who) => TEXT_EVENTS.filter(([, r]) => r.to === who).map(([id, r], i) => `| ${i + 1} | \`${id}\` | ${esc(`${PREFIX[who]}${r.body(ctxFor(id))} <link>`)} | ${esc(r.trigger)} | ${esc(LAND(r))} | ${r.owner ?? 'A1'} |`).join('\n');
 const head = '| # | Event | Text (exactly as sent) | When it goes out | Link lands on | Fired by |\n|---|---|---|---|---|---|';
 const nC = TEXT_EVENTS.filter(([, r]) => r.to === 'customer').length;
 const nT = TEXT_EVENTS.filter(([, r]) => r.to === 'tailor').length;
+const nA = TEXT_EVENTS.filter(([, r]) => r.to === 'admin').length;
 
 const md = `# Taily text catalogue (pre-MVP A1 · D-02 / DG-2 A · K-43 D-301 · K-48.4)
 
-Generated from \`js/texts.js\` by \`node scripts/v5/texts-doc.mjs\` — do not edit by hand. ${nC + nT} texts: ${nC} to the customer, ${nT} to the tailor.
+Generated from \`js/texts.js\` by \`node scripts/v5/texts-doc.mjs\` — do not edit by hand. ${nC + nT + nA} texts: ${nC} to the customer, ${nT} to the tailor, ${nA} to the admin.
 
 **Rules.** When the text service is connected, every notification is a text message (SMS) with its own unique link into the web app
 (\`taily.app/r/XXXXXX\`, shown here as \`<link>\`), for both people, no exceptions. Every text starts with "Taily: ". **No quiet hours**
@@ -81,10 +86,12 @@ reminder to an opted-in number; otherwise the plain ${POLICY.CANCEL_WINDOW_H}-ho
 the first unread message, then at most one per conversation every ${POLICY.CHAT_TEXT_GAP_MIN} minutes while messages stay unread. Waiting
 states: reminders at ${POLICY.WAIT_REMIND_1_H} h and ${POLICY.WAIT_REMIND_2_H} h; a final order unanswered ${POLICY.FINAL_ORDER_REVIEW_D} days goes to Taily review;
 a ready order with no way back for ${POLICY.READY_DEFAULT_D} days defaults to in-store pickup; the unclaimed charge on day ${POLICY.UNCLAIMED_CAPTURE_D};
-an uncollected order closes ${POLICY.ABANDONED_CLOSE_D} days after the charge. "Did the visit happen?" ${POLICY.VISIT_CHECK_H} h after the start, the admin at
-+${POLICY.VISIT_CHECK_ADMIN_H} h, cancelled with a refund at +${POLICY.VISIT_CHECK_CANCEL_H} h. Pickup today ${POLICY.PICKUP_REMIND_H} h before the pickup time.
+an uncollected order closes ${POLICY.ABANDONED_CLOSE_D} days after the charge. "Did the visit happen?" ${POLICY.VISIT_CHECK_H} h after the start, the admin
+${POLICY.VISIT_CHECK_ADMIN_H} h after the START (K-48.5, Kevin's K-50 fix), cancelled with a refund ${POLICY.VISIT_CHECK_CANCEL_H} h after asking. Pickup today ${POLICY.PICKUP_REMIND_H} h before the pickup time.
 
-Rows marked A2 / B1 are fired by those tracks (support, verification) through the same \`notify()\`.
+Rows marked A2 / B1 are fired by those tracks (support, verification) through the same \`notify()\`. **The admin (A2, K-48.1: support = the CEO)**
+gets a text for every new Help case, safety report or block and every Taily review (A1's included), and for a message on an open case (at most
+one per case every ${POLICY.CHAT_TEXT_GAP_MIN} minutes while unread); those texts start "Taily admin: ".
 
 ## To the customer (${nC})
 
@@ -95,6 +102,11 @@ ${rows('customer')}
 
 ${head}
 ${rows('tailor')}
+
+## To the admin (${nA})
+
+${head}
+${rows('admin')}
 `;
 writeFileSync(resolve(ROOT, 'docs/v5/TEXTS.md'), md);
-console.log(`docs/v5/TEXTS.md: ${nC + nT} texts (${nC} customer, ${nT} tailor)`);
+console.log(`docs/v5/TEXTS.md: ${nC + nT + nA} texts (${nC} customer, ${nT} tailor, ${nA} admin)`);

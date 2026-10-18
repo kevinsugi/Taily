@@ -11,13 +11,13 @@ import { register, render as go, registered } from '../app.js';
 import {
   state, T, tailorById, isVerified, openSlots, justConfirmed, now, returnAddress, priceChangeView, courierWindow, autoCompleteLeft, statusScreen,
   slotText, handoffChangeable, handoffMissed, reminderState, freeUntil, autoCancelAt, unclaimedAt,
-  autoCancelArmed, proposalOf, visitCheckOpen, visitToolsOpen, confirmReceivedOpen, tailyReviewOf,
+  autoCancelArmed, proposalOf, visitCheckOpen, visitToolsOpen, confirmReceivedOpen, tailyReviewOf, caseOfAppt, caseView,
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
   sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, andList, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR, COURIER_LOBBY,
   actionBar, pickupCode, autoCompleteLine, balanceCardLabel, openHandoffTime, chargedWhen, shopPlace,
-  ICON_PHONE, openCallSheet, optionRow,
+  ICON_PHONE, openCallSheet, optionRow, helpAction, helpActions, caseStrip, protectionRow, personButtons,
 } from '../components.js';
 import { VISIT_ICONS } from '../icons.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
@@ -81,7 +81,16 @@ function visitSection(a, t, { extra = [] } = {}) {
     const href = calendarHref({ uid: a.id, start: a.slot.start, end: a.slot.end, stamp: isoMinute(new Date(now())), summary: `${VISIT_LABEL.customer[a.job.visitType]} with ${t.name}`, location: whereOf(a, t) });
     actions.push({ label: 'Add to calendar', icon: ICON_CALENDAR, href, act: 'add-to-calendar', attrs: 'download="taily-visit.ics"' });
   }
-  return sec(personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: isVerified(t), years: t.years }, rows: [...visitRows(a, t), ...pings, ...extra], actions }));
+  /* DG-1 option B (K-49): Get help is a person button on every state of the booking — on its own row under the others (B's mock), so the
+     visit-day row keeps its four tiles at 200% text */
+  return sec(`${personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: isVerified(t), years: t.years }, rows: [...visitRows(a, t), ...pings, ...extra], actions })}${helpRow()}`);
+}
+/** DG-1 B: the Get help person button, a row of its own under the person block's buttons. */
+const helpRow = () => `<div class="person-block__actions help-row">${personButtons([helpAction()])}</div>`;
+/** DG-1 B: the order's Taily Help case on the page — "Taily is reviewing · Reply by …", "Taily replied", or the decision in dollars. */
+function caseBlock(a) {
+  const c = a ? caseOfAppt(a.id, 'customer') : null;
+  return c ? `<div class="case-strip-wrap">${caseStrip(caseView(c, 'customer'))}</div>` : '';
 }
 
 /** The shared detail header (D-93, supersedes R3-1-C-04's pill-above-Back): Back on its own row, then the pill,
@@ -130,8 +139,15 @@ function cancelledView(a, t, first) {
     },
     'no-show': {
       title: 'Marked as a no-show',
-      body: `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}, ${Math.max(0, Math.round((toDate(a.cancel.at).getTime() - toDate(a.slot.start).getTime()) / 60000))} minutes after the start, and keeps your deposit.${a.cancel.disputedAt ? '' : ' If you were there, tell us.'}`,   // D-14: "That's not right" goes to Taily, not the chat
-      status: 'Kept',
+      body: a.cancel.decided === 'refunded'   // pre-MVP A2: Taily decided the dispute for her
+        ? `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}. You told us you were there, and Taily refunded your ${fmtExact(dep)} deposit. It can take a few business days to show.`
+        : `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}, ${Math.max(0, Math.round((toDate(a.cancel.at).getTime() - toDate(a.slot.start).getTime()) / 60000))} minutes after the start, and keeps your deposit.${a.cancel.disputedAt ? '' : ' If you were there, tell us.'}`,   // D-14: "That's not right" goes to Taily, not the chat
+      status: a.payments.deposit.state === 'refunded' ? 'Refunded' : 'Kept',
+    },
+    taily: {   // pre-MVP A2 (K-48.1): the admin cancelled the order or released the hold
+      title: 'Taily cancelled this order',
+      body: [a.cancel?.refund ? `We refunded ${fmtExact(a.cancel.refund)} to your card. It can take a few business days to show.` : '', a.cancel?.released ? `You weren’t charged the ${fmtExact(a.cancel.released)} balance.` : ''].filter(Boolean).join(' ') || 'Nothing more is charged.',
+      status: a.payments.deposit.state === 'refunded' ? 'Refunded' : 'Paid',
     },
     'no-record': {   // D-11 (K-48.5): nobody answered "Did the visit happen?" in 24 hours
       title: 'Visit cancelled',
@@ -146,8 +162,8 @@ function cancelledView(a, t, first) {
   /* D-14: the tailor's "I'm here" is the evidence a no-show stands on — shown to Sarah */
   const here = reason === 'no-show' && a.visitDay?.tailor?.hereAt ? [{ icon: 'check', value: `${esc(first)} tapped I’m here`, detail: esc(fmtTime(a.visitDay.tailor.hereAt)) }] : [];
   /* D-14: a disputed no-show is with Taily (the review state itself is track A2's) */
-  const review = a.cancel?.disputedAt
-    ? `<div class="${ID}__alert">${banner({ tone: 'info', text: a.cancel.disputedBy === 'customer' ? 'You told us you were there. Taily is looking into it and will message you both.' : `${esc(first)} says she came. Taily is looking into it and will message you both.` })}</div>` : '';
+  const review = caseBlock(a) || (a.cancel?.disputedAt
+    ? `<div class="${ID}__alert">${banner({ tone: 'info', text: a.cancel.disputedBy === 'customer' ? 'You told us you were there. Taily is looking into it and will message you both.' : `${esc(first)} says she came. Taily is looking into it and will message you both.` })}</div>` : '');
 
   let actions;
   if (reason === 'tailor-cant-make-it' || reason === 'tailor-no-show') {
@@ -224,6 +240,7 @@ function liveView(a, t, first) {
 
   return `${chrome(bookingTab())}<main class="body${rem?.bar ? ' body--with-bar' : ''} ${ID}" data-s="${ID}">
   ${rem ? `${navBackMark()}${requestStrip({ page: true, ...rem.strip })}${head(a, { pill: false, title: `Your visit with ${esc(first)}`, variant: 'confirmed' }).replace(/^<!--nav-back-->/, '')}<p class="t-small c-600 ${ID}__rule">${rem.rule}</p>` : hero}
+  ${caseBlock(a)}
   ${visitSection(a, t)}
   ${sec(`${sectionHead('What happens next')}${steps}`)}
   ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}${confirmed && !a.visitCheck ? `<p class="t-small c-600 ${ID}__policy">${policy}</p>` : ''}`)}
@@ -402,7 +419,7 @@ function handoffView(a, t, first) {
           icon: 'calendar', value: esc(when), strong: true,
           detail: missed ? 'You missed this time. Pick a new one, no fee.' : movedFrom || `Your pickup time · ${f} has it ready then`,
         }] : [];
-        return `${visitBlock([...time, { icon: 'bag', value: shopName, detail: [esc(addr), ...(hours ? [esc(hours)] : [])] }], { title: 'In-store pickup', flush: true })}${personActions([dir, ...(marked ? [] : change), message])}`;
+        return `${visitBlock([...time, { icon: 'bag', value: shopName, detail: [esc(addr), ...(hours ? [esc(hours)] : [])] }], { title: 'In-store pickup', flush: true })}${personActions([dir, ...(marked ? [] : change), message])}${helpRow()}`;
       },
       steps: problem ? [trouble, leave] : marked ? [confirm, leave] : [
         { state: 'current', title: 'Pick it up at the shop', sub: missed || !slot ? (missed ? 'Pick a new time' : 'Pick a time') : when ? esc(when) : hours ? esc(hours.replace(/^Open /, '').replace(/^./, (c) => c.toUpperCase())) : '' },
@@ -422,7 +439,7 @@ function handoffView(a, t, first) {
           icon: 'truck', cls: 'visit-row--courier', value: esc(`${t.shopName} → ${returnAddress()}`),
           detail: [`${esc(a.courier?.miles ?? 0)} mi · Uber via Taily`, 'Paid by you', esc(COURIER_LOBBY)],   // K-43 (D-298)
         },
-      ], { title: 'Taily courier', flush: true })}${personActions([...change, message])}`,
+      ], { title: 'Taily courier', flush: true })}${personActions([...change, message])}${helpRow()}<div class="${ID}__protection">${protectionRow()}</div>`,
       steps: trip?.state === 'returned' ? [{ state: 'current', title: 'Pick a new delivery window', sub: `No extra charge. It’s back with ${f}.` }, leave]
         : trip?.state === 'out' ? [{ state: 'done', title: 'Courier booked' }, { state: 'current', title: 'Out for delivery', sub: when ? `Arrives ${esc(when)}` : '' }, leave]
           : [{ state: 'current', title: 'Courier booked', sub: when ? `Arrives ${esc(when)}` : '' }, leave],
@@ -468,6 +485,7 @@ function handoffView(a, t, first) {
   const quiet = open && problem ? `<div class="page-actions">${cta('Confirm received', { variant: 'secondary', attrs: 'data-act="got-it"' })}<p class="t-small c-600 ${ID}__got-hint">Have it now? Tap Confirm received to close the order.</p></div>` : '';
   return `${chrome(bookingTab())}<main class="body${asks ? ' body--with-bar' : ''} ${ID} ${ID}--handoff ${ID}--handoff-${how}" data-s="${ID}">
   ${navBackMark()}${strip}${head}
+  ${caseBlock(a)}
   ${alert}
   ${stage}
   ${handoff ? sec(`<div class="${ID}__handoff">${handoff}</div>`) : ''}
@@ -537,7 +555,9 @@ function m4View(a, t, first) {
 
   return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--${a.status}" data-s="${ID}">
   ${hero}
+  ${caseBlock(a)}
   ${middle}
+  ${postFit || a.status === 'completed' ? helpActions() : ''}
   ${steps}
   ${order}
   ${sec(`${sectionHead(a.status === 'completed' ? 'Receipt' : 'Price', { aside: a.status === 'completed' ? '' : infoButton('deposit') })}${breakdown}`)}
@@ -886,6 +906,10 @@ function wire(root) {
     const t = a ? tailorById(a.tailorId) ?? state.tailors[0] : null;
     switch (act) {
       case 'message': go('c-thread'); break;
+      /* DG-1 option B (pre-MVP A2): Get help opens the Taily Help thread with this order attached; the case strip opens its case */
+      case 'get-help': if (a) { setFocus(a.id); state.ui.help = { apptId: a.id, caseId: null }; go('c-case'); } break;
+      case 'open-case': if (a) { state.ui.help = { apptId: a.id, caseId: e.target.closest('[data-case]')?.dataset.case ?? null }; go('c-case'); } break;
+      case 'garment-protection': state.ui.policy = 'garment'; go('c-policy'); break;   // D-21
       case 'cancel': if (a) openCancel(a, firstOf(t)); break;
       case 'confirm-visit': {   // K-41 (R3): the reminder's Confirm
         if (!a) break;

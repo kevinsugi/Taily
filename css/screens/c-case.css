@@ -1,0 +1,2 @@
+/* c-case — layout only. The Help thread (header, strip, context row, messages, chips, composer) is components-v5.css .help-thread. */
+.screen[data-screen="c-case"] { display: flex; flex-direction: column; }

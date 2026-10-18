@@ -10,7 +10,7 @@ import { register, render as go, currentScreen, previousScreen } from '../app.js
 import { state, T, tailorById, now, msLeft, suggestLapseAt, getAppt, statusScreen } from '../state.js';
 import {
   chrome, headingRow, statusHero, statusPill, waitBand, countdown, visitBlock, timeline, customerBreakdown, moneyRows, banner, cta,
-  emptyState, sheetOverlay, toast, esc, noteQuote, sectionHead, infoButton, textLink, garmentStrip, returnedItems, requestStrip, navBackMark,
+  emptyState, sheetOverlay, toast, esc, noteQuote, sectionHead, infoButton, textLink, garmentStrip, returnedItems, requestStrip, navBackMark, helpActions,
 } from '../components.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 import { withLatency } from '../sim.js';
@@ -221,6 +221,7 @@ function view() {
         : expiredBody(a, t, first, busy, u);
   return `${head}<main class="body ${ID}" data-s="${ID}" data-status="${a.status}"${busy ? ' aria-busy="true"' : ''}>
   ${inner}
+  ${helpActions()}
 </main>`;
 }
 
@@ -327,6 +328,7 @@ function wire(root) {
     switch (el.dataset.act) {
       case 'home': go('c-job', { fresh: true }); break;
       case 'message': if (a) message(a); else go('c-thread'); break;
+      case 'get-help': if (a) { setFocus(a.id); state.ui.help = { apptId: a.id, caseId: null }; go('c-case'); } break;   // DG-1 option B (pre-MVP A2)
       case 'withdraw': if (a) openWithdraw(a); break;
       case 'accept-time': if (a) acceptTime(a); break;
       case 'find-another': if (a) findAnother(a); break;

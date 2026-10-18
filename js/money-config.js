@@ -17,6 +17,7 @@ export const MONEY = Object.freeze({
   NO_SHOW_COMP: 25,         // floor the tailor is paid on a no-show (D-06)
   PRICE_RANGE_SPREAD: 0.20, // Study-1 C3: a service's recommended range = base ± this share, never rendered as a rate
   PRICE_ROUND: 5,           // Study-1 C3: range ends rounded to the nearest $5
+  GARMENT_PROTECTION_CAP: 500, // D-21 (pre-MVP A2): Taily's garment protection pays up to this per order for loss or damage (COUNSEL: placeholder cap)
 });
 
 export const POLICY = Object.freeze({
@@ -48,7 +49,7 @@ export const POLICY = Object.freeze({
   ABANDONED_CLOSE_D: 30,    // D-03: an order still not collected this long after the charge is closed
   PROBLEM_REVIEW_H: 72,     // D-01 (K-48.1): a reported handoff problem still open this long goes to Taily review
   VISIT_CHECK_H: 2,         // D-11 (K-48.5): the visit start + this with nothing recorded → ask both "Did the visit happen?"
-  VISIT_CHECK_ADMIN_H: 4,   // K-48.5: still unanswered this long after asking → the admin is notified
+  VISIT_CHECK_ADMIN_H: 4,   // K-48.5 (Kevin, K-50): still unanswered this long after the visit START → the admin is notified (the ask is at start + VISIT_CHECK_H)
   VISIT_CHECK_CANCEL_H: 24, // D-11: still unanswered this long after asking → cancelled, the deposit refunded
   TRAVEL_BUFFER_MIN: 30,    // D-13: free time kept before and after a home visit in the tailor's calendar
   START_REMIND_MIN: 60,     // Kevin (K-48 follow-up): the tailor's "your visit starts at …" text this long before the start; at the start one more text, "Your fitting has started…"
@@ -61,4 +62,7 @@ export const POLICY = Object.freeze({
      background check, years tailoring, payout and tax info). false = listed while the review runs (the Verified check still waits). */
   LIVE_REQUIRES_VERIFIED: true,
   PAYOUT_FIX_D: 9,          // DG-4 prototype: the payments partner's deadline to confirm paused tax info (production: the partner's own date)
+  /* ---- pre-MVP A2 (K-48.1, DG-1 B): Taily Help ---- */
+  HELP_REPLY_H: 24,         // D-01: Taily replies to a Help message within this long ("Reply by …" on the case strip)
+  GARMENT_REPORT_H: 48,     // D-21: loss or damage is reported within this long of getting the order back (garment protection)
 });

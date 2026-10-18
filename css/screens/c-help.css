@@ -1,0 +1,2 @@
+/* c-help — layout only. The Help home body is components-v5.css .help-home (shared with the other persona's Help page). */
+.c-help .sec:first-of-type { margin-top: var(--rhythm-tight); }

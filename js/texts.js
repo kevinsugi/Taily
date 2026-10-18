@@ -1,7 +1,7 @@
 /* ============================================================
    Taily v5 — the text catalogue (pre-MVP A1: D-02 / DG-2 option A, K-43 D-301, K-48.4).
    Taily is a web app first: EVERY notification is a text message (SMS) with a unique link into the app, for both personas.
-   One row per event: who gets it (`to`), what fires it (`trigger`, the timing in words — POLICY holds the numbers), where its link
+   One row per event: who gets it (`to`: 'customer' | 'tailor' | 'admin' — pre-MVP A2, K-48.1), what fires it (`trigger`, the timing in words — POLICY holds the numbers), where its link
    lands (`land`: a screen id, or null = the recipient's statusScreen for the appointment) and the exact words (`body`, WITHOUT the
    "Taily: " prefix, which system.js textBannerHtml adds). `owner` names the track that fires it ('A1' = state.js here; 'A2' support,
    'B1' verification fire theirs through the same state.js notify()).
@@ -142,6 +142,10 @@ export const TEXTS = {
     body: (c) => `We replied about your order with ${c.tf}. Read it:` },
   'case-decided': { to: 'customer', land: 'c-case', owner: 'A2', trigger: 'Taily support decides a case (DG-1)',
     body: (c) => `We looked into your order with ${c.tf} and made a decision. Details:` },
+  'help-replied': { to: 'customer', land: 'c-case', owner: 'A2', trigger: 'Taily support replies to (or closes) a Help message with no order attached (DG-1)',
+    body: () => 'We replied to your message. Read it:' },
+  'help-reply': { to: 'customer', land: 'c-help', owner: 'A2', trigger: 'She replies HELP to any Taily text (B-05: carriers require an answer)',
+    body: () => 'Need help? Message Taily here, or open a booking and tap Get help. Reply STOP to opt out:' },
 
   /* ---------------- to the tailor ---------------- */
   request: { to: 'tailor', land: 't-request', trigger: 'A new request (or the same request sent again)',
@@ -230,6 +234,16 @@ export const TEXTS = {
     body: (c) => `We need one more thing to verify you: ${c.x.check ?? 'your ID'}. Finish it here:` },
   'taily-replied-t': { to: 'tailor', land: 't-case', owner: 'A2', trigger: 'Taily support replies (DG-1)',
     body: (c) => `We replied about your job with ${c.cf}. Read it:` },
+  'help-replied-t': { to: 'tailor', land: 't-case', owner: 'A2', trigger: 'Taily support replies to (or closes) a Help message with no job attached (DG-1)',
+    body: () => 'We replied to your message. Read it:' },
+  'help-reply-t': { to: 'tailor', land: 't-help', owner: 'A2', trigger: 'She replies HELP to any Taily text (B-05: carriers require an answer)',
+    body: () => 'Need help? Message Taily here, or open a job and tap More, then Get help. Reply STOP to opt out:' },
+
+  /* ---------------- to the admin (K-48.1: support = the CEO, Kevin; "Taily admin: " prefix) ---------------- */
+  'admin-case': { to: 'admin', land: 'a-case', owner: 'A2', trigger: `A new Help case, a safety report or block, or any Taily review opens (A1’s reviews included; K-48.5: a visit nobody answered ${POLICY.VISIT_CHECK_ADMIN_H} hours after its start)`,
+    body: (c) => `New case${c.x.ref ? ` ${c.x.ref}` : ''}: ${c.x.why ?? 'a customer needs help'}. Open it:` },
+  'admin-message': { to: 'admin', land: 'a-case', owner: 'A2', trigger: `Someone writes on an open case (at most one text per case every ${POLICY.CHAT_TEXT_GAP_MIN} minutes while unread)`,
+    body: (c) => `${c.x.who ?? 'Someone'} wrote on case${c.x.ref ? ` ${c.x.ref}` : ''}. Reply:` },
 };
 
 /** The text events, in catalogue order: [id, row]. */

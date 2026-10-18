@@ -34,17 +34,20 @@ const SCREEN_MODULES = [
   'c-messages', 'c-account', 'c-addresses', 'c-cards', 'c-orders', 't-earnings', 't-payout', 't-messages',
   /* pre-MVP A1 · texts (D-02, DG-2) */
   'c-texts', 't-texts', 'sys-texts',
+  /* pre-MVP A2 · Taily Help, the admin (K-48.1, DG-1 B) */
+  'c-help', 't-help', 'c-case', 't-case', 'c-policy', 't-policy', 'a-inbox', 'a-case',
 ];
 
 /** Every screen id the router can load. A screen not yet imported is "known": render() loads it first. */
 const KNOWN = new Set(SCREEN_MODULES);
 
 /* Where Back at the root and the persona flip land; sys-index until those screens are registered. */
-const PERSONA_HOME = { customer: 'c-job', tailor: 't-home' };
+const PERSONA_HOME = { customer: 'c-job', tailor: 't-home', admin: 'a-inbox' };
 
-/* Persona comes from the id: c- customer, t- / to- tailor, sys- keeps the current one. */
+/* Persona comes from the id: c- customer, t- / to- tailor, a- admin (pre-MVP A2), sys- keeps the current one. */
 export function personaOfScreen(id) {
   if (id.startsWith('c-')) return 'customer';
+  if (id.startsWith('a-')) return 'admin';
   if (/^(t|to)-/.test(id)) return 'tailor';
   return null;
 }
@@ -78,6 +81,7 @@ export function personaHome(persona = state.persona) {
 const NAV_ROUTES = {
   customer: { home: 'c-job', bookings: 'c-bookings', messages: 'c-messages', account: 'c-account' },
   tailor: { home: 't-home', shop: 't-shop', earnings: 't-earnings', messages: 't-messages' },
+  admin: { inbox: 'a-inbox' },
 };
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */

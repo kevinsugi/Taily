@@ -31,7 +31,7 @@ let studyKey = null;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const TABS = [['customer', 'Customer'], ['tailor', 'Tailor'], ['system', 'System'], ['study', 'Study']];
+const TABS = [['customer', 'Customer'], ['tailor', 'Tailor'], ['admin', 'Admin'], ['system', 'System'], ['study', 'Study']];   // pre-MVP A2: the admin persona (K-48.1)
 /** Which tab an entry belongs to: its persona, or System for sys-* screens. */
 const personaTab = (f) => (f.screen.startsWith('sys-') ? 'system' : (f.persona ?? personaForScreen(f.screen) ?? 'customer'));
 /** An entry lists under its own tab; a sys-* key (hosted on a customer or tailor screen) ALSO lists under System (M6-X-09). */
@@ -39,7 +39,7 @@ const inTab = (f, which) => personaTab(f) === which || (which === 'system' && f.
 /** The tab to open on: System while a sys-* screen shows, else the persona's. */
 const currentTab = () => {
   const id = document.getElementById('screen')?.dataset.screen ?? '';
-  return id.startsWith('sys-') ? 'system' : state.persona === 'tailor' ? 'tailor' : 'customer';
+  return id.startsWith('sys-') ? 'system' : ['tailor', 'admin'].includes(state.persona) ? state.persona : 'customer';
 };
 
 /** Group order per tab (M6-X-09): a group's title is its registry `group` without the milestone prefix ("M3 · Tailor" → "Tailor").
@@ -47,6 +47,7 @@ const currentTab = () => {
 const GROUP_ORDER = {
   customer: ['Sign in', 'Booking', 'Request outcomes', 'Bookings', 'Final order', 'Ready', 'Completed', 'Messages', 'Account', 'System'],
   tailor: ['Sign-up', 'Tailor sign-up', 'Onboarding', 'Shop', 'Tailor', 'Tailor job', 'Job', 'Edit job', 'Earnings', 'Tailor messages', 'System'],
+  admin: ['Admin inbox', 'Admin case'],
   system: ['System'],
 };
 const groupName = (g) => String(g ?? '').replace(/^M\d+\s·\s/, '');
@@ -155,7 +156,10 @@ function panelHtml() {
     </div>
   </div>
   <div class="flow-menu__foot">
-    <button type="button" class="flow-menu__switch" id="persona-toggle">View as Tailor</button>
+    <div class="flow-menu__switches" role="group" aria-label="View as">
+      <button type="button" class="flow-menu__switch" id="persona-toggle">View as Tailor</button>
+      <button type="button" class="flow-menu__switch" id="persona-admin" aria-pressed="false">View as Admin</button>
+    </div>
     <span class="flow-menu__hint">Keeps the current state</span>
   </div>
 </div>`;
@@ -209,11 +213,13 @@ function paintTab(which) {
 }
 
 function paintLabels() {
-  const who = state.persona === 'tailor' ? 'Tailor' : 'Customer';
+  const who = state.persona === 'tailor' ? 'Tailor' : state.persona === 'admin' ? 'Admin' : 'Customer';
   const trigger = $('#flow-trigger');
   if (trigger) trigger.querySelector('[data-trigger-who]').textContent = who;
   const flip = $('#persona-toggle');
-  if (flip) flip.textContent = state.persona === 'tailor' ? 'View as Customer' : 'View as Tailor';
+  if (flip) flip.textContent = state.persona === 'tailor' ? 'View as Customer' : 'View as Tailor';   // from the admin: back to the tailor's side
+  const admin = $('#persona-admin');
+  if (admin) { admin.setAttribute('aria-pressed', String(state.persona === 'admin')); admin.textContent = state.persona === 'admin' ? 'Viewing as Admin' : 'View as Admin'; }
 }
 
 /** Open the panel. The Study tab sticks once chosen (a session on a phone returns to it); the others follow the screen. */
@@ -310,6 +316,12 @@ export function initFlowMenu(renderFn, { home } = {}) {
     const next = state.persona === 'tailor' ? 'customer' : 'tailor';
     state.persona = next;                      // sys-index (the fallback home) keeps the persona it is given
     render(homeFor(next), { fresh: true });
+  });
+  /* pre-MVP A2 (K-48.1): the admin (Kevin) — his inbox, same live state */
+  $('#persona-admin').addEventListener('click', () => {
+    close();
+    state.persona = 'admin';
+    render(homeFor('admin'), { fresh: true });
   });
   /* arrow keys walk the list; Escape closes; a click outside closes */
   $('#flow-menu').addEventListener('keydown', (e) => {

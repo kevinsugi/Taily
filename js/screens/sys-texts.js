@@ -1,7 +1,7 @@
 /* ============================================================
    sys-texts — the text catalogue board (pre-MVP A1, DG-2 A + D-02): every event's text as the person would get it, rendered with
    the app's own text banner and the appointment's deterministic link, with who gets it, what fires it and where its link lands.
-   js/texts.js is the one source (docs/v5/TEXTS.md is generated from it). Two tabs: to the customer / to the tailor. K-48.4: no quiet hours.
+   js/texts.js is the one source (docs/v5/TEXTS.md is generated from it). Three tabs: to the customer / the tailor / the admin (A2). K-48.4: no quiet hours.
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { state, now, nowIso, textLink, activeAppt, tailorById } from '../state.js';
@@ -11,7 +11,7 @@ import { textBannerHtml } from '../system.js';
 
 const ID = 'sys-texts';
 const ui = () => (state.ui[ID] ??= { who: 'customer' });
-const WHO = { customer: 'Sarah, the customer', tailor: 'Amara, the tailor' };
+const WHO = { customer: 'Sarah, the customer', tailor: 'Amara, the tailor', admin: 'Kevin, the admin' };   // pre-MVP A2: the admin's texts (K-48.1)
 
 /** The sample appointment the board is written against (the flow drives one), with the extra values a few texts need. */
 function context() {
@@ -29,16 +29,16 @@ function view() {
   const { a, ctx } = context();
   const rows = TEXT_EVENTS.filter(([, r]) => r.to === who);
   const items = rows.map(([id, r], i) => `<li class="${ID}__item" data-text-event="${esc(id)}">
-    <div class="text-banner-demo ${ID}__demo">${textBannerHtml({ body: r.body(ctx), link: textLink(a?.id ?? who, id), act: 'noop' })}</div>
+    <div class="text-banner-demo ${ID}__demo">${textBannerHtml({ body: r.body(ctx), link: textLink(a?.id ?? who, id), act: 'noop', to: who })}</div>
     <p class="t-small w-600 ${ID}__name"><span class="${ID}__num">${i + 1}.</span> ${esc(id)}${r.owner && r.owner !== 'A1' ? ` <span class="c-600 w-400">· fired by ${esc(r.owner)}</span>` : ''}</p>
     <p class="t-small c-600">When: ${esc(r.trigger)}</p>
     <p class="t-small c-600">Lands on: ${esc(r.land ?? 'the booking’s own screen (statusScreen)')}</p>
   </li>`).join('');
   return `${statusBar()}
-<main class="body ${ID}" data-s="${ID}${who === 'tailor' ? '--tailor' : ''}">
+<main class="body ${ID}" data-s="${ID}${who === 'customer' ? '' : `--${who}`}">
   ${headingRow('<h1 class="t-title">Text catalogue</h1>', { back: false })}
   <p class="t-body c-700 ${ID}__lead">Every notification is a text with its own link into the app. Texts go out as soon as the event happens, at any hour. A person whose texts are off sees the same news in the app.</p>
-  <div class="${ID}__tabs">${chipGroup({ name: 'texts-who', variant: 'segmented', options: [{ value: 'customer', label: 'To the customer' }, { value: 'tailor', label: 'To the tailor' }], value: who, label: 'Texts sent to' })}</div>
+  <div class="${ID}__tabs">${chipGroup({ name: 'texts-who', variant: 'segmented', options: [{ value: 'customer', label: 'Customer' }, { value: 'tailor', label: 'Tailor' }, { value: 'admin', label: 'Admin' }], value: who, label: 'Texts sent to' })}</div>
   <p class="t-caps c-600 ${ID}__count">${rows.length} texts to ${esc(WHO[who])}</p>
   <ol class="${ID}__list">${items}</ol>
 </main>`;

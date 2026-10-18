@@ -1,0 +1,14 @@
+/* a-case — one case for the admin (pre-MVP A2): order, actions, outcome, the conversation and the sticky reply composer. */
+.screen[data-screen="a-case"] { display: flex; flex-direction: column; }
+.a-case { flex: 1 0 auto; gap: 0; padding-bottom: var(--space-16); }
+.a-case__ref { margin: 0; }
+.a-case__close { margin-top: var(--space-12); }
+.a-case__side { margin-bottom: var(--space-12); }
+.a-case__thread { display: flex; flex-direction: column; }
+.a-case__nothing { margin: 0; }
+.a-case__preview { display: block; }
+.a-case__foot {
+  position: sticky; bottom: 0; z-index: var(--z-sticky); flex-shrink: 0; width: 100%; max-width: var(--column);
+  padding: var(--space-12) var(--space-20) calc(var(--space-20) + var(--safe-bottom)); background: var(--neutral-50);
+}
+.a-case__foot .read-only { display: flex; flex-direction: column; gap: var(--space-12); }

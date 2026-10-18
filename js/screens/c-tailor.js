@@ -5,7 +5,7 @@
    About, photos, Your estimate, reviews. Focal: Book now / the action bar's Pick a time (Ask a question is a link under it).
    ============================================================ */
 import { register, render as go, back, currentScreen, previousScreen } from '../app.js';
-import { state, T, tailorById, estimateNext, eligible, nextOpening, apptsFor, isVerified, milesToShop } from '../state.js';
+import { state, T, tailorById, estimateNext, eligible, nextOpening, apptsFor, isVerified, milesToShop, blockedBy } from '../state.js';
 import {
   chrome, flowBar, avatar, verifiedCheck, reviewRow, priceRow, metaRow, cta, navBackMark,
   sectionHead, textLink, infoButton, stitchDivider, ICON_CHAT,
@@ -35,6 +35,7 @@ function reasonNote(el, job) {
     zip: job.visitType === 'home' ? `Doesn’t visit ${job.zip}` : `No shop within 5 miles of ${job.zip}`,
     'shop-off': 'Doesn’t take shop visits',
     services: 'Doesn’t offer every service you picked',   // K-48.2 (D-354)
+    blocked: blockedBy(chosen().id) === 'customer' ? 'You blocked this tailor' : 'Not available for this request',   // S-32 (pre-MVP A2)
   }[el.reason] ?? 'Not available for this request';
 }
 

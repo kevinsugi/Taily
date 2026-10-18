@@ -65,9 +65,11 @@ function fresh() {
     payouts: [],                               // { apptId, cents, state: 'pending'|'paid'|'failed', date, kind }
     /* pre-MVP A1 (D-02): each person's texting choice — the customer's booking texts are their own opt-in (sign-in codes always go); the
        tailor's requests + job texts. A STOP reply turns them off (stoppedAt). The seed people opted in. */
-    texts: { customer: { on: true, stoppedAt: null, changedAt: null }, tailor: { on: true, stoppedAt: null, changedAt: null } },
+    texts: { customer: { on: true, stoppedAt: null, changedAt: null }, tailor: { on: true, stoppedAt: null, changedAt: null }, admin: { on: true, stoppedAt: null, changedAt: null } },   // A2: the admin (Kevin) gets every case by text (K-48.1)
     outbox: [],                                // every text Taily sent (or held back): { id, event, to, apptId, key, body, link, at, land, status: 'delivered'|'undelivered'|'off' }
-    admin: { notifications: [] },              // K-48.1 / K-48.5: what the admin (Kevin) is told — { id, kind, apptId, text, at, read } (the admin UI is track A2's)
+    admin: { notifications: [] },              // K-48.1 / K-48.5: what the admin (Kevin) is told — { id, kind, apptId, caseId, text, at, read } (a-inbox, A2)
+    cases: [],                                 // pre-MVP A2 (DG-1 B): Taily Help threads — see caseById / casesFor / adminInbox
+    blocks: [],                                // pre-MVP A2 (S-32): { by: 'customer'|'tailor', customerId, tailorId, at } — neither can book the other
     sim: freshSim(),
     ui: {},                                    // screen-local transient UI only; the model never reads it
   };
@@ -79,6 +81,8 @@ let apptSeq = 1000;
 let msgSeq = 0;
 let garmentSeq = 0;
 let textSeq = 0;
+let caseSeq = 0;
+let caseMsgSeq = 0;
 
 /** Restore every field to the seed. Keeps `sim.latency`. */
 export function reset() {
@@ -86,7 +90,7 @@ export function reset() {
   const f = fresh();
   for (const k of Object.keys(f)) state[k] = f[k];
   state.sim.latency = latency;
-  apptSeq = 1000; msgSeq = 0; garmentSeq = 0; textSeq = 0;
+  apptSeq = 1000; msgSeq = 0; garmentSeq = 0; textSeq = 0; caseSeq = 0; caseMsgSeq = 0;
   return state;
 }
 
@@ -157,7 +161,8 @@ function confirmedTimers(a) {
     moved = true;
   }
   visitTexts(a);
-  /* D-11 / K-48.5: nothing recorded VISIT_CHECK_H after the start → ask both; unanswered → the admin, then a cancel with a refund */
+  /* D-11 / K-48.5: nothing recorded VISIT_CHECK_H after the start → ask both; still unanswered VISIT_CHECK_ADMIN_H after the START (Kevin,
+     K-50) → the admin; VISIT_CHECK_CANCEL_H after asking → a cancel with a refund */
   const askAt = start + POLICY.VISIT_CHECK_H * HOUR_MS;
   if (t >= askAt && !a.visitCheck) {
     a.visitCheck = { askedAt: stampAt(askAt), answer: null, answeredAt: null, adminAt: null };
@@ -168,7 +173,7 @@ function confirmedTimers(a) {
   const vc = a.visitCheck;
   if (vc && !vc.answer) {
     const asked = msOf(vc.askedAt);
-    const adminAt = asked + POLICY.VISIT_CHECK_ADMIN_H * HOUR_MS;
+    const adminAt = start + POLICY.VISIT_CHECK_ADMIN_H * HOUR_MS;
     if (t >= adminAt && !vc.adminAt) {
       vc.adminAt = stampAt(adminAt);
       openTailyReview(a, 'visit-unanswered', { at: vc.adminAt });
@@ -203,7 +208,7 @@ function closeUnrecorded(a, at) {
   a.history[a.history.length - 1].at = at;
   a.payments.deposit.state = 'refunded';
   a.cancel = { by: 'system', reason: 'no-record', at, refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
-  if (a.tailyReview && !a.tailyReview.closedAt) Object.assign(a.tailyReview, { closedAt: at, outcome: 'cancelled-refunded' });
+  closeReview(a, 'cancelled-refunded', at);
   restoreDraftIfEmpty(a);
   post(a.tailorId, 'system', 'Nobody told us the visit happened, so we cancelled it. Your deposit is refunded.', { at, tailorText: 'Nobody told us the visit happened, so we cancelled it and refunded the deposit' });
   notify(a, 'visit-closed', { at });
@@ -407,6 +412,7 @@ export function threadsFor(reader = 'customer') {
 }
 /** Read-only after a decline, until the customer books this tailor again — and never while another job with her is still live (SF-01). */
 export function threadReadOnly(tailorId) {
+  if (isBlocked(tailorId)) return true;                                               // S-32 (A2): a block closes the chat both ways
   const mine = state.appts.filter((a) => a.tailorId === tailorId);
   const latest = mine[mine.length - 1];
   return !!latest && latest.status === 'declined' && !mine.some((a) => !TERMINAL.includes(a.status) && a.status !== 'expired');
@@ -928,6 +934,7 @@ export const coversJob = (tailor, job = state.job) => !linesFor(tailor, job.garm
 export function eligible(tailor, job = state.job) {
   const area = areaReason(tailor, job);
   if (area) return { ok: false, reason: area };
+  if (isBlocked(tailor.id)) return { ok: false, reason: 'blocked' };                  // S-32 (A2): either of them blocked the other
   if (!coversJob(tailor, job)) return { ok: false, reason: 'services' };
   if ((job.hiddenTailors ?? []).includes(tailor.id)) return { ok: false, reason: 'hidden' };
   if ((job.declinedBy ?? []).includes(tailor.id)) return { ok: false, reason: 'declined' };
@@ -951,7 +958,7 @@ export function tailorsFor(job = state.job) {
   if (!inArea.length) return { rows: [], empty: area === 'shop-off' ? 'shop' : 'zip' };
   const capable = inArea.filter((t) => coversJob(t, job));      // K-48.2 (D-354): never a tailor who can't do every item
   if (!capable.length) return { rows: [], empty: 'services' };
-  const shown = capable.filter((t) => !(job.hiddenTailors ?? []).includes(t.id));
+  const shown = capable.filter((t) => !(job.hiddenTailors ?? []).includes(t.id) && !isBlocked(t.id));   // S-32 (A2): a block hides her
   if (!shown.length) return { rows: [], empty: 'none-left' };
   const rows = [];
   for (const t of shown) {
@@ -1086,6 +1093,7 @@ export function tailorSuggest(id, slotStart) {
 export function acceptSuggestion(id) {
   const a = must(id);
   if (a.status !== 'suggested') return fail('not-suggested');
+  if (isBlocked(a.tailorId)) return fail('blocked');                                 // S-32 (A2)
   if (state.clock.now >= suggestLapseAt(a)) return fail('slot-passed');   // D-154
   if (state.sim.network === 'offline') return fail('offline');                // S-12: the deposit is captured here
   a.slot = { start: a.suggested.start, end: slotEnd(a.suggested.start, a.job.visitType) };
@@ -1159,6 +1167,7 @@ export function expireRequest(id) {
 export function tryAgain(id) {
   const a = must(id);
   if (a.status !== 'expired') return fail('not-expired');
+  if (isBlocked(a.tailorId)) return fail('blocked');                                 // S-32 (A2)
   if (a.retries >= POLICY.MAX_RETRIES) return fail('no-retries');
   if (toDate(a.slot.start).getTime() <= state.clock.now) return fail('slot-passed');
   if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(a.slot.start)) return fail('slot-unavailable');   // someone else may have taken it since
@@ -1259,7 +1268,7 @@ export function startFitting(id) {
   if (a.status !== 'confirmed') return fail('not-confirmed');
   if (state.clock.now < toDate(a.slot.start).getTime()) return fail('too-early');
   setStatus(a, 'fitting');
-  if (a.tailyReview && !a.tailyReview.closedAt && a.tailyReview.reason === 'visit-unanswered') Object.assign(a.tailyReview, { closedAt: nowIso(), outcome: 'fitting-started' });
+  if (a.tailyReview && !a.tailyReview.closedAt && a.tailyReview.reason === 'visit-unanswered') closeReview(a, 'fitting-started');
   return succeed(a);
 }
 
@@ -1551,7 +1560,7 @@ export function approvePriceChange(id) {
   a.job.garments = garmentsFromLines(a);
   setStatus(a, 'in-progress');
   say(a, 'You approved the order', `${state.customer.first} approved the order`);
-  if (a.tailyReview && !a.tailyReview.closedAt && a.tailyReview.reason === 'final-order-unanswered') Object.assign(a.tailyReview, { closedAt: nowIso(), outcome: 'approved' });
+  if (a.tailyReview && !a.tailyReview.closedAt && a.tailyReview.reason === 'final-order-unanswered') closeReview(a, 'approved');
   notify(a, 'final-approved');
   return succeed(a);
 }
@@ -2278,7 +2287,7 @@ export function notify(a, event, { at = nowIso(), x = {} } = {}) {
   const body = def.body(textCtx({ a, t, cust: state.customer, now: toDate(at).getTime(), x }));
   const key = a?.id ?? to;
   const n = state.outbox.filter((m) => m.key === key && m.event === event).length;
-  const entry = { id: `x${++textSeq}`, seq: textSeq, event, to, apptId: a?.id ?? null, key, body, link: textLink(key, n ? `${event}:${n}` : event), at, land: def.land ?? null, status };
+  const entry = { id: `x${++textSeq}`, seq: textSeq, event, to, apptId: a?.id ?? null, caseId: x.caseId ?? null, key, body, link: textLink(key, n ? `${event}:${n}` : event), at, land: def.land ?? null, status };
   state.outbox.push(entry);
   return entry;
 }
@@ -2302,7 +2311,7 @@ export function textReply(who, word) {
   if (!p) return fail('unknown-person');
   if (w === 'STOP') { Object.assign(p, { on: false, stoppedAt: nowIso(), changedAt: nowIso() }); return { ok: true, prefs: p }; }
   if (w === 'START') return p.on ? { ok: true, prefs: p } : setTexts(who, true);
-  if (w === 'HELP') return { ok: true, prefs: p, help: true };
+  if (w === 'HELP') return { ok: true, prefs: p, help: true, text: notify(null, who === 'tailor' ? 'help-reply-t' : 'help-reply') };   // B-05 (A2): HELP points at Taily Help
   return fail('unknown-reply');
 }
 
@@ -2317,21 +2326,38 @@ const REVIEW_WHY = {
   'delivery-missing': (a) => 'A courier delivery didn’t reach the customer',
   'ready-no-way-back': (a) => `Ready ${POLICY.READY_DEFAULT_D} days, no in-store pickup to default to`,
 };
-/** Tell the admin. Kinds: 'review' (a case opened) · 'visit-unanswered' (K-48.5). */
-function adminNotify(kind, a, text, at = nowIso()) {
-  const n = { id: `n${state.admin.notifications.length + 1}`, kind, apptId: a?.id ?? null, text, at, read: false };
+/** Tell the admin (K-48.1: support = the CEO). Kinds: 'review' (an A1 review opened) · 'case' (a Help case) · 'safety' (a report or a block) ·
+    'message' (someone wrote on an open case). Every one is also a text to the admin ('admin-case' / 'admin-message', js/texts.js). */
+function adminNotify(kind, a, text, at = nowIso(), { caseId = null } = {}) {
+  const n = { id: `n${state.admin.notifications.length + 1}`, kind, apptId: a?.id ?? null, caseId, text, at, read: false };
   state.admin.notifications.push(n);
   return n;
 }
 /** Open a Taily review on an appointment (one open case at a time) and notify the admin. Stored on `a.tailyReview` — `a.review` is the
-    customer's star review. `{ reason, openedAt, by, note, closedAt }`. */
+    customer's star review. `{ reason, openedAt, by, note, closedAt }`. A2: the review runs as a Help case (reviewCase) both people see. */
 function openTailyReview(a, reason, { by = 'system', at = nowIso(), note = '' } = {}) {
   if (a.tailyReview && !a.tailyReview.closedAt) return a.tailyReview;
   a.tailyReview = { reason, openedAt: at, by, note, closedAt: null };
-  const who = `${state.customer.first} ${state.customer.last ?? ''}`.trim();
-  adminNotify('review', a, `${REVIEW_WHY[reason]?.(a) ?? reason} · ${who} with ${tailorById(a.tailorId)?.name ?? 'the tailor'}`, at);
+  const c = reviewCase(a, reason, { by, at });
+  const why = `${REVIEW_WHY[reason]?.(a) ?? reason} · ${customerFull()} with ${tailorById(a.tailorId)?.name ?? 'the tailor'}`;
+  adminNotify('review', a, why, at, { caseId: c.id });
+  notify(a, 'admin-case', { at, x: { why, ref: c.ref, caseId: c.id } });
   return a.tailyReview;
 }
+/** Close the appointment's Taily review (A1's own ends — approved, fitting started, the 24 h cancel — and A2's decisions); its open Help case
+    closes with it (a system line says why). */
+function closeReview(a, outcome, at = nowIso()) {
+  const r = a.tailyReview;
+  if (!r || r.closedAt) return;
+  Object.assign(r, { closedAt: at, outcome });
+  const c = openCaseOfAppt(a.id);
+  if (c && c.kind === 'review') {
+    const line = REVIEW_ENDED[outcome];
+    if (line) for (const side of c.sides) caseLine(c, side, line(a, side), { at });
+    Object.assign(c, { state: 'closed', closedAt: at, outcome: { key: outcome, at, lines: {} } });
+  }
+}
+const customerFull = () => `${state.customer.first} ${state.customer.last ?? ''}`.trim();
 /** Every case waiting on Taily, oldest first: `[{ apptId, appt, reason, openedAt, by, note }]` (track A2 surfaces these). */
 export function openReviews() {
   return state.appts.filter((a) => a.tailyReview && !a.tailyReview.closedAt)
@@ -2340,6 +2366,571 @@ export function openReviews() {
 }
 /** The open Taily review on this appointment, or null. */
 export const tailyReviewOf = (a) => (a?.tailyReview && !a.tailyReview.closedAt ? a.tailyReview : null);
+
+/* ============================================================
+   pre-MVP A2 (K-48.1, K-49 DG-1 option B, D-14, S-32, D-21): Taily Help.
+   A case is a thread with Taily ("Taily Help"), attached to an order (or to nothing: a general question). Each person has their own
+   side of it (`side`: what Sarah reads / what Amara reads — never the other's words); the admin (Kevin, K-48.1: support = the CEO) reads
+   both and answers either. Every new case and every A1 review (openTailyReview) notifies the admin and texts him. The admin's money
+   actions are pure transitions on the case's order; closing a case posts the decision, in dollars, to each side and texts them
+   (`case-decided` / `taily-replied-t`, or `help-replied(-t)` for a case with no order) and closes the order's `tailyReview`.
+   Shape: `{ id, ref, apptId, kind: 'help'|'review'|'safety', opener, topic, reason, sides, openedAt, state: 'open'|'closed', closedAt,
+   outcome: { key, at, lines }, messages: [{ id, side, from: 'customer'|'tailor'|'taily'|'system', text, photos, masked, at, kind? }],
+   read: { customer, tailor, admin }, actions: [{ kind, cents, at }], safety }`.
+   ============================================================ */
+export const HELP_TOPICS = ['no-show', 'not-received', 'final-order', 'after-completion', 'charge', 'damage', 'safety', 'other'];
+const caseNum = (m) => Number(String(m?.id ?? '').slice(1)) || 0;
+const lastNum = (c) => caseNum(c.messages[c.messages.length - 1]);
+const isoPlusH = (iso, h) => isoMinute(new Date(toDate(iso).getTime() + h * HOUR_MS));
+
+/** The words a topic chip says, for this person on this order. */
+export function topicLabel(topic, who = 'customer', a = null) {
+  const tf = firstName(tailorById(a?.tailorId) ?? state.tailors[0]);
+  const cf = state.customer.first;
+  const home = a?.job?.visitType !== 'shop';
+  const mine = who === 'tailor';
+  switch (topic) {
+    case 'no-show':
+      if (mine) return a?.cancel?.reason === 'tailor-no-show' ? `I was there, ${cf} wasn’t` : `${cf} wasn’t ${home ? 'home' : 'there'}`;
+      return a?.cancel?.reason === 'no-show' ? 'I was there' : `${tf} didn’t come`;
+    case 'not-received': return mine ? `${cf} says she didn’t get it` : 'I didn’t get my order';
+    case 'final-order': return 'My final order is stuck';
+    case 'after-completion': return mine ? 'A problem after the job' : 'Something isn’t right';
+    case 'charge': return mine ? 'My payout' : 'A charge or refund';
+    case 'damage': return 'A garment was damaged or lost';
+    case 'safety': return 'I don’t feel safe';
+    default: return 'Something else';
+  }
+}
+/** The topics that fit this order's state for `who` (DG-1: the topic chips) — state-specific ones first. No order: the general ones. */
+export function helpTopics(a, who = 'customer') {
+  if (!a) return who === 'tailor' ? ['charge', 'safety', 'other'] : ['charge', 'damage', 'safety', 'other'];
+  const list = [];
+  const started = state.clock.now >= toDate(a.slot.start).getTime();
+  if ((a.status === 'confirmed' && started) || (a.status === 'cancelled' && ['no-show', 'tailor-no-show', 'no-record'].includes(a.cancel?.reason))) list.push('no-show');
+  if (a.status === 'awaiting-handoff' && (a.handoff?.markedAt || a.handoff?.problemAt || confirmReceivedOpen(a))) list.push('not-received');
+  else if (deliveryReportOpen(a) || a.handoff?.missingAt) list.push('not-received');
+  if (a.status === 'price-change' || (a.status === 'in-progress' && a.edit?.state === 'pending')) list.push('final-order');
+  if (a.status === 'completed') list.push('after-completion');
+  list.push('charge');
+  if (['fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff', 'completed'].includes(a.status)) list.push('damage');
+  list.push('safety', 'other');
+  return list;
+}
+/** What the admin calls a case (a-inbox / a-case). */
+const ADMIN_TOPIC = {
+  'no-show': 'No-show', 'not-received': 'Didn’t get the order', 'final-order': 'Final order stuck', 'after-completion': 'Problem after completion',
+  charge: 'Charge or payout question', damage: 'Garment damaged or lost', safety: 'Safety', other: 'Something else',
+};
+const REVIEW_TITLE = {
+  'final-order-unanswered': 'Final order unanswered', 'problem-open': 'Handoff problem open', 'visit-unanswered': 'Visit not recorded',
+  'visit-disputed': 'Visit disputed', 'no-show-disputed': 'No-show disputed', 'tailor-no-show-disputed': 'Tailor no-show disputed',
+  'delivery-missing': 'Delivery missing', 'ready-no-way-back': 'Ready, no way back',
+};
+/** The case's title for the admin: the review, the safety report, or the Help topic. */
+export function caseTitle(c) {
+  if (!c) return '';
+  if (c.kind === 'safety') return c.safety?.block ? 'Safety · blocked' : 'Safety report';
+  if (c.kind === 'review') return REVIEW_TITLE[c.reason] ?? 'Taily review';
+  return c.topic ? ADMIN_TOPIC[c.topic] : 'Message to Taily';
+}
+
+export const caseById = (id) => state.cases.find((c) => c.id === id) ?? null;
+/** The order's one open case (a report / block is its own safety case and never counts). */
+export const openCaseOfAppt = (apptId) => state.cases.find((c) => c.apptId === apptId && c.state === 'open' && c.kind !== 'safety') ?? null;
+/** The case a person sees on this order: the open one they are part of, else their latest closed one, else null. */
+export function caseOfAppt(apptId, who) {
+  const mine = state.cases.filter((c) => c.apptId === apptId && c.kind !== 'safety' && c.sides.includes(who));
+  return mine.find((c) => c.state === 'open') ?? mine[mine.length - 1] ?? null;
+}
+/** A person's cases (Help home): open first, then the newest activity first. */
+export function casesFor(who) {
+  const at = (c) => c.messages[c.messages.length - 1]?.at ?? c.openedAt;
+  return state.cases.filter((c) => c.sides.includes(who))
+    .sort((x, y) => (x.state === y.state ? (at(x) < at(y) ? 1 : at(x) > at(y) ? -1 : caseNum(y) - caseNum(x)) : x.state === 'open' ? -1 : 1));
+}
+/** Messages of one side (a person reads only theirs; the admin passes the side it is looking at). */
+export const caseMessages = (c, side) => (c?.messages ?? []).filter((m) => m.side === side);
+/** Unread for `reader`: a person's side, Taily's words; the admin: anything a person wrote. */
+export function caseUnread(c, reader) {
+  if (!c) return 0;
+  const seen = c.read?.[reader] ?? 0;
+  if (reader === 'admin') return c.messages.filter((m) => (m.from === 'customer' || m.from === 'tailor') && caseNum(m) > seen).length;
+  return c.messages.filter((m) => m.side === reader && m.from === 'taily' && caseNum(m) > seen).length;
+}
+/** When Taily owes a reply on this side (or any side, `side` null) — HELP_REPLY_H after the first message nobody from Taily answered yet (or
+    after the case opened, before anyone wrote). null when Taily spoke last there, or the case is closed. */
+export function caseReplyBy(c, side = null) {
+  if (!c || c.state !== 'open') return null;
+  const sides = side ? [side] : c.sides;
+  let first = null;
+  for (const s of sides) {
+    const real = c.messages.filter((m) => m.side === s && m.from !== 'system' && m.kind !== 'ack');
+    const lastTaily = real.map((m) => m.from).lastIndexOf('taily');
+    const owed = real.slice(lastTaily + 1).find((m) => m.from === 'customer' || m.from === 'tailor')?.at ?? (lastTaily < 0 && !real.length ? c.openedAt : null);
+    if (owed && (!first || owed < first)) first = owed;
+  }
+  if (!first && c.kind === 'review' && !c.messages.some((m) => m.from === 'taily' && m.kind !== 'ack' && m.kind !== 'opening')) first = c.openedAt;
+  return first ? isoPlusH(first, POLICY.HELP_REPLY_H) : null;
+}
+/** One screen-ready read of a case for a person or the admin. */
+export function caseView(c, reader) {
+  if (!c) return null;
+  const replyBy = caseReplyBy(c, reader === 'admin' ? null : reader);
+  const open = c.state === 'open';
+  return {
+    c, ref: c.ref, open, title: caseTitle(c), replyBy, overdue: !!replyBy && toDate(replyBy).getTime() < state.clock.now,
+    waiting: !open ? null : replyBy ? 'taily' : 'you',
+    decision: c.outcome?.lines?.[reader] ?? null, closedAt: c.closedAt, unread: caseUnread(c, reader),
+    appt: c.apptId ? getAppt(c.apptId) : null,
+  };
+}
+
+function newCase({ apptId = null, kind = 'help', opener, topic = null, reason = null, sides = [], at = nowIso() }) {
+  const n = ++caseSeq;
+  const c = {
+    id: `case${n}`, ref: `TY-${4820 + n}`, apptId, kind, opener, topic, reason, sides: [...sides], openedAt: at, state: 'open', closedAt: null, outcome: null,
+    messages: [], read: { customer: 0, tailor: 0, admin: 0 }, actions: [], safety: null, adminTextAt: null,
+  };
+  state.cases.push(c);
+  return c;
+}
+/** A line on one side of a case. `from` 'taily' (default) | 'customer' | 'tailor' | 'system'; `kind` 'ack' (the automatic answer) | 'opening'
+    (Taily's first words on a review) | 'decision'. */
+function caseLine(c, side, text, { from = 'taily', at = nowIso(), photos = 0, masked = false, kind = '' } = {}) {
+  if (!c.sides.includes(side)) c.sides.push(side);
+  const m = { id: `k${++caseMsgSeq}`, side, from, text, photos, masked, at, ...(kind ? { kind } : {}) };
+  c.messages.push(m);
+  return m;
+}
+const whoName = (who) => (who === 'tailor' ? firstName(state.tailors[0]) : state.customer.first);
+/** The automatic answer to a new message (the CEO answers himself; this only says when). */
+function ackText(c, who) {
+  const by = fmtWhen(caseReplyBy(c, who) ?? isoPlusH(nowIso(), POLICY.HELP_REPLY_H));
+  if (c.topic === 'safety' || c.kind === 'safety') return `If you’re in danger, call 911 first. Thanks for telling us, ${whoName(who)}. We read every safety report and reply by ${by}.`;
+  return `Thanks, ${whoName(who)}. Taily has your message and replies by ${by}. Add details or photos here.`;
+}
+/** Tell the admin about a new case (a notification + a text, K-48.1). */
+function caseToAdmin(c, a, kind, at = nowIso()) {
+  const who = c.opener === 'tailor' ? state.tailors[0].name : customerFull();
+  const why = `${caseTitle(c)} · from ${who}${a ? ` · order ${a.id}` : ''}`;
+  adminNotify(kind, a, why, at, { caseId: c.id });
+  notify(a, 'admin-case', { at, x: { why, ref: c.ref, caseId: c.id } });
+  c.adminTextAt = at;
+}
+/** Someone wrote on an open case: the admin is told — at most once per case every CHAT_TEXT_GAP_MIN while he hasn't read it. */
+function caseMessageToAdmin(c, who) {
+  const unreadBefore = caseUnread(c, 'admin') > 1;
+  const gapOk = !c.adminTextAt || state.clock.now - toDate(c.adminTextAt).getTime() >= POLICY.CHAT_TEXT_GAP_MIN * MIN_MS;
+  if (unreadBefore && !gapOk) return;
+  const a = c.apptId ? getAppt(c.apptId) : null;
+  adminNotify('message', a, `${who === 'tailor' ? state.tailors[0].name : customerFull()} wrote on ${c.ref} · ${caseTitle(c)}`, nowIso(), { caseId: c.id });
+  notify(a, 'admin-message', { x: { who: whoName(who), ref: c.ref, caseId: c.id } });
+  c.adminTextAt = nowIso();
+}
+
+/** A person opens Help (DG-1 B: the Get help person button, the tailor's ⋯ menu, Help home): a topic chip (sent as their first words) and / or
+    a message. Reuses the order's open case (one per order; the other person joins it on their own side) or their open general case.
+    Errors: unknown-person · topic · empty · too-many-photos · offline. */
+export function openCase({ who, apptId = null, topic = null, text = '', photos = 0 } = {}) {
+  if (!['customer', 'tailor'].includes(who)) return fail('unknown-person');
+  const a = apptId ? must(apptId) : null;
+  if (topic && !HELP_TOPICS.includes(topic)) return fail('topic');
+  const raw = String(text ?? '').trim();
+  const count = Array.isArray(photos) ? photos.length : photos;
+  if (!topic && !raw && !count) return fail('empty');
+  if (count > CHAT_LIMITS.PHOTOS_MAX) return fail('too-many-photos');
+  if (state.sim.network === 'offline') return fail('offline');
+  let c = a ? openCaseOfAppt(a.id) : state.cases.find((x) => !x.apptId && x.state === 'open' && x.opener === who && x.kind === 'help');
+  const fresh = !c;
+  if (!c) c = newCase({ apptId: a?.id ?? null, kind: 'help', opener: who, topic, sides: [who] });
+  else if (!c.sides.includes(who)) c.sides.push(who);
+  if (topic && !c.topic) c.topic = topic;
+  const joined = !fresh && !c.messages.some((m) => m.side === who && (m.from === who));
+  if (topic) caseLine(c, who, topicLabel(topic, who, a), { from: who });
+  const m = maskContact(raw);
+  if (m.text || count) caseLine(c, who, m.text, { from: who, photos: count, masked: m.masked });
+  if (fresh || joined) caseLine(c, who, ackText(c, who), { kind: 'ack' });
+  c.read[who] = lastNum(c);
+  if (fresh) caseToAdmin(c, a, 'case'); else caseMessageToAdmin(c, who);
+  return { ok: true, case: c, fresh, masked: m.masked };
+}
+/** A person writes on their side of a case (masked like every thread). Errors: unknown-case · closed · not-a-party · empty · too-many-photos ·
+    offline · send-failed (sim.send, one-shot). */
+export function sendCaseMessage(caseId, who, { text = '', photos = 0 } = {}) {
+  const c = caseById(caseId);
+  if (!c) return fail('unknown-case');
+  if (c.state !== 'open') return fail('closed');
+  if (!c.sides.includes(who)) return fail('not-a-party');
+  const count = Array.isArray(photos) ? photos.length : photos;
+  if (!String(text).trim() && !count) return fail('empty');
+  if (count > CHAT_LIMITS.PHOTOS_MAX) return fail('too-many-photos');
+  if (state.sim.network === 'offline') return fail('offline');
+  if (state.sim.send === 'fail') { state.sim.send = 'ok'; return fail('send-failed'); }
+  const m = maskContact(text);
+  const message = caseLine(c, who, m.text, { from: who, photos: count, masked: m.masked });
+  c.read[who] = caseNum(message);
+  caseMessageToAdmin(c, who);
+  return { ok: true, case: c, message, masked: m.masked };
+}
+/** Everything on the reader's side is read ('customer' | 'tailor' | 'admin' — the admin also clears the case's notifications). */
+export function markCaseRead(caseId, reader) {
+  const c = caseById(caseId);
+  if (!c) return fail('unknown-case');
+  c.read[reader] = lastNum(c);
+  if (reader === 'admin') for (const n of state.admin.notifications) if (n.caseId === c.id) n.read = true;
+  return { ok: true, case: c };
+}
+
+/* ---- A1 reviews run as cases: Taily's first words to each side (the dollar amounts from the order) ---- */
+const REVIEW_SAY = {
+  'final-order-unanswered': (a, side, by) => (side === 'customer'
+    ? `Your final order from ${firstName(tailorById(a.tailorId))} has waited ${POLICY.FINAL_ORDER_REVIEW_D} days. Approve it on your booking, or tell us here what’s holding it up. We’ll help you both by ${by}.`
+    : `${state.customer.first} hasn’t approved your final order in ${POLICY.FINAL_ORDER_REVIEW_D} days, so we’re helping you both. Tell us anything we should know. We reply by ${by}.`),
+  'problem-open': (a, side, by) => (side === 'customer'
+    ? `You told us you didn’t get your order, and it’s still open. We’re looking into it with ${firstName(tailorById(a.tailorId))}. Tell us what happened by ${by}; photos help.`
+    : `${state.customer.first} says she didn’t get her order, and it’s still open. Tell us when you handed it over by ${by}; a photo helps. Your payout waits until it’s sorted.`),
+  'visit-unanswered': (a, side, by) => (side === 'customer'
+    ? `Did your ${fmtWhen(a.slot.start)} visit with ${firstName(tailorById(a.tailorId))} happen? Answer on your booking, or tell us here by ${by}.`
+    : `Did your ${fmtWhen(a.slot.start)} visit with ${state.customer.first} happen? Start the fitting if it did, or tell us here by ${by}.`),
+  'visit-disputed': (a, side, by) => (side === 'customer'
+    ? `You told us the visit didn’t happen, and ${firstName(tailorById(a.tailorId))} tapped I’m here at ${fmtTime(a.visitDay?.tailor?.hereAt ?? a.slot.start)}. We’re asking you both and decide by ${by}.`
+    : `${state.customer.first} says the visit didn’t happen. You tapped I’m here at ${fmtTime(a.visitDay?.tailor?.hereAt ?? a.slot.start)}. Tell us what happened by ${by}.`),
+  'no-show-disputed': (a, side, by) => (side === 'customer'
+    ? `You told us you were there. ${firstName(tailorById(a.tailorId))} marked a no-show at ${fmtTime(a.cancel?.at ?? a.slot.start)}. Your ${fmtExact(a.payments.deposit.cents)} deposit stays on hold until we decide, by ${by}.`
+    : `${state.customer.first} says she was there at ${fmtTime(a.slot.start)}. Your ${fmtExact(state.payouts.find((p) => p.apptId === a.id && p.kind === 'no-show')?.cents ?? noShowPayout(a.payments.deposit.cents))} no-show pay is on hold while we look. Tell us what happened by ${by}; the time you arrived or a photo of the door helps.`),
+  'tailor-no-show-disputed': (a, side, by) => (side === 'customer'
+    ? `${firstName(tailorById(a.tailorId))} says she came to your ${fmtTime(a.slot.start)} visit. Your ${fmtExact(a.payments.deposit.cents)} refund stands while we look. Tell us what happened by ${by}.`
+    : `You told us you came. ${state.customer.first} reported you didn’t show up. Tell us what happened by ${by}; the time you arrived or a photo helps.`),
+  'delivery-missing': (a, side, by) => (side === 'customer'
+    ? `You told us the courier delivery didn’t reach you. We’re checking the courier’s photo and reply by ${by}.`
+    : `${state.customer.first} says the courier delivery didn’t reach her. We’re checking with the courier and reply by ${by}. Nothing for you to do yet.`),
+  'ready-no-way-back': (a, side, by) => (side === 'customer'
+    ? `Your order has been ready for ${POLICY.READY_DEFAULT_D} days. Pick how to get it back on your booking, or tell us here what’s going on.`
+    : `${state.customer.first} hasn’t picked a way back in ${POLICY.READY_DEFAULT_D} days, and you don’t offer in-store pickup. We’re contacting her and reply by ${by}.`),
+};
+/** How a review that ended on its own reads in the case (A1's ends). */
+const REVIEW_ENDED = {
+  approved: (a, side) => (side === 'customer' ? 'You approved the final order, so we closed this.' : `${state.customer.first} approved the final order, so we closed this.`),
+  'fitting-started': () => 'The fitting started, so we closed this.',
+  'cancelled-refunded': (a, side) => (side === 'customer' ? `Nobody told us the visit happened, so we cancelled it and refunded your ${fmtExact(a.payments.deposit.cents)} deposit.` : 'Nobody told us the visit happened, so we cancelled it. Nothing is paid out.'),
+};
+/** An A1 review opens (or joins) the order's case: both sides, Taily's first words to each. */
+function reviewCase(a, reason, { by = 'system', at = nowIso() } = {}) {
+  let c = openCaseOfAppt(a.id);
+  if (!c) c = newCase({ apptId: a.id, kind: 'review', opener: by, reason, sides: ['customer', 'tailor'], at });
+  else Object.assign(c, { kind: 'review', reason });
+  const due = fmtWhen(isoPlusH(at, POLICY.HELP_REPLY_H));
+  for (const side of ['customer', 'tailor']) caseLine(c, side, REVIEW_SAY[reason]?.(a, side, due) ?? 'Taily is looking into this order.', { at, kind: 'opening' });
+  return c;
+}
+
+/* ---- the admin's actions (K-48.1 / D-01): each one a pure transition on the case's order ---- */
+function adminCase(caseId, { order = true } = {}) {
+  const c = caseById(caseId);
+  if (!c) return fail('unknown-case');
+  if (c.state !== 'open') return fail('closed');
+  const a = c.apptId ? getAppt(c.apptId) : null;
+  if (order && !a) return fail('no-order');
+  return { ok: true, c, a };
+}
+const record = (c, kind, cents = 0, extra = {}) => { c.actions.push({ kind, cents, at: nowIso(), ...extra }); };
+/** Unpaid payouts of these kinds for the order are dropped (nothing goes out); returns their total. */
+function dropPayouts(a, kinds) {
+  let total = 0;
+  state.payouts = state.payouts.filter((p) => {
+    const drop = p.apptId === a.id && p.state === 'pending' && kinds.includes(p.kind);
+    if (drop) total += p.cents;
+    return !drop;
+  });
+  return total;
+}
+/** Admin: reply to one person on the case (Taily's words are not masked). Texts them (`taily-replied` / `taily-replied-t`, or `help-replied(-t)`
+    with no order). Errors: unknown-case · closed · side · not-a-party · empty. */
+export function adminReply(caseId, side, { text = '', photos = 0 } = {}) {
+  const g = adminCase(caseId, { order: false });
+  if (!g.ok) return g;
+  const { c, a } = g;
+  if (!['customer', 'tailor'].includes(side)) return fail('side');
+  if (!c.sides.includes(side) && !a) return fail('not-a-party');
+  const count = Array.isArray(photos) ? photos.length : photos;
+  if (!String(text).trim() && !count) return fail('empty');
+  const message = caseLine(c, side, String(text).trim(), { photos: count });
+  c.read.admin = lastNum(c);
+  notify(a, side === 'tailor' ? (a ? 'taily-replied-t' : 'help-replied-t') : (a ? 'taily-replied' : 'help-replied'), { x: { caseId: c.id } });
+  return { ok: true, case: c, message };
+}
+/** Admin: refund the deposit (a no-show Taily decides for the customer, a late cancel forgiven, a goodwill refund after completion). Unpaid
+    no-show / kept-deposit payouts for it are dropped. Errors: deposit-<state> (not captured or kept) · order-open (cancel the order instead). */
+export function adminRefundDeposit(caseId) {
+  const g = adminCase(caseId); if (!g.ok) return g;
+  const { c, a } = g;
+  const d = a.payments.deposit;
+  if (!['captured', 'kept'].includes(d.state)) return fail(`deposit-${d.state}`);
+  if (!['cancelled', 'completed'].includes(a.status)) return fail('order-open');
+  Object.assign(d, { state: 'refunded', refundedAt: nowIso(), refundedBy: 'taily' });
+  const dropped = dropPayouts(a, ['no-show', 'kept-deposit']);
+  if (a.cancel) Object.assign(a.cancel, { refund: d.cents, kept: 0, tailorPaid: 0, decided: 'refunded', decidedAt: nowIso() });
+  record(c, 'refund-deposit', d.cents, { dropped });
+  say(a, `Taily refunded your ${fmtExact(d.cents)} deposit`, `Taily refunded ${state.customer.first}’s ${fmtExact(d.cents)} deposit`);
+  return { ok: true, case: c, appt: a };
+}
+/** Admin: the tailor keeps the deposit — a disputed no-show decided for her: her held no-show pay goes out on its Friday. Errors: deposit-refunded ·
+    not-kept. */
+export function adminKeepDeposit(caseId) {
+  const g = adminCase(caseId); if (!g.ok) return g;
+  const { c, a } = g;
+  const d = a.payments.deposit;
+  if (d.state !== 'kept') return fail(d.state === 'refunded' ? 'deposit-refunded' : 'not-kept');
+  let released = 0;
+  for (const p of state.payouts) if (p.apptId === a.id && p.state === 'pending' && p.held) { p.held = false; p.pausedBy = null; released += p.cents; }
+  if (a.cancel) Object.assign(a.cancel, { decided: 'kept', decidedAt: nowIso() });
+  record(c, 'keep-deposit', d.cents, { released });
+  say(a, `Taily decided ${firstName(tailorById(a.tailorId))} keeps your ${fmtExact(d.cents)} deposit`, `Taily decided you keep ${state.customer.first}’s ${fmtExact(d.cents)} deposit`);
+  return { ok: true, case: c, appt: a };
+}
+/** Admin: release the held balance — the customer isn't charged (she never got it, it was lost); the order closes, cancelled by Taily, with
+    no job payout. The deposit is untouched (refund it as its own decision). Errors: no-hold. */
+export function adminReleaseHold(caseId) {
+  const g = adminCase(caseId); if (!g.ok) return g;
+  const { c, a } = g;
+  const b = a.payments.balance;
+  if (a.status !== 'awaiting-handoff' || b?.state !== 'held') return fail('no-hold');
+  Object.assign(b, { state: 'released', releasedAt: nowIso(), releasedBy: 'taily' });
+  setStatus(a, 'cancelled');
+  a.cancel = { by: 'taily', reason: 'taily', at: nowIso(), refund: 0, kept: 0, tailorPaid: 0, released: b.cents };
+  record(c, 'release-hold', b.cents);
+  say(a, `Taily released the ${fmtExact(b.cents)} hold. You weren’t charged.`, `Taily released ${state.customer.first}’s ${fmtExact(b.cents)} hold and closed the order`);
+  return { ok: true, case: c, appt: a };
+}
+/** Admin: capture the held balance — Taily decides she got it: the order completes (its payout queues). A balance already captured at day 6
+    (D-04) just completes. Errors: no-hold. */
+export function adminCaptureHold(caseId) {
+  const g = adminCase(caseId); if (!g.ok) return g;
+  const { c, a } = g;
+  const b = a.payments.balance;
+  if (a.status !== 'awaiting-handoff' || !['held', 'captured'].includes(b?.state)) return fail('no-hold');
+  completeHandoff(a, 'taily');
+  record(c, 'capture-hold', b.cents, { failed: b.state === 'capture-failed' });
+  return { ok: true, case: c, appt: a, failed: b.state === 'capture-failed' };
+}
+/** Admin: cancel the order (any live order, confirmed to awaiting-handoff): the deposit refunded, a held balance released, a captured one
+    refunded, unpaid payouts dropped, the items back as her draft. Errors: not-cancellable. */
+export function adminCancelOrder(caseId) {
+  const g = adminCase(caseId); if (!g.ok) return g;
+  const { c, a } = g;
+  if (!['confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'].includes(a.status)) return fail('not-cancellable');
+  const d = a.payments.deposit;
+  const b = a.payments.balance;
+  let refund = 0; let released = 0;
+  if (['captured', 'kept'].includes(d.state)) { Object.assign(d, { state: 'refunded', refundedAt: nowIso(), refundedBy: 'taily' }); refund += d.cents; }
+  if (b?.state === 'held') { Object.assign(b, { state: 'released', releasedAt: nowIso(), releasedBy: 'taily' }); released = b.cents; }
+  else if (b?.state === 'captured') { Object.assign(b, { state: 'refunded', refundedAt: nowIso() }); refund += b.cents; }
+  dropPayouts(a, ['job', 'no-show', 'kept-deposit']);
+  if (a.proposal?.state === 'pending') Object.assign(a.proposal, { state: 'replaced', endedAt: nowIso() });
+  setStatus(a, 'cancelled');
+  a.cancel = { by: 'taily', reason: 'taily', at: nowIso(), refund, kept: 0, tailorPaid: 0, released };
+  restoreDraftIfEmpty(a);
+  record(c, 'cancel', refund, { released });
+  say(a, `Taily cancelled this order${refund ? ` and refunded ${fmtExact(refund)}` : ''}`, 'Taily cancelled this order. Nothing is paid out.');
+  return { ok: true, case: c, appt: a };
+}
+/** Admin: hold the order's unpaid payouts while Taily looks (the Friday run skips them). Errors: no-payout. */
+export function adminPausePayout(caseId) {
+  const g = adminCase(caseId); if (!g.ok) return g;
+  const { c, a } = g;
+  const ps = state.payouts.filter((p) => p.apptId === a.id && p.state === 'pending' && !p.held);
+  if (!ps.length) return fail('no-payout');
+  for (const p of ps) Object.assign(p, { held: true, pausedBy: 'taily' });
+  record(c, 'pause-payout', ps.reduce((n, p) => n + p.cents, 0));
+  return { ok: true, case: c, appt: a };
+}
+/** Admin: let the order's held payouts go out on their Friday (an admin pause, or a disputed no-show pay). Errors: nothing-held. */
+export function adminReleasePayout(caseId) {
+  const g = adminCase(caseId); if (!g.ok) return g;
+  const { c, a } = g;
+  const ps = state.payouts.filter((p) => p.apptId === a.id && p.state === 'pending' && p.held);
+  if (!ps.length) return fail('nothing-held');
+  for (const p of ps) Object.assign(p, { held: false, pausedBy: null });
+  record(c, 'release-payout', ps.reduce((n, p) => n + p.cents, 0));
+  return { ok: true, case: c, appt: a };
+}
+/** The outcome of a case for one person, in dollars, from what the admin did (in order). */
+function decisionLine(c, a, side) {
+  const tf = a ? firstName(tailorById(a.tailorId)) : '';
+  const cf = state.customer.first;
+  const pay = a ? state.payouts.find((p) => p.apptId === a.id && p.state === 'pending') : null;
+  const out = [];
+  for (const x of c.actions) {
+    const amt = fmtExact(x.cents);
+    if (x.kind === 'refund-deposit') out.push(side === 'customer' ? `We refunded your ${amt} deposit. It shows on your card in 5 to 10 business days.` : `We refunded ${cf}’s ${amt} deposit${x.dropped ? `, so you aren’t paid the ${fmtExact(x.dropped)}` : ''}.`);
+    else if (x.kind === 'keep-deposit') out.push(side === 'customer' ? `${tf} keeps your ${amt} deposit.` : `You keep ${cf}’s ${amt} deposit.${x.released ? ` Your ${fmtExact(x.released)} goes out ${fmtDay(pay?.date ?? payoutDay(nowIso()))}.` : ''}`);
+    else if (x.kind === 'release-hold') out.push(side === 'customer' ? `You won’t be charged the ${amt} balance.` : `${cf} isn’t charged the ${amt} balance, and this job is closed.`);
+    else if (x.kind === 'capture-hold') out.push(side === 'customer' ? `We charged your ${amt} balance and closed the order.` : `${cf}’s ${amt} was charged.${pay ? ` Your ${fmtExact(pay.cents)} payout goes out ${fmtDay(pay.date)}.` : ''}`);
+    else if (x.kind === 'cancel') out.push(side === 'customer' ? `We cancelled the order${x.cents ? ` and refunded ${amt}` : ''}${x.released ? `. You won’t be charged the ${fmtExact(x.released)} balance` : ''}.` : 'We cancelled this job. Nothing is paid out.');
+    else if (x.kind === 'pause-payout' && side === 'tailor') out.push(`Your ${amt} payout is on hold.`);
+    else if (x.kind === 'release-payout' && side === 'tailor') out.push(`Your ${amt} payout goes out ${fmtDay(pay?.date ?? payoutDay(nowIso()))}.`);
+  }
+  if (!out.length) return a ? 'We looked into it. Nothing changes on your order.' : 'We’re closing this conversation. Message us anytime from Help.';
+  return out.join(' ');
+}
+/** Admin: close the case with its outcome — the decision (in dollars) goes to each side as a message and a text, the order's review closes.
+    `outcome` names a case closed with no money moved ('resolved' default, 'no-change'). Errors: unknown-case · closed · decide-first (a payout
+    is still on hold: release it or refund first). */
+export function adminCloseCase(caseId, { outcome = null } = {}) {
+  const g = adminCase(caseId, { order: false }); if (!g.ok) return g;
+  const { c, a } = g;
+  if (a && state.payouts.some((p) => p.apptId === a.id && p.state === 'pending' && p.held)) return fail('decide-first');
+  const money = [...c.actions].reverse().find((x) => x.kind !== 'pause-payout' && x.kind !== 'release-payout');
+  const key = money?.kind ?? outcome ?? 'resolved';
+  const lines = {};
+  /* money moved on an order: both people hear the outcome, whoever opened the case */
+  const sides = a && c.actions.length ? ['customer', 'tailor'] : [...c.sides];
+  for (const side of sides) { lines[side] = decisionLine(c, a, side); caseLine(c, side, lines[side], { kind: 'decision' }); }
+  Object.assign(c, { state: 'closed', closedAt: nowIso(), outcome: { key, at: nowIso(), lines } });
+  c.read.admin = lastNum(c);
+  for (const n of state.admin.notifications) if (n.caseId === c.id) n.read = true;
+  if (a) closeReview(a, key);
+  for (const side of sides) {
+    if (side === 'customer') notify(a, a ? 'case-decided' : 'help-replied', { x: { caseId: c.id } });
+    else notify(a, a ? 'taily-replied-t' : 'help-replied-t', { x: { caseId: c.id } });
+  }
+  return { ok: true, case: c, appt: a };
+}
+/** What each side would read if the case closed now (a-case's "Close with outcome" sheet). */
+export function decisionPreview(caseId) {
+  const c = caseById(caseId);
+  if (!c) return {};
+  const a = c.apptId ? getAppt(c.apptId) : null;
+  return Object.fromEntries((a && c.actions.length ? ['customer', 'tailor'] : c.sides).map((side) => [side, decisionLine(c, a, side)]));
+}
+const ADMIN_ACTS = {
+  'refund-deposit': adminRefundDeposit, 'keep-deposit': adminKeepDeposit, 'release-hold': adminReleaseHold, 'capture-hold': adminCaptureHold,
+  cancel: adminCancelOrder, 'pause-payout': adminPausePayout, 'release-payout': adminReleasePayout,
+};
+/** Run one admin money action by its kind (a-case's rows). Errors: unknown-action + the action's own. */
+export function adminAct(caseId, kind) {
+  const f = ADMIN_ACTS[kind];
+  return f ? f(caseId) : fail('unknown-action');
+}
+/** The money actions open to the admin on this case right now, in the order a-case lists them:
+    [{ kind, label, sub, cents, tone: 'default' | 'danger', confirm }] — `confirm` is the sheet's sentence, in dollars. */
+export function adminActions(c) {
+  if (!c || c.state !== 'open' || !c.apptId) return [];
+  const a = getAppt(c.apptId);
+  if (!a) return [];
+  const tf = firstName(tailorById(a.tailorId));
+  const cf = state.customer.first;
+  const d = a.payments.deposit;
+  const b = a.payments.balance ?? {};
+  const pending = state.payouts.filter((p) => p.apptId === a.id && p.state === 'pending');
+  const held = pending.filter((p) => p.held);
+  const free = pending.filter((p) => !p.held);
+  const sum = (ps) => ps.reduce((n, p) => n + p.cents, 0);
+  const $ = fmtExact;
+  const out = [];
+  if (['captured', 'kept'].includes(d.state) && ['cancelled', 'completed'].includes(a.status)) {
+    const lost = pending.filter((p) => ['no-show', 'kept-deposit'].includes(p.kind));
+    out.push({ kind: 'refund-deposit', label: `Refund ${cf}’s deposit`, sub: lost.length ? `${tf} isn’t paid the ${$(sum(lost))}` : `Back to her card`, cents: d.cents, tone: 'default',
+      confirm: `Refund ${cf}’s ${$(d.cents)} deposit to her card.${lost.length ? ` ${tf}’s ${$(sum(lost))} isn’t paid out.` : ''}` });
+  }
+  if (d.state === 'kept') {
+    out.push({ kind: 'keep-deposit', label: `${tf} keeps the deposit`, sub: held.length ? `Releases her ${$(sum(held))} on hold` : 'The deposit stays with her', cents: d.cents, tone: 'default',
+      confirm: `${tf} keeps ${cf}’s ${$(d.cents)} deposit.${held.length ? ` Her ${$(sum(held))} goes out on its Friday.` : ''}` });
+  }
+  if (a.status === 'awaiting-handoff' && b.state === 'held') {
+    out.push({ kind: 'capture-hold', label: `Capture the ${$(b.cents)} hold`, sub: `${cf} got it: the order completes`, cents: b.cents, tone: 'default', confirm: `Charge ${cf}’s ${$(b.cents)} balance and complete the order. ${tf}’s payout queues for its Friday.` });
+    out.push({ kind: 'release-hold', label: `Release the ${$(b.cents)} hold`, sub: `${cf} isn’t charged: the order closes`, cents: b.cents, tone: 'danger', confirm: `Release ${cf}’s ${$(b.cents)} hold. She isn’t charged, the order closes, and nothing is paid out for it.` });
+  } else if (a.status === 'awaiting-handoff' && b.state === 'captured') {
+    out.push({ kind: 'capture-hold', label: 'Complete the order', sub: `The ${$(b.cents)} was already charged`, cents: b.cents, tone: 'default', confirm: `Complete the order. ${cf}’s ${$(b.cents)} was already charged; ${tf}’s payout queues for its Friday.` });
+  }
+  if (['confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'].includes(a.status)) {
+    const back = (['captured', 'kept'].includes(d.state) ? d.cents : 0) + (b.state === 'captured' ? b.cents : 0);
+    out.push({ kind: 'cancel', label: 'Cancel the order', sub: back ? `Refunds ${$(back)}${b.state === 'held' ? `, releases the ${$(b.cents)} hold` : ''}` : 'Nothing was charged', cents: back, tone: 'danger',
+      confirm: `Cancel this order.${back ? ` ${cf} gets ${$(back)} back.` : ''}${b.state === 'held' ? ` Her ${$(b.cents)} hold is released.` : ''} Nothing is paid out to ${tf}.` });
+  }
+  if (free.length) out.push({ kind: 'pause-payout', label: `Pause ${tf}’s payout`, sub: 'The Friday run skips it', cents: sum(free), tone: 'default', confirm: `Hold ${tf}’s ${$(sum(free))} payout until you release it.` });
+  if (held.length) out.push({ kind: 'release-payout', label: `Release ${tf}’s payout`, sub: 'It goes out on its Friday', cents: sum(held), tone: 'default', confirm: `Let ${tf}’s ${$(sum(held))} go out on its Friday.` });
+  return out;
+}
+/** Admin: a notification is read. */
+export function adminMarkRead(id) {
+  const n = state.admin.notifications.find((x) => x.id === id);
+  if (!n) return fail('unknown-notification');
+  n.read = true;
+  return { ok: true, notification: n };
+}
+/** The admin's inbox (a-inbox): open cases (Taily owes a reply first, then the newest activity), closed cases, notifications newest first, the
+    unread count. */
+export function adminInbox() {
+  const at = (c) => c.messages[c.messages.length - 1]?.at ?? c.openedAt;
+  const rows = state.cases.map((c) => ({ c, view: caseView(c, 'admin'), at: at(c) }));
+  const open = rows.filter((r) => r.c.state === 'open')
+    .sort((x, y) => (!!y.view.replyBy - !!x.view.replyBy) || (x.at < y.at ? 1 : x.at > y.at ? -1 : caseNum(y.c.messages.at(-1)) - caseNum(x.c.messages.at(-1))));
+  const closed = rows.filter((r) => r.c.state === 'closed').sort((x, y) => (x.c.closedAt < y.c.closedAt ? 1 : -1));
+  const notifications = [...state.admin.notifications].reverse();
+  return { open, closed, notifications, unread: notifications.filter((n) => !n.read).length };
+}
+
+/* ---- S-32: report or block (from the thread ⋯ and Help → Safety) ---- */
+export const REPORT_REASONS = [
+  ['unsafe', 'They made me feel unsafe'], ['messages', 'Rude or inappropriate messages'], ['off-app', 'Asked to pay or talk outside Taily'], ['other', 'Something else'],
+];
+/** Is the pair blocked (either of them blocked the other)? */
+export const isBlocked = (tailorId, customerId = state.customer.id) => state.blocks.some((b) => b.tailorId === tailorId && b.customerId === customerId);
+/** Who blocked: 'customer' | 'tailor' | null. */
+export const blockedBy = (tailorId, customerId = state.customer.id) => state.blocks.find((b) => b.tailorId === tailorId && b.customerId === customerId)?.by ?? null;
+function safetyCase(who, a, tailorId, { reason = null, block = false } = {}) {
+  let c = state.cases.find((x) => x.kind === 'safety' && x.state === 'open' && x.opener === who && x.safety?.tailorId === tailorId);
+  const fresh = !c;
+  if (!c) {
+    c = newCase({ apptId: a?.id ?? null, kind: 'safety', opener: who, topic: 'safety', sides: [who] });
+    c.safety = { tailorId, about: who === 'customer' ? 'tailor' : 'customer', reason, block };
+  } else Object.assign(c.safety, { reason: reason ?? c.safety.reason, block: block || c.safety.block });
+  return { c, fresh };
+}
+/** Report the other person: opens (or adds to) a safety case the admin is told about at once. Errors: reason · offline. */
+export function reportPerson(who, { apptId = null, tailorId = null, reason = 'other', text = '' } = {}) {
+  if (!['customer', 'tailor'].includes(who)) return fail('unknown-person');
+  if (!REPORT_REASONS.some(([k]) => k === reason)) return fail('reason');
+  if (state.sim.network === 'offline') return fail('offline');
+  const a = apptId ? must(apptId) : null;
+  const tid = a?.tailorId ?? tailorId ?? state.tailors[0].id;
+  const other = who === 'customer' ? tailorById(tid)?.name ?? 'the tailor' : customerFull();
+  const { c, fresh } = safetyCase(who, a, tid, { reason });
+  caseLine(c, who, `I’m reporting ${other}: ${REPORT_REASONS.find(([k]) => k === reason)[1].toLowerCase()}.`, { from: who });
+  const m = maskContact(String(text ?? '').trim());
+  if (m.text) caseLine(c, who, m.text, { from: who, masked: m.masked });
+  if (fresh) caseLine(c, who, ackText(c, who), { kind: 'ack' });
+  c.read[who] = lastNum(c);
+  if (fresh) caseToAdmin(c, a, 'safety'); else caseMessageToAdmin(c, who);
+  return { ok: true, case: c };
+}
+/** Block the other person: neither can book the other again (eligible / tailorsFor / requestBooking / tryAgain / acceptSuggestion) and their
+    chat closes; a booking already made stays until Taily sorts it out (the safety case tells the admin). Errors: already · offline. */
+export function blockPerson(who, { apptId = null, tailorId = null } = {}) {
+  if (!['customer', 'tailor'].includes(who)) return fail('unknown-person');
+  if (state.sim.network === 'offline') return fail('offline');
+  const a = apptId ? must(apptId) : null;
+  const tid = a?.tailorId ?? tailorId ?? state.tailors[0].id;
+  if (state.blocks.some((b) => b.by === who && b.tailorId === tid && b.customerId === state.customer.id)) return fail('already');
+  state.blocks.push({ by: who, tailorId: tid, customerId: state.customer.id, at: nowIso() });
+  const other = who === 'customer' ? tailorById(tid)?.name ?? 'the tailor' : customerFull();
+  const { c, fresh } = safetyCase(who, a, tid, { block: true });
+  caseLine(c, who, `I blocked ${other}.`, { from: who });
+  if (fresh) caseLine(c, who, ackText(c, who), { kind: 'ack' });
+  c.read[who] = lastNum(c);
+  if (fresh) caseToAdmin(c, a, 'safety'); else caseMessageToAdmin(c, who);
+  return { ok: true, case: c };
+}
+/** Undo your own block. Errors: not-blocked. */
+export function unblockPerson(who, { tailorId = null } = {}) {
+  const tid = tailorId ?? state.tailors[0].id;
+  const i = state.blocks.findIndex((b) => b.by === who && b.tailorId === tid && b.customerId === state.customer.id);
+  if (i < 0) return fail('not-blocked');
+  state.blocks.splice(i, 1);
+  return { ok: true };
+}
 
 /* ---------- DG-2 A: one-time notices on Home for a cancelled visit (a cancelled visit never just vanishes) ---------- */
 const NOTICE_REASONS = {
@@ -2545,6 +3136,9 @@ export const T = {
   /* pre-MVP A1 */
   notify, setTexts, textReply, dismissNotice, dismissReviewReminder, withdrawJobEdit, courierCollected, courierFailed, reportMissingDelivery, retryCapture,
   visitPing, answerVisitCheck, disputeNoShow, proposeNewTime, answerProposal,
+  /* pre-MVP A2: Taily Help, the admin, report / block */
+  openCase, sendCaseMessage, markCaseRead, adminReply, adminRefundDeposit, adminKeepDeposit, adminReleaseHold, adminCaptureHold, adminCancelOrder,
+  adminPausePayout, adminReleasePayout, adminCloseCase, adminMarkRead, adminAct, reportPerson, blockPerson, unblockPerson,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   uploadId, consentBackground, setupPayouts, pausePayouts, confirmTaxInfo, submitOnboarding, reviewChecks, joinAreaWaitlist,
   now, setClock, advanceClock, tick, suggestLapseAt,

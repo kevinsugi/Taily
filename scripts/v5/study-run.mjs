@@ -264,7 +264,7 @@ const tabFit = await page.evaluate(() => {
   const menu = document.querySelector('#flow-menu').getBoundingClientRect();
   return { tabs, small, scrolls: document.querySelector('[data-flow-list]').scrollHeight > list.height, menuIn: menu.left >= 0 && menu.right <= innerWidth && menu.bottom <= innerHeight };
 });
-record('layout', '320x568: 4 tabs fit, controls >= 44px high, panel inside the screen', tabFit.tabs.every((t) => !t.over) && tabFit.small === 0 && tabFit.menuIn, JSON.stringify(tabFit));
+record('layout', '320x568: tabs fit, controls >= 44px high, panel inside the screen', tabFit.tabs.every((t) => !t.over) && tabFit.small === 0 && tabFit.menuIn, JSON.stringify(tabFit));
 await page.setViewportSize({ width: 390, height: 844 });
 
 /* ---------- report ---------- */

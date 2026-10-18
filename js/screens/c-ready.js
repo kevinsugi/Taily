@@ -12,7 +12,7 @@ import { state, T, tailorById, returnOffer, returnAddress, priceChangeView, slot
 import {
   chrome, headingRow, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
   sheetOverlay, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, wireGarmentDocs, textLink, sectionHead,
-  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime, COURIER_LOBBY, CHARGE_CAPTION, chargedPhrase, shopPlace, navBackMark,
+  linenStage, hangStage, returnedItems, andList, handoffWhenRow, openHandoffTime, COURIER_LOBBY, CHARGE_CAPTION, chargedPhrase, shopPlace, navBackMark, helpActions,
 } from '../components.js';
 import { fmtDay, fmtTime, fmtTimeRange, nb as datesNb } from '../dates.js';
 import * as A from '../account.js';
@@ -180,7 +180,7 @@ function view() {
   const courier = sel === 'courier' && (courierState !== 'ready' || r.slot)
     ? `<div class="${ID}__courier">${courierCard({
       state: courierState, ...(courierState === 'ready' ? c : { miles: c?.miles ?? courierMiles(a) }),   // the distance is known before the price
-      from: t.shopName, to: streetOf(), note: `Added to your balance. ${COURIER_LOBBY}`,   // K-43 (D-298): it never comes back
+      from: t.shopName, to: streetOf(), note: `Added to your balance. ${COURIER_LOBBY}`, protection: true,   // K-43 (D-298): it never comes back; D-21 (A2): garment protection
     })}${courierState === 'failed' && offered.length === 1 ? textLink(`Message ${first}`, { act: 'message' }) : ''}</div>` : '';
   /* K-27 (Study-1 A2) + K-44: when she is charged, and the unclaimed rule, shown where the way back is chosen */
   const bal = m.balance;
@@ -202,6 +202,7 @@ function view() {
   ${courier}
   ${hold}</section>
   ${orderSection(a)}
+  ${helpActions()}
   <section class="sec">${sectionHead('Price')}
   ${customerBreakdown(m, { stage: 'ready', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true, wayBack: sel ?? '' })}</section>
   ${alert}
@@ -426,6 +427,8 @@ function wire(root) {
       case 'pick-time': openWhen(read()); break;
       case 'confirm': confirmZero(read()); break;
       case 'message': setFocus(a.id); go('c-thread'); break;
+      case 'get-help': setFocus(a.id); state.ui.help = { apptId: a.id, caseId: null }; go('c-case'); break;   // DG-1 option B (pre-MVP A2)
+      case 'garment-protection': state.ui.policy = 'garment'; go('c-policy'); break;                         // D-21
       default:
     }
   });

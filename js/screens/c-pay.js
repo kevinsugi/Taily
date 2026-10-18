@@ -9,7 +9,7 @@ import { register, render as go, back } from '../app.js';
 import { state, T, tailorById, openSlots, now, priceChangeView, textsOn, coversJob } from '../state.js';
 import {
   flowBar, headingRow, visitBlock, customerBreakdown, infoCard, metaRow, methodRow, actionBar, banner,
-  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, sectionHead, textLink, infoButton,
+  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, sectionHead, textLink, infoButton, protectionRow,
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
@@ -153,6 +153,7 @@ function view() {
     metaRow(GLYPH.lock, `We hold ${money(q.deposit)} now. You’re only charged if ${esc(first)} accepts. If ${esc(first)} declines or doesn’t reply, it’s released in full.`),
     cancelRow(r.slot, q.deposit, first),
     reminderRow(r.slot, q.deposit, first),
+    protectionRow(),   // D-21 (pre-MVP A2): garment protection, before she pays
   ].join(''))}</section>
   <section class="sec" aria-labelledby="pay-h-method">
     ${sectionHead('Pay with', { id: 'pay-h-method' })}
@@ -372,6 +373,7 @@ function wire(root) {
       case 'pay': pay(); break;
       case 'pick-time': go('c-book', { replace: true }); break;
       case 'other-tailors': ui().error = null; go('c-tailors'); break;
+      case 'garment-protection': if (!ui().busy) { state.ui.policy = 'garment'; go('c-policy'); } break;   // D-21
       default:
     }
   };

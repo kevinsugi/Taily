@@ -3,6 +3,7 @@
    field. A copy of c-phone's wiring for the tailor session; sets
    the six-step expectation. After "Finish later" (D-57) a success
    banner says the progress is saved and pre-fills the number.
+   pre-MVP B2: Tailor Terms / Privacy open the legal pages (t-legal, S-24); after Delete account (DG-3 A) a calm line says it's done.
    ============================================================ */
 import { register, render as go, back, currentScreen } from '../app.js';
 import { state } from '../state.js';
@@ -22,6 +23,7 @@ function view(s) {
 <main class="body body--with-bar ${ID}">
   ${headingRow(`<p class="t-caps c-600 ${ID}__eyebrow">For tailors</p><h1 class="t-title">Get booked by customers nearby</h1>`)}
   <p class="t-body c-600 ${ID}__lead">Sign in or join with your mobile number.</p>
+  ${s.session.tailor?.deletedAt && !d.saved ? `<div class="${ID}__saved" data-deleted>${banner({ tone: 'success', title: 'Your account is deleted', text: 'Your shop is off Taily. We keep your payout and tax records, as the law requires.' })}</div>` : ''}
   ${d.saved && d.phone ? `<div class="${ID}__saved">${banner({
     tone: 'success', title: 'Your progress is saved',
     text: `Sign in with ${esc(A.formatPhone(d.phone))} to pick up where you left off.`,
@@ -31,7 +33,7 @@ function view(s) {
     placeholder: '(718) 555-0142', value: A.formatPhone(d.phone ?? ''), helper: HELPER,
     error: ERRORS[d.error] ?? '', disabled: !!d.busy,
   })}</div>
-  <p class="t-small c-600 ${ID}__legal">By continuing you agree to Taily’s <button type="button" class="${ID}__link" data-act="terms" data-hit="inline">Tailor Terms</button> and <button type="button" class="${ID}__link" data-act="privacy" data-hit="inline">Privacy Policy</button>.</p>
+  <p class="t-small c-600 ${ID}__legal">By continuing you agree to Taily’s <button type="button" class="${ID}__link" data-act="tailor-terms" data-hit="inline">Tailor Terms</button> and <button type="button" class="${ID}__link" data-act="privacy" data-hit="inline">Privacy Policy</button>.</p>
   ${d.saved ? '' : `<p class="t-small c-600 ${ID}__steps">New to Taily? Six short steps, about 10 minutes. You can finish later.</p>`}
   <p class="t-small c-600 ${ID}__other">Looking for a tailor? <button type="button" class="${ID}__link" data-act="customer" data-hit="inline">Book one</button></p>
 </main>
@@ -81,7 +83,8 @@ function wire(root) {
   });
   root.querySelector('main').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="customer"]') && !ui().busy) go('c-welcome', { fresh: true });
-    if (e.target.closest('[data-act="terms"], [data-act="privacy"]')) toast('Terms and Privacy aren’t in this prototype yet.');   // SF-06: as c-welcome
+    const legal = e.target.closest('[data-act="tailor-terms"], [data-act="privacy"]');   // S-24 (pre-MVP B2): the legal pages, not a toast
+    if (legal) { state.ui['t-legal'] = { doc: legal.dataset.act }; go('t-legal'); }
   });
 
   function send() {

@@ -23,3 +23,5 @@
   background: var(--white); border-radius: var(--radius-md); box-shadow: inset 0 0 0 1px var(--neutral-200);
 }
 .c-pay-sheet__pair > * { min-width: 0; }
+/* pre-MVP B2: S-27 her note for the tailor; S-24 the Cancellation and refunds page next to the hold terms */
+.c-pay__policy { margin-top: var(--space-4); }

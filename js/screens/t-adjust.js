@@ -27,7 +27,7 @@ import { ICON_CAMERA } from '../icons.js';
 import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, banner, emptyState, listRow, optionRow, textArea, deltaFigure, tailorBreakdown, actionBar, changeSummary,
-  sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, garmentHead, docsEditor, wireGarmentDocs, sectionHead, textLink,
+  sheetOverlay, modalOverlay, leaveModal, leaveSheet, toast, esc, garmentIcon, garmentHead, docsEditor, wireGarmentDocs, sectionHead, textLink,
   privateNotes, wirePrivateNotes, openAttachSheet, photoStub, dueChange, wirePhotoViewer, visitBlock,
 } from '../components.js';
 
@@ -539,7 +539,7 @@ function openLeave(a) {
   const body = isEdit(ui())
     ? `Your changes aren’t sent. ${firstOf()} keeps the order she approved until you send them.`   // Study-1 B1
     : `${firstOf()} can’t approve the order until you send it. Your photos and comments are saved. Item and price changes aren’t.`;
-  modalOverlay(leaveModal({ title: 'Leave without sending?', body }), { dataS: `${ID}-leave` }, (holder, close) => {
+  leaveSheet({ title: 'Leave without sending?', body }, { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => {
       close({ instant: true });

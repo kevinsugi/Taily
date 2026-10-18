@@ -37,6 +37,9 @@
      J23 nothing recorded at the visit (D-11, K-48.5): the tailor's start texts (1 h before, then "Your fitting has started" at the start),
          "Did the visit happen?" to both at 2 h, the admin at 4 h, cancelled with a refund at 24 h
      J24 the courier's trip (S-35): Handed to courier → out for delivery → can't deliver → a new window at no charge → delivered (proof, 24 h to report)
+     J29 change phone (DG-3 A, pre-MVP B2): Account → Personal info → Change → a code to the new number → texts go to the new number
+     J30 delete account (DG-3 A): blocked while a visit is open (See the booking) → cancel it → Delete → signed out, the old number signs up fresh
+     J31 Apple, then a required phone + code (D-07 / B-09) → the names from the provider → Home; the K-49 deposit button V3 on the way
      J14 the anchored popover (K-25): a garment thumb toggles it, another thumb moves it, Escape returns focus, it flips above near the
          window bottom, the Verified check shares its one slot; t-home's count cluster lists every item and the card still opens the request
 
@@ -905,6 +908,76 @@ await journey('J26', 'Under 5 years goes to the waitlist; the nav asks before dr
   /* K-48.2: she stops pricing a service Sarah's job needs → not listed, and c-tailors says why */
   await flow('c-tailors--services');
   await at('J26 K-48.2: no tailor who skips an item', 'c-tailors', { has: 'No tailor near you does all of this yet', not: 'Est.' });
+});
+
+/* ---------- J29–J31 (pre-MVP B2, K-48 / K-49: Account v2, D-07 social sign-in + phone) ---------- */
+const NEW_NUMBER = '(917) 555-0186';
+await journey('J29', 'change phone: a code to the new number, then every text goes there (DG-3 A)', async () => {
+  await flow('c-account');
+  await at('J29 Account v2: three groups, Personal info first', 'c-account', { has: ['YOU', 'Personal info', 'BOOKINGS AND PAYMENT', 'HELP AND POLICIES', 'Delete account'] });
+  await press('[data-act="info"]');
+  await at('J29 Personal info: the number texts go to', 'c-profile', { has: ['Personal info', CUSTOMER.phone, 'Texts and sign-in codes go here'] });
+  await press('[data-act="change-phone"]');
+  await at('J29 change phone: the new number first', 'c-change-phone', { has: ['Change phone number', `Texts and sign-in codes go to ${CUSTOMER.phone} now.`] });
+  await page.fill('#screen #new-phone', CUSTOMER.phone);
+  await press('.action-bar [data-act="send-code"]');
+  await at('J29 the same number is refused, under the field', 'c-change-phone', { has: 'That’s the number you have now. Enter a new one.' });
+  await page.fill('#screen #new-phone', '9175550186');
+  await press('.action-bar [data-act="send-code"]');
+  await at('J29 a code went to the NEW number', 'c-change-phone', { has: ['Enter the code', `We texted a 6-digit code to ${NEW_NUMBER}.`] });
+  await page.fill('#screen #change-code', '000000');
+  await at('J29 a wrong code changes nothing', 'c-change-phone', { has: 'That code doesn’t match.' });
+  await page.fill('#screen #change-code', '123456');
+  await at('J29 verified: Personal info shows the new number', 'c-profile', { has: [NEW_NUMBER, 'Texts and sign-in codes go here'], not: CUSTOMER.phone });
+  /* the next text Taily sends her goes to the new number: Texts off and on again sends the confirmation text */
+  await page.evaluate(() => window.Taily.render('c-texts'));
+  await settle(page);
+  await press('#texts-booking');
+  await press('#texts-booking');
+  const last = await page.evaluate(async () => { const S = await import('/js/state.js'); const x = S.textsFor('customer').pop(); return { event: x?.event, phone: x?.phone }; });
+  check('J29 the next text goes to the new number', last.event === 'texts-on' && last.phone === NEW_NUMBER, JSON.stringify(last));
+  await at('J29 Texts names the new number', 'c-texts', { has: `We text ${NEW_NUMBER}.` });
+});
+
+await journey('J30', 'delete account: blocked while a visit is open, then allowed — what goes, what stays (DG-3 A)', async () => {
+  await flow('c-account--delete-blocked');
+  await at('J30 blocked with the reason', 'c-account', { has: [`Your visit with Amara on ${SEED_WHEN} is still open.`, 'See the booking'], not: 'This can’t be undone' });
+  await click('[data-act="delete-see"]');
+  await at('J30 See the booking opens it', 'c-booking', { has: 'Cancel booking' });
+  await press('[data-act="cancel"]');
+  await click('[data-act="cancel-ok"]');
+  const st = await page.evaluate(async () => { const S = await import('/js/state.js'); return S.state.appts[0]?.status; });
+  check('J30 the visit is cancelled', st === 'cancelled', st);
+  await press('[data-nav="account"]');
+  await press('[data-act="delete"]');
+  await at('J30 now the confirm: what goes, what stays', 'c-account', { has: ['Delete your account?', 'We keep receipts and messages for past orders, as the law requires.', 'This can’t be undone.'] });
+  await click('[data-act="delete-ok"]');
+  await at('J30 signed out, it says so', 'c-welcome', { has: ['Your account is deleted', 'Continue with phone'] });
+  const after = await page.evaluate(async () => { const S = await import('/js/state.js'); return { signedIn: S.state.session.customer.signedIn, first: S.state.customer.first, orders: S.apptsFor('customer').length, kept: S.state.appts.length }; });
+  check('J30 the account is gone; the order record stays (receipts)', !after.signedIn && after.first === '' && after.orders === 0 && after.kept === 1, JSON.stringify(after));
+  await press('[data-act="phone"]');
+  await page.fill('#screen #phone', CUSTOMER.phone);
+  await press('.action-bar [data-act="send-code"]');
+  await page.fill('#screen #code', '123456');
+  await at('J30 her old number signs up as a new account', 'c-name', { has: 'What should we call you?' });
+});
+
+await journey('J31', 'Continue with Apple, then a required phone + code; the names come from Apple (D-07 / B-09); the deposit button V3 (K-49)', async () => {
+  await page.evaluate(async () => { (await import('/js/account.js')).signOut(); window.Taily.render('c-welcome', { fresh: true }); });
+  await settle(page);
+  await press('[data-act="apple"]');
+  await at('J31 Apple no longer skips the phone', 'c-phone', { has: ['Add your mobile number', 'Almost done with Apple.'] });
+  const mid = await page.evaluate(async () => (await import('/js/state.js')).state.session.customer.signedIn);
+  check('J31 not signed in before the code', mid === false, String(mid));
+  await page.fill('#screen #phone', '9175550186');
+  await press('.action-bar [data-act="send-code"]');
+  await page.fill('#screen #code', '123456');
+  await at('J31 a new number: the names from Apple, the texts opt-in', 'c-name', { has: ['From your Apple account. Change it if you like.', 'Text me booking updates'] });
+  await press('.action-bar [data-act="save-name"]');
+  const done = await page.evaluate(async () => { const S = await import('/js/state.js'); return { signedIn: S.state.session.customer.signedIn, phone: S.state.customer.phone, agreed: !!S.state.customer.agreed?.at }; });
+  check('J31 signed in with the checked number; the terms agreement logged (S-24)', done.signedIn && done.phone === NEW_NUMBER && done.agreed, JSON.stringify(done));
+  await flow('c-pay');
+  await at('J31 the deposit button V3', 'c-pay', { has: [`Reserve · ${fmtExact(S.seed.deposit)} deposit`, 'Charged only if Amara accepts'] });
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

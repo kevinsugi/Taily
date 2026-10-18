@@ -1,0 +1,6 @@
+/* c-reviews — all reviews (S-26, pre-MVP B2): the average + count, then the shared reviewRow list (hairlines between rows). */
+.c-reviews { padding-bottom: var(--space-40); }
+.c-reviews__avg { display: flex; align-items: center; gap: var(--space-12); margin: 0; }
+.c-reviews__count, .c-reviews__note { margin: 0; }
+.c-reviews__list { gap: 0; }
+.c-reviews__silent { margin: var(--rhythm-block) 0 0; text-wrap: pretty; }

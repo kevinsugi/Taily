@@ -29,11 +29,13 @@ export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1'
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
     { key: 'c-welcome', m: 'M1', kind: 'frame' },
+    { key: 'c-welcome--deleted', m: 'PM', kind: 'state' },
   ] },
   { id: 'c-phone', m: 'M1', persona: 'customer', title: 'Enter US phone number', states: [
     { key: 'c-phone', m: 'M1', kind: 'frame' },
     { key: 'c-phone--invalid', m: 'M1', kind: 'state' },
     { key: 'c-phone--sending', m: 'M1', kind: 'state' },
+    { key: 'c-phone--social', m: 'PM', kind: 'frame' },
   ] },
   { id: 'c-code', m: 'M1', persona: 'customer', title: '6-digit SMS code', states: [
     { key: 'c-code', m: 'M1', kind: 'frame' },
@@ -44,6 +46,7 @@ export const SCREENS = [
   { id: 'c-name', m: 'M1', persona: 'customer', title: 'First + last name (new accounts only)', states: [
     { key: 'c-name', m: 'M1', kind: 'frame' },
     { key: 'c-name--error', m: 'M1', kind: 'state' },
+    { key: 'c-name--social', m: 'PM', kind: 'state' },
   ] },
   { id: 'c-job', m: 'M1', persona: 'customer', title: 'C1 What needs work (Home tab): garments + a service per garment', states: [
     { key: 'c-job--empty', m: 'M1', kind: 'frame' },
@@ -117,6 +120,7 @@ export const SCREENS = [
     { key: 'sys-error-toast', m: 'M5', kind: 'state' },
     { key: 'c-pay--offline', m: 'A1', kind: 'state' },
     { key: 'c-pay--services', m: 'PM', kind: 'state' },
+    { key: 'c-pay--note', m: 'PM', kind: 'state' },
   ] },
   { id: 'c-request', m: 'M1', persona: 'customer', title: 'C6/C7 request status (also the Bookings target for an open request)', states: [
     { key: 'c-request', m: 'M1', kind: 'frame' },
@@ -204,6 +208,7 @@ export const SCREENS = [
     { key: 'c-booking--card-failed', m: 'A1', kind: 'state' },
     { key: 'c-booking--update-card', m: 'A1', kind: 'overlay' },
     { key: 'c-booking--closed', m: 'A1', kind: 'state' },
+    { key: 'c-booking--note', m: 'PM', kind: 'state' },
   ] },
   { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01) · with the tailor’s Before / Pinned photos and comments (K-02)', states: [
     { key: 'c-price-change', m: 'M4', kind: 'frame' },
@@ -260,17 +265,44 @@ export const SCREENS = [
   { id: 'c-account', m: 'M5', persona: 'customer', title: 'C13 Account home: profile, addresses, payment methods, past orders, sign out', states: [
     { key: 'c-account', m: 'M5', kind: 'frame' },
     { key: 'c-account--sign-out', m: 'M5', kind: 'overlay' },
+    { key: 'c-account--delete-blocked', m: 'PM', kind: 'overlay' },
+    { key: 'c-account--delete', m: 'PM', kind: 'overlay' },
   ] },
   { id: 'c-texts', m: 'A1', persona: 'customer', title: 'Account → Texts: the booking-texts opt-in, the STOP state, the carrier lines (D-02)', states: [
     { key: 'c-texts', m: 'A1', kind: 'frame' },
     { key: 'c-texts--stopped', m: 'A1', kind: 'state' },
     { key: 'c-texts--off', m: 'A1', kind: 'state' },
   ] },
+  { id: 'c-profile', m: 'PM', persona: 'customer', title: 'Account → Personal info: names, an optional email for receipts, the phone with Change (DG-3 A)', states: [
+    { key: 'c-profile', m: 'PM', kind: 'frame' },
+    { key: 'c-profile--errors', m: 'PM', kind: 'state' },
+  ] },
+  { id: 'c-change-phone', m: 'PM', persona: 'customer', title: 'Personal info → Change phone: the new number, then a code to it (DG-3 A)', states: [
+    { key: 'c-change-phone', m: 'PM', kind: 'frame' },
+    { key: 'c-change-phone--same', m: 'PM', kind: 'state' },
+    { key: 'c-change-phone--code', m: 'PM', kind: 'frame' },
+    { key: 'c-change-phone--wrong', m: 'PM', kind: 'state' },
+  ] },
+  { id: 'c-legal', m: 'PM', persona: 'customer', title: 'Legal pages: Terms, Privacy, Cancellation and refunds, Accessibility (S-23 / S-24, COUNSEL placeholders)', states: [
+    { key: 'c-legal', m: 'PM', kind: 'frame' },
+    { key: 'c-legal--privacy', m: 'PM', kind: 'state' },
+    { key: 'c-legal--refunds', m: 'PM', kind: 'state' },
+    { key: 'c-legal--accessibility', m: 'PM', kind: 'state' },
+  ] },
+  { id: 'c-receipt', m: 'PM', persona: 'customer', title: 'A receipt she can keep: number, parties, the order, dated charges, Email receipt (S-25)', states: [
+    { key: 'c-receipt', m: 'PM', kind: 'frame' },
+    { key: 'c-receipt--email', m: 'PM', kind: 'state' },
+    { key: 'c-receipt--sent', m: 'PM', kind: 'state' },
+  ] },
+  { id: 'c-reviews', m: 'PM', persona: 'customer', title: 'All of a tailor’s reviews, newest first, booked through Taily (S-26)', states: [
+    { key: 'c-reviews', m: 'PM', kind: 'frame' },
+  ] },
   { id: 'c-addresses', m: 'M5', persona: 'customer', title: 'Saved addresses', states: [
     { key: 'c-addresses', m: 'M5', kind: 'frame' },
     { key: 'c-addresses--empty', m: 'M5', kind: 'state' },
     { key: 'c-addresses--add', m: 'M5', kind: 'overlay' },
     { key: 'c-addresses--error', m: 'M5', kind: 'overlay' },
+    { key: 'c-addresses--edit', m: 'PM', kind: 'overlay' },
   ] },
   { id: 'c-cards', m: 'M5', persona: 'customer', title: 'Payment methods', states: [
     { key: 'c-cards', m: 'M5', kind: 'frame' },
@@ -288,6 +320,7 @@ export const SCREENS = [
     { key: 't-phone', m: 'M2', kind: 'frame' },
     { key: 't-phone--invalid', m: 'M2', kind: 'state' },
     { key: 't-phone--saved', m: 'M2', kind: 'state' },
+    { key: 't-phone--deleted', m: 'PM', kind: 'state' },
   ] },
   { id: 't-code', m: 'M2', persona: 'tailor', title: 'SMS code (same errors as `c-code`)', states: [
     { key: 't-code', m: 'M2', kind: 'frame' },
@@ -371,10 +404,22 @@ export const SCREENS = [
     { key: 't-shop--id-sheet', m: 'PM', kind: 'overlay' },
     { key: 't-shop--payouts-paused', m: 'PM', kind: 'state' },
     { key: 't-shop--no-shop', m: 'PM', kind: 'state' },
+    { key: 't-shop--delete-blocked', m: 'PM', kind: 'overlay' },
+    { key: 't-shop--delete-payout', m: 'PM', kind: 'overlay' },
+    { key: 't-shop--delete', m: 'PM', kind: 'overlay' },
   ] },
   { id: 't-texts', m: 'A1', persona: 'tailor', title: 'Shop → Texts: requests and job texts on / off, the STOP state (D-02)', states: [
     { key: 't-texts', m: 'A1', kind: 'frame' },
     { key: 't-texts--stopped', m: 'A1', kind: 'state' },
+  ] },
+  { id: 't-change-phone', m: 'PM', persona: 'tailor', title: 'Shop → Account → Phone number: a code to the new number (DG-3 A)', states: [
+    { key: 't-change-phone', m: 'PM', kind: 'frame' },
+    { key: 't-change-phone--code', m: 'PM', kind: 'frame' },
+  ] },
+  { id: 't-legal', m: 'PM', persona: 'tailor', title: 'Legal pages: Tailor terms, Tailor agreement, Privacy (S-23, COUNSEL placeholders)', states: [
+    { key: 't-legal', m: 'PM', kind: 'frame' },
+    { key: 't-legal--agreement', m: 'PM', kind: 'state' },
+    { key: 't-legal--privacy', m: 'PM', kind: 'state' },
   ] },
   { id: 't-rush', m: 'M2', persona: 'tailor', title: 'T7 Rush fees editor (≤1 / 2 / 3 days → $; 4+ days free)', states: [
     { key: 't-rush', m: 'M2', kind: 'frame' },
@@ -424,6 +469,7 @@ export const SCREENS = [
     { key: 't-request--declining', m: 'M3', kind: 'overlay' },
     { key: 't-request--none', m: 'M3', kind: 'state' },
     { key: 't-request--offline', m: 'A1', kind: 'state' },
+    { key: 't-request--note', m: 'PM', kind: 'state' },
   ] },
   { id: 't-suggest', m: 'M3', persona: 'tailor', title: 'T3 suggest another time: Scheduler over the tailor\'s own open slots', states: [
     { key: 't-suggest', m: 'M3', kind: 'frame' },
@@ -501,6 +547,7 @@ export const SCREENS = [
     { key: 't-job--notes-before-visit', m: 'PM', kind: 'state' },
     { key: 't-job--name-peek', m: 'PM', kind: 'overlay' },
     { key: 't-job--handoff-courier-studio', m: 'PM', kind: 'state' },
+    { key: 't-job--access-notes', m: 'PM', kind: 'state' },
   ] },
   { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Final order at the fitting (K-42; after the fitting: Edit order): add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },

@@ -1,21 +1,29 @@
 /* ============================================================
-   c-account — C13 Account home. Who Sarah is on Taily and the way into her addresses, cards and
-   past orders; sign out lives here, behind a confirm. Focal: the profile card.
-   Profile is read-only in the prototype (D-133). Spec: M5-spec.md §C3.
+   c-account — C13 Account. DG-3 option A (K-49, pre-MVP B2; D-370): one list in three groups — You (Personal info,
+   Texts), Bookings and payment (addresses, cards, past orders), Help and policies (Help → c-help, the four legal pages) —
+   then Sign out (muted) and Delete account (danger). Every row says its current value, so the list is also the status.
+   Sign out and Delete account confirm in the one confirm sheet (P-32); Delete is blocked with the reason while a booking,
+   a balance or a Taily case is open. Focal: the profile line.
    ============================================================ */
-import { register, render as go } from '../app.js';
-import { apptsFor, textsOn } from '../state.js';
-import { chrome, headingRow, avatar, listRow, cta, textLink, modalOverlay, esc } from '../components.js';
-import * as A from '../account.js';
+import { register, render as go, registered } from '../app.js';
+import { state, apptsFor, textsOn } from '../state.js';
+import { chrome, headingRow, avatar, listRow, textLink, sectionHead, toast, esc } from '../components.js';
+import { openSignOut, openDeleteAccount, seeBlocker } from '../account-ui.js';
+import { LEGAL_DOCS, LEGAL_FOR } from '../legal.js';
 
 const ID = 'c-account';
 
-/* the counts the three rows show; the same rule as Past orders (D-135: accepted, then completed or cancelled) */
+/* the count Past orders shows; the same rule as c-orders (D-135: accepted, then completed or cancelled) */
 const everConfirmed = (a) => a.history.some((h) => h.status === 'confirmed');
-const pastOrders = () => apptsFor('customer').filter((a) => ['completed', 'cancelled'].includes(a.status) && everConfirmed(a));
+const pastOrders = () => apptsFor('customer').filter((a) => ['completed', 'cancelled'].includes(a.status) && everConfirmed(a) && !['withdrawn', 'switched'].includes(a.cancel?.reason));
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const oneLine = (a) => `${a.street}${a.unit ? `, ${a.unit}` : ''}`;
+
+const group = (key, title, rows) => `<section class="sec ${ID}__group" aria-labelledby="${ID}-${key}">
+    ${sectionHead(title, { id: `${ID}-${key}` })}
+    <div class="card card--list ${ID}__list">${rows.join('')}</div>
+  </section>`;
 
 function view(s) {
   const c = s.customer;
@@ -28,6 +36,7 @@ function view(s) {
   const addrSub = home ? `${esc(oneLine(home))} · Default` : 'None saved';
   const cardSub = card ? `${esc(card.brand)} •••• ${esc(card.last4)} · Default` : (c.applePay !== false ? 'Apple Pay' : 'None saved');
   const orderSub = orders ? plural(orders, 'order') : 'None yet';
+  const infoSub = c.email ? `Name, phone, ${esc(c.email)}` : 'Name, phone, email for receipts';
 
   return `${chrome('account')}
 <main class="body ${ID}" data-s="${ID}">
@@ -38,41 +47,25 @@ function view(s) {
       <div class="${ID}__text">
         <h2 class="t-body w-700 ${ID}__name">${esc(c.first)} ${esc(c.last)}</h2>
         <p class="t-body ${ID}__phone">${esc(c.phone)}</p>
-        <p class="t-small c-600 ${ID}__email">${esc(c.email)}</p>
       </div>
     </div>
   </section>
-  <nav class="sec ${ID}__list card card--list" aria-label="Your account">
-    ${listRow({ title: 'Saved addresses', sub: addrSub, act: 'addresses' })}
-    ${listRow({ title: 'Payment methods', sub: cardSub, act: 'cards' })}
-    ${listRow({ title: 'Past orders', sub: orderSub, act: 'orders' })}
-    ${listRow({ title: 'Texts', sub: textsOn('customer') ? 'Booking updates on' : 'Booking updates off', act: 'texts' })}
-  </nav>
-  <div class="page-actions ${ID}__out"><div class="page-actions__links">${textLink('Sign out', { act: 'sign-out', tone: 'danger' })}</div></div>
+  ${group('you', 'You', [
+    listRow({ title: 'Personal info', sub: infoSub, act: 'info' }),
+    listRow({ title: 'Texts', sub: textsOn('customer') ? 'Booking updates on' : 'Booking updates off', act: 'texts' }),
+  ])}
+  ${group('bookings', 'Bookings and payment', [
+    listRow({ title: 'Saved addresses', sub: addrSub, act: 'addresses' }),
+    listRow({ title: 'Payment methods', sub: cardSub, act: 'cards' }),
+    listRow({ title: 'Past orders', sub: orderSub, act: 'orders' }),
+  ])}
+  ${group('help', 'Help and policies', [
+    listRow({ title: 'Help', sub: 'Message Taily about an order or your account', act: 'help' }),
+    ...LEGAL_FOR.customer.map((doc) => listRow({ title: esc(LEGAL_DOCS[doc].title), act: 'legal', attrs: `data-doc="${doc}"` })),
+  ])}
+  <div class="page-actions ${ID}__out"><div class="page-actions__links">${textLink('Sign out', { act: 'sign-out', tone: 'muted' })}${textLink('Delete account', { act: 'delete', tone: 'danger' })}</div></div>
   <p class="t-micro c-600 ${ID}__version">Taily prototype · v5</p>
 </main>`;
-}
-
-const signOutModal = () => `<div class="modal modal--leave" role="alertdialog" aria-modal="true" aria-labelledby="${ID}-so-title" aria-describedby="${ID}-so-body">
-  <h2 class="modal__title t-h2" id="${ID}-so-title">Sign out of Taily?</h2>
-  <p class="leave-modal__body" id="${ID}-so-body">You’ll need your phone number and a code to sign back in. Your bookings stay as they are.</p>
-  <div class="modal__actions">
-    ${cta('Sign out', { variant: 'danger', attrs: 'data-act="sign-out-ok"' })}
-    ${cta('Stay signed in', { variant: 'secondary', attrs: 'data-act="sign-out-keep"' })}
-  </div>
-</div>`;
-
-function openSignOut() {
-  modalOverlay(signOutModal(), { dataS: 'sign-out' }, (holder, close) => {
-    const keep = holder.querySelector('[data-act="sign-out-keep"]');
-    keep.addEventListener('click', () => close());
-    keep.focus();   // R5-1-C-03: focus lands on the safe choice; a stray Enter never signs her out
-    holder.querySelector('[data-act="sign-out-ok"]').addEventListener('click', () => {
-      A.signOut();
-      close({ instant: true });
-      go('c-welcome', { fresh: true });
-    });
-  });
 }
 
 function wire(root) {
@@ -80,11 +73,16 @@ function wire(root) {
     const el = e.target.closest('[data-act]');
     if (!el || e.target.closest('.screen-sheet--overlay')) return;
     switch (el.dataset.act) {
+      case 'info': delete state.ui['c-profile']; go('c-profile'); break;
+      case 'texts': go('c-texts'); break;   // pre-MVP A1 (D-02)
       case 'addresses': go('c-addresses'); break;
       case 'cards': go('c-cards'); break;
       case 'orders': go('c-orders'); break;
-      case 'texts': go('c-texts'); break;   // pre-MVP A1 (D-02)
-      case 'sign-out': openSignOut(); break;
+      /* track A2 builds c-help (DG-1): until it is in this build the row still shows and says so */
+      case 'help': if (registered().includes('c-help')) go('c-help'); else toast('Help opens here in the next build.'); break;
+      case 'legal': state.ui['c-legal'] = { doc: el.dataset.doc }; go('c-legal'); break;
+      case 'sign-out': openSignOut('customer', { go }); break;
+      case 'delete': openDeleteAccount('customer', { go, onSee: (b) => seeBlocker('customer', b, go) }); break;
       default: break;
     }
   });

@@ -18,7 +18,7 @@ import { setFocus } from './focus.js';
 import { sheetOverlay, codeInput, cta, toast, esc, ICON_WIFI_OFF, ICON_CHAT } from './components.js';
 
 /** Screens that run before / outside a signed-in session: no re-auth sheet on them (the offline banner still shows). */
-export const SYSTEM_EXEMPT = ['c-welcome', 'c-phone', 'c-code', 'c-name', 't-phone', 't-code', 'sys-index', 'sys-components'];
+export const SYSTEM_EXEMPT = ['c-welcome', 'c-phone', 'c-code', 'c-name', 't-phone', 't-code', 'sys-index', 'sys-components', 'c-legal', 't-legal'];   // pre-MVP B2: the legal pages read signed out (S-24)
 
 /* ---------- offline banner ---------- */
 /** The offline banner — pinned under the top bar. Empty while online. */

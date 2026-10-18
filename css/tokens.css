@@ -144,6 +144,7 @@
   /* surfaces: ONE depth strategy — interactive containers are tissue white with a chalk ring, nothing else lifts */
   --card-bg: var(--white);
   --card-ring: var(--neutral-200);
+  --card-ring-tap: var(--neutral-500);   /* P-31 (pre-MVP B2, D-374): a card that is ONE tap target — 3.75:1 on --neutral-50, 4.1:1 on white (WCAG 1.4.11) */
   --hairline: var(--neutral-100);
 
   /* avatar: initials on a warm tint (K-03 — no black squares) */

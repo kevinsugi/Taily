@@ -120,9 +120,9 @@ export const FLOWS_c_where = [
     setup: (S) => { S.T.setJob({ needBy: '2026-10-16' }); },
     expect: { has: ['Fri, Oct 16', 'A date this soon can add a rush fee'] } },
   { key: 'c-where--address-sheet', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — address sheet',
-    note: 'Street, unit, city, ZIP',
+    note: 'S-27 (pre-MVP B2): her saved addresses first (Home is the one booked), then another address — street, unit, ZIP, access notes',
     click: ['[data-act="edit-address"]'],
-    expect: { has: ['Street address', 'Apt, suite or unit', 'Save address'] } },
+    expect: { has: ['SAVED ADDRESSES', 'Home', '145 N 7th St, 2R', 'ANOTHER ADDRESS', 'Street address', 'Apt, suite or unit', 'Access notes (optional)', 'Use this address'], sel: '[data-act="saved-address"][aria-checked="true"]' } },
   { key: 'c-where--needby-sheet', screen: 'c-where', group: 'M1 · Booking', title: 'Where and when — need-by sheet',
     note: 'The Scheduler wheel, days from tomorrow',
     click: ['[data-act="edit-needby"]'],
@@ -213,13 +213,13 @@ export const FLOWS_c_book = [
 ];
 export const FLOWS_c_pay = [
   { key: 'c-pay', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request', note: 'Seed job: the deposit is held, not charged',
-    expect: { has: ['Review and send request', fmtExact(SCENARIOS.seed.services), 'Home visit fee', 'Flat, per visit', fmtExact(SCENARIOS.seed.homeFee), fmtExact(SCENARIOS.seed.total), 'Held today', `Hold ${fmtExact(SCENARIOS.seed.deposit)} and send request`, 'Visa •••• 4242', 'released in full', `We’ll text you the day before to confirm. If you don’t confirm 3 hours before the visit, we cancel it and Amara keeps the ${fmtExact(SCENARIOS.seed.deposit)} deposit.`] } },
+    expect: { has: ['Review and send request', fmtExact(SCENARIOS.seed.services), 'Home visit fee', 'Flat, per visit', fmtExact(SCENARIOS.seed.homeFee), fmtExact(SCENARIOS.seed.total), 'Held today', `Reserve · ${fmtExact(SCENARIOS.seed.deposit)} deposit`, 'Charged only if Amara accepts', 'Visa •••• 4242', 'released in full', `We’ll text you the day before to confirm. If you don’t confirm 3 hours before the visit, we cancel it and Amara keeps the ${fmtExact(SCENARIOS.seed.deposit)} deposit.`] } },
   { key: 'c-pay--rush', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — rush', note: 'Need-by Fri, Oct 16: a rush fee row, same deposit',
     setup: (S) => { S.T.setJob({ needBy: '2026-10-16' }); },
-    expect: { has: ['Rush fee', fmtExact(SCENARIOS.rush.rush), fmtExact(SCENARIOS.rush.total), `Hold ${fmtExact(SCENARIOS.rush.deposit)}`] } },
+    expect: { has: ['Rush fee', fmtExact(SCENARIOS.rush.rush), fmtExact(SCENARIOS.rush.total), `Reserve · ${fmtExact(SCENARIOS.rush.deposit)} deposit`] } },
   { key: 'c-pay--shop', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — at the shop', note: 'No home visit fee',
     setup: (S) => { S.T.setJob({ visitType: 'shop' }); },
-    expect: { has: ['At the shop', 'Tue, Oct 13 · 1:00 PM', fmtExact(SCENARIOS.shop.total), `Hold ${fmtExact(SCENARIOS.shop.deposit)}`, 'This visit is less than', `Amara keeps the ${fmtExact(SCENARIOS.shop.deposit)} deposit`], not: ['Home visit fee', 'Free cancellation'] } },
+    expect: { has: ['At the shop', 'Tue, Oct 13 · 1:00 PM', fmtExact(SCENARIOS.shop.total), `Reserve · ${fmtExact(SCENARIOS.shop.deposit)} deposit`, 'This visit is less than', `Amara keeps the ${fmtExact(SCENARIOS.shop.deposit)} deposit`], not: ['Home visit fee', 'Free cancellation'] } },
   { key: 'c-pay--method', screen: 'c-pay', group: 'M1 · Booking', title: 'Pay with — sheet', note: 'Saved card, Apple Pay, add a card',
     click: ['[data-act="change-method"]'],
     expect: { has: ['Pay with', 'Visa •••• 4242', 'Apple Pay', 'Add a card'] } },
@@ -237,7 +237,7 @@ export const FLOWS_c_pay = [
   { key: 'c-pay--processing', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — sending', note: 'Latency held: Pay is busy, the form is locked',
     setup: (S) => { S.sim.latency = 'hold'; },
     click: ['[data-act="pay"]'],
-    expect: { has: 'Sending request', sel: '[data-act="pay"][aria-busy="true"]' } },
+    expect: { has: ['Reserving…', 'Charged only if Amara accepts'], sel: '[data-act="pay"][aria-busy="true"]' } },   // K-49 V3: busy keeps the second line
 ];
 export const FLOWS_c_request = [
   { key: 'c-request', screen: 'c-request', group: 'M1 · Booking', title: 'Request sent', note: 'Waiting for Amara: 2 hours on the clock, deposit on hold',

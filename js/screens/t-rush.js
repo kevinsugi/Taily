@@ -11,7 +11,7 @@ import { RUSH_TIERS, TAILOR_LIMITS } from '../data.js';
 import { cents, fmt } from '../money.js';
 import { withLatency } from '../sim.js';
 import {
-  chrome, headingRow, toggle, field, customerPreview, sectionHead, actionBar, modalOverlay, leaveModal, toast, wireToggles, editScopeNote, priceRow,
+  chrome, headingRow, toggle, field, customerPreview, sectionHead, actionBar, modalOverlay, leaveModal, leaveSheet, toast, wireToggles, editScopeNote, priceRow,
 } from '../components.js';
 
 const ID = 't-rush';
@@ -126,7 +126,7 @@ function wire(root) {
     backBtn.addEventListener('click', () => { if (isDirty()) leave(); else back() || go('t-shop'); });
   }
   function leave() {
-    modalOverlay(leaveModal({ body: 'Your rush fee changes will be lost.' }), { dataS: `${ID}-unsaved` }, (holder, close) => {
+    leaveSheet({ body: 'Your rush fee changes will be lost.' }, { dataS: `${ID}-unsaved` }, (holder, close) => {
       holder.querySelector('[data-act="keep-editing"]').addEventListener('click', () => close());
       holder.querySelector('[data-act="discard"]').addEventListener('click', () => {
         close({ instant: true });

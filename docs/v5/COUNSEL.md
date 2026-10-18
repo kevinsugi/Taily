@@ -26,3 +26,7 @@ and have counsel review before launch.
 
 Placeholder copy in the app: legal pages render a short summary + "Full text coming soon (counsel review)". Search the code for
 `COUNSEL` to find every spot.
+
+Pre-MVP B2 (D-373, D-370, D-376): the legal pages' placeholder summaries live in `js/legal.js` (`LEGAL_DOCS`, each naming its row
+above; `LEGAL_VERSION` is what sign-up logs with the time; `COMPANY` is the entity printed on receipts). Account deletion's "what goes,
+what stays" copy is `DELETE_WORDS` in `js/account-ui.js` (row 9). All marked `COUNSEL` in code comments.

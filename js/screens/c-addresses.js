@@ -1,21 +1,21 @@
 /* ============================================================
    c-addresses — Saved addresses. The places tailors visit and the default new bookings start from.
    Focal: the default address row. One card--list of rows (P3-1, the c-cards topology); a row opens a sheet with Make default / Remove
-   (D-133, D-229). Add = a sheet; remove is immediate with Undo, no confirm.
+   (D-133, D-229). Add = a sheet; remove is immediate with Undo, no confirm. S-27 (pre-MVP B2, D-379): the add / edit form is the shared
+   addressFields() (street, unit, ZIP, access notes — the same four as the booking's address sheet) and a row's sheet can Edit address.
    Screen-local UI: state.ui['c-addresses'] = { add: draft | undefined }.
    Spec: M5-spec.md §C3.
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
 import { state } from '../state.js';
 import {
-  chrome, headingRow, actionBar, emptyState, field, chipGroup, checkRow, cta, listRow, textLink, sheetOverlay, toast, wireChipGroups, banner, esc,
+  chrome, headingRow, actionBar, emptyState, field, chipGroup, checkRow, cta, listRow, textLink, sheetOverlay, toast, wireChipGroups, banner, esc, addressFields,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import { ADDRESS_LABELS, SHOP_CITY } from '../data.js';
 import * as A from '../account.js';
 
 const ID = 'c-addresses';
-const MSG = { street: 'Enter your street address.', zip: 'Enter a 5-digit ZIP code.' };
 
 const ui = () => (state.ui[ID] ??= {});
 const list = () => state.customer.addresses ?? [];
@@ -56,9 +56,11 @@ function rowHtml(a, { busy = '', error = '' } = {}) {
   const lock = !!busy;
   return `<div class="${ID}-sheet" data-view="address">
   <p class="t-body c-700 ${ID}-sheet__lines">${esc(a.street)}${a.unit ? `, ${esc(a.unit)}` : ''}<br>${esc(a.city)}, ${esc(a.state)} ${esc(a.zip)}</p>
+  ${a.notes ? `<p class="t-small c-600 ${ID}-sheet__notes">Access: ${esc(a.notes)}</p>` : ''}
   ${a.default ? `<p class="t-small c-600 ${ID}-sheet__default">Your default address. New bookings start here.</p>` : ''}
   ${error ? banner({ tone: 'error', title: error, text: 'Nothing changed. Try again.' }) : ''}
   <div class="${ID}-sheet__links">
+    ${textLink('Edit address', { act: 'edit', disabled: lock })}
     ${a.default ? '' : textLink(busy === 'make-default' ? 'Updating…' : 'Make default', { act: 'make-default', disabled: lock })}
     ${textLink(busy === 'remove' ? 'Removing…' : 'Remove address', { act: 'remove', tone: 'danger', disabled: lock })}
   </div>
@@ -120,6 +122,7 @@ function openRow(id) {
       if (!el || el.disabled) return;
       if (el.dataset.act === 'remove') removeIt();
       else if (el.dataset.act === 'make-default') makeIt();
+      else if (el.dataset.act === 'edit') { close({ instant: true }); openAdd({ editId: id }); }   // S-27
     });
   });
 }
@@ -129,23 +132,23 @@ const firstLabel = () => (list().some((a) => a.label === 'Home') ? 'Work' : 'Hom
 
 function addHtml(d, errors = {}, busy = false) {
   const first = list().length === 0;
-  return `<form class="${ID}-sheet" data-view="add" novalidate>
+  return `<form class="${ID}-sheet" data-view="${d.editId ? 'edit' : 'add'}" novalidate>
   <fieldset class="${ID}-sheet__fields"${busy ? ' disabled aria-busy="true"' : ''}>
     ${chipGroup({ name: 'label', label: 'Label', options: ADDRESS_LABELS.map((l) => ({ value: l, label: l })), value: d.label })}
-    ${field({ id: 'street', label: 'Street address', value: d.street, autocomplete: 'address-line1', error: errors.street ?? '' })}
-    ${field({ id: 'unit', label: 'Apt, suite or unit (optional)', value: d.unit, autocomplete: 'address-line2' })}
-    ${field({ id: 'zip', label: 'ZIP code', value: d.zip, inputmode: 'numeric', maxlength: 5, autocomplete: 'postal-code', helper: `Taily is in ${SHOP_CITY.city} for now.`, error: errors.zip ?? '' })}
-    ${checkRow({ id: 'make-default', label: 'Use as my default address', checked: first || !!d.makeDefault, disabled: first })}
+    ${addressFields({ values: d, errors, zipHelper: `Taily is in ${SHOP_CITY.city} for now.` })}
+    ${d.editId ? '' : checkRow({ id: 'make-default', label: 'Use as my default address', checked: first || !!d.makeDefault, disabled: first })}
   </fieldset>
   ${cta('Save address', { busy, busyLabel: 'Saving…', attrs: 'data-act="save-address"' })}
 </form>`;
 }
 
-function openAdd() {
-  const seed = ui().add ?? {};
+/** Add an address, or (S-27) edit one: `{ editId }` prefills the form and saves through A.updateAddress. */
+function openAdd({ editId = null } = {}) {
+  const was = editId ? list().find((a) => a.id === editId) : null;
+  const seed = was ?? ui().add ?? {};
   delete ui().add;
-  const d = { label: seed.label ?? firstLabel(), street: seed.street ?? '', unit: seed.unit ?? '', zip: seed.zip ?? '', makeDefault: !!seed.makeDefault };
-  sheetOverlay(addHtml(d), { header: 'Add an address', dataS: 'add-address', confirm: false }, (holder, close) => {
+  const d = { editId: was?.id ?? null, label: seed.label ?? firstLabel(), street: seed.street ?? '', unit: seed.unit ?? '', zip: seed.zip ?? '', notes: seed.notes ?? '', makeDefault: !!seed.makeDefault };
+  sheetOverlay(addHtml(d), { header: was ? 'Edit address' : 'Add an address', dataS: was ? 'edit-address' : 'add-address', confirm: false }, (holder, close) => {
     const swap = (errors = {}, busy = false) => {
       holder.querySelector(`.${ID}-sheet`).outerHTML = addHtml(d, errors, busy);
       holder.dataset.locked = busy ? 'true' : 'false';
@@ -155,40 +158,32 @@ function openAdd() {
     holder.addEventListener('input', (e) => {
       const t = e.target;
       if (t.id === 'zip') t.value = t.value.replace(/\D/g, '').slice(0, 5);
-      if (t.id === 'street') d.street = t.value;
-      if (t.id === 'unit') d.unit = t.value;
-      if (t.id === 'zip') d.zip = t.value;
+      if (['street', 'unit', 'zip', 'notes'].includes(t.id)) d[t.id] = t.value;
     });
     holder.addEventListener('change', (e) => { if (e.target.id === 'make-default') d.makeDefault = e.target.checked; });
 
     const save = () => {
       if (holder.dataset.locked === 'true') return;
-      d.street = holder.querySelector('#street').value.trim();
-      d.unit = holder.querySelector('#unit').value.trim();
-      d.zip = holder.querySelector('#zip').value.trim();
-      const errors = {};
-      if (!d.street) errors.street = MSG.street;
-      if (!/^\d{5}$/.test(d.zip)) errors.zip = MSG.zip;
+      for (const k of ['street', 'unit', 'zip', 'notes']) d[k] = holder.querySelector(`#${k}`).value.trim();
+      const errors = A.addressErrors(d);
       if (Object.keys(errors).length) {                                    // a field problem: under the field, focus on the first
         swap(errors);
-        holder.querySelector(errors.street ? '#street' : '#zip')?.focus();
+        holder.querySelector('[aria-invalid="true"]')?.focus();
         return;
       }
       swap({}, true);
       withLatency(() => {
         if (!holder.isConnected) return;
-        const res = A.addAddress({ label: d.label, street: d.street, unit: d.unit, zip: d.zip, makeDefault: d.makeDefault });
+        const fields = { label: d.label, street: d.street, unit: d.unit, zip: d.zip, notes: d.notes };
+        const res = d.editId ? A.updateAddress(d.editId, fields) : A.addAddress({ ...fields, makeDefault: d.makeDefault });
         if (!res.ok) {                                                     // the model said no: show it where it belongs
-          const e = {};
-          if (res.errors.street) e.street = MSG.street;
-          if (res.errors.zip) e.zip = MSG.zip;
-          swap(e);
+          swap(res.errors ?? {});
           holder.querySelector('[aria-invalid="true"]')?.focus();
           return;
         }
         close({ instant: true });
         go(ID);
-        toast('Address saved');
+        toast(d.editId ? 'Address updated' : 'Address saved');
       });
     };
     holder.addEventListener('click', (e) => {

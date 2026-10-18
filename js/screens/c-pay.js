@@ -1,7 +1,9 @@
 /* ============================================================
    c-pay — C5b Review and send request (booking step 5 of 5; holds the deposit and sends the request; title per D-52).
-   Focal: the CTA "Hold $16.00 and send request". The deposit is only HELD
-   here (authorized) and charged when the tailor accepts (D-38).
+   Focal: the CTA — K-49 deposit button V3 (pre-MVP B2, D-378): the K-46 two-line button "Reserve · $16.00 deposit" over
+   "Charged only if Amara accepts" (busy "Reserving…" keeps the second line; declined stays "Use another card"). The deposit is
+   only HELD here (authorized) and charged when the tailor accepts (D-38). S-27: an optional "Note for Amara" rides with the
+   request (masked like chat). S-24: the Cancellation and refunds page sits with the hold terms.
    Booking draft: state.ui.booking { tailorId, slot, cardId } (D-36).
    Screen-local flags: state.ui['c-pay'] { busy, error, info, focus }.
    ============================================================ */
@@ -10,12 +12,13 @@ import { state, T, tailorById, openSlots, now, priceChangeView, textsOn, coversJ
 import {
   flowBar, headingRow, visitBlock, customerBreakdown, infoCard, metaRow, methodRow, actionBar, banner,
   emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, sectionHead, textLink, infoButton,
+  textArea, wireTextLimit,
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
 import { fmtExact, estimate, cancelTerms } from '../money.js';
 import { fmtWhen, addMinutes, toDate } from '../dates.js';
-import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
+import { VISIT_LABEL, VISIT_MINUTES, BOOKING_LIMITS } from '../data.js';
 import { POLICY } from '../money-config.js';
 
 const ID = 'c-pay';
@@ -145,6 +148,10 @@ function view() {
     ${visitBlock(visitRows(r), { title: 'Your visit', flush: true, action: textLink('Change time', { act: 'back', disabled: busy }) })}
   </section>
   ${orderBlock(r, q)}
+  <section class="sec c-pay__note">${textArea({
+    id: 'job-note', label: `Note for ${first} (optional)`, value: state.job.note ?? '', rows: 3, maxlength: BOOKING_LIMITS.NOTE_MAX, section: true,
+    placeholder: 'Like the heel height for a hem', helper: `${first} sees it with your request. Phone numbers and emails are hidden.`,
+  })}</section>
   <section class="sec" aria-labelledby="pay-h-price">
     ${sectionHead('Price', { id: 'pay-h-price', aside: infoButton('deposit', { label: 'About the deposit' }) })}
     ${customerBreakdown(q, { stage: 'estimate', tailorFirst: first, depositState: 'to-hold' })}
@@ -153,7 +160,7 @@ function view() {
     metaRow(GLYPH.lock, `We hold ${money(q.deposit)} now. You’re only charged if ${esc(first)} accepts. If ${esc(first)} declines or doesn’t reply, it’s released in full.`),
     cancelRow(r.slot, q.deposit, first),
     reminderRow(r.slot, q.deposit, first),
-  ].join(''))}</section>
+  ].join(''))}<div class="c-pay__policy">${textLink('Cancellation and refunds', { act: 'refunds', disabled: busy })}</div></section>
   <section class="sec" aria-labelledby="pay-h-method">
     ${sectionHead('Pay with', { id: 'pay-h-method' })}
     ${methodBtn}
@@ -162,8 +169,10 @@ function view() {
 </main>
 ${actionBar({
     /* C-11: after a decline the failed card is still the one selected — the bar offers another card, never a silent retry */
-    ctaLabel: u.error === 'declined' ? 'Use another card' : `Hold ${fmtExact(q.deposit)} and send request`, ctaAct: u.error === 'declined' ? 'change-method' : 'pay', busy, busyLabel: 'Sending request…',
-    disabled: u.error === 'services', note: u.error === 'services' ? `${esc(first)} doesn’t offer every service you picked` : '',   // K-48.2 (D-354)
+    /* K-49 V3 (D-378): the K-46 two-line button — the amount in the bold line, the charge rule under it; disabled, the second line is the reason (K-48.2) */
+    ctaLabel: u.error === 'declined' ? 'Use another card' : `Reserve · ${fmtExact(q.deposit)} deposit`, ctaAct: u.error === 'declined' ? 'change-method' : 'pay', busy, busyLabel: 'Reserving…',
+    ctaSub: u.error === 'declined' ? '' : u.error === 'services' ? `${esc(first)} doesn’t offer every service you picked` : `Charged only if ${esc(first)} accepts`,
+    disabled: u.error === 'services',
   })}`;
 }
 
@@ -372,11 +381,19 @@ function wire(root) {
       case 'pay': pay(); break;
       case 'pick-time': go('c-book', { replace: true }); break;
       case 'other-tailors': ui().error = null; go('c-tailors'); break;
+      case 'refunds': if (!ui().busy) { state.ui['c-legal'] = { doc: 'refunds' }; go('c-legal'); } break;   // S-24 (pre-MVP B2)
       default:
     }
   };
   root.addEventListener('click', onClick);
   offClick = () => root.removeEventListener('click', onClick);
+  /* S-27 (pre-MVP B2): the note is part of the draft job — kept while she goes back and forth, sent with the request */
+  const note = root.querySelector('#job-note');
+  if (note) {
+    if (u.busy) note.disabled = true;
+    wireTextLimit(root, 'job-note');
+    note.addEventListener('input', () => T.setJob({ note: note.value }));
+  }
 }
 
 register(ID, view, wire);

@@ -1,16 +1,15 @@
-/* c-account — the Account tab. Layout only; rows are the shared listRow, the sign-out confirm is the shared leave modal. M7: the identity block is flat; the three rows are the one .card--list. */
+/* c-account — the Account tab. DG-3 option A (pre-MVP B2, D-370): three groups of the shared listRow in .card--list, then
+   Sign out (muted) and Delete account (danger) as text links; their confirms are the shared confirm sheet (P-32). */
 .c-account { gap: 0; padding-bottom: var(--space-40); }
 
 /* identity: flat on the linen */
 .c-account__who { display: flex; align-items: center; gap: var(--space-16); }
 .c-account__text { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
-.c-account__name, .c-account__phone, .c-account__email { margin: 0; }
+.c-account__name, .c-account__phone { margin: 0; }
 .c-account__name { overflow-wrap: break-word; }
 .c-account__phone { font-variant-numeric: tabular-nums; color: var(--ink); }
-.c-account__email { overflow-wrap: break-word; }
 
 .c-account__list { display: flex; flex-direction: column; }
-.c-account__list .list-row { min-height: 64px; }
-.c-account__list .list-row__right { font-variant-numeric: tabular-nums; }
+.c-account__list .list-row { min-height: 56px; }
 
 .c-account__version { margin: var(--rhythm-block) 0 0; text-align: center; }

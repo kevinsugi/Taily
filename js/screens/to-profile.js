@@ -13,7 +13,7 @@ import { TAILOR_LIMITS, GARMENT_TYPES, TAILORS, SEED_JOB, ZIP_INFO, hoodNames } 
 import { estimate, fmt } from '../money.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, headingRow, banner, field, textArea, avatar, textLink, photoTile, photoStub,
-  customerPreview, tailorRow, actionBar, sheetOverlay, modalOverlay, leaveModal, listRow, toast, esc, wireTextLimit, openIdSheet, statusPill, checkWords,
+  customerPreview, tailorRow, actionBar, sheetOverlay, modalOverlay, leaveModal, leaveSheet, listRow, toast, esc, wireTextLimit, openIdSheet, statusPill, checkWords,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -269,7 +269,7 @@ function wire(root) {
 
   /* ----- actions ----- */
   const leave = () => { state.ui[ID] = {}; back() || go('t-shop'); };
-  const askLeave = () => modalOverlay(leaveModal(), { dataS: `${ID}-leave` }, (holder, close) => {
+  const askLeave = () => leaveSheet({}, { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]').addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]').addEventListener('click', () => { close(); leave(); });
   });

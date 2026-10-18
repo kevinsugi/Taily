@@ -126,6 +126,7 @@ function wire(root) {
       row.setAttribute('aria-expanded', String(open));
       root.querySelector('#receipt-body').hidden = !open;
     } else if (act === 'message') { if (a) setFocus(a.id, { keepFrom: true }); go('c-thread'); }
+    else if (act === 'full-receipt' && a) { setFocus(a.id, { keepFrom: true }); go('c-receipt'); }   // S-25 (pre-MVP B2)
     else if (act === 'leave-review' && a) { setFocus(a.id, { keepFrom: true }); state.ui['c-review'] = { apptId: a.id }; go('c-review'); }
     else if (act === 'book-again' && a) { T.bookAgain(a.id); state.ui.booking = { tailorId: a.tailorId, again: true }; go('c-job', { fresh: true }); }   // Study-1 A4 (default 9)
     else if (act === 'done') go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings', { fresh: true });

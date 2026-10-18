@@ -35,3 +35,4 @@
   .c-welcome__hero { margin-block: var(--rhythm-group); }
   .c-welcome__spacer { min-height: var(--space-16); }
 }
+.c-welcome__deleted { margin: 0 0 var(--rhythm-group); }   /* DG-3 A (pre-MVP B2): after Delete account */

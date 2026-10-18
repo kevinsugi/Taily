@@ -26,7 +26,7 @@ export const CHAT = {
   late: 'Running ten minutes late, sorry!',
   phoneCustomer: `Text me at ${CUSTOMER.phone} if you’re running late.`,
   phoneTailor: `Easier to call me: ${AMARA.phone}`,
-  email: `Or email me at ${CUSTOMER.email}`,
+  email: 'Or email me at sarah.chen@example.com',   // DG-3 A (pre-MVP B2): the seed has no email on file any more; the chat still tests the mask
 };
 
 /** Sarah asks Amara a question before booking, and (by default) Amara answers. Does NOT reset; real sendMessage only. */
@@ -173,6 +173,9 @@ export function driveTo(target, opts = {}) {
   if (ask) askAmara();                                          // M5: a question and an answer before the booking
   if (items) setGarments(items);                                // K-21: a bigger order through the real job transitions
   T.setJob({ visitType, ...(rush ? { needBy: '2026-10-16' } : {}) });
+  /* S-27 (pre-MVP B2): her note for the tailor and the access notes on the booking's address, through the real draft transitions */
+  if (opts.note) T.setJob({ note: opts.note });
+  if (opts.accessNotes) T.setJobAddress({ ...state.job.address, notes: opts.accessNotes });
   const tailorId = state.tailors[0].id;
   const slotStart = nextOpening(tailorId, visitType, { until: state.job.needBy });
   const appt = must(T.requestBooking({ tailorId, slotStart, cardId: 'visa-4242' }), 'requestBooking');

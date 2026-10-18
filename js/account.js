@@ -7,9 +7,10 @@
    the decline recovery of D-40). Every fn returns
    { ok, … } | { ok: false, error } (field forms: errors { field: code }).
    ============================================================ */
-import { state, now, nowIso, blankTailor, nextSection, TERMINAL } from './state.js';
+import { state, now, nowIso, blankTailor, nextSection, TERMINAL, deleteBlocker, newJob } from './state.js';
 import { POLICY } from './money-config.js';
-import { SHOP_CITY, placeForZip } from './data.js';
+import { SHOP_CITY, placeForZip, BLANK_CUSTOMER, BOOKING_LIMITS } from './data.js';
+import { LEGAL_VERSION } from './legal.js';
 
 const WRONG_CODE = '000000';
 
@@ -49,7 +50,8 @@ export function sendCode(raw, who = 'customer') {
   if (!v.ok) return v;
   const known = who === 'tailor' ? state.tailors[0].phone : state.customer.phone;   // D-55: the seed number is the existing account
   const isNew = phoneDigits(raw) !== phoneDigits(known);
-  session(who).pending = { phone: formatPhone(raw), sentAt: now(), isNew };
+  /* S-24 (pre-MVP B2): Send code is the button that creates the account — the terms she agreed to and when ride with the code */
+  session(who).pending = { phone: formatPhone(raw), sentAt: now(), isNew, agreed: { version: LEGAL_VERSION, at: nowIso() } };
   return { ok: true, phone: session(who).pending.phone, isNew };
 }
 
@@ -88,8 +90,10 @@ export function verifyCode(code, who = 'customer') {
       return { ok: true, isNew: false, next: nextSection() };
     }
     const phone = st.phone;
+    const agreed = session(who).pending?.agreed ?? null;
     blankTailor();                              // D-20
     state.tailors[0].phone = phone;
+    state.tailors[0].agreed = agreed;           // S-24 (pre-MVP B2): the Tailor Terms version + when, logged at sign-up
     state.session.tailor = { signedIn: true, pending: null };
     return { ok: true, isNew: true, next: 'profile' };
   }
@@ -112,17 +116,106 @@ export function saveName({ first = '', last = '', texts = false } = {}) {
   Object.assign(state.customer, {
     first: f, last: l, initials: `${f[0]}${l[0]}`.toUpperCase(),
     phone: session().pending?.phone ?? state.customer.phone,
+    agreed: session().pending?.agreed ?? null,   // S-24 (pre-MVP B2): the Terms + Privacy version and when, logged at sign-up
   });
   state.session.customer = { signedIn: true, pending: null };
   state.texts.customer = { on: !!texts, stoppedAt: null, changedAt: nowIso() };
   return { ok: true, customer: state.customer };
 }
 
-/** 'apple' | 'google' sign in as the seed customer. */
+/** D-07 / B-09 (pre-MVP B2, D-372): 'apple' | 'google' is only the first half of signing in — every account needs a mobile number checked
+    by code before anything else (texts, sign-in codes and the re-auth sheet all go there). The provider hands over the name on the account
+    (PROTOTYPE: the seed name), kept on the session for c-name; nobody is signed in until c-code (a known number) or c-name (a new one). */
 export function signInWith(provider) {
   if (provider !== 'apple' && provider !== 'google') return fail('provider');
-  state.session.customer = { signedIn: true, pending: null };
-  return { ok: true, provider };
+  state.session.customer = { signedIn: false, pending: null, social: { provider, first: state.customer.first || 'Sarah', last: state.customer.last || 'Chen' } };
+  return { ok: true, provider, needsPhone: true };
+}
+/** The Apple / Google sign-in still waiting for its phone step, or null. */
+export const socialPending = () => state.session.customer?.social ?? null;
+
+/* ---------- Account v2 (DG-3 option A, pre-MVP B2) ---------- */
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+/** Personal info: names (required) and an optional email for receipts. → `{ ok, customer, changed }` | `{ ok: false, errors: { first, last, email } }`. */
+export function saveProfile({ first = state.customer.first, last = state.customer.last, email = state.customer.email ?? '' } = {}) {
+  const f = String(first ?? '').trim();
+  const l = String(last ?? '').trim();
+  const e = String(email ?? '').trim();
+  const errors = {};
+  if (!f) errors.first = 'first-required';
+  if (!l) errors.last = 'last-required';
+  if (e && !EMAIL_OK.test(e)) errors.email = 'email-invalid';
+  if (Object.keys(errors).length) return { ok: false, errors };
+  const c = state.customer;
+  const changed = f !== c.first || l !== c.last || e !== (c.email ?? '');
+  Object.assign(c, { first: f, last: l, initials: `${f[0]}${l[0]}`.toUpperCase(), email: e });
+  return { ok: true, customer: c, changed };
+}
+
+const phoneOf = (who) => (who === 'tailor' ? state.tailors[0].phone : state.customer.phone);
+/** Change the number every text goes to (DG-3 A): a code to the NEW number first. Errors: phone-invalid · phone-same. */
+export function startPhoneChange(raw, who = 'customer') {
+  const v = validatePhone(raw);
+  if (!v.ok) return v;
+  if (phoneDigits(raw) === phoneDigits(phoneOf(who))) return fail('phone-same');
+  session(who).change = { phone: formatPhone(raw), sentAt: now() };
+  return { ok: true, phone: session(who).change.phone };
+}
+/** { phone, msToResend, expired } for the change code in flight; null without one. */
+export function phoneChangeStatus(who = 'customer') {
+  const c = session(who)?.change;
+  if (!c) return null;
+  return { phone: c.phone, msToResend: Math.max(0, c.sentAt + POLICY.CODE_RESEND_S * 1000 - now()), expired: now() >= c.sentAt + POLICY.CODE_TTL_MIN * 60000 };
+}
+export function resendPhoneChange(who = 'customer') {
+  const st = phoneChangeStatus(who);
+  if (!st) return fail('no-code');
+  if (st.msToResend > 0) return fail('too-soon');
+  session(who).change.sentAt = now();
+  return { ok: true };
+}
+export function cancelPhoneChange(who = 'customer') {
+  if (session(who)) delete session(who).change;
+  return { ok: true };
+}
+/** 'no-code' · 'code-format' · 'code-expired' · 'code-wrong' (000000) · else the number is changed and every text from now on goes to it
+    (state.js notify stamps the number on each outbox entry). A STOP belonged to the old number, so its note is cleared; on / off stays. */
+export function verifyPhoneChange(code, who = 'customer') {
+  const st = phoneChangeStatus(who);
+  if (!st) return fail('no-code');
+  const digits = String(code ?? '').replace(/\s/g, '');
+  if (!/^\d{6}$/.test(digits)) return fail('code-format');
+  if (st.expired) return fail('code-expired');
+  if (digits === WRONG_CODE) return fail('code-wrong');
+  const was = phoneOf(who);
+  if (who === 'tailor') state.tailors[0].phone = st.phone; else state.customer.phone = st.phone;
+  const p = state.texts[who];
+  if (p?.stoppedAt) p.stoppedAt = null;
+  delete session(who).change;
+  return { ok: true, phone: st.phone, was };
+}
+
+/** Delete the account (DG-3 A). Blocked while a visit, an order or money is still open (state.js `deleteBlocker`) → `{ ok: false, error: 'open', block }`.
+    Customer: name, number, email, addresses and cards go; past orders, receipts and messages stay with the old id (COUNSEL #9: retention);
+    signed out with `deletedAt` (c-welcome says so). Tailor: profile, prices, hours and bank details go, she is unlisted; payout and tax
+    records stay; signed out (t-phone says so). PROTOTYPE: one seed record per persona, so the blank record keeps the tailor's id. */
+export function deleteAccount(who = 'customer') {
+  const block = deleteBlocker(who);
+  if (block) return { ok: false, error: 'open', block };
+  const at = nowIso();
+  if (who === 'tailor') {
+    const t = blankTailor();
+    t.closedAt = at;
+    state.texts.tailor = { on: false, stoppedAt: null, changedAt: at };
+    state.session.tailor = { signedIn: false, pending: null, deletedAt: at };
+    return { ok: true, at };
+  }
+  const old = state.customer;
+  state.customer = { ...structuredClone(BLANK_CUSTOMER), closed: { id: old.id, at } };
+  state.texts.customer = { on: false, stoppedAt: null, changedAt: at };
+  newJob();
+  state.session.customer = { signedIn: false, pending: null, deletedAt: at };
+  return { ok: true, at };
 }
 
 /* A simulated decline sticks to the declined method; another method or a new card clears it (D-40). */
@@ -179,26 +272,49 @@ const FIELDS = ['street', 'unit', 'city', 'state', 'zip'];
 /** `customer.address` always equals the default saved address's fields, or null when none is saved. */
 function syncAddress() {
   const d = state.customer.addresses.find((a) => a.default);
-  state.customer.address = d ? Object.fromEntries(FIELDS.map((k) => [k, d[k] ?? ''])) : null;
+  state.customer.address = d ? { ...Object.fromEntries(FIELDS.map((k) => [k, d[k] ?? ''])), ...(d.notes ? { notes: d.notes } : {}) } : null;   // S-27: access notes travel with it
+}
+/** S-27 (pre-MVP B2): the shared address rules (Saved addresses + the booking's address sheet) → `{ street, zip, notes }` codes. */
+export function addressErrors({ street = '', zip = '', notes = '' } = {}) {
+  const errors = {};
+  if (!String(street).trim()) errors.street = 'street-required';
+  if (!/^\d{5}$/.test(String(zip).trim())) errors.zip = 'zip-invalid';
+  if ([...String(notes ?? '').trim()].length > BOOKING_LIMITS.ACCESS_MAX) errors.notes = 'notes-long';
+  return errors;
 }
 const addrNum = (a) => Number(String(a.id).replace(/^addr-/, '')) || 0;
 
-/** `{ label, street, unit, zip, makeDefault }` → `{ ok, address } | { ok: false, errors: { street, zip, label } }`. City and state from the ZIP (S-42), SHOP_CITY outside the grid. */
-export function addAddress({ label = '', street = '', unit = '', zip = '', makeDefault = false } = {}) {
-  const errors = {};
-  if (!String(label).trim()) errors.label = 'label-required';
-  if (!String(street).trim()) errors.street = 'street-required';
-  if (!/^\d{5}$/.test(String(zip).trim())) errors.zip = 'zip-invalid';
+/** `{ label, street, unit, zip, notes, makeDefault }` → `{ ok, address } | { ok: false, errors: { street, zip, label, notes } }`. City and state from the ZIP (S-42),
+    SHOP_CITY outside the grid. S-27 (pre-MVP B2): optional access notes (buzzer, gate code; ≤ BOOKING_LIMITS.ACCESS_MAX) the tailor sees once she accepts. */
+export function addAddress({ label = '', street = '', unit = '', zip = '', notes = '', makeDefault = false } = {}) {
+  const errors = { ...(String(label).trim() ? {} : { label: 'label-required' }), ...addressErrors({ street, zip, notes }) };
   if (Object.keys(errors).length) return { ok: false, errors };
   const list = state.customer.addresses;
   const address = {
     id: `addr-${Math.max(0, ...list.map(addrNum)) + 1}`, label: String(label).trim(), street: String(street).trim(), unit: String(unit).trim(),
     city: placeForZip(zip)?.city ?? SHOP_CITY.city, state: placeForZip(zip)?.state ?? SHOP_CITY.state, zip: String(zip).trim(), default: false,
+    ...(String(notes ?? '').trim() ? { notes: String(notes).trim() } : {}),
   };
   if (makeDefault || !list.some((a) => a.default)) { for (const a of list) a.default = false; address.default = true; }
   list.push(address);
   syncAddress();
   return { ok: true, address };
+}
+
+/** S-27 (pre-MVP B2): edit a saved address (label, street, unit, ZIP, access notes) → `{ ok, address } | unknown-address | { ok: false, errors }`. */
+export function updateAddress(id, { label, street, unit, zip, notes } = {}) {
+  const a = state.customer.addresses.find((x) => x.id === id);
+  if (!a) return fail('unknown-address');
+  const next = { label: label ?? a.label, street: street ?? a.street, unit: unit ?? a.unit ?? '', zip: zip ?? a.zip, notes: notes ?? a.notes ?? '' };
+  const errors = { ...(String(next.label).trim() ? {} : { label: 'label-required' }), ...addressErrors(next) };
+  if (Object.keys(errors).length) return { ok: false, errors };
+  Object.assign(a, {
+    label: String(next.label).trim(), street: String(next.street).trim(), unit: String(next.unit).trim(), zip: String(next.zip).trim(),
+    city: placeForZip(next.zip)?.city ?? SHOP_CITY.city, state: placeForZip(next.zip)?.state ?? SHOP_CITY.state,
+  });
+  if (String(next.notes).trim()) a.notes = String(next.notes).trim(); else delete a.notes;
+  syncAddress();
+  return { ok: true, address: a };
 }
 
 /** → `{ ok, removed, index, newDefault }` (`newDefault` = the promoted address id, or null). Removing the last one leaves `customer.address === null`. */

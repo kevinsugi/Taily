@@ -1515,6 +1515,16 @@ export function field({ id, label, value = '', type = 'text', inputmode, autocom
   ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : ''}
 </div>`;
 }
+/** S-27 (pre-MVP B2, D-379): THE address fields — Saved addresses (add, edit) and the booking's address sheet (c-where) use the same four:
+    street · apt, suite or unit · ZIP (city and state come from it, S-42) · access notes (optional, ≤ BOOKING_LIMITS.ACCESS_MAX; the tailor
+    sees them once she accepts). Markup only; `errors` = the model's codes (account.js addressErrors / state.js setJobAddress). */
+export const ADDRESS_ERRORS = { street: 'Enter your street address.', zip: 'Enter a 5-digit ZIP code.', notes: `Keep access notes to ${DATA.BOOKING_LIMITS.ACCESS_MAX} characters.` };
+export function addressFields({ values = {}, errors = {}, zipHelper = '', disabled = false } = {}) {
+  return `${field({ id: 'street', label: 'Street address', value: values.street ?? '', autocomplete: 'address-line1', error: errors.street ? ADDRESS_ERRORS.street : '', disabled })}
+  ${field({ id: 'unit', label: 'Apt, suite or unit (optional)', value: values.unit ?? '', autocomplete: 'address-line2', disabled })}
+  ${field({ id: 'zip', label: 'ZIP code', value: values.zip ?? '', inputmode: 'numeric', maxlength: 5, autocomplete: 'postal-code', helper: zipHelper, error: errors.zip ? ADDRESS_ERRORS.zip : '', disabled })}
+  ${field({ id: 'notes', label: 'Access notes (optional)', value: values.notes ?? '', maxlength: DATA.BOOKING_LIMITS.ACCESS_MAX, placeholder: 'Buzzer, gate code, where to wait', helper: 'Your tailor sees these once she accepts.', error: errors.notes ? ADDRESS_ERRORS.notes : '', disabled })}`;
+}
 /** Code input — one numeric one-time-code field, `length` digits, spaced for reading. `helper` replaces the default line under it (an error wins). */
 export function codeInput({ id, length = 6, value = '', error = '', label = 'Verification code', helper = '' } = {}) {
   const msgId = `${id}-msg`;
@@ -1758,7 +1768,8 @@ export function receiptBlock(a, tailorFirst = '') {
   ${stitchDivider()}
   ${order}
   ${customerBreakdown(a.money, { stage: failed ? 'unpaid' : 'paid', tailorFirst, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '' })}
-  ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}`;
+  ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}
+  ${failed ? '' : `<div class="receipt__full">${textLink('See full receipt', { act: 'full-receipt' })}</div>`}`;   // S-25 (pre-MVP B2): the receipt she can keep (c-receipt)
 }
 /** The tailor's breakdown — no courier row (D-04). One order everywhere (D-165, amends D-137): Services, the Taily fee (a negative
     row, "On the $125.00 of services only" — its base), Home visit fee, Rush fee, then the total. */
@@ -2171,7 +2182,37 @@ export function rushLadder(rush = []) {
 }
 
 /**
- * Leave modal — the "unsaved changes" alertdialog content for modalOverlay(leaveModal(…), { dataS }, wireFn).
+ * P-32 (pre-MVP B2, D-375) — THE container for a confirm that ends or loses something: a bottom sheet, the majority pattern (cancel a
+ * booking, decline, remove a card, withdraw changes…). Sign out, Leave without saving and Delete account moved here from the centred modal.
+ * `title` = the sheet header (the question), `body` = HTML lines under it, then the actions stacked full width: `primary`
+ * `{ label, act, variant: 'danger' | 'default', busyLabel }` and an optional `secondary` `{ label, act }` (outline). `wireFn(holder, close)`
+ * as sheetOverlay; returns close(). Focus the safe choice in wireFn (R5-1-C-03).
+ */
+export function confirmSheet({ title, body = '', primary, secondary = null, dataS = '' } = {}, wireFn) {
+  const bodyId = `confirm-body-${++sheetSeq}`;
+  const html = `<div class="confirm-sheet"${body ? ` aria-describedby="${bodyId}"` : ''}>
+  ${body ? `<div class="confirm-sheet__body" id="${bodyId}">${body}</div>` : ''}
+  <div class="confirm-sheet__actions">
+    ${cta(primary.label, { variant: primary.variant ?? 'danger', busyLabel: primary.busyLabel ?? '', attrs: `data-act="${esc(primary.act)}"` })}
+    ${secondary ? cta(secondary.label, { variant: 'secondary', attrs: `data-act="${esc(secondary.act)}"` }) : ''}
+  </div>
+</div>`;
+  return sheetOverlay(html, { header: esc(title), dataS, confirm: false }, (holder, close) => {
+    holder.querySelector('.sheet')?.setAttribute('role', 'alertdialog');
+    if (body) holder.querySelector('.sheet')?.setAttribute('aria-describedby', bodyId);
+    wireFn?.(holder, close);
+  });
+}
+/** P-32: "Leave without saving?" as the confirm sheet — Keep editing (primary) · Discard changes (secondary); the acts are unchanged. */
+export function leaveSheet({ title = 'Leave without saving?', body = 'Your changes will be lost.' } = {}, { dataS = '' } = {}, wireFn) {
+  return confirmSheet({
+    title, body: `<p class="t-body c-700">${esc(body)}</p>`, dataS,
+    primary: { label: 'Keep editing', act: 'keep-editing', variant: 'default' }, secondary: { label: 'Discard changes', act: 'discard' },
+  }, wireFn);
+}
+
+/**
+ * Leave modal — the "unsaved changes" alertdialog markup (gallery only since P-32: screens open leaveSheet()).
  * Keep editing (primary) · Discard changes (secondary).
  */
 export function leaveModal({ title = 'Leave without saving?', body = 'Your changes will be lost.' } = {}) {

@@ -52,9 +52,11 @@ function visitRows(a, t) {
   const home = a.job.visitType === 'home';
   return [
     { icon: 'calendar', value: esc(fmtWhen(a.slot.start)), strong: true, detail: esc(`${VISIT_LABEL.customer[a.job.visitType]} · ${VISIT_MINUTES[a.job.visitType]} min`) },
-    { icon: home ? 'home' : 'shop', value: esc(whereOf(a, t)) },
+    { icon: home ? 'home' : 'shop', value: esc(whereOf(a, t)), detail: home && a.job.address?.notes ? esc(`Access: ${a.job.address.notes}`) : '' },   // S-27 (pre-MVP B2)
     /* M7-2-C-04 (D-202): the booked garments as illustrations; K-10: the count is the value, the tiles sit under it */
     { icon: 'hanger', value: `${plural(items, 'item')} · ${plural(services, 'service')}`, extra: garmentStrip(returnedItems(a)) },   // K-25: each thumb opens what it is in for
+    /* S-27 (pre-MVP B2): her note for the tailor, as sent (masked) */
+    ...(a.job.note ? [{ icon: 'chat', value: `Your note for ${esc(firstOf(t))}`, detail: esc(`“${a.job.note}”`) }] : []),
   ];
 }
 /** A group on the page (A3): `<section class="sec">`. */
@@ -933,6 +935,7 @@ function wire(root) {
       case 'other-tailors': go('c-tailors'); break;
       case 'find-another': go('c-tailors', { fresh: true }); break;
       case 'bookings': go('c-bookings', { fresh: true }); break;
+      case 'full-receipt': if (a) { setFocus(a.id, { keepFrom: true }); go('c-receipt'); } break;   // S-25 (pre-MVP B2)
       default:
     }
   });

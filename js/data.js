@@ -205,6 +205,15 @@ export const TAILORS = [
       { id: 'r2', name: 'Marcus T.', initials: 'MT', stars: 5, date: '2026-09-14', photos: 1, photoType: 'Suit Jacket', text: 'Took in a suit jacket I had given up on. It fits like it was made for me.' },
       { id: 'r3', name: 'Jenna L.', initials: 'JL', stars: 4, date: '2026-08-30', photos: 0, text: 'Great work on a dress hem. The return took a day longer than planned, but she messaged ahead.' },
       { id: 'r4', name: 'Dev R.', initials: 'DR', stars: 5, date: '2026-08-11', photos: 0, text: 'Fast zipper replacement at a fair price. Easy to book.' },
+      /* S-26 (pre-MVP B2): the rest of the written reviews for the all-reviews page; the other 25 of the 37 are star ratings only */
+      { id: 'r5', name: 'Sofia M.', initials: 'SM', stars: 5, date: '2026-07-30', photos: 0, text: 'She shortened the sleeves on my wool coat and you can’t tell they were ever touched.' },
+      { id: 'r6', name: 'Andre K.', initials: 'AK', stars: 5, date: '2026-07-18', photos: 0, text: 'Booked a home visit after work. She was on time, pinned two suits in half an hour, and they came back early.' },
+      { id: 'r7', name: 'Hannah P.', initials: 'HP', stars: 5, date: '2026-07-02', photos: 1, photoType: 'Formal Dress', text: 'Bridesmaid dress taken in at the waist. It fit perfectly on the day.' },
+      { id: 'r8', name: 'Luis G.', initials: 'LG', stars: 4, date: '2026-06-21', photos: 0, text: 'Good hems on my jeans, and she kept the original wash. Pickup was quick.' },
+      { id: 'r9', name: 'Grace W.', initials: 'GW', stars: 5, date: '2026-06-09', photos: 0, text: 'Clear prices before I booked, and the final order matched them.' },
+      { id: 'r10', name: 'Omar F.', initials: 'OF', stars: 5, date: '2026-05-27', photos: 0, text: 'Fixed a torn lining I thought was a lost cause.' },
+      { id: 'r11', name: 'Mei L.', initials: 'ML', stars: 5, date: '2026-05-12', photos: 0, text: 'Took in three shirts so they finally fit at the shoulders. Friendly and quick.' },
+      { id: 'r12', name: 'Tom B.', initials: 'TB', stars: 4, date: '2026-04-30', photos: 0, text: 'Solid work on a jacket. The shop was a little hard to find the first time.' },
     ],
     /* D-06 (D-351): set up through the payments partner's hosted onboarding (Stripe Connect Express) — identity, W-9 and bank live there;
        Taily keeps the bank name + last 4 and the statuses. status: not-started | verifying | action-needed | verified | paused */
@@ -215,6 +224,10 @@ export const TAILORS = [
 
 /** Saved-address labels (M5, D-133) and chat limits (D-131), payout kind words (D-136). */
 export const ADDRESS_LABELS = ['Home', 'Work', 'Other'];
+/** pre-MVP B2 (S-27): her note for the tailor on a request, and the access notes on an address (buzzer, gate code) — both optional. */
+export const BOOKING_LIMITS = { NOTE_MAX: 200, ACCESS_MAX: 140 };
+/** DG-3 A (pre-MVP B2): the record a deleted customer account leaves behind — signed out, nothing personal; past orders stay with the old id. */
+export const BLANK_CUSTOMER = { id: 'customer-new', first: '', last: '', initials: '', phone: '', email: '', addresses: [], address: null, cards: [], applePay: false };
 export const CHAT_LIMITS = { PHOTOS_MAX: 3 };
 /** K-02 (D-176): fitting documentation. Up to 4 Before and 4 Pinned photos per garment, a comment of up to 200 characters. */
 export const FITTING_LIMITS = { PHOTOS_MAX: 4, COMMENT_MAX: 200 };
@@ -225,7 +238,7 @@ export const PAYOUT_KIND_LABEL = { job: 'Job', 'kept-deposit': 'Late cancellatio
 const HOME_FIELDS = { street: '145 N 7th St', unit: '2R', city: 'Brooklyn', state: 'NY', zip: '11211' };
 const HOME_ADDRESS = { id: 'home', label: 'Home', ...HOME_FIELDS, default: true };
 export const CUSTOMER = {
-  id: 'sarah', first: 'Sarah', last: 'Chen', initials: 'SC', phone: '(718) 555-0142', email: 'sarah.chen@example.com',
+  id: 'sarah', first: 'Sarah', last: 'Chen', initials: 'SC', phone: '(718) 555-0142', email: '',   // DG-3 A (pre-MVP B2): no email until she adds one for receipts (sign-up never asked)
   addresses: [HOME_ADDRESS],
   address: { ...HOME_FIELDS },                          // always the default saved address's fields, or null when none (D-133)
   cards: [{ id: 'visa-4242', brand: 'Visa', last4: '4242', exp: '08/28', default: true }],

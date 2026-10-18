@@ -21,7 +21,7 @@ export const FLOWS_c_ready = [
   { ...CR, key: 'c-ready--pick-time', title: 'Pick a pickup time', note: 'K-40 T1: In-store pickup chosen, the When row opens the Scheduler in a sheet — only Amara’s open shop times, the next 7 days',
     setup: (S) => { const a = S.driveTo('ready'); S.T.chooseReturn(a.id, 'pickup'); },
     click: ['[data-act="pick-time"]'],
-    expect: { has: ['Pick a pickup time', 'Reyes Tailoring · 312 Metropolitan Ave', 'PICKUP', 'Fri, Oct 16 · 10:00 AM', 'Only times Amara’s shop is open, in the next 7 days. You can change it later from your booking.', 'Use this time', 'Cancel'], sel: '[data-s="c-ready--pick-time"] [data-scheduler]', also: '[data-s="c-ready--pick-time"] [data-act="ht-ok"]' } },
+    expect: { has: ['Pick a pickup time', 'Reyes Tailoring · 312 Metropolitan Ave', 'PICKUP', 'Fri, Oct 16 · 10:00 AM', 'Only times Amara’s shop is open, in the next 5 days. You can change it later from your booking.', 'Use this time', 'Cancel'], sel: '[data-s="c-ready--pick-time"] [data-scheduler]', also: '[data-s="c-ready--pick-time"] [data-act="ht-ok"]' } },
   { ...CR, key: 'c-ready--time-picked', title: 'Pickup time picked', note: 'K-40 T1: the When row reads the time in ink with an ink ring; Pay is on, its second line says when it is charged (K-44, K-46)',
     setup: (S) => { const a = S.driveTo('ready'); S.T.chooseReturn(a.id, 'pickup'); D1_pick(a.id); },
     expect: { has: ['Fri, Oct 16 · 5:30 PM', 'Pickup time · Amara has it ready then', 'Charged at pickup', `Pay ${BAL}`, `You’ll be charged ${BAL} when you get your`], not: ['Pick a pickup time first.', 'Pick a time', 'Hold $', 'We’ll hold'], sel: '.when-row.is-set', also: ['[data-act="pay"]:not([disabled]).cta--two', '#action-bar-sub-pay'] } },
@@ -56,7 +56,7 @@ export const FLOWS_c_booking = [
 export const FLOWS_t_job = [
   { ...TJ, key: 't-job--pickup-moved', title: 'Job — Sarah moved her pickup', note: 'K-40 T1: the accent strip says the new time; the old one is on the row; Amara can only Message',
     setup: (S) => { const a = S.driveTo('awaiting-handoff'); D1_pick(a.id, D1_MOVE.pickup); },
-    expect: { has: ['Sarah moved her pickup to Sat, Oct 17 · 2:00 PM', 'Sat, Oct 17 · 2:00 PM', 'Sarah moved it from Fri, Oct 16 · 5:30 PM', 'Only Sarah can change the time.', 'Message Sarah', 'Picked up'], not: 'Change time', sel: '[data-strip="action"]' } },
+    expect: { has: ['Sarah moved her pickup to Sat, Oct 17 · 2:00 PM', 'Sat, Oct 17 · 2:00 PM', 'Sarah moved it from Fri, Oct 16 · 5:30 PM', 'Only Sarah can change the time.', 'Picked up'], not: ['Change time', 'Message Sarah'], sel: '[data-strip="action"]' } },   // P-33: Message is the header button only
   { ...TJ, key: 't-job--pickup-missed', title: 'Job — Sarah missed her pickup', note: 'K-40 (D-295): no fee; she picks a new time; the 7-day clock keeps running',
     setup: (S) => { S.driveTo('awaiting-handoff'); S.setClock('2026-10-16T18:00'); },
     expect: { has: ['Sarah missed her 5:30 PM pickup · she picks a new time', 'Sarah missed this time. She picks a new one.', 'Picked up'], sel: '[data-strip="warn"]' } },

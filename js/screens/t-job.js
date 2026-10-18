@@ -13,7 +13,8 @@
    is always in dollars; the courier is never her money.
    ============================================================ */
 import { register, render as go, registered, personaHome, currentScreen } from '../app.js';
-import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable, slotText, handoffMissed, reminderState, freeUntil, autoCancelAt, unclaimedAt } from '../state.js';
+import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable, slotText, handoffMissed, reminderState, freeUntil, autoCancelAt, unclaimedAt,
+  autoCancelArmed, proposalOf, visitToolsOpen, tailyReviewOf } from '../state.js';
 import { focusAppt, redirectIfMoved, statusWord, setFocus } from '../focus.js';
 import { myTailor, requestView, jobAddress, payoutOf, inbox, payoutLine } from '../tailor-data.js';
 import { CANT_MAKE_IT_REASONS, RETURN_LABEL, HANDOFF_CODE_LEN } from '../data.js';
@@ -30,7 +31,9 @@ import {
   linenStage, tagRail, returnedItems, stars,
   banner, codeInput, autoCompleteLine, photoFigure,
   privateNotes, wirePrivateNotes, dueChange, shopPlace,
+  ICON_PHONE, openCallSheet,
 } from '../components.js';
+import { VISIT_ICONS } from '../icons.js';
 
 const ID = 't-job';
 const ui = () => (state.ui[ID] ??= {});
@@ -54,14 +57,17 @@ function heroCopy(a, v) {
   if (kind === 'tailor-no-show') {   // K-29 (Study-1 A5): Sarah reported it; the deposit went back, nothing is paid out
     return {
       title: `${firstOf()} reported you didn’t show up`,
-      note: `<p class="t-body c-700 ${ID}__note">Her ${fmtExact(c.refund)} deposit was refunded. Nothing is paid out for this job.</p>`,
+      note: `<p class="t-body c-700 ${ID}__note">Her ${fmtExact(c.refund)} deposit was refunded. Nothing is paid out for this job.${c.disputedAt ? ' You told us you came. Taily is looking into it and will message you both.' : ''}</p>`,   // D-14
     };
   }
   if (kind === 'no-show') {
     return {
       title: 'Marked as a no-show',
-      note: `<p class="t-body c-700 ${ID}__note">${first} has been told, and her ${fmtExact(c.kept)} deposit isn’t refunded.</p>`,   // K-17 R5: what you are paid is the money row below, not the subtitle
+      note: `<p class="t-body c-700 ${ID}__note">${c.disputedAt ? `${first} says she was there. Your no-show pay is on hold while Taily looks into it.` : `${first} has been told, and her ${fmtExact(c.kept)} deposit isn’t refunded.`}</p>`,   // K-17 R5: what you are paid is the money row below; D-14: a dispute
     };
+  }
+  if (kind === 'no-record') {   // D-11 (K-48.5): nobody answered "Did the visit happen?" in 24 hours
+    return { title: 'Visit cancelled', note: `<p class="t-body c-700 ${ID}__note">Nobody told us the visit happened, so we cancelled it and refunded ${first}’s deposit. Nothing is paid out.</p>` };
   }
   if (kind === 'customer-early') {
     return {
@@ -108,6 +114,13 @@ function visitActions(a, v) {
   const where = jobAddress(a);
   const maps = a.job.visitType === 'home'
     ? [{ label: 'Directions', icon: ICON_DIRECTIONS, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(where)}`, act: 'directions', attrs: 'target="_blank" rel="noopener"' }] : [];
+  /* S-32 (pre-MVP A1): the visit day — Call (through Taily, after the MVP), On my way (home visits), I'm here (D-14: needed for a no-show) */
+  if (visitToolsOpen(a)) {
+    const me = a.visitDay?.tailor ?? {};
+    const ping = me.hereAt ? [] : a.job.visitType === 'home' && !me.onWayAt
+      ? [{ label: 'On my way', icon: VISIT_ICONS.clock, act: 'on-my-way' }] : [{ label: 'I’m here', icon: VISIT_ICONS['map-pin'], act: 'im-here' }];
+    return [message, { label: 'Call', icon: ICON_PHONE, act: 'call' }, ...maps, ...ping];
+  }
   const href = calendarHref({ uid: a.id, start: a.slot.start, end: a.slot.end, stamp: isoMinute(new Date(now())), summary: `${v.visitLabel} with ${v.customer.name}`, location: where });
   const cal = { label: 'Add to calendar', icon: ICON_CALENDAR, href, act: 'add-to-calendar', attrs: 'download="taily-visit.ics"' };
   return [message, ...maps, cal];
@@ -119,6 +132,15 @@ const personOf = (v) => ({ initials: v.customer.initials, name: v.customer.name 
 const personCard = (a, v, title, rows) => personBlock({ title, person: personOf(v), rows, actions: visitActions(a, v) });
 
 function visitCard(a, v, { was = '', extra = [] } = {}) {
+  /* S-32 (pre-MVP A1): the visit-day pings, both ways */
+  const vd = a.visitDay ?? {};
+  const pings = a.status !== 'confirmed' ? [] : [
+    vd.tailor?.hereAt ? { icon: 'check', value: 'You told her you’re here', detail: esc(fmtTime(vd.tailor.hereAt)) }
+      : vd.tailor?.onWayAt ? { icon: 'clock', value: 'You told her you’re on your way', detail: esc(fmtTime(vd.tailor.onWayAt)) } : null,
+    vd.customer?.hereAt ? { icon: 'check', value: `${esc(firstOf())} is here`, detail: esc(fmtTime(vd.customer.hereAt)) }
+      : vd.customer?.onWayAt ? { icon: 'clock', value: `${esc(firstOf())} is on her way`, detail: esc(fmtTime(vd.customer.onWayAt)) } : null,
+  ].filter(Boolean);
+  extra = [...pings, ...extra];
   /* K-10 (D-235): icon rows — calendar (date + length), map-pin (place), clock (needed by). K-17 R3: a moved visit says so on its own row (no banner above it). */
   const rows = [
     { icon: 'calendar', value: esc(fmtWhen(a.slot.start)), strong: true, detail: [...(was ? [`Moved from ${esc(was)}`] : []), `${esc(v.visitLabel)} · ${v.minutes} min, until ${v.whenEnd}`] },
@@ -160,8 +182,12 @@ function moreItems(a) {
   const t = now();
   const from = fmtTime(isoMinute(addMinutes(a.slot.start, wait)));
   const items = [];
+  /* D-12 (pre-MVP A1): ask Sarah to move it, up to MIN_LEAD_H before the visit */
+  if (t < startMs - POLICY.MIN_LEAD_H * 3600000) items.push({ label: proposalOf(a) ? 'Ask for a different time' : 'Suggest a new time', sub: `${firstOf()} accepts it or keeps ${fmtTime(a.slot.start)}`, act: 'move-time' });
   if (t < startMs) items.push({ label: 'Cancel appointment', sub: `${firstOf()} gets her ${fmtExact(a.payments.deposit.cents)} deposit back`, act: 'cant-make-it', tone: 'danger' });   // K-29 (Study-1 A5)
-  items.push({ label: 'Mark as no-show', sub: t < startMs + wait * 60000 ? `Available from ${from} if ${firstOf()} isn’t there` : `You’re paid ${fmtExact(noShowPayout(a.payments.deposit.cents))} for your time`, act: 'no-show', tone: 'danger' });
+  /* D-14 (K-48): "I'm here" first — it is the evidence */
+  const here = !!a.visitDay?.tailor?.hereAt;
+  items.push({ label: 'Mark as no-show', sub: !here ? 'Tap I’m here when you arrive first' : t < startMs + wait * 60000 ? `Available from ${from} if ${firstOf()} isn’t there` : `You’re paid ${fmtExact(noShowPayout(a.payments.deposit.cents))} for your time`, act: 'no-show', tone: 'danger' });
   return items;
 }
 /** The heading (status · Back + title) with the ••• at the title row's right end (shown only while an action is available). */
@@ -207,9 +233,19 @@ function copyFor(key, a, t, v, pv) {
      talk to Sarah. The courier needs no tap. K-40: only Sarah sets or moves the time, so Message is all Amara has for it. */
   const problemBar = (extra = {}) => ({ ctaLabel: `Message ${first}`, ctaAct: 'message', ...extra });
   switch (key) {
-    case 'visit': return { ...base, title: 'Time for the fitting',
-      note: note(`Start it when you’re with ${first}.`),
-      bar: { ctaLabel: 'Start fitting', ctaAct: 'start-fitting', busy: busy === 'start', busyLabel: 'Starting…' } };
+    case 'visit': {
+      const bar = { ctaLabel: 'Start fitting', ctaAct: 'start-fitting', busy: busy === 'start', busyLabel: 'Starting…' };
+      /* D-11 (K-48.5): VISIT_CHECK_H after the start with nothing recorded — the same question Sarah gets */
+      const vc = a.visitCheck;
+      if (vc) {
+        const closeAt = toDate(vc.askedAt).getTime() + POLICY.VISIT_CHECK_CANCEL_H * 3600000;
+        const said = vc.answer === 'happened' ? `${first} says it happened. Start the fitting to send her the final order.`
+          : vc.answer === 'not-happened' ? `${first} says you didn’t come. Taily is looking into it and will message you both.`
+            : `Nothing was recorded. If it happened, start the fitting. If ${first} wasn’t there, mark a no-show from the ••• menu. If nobody answers by ${fmtTime(closeAt)} ${dayWord(closeAt, now())}, we cancel it and refund ${first}.`;
+        return { ...base, title: 'Did the visit happen?', note: note(esc(said)), bar };
+      }
+      return { ...base, title: 'Time for the fitting', note: note(`Start it when you’re with ${first}.`), bar };
+    }
     case 'fitting': return { bar: { ctaLabel: 'Final order', ctaAct: 'edit-order' } };   // K-42: the button names the screen it opens
     case 'waiting': return { bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
     case 'messaged': {
@@ -223,7 +259,11 @@ function copyFor(key, a, t, v, pv) {
     case 'edit-pending': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', disabled: true, note: `${first} hasn’t answered your changes yet.`, secondaryLabel: 'Edit order', secondaryAct: 'edit-job' } };
     case 'ready': return { bar: null };   // K-12 (D-237): Message lives in the header; nothing else is hers to do until Sarah chooses
     case 'handoff-pickup': return { bar: h.problemAt ? problemBar({ secondaryLabel: 'Picked up', secondaryAct: 'picked-up' }) : h.markedAt ? null : { ctaLabel: 'Picked up', ctaAct: 'picked-up' } };   // SF-16: she can still close it once they sort it out
-    case 'handoff-courier': return { bar: null };   // default 6: the courier's delivery completes it
+    case 'handoff-courier': {
+      /* S-35 (pre-MVP A1): she hands it to the courier ("Handed to courier"); the delivery completes it (default 6) */
+      const trip = h.trip ?? {};
+      return { bar: h.slot && (trip.state ?? 'booked') === 'booked' ? { ctaLabel: 'Handed to courier', ctaAct: 'courier-out', busy: busy === 'courier-out', busyLabel: 'Saving…' } : null };
+    }
     default: return { ...base, bar: null };   // completed — K-20: the linen stage carries the title and the record line
   }
 }
@@ -262,6 +302,9 @@ function stripFor(key, a, v, pv) {
     }
     default: { // courier (K-40: the window Sarah picked; the courier collects COURIER_COLLECT_LEAD_MIN before it)
       const w = courierWindow(a);
+      const trip = a.handoff?.trip ?? {};
+      if (trip.state === 'returned') return { tone: 'warn', icon: 'truck', text: trip.reason === 'no-courier' ? `The courier didn’t come · ${first} picks a new window` : `The courier is bringing it back · ${first} picks a new window` };   // S-35
+      if (trip.state === 'out') return { tone: 'done', icon: 'truck', text: `With the courier · arrives ${courierWhen(a)}` };
       if (w && a.handoff?.moved?.from) return { tone: 'action', icon: 'truck', text: `${first} moved her delivery to ${slotText(a.handoff.slot)}` };
       return { tone: 'done', icon: 'truck', text: w ? `Courier collects ${fmtTime(w.collectAt)} · arrives ${courierWhen(a)}` : 'Courier booked · completes on delivery' };
     }
@@ -295,9 +338,10 @@ function priceBlocks(a, pv, key) {
 function handoffNotes(a) {
   const b = a.payments.balance;
   const parts = [
+    b.state === 'capture-failed' ? `<p class="t-body c-700 ${ID}__note" data-card-failed>Payment issue on ${esc(firstOf())}’s side. Your payout is waiting until she updates her card. We told her.</p>` : '',   // D-04
     autoCompleteLine(autoCompleteLeft(a), { who: firstOf() }),
-    b.state === 'captured' && b.captureReason === 'unclaimed'
-      ? `<p class="t-body c-700 ${ID}__note" data-unclaimed>${esc(firstOf())}’s ${fmtExact(b.cents)} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days. You’re paid when she ${a.returnOption === 'pickup' ? 'picks it up' : 'gets it'}.</p>` : '',
+    b.state === 'captured' && b.captureReason === 'unclaimed'   // D-03 (pre-MVP A1): she is paid at the unclaimed charge; the order is kept ABANDONED_CLOSE_D
+      ? `<p class="t-body c-700 ${ID}__note" data-unclaimed>${esc(firstOf())}’s ${fmtExact(b.cents)} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days, so your payout is on its way${payoutOf(a) ? ` (${fmtDay(payoutOf(a).date)})` : ''}. Keep her order until ${fmtDay(toDate(b.capturedAt).getTime() + POLICY.ABANDONED_CLOSE_D * 86400000)}.</p>` : '',
   ].filter(Boolean);
   return parts.length ? sec(`<div class="${ID}__handoff">${parts.join('')}</div>`, { first: true }) : '';
 }
@@ -320,12 +364,12 @@ function timeRows(a) {
 function onlySarah(a) {
   if (!a.handoff?.slot || a.handoff.markedAt || a.handoff.problemAt) return '';
   const first = esc(firstOf());
-  const text = a.returnOption === 'courier' ? `${first} picked the window. Only she can change it.` : `Only ${first} can change the time. Need a different one?`;
+  const text = a.returnOption === 'courier' ? `${first} picked the window. Only she can change it.` : `Only ${first} can change the time. Need a different one? Message her.`;
   /* SF-14: the 7-day charge date, while her balance is still on hold */
   const b = a.payments.balance;
   const capture = b.state === 'held' && b.cents > 0 && unclaimedAt(a)
     ? `<p class="t-small c-600 ${ID}__only">If ${first} hasn’t ${a.returnOption === 'courier' ? 'got it' : 'collected'} by ${esc(fmtDay(unclaimedAt(a)))}, we charge her.</p>` : '';
-  return `<p class="t-small c-600 ${ID}__only">${text} ${textLink(`Message ${first}`, { act: 'message' })}</p>${capture}`;
+  return `<p class="t-small c-600 ${ID}__only">${text}</p>${capture}`;   // P-33: Message is the header's button, once
 }
 
 /* ---------- K-20 (A2b) the completed job: the linen stage, then the payout flat, then the breakdown and The work ---------- */
@@ -356,7 +400,8 @@ function payoutBlock(a, t, extra = '') {
   const info = infoButton('payouts', { label: 'When you get paid' });
   const bank = `${p?.bank ?? t.payouts?.bank ?? 'Your bank'} •••• ${p?.last4 ?? t.payouts?.last4 ?? ''}`;
   /* M7-1-T-07: the pill already says Paid, so the line is the date and the bank */
-  const line = w ? (p?.state === 'paid' ? w.text.replace(/^Paid\s+/, '') : w.text) : 'Arrives the Friday after the handoff';
+  const unpaid = a.payments?.balance?.state === 'capture-failed';   // D-04
+  const line = unpaid ? `Payment issue on ${firstOf()}’s side · your payout is waiting until she updates her card` : w ? (p?.state === 'paid' ? w.text.replace(/^Paid\s+/, '') : w.text) : 'Arrives the Friday after the handoff';
   const stateRow = failed
     ? `<div class="${ID}__payout-state">${statusPill(...pill)}${info}</div>
   <p class="t-small ${ID}__err ${ID}__payout-err">${esc(`${bank} sent it back. It sends again once you update your bank details.`)}</p>
@@ -375,10 +420,11 @@ function payoutBlock(a, t, extra = '') {
 function completedBody(a, v, t, extra) {
   const failed = payoutOf(a)?.state === 'failed';
   const me = (t.name || 'there').split(' ')[0];
+  const closed = a.handoff?.completedBy === 'abandoned';   // D-03: not collected 30 days after the charge
   const stage = linenStage({
-    eyebrow: failed ? `${firstOf()}’s order` : a.handoff?.completedBy === 'auto' ? `Completed automatically · ${firstOf()}’s order` : `Job completed · ${firstOf()}’s order`,
-    title: failed ? 'Job completed' : `Nice work, ${me}.`,
-    line: returnedLine(a), rail: tagRail(returnedItems(a)), label: 'Job completed', calm: failed,
+    eyebrow: closed ? `Closed · ${firstOf()}’s order` : failed ? `${firstOf()}’s order` : a.handoff?.completedBy === 'auto' ? `Completed automatically · ${firstOf()}’s order` : `Job completed · ${firstOf()}’s order`,
+    title: closed ? 'Order closed' : failed ? 'Job completed' : `Nice work, ${me}.`,
+    line: closed ? `Not collected within ${POLICY.ABANDONED_CLOSE_D} days of the charge · ${fmtDay(doneAt(a))}` : returnedLine(a), rail: tagRail(returnedItems(a)), label: closed ? 'Order closed' : 'Job completed', calm: failed || closed,
   });
   return `${navBackMark()}${stage}
   ${payoutBlock(a, t, extra)}
@@ -407,7 +453,9 @@ function editBlocks(a, ev) {
   ${changeList({ garments: withPhotos(ev.garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: 'Your comment', photoOwner: `${firstOf()}’s` })}`, { id: `${ID}-changes` }) : ''}
   ${notesSec(a)}
   ${sec(`${sectionHead('Your payout if approved', { id: `${ID}-take` })}
-  ${tailorBreakdown(ev.after)}`, { id: `${ID}-take` })}`;
+  ${tailorBreakdown(ev.after)}`, { id: `${ID}-take` })}
+  <p class="t-small c-600 ${ID}__fine">We text ${esc(firstOf())} after ${POLICY.WAIT_REMIND_1_H} and ${POLICY.WAIT_REMIND_2_H} hours if she hasn’t answered.</p>
+  <div class="page-actions ${ID}__withdraw"><div class="page-actions__links">${textLink('Withdraw changes', { act: 'withdraw-edit', tone: 'danger' })}</div></div>`;   // D-03 (K-30 unchanged)
 }
 
 function m4View(a, v, key) {
@@ -445,7 +493,8 @@ function m4View(a, v, key) {
     case 'messaged':
       body = `${head({ payoutCents: pv.after.payout, label: 'Your payout if approved', lines: [deltaText(pv.after.payout, pv.before.payout)],
         foot: [pv.changed ? `${firstOf()} sees a new total of ${fmtExact(pv.after.total)} (was ${fmtExact(pv.before.total)}).` : `${firstOf()} sees the total as booked, ${fmtExact(pv.before.total)}.`] })}
-  ${priceBlocks(a, pv, key)}${notes}${fine}`; break;
+  ${priceBlocks(a, pv, key)}${notes}${fine}
+  <p class="t-small c-600 ${ID}__fine" data-wait-rule>We text ${first} after ${POLICY.WAIT_REMIND_1_H} and ${POLICY.WAIT_REMIND_2_H} hours if she hasn’t approved. After ${POLICY.FINAL_ORDER_REVIEW_D} days, Taily steps in to help you both.</p>`; break;   // D-03
     case 'in-progress':
       body = `${head({ payoutCents: a.money.payout })}
   ${visitBlock([dueRows(a, `Fitted ${fmtDay(a.slot.start)}`)], { title: '' })}${personActions(message)}${work}${notes}${payout}`; break;
@@ -494,7 +543,7 @@ function view() {
   /* K16-2-03 (D-245): the reason she gave is a row of the Visit block with the chat tile, the same shape c-booking--cant-make-it shows Sarah */
   const reasonRow = cancelKind(a) === 'tailor-cant-make-it' && a.cancel?.note ? [{ icon: 'chat', value: esc(a.cancel.note), detail: 'Your reason' }] : [];
   /* K-41 (R3, D-296): Sarah's answer to the 24-hour reminder — a K-16 strip states it, the title stops repeating "confirmed", one rule line */
-  const rem = cancelled ? autoCancelView(a) : reminderView(a);
+  const rem = cancelled ? autoCancelView(a) : proposalView(a) ?? reminderView(a);   // D-12 (pre-MVP A1): a move she asked for leads
   const hero = statusHero({ variant: cancelled ? 'declined' : 'confirmed', pill: false, title: rem?.title ?? h.title, body: '', extra: h.note });
   const top = rem
     ? `${navBackMark()}${requestStrip({ page: true, ...rem.strip })}${headingRow(hero, { back: false, trailing: moreItems(a) ? moreMenu() : '' })}<p class="t-small c-600 ${ID}__rule">${rem.rule}</p>`
@@ -506,8 +555,18 @@ function view() {
   ${cancelled ? cancelMoney(a) : ''}
   ${workSec(a, v)}
   ${cancelled ? '' : payoutSec(a, v, `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after the job is complete.</p>`)}
-  ${cancelled ? `<div class="page-actions">${textLink('Back to Home', { act: 'home' })}</div>` : ''}
+  ${cancelled ? `<div class="page-actions">${cancelKind(a) === 'tailor-no-show' && !a.cancel?.disputedAt ? cta('That’s not right', { variant: 'secondary', attrs: 'data-act="dispute"' }) : ''}${textLink('Back to Home', { act: 'home' })}</div>` : ''}
 </main>`;
+}
+
+/** D-12 (pre-MVP A1): the move she asked Sarah for — waiting, or Sarah kept the time. Null otherwise. */
+function proposalView(a) {
+  const p = a.proposal;
+  if (a.status !== 'confirmed' || !p || !['pending', 'kept'].includes(p.state)) return null;
+  const first = firstOf();
+  if (p.state === 'kept') return { title: null, strip: { tone: 'calm', icon: 'clock', text: `${first} is keeping ${fmtWhen(a.slot.start)}` }, rule: `She didn’t take ${esc(fmtWhen(p.start))}. The visit stays as booked.` };
+  return { title: null, strip: { tone: 'warn', icon: 'clock', text: `Waiting on ${first} · new time`, right: `Asked ${fmtTime(p.at)}` },
+    rule: `You asked to move it to ${esc(fmtWhen(p.start))}. ${esc(first)} accepts it or keeps ${esc(fmtWhen(a.slot.start))}. Until then the visit stays as booked.` };
 }
 
 /** K-41 (R3, D-296): the reminder on t-job before the visit — asked (waiting on Sarah) · confirmed · missed (never answered). Null when none was sent. */
@@ -529,6 +588,10 @@ function reminderView(a) {
   if (r === 'confirmed') {
     return { title, strip: { tone: 'done', icon: 'check', text: `${first} confirmed for ${day}`, right: fmtTime(rem.confirmedAt) },
       rule: `If she cancels now, you keep her ${dep} deposit. If she ${a.job.visitType === 'home' ? 'isn’t home' : 'doesn’t come'}, you’re paid ${noShow}.` };   // SF-10
+  }
+  if (!autoCancelArmed(a)) {   // D-02 (pre-MVP A1): the reminder text never reached her — nothing cancels the visit
+    return { title, strip: { tone: 'warn', icon: 'clock', text: `${first} hasn’t confirmed`, right: day === 'today' ? `Visit ${at}` : `Visit ${day} ${at}` },
+      rule: `The visit is still on. If she cancels now, you keep her ${dep} deposit. If she ${a.job.visitType === 'home' ? 'isn’t home' : 'doesn’t come'}, you’re paid ${noShow}.` };
   }
   /* K-43 (D-300): no answer by REMINDER_AUTOCANCEL_H before the visit cancels it — and the kept deposit is hers */
   const by = fmtTime(autoCancelAt(a));
@@ -622,6 +685,7 @@ function openNoShow(a) {
           go(ID);
           if (r.ok) toast('Marked as a no-show', { tone: 'success' });
           else if (r.error === 'too-early') toast(`You can mark a no-show from ${fmtTime(isoMinute(addMinutes(a.slot.start, POLICY.NO_SHOW_WAIT_MIN)))}.`, { tone: 'error' });
+          else if (r.error === 'not-here') toast('Tap I’m here first, so Taily knows you came.', { tone: 'error' });
           else toast('Couldn’t save this. Try again.', { tone: 'error' });
         });
       }
@@ -757,6 +821,63 @@ function openPickedUp(a) {
   });
 }
 
+/* ---------- pre-MVP A1 sheets ---------- */
+/** D-03 (K-30 unchanged): withdraw a pending edit — the approved order stands and Mark ready opens. */
+function openWithdrawEdit(a) {
+  sheetOverlay(`<div class="${ID}-sheet">
+  <p class="t-body c-700">${esc(firstOf())}’s order stays as she approved it, and you can mark it ready. She’s told right away.</p>
+  <div class="${ID}-sheet__actions">
+    ${cta('Withdraw changes', { variant: 'danger', attrs: 'data-act="wd-ok"' })}
+    ${cta('Keep them', { variant: 'secondary', attrs: 'data-act="wd-keep"' })}
+  </div>
+</div>`, { header: 'Withdraw your changes?', dataS: `${ID}--withdraw-edit`, confirm: false }, (holder, close) => {
+    let busy = false;
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (busy) return;
+      if (act === 'wd-keep') close();
+      else if (act === 'wd-ok') {
+        busy = true;
+        lockSheet(holder, '[data-act="wd-ok"]', 'Withdrawing…', '[data-act="wd-keep"]');
+        withLatency(() => {
+          const r = T.withdrawJobEdit(a.id);
+          close({ instant: true });
+          go(ID);
+          if (r.ok) toast(`Changes withdrawn. ${firstOf()} has been told.`, { tone: 'success' });
+          else failToast();
+        });
+      }
+    });
+  });
+}
+/** D-14 (pre-MVP A1): "That's not right" on Sarah's no-show report — Taily looks into it (the review UI is track A2's). */
+function openDisputeT(a) {
+  sheetOverlay(`<div class="${ID}-sheet">
+  <p class="t-body c-700">Tell Taily you came. We look into it with ${esc(firstOf())} and message you both.${a.visitDay?.tailor?.hereAt ? ` You tapped I’m here at ${fmtTime(a.visitDay.tailor.hereAt)}.` : ''}</p>
+  <div class="${ID}-sheet__actions">
+    ${cta('Tell Taily', { attrs: 'data-act="dp-ok"' })}
+    ${cta('Cancel', { variant: 'secondary', attrs: 'data-act="dp-keep"' })}
+  </div>
+</div>`, { header: 'Were you there?', dataS: `${ID}--dispute`, confirm: false }, (holder, close) => {
+    let busy = false;
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (busy) return;
+      if (act === 'dp-keep') close();
+      else if (act === 'dp-ok') {
+        busy = true;
+        withLatency(() => {
+          const r = T.disputeNoShow(a.id, 'tailor');
+          close({ instant: true });
+          go(ID);
+          if (r.ok) toast('Sent. Taily is looking into it.', { tone: 'success' });
+          else failToast();
+        });
+      }
+    });
+  });
+}
+
 /* ---------- wire ---------- */
 function wire(root) {
   if (redirectIfMoved(ID, go, { has: (id) => registered().includes(id) })) return;
@@ -813,13 +934,31 @@ function wire(root) {
       state.ui['t-adjust'] = { apptId: a.id, mode: act === 'edit-order' ? 'new' : 'revise' };
       go('t-adjust');
     } else if (act === 'mark-ready' && a) openMarkReady(a);
+    /* ---- pre-MVP A1 ---- */
+    else if (act === 'move-time' && a) { state.ui['t-suggest'] = { mode: 'move', apptId: a.id }; setFocus(a.id); go('t-suggest'); }   // D-12
+    else if (act === 'call' && a) openCallSheet({ first: firstOf(), onMessage: () => go('t-thread') });   // S-32
+    else if ((act === 'on-my-way' || act === 'im-here') && a) {
+      const r = T.visitPing(a.id, 'tailor', act === 'im-here' ? 'here' : 'on-my-way');
+      go(ID);
+      if (r.ok) toast(act === 'im-here' ? `${firstOf()} knows you’re here.` : `${firstOf()} knows you’re on your way.`, { tone: 'success' });
+    } else if (act === 'courier-out' && a) {   // S-35
+      run('courier-out', () => {
+        const r = T.courierCollected(a.id);
+        go(ID);
+        if (r.ok) toast(`${firstOf()} has been told it’s on its way.`, { tone: 'success' });
+        else if (r.error === 'offline') toast('You’re offline. Nothing was saved. Try again when you’re back.', { tone: 'error' });
+        else failToast();
+      });
+    } else if (act === 'withdraw-edit' && a) openWithdrawEdit(a);   // D-03
+    else if (act === 'dispute' && a) openDisputeT(a);               // D-14
     else if (act === 'picked-up' && a) openPickedUp(a);
     else if (act === 'more' && a) openMoreMenu(moreItems(a) ?? [], { title: 'More' });
     else if (act === 'cant-make-it' && a) openCantMakeIt(a);
     else if (act === 'no-show' && a) {
       /* the menu lists it from the start; the sheet itself opens once the wait is over */
       const from = isoMinute(addMinutes(a.slot.start, POLICY.NO_SHOW_WAIT_MIN));
-      if (now() < toDate(from).getTime()) toast(`You can mark a no-show from ${fmtTime(from)}.`);
+      if (!a.visitDay?.tailor?.hereAt) toast('Tap I’m here first, so Taily knows you came.');   // D-14 (K-48)
+      else if (now() < toDate(from).getTime()) toast(`You can mark a no-show from ${fmtTime(from)}.`);
       else openNoShow(a);
     }
   });

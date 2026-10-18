@@ -34,6 +34,7 @@ import {
   TAILOR_LIMITS, CHARGE_WHEN, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType, HANDOFF_CODE_LEN,
   HOOD_BY_ID, zipsForHoods, NOTES_LIMITS,
 } from './data.js';
+import { TEXTS, textCtx } from './texts.js';
 
 export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff', 'completed', 'cancelled'];
 export const TERMINAL = ['declined', 'cancelled', 'completed'];
@@ -47,7 +48,9 @@ const DAY_MS = 24 * HOUR_MS;
 function freshSim() {
   /* network 'online'|'offline' · send 'ok'|'fail' (one-shot, D-130) · session 'valid'|'expired' · texts 'off'|'on' (K-43, D-301: the
      tailor's new-request text shows on screen — on after onboarding; off by default so a flow's baseline stays still) · payout 'ok'|'failed' · server 'ok'|'error' (one-shot, D-140) */
-  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok' };
+  /* pre-MVP A1: sms 'ok'|'undelivered' (a text to an opted-in number never arrives, D-02) · capture 'ok'|'declined' (one-shot: the next charge of a
+     held balance fails, D-04) */
+  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok', sms: 'ok', capture: 'ok' };
 }
 function fresh() {
   return {
@@ -60,6 +63,11 @@ function fresh() {
     appts: [],                                 // every appointment; both personas read the same objects
     threads: {},                               // { [tailorId]: { tailorId, customerId, messages: [], read: { customer, tailor } } }
     payouts: [],                               // { apptId, cents, state: 'pending'|'paid'|'failed', date, kind }
+    /* pre-MVP A1 (D-02): each person's texting choice — the customer's booking texts are their own opt-in (sign-in codes always go); the
+       tailor's requests + job texts. A STOP reply turns them off (stoppedAt). The seed people opted in. */
+    texts: { customer: { on: true, stoppedAt: null, changedAt: null }, tailor: { on: true, stoppedAt: null, changedAt: null } },
+    outbox: [],                                // every text Taily sent (or held back): { id, event, to, apptId, key, body, link, at, land, status: 'delivered'|'undelivered'|'off' }
+    admin: { notifications: [] },              // K-48.1 / K-48.5: what the admin (Kevin) is told — { id, kind, apptId, text, at, read } (the admin UI is track A2's)
     sim: freshSim(),
     ui: {},                                    // screen-local transient UI only; the model never reads it
   };
@@ -70,6 +78,7 @@ export const state = fresh();
 let apptSeq = 1000;
 let msgSeq = 0;
 let garmentSeq = 0;
+let textSeq = 0;
 
 /** Restore every field to the seed. Keeps `sim.latency`. */
 export function reset() {
@@ -77,7 +86,7 @@ export function reset() {
   const f = fresh();
   for (const k of Object.keys(f)) state[k] = f[k];
   state.sim.latency = latency;
-  apptSeq = 1000; msgSeq = 0; garmentSeq = 0;
+  apptSeq = 1000; msgSeq = 0; garmentSeq = 0; textSeq = 0;
   return state;
 }
 
@@ -88,34 +97,230 @@ const succeed = (appt, extra = {}) => ({ ok: true, appt, ...extra });
 export const now = () => state.clock.now;
 export const nowIso = () => isoMinute(new Date(state.clock.now));
 export function setClock(iso) { state.clock.now = toDate(iso).getTime(); return state.clock.now; }
-/** Run every timer that is due: expire `requested` appointments whose reply window passed, lapse suggested times (D-154), on
-    `awaiting-handoff` (Study-1 A2–A3) capture an unclaimed hold and auto-complete a marked handoff, and on `confirmed` (K-41) send the
-    24-hour reminder and its one nudge — each stamped at its own due time, in time order. A reported problem pauses both handoff timers.
-    Returns the ids that moved. */
+/** Run every timer that is due, each stamped at its own due time (also when the clock jumped past it). Returns the ids whose STATE moved
+    (a text alone does not count): expire `requested` appointments whose reply window passed, lapse suggested times (D-154); on `confirmed`
+    the 24-hour reminder, its nudge and the auto-cancel (K-41, K-43 — only after a delivered reminder, D-02), a tailor's move proposal that
+    ran out (D-12) and "Did the visit happen?" (D-11 / K-48.5: ask at start + VISIT_CHECK_H, the admin at + VISIT_CHECK_ADMIN_H, cancel with a
+    refund at + VISIT_CHECK_CANCEL_H); the waiting states' reminder texts and ends (D-03: a final order → Taily review, a ready order →
+    in-store pickup); on `awaiting-handoff` the day-6 capture (D-04, which pays the tailor), the auto-completion of a marked pickup, a problem
+    open too long → review, an abandoned order closed. Texts (start reminders, pickup today, missed pickup, review reminder) ride along. */
 export function tick() {
-  const expired = [];
-  for (const a of state.appts) {
-    if (a.status === 'requested' && toDate(a.expiresAt).getTime() <= state.clock.now) {
-      if (expireRequest(a.id).ok) expired.push(a.id);
-    } else if (a.status === 'suggested' && state.clock.now >= suggestLapseAt(a)) {
-      endSuggestion(a, `${firstName(tailorById(a.tailorId))}’s suggested time passed`, 'Your suggested time passed', 'lapsed');   // D-154
-      expired.push(a.id);
-    } else if (a.status === 'awaiting-handoff' && a.handoff && !a.handoff.problemAt) {
-      const auto = a.handoff.autoAt ? toDate(a.handoff.autoAt).getTime() : Infinity;
-      const cap = a.payments.balance.state === 'held' ? unclaimedAt(a) : Infinity;
-      if (cap <= state.clock.now && cap < auto) {
-        const at = isoMinute(new Date(cap));
-        captureHold(a, 'unclaimed', at);
-        const amt = fmtExact(a.payments.balance.cents);
-        post(a.tailorId, 'system', `We charged your ${amt} balance after ${POLICY.UNCLAIMED_CAPTURE_D} days`, { at, tailorText: `${state.customer.first}’s ${amt} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days` });
-        expired.push(a.id);
-      }
-      if (auto <= state.clock.now) { completeHandoff(a, 'auto', a.handoff.autoAt); expired.push(a.id); }
-    } else if (a.status === 'confirmed' && remindTick(a)) {
-      expired.push(a.id);   // K-41: the 24-hour reminder (or its one nudge) went out; K-43: or the unconfirmed visit was cancelled
+  const moved = [];
+  for (const a of state.appts) if (timersFor(a)) moved.push(a.id);
+  return moved;
+}
+const msOf = (iso) => toDate(iso).getTime();
+const stampAt = (ms) => isoMinute(new Date(ms));
+function timersFor(a) {
+  const t = state.clock.now;
+  switch (a.status) {
+    case 'requested': {
+      const exp = msOf(a.expiresAt);
+      if (exp <= t) return expireRequest(a.id).ok;
+      const soon = exp - POLICY.EXPIRING_SOON_MIN * MIN_MS;
+      if (t >= soon && a.soonTextFor !== a.expiresAt) { a.soonTextFor = a.expiresAt; notify(a, 'request-soon', { at: stampAt(Math.max(soon, msOf(a.sentAt ?? a.requestedAt))) }); }
+      return false;
     }
+    case 'suggested':
+      if (t < suggestLapseAt(a)) return false;
+      endSuggestion(a, `${firstName(tailorById(a.tailorId))}’s suggested time passed`, 'Your suggested time passed', 'lapsed');   // D-154
+      return true;
+    case 'confirmed': return confirmedTimers(a);
+    case 'fitting': visitTexts(a); return false;
+    case 'price-change': return orderTimers(a);
+    case 'in-progress': editTimers(a); return false;
+    case 'ready': return readyTimers(a);
+    case 'awaiting-handoff': return handoffTimers(a);
+    case 'completed': completedTimers(a); return false;
+    default: return false;
   }
-  return expired;
+}
+/** The reminder texts of a waiting state (D-03): WAIT_REMIND_1_H and WAIT_REMIND_2_H after `fromIso`, stamped into `marks`; when the clock
+    jumped past both, only the latest is sent. `stopAt` (ms) = the state's own end, which supersedes a reminder due at the same time. */
+function waitTexts(a, fromIso, marks, events, { stopAt = Infinity, x = {} } = {}) {
+  const t = state.clock.now;
+  const due = [['h24', POLICY.WAIT_REMIND_1_H], ['h72', POLICY.WAIT_REMIND_2_H]]
+    .map(([k, h], i) => ({ k, at: msOf(fromIso) + h * HOUR_MS, ev: events[i] }))
+    .filter((d) => t >= d.at && !marks[d.k]);
+  due.forEach((d) => { marks[d.k] = stampAt(d.at); });
+  const last = due[due.length - 1];
+  if (last && t < stopAt) notify(a, last.ev, { at: marks[last.k], x });
+}
+function confirmedTimers(a) {
+  const t = state.clock.now;
+  let moved = remindTick(a);
+  if (a.status !== 'confirmed') return true;                                     // K-43: cancelled, unconfirmed
+  const start = msOf(a.slot.start);
+  const p = a.proposal;
+  if (p?.state === 'pending' && t >= Math.min(msOf(p.start), start) - POLICY.MIN_LEAD_H * HOUR_MS) {   // D-12: too close to either time
+    Object.assign(p, { state: 'lapsed', endedAt: stampAt(Math.min(msOf(p.start), start) - POLICY.MIN_LEAD_H * HOUR_MS) });
+    moved = true;
+  }
+  visitTexts(a);
+  /* D-11 / K-48.5: nothing recorded VISIT_CHECK_H after the start → ask both; unanswered → the admin, then a cancel with a refund */
+  const askAt = start + POLICY.VISIT_CHECK_H * HOUR_MS;
+  if (t >= askAt && !a.visitCheck) {
+    a.visitCheck = { askedAt: stampAt(askAt), answer: null, answeredAt: null, adminAt: null };
+    notify(a, 'visit-check', { at: a.visitCheck.askedAt });
+    notify(a, 'visit-check-t', { at: a.visitCheck.askedAt });
+    moved = true;
+  }
+  const vc = a.visitCheck;
+  if (vc && !vc.answer) {
+    const asked = msOf(vc.askedAt);
+    const adminAt = asked + POLICY.VISIT_CHECK_ADMIN_H * HOUR_MS;
+    if (t >= adminAt && !vc.adminAt) {
+      vc.adminAt = stampAt(adminAt);
+      openTailyReview(a, 'visit-unanswered', { at: vc.adminAt });
+      moved = true;
+    }
+    const closeAt = asked + POLICY.VISIT_CHECK_CANCEL_H * HOUR_MS;
+    if (t >= closeAt) { closeUnrecorded(a, stampAt(closeAt)); return true; }
+  }
+  return moved;
+}
+/** Kevin (K-48 follow-up): the tailor's start texts — START_REMIND_MIN before the visit "Your visit with Sarah starts at …", and at the start
+    time ONE text, "Your fitting has started. Please take all notes here:" (it stands in for a second start reminder). A clock that jumped past
+    the start skips the first; one that jumped past the visit check skips both. */
+function visitTexts(a) {
+  const t = state.clock.now;
+  const start = msOf(a.slot.start);
+  const v = (a.visitDay ??= freshVisitDay());
+  const soonAt = start - POLICY.START_REMIND_MIN * MIN_MS;
+  if (!v.startTextAt && a.status === 'confirmed' && t >= soonAt && t < start && slotSetAt(a) <= soonAt) {
+    v.startTextAt = stampAt(soonAt);
+    notify(a, 'start-soon', { at: v.startTextAt });
+  }
+  if (!v.fittingTextAt && t >= start && t < start + POLICY.VISIT_CHECK_H * HOUR_MS) {
+    v.fittingTextAt = stampAt(start);
+    notify(a, 'fitting-started', { at: v.fittingTextAt });
+  }
+}
+function freshVisitDay() { return { tailor: { onWayAt: null, hereAt: null }, customer: { onWayAt: null, hereAt: null }, startTextAt: null, fittingTextAt: null }; }
+/** D-11: "Did the visit happen?" went unanswered VISIT_CHECK_CANCEL_H — the visit is cancelled and the deposit refunded; nothing is paid out. */
+function closeUnrecorded(a, at) {
+  setStatus(a, 'cancelled');
+  a.history[a.history.length - 1].at = at;
+  a.payments.deposit.state = 'refunded';
+  a.cancel = { by: 'system', reason: 'no-record', at, refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
+  if (a.tailyReview && !a.tailyReview.closedAt) Object.assign(a.tailyReview, { closedAt: at, outcome: 'cancelled-refunded' });
+  restoreDraftIfEmpty(a);
+  post(a.tailorId, 'system', 'Nobody told us the visit happened, so we cancelled it. Your deposit is refunded.', { at, tailorText: 'Nobody told us the visit happened, so we cancelled it and refunded the deposit' });
+  notify(a, 'visit-closed', { at });
+  notify(a, 'visit-closed-t', { at });
+}
+/** D-03: an unanswered final order — reminders at 24 h and 72 h, Taily review after FINAL_ORDER_REVIEW_D (counted from the latest send). */
+function orderTimers(a) {
+  const pc = a.priceChange;
+  if (!pc || pc.state === 'approved') return false;
+  const t = state.clock.now;
+  const total = priceChangeView(a).after.total;
+  const rev = msOf(pc.sentAt) + POLICY.FINAL_ORDER_REVIEW_D * DAY_MS;
+  waitTexts(a, pc.sentAt, (pc.nudges ??= {}), ['final-order-24h', 'final-order-72h'], { stopAt: rev, x: { total } });
+  if (t >= rev && !pc.reviewAt) {
+    pc.reviewAt = stampAt(rev);
+    openTailyReview(a, 'final-order-unanswered', { at: pc.reviewAt });
+    notify(a, 'final-order-review', { at: pc.reviewAt });
+    notify(a, 'final-order-review-t', { at: pc.reviewAt });
+    return true;
+  }
+  return false;
+}
+/** D-03: a pending edit after the fitting — reminder texts at 24 h and 72 h (the tailor can withdraw it; K-30: Sarah can't decline). */
+function editTimers(a) {
+  const e = a.edit;
+  if (e?.state !== 'pending') return;
+  waitTexts(a, e.sentAt, (e.nudges ??= {}), ['edit-24h', 'edit-72h']);
+}
+/** D-03: a ready order with no way back — reminder texts at 24 h and 72 h; after READY_DEFAULT_D it defaults to in-store pickup. */
+function readyTimers(a) {
+  const readyAt = [...a.history].reverse().find((h) => h.status === 'ready')?.at;
+  if (!readyAt) return false;
+  const end = msOf(readyAt) + POLICY.READY_DEFAULT_D * DAY_MS;
+  waitTexts(a, readyAt, (a.readyNudges ??= {}), ['ready-24h', 'ready-72h'], { stopAt: end });
+  if (state.clock.now >= end && !a.readyDefaultAt) { defaultReturn(a, stampAt(end)); return true; }
+  return false;
+}
+/** D-03: READY_DEFAULT_D after ready with no way back chosen — in-store pickup (when she has a shop), the balance held on the booking card,
+    which starts the capture clock (D-04). No shop to pick up from → a Taily review instead. A card that declines leaves it ready, payment failed. */
+function defaultReturn(a, at) {
+  a.readyDefaultAt = at;
+  const t = tailorById(a.tailorId);
+  if (!returnOffer(a).includes('pickup') || !t?.shop?.enabled) { openTailyReview(a, 'ready-no-way-back', { at }); return; }
+  a.returnOption = 'pickup';
+  a.courier = null;
+  repriceReturn(a);
+  const charge = a.money.balance > 0;
+  if (charge && state.sim.card === 'declined') {
+    a.payments.balance.state = 'failed'; a.payments.balance.failedCardId = a.cardId;
+    notify(a, 'card-failed', { at }); notify(a, 'card-failed-t', { at });
+    return;
+  }
+  a.payments.balance = { cents: a.money.balance, state: charge ? 'held' : 'none', heldAt: at };
+  if (a.payments.refund?.cents > 0) a.payments.refund.state = 'refunded';
+  a.balanceCardId = a.cardId;
+  a.handoff = freshHandoff(a, at, null);
+  a.handoff.defaultedAt = at;
+  setStatus(a, 'awaiting-handoff');
+  a.history[a.history.length - 1].at = at;
+  post(a.tailorId, 'system', `Ready for ${POLICY.READY_DEFAULT_D} days, so we set it to in-store pickup`, { at, tailorText: `${state.customer.first} didn’t choose in ${POLICY.READY_DEFAULT_D} days, so we set it to in-store pickup` });
+  notify(a, 'ready-default', { at });
+  notify(a, 'ready-default-t', { at });
+}
+/** awaiting-handoff (Study-1 A2–A3, D-03, D-04): pickup-today / missed-pickup texts, the day-6 capture (pays the tailor; a reported problem no
+    longer pushes it past the card hold — it captures and goes to review), the HANDOFF_AUTO_H auto-completion (paused by a problem), a problem
+    open PROBLEM_REVIEW_H → review, and ABANDONED_CLOSE_D after the charge → closed. */
+function handoffTimers(a) {
+  const h = a.handoff;
+  if (!h) return false;
+  const t = state.clock.now;
+  const b = a.payments.balance;
+  let moved = false;
+  if (a.returnOption === 'pickup' && h.slot?.start && !h.markedAt) {
+    const s0 = msOf(h.slot.start);
+    const setAt = msOf(h.moved?.at ?? h.heldAt);
+    const remind = s0 - POLICY.PICKUP_REMIND_H * HOUR_MS;
+    if (t >= remind && t < s0 && h.todayTextFor !== h.slot.start) { h.todayTextFor = h.slot.start; notify(a, 'pickup-today', { at: stampAt(Math.max(remind, setAt)) }); }
+    const missAt = s0 + POLICY.HANDOFF_SLOT_MIN * MIN_MS;
+    if (t >= missAt && h.missedTextFor !== h.slot.start) { h.missedTextFor = h.slot.start; notify(a, 'missed-pickup', { at: stampAt(missAt) }); moved = true; }
+  }
+  const auto = h.autoAt && !h.problemAt ? msOf(h.autoAt) : Infinity;
+  const cap = b.state === 'held' ? unclaimedAt(a) : Infinity;
+  if (cap <= t && cap < auto) {
+    const at = stampAt(cap);
+    const amt = fmtExact(b.cents);
+    if (captureHold(a, h.problemAt ? 'before-expiry' : 'unclaimed', at)) {
+      post(a.tailorId, 'system', `We charged your ${amt} balance after ${POLICY.UNCLAIMED_CAPTURE_D} days`, { at, tailorText: `${state.customer.first}’s ${amt} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days` });
+      if (h.problemAt) openTailyReview(a, 'problem-open', { at });   // D-04: the hold can't outlive the card; the payout waits for the review
+      else {
+        addPayout(a, a.money.payout, 'job', at);                       // D-03: the tailor is paid at the unclaimed charge
+        notify(a, 'unclaimed-charged', { at });
+        notify(a, 'unclaimed-t', { at });
+      }
+    } else {
+      notify(a, 'card-failed', { at });
+      notify(a, 'card-failed-t', { at });
+    }
+    moved = true;
+  }
+  if (auto <= t) { completeHandoff(a, 'auto', h.autoAt); return true; }
+  if (h.problemAt && !h.problemReviewAt) {
+    const r = msOf(h.problemAt) + POLICY.PROBLEM_REVIEW_H * HOUR_MS;
+    if (t >= r) { h.problemReviewAt = stampAt(r); openTailyReview(a, 'problem-open', { at: h.problemReviewAt }); moved = true; }
+  }
+  if (b.state === 'captured' && b.capturedAt && !h.problemAt) {
+    const end = msOf(b.capturedAt) + POLICY.ABANDONED_CLOSE_D * DAY_MS;
+    if (t >= end) { completeHandoff(a, 'abandoned', stampAt(end)); return true; }
+  }
+  return moved;
+}
+/** K-28: the review reminder's text, once, REVIEW_REMINDER_D after completion (the Home card is computed from reviewReminderDue). */
+function completedTimers(a) {
+  if (a.review || a.reviewTextAt || a.handoff?.completedBy === 'abandoned') return;
+  const at = a.handoff?.completedAt ?? [...a.history].reverse().find((h) => h.status === 'completed')?.at;
+  if (!at) return;
+  const due = msOf(at) + POLICY.REVIEW_REMINDER_D * DAY_MS;
+  if (state.clock.now >= due) { a.reviewTextAt = stampAt(due); notify(a, 'review-reminder', { at: a.reviewTextAt }); }
 }
 /** When a suggested time stops being open (D-154): `MIN_LEAD_H` before it starts, or `SUGGEST_EXPIRY_H` after it was suggested,
     whichever comes first. Epoch ms. */
@@ -471,12 +676,14 @@ function busyIntervals(tailorId, exclude) {
   const out = [];
   for (const a of state.appts) {
     if (a.tailorId !== tailorId || a.id === exclude) continue;
-    let start = null;
-    if (a.status === 'requested' || a.status === 'confirmed') start = a.slot.start;
-    else if (a.status === 'suggested') start = a.suggested.start;
-    if (!start) continue;
-    const from = toDate(start).getTime();
-    out.push([from, from + VISIT_MINUTES[a.job.visitType] * MIN_MS]);
+    const starts = [];
+    if (a.status === 'requested' || a.status === 'confirmed') starts.push(a.slot.start);
+    else if (a.status === 'suggested') starts.push(a.suggested.start);
+    if (a.status === 'confirmed' && a.proposal?.state === 'pending') starts.push(a.proposal.start);   // D-12: the asked-for time is held too
+    for (const start of starts) {
+      const from = toDate(start).getTime();
+      out.push([from, from + VISIT_MINUTES[a.job.visitType] * MIN_MS, a.job.visitType]);
+    }
   }
   return out;
 }
@@ -501,7 +708,8 @@ export function openSlots(tailorId, visitType, { until = null, exclude = null } 
         const start = new Date(d); start.setHours(Math.floor(m / 60), m % 60, 0, 0);   // wall-clock, so a DST changeover day keeps its hours
         const s = start.getTime();
         if (s < earliest) continue;
-        if (busy.some(([a, b]) => s < b && a < s + dur * MIN_MS)) continue;
+        /* D-13: TRAVEL_BUFFER_MIN of free time on each side of a home visit (hers or the new one) */
+        if (busy.some(([a, b, type]) => { const g = (type === 'home' || visitType === 'home') ? POLICY.TRAVEL_BUFFER_MIN * MIN_MS : 0; return s < b + g && a - g < s + dur * MIN_MS; })) continue;
         slots.push(isoMinute(start));
       }
     }
@@ -579,11 +787,12 @@ export function settlePayouts() {
   const paid = [];
   const failed = [];
   for (const p of state.payouts) {
-    if (p.state !== 'pending' || p.date > today) continue;
+    if (p.state !== 'pending' || p.date > today || p.held) continue;   // D-14: a disputed no-show pay waits for Taily
     p.bank = bank.bank ?? '';
     p.last4 = bank.last4 ?? '';
     if (state.sim.payout === 'failed') { p.state = 'failed'; p.failedAt = nowIso(); failed.push(p); }
     else { p.state = 'paid'; p.paidAt = nowIso(); paid.push(p); }
+    notify(getAppt(p.apptId) ?? null, p.state === 'paid' ? 'payout-sent' : 'payout-failed', { x: { cents: p.cents, bank: p.bank, last4: p.last4 } });
   }
   return { ok: true, paid, failed };
 }
@@ -593,6 +802,7 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
   const job = state.job;
   const v = validateJob(job);
   if (!v.ok) return fail('job-invalid', { errors: v.errors });
+  if (state.sim.network === 'offline') return fail('offline');                              // S-12: nothing is sent or held while offline
   if (state.sim.server === 'error') { state.sim.server = 'ok'; return fail('server-error'); }   // one-shot (D-140): nothing authorized
   const tailor = tailorById(tailorId);
   if (!tailor) return fail('unknown-tailor');
@@ -628,6 +838,8 @@ export function requestBooking({ tailorId, slotStart, cardId = null, threeDS = f
   newJob();                                                   // D-158: the draft is spent; a decline, expiry or cancel brings it back (restoreDraft)
   Object.assign(state.job, { zip, address, visitType, declinedBy, hiddenTailors });   // the job's own who-said-no lists travel with it
   say(appt, 'You sent a request', `${state.customer.first} sent a request`);
+  notify(appt, 'request-sent');
+  notify(appt, 'request');
   return succeed(appt);
 }
 
@@ -639,6 +851,7 @@ export function withdrawRequest(id) {
   a.payments.deposit.state = 'released';
   restoreDraft(a);
   say(a, 'You withdrew the request', `${state.customer.first} withdrew the request`);
+  notify(a, 'withdrawn');
   return succeed(a);
 }
 
@@ -646,9 +859,11 @@ export function tailorAccept(id) {
   const a = must(id);
   if (a.status === 'expired' || (a.status === 'requested' && toDate(a.expiresAt).getTime() <= state.clock.now)) return fail('expired');
   if (a.status !== 'requested') return fail('not-requested');
+  if (state.sim.network === 'offline') return fail('offline');                              // S-12: the deposit is captured on accept
   setStatus(a, 'confirmed');
   a.payments.deposit.state = 'captured';
   say(a, `${firstName(tailorById(a.tailorId))} accepted`, 'You accepted');
+  notify(a, 'accepted');
   return succeed(a);
 }
 
@@ -661,6 +876,7 @@ export function tailorSuggest(id, slotStart) {
   a.suggested = { start: slotStart, at: nowIso(), rush: Math.min(a.money.rush, rushNew) };   // D-155: the price never goes up
   setStatus(a, 'suggested');
   say(a, `${firstName(tailorById(a.tailorId))} suggested ${fmtWhen(slotStart)}`, `You suggested ${fmtWhen(slotStart)}`);
+  notify(a, 'suggested', { x: { start: slotStart } });
   return succeed(a);
 }
 
@@ -668,12 +884,14 @@ export function acceptSuggestion(id) {
   const a = must(id);
   if (a.status !== 'suggested') return fail('not-suggested');
   if (state.clock.now >= suggestLapseAt(a)) return fail('slot-passed');   // D-154
+  if (state.sim.network === 'offline') return fail('offline');                // S-12: the deposit is captured here
   a.slot = { start: a.suggested.start, end: slotEnd(a.suggested.start, a.job.visitType) };
   repriceForSlot(a, a.slot.start);                            // D-155
   setStatus(a, 'confirmed');
   a.confirmedVia = 'suggestion';                              // R3-1-C-08: the customer accepted the tailor's new time
   a.payments.deposit.state = 'captured';
   say(a, `Booked ${fmtWhen(a.slot.start)}`);
+  notify(a, 'suggestion-accepted');
   return succeed(a);
 }
 
@@ -687,6 +905,7 @@ function endSuggestion(a, text, tailorText, ended = 'lapsed') {
   if (!state.job.hiddenTailors.includes(a.tailorId)) state.job.hiddenTailors.push(a.tailorId);   // D-07
   restoreDraftIfEmpty(a);
   say(a, text, tailorText);
+  notify(a, 'suggestion-ended', { x: { withdrawn: ended === 'withdrawn' } });
 }
 export function withdrawSuggestion(id) {
   const a = must(id);
@@ -703,6 +922,7 @@ export function findAnotherTailor(id) {
     a.cancel = { by: 'customer', reason: 'switched', at: nowIso(), refund: 0, kept: 0, tailorPaid: 0 };
     a.payments.deposit.state = 'released';
     say(a, 'You’re looking for another tailor', `${state.customer.first} is looking for another tailor`);
+    notify(a, 'switched');
   }
   restoreDraft(a);
   return succeed(a);
@@ -717,6 +937,7 @@ export function tailorDecline(id, reason = '') {
   if (!state.job.declinedBy.includes(a.tailorId)) state.job.declinedBy.push(a.tailorId);
   restoreDraft(a);
   say(a, `${firstName(tailorById(a.tailorId))} declined`, 'You declined');
+  notify(a, 'declined');
   return succeed(a);
 }
 
@@ -728,6 +949,7 @@ export function expireRequest(id) {
   restoreDraftIfEmpty(a);
   if (a.retries >= POLICY.MAX_RETRIES && !state.job.hiddenTailors.includes(a.tailorId)) state.job.hiddenTailors.push(a.tailorId);   // D-07
   say(a, 'Request expired. Your hold was released.', 'Request expired');
+  notify(a, 'expired');
   return succeed(a);
 }
 
@@ -737,6 +959,7 @@ export function tryAgain(id) {
   if (a.retries >= POLICY.MAX_RETRIES) return fail('no-retries');
   if (toDate(a.slot.start).getTime() <= state.clock.now) return fail('slot-passed');
   if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(a.slot.start)) return fail('slot-unavailable');   // someone else may have taken it since
+  if (state.sim.network === 'offline') return fail('offline');   // S-12
   if (state.sim.card === 'declined') return fail('card-declined');
   a.retries += 1;
   a.sentAt = nowIso();                                        // R3-1-C-02: the resend time; requestedAt stays the first send
@@ -744,6 +967,8 @@ export function tryAgain(id) {
   a.payments.deposit.state = 'authorized';                    // D-15
   setStatus(a, 'requested');
   say(a, 'You sent the request again', `${state.customer.first} sent the request again`);
+  notify(a, 'request-sent');
+  notify(a, 'request');
   return succeed(a);
 }
 
@@ -762,6 +987,7 @@ export function cancelBooking(id) {
   }
   restoreDraftIfEmpty(a);
   say(a, 'You cancelled the booking', `${state.customer.first} cancelled the booking`);
+  notify(a, terms.window === 'early' ? 'cancelled-early' : 'cancelled-late');
   return succeed(a, { terms });
 }
 
@@ -776,6 +1002,8 @@ export function rescheduleBooking(id, slotStart) {
   repriceForSlot(a, slotStart);                                                      // D-155: rush = min(booked, new slot); the deposit stays
   a.history.push({ status: 'rescheduled', at: nowIso(), from });                     // R3-1-T-10: t-job says what it moved from
   say(a, `You moved the visit to ${fmtWhen(slotStart)}`, `${state.customer.first} moved the visit to ${fmtWhen(slotStart)}`);
+  if (a.proposal?.state === 'pending') Object.assign(a.proposal, { state: 'replaced', endedAt: nowIso() });   // D-12: her own move answers it
+  notify(a, 'rescheduled');
   return succeed(a);
 }
 
@@ -789,6 +1017,7 @@ export function tailorCantMakeIt(id, reason = '') {
   a.cancel = { by: 'tailor', reason: 'tailor-cant-make-it', note: reason, at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0, late };
   restoreDraft(a);
   say(a, `${firstName(tailorById(a.tailorId))} can’t make it`, 'You can’t make it');
+  notify(a, 'cant-make-it');
   return succeed(a);
 }
 
@@ -803,6 +1032,7 @@ export function reportTailorNoShow(id) {
   a.cancel = { by: 'customer', reason: 'tailor-no-show', at: nowIso(), refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
   restoreDraft(a);
   say(a, `You reported that ${firstName(tailorById(a.tailorId))} didn’t show up`, `${state.customer.first} reported you didn’t show up`);
+  notify(a, 'tailor-no-show');
   return succeed(a);
 }
 
@@ -810,12 +1040,14 @@ export function markNoShow(id) {
   const a = must(id);
   if (a.status !== 'confirmed') return fail('not-confirmed');
   if (state.clock.now < toDate(a.slot.start).getTime() + POLICY.NO_SHOW_WAIT_MIN * MIN_MS) return fail('too-early');
+  if (!a.visitDay?.tailor?.hereAt) return fail('not-here');                          // D-14 (K-48): "I'm here" first — it is the evidence
   const pay = noShowPayout(a.payments.deposit.cents);                                // D-06
   setStatus(a, 'cancelled');
   a.payments.deposit.state = 'kept';
   a.cancel = { by: 'tailor', reason: 'no-show', at: nowIso(), refund: 0, kept: a.payments.deposit.cents, tailorPaid: pay };
   addPayout(a, pay, 'no-show');
   say(a, `${firstName(tailorById(a.tailorId))} marked the visit as a no-show`, `You marked ${state.customer.first} as a no-show`);
+  notify(a, 'no-show-marked');
   return succeed(a);
 }
 
@@ -824,8 +1056,124 @@ export function startFitting(id) {
   if (a.status !== 'confirmed') return fail('not-confirmed');
   if (state.clock.now < toDate(a.slot.start).getTime()) return fail('too-early');
   setStatus(a, 'fitting');
+  if (a.tailyReview && !a.tailyReview.closedAt && a.tailyReview.reason === 'visit-unanswered') Object.assign(a.tailyReview, { closedAt: nowIso(), outcome: 'fitting-started' });
   return succeed(a);
 }
+
+/* ---------- S-32 + D-14 (K-48): the visit day — On my way / I'm here ---------- */
+/** On my way / I'm here show from VISIT_TOOLS_H before the visit while it is still confirmed. */
+export const visitToolsOpen = (a) => a?.status === 'confirmed' && state.clock.now >= toDate(a.slot.start).getTime() - POLICY.VISIT_TOOLS_H * HOUR_MS;
+/** `who` ('tailor' | 'customer') says `what` ('on-my-way' | 'here'); the other person gets a text. The tailor's "I'm here" is the evidence a
+    no-show needs (D-14); the customer's are optional (shop visits). Errors: not-confirmed · too-early · already. */
+export function visitPing(id, who, what) {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  if (!visitToolsOpen(a)) return fail('too-early');
+  const v = (a.visitDay ??= freshVisitDay());
+  const me = v[who];
+  if (!me) return fail('unknown-person');
+  if (what === 'here' ? me.hereAt : (me.onWayAt || me.hereAt)) return fail('already');
+  if (what === 'here') me.hereAt = nowIso(); else me.onWayAt = nowIso();
+  const t = firstName(tailorById(a.tailorId));
+  const c = state.customer.first;
+  if (who === 'tailor') say(a, what === 'here' ? `${t} is here` : `${t} is on her way`, what === 'here' ? 'You’re here' : 'You’re on your way');
+  else say(a, what === 'here' ? 'You’re here' : 'You’re on your way', what === 'here' ? `${c} is here` : `${c} is on her way`);
+  notify(a, `${who === 'tailor' ? 'tailor' : 'customer'}-${what === 'here' ? 'here' : 'on-way'}`);
+  return succeed(a);
+}
+
+/* ---------- D-11 (K-48.5): "Did the visit happen?" — the customer's answer (the tailor answers by starting the fitting, marking a
+   no-show after "I'm here", or cancelling) ---------- */
+/** The question is up for `who`: asked, the visit still confirmed, and (customer) not answered yet. */
+export const visitCheckOpen = (a, who = 'customer') => a?.status === 'confirmed' && !!a.visitCheck && (who === 'tailor' || !a.visitCheck.answer);
+/** Customer: 'happened' (recorded; the tailor is asked to start the fitting) or 'not-happened' (the tailor didn't come → refunded, as
+    reportTailorNoShow — unless the tailor said "I'm here", then both go to Taily review). Errors: not-asked · already-answered · answer. */
+export function answerVisitCheck(id, answer) {
+  const a = must(id);
+  if (!visitCheckOpen(a, 'customer')) return fail(a.visitCheck?.answer ? 'already-answered' : 'not-asked');
+  if (!['happened', 'not-happened'].includes(answer)) return fail('answer');
+  Object.assign(a.visitCheck, { answer, answeredAt: nowIso() });
+  if (answer === 'happened') {
+    say(a, 'You told us the visit happened', `${state.customer.first} says the visit happened. Start the fitting to send her the final order.`);
+    return succeed(a);
+  }
+  if (a.visitDay?.tailor?.hereAt) {
+    openTailyReview(a, 'visit-disputed', { by: 'customer' });
+    say(a, 'You told us the visit didn’t happen. Taily is looking into it.', `${state.customer.first} says the visit didn’t happen. Taily is looking into it.`);
+    return succeed(a);
+  }
+  const r = reportTailorNoShow(id);
+  return r;
+}
+
+/* ---------- D-14: "That's not right" on a no-show report — both sides go to Taily review (the review UI is track A2's) ---------- */
+/** Customer on a no-show Amara marked, or the tailor on a no-show Sarah reported. Errors: not-a-no-show · already-disputed. */
+export function disputeNoShow(id, who) {
+  const a = must(id);
+  const reason = a.status === 'cancelled' ? a.cancel?.reason : null;
+  if (!((reason === 'no-show' && who === 'customer') || (reason === 'tailor-no-show' && who === 'tailor'))) return fail('not-a-no-show');
+  if (a.cancel.disputedAt) return fail('already-disputed');
+  a.cancel.disputedAt = nowIso();
+  a.cancel.disputedBy = who;
+  openTailyReview(a, who === 'customer' ? 'no-show-disputed' : 'tailor-no-show-disputed', { by: who });
+  if (who === 'customer') {
+    for (const p of state.payouts) if (p.apptId === a.id && p.kind === 'no-show' && p.state === 'pending') p.held = true;   // on hold while Taily looks
+    say(a, 'You told us you were there. Taily is looking into it.', `${state.customer.first} says she was there. Taily is looking into it.`);
+    notify(a, 'no-show-disputed');
+  } else {
+    say(a, `${firstName(tailorById(a.tailorId))} says she came. Taily is looking into it.`, 'You told us you came. Taily is looking into it.');
+    notify(a, 'no-show-disputed-c');
+  }
+  return succeed(a);
+}
+
+/* ---------- D-12 (K-48): the tailor asks to move a confirmed visit; Sarah accepts or keeps the current time ---------- */
+/** The times the tailor can ask for: her open times before the need-by (this visit excluded), not the current one. */
+export function moveSlots(appt) {
+  if (!appt) return [];
+  return openSlots(appt.tailorId, appt.job.visitType, { until: appt.job.needBy, exclude: appt.id }).filter((x) => x !== appt.slot.start);
+}
+/** Tailor: ask to move a confirmed visit (before it starts) to one of her open times. One proposal at a time; asking again replaces it.
+    Errors: not-confirmed · too-late · slot-unavailable. */
+export function proposeNewTime(id, slotStart) {
+  const a = must(id);
+  if (a.status !== 'confirmed') return fail('not-confirmed');
+  if (state.clock.now >= toDate(a.slot.start).getTime() - POLICY.MIN_LEAD_H * HOUR_MS) return fail('too-late');
+  if (!moveSlots(a).includes(slotStart)) return fail('slot-unavailable');
+  a.proposal = { start: slotStart, at: nowIso(), state: 'pending', from: a.slot.start };
+  say(a, `${firstName(tailorById(a.tailorId))} asked to move the visit to ${fmtWhen(slotStart)}`, `You asked to move the visit to ${fmtWhen(slotStart)}`);
+  notify(a, 'tailor-move', { x: { start: slotStart } });
+  return succeed(a);
+}
+/** The tailor's pending move, or null. */
+export const proposalOf = (a) => (a?.status === 'confirmed' && a.proposal?.state === 'pending' ? a.proposal : null);
+/** Customer: accept the new time (the visit moves; the deposit and the free-cancel window move with it — D-12) or keep the current one.
+    Errors: no-proposal · slot-unavailable. */
+export function answerProposal(id, accept) {
+  const a = must(id);
+  const p = proposalOf(a);
+  if (!p) return fail('no-proposal');
+  if (!accept) {
+    Object.assign(p, { state: 'kept', endedAt: nowIso() });
+    say(a, `You kept ${fmtWhen(a.slot.start)}`, `${state.customer.first} is keeping ${fmtWhen(a.slot.start)}`);
+    notify(a, 'move-kept');
+    return succeed(a);
+  }
+  if (!moveSlots(a).includes(p.start)) { Object.assign(p, { state: 'lapsed', endedAt: nowIso() }); return fail('slot-unavailable'); }
+  const from = a.slot.start;
+  a.slot = { start: p.start, end: slotEnd(p.start, a.job.visitType) };
+  a.reminder = freshReminder();
+  a.visitDay = freshVisitDay();
+  repriceForSlot(a, p.start);
+  a.history.push({ status: 'rescheduled', at: nowIso(), from, by: 'tailor' });
+  Object.assign(p, { state: 'accepted', endedAt: nowIso() });
+  say(a, `You accepted the new time, ${fmtWhen(p.start)}`, `${state.customer.first} accepted the new time, ${fmtWhen(p.start)}`);
+  notify(a, 'move-accepted');
+  return succeed(a);
+}
+
+/** B-07: an in-progress order past its due date ("Overdue · due Fri, Oct 23" on both lists). */
+export const overdue = (a) => !!a && a.status === 'in-progress' && dayDiff(new Date(state.clock.now), a.job.needBy) < 0;
 
 /* ---------- fitting documentation (K-02, D-175…D-183) ---------- */
 const emptyDoc = () => ({ before: [], pinned: [], comment: '', commentMasked: false });
@@ -977,11 +1325,14 @@ export function sendPriceChange(id, lines) {
     docs: Object.fromEntries(sentIds.map((gid) => [gid, clone(docsOf(a, gid))])),          // K-02 (D-175): the snapshot Sarah sees
   };
   const first = firstName(tailor);
+  const after = priceChangeView(a).after.total;
   if (revising) {
     say(a, `${first} updated your final order`, 'You updated the final order');
+    notify(a, 'final-order-updated', { x: { total: after } });
   } else {
     setStatus(a, 'price-change');
     say(a, `${first} sent your final order`, 'You sent the final order');
+    notify(a, 'final-order', { x: { total: after, was: a.money.total } });
   }
   return succeed(a);
 }
@@ -997,6 +1348,8 @@ export function approvePriceChange(id) {
   a.job.garments = garmentsFromLines(a);
   setStatus(a, 'in-progress');
   say(a, 'You approved the order', `${state.customer.first} approved the order`);
+  if (a.tailyReview && !a.tailyReview.closedAt && a.tailyReview.reason === 'final-order-unanswered') Object.assign(a.tailyReview, { closedAt: nowIso(), outcome: 'approved' });
+  notify(a, 'final-approved');
   return succeed(a);
 }
 /** `job.garments` rebuilt from `a.lines` (D-121): the kept garments in their order with their services, then new items (`added: true`). */
@@ -1055,6 +1408,7 @@ export function markReady(id, { returns } = {}) {
   a.payments.balance = { cents: a.money.balance, state: 'due' };
   if (a.money.refund > 0) a.payments.refund = { cents: a.money.refund, state: 'pending' };   // D-23, D-156: settled by holdBalance
   say(a, 'Ready. Choose how to get it back.', `You marked it ready. Waiting for ${state.customer.first} to choose how to get it back.`);
+  notify(a, 'ready');
   return succeed(a);
 }
 
@@ -1121,37 +1475,59 @@ export function handoffMissed(appt) {
   return appt?.status === 'awaiting-handoff' && appt.returnOption === 'pickup' && !!s && !appt.handoff.markedAt
     && state.clock.now >= toDate(s.start).getTime() + POLICY.HANDOFF_SLOT_MIN * MIN_MS;
 }
-/** Can Sarah move the time now (D-295)? Pickup: before the slot starts, or once it was missed; courier: until COURIER_CHANGE_CUTOFF_MIN
-    before the collection. Never once Amara marked it picked up, or after it is completed. */
+/** Can Sarah move the time now (D-295)? Pickup: before the slot starts, or once it was missed, or while none is picked (D-03: an order
+    defaulted to pickup); courier: until COURIER_CHANGE_CUTOFF_MIN before the collection, or after a failed delivery (S-35) — never while the
+    courier has it. Never once Amara marked it picked up, or after it is completed. */
 export function handoffChangeable(appt) {
-  const s = appt?.handoff?.slot;
-  if (appt?.status !== 'awaiting-handoff' || !s || appt.handoff.markedAt) return false;
-  if (appt.returnOption === 'courier') return state.clock.now < toDate(s.collectAt).getTime() - POLICY.COURIER_CHANGE_CUTOFF_MIN * MIN_MS;
-  return state.clock.now < toDate(s.start).getTime() || handoffMissed(appt);
+  const h = appt?.handoff;
+  if (appt?.status !== 'awaiting-handoff' || !h || h.markedAt) return false;
+  if (appt.returnOption === 'courier') {
+    if (h.trip?.state === 'returned') return true;
+    if (h.trip?.state === 'out' || !h.slot) return false;
+    return state.clock.now < toDate(h.slot.collectAt).getTime() - POLICY.COURIER_CHANGE_CUTOFF_MIN * MIN_MS;
+  }
+  if (!h.slot) return true;
+  return state.clock.now < toDate(h.slot.start).getTime() || handoffMissed(appt);
 }
 /** Customer only (the tailor never sets it): pick the handoff time from `handoffSlots` (a slot object or its start ISO). On a ready order
-    it is part of the choice (Hold needs it); once held she can move it (`handoffChangeable`) — confirmed at once, no tailor approval,
-    the tailor is told in the thread and on her job. Errors: not-ready · return-required · already-marked · too-late · slot-invalid · no-change. */
+    it is part of the choice (Pay needs it); once held she can move it (`handoffChangeable`) — confirmed at once, no tailor approval,
+    the tailor is told (thread + text). A courier move re-quotes (D-299) and a higher price is a new card authorization (B-14: a decline keeps
+    the old window, `card-declined`); after a failed delivery the new window costs nothing more (S-35). Errors: not-ready · return-required ·
+    already-marked · too-late · slot-invalid · no-change · card-declined · offline. */
 export function setHandoffSlot(id, slot) {
   const a = must(id);
   if (a.status !== 'ready' && a.status !== 'awaiting-handoff') return fail('not-ready');
   if (!a.returnOption) return fail('return-required');
   const prev = a.handoff?.slot ?? null;
+  const returned = a.handoff?.trip?.state === 'returned';
   if (a.status === 'awaiting-handoff') {
     if (a.handoff.markedAt) return fail('already-marked');
     if (!handoffChangeable(a)) return fail('too-late');
+    if (state.sim.network === 'offline') return fail('offline');
   }
   const start = typeof slot === 'string' ? slot : slot?.start;
   const match = handoffSlots(a).find((x) => x.start === start);
   if (!match) return fail('slot-invalid');
-  if (a.status === 'awaiting-handoff' && prev?.start === match.start) return fail('no-change');
+  if (a.status === 'awaiting-handoff' && prev?.start === match.start && !returned) return fail('no-change');
+  const before = { handoff: clone(a.handoff ?? null), courier: clone(a.courier ?? null), money: clone(a.money), balance: clone(a.payments.balance), refund: clone(a.payments.refund ?? null) };
   a.handoff = { ...(a.handoff ?? {}), slot: { ...match } };
-  if (a.returnOption === 'courier') { quoteCourier(a); repriceReturn(a); }   // K-43 (D-299): the Uber quote is per window — a move re-quotes the hold
+  if (a.returnOption === 'courier' && !returned) { quoteCourier(a); repriceReturn(a); }   // K-43 (D-299): the Uber quote is per window
+  if (a.status === 'awaiting-handoff' && before.balance.state === 'held' && a.payments.balance.cents > before.balance.cents && state.sim.card === 'declined') {
+    /* B-14 / D-04: a higher courier price needs a new authorization — declined, so nothing moves */
+    Object.assign(a, { handoff: before.handoff, courier: before.courier, money: before.money });
+    a.payments.balance = before.balance;
+    if (before.refund) a.payments.refund = before.refund; else delete a.payments.refund;
+    return fail('card-declined');
+  }
   if (a.status === 'awaiting-handoff') {
-    a.handoff.moved = { from: prev, at: nowIso() };
+    a.handoff.moved = prev ? { from: prev, at: nowIso() } : null;
+    if (!prev) a.handoff.slotSetAt = nowIso();
+    if (returned) a.handoff.trip = { ...a.handoff.trip, state: 'booked' };
     const what = a.returnOption === 'courier' ? 'delivery' : 'pickup';
     const when = slotText(match);
-    say(a, `You moved your ${what} to ${when}`, `${state.customer.first} moved her ${what} to ${when}`);
+    if (prev && !returned) say(a, `You moved your ${what} to ${when}`, `${state.customer.first} moved her ${what} to ${when}`);
+    else say(a, `You picked your ${what} time: ${when}`, `${state.customer.first} picked her ${what} time: ${when}`);
+    notify(a, prev && !returned ? 'handoff-moved' : a.returnOption === 'courier' ? 'courier-booked' : 'pickup-set');
   }
   return succeed(a);
 }
@@ -1202,6 +1578,7 @@ function quoteCourier(a) {
 export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   const a = must(id);
   if (a.status !== 'ready') return fail('not-ready');
+  if (state.sim.network === 'offline') return fail('offline');                                // S-12: nothing is held while offline
   if (!a.returnOption) return fail('return-required');
   if (a.returnOption === 'courier' && a.courier?.state !== 'ready') return fail('courier-unavailable');
   const slot = a.handoff?.slot ?? null;                                                       // K-40: the time comes first
@@ -1213,15 +1590,21 @@ export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   a.payments.balance = { cents: a.money.balance, state: charge ? 'held' : 'none', heldAt: nowIso() };
   if (a.payments.refund?.cents > 0) a.payments.refund.state = 'refunded';                   // D-156
   a.balanceCardId = cardId;
-  a.handoff = {
-    code: handoffCode(a), heldAt: nowIso(), pausedMs: 0, slot, moved: null,
-    markedBy: null, markedAt: null, marks: 0, autoAt: null, problemAt: null, completedBy: null, completedAt: null,
-  };
+  a.handoff = freshHandoff(a, nowIso(), slot);
   setStatus(a, 'awaiting-handoff');
   const how = a.returnOption === 'courier' ? RETURN_LABEL.courier : RETURN_LABEL.pickup.toLowerCase();   // SF-36: "Taily courier" keeps its capital
   const amt = fmtExact(a.money.balance);
   say(a, charge ? `You chose ${how}. You’ll be charged ${amt} ${CHARGE_WHEN[a.returnOption] ?? 'at handoff'}.` : `You chose ${how}.`, charge ? `${state.customer.first} chose ${how}. Her ${amt} is on hold.` : `${state.customer.first} chose ${how}.`);
+  notify(a, a.returnOption === 'courier' ? 'courier-booked' : 'pickup-set');
   return succeed(a);
+}
+/** A new handoff record at the hold (`at`), with the picked slot (null: none yet, D-03's default pickup). The courier gets its trip (S-35). */
+function freshHandoff(a, at, slot) {
+  return {
+    code: handoffCode(a), heldAt: at, pausedMs: 0, slot, moved: null, slotSetAt: slot ? at : null,
+    markedBy: null, markedAt: null, marks: 0, autoAt: null, problemAt: null, completedBy: null, completedAt: null,
+    ...(a.returnOption === 'courier' ? { trip: { state: 'booked', outAt: null, failedAt: null, reason: null } } : {}),
+  };
 }
 
 /* ---------- Study-1 A2–A3: the handoff ---------- */
@@ -1230,11 +1613,12 @@ export function handoffCode(appt) {
   const n = Number(String(appt?.id ?? '').replace(/\D/g, '')) || 0;
   return String((n * 7919 + 1234) % (10 ** HANDOFF_CODE_LEN)).padStart(HANDOFF_CODE_LEN, '0');
 }
-/** When an unclaimed hold is captured: the hold + UNCLAIMED_CAPTURE_D, plus the time a reported problem paused it. Epoch ms; null without a hold. */
+/** When an unclaimed hold is captured: the hold + UNCLAIMED_CAPTURE_D (D-04: day 6, inside the card hold's life — a reported problem no
+    longer pushes it later). Epoch ms; null without a hold. */
 export function unclaimedAt(appt) {
   const h = appt?.handoff;
   if (!h?.heldAt) return null;
-  return toDate(h.heldAt).getTime() + POLICY.UNCLAIMED_CAPTURE_D * DAY_MS + (h.pausedMs ?? 0);
+  return toDate(h.heldAt).getTime() + POLICY.UNCLAIMED_CAPTURE_D * DAY_MS;
 }
 /** ms until the automatic completion; null while nothing counts down (not marked yet, a problem is open, or it is no longer awaiting the handoff). */
 export function autoCompleteLeft(appt) {
@@ -1242,21 +1626,44 @@ export function autoCompleteLeft(appt) {
   if (appt?.status !== 'awaiting-handoff' || !h?.autoAt || h.problemAt) return null;
   return Math.max(0, toDate(h.autoAt).getTime() - state.clock.now);
 }
+/** Charge what is held. D-04: the charge can fail (`sim.capture` 'declined', one-shot) → `capture-failed` (+ failedAt, failReason), the
+    customer updates her card (retryCapture). Returns true when charged. */
 function captureHold(a, reason, at = nowIso()) {
   const b = a.payments.balance;
   if (b.state !== 'held') return false;
+  if (state.sim.capture === 'declined') {
+    state.sim.capture = 'ok';
+    Object.assign(b, { state: 'capture-failed', failedAt: at, failReason: reason });
+    return false;
+  }
   Object.assign(b, { state: 'captured', captureReason: reason, capturedAt: at });
   return true;
 }
+const hasJobPayout = (a) => state.payouts.some((p) => p.apptId === a.id && p.kind === 'job');
 /** The one way into `completed` (A3): capture what is still held, stamp the completion (at `at` — an auto-completion is stamped at its
     `autoAt`), queue the payout for the Friday after. `by`: 'code' | 'customer' | 'courier' | 'auto'. */
-function completeHandoff(a, by, at = nowIso()) {
-  captureHold(a, 'handoff', at);
+function completeHandoff(a, by, at = nowIso(), extra = {}) {
+  const b = a.payments.balance;
+  const failed = b.state === 'held' && !captureHold(a, 'handoff', at);
   a.status = 'completed';
   a.history.push({ status: 'completed', at });
-  Object.assign(a.handoff, { completedBy: by, completedAt: at });
-  addPayout(a, a.money.payout, 'job', at);                           // pending until the weekly run (D-24)
-  post(a.tailorId, 'system', by === 'auto' ? 'Completed automatically' : 'Completed', { at, tailorText: by === 'auto' ? 'Completed automatically' : 'Completed' });
+  Object.assign(a.handoff, { completedBy: by, completedAt: at, ...extra });
+  if (!hasJobPayout(a) && b.state !== 'capture-failed') addPayout(a, a.money.payout, 'job', at);   // pending until the weekly run (D-24); D-03: once
+  const line = by === 'auto' ? 'Completed automatically' : by === 'abandoned' ? `Closed: not collected within ${POLICY.ABANDONED_CLOSE_D} days of the charge` : 'Completed';
+  post(a.tailorId, 'system', line, { at, tailorText: line });
+  const charged = b.state === 'captured' ? b.cents : 0;
+  if (by === 'abandoned') { notify(a, 'abandoned', { at }); notify(a, 'abandoned-t', { at }); return; }
+  if (failed) { notify(a, 'card-failed', { at }); notify(a, 'card-failed-t', { at }); return; }
+  notify(a, by === 'courier' ? 'delivered' : 'completed', { at, x: { at, charged, to: extra.delivery?.to } });
+  if (by !== 'code') notify(a, 'job-done-t', { at });
+}
+/** D-09 (K-48.3): "Confirm received" shows only once Amara marked it handed over, or the pickup time has started (a courier delivery
+    completes the order itself). */
+export function confirmReceivedOpen(appt) {
+  const h = appt?.handoff;
+  if (appt?.status !== 'awaiting-handoff' || !h) return false;
+  if (h.markedAt) return true;
+  return appt.returnOption === 'pickup' && !!h.slot?.start && state.clock.now >= toDate(h.slot.start).getTime();
 }
 const guardHandoff = (a) => (a.status !== 'awaiting-handoff' ? fail('not-awaiting-handoff') : null);
 
@@ -1265,6 +1672,7 @@ export function confirmPickup(id, code) {
   const a = must(id);
   const g = guardHandoff(a); if (g) return g;
   if (a.returnOption !== 'pickup') return fail('not-pickup');
+  if (state.sim.network === 'offline') return fail('offline');                                 // S-12: the code charges the hold
   const c = String(code ?? '').trim();
   if (!new RegExp(`^\\d{${HANDOFF_CODE_LEN}}$`).test(c)) return fail('code-format');
   if (c !== a.handoff.code) return fail('code-wrong');
@@ -1283,12 +1691,16 @@ export function markHandedOver(id) {
   h.marks += 1;
   Object.assign(h, { markedBy: 'tailor', markedAt: nowIso(), autoAt: isoMinute(new Date(state.clock.now + POLICY.HANDOFF_AUTO_H * HOUR_MS)) });
   say(a, `${firstName(tailorById(a.tailorId))} marked it picked up`, 'You marked it picked up');
+  notify(a, 'picked-up-marked');
   return succeed(a);
 }
-/** Customer, any way back: "I got it" completes it right away (also after she reported a problem). */
+/** Customer: "Confirm received" (K-48.3, was "I got it") completes it right away (also after she reported a problem) — only once
+    confirmReceivedOpen (D-09). Errors: not-awaiting-handoff · too-early · offline. */
 export function confirmReceived(id) {
   const a = must(id);
   const g = guardHandoff(a); if (g) return g;
+  if (!confirmReceivedOpen(a)) return fail('too-early');
+  if (state.sim.network === 'offline') return fail('offline');                                 // S-12: it charges the hold
   completeHandoff(a, 'customer');
   return succeed(a);
 }
@@ -1300,14 +1712,76 @@ export function reportNotReceived(id) {
   if (a.handoff.problemAt) return fail('already-reported');
   a.handoff.problemAt = nowIso();
   say(a, 'You said you didn’t get it', `${state.customer.first} says she didn’t get it`);
+  notify(a, 'not-received');
   return succeed(a);
 }
-/** The Taily courier dropped it at Sarah's door: completes right away (simulated by the Test-flows Demo action). */
-export function courierDelivered(id) {
+/* ---------- S-35: the courier's trip — booked → out (the tailor handed it over) → delivered (door / lobby, a photo) | returned ---------- */
+/** Tailor: "Handed to courier" — the courier has it; Sarah is told it is on its way. Errors: not-courier · no-window · already-out · offline. */
+export function courierCollected(id) {
   const a = must(id);
   const g = guardHandoff(a); if (g) return g;
   if (a.returnOption !== 'courier') return fail('not-courier');
-  completeHandoff(a, 'courier');
+  const trip = (a.handoff.trip ??= { state: 'booked' });
+  if (!a.handoff.slot || trip.state === 'returned') return fail('no-window');
+  if (trip.state === 'out') return fail('already-out');
+  if (state.sim.network === 'offline') return fail('offline');
+  Object.assign(trip, { state: 'out', outAt: nowIso() });
+  say(a, 'The courier has your order', `You handed ${state.customer.first}’s order to the courier`);
+  notify(a, 'courier-on-way');
+  return succeed(a);
+}
+/** The Taily courier delivered it (the Test-flows Demo action stands in for the delivery partner): at her door, or K-43's lobby drop — it
+    completes the order and charges (K-43), with the courier's photo as proof. Errors: not-courier · courier-returned. */
+export function courierDelivered(id, { to = 'door' } = {}) {
+  const a = must(id);
+  const g = guardHandoff(a); if (g) return g;
+  if (a.returnOption !== 'courier') return fail('not-courier');
+  if (a.handoff.trip?.state === 'returned') return fail('courier-returned');
+  const at = nowIso();
+  if (a.handoff.trip) Object.assign(a.handoff.trip, { state: 'delivered', outAt: a.handoff.trip.outAt ?? at });
+  completeHandoff(a, 'courier', at, { delivery: { at, to: to === 'lobby' ? 'lobby' : 'door', proof: 'photo' } });
+  return succeed(a);
+}
+/** The courier couldn't deliver (`no-access`) or never came (`no-courier`): the order is back with the tailor and Sarah picks a new window
+    (no extra charge). The hold stays. Errors: not-courier · courier-returned. */
+export function courierFailed(id, reason = 'no-access') {
+  const a = must(id);
+  const g = guardHandoff(a); if (g) return g;
+  if (a.returnOption !== 'courier') return fail('not-courier');
+  const trip = (a.handoff.trip ??= { state: 'booked' });
+  if (trip.state === 'returned') return fail('courier-returned');
+  Object.assign(trip, { state: 'returned', failedAt: nowIso(), reason: reason === 'no-courier' ? 'no-courier' : 'no-access', fails: (trip.fails ?? 0) + 1 });
+  say(a, reason === 'no-courier' ? 'The courier didn’t come. Pick a new delivery window.' : 'The courier couldn’t deliver it. Pick a new delivery window.',
+    reason === 'no-courier' ? 'The courier didn’t come for the order' : 'The courier couldn’t deliver it and is bringing it back to you');
+  notify(a, 'delivery-failed', { x: { reason: trip.reason } });
+  notify(a, 'delivery-failed-t', { x: { reason: trip.reason } });
+  return succeed(a);
+}
+/** S-35: within COURIER_REPORT_H of a courier delivery Sarah can say it never reached her — a Taily review (track A2 resolves it). */
+export const deliveryReportOpen = (a) => a?.status === 'completed' && a.handoff?.completedBy === 'courier' && !a.handoff.missingAt
+  && state.clock.now < toDate(a.handoff.completedAt).getTime() + POLICY.COURIER_REPORT_H * HOUR_MS;
+export function reportMissingDelivery(id) {
+  const a = must(id);
+  if (!deliveryReportOpen(a)) return fail('not-open');
+  a.handoff.missingAt = nowIso();
+  openTailyReview(a, 'delivery-missing', { by: 'customer' });
+  say(a, 'You told us the delivery didn’t reach you. Taily is looking into it.', `${state.customer.first} says the delivery didn’t reach her. Taily is looking into it.`);
+  notify(a, 'delivery-missing-t');
+  return succeed(a);
+}
+/** D-04: the charge failed — Sarah pays with a card (her updated one). Completed orders then queue the payout; an unclaimed charge pays the
+    tailor as D-03 says. Errors: not-failed · offline · card-declined. */
+export function retryCapture(id, cardId = null) {
+  const a = must(id);
+  const b = a.payments.balance;
+  if (b.state !== 'capture-failed') return fail('not-failed');
+  if (state.sim.network === 'offline') return fail('offline');
+  if (state.sim.card === 'declined') return fail('card-declined');
+  Object.assign(b, { state: 'captured', captureReason: b.failReason ?? 'handoff', capturedAt: nowIso(), retriedCardId: cardId });
+  if (cardId) a.balanceCardId = cardId;
+  if (!hasJobPayout(a) && (a.status === 'completed' || b.captureReason === 'unclaimed')) addPayout(a, a.money.payout, 'job');
+  say(a, `You paid ${fmtExact(b.cents)}`, `${state.customer.first} updated her card and paid`);
+  notify(a, 'card-fixed-t');
   return succeed(a);
 }
 
@@ -1369,6 +1843,7 @@ export function sendJobEdit(id, { lines, needBy = null, reason = '', photo = fal
   const first = firstName(tailorById(a.tailorId));
   if (revising) say(a, `${first} updated the changes to your order`, 'You updated your changes');
   else say(a, `${first} edited your order`, `You sent your changes to ${state.customer.first}`);
+  notify(a, 'edit-sent');
   return succeed(a);
 }
 /** Sarah approves: the edited lines and due date replace the approved ones (money re-quoted, deposit unchanged) and the work continues. */
@@ -1385,6 +1860,16 @@ export function approveJobEdit(id) {
   a.payments.balance.cents = q.balance;
   Object.assign(e, { state: 'approved', decidedAt: nowIso() });
   say(a, 'You approved the changes', `${state.customer.first} approved your changes`);
+  notify(a, 'edit-approved');
+  return succeed(a);
+}
+/** D-03 (K-30 unchanged): the tailor withdraws her pending edit — the approved order stands, Mark ready is open again. Errors: not-pending. */
+export function withdrawJobEdit(id) {
+  const a = must(id);
+  if (a.status !== 'in-progress' || a.edit?.state !== 'pending') return fail('not-pending');
+  Object.assign(a.edit, { state: 'withdrawn', decidedAt: nowIso() });
+  say(a, `${firstName(tailorById(a.tailorId))} withdrew her changes. Your order stays as you approved it.`, 'You withdrew your changes');
+  notify(a, 'edit-withdrawn');
   return succeed(a);
 }
 
@@ -1501,11 +1986,20 @@ function remindTick(a) {
   const start = toDate(a.slot.start).getTime();
   let moved = false;
   if (t < start) {   // a clock jump past the start sends nothing
-    if (!r.sentAt && reminderEligible(a) && t >= reminderAt(a)) { r.sentAt = isoMinute(new Date(reminderAt(a))); moved = true; }
-    if (r.sentAt && !r.confirmedAt && !r.nudgedAt && t >= nudgeAt(a)) { r.nudgedAt = isoMinute(new Date(Math.max(nudgeAt(a), toDate(r.sentAt).getTime()))); moved = true; }
+    if (!r.sentAt && reminderEligible(a) && t >= reminderAt(a)) {
+      r.sentAt = isoMinute(new Date(reminderAt(a)));
+      r.texted = notify(a, 'reminder', { at: r.sentAt }).status === 'delivered';   // D-02: only a delivered text can lead to the auto-cancel
+      moved = true;
+    }
+    if (r.sentAt && !r.confirmedAt && !r.nudgedAt && t >= nudgeAt(a)) {
+      r.nudgedAt = isoMinute(new Date(Math.max(nudgeAt(a), toDate(r.sentAt).getTime())));
+      if (t < autoCancelAt(a)) notify(a, 'nudge', { at: r.nudgedAt, x: { autoCancel: !!r.texted } });
+      moved = true;
+    }
   }
-  /* K-43: asked, never confirmed, REMINDER_AUTOCANCEL_H before → cancelled, stamped at that time (also when the clock jumped past it) */
-  if (r.sentAt && !r.confirmedAt && t >= autoCancelAt(a)) {
+  /* K-43: asked, never confirmed, REMINDER_AUTOCANCEL_H before → cancelled, stamped at that time (also when the clock jumped past it).
+     D-02 (K-48): only after a DELIVERED reminder to an opted-in number — otherwise the plain 24 h rule (the visit stays booked). */
+  if (r.sentAt && r.texted && !r.confirmedAt && t >= autoCancelAt(a)) {
     if (!r.nudgedAt) r.nudgedAt = isoMinute(new Date(Math.max(nudgeAt(a), toDate(r.sentAt).getTime())));
     autoCancel(a);
     return true;
@@ -1524,7 +2018,11 @@ function autoCancel(a) {
   addPayout(a, kept, 'kept-deposit', at);
   restoreDraftIfEmpty(a);
   post(a.tailorId, 'system', `We cancelled the visit because you didn’t confirm by ${fmtTime(at)}`, { at, tailorText: `We cancelled the visit because ${state.customer.first} didn’t confirm by ${fmtTime(at)}` });
+  notify(a, 'auto-cancel', { at });
+  notify(a, 'auto-cancel-t', { at });
 }
+/** D-02: will an unconfirmed visit be cancelled REMINDER_AUTOCANCEL_H before? Only when the 24-hour reminder text was delivered. */
+export const autoCancelArmed = (a) => !!a?.reminder?.texted;
 /** Where the reminder stands, before the visit starts: null (none sent) · 'asked' (sent, free window open, her move) · 'confirmed' ·
     'missed' (sent, never confirmed, the free window closed — the visit stays booked). */
 export function reminderState(a) {
@@ -1561,14 +2059,124 @@ export function textLink(apptId, event) {
   return `taily.app/r/${out}`;
 }
 
+/* ---------- pre-MVP A1: the notification matrix (D-02, DG-2 A; js/texts.js is the catalogue, docs/v5/TEXTS.md its table) ----------
+   EVERY event that would be a notification fires ONE function, notify(appt, event), which writes the text into `state.outbox` — sent when the
+   recipient's texts are on (`state.texts[who].on`), else kept as 'off' (the app shows the same state: the in-app fallback). K-48.4: no quiet
+   hours, every text goes out immediately. The prototype draws a new text over the screen (system.js) when the Demo actions move the clock,
+   or live while `sim.texts` is 'on'. */
+/** Send (or hold back) one text. `at` back-stamps a timer's text at its due time; `x` = values the body needs that the appointment lacks. */
+export function notify(a, event, { at = nowIso(), x = {} } = {}) {
+  const def = TEXTS[event];
+  if (!def) throw new Error(`notify: unknown text "${event}"`);
+  const to = def.to;
+  const pref = state.texts[to] ?? { on: false };
+  const status = !pref.on ? 'off' : state.sim.sms === 'undelivered' ? 'undelivered' : 'delivered';
+  const t = a ? tailorById(a.tailorId) : state.tailors[0];
+  const body = def.body(textCtx({ a, t, cust: state.customer, now: toDate(at).getTime(), x }));
+  const key = a?.id ?? to;
+  const n = state.outbox.filter((m) => m.key === key && m.event === event).length;
+  const entry = { id: `x${++textSeq}`, seq: textSeq, event, to, apptId: a?.id ?? null, key, body, link: textLink(key, n ? `${event}:${n}` : event), at, land: def.land ?? null, status };
+  state.outbox.push(entry);
+  return entry;
+}
+/** The texts one person was sent (or would have been), newest last. */
+export const textsFor = (who) => state.outbox.filter((m) => m.to === who);
+/** Are this person's texts on? (customer: booking texts; tailor: requests and job texts) */
+export const textsOn = (who) => !!state.texts[who]?.on;
+/** Turn texts on or off from Account → Texts (c-texts / t-texts). On sends the confirmation text. Errors: no-change. */
+export function setTexts(who, on) {
+  const p = state.texts[who];
+  if (!p) return fail('unknown-person');
+  if (p.on === !!on) return fail('no-change');
+  Object.assign(p, { on: !!on, changedAt: nowIso(), ...(on ? { stoppedAt: null } : {}) });
+  if (on) notify(null, who === 'tailor' ? 'texts-on-t' : 'texts-on');
+  return { ok: true, prefs: p };
+}
+/** A reply to one of Taily's texts (simulated): STOP turns texts off (carriers require it), START back on, HELP answers. */
+export function textReply(who, word) {
+  const w = String(word ?? '').trim().toUpperCase();
+  const p = state.texts[who];
+  if (!p) return fail('unknown-person');
+  if (w === 'STOP') { Object.assign(p, { on: false, stoppedAt: nowIso(), changedAt: nowIso() }); return { ok: true, prefs: p }; }
+  if (w === 'START') return p.on ? { ok: true, prefs: p } : setTexts(who, true);
+  if (w === 'HELP') return { ok: true, prefs: p, help: true };
+  return fail('unknown-reply');
+}
+
+/* ---------- K-48.1 / K-48.5: what the admin is told, and the cases Taily reviews (the admin + Help UI is track A2's) ---------- */
+const REVIEW_WHY = {
+  'final-order-unanswered': (a) => `Final order unanswered ${POLICY.FINAL_ORDER_REVIEW_D} days`,
+  'problem-open': (a) => `Handoff problem open ${POLICY.PROBLEM_REVIEW_H} hours`,
+  'visit-unanswered': (a) => `Nobody answered “Did the visit happen?” in ${POLICY.VISIT_CHECK_ADMIN_H} hours`,
+  'visit-disputed': (a) => 'The two sides disagree about the visit',
+  'no-show-disputed': (a) => `${state.customer.first} says she was there (no-show)`,
+  'tailor-no-show-disputed': (a) => `${firstName(tailorById(a.tailorId))} says she came (tailor no-show)`,
+  'delivery-missing': (a) => 'A courier delivery didn’t reach the customer',
+  'ready-no-way-back': (a) => `Ready ${POLICY.READY_DEFAULT_D} days, no in-store pickup to default to`,
+};
+/** Tell the admin. Kinds: 'review' (a case opened) · 'visit-unanswered' (K-48.5). */
+function adminNotify(kind, a, text, at = nowIso()) {
+  const n = { id: `n${state.admin.notifications.length + 1}`, kind, apptId: a?.id ?? null, text, at, read: false };
+  state.admin.notifications.push(n);
+  return n;
+}
+/** Open a Taily review on an appointment (one open case at a time) and notify the admin. Stored on `a.tailyReview` — `a.review` is the
+    customer's star review. `{ reason, openedAt, by, note, closedAt }`. */
+function openTailyReview(a, reason, { by = 'system', at = nowIso(), note = '' } = {}) {
+  if (a.tailyReview && !a.tailyReview.closedAt) return a.tailyReview;
+  a.tailyReview = { reason, openedAt: at, by, note, closedAt: null };
+  const who = `${state.customer.first} ${state.customer.last ?? ''}`.trim();
+  adminNotify('review', a, `${REVIEW_WHY[reason]?.(a) ?? reason} · ${who} with ${tailorById(a.tailorId)?.name ?? 'the tailor'}`, at);
+  return a.tailyReview;
+}
+/** Every case waiting on Taily, oldest first: `[{ apptId, appt, reason, openedAt, by, note }]` (track A2 surfaces these). */
+export function openReviews() {
+  return state.appts.filter((a) => a.tailyReview && !a.tailyReview.closedAt)
+    .map((a) => ({ apptId: a.id, appt: a, ...a.tailyReview }))
+    .sort((x, y) => (x.openedAt < y.openedAt ? -1 : x.openedAt > y.openedAt ? 1 : 0));
+}
+/** The open Taily review on this appointment, or null. */
+export const tailyReviewOf = (a) => (a?.tailyReview && !a.tailyReview.closedAt ? a.tailyReview : null);
+
+/* ---------- DG-2 A: one-time notices on Home for a cancelled visit (a cancelled visit never just vanishes) ---------- */
+const NOTICE_REASONS = {
+  customer: ['tailor-cant-make-it', 'unconfirmed', 'no-record', 'no-show'],
+  tailor: ['customer-late', 'customer-early', 'unconfirmed', 'tailor-no-show', 'no-record'],
+};
+/** The cancellations this person should hear about on Home: someone else (or Taily) cancelled it within NOTICE_WINDOW_H of the visit, not
+    yet seen (tapped or ✕), and the visit time has not passed (a cancel after the start: for 24 hours). Newest first. */
+export function noticesFor(persona) {
+  const t = state.clock.now;
+  return apptsFor(persona).filter((a) => {
+    if (a.status !== 'cancelled' || !NOTICE_REASONS[persona].includes(a.cancel?.reason) || a.noticeSeen?.[persona]) return false;
+    const start = toDate(a.slot.start).getTime();
+    const at = toDate(a.cancel.at).getTime();
+    if (start - at > POLICY.NOTICE_WINDOW_H * HOUR_MS) return false;
+    return t < (at >= start ? at + DAY_MS : start);
+  });
+}
+/** ✕ or the card's own button: the notice is seen (per person, per appointment — model state, not the screen's). */
+export function dismissNotice(id, persona) {
+  const a = must(id);
+  a.noticeSeen = { ...(a.noticeSeen ?? {}), [persona]: nowIso() };
+  return succeed(a);
+}
+
 /** K-28 (Study-1 A4): a completed order with no review, REVIEW_REMINDER_D or more after it completed → the reminder card + Leave a review. */
 export function reviewReminderDue(appt) {
-  if (!appt || appt.status !== 'completed' || appt.review) return false;
+  if (!appt || appt.status !== 'completed' || appt.review || appt.reviewReminderDismissedAt || appt.handoff?.completedBy === 'abandoned') return false;   // P-04: ✕ dismisses it
   const at = appt.handoff?.completedAt ?? [...appt.history].reverse().find((h) => h.status === 'completed')?.at;
   return !!at && state.clock.now >= toDate(at).getTime() + POLICY.REVIEW_REMINDER_D * DAY_MS;
 }
 /** The customer's newest order whose review reminder is due, or null. */
 export const reviewReminder = () => apptsFor('customer').find(reviewReminderDue) ?? null;
+/** P-04: "Not now" (the card's ✕) — the review reminder stops showing on Home (the order still asks on c-complete). */
+export function dismissReviewReminder(id) {
+  const a = must(id);
+  if (!reviewReminderDue(a)) return fail('not-due');
+  a.reviewReminderDismissedAt = nowIso();
+  return succeed(a);
+}
 
 /** Study-1 A4 "Book [tailor] again": a fresh draft for the same place — visit type, ZIP and address — with no garments. */
 export function bookAgain(id) {
@@ -1597,6 +2205,7 @@ export function leaveReview(id, { stars, text = '', photos = 0 } = {}) {
     id: `r-${a.id}`, name: `${state.customer.first} ${state.customer.last[0]}.`, initials: state.customer.initials,
     stars, date: a.review.date, photos: count, text,
   });
+  notify(a, 'new-review', { x: { stars } });
   return succeed(a);
 }
 
@@ -1609,7 +2218,10 @@ export function sendMessage(tailorId, from, { text = '', photos = 0 } = {}) {
   if (state.sim.network === 'offline') return fail('offline');
   if (state.sim.send === 'fail') { state.sim.send = 'ok'; return fail('send-failed'); }   // one-shot: a dropped connection (D-130)
   const m = maskContact(text);
+  const to = from === 'customer' ? 'tailor' : 'customer';
+  const unreadBefore = unreadCount(tailorId, to);
   const message = post(tailorId, from, m.text, { photos: count, masked: m.masked });
+  chatText(tailorId, to, unreadBefore);
   ensureThread(tailorId).read[from] = msgNum(message);          // your own message is never unread (D-128)
   /* R4-2-C-02: a pending price change becomes "messaged" only when Sarah actually writes, never on opening the chat */
   if (from === 'customer') {
@@ -1620,6 +2232,16 @@ export function sendMessage(tailorId, from, { text = '', photos = 0 } = {}) {
   return { ok: true, masked: m.masked, message };
 }
 
+/** Kevin (K-48 follow-up): a chat message texts the reader for the FIRST unread message, then at most one text per conversation per
+    CHAT_TEXT_GAP_MIN while messages stay unread. */
+function chatText(tailorId, to, unreadBefore) {
+  const th = ensureThread(tailorId);
+  const last = th.lastText?.[to] ?? null;
+  const gapOk = !last || state.clock.now - toDate(last).getTime() >= POLICY.CHAT_TEXT_GAP_MIN * MIN_MS;
+  if (unreadBefore > 0 && !gapOk) return null;
+  th.lastText = { ...(th.lastText ?? {}), [to]: nowIso() };
+  return notify(threadAppt(tailorId), to === 'tailor' ? 'message-t' : 'message');
+}
 /** Mark everything in the thread as seen by `reader` ('customer' | 'tailor'). No-op without a thread. */
 export function markThreadRead(tailorId, reader) {
   const th = state.threads[tailorId];
@@ -1654,6 +2276,7 @@ export function statusScreen(appt, persona = state.persona) {
   if (s === 'price-change') return 'c-price-change';
   if (s === 'in-progress' && appt.edit?.state === 'pending') return 'c-price-change';   // Study-1 B1: the edit Sarah has to answer
   if (s === 'ready') return 'c-ready';                              // holding the balance moves it on to awaiting-handoff (K-27)
+  if (s === 'completed' && (appt.handoff?.completedBy === 'abandoned' || appt.payments?.balance?.state === 'capture-failed')) return 'c-booking';   // D-03 closed · D-04 card needs attention
   if (s === 'completed' && !appt.review) return 'c-complete';
   return 'c-booking';
 }
@@ -1716,6 +2339,9 @@ export const T = {
   startFitting, addFittingPhoto, removeFittingPhoto, restoreFittingPhoto, setFittingComment, sendPriceChange, approvePriceChange, messageAboutPriceChange, markReady,
   sendJobEdit, approveJobEdit, addNote, updateNote, removeNote, restoreNote, addNotePhoto, removeNotePhoto,
   chooseReturn, setHandoffSlot, holdBalance, confirmPickup, markHandedOver, confirmReceived, reportNotReceived, courierDelivered, bookAgain, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
+  /* pre-MVP A1 */
+  notify, setTexts, textReply, dismissNotice, dismissReviewReminder, withdrawJobEdit, courierCollected, courierFailed, reportMissingDelivery, retryCapture,
+  visitPing, answerVisitCheck, disputeNoShow, proposeNewTime, answerProposal,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
   now, setClock, advanceClock, tick, suggestLapseAt,
 };

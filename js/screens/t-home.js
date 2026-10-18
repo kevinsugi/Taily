@@ -7,15 +7,15 @@
    phone — no push, so no "notifications off" banner and no ask.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, now, apptsFor, priceChangeView, suggestLapseAt, autoCompleteLeft, jobEditView, slotText, handoffMissed, courierWindow } from '../state.js';
+import { state, T, now, apptsFor, priceChangeView, suggestLapseAt, autoCompleteLeft, jobEditView, slotText, handoffMissed, courierWindow, noticesFor, textsOn, overdue } from '../state.js';
 import { myTailor, inbox, requestView, customerName, customerInitials, payoutOf, payoutLine, suggestPrice } from '../tailor-data.js';
 import { setFocus, statusWord, returnStep } from '../focus.js';
-import { fmtColumn } from '../money.js';
-import { fmtWhen, fmtTime, fmtDay, fmtTimeRange, toDate, dayDiff } from '../dates.js';
+import { fmtColumn, fmtExact } from '../money.js';
+import { fmtWhen, fmtTime, fmtDay, fmtTimeRange, toDate, dayDiff, dayWord } from '../dates.js';
 import { POLICY } from '../money-config.js';
 import {
   chrome, headingRow, emptyState, requestCard, apptRow, toast, esc, sectionHead, textLink,
-  heroGarment,
+  heroGarment, reminderCard, banner,
 } from '../components.js';
 
 const ID = 't-home';
@@ -42,6 +42,9 @@ const stepOf = (a) => (a.status === 'awaiting-handoff' ? returnStep(a, 'tailor')
 /** Study-1 A3: a handoff she marked counts down; a reported problem says so (the need-by date no longer matters once it is handed over). */
 function handoffLine(a) {
   const h = a.handoff ?? {};
+  if (a.payments?.balance?.state === 'capture-failed') return `Payment issue on ${state.customer.first}’s side · your payout is waiting`;   // D-04
+  if (h.trip?.state === 'returned') return `The courier is bringing it back · ${state.customer.first} picks a new window`;              // S-35
+  if (h.trip?.state === 'out') return 'With the courier · out for delivery';
   if (h.problemAt) return `${state.customer.first} didn’t get it · sort it out in chat`;
   if (handoffMissed(a)) return `${state.customer.first} missed her ${fmtTime(h.slot.start)} pickup`;   // SF-12
   const left = autoCompleteLeft(a);
@@ -49,7 +52,31 @@ function handoffLine(a) {
   return null;
 }
 /* K-17 (D-243, #9): an "In progress" row's pill already says it (and so does its section), so its line is only the due date — one line, no "Tailoring ·" */
-const sinceLine = (a) => (a.status === 'in-progress' ? (a.edit?.state === 'pending' ? `Changes sent · needed by ${fmtDay(a.job.needBy)}` : `Needed by ${fmtDay(a.job.needBy)}`) : handoffLine(a) ?? `${stepOf(a)} · needed by ${fmtDay(a.job.needBy)}`);
+const sinceLine = (a) => (a.status === 'in-progress' ? (a.edit?.state === 'pending' ? `Changes sent · needed by ${fmtDay(a.job.needBy)}` : overdue(a) ? `Overdue · due ${fmtDay(a.job.needBy)}` : `Needed by ${fmtDay(a.job.needBy)}`) : handoffLine(a) ?? `${stepOf(a)} · needed by ${fmtDay(a.job.needBy)}`);   // B-07: overdue
+/* ---------- DG-2 A (pre-MVP A1): a visit Sarah (or Taily) cancelled close to the time never just vanishes — a one-time notice ---------- */
+function noticeCard(a) {
+  const sarah = state.customer.first;
+  const dep = fmtExact(a.payments.deposit.cents);
+  const day = dayWord(a.slot.start, now());
+  const ref = day === 'today' || day === 'tomorrow' ? `${day}’s ${fmtTime(a.slot.start)} visit` : `the ${fmtWhen(a.slot.start)} visit`;
+  const p = payoutOf(a);
+  const paid = p ? ` It comes with your payout on ${fmtDay(p.date)}.` : '';
+  const cfg = {
+    'customer-late': { title: `${sarah} cancelled ${ref}`, text: `${a.cancel.afterConfirm ? 'She cancelled after confirming' : `She cancelled less than ${POLICY.CANCEL_WINDOW_H} hours before`}, so you keep her ${dep} deposit.${paid}` },
+    'customer-early': { title: `${sarah} cancelled ${ref}`, text: `She cancelled more than ${POLICY.CANCEL_WINDOW_H} hours ahead, so nothing is owed. The time is open again.` },
+    unconfirmed: { title: `We cancelled ${ref}`, text: `${sarah} didn’t confirm by ${fmtTime(a.cancel.at)}, so you keep her ${dep} deposit.${paid}` },
+    'tailor-no-show': { title: `${sarah} says you didn’t come`, text: `Her ${dep} deposit was refunded. If you were there, tell us on the visit.` },
+    'no-record': { title: `We cancelled ${ref}`, text: `Nobody told us the visit happened, so ${sarah}’s deposit was refunded. Nothing is paid out.` },
+  }[a.cancel?.reason];
+  return cfg ? reminderCard({ ...cfg, actionLabel: 'See the visit', act: 'notice-open', id: a.id, dismissAct: 'dismiss-notice', notice: true }) : '';
+}
+/** D-02 (pre-MVP A1): her texts are off (a STOP reply) — requests still expire, so Home says so with the way back on. */
+function textsOff() {
+  if (textsOn('tailor')) return '';
+  const stopped = state.texts.tailor.stoppedAt;
+  return `<div class="${ID}__texts-off">${banner({ tone: 'warning', title: 'Texts are off', text: `${stopped ? 'You replied STOP, so we' : 'We'} can’t text you new requests. You still have ${POLICY.REQUEST_EXPIRY_H} hours to answer each one.`, actionLabel: 'Turn texts back on', actionAct: 'texts-on' })}</div>`;
+}
+
 /** Confirmed and not started = Upcoming; the visit itself and everything after = In progress. */
 const started = (a) => a.status !== 'confirmed' || now() >= toDate(a.slot.start).getTime();
 /** K-40: a held handoff with the time Sarah picked (not marked, no problem, not missed) is an appointment again → Upcoming, at that time. */
@@ -79,10 +106,13 @@ function view(s) {
   const paused = t.takingRequests === false
     ? `<p class="t-small c-600 hero ${ID}__sum ${ID}__paused">You’re paused, so customers can’t send new requests. ${textLink('Take requests again', { act: 'resume' })}</p>` : '';
 
+  const notices = noticesFor('tailor').map(noticeCard).join('');
+  const lead = `${textsOff()}${notices ? `<div class="${ID}__notices">${notices}</div>` : ''}`;
   if (!apptsFor('tailor').length) {
     return `${head}<main class="body ${ID}">
   ${hello}
   ${paused}
+  ${lead}
   <div class="${ID}__empty" data-empty="home">${emptyState({
     title: 'No requests yet',
     body: `When a customer books you, the request shows up here. You’ll have ${POLICY.REQUEST_EXPIRY_H} hours to answer each one.`,
@@ -165,6 +195,7 @@ function view(s) {
   ${hello}
   ${paused}
   <p class="t-small c-600 hero ${ID}__sum">${dateLine()} · ${summary.join(', ')}</p>
+  ${lead}
   ${group('New requests', 'new', fresh.length || null, fresh.length
     ? `<div class="${ID}__list">${cards}</div>`
     : `<p class="t-body c-600 ${ID}__none">No new requests right now.</p>`)}
@@ -184,6 +215,9 @@ function wire(root) {
     if (!el) return;
     const act = el.dataset.act;
     if (act === 'open-request') { setFocus(el.dataset.id); go('t-request'); }
+    else if (act === 'dismiss-notice') { T.dismissNotice(el.dataset.id, 'tailor'); go(ID); }
+    else if (act === 'notice-open') { T.dismissNotice(el.dataset.id, 'tailor'); setFocus(el.dataset.id); go('t-job'); }
+    else if (act === 'texts-on') go('t-texts');
     else if (act === 'open-appt') { setFocus(el.dataset.id); go('t-job'); }
     else if (act === 'resume') {
       T.setTakingRequests(true);

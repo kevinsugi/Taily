@@ -19,10 +19,11 @@ export const MILESTONES = [
   { id: 'M6', name: 'Final pass' },
   { id: 'M7', name: 'Polish' },
   { id: 'S1', name: 'Study-1 (tailor usability)' },
+  { id: 'A1', name: 'Pre-MVP A1: texts, timers, visit day, courier' },
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
@@ -55,6 +56,9 @@ export const SCREENS = [
     { key: 'c-job--review-reminder', m: 'M7', kind: 'state' },
     { key: 'c-job--book-again', m: 'M7', kind: 'state' },
     { key: 'c-job--reminder', m: 'S1', kind: 'state' },
+    { key: 'c-job--notice-cant-make-it', m: 'A1', kind: 'state' },
+    { key: 'c-job--notice-auto-cancel', m: 'A1', kind: 'state' },
+    { key: 'c-job--reminder-unarmed', m: 'A1', kind: 'state' },
   ] },
   { id: 'c-where', m: 'M1', persona: 'customer', title: 'C2 Where and when: visit type, address / zip, need-by', states: [
     { key: 'c-where', m: 'M1', kind: 'frame' },
@@ -106,6 +110,7 @@ export const SCREENS = [
     { key: 'c-pay--3ds', m: 'M1', kind: 'overlay' },
     { key: 'c-pay--processing', m: 'M1', kind: 'state' },
     { key: 'sys-error-toast', m: 'M5', kind: 'state' },
+    { key: 'c-pay--offline', m: 'A1', kind: 'state' },
   ] },
   { id: 'c-request', m: 'M1', persona: 'customer', title: 'C6/C7 request status (also the Bookings target for an open request)', states: [
     { key: 'c-request', m: 'M1', kind: 'frame' },
@@ -139,6 +144,7 @@ export const SCREENS = [
     { key: 'c-bookings--ready', m: 'M4', kind: 'state' },
     { key: 'sys-session-expired', m: 'M5', kind: 'overlay' },
     { key: 'c-bookings--review-reminder', m: 'M7', kind: 'state' },
+    { key: 'c-bookings--texts-off', m: 'A1', kind: 'state' },
   ] },
   { id: 'c-booking', m: 'M3', persona: 'customer', title: 'C8 booking detail: status, visit, address, money, chat', states: [
     { key: 'c-booking--confirmed', m: 'M3', kind: 'frame' },
@@ -176,6 +182,22 @@ export const SCREENS = [
     { key: 'c-booking--no-show-report', m: 'M7', kind: 'overlay' },
     { key: 'c-booking--tailor-no-show', m: 'M7', kind: 'state' },
     { key: 'c-booking--cant-make-it-late', m: 'M7', kind: 'state' },
+    { key: 'c-booking--visit-check', m: 'A1', kind: 'state' },
+    { key: 'c-booking--visit-check-answered', m: 'A1', kind: 'state' },
+    { key: 'c-booking--visit-closed', m: 'A1', kind: 'state' },
+    { key: 'c-booking--move-asked', m: 'A1', kind: 'state' },
+    { key: 'c-booking--visit-day', m: 'A1', kind: 'state' },
+    { key: 'c-booking--call', m: 'A1', kind: 'overlay' },
+    { key: 'c-booking--no-show-disputed', m: 'A1', kind: 'state' },
+    { key: 'c-booking--no-show-dispute', m: 'A1', kind: 'overlay' },
+    { key: 'c-booking--reminder-unarmed', m: 'A1', kind: 'state' },
+    { key: 'c-booking--pickup-open', m: 'A1', kind: 'state' },
+    { key: 'c-booking--defaulted-pickup', m: 'A1', kind: 'state' },
+    { key: 'c-booking--courier-out', m: 'A1', kind: 'state' },
+    { key: 'c-booking--courier-returned', m: 'A1', kind: 'state' },
+    { key: 'c-booking--card-failed', m: 'A1', kind: 'state' },
+    { key: 'c-booking--update-card', m: 'A1', kind: 'overlay' },
+    { key: 'c-booking--closed', m: 'A1', kind: 'state' },
   ] },
   { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01) · with the tailor’s Before / Pinned photos and comments (K-02)', states: [
     { key: 'c-price-change', m: 'M4', kind: 'frame' },
@@ -206,6 +228,7 @@ export const SCREENS = [
     { key: 'c-ready--time-picked', m: 'S1', kind: 'state' },
     { key: 'c-ready--courier-window', m: 'S1', kind: 'overlay' },
     { key: 'c-ready--courier-picked', m: 'S1', kind: 'state' },
+    { key: 'c-ready--offline', m: 'A1', kind: 'state' },
   ] },
   { id: 'c-complete', m: 'M4', persona: 'customer', title: 'C11 order completed: stitch stage + garment tags, Amara’s label with stars, receipt row (K-17)', states: [
     { key: 'c-complete', m: 'M4', kind: 'frame' },
@@ -214,6 +237,8 @@ export const SCREENS = [
     { key: 'c-complete--auto', m: 'M7', kind: 'state' },
     { key: 'c-complete--courier', m: 'M7', kind: 'state' },
     { key: 'c-complete--review-reminder', m: 'M7', kind: 'state' },
+    { key: 'c-complete--courier-lobby', m: 'A1', kind: 'state' },
+    { key: 'c-complete--courier-reported', m: 'A1', kind: 'state' },
   ] },
   { id: 'c-review', m: 'M4', persona: 'customer', title: 'Stars (1–5), optional text, up to 3 photos', states: [
     { key: 'c-review', m: 'M4', kind: 'frame' },
@@ -229,6 +254,11 @@ export const SCREENS = [
   { id: 'c-account', m: 'M5', persona: 'customer', title: 'C13 Account home: profile, addresses, payment methods, past orders, sign out', states: [
     { key: 'c-account', m: 'M5', kind: 'frame' },
     { key: 'c-account--sign-out', m: 'M5', kind: 'overlay' },
+  ] },
+  { id: 'c-texts', m: 'A1', persona: 'customer', title: 'Account → Texts: the booking-texts opt-in, the STOP state, the carrier lines (D-02)', states: [
+    { key: 'c-texts', m: 'A1', kind: 'frame' },
+    { key: 'c-texts--stopped', m: 'A1', kind: 'state' },
+    { key: 'c-texts--off', m: 'A1', kind: 'state' },
   ] },
   { id: 'c-addresses', m: 'M5', persona: 'customer', title: 'Saved addresses', states: [
     { key: 'c-addresses', m: 'M5', kind: 'frame' },
@@ -316,6 +346,10 @@ export const SCREENS = [
     { key: 't-shop--incomplete', m: 'M2', kind: 'state' },
     { key: 't-shop--paused', m: 'M2', kind: 'state' },
   ] },
+  { id: 't-texts', m: 'A1', persona: 'tailor', title: 'Shop → Texts: requests and job texts on / off, the STOP state (D-02)', states: [
+    { key: 't-texts', m: 'A1', kind: 'frame' },
+    { key: 't-texts--stopped', m: 'A1', kind: 'state' },
+  ] },
   { id: 't-rush', m: 'M2', persona: 'tailor', title: 'T7 Rush fees editor (≤1 / 2 / 3 days → $; 4+ days free)', states: [
     { key: 't-rush', m: 'M2', kind: 'frame' },
     { key: 't-rush--invalid', m: 'M2', kind: 'state' },
@@ -340,6 +374,10 @@ export const SCREENS = [
     { key: 't-home--handoff', m: 'M7', kind: 'state' },
     { key: 't-home--handoff-marked', m: 'S1', kind: 'state' },
     { key: 't-home--reminder-confirmed', m: 'S1', kind: 'state' },
+    { key: 't-home--notice-late-cancel', m: 'A1', kind: 'state' },
+    { key: 't-home--notice-auto-cancel', m: 'A1', kind: 'state' },
+    { key: 't-home--texts-off', m: 'A1', kind: 'state' },
+    { key: 't-home--overdue', m: 'A1', kind: 'state' },
   ] },
   { id: 't-request', m: 'M3', persona: 'tailor', title: 'T2/T3 request card: garments + estimate, visit type + neighborhood/zip, time, need-by, payout after Taily fee, expiry; Accept · Suggest time · Decline', states: [
     { key: 't-request', m: 'M3', kind: 'frame' },
@@ -357,11 +395,13 @@ export const SCREENS = [
     { key: 't-request--accepting', m: 'M3', kind: 'state' },
     { key: 't-request--declining', m: 'M3', kind: 'overlay' },
     { key: 't-request--none', m: 'M3', kind: 'state' },
+    { key: 't-request--offline', m: 'A1', kind: 'state' },
   ] },
   { id: 't-suggest', m: 'M3', persona: 'tailor', title: 'T3 suggest another time: Scheduler over the tailor\'s own open slots', states: [
     { key: 't-suggest', m: 'M3', kind: 'frame' },
     { key: 't-suggest--rush-window', m: 'M3', kind: 'state' },
     { key: 't-suggest--sending', m: 'M3', kind: 'state' },
+    { key: 't-suggest--move', m: 'A1', kind: 'state' },
   ] },
   { id: 't-job', m: 'M3', persona: 'tailor', title: 'T4 job detail: full address after accept, chat, actions by status', states: [
     { key: 't-job--accepted', m: 'M3', kind: 'frame' },
@@ -414,6 +454,22 @@ export const SCREENS = [
     { key: 't-job--note-editor', m: 'S1', kind: 'state' },
     { key: 't-job--note-attach', m: 'S1', kind: 'overlay' },
     { key: 't-job--edit-pending', m: 'S1', kind: 'state' },
+    { key: 't-job--visit-day', m: 'A1', kind: 'state' },
+    { key: 't-job--here', m: 'A1', kind: 'state' },
+    { key: 't-job--no-show-needs-here', m: 'A1', kind: 'overlay' },
+    { key: 't-job--visit-check', m: 'A1', kind: 'state' },
+    { key: 't-job--visit-closed', m: 'A1', kind: 'state' },
+    { key: 't-job--move-asked', m: 'A1', kind: 'state' },
+    { key: 't-job--move-kept', m: 'A1', kind: 'state' },
+    { key: 't-job--more-move', m: 'A1', kind: 'overlay' },
+    { key: 't-job--withdraw-edit', m: 'A1', kind: 'overlay' },
+    { key: 't-job--courier-out', m: 'A1', kind: 'state' },
+    { key: 't-job--courier-returned', m: 'A1', kind: 'state' },
+    { key: 't-job--card-failed', m: 'A1', kind: 'state' },
+    { key: 't-job--closed', m: 'A1', kind: 'state' },
+    { key: 't-job--tailor-no-show-dispute', m: 'A1', kind: 'overlay' },
+    { key: 't-job--no-show-disputed', m: 'A1', kind: 'state' },
+    { key: 't-job--reminder-unarmed', m: 'A1', kind: 'state' },
   ] },
   { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Final order at the fitting (K-42; after the fitting: Edit order): add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },
@@ -475,5 +531,9 @@ export const SCREENS = [
   ] },
   { id: 'sys-components', m: 'M0', persona: 'system', title: 'Component gallery (every v5 component in each state) — visual baseline for the component layer', states: [
     { key: 'sys-components', m: 'M0', kind: 'frame' },
+  ] },
+  { id: 'sys-texts', m: 'A1', persona: 'system', title: 'The text catalogue: every notification as a text, its trigger and landing screen (DG-2 A, D-02)', states: [
+    { key: 'sys-texts', m: 'A1', kind: 'frame' },
+    { key: 'sys-texts--tailor', m: 'A1', kind: 'state' },
   ] },
 ];

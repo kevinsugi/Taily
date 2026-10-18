@@ -6,3 +6,7 @@
 .t-home .banner__action { min-width: 44px; min-height: 44px; }
 .t-home__paused { display: flex; flex-direction: column; align-items: flex-start; margin-top: var(--space-4); }
 .t-home__paused .text-link { min-height: 44px; padding-inline: 0; }
+
+/* pre-MVP A1: "Texts are off" (D-02) and the one-time cancellation notices (DG-2 A) sit under the summary line */
+.t-home__texts-off { margin-top: var(--space-12); }
+.t-home__notices { display: flex; flex-direction: column; gap: var(--space-12); margin-top: var(--rhythm-group); }

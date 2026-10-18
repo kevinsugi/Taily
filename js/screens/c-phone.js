@@ -9,7 +9,7 @@ import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 
 const ID = 'c-phone';
-const HELPER = 'We’ll text you a sign-in code and updates about your bookings from Taily. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help.';   // SF-05
+const HELPER = 'We’ll text you a sign-in code from Taily. Msg & data rates may apply. Reply STOP to opt out, HELP for help.';   // SF-05; D-02 (pre-MVP A1): booking texts are a separate opt-in (c-name, Account → Texts)
 /** SF-24: the terms notice sits with the button that creates the account (kept apart from the SMS helper). */
 const TERMS = '<span>By tapping Send code, you agree to Taily’s <button type="button" class="c-phone__link" data-act="terms" data-hit="inline">Terms</button> and <button type="button" class="c-phone__link" data-act="privacy" data-hit="inline">Privacy Policy</button>.</span>';
 const ERRORS = { 'phone-invalid': 'Enter a 10-digit US number, like (718) 555-0142.' };

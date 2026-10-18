@@ -33,6 +33,10 @@
      J20 no reply (K-43): the reminder -> the nudge text at 6 h ("Confirm by 2:00 PM or we'll cancel it") -> both sides warn -> at 3 h the
          visit is cancelled (cancel text, c-booking cancelled, t-job "Sarah didn't confirm · visit cancelled", Amara keeps the $16.00)
      J21 design-director review (D-304): Finish later on Payouts never goes live (SF-02); the withdraw / accept races (SF-17)
+     J22 a final order nobody answers (pre-MVP A1, D-03): texts at 24 h / 72 h, Taily review at 7 days, the admin told (openReviews)
+     J23 nothing recorded at the visit (D-11, K-48.5): the tailor's start texts (1 h before, then "Your fitting has started" at the start),
+         "Did the visit happen?" to both at 2 h, the admin at 4 h, cancelled with a refund at 24 h
+     J24 the courier's trip (S-35): Handed to courier → out for delivery → can't deliver → a new window at no charge → delivered (proof, 24 h to report)
      J14 the anchored popover (K-25): a garment thumb toggles it, another thumb moves it, Escape returns focus, it flips above near the
          window bottom, the Verified check shares its one slot; t-home's count cluster lists every item and the card still opens the request
 
@@ -309,7 +313,7 @@ await journey('J7', 'courier return: the three courier amounts match on both sid
   await click('.appt-row');
   await at('J7 tailor: courier booked, not her money', 't-job', {
     has: ['Courier collects 10:15 AM · arrives 10:30–11:00 AM', 'Only she can change it.', 'Paid by Sarah · nothing comes out of your payout', 'If Sarah isn’t home, the courier leaves it in her building’s lobby.', fmtExact(S.seed.payout)],
-    not: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), 'Handed to courier'],
+    not: [fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents)],   // S-35 (pre-MVP A1): "Handed to courier" is hers to tap now
   });
 });
 
@@ -477,7 +481,7 @@ await journey('J15', 'pickup with the code: hold at the choice, the code, a wron
   const bal = fmtExact(S.seed.balance);
   await flow('c-ready');
   await click('[data-act="return"][data-value="pickup"]');
-  await at('J15 customer: when she is charged; the time first (K-40)', 'c-ready', { has: [`Pay ${bal}`, `You’ll be charged ${bal} when you get your garments.`, 'If you haven’t got it 7 days after you choose', 'Pick a time', 'Pick a pickup time first.', 'Charged at pickup'], not: [`Hold ${bal}`, 'Charged at handoff'] });   // D-303: the Balance row follows the chosen way back; K-46: the reason is Pay's second line
+  await at('J15 customer: when she is charged; the time first (K-40)', 'c-ready', { has: [`Pay ${bal}`, `You’ll be charged ${bal} when you get your garments.`, `If you haven’t got it ${POLICY.UNCLAIMED_CAPTURE_D} days after you choose`, 'Pick a time', 'Pick a pickup time first.', 'Charged at pickup'], not: [`Hold ${bal}`, 'Charged at handoff'] });   // D-303: the Balance row follows the chosen way back; K-46: the reason is Pay's second line
   await click('[data-act="pick-time"]');
   await at('J15 customer: the Scheduler sheet', 'c-ready', { has: ['Pick a pickup time', 'Fri, Oct 16 · 10:00 AM', 'Use this time'] });
   await click('[data-act="ht-ok"]');
@@ -485,7 +489,7 @@ await journey('J15', 'pickup with the code: hold at the choice, the code, a wron
   await click('[data-act="pay"]');
   await at('J15 customer: the pay sheet', 'c-ready', { has: ['Pay the balance', 'Charged at pickup', `Pay ${bal}`] });
   await click('[data-act="pay-ok"]');
-  await at('J15 customer: pending, the pickup code', 'c-booking', { has: ['Pickup Fri, Oct 16 · 10:00 AM · show your code at the shop', `Payment ${bal} · Charged at pickup`, 'Charged at pickup', 'YOUR PICKUP CODE', PICKUP_CODE, 'I got it', 'Change time'], not: 'Paid in full' });
+  await at('J15 customer: pending, the pickup code', 'c-booking', { has: ['Pickup Fri, Oct 16 · 10:00 AM · show your code at the shop', `Payment ${bal} · Charged at pickup`, 'Charged at pickup', 'YOUR PICKUP CODE', PICKUP_CODE, 'Change time'], not: ['Paid in full', 'Confirm received', 'I got it'] });   // D-09: not before the pickup time
   await click('[data-act="change-time"]');
   await at('J15 customer: change the time', 'c-booking', { has: ['Change pickup time', 'Booked for Fri, Oct 16 · 10:00 AM', 'NEW TIME', 'Move my pickup'] });
   await click('[data-act="ht-ok"]');
@@ -511,7 +515,7 @@ await journey('J15', 'pickup with the code: hold at the choice, the code, a wron
 });
 
 /* ---------- J16 (Study-1 A3) ---------- */
-await journey('J16', 'pickup without the code: Amara marks it, the countdown both sides, a reported problem pauses it, I got it completes', async () => {
+await journey('J16', 'pickup without the code: Amara marks it, the countdown both sides, a reported problem pauses it, Confirm received completes (K-48.3)', async () => {
   await flow('t-job--handoff-pickup');
   await click('[data-act="picked-up"]');
   await press('[data-act="no-code"]');
@@ -519,11 +523,11 @@ await journey('J16', 'pickup without the code: Amara marks it, the countdown bot
   await flip();
   await click('[data-nav="bookings"]');
   await click('.appt-row');
-  await at('J16 customer: marked, the countdown', 'c-booking', { has: ['Amara marked it picked up', 'Completes automatically in 47h unless you report a problem', 'I got it', 'I didn’t get it'], not: 'Change time' });
+  await at('J16 customer: marked, the countdown', 'c-booking', { has: ['Amara marked it picked up', 'Completes automatically in 47h unless you report a problem', 'Confirm received', 'I didn’t get it'], not: ['Change time', 'I got it'] });
   await click('[data-act="not-got-it"]');
   await at('J16 customer: the report sheet', 'c-booking', { has: ['Didn’t get it?', 'We’ll stop the automatic completion and tell Amara. Nothing is charged while you sort it out in chat.', 'Report a problem', 'Keep waiting'] });
   await click('[data-act="nr-ok"]');
-  await at('J16 customer: problem reported, the countdown stopped', 'c-booking', { has: ['You reported a problem. We’ve stopped the automatic completion and told Amara.', 'I got it'], not: ['Completes automatically', 'I didn’t get it'] });
+  await at('J16 customer: problem reported, the countdown stopped', 'c-booking', { has: ['You reported a problem. We’ve stopped the automatic completion and told Amara.', 'Confirm received'], not: ['Completes automatically', 'I didn’t get it'] });
   await advance(3 * 24 * 60);
   await paint('c-booking');
   await at('J16 customer: three days on, still open (paused)', 'c-booking', { has: ['You reported a problem', 'Charged at pickup'], not: 'Charged at handoff' });
@@ -534,7 +538,7 @@ await journey('J16', 'pickup without the code: Amara marks it, the countdown bot
   await click('[data-nav="bookings"]');
   await click('.appt-row');
   await click('[data-act="got-it"]');
-  await at('J16 customer: got everything?', 'c-booking', { has: ['Got everything?', `We’ll charge your ${fmtExact(S.seed.balance)} balance and close the order.`, 'Yes, I got it', 'Not yet'] });
+  await at('J16 customer: confirm you received it?', 'c-booking', { has: ['Confirm you received it?', `We’ll charge your ${fmtExact(S.seed.balance)} balance and close the order.`, 'Yes, I have it', 'Not yet'] });
   await click('[data-act="got-ok"]');
   await at('J16 customer: Job Done', 'c-complete', { has: ['ORDER COMPLETE', `Paid ${fmtExact(S.seed.total)}`, 'Leave a review'] });
   await flip();
@@ -545,7 +549,7 @@ await journey('J16', 'pickup without the code: Amara marks it, the countdown bot
 /* ---------- J17 (Study-1 A2–A3) ---------- */
 /** A Demo action from the real Test-flows menu (moves the demo clock or delivers the courier on the live state). */
 const demo = async (id) => { await page.mouse.move(5, 5); await page.mouse.move(10, 10); await click('#flow-trigger'); await click(`[data-demo="${id}"]`); };   // the first input reveals the pinned control
-await journey('J17', 'the clock: +48 hours auto-completes a marked pickup; +7 days captures an unclaimed hold and the job stays open', async () => {
+await journey('J17', 'the clock: +48 hours auto-completes a marked pickup; +7 days passes the day-6 capture of an unclaimed hold (D-04), the job stays open and the tailor is paid (D-03)', async () => {
   const bal = fmtExact(S.seed.balance);
   await flow('t-job--handoff-pickup-marked');
   await advance(47 * 60);
@@ -558,16 +562,17 @@ await journey('J17', 'the clock: +48 hours auto-completes a marked pickup; +7 da
   await click('.appt-row');
   await at('J17 customer: completed automatically, charged', 'c-complete', { has: ['COMPLETED AUTOMATICALLY · SAT, OCT 17', `Paid ${fmtExact(S.seed.total)}`, 'Leave a review'] });
   await demo('d7');
-  await click('[data-nav="home"]');
+  await at('J17 customer: the review reminder arrives as a text', 'c-complete', { has: ['TEXT MESSAGE', 'Taily: How did Amara do? Leave a review:', 'taily.app/r/'] });
+  await press('[data-nav="home"]');
   await at('J17 customer: a week later, the review reminder on Home', 'c-job', { has: ['How did Amara do?', 'Your order came back on Sat, Oct 17. Your review helps other customers.', 'Leave a review'] });
   await flow('c-booking--handoff-pickup');
   await demo('d7');
-  await at('J17 customer: charged after 7 days, still open', 'c-booking', { has: [`We charged your ${bal} balance after 7 days. Amara still keeps it for you until you pick it up.`, 'Charged', 'YOUR PICKUP CODE', `Ready · ${bal} charged`], not: 'On hold' });
+  await at('J17 customer: charged after 6 days, still open', 'c-booking', { has: [`Taily: We charged your ${bal} balance because ${POLICY.UNCLAIMED_CAPTURE_D} days have passed.`, `We charged your ${bal} balance after ${POLICY.UNCLAIMED_CAPTURE_D} days. Amara still keeps it for you until you pick it up.`, 'Charged', 'YOUR PICKUP CODE', `Ready · ${bal} charged`], not: 'On hold' });
   await flip();
   await click('.appt-row');
-  await at('J17 tailor: charged, paid at the handoff', 't-job', { has: [`Sarah’s ${bal} was charged after 7 days. You’re paid when she picks it up.`, 'Picked up'] });
+  await at('J17 tailor: charged — her payout is on its way (D-03)', 't-job', { has: [`Sarah’s ${bal} was charged after ${POLICY.UNCLAIMED_CAPTURE_D} days, so your payout is on its way`, 'Keep her order until', 'Picked up'] });
   await click('[data-nav="earnings"]');
-  await at('J17 tailor: nothing paid out yet', 't-earnings', { not: fmtExact(S.seed.payout) });
+  await at('J17 tailor: the payout is scheduled (D-03: paid at the unclaimed charge)', 't-earnings', { has: fmtExact(S.seed.payout) });
 });
 
 /* ---------- J18 (Study-1 B1–B2, K-30 overruled) ---------- */
@@ -683,6 +688,74 @@ await journey('J20', 'no reply to the reminder: the nudge text at 6 h, then the 
   await flip();
   await page.evaluate(() => window.Taily.render('t-job'));
   await at('J20 tailor: Sarah didn’t confirm · visit cancelled, the deposit is hers', 't-job', { has: ['Sarah didn’t confirm · visit cancelled', 'Visit cancelled', `you keep her ${dep} deposit`, 'Kept deposit', fmtExact(S.lateCancel.tailorPaid)], not: 'Mark as no-show' });
+});
+
+/* ---------- J22–J24 (pre-MVP A1, K-48: every waiting state ends; every notification is a text) ---------- */
+const model = (fn) => page.evaluate(async (src) => { const S = await import('/js/state.js'); return new Function('S', `return (${src})(S);`)(S); }, fn.toString());
+await journey('J22', 'a final order nobody answers: texts at 24 h and 72 h, then Taily review at 7 days (D-03) — both sides, the admin told', async () => {
+  await flow('c-price-change');                                          // Thu 5:00 PM: Amara sent the final order
+  await demo('h48');                                                     // Sat 5:00 PM: past 24 h
+  await at('J22 customer: the 24-hour reminder text', 'c-price-change', { has: ['TEXT MESSAGE', 'Taily: Amara is waiting for you to approve your final order', 'Approve it so she can start:', 'taily.app/r/'] });
+  await demo('h48');                                                     // Mon 5:00 PM: past 72 h
+  await at('J22 customer: the 72-hour reminder text', 'c-price-change', { has: ['Taily: Your final order from Amara still needs your approval. She can’t start until you approve it:'] });
+  await flip();
+  await page.evaluate(() => window.Taily.render('t-job'));
+  await at('J22 tailor: she knows when it ends', 't-job', { has: ['Waiting on Sarah to approve', `We text Sarah after ${POLICY.WAIT_REMIND_1_H} and ${POLICY.WAIT_REMIND_2_H} hours if she hasn’t approved. After ${POLICY.FINAL_ORDER_REVIEW_D} days, Taily steps in to help you both.`] });
+  await demo('d7');                                                      // past 7 days
+  await at('J22 tailor: Taily steps in (text)', 't-job', { has: [`Taily: Sarah hasn’t approved your final order in ${POLICY.FINAL_ORDER_REVIEW_D} days, so Taily is stepping in to help you both.`] });
+  const r = await model((S) => ({ reviews: S.openReviews().map((x) => x.reason), admin: S.state.admin.notifications.map((n) => n.kind), star: S.state.appts[0].review }));
+  check('J22 openReviews() + the admin notification (A2 surfaces them); the star review is untouched', JSON.stringify(r) === JSON.stringify({ reviews: ['final-order-unanswered'], admin: ['review'], star: null }), JSON.stringify(r));
+});
+
+await journey('J23', 'nothing recorded at the visit: the tailor’s start texts, “Did the visit happen?” at 2 h (both), the admin at 4 h, cancelled with a refund at 24 h (D-11, K-48.5)', async () => {
+  const dep = fmtExact(S.seed.deposit);
+  await flow('t-job--reminder-confirmed');                               // Wed 3:12 PM, Sarah confirmed
+  await advance(23 * 60 + 18);                                           // Thu 2:30 PM (the model clock)
+  await paint('t-job');
+  await demo('h1');                                                      // 3:30 PM: nothing yet
+  await demo('h1');                                                      // 4:30 PM: an hour before → the start reminder
+  await at('J23 tailor: the start reminder, 1 hour before', 't-job', { has: ['Taily: Your visit with Sarah starts at 5:00 PM at 145 N 7th St, 2R. Tap I’m here when you arrive:'] });
+  await demo('h1');                                                      // 5:30 PM: one text at the start
+  await at('J23 tailor: “Your fitting has started” at the start time', 't-job', { has: ['Taily: Your fitting has started. Please take all notes here:', 'Time for the fitting', 'Start fitting'] });
+  await demo('h1'); await demo('h1');                                    // 7:30 PM: 2 h after the start, nothing recorded
+  await at('J23 tailor: did the visit happen?', 't-job', { has: ['Taily: Did your 5:00 PM visit with Sarah happen? Tell us:', 'Did the visit happen?', 'Nothing was recorded.'] });
+  await flip();
+  await page.evaluate(() => window.Taily.render('c-booking'));
+  await at('J23 customer: the same question', 'c-booking', { has: ['Did your visit happen?', 'Yes, it happened', 'No, Amara didn’t come'] });
+  await advance(3 * 60);                                                 // 10:30 PM
+  await demo('h1');                                                      // 11:30 PM: 4 h unanswered
+  const n = await model((S) => ({ admin: S.state.admin.notifications.map((x) => x.kind), reviews: S.openReviews().map((x) => x.reason) }));
+  check('J23 K-48.5: unanswered 4 hours → the admin is notified (a review A2 surfaces)', JSON.stringify(n) === JSON.stringify({ admin: ['review'], reviews: ['visit-unanswered'] }), JSON.stringify(n));
+  await demo('h48');                                                     // past 24 h after asking
+  await at('J23 customer: cancelled with a refund (text + booking)', 'c-booking', { has: [`Taily: Nobody told us your Thu, Oct 15 · 5:00 PM visit with Amara happened, so we cancelled it and refunded your ${dep} deposit.`, 'Visit cancelled', 'Refunded'] });
+  await flip();
+  await page.evaluate(() => window.Taily.render('t-job'));
+  await at('J23 tailor: cancelled, nothing paid out', 't-job', { has: ['Visit cancelled', 'Nobody told us the visit happened', 'Nothing is paid out.'] });
+});
+
+await journey('J24', 'the courier’s trip: Handed to courier → out for delivery → the courier can’t deliver → a new window at no charge → delivered (S-35)', async () => {
+  await flow('t-job--handoff-courier');
+  await click('.action-bar [data-act="courier-out"]');
+  await at('J24 tailor: handed to the courier', 't-job', { has: ['With the courier · arrives 5:00–5:30 PM'], not: 'Handed to courier' });
+  await flip();
+  await page.evaluate(() => window.Taily.render('c-booking'));
+  await at('J24 customer: out for delivery, the window locked', 'c-booking', { has: ['Out for delivery · arrives 5:00–5:30 PM'], not: ['Change window', 'Confirm received'] });
+  const held = await model((S) => S.state.appts[0].payments.balance.cents);
+  await demo('courier-fail');
+  await at('J24 customer: the failed delivery text and the way forward', 'c-booking', { has: ['Taily: The courier couldn’t deliver your order, so it’s going back to Amara. Pick a new delivery window, no extra charge:', 'The courier couldn’t deliver it · pick a new window', 'Pick a new window'] });
+  await press('[data-act="change-time"]');
+  await at('J24 customer: a new window, no extra charge', 'c-booking', { has: ['Pick a new delivery window', 'No extra charge.'] });
+  await click('[data-act="ht-ok"]');
+  await at('J24 customer: booked again', 'c-booking', { has: ['Courier booked · arrives'] });
+  const after = await model((S) => S.state.appts[0].payments.balance.cents);
+  check('J24 the redelivery costs nothing more', after === held, `${held} → ${after}`);
+  await flip();
+  await page.evaluate(() => window.Taily.render('t-job'));
+  await at('J24 tailor: hand it over again', 't-job', { has: ['Handed to courier'] });
+  await flip();
+  await page.evaluate(() => window.Taily.render('c-booking'));
+  await demo('courier');
+  await at('J24 customer: delivered — the text, the proof, 24 hours to report it', 'c-complete', { has: ['Taily: Delivered at', 'Didn’t get it? Tell us within 24 hours:', 'Left at your door', 'Didn’t get it? Tell us'] });
 });
 
 /* ---------- J14 (K-25) ---------- */

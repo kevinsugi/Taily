@@ -164,7 +164,9 @@ function view() {
   const hero = `${linenStage({ eyebrow: readyAt ? `Finished · ${fmtDay(readyAt)}` : 'Finished', title: 'Your order is ready', rail: stage, label: 'Your order is ready' })}
   <p class="t-body ${ID}__intro">${body}</p>`;
   /* C-11: one decline pattern (D-140) — the banner sits directly above the action bar, the way forward is another card */
-  const alert = failed && !zero
+  const alert = r.u.offline   // S-12 (pre-MVP A1): nothing is held while offline
+    ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'You’re offline', text: 'Nothing was charged. Pay again when you’re back.' })}</div>`
+    : failed && !zero
     ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Your card was declined', text: 'Nothing was charged. Try another card.', actionLabel: 'Use another card', actionAct: 'pay' })}</div>`
     : '';
   const sameCard = failed && r.method?.id === r.failedId;                 // the failed card is still the one selected
@@ -230,6 +232,7 @@ function sheetHtml(r, { cardId, busy = false } = {}) {
   </div>
   <div class="${ID}-sheet__go">
   ${cta(payLabel(a.money.balance), { busy, busyLabel: 'Paying…', sub: CHARGE_CAPTION[a.returnOption] ?? CHARGE_CAPTION.pickup, subId: 'pay-sheet-sub', attrs: 'data-act="pay-ok"' })}
+  <p class="t-small c-600 ${ID}-sheet__pending">Your bank may show it as pending until then.</p>
   </div>
 </div>`;
 }
@@ -287,6 +290,7 @@ function confirmZero(r) {
   const { a, u } = r;
   if (u.confirming) return;
   u.confirming = true;
+  u.offline = false;
   go(ID);
   cancelWait?.();
   cancelWait = withLatency(() => {
@@ -302,6 +306,9 @@ function confirmZero(r) {
       setFocus(a.id);
       go('c-booking', { fresh: true });
       toast(res.appt.money.refund > 0 ? `${fmtExact(res.appt.money.refund)} is on its way back to your card.${tail}` : `Confirmed.${tail}`, { tone: 'success' });
+    } else if (res.error === 'offline') {
+      u.offline = true;
+      go(ID);
     } else {
       go(ID);
       toast('Choose how to get it back first.');
@@ -338,6 +345,7 @@ function openPay(r) {
       } else if (el.dataset.act === 'pay-ok') {
         if (u.quoting) return;                                      // R4-2-C-01: never pay while the courier price is still coming
         if (r.failedId && cardId !== r.failedId) A.useOtherMethod(); // the pre-selected other method clears the decline (D-40)
+        u.offline = false;
         busy = true;
         paint();
         cancelWait?.();
@@ -360,6 +368,9 @@ function openPay(r) {
             go('c-booking', { fresh: true });
             toast(`You’ll be charged ${fmtExact(res.appt.payments.balance.cents)} ${chargedPhrase(res.appt.returnOption)}.${tail}`, { tone: 'success' });
           } else if (res.error === 'card-declined') {
+            go(ID);
+          } else if (res.error === 'offline') {   // S-12
+            u.offline = true;
             go(ID);
           } else {
             go(ID);

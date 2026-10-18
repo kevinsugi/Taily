@@ -1010,6 +1010,8 @@ export const ICON_IMAGE = GLYPH('<rect x="2" y="3" width="12" height="10" rx="2"
 export const ICON_BELL = GLYPH('<path d="M3.6 11.2h8.8l-1.1-1.6V6.8a3.3 3.3 0 0 0-6.6 0v2.8z"/><path d="M6.6 13.4a1.5 1.5 0 0 0 2.8 0"/>');
 /** Wi-Fi with a slash (the offline banner). */
 export const ICON_WIFI_OFF = GLYPH('<path d="M1.6 6.2a9.6 9.6 0 0 1 3-1.9M14.4 6.2a9.6 9.6 0 0 0-4.4-2.4M4 8.8a5.6 5.6 0 0 1 2-1.2M12 8.8a5.6 5.6 0 0 0-1.4-1M8 12.2h.01"/><path d="M2 2l12 12"/>');
+/** Phone (S-32: the visit-day "Call" tile — calls go through Taily, after the MVP). */
+export const ICON_PHONE = GLYPH('<path d="M5.2 2.4H3.6a1.2 1.2 0 0 0-1.2 1.3 10.4 10.4 0 0 0 9.7 9.7 1.2 1.2 0 0 0 1.3-1.2v-1.6l-2.6-1-1.3 1.3a7.6 7.6 0 0 1-3.5-3.5l1.3-1.3z"/>');
 /** Alert triangle (a failed courier price, M6-P-09). */
 export const ICON_ALERT = GLYPH('<path d="M8 2.4l6 10.4H2z"/><path d="M8 6.6v3M8 11.4h.01"/>');
 
@@ -1709,9 +1711,9 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
   const est = (stage === 'estimate' || stage === 'booked') && !confirmed;   // D-49: still an estimate until the fitting (or a price change) confirms it
   const deposit = depositState ? (DEPOSIT_STATUS[depositState] ?? 'Paid') : stage === 'estimate' ? 'Due today' : 'Paid';
   /* K-27 (Study-1 A2): `held` = picked a way back, the balance is on hold; `charged` = captured before the handoff (unclaimed after 7 days) */
-  const settled = stage === 'paid' || stage === 'held' || stage === 'charged';
+  const settled = stage === 'paid' || stage === 'held' || stage === 'charged' || stage === 'unpaid';
   const balance = (stage === 'ready' || stage === 'held') && q.balance === 0 ? 'Nothing to pay'
-    : { paid: 'Paid', held: chargedWhen(wayBack), charged: 'Charged', ready: chargedWhen(wayBack) }[stage] ?? 'Due when ready';   // D-156; K-44 (D-302): the balance is never "On hold" / "Hold now" to her
+    : { paid: 'Paid', held: chargedWhen(wayBack), charged: 'Charged', ready: chargedWhen(wayBack), unpaid: 'Not charged yet' }[stage] ?? 'Due when ready';   // D-156; K-44 (D-302): the balance is never "On hold" / "Hold now" to her; D-04 (pre-MVP A1): `unpaid` = the charge failed
   const rows = [
     { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
     q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee, caption: HOME_FEE_CAPTION },
@@ -1739,14 +1741,15 @@ export function receiptBlock(a, tailorFirst = '') {
   const done = [...a.history].reverse().find((h) => h.status === 'completed')?.at ?? a.requestedAt;
   const paid = a.payments.balance?.cents ?? 0;
   const refund = a.payments.refund?.cents ?? 0;
-  const cardLine = paid > 0 ? `Balance paid with ${balanceCardLabel(a)}.`
+  const failed = a.payments.balance?.state === 'capture-failed';   // D-04 (pre-MVP A1): the charge failed — nothing is "paid" yet
+  const cardLine = failed ? `We couldn’t charge ${balanceCardLabel(a)}.` : paid > 0 ? `Balance paid with ${balanceCardLabel(a)}.`
     : refund > 0 ? `${fmtExact(refund)} refunded to ${balanceCardLabel(a, a.cardId)}.` : '';
   /* M7-1-C-05: what was paid for — the approved lines with their garments — between the return line and the totals */
   const order = a.lines?.length ? `<div class="receipt__order">${changeList({ garments: withPhotos(priceChangeView(a, a.lines).garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: `${tailorFirst || 'Tailor'}’s comment` })}</div>` : '';
   return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', courier: 'truck' }[how] })}</div>
   ${stitchDivider()}
   ${order}
-  ${customerBreakdown(a.money, { stage: 'paid', tailorFirst, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '' })}
+  ${customerBreakdown(a.money, { stage: failed ? 'unpaid' : 'paid', tailorFirst, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '' })}
   ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}`;
 }
 /** The tailor's breakdown — no courier row (D-04). One order everywhere (D-165, amends D-137): Services, the Taily fee (a negative
@@ -2878,16 +2881,22 @@ export function photoFigure({ photo, type = '', by = '', label = 'Photo' } = {})
 </figure>`;
 }
 
-/** The review reminder (Study-1 A4, K-28): a notification card — bell, title, one line, the "Leave a review" button (`act`, `data-id`). */
-export function reminderCard({ title = '', text = '', actionLabel = 'Leave a review', act = 'review-reminder', id = '' } = {}) {
-  return `<section class="card reminder-card" role="status" aria-label="${esc(title)}" data-reminder>
+/** The review reminder (Study-1 A4, K-28): a notification card — bell, title, one line, the "Leave a review" button (`act`, `data-id`).
+    DG-2 A (pre-MVP A1): `dismissAct` adds the one-time notice's 44 px ✕ (top right, "Dismiss: <title>"); the same card then carries a
+    cancellation notice on Home (`notice: true` → data-notice, for flows). */
+export function reminderCard({ title = '', text = '', actionLabel = 'Leave a review', act = 'review-reminder', id = '', dismissAct = '', notice = false } = {}) {
+  noPercent(text, 'reminderCard');
+  const idAttr = id ? ` data-id="${esc(id)}"` : '';
+  const card = `<section class="card reminder-card${dismissAct ? ' reminder-card--dismissible' : ''}" role="status" aria-label="${esc(title)}" data-reminder${notice ? ' data-notice' : ''}${idAttr}>
   <span class="reminder-card__icon" aria-hidden="true">${ICON_BELL}</span>
   <div class="reminder-card__body">
     <p class="t-body w-600">${esc(title)}</p>
-    <p class="t-small c-600">${esc(text)}</p>
-    ${ctaSmall(actionLabel, { attrs: `data-act="${esc(act)}"${id ? ` data-id="${esc(id)}"` : ''}` })}
+    <p class="t-small c-600" data-money>${esc(text)}</p>
+    ${ctaSmall(actionLabel, { attrs: `data-act="${esc(act)}"${idAttr}` })}
   </div>
 </section>`;
+  if (!dismissAct) return card;
+  return `<div class="notice-card">${card}<button type="button" class="notice-card__close" data-act="${esc(dismissAct)}"${idAttr} aria-label="${esc(`Dismiss: ${title}`)}">${ICON_CLOSE}</button></div>`;
 }
 
 /** K-41 (R3, D-296): the 24-hour reminder on Home — the booking row turns into a card: the accent state strip across its top (`text` ·
@@ -3143,6 +3152,22 @@ export function handoffWhenRow({ method = 'pickup', text = '', sub = '', act = '
 /** The courier line under a window: "Courier $13.75 · collects from Amara at 4:45 PM" — K-43 (D-299): that window's own Uber quote + the
     Taily fee, so it changes as she scrolls the wheel. */
 const courierNote = (cents, first, w) => `<span class="t-small c-600">Courier <span data-money>${fmtExact(cents)}</span> · collects from ${esc(first)} at ${esc(fmtTime(w.collectAt))}</span>`;
+/** S-32 (pre-MVP A1): the visit-day Call tile's sheet — calls go through a Taily number (masked both ways), after the MVP; until then the
+    chat is the way. `first` = the other person's first name; `onMessage` opens the thread. */
+export function openCallSheet({ first = '', onMessage } = {}) {
+  sheetOverlay(`<div class="call-sheet">
+  <p class="t-body c-700">Calls will go through a Taily number, so neither of you sees the other’s phone number. Calling comes after the first launch.</p>
+  <p class="t-small c-600">For now, message ${esc(first)}. She gets a text with a link to your message.</p>
+  ${cta(`Message ${esc(first)}`, { attrs: 'data-act="call-message"' })}
+  ${cta('Close', { variant: 'secondary', attrs: 'data-act="call-close"' })}
+</div>`, { header: 'Call through Taily', dataS: 'call-sheet', confirm: false }, (holder, close) => {
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (act === 'call-close') close();
+      else if (act === 'call-message') { close({ instant: true }); onMessage?.(); }
+    });
+  });
+}
 /** K-43 (D-298): a courier delivery never comes back — the line wherever the courier is chosen or booked. */
 export const COURIER_LOBBY = 'If you’re not home, the courier leaves it in your building’s lobby.';
 
@@ -3157,10 +3182,11 @@ export const COURIER_LOBBY = 'If you’re not home, the courier leaves it in you
 export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', place = '', dataS = '', onDone, onMessage } = {}) {
   const courier = appt.returnOption === 'courier';
   const change = mode === 'change';
-  const cur = appt.handoff?.slot ?? null;
+  const redeliver = courier && appt.handoff?.trip?.state === 'returned';   // S-35: after a failed delivery
+  const cur = redeliver ? null : appt.handoff?.slot ?? null;
   const all = handoffSlots(appt);
   const slots = change ? all.filter((x) => x.start !== cur?.start) : all;
-  const header = change ? (courier ? 'Change delivery window' : 'Change pickup time') : (courier ? 'Pick a delivery window' : 'Pick a pickup time');
+  const header = redeliver ? 'Pick a new delivery window' : change && cur ? (courier ? 'Change delivery window' : 'Change pickup time') : (courier ? 'Pick a delivery window' : 'Pick a pickup time');
   const keepLabel = change ? (courier ? 'Keep current window' : 'Keep current time') : 'Cancel';
   if (!slots.length) {
     sheetOverlay(`<div class="handoff-sheet">
@@ -3186,11 +3212,12 @@ export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', pla
   const columns = () => (courier ? windowColumns(slots, picked.start) : slotColumns(slots.map((x) => x.start), picked.start));
   const now = change && cur ? `<p class="t-small c-600 handoff-sheet__now" data-now>${courier ? 'Arrives' : 'Booked for'} <span class="nb">${esc(slotText(cur))}</span></p>`
     : place ? `<p class="t-small c-600 handoff-sheet__now">${esc(place)}</p>` : '';
-  const fine = change
+  const fine = redeliver ? `No extra charge. Taily books the courier to collect from ${esc(first)} again before your window. ${COURIER_LOBBY}`
+    : change
     ? (courier ? `You can change the window until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. The price is the new window’s quote, and ${esc(first)} is told right away. ${COURIER_LOBBY}` : `${esc(first)} is told right away. Your pickup code stays the same.`)
     : (courier ? `Each window has its own Uber price. Taily books the courier to collect from ${esc(first)} before your window. You can change it until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. ${COURIER_LOBBY}`
       : `Only times ${esc(first)}’s shop is open, in the next ${POLICY.HANDOFF_PICK_DAYS} days. You can change it later from your booking.`);
-  const okLabel = change ? (courier ? 'Move my delivery' : 'Move my pickup') : (courier ? 'Use this window' : 'Use this time');
+  const okLabel = change && cur ? (courier ? 'Move my delivery' : 'Move my pickup') : (courier ? 'Use this window' : 'Use this time');
   const html = (busy = false, error = '') => `<div class="handoff-sheet"${busy ? ' aria-busy="true"' : ''}>
   ${error ? banner({ tone: 'error', text: error }) : ''}
   ${now}
@@ -3218,7 +3245,10 @@ export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', pla
       const res = T.setHandoffSlot(appt.id, picked);
       busy = false;
       if (!res.ok) {
-        paint(res.error === 'too-late' ? `It’s too late to move it now. Message ${first} to change it.` : 'That time isn’t open any more. Pick another one.');
+        paint(res.error === 'too-late' ? `It’s too late to move it now. Message ${first} to change it.`
+          : res.error === 'card-declined' ? `Your card was declined for the new price, so your delivery stays at ${slotText(appt.handoff?.slot)}. Pick another window or message ${first}.`   // B-14 / D-04
+            : res.error === 'offline' ? 'You’re offline. Nothing was changed. Try again when you’re back.'   // S-12
+              : 'That time isn’t open any more. Pick another one.');
         return;
       }
       holder.dataset.locked = 'false';

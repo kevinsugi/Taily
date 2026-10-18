@@ -4,7 +4,7 @@
    customers see" row. Summaries are dollars only.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorsFor, bookable } from '../state.js';
+import { state, T, tailorsFor, bookable, textsOn } from '../state.js';
 import { myTailor, MY_TAILOR_ID, tailorRowProps } from '../tailor-data.js';
 import { VISIT_LABEL, RETURN_LABEL } from '../data.js';
 import { cents, fmt } from '../money.js';
@@ -110,6 +110,10 @@ function view(s) {
     ${sectionHead('Your setup', { id: `${ID}-setup-h` })}
     <div class="card card--list ${ID}__setup">${rows}</div>
   </section>
+  <section class="sec" aria-labelledby="${ID}-account-h">
+    ${sectionHead('Account', { id: `${ID}-account-h` })}
+    <div class="card card--list ${ID}__account">${listRow({ title: 'Texts', sub: `${esc(t.phone ?? '')} · ${textsOn('tailor') ? 'new requests come here' : 'off'}`, act: 'texts' })}</div>
+  </section>
   <div class="${ID}__out">${textLink('Sign out', { act: 'sign-out', tone: 'danger' })}</div>
 </main>`;
 }
@@ -132,6 +136,7 @@ function wire(root) {
       const missing = ONBOARDING_STEPS.find((st) => !myTailor().onboarding?.[st.id]);
       if (missing) goTo(missing.id);
     } else if (act === 'sign-out') openSignOut();
+    else if (act === 'texts') go('t-texts');   // pre-MVP A1 (D-02)
   });
 }
 

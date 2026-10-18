@@ -4,10 +4,10 @@
    Focal: the first row of the first non-empty section.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, apptsFor, tailorById, statusScreen, now, priceChangeView, jobEditView, handoffMissed, slotText } from '../state.js';
-import { chrome, headingRow, apptRow, emptyState, sectionHead, heroGarment, chargedWhen } from '../components.js';
+import { state, apptsFor, tailorById, statusScreen, now, priceChangeView, jobEditView, handoffMissed, slotText, textsOn, overdue, proposalOf, visitCheckOpen } from '../state.js';
+import { chrome, headingRow, apptRow, emptyState, sectionHead, heroGarment, chargedWhen, banner } from '../components.js';
 import { fmtColumn } from '../money.js';
-import { fmtWhen, fmtTime, fmtCountdown, toDate } from '../dates.js';
+import { fmtWhen, fmtTime, fmtDay, fmtCountdown, toDate } from '../dates.js';
 import { VISIT_LABEL } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { setFocus, statusWord, sinceText } from '../focus.js';
@@ -84,12 +84,17 @@ function rowFor(a, kind, fmtAmt) {
       row.amountCaption = 'Reply needed'; row.captionTone = 'action';
     } else if (a.status === 'in-progress' && a.edit?.state === 'pending') {   // SF-12: the edit waits on her
       row.amountText = fmtAmt(jobEditView(a).after.total); row.amountCaption = 'Reply needed'; row.captionTone = 'action';
-    } else if (a.status === 'in-progress') { row.amountText = fmtAmt(a.money.total); row.amountCaption = 'Total'; }
+    } else if (a.status === 'in-progress') {
+      row.amountText = fmtAmt(a.money.total); row.amountCaption = 'Total';
+      if (overdue(a)) row.when = `Overdue · due ${fmtDay(a.job.needBy)}`;   // B-07
+    } else if (proposalOf(a)) { row.when = fmtWhen(proposalOf(a).start); row.amountCaption = 'New time asked'; row.captionTone = 'action'; }   // D-12
+    else if (visitCheckOpen(a, 'customer')) { row.amountCaption = 'Did it happen?'; row.captionTone = 'action'; }                               // D-11
     else if (a.status === 'ready') { row.amountText = fmtAmt(a.money.balance); row.amountCaption = 'Choose a way back'; row.captionTone = 'action'; }   // K-27: held at the choice, not paid
     else if (a.status === 'awaiting-handoff') {
       const b = a.payments.balance;
       row.amountText = fmtAmt(b.cents > 0 ? b.cents : a.money.total);
-      row.amountCaption = b.state === 'captured' ? 'Charged' : b.cents > 0 ? chargedWhen(a.returnOption) : 'Paid';   // Study-1 A2; K-44 (D-302): the short status, not "On hold"; D-303: by the way back
+      row.amountCaption = b.state === 'capture-failed' ? 'Update card' : b.state === 'captured' ? 'Charged' : b.cents > 0 ? chargedWhen(a.returnOption) : 'Paid';   // Study-1 A2; K-44 (D-302): the short status, not "On hold"; D-303: by the way back; D-04: a failed charge
+      if (b.state === 'capture-failed') row.captionTone = 'action';
       /* SF-12: the picked time (or the missed one) and where she gets it, not the fitting's place */
       if (a.handoff?.slot) row.when = handoffMissed(a) ? `Missed ${fmtTime(a.handoff.slot.start)} pickup` : slotText(a.handoff.slot);
       row.place = a.returnOption === 'courier' ? 'Delivered to my place' : `At ${t.shopName || t.shop?.street || 'the shop'}`;
@@ -110,6 +115,7 @@ function rowFor(a, kind, fmtAmt) {
       else if (r === 'tailor-no-show') row.place = `${first} didn’t show up`;   // K-29
       else if (r === 'customer-early' || r === 'customer-late') row.place = 'You cancelled';
       else if (r === 'unconfirmed') row.place = 'Not confirmed in time';   // K-43 (D-300): cancelled by Taily
+      else if (r === 'no-record') row.place = 'Visit not recorded';      // D-11: cancelled by Taily, refunded
     }
     row.kept = a.status === 'declined' || (a.status === 'cancelled' && ['tailor-cant-make-it', 'tailor-no-show', 'customer-late', 'no-show', 'unconfirmed'].includes(a.cancel?.reason));
   }
@@ -125,8 +131,12 @@ function view() {
   groups.upcoming.sort((x, y) => ms(x.slot.start) - ms(y.slot.start));
   groups.past.sort((x, y) => lastAt(y) - lastAt(x));
 
+  /* D-02 (pre-MVP A1): booking texts are off (never opted in, or a STOP reply) — the app is the fallback, and says so */
+  const stopped = state.texts.customer.stoppedAt;
+  const off = textsOn('customer') ? '' : `<div class="${ID}__texts-off">${banner({ tone: 'warning', title: 'Texts are off', text: `${stopped ? 'You replied STOP, so reminders' : 'Reminders'} and “ready” texts won’t reach you. Updates still show here.`, actionLabel: stopped ? 'Turn texts back on' : 'Turn on texts', actionAct: 'texts-on' })}</div>`;
   const head = `${chrome('bookings')}<main class="body ${ID}" data-s="${ID}">
-  ${headingRow('<h1 class="t-title">Bookings</h1>', { back: false })}`;
+  ${headingRow('<h1 class="t-title">Bookings</h1>', { back: false })}
+  ${off}`;
   if (!groups.requests.length && !groups.progress.length && !groups.upcoming.length && !groups.past.length) {
     return `${head}
   <div class="${ID}__empty" data-empty="bookings">${emptyState({
@@ -164,6 +174,7 @@ function wire(root) {
       setFocus(a.id);
       go(statusScreen(a, 'customer'));
     } else if (el.dataset.act === 'home') go('c-job', { fresh: true });
+    else if (el.dataset.act === 'texts-on') go('c-texts');
   });
 }
 

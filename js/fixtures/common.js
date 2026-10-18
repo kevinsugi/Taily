@@ -209,6 +209,9 @@ export function driveTo(target, opts = {}) {
   }
   if (target === 'no-show') {
     setClock(isoMinute(addMinutes(getAppt(id).slot.start, 20)));
+    setClock(isoMinute(addMinutes(getAppt(id).slot.start, 2)));
+    must(T.visitPing(id, 'tailor', 'here'), 'visitPing here');                  // D-14 (K-48): "I'm here" before a no-show
+    setClock(isoMinute(addMinutes(getAppt(id).slot.start, 20)));
     return must(T.markNoShow(id), 'markNoShow');
   }
 

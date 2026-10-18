@@ -11,15 +11,18 @@ import { register, render as go, registered } from '../app.js';
 import {
   state, T, tailorById, openSlots, justConfirmed, now, returnAddress, priceChangeView, courierWindow, autoCompleteLeft, statusScreen,
   slotText, handoffChangeable, handoffMissed, reminderState, freeUntil, autoCancelAt, unclaimedAt,
+  autoCancelArmed, proposalOf, visitCheckOpen, visitToolsOpen, confirmReceivedOpen, tailyReviewOf,
 } from '../state.js';
 import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
   sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, andList, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR, COURIER_LOBBY,
   actionBar, pickupCode, autoCompleteLine, balanceCardLabel, openHandoffTime, chargedWhen, shopPlace,
+  ICON_PHONE, openCallSheet, optionRow,
 } from '../components.js';
+import { VISIT_ICONS } from '../icons.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
 import { fmtExact, cancelTerms } from '../money.js';
-import { fmtWhen, fmtTime, fmtDay, addMinutes, toDate, isoMinute, dayWord, fmtCountdown } from '../dates.js';
+import { fmtWhen, fmtTime, fmtDay, fmtTimeRange, addMinutes, toDate, isoMinute, dayWord, fmtCountdown } from '../dates.js';
 import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
@@ -60,11 +63,25 @@ const sec = (inner, cls = '') => `<section class="sec${cls ? ` ${cls}` : ''}">${
     name, then Message + Add to calendar (a confirmed booking only; Directions is Amara's side — the visit is at Sarah's place or Amara's shop). */
 function visitSection(a, t, { extra = [] } = {}) {
   const actions = [{ label: 'Message', icon: ICON_CHAT, act: 'message' }];
-  if (a.status === 'confirmed' && now() < toDate(a.slot.start).getTime()) {   // SF-11: nothing to add once the visit has started
+  const day = visitToolsOpen(a);   // S-32 (pre-MVP A1): the visit day — Call (through Taily, after the MVP) and, for a shop visit, On my way / I'm here
+  const first = firstOf(t);
+  const vd = a.visitDay ?? {};
+  const pings = [];
+  if (day) {
+    actions.push({ label: 'Call', icon: ICON_PHONE, act: 'call' });
+    if (a.job.visitType === 'shop') {
+      if (!vd.customer?.hereAt) actions.push(vd.customer?.onWayAt ? { label: 'I’m here', icon: VISIT_ICONS['map-pin'], act: 'im-here' } : { label: 'On my way', icon: VISIT_ICONS.clock, act: 'on-my-way' });
+      if (vd.customer?.hereAt) pings.push({ icon: 'check', value: 'You told her you’re here', detail: esc(fmtTime(vd.customer.hereAt)) });
+      else if (vd.customer?.onWayAt) pings.push({ icon: 'clock', value: 'You told her you’re on your way', detail: esc(fmtTime(vd.customer.onWayAt)) });
+    }
+    if (vd.tailor?.hereAt) pings.push({ icon: 'check', value: `${esc(first)} is here`, detail: esc(fmtTime(vd.tailor.hereAt)) });
+    else if (vd.tailor?.onWayAt) pings.push({ icon: 'clock', value: `${esc(first)} is on her way`, detail: esc(fmtTime(vd.tailor.onWayAt)) });
+  }
+  if (!day && a.status === 'confirmed' && now() < toDate(a.slot.start).getTime()) {   // SF-11: nothing to add once the visit has started
     const href = calendarHref({ uid: a.id, start: a.slot.start, end: a.slot.end, stamp: isoMinute(new Date(now())), summary: `${VISIT_LABEL.customer[a.job.visitType]} with ${t.name}`, location: whereOf(a, t) });
     actions.push({ label: 'Add to calendar', icon: ICON_CALENDAR, href, act: 'add-to-calendar', attrs: 'download="taily-visit.ics"' });
   }
-  return sec(personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: t.verified, years: t.years }, rows: [...visitRows(a, t), ...extra], actions }));
+  return sec(personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: t.verified, years: t.years }, rows: [...visitRows(a, t), ...pings, ...extra], actions }));
 }
 
 /** The shared detail header (D-93, supersedes R3-1-C-04's pill-above-Back): Back on its own row, then the pill,
@@ -113,29 +130,40 @@ function cancelledView(a, t, first) {
     },
     'no-show': {
       title: 'Marked as a no-show',
-      body: `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}, ${Math.max(0, Math.round((toDate(a.cancel.at).getTime() - toDate(a.slot.start).getTime()) / 60000))} minutes after the start, and keeps your deposit. If you were there, message ${first}.`,
+      body: `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}, ${Math.max(0, Math.round((toDate(a.cancel.at).getTime() - toDate(a.slot.start).getTime()) / 60000))} minutes after the start, and keeps your deposit.${a.cancel.disputedAt ? '' : ' If you were there, tell us.'}`,   // D-14: "That's not right" goes to Taily, not the chat
       status: 'Kept',
+    },
+    'no-record': {   // D-11 (K-48.5): nobody answered "Did the visit happen?" in 24 hours
+      title: 'Visit cancelled',
+      body: `Nobody told us the visit happened, so we cancelled it. Your ${fmtExact(dep)} deposit is refunded. It can take a few business days to show on your card.`,
+      status: 'Refunded',
     },
   }[reason] ?? {
     title: 'Booking cancelled', body: '', status: a.payments.deposit.state === 'refunded' ? 'Refunded' : 'Kept',
   };
   const noteRow = reason === 'tailor-cant-make-it' && a.cancel?.note
     ? [{ icon: 'chat', value: esc(a.cancel.note), detail: `${esc(first)}’s note` }] : [];
+  /* D-14: the tailor's "I'm here" is the evidence a no-show stands on — shown to Sarah */
+  const here = reason === 'no-show' && a.visitDay?.tailor?.hereAt ? [{ icon: 'check', value: `${esc(first)} tapped I’m here`, detail: esc(fmtTime(a.visitDay.tailor.hereAt)) }] : [];
+  /* D-14: a disputed no-show is with Taily (the review state itself is track A2's) */
+  const review = a.cancel?.disputedAt
+    ? `<div class="${ID}__alert">${banner({ tone: 'info', text: a.cancel.disputedBy === 'customer' ? 'You told us you were there. Taily is looking into it and will message you both.' : `${esc(first)} says she came. Taily is looking into it and will message you both.` })}</div>` : '';
 
   let actions;
   if (reason === 'tailor-cant-make-it' || reason === 'tailor-no-show') {
     actions = `${cta('Find another tailor', { attrs: 'data-act="find-another"' })}
     <div class="page-actions__links">${textLink(`Message ${esc(first)}`, { act: 'message' })}</div>`;
   } else if (reason === 'no-show') {
-    actions = `${cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' })}
-    <div class="page-actions__links">${textLink('Find another tailor', { act: 'other-tailors' })}</div>`;
+    actions = `${a.cancel.disputedAt ? cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' }) : cta('That’s not right', { variant: 'secondary', attrs: 'data-act="dispute"' })}
+    <div class="page-actions__links">${a.cancel.disputedAt ? '' : textLink(`Message ${esc(first)}`, { act: 'message' })}${textLink('Find another tailor', { act: 'other-tailors' })}</div>`;
   } else {
     actions = `${cta(`Book ${esc(first)} again`, { attrs: 'data-act="book-again"' })}
     <div class="page-actions__links">${textLink('Find another tailor', { act: 'other-tailors' })}</div>`;
   }
   return `${chrome(bookingTab())}<main class="body ${ID} ${ID}--cancelled" data-s="${ID}">
   ${head(a, { pill: false, title: cfg.title, body: esc(cfg.body), variant: 'declined' })}
-  ${visitSection(a, t, { extra: noteRow })}
+  ${review}
+  ${visitSection(a, t, { extra: [...here, ...noteRow] })}
   ${sec(`${sectionHead('Price')}${moneyRows([{ label: 'Deposit', cents: dep, status: cfg.status }])}`)}
   <div class="page-actions">
     ${actions}
@@ -161,7 +189,10 @@ function liveView(a, t, first) {
     : head(a, { pill: confirmed ? 'confirmed' : a.status, title: `Your visit with ${esc(first)}`, variant: 'confirmed' });
   /* K-41 (R3, D-296): the 24-hour reminder — a state strip leads (no pill), one rule line in dollars under the title; Confirm in the bar */
   const r = confirmed ? reminderState(a) : null;
-  const rem = r ? reminderCopy(a, r, first, deposit) : null;
+  /* pre-MVP A1: a move Amara asked for (D-12) and "Did the visit happen?" (D-11) lead the page the same way, before the reminder */
+  const rem = (confirmed && proposalOf(a)) ? proposalCopy(a, first, deposit)
+    : (confirmed && a.visitCheck) ? visitCheckCopy(a, first, deposit)
+      : r ? reminderCopy(a, r, first, deposit) : null;
 
   const away = a.job.visitType === 'home' ? 'aren’t home' : 'don’t come to the shop';   // SF-10: a shop visit is not "home"
   const started = now() >= toDate(a.slot.start).getTime();   // SF-11
@@ -183,7 +214,7 @@ function liveView(a, t, first) {
     ? `Free cancellation until ${cutoff}. After that, ${esc(first)} keeps the ${money(deposit)} deposit.`
     : `The visit is less than ${POLICY.CANCEL_WINDOW_H} hours away. If you cancel now, ${esc(first)} keeps your ${money(deposit)} deposit.`;
   /* K-29 (Study-1 A5, default 8): from NO_SHOW_WAIT_MIN after the start, while still confirmed, Sarah can report that the tailor didn't come */
-  const noShow = confirmed && now() >= toDate(a.slot.start).getTime() + POLICY.NO_SHOW_WAIT_MIN * 60000;
+  const noShow = confirmed && !a.visitCheck && now() >= toDate(a.slot.start).getTime() + POLICY.NO_SHOW_WAIT_MIN * 60000;   // D-11: once asked, the question carries it
   const links = !confirmed ? '' : `<div class="page-actions__links">${noShow ? textLink('Tailor didn’t show up?', { act: 'tailor-no-show' }) : ''}${early ? textLink('Reschedule', { act: 'reschedule' }) : ''}${started ? '' : textLink('Cancel booking', { act: 'cancel', tone: 'danger' })}</div>`;
   const late = confirmed && !early && !started ? `<p class="t-small c-600 ${ID}__late">To change the time now, message ${esc(first)}.</p>` : '';
   const actions = rem?.bar ? '' : `<div class="page-actions">
@@ -195,7 +226,7 @@ function liveView(a, t, first) {
   ${rem ? `${navBackMark()}${requestStrip({ page: true, ...rem.strip })}${head(a, { pill: false, title: `Your visit with ${esc(first)}`, variant: 'confirmed' }).replace(/^<!--nav-back-->/, '')}<p class="t-small c-600 ${ID}__rule">${rem.rule}</p>` : hero}
   ${visitSection(a, t)}
   ${sec(`${sectionHead('What happens next')}${steps}`)}
-  ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}${confirmed ? `<p class="t-small c-600 ${ID}__policy">${policy}</p>` : ''}`)}
+  ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}${confirmed && !a.visitCheck ? `<p class="t-small c-600 ${ID}__policy">${policy}</p>` : ''}`)}
   ${actions}
 </main>${rem?.bar ? actionBar(rem.bar) : ''}`;
 }
@@ -219,6 +250,15 @@ function reminderCopy(a, r, first, deposit) {
       rule: `If you cancel now or ${away}, ${esc(first)} keeps your ${money(deposit)} deposit.`,
     };
   }
+  const confirmLabel = a.job.visitType === 'home' ? 'Confirm, I’ll be home' : 'Confirm, I’ll be there';
+  if (!autoCancelArmed(a)) {
+    /* D-02 (pre-MVP A1): the reminder text never reached her (texts off, or undelivered) — nothing cancels the visit: the plain 24 h rule */
+    return {
+      strip: { tone: 'warn', icon: 'clock', text: 'You haven’t confirmed', right: day === 'today' ? `Visit ${at}` : `Visit ${day} ${at}` },
+      rule: `The visit is still on. If you cancel now or ${away}, ${esc(first)} keeps your ${money(deposit)} deposit.`,
+      bar: { ctaLabel: confirmLabel, ctaAct: 'confirm-visit', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' },
+    };
+  }
   /* missed: the free window closed with no answer — the visit stays booked until REMINDER_AUTOCANCEL_H before it (K-43, D-300); Confirm keeps it */
   const by = fmtTime(autoCancelAt(a));
   return {
@@ -228,9 +268,36 @@ function reminderCopy(a, r, first, deposit) {
   };
 }
 
+/** D-12 (pre-MVP A1): Amara asked to move the visit — Accept the new time or keep the current one. */
+function proposalCopy(a, first, deposit) {
+  const p = proposalOf(a);
+  return {
+    strip: { tone: 'action', icon: 'clock', text: `${first} asked to move your visit`, right: `to ${fmtWhen(p.start)}` },
+    rule: `Accept ${esc(fmtWhen(p.start))}, or keep ${esc(fmtWhen(a.slot.start))}. Your ${money(deposit)} deposit and the free-cancel window move with the visit.`,
+    bar: { ctaLabel: 'Accept new time', ctaAct: 'proposal-accept', secondaryLabel: 'Keep current time', secondaryAct: 'proposal-keep' },
+  };
+}
+/** D-11 (K-48.5): VISIT_CHECK_H after the start with nothing recorded — "Did your visit happen?"; once she answered yes, a done strip. */
+function visitCheckCopy(a, first, deposit) {
+  const vc = a.visitCheck;
+  if (vc.answer === 'not-happened') {   // she said no after Amara tapped I'm here: Taily reviews it (track A2)
+    return { strip: { tone: 'warn', icon: 'chat', text: 'Taily is looking into your visit' }, rule: `You told us ${esc(first)} didn’t come, and she says she was there. We’ll message you both.` };
+  }
+  if (vc.answer === 'happened') {
+    return { strip: { tone: 'done', icon: 'check', text: 'You told us the visit happened', right: fmtTime(vc.answeredAt) }, rule: `${esc(first)} sends you the final order next. We told her.` };
+  }
+  const closeAt = toDate(vc.askedAt).getTime() + POLICY.VISIT_CHECK_CANCEL_H * 3600000;
+  return {
+    strip: { tone: 'action', icon: 'clock', text: 'Did your visit happen?', right: `Visit ${dayWord(a.slot.start, now()) === 'today' ? fmtTime(a.slot.start) : fmtWhen(a.slot.start)}` },
+    rule: `Nothing was recorded for this visit. Tell us, so we can sort out your ${money(deposit)} deposit. If nobody answers by ${esc(fmtTime(closeAt))} ${esc(dayWord(closeAt, now()))}, we cancel the visit and refund you.`,
+    bar: { ctaLabel: 'Yes, it happened', ctaAct: 'visit-yes', tertiaryLabel: `No, ${first} didn’t come`, tertiaryAct: 'visit-no', tertiaryTone: 'danger' },
+  };
+}
+
 /* ---------- M4: fitting → completed (D-110) ---------- */
 
 const M4_STATES = ['fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff', 'completed'];
+const bal_state = (a) => a.payments?.balance?.state ?? '';
 const ORDER = ['confirmed', ...M4_STATES];
 const completedAt = (a) => [...a.history].reverse().find((h) => h.status === 'completed')?.at ?? a.requestedAt;
 
@@ -295,6 +362,8 @@ function handoffView(a, t, first) {
   const shopName = esc(t.shopName);
   const how = a.returnOption ?? 'pickup';
   const h = a.handoff ?? {};
+  const trip = h.trip ?? null;   // S-35: the courier's trip
+  const failedCapture = bal_state(a) === 'capture-failed';   // D-04
   const marked = !!h.markedAt;
   const problem = !!h.problemAt;
   const slot = h.slot ?? null;
@@ -308,13 +377,14 @@ function handoffView(a, t, first) {
   const sarah = `${state.customer.first} ${(state.customer.last ?? '').charAt(0)}.`.replace(/ \.$/, '');
   const message = { label: 'Message', icon: ICON_CHAT, act: 'message' };
   /* K-40: Sarah moves the time with the same Scheduler sheet (until the slot / an hour before the courier collects) */
-  const change = canMove ? [{ label: how === 'courier' ? 'Change window' : missed ? 'Pick a new time' : 'Change time', icon: ICON_CALENDAR, act: 'change-time' }] : [];
+  const change = canMove ? [{ label: how === 'courier' ? (trip?.state === 'returned' ? 'Pick a new window' : 'Change window') : missed ? 'Pick a new time' : !slot ? 'Pick a time' : 'Change time', icon: ICON_CALENDAR, act: 'change-time' }] : [];
   const movedFrom = h.moved?.from ? `You moved it from ${esc(slotText(h.moved.from))}` : '';
   const bal = a.payments.balance;
   const held = bal.cents ?? 0;
   const charged = bal.state === 'captured';
   const leave = { state: 'todo', title: 'Leave a review' };
-  const confirm = { state: 'current', title: 'Confirm you got it', sub: 'Tap I got it below' };
+  const confirm = { state: 'current', title: 'Confirm you got it', sub: 'Tap Confirm received below' };   // K-48.3
+
   const trouble = { state: 'current', title: `Sort it out with ${f}`, sub: 'In chat' };
 
   const cfg = {
@@ -322,7 +392,8 @@ function handoffView(a, t, first) {
       strip: problem ? { tone: 'warn', icon: 'chat', text: 'Problem reported · sort it out in chat' }
         : marked ? { tone: 'action', icon: 'bag', text: `${first} marked it picked up` }
           : missed ? { tone: 'warn', icon: 'clock', text: `You missed your pickup at ${fmtWhen(slot.start)} · pick a new time` }
-            : { tone: 'done', icon: 'bag', text: when ? `Pickup ${when} · show your code at the shop` : 'Ready for pickup · show your code at the shop' },
+            : !slot ? { tone: 'action', icon: 'clock', text: 'We set it to in-store pickup · pick a time' }   // D-03: ready 14 days, defaulted
+              : { tone: 'done', icon: 'bag', text: when ? `Pickup ${when} · show your code at the shop` : 'Ready for pickup · show your code at the shop' },
       tag: 'Ready', right: `at ${t.shopName}`,
       place: () => {
         const addr = `${t.shop?.street ?? ''}, ${t.shop?.city ?? 'Brooklyn'}, ${t.shop?.state ?? 'NY'} ${t.shop?.zip ?? ''}`.trim();
@@ -334,22 +405,27 @@ function handoffView(a, t, first) {
         return `${visitBlock([...time, { icon: 'bag', value: shopName, detail: [esc(addr), ...(hours ? [esc(hours)] : [])] }], { title: 'In-store pickup', flush: true })}${personActions([dir, ...(marked ? [] : change), message])}`;
       },
       steps: problem ? [trouble, leave] : marked ? [confirm, leave] : [
-        { state: 'current', title: 'Pick it up at the shop', sub: missed ? 'Pick a new time' : when ? esc(when) : hours ? esc(hours.replace(/^Open /, '').replace(/^./, (c) => c.toUpperCase())) : '' },
+        { state: 'current', title: 'Pick it up at the shop', sub: missed || !slot ? (missed ? 'Pick a new time' : 'Pick a time') : when ? esc(when) : hours ? esc(hours.replace(/^Open /, '').replace(/^./, (c) => c.toUpperCase())) : '' },
         { state: 'todo', title: `Show ${f} your code` },
         leave,
       ],
     },
     courier: {
-      strip: { tone: 'done', icon: 'truck', text: when ? `Courier booked · arrives ${when}` : 'Courier booked' },
+      /* S-35: booked → out for delivery (Amara handed it over) → delivered (completes) | returned (pick a new window) */
+      strip: trip?.state === 'returned' ? { tone: 'warn', icon: 'truck', text: trip.reason === 'no-courier' ? 'The courier didn’t come · pick a new window' : 'The courier couldn’t deliver it · pick a new window' }
+        : trip?.state === 'out' ? { tone: 'action', icon: 'truck', text: `Out for delivery · arrives ${w ? fmtTimeRange(w.from, w.to) : when}` }
+          : { tone: 'done', icon: 'truck', text: when ? `Courier booked · arrives ${when}` : 'Courier booked' },
       tag: 'Ready', right: `at ${t.shopName}`,
       place: () => `${visitBlock([
-        ...(w ? [{ icon: 'clock', value: esc(`Arrives ${when}`), strong: true, detail: [movedFrom, `The courier collects from ${f} at ${esc(fmtTime(w.collectAt))}`].filter(Boolean) }] : []),
+        ...(w && trip?.state !== 'returned' ? [{ icon: 'clock', value: esc(`Arrives ${when}`), strong: true, detail: [movedFrom, trip?.state === 'out' ? `The courier has it · collected from ${f} at ${esc(fmtTime(trip.outAt))}` : `The courier collects from ${f} at ${esc(fmtTime(w.collectAt))}`].filter(Boolean) }] : []),
         {
           icon: 'truck', cls: 'visit-row--courier', value: esc(`${t.shopName} → ${returnAddress()}`),
           detail: [`${esc(a.courier?.miles ?? 0)} mi · Uber via Taily`, 'Paid by you', esc(COURIER_LOBBY)],   // K-43 (D-298)
         },
       ], { title: 'Taily courier', flush: true })}${personActions([...change, message])}`,
-      steps: [{ state: 'current', title: 'Courier booked', sub: when ? `Arrives ${esc(when)}` : '' }, leave],
+      steps: trip?.state === 'returned' ? [{ state: 'current', title: 'Pick a new delivery window', sub: `No extra charge. It’s back with ${f}.` }, leave]
+        : trip?.state === 'out' ? [{ state: 'done', title: 'Courier booked' }, { state: 'current', title: 'Out for delivery', sub: when ? `Arrives ${esc(when)}` : '' }, leave]
+          : [{ state: 'current', title: 'Courier booked', sub: when ? `Arrives ${esc(when)}` : '' }, leave],
     },
   }[how];
 
@@ -361,7 +437,9 @@ function handoffView(a, t, first) {
     page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
     ...(held > 0 ? { payoutCents: held, label: charged ? 'Charged' : chargedWhen(how), lines: [balanceCardLabel(a)] } : { payoutCents: a.money.total, label: 'Paid in full' }),
   }));
-  const alert = problem
+  const alert = failedCapture
+    ? `<div class="${ID}__alert">${banner({ tone: 'error', title: 'Your card needs attention', text: `We couldn’t charge your card for ${money(held)}. Update it to keep your ${how === 'pickup' ? 'pickup' : 'delivery'}.`, actionLabel: 'Update card', actionAct: 'update-card' })}</div>`   // D-04
+    : problem
     ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `You reported a problem. We’ve stopped the automatic completion and told ${f}.` })}</div>`
     : charged && bal.captureReason === 'unclaimed' && !marked   // SF-15: once she marked it picked up, the countdown speaks
       ? `<div class="${ID}__alert">${banner({ tone: 'warning', text: `We charged your ${money(held)} balance after ${POLICY.UNCLAIMED_CAPTURE_D} days. ${f} still keeps it for you until you ${how === 'pickup' ? 'pick it up' : 'get it'}.` })}</div>` : '';
@@ -381,11 +459,13 @@ function handoffView(a, t, first) {
   const courierCaption = how === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {};
   const breakdown = customerBreakdown(a.money, { stage: charged ? 'charged' : 'held', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '', wayBack: how, ...courierCaption });
   const order = a.lines?.length ? orderSection(a, first) : '';
-  /* A3: once Amara marked it handed over, confirming is Sarah's move (the sticky bar: I got it · I didn't get it); before that, or while a problem is
-     open, "I got it" is a quiet outline button at the end of the page (she can still close it any time) */
-  const asks = marked && !problem;
-  const bar = asks ? actionBar({ ctaLabel: 'I got it', ctaAct: 'got-it', tertiaryLabel: 'I didn’t get it', tertiaryAct: 'not-got-it', tertiaryTone: 'danger' }) : '';
-  const quiet = asks ? '' : `<div class="page-actions">${cta('I got it', { variant: 'secondary', attrs: 'data-act="got-it"' })}<p class="t-small c-600 ${ID}__got-hint">Have it already? Tap I got it to close the order.</p></div>`;
+  /* A3 + D-09 (K-48.3): "Confirm received" shows only once Amara marked it handed over, or the pickup time has started — the sticky bar
+     (Confirm received · I didn't get it, the second only once she marked it); before that the pickup code is the only action. While a
+     problem is open it is a quiet outline button at the end of the page. A courier order completes on delivery. */
+  const open = confirmReceivedOpen(a);
+  const asks = open && !problem;
+  const bar = asks ? actionBar({ ctaLabel: 'Confirm received', ctaAct: 'got-it', ...(marked ? { tertiaryLabel: 'I didn’t get it', tertiaryAct: 'not-got-it', tertiaryTone: 'danger' } : {}) }) : '';
+  const quiet = open && problem ? `<div class="page-actions">${cta('Confirm received', { variant: 'secondary', attrs: 'data-act="got-it"' })}<p class="t-small c-600 ${ID}__got-hint">Have it now? Tap Confirm received to close the order.</p></div>` : '';
   return `${chrome(bookingTab())}<main class="body${asks ? ' body--with-bar' : ''} ${ID} ${ID}--handoff ${ID}--handoff-${how}" data-s="${ID}">
   ${navBackMark()}${strip}${head}
   ${alert}
@@ -418,7 +498,11 @@ function m4View(a, t, first) {
     'price-change': { title: 'Review your final order', body: 'Approve the final order before any work starts.' },
     'in-progress': { title: `${f} is working on it`, body: 'You approved the order. You’ll pay the balance when it’s ready.' },
     ready: { title: `${f} finished your order`, body: `Pay the ${fmtExact(a.money.balance)} balance to choose how to get it back.` },
-    completed: { title: `All done with ${f}`, body: `Completed ${fmtDay(completedAt(a))}. Fitted ${fmtDay(a.slot.start)} · ${VISIT_LABEL.customer[a.job.visitType].toLowerCase()}.` },
+    completed: a.handoff?.completedBy === 'abandoned'   // D-03: not collected 30 days after the charge
+      ? { title: 'Order closed', body: `We closed it ${POLICY.ABANDONED_CLOSE_D} days after the charge because it wasn’t collected. Message ${f} if you still want it.` }
+      : bal_state(a) === 'capture-failed'               // D-04: the charge at the handoff failed
+        ? { title: 'Your card needs attention', body: `You have your order, but we couldn’t charge ${fmtExact(a.payments.balance.cents)}. Update your card to finish.` }
+        : { title: `All done with ${f}`, body: `Completed ${fmtDay(completedAt(a))}. Fitted ${fmtDay(a.slot.start)} · ${VISIT_LABEL.customer[a.job.visitType].toLowerCase()}.` },
   }[a.status];
   const hero = head(a, { pill: false, title: cfg.title, body: cfg.body, variant: a.status === 'completed' ? 'confirmed' : 'tailoring' });
 
@@ -434,7 +518,7 @@ function m4View(a, t, first) {
   /* D-169 + K-17 R5: from the visit on, the past visit time is demoted — the timeline's done step says "Fitted …" (completed: the subtitle) */
   const postFit = ['in-progress', 'ready', 'awaiting-handoff', 'completed'].includes(a.status);
   if (early && !postFit) middle = visitSection(a, t);
-  if (a.status === 'completed') {
+  if (a.status === 'completed' && (a.review || (t.reviews ?? []).some((x) => x.id === `r-${a.id}`))) {   // pre-MVP A1: a closed / unpaid order may have none
     const r = (t.reviews ?? []).find((x) => x.id === `r-${a.id}`);
     const mine = r ? reviewRow({ name: r.name, initials: r.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos, photoType: r.photoType ?? a.job.garments[0]?.type ?? '' })
       : a.review ? reviewRow({ name: `${state.customer.first} ${state.customer.last[0]}.`, initials: state.customer.initials, stars: a.review.stars, date: a.review.date, text: a.review.text, photos: a.review.photos, photoType: a.job.garments[0]?.type ?? '' }) : '';
@@ -443,7 +527,10 @@ function m4View(a, t, first) {
   const steps = a.status === 'completed' ? '' : sec(`${sectionHead('What happens next')}${m4Timeline(a, first)}`);
   /* D-218: a completed booking's Receipt carries the order (with its photo stacks), so "Your order" is not shown twice */
   const order = ['in-progress', 'ready', 'awaiting-handoff'].includes(a.status) && a.lines?.length ? orderSection(a, first) : '';
-  const actions = a.status === 'completed'
+  const actions = a.status === 'completed' && bal_state(a) === 'capture-failed'
+    ? `${cta('Update card', { attrs: 'data-act="update-card"' })}
+    <div class="page-actions__links">${textLink(`Message ${f}`, { act: 'message' })}</div>`
+    : a.status === 'completed'
     ? `${cta(`Book ${f} again`, { attrs: 'data-act="book-again"' })}
     <div class="page-actions__links">${textLink(`Message ${f}`, { act: 'message' })}</div>`
     : early && !postFit ? '' : cta(`Message ${f}`, { attrs: 'data-act="message"' });   // K-12 (D-237): the person block above already carries Message
@@ -604,15 +691,17 @@ function openChangeTime(a, first) {
 }
 
 /* ---------- Study-1 A3 / A5 sheets ---------- */
-/** "I got it" (A3): any way back; completes the order right away and charges what is on hold. */
+/** "Confirm received" (A3, K-48.3 — was "I got it"): any way back, once confirmReceivedOpen (D-09); completes the order right away and charges
+    what is on hold. Offline (S-12): the error stays in the sheet, nothing is charged. */
 function openGotIt(a, first) {
   const held = a.payments.balance.state === 'held' ? a.payments.balance.cents : 0;
-  const html = (busy = false) => `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
+  const html = (busy = false, error = '') => `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   <p class="t-body c-700">${held > 0 ? `We’ll charge your ${money(held)} balance and close the order.` : 'We’ll close the order.'}</p>
-  ${cta('Yes, I got it', { busy, busyLabel: 'Closing…', attrs: 'data-act="got-ok"' })}
+  ${error ? banner({ tone: 'error', text: error }) : ''}
+  ${cta('Yes, I have it', { busy, busyLabel: 'Closing…', attrs: 'data-act="got-ok"' })}
   ${cta('Not yet', { variant: 'secondary', disabled: busy, attrs: 'data-act="got-keep"' })}
 </div>`;
-  sheetOverlay(html(), { header: 'Got everything?', dataS: `${ID}--got-it`, confirm: false }, (holder, close) => {
+  sheetOverlay(html(), { header: 'Confirm you received it?', dataS: `${ID}--got-it`, confirm: false }, (holder, close) => {
     let busy = false;
     holder.addEventListener('click', (e) => {
       const act = e.target.closest('[data-act]')?.dataset.act;
@@ -624,6 +713,7 @@ function openGotIt(a, first) {
           if (gone(holder)) return;
           const res = T.confirmReceived(a.id);
           busy = false;
+          if (!res.ok && res.error === 'offline') { holder.querySelector(`.${ID}-sheet`).outerHTML = html(false, 'You’re offline. Nothing was charged. Try again when you’re back.'); return; }
           close({ instant: true });
           if (!res.ok) { go(ID); toast('Couldn’t save this. Try again.', { tone: 'error' }); return; }
           setFocus(a.id);
@@ -664,8 +754,77 @@ function openNotReceived(a, first) {
   });
 }
 
+/** D-04 (pre-MVP A1): the charge failed — pay with a card (the one that failed, or another / a new one in Payment methods). */
+function openUpdateCard(a, first) {
+  const amt = a.payments.balance.cents;
+  const cards = state.customer.cards ?? [];
+  let cardId = cards.find((c) => c.id !== a.balanceCardId)?.id ?? cards[0]?.id ?? null;
+  const rows = () => cards.map((c) => optionRow({ name: 'pay-card', value: c.id, title: esc(`${c.brand} •••• ${c.last4}`), sub: c.id === a.balanceCardId ? 'Declined' : c.default ? 'Default' : '', checked: c.id === cardId, act: 'card' })).join('');
+  const html = (busy = false, error = '') => `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
+  <p class="t-body c-700">We couldn’t charge your card for ${money(amt)}. Pick a card to pay with.</p>
+  <div role="radiogroup" aria-label="Pay with">${rows()}</div>
+  <div class="page-actions__links">${textLink('Add a card', { act: 'add-card' })}</div>
+  ${error ? banner({ tone: 'error', text: error }) : ''}
+  ${cta(`Pay ${fmtExact(amt)}`, { busy, busyLabel: 'Paying…', attrs: 'data-act="uc-ok"' })}
+  ${cta('Not now', { variant: 'secondary', disabled: busy, attrs: 'data-act="uc-keep"' })}
+</div>`;
+  sheetOverlay(html(), { header: 'Update your card', dataS: `${ID}--update-card`, confirm: false }, (holder, close) => {
+    let busy = false;
+    const paint = (error = '') => { holder.querySelector(`.${ID}-sheet`).outerHTML = html(busy, error); };
+    holder.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-act]');
+      if (busy || !el) return;
+      const act = el.dataset.act;
+      if (act === 'uc-keep') close();
+      else if (act === 'add-card') { close({ instant: true }); go('c-cards'); }
+      else if (act === 'card') { cardId = el.dataset.value; paint(); }
+      else if (act === 'uc-ok') {
+        busy = true; paint();
+        withLatency(() => {
+          if (gone(holder)) return;
+          const res = T.retryCapture(a.id, cardId);
+          busy = false;
+          if (!res.ok) { paint(res.error === 'offline' ? 'You’re offline. Nothing was charged. Try again when you’re back.' : 'Your card was declined. Nothing was charged. Try another card.'); return; }
+          close({ instant: true });
+          setFocus(a.id);
+          go(statusScreen(res.appt, 'customer'), { replace: true });
+          toast(`Paid ${fmtExact(amt)}. ${first} has been told.`, { tone: 'success' });
+        });
+      }
+    });
+  });
+}
+
+/** D-14 (pre-MVP A1): "That's not right" on a no-show Amara marked — Taily looks into it (the review UI is track A2's). */
+function openDispute(a, first) {
+  const html = (busy = false) => `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
+  <p class="t-body c-700">Tell Taily you were there. We look into it with ${esc(first)} and message you both. ${esc(first)}’s no-show pay waits until then.</p>
+  ${cta('Tell Taily', { busy, busyLabel: 'Sending…', attrs: 'data-act="dp-ok"' })}
+  ${cta('Cancel', { variant: 'secondary', disabled: busy, attrs: 'data-act="dp-keep"' })}
+</div>`;
+  sheetOverlay(html(), { header: 'Were you there?', dataS: `${ID}--dispute`, confirm: false }, (holder, close) => {
+    let busy = false;
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (busy) return;
+      if (act === 'dp-keep') close();
+      else if (act === 'dp-ok') {
+        busy = true; holder.querySelector(`.${ID}-sheet`).outerHTML = html(true);
+        withLatency(() => {
+          if (gone(holder)) return;
+          const res = T.disputeNoShow(a.id, 'customer');
+          close({ instant: true });
+          go(ID);
+          if (res.ok) toast('Sent. Taily is looking into it.', { tone: 'success' });
+          else toast('Couldn’t send this. Try again.', { tone: 'error' });
+        });
+      }
+    });
+  });
+}
+
 /** "Tailor didn't show up?" (A5): cancels the visit and refunds the deposit in full; the order stays saved. */
-function openTailorNoShow(a, first) {
+function openTailorNoShow(a, first, { check = false } = {}) {   // check: D-11's "No, she didn't come" (answerVisitCheck)
   const deposit = a.payments.deposit.cents;
   const html = (busy = false, error = '') => `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
   <p class="t-body c-700">We’ll cancel the visit and refund your ${money(deposit)} deposit in full. Your order stays saved so you can rebook.</p>
@@ -683,7 +842,8 @@ function openTailorNoShow(a, first) {
         busy = true; holder.querySelector(`.${ID}-sheet`).outerHTML = html(true);
         withLatency(() => {
           if (gone(holder)) return;
-          const res = T.reportTailorNoShow(a.id);
+          const res = check ? T.answerVisitCheck(a.id, 'not-happened') : T.reportTailorNoShow(a.id);
+          if (res.ok && res.appt.status === 'confirmed') { close({ instant: true }); go(ID); toast('Sent. Taily is looking into it.'); return; }   // she said I'm here: review
           busy = false;
           if (!res.ok) { holder.querySelector(`.${ID}-sheet`).outerHTML = html(false, `${esc(first)} already updated this visit. Close this and check it.`); return; }
           close({ instant: true });
@@ -743,6 +903,33 @@ function wire(root) {
       case 'got-it': if (a) openGotIt(a, firstOf(t)); break;
       case 'not-got-it': if (a) openNotReceived(a, firstOf(t)); break;
       case 'tailor-no-show': if (a) openTailorNoShow(a, firstOf(t)); break;
+      /* pre-MVP A1 */
+      case 'call': openCallSheet({ first: firstOf(t), onMessage: () => go('c-thread') }); break;   // S-32
+      case 'on-my-way': case 'im-here': {
+        if (!a) break;
+        const res = T.visitPing(a.id, 'customer', act === 'im-here' ? 'here' : 'on-my-way');
+        go(ID);
+        if (res.ok) toast(act === 'im-here' ? `${firstOf(t)} knows you’re here.` : `${firstOf(t)} knows you’re on your way.`, { tone: 'success' });
+        break;
+      }
+      case 'proposal-accept': case 'proposal-keep': {   // D-12
+        if (!a) break;
+        const res = T.answerProposal(a.id, act === 'proposal-accept');
+        go(ID);
+        if (res.ok) toast(act === 'proposal-accept' ? `Moved to ${fmtWhen(res.appt.slot.start)}. ${firstOf(t)} has been told.` : `You kept ${fmtWhen(res.appt.slot.start)}. ${firstOf(t)} has been told.`, { tone: 'success' });
+        else toast('That time was just taken. Your visit stays as it is.', { tone: 'error' });
+        break;
+      }
+      case 'visit-yes': {   // D-11
+        if (!a) break;
+        const res = T.answerVisitCheck(a.id, 'happened');
+        go(ID);
+        if (res.ok) toast(`Thanks. ${firstOf(t)} sends you the final order next.`, { tone: 'success' });
+        break;
+      }
+      case 'visit-no': if (a) openTailorNoShow(a, firstOf(t), { check: true }); break;
+      case 'dispute': if (a) openDispute(a, firstOf(t)); break;      // D-14
+      case 'update-card': if (a) openUpdateCard(a, firstOf(t)); break;   // D-04
       case 'other-tailors': go('c-tailors'); break;
       case 'find-another': go('c-tailors', { fresh: true }); break;
       case 'bookings': go('c-bookings', { fresh: true }); break;

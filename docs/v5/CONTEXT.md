@@ -14,6 +14,7 @@ Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.m
 | `js/sim.js` | `withLatency(done) → cancel()` — every simulated network wait: `state.sim.latency` instant → sync, normal → `LATENCY_MS` 700, hold → never (D-35). Set the busy flag first | component builder |
 | `js/account.js` | DOM-free sign-in model (D-33): `phoneDigits formatPhone validatePhone signOut sendCode codeStatus resendCode verifyCode saveName signInWith addCard useOtherMethod` | component builder |
 | `js/money.js` | money fns, integer cents in/out, `fmt / fmtExact / fmtNeg / fmtColumn` | model |
+| `js/texts.js` | pre-MVP A1: the TEXT CATALOGUE — `TEXTS[event] = { to, land, trigger, body(ctx), owner? }`, `TEXT_EVENTS`, `textCtx({ a, t, cust, now, x })`; DOM- and state-free; `docs/v5/TEXTS.md` is generated from it (`node scripts/v5/texts-doc.mjs`) | model |
 | `js/dates.js` | ISO date helpers + formatters | model |
 | `js/data.js` | catalog (`GARMENT_TYPES`, `GARMENT_ICONS`, `SERVICES`), seed (`TAILORS` = Amara, `CUSTOMER` = Sarah, `SEED_JOB`, `BLANK_TAILOR`), `DEMO_NOW`, `ZIP_INFO`, labels | model |
 | `js/state.js` | `state`, transitions, selectors, `statusScreen` (DOM-free) | model |
@@ -113,7 +114,7 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   `openSlots(tailorId, visitType, { until, exclude }) → ISO start strings` (D-28; wall-clock, DST-safe), `nextOpening(...same)`,
   `estimateNext(tailor, job)`, `tailorsFor(job) → { rows: [{ tailor, quote, distanceMi, nextOpening, declined }], empty:
   null|'zip'|'shop'|'nothing-open'|'none-left' }`, `statusScreen(appt, persona)`. Other exports: `state`, `T`, `reset()`, `SECTIONS`.
-  Sim knobs: `state.sim.{ latency, card, courier, network, push, send, session }`.
+  Sim knobs: `state.sim.{ latency, card, courier, network, texts, send, session, payout, server, sms, capture }` (A1: `sms` 'ok'|'undelivered', `capture` 'ok'|'declined' one-shot).
 - tailor-data.js: `MY_TAILOR_ID`, `myTailor()`, `currentCustomer()`, `inbox() → { requests, upcoming }` (appts), `jobAddress(appt)`
   (neighborhood + zip before the accept and again once cancelled, D-88), `customerName(appt)` ("Sarah C." until accepted, then "Sarah Chen", D-74)
   `customerInitials()`, `suggestSlots(appt, { limit }) → ISO[]` (D-77: open slots before the need-by, none overlapping the requested visit; seed first = `SUGGESTED_SLOT`)
@@ -126,6 +127,45 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   home fee $35, rush $40 / $25 / $15 for ≤1 / 2 / 3 days). Sarah Chen, 145 N 7th St 2R, 11211. Demo clock Tue Oct 13
   10:00 AM. Seed job: Suit Pant hem $25 + Suit Jacket sleeves $45 + sides $55 → services $125.00, home fee $35.00,
   total $160.00, deposit $16.00, balance $144.00, Taily fee −$12.50, payout $147.50.
+
+## Pre-MVP A1 (K-48): texts, waiting states, card window, visit day, courier (D-310 … D-318)
+
+- **Texts (D-02, DG-2 A, K-48.4 no quiet hours).** EVERY notification is a text: `notify(appt, event, { at, x })` (state.js; also on `T`) renders
+  `TEXTS[event]` into `state.outbox` → `{ id, seq, event, to: 'customer'|'tailor', apptId, key, body, link, at, land, status: 'delivered'|'off'|'undelivered' }`.
+  Owners: A1 fires its rows from the transitions / tick(); **A2 fires `taily-replied`, `case-decided`, `taily-replied-t`; B1 fires `verified`,
+  `insurance-expiring`** (add a row to js/texts.js for any new event, then `node scripts/v5/texts-doc.mjs`). Selectors `textsFor(who)`,
+  `textsOn(who)`; prefs `state.texts = { customer, tailor }` (`on`, `stoppedAt`, `changedAt`); transitions `setTexts(who, on)` (on → a
+  confirmation text), `textReply(who, 'STOP'|'START'|'HELP')`; `A.saveName({ first, last, texts })` (the unticked opt-in on c-name).
+  Display (system.js): `showNewText(sinceSeq, { go })` after a Demo action, live while `sim.texts === 'on'`; `drawText(entry)`, `newestText(who, since)`,
+  `outboxMark()`. The K-43 auto-cancel only after a delivered reminder: `reminder.texted`, `autoCancelArmed(a)`.
+- **Taily reviews + the admin (contract for A2).** `a.review` is the customer's STAR review, so a case lives on **`a.tailyReview = { reason, openedAt,
+  by, note, closedAt, outcome? }`**; read it through **`openReviews()`** → `[{ apptId, appt, reason, openedAt, by, note }]` (oldest first) and
+  `tailyReviewOf(a)`. Reasons: `final-order-unanswered` `problem-open` `visit-unanswered` `visit-disputed` `no-show-disputed` `tailor-no-show-disputed`
+  `delivery-missing` `ready-no-way-back`. Every case (and K-48.5's 4-hour visit check) pushes **`state.admin.notifications`** `{ id, kind: 'review', apptId,
+  text, at, read: false }`. A2 resolves: set `closedAt` / `outcome` (A1 closes final-order-unanswered on approve, visit-unanswered on Start fitting or the
+  24 h cancel). A disputed no-show pay is `payout.held` (skipped by settlePayouts) until A2 releases it.
+- **Notices (DG-2 A).** `noticesFor(persona)` (cancellations ≤ NOTICE_WINDOW_H before the visit, by the other side or Taily, unseen, until the visit
+  time), `dismissNotice(id, persona)` (`a.noticeSeen`); `reminderCard({ …, dismissAct, notice })` = the 44 px ✕ variant. `dismissReviewReminder(id)` (P-04).
+- **Waiting states (D-03).** tick(): price-change texts 24 / 72 h then review at FINAL_ORDER_REVIEW_D; edit texts 24 / 72 h + `withdrawJobEdit(id)`;
+  ready texts 24 / 72 h, at READY_DEFAULT_D `defaultReturn` (pickup, held, `handoff.slot` null, `defaultedAt`); the day-6 capture pays the tailor;
+  ABANDONED_CLOSE_D after it → `completedBy: 'abandoned'`; a problem open PROBLEM_REVIEW_H → review. `overdue(a)`.
+- **Card window (D-04).** UNCLAIMED_CAPTURE_D 6, HANDOFF_PICK_DAYS 5; `unclaimedAt` never moves; `balance.state 'capture-failed'` (`sim.capture =
+  'declined'`, one-shot) → `retryCapture(id, cardId)`; a dearer courier window fails `card-declined` with a declining card.
+- **Confirm received (D-09 / K-48.3).** `confirmReceivedOpen(a)`; `confirmReceived` fails `too-early` before it.
+- **Visit day.** `visitToolsOpen(a)`, `visitPing(id, who, 'on-my-way'|'here')`, `a.visitDay = { tailor: { onWayAt, hereAt }, customer: {…}, startTextAt,
+  fittingTextAt }`; `markNoShow` fails `not-here` without the tailor's here (D-14); `disputeNoShow(id, who)`; D-11 `a.visitCheck = { askedAt, answer,
+  answeredAt, adminAt }`, `visitCheckOpen(a, who)`, `answerVisitCheck(id, 'happened'|'not-happened')`, cancel reason `no-record`; D-12 `moveSlots(a)`,
+  `proposeNewTime(id, start)`, `proposalOf(a)`, `answerProposal(id, accept)` (`a.proposal = { start, at, state, from }`); D-13 TRAVEL_BUFFER_MIN in openSlots.
+- **Courier trip (S-35).** `handoff.trip = { state: 'booked'|'out'|'delivered'|'returned', outAt, failedAt, reason }`: `courierCollected(id)` (tailor),
+  `courierDelivered(id, { to: 'door'|'lobby' })` (→ `handoff.delivery = { at, to, proof }`), `courierFailed(id, 'no-access'|'no-courier')`,
+  `deliveryReportOpen(a)` / `reportMissingDelivery(id)`.
+- **Offline (S-12).** money / accept transitions fail `offline` (requestBooking, tryAgain, tailorAccept, acceptSuggestion, holdBalance, confirmPickup,
+  confirmReceived, retryCapture, courierCollected, a held setHandoffSlot).
+- **POLICY (A1).** WAIT_REMIND_1_H 24 · WAIT_REMIND_2_H 72 · FINAL_ORDER_REVIEW_D 7 · READY_DEFAULT_D 14 · ABANDONED_CLOSE_D 30 · PROBLEM_REVIEW_H 72 ·
+  VISIT_CHECK_H 2 · VISIT_CHECK_ADMIN_H 4 (after asking) · VISIT_CHECK_CANCEL_H 24 (after asking) · TRAVEL_BUFFER_MIN 30 · START_REMIND_MIN 60 ·
+  CHAT_TEXT_GAP_MIN 15 · PICKUP_REMIND_H 2 · NOTICE_WINDOW_H 48 · VISIT_TOOLS_H 3 · COURIER_REPORT_H 24 (+ UNCLAIMED_CAPTURE_D 6, HANDOFF_PICK_DAYS 5).
+- **Screens.** `c-texts`, `t-texts` (A1's), `sys-texts` (the catalogue board); A2 owns `c-help`, `t-help`, `c-case`, `t-case`, `a-inbox`, `a-case`.
+  Demo actions add "Courier can’t deliver" and "Reply STOP". Fixtures: `js/fixtures/s2a.js` (milestone `A1` in inventory.js); journeys J22–J24.
 
 ## Sign-in + sim (M1; `js/account.js`, `js/sim.js` — import as `import * as A from '../account.js'`)
 

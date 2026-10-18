@@ -4,7 +4,7 @@
    Profile is read-only in the prototype (D-133). Spec: M5-spec.md §C3.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { apptsFor } from '../state.js';
+import { apptsFor, textsOn } from '../state.js';
 import { chrome, headingRow, avatar, listRow, cta, textLink, modalOverlay, esc } from '../components.js';
 import * as A from '../account.js';
 
@@ -46,6 +46,7 @@ function view(s) {
     ${listRow({ title: 'Saved addresses', sub: addrSub, act: 'addresses' })}
     ${listRow({ title: 'Payment methods', sub: cardSub, act: 'cards' })}
     ${listRow({ title: 'Past orders', sub: orderSub, act: 'orders' })}
+    ${listRow({ title: 'Texts', sub: textsOn('customer') ? 'Booking updates on' : 'Booking updates off', act: 'texts' })}
   </nav>
   <div class="page-actions ${ID}__out"><div class="page-actions__links">${textLink('Sign out', { act: 'sign-out', tone: 'danger' })}</div></div>
   <p class="t-micro c-600 ${ID}__version">Taily prototype · v5</p>
@@ -82,6 +83,7 @@ function wire(root) {
       case 'addresses': go('c-addresses'); break;
       case 'cards': go('c-cards'); break;
       case 'orders': go('c-orders'); break;
+      case 'texts': go('c-texts'); break;   // pre-MVP A1 (D-02)
       case 'sign-out': openSignOut(); break;
       default: break;
     }

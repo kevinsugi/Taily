@@ -32,6 +32,8 @@ const SCREEN_MODULES = [
   't-adjust', 'c-price-change', 'c-ready', 'c-complete', 'c-review',
   /* M5 · Messaging, accounts, earnings, system */
   'c-messages', 'c-account', 'c-addresses', 'c-cards', 'c-orders', 't-earnings', 't-payout', 't-messages',
+  /* pre-MVP A1 · texts (D-02, DG-2) */
+  'c-texts', 't-texts', 'sys-texts',
 ];
 
 /** Every screen id the router can load. A screen not yet imported is "known": render() loads it first. */

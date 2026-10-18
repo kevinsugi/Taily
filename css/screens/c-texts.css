@@ -1,0 +1,6 @@
+/* c-texts — Texts (pre-MVP A1, D-02) */
+.c-texts__lead { margin-top: var(--space-8); }
+.c-texts__stop { margin-top: var(--rhythm-block); }
+.c-texts__card { margin-top: var(--rhythm-block); padding: var(--space-4) var(--space-16); }
+.c-texts__off { margin-top: var(--space-12); }
+.c-texts__fine { margin-top: var(--rhythm-group); }

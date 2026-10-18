@@ -57,4 +57,6 @@
 @media (max-width: 300px) { .job-item__photos { flex-wrap: wrap; } .job-item__caption { flex-basis: auto; min-width: auto; } }   /* K9-2-02 zoom tier (D-233): "Photo (optional)" drops under the tiles instead of running past the card */
 /* Study-1 A4: the review reminder leads Home; a "Book again" draft names its tailor above the title */
 .c-job__reminder { margin-bottom: var(--rhythm-block); }
+/* DG-2 A (pre-MVP A1): one-time cancellation notices lead Home */
+.c-job__notices { display: flex; flex-direction: column; gap: var(--space-12); margin-bottom: var(--rhythm-block); }
 .job__again { margin: 0 0 var(--space-4); }

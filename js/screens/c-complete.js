@@ -7,13 +7,14 @@
    Leave a review · Book Amara again · Message; 7 days on with no review, the reminder card (reviewReminderDue).
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorById, priceChangeView } from '../state.js';
+import { state, T, tailorById, priceChangeView, deliveryReportOpen } from '../state.js';
 import {
   chrome, navBackMark, receiptBlock, balanceCardLabel, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, verifiedCheck, returnedItems, linenStage, tagRail,
+  visitBlock, textLink, toast,
 } from '../components.js';
 import { CHEVRON_RIGHT, VISIT_ICONS } from '../icons.js';
 import { fmtExact } from '../money.js';
-import { fmtDay } from '../dates.js';
+import { fmtDay, fmtTime } from '../dates.js';
 import { focusAppt, setFocus, bookingTab } from '../focus.js';
 
 const ID = 'c-complete';
@@ -32,6 +33,18 @@ function receiptLine(a) {
   return `Paid ${fmtExact(a.money.total)} · ${card}`;   // SF-25: what she paid in all (the breakdown below splits deposit and balance)
 }
 
+
+/** S-35 (pre-MVP A1): a courier delivery says where it was left (door / K-43's lobby) with the courier's photo as proof, and for
+    COURIER_REPORT_H "Didn't get it?" goes to Taily (track A2 resolves it). */
+function delivered(a) {
+  const d = a.handoff?.delivery;
+  if (a.handoff?.completedBy !== 'courier' || !d) return '';
+  const where = d.to === 'lobby' ? 'Left in your building’s lobby' : 'Left at your door';
+  const report = a.handoff.missingAt
+    ? `<p class="t-small c-600 ${ID}__missing" data-missing>You told us it didn’t reach you. Taily is looking into it and will message you.</p>`
+    : deliveryReportOpen(a) ? `<div class="${ID}__missing">${textLink('Didn’t get it? Tell us', { act: 'missing-delivery' })}</div>` : '';
+  return `<section class="sec ${ID}__delivered" aria-label="Delivery">${visitBlock([{ icon: 'truck', value: esc(`${where} · ${fmtTime(d.at)}`), detail: 'The courier took a photo when it was dropped off' }], { title: '', flush: true })}${report}</section>`;
+}
 
 function view() {
   const a = focusAppt(ID);
@@ -61,6 +74,7 @@ function view() {
     ${rating}
     <p class="t-small c-600 ${ID}__hint">Tap a star to rate. Reviews show on ${esc(first)}’s profile as ${esc(customerShort())}${customerShort().endsWith('.') ? '' : '.'}</p>
   </section>
+  ${delivered(a)}
   <section class="sec ${ID}__receipt">
     <button type="button" class="${ID}__row" data-act="receipt" aria-expanded="false" aria-controls="receipt-body">
       <span class="${ID}__rowicon" aria-hidden="true">${VISIT_ICONS.bag}</span>
@@ -115,6 +129,12 @@ function wire(root) {
     else if (act === 'leave-review' && a) { setFocus(a.id, { keepFrom: true }); state.ui['c-review'] = { apptId: a.id }; go('c-review'); }
     else if (act === 'book-again' && a) { T.bookAgain(a.id); state.ui.booking = { tailorId: a.tailorId, again: true }; go('c-job', { fresh: true }); }   // Study-1 A4 (default 9)
     else if (act === 'done') go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings', { fresh: true });
+    else if (act === 'missing-delivery' && a) {   // S-35
+      const r = T.reportMissingDelivery(a.id);
+      go(ID);
+      if (r.ok) toast('Thanks. Taily is looking into it and will message you.', { tone: 'success' });
+      else toast('Couldn’t send this. Try again.', { tone: 'error' });
+    }
   });
 }
 

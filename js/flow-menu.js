@@ -13,13 +13,12 @@
    presses screen buttons, so the screens must be registered first).
    ============================================================ */
 
-import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, reminderAt, reminderEligible, freeUntil, autoCancelAt, textLink } from './state.js';
+import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, reminderAt, reminderEligible } from './state.js';
 import { ALL_FLOWS, findFlow, prepareFlow, personaForScreen } from './flows.js';
 import { setFocus } from './focus.js';
 import { toast } from './components.js';
-import { fmtWhen, fmtTime, dayWord } from './dates.js';
-import { fmtExact } from './money.js';
-import { textBanner } from './system.js';
+import { fmtWhen } from './dates.js';
+import { showNewText, outboxMark } from './system.js';
 import { STUDY_TITLE, STUDY_SCRIPT } from './study.js';
 
 let render = null;
@@ -165,7 +164,8 @@ function panelHtml() {
 const isOpen = () => !$('#flow-menu')?.hidden;
 
 /* ---------- Demo actions (Study-1 §3): act on the live state, no reset ---------- */
-const DEMO = [['courier', 'Courier delivers'], ['reminder', 'To the reminder'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days']];   // K-41: the clock to the 24-hour reminder
+/* K-41: the clock to the 24-hour reminder; pre-MVP A1 (S-35, D-02): the courier can fail, and a STOP reply turns texts off */
+const DEMO = [['courier', 'Courier delivers'], ['courier-fail', 'Courier can’t deliver'], ['reminder', 'To the reminder'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days'], ['stop', 'Reply STOP']];
 const DEMO_MIN = { h1: 60, h48: 48 * 60, d7: 7 * 24 * 60 };
 /** The appointment the demo acts on: the one on screen (focused), else the customer's active one, else the newest. */
 const demoAppt = () => (state.ui.apptId ? getAppt(state.ui.apptId) : null) ?? activeAppt() ?? state.appts[state.appts.length - 1] ?? null;
@@ -173,10 +173,16 @@ const demoAppt = () => (state.ui.apptId ? getAppt(state.ui.apptId) : null) ?? ac
 function runDemo(kind) {
   const a = demoAppt();
   let msg;
-  const before = a?.reminder ? { ...a.reminder, status: a.status } : null;
+  const mark = outboxMark();
   if (kind === 'courier') {
     const r = a ? T.courierDelivered(a.id) : { ok: false };
     msg = r.ok ? 'The courier delivered it.' : 'No courier delivery to complete.';
+  } else if (kind === 'courier-fail') {
+    const r = a ? T.courierFailed(a.id) : { ok: false };
+    msg = r.ok ? 'The courier couldn’t deliver it. It goes back to the tailor.' : 'No courier delivery to fail.';
+  } else if (kind === 'stop') {
+    T.textReply(state.persona, 'STOP');
+    msg = `${state.persona === 'tailor' ? 'The tailor' : 'The customer'} replied STOP. Texts are off.`;
   } else if (kind === 'reminder') {
     /* K-41: straight to the moment the 24-hour reminder goes out (26 h before the visit) */
     if (a && reminderEligible(a) && !a.reminder?.sentAt && now() < reminderAt(a)) {
@@ -192,30 +198,7 @@ function runDemo(kind) {
   const id = document.getElementById('screen')?.dataset.screen;
   if (id) render(id, { replace: true });
   toast(msg);
-  if (a && state.persona === 'customer') remindText(a, before);
-}
-
-/** K-41 (R3) + K-43 (D-301): the reminder, its one nudge, or the auto-cancel happened during a Demo action → the customer's text message
-    (an SMS with its unique link; tapping it routes in, as the push did). The reminder opens Home (Confirm is one tap there); the nudge and
-    the cancel open the booking. */
-function remindText(a, before) {
-  const r = a.reminder;
-  if (!r) return;
-  const t = state.tailors.find((x) => x.id === a.tailorId);
-  const first = (t?.name || 'Your tailor').split(' ')[0];
-  const day = dayWord(a.slot.start, now());
-  const at = fmtTime(a.slot.start);
-  const dep = fmtExact(a.payments.deposit.cents);
-  const place = a.job.visitType === 'home' ? 'at your place' : `at ${t?.shopName ?? 'the shop'}`;
-  const text = (event, body, screen) => textBanner({ body, link: textLink(a.id, event), onOpen: () => { setFocus(a.id); render(screen); } });
-  if (a.status === 'cancelled' && a.cancel?.reason === 'unconfirmed' && before?.status === 'confirmed') {
-    text('auto-cancel', `We cancelled your ${at} visit with ${first} because you didn’t confirm by ${fmtTime(a.cancel.at)}. ${first} keeps your ${dep} deposit.`, 'c-booking');
-  } else if (r.sentAt && !before?.sentAt && !r.confirmedAt && now() < freeUntil(a)) {
-    text('reminder', `Still on for ${day}? ${first} · ${fmtWhen(a.slot.start)} ${place}. Free to change until ${fmtTime(freeUntil(a))} ${dayWord(freeUntil(a), now())}. Confirm or change:`, 'c-job');
-  } else if (r.nudgedAt && !before?.nudgedAt && !r.confirmedAt && a.status === 'confirmed') {
-    const by = autoCancelAt(a);
-    text('nudge', `You haven’t confirmed your ${at} visit with ${first} ${day}. Confirm by ${fmtTime(by)} or we’ll cancel it, and ${first} keeps your ${dep} deposit.`, 'c-booking');
-  }
+  showNewText(mark, { go: render });   // pre-MVP A1: whatever the action texted the person on screen (the newest one)
 }
 
 function paintTab(which) {

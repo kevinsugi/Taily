@@ -6,7 +6,7 @@
    Screen-local flags: state.ui['c-pay'] { busy, error, info, focus }.
    ============================================================ */
 import { register, render as go, back } from '../app.js';
-import { state, T, tailorById, openSlots, now, priceChangeView } from '../state.js';
+import { state, T, tailorById, openSlots, now, priceChangeView, textsOn } from '../state.js';
 import {
   flowBar, headingRow, visitBlock, customerBreakdown, infoCard, metaRow, methodRow, actionBar, banner,
   emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, sectionHead, textLink, infoButton,
@@ -48,6 +48,8 @@ function cancelRow(slot, depositCents, first) {
 function reminderRow(slot, depositCents, first) {
   const away = toDate(slot).getTime() - now();
   if (away < (POLICY.REMINDER_LEAD_H + POLICY.CANCEL_WINDOW_H) * 3600000) return '';
+  /* D-02 (pre-MVP A1): only a delivered text can lead to the auto-cancel — with texts off the day-before ask is in the app only */
+  if (!textsOn('customer')) return metaRow(GLYPH.clock, 'The day before, we ask you to confirm the visit in the app. Your texts are off, so we won’t text you.');
   return metaRow(GLYPH.clock, `We’ll text you the day before to confirm. If you don’t confirm ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and ${esc(first)} keeps the ${money(depositCents)} deposit.`);
 }
 
@@ -102,6 +104,9 @@ function alertHtml(r) {
   }
   if (u.error === 'taken') {
     return banner({ tone: 'error', text: 'That time was just taken. Pick another time.', actionLabel: 'Pick a time', actionAct: 'pick-time' });
+  }
+  if (u.error === 'offline') {   // S-12 (pre-MVP A1)
+    return banner({ tone: 'error', title: 'You’re offline', text: 'Nothing was sent and nothing was held. Try again when you’re back.' });
   }
   if (u.error === 'generic') {
     return banner({ tone: 'error', text: 'Something went wrong on our side. Nothing was held. Try again.' });
@@ -283,6 +288,7 @@ function fail(res) {
   u.focus = true;
   if (res.error === 'card-declined') u.error = 'declined';
   else if (res.error === 'slot-unavailable') u.error = 'taken';
+  else if (res.error === 'offline') u.error = 'offline';   // S-12 (pre-MVP A1)
   else u.error = 'generic';
   /* D-140: the banner above the Pay button carries the error; the toast only echoes it (never the only carrier) */
   if (res.error === 'server-error') toast('Couldn’t send your request', { tone: 'error' });

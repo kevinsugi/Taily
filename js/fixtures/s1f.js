@@ -115,10 +115,10 @@ export const FLOWS_c_bookings = [
 
 /* ---------- SF-13 / SF-14 / SF-15: the 7-day charge on the customer's side ---------- */
 FLOWS_c_booking.push(
-  { screen: 'c-booking', group: G, key: 'c-booking--change-time-capped', title: 'Pick a new time — up to the 7-day charge', note: 'SF-13: five days after paying, the sheet offers no time after the charge (Thu, Oct 22 · 5:00 PM)',
-    setup: (S) => { S.driveTo('awaiting-handoff'); S.advanceClock(5 * 24 * 60); },
+  { screen: 'c-booking', group: G, key: 'c-booking--change-time-capped', title: 'Pick a new time — up to the day-6 charge', note: 'SF-13 + D-04: four days after paying, the sheet offers no time after the charge (Wed, Oct 21 · 5:00 PM)',
+    setup: (S) => { S.driveTo('awaiting-handoff'); S.advanceClock(4 * 24 * 60); },
     click: ['[data-act="change-time"]'],
-    expect: { has: ['Thu, Oct 22'], not: ['Fri, Oct 23', 'Sat, Oct 24'], sel: '[data-s="c-booking--change-time"]' } },
+    expect: { has: ['Wed, Oct 21'], not: ['Thu, Oct 22', 'Fri, Oct 23'], sel: '[data-s="c-booking--change-time"]' } },
   { screen: 'c-booking', group: G, key: 'c-booking--not-received-charged', title: 'Didn’t get it — after the 7-day charge', note: 'SF-15: the sheet says she was already charged; the unclaimed banner gives way to the picked-up countdown',
     setup: (S) => { const a = S.driveTo('unclaimed'); S.T.markHandedOver(a.id); },
     click: ['[data-act="not-got-it"]'],

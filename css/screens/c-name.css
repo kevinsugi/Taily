@@ -1,3 +1,6 @@
 /* c-name — layout only; fields, heading row and action bar are shared components. */
 .c-name__lead { margin: var(--rhythm-tight) 0 var(--rhythm-block); }
 .c-name__fields { display: flex; flex-direction: column; gap: var(--rhythm-group); }
+
+/* D-02 (pre-MVP A1): the booking-texts opt-in under the names */
+.c-name__texts { margin-top: var(--rhythm-group); }

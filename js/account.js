@@ -7,7 +7,7 @@
    the decline recovery of D-40). Every fn returns
    { ok, … } | { ok: false, error } (field forms: errors { field: code }).
    ============================================================ */
-import { state, now, blankTailor, nextSection, TERMINAL } from './state.js';
+import { state, now, nowIso, blankTailor, nextSection, TERMINAL } from './state.js';
 import { POLICY } from './money-config.js';
 import { SHOP_CITY } from './data.js';
 
@@ -100,8 +100,9 @@ export function verifyCode(code, who = 'customer') {
   return { ok: true, isNew: true };
 }
 
-/** New account: names the one seed customer record (D-33), keeps its address and card. */
-export function saveName({ first = '', last = '' } = {}) {
+/** New account: names the one seed customer record (D-33), keeps its address and card. D-02 (pre-MVP A1): booking texts are their own
+    opt-in (`texts`, an unticked box on c-name) — off unless she ticks it; sign-in codes always go. */
+export function saveName({ first = '', last = '', texts = false } = {}) {
   const f = String(first).trim();
   const l = String(last).trim();
   const errors = {};
@@ -113,6 +114,7 @@ export function saveName({ first = '', last = '' } = {}) {
     phone: session().pending?.phone ?? state.customer.phone,
   });
   state.session.customer = { signedIn: true, pending: null };
+  state.texts.customer = { on: !!texts, stoppedAt: null, changedAt: nowIso() };
   return { ok: true, customer: state.customer };
 }
 

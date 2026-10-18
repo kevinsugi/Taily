@@ -3,9 +3,11 @@
    one of Amara's own open times instead. Focal: the Scheduler
    wheel. Only her open slots before the need-by date, none
    overlapping the asked-for visit (D-77).
+   D-12 (pre-MVP A1): `state.ui['t-suggest'].mode = 'move'` (t-job ••• "Suggest a new time") reuses it for a CONFIRMED visit — her open
+   times (the visit itself excluded); Sarah accepts the new time or keeps hers (proposeNewTime).
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
-import { state, T, getAppt } from '../state.js';
+import { state, T, getAppt, moveSlots } from '../state.js';
 import { suggestSlots, suggestPrice } from '../tailor-data.js';
 import { focusAppt, setFocus } from '../focus.js';
 import { fmtExact } from '../money.js';
@@ -19,8 +21,13 @@ import {
 const ID = 't-suggest';
 const ui = () => (state.ui[ID] ??= {});
 
-/** The request this screen is about: it is still a request (status `requested`). */
-const request = () => { const a = focusAppt('t-request'); return a && a.status === 'requested' ? a : null; };
+/** The request this screen is about: it is still a request (status `requested`). D-12: in move mode, the confirmed visit. */
+const moving = () => ui().mode === 'move';
+const request = () => {
+  if (moving()) { const m = getAppt(ui().apptId); return m && m.status === 'confirmed' ? m : null; }
+  const a = focusAppt('t-request'); return a && a.status === 'requested' ? a : null;
+};
+const slotsOf = (a) => (moving() ? moveSlots(a) : suggestSlots(a));
 /** The price block under the wheel for one slot (D-155): her live take-home, "Sarah pays $X less" when the rush drops, and the rush-window
     tag when the slot sits inside her rush window (the rush fee is not charged on this request). */
 function priceLines(a, iso) {
@@ -41,13 +48,13 @@ function view() {
   if (!a) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}">
   <div class="${ID}__empty" data-empty="no-request">${emptyState({
-    title: 'No open requests', body: 'New requests show up on Home.', art: 'Suit Pant', ctaLabel: 'Back to Home', ctaAct: 'home',
+    title: moving() ? 'No visit to move' : 'No open requests', body: moving() ? 'The visit already changed. It’s on Home.' : 'New requests show up on Home.', art: 'Suit Pant', ctaLabel: 'Back to Home', ctaAct: 'home',
   })}</div>
 </main>`;
   }
   const sarah = state.customer.first;
-  const heading = headingRow(`<h1 class="t-title">Suggest another time</h1>`);
-  const slots = suggestSlots(a);
+  const heading = headingRow(`<h1 class="t-title">${moving() ? 'Suggest a new time' : 'Suggest another time'}</h1>`);
+  const slots = slotsOf(a);
   if (!slots.length) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}--none">
   ${heading}
@@ -62,25 +69,27 @@ function view() {
   const d = ui();
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${heading}
-  <p class="t-body c-700 ${ID}__lead">${esc(sarah)} asked for <span class="nb">${esc(fmtWhen(a.slot.start))}</span>. Pick one of your open times before her need-by date, <span class="nb">${esc(fmtDay(a.job.needBy))}</span>.</p>
+  <p class="t-body c-700 ${ID}__lead">${moving()
+    ? `Your visit with ${esc(sarah)} is <span class="nb">${esc(fmtWhen(a.slot.start))}</span>. Pick one of your open times before her need-by date, <span class="nb">${esc(fmtDay(a.job.needBy))}</span>. She accepts it or keeps her time.`
+    : `${esc(sarah)} asked for <span class="nb">${esc(fmtWhen(a.slot.start))}</span>. Pick one of your open times before her need-by date, <span class="nb">${esc(fmtDay(a.job.needBy))}</span>.`}</p>
   ${d.error === 'slot-unavailable' ? `<div class="${ID}__error">${banner({ tone: 'error', title: 'That time was just taken. Pick another.' })}</div>` : ''}
   <div class="${ID}__sched"${d.busy ? ' inert aria-busy="true"' : ''}>${scheduler({
     columns: slotColumns(slots, picked), inline: true, compact: true, cta: '', note: whenNote(`${sarah} sees`, picked),
   })}</div>
   <div class="${ID}__price" data-sched-price aria-live="polite">${priceLines(a, picked)}</div>
-  <p class="t-small c-600 ${ID}__by">Send it by ${fmtTime(a.expiresAt)}, or the request expires.</p>
+  <p class="t-small c-600 ${ID}__by">${moving() ? `Until ${esc(sarah)} answers, the visit stays at ${esc(fmtWhen(a.slot.start))}. Your deposit terms move with it.` : `Send it by ${fmtTime(a.expiresAt)}, or the request expires.`}</p>
 </main>
-${actionBar({ ctaLabel: 'Send suggestion', ctaAct: 'send-suggestion', busy: !!d.busy, busyLabel: 'Sending…' })}`;
+${actionBar({ ctaLabel: moving() ? `Ask ${sarah}` : 'Send suggestion', ctaAct: 'send-suggestion', busy: !!d.busy, busyLabel: 'Sending…' })}`;
 }
 
 function wire(root) {
-  if (T.tick().length) { go('t-request', { replace: true }); return; }   // expired while she browsed
+  if (!moving() && T.tick().length) { go('t-request', { replace: true }); return; }   // expired while she browsed
   const a = request();
-  if (!a) {
+  if (!a && !moving()) {
     /* it moved on (answered elsewhere): the request screen shows where it stands */
     if (focusAppt('t-request')) { go('t-request', { replace: true }); return; }
   }
-  const slots = a ? suggestSlots(a) : [];
+  const slots = a ? slotsOf(a) : [];
 
   /* the wheel: every settle stores the slot and updates the "Sarah sees" note in place */
   const sched = root.querySelector('[data-scheduler]');
@@ -103,7 +112,7 @@ function wire(root) {
     const act = el.dataset.act;
     if (act === 'home') go('t-home', { fresh: true });
     else if (act === 'hours') { delete state.ui['to-availability']; go('to-availability'); }
-    else if (act === 'back-request') { if (a) setFocus(a.id); go('t-request', { replace: true }); }
+    else if (act === 'back-request') { if (a) setFocus(a.id); go(moving() ? 't-job' : 't-request', { replace: true }); }
     else if (act === 'send-suggestion' && a) send(a, slots, store);
   });
 }
@@ -117,6 +126,14 @@ function send(a, slots, store) {
   withLatency(() => {
     ui().busy = false;
     if (currentScreen() !== ID) return;
+    if (moving()) {   // D-12: ask Sarah to move a confirmed visit
+      const m = T.proposeNewTime(a.id, picked);
+      if (m.ok) { state.ui[ID] = {}; setFocus(a.id); go('t-job', { fresh: true }); toast(`Sent. ${state.customer.first} accepts it or keeps her time.`); return; }
+      if (m.error === 'slot-unavailable') { ui().error = 'slot-unavailable'; ui().slot = null; go(ID); return; }
+      state.ui[ID] = {}; setFocus(a.id); go('t-job', { replace: true });
+      toast(m.error === 'too-late' ? 'It’s too close to the visit to move it now. Message Sarah instead.' : 'Couldn’t send this. Try again.', { tone: 'error' });
+      return;
+    }
     const r = T.tailorSuggest(a.id, picked);
     if (r.ok) {
       state.ui[ID] = {};

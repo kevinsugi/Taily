@@ -41,3 +41,7 @@
 /* Study-1 A4: the 7-day review reminder, a notification card above the linen stage (the stage then starts under it, not bled up) */
 .c-complete__reminder { margin-bottom: var(--rhythm-group); }
 .c-complete__reminder + .linen-stage { margin-top: 0; }
+
+/* S-35 (pre-MVP A1): where the courier left it, and "Didn't get it?" */
+.c-complete__delivered { margin-top: var(--rhythm-block); }
+.c-complete__missing { margin-top: var(--space-8); }

@@ -20,7 +20,7 @@ import { POLICY } from '../money-config.js';
 import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, navBackMark, requestStrip, requestHead, visitBlock, workList, tailorBreakdown, actionBar, cta, emptyState,
-  chipGroup, sheetOverlay, toast, esc, wirePhotoViewer, sectionHead, infoButton, textLink, ICON_CHAT,
+  chipGroup, sheetOverlay, toast, esc, wirePhotoViewer, sectionHead, infoButton, textLink, ICON_CHAT, banner,
 } from '../components.js';
 
 const ID = 't-request';
@@ -146,6 +146,7 @@ ${actionBar({ ctaLabel: 'Back to Home', ctaAct: 'home' })}`;
   ${visitSection(a, v, { title: v.when, addressNote: a.job.visitType === 'home' ? 'Full address after you accept' : '' })}
   ${workSection(v, { final, breakdown: true })}
   ${payoutSection(v)}
+  ${d.error === 'offline' ? `<div class="${ID}__error">${banner({ tone: 'error', title: 'You’re offline', text: 'Nothing was sent and nothing was charged. Accept again when you’re back.' })}</div>` : ''}
 </main>
 ${actionBar({
     ctaLabel: 'Accept', ctaAct: 'accept', busy: d.busy === 'accept', busyLabel: 'Accepting…',
@@ -250,7 +251,7 @@ function wire(root) {
     if (act === 'home') go('t-home', { fresh: true });
     else if (!a) return;
     else if (act === 'accept') accept(a);
-    else if (act === 'suggest') { setFocus(a.id); go('t-suggest'); }
+    else if (act === 'suggest') { setFocus(a.id); if (state.ui['t-suggest']?.mode) state.ui['t-suggest'] = {}; go('t-suggest'); }   // D-12: not the move mode
     else if (act === 'decline') openDecline(a);
     else if (act === 'withdraw') openWithdraw(a);
     else if (act === 'message') { setFocus(a.id); go('t-thread'); }
@@ -269,6 +270,7 @@ function raced(a) {
 function accept(a) {
   if (ui().busy) return;
   ui().busy = 'accept';
+  ui().error = null;
   go(ID);
   withLatency(() => {
     ui().busy = null;
@@ -282,6 +284,9 @@ function accept(a) {
       T.tick();
       go(ID);
       toast('This request expired before you accepted.', { tone: 'error' });
+    } else if (r.error === 'offline') {   // S-12: nothing was sent, nothing captured
+      ui().error = 'offline';
+      go(ID);
     } else if (!raced(a)) {
       go(ID);
       toast('Couldn’t accept the request. Try again.', { tone: 'error' });

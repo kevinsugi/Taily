@@ -1354,6 +1354,12 @@ a.cta-small { text-decoration: none; }
 .reminder-card__icon svg { width: var(--size-24); height: var(--size-24); }
 .reminder-card__body { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
 .reminder-card__body .cta-small { align-self: flex-start; max-width: 100%; margin-top: var(--space-8); padding-inline: var(--space-16); white-space: normal; text-align: center; }
+/* DG-2 A (pre-MVP A1): the one-time notice — the reminder card + a 44 px ✕ in its top-right corner */
+.notice-card { position: relative; }
+.reminder-card--dismissible { padding-right: var(--space-40); }
+.notice-card__close { position: absolute; top: var(--space-4); right: var(--space-4); display: inline-flex; align-items: center; justify-content: center; width: var(--touch); height: var(--touch); border-radius: var(--radius-full); color: var(--neutral-600); }
+.notice-card__close svg { width: var(--size-16); height: var(--size-16); }
+.notice-card__close:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
 
 /* ===== S1-B ===== */
 /* Study-1 WS-B: private General notes (B2) — one white card of notes, hairlines between them; the editor in place; the edit's due line (B1) */
@@ -1442,3 +1448,6 @@ a.cta-small { text-decoration: none; }
 
 /* SF-43: the edit-scope line under a live-shop editor's intro */
 .edit-scope { margin: var(--space-8) 0 0; text-wrap: pretty; }
+
+/* S-32 (pre-MVP A1): the Call through Taily sheet */
+.call-sheet { display: flex; flex-direction: column; gap: var(--space-12); }

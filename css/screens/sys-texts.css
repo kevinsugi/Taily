@@ -1,0 +1,10 @@
+/* sys-texts — the text catalogue board (pre-MVP A1, DG-2 A + D-02) */
+.sys-texts__lead { margin-top: var(--space-8); }
+.sys-texts__tabs { margin-top: var(--rhythm-block); }
+.sys-texts__count { margin-top: var(--rhythm-block); }
+.sys-texts__list { display: flex; flex-direction: column; gap: var(--space-24); margin-top: var(--space-12); padding: 0; list-style: none; }
+.sys-texts__item { display: flex; flex-direction: column; gap: var(--space-4); }
+.sys-texts__demo { position: relative; width: 100%; }
+.sys-texts__demo .text-banner { position: relative; top: 0; left: 0; right: 0; transform: none; }
+.sys-texts__name { margin-top: var(--space-4); }
+.sys-texts__num { color: var(--neutral-600); }

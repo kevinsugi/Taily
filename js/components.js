@@ -1679,15 +1679,9 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
   const settled = stage === 'paid' || stage === 'held' || stage === 'charged';
   const balance = (stage === 'ready' || stage === 'held') && q.balance === 0 ? 'Nothing to pay'
     : { paid: 'Paid', held: 'On hold', charged: 'Charged', ready: 'Hold now' }[stage] ?? 'Due when ready';   // D-156
-  /* Study-1 B1 (default 12): a declined edit is priced as ONE all-in amount — the work done so far — never split into services and fee */
-  const work = q.partial
-    ? [{ label: 'Work done so far', cents: q.workDone, caption: servicesCaption || 'You declined the changes' }]
-    : [
-      { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
-      q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee, caption: HOME_FEE_CAPTION },
-    ];
   const rows = [
-    ...work,
+    { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
+    q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee, caption: HOME_FEE_CAPTION },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush, caption: `Need-by ${q.rushDays ?? 1} day${(q.rushDays ?? 1) === 1 ? '' : 's'} after the visit` },
     q.courier > 0 && { label: 'Taily courier', cents: q.courier, ...(courierCaption ? { caption: courierCaption } : {}) },
     { label: est ? 'Estimated total' : 'Total', cents: q.total, kind: 'total' },
@@ -1715,7 +1709,7 @@ export function receiptBlock(a, tailorFirst = '') {
   const cardLine = paid > 0 ? `Balance paid with ${balanceCardLabel(a)}.`
     : refund > 0 ? `${fmtExact(refund)} refunded to ${balanceCardLabel(a, a.cardId)}.` : '';
   /* M7-1-C-05: what was paid for — the approved lines with their garments — between the return line and the totals */
-  const order = a.lines?.length && a.outcome !== 'partial' ? `<div class="receipt__order">${changeList({ garments: withPhotos(priceChangeView(a, a.lines).garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: `${tailorFirst || 'Tailor'}’s comment` })}</div>` : '';
+  const order = a.lines?.length ? `<div class="receipt__order">${changeList({ garments: withPhotos(priceChangeView(a, a.lines).garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: `${tailorFirst || 'Tailor'}’s comment` })}</div>` : '';
   return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', dropoff: 'home', courier: 'truck' }[how] })}</div>
   ${stitchDivider()}
   ${order}
@@ -1727,7 +1721,7 @@ export function receiptBlock(a, tailorFirst = '') {
 export function tailorBreakdown(q, { total = true } = {}) {
   /* D-172: the per-job figure is "Your payout"; "payout" is the bank transfer. `total: false` = the figure is already the card's hero (M6-P-33). */
   return moneyRows([
-    { label: 'Services', cents: q.services, ...(q.partial ? { caption: `Work done so far: ${fmtExact(q.workDone)} in all` } : {}) },   // Study-1 B1: the services part of a partial job
+    { label: 'Services', cents: q.services },
     { label: 'Taily fee', cents: q.tailyFee, kind: 'negative', caption: `On the ${fmtExact(q.services)} of services only` },
     q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee },
     q.rush > 0 && { label: 'Rush fee', cents: q.rush },

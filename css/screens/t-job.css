@@ -67,6 +67,5 @@
 .t-job__handoff { display: flex; flex-direction: column; gap: var(--space-12); }
 .t-job-sheet__photo { display: flex; align-items: center; gap: var(--space-16); }
 .t-job-sheet__actions .text-link { align-self: center; }
-/* Study-1 B1: the edit waiting on Sarah (her reason, the photo) and the partial-work line on the completed job */
+/* Study-1 B1: the edit waiting on Sarah (her reason, the photo) */
 .t-job__edit-photo { margin-top: var(--rhythm-group); }
-.t-job__partial { margin: var(--rhythm-group) 0 0; text-wrap: pretty; }

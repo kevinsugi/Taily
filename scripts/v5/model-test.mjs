@@ -68,9 +68,9 @@ S.reset();
 eq(D.fmtWhen(D.isoMinute(new Date(S.now()))), 'Tue, Oct 13 · 10:00\u00a0AM', 'frozen demo clock: Tue Oct 13, 10:00 AM');
 eq([state.persona, state.tailors.length, state.appts.length, state.job.garments.length], ['customer', 1, 0, 2], 'seed: customer persona, 1 tailor, no appts, 2 garments');
 eq([amara().id, amara().shop.zip, amara().home.zips, amara().home.fee, amara().rush], ['amara', '11211', ['11211', '11249', '11222', '11206', '11237'], 35, [{ days: 1, fee: 40 }, { days: 2, fee: 25 }, { days: 3, fee: 15 }]], 'Amara: Brooklyn shop + home zips + $35 + rush ladder');
-eq(Object.keys(amara().prices).length, 10, 'Amara prices 10 of the 11 catalog services');
-ok(!('bridal' in amara().prices) && 'bridal' in DATA.SERVICES, 'bridal is in the catalog but not offered');
-eq(Object.keys(DATA.SERVICES).length, 11, 'catalog has 11 services');
+eq(Object.keys(amara().prices).length, 10, 'Amara prices all 10 catalog services');
+ok(!('bridal' in amara().prices) && !('bridal' in DATA.SERVICES) && !Object.values(DATA.SERVICES).some((s) => /bridal/i.test(s.label)), 'K-33: no bridal service in the catalog');
+eq(Object.keys(DATA.SERVICES).length, 10, 'catalog has 10 services (K-33: no bridal)');
 ok(Object.values(DATA.SERVICES).every((s) => s.garments.every((g) => g in DATA.GARMENT_TYPES)), 'every service garment type exists in GARMENT_TYPES');
 eq([state.customer.address.zip, state.customer.cards[0].last4], ['11211', '4242'], 'Sarah: 11211, Visa 4242');
 ok(S.bookable(amara()), 'Amara is bookable (all six onboarding flags)');
@@ -178,7 +178,8 @@ S.reset();
 {
   eq(T.addGarment('Skirt').garment.id, 'g3', 'addGarment gives the next id');
   ok(T.setServices('g3', ['dress-hem', 'zipper']).ok, 'setServices accepts services valid for the type');
-  guard(T.setServices('g3', ['bridal']), 'service-not-for-type', 'setServices rejects a service the type cannot have');
+  guard(T.setServices('g3', ['sleeves']), 'service-not-for-type', 'setServices rejects a service the type cannot have');
+  guard(T.setServices('g3', ['bridal']), 'service-not-for-type', 'K-33: setServices rejects bridal (not in the catalog)');
   guard(T.addGarment('Hat'), 'unknown-type', 'addGarment rejects an unknown type');
   while (state.job.garments.length < DATA.MAX_ITEMS) T.addGarment('Skirt');
   guard(T.addGarment('Skirt'), 'max-items', `addGarment stops at MAX_ITEMS (${DATA.MAX_ITEMS})`);
@@ -197,8 +198,9 @@ const goldenRow = (q, [services, home, rush, courier, total, deposit, balance, f
   const lines = M.linesFor(amara(), state.job.garments);
   eq([lines.length, lines.missing.length, M.servicesTotal(lines)], [3, 0, 12500], 'linesFor: 3 lines, $125.00, none missing');
   eq(lines.map((l) => [l.garmentId, l.serviceId, l.cents]), [['g1', 'hem-pants', 2500], ['g2', 'sleeves', 4500], ['g2', 'jacket-sides', 5500]], 'linesFor snapshot (garment, service, cents)');
-  const miss = M.linesFor(amara(), [{ id: 'g1', type: 'Formal Dress', services: ['bridal', 'dress-hem'] }]);
-  eq([miss.length, miss.missing], [1, [{ garmentId: 'g1', serviceId: 'bridal' }]], 'linesFor skips an unpriced service and reports it in .missing');
+  const { 'dress-take-in': _unpriced, ...fewer } = amara().prices;
+  const miss = M.linesFor({ ...amara(), prices: fewer }, [{ id: 'g1', type: 'Formal Dress', services: ['dress-take-in', 'dress-hem'] }]);
+  eq([miss.length, miss.missing], [1, [{ garmentId: 'g1', serviceId: 'dress-take-in' }]], 'linesFor skips an unpriced service and reports it in .missing');
   goldenRow(M.estimate(amara(), state.job, '2026-10-15T17:00'), [12500, 3500, 0, 0, 16000, 1600, 14400, 1250, 14750], 'seed, home, need-by Fri Oct 23');
   goldenRow(M.estimate(amara(), { ...state.job, needBy: '2026-10-16' }, '2026-10-15T17:00'), [12500, 3500, 4000, 0, 20000, 1600, 18400, 1250, 18750], 'rush: need-by Fri Oct 16, visit Thu Oct 15 (1 day)');
   goldenRow(M.estimate(amara(), { ...state.job, visitType: 'shop' }, '2026-10-13T13:00'), [12500, 0, 0, 0, 12500, 1250, 11250, 1250, 11250], 'shop visit');
@@ -494,7 +496,9 @@ section('fitting -> completed');
   guard(T.sendPriceChange(a.id, a.lines.map((l, i) => ({ ...l, cents: i === 0 ? 2550 : l.cents }))), 'price-invalid', 'sendPriceChange: cents not whole dollars -> price-invalid');
   guard(T.sendPriceChange(a.id, a.lines.map((l, i) => ({ ...l, cents: i === 0 ? 0 : l.cents }))), 'price-invalid', 'sendPriceChange: a $0 line -> price-invalid');
   guard(T.sendPriceChange(a.id, withNew({ garmentType: 'Skirt', serviceId: 'sleeves' })), 'service-type', 'sendPriceChange: service not for the item type');
-  guard(T.sendPriceChange(a.id, withNew({ garmentType: 'Formal Dress', serviceId: 'bridal' })), 'service-not-offered', 'sendPriceChange: a service Amara does not price');
+  { const keep = amara().prices['dress-take-in']; delete amara().prices['dress-take-in'];   // K-33: Amara prices the whole catalog, so take one away
+    guard(T.sendPriceChange(a.id, withNew({ garmentType: 'Formal Dress', serviceId: 'dress-take-in' })), 'service-not-offered', 'sendPriceChange: a service Amara does not price');
+    amara().prices['dress-take-in'] = keep; }
   guard(T.sendPriceChange(a.id, withNew({ garmentType: 'Spaceship' })), 'garment-type', 'sendPriceChange: unknown item type');
   guard(T.sendPriceChange(a.id, withNew({ garmentId: 'g1', garmentType: 'Skirt', serviceId: 'dress-hem' })), 'garment-type', 'sendPriceChange: a booked item keeps its type');
   guard(T.sendPriceChange(a.id, [...a.lines, a.lines[0]]), 'duplicate-line', 'sendPriceChange: duplicate line');
@@ -830,8 +834,8 @@ section('messaging');
   eq(S.maskContact('The hem is 2.5 in and it costs $125'), { text: 'The hem is 2.5 in and it costs $125', masked: false }, 'maskContact leaves ordinary text alone');
   eq(S.maskContact('mail a.b+c@mail.example.co.uk now').text, 'mail [email hidden] now', 'maskContact: plus-addressed email');
   eq(S.maskContact('').masked, false, 'maskContact: empty');
-  const pre = T.sendMessage('amara', 'customer', { text: 'Do you do bridal? my number is 718-555-0199' });
-  eq([pre.ok, pre.masked, pre.message.text], [true, true, 'Do you do bridal? my number is [phone hidden]'], 'sendMessage before booking works and masks');
+  const pre = T.sendMessage('amara', 'customer', { text: 'Do you do hems? my number is 718-555-0199' });
+  eq([pre.ok, pre.masked, pre.message.text], [true, true, 'Do you do hems? my number is [phone hidden]'], 'sendMessage before booking works and masks');
   ok(S.threadFor('amara').messages[0].masked === true, 'the message is stored masked');
   eq(T.sendMessage('amara', 'tailor', { text: 'Email me sarah@x.com' }).message.text, 'Email me [email hidden]', 'masked for the tailor too');
   guard(T.sendMessage('amara', 'customer', { text: '   ' }), 'empty', 'empty message fails');
@@ -1439,7 +1443,7 @@ section('M6 batch 4');
   eq([POLICY.HANDOFF_AUTO_H, POLICY.UNCLAIMED_CAPTURE_D, POLICY.REVIEW_REMINDER_D, MONEY.PRICE_RANGE_SPREAD, MONEY.PRICE_ROUND], [48, 7, 7, 0.20, 5], 'S1-0: Study-1 timers and price-range settings');
   eq([DATA.HANDOFF_CODE_LEN, DATA.NOTES_LIMITS], [4, { TEXT_MAX: 500, PHOTOS_MAX: 4 }], 'S1-0: handoff code length and private-note limits');
   ok(Object.values(DATA.SERVICES).every((s) => Number.isInteger(s.base) && s.base > 0), 'S1-0: every service has a whole-dollar base price');
-  ok(Object.entries(amara().prices).every(([id, p]) => DATA.SERVICES[id].base === p) && DATA.SERVICES.bridal.base === 250, 'S1-0: base = Amara’s seed price; bridal 250');
+  ok(Object.entries(amara().prices).every(([id, p]) => DATA.SERVICES[id].base === p) , 'S1-0: base = Amara’s seed price');
   eq(DATA.BOROUGHS.map((b) => b.name), ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'], 'S1-0: five boroughs in picker order');
   const ids = DATA.NEIGHBORHOODS.map((n) => n.id), zips = DATA.NEIGHBORHOODS.flatMap((n) => n.zips);
   ok(new Set(ids).size === ids.length && new Set(zips).size === zips.length, 'S1-0: neighborhood ids and zips are unique');
@@ -1571,49 +1575,36 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   guard(T.sendJobEdit(a.id, { ...draft, lines: a.lines.map((l) => ({ ...l })), needBy: a.job.needBy }), 'no-change', 'S1-B1: nothing changed → nothing to send');
   guard(T.sendJobEdit(a.id, { ...draft, reason: '   ' }), 'reason-required', 'S1-B1: the reason is required');
   guard(T.sendJobEdit(a.id, { ...draft, reason: 'x'.repeat(DATA.TAILOR_LIMITS.NOTE_MAX + 1) }), 'reason-long', 'S1-B1: the reason has a limit');
-  guard(T.sendJobEdit(a.id, { ...draft, workDone: null }), 'work-done-required', 'S1-B1: work done so far is required');
-  guard(T.sendJobEdit(a.id, { ...draft, workDone: a.money.total + 100 }), 'work-done-invalid', 'S1-B1: work done is at most the approved total');
-  guard(T.sendJobEdit(a.id, { ...draft, workDone: 4050 }), 'work-done-invalid', 'S1-B1: work done is whole dollars');
   /* send */
-  const sent = T.sendJobEdit(a.id, { ...draft, reason: 'Call me at 718 555 0100' });
-  eq([sent.ok, a.status, a.edit.state, a.edit.changed, a.edit.reasonMasked, a.edit.workDone, !!a.edit.photo], [true, 'in-progress', 'pending', true, true, M.cents(40), true], 'S1-B1: the edit is pending, the job stays in progress, the reason masked');
+  const sent = T.sendJobEdit(a.id, { ...draft, reason: 'Call me at 718 555 0100', workDone: M.cents(40) });
+  eq([sent.ok, a.status, a.edit.state, a.edit.changed, a.edit.reasonMasked, 'workDone' in a.edit, !!a.edit.photo], [true, 'in-progress', 'pending', true, true, false, true], 'S1-B1: the edit is pending, the job stays in progress, the reason masked; no work-done amount (K-30 overruled)');
   eq([S.statusScreen(a, 'customer'), S.statusScreen(a, 'tailor')], ['c-price-change', 't-job'], 'S1-B1: Sarah lands on the edit (c-price-change), Amara on the job');
   eq([statusWord(a, 'customer').label, statusWord(a, 'tailor', { short: true }).label], ['Approve changes', 'Waiting'], 'S1-B1: whose move it is, both sides');
   guard(T.markReady(a.id), 'edit-pending', 'S1-B1 (default 13): Mark ready waits for Sarah’s answer');
   const v = S.jobEditView(a);
-  eq([v.after.total, v.after.payout, v.delta, v.dueChanged, v.ifDeclined.balance, v.ifDeclined.payout], [SCENARIOS.edit.total, SCENARIOS.edit.payout, SCENARIOS.edit.total - SCENARIOS.seed.total, true, SCENARIOS.partial.balance, SCENARIOS.partial.payout], 'S1-B1: jobEditView — new total and payout, due moved, the decline amounts');
-  const re = T.sendJobEdit(a.id, { ...draft, workDone: M.cents(50) });
-  eq([re.ok, a.edit.revisions, a.edit.workDone], [true, 1, M.cents(50)], 'S1-B1 (default 13): sending again replaces the pending edit');
+  eq([v.after.total, v.after.payout, v.delta, v.dueChanged, 'ifDeclined' in v, 'workDone' in v], [SCENARIOS.edit.total, SCENARIOS.edit.payout, SCENARIOS.edit.total - SCENARIOS.seed.total, true, false, false], 'S1-B1: jobEditView — new total and payout, due moved, no decline amounts');
+  /* K-30 overruled: a post-fitting edit can't be declined — no transition, no partial price, no partial outcome */
+  ok(!('declineJobEdit' in T) && !('declineJobEdit' in S) && !('partialQuote' in M), 'S1-B1 (K-30 overruled): there is no declineJobEdit and no partialQuote');
+  ok(!('outcome' in a), 'S1-B1 (K-30 overruled): no partial outcome on the appointment');
+  /* Sarah disagrees → she messages; Amara revises (the due date only, the price back to the approved one) and the revision replaces the pending edit */
+  ok(T.sendMessage('amara', 'customer', { text: 'Please keep the sleeves at the price we agreed.' }).ok, 'S1-B1: Sarah messages about the edit');
+  eq([a.status, a.edit.state], ['in-progress', 'pending'], 'S1-B1: messaging leaves the edit pending (it is never declined)');
+  const revised = jobEdit(a, 'due');
+  const re = T.sendJobEdit(a.id, revised);
+  eq([re.ok, a.edit.revisions, a.edit.changed, S.jobEditView(a).delta, a.edit.state], [true, 1, false, 0, 'pending'], 'S1-B1 (default 13): the revised edit replaces the pending one (price back to the approved one)');
+  ok(T.approveJobEdit(a.id).ok && a.money.total === before.money.total && a.job.needBy === revised.needBy, 'S1-B1: approving the revision applies it — same price, the later due date');
   /* approve */
+  a = driveTo('in-progress');
   T.sendJobEdit(a.id, draft);
   const ap = T.approveJobEdit(a.id);
   eq([ap.ok, a.status, a.edit.state, a.money.total, a.money.balance, a.money.payout, a.payments.deposit.cents, a.job.needBy, a.edit.needByWas], [true, 'in-progress', 'approved', SCENARIOS.edit.total, SCENARIOS.edit.balance, SCENARIOS.edit.payout, SCENARIOS.seed.deposit, draft.needBy, before.needBy], 'S1-B1: approve — the new price and date replace the old, the deposit stays');
   guard(T.approveJobEdit(a.id), 'not-pending', 'S1-B1: nothing left to approve');
   ok(T.markReady(a.id).ok && a.payments.balance.cents === SCENARIOS.edit.balance, 'S1-B1: approved → Mark ready works, the balance is the new one');
-  /* decline */
-  a = driveTo('edit-pending');
-  const dc = T.declineJobEdit(a.id);
-  eq([dc.ok, a.status, a.outcome, a.edit.state, a.money.total, a.money.balance, a.money.payout, a.money.tailyFee, a.payments.balance.state, a.returnOffer], [true, 'ready', 'partial', 'declined', SCENARIOS.partial.total, SCENARIOS.partial.balance, SCENARIOS.partial.payout, SCENARIOS.partial.tailyFee, 'due', ['pickup', 'dropoff', 'courier']], 'S1-B1 (default 12): decline → ready with every way back, priced at the work done so far');
-  eq(a.lines, before.lines, 'S1-B1: a declined edit leaves the approved lines as they were');
-  eq([SCENARIOS.partial.balance, SCENARIOS.partial.payout], [M.cents(40) - SCENARIOS.seed.deposit, M.cents(40) - SCENARIOS.seed.homeFee - M.tailyFeeFor(M.cents(40) - SCENARIOS.seed.homeFee) + SCENARIOS.seed.homeFee], 'S1-B1 (default 12): balance = work done − deposit; payout = services part − Taily fee + home visit fee');
-  ok(S.threadFor('amara').messages.some((m) => m.text === `You declined the changes. You pay ${M.fmtExact(M.cents(40))} for the work done so far.`), 'S1-B1: the thread says what she pays, in dollars');
-  T.chooseReturn(a.id, 'courier');
-  eq([a.money.total, a.money.balance, a.money.payout], [SCENARIOS.partial.total + SCENARIOS.courierQuote.cents, SCENARIOS.partial.balance + SCENARIOS.courierQuote.cents, SCENARIOS.partial.payout], 'S1-B1: a courier on a partial return is added to what she pays, never the payout');
-  T.chooseReturn(a.id, 'pickup');
-  T.holdBalance(a.id, 'visa-4242');
-  eq([a.status, a.payments.balance.state, a.payments.balance.cents], ['awaiting-handoff', 'held', SCENARIOS.partial.balance], 'S1-B1: the hold is the partial balance');
-  EARN.handOver(a.id);
-  eq([a.status, a.outcome, state.payouts[0].cents, statusWord(a, 'tailor', { short: true }).label], ['completed', 'partial', SCENARIOS.partial.payout, 'Partial work'], 'S1-B1: completed as partial work, payout on the work done');
-  eq(driveTo('partial-completed').outcome, 'partial', 'S1-B1: driveTo partial-completed');
-  /* refund: work done below the deposit */
-  a = driveTo('in-progress');
-  T.sendJobEdit(a.id, { ...jobEdit(a), workDone: M.cents(10) });
-  T.declineJobEdit(a.id);
-  eq([a.money.balance, a.money.refund, a.payments.refund?.state], [0, SCENARIOS.seed.deposit - M.cents(10), 'pending'], 'S1-B1 (default 12): work done below the deposit → a refund of the difference');
   /* due only */
   a = driveTo('edit-pending', { edit: 'due' });
   eq([a.edit.changed, S.jobEditView(a).delta, S.jobEditView(a).dueChanged], [false, 0, true], 'S1-B1: a due-date-only edit changes no price');
-  guard(T.declineJobEdit(driveTo('in-progress').id), 'not-pending', 'S1-B1: nothing to decline without an edit');
+  guard(T.approveJobEdit(driveTo('in-progress').id), 'not-pending', 'S1-B1: nothing to approve without an edit');
+  eq(TARGETS.filter((t) => /partial|declined/.test(t) && t !== 'declined'), [], 'S1-B1 (K-30 overruled): no edit-declined / partial-completed driveTo targets');
   ok(EDIT_REASON && !/%/.test(S.threadFor('amara').messages.map((m) => m.text).join(' ')), 'S1-B1: no system line carries a percent sign');
 
   section('Study-1 B2: private General notes');
@@ -1650,9 +1641,7 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   const ed = C.privateNotes({ notes: [], draft: { id: null, text: 'x', photos: [{ tone: 0 }, { tone: 1 }] } });
   ok(ed.includes('id="note-text"') && (ed.match(/data-act="note-remove-photo"/g) ?? []).length === 2 && ed.includes('data-act="note-add-photo"') && ed.includes('data-act="note-save"'), 'S1-B2: the editor — text, two photos to remove, Add photo, Save');
   ok(C.privateNotes({ notes: [], draft: { id: null, text: '', photos: [{}, {}, {}, {}] } }).includes('Up to 4 photos per note.'), 'S1-B2: at 4 photos Add photo gives way to the limit line');
-  const cb = C.customerBreakdown(SCENARIOS.partial, { stage: 'ready' });
-  ok(cb.includes('Work done so far') && !cb.includes('Services') && !/%/.test(cb), 'S1-B1: the customer sees one Work done so far row, dollars only');
-  ok(C.tailorBreakdown(SCENARIOS.partial).includes(`Work done so far: ${M.fmtExact(M.cents(40))} in all`), 'S1-B1: the tailor sees the services part of the work done');
+  ok(!('partial' in SCENARIOS) && !C.customerBreakdown(SCENARIOS.edit, { stage: 'ready' }).includes('Work done so far'), 'S1-B1 (K-30 overruled): no partial scenario, no Work done so far row');
   ok(/New due date Mon, Oct 26 · was Fri, Oct 23/.test(C.dueChange({ needBy: '2026-10-26', was: '2026-10-23' }).replace(/<[^>]+>/g, '')), 'S1-B1: dueChange');
 }
 
@@ -1660,8 +1649,9 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
 {
   /* C3: price ranges = base ± PRICE_RANGE_SPREAD, ends rounded to PRICE_ROUND; mid = rounded midpoint (STUDY-1-spec §6) */
   const R = (id) => { const r = M.priceRange(id); return [r.low, r.high, r.mid].map((c) => c / 100); };
-  eq([R('hem-pants'), R('taper'), R('waist'), R('sleeves'), R('jacket-sides'), R('shirt-take-in'), R('dress-hem'), R('dress-take-in'), R('zipper'), R('repair'), R('bridal')],
-    [[20, 30, 25], [30, 50, 40], [30, 40, 35], [35, 55, 45], [45, 65, 55], [25, 35, 30], [40, 60, 50], [50, 80, 65], [25, 35, 30], [15, 25, 20], [200, 300, 250]], 'S1-C: priceRange table (§6)');
+  eq([R('hem-pants'), R('taper'), R('waist'), R('sleeves'), R('jacket-sides'), R('shirt-take-in'), R('dress-hem'), R('dress-take-in'), R('zipper'), R('repair')],
+    [[20, 30, 25], [30, 50, 40], [30, 40, 35], [35, 55, 45], [45, 65, 55], [25, 35, 30], [40, 60, 50], [50, 80, 65], [25, 35, 30], [15, 25, 20]], 'S1-C: priceRange table (§6)');
+  eq(M.priceRange('bridal'), null, 'K-33: no bridal price range');
   eq(M.priceRange('nope'), null, 'S1-C: priceRange of an unknown service is null');
   /* C5: neighborhoods are the source of truth; zips are derived (picked order, each once) */
   S.reset();

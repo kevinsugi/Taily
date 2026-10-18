@@ -245,7 +245,7 @@ function stripFor(key, a, v, pv) {
         ? { tone: 'done', icon: 'check', text: `${first} approved · work in progress`, right: daysLeft(a) }
         : { tone: 'calm', icon: 'clock', text: 'In progress', right: daysLeft(a) };
     case 'edit-pending': return { tone: 'warn', icon: 'clock', text: `Waiting on ${first} to approve your changes`, right: a.edit?.sentAt ? `Sent ${fmtTime(a.edit.sentAt)}` : '' };
-    case 'ready': return { tone: 'warn', icon: 'clock', text: a.outcome === 'partial' ? `${first} declined your changes · choosing how to get it back` : `Ready · ${first} is choosing how to get it back` };
+    case 'ready': return { tone: 'warn', icon: 'clock', text: `Ready · ${first} is choosing how to get it back` };
     case 'handoff-pickup':
     case 'handoff-dropoff': {
       const h = a.handoff ?? {};
@@ -345,16 +345,13 @@ function payoutBlock(a, t, extra = '') {
 /** The completed body: Sarah's 1-E linen stage with the garment tags (no woven label), then the payout block, then The work. Failed = calm. */
 function completedBody(a, v, t, extra) {
   const failed = payoutOf(a)?.state === 'failed';
-  const partial = a.outcome === 'partial';
   const me = (t.name || 'there').split(' ')[0];
   const stage = linenStage({
-    eyebrow: failed || partial ? `${firstOf()}’s order` : a.handoff?.completedBy === 'auto' ? `Completed automatically · ${firstOf()}’s order` : `Job completed · ${firstOf()}’s order`,
-    title: partial ? 'Returned, partial work' : failed ? 'Job completed' : `Nice work, ${me}.`,   // Study-1 B1: a declined edit says so
+    eyebrow: failed ? `${firstOf()}’s order` : a.handoff?.completedBy === 'auto' ? `Completed automatically · ${firstOf()}’s order` : `Job completed · ${firstOf()}’s order`,
+    title: failed ? 'Job completed' : `Nice work, ${me}.`,
     line: returnedLine(a), rail: tagRail(returnedItems(a)), label: 'Job completed', calm: failed,
   });
-  const why = partial ? `<p class="t-body c-700 ${ID}__partial" data-partial>${esc(firstOf())} declined your changes and paid ${fmtExact(a.edit?.workDone ?? a.money.total)} for the work done so far.</p>` : '';
   return `${navBackMark()}${stage}
-  ${why}
   ${payoutBlock(a, t, extra)}
   ${workSec(a, v)}
   ${notesSec(a)}`;
@@ -371,7 +368,6 @@ function notesSec(a) {
 
 /* ---------- Study-1 B1: the edit waiting on Sarah ---------- */
 function editBlocks(a, ev) {
-  const first = esc(firstOf());
   const items = returnedItems(a);
   const due = ev.dueChanged ? sec(visitBlock([{ icon: 'clock', value: dueChange({ needBy: ev.needBy, was: ev.needByWas }), strong: true }], { title: '' }), { first: true }) : '';
   return `<div class="${ID}__quote">${noteQuote({ label: 'Your reason', text: ev.reason })}</div>
@@ -382,8 +378,7 @@ function editBlocks(a, ev) {
   ${changeList({ garments: withPhotos(ev.garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: 'Your comment', photoOwner: `${firstOf()}’s` })}`, { id: `${ID}-changes` }) : ''}
   ${notesSec(a)}
   ${sec(`${sectionHead('Your payout if approved', { id: `${ID}-take` })}
-  ${tailorBreakdown(ev.after)}
-  <p class="t-small c-600 ${ID}__fine" data-money>If ${first} declines, she pays ${fmtExact(ev.workDone)} for the work done so far and you’re paid ${fmtExact(ev.ifDeclined.payout)}.</p>`, { id: `${ID}-take` })}`;
+  ${tailorBreakdown(ev.after)}`, { id: `${ID}-take` })}`;
 }
 
 function m4View(a, v, key) {
@@ -434,7 +429,7 @@ function m4View(a, v, key) {
     case 'ready':
       body = `${head({ trail: personButtons(message) })}
   ${sec(visitBlock(returnOffer(a).map((k) => ({ icon: RETURN_ICON[k], value: RETURN_LABEL[k] })), { title: 'Return options you offered' }))}
-  <p class="t-small c-600 ${ID}__fine">${a.outcome === 'partial' ? `${first} declined your changes. She pays ${fmtExact(a.edit?.workDone ?? a.money.total)} for the work done so far, plus the courier if she picks it.` : `${first} pays the ${fmtExact(a.money.balance)} balance, plus the courier if she picks it.`}</p>${work}${notes}${payout}`; break;
+  <p class="t-small c-600 ${ID}__fine">${first} pays the ${fmtExact(a.money.balance)} balance, plus the courier if she picks it.</p>${work}${notes}${payout}`; break;
     case 'handoff-pickup':
       body = `${head({ trail: personButtons(message) })}${handoffNotes(a)}${sec(visitBlock(placeRows(t.shopName, 'bag', shopLine(t)), { title: 'In-store pickup' }))}${work}${notes}${payout}`; break;
     case 'handoff-dropoff':

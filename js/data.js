@@ -107,6 +107,8 @@ const ALL = Object.keys(GARMENT_TYPES);
 /** Service catalog: id → { label, garments: [GARMENT_TYPES keys], base }. K-33: no bridal service (removed from the catalog).
     `base` = the typical NYC price in whole dollars (Study-1 C3: the recommended range is base ± MONEY.PRICE_RANGE_SPREAD, rounded to
     MONEY.PRICE_ROUND, via money.js) — equal to Amara's seed price for each of the ten. */
+/* K-39: PROTOTYPE DATA SOURCE. The service catalog and `base` prices are hard-coded for the prototype; in production they come
+   from a live database (market price data per service, per city), never app constants. */
 export const SERVICES = {
   'hem-pants': { label: 'Hem pants', garments: ['Suit Pant', 'Pants / Jeans'], base: 25 },
   taper: { label: 'Taper legs', garments: ['Suit Pant', 'Pants / Jeans'], base: 40 },

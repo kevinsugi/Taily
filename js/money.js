@@ -99,6 +99,7 @@ export const noShowPayout = (deposit) => Math.max(deposit, cents(MONEY.NO_SHOW_C
 
 /** Study-1 C3: what most NYC tailors charge for a service — its catalog `base` ± `PRICE_RANGE_SPREAD`, each end rounded to the
     nearest `PRICE_ROUND` dollars; `mid` = the rounded midpoint ("Use recommended prices"). Cents; null for an unknown service. */
+/* K-39: PROTOTYPE DATA SOURCE. Ranges derive from SERVICES[id].base (hard-coded); production reads market ranges from a live database. */
 export function priceRange(serviceId) {
   const base = SERVICES[serviceId]?.base;
   if (!(base > 0)) return null;

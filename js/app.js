@@ -156,6 +156,9 @@ const remembered = () => { try { return sessionStorage.getItem(TOOLS_KEY) === '1
 function setTools(on) {
   toolsOn = !!on;
   document.documentElement.classList.toggle('tools-on', toolsOn);
+  /* a8 (pre-MVP sweep, D-444): the drawn 9:41 status bar is prototype chrome — drawn only in the admin's test session (every harness and
+     study boot, so the baselines keep it) and the gallery; a real visitor's own device draws its status bar (base.css html:not(.device-frame)) */
+  document.documentElement.classList.toggle('device-frame', toolsOn);
   tools?.flows.setAdminTools(toolsOn);
 }
 /** Are the Test-flows tools available (the admin is signed in, or a test boot)? */

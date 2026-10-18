@@ -24,10 +24,11 @@ export const MILESTONES = [
   { id: 'A2', name: 'Pre-MVP A2: Taily Help, the admin, disputes, report / block, garment protection' },
   { id: 'K53', name: 'Pre-MVP K-53 M: hold at Ready, fee 15 + the fee page, no-show = deposit, the admin Ledger, the free window’s end' },
   { id: 'RL', name: 'MVP readiness L: log in, admin sign-in, availability, legal drafts (K-52 / K-53)' },
+  { id: 'SW', name: 'Pre-MVP findings sweep: versioned approvals, On the way, tailor-row a11y, rem type, web-app shell' },
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM', 'A2', 'K53', 'RL'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM', 'A2', 'K53', 'RL', 'SW'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
@@ -247,6 +248,8 @@ export const SCREENS = [
     { key: 'c-price-change--docs', m: 'M4', kind: 'state' },
     { key: 'c-price-change--edit', m: 'S1', kind: 'state' },
     { key: 'c-price-change--edit-due', m: 'S1', kind: 'state' },
+    { key: 'c-price-change--revised', m: 'SW', kind: 'state' },
+    { key: 'c-price-change--edit-revised', m: 'SW', kind: 'state' },
   ] },
   { id: 'c-ready', m: 'M4', persona: 'customer', title: 'C10 pick a return option the tailor offers, then pay the balance', states: [
     { key: 'c-ready', m: 'M4', kind: 'frame' },
@@ -670,6 +673,7 @@ export const SCREENS = [
     { key: 't-earnings--kept', m: 'M5', kind: 'state' },
     { key: 't-earnings--loading', m: 'M5', kind: 'state' },
     { key: 't-earnings--paused', m: 'PM', kind: 'state' },
+    { key: 't-earnings--on-the-way', m: 'SW', kind: 'state' },
   ] },
   { id: 't-payout', m: 'M5', persona: 'tailor', title: 'T8 per-job breakdown (services, home fee, rush, Taily fee −$, payout)', states: [
     { key: 't-payout', m: 'M5', kind: 'frame' },

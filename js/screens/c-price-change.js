@@ -72,6 +72,7 @@ function view() {
   ].filter(Boolean);
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${messaged ? '--messaged' : ''}" data-changed="${changed}" data-appt="${esc(a.id)}">
   ${navBackMark()}${strip}${head}
+  ${revisedBanner(a, first, pv.revisions, after.total)}
   <section class="sec">${sectionHead(changed ? 'What changed' : 'Your order')}
   ${changed ? `<div class="${ID}__summary">${changeSummary(pv.counts)}</div>` : ''}
   ${changeList({ garments: withPhotos(pv.garments, a.job), docs: a.priceChange.docs ?? null, commentLabel: `${first}’s comment` })}</section>
@@ -92,6 +93,26 @@ ${actionBar({
 function caseBlock(a) {
   const c = caseOfAppt(a.id, 'customer');
   return c ? `<div class="case-strip-wrap">${caseStrip(caseView(c, 'customer'))}</div>` : '';
+}
+
+/** B-02 (pre-MVP sweep, D-440): Approve named the revision on her screen, and Amara had sent a newer one — the screen now shows it, with
+    what she had seen. Only for the revision the approval bounced on (a later one bounces again and says so). */
+function revisedBanner(a, first, revisions, total) {
+  const r = ui().revised;
+  if (!r || r.apptId !== a.id || r.revision !== revisions) return '';
+  const text = r.was !== total
+    ? `New total ${fmtExact(total)} (was ${fmtExact(r.was)}). Check it before you approve.`
+    : 'Check what changed before you approve.';
+  return `<div class="${ID}__revised" data-revised>${banner({ tone: 'warning', title: `${esc(first)} updated the order while you were looking`, text })}</div>`;
+}
+
+/** What her screen shows right now (B-02): the revision and the total Approve answers to. Read when the screen is wired, i.e. when it painted. */
+function seenOf(a) {
+  if (!a) return null;
+  if (a.status === 'in-progress' && a.edit?.state === 'pending') { const ev = jobEditView(a); return { revision: ev.revisions ?? 0, total: ev.after.total }; }
+  if (!a.priceChange) return null;
+  const pv = priceChangeView(a);
+  return { revision: pv.revisions ?? 0, total: pv.after.total };
 }
 
 /* ---------- Study-1 B1: "Amara edited your order" ---------- */
@@ -121,6 +142,7 @@ function editView(a, chromeHtml) {
   const items = returnedItems(a);
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--edit" data-edit="pending" data-appt="${esc(a.id)}">
   ${navBackMark()}${strip}${head}
+  ${revisedBanner(a, first, ev.revisions, after.total)}
   <div class="${ID}__quote">${noteQuote({ label: `${first}’s reason`, text: ev.reason })}${ev.reasonMasked ? `<p class="t-small c-600 ${ID}__masked">Phone numbers and emails in this reason are hidden.</p>` : ''}</div>
   ${ev.photo ? `<div class="${ID}__photo">${photoFigure({ photo: ev.photo, type: a.job.garments.find((g) => g.id === a.edit?.marks?.[0]?.garmentId)?.type ?? items[0]?.type ?? '', by: first, label: `Photo from ${first}` })}</div>` : ''}
   ${ev.dueChanged ? `<section class="sec">${visitBlock([{ icon: 'clock', value: dueChange({ needBy: ev.needBy, was: ev.needByWas }), strong: true }], { title: '' })}</section>` : ''}
@@ -141,7 +163,14 @@ ${actionBar({
   })}`;
 }
 
-function approveEdit(a) {
+/** B-02: Approve bounced on a newer revision — re-render it with the banner (nothing changed, nothing was charged). */
+function bounced(a, r, seen) {
+  ui().revised = { apptId: a.id, revision: r.revision, was: seen?.total ?? r.total };
+  go(ID);
+  toast('The order changed. Check it before you approve.', { tone: 'warning' });
+}
+
+function approveEdit(a, seen) {
   if (ui().busy) return;
   ui().busy = true;
   ui().error = false;
@@ -149,12 +178,15 @@ function approveEdit(a) {
   withLatency(() => {
     ui().busy = false;
     if (currentScreen() !== ID) return;
-    const r = T.approveJobEdit(a.id);
+    const r = T.approveJobEdit(a.id, { revision: seen?.revision ?? null });
     const first = firstOf(tailorById(a.tailorId));
     if (r.ok) {
+      ui().revised = null;
       setFocus(a.id);
       go('c-booking', { fresh: true });
       toast(`Changes approved. ${first} carries on with the work.`, { tone: 'success' });
+    } else if (r.error === 'revised') {
+      bounced(a, r, seen);
     } else {
       ui().error = true;
       go(ID);
@@ -163,7 +195,7 @@ function approveEdit(a) {
   });
 }
 
-function approve(a) {
+function approve(a, seen) {
   if (ui().busy) return;
   ui().busy = true;
   ui().error = false;
@@ -171,12 +203,15 @@ function approve(a) {
   withLatency(() => {
     ui().busy = false;
     if (currentScreen() !== ID) return;
-    const r = T.approvePriceChange(a.id);
+    const r = T.approvePriceChange(a.id, { revision: seen?.revision ?? null });
     const first = firstOf(tailorById(a.tailorId));
     if (r.ok) {
+      ui().revised = null;
       setFocus(a.id);
       go('c-booking', { fresh: true });
       toast(`Order approved. ${first} can start the work.`, { tone: 'success' });
+    } else if (r.error === 'revised') {
+      bounced(a, r, seen);
     } else {
       ui().error = true;                                            // D-140 / A-14: the banner above the bar carries it, the toast only echoes
       go(ID);
@@ -188,6 +223,7 @@ function approve(a) {
 function wire(root) {
   if (redirectIfMoved(ID, go, { has: (id) => registered().includes(id) })) return;
   const a = focusAppt(ID);
+  const seen = seenOf(a);   // B-02: what this paint shows — the busy re-render before the call re-wires with the same revision
   wirePhotoViewer(root);   // the customer-photo stack of an item the tailor did not document (K-04)
 
   const backBtn = root.querySelector('.back[data-act="back"]');
@@ -213,8 +249,8 @@ function wire(root) {
     const act = el.dataset.act;
     if (act === 'bookings') go('c-bookings', { fresh: true });
     else if (!a) return;
-    else if (act === 'approve') approve(a);
-    else if (act === 'approve-edit') approveEdit(a);
+    else if (act === 'approve') approve(a, seen);
+    else if (act === 'approve-edit') approveEdit(a, seen);
     else if (act === 'message') go('c-thread');
     else if (act === 'get-help' || act === 'open-case') {   // DG-1 option B (pre-MVP A2): the final order stuck → Taily Help with the order attached
       const a = focusAppt(ID);

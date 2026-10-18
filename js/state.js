@@ -54,7 +54,9 @@ function freshSim() {
      held balance fails, D-04) · DG-4 (D-351): payoutSetup = what the payments partner's hosted onboarding returns ('verifying' | 'verified' | 'action-needed') ·
      K-53 (Q6): courierDrift = cents Uber's live price moved from a window's estimate when she taps Pay (0 = the same) */
   /* K-53 Q9 (D-423): social 'off'|'on' — show Continue with Apple / Google although POLICY.SOCIAL_SIGN_IN is off (a Test flow only) */
-  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok', sms: 'ok', capture: 'ok', payoutSetup: 'verifying', courierDrift: 0, social: 'off' };
+  /* B-02 (pre-MVP sweep, D-440): race 'none'|'revised' (one-shot) — the tailor's phone re-sent the final order / the edit a moment before the
+     customer's Approve reached the server, so the approval names a revision that is no longer current */
+  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok', sms: 'ok', capture: 'ok', payoutSetup: 'verifying', courierDrift: 0, social: 'off', race: 'none' };
 }
 function fresh() {
   return {
@@ -1530,11 +1532,13 @@ export function proposeNewTime(id, slotStart) {
 /** The tailor's pending move, or null. */
 export const proposalOf = (a) => (a?.status === 'confirmed' && a.proposal?.state === 'pending' ? a.proposal : null);
 /** Customer: accept the new time (the visit moves; the deposit and the free-cancel window move with it — D-12) or keep the current one.
-    Errors: no-proposal · slot-unavailable. */
-export function answerProposal(id, accept) {
+    B-02: `start` = the asked-for time on her screen; Amara asking again for another time fails 'revised' ({ start }).
+    Errors: no-proposal · revised · slot-unavailable. */
+export function answerProposal(id, accept, { start = null } = {}) {
   const a = must(id);
   const p = proposalOf(a);
   if (!p) return fail('no-proposal');
+  if (start != null && start !== p.start) return fail('revised', { start: p.start });
   if (!accept) {
     Object.assign(p, { state: 'kept', endedAt: nowIso() });
     say(a, `You kept ${fmtWhen(a.slot.start)}`, `${state.customer.first} is keeping ${fmtWhen(a.slot.start)}`);
@@ -1718,11 +1722,27 @@ export function sendPriceChange(id, lines) {
   }
   return succeed(a);
 }
+/* ---------- B-02 (pre-MVP sweep, D-440): versioned approvals (optimistic concurrency) ----------
+   The tailor can revise a pending final order (D-101), a pending edit (default 13) or a pending move (D-12) while the customer is looking at
+   it. Every approval names what the customer SAW — `revision` (final order / edit) or `start` (a move) — and fails 'revised' when it is no
+   longer current, so Approve never applies an order she didn't see. The production API carries the same version. PROTOTYPE: `sim.race`
+   'revised' (one-shot) re-sends the pending order with every line RACE_BUMP_CENTS dearer just before the approval is checked. */
+const RACE_BUMP_CENTS = 1000;   // PROTOTYPE: the simulated revision's change per line (an amount, not a rate)
+function raceRevise(a, kind) {
+  if (state.sim.race !== 'revised') return;
+  state.sim.race = 'none';
+  const src = kind === 'edit' ? a.edit : a.priceChange;
+  const lines = clone(src.lines).map((l) => ({ ...l, cents: l.cents + RACE_BUMP_CENTS }));
+  if (kind === 'edit') sendJobEdit(a.id, { lines, needBy: src.needBy, reason: src.reason, photo: !!src.photo });
+  else sendPriceChange(a.id, lines);
+}
 /** Allowed while pending, and after the customer messaged (disputes settle in chat, then she approves) — D-26. Rebuilds `job.garments`
-    from the approved lines (D-121). */
-export function approvePriceChange(id) {
+    from the approved lines (D-121). B-02: `revision` = the revision on her screen; a newer one fails 'revised' ({ revision, total }). */
+export function approvePriceChange(id, { revision = null } = {}) {
   const a = must(id);
   if (a.status !== 'price-change' || a.priceChange?.state === 'approved') return fail('not-pending');
+  raceRevise(a, 'final');
+  if (revision != null && revision !== (a.priceChange.revisions ?? 0)) return fail('revised', { revision: a.priceChange.revisions ?? 0, total: priceChangeView(a).after.total });
   a.lines = clone(a.priceChange.lines);
   a.money = repriceMoney(a);
   a.payments.balance.cents = a.money.balance;
@@ -2300,10 +2320,13 @@ export function sendJobEdit(id, { lines, needBy = null, reason = '', photo = fal
   notify(a, 'edit-sent');
   return succeed(a);
 }
-/** Sarah approves: the edited lines and due date replace the approved ones (money re-quoted, deposit unchanged) and the work continues. */
-export function approveJobEdit(id) {
+/** Sarah approves: the edited lines and due date replace the approved ones (money re-quoted, deposit unchanged) and the work continues.
+    B-02: `revision` = the revision on her screen; a newer one fails 'revised' ({ revision, total }). */
+export function approveJobEdit(id, { revision = null } = {}) {
   const a = must(id);
   if (a.status !== 'in-progress' || a.edit?.state !== 'pending') return fail('not-pending');
+  raceRevise(a, 'edit');
+  if (revision != null && revision !== (a.edit.revisions ?? 0)) return fail('revised', { revision: a.edit.revisions ?? 0, total: jobEditView(a).after.total });
   const e = a.edit;
   const q = editQuote(a, e.lines, e.needBy);
   e.needByWas = a.job.needBy;

@@ -3088,5 +3088,36 @@ section('K-53 M · fee 15, no-show = deposit, the Ledger, the free window');
   eq([a.status, state.outbox.filter((m) => m.event === 'free-window-closed').length, state.outbox.filter((m) => m.event === 'auto-cancel').length, TX.textNo('free-window-closed')], ['cancelled', 0, 1, `C${TX.TEXT_EVENTS.filter(([, r]) => r.to === 'customer').length}`], 'K-53: a clock that jumps past the auto-cancel sends only the cancel text (no stale “confirm now”); the new text is the last customer row');
 }
 
+section('Pre-MVP sweep · B-02 versioned approvals');
+{
+  /* the final order: Approve names the revision on her screen */
+  S.reset(); let a = driveTo('price-change');
+  const shown = S.priceChangeView(a).after.total;
+  ok(T.sendPriceChange(a.id, a.priceChange.lines.map((l) => ({ ...l, cents: l.cents + 1000 }))).ok, 'B-02: Amara revises the pending final order');
+  const r = T.approvePriceChange(a.id, { revision: 0 });
+  eq([r.ok, r.error, r.revision, r.total > shown, a.status, a.priceChange.state], [false, 'revised', 1, true, 'price-change', 'pending'], 'B-02: Approve on revision 0 bounces — nothing applied, the new total returned');
+  eq([T.approvePriceChange(a.id, { revision: 1 }).ok, a.status], [true, 'in-progress'], 'B-02: Approve on the revision she now sees goes through');
+  /* sim.race: the other phone revises a moment before the approval (one-shot) */
+  S.reset(); a = driveTo('price-change');
+  state.sim.race = 'revised';
+  const r2 = T.approvePriceChange(a.id, { revision: 0 });
+  eq([r2.error, a.priceChange.revisions, state.sim.race, a.status], ['revised', 1, 'none', 'price-change'], 'B-02: sim.race re-sends the order first, once');
+  eq(T.approvePriceChange(a.id).ok, true, 'B-02: an approval without a revision (old callers) still applies the current order');
+  /* the edit after the fitting */
+  S.reset(); a = driveTo('edit-pending');
+  state.sim.race = 'revised';
+  const before = S.jobEditView(a).after.total;
+  const r3 = T.approveJobEdit(a.id, { revision: 0 });
+  eq([r3.ok, r3.error, r3.revision, r3.total - before > 0, a.edit.state], [false, 'revised', 1, true, 'pending'], 'B-02: a revised edit bounces Approve changes');
+  eq([T.approveJobEdit(a.id, { revision: 1 }).ok, a.edit.state], [true, 'approved'], 'B-02: Approve changes on the current revision');
+  /* a move Amara asked for twice */
+  S.reset(); a = driveTo('confirmed');
+  const [m1, m2] = S.moveSlots(a);
+  T.proposeNewTime(a.id, m1); T.proposeNewTime(a.id, m2);
+  const r4 = T.answerProposal(a.id, true, { start: m1 });
+  eq([r4.ok, r4.error, r4.start, S.proposalOf(a)?.start], [false, 'revised', m2, m2], 'B-02: accepting the time she saw fails once Amara asked for another');
+  eq([T.answerProposal(a.id, true, { start: m2 }).ok, a.slot.start], [true, m2], 'B-02: accepting the current ask moves the visit');
+}
+
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);
 if (failed) { for (const f of failures) console.log(`  - ${f}`); process.exit(1); }

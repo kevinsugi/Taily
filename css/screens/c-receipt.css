@@ -7,4 +7,4 @@
 .c-receipt__email { gap: var(--space-4); }
 .c-receipt__email p { margin: 0; text-wrap: pretty; }
 .c-receipt__alert { margin-top: var(--rhythm-block); }
-@media (max-width: 359px) { .c-receipt__parties { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 22.4375em) { .c-receipt__parties { grid-template-columns: minmax(0, 1fr); } }

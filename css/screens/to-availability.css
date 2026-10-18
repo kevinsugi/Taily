@@ -5,7 +5,7 @@
 .to-availability__body { display: flex; flex-direction: column; margin-top: var(--rhythm-section); }
 .to-availability__note { margin: 0; }
 .to-availability .to-availability__card { margin-top: var(--rhythm-group); padding: var(--space-4) var(--space-16); }
-@media (max-width: 300px) { .to-availability .to-availability__card { padding-inline: var(--space-12); } }   /* P1-2 zoom tier */
+@media (max-width: 18.75em) { .to-availability .to-availability__card { padding-inline: var(--space-12); } }   /* P1-2 zoom tier */
 .to-availability__head { margin-top: var(--rhythm-section); }
 .to-availability__body > .to-availability__head:first-child { margin-top: 0; }
 .to-availability__error { margin: var(--space-8) 0 0; }

@@ -30,3 +30,5 @@
 .t-earnings__subline { display: block; }
 /* DG-4 option B (D-355): Tax documents */
 .t-earnings__tax .list-row { min-height: 56px; }
+/* B-07 (pre-MVP sweep, D-441): On the way — her booked jobs not paid yet; the line under the heading, then the rows */
+.t-earnings__flight > p { margin: 0 0 var(--space-8); }

@@ -44,9 +44,9 @@
 .t-adjust-sheet { display: flex; flex-direction: column; width: 100%; }
 /* M7-2-T-03: nothing changed → no two-up figures (the summary + breakdown say it once) */
 .t-adjust__figures--none { display: none; }
-@media (max-width: 340px) { .t-adjust__figures { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 21.25em) { .t-adjust__figures { grid-template-columns: minmax(0, 1fr); } }
 /* P1-2 zoom tier: the label takes its own row, then the input and the remove button share the next */
-@media (max-width: 300px) {
+@media (max-width: 18.75em) {
   .t-adjust__row { grid-template-columns: minmax(0, 1fr) 52px; }
   .t-adjust__label { grid-column: 1 / -1; }
   .t-adjust__was { grid-column: 1; }

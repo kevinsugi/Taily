@@ -132,6 +132,18 @@ export function payoutsView() {
   };
 }
 
+/** B-07 (pre-MVP sweep, D-441): "On the way" on Earnings — her booked jobs not paid out yet (a visit through the handoff, no payout row),
+    newest visit first, each with what she takes home on the order as it stands (`a.money.payout`, after the Taily fee; the final order
+    can still change it). `{ cents, items: [{ apptId, title, types, cents }] }` or null. */
+const IN_FLIGHT = ['confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'];
+export function inFlightView() {
+  const paid = new Set(state.payouts.map((p) => p.apptId));
+  const list = apptsFor('tailor').filter((a) => IN_FLIGHT.includes(a.status) && !paid.has(a.id));
+  if (!list.length) return null;
+  const items = list.map((a) => ({ apptId: a.id, title: customerName(a), types: [...new Set(a.job.garments.map((g) => g.type))].join(', '), cents: a.money.payout }));
+  return { cents: sumOf(items), items };
+}
+
 /** One job's payout: `{ payout, appt, view: requestView(appt) }` or null. */
 export function payoutDetail(apptId) {
   const payout = state.payouts.find((p) => p.apptId === apptId);

@@ -1082,13 +1082,12 @@ export function flowBar({ step = 1, total = BOOKING_STEPS.length, back = true, e
 /**
  * The tailor's Verified check — the ONLY verified mark in the app (customers carry none, K-15). A 16 px seal icon (`word: true` adds the word
  * "Verified", the profile and list rows) that is a <button> with a 44 px hit area; tapping it opens ONE non-modal tooltip popover
- * (`openVerifiedPopover`) listing the four checks. `years` = the tailor's years of experience (data-years). `inline` renders a
- * role="button" span for a host that is itself a <button> (tailorRow) — the tap is intercepted before the row's own action.
+ * (`openVerifiedPopover`) listing the four checks. `years` = the tailor's years of experience (data-years). S-18 (D-442): always a real
+ * <button>; a card host (tailorRow) is a stretched-link article, so the check sits beside the card's link, never inside a button.
  */
-export function verifiedCheck({ years = 0, word = false, inline = false } = {}) {
+export function verifiedCheck({ years = 0, word = false } = {}) {
   const attrs = `class="verified verified--check${word ? '' : ' verified--icon'}" data-verified data-years="${Number(years) || 0}" data-hit="inline" aria-label="Verified tailor — show checks" aria-haspopup="dialog" aria-expanded="false" aria-controls="verified-pop"`;
-  const inner = `${ICON_VERIFIED}${word ? '<span>Verified</span>' : ''}`;
-  return inline ? `<span role="button" tabindex="0" ${attrs}>${inner}</span>` : `<button type="button" ${attrs}>${inner}</button>`;
+  return `<button type="button" ${attrs}>${ICON_VERIFIED}${word ? '<span>Verified</span>' : ''}</button>`;
 }
 const ICON_TICK = GLYPH('<path d="m3.5 8.4 3 3 6-6.8"/>');
 /** The checks, one tick each: ID verified · Background check · "<N> years of experience" · Insured through Taily. DG-4 (D-350, Kevin):
@@ -1372,26 +1371,36 @@ export function tailorRow({ id, name, initials, photo = null, verified = false, 
   const place = visitType === 'shop'
     ? [street, hood, distanceMi != null ? `${Number(distanceMi).toFixed(1)} mi` : ''].filter(Boolean).map((x) => esc(x)).join(' · ')
     : `Comes to you${hood ? ` · from ${esc(hood)}` : ''}`;
-  const attrs = declined ? ' aria-disabled="true"' : ` data-act="open-tailor" data-id="${esc(id)}"`;
+  /* S-18 (pre-MVP sweep, D-442): a stretched-link card like the K-25 request card — the card's one action is `.tailor-row__link`, a button laid
+     over the whole card whose name says what the card says; the Verified check is a real <button> above it (never a control nested in a
+     button). The face is aria-hidden (the link carries it) except the check. Declined: no link, the face is read as text. */
+  const hide = declined ? '' : ' aria-hidden="true"';
+  const placeWords = visitType === 'shop'
+    ? [street, hood, distanceMi != null ? `${Number(distanceMi).toFixed(1)} miles away` : ''].filter(Boolean).join(', ')
+    : `comes to you${hood ? ` from ${hood}` : ''}`;
+  const label = [name, rating ? `${rating.avg} stars, ${rating.count} reviews` : (yrs > 0 ? `${yrs} ${yrs === 1 ? 'year' : 'years'} tailoring` : ''),
+    `estimate ${format(q.total ?? 0)}`, placeWords, nextOpening ? `next opening ${fmtWhen(nextOpening)}` : ''].filter(Boolean).join(', ');
+  const link = declined ? '' : `<button type="button" class="tailor-row__link" data-act="open-tailor" data-id="${esc(id)}" aria-label="${esc(label)}"></button>`;
   /* the estimate is the focal element (R1-1-C-17): 24 / 600 tabular, "Est." under it */
-  const est = declined ? '' : `<span class="tailor-row__quote" data-money><span class="tailor-row__amt">${format(q.total ?? 0)}</span><span class="tailor-row__est">Est.</span></span>`;
+  const est = declined ? '' : `<span class="tailor-row__quote" data-money${hide}><span class="tailor-row__amt">${format(q.total ?? 0)}</span><span class="tailor-row__est">Est.</span></span>`;
   const line = String(cardLine ?? '').trim();
   const next = nextOpening ? `<span class="tailor-row__fact tailor-row__fact--next"><span class="tailor-row__glyph">${ROW_ICONS.next}</span><span class="tailor-row__fact-t">Next opening ${nb(fmtWhen(nextOpening))}</span></span>` : '';
   const facts = declined ? '' : `<span class="tailor-row__facts"><span class="tailor-row__fact"><span class="tailor-row__glyph">${visitType === 'shop' ? ROW_ICONS.shop : ROW_ICONS.home}</span><span class="tailor-row__fact-t">${place}</span></span>${next}</span>`;
-  return `<button type="button" class="tailor-row card${declined ? ' tailor-row--declined' : ''}${q.rush > 0 ? ' tailor-row--rush' : ''}"${attrs}>
+  const facePart = (html) => (hide && html ? html.replace(/^(\s*<\w+)/, `$1${hide}`) : html);
+  return `<article class="tailor-row card${declined ? ' tailor-row--declined' : ''}${q.rush > 0 ? ' tailor-row--rush' : ''}"${declined ? ' aria-disabled="true"' : ''} data-id="${esc(id)}">${link}
   <span class="tailor-row__head">
-    ${avatar({ initials, photo, size: 'sm' })}
+    ${facePart(avatar({ initials, photo, size: 'sm' }))}
     <span class="tailor-row__who">
-      <span class="tailor-row__name-row"><span class="tailor-row__name">${esc(name)}</span>${verified ? verifiedCheck({ years, inline: true }) : ''}</span>
-      ${slot}
+      <span class="tailor-row__name-row"><span class="tailor-row__name"${hide}>${esc(name)}</span>${verified ? verifiedCheck({ years }) : ''}</span>
+      ${facePart(slot)}
     </span>
     ${est}
   </span>
-  ${!declined && line ? `<span class="tailor-row__line" data-cardline>${esc(line)}</span>` : ''}
-  ${facts}
+  ${!declined && line ? `<span class="tailor-row__line" data-cardline${hide}>${esc(line)}</span>` : ''}
+  ${facePart(facts)}
   ${declined ? '<span class="tailor-row__note">Declined this request</span>' : ''}
-  ${!declined && booked ? `<span class="tailor-row__booked">${booked}</span>` : ''}
-</button>`;
+  ${!declined && booked ? `<span class="tailor-row__booked"${hide}>${booked}</span>` : ''}
+</article>`;
 }
 
 /* ---------- price row ---------- */

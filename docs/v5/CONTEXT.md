@@ -490,3 +490,19 @@ Run it end to end: `npm run study` (`scripts/v5/study-run.mjs`, 390 px, through 
 - **components.js** `adminTools({ testFlows })` + app.js `wireAdminTools(root)`: Test flows · Sign out at the foot of a-inbox AND a-ledger (D-434);
   the nav stays Inbox · Ledger; every a-* screen (a-ledger included) sits behind the a-login gate. Fixtures: s3m + s3l both in ALL_FLOWS;
   inventory BUILT adds `K53` and `RL`. Journeys: M J34–J36, L J37–J40 (D-435).
+
+## Pre-MVP findings sweep (D-440…D-445; flows `js/fixtures/s4w.js`, inventory milestone `SW`; coverage table `docs/v5/PRE-MVP-COVERAGE.md`)
+
+- **state.js** versioned approvals (B-02, D-440): `approvePriceChange(id, { revision })`, `approveJobEdit(id, { revision })` → `'revised'`
+  `{ revision, total }`; `answerProposal(id, accept, { start })` → `'revised'` `{ start }`. No version = apply the current one (old callers).
+  `sim.race` 'none' | 'revised' (one-shot): the tailor's phone re-sends the pending order (every line + $10.00) just before the approval.
+  c-price-change reads what it painted at wire time (`seenOf`) and shows the `[data-revised]` warning banner; c-booking passes the move's start.
+- **tailor-data.js** `inFlightView()` → `{ cents, items: [{ apptId, title, types, cents }] }` — booked jobs with no payout yet (B-07, D-441);
+  t-earnings "On the way" (rows open t-job).
+- **components.js** `tailorRow` = `<article class="tailor-row card">` + `.tailor-row__link` (the stretched-link button, `data-act="open-tailor"`,
+  labelled with the card's facts) + a real Verified `<button>` above it; `verifiedCheck({ years, word })` (the `inline` span is gone) (S-18, D-442).
+- **tokens.css** `--size-*` in rem (16 px root), `--tile-h` 6.875rem (garment tile); the text-reflow tiers are em media queries
+  (18.75 / 21.25 / 22.4375 / 23.375em = 300 / 340 / 359 / 374 px at 16) (S-17, D-443). Pixels at the default are unchanged.
+- **Web-app shell** (a8, D-444): `manifest.json`, `assets/app-icon.svg`, theme-colour + Apple metas in index.html. `html.device-frame`
+  (app.js `setTools`, components.html static) draws the 9:41 status bar; without it `--status-h` = the device's top inset and the bar is hidden.
+  Deep link per appointment: the build's (D-445).

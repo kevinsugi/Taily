@@ -24,7 +24,7 @@
 /* the loading skeleton mirrors the circle avatar (M7 A5.4) */
 .c-tailors .skeleton__dot { border-radius: var(--radius-full); }
 /* AU-P2-3: under 375 px the three filter pills sit two across, the first on its own row */
-@media (max-width: 374px) {
+@media (max-width: 23.375em) {
   .c-tailors__filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .c-tailors__filters > :first-child { grid-column: 1 / -1; }
 }

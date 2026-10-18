@@ -9,8 +9,8 @@
    ============================================================ */
 import { register, render as go, currentScreen, personaHome } from '../app.js';
 import { state, getAppt, now } from '../state.js';
-import { myTailor, payoutsView } from '../tailor-data.js';
-import { setFocus } from '../focus.js';
+import { myTailor, payoutsView, inFlightView } from '../tailor-data.js';
+import { setFocus, statusWord } from '../focus.js';
 import { fmtExact } from '../money.js';
 import { fmtDay } from '../dates.js';
 import { withLatency } from '../sim.js';
@@ -72,6 +72,26 @@ function taxDocs(t) {
 </section>`;
 }
 
+/** B-07 (pre-MVP sweep, D-441): the jobs she is working on — not paid yet, so they are not in a payout; each opens its job. */
+function onTheWay() {
+  const v = inFlightView();
+  if (!v) return '';
+  const rows = v.items.map((i) => {
+    const a = getAppt(i.apptId);
+    return listRow({
+      lead: garmentIcon(heroGarment(a?.job), { size: 'row' }),
+      title: esc(i.title), sub: subLines(`${statusWord(a, 'tailor').label}${i.types ? ` · ${i.types}` : ''}`),
+      right: `<span class="${ID}__amt t-body w-600" data-money>${fmtExact(i.cents)}</span>`,
+      act: 'open-job', attrs: `data-id="${esc(i.apptId)}"`,
+    });
+  }).join('');
+  return `<section class="sec ${ID}__flight" aria-labelledby="${ID}-flight">
+  ${sectionHead('On the way', { id: `${ID}-flight` })}
+  <p class="t-small c-600 ${ID}__after">${plural(v.items.length, 'job', 'jobs')} · <span data-money>${fmtExact(v.cents)}</span> after the Taily fee, so far. Each is paid the Friday after it’s complete.</p>
+  ${listOf(rows)}
+</section>`;
+}
+
 function view() {
   const head = `${chrome('earnings', { persona: 'tailor' })}`;
   const title = headingRow('<h1 class="t-title">Earnings</h1>', { back: false });
@@ -94,6 +114,7 @@ function view() {
     body: 'When you complete a job, its payout shows up here. Taily pays out every Friday.',
     art: 'Accessories', ctaLabel: 'Back to Home', ctaAct: 'home',
   })}</div>
+  ${onTheWay()}
   ${taxDocs(t)}
 </main>`;
   }
@@ -165,6 +186,7 @@ function view() {
   ${failBanner}
   ${nextCard}
   ${sent}
+  ${onTheWay()}
   ${paid}
   ${taxDocs(t)}
 </main>`;
@@ -177,6 +199,7 @@ function wire(root) {
     if (!el) return;
     switch (el.dataset.act) {
       case 'open-payout': setFocus(el.dataset.id); go('t-payout'); break;
+      case 'open-job': setFocus(el.dataset.id); go('t-job'); break;   // B-07: a job on the way
       case 'fix-bank': case 'fix-payouts': state.ui['to-payouts'] = { from: 'earnings' }; go('to-payouts'); break;
       case 'home': go(personaHome('tailor')); break;
       default: break;

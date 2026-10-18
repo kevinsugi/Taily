@@ -73,7 +73,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 @media (hover: hover) {
   .top-nav__link:not(.is-active):hover { color: var(--ink); background: var(--neutral-50); }
 }
-@media (max-width: 359px) {
+@media (max-width: 22.4375em) {
   .top-nav__logo { width: 60px; height: 28px; }
 }
 
@@ -100,7 +100,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .garment-tile--selected:active { transform: none; }
 .garment-tile--selected .garment-tile__icons { width: 100%; flex: 0 0 40px; align-content: center; }
 .garment-tile--selected.garment-tile--grid .garment-tile__icons { width: 53px; }
-.garment-tile--selected .garment-tile__label { flex: 0 0 16px; overflow: hidden; text-overflow: ellipsis; padding-inline: var(--space-4); }
+.garment-tile--selected .garment-tile__label { flex: 0 0 calc(var(--size-12) * var(--lh-12)); overflow: hidden; text-overflow: ellipsis; padding-inline: var(--space-4); }
 .garment-tile__ctl { display: flex; width: 100%; margin-top: auto; box-shadow: inset 0 1px 0 var(--neutral-200); }
 .garment-tile__step { display: inline-flex; align-items: center; justify-content: center; flex: 1 1 0; min-width: 44px; min-height: 44px; color: var(--neutral-700); }
 .garment-tile__step:active { background: var(--neutral-100); }
@@ -151,6 +151,11 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .tailor-row__booked { display: block; padding-top: var(--space-8); font-size: var(--size-12); line-height: var(--lh-12); font-weight: 500; color: var(--neutral-600); text-wrap: pretty; }
 .tailor-row__note { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--neutral-700); }
 .tailor-row--declined { opacity: 0.55; cursor: not-allowed; }
+/* S-18 (pre-MVP sweep, D-442): a stretched-link card (the K-25 request-card pattern) — the link covers the card; the Verified check sits above it */
+.tailor-row { position: relative; }
+.tailor-row__link { position: absolute; inset: 0; z-index: 1; width: 100%; padding: 0; border: 0; border-radius: inherit; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tailor-row__link:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.tailor-row .verified { z-index: 2; }
 
 /* ---------- price row ---------- */
 .price-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); min-height: 44px; padding-block: var(--space-8); }
@@ -729,7 +734,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .appt-row__chevron { grid-column: 4; grid-row: 1 / span 3; width: var(--size-12); height: var(--size-16); justify-self: end; color: var(--neutral-500); }
 .appt-row--bare .appt-row__when, .appt-row--bare .appt-row__place { grid-column: 2 / span 2; }   /* no amount: the time and place may use the amount's column */
 /* P3-3: on a narrow phone the name column keeps a floor, and the right column (status word over amount over caption) gives way: the status word wraps beside its dot, the amount sits under it */
-@media (max-width: 340px) {
+@media (max-width: 21.25em) {
   .appt-row { --appt-name-min: 88px; grid-template-columns: 40px minmax(var(--appt-name-min), 1fr) minmax(0, max-content) var(--size-12); }
   .appt-row .status { white-space: normal; }
   .appt-row__name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: break-word; }   /* a long name takes a second line before it loses its end */
@@ -1217,8 +1222,10 @@ a.cta-small { text-decoration: none; }
 
 /* ---------- zoom tier (LAYOUT-PLAN P1-2): at <= 300 CSS px (200% zoom on a 390 phone, split view) fixed rows compress or reflow.
    Not a container query: container-type would make #screen the containing block of the fixed overlay holder and toast.
-   Nothing here applies at 320 or wider, so the 390 / 320 baselines do not move. ---------- */
-@media (max-width: 300px) {
+   Nothing here applies at 320 or wider, so the 390 / 320 baselines do not move.
+   S-17 (pre-MVP sweep, D-443): the tiers are em queries (18.75em = 300 px at the browser's 16 px default), so a reader who doubles the
+   text size (390 px = 12.2em at 32 px) gets the same reflow as 200% zoom; identical at the default. ---------- */
+@media (max-width: 18.75em) {
   /* SF-35: a deadline on another day ("23h left · by tomorrow 10:00 AM") may wrap under the lead instead of crossing the edge */
   .request-card__strip--split { flex-wrap: wrap; row-gap: var(--space-4); }
   .request-card__strip[data-strip] .request-card__strip-clock { white-space: normal; flex-shrink: 1; min-width: 0; }
@@ -1557,7 +1564,7 @@ a.cta-small { text-decoration: none; }
 .confirm-sheet__body p { margin: 0; text-wrap: pretty; }
 .confirm-sheet__actions { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-4); }
 /* P-31 (D-374): a card that is one tap target carries a 3:1 outline against the page; list cards (rows with chevrons) keep the chalk ring */
-button.card, .card.request-card, .method-row { box-shadow: inset 0 0 0 1px var(--card-ring-tap); }   /* tailor row, thread context, request card, Pay with; .appt-row, .where__card, .c-complete__row set it in their own rules */
+button.card, .card.request-card, .card.tailor-row, .method-row { box-shadow: inset 0 0 0 1px var(--card-ring-tap); }   /* tailor row, thread context, request card, Pay with; .appt-row, .where__card, .c-complete__row set it in their own rules */
 /* DG-3 A (D-370 / D-371): the change-phone page, shared by both personas (js/account-ui.js) */
 .phone-change__lead { margin: var(--rhythm-tight) 0 var(--rhythm-block); text-wrap: pretty; }
 .phone-change__link, .phone-change__resend { position: relative; padding: 0; border: 0; background: none; font: inherit; color: var(--accent-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

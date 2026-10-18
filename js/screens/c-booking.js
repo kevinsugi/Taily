@@ -906,6 +906,7 @@ function openTailorNoShow(a, first, { check = false } = {}) {   // check: D-11's
 function wire(root) {
   if (redirectIfMoved(ID, go, { has: (id) => registered().includes(id) })) return;
   const a = focusAppt(ID);
+  const seenMove = proposalOf(a)?.start ?? null;   // B-02 (D-440): the asked-for time this paint shows
   wirePhotoViewer(root);   // the customer-photo stack of an item with no fitting photos (K-04)
 
   const backBtn = root.querySelector('.back[data-act="back"]');
@@ -964,9 +965,10 @@ function wire(root) {
       }
       case 'proposal-accept': case 'proposal-keep': {   // D-12
         if (!a) break;
-        const res = T.answerProposal(a.id, act === 'proposal-accept');
+        const res = T.answerProposal(a.id, act === 'proposal-accept', { start: seenMove });
         go(ID);
         if (res.ok) toast(act === 'proposal-accept' ? `Moved to ${fmtWhen(res.appt.slot.start)}. ${firstOf(t)} has been told.` : `You kept ${fmtWhen(res.appt.slot.start)}. ${firstOf(t)} has been told.`, { tone: 'success' });
+        else if (res.error === 'revised') toast(`${firstOf(t)} just asked for ${fmtWhen(res.start)} instead. Check it before you answer.`, { tone: 'warning' });   // B-02
         else toast('That time was just taken. Your visit stays as it is.', { tone: 'error' });
         break;
       }

@@ -14,3 +14,11 @@
 .to-where__card-foot { display: block; padding-top: var(--space-12); border-top: 1px solid var(--hairline); }
 /* M7-1-T-04: the preview is ONE card; the mini profile inside it carries no ring of its own */
 .to-where__pv .mini-profile { padding: 0; box-shadow: none; border-radius: 0; background: none; }
+/* B-15 (D-356): the courier's pickup address when she has no shop */
+.to-where__collect-head { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-12) 0; }
+.to-where__collect-head h2, .to-where__collect-head p { margin: 0; }
+/* S-39 (D-359): the preview is c-tailor's own Where block */
+.to-where__place { display: flex; flex-direction: column; gap: var(--space-2); }
+.to-where__place p { margin: 0 0 0 var(--space-28); }
+.to-where__place + .to-where__place { margin-top: var(--rhythm-tight); }
+.to-where__pv .sec-head { margin-bottom: var(--space-4); }

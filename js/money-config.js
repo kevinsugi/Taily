@@ -9,7 +9,7 @@ export const MONEY = Object.freeze({
   DEPOSIT_RATE: 0.10,       // of (services + home-visit fee), authorized at request, captured on accept
   COURIER_MARKUP: 0.10,     // on top of the courier quote, paid by the customer, kept by Taily
   COURIER_BASE: 8.00,       // prototype: simulated Uber API quote (K-43, D-299) — $8 base …
-  COURIER_PER_MILE: 2.50,   // … + $2.50 per mile (ZIP_INFO miles) …
+  COURIER_PER_MILE: 2.50,   // … + $2.50 per mile (data.js milesBetween: where the courier collects → the customer's ZIP, S-42) …
   COURIER_PEAK: 3.50,       // … + $3.50 for a delivery window starting in the evening peak (production: the live Uber API quote per window)
   COURIER_PEAK_FROM_H: 17,  // prototype: the simulated peak = windows starting 5:00 PM …
   COURIER_PEAK_TO_H: 19,    // … up to (not including) 7:00 PM
@@ -57,4 +57,8 @@ export const POLICY = Object.freeze({
   NOTICE_WINDOW_H: 48,      // DG-2 A: a cancellation this close to the visit gets a one-time notice card on Home
   VISIT_TOOLS_H: 3,         // S-32: On my way / I'm here show from this long before the visit
   COURIER_REPORT_H: 24,     // S-35: after a courier delivery, "Didn't get it?" stays open this long
+  /* DG-4 / K-48 (D-352, Kevin Oct 18): a tailor is listed and can take bookings only once all four checks passed (ID and profile photo,
+     background check, years tailoring, payout and tax info). false = listed while the review runs (the Verified check still waits). */
+  LIVE_REQUIRES_VERIFIED: true,
+  PAYOUT_FIX_D: 9,          // DG-4 prototype: the payments partner's deadline to confirm paused tax info (production: the partner's own date)
 });

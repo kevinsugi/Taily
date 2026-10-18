@@ -14,10 +14,10 @@
    ============================================================ */
 import { register, render as go, registered, personaHome, currentScreen } from '../app.js';
 import { state, T, now, TERMINAL, justConfirmed, priceChangeView, returnOffer, threadFor, lastSpeakerSince, returnAddress, docsDiffer, docsFor, courierWindow, autoCompleteLeft, jobEditView, notesEditable, slotText, handoffMissed, reminderState, freeUntil, autoCancelAt, unclaimedAt,
-  autoCancelArmed, proposalOf, visitToolsOpen, tailyReviewOf } from '../state.js';
+  autoCancelArmed, proposalOf, visitToolsOpen, tailyReviewOf, collectAddress } from '../state.js';
 import { focusAppt, redirectIfMoved, statusWord, setFocus } from '../focus.js';
 import { myTailor, requestView, jobAddress, payoutOf, inbox, payoutLine } from '../tailor-data.js';
-import { CANT_MAKE_IT_REASONS, RETURN_LABEL, HANDOFF_CODE_LEN } from '../data.js';
+import { CANT_MAKE_IT_REASONS, RETURN_LABEL, HANDOFF_CODE_LEN, CHARGE_WHEN } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { fmtExact, noShowPayout, cancelTerms } from '../money.js';
 import { withLatency } from '../sim.js';
@@ -247,12 +247,12 @@ function copyFor(key, a, t, v, pv) {
       return { ...base, title: 'Time for the fitting', note: note(`Start it when you’re with ${first}.`), bar };
     }
     case 'fitting': return { bar: { ctaLabel: 'Final order', ctaAct: 'edit-order' } };   // K-42: the button names the screen it opens
-    case 'waiting': return { bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
+    case 'waiting': return { bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Change final order', secondaryAct: 'revise' } };
     case 'messaged': {
       /* D-112: Amara already answered → the move is Sarah's (the waiting layout) until she speaks again */
       const last = lastSpeakerSince(a, pv.sentAt);
-      if (last?.from === 'tailor') return { bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
-      return { bar: { ctaLabel: `Reply to ${first}`, ctaAct: 'message', secondaryLabel: 'Edit the order', secondaryAct: 'revise' } };
+      if (last?.from === 'tailor') return { bar: { ctaLabel: `Message ${first}`, ctaAct: 'message', secondaryLabel: 'Change final order', secondaryAct: 'revise' } };
+      return { bar: { ctaLabel: `Reply to ${first}`, ctaAct: 'message', secondaryLabel: 'Change final order', secondaryAct: 'revise' } };
     }
     case 'in-progress': return { bar: { ctaLabel: 'Mark ready', ctaAct: 'mark-ready', secondaryLabel: 'Edit order', secondaryAct: 'edit-job' } };   // Study-1 B1, K-42
     /* default 13: one pending edit at a time — Mark ready waits; Edit order again replaces what Sarah is looking at */
@@ -297,8 +297,9 @@ function stripFor(key, a, v, pv) {
       /* K-40: the time Sarah picked leads; a move she made is Amara's news (accent) with the old time on the row under it */
       if (h.slot && handoffMissed(a)) return { tone: 'warn', icon: 'clock', text: `${first} missed her ${dayWord(h.slot.start, now()) === 'today' ? fmtTime(h.slot.start) : fmtWhen(h.slot.start)} pickup · she picks a new time` };   // SF-35
       if (h.slot && h.moved?.from) return { tone: 'action', icon: 'bag', text: `${first} moved her pickup to ${slotText(h.slot)}` };
-      if (h.slot) return { tone: 'done', icon: 'bag', text: `${first} picks up ${slotText(h.slot)}${held ? ` · ${fmtExact(b.cents)} on hold` : ''}` };
-      return { tone: 'done', icon: 'bag', text: held ? `In-store pickup · ${first}’s ${fmtExact(b.cents)} is on hold` : `In-store pickup · waiting for ${first}` };
+      /* D-17 / K-48.7: Sarah's words on the tailor side — when her balance is charged (data.js CHARGE_WHEN), not "on hold" */
+      if (h.slot) return { tone: 'done', icon: 'bag', text: `${first} picks up ${slotText(h.slot)}${held ? ` · ${fmtExact(b.cents)} charged ${CHARGE_WHEN.pickup}` : ''}` };
+      return { tone: 'done', icon: 'bag', text: held ? `In-store pickup · ${first}’s ${fmtExact(b.cents)} is charged ${CHARGE_WHEN.pickup}` : `In-store pickup · waiting for ${first}` };
     }
     default: { // courier (K-40: the window Sarah picked; the courier collects COURIER_COLLECT_LEAD_MIN before it)
       const w = courierWindow(a);
@@ -354,8 +355,9 @@ function timeRows(a) {
   const first = firstOf();
   const moved = h.moved?.from ? `${first} moved it from ${slotText(h.moved.from)}` : '';
   if (a.returnOption === 'courier') {
+    const from = !myTailor().shop?.enabled && collectAddress(myTailor()) ? `From ${collectAddress(myTailor())}` : '';   // B-15 (D-356)
     return [{ icon: 'clock', strong: true, value: esc(`Collects ${fmtDay(h.slot.collectAt)} · ${fmtTime(h.slot.collectAt)}`),
-      detail: [moved, `Have it bagged by then · arrives at ${first}’s ${courierWhen(a)}`].filter(Boolean).map(esc) }];
+      detail: [moved, from, `Have it bagged by then · arrives at ${first}’s ${courierWhen(a)}`].filter(Boolean).map(esc) }];
   }
   return [{ icon: 'calendar', strong: true, value: esc(slotText(h.slot)),
     detail: esc(handoffMissed(a) ? `${first} missed this time. She picks a new one.` : moved || `${first} picked this time from your open hours`) }];
@@ -432,7 +434,7 @@ function completedBody(a, v, t, extra) {
   ${notesSec(a)}`;
 }
 
-/* ---------- Study-1 B2: private General notes (K-31) — from the fitting on, editable until completed ---------- */
+/* ---------- Study-1 B2: private General notes (K-31) — from the accept on (D-19, K-48; was the fitting), editable until completed ---------- */
 /** The open note editor of THIS job (state.ui['t-job'].note), or null. */
 const noteDraft = (a) => (a && ui().note?.apptId === a.id ? ui().note : null);
 function notesSec(a) {
@@ -482,7 +484,7 @@ function m4View(a, v, key) {
   const hero = stripped || key === 'completed' ? '' : statusHero({ variant: 'confirmed', pill: false, title: c.title, body: '', extra: c.note });
   let body;
   switch (key) {
-    case 'visit': body = `${backHead(hero, a)}${block(visitCard(a, v))}${work}${payout}`; break;
+    case 'visit': body = `${backHead(hero, a)}${block(visitCard(a, v))}${work}${notes}${payout}`; break;   // D-19: notes from the accept
     case 'fitting':
       body = `${head({ payoutCents: a.money.payout })}
   ${visitBlock([
@@ -554,6 +556,7 @@ function view() {
   ${sec(visitCard(a, v, { was, extra: reasonRow }), { first: true })}
   ${cancelled ? cancelMoney(a) : ''}
   ${workSec(a, v)}
+  ${cancelled ? '' : notesSec(a)}
   ${cancelled ? '' : payoutSec(a, v, `<p class="t-small c-600 ${ID}__fine">Your payout arrives the Friday after the job is complete.</p>`)}
   ${cancelled ? `<div class="page-actions">${cancelKind(a) === 'tailor-no-show' && !a.cancel?.disputedAt ? cta('That’s not right', { variant: 'secondary', attrs: 'data-act="dispute"' }) : ''}${textLink('Back to Home', { act: 'home' })}</div>` : ''}
 </main>`;

@@ -6,8 +6,8 @@
    js/screens/v4/ and are never loaded.
    ============================================================ */
 
-import { state } from './state.js';
-import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wirePopovers, withNavBack } from './components.js';
+import { state, nextSection, onboarded, waitlisted } from './state.js';
+import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wirePopovers, withNavBack, modalOverlay, leaveModal, ONBOARDING_STEPS } from './components.js';
 import { SCREENS } from './inventory.js';
 import { systemBanner, wireSystem } from './system.js';
 
@@ -57,6 +57,16 @@ function syncPersona(id) {
 
 /** The landing screen for a persona (falls back to sys-index while that screen is unregistered). */
 export function personaHome(persona = state.persona) {
+  /* S-21 (D-361): a tailor who hasn't finished onboarding lands on her next step (waitlisted: to-done's waitlist), never an empty Home */
+  if (persona === 'tailor') {
+    const t = state.tailors[0];
+    if (t && waitlisted(t) && !t.live) return 'to-done';
+    if (t && !onboarded(t)) {
+      const next = nextSection(t);
+      return next ? ONBOARDING_STEPS.find((s) => s.id === next)?.screen ?? 'to-profile' : 'to-payouts';
+    }
+    if (t && !t.live && KNOWN.has('t-shop')) return 't-shop';   // DG-4 option B (Kevin): under review → her Shop, where the checklist lives
+  }
   const id = PERSONA_HOME[persona];
   if (id && KNOWN.has(id)) return id;
   /* D-67: until t-home exists a tailor's home is her shop; never the developer index */
@@ -89,12 +99,13 @@ function freshMount() {
   return el;
 }
 
-/** Register a screen module. Called by js/screens/<id>.js. */
-export function register(id, render, wire) {
+/** Register a screen module. Called by js/screens/<id>.js. `opts.canLeave()` → false while the screen holds unsaved edits: the top nav
+    asks "Leave without saving?" first (S-22, D-360) and `opts.discard()` drops the draft when she leaves anyway. */
+export function register(id, render, wire, opts = {}) {
   if (typeof render !== 'function') {
     throw new TypeError(`register("${id}"): render must be a function`);
   }
-  screens.set(id, { view: render, wire });
+  screens.set(id, { view: render, wire, canLeave: opts.canLeave, discard: opts.discard });
 }
 
 /** Every screen the router can show: the ones registered so far plus the ones still to load (D-212). */
@@ -194,7 +205,9 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
      instead of running a stale close. */
   const prevScreen = el.dataset.screen;
   /* AU-P1-2a: a same-screen render replaces the node, so remember which control had focus (before an overlay closes and moves it) */
-  if (prevScreen === id) rememberFocus(el); else pendingFocus = null;
+  /* B1's harness note (merge A1 + B1): a fresh start (a new history — the flows harness, sign-in, a persona switch) is not an in-place change,
+     so it never inherits a focus ring from the previous render of the same screen */
+  if (prevScreen === id && !opts.fresh) rememberFocus(el); else pendingFocus = null;
   closeOverlay({ instant: true });
   el = freshMount();
   syncPersona(id);
@@ -453,8 +466,18 @@ function wireTopNav() {
     if (!link) return;
     e.preventDefault();
     const target = NAV_ROUTES[state.persona]?.[link.dataset.nav];
-    if (target && KNOWN.has(target)) { if (currentScreen() !== target) render(target); }
-    else toast('Not built yet');
+    if (!(target && KNOWN.has(target))) { toast('Not built yet'); return; }
+    if (currentScreen() === target) return;
+    /* S-22 (D-360): a Shop editor with unsaved changes asks first — the same Leave without saving? modal its Back uses */
+    const here = screens.get(currentScreen());
+    if (here?.canLeave && !here.canLeave()) {
+      modalOverlay(leaveModal(), { dataS: 'nav-unsaved' }, (holder, close) => {
+        holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
+        holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => { close({ instant: true }); here.discard?.(); render(target); });
+      });
+      return;
+    }
+    render(target);
   });
 }
 

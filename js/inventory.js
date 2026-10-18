@@ -20,10 +20,11 @@ export const MILESTONES = [
   { id: 'M7', name: 'Polish' },
   { id: 'S1', name: 'Study-1 (tailor usability)' },
   { id: 'A1', name: 'Pre-MVP A1: texts, timers, visit day, courier' },
+  { id: 'PM', name: 'Pre-MVP fix pass (K-48)' },
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM'];
 
 export const SCREENS = [
   { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
@@ -84,6 +85,9 @@ export const SCREENS = [
     { key: 'c-tailors--sort', m: 'M1', kind: 'overlay' },
     { key: 'c-tailors--none-left', m: 'M3', kind: 'state' },
     { key: 'c-tailors--card-line-max', m: 'S1', kind: 'state' },
+    { key: 'c-tailors--services', m: 'PM', kind: 'state' },
+    { key: 'c-tailors--waitlist', m: 'PM', kind: 'state' },
+    { key: 'c-tailors--shop-moved', m: 'PM', kind: 'state' },
   ] },
   { id: 'c-tailor', m: 'M1', persona: 'customer', title: 'C4 Tailor profile (K-18 2-I): portrait, stat strip, next opening + Book now, About, photos, estimate, reviews, return options, shop address; Ask a question under Pick a time', states: [
     { key: 'c-tailor', m: 'M1', kind: 'frame' },
@@ -94,6 +98,7 @@ export const SCREENS = [
     { key: 'c-tailor--reviewed', m: 'M4', kind: 'state' },
     { key: 'c-tailor--verified', m: 'M7', kind: 'overlay' },
     { key: 'c-tailor--book-again', m: 'M7', kind: 'state' },
+    { key: 'c-tailor--services', m: 'PM', kind: 'state' },
   ] },
   { id: 'c-book', m: 'M1', persona: 'customer', title: 'C5a Pick a time: Scheduler limited to the tailor\'s open slots before the need-by', states: [
     { key: 'c-book', m: 'M1', kind: 'frame' },
@@ -111,6 +116,7 @@ export const SCREENS = [
     { key: 'c-pay--processing', m: 'M1', kind: 'state' },
     { key: 'sys-error-toast', m: 'M5', kind: 'state' },
     { key: 'c-pay--offline', m: 'A1', kind: 'state' },
+    { key: 'c-pay--services', m: 'PM', kind: 'state' },
   ] },
   { id: 'c-request', m: 'M1', persona: 'customer', title: 'C6/C7 request status (also the Bookings target for an open request)', states: [
     { key: 'c-request', m: 'M1', kind: 'frame' },
@@ -298,6 +304,8 @@ export const SCREENS = [
     { key: 'to-profile--photo-missing', m: 'M2', kind: 'state' },
     { key: 'to-profile--errors', m: 'M2', kind: 'state' },
     { key: 'to-profile--edit', m: 'M2', kind: 'state' },
+    { key: 'to-profile--id-sheet', m: 'PM', kind: 'overlay' },
+    { key: 'to-profile--id-added', m: 'PM', kind: 'state' },
   ] },
   { id: 'to-services', m: 'M2', persona: 'tailor', title: 'O2 tick services + set a price each', states: [
     { key: 'to-services', m: 'M2', kind: 'frame' },
@@ -308,6 +316,7 @@ export const SCREENS = [
     { key: 'to-services--unsaved', m: 'M2', kind: 'overlay' },
     { key: 'to-services--recommended', m: 'S1', kind: 'state' },
     { key: 'to-services--recommended-none', m: 'S1', kind: 'state' },
+    { key: 'to-services--leave-nav', m: 'PM', kind: 'overlay' },
   ] },
   { id: 'to-where', m: 'M2', persona: 'tailor', title: 'O3 shop address (optional) + home visits toggle → neighborhoods (borough groups + tile map) + flat home visit fee', states: [
     { key: 'to-where', m: 'M2', kind: 'frame' },
@@ -319,11 +328,16 @@ export const SCREENS = [
     { key: 'to-where--hoods', m: 'S1', kind: 'state' },
     { key: 'to-where--hoods-borough', m: 'S1', kind: 'state' },
     { key: 'to-where--hoods-none', m: 'S1', kind: 'state' },
+    { key: 'to-where--courier-address', m: 'PM', kind: 'state' },
+    { key: 'to-where--courier-address-missing', m: 'PM', kind: 'state' },
+    { key: 'to-where--zip-unserved', m: 'PM', kind: 'state' },
+    { key: 'to-where--manhattan', m: 'PM', kind: 'state' },
   ] },
   { id: 'to-returns', m: 'M2', persona: 'tailor', title: 'O4 in-store pickup / Taily courier (K-37: no home drop-off)', states: [
     { key: 'to-returns', m: 'M2', kind: 'frame' },
     { key: 'to-returns--none', m: 'M2', kind: 'state' },
     { key: 'to-returns--edit', m: 'M2', kind: 'state' },
+    { key: 'to-returns--no-shop', m: 'PM', kind: 'state' },
   ] },
   { id: 'to-availability', m: 'M2', persona: 'tailor', title: 'O5 weekly hours, split shop / home when both', states: [
     { key: 'to-availability', m: 'M2', kind: 'frame' },
@@ -332,19 +346,31 @@ export const SCREENS = [
     { key: 'to-availability--overlap', m: 'M2', kind: 'state' },
     { key: 'to-availability--edit', m: 'M2', kind: 'state' },
   ] },
-  { id: 'to-payouts', m: 'M2', persona: 'tailor', title: 'O6 bank details + the Taily fee in dollars ("On a $100.00 order, Taily keeps $10.00 and you get $90.00")', states: [
+  { id: 'to-payouts', m: 'M2', persona: 'tailor', title: 'O6 background check consent + the Taily fee in dollars + the payments partner\'s hosted payout step (DG-4 B, D-06); edit: the partner\'s status', states: [
     { key: 'to-payouts', m: 'M2', kind: 'frame' },
-    { key: 'to-payouts--invalid', m: 'M2', kind: 'state' },
     { key: 'to-payouts--edit', m: 'M2', kind: 'state' },
     { key: 'to-payouts--returned', m: 'M5', kind: 'state' },
+    { key: 'to-payouts--consent-missing', m: 'PM', kind: 'state' },
+    { key: 'to-payouts--disclosure', m: 'PM', kind: 'overlay' },
+    { key: 'to-payouts--verifying', m: 'PM', kind: 'state' },
+    { key: 'to-payouts--action-needed', m: 'PM', kind: 'state' },
+    { key: 'to-payouts--paused', m: 'PM', kind: 'state' },
   ] },
-  { id: 'to-done', m: 'M2', persona: 'tailor', title: 'You\'re bookable confirmation', states: [
+  { id: 'to-done', m: 'M2', persona: 'tailor', title: 'The end of onboarding: Submitted (checks under review) · You\'re bookable · the waitlist (DG-4 B, D-18)', states: [
     { key: 'to-done', m: 'M2', kind: 'frame' },
+    { key: 'to-done--bookable', m: 'PM', kind: 'frame' },
+    { key: 'to-done--needs-you', m: 'PM', kind: 'state' },
+    { key: 'to-done--waitlist', m: 'PM', kind: 'frame' },
   ] },
   { id: 't-shop', m: 'M2', persona: 'tailor', title: 'T7 Shop: every onboarding section with its summary, Edit each, Rush fees row', states: [
     { key: 't-shop', m: 'M2', kind: 'frame' },
     { key: 't-shop--incomplete', m: 'M2', kind: 'state' },
     { key: 't-shop--paused', m: 'M2', kind: 'state' },
+    { key: 't-shop--review', m: 'PM', kind: 'frame' },
+    { key: 't-shop--review-needs', m: 'PM', kind: 'state' },
+    { key: 't-shop--id-sheet', m: 'PM', kind: 'overlay' },
+    { key: 't-shop--payouts-paused', m: 'PM', kind: 'state' },
+    { key: 't-shop--no-shop', m: 'PM', kind: 'state' },
   ] },
   { id: 't-texts', m: 'A1', persona: 'tailor', title: 'Shop → Texts: requests and job texts on / off, the STOP state (D-02)', states: [
     { key: 't-texts', m: 'A1', kind: 'frame' },
@@ -378,6 +404,8 @@ export const SCREENS = [
     { key: 't-home--notice-auto-cancel', m: 'A1', kind: 'state' },
     { key: 't-home--texts-off', m: 'A1', kind: 'state' },
     { key: 't-home--overdue', m: 'A1', kind: 'state' },
+    { key: 't-home--under-review', m: 'PM', kind: 'state' },
+    { key: 't-home--finish-setup', m: 'PM', kind: 'state' },
   ] },
   { id: 't-request', m: 'M3', persona: 'tailor', title: 'T2/T3 request card: garments + estimate, visit type + neighborhood/zip, time, need-by, payout after Taily fee, expiry; Accept · Suggest time · Decline', states: [
     { key: 't-request', m: 'M3', kind: 'frame' },
@@ -470,6 +498,9 @@ export const SCREENS = [
     { key: 't-job--tailor-no-show-dispute', m: 'A1', kind: 'overlay' },
     { key: 't-job--no-show-disputed', m: 'A1', kind: 'state' },
     { key: 't-job--reminder-unarmed', m: 'A1', kind: 'state' },
+    { key: 't-job--notes-before-visit', m: 'PM', kind: 'state' },
+    { key: 't-job--name-peek', m: 'PM', kind: 'overlay' },
+    { key: 't-job--handoff-courier-studio', m: 'PM', kind: 'state' },
   ] },
   { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Final order at the fitting (K-42; after the fitting: Edit order): add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },
@@ -505,6 +536,7 @@ export const SCREENS = [
     { key: 't-earnings--failed-and-next', m: 'M5', kind: 'state' },
     { key: 't-earnings--kept', m: 'M5', kind: 'state' },
     { key: 't-earnings--loading', m: 'M5', kind: 'state' },
+    { key: 't-earnings--paused', m: 'PM', kind: 'state' },
   ] },
   { id: 't-payout', m: 'M5', persona: 'tailor', title: 'T8 per-job breakdown (services, home fee, rush, Taily fee −$, payout)', states: [
     { key: 't-payout', m: 'M5', kind: 'frame' },

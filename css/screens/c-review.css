@@ -33,5 +33,3 @@
 .c-review__photonote { text-wrap: pretty; }
 .c-review__posted { gap: var(--space-12); }
 .c-review__posted .review-row { padding: 0; }
-/* R4-1-C-10: the three sections are peers; the text area's label matches "Your rating" and "Photos" (16 / 600 ink) */
-.c-review__text .field__label { font-size: var(--size-16); line-height: var(--lh-16); font-weight: 600; color: var(--ink); }

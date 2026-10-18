@@ -8,13 +8,13 @@
    skeleton (D-141).
    ============================================================ */
 import { register, render as go, currentScreen, personaHome } from '../app.js';
-import { state, getAppt } from '../state.js';
+import { state, getAppt, now } from '../state.js';
 import { myTailor, payoutsView } from '../tailor-data.js';
 import { setFocus } from '../focus.js';
 import { fmtExact } from '../money.js';
 import { fmtDay } from '../dates.js';
 import { withLatency } from '../sim.js';
-import { chrome, headingRow, banner, emptyState, listRow, skeleton, cta, esc, sectionHead, infoButton, garmentIcon, heroGarment } from '../components.js';
+import { chrome, headingRow, banner, emptyState, listRow, skeleton, cta, esc, sectionHead, infoButton, garmentIcon, heroGarment, statusPill } from '../components.js';
 
 const ID = 't-earnings';
 const ui = () => (state.ui[ID] ??= {});
@@ -47,6 +47,31 @@ const hero = ({ label, cents, caption = '', info = false }) => `<div class="${ID
     ${caption ? `<p class="t-small c-600">${esc(caption)}</p>` : ''}
   </div>`;
 
+/* ---------- DG-4, option B's Earnings mirror (D-355): payouts paused by the payments partner, and the Tax documents area ---------- */
+const pausedNow = (t) => ['paused', 'action-needed'].includes(t.payouts?.status);
+/** "Payouts are paused" — what the partner needs, the amount waiting, and the way to fix it. */
+function pausedBanner(t, waiting) {
+  const p = t.payouts ?? {};
+  if (!pausedNow(t)) return '';
+  const owed = waiting ? ` Your <span data-money>${fmtExact(waiting)}</span> goes out once it’s done.` : '';
+  return `<div class="hero ${ID}__alert">${p.status === 'paused'
+    ? banner({ tone: 'warning', title: 'Payouts are paused', text: `Our payments partner needs you to confirm your tax info (W-9).${owed}`, actionLabel: 'Confirm tax info', actionAct: 'fix-payouts' })
+    : banner({ tone: 'error', title: 'Payouts are paused', text: `Our payments partner couldn’t verify your identity.${owed}`, actionLabel: 'Fix it', actionAct: 'fix-payouts' })}</div>`;
+}
+/** Tax documents: the W-9 the partner holds, and the year's 1099-K (PROTOTYPE placeholder: the partner files and delivers it). */
+function taxDocs(t) {
+  const p = t.payouts ?? {};
+  const year = new Date(now()).getFullYear();
+  const w9 = p.tax === 'needs-info'
+    ? listRow({ title: 'Tax info (W-9)', sub: `Confirm by ${esc(fmtDay(p.issueDue))}`, right: statusPill('check-needs'), act: 'fix-payouts' })
+    : listRow({ title: 'Tax info (W-9)', sub: p.taxAt ? `Received ${esc(fmtDay(p.taxAt))}` : 'You give it during payout setup', right: p.taxAt ? statusPill('check-verified', 'Done') : statusPill('check-todo') });
+  const form = listRow({ title: `${year} tax form (1099-K)`, sub: `Ready by Jan 31, ${year + 1}` });
+  return `<section class="sec ${ID}__tax" aria-labelledby="${ID}-tax">
+  ${sectionHead('Tax documents', { id: `${ID}-tax` })}
+  <div class="card card--list">${w9}${form}</div>
+</section>`;
+}
+
 function view() {
   const head = `${chrome('earnings', { persona: 'tailor' })}`;
   const title = headingRow('<h1 class="t-title">Earnings</h1>', { back: false });
@@ -60,6 +85,7 @@ function view() {
   const { next, failed, history } = payoutsView();
   const bank = bankOf(myTailor().payouts);
 
+  const t = myTailor();
   if (!next && !failed && !history.length) {
     return `${head}<main class="body ${ID}">
   ${title}
@@ -68,8 +94,10 @@ function view() {
     body: 'When you complete a job, its payout shows up here. Taily pays out every Friday.',
     art: 'Accessories', ctaLabel: 'Back to Home', ctaAct: 'home',
   })}</div>
+  ${taxDocs(t)}
 </main>`;
   }
+  const paused = pausedNow(t);
 
   /* M6-T-18: sent back AND another job scheduled = one card below (it carries the Fix button), so the banner is only its title;
      sent back alone keeps the sentence and the button */
@@ -97,7 +125,7 @@ function view() {
   } else if (next) {
     const again = next.items.some((i) => i.retried);
     nextCard = `<section class="sec sec--first ${ID}__next" aria-label="Next payout">
-    ${hero({ label: 'Next payout', cents: next.cents, info: true, caption: failed ? `Sends ${fmtDay(next.date)} once you update your bank details` : `${again ? 'Sending again' : 'Arrives'} ${fmtDay(next.date)} · to ${bank}` })}
+    ${hero({ label: 'Next payout', cents: next.cents, info: true, caption: paused ? (t.payouts.status === 'paused' ? 'Paused until your tax info is in' : 'Paused until your identity is verified') : failed ? `Sends ${fmtDay(next.date)} once you update your bank details` : `${again ? 'Sending again' : 'Arrives'} ${fmtDay(next.date)} · to ${bank}` })}
     <p class="t-small c-600 ${ID}__after">${plural(next.items.length, 'job', 'jobs')} · ${feeNote(next.items)}</p>
     ${rowsOf(next.items)}
   </section>`;
@@ -133,10 +161,12 @@ function view() {
 
   return `${head}<main class="body ${ID}">
   ${title}
+  ${pausedBanner(t, next?.cents ?? 0)}
   ${failBanner}
   ${nextCard}
   ${sent}
   ${paid}
+  ${taxDocs(t)}
 </main>`;
 }
 
@@ -147,7 +177,7 @@ function wire(root) {
     if (!el) return;
     switch (el.dataset.act) {
       case 'open-payout': setFocus(el.dataset.id); go('t-payout'); break;
-      case 'fix-bank': state.ui['to-payouts'] = { from: 'earnings' }; go('to-payouts'); break;
+      case 'fix-bank': case 'fix-payouts': state.ui['to-payouts'] = { from: 'earnings' }; go('to-payouts'); break;
       case 'home': go(personaHome('tailor')); break;
       default: break;
     }

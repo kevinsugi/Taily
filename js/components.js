@@ -134,7 +134,7 @@ import * as DATA from './data.js';
 import { fmt, fmtExact, fmtNeg, cents } from './money.js';
 import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb, dayWord } from './dates.js';
 import { POLICY } from './money-config.js';
-import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor } from './state.js';
+import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor, verifyView, checkState } from './state.js';
 import { scheduler, slotColumns, readSlot, windowColumns, readWindow, whenNote, SCHED_ROW } from './scheduler.js';   // K-40: the handoff time sheet (scheduler.js imports this file back; both only call across at run time)
 import { withLatency } from './sim.js';
 import { inbox } from './tailor-data.js';
@@ -193,6 +193,13 @@ const PILL_VARIANTS = {
   /* M7: t-shop's "Bookable" / "Paused" */
   'bookable':              { tone: 'done',     label: 'Bookable' },
   'paused':                { tone: 'pending',  label: 'Paused' },
+  /* DG-4 (option B, D-350): one dot + word per verification check, and the Shop's review state */
+  'check-verified':        { tone: 'done',     label: 'Verified' },
+  'check-pending':         { tone: 'pending',  label: 'Pending' },
+  'check-needs':           { tone: 'action',   label: 'Needs info' },
+  'check-todo':            { tone: 'calm',     label: 'Not started' },
+  'check-waitlist':        { tone: 'stop',     label: 'Waitlist' },
+  'under-review':          { tone: 'pending',  label: 'Under review' },
 };
 
 export function statusPill(status, label) {
@@ -1069,10 +1076,11 @@ export function verifiedCheck({ years = 0, word = false, inline = false } = {}) 
   return inline ? `<span role="button" tabindex="0" ${attrs}>${inner}</span>` : `<button type="button" ${attrs}>${inner}</button>`;
 }
 const ICON_TICK = GLYPH('<path d="m3.5 8.4 3 3 6-6.8"/>');
-/** The four checks, one tick each: ID verified · Background check · "<N> years of experience" · Insured. */
+/** The checks, one tick each: ID verified · Background check · "<N> years of experience" · Insured through Taily. DG-4 (D-350, Kevin):
+    insurance is Taily's, not something a tailor hands in — the line says whose it is. The mark itself shows only when every check passed. */
 export function verifiedChecks(years = 0) {
   const n = Number(years) || 0;
-  return ['ID verified', 'Background check', ...(n > 0 ? [`${n} ${n === 1 ? 'year' : 'years'} of experience`] : []), 'Insured'];
+  return ['ID verified', 'Background check', ...(n > 0 ? [`${n} ${n === 1 ? 'year' : 'years'} of experience`] : []), 'Insured through Taily'];
 }
 /** The popover's own markup (also the gallery's static specimen, inside `.anchor-pop.verified-pop` with an `anchorArrow`). */
 export function verifiedPopoverHtml(years = 0) {
@@ -1693,7 +1701,7 @@ const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', capture
  * and pay sheet, the Balance row (ready + held stages), and after paying the c-booking head label + timeline line and the c-bookings
  * row caption, so none can drift. `chargedWhen` falls back to "Charged at handoff" while no way back is chosen. */
 /** SF-33: the shop as one place line, skipping an empty business name — "Reyes Tailoring, 145 Bedford Ave" (+ city, state ZIP when `full`). */
-export const shopPlace = (t, { full = false } = {}) => [t?.shopName, t?.shop?.street, full && t?.shop ? `${t.shop.city}, ${t.shop.state} ${t.shop.zip}` : ''].filter(Boolean).join(', ');
+export const shopPlace = (t, { full = false } = {}) => [t?.shopName, t?.shop?.street, full ? t?.shop?.unit : '', full && t?.shop ? `${t.shop.city}, ${t.shop.state} ${t.shop.zip}` : ''].filter(Boolean).join(', ');   // S-42: + suite / floor
 export const CHARGE_CAPTION = { pickup: `Charged ${DATA.CHARGE_WHEN.pickup}`, courier: `Charged ${DATA.CHARGE_WHEN.courier}` };
 export const chargedWhen = (wayBack) => CHARGE_CAPTION[wayBack] ?? 'Charged when you get it';   // SF-39: no way back chosen yet
 /** The same timing inside a sentence: "You’ll be charged $144.00 at pickup." */
@@ -1872,7 +1880,7 @@ export const ONBOARDING_STEPS = [
   { id: 'where', label: 'Where you work', screen: 'to-where' },
   { id: 'returns', label: 'Return options', screen: 'to-returns' },
   { id: 'availability', label: 'Availability', screen: 'to-availability' },
-  { id: 'payouts', label: 'Payouts', screen: 'to-payouts' },
+  { id: 'payouts', label: 'Background check and payouts', screen: 'to-payouts' },   // DG-4 (D-350): consent + the hosted payout step
 ];
 
 /** SF-43: the line under the intro of every live-shop editor (services, where, returns, availability, rush): what a save changes. */
@@ -1902,6 +1910,126 @@ export function onboardingHeader({ editing = false, back = true, active = 'shop'
 </div>`;
 }
 
+/* ============================================================
+   DG-4, option B (K-48: D-05 / D-06, Kevin Oct 18; D-350…D-355) — the four checks behind the Verified check.
+   Onboarding collects them (ID with the profile photo and years on Profile; background consent + the payments partner's hosted
+   payout step on step 6); the checklist lives on Shop (and to-done) with one status dot per check and the one action she can take.
+   ============================================================ */
+/** How long we say the review takes (copy, not a timer). */
+export const REVIEW_TIME = '1 to 2 days';
+const CHECK_PILL = { verified: 'check-verified', pending: 'check-pending', 'needs-info': 'check-needs', 'not-started': 'check-todo', waitlist: 'check-waitlist' };
+const yearsWord = (n) => `${n} ${Number(n) === 1 ? 'year' : 'years'}`;
+/** One check in the tailor's words: `{ sub, pill, pillLabel, act }` — `act` = the one thing she can do about it ('' when nothing). */
+export function checkWords(t, id) {
+  const st = checkState(t, id);
+  const p = t?.payouts ?? {};
+  const out = { sub: '', pill: CHECK_PILL[st] ?? 'check-todo', pillLabel: undefined, act: '' };
+  if (id === 'id') {
+    out.sub = st === 'verified' ? `Matched ${fmtDay(t.verify.id.at)}` : { pending: 'We’re matching your ID to your profile photo', 'needs-info': 'Your ID didn’t match your photo. Add it again', 'not-started': 'Add a photo ID to your profile' }[st];
+    if (st === 'needs-info' || st === 'not-started') out.act = 'check-id';
+  } else if (id === 'background') {
+    out.sub = st === 'verified' ? `Cleared ${fmtDay(t.verify.background.at)}` : { pending: `Usually ${REVIEW_TIME}. We’ll text you`, 'needs-info': 'We need a few more details. Check your texts', 'not-started': 'Agree to start it' }[st];
+    if (st === 'not-started') out.act = 'check-background';
+  } else if (id === 'years') {
+    out.sub = st === 'not-started' ? 'Add it to your profile' : st === 'waitlist' ? `${yearsWord(t.years)} · Taily tailors have at least ${DATA.TAILOR_LIMITS.YEARS_MIN}` : yearsWord(t.years);
+    if (st !== 'verified') out.act = 'check-years';
+  } else if (id === 'payout') {
+    if (p.status === 'paused') { out.pill = 'paused'; out.pillLabel = 'Paused'; out.sub = 'Confirm your tax info to get paid'; out.act = 'check-payout'; return out; }
+    out.sub = { verified: `${p.bank} •••• ${p.last4} · paid Fridays`, pending: 'Our payments partner is checking your details', 'needs-info': 'Your date of birth doesn’t match your SSN. Fix it', 'not-started': 'Set it up with our payments partner' }[st];
+    if (st === 'needs-info' || st === 'not-started') out.act = 'check-payout';
+  }
+  return out;
+}
+/** "2 of 4 checks passed" / "All 4 checks passed". */
+export function checksLine(t) {
+  const v = verifyView(t);
+  return v.allPassed ? `All ${v.total} checks passed` : `${v.passed} of ${v.total} checks passed`;
+}
+/** The checklist (one .card--list): each check's label, what it waits on, its status dot. A check she can act on is a button
+    (`data-act` = check-id | check-background | check-years | check-payout); `interactive: false` = read-only rows. */
+export function verifyChecklist(t, { interactive = true } = {}) {
+  const v = verifyView(t);
+  return `<div class="card card--list verify-list" data-checks="${v.passed}">${v.items.map((it) => {
+    const w = checkWords(t, it.id);
+    return listRow({ title: esc(it.label), sub: esc(w.sub), right: statusPill(w.pill, w.pillLabel), act: interactive ? w.act : '' });
+  }).join('')}</div>`;
+}
+/** The Shop's / Home's one-line state while she isn't listed yet: a pill word over the checks count. */
+export function reviewPill(t) {
+  const v = verifyView(t);
+  if (v.items.some((i) => i.state === 'waitlist')) return statusPill('check-waitlist', 'On the waitlist');
+  if (v.needsYou.length) return statusPill('check-needs', `Needs you · ${v.passed} of ${v.total} checks`);
+  return statusPill('under-review', `Under review · ${v.passed} of ${v.total} checks`);
+}
+
+/** DG-4 (D-354 counsel): the background-check disclosure — PLACEHOLDER copy, final FCRA disclosure + authorization, summary of rights and
+    the NYC Fair Chance Act notice come from counsel (docs/v5/COUNSEL.md). Shown as its own sheet (a stand-alone disclosure). */
+export const BACKGROUND_DISCLOSURE = [
+  'Before customers can book you, Taily orders a background check (a consumer report) from a background check company. It confirms who you are and looks at criminal records.',
+  'You can ask for a copy of the report and dispute anything in it that’s wrong. In New York City, Taily follows the Fair Chance Act: if something in the report might matter, we tell you and give you time to respond before we decide.',
+];
+export const COUNSEL_DRAFT = 'Draft for counsel: the final disclosure, authorization and summary of your rights go here.';
+export function disclosureHtml() {
+  return `<div class="disclosure">${BACKGROUND_DISCLOSURE.map((p) => `<p class="t-body c-700">${esc(p)}</p>`).join('')}<p class="t-small c-600 disclosure__draft" data-counsel>${esc(COUNSEL_DRAFT)}</p></div>`;
+}
+/** The disclosure sheet (dataS `background-disclosure`). `agree` (Shop: the check isn't started) adds the consent box + "Agree and start the
+    check"; without it the sheet only reads (to-payouts keeps its own box on the page). `onDone(result)` after a consent. */
+export function openBackgroundSheet({ agree = false, onDone } = {}) {
+  const body = (err = '') => `${disclosureHtml()}${agree ? `<div class="disclosure__agree">${checkRow({ id: 'bg-sheet-consent', label: 'I agree to a background check', caption: 'I’ve read the disclosure above.', error: err })}</div>
+    <div class="disclosure__go">${cta('Agree and start the check', { attrs: 'data-act="bg-agree"' })}</div>` : ''}`;
+  sheetOverlay(`<div class="disclosure-sheet" data-disclosure>${body()}</div>`, { header: 'Background check', dataS: 'background-disclosure', confirm: false }, (holder, close) => {
+    holder.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-act="bg-agree"]')) return;
+      const box = holder.querySelector('#bg-sheet-consent');
+      if (!box?.checked) {
+        holder.querySelector('[data-disclosure]').innerHTML = body('Tick the box to agree.');
+        holder.querySelector('#bg-sheet-consent')?.focus();
+        return;
+      }
+      const r = T.consentBackground(true);
+      close({ instant: true });
+      onDone?.(r);
+    });
+  });
+}
+/** "Add your photo ID" (dataS `id-upload`): take or choose a photo of the ID; `onPick()` stores it (the profile draft, or T.uploadId on Shop). */
+export function openIdSheet(onPick) {
+  const html = `<p class="t-body c-700 id-sheet__lead">We match your ID to your profile photo. Only Taily sees it, never customers.</p>
+<div class="card card--list">${listRow({ title: 'Take a photo of your ID', act: 'id-take' })}${listRow({ title: 'Choose from library', act: 'id-library' })}</div>`;
+  sheetOverlay(html, { header: 'Your photo ID', dataS: 'id-upload', confirm: false }, (holder, close) => {
+    const pick = () => { close({ instant: true }); onPick?.(); };
+    holder.querySelector('[data-act="id-take"]').addEventListener('click', pick);
+    holder.querySelector('[data-act="id-library"]').addEventListener('click', pick);
+  });
+}
+/** What the payments partner asks for (to-payouts before the hand-off). */
+export function secureSetupCard() {
+  return `<div class="card secure-setup">
+  <p class="t-body w-600 secure-setup__title">Our payments partner sets up your payouts</p>
+  <p class="t-small c-600">It takes about 5 minutes. You’ll need:</p>
+  <ul class="secure-setup__list">
+    <li class="t-body c-700">Your legal name and date of birth</li>
+    <li class="t-body c-700">Your SSN or EIN, for your W-9 and 1099-K</li>
+    <li class="t-body c-700">The bank account for Friday payouts</li>
+  </ul>
+  <p class="t-small c-600">Taily never sees your full SSN or account number.</p>
+</div>`;
+}
+/** The partner's three rows after the hand-off: Identity · Tax info (W-9) · Bank account, each with its status dot. */
+export function payoutRows(t, { interactive = false } = {}) {
+  const p = t?.payouts ?? {};
+  const IDW = { verified: ['check-verified', 'Done'], verifying: ['check-pending', 'Verifying'], 'needs-info': ['check-needs', 'Needs info'], 'not-started': ['check-todo', 'Not started'] };
+  const TAXW = { verified: ['check-verified', 'Done'], received: ['check-verified', 'Done'], 'needs-info': ['check-needs', 'Needs info'], 'not-started': ['check-todo', 'Not started'] };
+  const idw = IDW[p.identity] ?? IDW['not-started'];
+  const taxw = TAXW[p.tax] ?? TAXW['not-started'];
+  const fix = interactive && (p.identity === 'needs-info' || p.tax === 'needs-info') ? 'fix-payout' : '';
+  return `<div class="card card--list payout-rows">
+  ${listRow({ title: 'Identity', sub: p.identity === 'needs-info' ? 'Date of birth doesn’t match' : 'Name, date of birth, SSN', right: statusPill(idw[0], idw[1]), act: p.identity === 'needs-info' ? fix : '' })}
+  ${listRow({ title: 'Tax info (W-9)', sub: p.tax === 'needs-info' ? `Confirm by ${fmtDay(p.issueDue ?? '')}` : p.taxAt ? `Received ${fmtDay(p.taxAt)}` : 'Your W-9', right: statusPill(taxw[0], taxw[1]), act: p.tax === 'needs-info' ? fix : '' })}
+  ${listRow({ title: 'Bank account', sub: p.last4 ? `${esc(p.bank)} •••• ${esc(p.last4)} · paid Fridays` : 'For Friday payouts', right: statusPill(p.last4 ? 'check-verified' : 'check-todo', p.last4 ? 'Done' : 'Not started') })}
+</div>`;
+}
+
 /**
  * Text area — the field chassis (label, inset box, helper / error) plus a live "n / max" counter. No `maxlength` by default
  * (a paste must be able to show the over-max error). The counter is `data-count` (screens update it in place on
@@ -1910,7 +2038,8 @@ export function onboardingHeader({ editing = false, back = true, active = 'shop'
  * `wireTextLimit`): typing stops at it, a paste is cut to fit with `notice` ("Trimmed to 110 characters.", live) under the box,
  * and AT the limit the counter and the box ring take the error tone while the field stays valid (`.text-area--full`).
  */
-export function textArea({ id, label, value = '', rows = 4, max, maxlength = null, placeholder = '', notice = '', helper = '', error = '' } = {}) {
+/* P-27 (D-362): `section: true` = the label reads as a section title (16 / 600 ink), a variant instead of a screen override (c-review). */
+export function textArea({ id, label, value = '', rows = 4, max, maxlength = null, placeholder = '', notice = '', helper = '', error = '', section = false } = {}) {
   const msg = error || helper;
   const msgId = `${id}-msg`;
   const countId = `${id}-count`;
@@ -1920,7 +2049,7 @@ export function textArea({ id, label, value = '', rows = 4, max, maxlength = nul
   const full = maxlength != null && n >= maxlength;
   const describedBy = [msg ? msgId : '', cap != null ? countId : '', maxlength != null ? `${id}-notice` : ''].filter(Boolean).join(' ');
   return `<div class="field text-area${error ? ' field--error' : ''}${full ? ' text-area--full' : ''}">
-  <label class="field__label" for="${id}">${esc(label)}</label>
+  <label class="field__label${section ? ' field__label--section' : ''}" for="${id}">${esc(label)}</label>
   <div class="field__box text-area__box">
     <textarea class="text-area__input" id="${id}" name="${id}" rows="${rows}"${maxlength != null ? ` maxlength="${maxlength}" data-maxlength="${maxlength}"` : ''}${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}${error ? ' aria-invalid="true"' : ''}${describedBy ? ` aria-describedby="${describedBy}"` : ''}>${esc(value)}</textarea>
   </div>
@@ -2181,7 +2310,7 @@ export function workList(v, { final = false, estimateLabel = 'Estimate from your
   const showEstimate = !final && estimateLabel !== null;
   const owner = photoOwner || `${String(v.customer?.name || 'The customer').split(' ')[0]}’s`;
   const groups = v.garments.map((g) => `<div class="work-list__garment" data-garment="${esc(g.id)}">
-    ${garmentHead({ type: g.type, photos: stackFor(g, { docs: docs ? g.docs : null, owner }) })}
+    ${garmentHead({ type: g.type, photos: stackFor(g, { docs: docs ? g.docs : null, owner }), services: g.services.map((sv) => sv.label) })}
     ${g.services.map((sv) => priceRow({ label: sv.label, cents: sv.cents, format: fmtExact })).join('')}
     ${docs && g.docs ? garmentDocs({ garmentId: g.id, type: g.type, docs: g.docs, commentLabel, idPrefix: 'work' }) : ''}
   </div>`).join('');
@@ -2290,7 +2419,7 @@ export function changeList({ garments = [], format = fmtExact, docs = null, comm
     const newItem = g.kind === 'added' || (g.newItem && g.kind !== 'removed');
     const headTag = g.kind === 'removed' ? tag('Removed', 'removed') : newItem ? tag('New item', 'new-item') : '';
     const photos = g.kind === 'removed' ? '' : stackFor(g, { docs: docs?.[g.id] ?? null, owner: photoOwner });
-    const head = garmentHead({ type: g.type, kind: g.kind === 'removed' ? 'removed' : '', tag: headTag, photos });
+    const head = garmentHead({ type: g.type, kind: g.kind === 'removed' ? 'removed' : '', tag: headTag, photos, services: g.kind === 'removed' ? null : g.rows.filter((r) => r.kind !== 'removed').map((r) => r.label) });
     const docsHtml = docs && g.kind !== 'removed' && docs[g.id]
       ? garmentDocs({ garmentId: g.id, type: g.type, docs: docs[g.id], commentLabel }) : '';
     return `<div class="change-list__garment${g.kind === 'added' ? ' change-list__garment--new' : ''}${g.kind === 'removed' ? ' change-list__garment--gone' : ''}" data-garment="${esc(g.id)}"${g.kind ? ` data-garment-kind="${g.kind}"` : ''}>
@@ -2647,9 +2776,12 @@ export function garmentIcon(type, { size = 'card', alt = '' } = {}) {
  * then any `tag` (HTML), then, pushed right, `photos` (a `photoStack`) and / or `trailing` (the card's own control, e.g. c-job's ✕).
  * `kind: 'removed'` strikes the name (no underline) and dims the icon. `as` = the name's element ('p', or 'h2' where the card is a heading).
  */
-export function garmentHead({ type = '', kind = '', tag = '', photos = '', trailing = '', as = 'p' } = {}) {
+export function garmentHead({ type = '', kind = '', tag = '', photos = '', trailing = '', as = 'p', services = null } = {}) {
   const gone = kind === 'removed';
-  const name = gone ? `<s>${esc(type)}</s>` : esc(type);
+  /* D-24 (K-48): the underlined name (K-05) does what it promises — it opens that item's services popover (K-25). `services` = its labels. */
+  const name = gone ? `<s>${esc(type)}</s>` : services
+    ? `<button type="button" class="garment-head__peek" ${peekAttrs([{ type, services }], `${type} services`)}>${esc(type)}</button>`
+    : esc(type);
   const end = photos || trailing ? `<span class="garment-head__end">${photos}${trailing}</span>` : '';
   /* K-05 (D-220): the bare 40 px icon comes FIRST (aria-hidden, the visible name beside it names the item), then name + tag in one group that wraps inside itself; the end group (photo stack / ✕) never leaves the first line */
   return `<div class="garment-head${gone ? ' garment-head--gone' : ''}${end ? ' garment-head--end' : ''}">${garmentIcon(type)}<span class="garment-head__who"><${as} class="garment-head__name t-body w-600">${name}</${as}>${tag}</span>${end}</div>`;

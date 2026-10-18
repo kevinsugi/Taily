@@ -9,7 +9,7 @@
    home, t-home (D-84).
    ============================================================ */
 import { register, render as go, back, currentScreen, personaHome } from '../app.js';
-import { state } from '../state.js';
+import { state, waitlisted } from '../state.js';
 import { statusBar, headingRow, codeInput, actionBar, toast, esc, ONBOARDING_STEPS } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -102,7 +102,7 @@ function wire(root) {
       if (r.ok) {
         state.ui[ID] = {};
         if (r.isNew) return go('to-profile', { fresh: true });          // the blank profile (D-20)
-        if (r.next == null) return go(personaHome(), { fresh: true });  // live: her home, t-home (D-84)
+        if (r.next == null || waitlisted(state.tailors[0])) return go(personaHome(), { fresh: true });  // live: her home, t-home (D-84); under review: Shop; waitlisted: to-done (S-21)
         state.ui.onboarding = { resumed: true };
         return go(ONBOARDING_STEPS.find((s) => s.id === r.next).screen, { fresh: true });
       }

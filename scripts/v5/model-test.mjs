@@ -676,7 +676,7 @@ section('fitting -> completed');
 // profile bio and shop name hide contact info (D-162)
 {
   S.reset();
-  const v = S.validateSection('profile', { name: 'Amara', bio: 'Call me on 718-555-0199', shopName: 'Reyes — a@b.com', cardLine: 'Suits.', photo: true });
+  const v = S.validateSection('profile', { name: 'Amara', bio: 'Call me on 718-555-0199', shopName: 'Reyes — a@b.com', cardLine: 'Suits.', photo: true, idDoc: true, years: 12 });
   eq([v.ok, v.soft], [true, { bio: 'contact-hidden', shopName: 'contact-hidden' }], 'D-162: validateSection returns the soft code per field and stays ok');
   const sv = T.setTailorSection('profile', { bio: 'Call me on 718-555-0199 or a@b.com', shopName: 'Reyes 718-555-0199' });
   eq([sv.soft, amara().bio, amara().shopName], [{ bio: 'contact-hidden', shopName: 'contact-hidden' }, 'Call me on [phone hidden] or [email hidden]', 'Reyes [phone hidden]'], 'D-162: setTailorSection stores the masked text');
@@ -687,7 +687,7 @@ section('fitting -> completed');
   S.reset();
   const MAX = DATA.TAILOR_LIMITS.CARD_LINE_MAX;
   eq(MAX, 110, 'K-19: CARD_LINE_MAX is 110');
-  const base = { name: 'Amara', bio: 'Suits.', cardLine: 'Suits and dresses.', photo: true };
+  const base = { name: 'Amara', bio: 'Suits.', cardLine: 'Suits and dresses.', photo: true, idDoc: true, years: 12 };   // DG-4 / D-18: the ID and years are part of the profile
   const errs = (patch) => S.validateSection('profile', { ...base, ...patch }).errors;
   eq(errs({}), {}, 'K-19: a complete profile is valid');
   eq(errs({ cardLine: '' }), { cardLine: 'cardline-required' }, 'K-19: card line required');
@@ -907,13 +907,15 @@ section('tailor sections');
   T.setJob({ visitType: 'shop' });
   eq(S.tailorsFor(state.job).empty, 'shop', 'blank tailor -> the list is empty (shop)');
   T.setJob({ visitType: 'home' });
-  eq(S.validateSection('profile', amara()).errors, { name: 'name-required', bio: 'bio-required', cardLine: 'cardline-required', photo: 'photo-required' }, 'profile rules (K-19: card line and photo are required)');
-  eq(T.setTailorSection('profile', { name: 'Amara Reyes', initials: 'AR', bio: 'Hi.', cardLine: 'Hi.', photo: true }).valid, true, 'setTailorSection profile -> valid');
+  eq(S.validateSection('profile', amara()).errors, { name: 'name-required', bio: 'bio-required', cardLine: 'cardline-required', photo: 'photo-required', idDoc: 'id-required', years: 'years-required' }, 'profile rules (K-19: card line and photo; DG-4: the photo ID; D-18: years)');
+  eq(T.setTailorSection('profile', { name: 'Amara Reyes', initials: 'AR', bio: 'Hi.', cardLine: 'Hi.', photo: true, idDoc: true, years: 12 }).valid, true, 'setTailorSection profile -> valid');
+  eq(S.checkState(amara(), 'id'), 'pending', 'DG-4: handing in the photo ID starts the ID and profile photo check');
   eq(T.setTailorSection('services', { prices: { 'hem-pants': 25 } }).valid, true, 'services valid with one priced service');
   eq(T.setTailorSection('services', { prices: { 'hem-pants': undefined } }).valid, false, 'undefined deletes a key; no services -> invalid');
   T.setTailorSection('services', { prices: { 'hem-pants': 25, taper: 40, waist: 35, sleeves: 45, 'jacket-sides': 55 } });
   eq(T.setTailorSection('where', { shop: { enabled: false } }).valid, false, 'where: neither shop nor home -> invalid');
-  eq(T.setTailorSection('where', { home: { enabled: true, hoods: ['williamsburg'], fee: 35 } }).valid, true, 'where: home visits with a neighborhood + fee -> valid (Study-1 C5)');
+  eq(T.setTailorSection('where', { home: { enabled: true, hoods: ['williamsburg'], fee: 35 } }).errors, { collectStreet: 'street-required', collectZip: 'zip-invalid' }, 'B-15: home visits with no shop need the courier pickup address');
+  eq(T.setTailorSection('where', { collect: { street: '40 Mercer St', unit: '2F', zip: '10013', notes: 'Buzzer 2F' } }).valid, true, 'where: home visits with a neighborhood + fee + a courier address -> valid (Study-1 C5, B-15)');
   eq(T.setTailorSection('where', { home: { hoods: [] } }).errors, { hoods: 'hoods-required' }, 'where: home visits need a neighborhood');
   T.setTailorSection('where', { home: { hoods: ['williamsburg'] } });
   eq(T.setTailorSection('returns', { returns: { courier: true } }).valid, true, 'returns: one option is enough');
@@ -921,15 +923,20 @@ section('tailor sections');
   T.setTailorSection('returns', { returns: { pickup: false } });
   eq(T.setTailorSection('availability', {}).errors, { home: 'hours-required' }, 'availability: home visits need hours');
   eq(T.setTailorSection('availability', { availability: { home: { mon: [['17:00', '20:00']] } } }).valid, true, 'availability valid');
-  eq(T.setTailorSection('payouts', { payouts: { bank: 'Chase', last4: '12', holder: 'A', routing: '021000021' } }).errors, { last4: 'account-invalid' }, 'payouts: last4 must be 4 digits');
+  eq(T.setTailorSection('payouts', { payouts: { bank: 'Chase', last4: '12', holder: 'A', routing: '021000021' } }).errors, { setup: 'setup-required', last4: 'account-invalid' }, 'payouts: the partner step not done yet; last4 must be 4 digits');
   eq(T.setPayouts({ holder: 'A', routing: '12', account: '123' }).errors, { routing: 'routing-invalid', account: 'account-invalid' }, 'setPayouts: routing + account rules');
   const last = T.setPayouts({ holder: 'Amara Reyes', routing: '021000021', account: '000123456789' });
-  eq([last.ok, last.tailor.payouts.bank, last.tailor.payouts.last4, last.live], [true, 'Chase', '6789', true], 'setPayouts: bank from the routing table, only last4 stored, live');
+  eq([last.ok, last.tailor.payouts.bank, last.tailor.payouts.last4, last.tailor.payouts.status, last.live], [true, 'Chase', '6789', 'verifying', false], 'setPayouts (the partner returned the bank): bank from the routing table, only last4 stored, verifying — not live (not submitted, D-352)');
   eq(T.setPayouts({ holder: 'Amara Reyes', routing: '021000021', account: '' }).tailor.payouts.last4, '6789', 'setPayouts: blank account keeps the stored last4');
   eq(T.setPayouts({ holder: 'Amara Reyes', routing: '026009593', account: '' }).errors, { account: 'account-invalid' }, 'setPayouts: a new routing number with a blank account asks for the new account (R2-2-T-01)');
   eq(S.state.tailors[0].payouts.routing, '021000021', 'setPayouts: a refused change keeps the saved bank');
-  eq([last.ok, last.bookable, S.bookable(amara())], [true, true, true], 'six valid sections -> bookable');
+  eq([last.ok, last.bookable, S.sectionsDone(amara()), S.bookable(amara())], [true, false, true, false], 'six valid sections, checks pending -> set up but not bookable (D-352)');
   guard(T.setTailorSection('nonsense', {}), 'unknown-section', 'unknown section');
+  T.setTailorSection('where', { home: { hoods: ['williamsburg', 'greenpoint'] } });
+  ok(T.consentBackground(true).ok && T.submitOnboarding().ok, 'DG-4: consent + submit');
+  eq([!!amara().submitted, !!amara().live, S.tailorsFor(state.job).rows.length], [true, false, 0], 'DG-4: submitted, under review — not listed');
+  T.reviewChecks();
+  eq([!!amara().live, S.isVerified(amara())], [true, true], 'DG-4: the review passes every check -> live and Verified');
   const row = S.tailorsFor(state.job);
   eq([row.rows.length, row.empty], [1, null], 'the onboarded tailor shows up in the list');
   eq(row.rows[0].quote.total, 16000, 'the list estimate uses the prices the tailor entered');
@@ -1073,7 +1080,7 @@ section('M2 tailor onboarding');
   const v = A.verifyCode('123456', 'tailor');
   eq([v.isNew, v.next, state.tailors[0].phone, state.tailors[0].name], [true, 'profile', '(718) 555-0100', ''], 'a new tailor number starts a blank tailor');
   eq(T.setTailorSection('services', { prices: { a: '', b: 5.5, c: 1000, d: 20 } }).errors, { 'price-a': 'price-missing', 'price-b': 'price-invalid', 'price-c': 'price-invalid' }, 'services rules');
-  eq(T.setTailorSection('profile', { name: 'A', bio: 'x'.repeat(301), cardLine: 'Hi.', photo: true }).errors, { bio: 'bio-long' }, 'profile: bio too long');
+  eq(T.setTailorSection('profile', { name: 'A', bio: 'x'.repeat(301), cardLine: 'Hi.', photo: true, idDoc: true, years: 12 }).errors, { bio: 'bio-long' }, 'profile: bio too long');
   eq(T.setTailorSection('availability', { shop: { enabled: true }, home: { enabled: true }, availability: { shop: { tue: [['10:00', '18:00']] }, home: { tue: [['17:00', '20:00']], mon: [['18:00', '17:00']] } } }).errors, { 'home-mon': 'hours-range', 'overlap-tue': 'hours-overlap' }, 'availability: range + overlap');
 }
 
@@ -1640,7 +1647,8 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   ok(T.restoreNote(a.id, rm.note, rm.index).ok && a.notes[0].id === n1.note.id, 'S1-B2: undo puts it back where it was');
   guard(T.restoreNote(a.id, rm.note, 0), 'duplicate', 'S1-B2: restore twice fails');
   ok(S.threadFor('amara').messages.every((m) => !m.text.includes('Sleeve 24')), 'S1-B2: notes never reach the thread');
-  guard(T.addNote(driveTo('confirmed').id, { text: 'x' }), 'notes-closed', 'S1-B2: notes open at the fitting');
+  ok(T.addNote(driveTo('confirmed').id, { text: 'x' }).ok, 'D-19 (K-48): notes open from the accept (was: the fitting, Study-1 default 14)');
+  guard(T.addNote(driveTo('requested').id, { text: 'x' }), 'notes-closed', 'D-19: never on a request she has not accepted');
   a = driveTo('completed');
   ok(!S.notesEditable(a), 'S1-B2 (default 14): read-only once completed');
   guard(T.addNote(a.id, { text: 'x' }), 'notes-closed', 'S1-B2: no new note on a completed job');
@@ -2237,6 +2245,143 @@ section('A1: notices, chat texts, handoff texts, payouts, review reminder (DG-2,
   eq(S.textsOn('customer'), false, 'D-02: a new account’s booking texts start off (an unticked box)');
   S.reset(); A.sendCode('(646) 555-0100'); A.verifyCode('123456'); A.saveName({ first: 'Ana', last: 'Ruiz', texts: true });
   eq(S.textsOn('customer'), true, 'D-02: ticked, they are on');
+}
+
+/* ================= pre-MVP B1 (K-48): get verified, hosted payouts, listing, addresses (D-350…D-361) ================= */
+section('B1 · DG-4 the four checks (option B)');
+{
+  S.reset();
+  eq(S.verifyView(amara()).items.map((i) => [i.id, i.state]), [['id', 'verified'], ['background', 'verified'], ['years', 'verified'], ['payout', 'verified']], 'DG-4: the seed tailor passed all four checks, in Kevin\'s order');
+  ok(S.isVerified(amara()) && S.listed(amara()), 'DG-4: the Verified check is derived from the checks; the seed is listed');
+  ok(POLICY.LIVE_REQUIRES_VERIFIED === true, 'D-352: the policy switch defaults to gated (listed only once every check passed)');
+  T.blankTailor();
+  eq(S.verifyView(amara()).needsYou, ['id', 'background', 'years', 'payout'], 'DG-4: a blank tailor owes every check');
+  EARN.onboardTo('submitted');
+  const v = S.verifyView(amara());
+  eq([v.passed, v.pending, !!amara().submitted, !!amara().live, S.tailorsFor(state.job).rows.length], [1, ['id', 'background', 'payout'], true, false, 0], 'DG-4: submitted — years passed, three pending, not listed');
+  ok(!TD.tailorRowProps({ tailor: amara(), quote: {}, distanceMi: 0.6 }).verified, 'DG-4: no Verified check while the review runs');
+  const r = T.reviewChecks({ id: 'needs-info' });
+  eq([S.checkState(amara(), 'id'), S.checkState(amara(), 'background'), r.live], ['needs-info', 'verified', false], 'DG-4: a check that needs info keeps her unlisted');
+}
+{
+  EARN.onboardTo('submitted');
+  T.reviewChecks({ id: 'needs-info' });
+  eq([T.uploadId().ok, S.checkState(amara(), 'id')], [true, 'pending'], 'DG-4: the ID handed in again runs the check again');
+  const r = T.reviewChecks();
+  eq([r.wentLive, !!amara().live, S.isVerified(amara()), S.tailorsFor(state.job).rows.length], [true, true, true, 1], 'DG-4: the last check passing takes a submitted tailor live, Verified and listed');
+  guard(T.consentBackground(false), 'consent-required', 'DG-4: the background check needs her consent');
+  guard(T.uploadId(), 'already-verified', 'DG-4: re-uploading after the ID passed is refused');
+}
+section('B1 × A1 · the verification texts go through notify() (texts.js rows verified / check-action-needed)');
+{
+  const tx = (e) => state.outbox.filter((m) => m.to === 'tailor' && m.event === e);
+  EARN.onboardTo('submitted');
+  const n0 = state.outbox.length;
+  T.reviewChecks({ id: 'needs-info' });
+  eq([tx('check-action-needed').length, tx('check-action-needed')[0]?.body, tx('check-action-needed')[0]?.land, tx('verified').length],
+    [1, 'We need one more thing to verify you: your ID and profile photo. Finish it here:', 't-shop', 0], 'merge: a check turning "needs info" texts her once, landing on Shop');
+  T.reviewChecks({ id: 'needs-info' });
+  eq(tx('check-action-needed').length, 1, 'merge: a check still needing info is not texted again');
+  T.uploadId();
+  eq(state.outbox.length - n0, 1, 'merge: handing the ID in again (pending) sends nothing');
+  T.reviewChecks();
+  eq([tx('verified').length, tx('verified')[0]?.body, !!amara().live], [1, 'You’re verified. Customers near you can book you now.', true], 'merge: the 4th check passing texts "verified" once');
+  T.reviewChecks();
+  eq(tx('verified').length, 1, 'merge: no second "verified" text once she is verified');
+  EARN.onboardTo('payouts');
+  state.sim.payoutSetup = 'action-needed';
+  T.consentBackground(true);
+  T.setupPayouts();
+  ok(tx('check-action-needed').some((m) => m.body.includes('your payout and tax info')), 'merge: the partner needing info texts the payout check');
+  state.sim.payoutSetup = 'verifying';
+}
+section('B1 · D-06 the hosted payout step');
+{
+  EARN.onboardTo('payouts');
+  state.sim.payoutSetup = 'action-needed';
+  T.consentBackground(true);
+  const r = T.setupPayouts();
+  eq([r.ok, r.status, amara().payouts.identity, amara().payouts.last4, S.checkState(amara(), 'payout')], [true, 'action-needed', 'needs-info', '6789', 'needs-info'], 'D-06: the partner could not verify — action needed, the bank still on file');
+  ok(T.submitOnboarding().ok, 'D-06: she can still finish onboarding; the checklist shows what she owes');
+  state.sim.payoutSetup = 'verifying';
+  eq(T.setupPayouts().status, 'verifying', 'D-06: fixing it with the partner goes back to verifying');
+  T.reviewChecks();
+  eq([amara().payouts.status, !!amara().live], ['verified', true], 'D-06: the partner verifies her — live');
+}
+{
+  EARN.earningsTo('pending');
+  ok(T.pausePayouts().ok, 'DG-4 B: the partner pauses payouts (W-9)');
+  eq([amara().payouts.status, S.checkState(amara(), 'payout'), S.listed(amara())], ['paused', 'verified', true], 'DG-4 B: a pause is about paying her — she stays listed');
+  S.setClock(`${PAYOUT_DAYS.first}T18:00`);
+  const run = T.settlePayouts();
+  eq([run.paused, run.paid.length, state.payouts[0].state], [true, 0, 'pending'], 'D-355: the Friday run waits while payouts are paused');
+  ok(T.confirmTaxInfo().ok && T.settlePayouts().paid.length === 1, 'D-355: confirming the tax info lets the next run pay');
+  guard(T.confirmTaxInfo(), 'not-paused', 'D-355: nothing to confirm once it is lifted');
+}
+{
+  EARN.earningsTo('failed');
+  state.sim.payoutSetup = 'verified';
+  const r = T.setupPayouts({ newBank: true });
+  eq([r.ok, amara().payouts.bank, amara().payouts.last4, r.requeued], [true, 'Bank of America', '4321', 1], 'D-136 kept: new bank details from the partner queue the returned payout again');
+}
+section('B1 · D-18 years tailoring + the waitlist');
+{
+  EARN.onboardTo('profile');
+  T.setTailorSection('profile', { name: 'Ana Ruiz', initials: 'AR', bio: 'Hems.', cardLine: 'Hems.', photo: true, idDoc: true, years: 3 });
+  eq([amara().onboarding.profile, S.waitlisted(amara()), S.checkState(amara(), 'years')], [true, true, 'waitlist'], 'D-18: 3 years saves the profile and puts her on the waitlist');
+  eq(S.validateSection('profile', { ...amara(), years: 2.5 }).errors, { years: 'years-invalid' }, 'D-18: years are a whole number');
+  T.setTailorSection('profile', { years: 7 });
+  eq([S.waitlisted(amara()), S.checkState(amara(), 'years')], [false, 'verified'], 'D-18: 5 or more passes the years check');
+}
+{
+  EARN.onboardTo('done');
+  T.setTailorSection('profile', { years: 4 });
+  eq([S.bookable(amara()), S.listed(amara())], [false, false], 'D-18: under the minimum she is never listed');
+  T.setTailorSection('profile', { years: 12 });
+  ok(S.listed(amara()), 'D-18: back to 12 years, listed again');
+}
+section('B1 · K-48.2 only tailors who can do every item');
+{
+  S.reset();
+  const prices = { ...amara().prices };
+  delete prices['jacket-sides'];
+  T.setTailorSection('services', { prices });
+  eq([S.coversJob(amara(), state.job), S.eligible(amara(), state.job).reason, S.tailorsFor(state.job).empty], [false, 'services', 'services'], 'K-48.2: no tailor who skips an item is listed (empty "services")');
+  const slot = S.openSlots('amara', 'home', { until: state.job.needBy })[0];
+  guard(T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' }), 'services', 'B-13: booking her fails with its own reason, nothing held');
+  T.setJob({ garments: [{ id: 'g1', type: 'Suit Pant', services: ['hem-pants'], photos: 0 }] });
+  eq(S.tailorsFor(state.job).rows.length, 1, 'K-48.2: a job she prices every item of lists her');
+}
+section('B1 · S-42 addresses + distances from her own address, B-15 the courier pickup address');
+{
+  S.reset();
+  for (const [zip, info] of Object.entries(DATA.ZIP_INFO)) eq(S.milesToShop(amara(), zip), info.miles, `S-42: the mock geocoder keeps the seed distance for ${zip}`);
+  eq(DATA.placeForZip('10013'), { hood: 'SoHo', borough: 'manhattan', city: 'New York', state: 'NY' }, 'S-42: 10013 is SoHo, New York, NY');
+  eq(DATA.placeForZip('07302'), null, 'S-42: a ZIP outside Taily');
+  eq(S.validateSection('where', { shop: { enabled: true, street: '1 Main St', zip: '07302' }, home: { enabled: false } }).errors, { shopZip: 'zip-unserved' }, 'S-42: an unserved shop ZIP is refused');
+  T.setTailorSection('where', { shop: { enabled: true, street: '40 Mercer St', unit: 'Suite 3', zip: '10013' } });
+  eq([amara().shop.city, amara().shop.hood, S.milesToShop(amara(), '11211')], ['New York', 'SoHo', 4.1], 'S-42: the shop is saved in New York and distances come from it');
+  T.setJob({ visitType: 'shop' });
+  eq(S.tailorsFor(state.job).rows[0]?.distanceMi, 4.1, 'S-42: the list reads her own shop');
+}
+{
+  S.reset();
+  T.setTailorSection('where', { shop: { enabled: false }, home: { enabled: true }, collect: { street: '40 Mercer St', unit: '2F', zip: '10013', notes: '' } });
+  eq([S.collectAddress(amara()), S.collectPoint(amara()) !== null], ['40 Mercer St, 2F', true], 'B-15: without a shop the courier collects from her private address');
+  T.setTailorSection('returns', { returns: { pickup: false, courier: true } });
+  const a = driveTo('ready');
+  T.setTailorSection('where', { shop: { enabled: false }, home: { enabled: true }, collect: { street: '40 Mercer St', unit: '2F', zip: '10013', notes: '' } });
+  eq(S.courierMiles(S.getAppt(a.id)), 4.1, 'B-15 / S-42: the courier distance runs from where it collects');
+}
+section('B1 · P-34 the area waitlist, D-17 tailor words');
+{
+  S.reset();
+  T.setJob({ zip: '11201', address: null });
+  eq([T.joinAreaWaitlist('11201').ok, S.onAreaWaitlist('11201'), T.joinAreaWaitlist('11201').already], [true, true, true], 'P-34: one text when a tailor covers the ZIP');
+  guard(T.joinAreaWaitlist('112'), 'zip-invalid', 'P-34: a ZIP is 5 digits');
+  const a = driveTo('awaiting-handoff');
+  const line = S.threadFor('amara').messages.find((m) => /chose in-store pickup/.test(m.tailorText ?? ''));
+  ok(line && line.tailorText.includes(`She’s charged ${M.fmtExact(S.getAppt(a.id).money.balance)} at pickup.`), 'D-17: the tailor reads "charged at pickup", Sarah\'s words');
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

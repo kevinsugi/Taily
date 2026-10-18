@@ -8,10 +8,10 @@
    update the screen IN PLACE (never a re-render under the keyboard).
    ============================================================ */
 import { register, render as go, back } from '../app.js';
-import { state, T, SECTIONS, validateSection } from '../state.js';
+import { state, T, SECTIONS, validateSection, onboarded } from '../state.js';
 import { myTailor } from '../tailor-data.js';
-import { SERVICES, GARMENT_TYPES, TAILOR_LIMITS } from '../data.js';
-import { cents, fmt, fmtExact, payoutFor, tailyFeeFor, fmtColumn, priceRange } from '../money.js';
+import { SERVICES, GARMENT_TYPES, TAILOR_LIMITS, SEED_JOB, VISIT_LABEL } from '../data.js';
+import { cents, fmt, fmtExact, payoutFor, tailyFeeFor, fmtColumn, priceRange, linesFor } from '../money.js';
 import { MONEY } from '../money-config.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, serviceRow, priceRow,
@@ -25,7 +25,6 @@ const STEP = 'services';
 const { PRICE_MAX } = TAILOR_LIMITS;
 const IDS = Object.keys(SERVICES);               // catalog order
 const ALL_TYPES = Object.keys(GARMENT_TYPES).length;
-const PREVIEW_ROWS = 4;
 const ui = () => (state.ui[ID] ??= {});
 
 /* ---------- draft: { prices: { [serviceId]: number | null } } — a key = ticked; null = ticked, no price yet ---------- */
@@ -62,7 +61,9 @@ function feeLine() {
 }
 
 /* ---------- Study-1 C3: price help ---------- */
-const INTRO = 'This is what customers see when they book. Set what you’d charge for a typical job. You can adjust after the fitting, but the customer has to approve big changes.';
+/* D-16 / K-48.6 (Kevin's exact words); K-48.2 (D-354): she is only listed for jobs she prices every item of — said where she prices */
+const INTRO = 'This is what customers see when they book. Set what you’d charge for a typical job. You can change it at the fitting, and the customer approves the final order before you start.';
+const EVERY_ITEM = 'Customers only see you when you price every service their order needs.';
 /** "Most NYC tailors charge $20–$30." — the catalog base ± the MONEY spread, rounded (money.js priceRange). */
 const rangeText = (id) => { const r = priceRange(id); return r ? `Most NYC tailors charge ${fmt(r.low)}–${fmt(r.high)}.` : ''; };
 const RECOMMEND_NOTE = 'Tick the services you offer first.';
@@ -89,17 +90,33 @@ function rowHtml(id, d) {
     range: rangeText(id), payoutCents: on ? takeCents(p) : null, payoutText: on && takeCents(p) != null ? takeFmt(d)(takeCents(p)) : '', error: on ? errorCopy((ui().errors ?? {})[`price-${id}`]) : '',
   });
 }
+/** S-39 (D-359): customers never see a price list — they see "Your estimate" for their own items (c-tailor). The preview is that block
+    for a sample job (suit pant hem + suit jacket sleeves and sides) with her draft prices; a service she doesn't price means she
+    wouldn't be shown for that job at all (K-48.2), and it says so. */
+const SAMPLE_CAPTION = `Example: suit pant and suit jacket, ${VISIT_LABEL.tailor[SEED_JOB.visitType].toLowerCase()}.`;
 function previewBody(d) {
-  const rows = ticked(d).filter((id) => goodPrice(d.prices[id]));
-  if (!rows.length) return '<p class="t-small c-600">Nothing on your profile yet.</p>';
-  const more = rows.length - PREVIEW_ROWS;
-  return `<div class="${ID}__prices">${rows.slice(0, PREVIEW_ROWS).map((id) => priceRow({ label: SERVICES[id].label, cents: cents(d.prices[id]) })).join('')}</div>
-${more > 0 ? `<p class="t-small c-600 ${ID}__more">+ ${more} more</p>` : ''}`;
+  const prices = Object.fromEntries(ticked(d).filter((id) => goodPrice(d.prices[id])).map((id) => [id, d.prices[id]]));
+  if (!Object.keys(prices).length) return '<p class="t-small c-600">Nothing on your profile yet.</p>';
+  const lines = linesFor({ prices }, SEED_JOB.garments);
+  if (lines.missing.length) {
+    const names = [...new Set(lines.missing.map((m) => SERVICES[m.serviceId].label.toLowerCase()))];
+    const list = names.length < 2 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+    return `<p class="t-small c-600 ${ID}__miss" data-missing>A customer with this sample job also needs ${esc(list)}. You don’t price it, so you won’t show up for it.</p>
+<p class="t-small c-600">${SAMPLE_CAPTION}</p>`;
+  }
+  const t = myTailor();
+  const home = SEED_JOB.visitType === 'home' && t.home?.enabled && Number(t.home.fee) > 0 ? cents(t.home.fee) : 0;
+  const total = lines.reduce((sum, l) => sum + l.cents, 0) + home;
+  const F = fmtColumn([...lines.map((l) => l.cents), home, total]);
+  const rows = lines.map((l) => priceRow({ label: `${l.garmentType} · ${l.label}`, cents: l.cents, format: F })).join('');
+  return `<div class="${ID}__prices">${rows}${home ? priceRow({ label: 'Home visit fee', cents: home, note: 'Flat, per visit', format: F }) : ''}
+  <div class="${ID}__total w-600">${priceRow({ label: 'Estimated total', cents: total, format: F })}</div></div>
+<p class="t-small c-600">${SAMPLE_CAPTION}</p>`;
 }
 
 function view() {
   const t = myTailor();
-  const editing = !!t.live;
+  const editing = onboarded(t);
   const d = draftOf();
   const listErr = errorCopy((ui().errors ?? {}).prices);
   const done = SECTIONS.filter((x) => t.onboarding?.[x]);
@@ -110,7 +127,8 @@ function view() {
   return `${onboardingHeader({ editing })}
 <main class="body body--with-bar ${ID}">
   ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="heading-block ${ID}__title">${title}</div>`}
-  <p class="t-body c-600 ${ID}__lead">${INTRO}</p>${editing ? editScopeNote() : ''}
+  <p class="t-body c-600 ${ID}__lead">${INTRO}</p>
+  <p class="t-small c-600 ${ID}__every" data-every-item>${EVERY_ITEM}</p>${editing ? editScopeNote() : ''}
   <div class="${ID}__fee"><p class="t-small c-600 ${ID}__take-note" data-money>${feeLine()}</p>${infoButton('fee', { label: 'The Taily fee' })}</div>
   <section class="sec" aria-labelledby="${ID}-list-label">
     ${sectionHead('Services', { id: `${ID}-list-label`, aside: `<span class="t-small c-600 tabular" data-selected>${selectedText(d)}</span>` })}
@@ -119,7 +137,7 @@ function view() {
     <div class="card card--list ${ID}__card" role="group" aria-labelledby="${ID}-list-label">${IDS.map((id) => rowHtml(id, d)).join('')}</div>
   </section>
   <section class="sec ${ID}__preview" aria-labelledby="${ID}-preview-label">
-    ${sectionHead('On your profile', { id: `${ID}-preview-label` })}
+    ${sectionHead('What customers see', { id: `${ID}-preview-label` })}
     <div class="${ID}__preview-body">${previewBody(d)}</div>
   </section>
 </main>
@@ -131,7 +149,7 @@ ${editing
 /* ---------- wiring ---------- */
 function wire(root) {
   const t = myTailor();
-  const editing = !!t.live;
+  const editing = onboarded(t);
   const main = root.querySelector('main');
   const bar = root.querySelector('.action-bar');
   const isTest = document.documentElement.classList.contains('is-test');
@@ -308,4 +326,5 @@ function wire(root) {
   });
 }
 
-register(ID, view, wire);
+/* S-22 (D-360): the top nav asks before dropping unsaved edits */
+register(ID, view, wire, { canLeave: () => !onboarded(myTailor()) || !isDirty() || !!ui().busy, discard: () => { state.ui[ID] = {}; } });

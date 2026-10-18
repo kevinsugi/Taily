@@ -9,7 +9,7 @@
    ============================================================ */
 import { state, now, nowIso, blankTailor, nextSection, TERMINAL } from './state.js';
 import { POLICY } from './money-config.js';
-import { SHOP_CITY } from './data.js';
+import { SHOP_CITY, placeForZip } from './data.js';
 
 const WRONG_CODE = '000000';
 
@@ -183,7 +183,7 @@ function syncAddress() {
 }
 const addrNum = (a) => Number(String(a.id).replace(/^addr-/, '')) || 0;
 
-/** `{ label, street, unit, zip, makeDefault }` → `{ ok, address } | { ok: false, errors: { street, zip, label } }`. City and state from SHOP_CITY. */
+/** `{ label, street, unit, zip, makeDefault }` → `{ ok, address } | { ok: false, errors: { street, zip, label } }`. City and state from the ZIP (S-42), SHOP_CITY outside the grid. */
 export function addAddress({ label = '', street = '', unit = '', zip = '', makeDefault = false } = {}) {
   const errors = {};
   if (!String(label).trim()) errors.label = 'label-required';
@@ -193,7 +193,7 @@ export function addAddress({ label = '', street = '', unit = '', zip = '', makeD
   const list = state.customer.addresses;
   const address = {
     id: `addr-${Math.max(0, ...list.map(addrNum)) + 1}`, label: String(label).trim(), street: String(street).trim(), unit: String(unit).trim(),
-    city: SHOP_CITY.city, state: SHOP_CITY.state, zip: String(zip).trim(), default: false,
+    city: placeForZip(zip)?.city ?? SHOP_CITY.city, state: placeForZip(zip)?.state ?? SHOP_CITY.state, zip: String(zip).trim(), default: false,
   };
   if (makeDefault || !list.some((a) => a.default)) { for (const a of list) a.default = false; address.default = true; }
   list.push(address);

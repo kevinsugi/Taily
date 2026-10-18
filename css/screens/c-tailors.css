@@ -28,3 +28,7 @@
   .c-tailors__filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .c-tailors__filters > :first-child { grid-column: 1 / -1; }
 }
+/* P-34 (D-358): the area waitlist under an empty state */
+.c-tailors__waitlist { display: flex; justify-content: center; margin-top: var(--space-8); text-align: center; }
+.c-tailors__waitlist .text-link { min-height: 44px; }
+p.c-tailors__waitlist { margin: var(--space-8) var(--space-20) 0; }

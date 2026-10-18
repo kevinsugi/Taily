@@ -7,7 +7,7 @@
    Leave a review · Book Amara again · Message; 7 days on with no review, the reminder card (reviewReminderDue).
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorById, priceChangeView, deliveryReportOpen } from '../state.js';
+import { state, T, tailorById, priceChangeView, deliveryReportOpen, isVerified } from '../state.js';
 import {
   chrome, navBackMark, receiptBlock, balanceCardLabel, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, verifiedCheck, returnedItems, linenStage, tagRail,
   visitBlock, textLink, toast,
@@ -67,7 +67,7 @@ function view() {
   ${linenStage({ eyebrow: `${a.handoff?.completedBy === 'auto' ? 'Completed automatically' : 'Order complete'} · ${fmtDay(doneAt(a))}`, title: 'Back with you, tailored to fit.', rail: tagRail(items), label: 'Order complete' })}
   <section class="${ID}__label" aria-label="Rate ${esc(first)}">
     <p class="t-caps ${ID}__by">Tailored by</p>
-    <span class="${ID}__namerow"><span class="${ID}__name">${esc(t.name)}</span>${t.verified ? verifiedCheck({ years: t.years }) : ''}</span>
+    <span class="${ID}__namerow"><span class="${ID}__name">${esc(t.name)}</span>${isVerified(t) ? verifiedCheck({ years: t.years }) : ''}</span>
     <p class="t-small ${ID}__meta">${esc(meta)}</p>
     <div class="${ID}__rule" aria-hidden="true"></div>
     <h2 class="t-body w-600" id="rate-label">How did ${esc(first)} do?</h2>

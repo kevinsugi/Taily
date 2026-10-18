@@ -179,7 +179,7 @@ export const FLOWS_c_tailor = [
     expect: { has: ['Amara Reyes', 'Reyes Tailoring', 'Williamsburg', 'Photo: portrait', '37 reviews', '12 years tailoring', '0.6 mi', 'Next opening', 'Thu, Oct 15 · 5:00 PM', 'Book now', 'Book now takes this time. For another day, use Pick a time.', 'Pick a time', 'Ask a question', 'ABOUT', 'YOUR ESTIMATE', fmt(SCENARIOS.seed.total), '312 Metropolitan Ave', 'Taily courier', 'Priya S.', 'Step 3 of 5'], not: ['PRICES', 'Rush fees', 'See all 10 prices', 'Est. $'], sel: '.c-tailor__split .cta[data-act="book-now"]:not([disabled])' } },
   { key: 'c-tailor--verified', screen: 'c-tailor', group: 'M7 · Polish', title: 'Tailor profile — Verified popover', note: 'Tap the Verified check: ID verified, background check, years of experience, insured (K-15)',
     click: ['[data-verified]'],
-    expect: { has: ['ID verified', 'Background check', '12 years of experience', 'Insured'], sel: '#verified-pop[role="dialog"]' } },
+    expect: { has: ['ID verified', 'Background check', '12 years of experience', 'Insured through Taily'], sel: '#verified-pop[role="dialog"]' } },
   { key: 'c-tailor--no-reviews', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — no reviews',
     note: 'New on Taily',
     setup: (S) => { S.T.setTailorSection('profile', { reviews: [], rating: { avg: 0, count: 0 } }); },

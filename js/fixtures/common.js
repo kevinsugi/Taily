@@ -274,10 +274,13 @@ export function addRequest({ accept = false, after = null } = {}) {
 }
 
 export const NEW_TAILOR_PHONE = '(646) 555-0127';
-const STEPS = ['profile', 'services', 'where', 'returns', 'availability', 'payouts', 'done'];
+const STEPS = ['profile', 'services', 'where', 'returns', 'availability', 'payouts', 'submitted', 'done'];
 
 /** reset → blank tailor (D-20) signed in with `phone` → every section BEFORE `step` saved with the seed's values (D-66).
-    step: 'profile' | 'services' | 'where' | 'returns' | 'availability' | 'payouts' | 'done'. Returns the tailor. */
+    step: 'profile' | 'services' | 'where' | 'returns' | 'availability' | 'payouts' | 'submitted' | 'done'. Returns the tailor.
+    DG-4 (D-350…D-352): the payouts save = the background consent + the payments partner's hosted step (sim.payoutSetup, 'verifying');
+    'submitted' = onboarding finished, the four checks under review (ID pending, background pending, years passed, payout verifying);
+    'done' = the review passed every check — live, as before. */
 export function onboardTo(step, { phone = NEW_TAILOR_PHONE } = {}) {
   const upTo = STEPS.indexOf(step);
   if (upTo < 0) throw new Error(`onboardTo: unknown step "${step}"`);
@@ -289,17 +292,19 @@ export function onboardTo(step, { phone = NEW_TAILOR_PHONE } = {}) {
   const seed = TAILORS[0];
   const pick = (o, keys) => Object.fromEntries(keys.map((k) => [k, structuredClone(o[k])]));
   const saves = {
-    profile: () => T.setTailorSection('profile', pick(seed, ['name', 'shopName', 'initials', 'cardLine', 'bio', 'years', 'photo', 'workPhotos'])),
+    profile: () => T.setTailorSection('profile', pick(seed, ['name', 'shopName', 'initials', 'cardLine', 'bio', 'years', 'photo', 'idDoc', 'workPhotos'])),
     services: () => T.setTailorSection('services', { prices: structuredClone(seed.prices) }),
     where: () => T.setTailorSection('where', pick(seed, ['shop', 'home'])),
     returns: () => T.setTailorSection('returns', { returns: structuredClone(seed.returns) }),
     availability: () => T.setTailorSection('availability', { availability: structuredClone(seed.availability) }),
-    payouts: () => T.setPayouts({ holder: seed.payouts.holder, routing: seed.payouts.routing, account: '000123456789' }),
+    payouts: () => { must(T.consentBackground(true), 'consentBackground'); return T.setupPayouts(); },
+    submitted: () => T.submitOnboarding(),
   };
-  STEPS.slice(0, upTo).forEach((id) => {
+  STEPS.slice(0, step === 'submitted' || step === 'done' ? STEPS.indexOf('submitted') + 1 : upTo).forEach((id) => {
     const r = saves[id]();
-    if (!r.ok || r.valid === false) throw new Error(`onboardTo: ${id} did not validate (${JSON.stringify(r.errors)})`);
+    if (!r.ok || r.valid === false) throw new Error(`onboardTo: ${id} did not validate (${JSON.stringify(r.errors ?? r.error)})`);
   });
+  if (step === 'done') must(T.reviewChecks(), 'reviewChecks');
   return state.tailors[0];
 }
 

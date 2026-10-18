@@ -6,7 +6,7 @@
    Screen-local flags: state.ui['c-pay'] { busy, error, info, focus }.
    ============================================================ */
 import { register, render as go, back } from '../app.js';
-import { state, T, tailorById, openSlots, now, priceChangeView, textsOn } from '../state.js';
+import { state, T, tailorById, openSlots, now, priceChangeView, textsOn, coversJob } from '../state.js';
 import {
   flowBar, headingRow, visitBlock, customerBreakdown, infoCard, metaRow, methodRow, actionBar, banner,
   emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, sectionHead, textLink, infoButton,
@@ -99,6 +99,7 @@ function orderBlock({ job }, q) {
 /* ---------- view ---------- */
 function alertHtml(r) {
   const u = ui();
+  if (!coversJob(r.t, state.job)) u.error = 'services';   // K-48.2: she stopped pricing an item since Sarah picked her — said before she pays
   if (u.error === 'declined') {
     return banner({ tone: 'error', title: 'Your card was declined', text: `${esc(r.method.label)} didn’t go through, and nothing was held.` });
   }
@@ -107,6 +108,10 @@ function alertHtml(r) {
   }
   if (u.error === 'offline') {   // S-12 (pre-MVP A1)
     return banner({ tone: 'error', title: 'You’re offline', text: 'Nothing was sent and nothing was held. Try again when you’re back.' });
+  }
+  if (u.error === 'services') {
+    /* B-13 / K-48.2 (D-354): she changed her prices since — its own message and a way on, not "something went wrong" */
+    return banner({ tone: 'error', title: `${esc(r.t.name.split(' ')[0])} doesn’t offer every service you picked`, text: 'Nothing was held. Pick another tailor or change your items.', actionLabel: 'See other tailors', actionAct: 'other-tailors' });
   }
   if (u.error === 'generic') {
     return banner({ tone: 'error', text: 'Something went wrong on our side. Nothing was held. Try again.' });
@@ -158,6 +163,7 @@ function view() {
 ${actionBar({
     /* C-11: after a decline the failed card is still the one selected — the bar offers another card, never a silent retry */
     ctaLabel: u.error === 'declined' ? 'Use another card' : `Hold ${fmtExact(q.deposit)} and send request`, ctaAct: u.error === 'declined' ? 'change-method' : 'pay', busy, busyLabel: 'Sending request…',
+    disabled: u.error === 'services', note: u.error === 'services' ? `${esc(first)} doesn’t offer every service you picked` : '',   // K-48.2 (D-354)
   })}`;
 }
 
@@ -289,6 +295,7 @@ function fail(res) {
   if (res.error === 'card-declined') u.error = 'declined';
   else if (res.error === 'slot-unavailable') u.error = 'taken';
   else if (res.error === 'offline') u.error = 'offline';   // S-12 (pre-MVP A1)
+  else if (res.error === 'service-not-offered' || res.error === 'services') u.error = 'services';
   else u.error = 'generic';
   /* D-140: the banner above the Pay button carries the error; the toast only echoes it (never the only carrier) */
   if (res.error === 'server-error') toast('Couldn’t send your request', { tone: 'error' });
@@ -364,6 +371,7 @@ function wire(root) {
       case 'change-method': if (!ui().busy) openMethodSheet(); break;
       case 'pay': pay(); break;
       case 'pick-time': go('c-book', { replace: true }); break;
+      case 'other-tailors': ui().error = null; go('c-tailors'); break;
       default:
     }
   };

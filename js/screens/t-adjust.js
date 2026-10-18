@@ -257,7 +257,7 @@ function garmentHtml(g, errors, busy, ctx) {
   const more = addable(g).length > 0;
   return `<section class="${ID}__garment" aria-label="${esc(g.type)}" data-garment="${esc(g.id)}" data-kind="${g.isNew ? 'added' : 'kept'}">
     <div class="card ${ID}__card${g.isNew ? ` ${ID}__card--new` : ''}">
-      <div class="${ID}__head">${garmentHead({ type: g.type, tag: g.isNew ? tag('New item', 'new-item') : '', as: 'h2' })}</div>
+      <div class="${ID}__head">${garmentHead({ type: g.type, tag: g.isNew ? tag('New item', 'new-item') : '', as: 'h2', services: g.rows.filter((r) => !r.removed).length ? g.rows.filter((r) => !r.removed).map((r) => r.label) : null })}</div>
       ${g.rows.map((r) => rowHtml(r, errors, busy, g.isNew)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: '+ Add a service', act: 'add-service' }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${dis}`)}</div>` : ''}
       ${ctx.edit ? '' : docsEditor({
     garmentId: g.id, type: g.type, docs: docsOf(ctx.a, g.id), missing: ctx.missing.get(g.id) ?? { before: false, pinned: false },

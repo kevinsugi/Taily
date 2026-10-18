@@ -108,8 +108,8 @@ function activeRow() {
   if (r === 'asked') {
     inner = visitPrompt({
       id: a.id, row,
-      text: `Still on for ${dayWord(a.slot.start, now())}?`,
-      right: `Free until ${fmtTime(freeUntil(a))}`,
+      text: 'Please confirm your visit',   // K-51: as the reminder text (C7) asks it
+      right: `Free until ${fmtTime(freeUntil(a))} ${dayWord(freeUntil(a), now())}`,
       rule: `Once you confirm, ${esc(first)} keeps your ${dep} deposit if you cancel or ${away}.`,
     });
   } else if (r === 'missed' && !autoCancelArmed(a)) {
@@ -187,8 +187,11 @@ function noticeCard(a) {
   const cfg = {
     'tailor-cant-make-it': { title: `${first} can’t make it ${day}`, text: `Your ${dep} deposit is refunded. ${saved}, so you can book someone else.`, actionLabel: 'Find another tailor', act: 'notice-find' },
     unconfirmed: { title: `We cancelled your ${fmtTime(a.slot.start)} visit`, text: `You didn’t confirm by ${fmtTime(a.cancel.at)}, so ${first} keeps your ${dep} deposit. Your order is saved.`, actionLabel: `Book ${first} again`, act: 'notice-book' },
-    'no-record': { title: `We cancelled your ${fmtDay(a.slot.start)} visit`, text: `Nobody told us the visit happened, so your ${dep} deposit is refunded. Your order is saved.`, actionLabel: 'See the booking', act: 'notice-open' },
-    'no-show': { title: `${first} marked you as not there`, text: `She keeps your ${dep} deposit. If you were there, tell us on the booking.`, actionLabel: 'See the booking', act: 'notice-open' },
+    /* K-51: closed "Not confirmed" — the deposit on hold; or her "I'm here" made it a no-show */
+    'no-record': { title: `Your ${fmtDay(a.slot.start)} visit wasn’t confirmed`, text: `Nobody confirmed it, so your ${dep} deposit is on hold. If the visit didn’t happen, tell us on the booking by ${fmtWhen(a.cancel.holdUntil ?? a.cancel.at)}. Your order is saved.`, actionLabel: 'See the booking', act: 'notice-open' },
+    'no-show': a.cancel?.by === 'system'
+      ? { title: `Your ${fmtDay(a.slot.start)} visit counts as a no-show`, text: `You didn’t tell us if it happened, and ${first} tapped I’m here, so she keeps your ${dep} deposit. If you were there, tell us on the booking.`, actionLabel: 'See the booking', act: 'notice-open' }
+      : { title: `${first} marked you as not there`, text: `She keeps your ${dep} deposit. If you were there, tell us on the booking.`, actionLabel: 'See the booking', act: 'notice-open' },
   }[a.cancel?.reason];
   return cfg ? reminderCard({ ...cfg, id: a.id, dismissAct: 'dismiss-notice', notice: true }) : '';
 }

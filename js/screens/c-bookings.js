@@ -115,7 +115,7 @@ function rowFor(a, kind, fmtAmt) {
       else if (r === 'tailor-no-show') row.place = `${first} didn’t show up`;   // K-29
       else if (r === 'customer-early' || r === 'customer-late') row.place = 'You cancelled';
       else if (r === 'unconfirmed') row.place = 'Not confirmed in time';   // K-43 (D-300): cancelled by Taily
-      else if (r === 'no-record') row.place = 'Visit not recorded';      // D-11: cancelled by Taily, refunded
+      else if (r === 'no-record') row.place = 'Not confirmed';           // K-51: closed by Taily, the deposit on hold
     }
     row.kept = a.status === 'declined' || (a.status === 'cancelled' && ['tailor-cant-make-it', 'tailor-no-show', 'customer-late', 'no-show', 'unconfirmed'].includes(a.cancel?.reason));
   }

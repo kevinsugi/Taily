@@ -28,7 +28,7 @@ const DEPOSIT_WORD = { authorized: 'On hold', captured: 'Paid', kept: 'Kept by t
 const BALANCE_WORD = { pending: 'Due when ready', due: 'Due', held: 'On hold', captured: 'Charged', released: 'Released', refunded: 'Refunded', 'capture-failed': 'Card failed', failed: 'Card failed', none: 'Nothing due' };
 const CANCEL_WORD = {
   'no-show': 'the tailor marked a no-show', 'tailor-no-show': 'the customer reported a tailor no-show', 'customer-early': 'the customer cancelled early',
-  'customer-late': 'the customer cancelled late', 'tailor-cant-make-it': 'the tailor cancelled', unconfirmed: 'not confirmed in time', 'no-record': 'the visit wasn’t recorded',
+  'customer-late': 'the customer cancelled late', 'tailor-cant-make-it': 'the tailor cancelled', unconfirmed: 'not confirmed in time', 'no-record': 'not confirmed: nothing recorded, the deposit on hold',
   taily: 'cancelled by Taily', withdrawn: 'withdrawn', switched: 'she picked another tailor',
 };
 const ERRORS = {

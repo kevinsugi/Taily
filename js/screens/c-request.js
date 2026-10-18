@@ -133,20 +133,21 @@ function declinedBody(a, t, first, busy) {
   </div>`;
 }
 
-/** D-154: a suggested time that lapsed or that she withdrew — the D-94 lapsed pattern: hold released, find someone else. */
+/** D-154: a suggested time that lapsed or that she withdrew — hold released. K-51 (C6, like C5): send the same tailor a new request (a new time
+    on c-book) or find someone else. */
 function suggestionEndedBody(a, t, first, busy) {
   const withdrawn = a.suggested.ended === 'withdrawn';
   const hero = statusHero({
     variant: 'requested', pill: false,
     title: withdrawn ? `${esc(first)} withdrew her suggested time` : `${esc(first)}’s suggested time has passed`,
-    body: `Your hold is released. We won’t show ${esc(first)} for this request again, so you can choose another tailor.`,
+    body: `Your hold is released. Send ${esc(first)} a new request for another time, or choose another tailor.`,
   });
   return `${heroRow(hero)}
   ${yourRequest(visitRows(a, t))}
   ${releasedRow(a)}
   <div class="page-actions" data-suggestion-ended="${withdrawn ? 'withdrawn' : 'lapsed'}">
-    ${cta('Find another tailor', { busy: busy === 'find-another', busyLabel: 'One moment…', disabled: !!busy && busy !== 'find-another', attrs: 'data-act="find-another"' })}
-    <div class="page-actions__links">${link(`Message ${esc(first)}`, 'message', busy)}</div>
+    ${cta(`Send ${esc(first)} a new request`, { disabled: !!busy, attrs: 'data-act="pick-time"' })}
+    <div class="page-actions__links">${link('Find another tailor', 'find-another', busy)}${link(`Message ${esc(first)}`, 'message', busy)}</div>
   </div>`;
 }
 

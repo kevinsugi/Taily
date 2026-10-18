@@ -213,7 +213,7 @@ export const FLOWS_c_book = [
 ];
 export const FLOWS_c_pay = [
   { key: 'c-pay', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request', note: 'Seed job: the deposit is held, not charged',
-    expect: { has: ['Review and send request', fmtExact(SCENARIOS.seed.services), 'Home visit fee', 'Flat, per visit', fmtExact(SCENARIOS.seed.homeFee), fmtExact(SCENARIOS.seed.total), 'Held today', `Reserve · ${fmtExact(SCENARIOS.seed.deposit)} deposit`, 'Charged only if Amara accepts', 'Visa •••• 4242', 'released in full', `We’ll text you the day before to confirm. If you don’t confirm 3 hours before the visit, we cancel it and Amara keeps the ${fmtExact(SCENARIOS.seed.deposit)} deposit.`] } },
+    expect: { has: ['Review and send request', fmtExact(SCENARIOS.seed.services), 'Home visit fee', 'Flat, per visit', fmtExact(SCENARIOS.seed.homeFee), fmtExact(SCENARIOS.seed.total), 'Held today', `Reserve · ${fmtExact(SCENARIOS.seed.deposit)} deposit`, 'Charged only if Amara accepts', 'Visa •••• 4242', 'released in full', `We’ll text you 48 hours before the visit to confirm. If you don’t confirm 3 hours before the visit, we cancel it and Amara keeps the ${fmtExact(SCENARIOS.seed.deposit)} deposit.`] } },
   { key: 'c-pay--rush', screen: 'c-pay', group: 'M1 · Booking', title: 'Review and send request — rush', note: 'Need-by Fri, Oct 16: a rush fee row, same deposit',
     setup: (S) => { S.T.setJob({ needBy: '2026-10-16' }); },
     expect: { has: ['Rush fee', fmtExact(SCENARIOS.rush.rush), fmtExact(SCENARIOS.rush.total), `Reserve · ${fmtExact(SCENARIOS.rush.deposit)} deposit`] } },

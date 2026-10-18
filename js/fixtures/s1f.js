@@ -6,7 +6,7 @@
 import { SCENARIOS as F1_SC } from './money-scenarios.js';
 import { fmtExact as F1_exact, fmt as F1_fmt } from '../money.js';
 import { addRequest as F1_addRequest, jobEdit as F1_jobEdit } from './common.js';
-import { reminderAt as F1_reminderAt, openSlots as F1_openSlots } from '../state.js';
+import { nudgeAt as F1_nudgeAt, openSlots as F1_openSlots } from '../state.js';
 import { toDate as F1_toDate } from '../dates.js';
 
 const G = 'Director review';
@@ -63,8 +63,8 @@ export const FLOWS_t_shop = [
 /* ---------- SF-08 / SF-09 / SF-10: the reminder leads Home, stays a card once missed, and a shop visit is not "home" ---------- */
 const SHOP_DEP = F1_exact(F1_SC.shop.deposit);
 const NO_SHOW = F1_exact(F1_SC.noShow.paid);
-/** The seed visit's reminder (Wed 3:00 PM, 26 h before) + `plus` minutes, through the real clock (tick() sends it). */
-const toReminder = (S, a, plus = 0) => { S.advanceClock(Math.round((F1_reminderAt(a) - S.state.clock.now) / 60000) + plus); return a; };
+/** The seed visit's nudge (K-51: Wed 3:00 PM, 26 h before; the reminder went out 48 h before) + `plus` minutes, through the real clock. */
+const toReminder = (S, a, plus = 0) => { S.advanceClock(Math.round((F1_nudgeAt(a) - S.state.clock.now) / 60000) + plus); return a; };
 /** A shop visit two days out (Thu, Oct 15 · 10:00 AM), booked and accepted, so its reminder goes out (Wed 8:00 AM). */
 function shopVisit(S) {
   S.T.setJob({ visitType: 'shop' });
@@ -77,7 +77,7 @@ function shopVisit(S) {
 FLOWS_c_job_list.push(
   { screen: 'c-job', group: G, key: 'c-job--reminder-second-request', title: 'Home — the reminder leads, a second request waits', note: 'SF-08: a newer request is open, but the visit that needs her answer leads Home',
     setup: (S) => { const a = S.driveTo('confirmed'); F1_addRequest(); toReminder(S, a, 5); S.T.tick(); },
-    expect: { has: ['Still on for tomorrow?', 'Free until 5:00 PM', 'Confirm', 'Change or cancel'], sel: '[data-visit-prompt] [data-act="confirm-visit"]' } },
+    expect: { has: ['Please confirm your visit', 'Free until 5:00 PM today', 'Confirm', 'Change or cancel'], sel: '[data-visit-prompt] [data-act="confirm-visit"]' } },
   { screen: 'c-job', group: G, key: 'c-job--reminder-missed', title: 'Home — not confirmed, the card stays', note: 'SF-09 (D-304, overrides D-296(4)): after the free window closed unanswered, Home keeps Confirm one tap away until the auto-cancel',
     setup: (S) => { toReminder(S, S.driveTo('confirmed'), 20 * 60); },
     expect: { has: ['Confirm by 2:00 PM or we’ll cancel', 'Visit 5:00 PM', `If you don’t confirm by 2:00 PM, we cancel it and Amara keeps your ${F1_fmt(F1_SC.seed.deposit)} deposit. She keeps it too if you cancel now or aren’t home.`, 'Confirm', 'Change or cancel'], sel: '[data-visit-prompt] [data-strip="warn"]', also: '[data-visit-prompt] [data-act="confirm-visit"]' } },

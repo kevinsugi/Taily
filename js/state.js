@@ -103,9 +103,9 @@ export const nowIso = () => isoMinute(new Date(state.clock.now));
 export function setClock(iso) { state.clock.now = toDate(iso).getTime(); return state.clock.now; }
 /** Run every timer that is due, each stamped at its own due time (also when the clock jumped past it). Returns the ids whose STATE moved
     (a text alone does not count): expire `requested` appointments whose reply window passed, lapse suggested times (D-154); on `confirmed`
-    the 24-hour reminder, its nudge and the auto-cancel (K-41, K-43 — only after a delivered reminder, D-02), a tailor's move proposal that
-    ran out (D-12) and "Did the visit happen?" (D-11 / K-48.5: ask at start + VISIT_CHECK_H, the admin at + VISIT_CHECK_ADMIN_H, cancel with a
-    refund at + VISIT_CHECK_CANCEL_H); the waiting states' reminder texts and ends (D-03: a final order → Taily review, a ready order →
+    the reminder at 48 h, its nudge at 26 h and the auto-cancel (K-41 / K-51, K-43 — only after a delivered text, D-02), a tailor's move
+    proposal that ran out (D-12) and "Did the visit happen?" (D-11 / K-48.5: ask at start + VISIT_CHECK_H, the admin at + VISIT_CHECK_ADMIN_H;
+    K-51: closed by evidence at + VISIT_CHECK_CANCEL_H, a "Not confirmed" deposit kept by the tailor after VISIT_HOLD_DISPUTE_H); the waiting states' reminder texts and ends (D-03: a final order → Taily review, a ready order →
     in-store pickup); on `awaiting-handoff` the day-6 capture (D-04, which pays the tailor), the auto-completion of a marked pickup, a problem
     open too long → review, an abandoned order closed. Texts (start reminders, pickup today, missed pickup, review reminder) ride along. */
 export function tick() {
@@ -136,6 +136,7 @@ function timersFor(a) {
     case 'ready': return readyTimers(a);
     case 'awaiting-handoff': return handoffTimers(a);
     case 'completed': completedTimers(a); return false;
+    case 'cancelled': return holdTimer(a);   // K-51: a "Not confirmed" deposit on hold
     default: return false;
   }
 }
@@ -162,7 +163,7 @@ function confirmedTimers(a) {
   }
   visitTexts(a);
   /* D-11 / K-48.5: nothing recorded VISIT_CHECK_H after the start → ask both; still unanswered VISIT_CHECK_ADMIN_H after the START (Kevin,
-     K-50) → the admin; VISIT_CHECK_CANCEL_H after asking → a cancel with a refund */
+     K-50) → the admin; VISIT_CHECK_CANCEL_H after asking → closed by evidence (K-51, closeUnrecorded) */
   const askAt = start + POLICY.VISIT_CHECK_H * HOUR_MS;
   if (t >= askAt && !a.visitCheck) {
     a.visitCheck = { askedAt: stampAt(askAt), answer: null, answeredAt: null, adminAt: null };
@@ -202,17 +203,84 @@ function visitTexts(a) {
   }
 }
 function freshVisitDay() { return { tailor: { onWayAt: null, hereAt: null }, customer: { onWayAt: null, hereAt: null }, startTextAt: null, fittingTextAt: null }; }
-/** D-11: "Did the visit happen?" went unanswered VISIT_CHECK_CANCEL_H — the visit is cancelled and the deposit refunded; nothing is paid out. */
+/** K-51 (replaces D-11's cancel with a refund): "Did the visit happen?" went unanswered VISIT_CHECK_CANCEL_H — decide by the evidence.
+    The tailor tapped "I'm here" and the customer never answered → the customer's no-show (the no-show rule: the deposit kept, the tailor paid
+    noShowPayout). Nothing recorded by either side → the job closes "Not confirmed" (reason 'no-record'): the deposit stays on HOLD — not
+    refunded, not paid out — and the visit-unanswered review (the admin was told at start + VISIT_CHECK_ADMIN_H) stays open; if neither side
+    disputes within VISIT_HOLD_DISPUTE_H the tailor keeps it (holdTimer). */
 function closeUnrecorded(a, at) {
+  if (a.visitDay?.tailor?.hereAt) return closeAsNoShow(a, at);
   setStatus(a, 'cancelled');
   a.history[a.history.length - 1].at = at;
-  a.payments.deposit.state = 'refunded';
-  a.cancel = { by: 'system', reason: 'no-record', at, refund: a.payments.deposit.cents, kept: 0, tailorPaid: 0 };
-  closeReview(a, 'cancelled-refunded', at);
+  const holdUntil = stampAt(msOf(at) + POLICY.VISIT_HOLD_DISPUTE_H * HOUR_MS);
+  a.cancel = { by: 'system', reason: 'no-record', at, refund: 0, kept: 0, tailorPaid: 0, held: true, holdUntil, disputedAt: null, disputedBy: null };
   restoreDraftIfEmpty(a);
-  post(a.tailorId, 'system', 'Nobody told us the visit happened, so we cancelled it. Your deposit is refunded.', { at, tailorText: 'Nobody told us the visit happened, so we cancelled it and refunded the deposit' });
-  notify(a, 'visit-closed', { at });
-  notify(a, 'visit-closed-t', { at });
+  const dep = fmtExact(a.payments.deposit.cents);
+  post(a.tailorId, 'system', `Nobody confirmed the visit, so we closed it as not confirmed. Your ${dep} deposit is on hold until ${fmtWhen(holdUntil)}.`,
+    { at, tailorText: `Nobody confirmed the visit, so we closed it as not confirmed. ${state.customer.first}’s ${dep} deposit is on hold until ${fmtWhen(holdUntil)}.` });
+  notify(a, 'visit-closed', { at, x: { outcome: 'held', until: holdUntil } });
+  notify(a, 'visit-closed-t', { at, x: { outcome: 'held', until: holdUntil } });
+}
+/** K-51: the tailor's "I'm here" is the evidence — nobody answered, so it is the customer's no-show, decided by Taily (`by: 'system'`).
+    She can still say "That's not right" (disputeNoShow). */
+function closeAsNoShow(a, at) {
+  const dep = a.payments.deposit.cents;
+  const pay = noShowPayout(dep);                                                     // D-06
+  setStatus(a, 'cancelled');
+  a.history[a.history.length - 1].at = at;
+  a.payments.deposit.state = 'kept';
+  a.cancel = { by: 'system', reason: 'no-show', evidence: 'here', at, refund: 0, kept: dep, tailorPaid: pay };
+  addPayout(a, pay, 'no-show', at);
+  closeReview(a, 'no-show-evidence', at);
+  const here = fmtTime(a.visitDay.tailor.hereAt);
+  post(a.tailorId, 'system', `Nobody answered, and ${firstName(tailorById(a.tailorId))} tapped I’m here at ${here}, so it counts as a no-show`,
+    { at, tailorText: `Nobody answered, and you tapped I’m here at ${here}, so it counts as ${state.customer.first}’s no-show` });
+  notify(a, 'visit-closed', { at, x: { outcome: 'no-show' } });
+  notify(a, 'visit-closed-t', { at, x: { outcome: 'no-show', payday: payoutDay(at) } });
+}
+/** K-51: a visit closed "Not confirmed" — VISIT_HOLD_DISPUTE_H later with no dispute, the tailor keeps the held deposit (paid on its Friday). */
+function holdTimer(a) {
+  const c = a.cancel;
+  if (c?.reason !== 'no-record' || !c.held || c.disputedAt) return false;
+  if (state.clock.now < msOf(c.holdUntil)) return false;
+  keepHeldDeposit(a, c.holdUntil);
+  closeReview(a, 'kept-undisputed', c.holdUntil);
+  return true;
+}
+/** The held deposit goes to the tailor: kept, her payout queued for the Friday after `at`. */
+function keepHeldDeposit(a, at) {
+  const d = a.payments.deposit;
+  d.state = 'kept';
+  Object.assign(a.cancel, { held: false, kept: d.cents, tailorPaid: d.cents, keptAt: at });
+  addPayout(a, d.cents, 'kept-deposit', at);
+}
+/** K-51: is this visit's deposit on hold after a "Not confirmed" close (and who can still dispute it)? */
+export const depositOnHold = (a) => a?.status === 'cancelled' && a.cancel?.reason === 'no-record' && !!a.cancel.held;
+/** K-51: either person telling Taily about a visit closed "Not confirmed" (the "That's not right" button, or writing on the order's Help
+    case) disputes it — the 72-hour keep stops and the admin decides. Returns true when this call made it disputed. */
+function noteHoldDispute(a, who, at = nowIso()) {
+  if (!depositOnHold(a) || a.cancel.disputedAt) return false;
+  Object.assign(a.cancel, { disputedAt: at, disputedBy: who });
+  return true;
+}
+/** K-51: "That's not right" on a visit closed "Not confirmed" (either side, while the deposit is on hold). The order's Taily review case
+    gets Taily's words to both; the admin is told. Errors: not-on-hold · already-disputed · offline · unknown-person. */
+export function disputeUnconfirmed(id, who) {
+  const a = must(id);
+  if (!['customer', 'tailor'].includes(who)) return fail('unknown-person');
+  if (!depositOnHold(a)) return fail('not-on-hold');
+  if (a.cancel.disputedAt) return fail('already-disputed');
+  if (state.sim.network === 'offline') return fail('offline');
+  noteHoldDispute(a, who);
+  if (!a.tailyReview || a.tailyReview.closedAt) openTailyReview(a, 'unconfirmed-disputed', { by: who });
+  else {   // the visit-unanswered review (start + 4 h) is still open: it becomes the dispute, Taily's words to both, the admin told
+    a.tailyReview.reason = 'unconfirmed-disputed';
+    caseMessageToAdmin(reviewCase(a, 'unconfirmed-disputed', { by: who }), who);
+  }
+  const tf = firstName(tailorById(a.tailorId));
+  say(a, who === 'customer' ? 'You told us the visit didn’t happen. Taily is looking into it.' : `${tf} told Taily about the visit. Taily is looking into it.`,
+    who === 'customer' ? `${state.customer.first} says the visit didn’t happen. Taily is looking into it.` : 'You told Taily about the visit. Taily is looking into it.');
+  return succeed(a);
 }
 /** D-03: an unanswered final order — reminders at 24 h and 72 h, Taily review after FINAL_ORDER_REVIEW_D (counted from the latest send). */
 function orderTimers(a) {
@@ -1136,13 +1204,13 @@ export function acceptSuggestion(id) {
 }
 
 /** A suggested time that lapsed or that Amara withdrew (D-154): the request ends as a final expiry, the deposit hold is released and the
-    time is open again (a non-`suggested` status holds no slot). */
+    time is open again (a non-`suggested` status holds no slot). K-51 (C6, like C5): she can send the same tailor a new request — the tailor
+    is no longer hidden for this job (D-154 hid her). */
 function endSuggestion(a, text, tailorText, ended = 'lapsed') {
   setStatus(a, 'expired');
   a.suggested = { ...a.suggested, ended };                    // 'lapsed' | 'withdrawn' — c-request words the two differently
   a.retries = POLICY.MAX_RETRIES;
   a.payments.deposit.state = 'released';
-  if (!state.job.hiddenTailors.includes(a.tailorId)) state.job.hiddenTailors.push(a.tailorId);   // D-07
   restoreDraftIfEmpty(a);
   say(a, text, tailorText);
   notify(a, 'suggestion-ended', { x: { withdrawn: ended === 'withdrawn' } });
@@ -1239,7 +1307,7 @@ export function rescheduleBooking(id, slotStart) {
   if (!openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).includes(slotStart)) return fail('slot-unavailable');
   const from = a.slot.start;
   a.slot = { start: slotStart, end: slotEnd(slotStart, a.job.visitType) };
-  a.reminder = freshReminder();                                                      // K-41 (D-296): the new time gets its own reminder (none when < 26 h out)
+  a.reminder = freshReminder();                                                      // K-41 (D-296) / K-51: the new time gets its own reminder (C7 from 48 h out, the nudge only from 26 h, none closer)
   repriceForSlot(a, slotStart);                                                      // D-155: rush = min(booked, new slot); the deposit stays
   a.history.push({ status: 'rescheduled', at: nowIso(), from });                     // R3-1-T-10: t-job says what it moved from
   say(a, `You moved the visit to ${fmtWhen(slotStart)}`, `${state.customer.first} moved the visit to ${fmtWhen(slotStart)}`);
@@ -2199,42 +2267,49 @@ export function removeNotePhoto(id, noteId, photoId) {
   return succeed(a);
 }
 
-/* ---------- K-41 (R3, D-296): the 24-hour reminder ----------
-   No new status: `a.reminder = { sentAt, confirmedAt, nudgedAt }`. tick() sends it CANCEL_WINDOW_H + REMINDER_LEAD_H before the visit
-   (26 h: Reschedule and Cancel on it are still free for 2 h) to a visit whose time was set before then (booked or moved < 26 h ahead: no
-   prompt, the plain 24 h rule), and one nudge REMINDER_NUDGE_H before the visit if she never confirmed. confirmVisit closes the free window
-   early (money.js cancelTerms). K-43 (D-300): a visit she was asked about and still hasn't confirmed REMINDER_AUTOCANCEL_H before it starts
-   is cancelled by tick() at that time (reason 'unconfirmed', the customer late-cancel money: the tailor keeps the deposit). */
+/* ---------- K-41 (R3, D-296) → K-51: the visit reminder ----------
+   No new status: `a.reminder = { sentAt, confirmedAt, nudgedAt, texted }`. K-51: tick() sends the reminder (C7, "Please confirm your
+   appointment") REMINDER_H (48 h) before the visit to a visit whose time was set before then, and the nudge (C8, "Confirm by <the free
+   window's end> or cancel it without penalty") REMINDER_NUDGE_H (26 h) before it if she hasn't confirmed. Booked or moved < 48 h ahead: no
+   C7, the nudge is the first ask (`sentAt` = the nudge); < 26 h ahead: no prompt at all, the plain 24 h rule. confirmVisit closes the free
+   window early (money.js cancelTerms, K-41). K-43 (D-300): a visit she was asked about and still hasn't confirmed REMINDER_AUTOCANCEL_H
+   before it starts is cancelled by tick() at that time (reason 'unconfirmed', the customer late-cancel money: the tailor keeps the deposit) —
+   only when one of the two texts was DELIVERED (D-02, `texted`). */
 function freshReminder() { return { sentAt: null, confirmedAt: null, nudgedAt: null }; }
 /** When the current visit time was set: the last accept (or accepted suggestion) or reschedule. Epoch ms. */
 function slotSetAt(a) {
   const h = [...a.history].reverse().find((x) => x.status === 'confirmed' || x.status === 'rescheduled');
   return toDate(h?.at ?? a.requestedAt).getTime();
 }
-/** When the reminder goes out (epoch ms): CANCEL_WINDOW_H + REMINDER_LEAD_H before the visit. */
-export const reminderAt = (a) => toDate(a.slot.start).getTime() - (POLICY.CANCEL_WINDOW_H + POLICY.REMINDER_LEAD_H) * HOUR_MS;
+/** When the reminder (C7) goes out (epoch ms): REMINDER_H before the visit (K-51: 48 h). */
+export const reminderAt = (a) => toDate(a.slot.start).getTime() - POLICY.REMINDER_H * HOUR_MS;
 /** When the free window closes by the clock (epoch ms): CANCEL_WINDOW_H before the visit (Confirm can close it earlier). */
 export const freeUntil = (a) => toDate(a.slot.start).getTime() - POLICY.CANCEL_WINDOW_H * HOUR_MS;
-/** The one nudge's time (epoch ms): REMINDER_NUDGE_H before the visit. */
+/** The nudge's time (C8, epoch ms): REMINDER_NUDGE_H before the visit (K-51: 26 h, 2 h before the free window closes). */
 export const nudgeAt = (a) => toDate(a.slot.start).getTime() - POLICY.REMINDER_NUDGE_H * HOUR_MS;
 /** K-43 (D-300): when an unconfirmed visit is cancelled (epoch ms): REMINDER_AUTOCANCEL_H before the visit. */
 export const autoCancelAt = (a) => toDate(a.slot.start).getTime() - POLICY.REMINDER_AUTOCANCEL_H * HOUR_MS;
-/** A confirmed visit whose time was set at or before its reminder time gets the reminder. */
-export const reminderEligible = (a) => !!a && a.status === 'confirmed' && slotSetAt(a) <= reminderAt(a);
+/** K-51: a confirmed visit whose time was set at or before its nudge time gets a prompt (booked < 26 h ahead: none). */
+export const reminderEligible = (a) => !!a && a.status === 'confirmed' && slotSetAt(a) <= nudgeAt(a);
+/** K-51: when her first ask goes out (epoch ms): the reminder at 48 h, or — booked < 48 h ahead — the nudge at 26 h. */
+export const promptAt = (a) => (slotSetAt(a) <= reminderAt(a) ? reminderAt(a) : nudgeAt(a));
 function remindTick(a) {
   const r = (a.reminder ??= freshReminder());
   const t = state.clock.now;
   const start = toDate(a.slot.start).getTime();
   let moved = false;
   if (t < start) {   // a clock jump past the start sends nothing
-    if (!r.sentAt && reminderEligible(a) && t >= reminderAt(a)) {
+    if (!r.sentAt && a.status === 'confirmed' && slotSetAt(a) <= reminderAt(a) && t >= reminderAt(a)) {   // K-51: C7, 48 h before
       r.sentAt = isoMinute(new Date(reminderAt(a)));
       r.texted = notify(a, 'reminder', { at: r.sentAt }).status === 'delivered';   // D-02: only a delivered text can lead to the auto-cancel
       moved = true;
     }
-    if (r.sentAt && !r.confirmedAt && !r.nudgedAt && t >= nudgeAt(a)) {
-      r.nudgedAt = isoMinute(new Date(Math.max(nudgeAt(a), toDate(r.sentAt).getTime())));
-      if (t < autoCancelAt(a)) notify(a, 'nudge', { at: r.nudgedAt, x: { autoCancel: !!r.texted } });
+    if (!r.confirmedAt && !r.nudgedAt && reminderEligible(a) && t >= nudgeAt(a)) {   // K-51: C8, 26 h before, not confirmed yet
+      r.nudgedAt = isoMinute(new Date(nudgeAt(a)));
+      if (t < freeUntil(a)) {   // a clock that jumped past the free window sends no stale "cancel it without penalty"
+        if (!r.sentAt) r.sentAt = r.nudgedAt;   // booked < 48 h ahead: the nudge is her first ask
+        if (notify(a, 'nudge', { at: r.nudgedAt }).status === 'delivered') r.texted = true;
+      }
       moved = true;
     }
   }
@@ -2262,7 +2337,7 @@ function autoCancel(a) {
   notify(a, 'auto-cancel', { at });
   notify(a, 'auto-cancel-t', { at });
 }
-/** D-02: will an unconfirmed visit be cancelled REMINDER_AUTOCANCEL_H before? Only when the 24-hour reminder text was delivered. */
+/** D-02: will an unconfirmed visit be cancelled REMINDER_AUTOCANCEL_H before? Only when the reminder or the nudge text was delivered (K-51). */
 export const autoCancelArmed = (a) => !!a?.reminder?.texted;
 /** Where the reminder stands, before the visit starts: null (none sent) · 'asked' (sent, free window open, her move) · 'confirmed' ·
     'missed' (sent, never confirmed, the free window closed — the visit stays booked). */
@@ -2405,6 +2480,7 @@ const REVIEW_WHY = {
   'problem-open': (a) => `Handoff problem open ${POLICY.PROBLEM_REVIEW_H} hours`,
   'visit-unanswered': (a) => `Nobody answered “Did the visit happen?” in ${POLICY.VISIT_CHECK_ADMIN_H} hours`,
   'visit-disputed': (a) => 'The two sides disagree about the visit',
+  'unconfirmed-disputed': (a) => `A visit closed “Not confirmed” is disputed (deposit on hold)`,   // K-51
   'no-show-disputed': (a) => `${state.customer.first} says she was there (no-show)`,
   'tailor-no-show-disputed': (a) => `${firstName(tailorById(a.tailorId))} says she came (tailor no-show)`,
   'delivery-missing': (a) => 'A courier delivery didn’t reach the customer',
@@ -2634,6 +2710,7 @@ export function openCase({ who, apptId = null, topic = null, text = '', photos =
   if (topic) caseLine(c, who, topicLabel(topic, who, a), { from: who });
   const m = maskContact(raw);
   if (m.text || count) caseLine(c, who, m.text, { from: who, photos: count, masked: m.masked });
+  if (a) noteHoldDispute(a, who);   // K-51: writing to Taily about a "Not confirmed" visit disputes the hold
   if (fresh || joined) caseLine(c, who, ackText(c, who), { kind: 'ack' });
   c.read[who] = lastNum(c);
   if (fresh) caseToAdmin(c, a, 'case'); else caseMessageToAdmin(c, who);
@@ -2653,6 +2730,7 @@ export function sendCaseMessage(caseId, who, { text = '', photos = 0 } = {}) {
   if (state.sim.send === 'fail') { state.sim.send = 'ok'; return fail('send-failed'); }
   const m = maskContact(text);
   const message = caseLine(c, who, m.text, { from: who, photos: count, masked: m.masked });
+  if (c.apptId) noteHoldDispute(getAppt(c.apptId), who);   // K-51: writing to Taily about a "Not confirmed" visit disputes the hold
   c.read[who] = caseNum(message);
   caseMessageToAdmin(c, who);
   return { ok: true, case: c, message, masked: m.masked };
@@ -2680,6 +2758,14 @@ const REVIEW_SAY = {
   'visit-disputed': (a, side, by) => (side === 'customer'
     ? `You told us the visit didn’t happen, and ${firstName(tailorById(a.tailorId))} tapped I’m here at ${fmtTime(a.visitDay?.tailor?.hereAt ?? a.slot.start)}. We’re asking you both and decide by ${by}.`
     : `${state.customer.first} says the visit didn’t happen. You tapped I’m here at ${fmtTime(a.visitDay?.tailor?.hereAt ?? a.slot.start)}. Tell us what happened by ${by}.`),
+  /* K-51: a visit closed "Not confirmed" (nothing recorded) — one side disputes; the deposit stays on hold until Taily decides */
+  'unconfirmed-disputed': (a, side, by) => {
+    const dep = fmtExact(a.payments.deposit.cents);
+    const tf = firstName(tailorById(a.tailorId));
+    const mine = a.cancel?.disputedBy === side;
+    if (side === 'customer') return mine ? `You told us the visit didn’t happen. Your ${dep} deposit stays on hold until we decide, by ${by}. Tell us anything that helps.` : `${tf} asked us to look at your ${fmtWhen(a.slot.start)} visit. Your ${dep} deposit stays on hold until we decide, by ${by}. Did the visit happen?`;
+    return mine ? `You asked us to look at the visit. ${state.customer.first}’s ${dep} deposit stays on hold until we decide, by ${by}. Tell us what happened.` : `${state.customer.first} says the visit didn’t happen. Her ${dep} deposit stays on hold until we decide, by ${by}. Tell us what happened; the time you arrived or a photo helps.`;
+  },
   'no-show-disputed': (a, side, by) => (side === 'customer'
     ? `You told us you were there. ${firstName(tailorById(a.tailorId))} marked a no-show at ${fmtTime(a.cancel?.at ?? a.slot.start)}. Your ${fmtExact(a.payments.deposit.cents)} deposit stays on hold until we decide, by ${by}.`
     : `${state.customer.first} says she was there at ${fmtTime(a.slot.start)}. Your ${fmtExact(state.payouts.find((p) => p.apptId === a.id && p.kind === 'no-show')?.cents ?? noShowPayout(a.payments.deposit.cents))} no-show pay is on hold while we look. Tell us what happened by ${by}; the time you arrived or a photo of the door helps.`),
@@ -2697,7 +2783,13 @@ const REVIEW_SAY = {
 const REVIEW_ENDED = {
   approved: (a, side) => (side === 'customer' ? 'You approved the final order, so we closed this.' : `${state.customer.first} approved the final order, so we closed this.`),
   'fitting-started': () => 'The fitting started, so we closed this.',
-  'cancelled-refunded': (a, side) => (side === 'customer' ? `Nobody told us the visit happened, so we cancelled it and refunded your ${fmtExact(a.payments.deposit.cents)} deposit.` : 'Nobody told us the visit happened, so we cancelled it. Nothing is paid out.'),
+  /* K-51 (replaces D-11's 'cancelled-refunded'): the visit closed by evidence, and a "Not confirmed" deposit nobody disputed */
+  'no-show-evidence': (a, side) => (side === 'customer'
+    ? `Nobody answered, and ${firstName(tailorById(a.tailorId))} tapped I’m here, so it counts as a no-show. ${firstName(tailorById(a.tailorId))} keeps your ${fmtExact(a.payments.deposit.cents)} deposit. Were you there? Tell us here.`
+    : `Nobody answered, and you tapped I’m here, so it counts as ${state.customer.first}’s no-show. Your ${fmtExact(a.cancel?.tailorPaid ?? 0)} no-show pay goes out ${fmtDay(payoutDay(a.cancel?.at ?? nowIso()))}.`),
+  'kept-undisputed': (a, side) => (side === 'customer'
+    ? `Nobody disputed the visit closed as not confirmed, so ${firstName(tailorById(a.tailorId))} keeps your ${fmtExact(a.payments.deposit.cents)} deposit.`
+    : `Nobody disputed the visit closed as not confirmed, so you keep ${state.customer.first}’s ${fmtExact(a.payments.deposit.cents)} deposit. It goes out ${fmtDay(payoutDay(a.cancel?.keptAt ?? nowIso()))}.`),
 };
 /** An A1 review opens (or joins) the order's case: both sides, Taily's first words to each. */
 function reviewCase(a, reason, { by = 'system', at = nowIso() } = {}) {
@@ -2754,7 +2846,7 @@ export function adminRefundDeposit(caseId) {
   if (!['cancelled', 'completed'].includes(a.status)) return fail('order-open');
   Object.assign(d, { state: 'refunded', refundedAt: nowIso(), refundedBy: 'taily' });
   const dropped = dropPayouts(a, ['no-show', 'kept-deposit']);
-  if (a.cancel) Object.assign(a.cancel, { refund: d.cents, kept: 0, tailorPaid: 0, decided: 'refunded', decidedAt: nowIso() });
+  if (a.cancel) Object.assign(a.cancel, { refund: d.cents, kept: 0, tailorPaid: 0, decided: 'refunded', decidedAt: nowIso(), held: false });   // K-51: a held deposit too
   record(c, 'refund-deposit', d.cents, { dropped });
   say(a, `Taily refunded your ${fmtExact(d.cents)} deposit`, `Taily refunded ${state.customer.first}’s ${fmtExact(d.cents)} deposit`);
   return { ok: true, case: c, appt: a };
@@ -2765,6 +2857,7 @@ export function adminKeepDeposit(caseId) {
   const g = adminCase(caseId); if (!g.ok) return g;
   const { c, a } = g;
   const d = a.payments.deposit;
+  if (depositOnHold(a)) keepHeldDeposit(a, nowIso());                                  // K-51: a "Not confirmed" deposit on hold goes to her
   if (d.state !== 'kept') return fail(d.state === 'refunded' ? 'deposit-refunded' : 'not-kept');
   let released = 0;
   for (const p of state.payouts) if (p.apptId === a.id && p.state === 'pending' && p.held) { p.held = false; p.pausedBy = null; released += p.cents; }
@@ -2865,6 +2958,7 @@ export function adminCloseCase(caseId, { outcome = null } = {}) {
   const g = adminCase(caseId, { order: false }); if (!g.ok) return g;
   const { c, a } = g;
   if (a && state.payouts.some((p) => p.apptId === a.id && p.state === 'pending' && p.held)) return fail('decide-first');
+  if (a && depositOnHold(a) && a.cancel.disputedAt) return fail('decide-first');   // K-51: a disputed "Not confirmed" deposit needs a decision
   const money = [...c.actions].reverse().find((x) => x.kind !== 'pause-payout' && x.kind !== 'release-payout');
   const key = money?.kind ?? outcome ?? 'resolved';
   const lines = {};
@@ -2918,8 +3012,8 @@ export function adminActions(c) {
     out.push({ kind: 'refund-deposit', label: `Refund ${cf}’s deposit`, sub: lost.length ? `${tf} isn’t paid the ${$(sum(lost))}` : `Back to her card`, cents: d.cents, tone: 'default',
       confirm: `Refund ${cf}’s ${$(d.cents)} deposit to her card.${lost.length ? ` ${tf}’s ${$(sum(lost))} isn’t paid out.` : ''}` });
   }
-  if (d.state === 'kept') {
-    out.push({ kind: 'keep-deposit', label: `${tf} keeps the deposit`, sub: held.length ? `Releases her ${$(sum(held))} on hold` : 'The deposit stays with her', cents: d.cents, tone: 'default',
+  if (d.state === 'kept' || depositOnHold(a)) {   // K-51: a "Not confirmed" deposit on hold
+    out.push({ kind: 'keep-deposit', label: `${tf} keeps the deposit`, sub: depositOnHold(a) ? 'Ends the hold: paid out on her Friday' : held.length ? `Releases her ${$(sum(held))} on hold` : 'The deposit stays with her', cents: d.cents, tone: 'default',
       confirm: `${tf} keeps ${cf}’s ${$(d.cents)} deposit.${held.length ? ` Her ${$(sum(held))} goes out on its Friday.` : ''}` });
   }
   if (a.status === 'awaiting-handoff' && b.state === 'held') {
@@ -3228,7 +3322,7 @@ export const T = {
   chooseReturn, setHandoffSlot, holdBalance, confirmPickup, markHandedOver, confirmReceived, reportNotReceived, courierDelivered, bookAgain, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
   /* pre-MVP A1 */
   notify, setTexts, textReply, dismissNotice, dismissReviewReminder, withdrawJobEdit, courierCollected, courierFailed, reportMissingDelivery, retryCapture,
-  visitPing, answerVisitCheck, disputeNoShow, proposeNewTime, answerProposal,
+  visitPing, answerVisitCheck, disputeNoShow, disputeUnconfirmed, proposeNewTime, answerProposal,
   /* pre-MVP A2: Taily Help, the admin, report / block */
   openCase, sendCaseMessage, markCaseRead, adminReply, adminRefundDeposit, adminKeepDeposit, adminReleaseHold, adminCaptureHold, adminCancelOrder,
   adminPausePayout, adminReleasePayout, adminCloseCase, adminMarkRead, adminAct, reportPerson, blockPerson, unblockPerson,

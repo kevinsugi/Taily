@@ -2,10 +2,11 @@
    sys-texts — the text catalogue board (pre-MVP A1, DG-2 A + D-02): every event's text as the person would get it, rendered with
    the app's own text banner and the appointment's deterministic link, with who gets it, what fires it and where its link lands.
    js/texts.js is the one source (docs/v5/TEXTS.md is generated from it). Three tabs: to the customer / the tailor / the admin (A2). K-48.4: no quiet hours.
+   K-51: each text carries its review number (C1… / T1… / A1…, texts.js textNo).
    ============================================================ */
 import { register, render as go } from '../app.js';
 import { state, now, nowIso, textLink, activeAppt, tailorById } from '../state.js';
-import { TEXT_EVENTS, textCtx } from '../texts.js';
+import { TEXT_EVENTS, textCtx, textNo } from '../texts.js';
 import { statusBar, headingRow, esc, chipGroup, wireChipGroups } from '../components.js';
 import { textBannerHtml } from '../system.js';
 
@@ -28,9 +29,9 @@ function view() {
   const who = ui().who;
   const { a, ctx } = context();
   const rows = TEXT_EVENTS.filter(([, r]) => r.to === who);
-  const items = rows.map(([id, r], i) => `<li class="${ID}__item" data-text-event="${esc(id)}">
+  const items = rows.map(([id, r]) => `<li class="${ID}__item" data-text-event="${esc(id)}">
     <div class="text-banner-demo ${ID}__demo">${textBannerHtml({ body: r.body(ctx), link: textLink(a?.id ?? who, id), act: 'noop', to: who })}</div>
-    <p class="t-small w-600 ${ID}__name"><span class="${ID}__num">${i + 1}.</span> ${esc(id)}${r.owner && r.owner !== 'A1' ? ` <span class="c-600 w-400">· fired by ${esc(r.owner)}</span>` : ''}</p>
+    <p class="t-small w-600 ${ID}__name"><span class="${ID}__num">${esc(textNo(id))}</span> ${esc(id)}${r.owner && r.owner !== 'A1' ? ` <span class="c-600 w-400">· fired by ${esc(r.owner)}</span>` : ''}</p>
     <p class="t-small c-600">When: ${esc(r.trigger)}</p>
     <p class="t-small c-600">Lands on: ${esc(r.land ?? 'the booking’s own screen (statusScreen)')}</p>
   </li>`).join('');

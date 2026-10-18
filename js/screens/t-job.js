@@ -63,14 +63,20 @@ function heroCopy(a, v) {
   if (kind === 'no-show') {
     return {
       title: 'Marked as a no-show',
-      note: `<p class="t-body c-700 ${ID}__note">${c.decided === 'refunded' ? `Taily refunded ${first}’s ${fmtExact(c.refund)} deposit, so this visit pays nothing.` : c.decided === 'kept' ? `Taily decided you keep ${first}’s ${fmtExact(c.kept)} deposit. Your no-show pay goes out on its Friday.` : c.disputedAt ? `${first} says she was there. Your no-show pay is on hold while Taily looks into it.` : `${first} has been told, and her ${fmtExact(c.kept)} deposit isn’t refunded.`}</p>`,   // K-17 R5: what you are paid is the money row below; D-14: a dispute
+      note: `<p class="t-body c-700 ${ID}__note">${c.decided === 'refunded' ? `Taily refunded ${first}’s ${fmtExact(c.refund)} deposit, so this visit pays nothing.` : c.by === 'system' && !c.disputedAt && !c.decided ? `${first} didn’t tell us if the visit happened, and you tapped I’m here at ${fmtTime(a.visitDay?.tailor?.hereAt ?? a.slot.start)}, so it counts as her no-show.` : c.decided === 'kept' ? `Taily decided you keep ${first}’s ${fmtExact(c.kept)} deposit. Your no-show pay goes out on its Friday.` : c.disputedAt ? `${first} says she was there. Your no-show pay is on hold while Taily looks into it.` : `${first} has been told, and her ${fmtExact(c.kept)} deposit isn’t refunded.`}</p>`,   // K-17 R5: what you are paid is the money row below; D-14: a dispute
     };
   }
   if (kind === 'taily') {   // pre-MVP A2 (K-48.1): the admin cancelled the job or released the hold
     return { title: 'Taily cancelled this job', note: `<p class="t-body c-700 ${ID}__note">${c.released ? `${first} isn’t charged the ${fmtExact(c.released)} balance. ` : ''}Nothing is paid out for this job. Taily’s message explains why.</p>` };
   }
-  if (kind === 'no-record') {   // D-11 (K-48.5): nobody answered "Did the visit happen?" in 24 hours
-    return { title: 'Visit cancelled', note: `<p class="t-body c-700 ${ID}__note">Nobody told us the visit happened, so we cancelled it and refunded ${first}’s deposit. Nothing is paid out.</p>` };
+  if (kind === 'no-record') {   // K-51 (replaces D-11's refund): closed "Not confirmed" — her deposit on hold; kept unless someone disputes
+    const dep = fmtExact(a.payments.deposit.cents);
+    const text = c.decided === 'refunded' ? `Nobody confirmed the visit, so we closed it. Taily refunded ${first}’s ${dep} deposit. Nothing is paid out.`
+      : c.decided === 'kept' ? `Nobody confirmed the visit, so we closed it. Taily looked into it, and you keep ${first}’s ${dep} deposit.`
+      : !c.held ? `Nobody confirmed the visit, and nobody disputed it by ${fmtWhen(c.holdUntil)}, so you keep ${first}’s ${dep} deposit.`
+      : c.disputedAt ? `Nobody confirmed the visit, so we closed it. ${c.disputedBy === 'tailor' ? 'You asked Taily to look at it.' : `${first} says it didn’t happen.`} Her ${dep} deposit stays on hold while Taily looks into it.`
+      : `Nobody confirmed the visit, so we closed it as not confirmed. ${first}’s ${dep} deposit is on hold. If neither of you disputes it by ${fmtWhen(c.holdUntil)}, you keep it.`;
+    return { title: 'Not confirmed', note: `<p class="t-body c-700 ${ID}__note">${text}</p>` };
   }
   if (kind === 'customer-early') {
     return {
@@ -103,7 +109,7 @@ function heroCopy(a, v) {
 function cancelMoney(a) {
   const kind = cancelKind(a);
   const p = payoutOf(a);
-  if (!p || !['no-show', 'customer-late', 'unconfirmed'].includes(kind)) return '';
+  if (!p || !['no-show', 'customer-late', 'unconfirmed', 'no-record'].includes(kind)) return '';   // K-51: a "Not confirmed" deposit she kept
   const label = kind === 'no-show' ? 'No-show pay' : 'Kept deposit';
   return `<div class="${ID}__money">${moneyRows([{ label, cents: a.cancel.tailorPaid, kind: 'total', status: payoutLine(p).short }])}</div>`;
 }
@@ -257,7 +263,9 @@ function copyFor(key, a, t, v, pv) {
         const closeAt = toDate(vc.askedAt).getTime() + POLICY.VISIT_CHECK_CANCEL_H * 3600000;
         const said = vc.answer === 'happened' ? `${first} says it happened. Start the fitting to send her the final order.`
           : vc.answer === 'not-happened' ? `${first} says you didn’t come. Taily is looking into it and will message you both.`
-            : `Nothing was recorded. If it happened, start the fitting. If ${first} wasn’t there, mark a no-show from the ••• menu. If nobody answers by ${fmtTime(closeAt)} ${dayWord(closeAt, now())}, we cancel it and refund ${first}.`;
+            : a.visitDay?.tailor?.hereAt   // K-51: her "I'm here" decides it if nobody answers
+              ? `If it happened, start the fitting. If ${first} wasn’t there, mark a no-show from the ••• menu. You tapped I’m here at ${fmtTime(a.visitDay.tailor.hereAt)}, so if nobody answers by ${fmtTime(closeAt)} ${dayWord(closeAt, now())}, it counts as ${first}’s no-show.`
+              : `Nothing was recorded. If it happened, start the fitting. If nobody answers by ${fmtTime(closeAt)} ${dayWord(closeAt, now())}, we close it as not confirmed and hold ${first}’s ${fmtExact(a.payments.deposit.cents)} deposit. You keep it unless one of you disputes it within ${POLICY.VISIT_HOLD_DISPUTE_H} hours.`;
         return { ...base, title: 'Did the visit happen?', note: note(esc(said)), bar };
       }
       return { ...base, title: 'Time for the fitting', note: note(`Start it when you’re with ${first}.`), bar };
@@ -604,8 +612,8 @@ function reminderView(a) {
   const rem = a.reminder;
   if (r === 'asked') {
     const until = freeUntil(a);
-    return { title, strip: { tone: 'warn', icon: 'clock', text: `Waiting on ${first} to confirm`, right: `Asked ${fmtTime(rem.sentAt)}` },
-      rule: `We asked ${esc(first)} if she’s still on. She can change for free until ${fmtTime(until)} ${dayWord(until, now())}.` };
+    return { title, strip: { tone: 'warn', icon: 'clock', text: `Waiting on ${first} to confirm`, right: `Asked ${dayDiff(rem.sentAt, now()) === 0 ? fmtTime(rem.sentAt) : fmtDay(rem.sentAt)}` },   // K-51: the reminder goes out a day or two before
+      rule: `We asked ${esc(first)} to confirm. She can change for free until ${esc(fmtWhen(until))}.` };   // K-51: as the reminder text says it
   }
   if (r === 'confirmed') {
     return { title, strip: { tone: 'done', icon: 'check', text: `${first} confirmed for ${day}`, right: fmtTime(rem.confirmedAt) },
@@ -618,7 +626,7 @@ function reminderView(a) {
   /* K-43 (D-300): no answer by REMINDER_AUTOCANCEL_H before the visit cancels it — and the kept deposit is hers */
   const by = fmtTime(autoCancelAt(a));
   return { title, strip: { tone: 'warn', icon: 'clock', text: `${first} hasn’t confirmed`, right: day === 'today' ? `Visit ${at}` : `Visit ${day} ${at}` },
-    rule: `${rem.nudgedAt ? `We reminded her at ${fmtTime(rem.nudgedAt)}. ` : ''}If she doesn’t confirm by ${by}, we cancel the visit and you keep her ${dep} deposit.` };
+    rule: `${rem.nudgedAt ? `We reminded her ${fmtWhen(rem.nudgedAt)}. ` : ''}If she doesn’t confirm by ${by}, we cancel the visit and you keep her ${dep} deposit.` };
 }
 /** K-43 (D-300): a visit Taily cancelled because Sarah never confirmed — the strip says so, the rule line says when and what she keeps. */
 function autoCancelView(a) {

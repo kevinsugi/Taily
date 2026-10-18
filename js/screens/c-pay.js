@@ -46,14 +46,15 @@ function cancelRow(slot, depositCents, first) {
   return metaRow(GLYPH.check, `Free cancellation until ${fmtWhen(cutoff)}. After that, ${esc(first)} keeps the ${money(depositCents)} deposit.`);
 }
 
-/** SF-04: the reminder and its auto-cancel, said before she pays — only when a reminder will go out (the visit is at least
-    CANCEL_WINDOW_H + REMINDER_LEAD_H away, D-296). */
+/** SF-04: the reminder and its auto-cancel, said before she pays — only when she will be asked (K-51: the visit is at least REMINDER_NUDGE_H
+    away; from REMINDER_H away the first ask is the reminder, closer it is the nudge). */
 function reminderRow(slot, depositCents, first) {
   const away = toDate(slot).getTime() - now();
-  if (away < (POLICY.REMINDER_LEAD_H + POLICY.CANCEL_WINDOW_H) * 3600000) return '';
-  /* D-02 (pre-MVP A1): only a delivered text can lead to the auto-cancel — with texts off the day-before ask is in the app only */
-  if (!textsOn('customer')) return metaRow(GLYPH.clock, 'The day before, we ask you to confirm the visit in the app. Your texts are off, so we won’t text you.');
-  return metaRow(GLYPH.clock, `We’ll text you the day before to confirm. If you don’t confirm ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and ${esc(first)} keeps the ${money(depositCents)} deposit.`);
+  if (away < POLICY.REMINDER_NUDGE_H * 3600000) return '';
+  const when = `${away >= POLICY.REMINDER_H * 3600000 ? POLICY.REMINDER_H : POLICY.REMINDER_NUDGE_H} hours before the visit`;
+  /* D-02 (pre-MVP A1): only a delivered text can lead to the auto-cancel — with texts off the ask is in the app only */
+  if (!textsOn('customer')) return metaRow(GLYPH.clock, `${when.charAt(0).toUpperCase()}${when.slice(1)}, we ask you to confirm it in the app. Your texts are off, so we won’t text you.`);
+  return metaRow(GLYPH.clock, `We’ll text you ${when} to confirm. If you don’t confirm ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and ${esc(first)} keeps the ${money(depositCents)} deposit.`);
 }
 
 /* ---------- data ---------- */

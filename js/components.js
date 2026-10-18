@@ -1248,7 +1248,7 @@ const INFO = {
     'The deposit is held on your card, and charged only when the tailor accepts.',
     'It comes off your final total.',
     `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the tailor keeps the deposit.`,
-    'The day before, we text you to confirm. Once you confirm, the tailor keeps the deposit if you cancel or aren’t there.',   // SF-04 (K-41 / K-43)
+    `${POLICY.REMINDER_H} hours before the visit, we text you to confirm. Once you confirm, the tailor keeps the deposit if you cancel or aren’t there.`,   // SF-04 (K-41 / K-43) → K-51
     `If you don’t confirm ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and the tailor keeps the deposit.`,
     'If the tailor cancels or doesn’t show up, you get it back in full.'] }),   // K-29 (Study-1 A5)
   fitting: (c) => ({ title: 'At the fitting', lines: [
@@ -3084,7 +3084,7 @@ export function reminderCard({ title = '', text = '', actionLabel = 'Leave a rev
 }
 
 /** K-41 (R3, D-296): the 24-hour reminder on Home — the booking row turns into a card: the accent state strip across its top (`text` ·
-    `right`, e.g. "Still on for tomorrow?" · "Free until 5:00 PM"), the appt row (`row` = apptRow's options), ONE rule line in dollars
+    `right`, e.g. "Please confirm your visit" · "Free until 5:00 PM today", K-51), the appt row (`row` = apptRow's options), ONE rule line in dollars
     (`rule`, HTML: money in <span data-money>), then Confirm (filled) and "Change or cancel" (opens the booking) inline. */
 export function visitPrompt({ text = '', right = '', row = {}, rule = '', id = '', confirmAct = 'confirm-visit', changeAct = 'open-appt', tone = 'action' } = {}) {
   noPercent(rule, 'visitPrompt');

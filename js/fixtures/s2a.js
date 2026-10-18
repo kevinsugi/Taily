@@ -8,7 +8,7 @@
 import { SCENARIOS as A2_SC } from './money-scenarios.js';
 import { fmtExact as A2_exact } from '../money.js';
 import { POLICY as A2_POLICY } from '../money-config.js';
-import { reminderAt as A2_reminderAt, moveSlots as A2_moveSlots } from '../state.js';
+import { nudgeAt as A2_nudgeAt, moveSlots as A2_moveSlots } from '../state.js';
 import { pickHandoff as A2_pick, handoffPick as A2_handoffPick } from './common.js';
 import { autoCancelled as A2_autoCancelled } from './s1e.js';
 
@@ -18,10 +18,10 @@ const NO_SHOW = A2_exact(A2_SC.noShow.paid);
 const G = 'A1 · Texts, timers, visit day';
 const at = (screen) => ({ screen, group: G });
 
-/** The seed visit (Thu, Oct 15 · 5:00 PM), confirmed by Sarah at its 24-hour reminder (Wed 3:00 PM) — so the K-43 auto-cancel stays out of it. */
+/** The seed visit (Thu, Oct 15 · 5:00 PM), confirmed by Sarah at its nudge (K-51: Wed 3:00 PM) — so the K-43 auto-cancel stays out of it. */
 function sure(S) {
   const a = S.driveTo('confirmed');
-  S.advanceClock(Math.round((A2_reminderAt(a) - S.state.clock.now) / 60000));
+  S.advanceClock(Math.round((A2_nudgeAt(a) - S.state.clock.now) / 60000));
   S.T.confirmVisit(a.id);
   return a;
 }
@@ -36,7 +36,7 @@ function visitCheck(S) {
 function missedUnarmed(S) {
   const a = S.driveTo('confirmed');
   S.T.textReply('customer', 'STOP');
-  S.advanceClock(Math.round((A2_reminderAt(a) - S.state.clock.now) / 60000) + 20 * 60);
+  S.advanceClock(Math.round((A2_nudgeAt(a) - S.state.clock.now) / 60000) + 20 * 60);
   return a;
 }
 /** D-12: Amara asks to move the visit to Sat, Oct 17 · 9:00 AM. */
@@ -125,15 +125,25 @@ export const FLOWS_c_bookings = [
 
 /* ---------- c-booking ---------- */
 export const FLOWS_c_booking = [
-  { ...at('c-booking'), key: 'c-booking--visit-check', title: 'Booking — did your visit happen?', note: 'D-11 (K-48.5): 2 hours after the start with nothing recorded, both are asked (and texted); 4 h unanswered tells the admin; 24 h cancels with a refund',
+  { ...at('c-booking'), key: 'c-booking--visit-check', title: 'Booking — did your visit happen?', note: 'D-11 (K-48.5): 2 hours after the start with nothing recorded, both are asked (and texted); 4 h unanswered tells the admin; K-51: 24 h closes it by the evidence',
     setup: (S) => { visitCheck(S); },
-    expect: { has: ['Did your visit happen?', 'Visit 5:00 PM', `Nothing was recorded for this visit. Tell us, so we can sort out your ${DEP} deposit. If nobody answers by 7:00 PM tomorrow, we cancel the visit and refund you.`, 'Yes, it happened', 'No, Amara didn’t come'], sel: '.action-bar [data-act="visit-yes"]' } },
+    expect: { has: ['Did your visit happen?', 'Visit 5:00 PM', `Nothing was recorded for this visit. If nobody answers by 7:00 PM tomorrow, we close it as not confirmed and hold your ${DEP} deposit. Amara keeps it unless one of you disputes it within 72 hours.`, 'Yes, it happened', 'No, Amara didn’t come'], not: 'refund', sel: '.action-bar [data-act="visit-yes"]' } },
   { ...at('c-booking'), key: 'c-booking--visit-check-answered', title: 'Booking — you told us it happened', note: 'D-11: her answer stops the admin note and the cancel',
     setup: (S) => { const a = visitCheck(S); S.T.answerVisitCheck(a.id, 'happened'); },
     expect: { has: ['You told us the visit happened', 'Amara sends you the final order next.'], not: 'Yes, it happened', sel: '[data-strip="done"]' } },
-  { ...at('c-booking'), key: 'c-booking--visit-closed', title: 'Booking — cancelled, nothing recorded', note: 'D-11: “Did the visit happen?” unanswered 24 hours — cancelled, the deposit refunded',
+  { ...at('c-booking'), key: 'c-booking--visit-closed', title: 'Booking — not confirmed, deposit on hold', note: 'K-51 (replaces D-11’s refund): nothing recorded, “Did the visit happen?” unanswered 24 hours — closed “Not confirmed”, the deposit on hold; Amara keeps it unless one of them disputes within 72 h',
     setup: (S) => { sure(S); S.setClock('2026-10-16T19:00'); S.T.tick(); },
-    expect: { has: ['Visit cancelled', `Nobody told us the visit happened, so we cancelled it. Your ${DEP} deposit is refunded.`, 'Refunded', 'Book Amara again'] } },
+    expect: { has: ['Not confirmed', `Nobody confirmed the visit, so we closed it as not confirmed. Your ${DEP} deposit is on hold. If neither of you disputes it by Mon, Oct 19 · 7:00 PM, Amara keeps it.`, 'On hold', 'That’s not right', 'Book Amara again'], not: ['Refunded', 'refunded'], sel: '.page-actions [data-act="dispute-hold"]' } },
+  { ...at('c-booking'), key: 'c-booking--visit-closed-dispute', title: 'Booking — not confirmed: the visit didn’t happen?', note: 'K-51: “That’s not right” — the deposit stays on hold until Taily decides',
+    setup: (S) => { sure(S); S.setClock('2026-10-16T19:00'); S.T.tick(); },
+    click: ['.page-actions [data-act="dispute-hold"]'],
+    expect: { has: ['The visit didn’t happen?', `Tell Taily, and your ${DEP} deposit stays on hold until we decide. We look into it with Amara and message you both.`, 'Tell Taily', 'Cancel'], sel: '[data-s="c-booking--dispute-hold"] [data-act="cs-ok"]' } },
+  { ...at('c-booking'), key: 'c-booking--visit-closed-kept', title: 'Booking — not confirmed, nobody disputed', note: 'K-51: 72 hours after the close with no dispute — Amara keeps the deposit',
+    setup: (S) => { sure(S); S.setClock('2026-10-16T19:00'); S.T.tick(); S.advanceClock(72 * 60); },
+    expect: { has: ['Not confirmed', `Nobody confirmed the visit, and nobody disputed it by Mon, Oct 19 · 7:00 PM, so Amara kept your ${DEP} deposit.`, 'Kept', 'Book Amara again'], not: ['That’s not right', 'On hold'] } },
+  { ...at('c-booking'), key: 'c-booking--visit-closed-no-show', title: 'Booking — counts as a no-show (Amara tapped I’m here)', note: 'K-51: nobody answered, but Amara tapped I’m here at 4:55 PM — the customer’s no-show by the evidence; she can still say That’s not right',
+    setup: (S) => { const a = sure(S); S.setClock('2026-10-15T16:55'); S.T.visitPing(a.id, 'tailor', 'here'); S.setClock('2026-10-16T19:00'); S.T.tick(); },
+    expect: { has: ['Marked as a no-show', 'You didn’t tell us if the visit happened, and Amara tapped I’m here at 4:55 PM, so it counts as a no-show. Amara keeps your deposit. If you were there, tell us.', 'Kept', 'That’s not right'], not: 'On hold', sel: '.page-actions [data-act="dispute"]' } },
   { ...at('c-booking'), key: 'c-booking--move-asked', title: 'Booking — Amara asked to move it', note: 'D-12: Accept the new time or keep yours; the deposit and the free-cancel window move with the visit',
     setup: (S) => { moveAsked(S); },
     expect: { has: ['Amara asked to move your visit', 'to Sat, Oct 17 · 9:00 AM', 'Accept Sat, Oct 17 · 9:00 AM, or keep Thu, Oct 15 · 5:00 PM.', 'Accept new time', 'Keep current time'], sel: '.action-bar [data-act="proposal-accept"]' } },
@@ -218,12 +228,18 @@ export const FLOWS_t_job = [
     setup: (S) => { sure(S); S.setClock('2026-10-15T17:20'); },
     click: ['[data-act="more"]'],
     expect: { has: ['Mark as no-show', 'Tap I’m here when you arrive first'] } },
-  { ...at('t-job'), key: 't-job--visit-check', title: 'Job — did the visit happen?', note: 'D-11 (K-48.5): 2 hours after the start with nothing recorded — start the fitting, or mark a no-show (after I’m here); 24 h unanswered cancels with a refund',
+  { ...at('t-job'), key: 't-job--visit-check', title: 'Job — did the visit happen?', note: 'D-11 (K-48.5): 2 hours after the start with nothing recorded — start the fitting, or mark a no-show (after I’m here); K-51: 24 h unanswered closes it by the evidence',
     setup: (S) => { visitCheck(S); },
-    expect: { has: ['Did the visit happen?', 'Nothing was recorded. If it happened, start the fitting.', 'If nobody answers by 7:00 PM tomorrow, we cancel it and refund Sarah.', 'Start fitting'], sel: '.action-bar [data-act="start-fitting"]' } },
-  { ...at('t-job'), key: 't-job--visit-closed', title: 'Job — cancelled, nothing recorded', note: 'D-11: unanswered 24 hours — cancelled, Sarah refunded, nothing paid out',
+    expect: { has: ['Did the visit happen?', 'Nothing was recorded. If it happened, start the fitting.', `If nobody answers by 7:00 PM tomorrow, we close it as not confirmed and hold Sarah’s ${DEP} deposit. You keep it unless one of you disputes it within 72 hours.`, 'Start fitting'], not: 'refund', sel: '.action-bar [data-act="start-fitting"]' } },
+  { ...at('t-job'), key: 't-job--visit-closed', title: 'Job — not confirmed, deposit on hold', note: 'K-51 (replaces D-11’s refund): unanswered 24 hours, nothing recorded — closed “Not confirmed”; Sarah’s deposit on hold, hers unless someone disputes within 72 h',
     setup: (S) => { sure(S); S.setClock('2026-10-16T19:00'); S.T.tick(); },
-    expect: { has: ['Visit cancelled', 'Nobody told us the visit happened, so we cancelled it and refunded Sarah’s deposit. Nothing is paid out.'] } },
+    expect: { has: ['Not confirmed', `Nobody confirmed the visit, so we closed it as not confirmed. Sarah’s ${DEP} deposit is on hold. If neither of you disputes it by Mon, Oct 19 · 7:00 PM, you keep it.`], not: ['refunded', 'Kept deposit'] } },
+  { ...at('t-job'), key: 't-job--visit-closed-kept', title: 'Job — not confirmed, you keep the deposit', note: 'K-51: nobody disputed it in 72 hours — the kept deposit is her payout (Fri, Oct 23)',
+    setup: (S) => { sure(S); S.setClock('2026-10-16T19:00'); S.T.tick(); S.advanceClock(72 * 60); },
+    expect: { has: ['Not confirmed', `Nobody confirmed the visit, and nobody disputed it by Mon, Oct 19 · 7:00 PM, so you keep Sarah’s ${DEP} deposit.`, 'Kept deposit', DEP] } },
+  { ...at('t-job'), key: 't-job--visit-closed-no-show', title: 'Job — counts as her no-show (you tapped I’m here)', note: 'K-51: nobody answered and she had tapped I’m here — the no-show rule pays her the no-show pay',
+    setup: (S) => { const a = sure(S); S.setClock('2026-10-15T16:55'); S.T.visitPing(a.id, 'tailor', 'here'); S.setClock('2026-10-16T19:00'); S.T.tick(); },
+    expect: { has: ['Marked as a no-show', 'Sarah didn’t tell us if the visit happened, and you tapped I’m here at 4:55 PM, so it counts as her no-show.', 'No-show pay'] } },
   { ...at('t-job'), key: 't-job--move-asked', title: 'Job — you asked to move it', note: 'D-12: waiting on Sarah to accept or keep her time; the visit stays as booked until then',
     setup: (S) => { moveAsked(S); },
     expect: { has: ['Waiting on Sarah · new time', 'You asked to move it to Sat, Oct 17 · 9:00 AM. Sarah accepts it or keeps Thu, Oct 15 · 5:00 PM.'], sel: '[data-strip="warn"]' } },

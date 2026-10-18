@@ -8,7 +8,7 @@
 import { SCENARIOS as C2_SC } from './money-scenarios.js';
 import { fmtExact as C2_exact, fmt as C2_fmt, cents as C2_cents } from '../money.js';
 import { POLICY as C2_POLICY, MONEY as C2_MONEY } from '../money-config.js';
-import { reminderAt as C2_reminderAt, openCaseOfAppt as C2_openCase } from '../state.js';
+import { nudgeAt as C2_nudgeAt, openCaseOfAppt as C2_openCase } from '../state.js';
 
 const DEP = C2_exact(C2_SC.seed.deposit);
 const BAL = C2_exact(C2_SC.seed.balance);
@@ -22,7 +22,7 @@ const at = (screen, group = G) => ({ screen, group });
 /** The seed visit, confirmed at its 24-hour reminder (so the K-43 auto-cancel stays out of it). */
 function sure(S) {
   const a = S.driveTo('confirmed');
-  S.advanceClock(Math.round((C2_reminderAt(a) - S.state.clock.now) / 60000));
+  S.advanceClock(Math.round((C2_nudgeAt(a) - S.state.clock.now) / 60000));
   S.T.confirmVisit(a.id);
   return a;
 }

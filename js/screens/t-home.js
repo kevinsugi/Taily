@@ -66,7 +66,7 @@ function noticeCard(a) {
     'customer-early': { title: `${sarah} cancelled ${ref}`, text: `She cancelled more than ${POLICY.CANCEL_WINDOW_H} hours ahead, so nothing is owed. The time is open again.` },
     unconfirmed: { title: `We cancelled ${ref}`, text: `${sarah} didn’t confirm by ${fmtTime(a.cancel.at)}, so you keep her ${dep} deposit.${paid}` },
     'tailor-no-show': { title: `${sarah} says you didn’t come`, text: `Her ${dep} deposit was refunded. If you were there, tell us on the visit.` },
-    'no-record': { title: `We cancelled ${ref}`, text: `Nobody told us the visit happened, so ${sarah}’s deposit was refunded. Nothing is paid out.` },
+    'no-record': { title: `${ref.charAt(0).toUpperCase()}${ref.slice(1)} wasn’t confirmed`, text: `Nobody confirmed it, so ${sarah}’s ${dep} deposit is on hold. If neither of you disputes it by ${fmtWhen(a.cancel.holdUntil ?? a.cancel.at)}, you keep it.` },   // K-51
   }[a.cancel?.reason];
   return cfg ? reminderCard({ ...cfg, actionLabel: 'See the visit', act: 'notice-open', id: a.id, dismissAct: 'dismiss-notice', notice: true }) : '';
 }

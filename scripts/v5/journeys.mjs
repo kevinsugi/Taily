@@ -28,14 +28,15 @@
      J18 edit after the fitting (Study-1 B1–B2, K-30 overruled): a private note; Amara edits the job (price, reason) -> Mark ready waits ->
          Sarah sees "Amara edited your order" (Approve / Message, no decline) and messages -> Amara revises (price back, later date) ->
          Sarah approves -> Mark ready
-     J19 the 24-hour reminder (K-41, R3): Demo "To the reminder" (26 h before) -> the text (K-43) -> the Home card -> Confirm -> Amara sees
-         "Sarah confirmed" on t-home and t-job -> Sarah cancels 25 h ahead -> the confirm closed the free window, Amara keeps the $16.00
-     J20 no reply (K-43): the reminder -> the nudge text at 6 h ("Confirm by 2:00 PM or we'll cancel it") -> both sides warn -> at 3 h the
-         visit is cancelled (cancel text, c-booking cancelled, t-job "Sarah didn't confirm · visit cancelled", Amara keeps the $16.00)
+     J19 the visit reminder (K-41, R3 → K-51): Demo "To the reminder" (48 h before) -> the text (C7) -> the Home card -> the nudge at 26 h (C8)
+         -> Confirm -> Amara sees "Sarah confirmed" on t-home and t-job -> Sarah cancels 25 h ahead -> the confirm closed the free window
+     J20 no reply (K-43 → K-51): the reminder at 48 h -> the nudge at 26 h ("Confirm by 5:00 PM today or cancel it without penalty") -> both
+         sides warn -> at 3 h the visit is cancelled (cancel text, c-booking cancelled, t-job "Sarah didn't confirm · visit cancelled")
      J21 design-director review (D-304): Finish later on Payouts never goes live (SF-02); the withdraw / accept races (SF-17)
      J22 a final order nobody answers (pre-MVP A1, D-03): texts at 24 h / 72 h, Taily review at 7 days, the admin told (openReviews)
-     J23 nothing recorded at the visit (D-11, K-48.5): the tailor's start texts (1 h before, then "Your fitting has started" at the start),
-         "Did the visit happen?" to both at 2 h, the admin at 4 h, cancelled with a refund at 24 h
+     J23 nothing recorded at the visit (D-11, K-48.5 → K-51): the tailor's start texts (1 h before, then "Your fitting has started" at the start),
+         "Did the visit happen?" to both at 2 h, the admin at 4 h, at 24 h "Not confirmed" with the deposit on hold, kept by the tailor 72 h later
+     J33 a "Not confirmed" visit disputed (K-51): That's not right → the hold stays past 72 h → the admin refunds and closes
      J24 the courier's trip (S-35): Handed to courier → out for delivery → can't deliver → a new window at no charge → delivered (proof, 24 h to report)
      J27 a no-show dispute through Taily Help (pre-MVP A2, DG-1 B, D-14, K-48.1): Get help → "I was there" → That's not right → the admin's inbox →
          refund the deposit → close with outcome → both see the decision in dollars, both texted
@@ -74,7 +75,7 @@ const OVERLAY_SEL = '[role="dialog"], [aria-modal="true"], .modal-overlay, .over
 const here = () => page.evaluate(() => document.getElementById('screen')?.dataset.screen ?? null);
 const text = () => page.evaluate((sel) => {
   const screen = document.getElementById('screen');
-  const extra = [...document.querySelectorAll(sel)].filter((o) => !screen?.contains(o)).map((o) => o.innerText);
+  const extra = [...document.querySelectorAll(sel)].filter((o) => !screen?.contains(o) && !o.closest('#flow-menu')).map((o) => o.innerText);   // the Test-flows panel is not the app (its flow titles name every state)
   return [screen?.innerText ?? '', ...extra].join('\n');
 }, OVERLAY_SEL);
 
@@ -288,7 +289,7 @@ await journey('J6b', 'no changes still needs approval', async () => {
   await flip();
   await click('[data-nav="bookings"]');
   await click('.appt-row');
-  await at('J6b customer: no changes', 'c-price-change', { has: ['No changes', fmtExact(S.seed.total), 'Approve and start'] });
+  await at('J6b customer: no changes', 'c-price-change', { has: ['nothing changed', 'Same as booked', fmtExact(S.seed.total), 'Approve and start'] });   // was matched in the Test-flows panel's titles
   await click('[data-act="approve"]');
   await at('J6b customer: in progress', 'c-booking', { has: ['working on it'] });
   await flip();
@@ -643,20 +644,22 @@ await journey('J18', 'edit after the fitting: Mark ready waits -> Sarah messages
   await at('J18 tailor: ready', 't-job', { has: ['Ready · Sarah is choosing how to get it back'] });
 });
 
-/* ---------- J19 (K-41, R3) ---------- */
-await journey('J19', 'the 24-hour reminder: the Home card, Confirm, Amara sees it, a cancel after confirming keeps the deposit', async () => {
+/* ---------- J19 (K-41, R3 → K-51) ---------- */
+await journey('J19', 'the visit reminder: the 48 h text and the Home card, the 26 h nudge, Confirm, Amara sees it, a cancel after confirming keeps the deposit', async () => {
   const dep = fmtExact(S.seed.deposit);
   await flow('c-booking--confirmed');
-  await demo('reminder');
-  await at('J19 customer: the text and the prompt on the booking', 'c-booking', { has: ['TEXT MESSAGE', 'Taily', 'Taily: Still on for tomorrow?', 'Confirm or change:', 'taily.app/r/', 'Confirm by 5:00 PM today', 'Confirm for tomorrow'] });
+  await demo('reminder');                                                // Tue 5:00 PM: 48 h before (K-51)
+  await at('J19 customer: the reminder text (C7) and the prompt on the booking', 'c-booking', { has: ['TEXT MESSAGE', 'Taily', 'Taily: Please confirm your appointment: Amara · Thu, Oct 15 · 5:00 PM at your place. Free to change until Wed, Oct 14 · 5:00 PM. Confirm or change:', 'taily.app/r/', 'Confirm by 5:00 PM tomorrow', 'Free to change or cancel until Wed, Oct 14 · 5:00 PM.'] });
   await click('.text-banner');
-  await at('J19 customer: the text’s link opens Home — the prompt card', 'c-job', { has: ['Still on for tomorrow?', 'Free until 5:00 PM', 'Your move', `Once you confirm, Amara keeps your ${fmt(S.seed.deposit)} deposit if you cancel or aren’t home.`, 'Change or cancel'] });
+  await at('J19 customer: the text’s link opens Home — the prompt card', 'c-job', { has: ['Please confirm your visit', 'Free until 5:00 PM tomorrow', 'Your move', `Once you confirm, Amara keeps your ${fmt(S.seed.deposit)} deposit if you cancel or aren’t home.`, 'Change or cancel'] });
   await flip();
   await at('J19 tailor: not confirmed yet', 't-home', { has: ['Not confirmed yet'] });
   await flip();
   await click('[data-nav="home"]');
+  await demo('reminder');                                                // Wed 3:00 PM: 26 h before, still unconfirmed → the nudge (C8)
+  await at('J19 customer: the nudge (C8) — confirm by the free window’s end or cancel without penalty', 'c-job', { has: ['Taily: You haven’t confirmed your 5:00 PM visit with Amara tomorrow. Confirm by 5:00 PM today or cancel it without penalty:', 'Please confirm your visit', 'Free until 5:00 PM today'] });
   await click('[data-visit-prompt] [data-act="confirm-visit"]');
-  await at('J19 customer: confirmed — Home says All set', 'c-job', { has: ['All set'], not: 'Still on for tomorrow?' });
+  await at('J19 customer: confirmed — Home says All set', 'c-job', { has: ['All set'], not: 'Please confirm your visit' });
   await flip();
   await at('J19 tailor: Upcoming says Sarah confirmed', 't-home', { has: ['Sarah confirmed'], not: 'Not confirmed' });
   await click('.appt-row');
@@ -674,18 +677,21 @@ await journey('J19', 'the 24-hour reminder: the Home card, Confirm, Amara sees i
   await at('J19 tailor: Sarah cancelled, Amara keeps the deposit', 't-job', { has: ['Sarah cancelled', 'She cancelled after confirming the visit, so you keep her deposit.', fmtExact(S.lateCancel.tailorPaid)] });
 });
 
-/* ---------- J20 (K-43, D-300 / D-301) ---------- */
-await journey('J20', 'no reply to the reminder: the nudge text at 6 h, then the visit is cancelled at 3 h — both sides, the deposit kept', async () => {
+/* ---------- J20 (K-43, D-300 / D-301 → K-51) ---------- */
+await journey('J20', 'no reply: the reminder at 48 h, the nudge at 26 h, then the visit is cancelled at 3 h — both sides, the deposit kept', async () => {
   const dep = fmtExact(S.seed.deposit);
-  await flow('c-booking--reminder');                                   // Wed 3:00 PM: asked, no answer
-  await advance(19 * 60);                                              // Thu 10:00 AM (the model clock; no text yet)
-  await demo('h1');                                                    // Thu 11:00 AM: 6 h before → the nudge
-  await at('J20 customer: the nudge arrives as a text', 'c-booking', { has: ['TEXT MESSAGE', 'Taily: You haven’t confirmed your 5:00 PM visit with Amara today.', `Confirm by 2:00 PM or we’ll cancel it, and Amara keeps your ${dep} deposit.`, 'taily.app/r/'] });
+  await flow('c-booking--reminder-48h');                               // Tue 5:00 PM: the reminder went out, no answer
+  await advance(21 * 60);                                              // Wed 2:00 PM (the model clock; no text yet)
+  await demo('h1');                                                    // Wed 3:00 PM: 26 h before → the nudge (K-51)
+  await at('J20 customer: the nudge arrives as a text', 'c-booking', { has: ['TEXT MESSAGE', 'Taily: You haven’t confirmed your 5:00 PM visit with Amara tomorrow.', 'Confirm by 5:00 PM today or cancel it without penalty:', 'taily.app/r/'] });
   await click('.text-banner');
-  await at('J20 customer: the booking warns before it happens', 'c-booking', { has: ['Confirm by 2:00 PM or we’ll cancel the visit', 'Visit 5:00 PM', 'Confirm, I’ll be home'], not: 'TEXT MESSAGE' });
+  await at('J20 customer: the booking says the same deadline', 'c-booking', { has: ['Confirm by 5:00 PM today', 'Free to change or cancel until Wed, Oct 14 · 5:00 PM.'], not: 'TEXT MESSAGE' });
+  await advance(20 * 60);                                              // Thu 11:00 AM: the free window closed unanswered
+  await paint('c-booking');
+  await at('J20 customer: the booking warns before it happens', 'c-booking', { has: ['Confirm by 2:00 PM or we’ll cancel the visit', 'Visit 5:00 PM', 'Confirm, I’ll be home'] });
   await flip();
   await page.evaluate(() => window.Taily.render('t-job'));
-  await at('J20 tailor: Sarah hasn’t confirmed — the auto-cancel rule', 't-job', { has: ['Sarah hasn’t confirmed', `We reminded her at 11:00 AM. If she doesn’t confirm by 2:00 PM, we cancel the visit and you keep her ${dep} deposit.`] });
+  await at('J20 tailor: Sarah hasn’t confirmed — the auto-cancel rule', 't-job', { has: ['Sarah hasn’t confirmed', `We reminded her Wed, Oct 14 · 3:00 PM. If she doesn’t confirm by 2:00 PM, we cancel the visit and you keep her ${dep} deposit.`] });
   await flip();
   await page.evaluate(() => window.Taily.render('c-booking'));
   await demo('h1');
@@ -705,7 +711,7 @@ await journey('J22', 'a final order nobody answers: texts at 24 h and 72 h, then
   await demo('h48');                                                     // Sat 5:00 PM: past 24 h
   await at('J22 customer: the 24-hour reminder text', 'c-price-change', { has: ['TEXT MESSAGE', 'Taily: Amara is waiting for you to approve your final order', 'Approve it so she can start:', 'taily.app/r/'] });
   await demo('h48');                                                     // Mon 5:00 PM: past 72 h
-  await at('J22 customer: the 72-hour reminder text', 'c-price-change', { has: ['Taily: Your final order from Amara still needs your approval. She can’t start until you approve it:'] });
+  await at('J22 customer: the 72-hour reminder text (K-51: C21)', 'c-price-change', { has: ['Taily: Your final order from Amara still needs your approval. Until you approve it, she can’t start, and your order will be ready later. Approve it here:'] });
   await flip();
   await page.evaluate(() => window.Taily.render('t-job'));
   await at('J22 tailor: she knows when it ends', 't-job', { has: ['Waiting on Sarah to approve', `We text Sarah after ${POLICY.WAIT_REMIND_1_H} and ${POLICY.WAIT_REMIND_2_H} hours if she hasn’t approved. After ${POLICY.FINAL_ORDER_REVIEW_D} days, Taily steps in to help you both.`] });
@@ -715,7 +721,7 @@ await journey('J22', 'a final order nobody answers: texts at 24 h and 72 h, then
   check('J22 openReviews() + the admin notification (A2 surfaces them); the star review is untouched', JSON.stringify(r) === JSON.stringify({ reviews: ['final-order-unanswered'], admin: ['review'], star: null }), JSON.stringify(r));
 });
 
-await journey('J23', 'nothing recorded at the visit: the tailor’s start texts, “Did the visit happen?” at 2 h (both), the admin at 4 h, cancelled with a refund at 24 h (D-11, K-48.5)', async () => {
+await journey('J23', 'nothing recorded at the visit: the tailor’s start texts, “Did the visit happen?” at 2 h (both), the admin at 4 h, “Not confirmed” with the deposit on hold at 24 h, the tailor keeps it 72 h later (D-11, K-48.5, K-51)', async () => {
   const dep = fmtExact(S.seed.deposit);
   await flow('t-job--reminder-confirmed');                               // Wed 3:12 PM, Sarah confirmed
   await advance(23 * 60 + 18);                                           // Thu 2:30 PM (the model clock)
@@ -736,11 +742,18 @@ await journey('J23', 'nothing recorded at the visit: the tailor’s start texts,
   await demo('h1');                                                      // 9:30 PM: past start + 4 h (9:00 PM)
   const n = await model((S) => ({ admin: S.state.admin.notifications.map((x) => [x.kind, x.at]), reviews: S.openReviews().map((x) => x.reason), text: S.state.outbox.filter((m) => m.to === 'admin').map((m) => [m.event, m.at]) }));
   check('J23 K-48.5 (Kevin, K-50): 4 hours after the START with no answer → the admin is notified and texted (a case A2 surfaces)', JSON.stringify(n) === JSON.stringify({ admin: [['review', '2026-10-15T21:00']], reviews: ['visit-unanswered'], text: [['admin-case', '2026-10-15T21:00']] }), JSON.stringify(n));
-  await demo('h48');                                                     // past 24 h after asking
-  await at('J23 customer: cancelled with a refund (text + booking)', 'c-booking', { has: [`Taily: Nobody told us your Thu, Oct 15 · 5:00 PM visit with Amara happened, so we cancelled it and refunded your ${dep} deposit.`, 'Visit cancelled', 'Refunded'] });
+  await demo('h48');                                                     // past 24 h after asking (Fri 7:00 PM): decided by the evidence (K-51)
+  await at('J23 customer: “Not confirmed”, the deposit on hold (text + booking)', 'c-booking', { has: [`Taily: Nobody confirmed your Thu, Oct 15 · 5:00 PM visit with Amara, so we closed it as not confirmed. Your ${dep} deposit is on hold. If neither of you disputes it by Mon, Oct 19 · 7:00 PM, Amara keeps it. Didn’t happen? Tell us:`, 'Not confirmed', 'On hold', 'That’s not right'], not: ['Refunded'] });
   await flip();
   await page.evaluate(() => window.Taily.render('t-job'));
-  await at('J23 tailor: cancelled, nothing paid out', 't-job', { has: ['Visit cancelled', 'Nobody told us the visit happened', 'Nothing is paid out.'] });
+  await at('J23 tailor: not confirmed, Sarah’s deposit on hold', 't-job', { has: ['Not confirmed', `Sarah’s ${dep} deposit is on hold. If neither of you disputes it by Mon, Oct 19 · 7:00 PM, you keep it.`] });
+  const held = await model((S) => ({ dep: S.state.appts[0].payments.deposit.state, payouts: S.state.payouts.length, review: S.openReviews().map((x) => x.reason) }));
+  check('J23 K-51: held, not refunded, not paid; the admin’s case stays open', JSON.stringify(held) === JSON.stringify({ dep: 'captured', payouts: 0, review: ['visit-unanswered'] }), JSON.stringify(held));
+  await demo('d7');                                                      // past the 72-hour hold, nobody disputed
+  await at('J23 tailor: nobody disputed — she keeps the deposit', 't-job', { has: ['Not confirmed', `nobody disputed it by Mon, Oct 19 · 7:00 PM, so you keep Sarah’s ${dep} deposit.`, 'Kept deposit'] });
+  await flip();
+  await page.evaluate(() => window.Taily.render('c-booking'));
+  await at('J23 customer: Amara kept the deposit', 'c-booking', { has: [`so Amara kept your ${dep} deposit.`, 'Kept'], not: 'That’s not right' });
 });
 
 await journey('J24', 'the courier’s trip: Handed to courier → out for delivery → the courier can’t deliver → a new window at no charge → delivered (S-35)', async () => {
@@ -1086,6 +1099,30 @@ await journey('J32', 'the tracks meet: Account → Help, Shop → Help, the one 
   check('J32 the toast says so', said === 'Amara is unblocked.', said);
   const blocked = await model((S) => S.isBlocked('amara'));
   check('J32 the block is gone in the model (T.unblockPerson)', blocked === false, String(blocked));
+});
+
+/* ---------- J33 (K-51): a visit closed "Not confirmed" is disputed — the hold stays, the admin decides ---------- */
+await journey('J33', 'a “Not confirmed” visit disputed: That’s not right → still on hold after 72 h → the admin refunds and closes', async () => {
+  const dep = fmtExact(S.seed.deposit);
+  await flow('c-booking--visit-closed');                                 // Fri 7:00 PM: closed "Not confirmed", the deposit on hold
+  await press('.page-actions [data-act="dispute-hold"]');
+  await click('[data-s="c-booking--dispute-hold"] [data-act="cs-ok"]');
+  await at('J33 customer: disputed — on hold while Taily looks', 'c-booking', { has: ['Not confirmed', `Your ${dep} deposit stays on hold while Taily looks into it.`, 'On hold'], not: 'That’s not right' });
+  await demo('d7');                                                      // well past the 72-hour hold
+  const still = await model((S) => ({ dep: S.state.appts[0].payments.deposit.state, held: S.state.appts[0].cancel.held, by: S.state.appts[0].cancel.disputedBy, review: S.openReviews().map((x) => x.reason) }));
+  check('J33 disputed: still on hold after 72 h, the review is the dispute', JSON.stringify(still) === JSON.stringify({ dep: 'captured', held: true, by: 'customer', review: ['unconfirmed-disputed'] }), JSON.stringify(still));
+  await asAdmin();
+  await press('.admin-row[data-case]');
+  await at('J33 admin: the case — refund or keep the held deposit', 'a-case', { has: ['Refund Sarah’s deposit', 'Amara keeps the deposit'] });
+  await press('[data-act="admin-act"][data-kind="refund-deposit"]');
+  await click('[data-s="a-case--act"] [data-act="cs-ok"]');
+  await press('[data-act="close-case"]');
+  await click('[data-s="a-case--close"] [data-act="cs-ok"]');
+  await at('J33 admin: closed, both told', 'a-case', { has: ['Closed', `We refunded your ${dep} deposit.`] });
+  await flip();                                                          // admin → tailor
+  await flip();                                                          // → customer
+  await page.evaluate(() => window.Taily.render('c-booking'));
+  await at('J33 customer: refunded by Taily', 'c-booking', { has: [`Taily refunded your ${dep} deposit`, 'Refunded'] });
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

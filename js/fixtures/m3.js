@@ -114,7 +114,7 @@ export const FLOWS_t_home = [
     expect: { has: ['No requests yet', 'Check your hours'], not: 'Your payout', sel: '[data-empty="home"]' } },
   { key: 't-home--text', screen: 't-home', group: 'M3 · Tailor', title: 'Home — a text for a new request', note: 'K-43 (D-301, was the push card D-167): Taily texts her the request with its unique link; tapping it opens the request',
     setup: (S) => { S.driveTo('requested'); S.sim.texts = 'on'; },
-    expect: { has: ['TEXT MESSAGE', 'Taily', 'Taily: New request from Sarah C.', 'Home visit', 'Your payout', c1Exact(C1_SC.seed.payout), '2h to reply', 'taily.app/r/'], sel: '.text-banner[data-act="text-open"]' } },
+    expect: { has: ['TEXT MESSAGE', 'Taily', 'Taily: New request from Sarah C.: a home visit on', `Your payout: ${c1Exact(C1_SC.seed.payout)}.`, 'Reply within 2 hours', 'taily.app/r/'], sel: '.text-banner[data-act="text-open"]' } },
   /* extras beyond the spec table: states the screen draws that the table did not key */
   { key: 't-home--no-requests', screen: 't-home', group: 'M3 · Tailor', title: 'Home — only an upcoming visit', note: 'No new requests right now, the booked visit below',
     setup: (S) => { S.driveTo('confirmed'); },
@@ -233,9 +233,9 @@ export const FLOWS_c_request = [
   { key: 'c-request--expired-passed', screen: 'c-request', group: 'M3 · Request outcomes', title: 'No reply — the time has passed', note: 'Clock past the visit: Pick a new time replaces Try again (D-94)',
     setup: (S) => { S.driveTo('expired'); S.setClock('2026-10-15T17:30'); },
     expect: { has: ['reply in time', `Your ${c3When(C3_SEED_SLOT)} time has passed`, 'Pick a new time', 'Message Amara', 'Find another tailor'], not: ['Try again', 'Holds'], sel: '[data-lapsed="passed"] ~ [data-act="pick-time"]' } },
-  { key: 'c-request--suggested-passed', screen: 'c-request', group: 'M3 · Request outcomes', title: 'Suggested time passed', note: 'A day later the time is no longer held (D-154): hold released, Amara hidden, find another tailor',
+  { key: 'c-request--suggested-passed', screen: 'c-request', group: 'M3 · Request outcomes', title: 'Suggested time passed', note: 'A day later the time is no longer held (D-154): hold released; K-51 (C6, like C5): send Amara a new request or find another tailor',
     setup: (S) => { S.driveTo('suggested'); S.advanceClock(24 * 60); },
-    expect: { has: ['suggested time has passed', 'hold is released', 'We won’t show Amara for this request again', 'Released', 'Find another tailor', 'Message Amara'], not: ['Accept new time', 'Try again'], sel: '[data-suggestion-ended="lapsed"]' } },
+    expect: { has: ['suggested time has passed', 'hold is released', 'Send Amara a new request for another time, or choose another tailor.', 'Released', 'Send Amara a new request', 'Find another tailor', 'Message Amara'], not: ['Accept new time', 'Try again', 'We won’t show Amara'], sel: '[data-suggestion-ended="lapsed"] [data-act="pick-time"]' } },
 ];
 
 export const FLOWS_c_tailors = [

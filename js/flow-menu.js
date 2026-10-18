@@ -13,7 +13,7 @@
    presses screen buttons, so the screens must be registered first).
    ============================================================ */
 
-import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, reminderAt, reminderEligible } from './state.js';
+import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, nudgeAt, promptAt, reminderEligible } from './state.js';
 import { ALL_FLOWS, findFlow, prepareFlow, personaForScreen } from './flows.js';
 import { setFocus } from './focus.js';
 import { toast } from './components.js';
@@ -168,7 +168,7 @@ function panelHtml() {
 const isOpen = () => !$('#flow-menu')?.hidden;
 
 /* ---------- Demo actions (Study-1 §3): act on the live state, no reset ---------- */
-/* K-41: the clock to the 24-hour reminder; pre-MVP A1 (S-35, D-02): the courier can fail, and a STOP reply turns texts off */
+/* K-41 / K-51: the clock to the visit reminder (48 h), then its nudge (26 h); pre-MVP A1 (S-35, D-02): the courier can fail, and a STOP reply turns texts off */
 const DEMO = [['courier', 'Courier delivers'], ['courier-fail', 'Courier can’t deliver'], ['reminder', 'To the reminder'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days'], ['stop', 'Reply STOP']];
 const DEMO_MIN = { h1: 60, h48: 48 * 60, d7: 7 * 24 * 60 };
 /** The appointment the demo acts on: the one on screen (focused), else the customer's active one, else the newest. */
@@ -188,10 +188,14 @@ function runDemo(kind) {
     T.textReply(state.persona, 'STOP');
     msg = `${state.persona === 'tailor' ? 'The tailor' : 'The customer'} replied STOP. Texts are off.`;
   } else if (kind === 'reminder') {
-    /* K-41: straight to the moment the 24-hour reminder goes out (26 h before the visit) */
-    if (a && reminderEligible(a) && !a.reminder?.sentAt && now() < reminderAt(a)) {
-      advanceClock(Math.ceil((reminderAt(a) - now()) / 60000));
-      msg = `Clock moved to ${fmtWhen(nowIso())}. The visit reminder went out.`;
+    /* K-51: straight to her next ask — the reminder (48 h before the visit; the nudge when booked < 48 h ahead), then the nudge (26 h) */
+    if (a && reminderEligible(a) && !a.reminder?.sentAt && now() < promptAt(a)) {
+      const nudge = promptAt(a) === nudgeAt(a);
+      advanceClock(Math.ceil((promptAt(a) - now()) / 60000));
+      msg = `Clock moved to ${fmtWhen(nowIso())}. ${nudge ? 'The confirm nudge' : 'The visit reminder'} went out.`;
+    } else if (a && reminderEligible(a) && a.reminder?.sentAt && !a.reminder.confirmedAt && !a.reminder.nudgedAt && now() < nudgeAt(a)) {
+      advanceClock(Math.ceil((nudgeAt(a) - now()) / 60000));
+      msg = `Clock moved to ${fmtWhen(nowIso())}. The confirm nudge went out.`;
     } else msg = 'No visit reminder to send.';
   } else {
     advanceClock(DEMO_MIN[kind]);

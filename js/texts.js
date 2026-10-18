@@ -7,14 +7,23 @@
    'B1' verification fire theirs through the same state.js notify()).
    K-48.4: no quiet hours — every text goes out immediately.
    DOM-free and state-free (state.js imports it): bodies read only the context textCtx() builds.
-   docs/v5/TEXTS.md is generated from this file: `node scripts/v5/texts-doc.mjs`.
+   docs/v5/TEXTS.md is generated from this file: `node scripts/v5/texts-doc.mjs`. K-51: texts are numbered by recipient in catalogue order —
+   C1… to the customer, T1… to the tailor, A1… to the admin (`textNo(id)`; TEXTS.md and the sys-texts board print it). Add a row at the END
+   of its recipient's block so the numbers Kevin reviews don't move.
    ============================================================ */
 import { POLICY } from './money-config.js';
 import { fmtExact, noShowPayout } from './money.js';
-import { fmtWhen, fmtDay, fmtTime, fmtTimeRange, dayWord, toDate, fmtCountdown, payoutDay } from './dates.js';
+import { fmtWhen, fmtDay, fmtTime, fmtTimeRange, dayWord, toDate, payoutDay } from './dates.js';
 
 const H = 3600000;
 const firstOf = (name, fallback) => (name || fallback).split(' ')[0];
+/** K-51 (T1): a reply window in words — "2 hours", "1 hour 45 minutes", "40 minutes". */
+const durationWords = (ms) => {
+  const min = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(min / 60); const m = min % 60;
+  const part = (n, one) => `${n} ${one}${n === 1 ? '' : 's'}`;
+  return [h ? part(h, 'hour') : '', m || !h ? part(m, 'minute') : ''].filter(Boolean).join(' ');
+};
 
 /** Everything a body may print, from one appointment (or none) + the extra values its caller passes (`x`). Pure. */
 export function textCtx({ a = null, t = null, cust = null, now = 0, x = {} } = {}) {
@@ -41,7 +50,7 @@ export function textCtx({ a = null, t = null, cust = null, now = 0, x = {} } = {
     custStreet: [a?.job?.address?.street, a?.job?.address?.unit].filter(Boolean).join(', '),
     street: t?.shop?.street ?? '',
     visitLabel: home ? 'Home visit' : 'Shop visit',
-    payday: fmtDay(payoutDay(x.at ?? (now ? new Date(now).toISOString() : start ?? '2026-10-13'))),
+    payday: fmtDay(x.payday ?? payoutDay(x.at ?? (now ? new Date(now).toISOString() : start ?? '2026-10-13'))),   // K-51: the payout's own date when the caller has it
   };
 }
 
@@ -59,13 +68,11 @@ export const TEXTS = {
   expired: { to: 'customer', land: 'c-request', trigger: `No answer within ${POLICY.REQUEST_EXPIRY_H} hours`,
     body: (c) => `${c.tf} didn’t answer in time, so nothing was charged. Send your request again or to another tailor:` },
   'suggestion-ended': { to: 'customer', land: 'c-request', trigger: 'The suggested time passed, or the tailor withdrew it',
-    body: (c) => (c.x.withdrawn ? `${c.tf} withdrew the time she suggested, so we released the ${c.dep} hold. Find another tailor:` : `The time ${c.tf} suggested has passed, so we released the ${c.dep} hold. Find another tailor:`) },
-  reminder: { to: 'customer', land: 'c-job', trigger: `${POLICY.CANCEL_WINDOW_H + POLICY.REMINDER_LEAD_H} hours before the visit (K-41)`,
-    body: (c) => { const free = toDate(c.a.slot.start).getTime() - POLICY.CANCEL_WINDOW_H * H; return `Still on for ${c.dw}? ${c.tf} · ${c.when} ${c.place}. Free to change until ${fmtTime(free)} ${dayWord(free, c.now)}. Confirm or change:`; } },
-  nudge: { to: 'customer', land: 'c-booking', trigger: `${POLICY.REMINDER_NUDGE_H} hours before the visit, not confirmed yet (K-43)`,
-    body: (c) => (c.x.autoCancel === false
-      ? `You haven’t confirmed your ${c.time} visit with ${c.tf} ${c.dw}. It’s still on. If you cancel now or aren’t there, ${c.tf} keeps your ${c.dep} deposit.`
-      : `You haven’t confirmed your ${c.time} visit with ${c.tf} ${c.dw}. Confirm by ${fmtTime(toDate(c.a.slot.start).getTime() - POLICY.REMINDER_AUTOCANCEL_H * H)} or we’ll cancel it, and ${c.tf} keeps your ${c.dep} deposit.`) },
+    body: (c) => (c.x.withdrawn ? `${c.tf} withdrew the time she suggested, so we released the ${c.dep} hold. Send ${c.tf} a new request or find another tailor:` : `The time ${c.tf} suggested has passed, so we released the ${c.dep} hold. Send ${c.tf} a new request or find another tailor:`) },   // K-51 (like C5)
+  reminder: { to: 'customer', land: 'c-job', trigger: `${POLICY.REMINDER_H} hours before the visit, booked at least that far ahead (K-41 → K-51)`,
+    body: (c) => `Please confirm your appointment: ${c.tf} · ${c.when} ${c.place}. Free to change until ${fmtWhen(toDate(c.a.slot.start).getTime() - POLICY.CANCEL_WINDOW_H * H)}. Confirm or change:` },
+  nudge: { to: 'customer', land: 'c-booking', trigger: `${POLICY.REMINDER_NUDGE_H} hours before the visit, not confirmed yet; the first ask when booked less than ${POLICY.REMINDER_H} hours ahead (K-43 → K-51)`,
+    body: (c) => { const free = toDate(c.a.slot.start).getTime() - POLICY.CANCEL_WINDOW_H * H; return `You haven’t confirmed your ${c.time} visit with ${c.tf} ${c.dw}. Confirm by ${fmtTime(free)} ${dayWord(free, c.now)} or cancel it without penalty:`; } },
   'auto-cancel': { to: 'customer', land: 'c-booking', trigger: `${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, still not confirmed after a delivered reminder (K-43, D-02)`,
     body: (c) => `We cancelled your ${c.time} visit with ${c.tf} because you didn’t confirm by ${fmtTime(c.a.cancel?.at ?? c.now)}. ${c.tf} keeps your ${c.dep} deposit.` },
   'cant-make-it': { to: 'customer', land: 'c-booking', trigger: 'The tailor cancels the visit',
@@ -82,8 +89,13 @@ export const TEXTS = {
     body: (c) => (c.home ? `${c.tf} is at your door for your ${c.time} visit.` : `${c.tf} is at the shop for your ${c.time} visit.`) },
   'visit-check': { to: 'customer', land: 'c-booking', trigger: `${POLICY.VISIT_CHECK_H} hours after the start with nothing recorded (D-11)`,
     body: (c) => `Did your ${c.time} visit with ${c.tf} happen? Tell us:` },
-  'visit-closed': { to: 'customer', land: 'c-booking', trigger: `“Did the visit happen?” unanswered for ${POLICY.VISIT_CHECK_CANCEL_H} hours (D-11)`,
-    body: (c) => `Nobody told us your ${c.when} visit with ${c.tf} happened, so we cancelled it and refunded your ${c.dep} deposit.` },
+  /* K-51 (replaces D-11's cancel with a refund): decided by evidence — the tailor's "I'm here" → the customer's no-show; nothing recorded →
+     "Not confirmed", the deposit on hold, the tailor keeps it if neither side disputes within VISIT_HOLD_DISPUTE_H. `alt` = the other outcome. */
+  'visit-closed': { to: 'customer', land: 'c-booking', trigger: `“Did the visit happen?” unanswered for ${POLICY.VISIT_CHECK_CANCEL_H} hours: decided by the evidence (K-51)`,
+    body: (c) => (c.x.outcome === 'no-show'
+      ? `You didn’t tell us if your ${c.when} visit with ${c.tf} happened, and ${c.tf} tapped I’m here at ${fmtTime(c.a?.visitDay?.tailor?.hereAt ?? c.a?.slot?.start ?? c.now)}, so it counts as a no-show. ${c.tf} keeps your ${c.dep} deposit. Were you there? Tell us:`
+      : `Nobody confirmed your ${c.when} visit with ${c.tf}, so we closed it as not confirmed. Your ${c.dep} deposit is on hold. If neither of you disputes it by ${fmtWhen(c.x.until ?? c.a?.cancel?.holdUntil ?? c.now)}, ${c.tf} keeps it. Didn’t happen? Tell us:`),
+    alt: { label: 'If the tailor tapped I’m here', x: { outcome: 'no-show' } } },
   'final-order': { to: 'customer', land: 'c-price-change', trigger: 'The tailor sends the final order',
     body: (c) => `${c.tf} sent your final order: ${c.total}${c.x.was && c.x.was !== c.x.total ? ` (was ${fmtExact(c.x.was)})` : ''}. Approve it so she can start:` },
   'final-order-updated': { to: 'customer', land: 'c-price-change', trigger: 'The tailor sends the final order again',
@@ -91,7 +103,7 @@ export const TEXTS = {
   'final-order-24h': { to: 'customer', land: 'c-price-change', trigger: `${POLICY.WAIT_REMIND_1_H} hours after the final order, not approved (D-03)`,
     body: (c) => `${c.tf} is waiting for you to approve your final order (${c.total}). Approve it so she can start:` },
   'final-order-72h': { to: 'customer', land: 'c-price-change', trigger: `${POLICY.WAIT_REMIND_2_H} hours after the final order, not approved (D-03)`,
-    body: (c) => `Your final order from ${c.tf} still needs your approval. She can’t start until you approve it:` },
+    body: (c) => `Your final order from ${c.tf} still needs your approval. Until you approve it, she can’t start, and your order will be ready later. Approve it here:` },   // K-51
   'final-order-review': { to: 'customer', land: 'c-price-change', trigger: `${POLICY.FINAL_ORDER_REVIEW_D} days after the final order, not approved → Taily review (D-03)`,
     body: (c) => `Your final order from ${c.tf} has waited ${POLICY.FINAL_ORDER_REVIEW_D} days, so Taily is stepping in to help you both. We’ll message you:` },
   'edit-sent': { to: 'customer', land: 'c-price-change', trigger: 'The tailor edits the order after the fitting',
@@ -99,7 +111,7 @@ export const TEXTS = {
   'edit-24h': { to: 'customer', land: 'c-price-change', trigger: `${POLICY.WAIT_REMIND_1_H} hours after an edit, not approved (D-03)`,
     body: (c) => `${c.tf} is waiting for you to approve the changes to your order:` },
   'edit-72h': { to: 'customer', land: 'c-price-change', trigger: `${POLICY.WAIT_REMIND_2_H} hours after an edit, not approved (D-03)`,
-    body: (c) => `The changes ${c.tf} made to your order still need your approval:` },
+    body: (c) => `${c.tf} can’t finish your order until you answer her changes. The longer it waits, the later it’s ready. Review them:` },   // K-51
   'edit-withdrawn': { to: 'customer', land: 'c-booking', trigger: 'The tailor withdraws a pending edit (D-03)',
     body: (c) => `${c.tf} withdrew her changes. Your order stays as you approved it.` },
   ready: { to: 'customer', land: 'c-ready', trigger: 'The tailor marks the order ready',
@@ -149,7 +161,7 @@ export const TEXTS = {
 
   /* ---------------- to the tailor ---------------- */
   request: { to: 'tailor', land: 't-request', trigger: 'A new request (or the same request sent again)',
-    body: (c) => `New request from ${c.cn} · ${c.visitLabel} ${c.a?.slot ? fmtDay(c.a.slot.start) : ''} · Your payout ${c.payout} · ${fmtCountdown(toDate(c.a?.expiresAt ?? c.now).getTime() - c.now)} to reply.` },
+    body: (c) => `New request from ${c.cn}: a ${c.home ? 'home' : 'shop'} visit on ${c.a?.slot ? `${fmtDay(c.a.slot.start)} at ${fmtTime(c.a.slot.start)}` : 'a day to be set'}. Your payout: ${c.payout}. Reply within ${durationWords(toDate(c.a?.expiresAt ?? c.now).getTime() - c.now)}:` },   // K-51
   'request-soon': { to: 'tailor', land: 't-request', trigger: `${POLICY.EXPIRING_SOON_MIN} minutes before a request expires`,
     body: (c) => `${POLICY.EXPIRING_SOON_MIN} minutes left to answer ${c.cn} for ${c.when} (payout ${c.payout}):` },
   'suggestion-accepted': { to: 'tailor', land: 't-job', trigger: 'The customer accepts the time you suggested',
@@ -184,8 +196,11 @@ export const TEXTS = {
     body: (c) => `${c.cf} is at your shop for the ${c.time} visit.` },
   'visit-check-t': { to: 'tailor', land: 't-job', trigger: `${POLICY.VISIT_CHECK_H} hours after the start with nothing recorded (D-11)`,
     body: (c) => `Did your ${c.time} visit with ${c.cf} happen? Tell us:` },
-  'visit-closed-t': { to: 'tailor', land: 't-job', trigger: `“Did the visit happen?” unanswered for ${POLICY.VISIT_CHECK_CANCEL_H} hours (D-11)`,
-    body: (c) => `Nobody told us your ${c.when} visit with ${c.cf} happened, so we cancelled it and refunded her deposit. Nothing is paid out.` },
+  'visit-closed-t': { to: 'tailor', land: 't-job', trigger: `“Did the visit happen?” unanswered for ${POLICY.VISIT_CHECK_CANCEL_H} hours: decided by the evidence (K-51)`,
+    body: (c) => (c.x.outcome === 'no-show'
+      ? `${c.cf} didn’t tell us if the ${c.when} visit happened, and you tapped I’m here at ${fmtTime(c.a?.visitDay?.tailor?.hereAt ?? c.a?.slot?.start ?? c.now)}, so it counts as her no-show. Your ${fmtExact(noShowPayout(c.a?.payments?.deposit?.cents ?? 0))} no-show pay comes ${c.payday}.`
+      : `Nobody confirmed your ${c.when} visit with ${c.cf}, so we closed it as not confirmed. Her ${c.dep} deposit is on hold. If neither of you disputes it by ${fmtWhen(c.x.until ?? c.a?.cancel?.holdUntil ?? c.now)}, you keep it:`),
+    alt: { label: 'If you tapped I’m here', x: { outcome: 'no-show' } } },
   'final-approved': { to: 'tailor', land: 't-job', trigger: 'The customer approves the final order',
     body: (c) => `${c.cf} approved the final order. Your payout: ${c.payout}. You can start.` },
   'final-order-review-t': { to: 'tailor', land: 't-job', trigger: `${POLICY.FINAL_ORDER_REVIEW_D} days after the final order, not approved → Taily review (D-03)`,
@@ -195,7 +210,7 @@ export const TEXTS = {
   'pickup-set': { to: 'tailor', land: 't-job', trigger: 'The customer pays and picks a pickup time',
     body: (c) => `${c.cf} picks up ${c.slotLine} at your shop. Ask for her pickup code.` },
   'courier-booked': { to: 'tailor', land: 't-job', trigger: 'The customer pays and picks a courier window',
-    body: (c) => `A courier collects ${c.cf}’s order ${c.slot?.collectAt ? `${fmtDay(c.slot.collectAt)} at ${fmtTime(c.slot.collectAt)}` : 'soon'}. Have it bagged by then.` },
+    body: (c) => `A courier collects ${c.cf}’s order ${c.slot?.collectAt ? `${fmtDay(c.slot.collectAt)} at ${fmtTime(c.slot.collectAt)}` : 'soon'}. Have it packaged by then.` },   // K-51 (Kevin, final)
   'handoff-moved': { to: 'tailor', land: 't-job', trigger: 'The customer moves her pickup time or delivery window',
     body: (c) => `${c.cf} moved her ${c.a?.returnOption === 'courier' ? 'delivery' : 'pickup'} to ${c.slotLine}.` },
   'not-received': { to: 'tailor', land: 't-job', trigger: 'The customer says she didn’t get her order',
@@ -207,9 +222,9 @@ export const TEXTS = {
       ? `The courier didn’t come for ${c.cf}’s order. Keep it ready: ${c.cf} picks a new window.`
       : `The courier couldn’t deliver ${c.cf}’s order and is bringing it back to you. ${c.cf} picks a new window.`) },
   'ready-default-t': { to: 'tailor', land: 't-job', trigger: `${POLICY.READY_DEFAULT_D} days after ready, no way back chosen (D-03)`,
-    body: (c) => `${c.cf} didn’t choose a way back in ${POLICY.READY_DEFAULT_D} days, so we set her order to in-store pickup.` },
+    body: (c) => `${c.cf} didn’t choose a delivery method in ${POLICY.READY_DEFAULT_D} days, so we set her order to in-store pickup.` },   // K-51
   'unclaimed-t': { to: 'tailor', land: 't-job', trigger: `${POLICY.UNCLAIMED_CAPTURE_D} days after she paid, not collected (D-03, D-04)`,
-    body: (c) => `${c.cf} hasn’t collected her order, so we charged her ${c.bal}. Your ${c.payout} payout comes ${c.payday}. Keep her order for ${POLICY.ABANDONED_CLOSE_D} days.` },
+    body: (c) => `${c.cf} hasn’t collected her order, so we charged her card for the balance. Your ${c.payout} payout comes ${c.payday}. Please keep her order for ${POLICY.ABANDONED_CLOSE_D} days.` },   // K-51: no balance next to the payout (they differ by design)
   'abandoned-t': { to: 'tailor', land: 't-job', trigger: `${POLICY.ABANDONED_CLOSE_D} days after the charge, still not collected (D-03)`,
     body: (c) => `${c.cf}’s order wasn’t collected within ${POLICY.ABANDONED_CLOSE_D} days of the charge, so we closed it.` },
   'card-failed-t': { to: 'tailor', land: 't-job', trigger: 'Charging the customer’s balance fails (D-04)',
@@ -248,3 +263,7 @@ export const TEXTS = {
 
 /** The text events, in catalogue order: [id, row]. */
 export const TEXT_EVENTS = Object.entries(TEXTS);
+/** K-51: the review numbers — C1… (customer), T1… (tailor), A1… (admin), by catalogue order within each recipient. */
+const TEXT_LETTER = { customer: 'C', tailor: 'T', admin: 'A' };
+const TEXT_NO = (() => { const n = {}; const out = {}; for (const [id, r] of TEXT_EVENTS) { n[r.to] = (n[r.to] ?? 0) + 1; out[id] = `${TEXT_LETTER[r.to]}${n[r.to]}`; } return out; })();
+export const textNo = (id) => TEXT_NO[id] ?? '';

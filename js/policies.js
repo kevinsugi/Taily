@@ -62,7 +62,7 @@ export const POLICIES = {
         'If you cancel, she gets her deposit back in full. Please cancel only when you have to.',
       ] : [
         `Cancel for free until ${POLICY.CANCEL_WINDOW_H} hours before your visit. After that, your tailor keeps the deposit for the time set aside.`,
-        `The day before, we ask you to confirm. If you don’t confirm by ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and the deposit is kept.`,
+        `${POLICY.REMINDER_H} hours before your visit, we text you to confirm. If you don’t confirm by ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and the deposit is kept.`,   // K-51
         'If your tailor cancels or doesn’t show up, your deposit is refunded in full.',
       ] },
       { title: 'Refunds', lines: ['A refund goes back to the card you paid with. It can take 5 to 10 business days to show.'] },
@@ -93,7 +93,8 @@ export const POLICIES = {
       { title: 'No-shows', lines: [
         `A tailor can mark a no-show ${POLICY.NO_SHOW_WAIT_MIN} minutes after the start, and only after tapping I’m here when she arrived.`,
         `A customer can report that the tailor didn’t come ${POLICY.NO_SHOW_WAIT_MIN} minutes after the start. The deposit is refunded.`,
-        `If nothing is recorded, we ask you both “Did the visit happen?” ${POLICY.VISIT_CHECK_H} hours after the start. With no answer after ${POLICY.VISIT_CHECK_CANCEL_H} more hours, we cancel the visit and refund the deposit.`,
+        `If nothing is recorded, we ask you both “Did the visit happen?” ${POLICY.VISIT_CHECK_H} hours after the start. With no answer after ${POLICY.VISIT_CHECK_CANCEL_H} more hours, we decide by what was recorded: if the tailor tapped I’m here, it counts as the customer’s no-show.`,
+        `If nothing was recorded at all, we close the visit as not confirmed and hold the deposit. If neither of you disputes it within ${POLICY.VISIT_HOLD_DISPUTE_H} hours, the tailor keeps it.`,   // K-51 (replaces the refund)
       ] },
       { title: 'That’s not right', lines: [
         `If you disagree with the other person’s report, tap That’s not right. Taily looks at what you both say, keeps the money on hold, and decides within ${POLICY.HELP_REPLY_H} hours.`,

@@ -17,7 +17,7 @@ import {
   chrome, headingRow, statusHero, visitBlock, personBlock, calendarHref, timeline, customerBreakdown, moneyRows, cta, banner, emptyState,
   sectionHead, infoButton, textLink, sheetOverlay, toast, esc, wireWheel, metaRow, courierCard, reviewRow, navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, personActions, hangStage, andList, returnedItems, ICON_DIRECTIONS, changeList, withPhotos, wirePhotoViewer, receiptBlock, wireGarmentDocs, garmentStrip, ICON_CHAT, ICON_CALENDAR, COURIER_LOBBY,
   actionBar, pickupCode, autoCompleteLine, balanceCardLabel, openHandoffTime, chargedWhen, shopPlace,
-  ICON_PHONE, openCallSheet, optionRow, helpAction, helpActions, caseStrip, protectionRow, personButtons,
+  ICON_PHONE, openCallSheet, optionRow, helpAction, helpActions, caseStrip, protectionRow, personButtons, confirmAction,
 } from '../components.js';
 import { VISIT_ICONS } from '../icons.js';
 import { scheduler, slotColumns, readSlot, SCHED_ROW, timeLabel, whenNote } from '../scheduler.js';
@@ -143,6 +143,8 @@ function cancelledView(a, t, first) {
       title: 'Marked as a no-show',
       body: a.cancel.decided === 'refunded'   // pre-MVP A2: Taily decided the dispute for her
         ? `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}. You told us you were there, and Taily refunded your ${fmtExact(dep)} deposit. It can take a few business days to show.`
+        : a.cancel.by === 'system'   // K-51: nobody answered "Did the visit happen?" and she had tapped I'm here — decided by the evidence
+        ? `You didn’t tell us if the visit happened, and ${first} tapped I’m here at ${fmtTime(a.visitDay?.tailor?.hereAt ?? a.slot.start)}, so it counts as a no-show. ${first} keeps your deposit.${a.cancel.disputedAt ? '' : ' If you were there, tell us.'}`
         : `${first} marked the visit as missed at ${fmtTime(a.cancel.at)}, ${Math.max(0, Math.round((toDate(a.cancel.at).getTime() - toDate(a.slot.start).getTime()) / 60000))} minutes after the start, and keeps your deposit.${a.cancel.disputedAt ? '' : ' If you were there, tell us.'}`,   // D-14: "That's not right" goes to Taily, not the chat
       status: a.payments.deposit.state === 'refunded' ? 'Refunded' : 'Kept',
     },
@@ -151,10 +153,14 @@ function cancelledView(a, t, first) {
       body: [a.cancel?.refund ? `We refunded ${fmtExact(a.cancel.refund)} to your card. It can take a few business days to show.` : '', a.cancel?.released ? `You weren’t charged the ${fmtExact(a.cancel.released)} balance.` : ''].filter(Boolean).join(' ') || 'Nothing more is charged.',
       status: a.payments.deposit.state === 'refunded' ? 'Refunded' : 'Paid',
     },
-    'no-record': {   // D-11 (K-48.5): nobody answered "Did the visit happen?" in 24 hours
-      title: 'Visit cancelled',
-      body: `Nobody told us the visit happened, so we cancelled it. Your ${fmtExact(dep)} deposit is refunded. It can take a few business days to show on your card.`,
-      status: 'Refunded',
+    'no-record': {   // K-51 (replaces D-11's refund): nothing recorded — closed "Not confirmed", the deposit on hold, the tailor keeps it unless disputed
+      title: 'Not confirmed',
+      body: a.cancel.decided === 'refunded' ? `Nobody confirmed the visit, so we closed it. You told us it didn’t happen, and Taily refunded your ${fmtExact(dep)} deposit. It can take a few business days to show.`
+        : a.cancel.decided === 'kept' ? `Nobody confirmed the visit, so we closed it. Taily looked into it, and ${first} keeps your ${fmtExact(dep)} deposit.`
+        : !a.cancel.held ? `Nobody confirmed the visit, and nobody disputed it by ${fmtWhen(a.cancel.holdUntil ?? a.cancel.at)}, so ${first} kept your ${fmtExact(dep)} deposit.`
+        : a.cancel.disputedAt ? `Nobody confirmed the visit, so we closed it. Your ${fmtExact(dep)} deposit stays on hold while Taily looks into it.`
+        : `Nobody confirmed the visit, so we closed it as not confirmed. Your ${fmtExact(dep)} deposit is on hold. If neither of you disputes it by ${fmtWhen(a.cancel.holdUntil ?? a.cancel.at)}, ${first} keeps it.`,
+      status: a.payments.deposit.state === 'refunded' ? 'Refunded' : a.cancel.held ? 'On hold' : 'Kept',
     },
   }[reason] ?? {
     title: 'Booking cancelled', body: '', status: a.payments.deposit.state === 'refunded' ? 'Refunded' : 'Kept',
@@ -171,6 +177,9 @@ function cancelledView(a, t, first) {
   if (reason === 'tailor-cant-make-it' || reason === 'tailor-no-show') {
     actions = `${cta('Find another tailor', { attrs: 'data-act="find-another"' })}
     <div class="page-actions__links">${textLink(`Message ${esc(first)}`, { act: 'message' })}</div>`;
+  } else if (reason === 'no-record' && a.cancel.held && !a.cancel.disputedAt) {   // K-51: the visit didn't happen? dispute the hold
+    actions = `${cta('That’s not right', { variant: 'secondary', attrs: 'data-act="dispute-hold"' })}
+    <div class="page-actions__links">${textLink(`Book ${esc(first)} again`, { act: 'book-again' })}${textLink('Find another tailor', { act: 'other-tailors' })}</div>`;
   } else if (reason === 'no-show') {
     actions = `${a.cancel.disputedAt ? cta(`Message ${esc(first)}`, { attrs: 'data-act="message"' }) : cta('That’s not right', { variant: 'secondary', attrs: 'data-act="dispute"' })}
     <div class="page-actions__links">${a.cancel.disputedAt ? '' : textLink(`Message ${esc(first)}`, { act: 'message' })}${textLink('Find another tailor', { act: 'other-tailors' })}</div>`;
@@ -259,7 +268,7 @@ function reminderCopy(a, r, first, deposit) {
   if (r === 'asked') {
     return {
       strip: { tone: 'action', icon: 'clock', text: `Confirm by ${fmtTime(until)} ${dayWord(until, now())}`, right: `${fmtCountdown(until - now())} left` },
-      rule: `Free to reschedule or cancel until then. Once you confirm, ${esc(first)} keeps your ${money(deposit)} deposit if you cancel or ${away}.`,
+      rule: `Free to change or cancel until ${esc(fmtWhen(until))}. Once you confirm, ${esc(first)} keeps your ${money(deposit)} deposit if you cancel or ${away}.`,   // K-51: as the reminder text (C7) says it
       bar: { ctaLabel: `Confirm for ${day}`, ctaAct: 'confirm-visit', secondaryLabel: 'Reschedule', secondaryAct: 'reschedule', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' },
     };
   }
@@ -308,7 +317,10 @@ function visitCheckCopy(a, first, deposit) {
   const closeAt = toDate(vc.askedAt).getTime() + POLICY.VISIT_CHECK_CANCEL_H * 3600000;
   return {
     strip: { tone: 'action', icon: 'clock', text: 'Did your visit happen?', right: `Visit ${dayWord(a.slot.start, now()) === 'today' ? fmtTime(a.slot.start) : fmtWhen(a.slot.start)}` },
-    rule: `Nothing was recorded for this visit. Tell us, so we can sort out your ${money(deposit)} deposit. If nobody answers by ${esc(fmtTime(closeAt))} ${esc(dayWord(closeAt, now()))}, we cancel the visit and refund you.`,
+    /* K-51: what happens with no answer depends on the evidence — her "I'm here" makes it a no-show; nothing recorded holds the deposit */
+    rule: a.visitDay?.tailor?.hereAt
+      ? `${esc(first)} tapped I’m here at ${esc(fmtTime(a.visitDay.tailor.hereAt))}. If you don’t answer by ${esc(fmtTime(closeAt))} ${esc(dayWord(closeAt, now()))}, it counts as a no-show and ${esc(first)} keeps your ${money(deposit)} deposit.`
+      : `Nothing was recorded for this visit. If nobody answers by ${esc(fmtTime(closeAt))} ${esc(dayWord(closeAt, now()))}, we close it as not confirmed and hold your ${money(deposit)} deposit. ${esc(first)} keeps it unless one of you disputes it within ${POLICY.VISIT_HOLD_DISPUTE_H} hours.`,
     bar: { ctaLabel: 'Yes, it happened', ctaAct: 'visit-yes', tertiaryLabel: `No, ${first} didn’t come`, tertiaryAct: 'visit-no', tertiaryTone: 'danger' },
   };
 }
@@ -955,6 +967,11 @@ function wire(root) {
       }
       case 'visit-no': if (a) openTailorNoShow(a, firstOf(t), { check: true }); break;
       case 'dispute': if (a) openDispute(a, firstOf(t)); break;      // D-14
+      case 'dispute-hold': if (a) {   // K-51: a visit closed "Not confirmed" — the deposit stays on hold, Taily decides
+        confirmAction({ header: 'The visit didn’t happen?', dataS: `${ID}--dispute-hold`, ok: 'Tell Taily', busyLabel: 'Sending…',
+          body: `Tell Taily, and your ${fmtExact(a.payments.deposit.cents)} deposit stays on hold until we decide. We look into it with ${esc(firstOf(t))} and message you both.` },
+        () => { const r = T.disputeUnconfirmed(a.id, 'customer'); if (!r.ok) return r.error === 'offline' ? 'You’re offline. Nothing was sent.' : 'Couldn’t send this. Try again.'; go(ID); toast('Sent. Taily is looking into it.', { tone: 'success' }); return null; });
+      } break;
       case 'update-card': if (a) openUpdateCard(a, firstOf(t)); break;   // D-04
       case 'other-tailors': go('c-tailors'); break;
       case 'find-another': go('c-tailors', { fresh: true }); break;

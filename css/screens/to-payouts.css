@@ -14,3 +14,12 @@
 .to-payouts__change { margin: 0 0 var(--space-4); }
 .to-payouts__fields { display: flex; flex-direction: column; gap: var(--rhythm-group); }
 .to-payouts__only4 { margin: var(--space-4) 0 0; }
+/* DG-4 / D-06 (D-350…D-354): the background check consent, the partner's status and rows, the hand-off card */
+.to-payouts__bg-lead { margin: 0 0 var(--space-4); text-wrap: pretty; }
+.to-payouts__bg-read { margin-bottom: var(--space-4); }
+.to-payouts__bg-read .text-link { padding-inline: 0; min-height: 44px; }
+.to-payouts__bg-done { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); }
+.to-payouts__bg-done p { margin: 0; }
+.to-payouts__status { margin-top: var(--rhythm-block); }
+.to-payouts__status .banner__text { text-wrap: pretty; }
+.to-payouts__status [data-money] { font-variant-numeric: tabular-nums; white-space: nowrap; }

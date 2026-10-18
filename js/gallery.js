@@ -542,6 +542,20 @@ export function galleryHtml() {
   v('docsEditor · pristine (Required) · tried (error line + red camera ring)');
   s.push(`<div class="card docs-demo">${C.docsEditor({ garmentId: 'm7a', type: 'Suit Jacket', docs: none, missing: { before: true, pinned: true } })}</div>`);
   s.push(`<div class="card docs-demo">${C.docsEditor({ garmentId: 'm7b', type: 'Suit Jacket', docs: none, missing: { before: true, pinned: true }, tried: true })}</div>`);
+  h2('Pre-MVP B1 · DG-4 the four checks, the hosted payout step (D-350…D-355)');
+  {
+    const review = { ...amara, verify: { id: { state: 'pending', at: '2026-10-13T10:00' }, background: { state: 'pending', consentAt: '2026-10-13T10:00', at: null } },
+      payouts: { ...amara.payouts, status: 'verifying', identity: 'verifying', tax: 'received', taxAt: '2026-10-13T10:05' } };
+    const needs = { ...review, verify: { ...review.verify, id: { state: 'needs-info', at: '2026-10-14T10:00' } }, payouts: { ...review.payouts, status: 'action-needed', identity: 'needs-info' } };
+    v('verifyChecklist · all passed (the seed) · under review · needs her (rows she can act on are buttons)');
+    col(C.verifyChecklist(amara, { interactive: false }), C.verifyChecklist(review), C.verifyChecklist(needs));
+    v('reviewPill · under review · needs you');
+    row(C.reviewPill(review), C.reviewPill(needs));
+    v('secureSetupCard (before the hand-off) · payoutRows (after: verifying · action needed)');
+    col(C.secureSetupCard(), C.payoutRows(review), C.payoutRows(needs, { interactive: true }));
+    v('the background-check disclosure (placeholder copy, marked for counsel)');
+    col(C.disclosureHtml());
+  }
   /* the page has one h1 (its title, spoken only); a hero or thread-head demo is a specimen, so its title steps down to an h2 here */
   return `<h1 class="sr-only">Component gallery</h1>\n${s.join('\n').replace(/<h1( class="(?:status-hero__title|thread-head__name)[^>]*)>([\s\S]*?)<\/h1>/g, '<h2$1>$2</h2>')}`;
 }

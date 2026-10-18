@@ -6,16 +6,16 @@
    Drafts live in state.ui['to-where'].draft (D-34); the model is written only on Next / Save / Finish later.
    ============================================================ */
 import { register, render as go, back, currentScreen } from '../app.js';
-import { state, T, SECTIONS } from '../state.js';
+import { state, T, SECTIONS, onboarded } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, toggle, field, hoodPicker, hoodMap, customerPreview, miniProfile,
-  actionBar, wireToggles, toast, modalOverlay, leaveModal, esc, infoButton, HOME_FEE_HELP,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, toggle, field, hoodPicker, hoodMap, customerPreview,
+  actionBar, wireToggles, toast, modalOverlay, leaveModal, esc, infoButton, HOME_FEE_HELP, metaRow, hoodSentence, sectionHead,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 import { fmt, cents } from '../money.js';
-import { ZIP_INFO, SHOP_CITY, TAILOR_LIMITS, VISIT_MINUTES, NEIGHBORHOODS, HOOD_BY_ID } from '../data.js';
+import { TAILOR_LIMITS, VISIT_MINUTES, NEIGHBORHOODS, HOOD_BY_ID, placeForZip } from '../data.js';
 
 const ID = 'to-where';
 const SECTION = 'where';
@@ -24,36 +24,50 @@ const PREV = ONBOARDING_STEPS[STEP - 1]?.screen ?? 't-phone';
 const NEXT = ONBOARDING_STEPS[STEP + 1]?.screen ?? 'to-done';
 
 const ui = () => (state.ui[ID] ??= {});
-const editing = () => !!myTailor().live;
+const editing = () => onboarded(myTailor());
 
 /* ---------- copy ---------- */
 const MSG = {
   'where-required': 'Turn on your shop, home visits, or both.',
   'street-required': 'Enter your shop’s street address.',
   'zip-invalid': 'Enter a 5-digit ZIP code.',
+  'zip-unserved': 'Taily isn’t in that area yet.',   // S-42 (D-357)
+  'note-long': `Keep the note to ${TAILOR_LIMITS.COURIER_NOTE_MAX} characters.`,
   'hoods-required': 'Pick at least one neighborhood.',
   'hood-unknown': 'Pick at least one neighborhood.',
   'fee-missing': 'Enter your home visit fee, or 0 for none.',
   'fee-invalid': `Enter a whole-dollar fee up to ${fmt(cents(TAILOR_LIMITS.FEE_MAX))}.`,
 };
 const FEE_HELP = HOME_FEE_HELP;   // C4: flat, per visit — the same sentence customers read on the profile
-const hoodLine = (zip) => (ZIP_INFO[zip]?.hood ? `${ZIP_INFO[zip].hood}, ${SHOP_CITY.city}, ${SHOP_CITY.state}` : `${SHOP_CITY.city}, ${SHOP_CITY.state}`);
-const HELP = { shopZip: (d) => hoodLine(String(d.shop.zip ?? '').trim()), fee: () => FEE_HELP };
+/** S-42 (D-357): the ZIP says where it is — "SoHo, New York, NY" — from the mock geocoder (data.js placeForZip), never a fixed borough. */
+const hoodLine = (zip) => { const p = placeForZip(zip); return p ? `${p.hood}, ${p.city}, ${p.state}` : ''; };
+/** B-15 (D-356): private, and what it is for. */
+const COLLECT_HELP = 'Private. Customers never see it. Taily’s courier collects finished orders here.';
+const HELP = { shopZip: (d) => hoodLine(String(d.shop.zip ?? '').trim()), collectZip: (d) => hoodLine(String(d.collect.zip ?? '').trim()), fee: () => FEE_HELP, collectStreet: () => '' };
 
 /* ---------- draft ⇄ model ---------- */
 /** The draft this screen starts from: the model, except a brand-new tailor starts with the shop on (D-60). */
 function fromTailor(t) {
   const fresh = !editing() && !t.onboarding.where && !t.shop.enabled && !t.home.enabled;
   return {
-    shop: { enabled: fresh ? true : !!t.shop.enabled, street: t.shop.street ?? '', zip: t.shop.zip ?? '' },
+    shop: { enabled: fresh ? true : !!t.shop.enabled, street: t.shop.street ?? '', unit: t.shop.unit ?? '', zip: t.shop.zip ?? '' },
     home: { enabled: !!t.home.enabled, hoods: [...(t.home.hoods ?? [])], fee: t.home.enabled ? t.home.fee : null },
+    collect: { street: t.collect?.street ?? '', unit: t.collect?.unit ?? '', zip: t.collect?.zip ?? '', notes: t.collect?.notes ?? '' },
   };
 }
-const draft = () => (ui().draft ??= fromTailor(myTailor()));
+/** The draft: what she has typed, filled out once with the model's values for a part it doesn't hold yet (a fixture draft predates `collect`). */
+const draft = () => {
+  const u = ui();
+  if (!u.draft) u.draft = fromTailor(myTailor());
+  else if (!u.draft.collect) u.draft.collect = fromTailor(myTailor()).collect;
+  return u.draft;
+};
 const feeNum = (raw) => (raw == null || String(raw).trim() === '' ? null : Number(raw));
+const trimAll = (o = {}) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v ?? '').trim()]));
 const norm = (d) => ({
-  shop: { enabled: !!d.shop?.enabled, street: String(d.shop?.street ?? '').trim(), zip: String(d.shop?.zip ?? '').trim() },
+  shop: { enabled: !!d.shop?.enabled, street: String(d.shop?.street ?? '').trim(), unit: String(d.shop?.unit ?? '').trim(), zip: String(d.shop?.zip ?? '').trim() },
   home: { enabled: !!d.home?.enabled, hoods: [...(d.home?.hoods ?? [])], fee: String(d.home?.fee ?? '').trim() },
+  collect: d.shop?.enabled ? null : trimAll(d.collect),
 });
 /** Unsaved changes — or, in edit mode, a section that currently fails its rules (so Save can fix it). */
 const dirty = () => JSON.stringify(norm(draft())) !== JSON.stringify(norm(fromTailor(myTailor())))
@@ -63,8 +77,9 @@ const dirty = () => JSON.stringify(norm(draft())) !== JSON.stringify(norm(fromTa
 function toPatch(d) {
   const zip = String(d.shop.zip ?? '').trim();
   return {
-    shop: { enabled: !!d.shop.enabled, street: String(d.shop.street ?? '').trim(), zip, hood: ZIP_INFO[zip]?.hood ?? '', ...SHOP_CITY },
+    shop: { enabled: !!d.shop.enabled, street: String(d.shop.street ?? '').trim(), unit: String(d.shop.unit ?? '').trim(), zip },   // the model derives hood / city / state from the ZIP (S-42)
     home: { enabled: !!d.home.enabled, hoods: [...d.home.hoods], fee: feeNum(d.home.fee) },   // the model derives home.zips
+    collect: trimAll(d.collect),   // B-15: kept when the shop is on (unused), required while it is off
   };
 }
 function validate() {
@@ -81,16 +96,31 @@ function persist() {
 /* ---------- view ---------- */
 const errOf = (key) => (ui().errors?.[key] ? MSG[ui().errors[key]] ?? '' : '');
 
-function feeCaption(raw) {
+/** S-39 (D-359): the preview is c-tailor's own "Where" block — the shop line, "Comes to you in …" and the fee line customers read. */
+function feeLine(raw) {
   const n = feeNum(raw);
   if (n == null || !Number.isInteger(n) || n < 0 || n > TAILOR_LIMITS.FEE_MAX) return '';
-  return n > 0 ? `Includes ${fmt(cents(n))} home visit fee` : 'No home visit fee';
+  return n > 0 ? `${fmt(cents(n))} home visit fee · ${HOME_FEE_HELP}` : 'No home visit fee';
 }
-function feePreview(raw) {
-  const text = feeCaption(raw);
-  return `<div class="to-where__fee-preview" data-fee-preview${text ? '' : ' hidden'}>${customerPreview({
-    html: `<div class="card to-where__pv">${miniProfile({ name: myTailor().name, initials: myTailor().initials, photo: myTailor().photo, shopName: myTailor().shopName, bio: null })}<div class="to-where__card-foot t-small c-600" data-money data-fee-caption>${esc(text)}</div></div>`,
-  })}</div>`;
+function wherePreviewHtml(d) {
+  const t = myTailor();
+  const blocks = [];
+  const zip = String(d.shop.zip ?? '').trim();
+  const place = placeForZip(zip);
+  if (d.shop.enabled && String(d.shop.street ?? '').trim()) {
+    const line = [t.shopName, String(d.shop.street).trim(), String(d.shop.unit ?? '').trim(), place ? `${place.city}, ${place.state} ${zip}` : ''].filter(Boolean).join(', ');
+    blocks.push(`<div class="to-where__place">${metaRow('', esc(line), { icon: 'shop' })}</div>`);
+  }
+  if (d.home.enabled && d.home.hoods.length) {
+    const fee = feeLine(d.home.fee);
+    blocks.push(`<div class="to-where__place">${metaRow('', esc(`Comes to you in ${hoodSentence(d.home.hoods)}`), { icon: 'home' })}${fee ? `<p class="t-small c-600" data-money>${esc(fee)}</p>` : ''}</div>`);
+  }
+  if (!blocks.length) return '';
+  return `<div class="to-where__pv" data-where-preview>${sectionHead('Where')}${blocks.join('')}</div>`;
+}
+function wherePreview(d) {
+  const html = wherePreviewHtml(d);
+  return `<div class="to-where__fee-preview" data-fee-preview${html ? '' : ' hidden'}>${customerPreview({ html })}</div>`;
 }
 
 /** D-61: no shop → no in-store pickup. Tell her before she saves, and again in the toast (R2-2-T-07). */
@@ -106,6 +136,7 @@ function shopCard(d) {
   ${toggle({ id: 'shop-on', label: 'Customers come to your shop', helper: `${VISIT_MINUTES.shop}-minute visits at your shop.`, checked: !!s.enabled })}
   ${s.enabled ? `<div class="to-where__fields">
     ${field({ id: 'street', label: 'Shop street address', autocomplete: 'address-line1', value: s.street ?? '', error: errOf('street') })}
+    ${field({ id: 'shopUnit', label: 'Suite or floor (optional)', autocomplete: 'address-line2', value: s.unit ?? '' })}
     ${field({ id: 'shopZip', label: 'ZIP code', inputmode: 'numeric', maxlength: 5, autocomplete: 'postal-code', value: s.zip ?? '', helper: HELP.shopZip(d), error: errOf('shopZip') })}
   </div>` : ''}
 </section>
@@ -123,6 +154,21 @@ function homeCard(d) {
     ${hoodPicker({ selected: h.hoods, open: openBoroughs(d), error: errOf('hoods'), map: hoodMap({ selected: h.hoods }) })}
     ${field({ id: 'fee', label: 'Home visit fee (flat, per visit)', prefix: '$', inputmode: 'numeric', maxlength: 4, autocomplete: 'off', value: h.fee == null ? '' : String(h.fee), helper: FEE_HELP, error: errOf('fee'), labelEnd: infoButton('fee', { label: 'The Taily fee' }) })}
   </div>` : ''}
+</section>`;
+}
+
+/** B-15 (D-356): no shop → the courier is her only way back, so she tells it where to collect (private, required while the shop is off). */
+function collectCard(d) {
+  if (d.shop.enabled || !d.home.enabled) return '';
+  const c = d.collect;
+  return `<section class="card to-where__card to-where__collect" aria-labelledby="collect-h">
+  <div class="to-where__collect-head"><h2 class="t-body w-600" id="collect-h">Where should the courier collect finished orders?</h2><p class="t-small c-600">${COLLECT_HELP}</p></div>
+  <div class="to-where__fields">
+    ${field({ id: 'collectStreet', label: 'Street address', autocomplete: 'address-line1', value: c.street ?? '', error: errOf('collectStreet') })}
+    ${field({ id: 'collectUnit', label: 'Apartment or floor (optional)', autocomplete: 'address-line2', value: c.unit ?? '' })}
+    ${field({ id: 'collectZip', label: 'ZIP code', inputmode: 'numeric', maxlength: 5, autocomplete: 'postal-code', value: c.zip ?? '', helper: HELP.collectZip(d), error: errOf('collectZip') })}
+    ${field({ id: 'collectNotes', label: 'Notes for the courier (optional)', value: c.notes ?? '', placeholder: 'Example: Buzzer 2F, ring twice', maxlength: TAILOR_LIMITS.COURIER_NOTE_MAX, error: errOf('collectNotes') })}
+  </div>
 </section>`;
 }
 
@@ -155,8 +201,9 @@ function view() {
   <div class="to-where__cards">
     ${shopCard(d)}
     ${homeCard(d)}
+    ${collectCard(d)}
   </div>
-  ${d.home.enabled ? feePreview(d.home.fee) : ''}
+  ${wherePreview(d)}
   ${errOf('where') ? `<p class="field__msg field__msg--error to-where__error" id="where-msg" role="alert">${esc(errOf('where'))}</p>` : ''}
 </main>${barHtml()}`;
 }
@@ -227,8 +274,8 @@ function submit() {
   const keys = Object.keys(errors);
   if (keys.length) {
     ui().errors = errors;
-    const first = ['where', 'street', 'shopZip', 'hoods', 'fee'].find((k) => errors[k]);
-    const sel = { where: '#shop-on', street: '#street', shopZip: '#shopZip', hoods: '.hood-group__head', fee: '#fee' }[first];
+    const first = ['where', 'street', 'shopZip', 'hoods', 'fee', 'collectStreet', 'collectZip', 'collectNotes'].find((k) => errors[k]);
+    const sel = { where: '#shop-on', street: '#street', shopZip: '#shopZip', hoods: '.hood-group__head', fee: '#fee', collectStreet: '#collectStreet', collectZip: '#collectZip', collectNotes: '#collectNotes' }[first];
     rerender(sel);
     return;
   }
@@ -303,10 +350,11 @@ function wire(root) {
   main.addEventListener('input', (e) => {
     const el = e.target;
     const d = draft();
+    const zipOnly = () => { el.value = el.value.replace(/\D/g, '').slice(0, 5); return el.value; };
     if (el.id === 'street') { d.shop.street = el.value; clearError('street', 'street'); }
+    else if (el.id === 'shopUnit') d.shop.unit = el.value;
     else if (el.id === 'shopZip') {
-      el.value = el.value.replace(/\D/g, '').slice(0, 5);
-      d.shop.zip = el.value;
+      d.shop.zip = zipOnly();
       clearError('shopZip', null);
       setFieldMsg('shopZip', '');
     } else if (el.id === 'fee') {
@@ -314,10 +362,19 @@ function wire(root) {
       d.home.fee = el.value;
       clearError('fee', null);
       setFieldMsg('fee', '');
-      const text = feeCaption(el.value);
-      const box = main.querySelector('[data-fee-preview]');
-      if (box) { box.hidden = !text; box.querySelector('[data-fee-caption]').textContent = text; }
-    } else return;
+    } else if (el.id === 'collectStreet') { d.collect.street = el.value; clearError('collectStreet', 'collectStreet'); }
+    else if (el.id === 'collectUnit') d.collect.unit = el.value;
+    else if (el.id === 'collectZip') { d.collect.zip = zipOnly(); clearError('collectZip', null); setFieldMsg('collectZip', ''); }
+    else if (el.id === 'collectNotes') { d.collect.notes = el.value; clearError('collectNotes', 'collectNotes'); }
+    else return;
+    /* the customer's Where block follows the draft in place */
+    const box = main.querySelector('[data-fee-preview]');
+    if (box) {
+      const html = wherePreviewHtml(d);
+      box.hidden = !html;
+      const body = box.querySelector('.customer-preview__body');
+      if (body) body.innerHTML = html;
+    }
     refreshBar(root);
   });
 
@@ -338,4 +395,5 @@ function wire(root) {
   });
 }
 
-register(ID, view, wire);
+/* S-22 (D-360): the top nav asks before dropping unsaved edits */
+register(ID, view, wire, { canLeave: () => !editing() || !dirty() || !!ui().busy, discard: () => { state.ui[ID] = {}; } });

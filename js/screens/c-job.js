@@ -40,7 +40,7 @@ function itemCard(g) {
     ? `<button type="button" class="job-item__add" data-act="add-photo" data-id="${g.id}" aria-label="Add a photo of the ${esc(g.type)}">${photoTile('add')}</button>`
     : '';
   return `<article class="card job-item" data-id="${g.id}">
-  <div class="job-item__head">${garmentHead({ type: g.type, trailing: `<button type="button" class="job-item__remove" data-act="remove-garment" data-id="${g.id}" aria-label="Remove ${esc(g.type)}"><span aria-hidden="true">✕</span></button>` })}</div>
+  <div class="job-item__head">${garmentHead({ type: g.type, services: g.services.length ? g.services.map((id) => SERVICES[id]?.label).filter(Boolean) : null, trailing: `<button type="button" class="job-item__remove" data-act="remove-garment" data-id="${g.id}" aria-label="Remove ${esc(g.type)}"><span aria-hidden="true">✕</span></button>` })}</div>
   <div class="job-item__task">
   <button type="button" class="job-item__services${hasErr ? ' job-item__services--error' : ''}" data-act="pick-services" data-id="${g.id}"${hasErr ? ` aria-invalid="true" aria-describedby="${errId}"` : ''}>
     <span class="job-item__services-text t-body ${g.services.length ? 'c-700' : 'c-accent-ink'}">${g.services.length ? serviceList(g) : 'Choose what needs doing'}</span>

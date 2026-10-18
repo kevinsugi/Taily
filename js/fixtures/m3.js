@@ -40,7 +40,7 @@ export const FLOWS_c_booking = [
   { key: 'c-booking--verified-open', screen: 'c-booking', group: 'M3 · Bookings', title: 'Your visit with Amara — Verified popover', note: 'K-15: tap the check after Amara’s name — a tooltip popover with the four checks, each with a tick (12 years from her data)',
     setup: (S) => { S.driveTo('confirmed'); S.advanceClock(CB_POLICY.JUST_BOOKED_MIN); },
     click: ['.person-block [data-verified]'],
-    expect: { has: ['ID verified', 'Background check', '12 years of experience', 'Insured'], sel: '#verified-pop[role="dialog"] .verified-pop__item:nth-child(4)' } },
+    expect: { has: ['ID verified', 'Background check', '12 years of experience', 'Insured through Taily'], sel: '#verified-pop[role="dialog"] .verified-pop__item:nth-child(4)' } },
   { key: 'c-booking--item-peek', screen: 'c-booking', group: 'M7 · Polish', title: 'Booked with Amara — what the Suit Jacket is in for', note: 'K-25 (P2): tap a garment thumb in the Visit block — the white card in the Verified shell: the thumb, “Suit Jacket”, “2 services”, then each service on a cognac stitch dash; no prices',
     setup: (S) => { S.driveTo('confirmed'); },
     click: ['.person-block .garment-strip__btn[data-peek-label="Suit Jacket"]'],
@@ -239,9 +239,9 @@ export const FLOWS_c_request = [
 ];
 
 export const FLOWS_c_tailors = [
-  { key: 'c-tailors--none-left', screen: 'c-tailors', group: 'M3 · Request outcomes', title: 'Tailors near you — none left', note: 'Every tailor hidden after the last no-reply (D-83)',
+  { key: 'c-tailors--none-left', screen: 'c-tailors', group: 'M3 · Request outcomes', title: 'Tailors near you — none left', note: 'Every tailor hidden after the last no-reply (D-83); P-34: no need-by promise — another address, or a text when another tailor covers the ZIP',
     setup: (S) => { S.driveTo('expired-final'); S.T.findAnotherTailor(S.appt.id); },
-    expect: { has: ['No other tailors for this request yet', 'We won’t show Amara for this request again, and no other tailors cover', 'Another ZIP may open more.', 'Change need-by date', 'Change ZIP'], not: ['is hidden', 'We’ll let you know'], sel: '[data-empty="none-left"]' } },
+    expect: { has: ['No other tailors for this request yet', 'We won’t show Amara for this request again, and no other tailors cover', 'Another ZIP may open more.', 'Change address', 'Text me when another tailor covers 11211'], not: ['is hidden', 'We’ll let you know', 'Change need-by date'], sel: '[data-empty="none-left"]' } },
 ];
 
 /* ---------- C2 · Tailor job (t-job, t-thread stub) — own helpers, prefixed tj ---------- */

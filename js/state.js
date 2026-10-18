@@ -32,7 +32,7 @@ import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
   TAILOR_LIMITS, CHARGE_WHEN, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType, HANDOFF_CODE_LEN,
-  HOOD_BY_ID, zipsForHoods, NOTES_LIMITS,
+  HOOD_BY_ID, zipsForHoods, NOTES_LIMITS, VERIFY_ITEMS, placeForZip, geocode, milesBetween, ZIP_XY,
 } from './data.js';
 
 export const STATUSES = ['requested', 'suggested', 'declined', 'expired', 'confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff', 'completed', 'cancelled'];
@@ -47,7 +47,8 @@ const DAY_MS = 24 * HOUR_MS;
 function freshSim() {
   /* network 'online'|'offline' · send 'ok'|'fail' (one-shot, D-130) · session 'valid'|'expired' · texts 'off'|'on' (K-43, D-301: the
      tailor's new-request text shows on screen — on after onboarding; off by default so a flow's baseline stays still) · payout 'ok'|'failed' · server 'ok'|'error' (one-shot, D-140) */
-  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok' };
+  /* DG-4 (D-351): payoutSetup = what the payments partner's hosted onboarding returns ('verifying' | 'verified' | 'action-needed') */
+  return { latency: 'normal', card: 'ok', courier: 'ok', network: 'online', texts: 'off', send: 'ok', session: 'valid', payout: 'ok', server: 'ok', payoutSetup: 'verifying' };
 }
 function fresh() {
   return {
@@ -230,6 +231,17 @@ export function maskContact(text) {
 
 /* ---------- the job draft ---------- */
 export function setJob(patch) { Object.assign(state.job, patch); return { ok: true, job: state.job }; }
+/** P-34 (D-358): "Text me when a tailor covers 11201" — the customer's area waitlist (one text when a tailor starts covering the ZIP). */
+export function joinAreaWaitlist(zip = state.job.zip) {
+  const z = String(zip ?? '').trim();
+  if (!/^\d{5}$/.test(z)) return fail('zip-invalid');
+  const list = (state.customer.areaWaitlist ??= []);
+  if (list.includes(z)) return { ok: true, already: true, zip: z };
+  list.push(z);
+  return { ok: true, zip: z };
+}
+/** On the customer's area waitlist for this ZIP. */
+export const onAreaWaitlist = (zip = state.job.zip) => (state.customer.areaWaitlist ?? []).includes(String(zip ?? ''));
 /** A fresh draft for a different job: no garments yet, same place, empty declined / hidden lists. */
 export function newJob() {
   const home = state.customer.address;                          // null when Sarah removed every saved address (D-133)
@@ -275,7 +287,67 @@ export function validateJob(job = state.job, step = null) {
 }
 
 /* ---------- tailor sections (M2 fills in the screens) ---------- */
-export const bookable = (tailor) => !!tailor && SECTIONS.every((s) => tailor.onboarding?.[s]);
+/** Every onboarding section valid (what she set up). */
+export const sectionsDone = (tailor) => !!tailor && SECTIONS.every((s) => tailor.onboarding?.[s]);
+/** D-18 (D-353): under YEARS_MIN years tailoring she is on the waitlist — never listed, whatever else passed. */
+export const waitlisted = (tailor) => tailor?.years != null && tailor.years !== '' && Number(tailor.years) < TAILOR_LIMITS.YEARS_MIN;
+
+/* ---------- DG-4 (option B, D-350…D-352): the four checks ---------- */
+/** One check's state: 'not-started' | 'pending' | 'needs-info' | 'verified' (+ 'waitlist' for years under the minimum).
+    payout maps the partner's status: verifying → pending, action-needed → needs-info, verified / paused → verified (a pause is about
+    paying her, not about who she is: she stays listed and Earnings says it). */
+export function checkState(tailor, id) {
+  const t = tailor ?? {};
+  if (id === 'id') return t.verify?.id?.state ?? 'not-started';
+  if (id === 'background') return t.verify?.background?.state ?? 'not-started';
+  if (id === 'years') return t.years == null || t.years === '' ? 'not-started' : waitlisted(t) ? 'waitlist' : 'verified';
+  if (id === 'payout') {
+    const st = t.payouts?.status ?? 'not-started';
+    return { verifying: 'pending', 'action-needed': 'needs-info', verified: 'verified', paused: 'verified' }[st] ?? 'not-started';
+  }
+  return 'not-started';
+}
+/** The checklist: `{ items: [{ id, label, state }], passed, total, allPassed, needsYou: [ids], pending: [ids] }` (VERIFY_ITEMS order). */
+export function verifyView(tailor = state.tailors[0]) {
+  const items = VERIFY_ITEMS.map((v) => ({ ...v, state: checkState(tailor, v.id) }));
+  const passed = items.filter((i) => i.state === 'verified').length;
+  return {
+    items, passed, total: items.length, allPassed: passed === items.length,
+    needsYou: items.filter((i) => ['not-started', 'needs-info'].includes(i.state)).map((i) => i.id),
+    pending: items.filter((i) => i.state === 'pending').map((i) => i.id),
+  };
+}
+/** Every check passed. */
+export const checksPassed = (tailor) => !!tailor && verifyView(tailor).allPassed;
+/** K-15 (D-350): the Verified check customers see — only when every check passed. Derived, never stored (no hard-coded `verified`). */
+export const isVerified = (tailor) => checksPassed(tailor);
+/** Set up, not waitlisted, and — while POLICY.LIVE_REQUIRES_VERIFIED (Kevin: gated) — every check passed. */
+export const bookable = (tailor) => sectionsDone(tailor) && !waitlisted(tailor) && (!POLICY.LIVE_REQUIRES_VERIFIED || checksPassed(tailor));
+/** Customers see her: she went live (submitted + bookable, sticky D-56) and is still bookable. */
+export const listed = (tailor) => !!tailor?.live && bookable(tailor);
+/** Onboarding is behind her (she submitted, or went live): the to-* screens are her Shop editors (D-56 editing mode). */
+export const onboarded = (tailor) => !!(tailor?.submitted || tailor?.live);
+/** `live` turns true the first time a SUBMITTED tailor is bookable, and never back (D-56; Finish later never takes her live, SF-02). */
+function syncLive(t) {
+  if (t.submitted && bookable(t) && !t.live) { t.live = true; t.liveAt = nowIso(); return true; }
+  return false;
+}
+
+/* ---------- S-42 (D-357): distances from HER address, not the seed's ---------- */
+/** Where customers come to (her shop), as a grid point; null without a shop. */
+export const shopPoint = (tailor) => (tailor?.shop?.enabled ? geocode(tailor.shop) : null);
+/** Where the courier collects finished orders: the shop, else her private courier address (B-15). */
+export const collectPoint = (tailor) => (tailor?.shop?.enabled ? geocode(tailor.shop) : geocode(tailor?.collect ?? {}));
+/** Miles from her shop to a customer ZIP (null without a shop or outside Taily). */
+export const milesToShop = (tailor, zip) => milesBetween(shopPoint(tailor), geocode({ zip }));
+/** Courier miles for an appointment: where the courier collects → the customer's ZIP (0 when unknown). */
+export const courierMiles = (appt) => milesBetween(collectPoint(tailorById(appt?.tailorId)), geocode({ zip: appt?.job?.zip })) ?? 0;
+/** The one line of the courier's pickup address (B-15): "40 Mercer St, 2F" (shop street without a unit when she has a shop). */
+export function collectAddress(tailor) {
+  const src = tailor?.shop?.enabled ? tailor.shop : tailor?.collect;
+  if (!src?.street) return '';
+  return [src.street, src.unit].filter(Boolean).join(', ');
+}
 const hasWindow = (avail) => Object.values(avail ?? {}).some((w) => (w ?? []).length > 0);
 const blank = (v) => v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
 const isWhole = (n) => Number.isInteger(n);
@@ -293,6 +365,11 @@ const SECTION_RULES = {
     if (!line) e.cardLine = 'cardline-required';
     else if ([...line].length > TAILOR_LIMITS.CARD_LINE_MAX) e.cardLine = 'cardline-long';
     if (!d.photo) e.photo = 'photo-required';
+    /* DG-4 (D-350): the first check, "ID and profile photo" — a photo ID we match to the profile photo; D-18: years tailoring, a whole number */
+    if (!d.idDoc) e.idDoc = 'id-required';
+    const y = d.years;
+    if (y == null || String(y).trim() === '') e.years = 'years-required';
+    else if (!isWhole(Number(y)) || Number(y) < 0 || Number(y) > TAILOR_LIMITS.YEARS_MAX) e.years = 'years-invalid';
     return e;
   },
   services: (d) => {
@@ -312,6 +389,15 @@ const SECTION_RULES = {
     if (d.shop?.enabled) {
       if (!String(d.shop.street ?? '').trim()) e.street = 'street-required';
       if (!zip5(d.shop.zip)) e.shopZip = 'zip-invalid';
+      else if (!placeForZip(d.shop.zip)) e.shopZip = 'zip-unserved';   // S-42: "Taily isn't in that area yet."
+    }
+    /* B-15 (D-356): no shop → the courier is her only way back, so it needs somewhere to collect from (private: customers never see it) */
+    if (!d.shop?.enabled && d.home?.enabled) {
+      const c = d.collect ?? {};
+      if (!String(c.street ?? '').trim()) e.collectStreet = 'street-required';
+      if (!zip5(c.zip)) e.collectZip = 'zip-invalid';
+      else if (!placeForZip(c.zip)) e.collectZip = 'zip-unserved';
+      if ([...String(c.notes ?? '')].length > TAILOR_LIMITS.COURIER_NOTE_MAX) e.collectNotes = 'note-long';
     }
     if (d.home?.enabled) {
       /* Study-1 C5: the neighborhoods are the source of truth; `home.zips` is derived from them (setTailorSection) */
@@ -349,6 +435,8 @@ const SECTION_RULES = {
   payouts: (d) => {
     const e = {};
     const p = d.payouts ?? {};
+    /* D-06 (D-351): the payments partner's hosted onboarding is the step; its return carries the bank (name + last 4) */
+    if ((p.status ?? 'not-started') === 'not-started') e.setup = 'setup-required';
     if (!String(p.holder ?? '').trim()) e.holder = 'holder-required';
     if (!/^\d{9}$/.test(String(p.routing ?? ''))) e.routing = 'routing-invalid';
     if (!/^\d{4}$/.test(String(p.last4 ?? ''))) e.last4 = 'account-invalid';
@@ -394,8 +482,15 @@ export function setTailorSection(section, patch) {
     t[k] = Object.fromEntries(Object.entries(rest[k] ?? {}).filter(([, v]) => v !== undefined).map(([id, v]) => [id, clone(v)]));
     delete rest[k];
   }
+  const idBefore = t.idDoc;
   deepMerge(t, rest);
   if (section === 'where' && t.home) t.home.zips = zipsForHoods(t.home.hoods);   // Study-1 C5: zips follow the neighborhoods, so eligible() keeps matching on zips
+  /* S-42 (D-357): the shop's neighborhood, city and state come from its ZIP (10013 → SoHo, New York, NY), never a fixed "Brooklyn" */
+  if (section === 'where' && t.shop) { const pl = placeForZip(t.shop.zip); if (pl) Object.assign(t.shop, { hood: pl.hood, city: pl.city, state: pl.state }); }
+  /* DG-4: a photo ID handed in (first time, or again after "needs info") starts the ID and profile photo check */
+  if (section === 'profile' && t.idDoc && (!idBefore || t.verify?.id?.state === 'needs-info') && ['not-started', 'needs-info'].includes(t.verify?.id?.state ?? 'not-started')) {
+    t.verify = { ...(t.verify ?? {}), id: { state: 'pending', at: nowIso() } };
+  }
   let soft = {};
   if (section === 'profile') {
     soft = validateSection(section, t).soft;                    // D-162: what she typed, before the mask
@@ -407,7 +502,7 @@ export function setTailorSection(section, patch) {
   t.onboarding[section] = v.ok;
   /* SF-22: where she works decides what Returns (pickup needs a shop) and Availability (hours per way she works) need — recheck both */
   if (section === 'where') for (const dep of ['returns', 'availability']) t.onboarding[dep] = validateSection(dep, t).ok;
-  if (bookable(t)) t.live = true;
+  syncLive(t);
   return { ok: true, tailor: t, valid: v.ok, errors: v.errors, soft, bookable: bookable(t), live: !!t.live };
 }
 /** D-161: the shop's "Taking requests" switch. Off, eligible() answers nothing-open for new requests; booked jobs are untouched. */
@@ -429,7 +524,8 @@ export function setPayouts({ holder = '', routing = '', account = '' } = {}) {
   const keep = !!t.payouts?.last4 && r === String(t.payouts?.routing ?? '');
   if (a ? !/^\d{4,17}$/.test(a) : !keep) errors.account = 'account-invalid';
   if (Object.keys(errors).length) return { ok: false, errors };
-  const res = setTailorSection('payouts', { payouts: { holder: h, routing: r, bank: ROUTING_BANKS[r] ?? 'Your bank', last4: a ? a.slice(-4) : t.payouts.last4 } });
+  const status = (t.payouts?.status ?? 'not-started') === 'not-started' ? 'verifying' : t.payouts.status;   // D-351: the partner returned bank details
+  const res = setTailorSection('payouts', { payouts: { holder: h, routing: r, bank: ROUTING_BANKS[r] ?? 'Your bank', last4: a ? a.slice(-4) : t.payouts.last4, status } });
   /* D-136: new bank details re-queue every payout the bank sent back, for the next Friday */
   let requeued = 0;
   let requeuedCents = 0;
@@ -461,6 +557,91 @@ export function setRush(draft = {}) {
   t.rush = draft.on ? RUSH_TIERS.map((days) => ({ days, fee: Number(draft.fees[days]) })).filter((r) => r.fee > 0) : [];
   return { ok: true, tailor: t };
 }
+/* ---------- DG-4 (option B): verification + the hosted payout step (D-350…D-355) ---------- */
+/** The tailor's own photo ID, handed in again (Shop, after "needs info"): the ID and profile photo check runs again. */
+export function uploadId() {
+  const t = state.tailors[0];
+  if (!t.photo) return fail('photo-required');
+  if (checkState(t, 'id') === 'verified') return fail('already-verified');
+  t.idDoc = true;
+  t.verify = { ...(t.verify ?? {}), id: { state: 'pending', at: nowIso() } };
+  t.onboarding.profile = validateSection('profile', t).ok;
+  return { ok: true, tailor: t };
+}
+/** Background check consent (FCRA disclosure + NYC Fair Chance notice; the copy is a placeholder for counsel). Starts the check. */
+export function consentBackground(agree) {
+  const t = state.tailors[0];
+  if (!agree) return fail('consent-required');
+  const bg = t.verify?.background ?? { state: 'not-started' };
+  if (bg.consentAt && bg.state !== 'not-started') return { ok: true, tailor: t, already: true };
+  t.verify = { ...(t.verify ?? {}), background: { state: 'pending', consentAt: nowIso(), at: null } };
+  return { ok: true, tailor: t };
+}
+/** PROTOTYPE of the payments partner's hosted onboarding (production: Stripe Connect Express — legal name, date of birth, SSN or EIN,
+    the W-9 and the bank all live with the partner). Returning from it: the bank (name + last 4) and the partner's statuses, from
+    `sim.payoutSetup` — 'verifying' (default), 'verified' or 'action-needed' (date of birth doesn't match the SSN). `newBank` = she
+    changed accounts there (Update bank details): a payout the bank sent back is queued again (D-136). */
+export function setupPayouts({ newBank = false } = {}) {
+  const t = state.tailors[0];
+  const outcome = state.sim.payoutSetup ?? 'verifying';
+  const first = (t.payouts?.status ?? 'not-started') === 'not-started';
+  const bank = newBank ? { routing: '026009593', account: '000987654321' } : first || !t.payouts?.last4 ? { routing: '021000021', account: '000123456789' } : { routing: t.payouts.routing, account: '' };
+  const r = setPayouts({ holder: t.payouts?.holder || t.name || 'Your name', ...bank });
+  if (!r.ok) return r;
+  const at = nowIso();
+  const p = t.payouts;
+  if (outcome === 'verified') Object.assign(p, { status: 'verified', identity: 'verified', tax: 'verified', taxAt: p.taxAt ?? at, issue: null, issueDue: null });
+  else if (outcome === 'action-needed') Object.assign(p, { status: 'action-needed', identity: 'needs-info', tax: p.tax === 'verified' ? 'verified' : 'received', taxAt: p.taxAt ?? at, issue: 'dob-mismatch', issueDue: null });
+  else Object.assign(p, { status: p.status === 'verified' && !first ? 'verified' : 'verifying', identity: p.identity === 'verified' ? 'verified' : 'verifying', tax: p.tax === 'verified' ? 'verified' : 'received', taxAt: p.taxAt ?? at, issue: null, issueDue: null });
+  t.onboarding.payouts = validateSection('payouts', t).ok;
+  syncLive(t);
+  return { ok: true, tailor: t, status: p.status, requeued: r.requeued, requeuedCents: r.requeuedCents, live: !!t.live };
+}
+/** The partner pauses payouts (months later: it needs her to confirm her tax info, the W-9). She stays listed; Fridays wait (settlePayouts). */
+export function pausePayouts() {
+  const t = state.tailors[0];
+  if (t.payouts?.status !== 'verified') return fail('not-verified');
+  Object.assign(t.payouts, { status: 'paused', tax: 'needs-info', issue: 'tax', issueDue: isoDay(addDays(new Date(state.clock.now), POLICY.PAYOUT_FIX_D)) });
+  return { ok: true, tailor: t };
+}
+/** Confirming the tax info in the partner's screens lifts the pause; the waiting payouts go out on the next Friday run. */
+export function confirmTaxInfo() {
+  const t = state.tailors[0];
+  if (t.payouts?.status !== 'paused') return fail('not-paused');
+  Object.assign(t.payouts, { status: 'verified', tax: 'verified', taxAt: nowIso(), issue: null, issueDue: null });
+  return { ok: true, tailor: t };
+}
+/** Onboarding done: every section set up → submitted ("We review in 1 to 2 days"); live at once only if every check already passed.
+    Errors: sections-incomplete (+ missing) · waitlist (years under the minimum). */
+export function submitOnboarding() {
+  const t = state.tailors[0];
+  const missing = SECTIONS.filter((x) => !t.onboarding?.[x]);
+  if (missing.length) return fail('sections-incomplete', { missing });
+  if (waitlisted(t)) return fail('waitlist');
+  if (!t.submitted) { t.submitted = true; t.submittedAt = nowIso(); }
+  const wentLive = syncLive(t);
+  return { ok: true, tailor: t, live: !!t.live, wentLive, view: verifyView(t) };
+}
+/** Taily's review (and the partner's webhook) comes back. `outcome` = { id, background, payout } each 'verified' | 'needs-info';
+    a check not named that is pending passes. A submitted tailor whose four checks all passed goes live (D-352). */
+export function reviewChecks(outcome = {}) {
+  const t = state.tailors[0];
+  const at = nowIso();
+  const res = (id) => outcome[id] ?? (checkState(t, id) === 'pending' ? 'verified' : null);
+  const idR = res('id');
+  if (idR && checkState(t, 'id') !== 'not-started') t.verify.id = { state: idR, at };
+  const bgR = res('background');
+  if (bgR && checkState(t, 'background') !== 'not-started') t.verify.background = { ...t.verify.background, state: bgR, at };
+  const pR = res('payout');
+  if (pR && (t.payouts?.status ?? 'not-started') !== 'not-started') {
+    if (pR === 'verified') Object.assign(t.payouts, { status: t.payouts.status === 'paused' ? 'paused' : 'verified', identity: 'verified', tax: t.payouts.tax === 'needs-info' ? 'needs-info' : 'verified', issue: t.payouts.status === 'paused' ? t.payouts.issue : null });
+    else Object.assign(t.payouts, { status: 'action-needed', identity: 'needs-info', issue: 'dob-mismatch' });
+  }
+  t.onboarding.profile = validateSection('profile', t).ok;
+  const wentLive = syncLive(t);
+  return { ok: true, tailor: t, live: !!t.live, wentLive, view: verifyView(t) };
+}
+
 /** The first onboarding section not yet valid, or null. */
 export const nextSection = (tailor = state.tailors[0]) => SECTIONS.find((s) => !tailor?.onboarding?.[s]) ?? null;
 /** Onboarding flows start from a blank profile with the same id (D-20). */
@@ -513,15 +694,18 @@ const slotEnd = (startIso, visitType) => isoMinute(addMinutes(startIso, VISIT_MI
 
 /* ---------- eligibility + the list ---------- */
 const areaReason = (tailor, job) => {
-  if (!bookable(tailor)) return job.visitType === 'shop' ? 'shop-off' : 'zip';   // D-27
+  if (!listed(tailor)) return job.visitType === 'shop' ? 'shop-off' : 'zip';   // D-27; DG-4: only a live tailor whose checks passed (D-352)
   if (job.visitType === 'home') return tailor.home?.enabled && tailor.home.zips.includes(job.zip) ? null : 'zip';
   if (!tailor.shop?.enabled) return 'shop-off';
-  return (ZIP_INFO[job.zip]?.miles ?? Infinity) <= SHOP_RADIUS_MI ? null : 'zip';   // D-19
+  return (milesToShop(tailor, job.zip) ?? Infinity) <= SHOP_RADIUS_MI ? null : 'zip';   // D-19; S-42: from HER shop
 };
-/** → { ok, reason: 'zip' | 'shop-off' | 'hidden' | 'declined' | 'nothing-open' } */
+/** K-48.2 / D-08 (D-354): she prices every service the job needs — else she is never listed or recommended for it. */
+export const coversJob = (tailor, job = state.job) => !linesFor(tailor, job.garments).missing.length;
+/** → { ok, reason: 'zip' | 'shop-off' | 'services' | 'hidden' | 'declined' | 'nothing-open' } */
 export function eligible(tailor, job = state.job) {
   const area = areaReason(tailor, job);
   if (area) return { ok: false, reason: area };
+  if (!coversJob(tailor, job)) return { ok: false, reason: 'services' };
   if ((job.hiddenTailors ?? []).includes(tailor.id)) return { ok: false, reason: 'hidden' };
   if ((job.declinedBy ?? []).includes(tailor.id)) return { ok: false, reason: 'declined' };
   if (tailor.takingRequests === false) return { ok: false, reason: 'nothing-open' };   // D-161: paused from her shop; jobs already booked are untouched
@@ -532,8 +716,8 @@ export function eligible(tailor, job = state.job) {
 export function estimateNext(tailor, job = state.job) {
   return estimate(tailor, job, nextOpening(tailor.id, job.visitType, { until: job.needBy }));
 }
-/** → { rows: [{ tailor, quote, distanceMi, nextOpening, declined }], empty: null | 'zip' | 'shop' | 'nothing-open' | 'none-left' }
-    precedence: area filter → hidden → open slots. A declined tailor stays as a row (D-08). */
+/** → { rows: [{ tailor, quote, distanceMi, nextOpening, declined }], empty: null | 'zip' | 'shop' | 'services' | 'nothing-open' | 'none-left' }
+    precedence: area filter → every item covered (K-48.2) → hidden → open slots. A declined tailor stays as a row (D-08). */
 export function tailorsFor(job = state.job) {
   const inArea = [];
   let area = null;
@@ -542,7 +726,9 @@ export function tailorsFor(job = state.job) {
     if (r) area = area ?? r; else inArea.push(t);
   }
   if (!inArea.length) return { rows: [], empty: area === 'shop-off' ? 'shop' : 'zip' };
-  const shown = inArea.filter((t) => !(job.hiddenTailors ?? []).includes(t.id));
+  const capable = inArea.filter((t) => coversJob(t, job));      // K-48.2 (D-354): never a tailor who can't do every item
+  if (!capable.length) return { rows: [], empty: 'services' };
+  const shown = capable.filter((t) => !(job.hiddenTailors ?? []).includes(t.id));
   if (!shown.length) return { rows: [], empty: 'none-left' };
   const rows = [];
   for (const t of shown) {
@@ -550,7 +736,7 @@ export function tailorsFor(job = state.job) {
     const next = nextOpening(t.id, job.visitType, { until: job.needBy });
     if (!next) continue;
     rows.push({
-      tailor: t, quote: estimate(t, job, next), distanceMi: ZIP_INFO[job.zip]?.miles ?? null,
+      tailor: t, quote: estimate(t, job, next), distanceMi: milesToShop(t, job.zip),
       nextOpening: next, declined: (job.declinedBy ?? []).includes(t.id),
     });
   }
@@ -578,6 +764,8 @@ export function settlePayouts() {
   const bank = state.tailors[0].payouts ?? {};
   const paid = [];
   const failed = [];
+  /* DG-4 (D-355): while the payments partner hasn't verified her (verifying, action needed, or paused for the W-9) the Friday run waits */
+  if (bank.status && bank.status !== 'verified') return { ok: true, paid, failed, paused: true };
   for (const p of state.payouts) {
     if (p.state !== 'pending' || p.date > today) continue;
     p.bank = bank.bank ?? '';
@@ -1172,7 +1360,7 @@ export function chooseReturn(id, option) {
   a.returnOption = option;
   if (option === 'courier') {
     const s = state.sim.courier;
-    a.courier = { miles: ZIP_INFO[a.job.zip]?.miles ?? 0, quote: 0, markup: 0, cents: 0, state: s === 'fail' ? 'failed' : s === 'loading' ? 'loading' : 'ready' };
+    a.courier = { miles: courierMiles(a), quote: 0, markup: 0, cents: 0, state: s === 'fail' ? 'failed' : s === 'loading' ? 'loading' : 'ready' };
     quoteCourier(a);   // K-43: priced per window — nothing until she picks one
   } else {
     a.courier = null;
@@ -1188,7 +1376,7 @@ function repriceReturn(a) {
   else delete a.payments.refund;
 }
 /** K-43 (D-299): the simulated Uber quote for one courier window of this appointment (the distance to Sarah's ZIP + the window's start). */
-export const courierQuoteFor = (appt, slot) => courierQuote(ZIP_INFO[appt?.job?.zip]?.miles ?? 0, typeof slot === 'string' ? slot : slot?.start ?? null);
+export const courierQuoteFor = (appt, slot) => courierQuote(courierMiles(appt), typeof slot === 'string' ? slot : slot?.start ?? null);   // S-42: from where the courier collects
 /** K-43 (D-299): put the picked window's quote on `a.courier` (0 until a window is picked, or while the price is loading / failed). */
 function quoteCourier(a) {
   const c = a.courier;
@@ -1220,7 +1408,7 @@ export function holdBalance(id, cardId = null, { threeDS = false } = {}) {
   setStatus(a, 'awaiting-handoff');
   const how = a.returnOption === 'courier' ? RETURN_LABEL.courier : RETURN_LABEL.pickup.toLowerCase();   // SF-36: "Taily courier" keeps its capital
   const amt = fmtExact(a.money.balance);
-  say(a, charge ? `You chose ${how}. You’ll be charged ${amt} ${CHARGE_WHEN[a.returnOption] ?? 'at handoff'}.` : `You chose ${how}.`, charge ? `${state.customer.first} chose ${how}. Her ${amt} is on hold.` : `${state.customer.first} chose ${how}.`);
+  say(a, charge ? `You chose ${how}. You’ll be charged ${amt} ${CHARGE_WHEN[a.returnOption] ?? 'at handoff'}.` : `You chose ${how}.`, charge ? `${state.customer.first} chose ${how}. She’s charged ${amt} ${CHARGE_WHEN[a.returnOption] ?? 'at handoff'}.` : `${state.customer.first} chose ${how}.`);   // D-17 / K-48.7: Sarah's words on the tailor side
   return succeed(a);
 }
 
@@ -1389,7 +1577,7 @@ export function approveJobEdit(id) {
 }
 
 /* ---------- Study-1 B2: private General notes (K-31, default 14) ---------- */
-const NOTE_OPEN = ['fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'];
+const NOTE_OPEN = ['confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'];   // D-19 (K-48): notes open from the accept (was the fitting, Study-1 default 14)
 /** The tailor's private notes are hers from the fitting until the job is completed (then read-only). Nobody else ever reads them. */
 export const notesEditable = (a) => !!a && NOTE_OPEN.includes(a.status);
 const photoCount = (photos) => (typeof photos === 'number' ? photos : Array.isArray(photos) ? photos.length : 0);
@@ -1717,5 +1905,6 @@ export const T = {
   sendJobEdit, approveJobEdit, addNote, updateNote, removeNote, restoreNote, addNotePhoto, removeNotePhoto,
   chooseReturn, setHandoffSlot, holdBalance, confirmPickup, markHandedOver, confirmReceived, reportNotReceived, courierDelivered, bookAgain, leaveReview, sendMessage, markThreadRead, settlePayouts, maskContact,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
+  uploadId, consentBackground, setupPayouts, pausePayouts, confirmTaxInfo, submitOnboarding, reviewChecks, joinAreaWaitlist,
   now, setClock, advanceClock, tick, suggestLapseAt,
 };

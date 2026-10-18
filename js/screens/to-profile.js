@@ -7,25 +7,27 @@
    counter, the initials, the preview) update IN PLACE on input.
    ============================================================ */
 import { register, render as go, back, currentScreen } from '../app.js';
-import { state, T, SECTIONS, validateSection } from '../state.js';
+import { state, T, SECTIONS, validateSection, onboarded, isVerified, waitlisted, checkState } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import { TAILOR_LIMITS, GARMENT_TYPES, TAILORS, SEED_JOB, ZIP_INFO, hoodNames } from '../data.js';
 import { estimate, fmt } from '../money.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, headingRow, banner, field, textArea, avatar, textLink, photoTile, photoStub,
-  customerPreview, tailorRow, actionBar, sheetOverlay, modalOverlay, leaveModal, listRow, toast, esc, wireTextLimit,
+  customerPreview, tailorRow, actionBar, sheetOverlay, modalOverlay, leaveModal, listRow, toast, esc, wireTextLimit, openIdSheet, statusPill, checkWords,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 
 const ID = 'to-profile';
 const STEP = 'profile';
-const { BIO_MAX, CARD_LINE_MAX, WORK_PHOTOS_MAX } = TAILOR_LIMITS;
+const { BIO_MAX, CARD_LINE_MAX, WORK_PHOTOS_MAX, YEARS_MIN, YEARS_MAX } = TAILOR_LIMITS;
 const HELPERS = {
   name: 'Customers see your full name.',
   bio: '',
   cardLine: '',
   photo: 'Required. Customers see it on the list.',
+  years: `Taily tailors have at least ${YEARS_MIN} years of experience.`,   // D-18 (D-353)
+  idDoc: 'Required. We match it to your profile photo. Only Taily sees it.',   // DG-4 (D-350): the "ID and profile photo" check
 };
 /* Study-1 C1: what each text is for, in the label; a grey example as the placeholder (never a value, so it can't be saved by accident) */
 const LABELS = {
@@ -46,9 +48,14 @@ const bioLen = (v) => [...String(v ?? '')].length;
 const ui = () => (state.ui[ID] ??= {});
 
 /* ---------- draft ---------- */
-const fromTailor = (t) => ({ name: t.name ?? '', shopName: t.shopName ?? '', cardLine: t.cardLine ?? '', bio: t.bio ?? '', photo: t.photo || false, workPhotos: t.workPhotos ?? 0 });
+const fromTailor = (t) => ({ name: t.name ?? '', shopName: t.shopName ?? '', years: t.years == null ? '' : String(t.years), cardLine: t.cardLine ?? '', bio: t.bio ?? '', photo: t.photo || false, idDoc: !!t.idDoc, workPhotos: t.workPhotos ?? 0 });
 const sig = (d) => JSON.stringify(fromTailor(d));
-const draftOf = () => (ui().draft ??= fromTailor(myTailor()));
+/** The draft: what she has typed, filled out once with the model's values for any field not in it yet (a fixture draft predates years / idDoc). */
+const draftOf = () => {
+  const u = ui();
+  if (!u.draft || !('years' in u.draft) || !('idDoc' in u.draft)) u.draft = { ...fromTailor(myTailor()), ...(u.draft ?? {}) };
+  return u.draft;
+};
 const isDirty = () => sig(draftOf()) !== sig(fromTailor(myTailor()));
 const initialsOf = (name) => String(name ?? '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => [...w][0].toUpperCase()).join('');
 
@@ -60,6 +67,9 @@ function errorCopy(code, d) {
   if (code === 'cardline-required') return 'Write the line customers see on the list.';
   if (code === 'cardline-long') return `Keep it to ${CARD_LINE_MAX} characters — you’re at ${bioLen(d.cardLine)}.`;
   if (code === 'photo-required') return 'Add a profile photo.';
+  if (code === 'years-required') return 'Enter how many years you’ve been tailoring.';
+  if (code === 'years-invalid') return `Enter a whole number of years, up to ${YEARS_MAX}.`;
+  if (code === 'id-required') return 'Add a photo of your ID.';
   return '';
 }
 
@@ -75,7 +85,7 @@ function previewHtml(d) {
   const t = myTailor();
   const hood = t.shop?.hood || hoodNames(t.home?.hoods)[0] || ZIP_INFO[SEED_JOB.zip]?.hood || '';
   return tailorRow({
-    id: 'preview', name: d.name.trim() || 'Your name', initials: initialsOf(d.name), photo: d.photo || null, verified: !!t.verified, years: t.years ?? 0,
+    id: 'preview', name: d.name.trim() || 'Your name', initials: initialsOf(d.name), photo: d.photo || null, verified: isVerified(t), years: Number(d.years) || 0,
     rating: t.rating?.count > 0 ? t.rating : null, quote: estimate(TAILORS[0], SEED_JOB, SAMPLE_NEXT), nextOpening: SAMPLE_NEXT,
     visitType: 'home', cardLine: d.cardLine, hood, format: fmt,
   });
@@ -89,9 +99,25 @@ function workPhotos(d) {
   return `<div class="photo-tiles ${ID}__tiles">${tiles}${add}</div>`;
 }
 
+/** DG-4: the photo ID beside the profile photo — the first check. Onboarding: add it (required); afterwards: its check status. */
+function idBlock(d, errors) {
+  const t = myTailor();
+  const st = checkState(t, 'id');
+  const saved = !!t.idDoc && d.idDoc;
+  const w = saved ? checkWords(t, 'id') : null;
+  const canChange = !saved || st === 'needs-info';
+  const msg = errors.idDoc ? `<p class="t-small w-600 c-error" id="id-msg" role="alert">${esc(errorCopy(errors.idDoc, d))}</p>`
+    : `<p class="t-small c-600" id="id-msg">${esc(saved ? w.sub : d.idDoc ? 'Added. We check it once you finish.' : HELPERS.idDoc)}</p>`;
+  return `<div class="${ID}__id${errors.idDoc ? ` ${ID}__id--error` : ''}" data-id-block>
+    <div class="${ID}__id-head"><p class="t-body w-600">Photo ID</p>${saved ? statusPill(w.pill, w.pillLabel) : ''}</div>
+    ${msg}
+    ${canChange ? textLink(d.idDoc && !saved ? 'Change ID photo' : 'Add your ID', { act: 'id', attrs: 'aria-describedby="id-msg"' }) : ''}
+  </div>`;
+}
+
 function view(s) {
   const t = myTailor();
-  const editing = !!t.live;
+  const editing = onboarded(t);
   const d = draftOf();
   const errors = ui().errors ?? {};
   const done = SECTIONS.filter((x) => t.onboarding?.[x]);
@@ -102,7 +128,7 @@ function view(s) {
 <main class="body body--with-bar ${ID}">
   ${editing ? headingRow(title) : `${onboardingSteps(STEP, done)}${resumeBanner(t)}<div class="heading-block ${ID}__title">${title}</div>`}
   <p class="t-body c-600 ${ID}__lead">This is the first thing customers see.</p>
-  ${customerPreview({ title: 'Your card on the list', html: previewHtml(d), sticky: true })}
+  ${customerPreview({ title: 'What customers see', html: previewHtml(d), sticky: true })}
   <p class="t-small c-600 ${ID}__preview-caption">${PREVIEW_CAPTION}</p>
   <div class="${ID}__photo${errors.photo ? ` ${ID}__photo--error` : ''}">
     ${initialsOf(d.name) ? avatar({ initials: initialsOf(d.name), photo: d.photo || null, size: 'lg' }) : avatar({ photo: true, size: 'lg' })}
@@ -111,10 +137,12 @@ function view(s) {
       ${errors.photo ? `<p class="t-small w-600 c-error" id="photo-msg" role="alert">${esc(errorCopy(errors.photo, d))}</p>` : `<p class="t-small c-600" id="photo-msg">${HELPERS.photo}</p>`}
     </div>
   </div>
+  ${idBlock(d, errors)}
   <div class="${ID}__group">${field({ id: 'name', label: 'Your name', value: d.name, autocomplete: 'name', helper: HELPERS.name, error: errorCopy(errors.name, d) })}</div>
   <div class="${ID}__group">${field({ id: 'shopName', label: 'Business name (optional)', value: d.shopName, autocomplete: 'organization', helper: HELPERS.shopName })}</div>
+  <div class="${ID}__group ${ID}__years">${field({ id: 'years', label: 'Years tailoring', value: d.years, inputmode: 'numeric', maxlength: 2, autocomplete: 'off', helper: HELPERS.years, error: errorCopy(errors.years, d) })}</div>
   <div class="${ID}__group">${textArea({ id: 'cardLine', label: LABELS.cardLine, value: d.cardLine, maxlength: CARD_LINE_MAX, rows: 3, placeholder: PLACEHOLDERS.cardLine, helper: HELPERS.cardLine, error: errorCopy(errors.cardLine, d) })}</div>
-  <div class="${ID}__group">${textArea({ id: 'bio', label: LABELS.bio, value: d.bio, max: BIO_MAX, rows: 6, placeholder: PLACEHOLDERS.bio, helper: HELPERS.bio, error: errorCopy(errors.bio, d) })}</div>
+  <div class="${ID}__group">${textArea({ id: 'bio', label: LABELS.bio, value: d.bio, maxlength: BIO_MAX, rows: 6, placeholder: PLACEHOLDERS.bio, helper: HELPERS.bio, error: errorCopy(errors.bio, d) })}</div>
   <div class="${ID}__work-block">
     <p class="t-small w-600 c-700" id="${ID}-work-label">Photos of your work (optional)</p>
     ${workPhotos(d)}
@@ -158,7 +186,7 @@ function openWorkPhoto(i, onRemove) {
 
 function wire(root) {
   const t = myTailor();
-  const editing = !!t.live;
+  const editing = onboarded(t);
   const main = root.querySelector('main');
   const bar = root.querySelector('.action-bar');
   const isTest = document.documentElement.classList.contains('is-test');
@@ -167,6 +195,7 @@ function wire(root) {
   const shop = root.querySelector('#shopName');
   const bio = root.querySelector('#bio');
   const card = root.querySelector('#cardLine');
+  const years = root.querySelector('#years');
 
   /* focus: the first invalid field after Next / Save, else the focal field on a fresh onboarding visit */
   if (ui().focus) { root.querySelector(ui().focus)?.focus(); ui().focus = null; }
@@ -192,12 +221,6 @@ function wire(root) {
     else if (well.classList.contains('avatar--placeholder')) well.innerHTML = cameraGlyph();
     else well.textContent = '';
     root.querySelector('.customer-preview__body').innerHTML = previewHtml(d);
-  };
-  const paintCount = (el, key, max) => {
-    const n = bioLen(d[key]);
-    const c = root.querySelector(`#${el.id}-count`);
-    c.textContent = `${n} / ${max}`;
-    c.classList.toggle('text-area__count--over', n > max);
   };
   const paintBar = () => {
     if (!editing || !bar) return;
@@ -229,11 +252,19 @@ function wire(root) {
     card.setSelectionRange(card.value.length, card.value.length);
     pasteCard(text);
   }
+  /* P-30: About stops at 300 like the card line stops at 110 (a paste is trimmed with a note); the counter is painted there */
+  wireTextLimit(root, 'bio');
   bio.addEventListener('input', () => {
     d.bio = bio.value;
-    paintCount(bio, 'bio', BIO_MAX);
     clearError(bio, 'bio');
     paintBar();
+  });
+  years.addEventListener('input', () => {
+    const digits = years.value.replace(/\D/g, '').slice(0, 2);
+    if (digits !== years.value) years.value = digits;
+    d.years = digits;
+    clearError(years, 'years');
+    paintPreview(); paintBar();
   });
 
   /* ----- actions ----- */
@@ -253,14 +284,14 @@ function wire(root) {
 
   const patch = () => ({
     name: d.name.trim(), shopName: d.shopName.trim(), initials: initialsOf(d.name), cardLine: d.cardLine.trim(), bio: d.bio.trim(),
-    photo: d.photo || null, workPhotos: d.workPhotos,
+    photo: d.photo || null, workPhotos: d.workPhotos, years: String(d.years).trim() === '' ? null : Number(d.years), idDoc: !!d.idDoc,
   });
   function submit() {
     if (ui().busy) return;
-    const v = validateSection(STEP, { name: d.name, cardLine: d.cardLine, bio: d.bio, photo: d.photo });
+    const v = validateSection(STEP, { name: d.name, cardLine: d.cardLine, bio: d.bio, photo: d.photo, years: d.years, idDoc: d.idDoc });
     if (!v.ok) {
       ui().errors = v.errors;
-      ui().focus = v.errors.photo ? '[data-act="photo"]' : v.errors.name ? '#name' : v.errors.cardLine ? '#cardLine' : '#bio';
+      ui().focus = v.errors.photo ? '[data-act="photo"]' : v.errors.idDoc ? '[data-act="id"]' : v.errors.name ? '#name' : v.errors.years ? '#years' : v.errors.cardLine ? '#cardLine' : '#bio';
       go(ID);
       return;
     }
@@ -272,6 +303,8 @@ function wire(root) {
       T.setTailorSection(STEP, patch());
       if (state.ui.onboarding) state.ui.onboarding.resumed = false;
       if (editing) { state.ui[ID] = {}; back() || go('t-shop'); toast('Saved. Customers see the change now.', { tone: 'success' }); return; }
+      /* D-18 (D-353): under the minimum years she goes on the waitlist — her profile is kept, nothing else to set up */
+      if (waitlisted(myTailor())) { state.ui[ID] = {}; go('to-done', { fresh: true }); return; }
       go(ONBOARDING_STEPS[ONBOARDING_STEPS.findIndex((s) => s.id === STEP) + 1].screen);
     });
   }
@@ -297,6 +330,7 @@ function wire(root) {
       if (state.ui.onboarding) state.ui.onboarding.resumed = false;
       a.closest(`.${ID}__resume`)?.remove();
     } else if (act === 'photo') openPhoto('Add a photo', () => { d.photo = true; if (ui().errors) delete ui().errors.photo; });
+    else if (act === 'id') openIdSheet(() => { d.idDoc = true; if (ui().errors) delete ui().errors.idDoc; go(ID); toast('ID added'); });
     else if (act === 'work-add') openPhoto('Add a photo of your work', () => { d.workPhotos = Math.min(WORK_PHOTOS_MAX, d.workPhotos + 1); });
     else if (act === 'work-open') {
       const i = Number(a.dataset.i);
@@ -315,4 +349,5 @@ function wire(root) {
   }));
 }
 
-register(ID, view, wire);
+/* S-22 (D-360): the top nav asks before dropping unsaved Shop edits (app.js calls canLeave; discard drops the draft) */
+register(ID, view, wire, { canLeave: () => !onboarded(myTailor()) || !isDirty() || !!ui().busy, discard: () => { state.ui[ID] = {}; } });

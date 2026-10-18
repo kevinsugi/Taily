@@ -7,7 +7,7 @@
    phone — no push, so no "notifications off" banner and no ask.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, now, apptsFor, priceChangeView, suggestLapseAt, autoCompleteLeft, jobEditView, slotText, handoffMissed, courierWindow } from '../state.js';
+import { state, T, now, apptsFor, priceChangeView, suggestLapseAt, autoCompleteLeft, jobEditView, slotText, handoffMissed, courierWindow, listed, onboarded, verifyView, nextSection } from '../state.js';
 import { myTailor, inbox, requestView, customerName, customerInitials, payoutOf, payoutLine, suggestPrice } from '../tailor-data.js';
 import { setFocus, statusWord, returnStep } from '../focus.js';
 import { fmtColumn } from '../money.js';
@@ -15,7 +15,7 @@ import { fmtWhen, fmtTime, fmtDay, fmtTimeRange, toDate, dayDiff } from '../date
 import { POLICY } from '../money-config.js';
 import {
   chrome, headingRow, emptyState, requestCard, apptRow, toast, esc, sectionHead, textLink,
-  heroGarment,
+  heroGarment, reminderCard, ONBOARDING_STEPS, REVIEW_TIME,
 } from '../components.js';
 
 const ID = 't-home';
@@ -64,6 +64,23 @@ function handoffPlace(a) {
   return w ? `Arrives at ${state.customer.first}’s ${fmtTimeRange(w.from, w.to)}` : `Courier to ${state.customer.first}’s`;
 }
 
+/** S-21 (D-361): a tailor customers can't book yet is told why first — steps still to set up, or the checks under review (DG-4). */
+function setupPrompt(t) {
+  if (listed(t)) return '';
+  if (!onboarded(t)) {
+    const left = ONBOARDING_STEPS.filter((st) => !t.onboarding?.[st.id]).length;
+    return `<div class="hero ${ID}__setup">${reminderCard({ title: `Finish setting up · ${left} ${left === 1 ? 'step' : 'steps'} left`, text: 'Customers can’t book you until your shop is set up.', actionLabel: 'Continue', act: 'continue-setup' })}</div>`;
+  }
+  const v = verifyView(t);
+  if (v.allPassed) return '';
+  const needs = v.needsYou.length;
+  return `<div class="hero ${ID}__setup">${reminderCard({
+    title: needs ? `${needs === 1 ? 'A check needs' : `${needs} checks need`} you` : `Under review · ${v.passed} of ${v.total} checks`,
+    text: needs ? `Customers can book you once all ${v.total} checks pass.` : `Customers can book you once all ${v.total} pass. Most reviews take ${REVIEW_TIME}.`,
+    actionLabel: 'See your checks', act: 'see-checks',
+  })}</div>`;
+}
+
 function view(s) {
   const t = myTailor();
   const { requests, upcoming: booked } = inbox();
@@ -79,9 +96,11 @@ function view(s) {
   const paused = t.takingRequests === false
     ? `<p class="t-small c-600 hero ${ID}__sum ${ID}__paused">You’re paused, so customers can’t send new requests. ${textLink('Take requests again', { act: 'resume' })}</p>` : '';
 
+  const setup = setupPrompt(t);
   if (!apptsFor('tailor').length) {
     return `${head}<main class="body ${ID}">
   ${hello}
+  ${setup}
   ${paused}
   <div class="${ID}__empty" data-empty="home">${emptyState({
     title: 'No requests yet',
@@ -163,6 +182,7 @@ function view(s) {
   </section>`;
   return `${head}<main class="body ${ID}">
   ${hello}
+  ${setup}
   ${paused}
   <p class="t-small c-600 hero ${ID}__sum">${dateLine()} · ${summary.join(', ')}</p>
   ${group('New requests', 'new', fresh.length || null, fresh.length
@@ -190,6 +210,8 @@ function wire(root) {
       go(ID);
       toast('You’re taking requests again', { tone: 'success' });
     } else if (act === 'hours') { delete state.ui['to-availability']; go('to-availability'); }   // edit mode: a fresh draft from the saved week
+    else if (act === 'see-checks') go('t-shop');
+    else if (act === 'continue-setup') { const next = ONBOARDING_STEPS.find((st) => st.id === nextSection()); state.ui.onboarding = { resumed: true }; go(next ? next.screen : 'to-payouts'); }
   });
 }
 

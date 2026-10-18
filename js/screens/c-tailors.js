@@ -4,9 +4,9 @@
    Focal: the tailor row's estimate. No action bar — the rows are the action.
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
-import { state, T, tailorsFor, tailorById, apptsFor, TERMINAL } from '../state.js';
+import { state, T, tailorsFor, tailorById, apptsFor, TERMINAL, onAreaWaitlist } from '../state.js';
 import {
-  flowBar, headingRow, filterPill, tailorRow, skeleton, emptyState, banner, sheetOverlay, optionRow, infoButton, esc,
+  flowBar, headingRow, filterPill, tailorRow, skeleton, emptyState, banner, sheetOverlay, optionRow, infoButton, esc, textLink, toast,
 } from '../components.js';
 import { tailorRowProps } from '../tailor-data.js';
 import { withLatency } from '../sim.js';
@@ -50,15 +50,27 @@ function filters(job) {
   </div>`;
 }
 
+/** P-34 (D-358): outside coverage (or nobody left for this job) she can ask for one text when a tailor starts covering her ZIP. */
+function waitlistLine(job, { another = false } = {}) {
+  if (onAreaWaitlist(job.zip)) return `<p class="t-small c-600 c-tailors__waitlist" role="status" data-waitlist="joined">We’ll text ${esc(state.customer.phone)} when ${another ? 'another tailor' : 'a tailor'} covers ${esc(job.zip)}.</p>`;
+  return `<div class="c-tailors__waitlist" data-waitlist>${textLink(`Text me when ${another ? 'another tailor' : 'a tailor'} covers ${esc(job.zip)}`, { act: 'waitlist' })}</div>`;
+}
+
 /** The empty wrapper for each `tailorsFor(...).empty` kind. */
 function empty(kind, job) {
   const home = job.visitType === 'home';
+  if (kind === 'services') {
+    /* K-48.2 (D-354): tailors here, but none prices every service she picked — never list one who can't do it all */
+    return `<div data-empty="services">${emptyState({ art: 'Suit Pant', title: 'No tailor near you does all of this yet',
+      body: `Tailors near ${esc(job.zip)} don’t price every service you picked. Take one off to see who can do the rest.`,
+      ctaLabel: 'Change your items', ctaAct: 'edit-items', secondaryLabel: 'Change address', secondaryAct: 'edit-where' })}${waitlistLine(job)}</div>`;
+  }
   if (kind === 'zip') {
     return `<div data-empty="zip">${emptyState(home
       ? { art: 'Suit Pant', title: `No tailors visit ${esc(job.zip)} yet`, body: 'Taily is growing across Brooklyn. Shops within 5 miles of you may still fit you in.',
           ctaLabel: 'Try a visit at the shop', ctaAct: 'try-shop', secondaryLabel: 'Change address', secondaryAct: 'edit-where' }
       : { art: 'Suit Pant', title: `No shops near ${esc(job.zip)} yet`, body: 'Taily is growing across Brooklyn. A tailor who comes to you may still fit you in.',
-          ctaLabel: 'Switch to At my place', ctaAct: 'try-home', secondaryLabel: 'Change address', secondaryAct: 'edit-where' })}</div>`;
+          ctaLabel: 'Switch to At my place', ctaAct: 'try-home', secondaryLabel: 'Change address', secondaryAct: 'edit-where' })}${waitlistLine(job)}</div>`;
   }
   if (kind === 'shop') {
     return `<div data-empty="shop">${emptyState({ art: 'Suit Pant', title: `No shops near ${esc(job.zip)} right now`, body: 'Tailors near you are doing home visits instead.',
@@ -70,13 +82,13 @@ function empty(kind, job) {
       ctaLabel: 'Change need-by date', ctaAct: 'later',
       ...(home ? { secondaryLabel: 'Try a visit at the shop', secondaryAct: 'try-shop' } : {}) })}</div>`;
   }
-  /* none-left (M3, D-83): every tailor is hidden for this job after the last expiry */
+  /* none-left (M3, D-83): every tailor is hidden for this job after the last expiry. P-34: a later need-by can't bring a hidden tailor
+     back, so no need-by promise — another address, or a text when another tailor covers the ZIP */
   const hidden = tailorById((job.hiddenTailors ?? [])[0]);
   const hf = esc((hidden?.name || 'The tailor').split(' ')[0]);
   return `<div data-empty="none-left">${emptyState({ art: 'Suit Pant', title: 'No other tailors for this request yet',
     body: `We won’t show ${hf} for this request again, and no other tailors cover ${esc(job.zip)} yet. Another ZIP may open more.`,   // SF-27: true for every way it ends
-    ctaLabel: 'Change need-by date', ctaAct: 'later',
-    secondaryLabel: 'Change ZIP', secondaryAct: 'edit-where' })}</div>`;
+    ctaLabel: 'Change address', ctaAct: 'edit-where' })}${waitlistLine(job, { another: true })}</div>`;
 }
 
 /** C-01 (D-158): a tailor Sarah already has something open with says so on her row. */
@@ -170,6 +182,13 @@ function wire(root) {
         go('c-thread');
         break;
       case 'new-job': T.newJob(); go('c-job', { fresh: true }); break;
+      case 'edit-items': go('c-job'); break;
+      case 'waitlist': {
+        const r = T.joinAreaWaitlist(state.job.zip);
+        go(ID);
+        if (r.ok) toast(`We’ll text you when a tailor covers ${r.zip}.`, { tone: 'success' });
+        break;
+      }
       case 'sort': openSort(root); break;
       case 'try-shop': T.setJob({ visitType: 'shop' }); go(ID); break;
       case 'try-home': T.setJob({ visitType: 'home' }); go(ID); break;

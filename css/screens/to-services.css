@@ -16,3 +16,7 @@
 .to-services__recommend { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); }
 .to-services__recommend .cta-small { min-height: 44px; padding-inline: var(--space-16); white-space: nowrap; }
 .to-services__recommend-note { margin: 0; }
+/* K-48.2 (D-354) + S-39 (D-359): the every-item rule, and the sample estimate customers see */
+.to-services__every { margin: var(--space-8) 0 0; text-wrap: pretty; }
+.to-services__total { box-shadow: inset 0 1px 0 var(--hairline); margin-top: var(--space-4); }
+.to-services__miss { margin: 0; text-wrap: pretty; }

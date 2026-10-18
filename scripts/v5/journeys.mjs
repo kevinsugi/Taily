@@ -750,8 +750,7 @@ await journey('J21', 'Finish later never goes live; the withdraw / accept races 
     window.Taily.render('to-payouts', { fresh: true });
   });
   await settle(page);
-  await page.fill('#routing', '021000021');
-  await page.fill('#account', '000123456789');
+  await press('#bg-consent');   // DG-4 (D-351): step 6 is the consent + the partner's hosted step; Taily's bank form is retired
   await press('[data-act="finish-later"]');
   const live = await page.evaluate(async () => (await import('/js/state.js')).state.tailors[0].live);
   check('J21 SF-02: Finish later on Payouts leaves her not live', live === false, `live=${live}`);
@@ -771,6 +770,68 @@ await journey('J21', 'Finish later never goes live; the withdraw / accept races 
   await at('J21 SF-17: customer lands on the booking', 'c-booking', { not: 'Request withdrawn' });
   const t2 = await page.evaluate(() => document.querySelector('#toast-live')?.textContent ?? '');
   check('J21 SF-17: the toast says Amara just accepted', t2.includes('Amara just accepted. You’re booked.'), t2);
+});
+
+/* ---------- J25 (pre-MVP B1, DG-4 option B / D-05 / D-06, K-48): onboarding → submitted → verified → live ---------- */
+await journey('J25', 'Get verified: consent + the hosted payout step submit her; Shop says Under review; the review passes; she is listed with the Verified check', async () => {
+  await page.evaluate(async () => {
+    const C = await import('/js/fixtures/common.js');
+    C.onboardTo('payouts');
+    (await import('/js/state.js')).state.persona = 'tailor';
+    window.Taily.render('to-payouts', { fresh: true });
+  });
+  await settle(page);
+  await at('J25 step 6: background check and payouts', 'to-payouts', { has: ['Step 6 of 6', 'I agree to a background check', 'Continue to secure setup'], not: 'Routing number' });
+  await press('[data-act="setup"]');
+  await at('J25 no consent: the error sits under the box', 'to-payouts', { has: 'Agree to the background check to continue.' });
+  await press('#bg-consent');
+  await press('[data-act="setup"]');
+  await at('J25 back from the partner: Submitted, the checks under review', 'to-done', { has: ['Submitted', 'Most reviews take 1 to 2 days', '1 of 4 checks passed', 'ONCE YOU’RE VERIFIED'] });
+  const listedBefore = await page.evaluate(async () => (await import('/js/state.js')).tailorsFor().rows.length);
+  check('J25 not listed while the checks run (POLICY.LIVE_REQUIRES_VERIFIED)', listedBefore === 0, `rows=${listedBefore}`);
+  await press('[data-act="shop"]');
+  await at('J25 Shop: Under review, Taking requests off, the checklist', 't-shop', { has: ['Under review · 1 of 4 checks', 'Turns on when your checks clear.', 'YOUR CHECKS', 'Verification'], not: 'Bookable' });
+  const off = await page.evaluate(() => document.querySelector('#screen #taking-requests')?.disabled === true);
+  check('J25 Taking requests stays off until the checks clear', off);
+  await page.evaluate(async () => { (await import('/js/state.js')).T.reviewChecks(); });
+  await paint('t-shop');
+  await at('J25 the review passes: Bookable, all 4 checks passed', 't-shop', { has: ['Bookable', 'All 4 checks passed', 'WHAT CUSTOMERS SEE'], not: ['YOUR CHECKS', 'Under review'] });
+  const after = await page.evaluate(async () => { const S = await import('/js/state.js'); return { rows: S.tailorsFor().rows.length, verified: S.isVerified(S.state.tailors[0]), live: !!S.state.tailors[0].live }; });
+  check('J25 live, listed and Verified (derived from the checks)', after.rows === 1 && after.verified && after.live, JSON.stringify(after));
+  const mark = await page.evaluate(() => !!document.querySelector('#screen .customer-preview [data-verified]'));
+  check('J25 her preview row now carries the Verified check', mark);
+});
+
+/* ---------- J26 (D-18 waitlist, S-22 nav guard, K-48.2 listing) ---------- */
+await journey('J26', 'Under 5 years goes to the waitlist; the nav asks before dropping Shop edits; a tailor who skips an item is never listed', async () => {
+  await page.evaluate(async () => {
+    const C = await import('/js/fixtures/common.js');
+    const S = await import('/js/state.js');
+    C.onboardTo('profile');
+    S.state.persona = 'tailor';
+    S.state.ui['to-profile'] = { draft: { name: 'Ana Ruiz', shopName: '', years: '3', cardLine: 'Hems and zippers, done right.', bio: 'Three years of hems.', photo: true, idDoc: true, workPhotos: 0 } };
+    window.Taily.render('to-profile', { fresh: true });
+  });
+  await settle(page);
+  await press('.action-bar [data-act="next"]');
+  await at('J26 D-18: 3 years → the waitlist, nothing goes live', 'to-done', { has: ['You’re on the waitlist', 'and you told us 3 years'] });
+  const wl = await page.evaluate(async () => { const S = await import('/js/state.js'); return { live: !!S.state.tailors[0].live, bookable: S.bookable(S.state.tailors[0]) }; });
+  check('J26 D-18: the waitlisted tailor is never bookable', !wl.live && !wl.bookable, JSON.stringify(wl));
+  /* S-22: a price changed on to-services (edit), then Home in the top nav */
+  await flow('to-services--edit');
+  await page.evaluate(() => { const el = document.querySelector('#screen #price-hem-pants'); el.value = '33'; el.dispatchEvent(new Event('input', { bubbles: true })); });
+  await settle(page);
+  await press('[data-nav="home"]');
+  await at('J26 S-22: Leave without saving? before the nav drops the edit', 'to-services', { has: ['Leave without saving', 'Keep editing'] });
+  await click('[data-act="keep-editing"]');
+  const kept = await page.evaluate(() => document.querySelector('#screen #price-hem-pants')?.value);
+  check('J26 S-22: Keep editing keeps the typed price', kept === '33', kept);
+  await press('[data-nav="home"]');
+  await click('[data-act="discard"]');
+  await at('J26 S-22: Discard goes where she tapped', 't-home', { has: 'Hi, Amara' });
+  /* K-48.2: she stops pricing a service Sarah's job needs → not listed, and c-tailors says why */
+  await flow('c-tailors--services');
+  await at('J26 K-48.2: no tailor who skips an item', 'c-tailors', { has: 'No tailor near you does all of this yet', not: 'Est.' });
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

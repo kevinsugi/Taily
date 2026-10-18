@@ -9,7 +9,7 @@
    ============================================================ */
 import { register, render as go, registered } from '../app.js';
 import {
-  state, T, tailorById, openSlots, justConfirmed, now, returnAddress, priceChangeView, courierWindow, autoCompleteLeft, statusScreen,
+  state, T, tailorById, isVerified, openSlots, justConfirmed, now, returnAddress, priceChangeView, courierWindow, autoCompleteLeft, statusScreen,
   slotText, handoffChangeable, handoffMissed, reminderState, freeUntil, autoCancelAt, unclaimedAt,
 } from '../state.js';
 import {
@@ -64,7 +64,7 @@ function visitSection(a, t, { extra = [] } = {}) {
     const href = calendarHref({ uid: a.id, start: a.slot.start, end: a.slot.end, stamp: isoMinute(new Date(now())), summary: `${VISIT_LABEL.customer[a.job.visitType]} with ${t.name}`, location: whereOf(a, t) });
     actions.push({ label: 'Add to calendar', icon: ICON_CALENDAR, href, act: 'add-to-calendar', attrs: 'download="taily-visit.ics"' });
   }
-  return sec(personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: t.verified, years: t.years }, rows: [...visitRows(a, t), ...extra], actions }));
+  return sec(personBlock({ title: 'Visit', person: { initials: t.initials, name: t.name, verified: isVerified(t), years: t.years }, rows: [...visitRows(a, t), ...extra], actions }));
 }
 
 /** The shared detail header (D-93, supersedes R3-1-C-04's pill-above-Back): Back on its own row, then the pill,
@@ -358,7 +358,7 @@ function handoffView(a, t, first) {
      K-44 (D-302): customer-side the held balance reads "Payment $X · Charged at pickup" / "… on delivery" (short: the same words), never "On hold";
      D-303: the words come from chargedWhen (components.js), the one map the c-ready caption uses */
   const head = pageHead(requestHead({
-    page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
+    page: true, name: t.name, initials: t.initials, check: isVerified(t) ? verifiedCheck({ years: t.years }) : '',
     ...(held > 0 ? { payoutCents: held, label: charged ? 'Charged' : chargedWhen(how), lines: [balanceCardLabel(a)] } : { payoutCents: a.money.total, label: 'Paid in full' }),
   }));
   const alert = problem

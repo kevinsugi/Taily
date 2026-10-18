@@ -8,7 +8,7 @@
    Which appointment: focusAppt (D-72). Screen-local flags: state.ui['c-ready'] { apptId, quoting, cardId }.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorById, returnOffer, returnAddress, priceChangeView, slotText } from '../state.js';
+import { state, T, tailorById, returnOffer, returnAddress, priceChangeView, slotText, courierMiles } from '../state.js';
 import {
   chrome, headingRow, customerBreakdown, moneyRows, courierCard, optionRow, actionBar, banner, emptyState,
   sheetOverlay, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, wireGarmentDocs, textLink, sectionHead,
@@ -18,7 +18,7 @@ import { fmtDay, fmtTime, fmtTimeRange, nb as datesNb } from '../dates.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
 import { fmtExact } from '../money.js';
-import { RETURN_LABEL, ZIP_INFO } from '../data.js';
+import { RETURN_LABEL } from '../data.js';
 import { POLICY } from '../money-config.js';
 import { META_ICONS } from '../icons.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
@@ -177,7 +177,7 @@ function view() {
   /* K-40: the courier card (and its fee) once a window is picked; the wait / failure states as before */
   const courier = sel === 'courier' && (courierState !== 'ready' || r.slot)
     ? `<div class="${ID}__courier">${courierCard({
-      state: courierState, ...(courierState === 'ready' ? c : { miles: c?.miles ?? ZIP_INFO[a.job.zip]?.miles ?? 0 }),   // the distance is known before the price
+      state: courierState, ...(courierState === 'ready' ? c : { miles: c?.miles ?? courierMiles(a) }),   // the distance is known before the price
       from: t.shopName, to: streetOf(), note: `Added to your balance. ${COURIER_LOBBY}`,   // K-43 (D-298): it never comes back
     })}${courierState === 'failed' && offered.length === 1 ? textLink(`Message ${first}`, { act: 'message' }) : ''}</div>` : '';
   /* K-27 (Study-1 A2) + K-44: when she is charged, and the unclaimed rule, shown where the way back is chosen */

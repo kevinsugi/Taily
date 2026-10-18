@@ -13,7 +13,7 @@
    overruled: no decline; if Sarah disagrees she messages and the tailor revises). K-31: the tailor's whole-order note is private now.
    ============================================================ */
 import { register, render as go, registered, currentScreen } from '../app.js';
-import { state, T, tailorById, priceChangeView, jobEditView } from '../state.js';
+import { state, T, tailorById, priceChangeView, jobEditView, isVerified } from '../state.js';
 import {
   chrome, banner, emptyState, deltaLines, noteQuote, changeList, withPhotos, wirePhotoViewer, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs, sectionHead,
   navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, HOME_FEE_CAPTION,
@@ -58,7 +58,7 @@ function view() {
       : `Approve your final order · ${first} ${changed ? 'changed it at the fitting' : 'checked everything, nothing changed'}`,
   });
   const head = pageHead(requestHead({
-    page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
+    page: true, name: t.name, initials: t.initials, check: isVerified(t) ? verifiedCheck({ years: t.years }) : '',
     payoutCents: after.total, label: changed ? 'New total' : 'Total', lines: deltaLines(after.total, pv.before.total),
   }));
   const rows = [
@@ -97,7 +97,7 @@ function editView(a, chromeHtml) {
   const moved = ev.after.total !== ev.before.total;   // SF-03: a due-date-only edit can move the money (a rush fee drops)
   const strip = requestStrip({ page: true, tone: 'action', icon: 'check', text: `${first} edited your order`, right: ev.sentAt ? `Sent ${fmtTime(ev.sentAt)}` : '' });
   const head = pageHead(requestHead({
-    page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
+    page: true, name: t.name, initials: t.initials, check: isVerified(t) ? verifiedCheck({ years: t.years }) : '',
     payoutCents: after.total, label: priced || moved ? 'New total' : 'Total', lines: priced || moved ? deltaLines(after.total, ev.before.total) : [],
   }));
   const rows = [

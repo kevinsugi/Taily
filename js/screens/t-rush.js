@@ -11,7 +11,7 @@ import { RUSH_TIERS, TAILOR_LIMITS } from '../data.js';
 import { cents, fmt } from '../money.js';
 import { withLatency } from '../sim.js';
 import {
-  chrome, headingRow, toggle, field, customerPreview, rushLadder, sectionHead, actionBar, modalOverlay, leaveModal, toast, wireToggles, editScopeNote,
+  chrome, headingRow, toggle, field, customerPreview, sectionHead, actionBar, modalOverlay, leaveModal, toast, wireToggles, editScopeNote, priceRow,
 } from '../components.js';
 
 const ID = 't-rush';
@@ -43,7 +43,20 @@ function draftLadder(d) {
 const draftOk = (d) => validateRush(d).ok;
 const shownLadder = (d) => (draftOk(d) ? draftLadder(d) : (myTailor().rush ?? []));
 const invalidNote = (d) => (draftOk(d) ? '' : 'Showing your saved rush fees. Fix the errors to preview your changes.');
-const previewHtml = (d) => `<div class="${ID}__ladder">${sectionHead('Rush fees')}<p class="t-small c-600" data-ladder>${rushLadder(shownLadder(d))}</p><p class="t-small c-600 ${ID}__ladder-note" data-ladder-note${draftOk(d) ? ' hidden' : ''}>${invalidNote(d)}</p></div>`;
+/** S-39 (D-359): customers never see the ladder — a rushed customer sees ONE line on her estimate (c-tailor "Your estimate"): the rush
+    fee for her need-by. The preview is that line for the quickest tier she charges, then the other tiers in words. */
+function previewHtml(d) {
+  const ladder = [...shownLadder(d)].sort((a, b) => a.days - b.days);
+  const top = ladder[0];
+  const dayWord = (n) => `${n} day${n === 1 ? '' : 's'}`;
+  const row = top
+    ? priceRow({ label: 'Rush fee', cents: cents(top.fee), note: `Need-by ${dayWord(top.days)} after the visit` })
+    : '<p class="t-small c-600">No rush fee on any estimate.</p>';
+  const rest = ladder.slice(1).map((r) => `${dayWord(r.days)}: ${fmt(cents(r.fee))}`).join(' · ');
+  return `<div class="${ID}__ladder">${sectionHead('Your estimate')}<div data-ladder>${row}</div>
+  ${top ? `<p class="t-small c-600 ${ID}__caption">A customer who needs it ${dayWord(top.days)} after the visit sees this line.${rest ? ` Other need-by dates: ${rest}.` : ''}</p>` : ''}
+  <p class="t-small c-600 ${ID}__ladder-note" data-ladder-note${draftOk(d) ? ' hidden' : ''}>${invalidNote(d)}</p></div>`;
+}
 
 function errorCopy(code, tier, d) {
   if (code === 'fee-missing') return 'Enter an amount, or 0 for no fee.';
@@ -100,10 +113,8 @@ function wire(root) {
         input.removeAttribute('aria-describedby');
         box.querySelector('.field__msg')?.remove();
       }
-      const ladder = root.querySelector('[data-ladder]');
-      if (ladder) ladder.innerHTML = rushLadder(shownLadder(draftOf()));
-      const note = root.querySelector('[data-ladder-note]');
-      if (note) { const msg = invalidNote(draftOf()); note.hidden = !msg; note.textContent = msg; }
+      const pv = root.querySelector('.customer-preview__body');
+      if (pv) pv.innerHTML = previewHtml(draftOf());   // the one estimate line follows the draft in place
       syncBar(root);
     });
     input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
@@ -170,4 +181,5 @@ function syncBar(root) {
   }
 }
 
-register(ID, view, wire);
+/* S-22 (D-360): the top nav asks before dropping unsaved edits */
+register(ID, view, wire, { canLeave: () => !isDirty() || !!(state.ui[ID]?.busy), discard: () => { delete state.ui[ID]; } });

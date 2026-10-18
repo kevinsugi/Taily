@@ -23,6 +23,14 @@ export const GARMENT_TYPES = {
 };
 
 export const TRUST_BADGES = ['ID verified', 'Background check', 'Insured'];
+/** DG-4 option B (K-48 / D-05 / D-06, D-350): the four checks behind the Verified check, in Kevin's order. Every one must pass before a tailor
+    is listed (POLICY.LIVE_REQUIRES_VERIFIED) and before the Verified check shows. No insurance item: insurance is provided by Taily (Kevin). */
+export const VERIFY_ITEMS = [
+  { id: 'id', label: 'ID and profile photo' },
+  { id: 'background', label: 'Background check' },
+  { id: 'years', label: 'Years tailoring' },
+  { id: 'payout', label: 'Payout and tax info' },
+];
 export const itemsLabel = (n, word = 'Item') => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export const DEMO_NOW = '2026-10-13T10:00';            // Tue — the frozen demo clock (D-09)
@@ -39,7 +47,7 @@ export const VISIT_LABEL = { customer: { home: 'At my place', shop: 'At the shop
 export const RETURN_LABEL = { pickup: 'In-store pickup', courier: 'Taily courier' };
 export const CHARGE_WHEN = { pickup: 'at pickup', courier: 'on delivery' };   // K-44 / D-303: when the balance is charged, by the way back (the one source)   // K-37: Home drop-off is not a way back
 export const PRIVACY_NOTE = 'Phone numbers and emails stay private on Taily.';
-export const ZIP_INFO = {                               // mock geography: neighborhood + miles from the seed shop
+export const ZIP_INFO = {                               // mock geography: neighborhood + miles from the SEED shop (312 Metropolitan Ave) — kept as the seed's measured distances; every distance is computed by milesBetween (S-42)
   '11211': { hood: 'Williamsburg', miles: 0.6 }, '11222': { hood: 'Greenpoint', miles: 1.4 },
   '11206': { hood: 'East Williamsburg', miles: 1.5 }, '11237': { hood: 'Bushwick', miles: 2.3 },
   '11201': { hood: 'Brooklyn Heights', miles: 3.9 },   // the "zip outside" toggle
@@ -89,13 +97,54 @@ export const NEIGHBORHOODS = [
 export const HOOD_BY_ID = Object.fromEntries(NEIGHBORHOODS.map((n) => [n.id, n]));
 export const zipsForHoods = (ids = []) => [...new Set((ids ?? []).flatMap((id) => HOOD_BY_ID[id]?.zips ?? []))];
 export const hoodNames = (ids = []) => (ids ?? []).map((id) => HOOD_BY_ID[id]?.name).filter(Boolean);
+/* ---------- S-42 (D-357): mock geocoding. PROTOTYPE DATA SOURCE (production: address autocomplete + a geocoder) ----------
+   Every ZIP Taily serves has a point on a flat mile grid (x east, y north; the origin is the seed shop, 312 Metropolitan Ave). An address
+   is geocoded to its street's point when the street is one we know, else its ZIP's point. Distances are straight-line miles to 0.1, so
+   the seed reads exactly as ZIP_INFO measured it (0.6 mi for Sarah in 11211). A ZIP not on the grid is outside Taily: "Taily isn't in that
+   area yet." */
+export const ZIP_XY = {
+  /* Brooklyn — the ZIP_INFO six sit at their measured distance from the seed shop */
+  '11211': [0.36, -0.48], '11249': [-0.72, -0.54], '11222': [0.29, 1.37], '11206': [0.9, -1.2], '11237': [1.84, -1.38], '11201': [-3.12, -2.34],
+  '11205': [-1.2, -2.0], '11216': [0.3, -3.1], '11221': [1.3, -2.6], '11215': [-2.6, -4.4],
+  /* Manhattan */
+  '10024': [-3.6, 6.6], '10025': [-3.3, 7.4], '10021': [-1.8, 4.6], '10028': [-1.6, 5.4], '10018': [-3.3, 3.0], '10019': [-3.6, 3.7],
+  '10001': [-3.7, 2.3], '10011': [-3.8, 1.6], '10014': [-4.1, 0.6], '10003': [-2.6, 0.9], '10009': [-1.9, 0.6], '10012': [-3.2, 0.2],
+  '10013': [-3.7, -0.4], '10007': [-4.0, -1.0],
+  /* Queens */
+  '11102': [0.6, 5.2], '11105': [1.0, 5.9], '11101': [-0.4, 3.0], '11104': [1.4, 3.1], '11372': [3.4, 3.9], '11385': [2.6, -0.6], '11375': [5.6, 1.9],
+  /* Bronx */
+  '10471': [-2.6, 13.6], '10458': [0.4, 10.6], '10462': [2.6, 9.4], '10454': [-0.9, 7.8],
+  /* Staten Island */
+  '10301': [-7.6, -7.4], '10304': [-7.4, -8.6], '10308': [-11.2, -13.0], '10307': [-14.2, -15.6],
+};
+/** Streets the mock geocoder knows (the seed shop); any other address falls back to its ZIP's point. */
+const STREET_XY = { '312 metropolitan ave|11211': [0, 0] };
+const BOROUGH_CITY = { manhattan: 'New York', brooklyn: 'Brooklyn', queens: 'Queens', bronx: 'Bronx', 'staten-island': 'Staten Island' };
+/** A served ZIP → `{ hood, borough, city, state }` (the city by borough: 10013 → SoHo, New York, NY); null outside Taily. */
+export function placeForZip(zip) {
+  const z = String(zip ?? '').trim();
+  if (!ZIP_XY[z]) return null;
+  const n = NEIGHBORHOODS.find((x) => x.zips.includes(z));
+  const borough = n?.borough ?? 'brooklyn';
+  return { hood: n?.name ?? ZIP_INFO[z]?.hood ?? '', borough, city: BOROUGH_CITY[borough] ?? SHOP_CITY.city, state: 'NY' };
+}
+/** `{ street, zip }` → its grid point, or null when the ZIP is outside Taily. */
+export function geocode({ street = '', zip = '' } = {}) {
+  const key = `${String(street ?? '').trim().toLowerCase()}|${String(zip ?? '').trim()}`;
+  return STREET_XY[key] ?? ZIP_XY[String(zip ?? '').trim()] ?? null;
+}
+/** Straight-line miles (one decimal) between two points; null when either is unknown. */
+export function milesBetween(a, b) {
+  if (!a || !b) return null;
+  return Math.round(Math.hypot(a[0] - b[0], a[1] - b[1]) * 10) / 10;
+}
 export const REVIEW_LIMITS = { TEXT_MAX: 500, PHOTOS_MAX: 3 };                       // D-107
 export const HANDOFF_CODE_LEN = 4;                                                  // Study-1 A3: the customer's pickup code, digits
 export const NOTES_LIMITS = { TEXT_MAX: 500, PHOTOS_MAX: 4 };                       // Study-1 B2: one private tailor note
 export const STAR_WORDS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];        // index = stars
-export const TAILOR_LIMITS = { BIO_MAX: 300, CARD_LINE_MAX: 110, WORK_PHOTOS_MAX: 6, PRICE_MAX: 999, FEE_MAX: 200, RUSH_MAX: 200, NOTE_MAX: 200 };  // whole dollars (D-58, D-59)
+export const TAILOR_LIMITS = { BIO_MAX: 300, CARD_LINE_MAX: 110, WORK_PHOTOS_MAX: 6, PRICE_MAX: 999, FEE_MAX: 200, RUSH_MAX: 200, NOTE_MAX: 200, YEARS_MIN: 5, YEARS_MAX: 70, COURIER_NOTE_MAX: 140 };  // whole dollars (D-58, D-59); YEARS_MIN = K-15's onboarding minimum (D-18)
 export const RUSH_TIERS = [1, 2, 3];                       // days after the visit; 4+ days is always free (D-64)
-export const SHOP_CITY = { city: 'Brooklyn', state: 'NY' }; // prototype geography (D-60)
+export const SHOP_CITY = { city: 'Brooklyn', state: 'NY' }; // prototype geography (D-60) — the fallback only; an address's city comes from its ZIP (placeForZip, S-42)
 export const DEFAULT_WEEK = {                              // a new tailor's starting hours (D-62); no overlap
   shop: { tue: ['10:00', '18:00'], wed: ['10:00', '18:00'], thu: ['10:00', '18:00'], fri: ['10:00', '18:00'], sat: ['10:00', '18:00'] },
   home: { mon: ['18:00', '20:00'], thu: ['18:00', '20:00'] } };
@@ -131,8 +180,14 @@ export const TAILORS = [
     phone: '(347) 555-0118', live: true, takingRequests: true,
     cardLine: 'I’ve fitted suits and dresses in Williamsburg since 2014. I pin every fitting myself, at my shop or yours.',   // K-19: the list-card line, ≤ CARD_LINE_MAX
     bio: 'Tailoring in Williamsburg since 2014. I fit at my shop on Metropolitan Ave or at your place, and I show you every pin before I cut.',
-    verified: true, badges: TRUST_BADGES,
-    shop: { enabled: true, street: '312 Metropolitan Ave', city: 'Brooklyn', state: 'NY', zip: '11211', hood: 'Williamsburg' },
+    badges: TRUST_BADGES,
+    /* DG-4 (D-350): her checks, all passed — the Verified check is derived from them (state.js isVerified), never a stored flag.
+       `idDoc` = a photo ID on file (matched to her profile photo); the background check ran with her consent. */
+    idDoc: true,
+    verify: { id: { state: 'verified', at: '2026-01-12T10:00' }, background: { state: 'verified', consentAt: '2026-01-12T10:20', at: '2026-01-14T09:00' } },
+    submitted: true, submittedAt: '2026-01-12T10:30',
+    shop: { enabled: true, street: '312 Metropolitan Ave', unit: '', city: 'Brooklyn', state: 'NY', zip: '11211', hood: 'Williamsburg' },
+    collect: { street: '', unit: '', zip: '', notes: '' },   // B-15: where the courier collects without a shop (private); she has a shop
     home: { enabled: true, zips: ['11211', '11249', '11222', '11206', '11237'], fee: 35, hoods: ['williamsburg', 'greenpoint', 'east-williamsburg', 'bushwick'] },
     prices: {                                           // dollars; 10 services
       'hem-pants': 25, taper: 40, waist: 35, sleeves: 45, 'jacket-sides': 55, 'shirt-take-in': 30,
@@ -151,7 +206,9 @@ export const TAILORS = [
       { id: 'r3', name: 'Jenna L.', initials: 'JL', stars: 4, date: '2026-08-30', photos: 0, text: 'Great work on a dress hem. The return took a day longer than planned, but she messaged ahead.' },
       { id: 'r4', name: 'Dev R.', initials: 'DR', stars: 5, date: '2026-08-11', photos: 0, text: 'Fast zipper replacement at a fair price. Easy to book.' },
     ],
-    payouts: { bank: 'Chase', last4: '6789', holder: 'Amara Reyes', routing: '021000021' },
+    /* D-06 (D-351): set up through the payments partner's hosted onboarding (Stripe Connect Express) — identity, W-9 and bank live there;
+       Taily keeps the bank name + last 4 and the statuses. status: not-started | verifying | action-needed | verified | paused */
+    payouts: { bank: 'Chase', last4: '6789', holder: 'Amara Reyes', routing: '021000021', status: 'verified', identity: 'verified', tax: 'verified', taxAt: '2026-01-12T10:28', issue: null },
     onboarding: { profile: true, services: true, where: true, returns: true, availability: true, payouts: true },
   },
 ];
@@ -187,14 +244,17 @@ export const SEED_JOB = {
 
 /** A tailor with every section empty — the onboarding flows overwrite `amara` with it (D-20). */
 export const BLANK_TAILOR = {
-  id: 'amara', name: '', shopName: '', initials: '', photo: null, workPhotos: 0, years: 0, cardLine: '', bio: '', phone: '', live: false, takingRequests: true,
-  verified: false, badges: [],
-  shop: { enabled: false, street: '', city: '', state: '', zip: '', hood: '' },
+  id: 'amara', name: '', shopName: '', initials: '', photo: null, workPhotos: 0, years: null, cardLine: '', bio: '', phone: '', live: false, takingRequests: true,
+  badges: [], idDoc: false,
+  verify: { id: { state: 'not-started', at: null }, background: { state: 'not-started', consentAt: null, at: null } },
+  submitted: false, submittedAt: null,
+  shop: { enabled: false, street: '', unit: '', city: '', state: '', zip: '', hood: '' },
+  collect: { street: '', unit: '', zip: '', notes: '' },
   home: { enabled: false, zips: [], fee: 0, hoods: [] },
   prices: {}, rush: [],
   returns: { pickup: false, courier: false },
   availability: { shop: {}, home: {} },
   rating: { avg: 0, count: 0 }, reviews: [],
-  payouts: { bank: '', last4: '', holder: '', routing: '' },
+  payouts: { bank: '', last4: '', holder: '', routing: '', status: 'not-started', identity: 'not-started', tax: 'not-started', taxAt: null, issue: null },
   onboarding: { profile: false, services: false, where: false, returns: false, availability: false, payouts: false },
 };

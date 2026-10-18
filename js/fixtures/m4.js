@@ -285,19 +285,19 @@ export const FLOWS_t_job = [
   { ...TJ4, key: 't-job--fitting-docs', title: 'Job — fitting, photographed', note: 'K-04: Back from the editor after photographing: each item row shows its fitting photos (Before + Pinned) as one stack',
     setup: (S) => { S.driveTo('fitting', { docs: 'min' }); },
     expect: { has: ['Fitting', 'photos', 'Final order'], sel: '[data-act="view-photos"][data-source="fitting"]' } },
-  { ...TJ4, key: 't-job--waiting', title: 'Job — waiting for Sarah to approve', note: 'Payout with the old figure, "The order you sent" with the same marks Sarah sees, Edit the order',
+  { ...TJ4, key: 't-job--waiting', title: 'Job — waiting for Sarah to approve', note: 'Payout with the old figure, "The order you sent" with the same marks Sarah sees, Change final order',
     setup: (S) => { S.driveTo('price-change'); },
-    expect: { has: ['Waiting on Sarah to approve', 'Sent ', 'THE ORDER YOU SENT', 'Taper legs', 'New', TJ4_exact(TJ4_SC.priceAdded.payout), `Was ${TJ4_exact(TJ4_SC.seed.payout)}`, `Sarah sees a new total of ${TJ4_exact(TJ4_SC.priceAdded.total)}`, 'Edit the order'], not: ['Waiting for Sarah to approve', 'You sent the final order'], sel: '.change-list' } },
+    expect: { has: ['Waiting on Sarah to approve', 'Sent ', 'THE ORDER YOU SENT', 'Taper legs', 'New', TJ4_exact(TJ4_SC.priceAdded.payout), `Was ${TJ4_exact(TJ4_SC.seed.payout)}`, `Sarah sees a new total of ${TJ4_exact(TJ4_SC.priceAdded.total)}`, 'Change final order'], not: ['Waiting for Sarah to approve', 'You sent the final order'], sel: '.change-list' } },
   { ...TJ4, key: 't-job--waiting-unchanged', title: 'Job — waiting, order sent as booked', note: 'Nothing changed: "No changes", Same as booked, every booked row plain, still waiting for Sarah',
     setup: (S) => { S.driveTo('price-change', { priceChange: 'unchanged' }); },
-    expect: { has: ['Waiting on Sarah to approve', 'No changes', 'Same as booked', TJ4_exact(TJ4_SC.seed.total), 'Edit the order'], not: ['Removed', 'New price'] } },
+    expect: { has: ['Waiting on Sarah to approve', 'No changes', 'Same as booked', TJ4_exact(TJ4_SC.seed.total), 'Change final order'], not: ['Removed', 'New price'] } },
   { ...TJ4, key: 't-job--messaged', title: 'Job — Sarah messaged instead', note: 'Reply to Sarah, her latest message quoted, same price blocks',
     setup: (S) => {
       const a = S.driveTo('price-change');
       S.T.messageAboutPriceChange(a.id);
       S.T.sendMessage(a.tailorId, 'customer', { text: 'Could we keep the sleeves at the old price?' });
     },
-    expect: { has: ['Sarah wants to talk about the order', 'Reply to Sarah', 'keep the sleeves', 'Edit the order'], not: ['Your note', 'Your reply'], sel: '.note-quote' } },
+    expect: { has: ['Sarah wants to talk about the order', 'Reply to Sarah', 'keep the sleeves', 'Change final order'], not: ['Your note', 'Your reply'], sel: '.note-quote' } },
   { ...TJ4, key: 't-job--replied', title: 'Job — Amara replied, waiting on Sarah', note: 'After Sarah messaged and Amara answered: the move is Sarah’s again (D-112)',
     setup: (S) => {
       const a = S.driveTo('price-change');
@@ -305,7 +305,7 @@ export const FLOWS_t_job = [
       S.T.sendMessage(a.tailorId, 'customer', { text: 'Could we keep the sleeves at the old price?' });
       S.T.sendMessage(a.tailorId, 'tailor', { text: 'The sleeves took longer than I thought. Happy to talk it through.' });
     },
-    expect: { has: ['Waiting on Sarah to approve', 'You replied ', 'Your reply', 'Edit the order'], not: ['Reply to Sarah', 'wants to talk', 'Your note', 'latest message'], sel: '.note-quote' } },
+    expect: { has: ['Waiting on Sarah to approve', 'You replied ', 'Your reply', 'Change final order'], not: ['Reply to Sarah', 'wants to talk', 'Your note', 'latest message'], sel: '.note-quote' } },
   { ...TJ4, key: 't-job--docs-unsent', title: 'Job — photos changed since sending', note: 'K-02: a photo added after the order went out: a line says Sarah does not see it until the updated order is sent (D-183)',
     setup: (S) => { const a = S.driveTo('price-change'); S.T.addFittingPhoto(a.id, 'g1', 'before'); },
     expect: { has: ['Waiting on Sarah', 'You changed photos or comments since you sent the order'] } },
@@ -331,7 +331,7 @@ export const FLOWS_t_job = [
     expect: { has: ['Ready · Sarah is choosing how to get it back', 'RETURN OPTIONS YOU OFFERED', TJ4_exact(TJ4_SC.seed.balance), 'plus the courier if she picks it'] } },
   { ...TJ4, key: 't-job--handoff-pickup', title: 'Job — Sarah picks it up', note: 'In-store pickup at the shop; her balance is on hold (K-27); Picked up asks for her code (Study-1 A3); K-40: the time Sarah picked, only she can change it',
     setup: (S) => { S.driveTo('awaiting-handoff'); },
-    expect: { has: [`Sarah picks up Fri, Oct 16 · 5:30 PM · ${TJ4_exact(TJ4_SC.seed.balance)} on hold`, 'IN-STORE PICKUP', 'Fri, Oct 16 · 5:30 PM', 'Sarah picked this time from your open hours', 'Reyes Tailoring', 'Only Sarah can change the time.', 'Message Sarah', 'Picked up', 'Your payout arrives the Friday after the job is complete.', 'If Sarah hasn’t collected by Thu, Oct 22, we charge her.'], not: ['will pick it up', 'Mark completed', 'paid the balance', 'Change time'], sel: '[data-act="picked-up"]' } },
+    expect: { has: [`Sarah picks up Fri, Oct 16 · 5:30 PM · ${TJ4_exact(TJ4_SC.seed.balance)} charged at pickup`, 'IN-STORE PICKUP', 'Fri, Oct 16 · 5:30 PM', 'Sarah picked this time from your open hours', 'Reyes Tailoring', 'Only Sarah can change the time.', 'Message Sarah', 'Picked up', 'Your payout arrives the Friday after the job is complete.', 'If Sarah hasn’t collected by Thu, Oct 22, we charge her.'], not: ['will pick it up', 'Mark completed', 'paid the balance', 'Change time'], sel: '[data-act="picked-up"]' } },
   { ...TJ4, key: 't-job--handoff-courier', title: 'Job — courier booked', note: 'Paid by Sarah, payout unchanged; no tap of hers: the courier’s delivery completes it (Study-1 A3, default 6); K-40: when it is collected, the window Sarah picked',
     setup: (S) => { S.driveTo('awaiting-handoff', { returnOption: 'courier' }); },
     expect: { has: ['If Sarah isn’t home, the courier leaves it in her building’s lobby. It still counts as delivered.', 'Courier collects 4:45 PM · arrives 5:00–5:30 PM', 'Collects Fri, Oct 16 · 4:45 PM', 'Have it bagged by then · arrives at Sarah’s 5:00–5:30 PM', 'Sarah picked the window. Only she can change it.', 'TAILY COURIER', '145 N 7th St', 'Paid by Sarah · nothing comes out of your payout', TJ4_exact(TJ4_SC.seed.payout)], not: [TJ4_exact(TJ4_SC.courierQuote.quote), TJ4_exact(TJ4_SC.courierQuote.markup), TJ4_exact(TJ4_SC.courierQuote.cents), 'Mark completed', 'Handed to courier', 'HAND-OFF'], sel: '[data-strip="done"]' } },

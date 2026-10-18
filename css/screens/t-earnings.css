@@ -28,3 +28,5 @@
 .t-earnings__tag { display: inline-block; margin-left: var(--space-8); padding: var(--space-2) var(--space-8); border-radius: var(--radius-full); background: var(--error-bg); color: var(--error-ink); font-weight: 600; vertical-align: 2px; }
 .t-earnings__fix { margin-top: var(--rhythm-group); }
 .t-earnings__subline { display: block; }
+/* DG-4 option B (D-355): Tax documents */
+.t-earnings__tax .list-row { min-height: 56px; }

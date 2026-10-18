@@ -5,7 +5,7 @@
    About, photos, Your estimate, reviews. Focal: Book now / the action bar's Pick a time (Ask a question is a link under it).
    ============================================================ */
 import { register, render as go, back, currentScreen, previousScreen } from '../app.js';
-import { state, T, tailorById, estimateNext, eligible, nextOpening, apptsFor } from '../state.js';
+import { state, T, tailorById, estimateNext, eligible, nextOpening, apptsFor, isVerified, milesToShop } from '../state.js';
 import {
   chrome, flowBar, avatar, verifiedCheck, reviewRow, priceRow, metaRow, cta, navBackMark,
   sectionHead, textLink, infoButton, stitchDivider, ICON_CHAT,
@@ -13,7 +13,7 @@ import {
 } from '../components.js';
 import { ICON_CAMERA, VISIT_ICONS } from '../icons.js';
 import { cents, fmtColumn } from '../money.js';
-import { ZIP_INFO, TAILOR_LIMITS } from '../data.js';
+import { TAILOR_LIMITS, placeForZip } from '../data.js';
 import { fmtWhen, fmtDay, nb } from '../dates.js';
 
 const ID = 'c-tailor';
@@ -34,6 +34,7 @@ function reasonNote(el, job) {
     'nothing-open': `Nothing open before ${nb(fmtDay(job.needBy))}`,
     zip: job.visitType === 'home' ? `Doesn’t visit ${job.zip}` : `No shop within 5 miles of ${job.zip}`,
     'shop-off': 'Doesn’t take shop visits',
+    services: 'Doesn’t offer every service you picked',   // K-48.2 (D-354)
   }[el.reason] ?? 'Not available for this request';
 }
 
@@ -54,10 +55,10 @@ function portrait(t) {
 
 /** Name (serif, with the Verified check), then "Shop · Neighbourhood". */
 function identity(t) {
-  const area = t.shop?.hood || ZIP_INFO[t.shop?.zip]?.hood || '';
+  const area = t.shop?.hood || placeForZip(t.shop?.zip)?.hood || '';
   const sub = [t.shopName ? `<span class="w-600 c-700">${esc(t.shopName)}</span>` : '', area ? `<span class="c-600">${esc(area)}</span>` : ''].filter(Boolean).join('<span class="c-600"> · </span>');
   return `<div class="c-tailor__centre">
-    <div class="c-tailor__namerow"><h1 class="t-title c-tailor__name">${esc(t.name)}</h1>${t.verified ? verifiedCheck({ years: t.years }) : ''}</div>
+    <div class="c-tailor__namerow"><h1 class="t-title c-tailor__name">${esc(t.name)}</h1>${isVerified(t) ? verifiedCheck({ years: t.years }) : ''}</div>
     ${sub ? `<p class="t-body c-tailor__shop">${sub}</p>` : ''}
   </div>`;
 }
@@ -65,7 +66,7 @@ function identity(t) {
 /** The ruled three-column stat strip: rating + reviews · years · distance (a column with nothing to say is left out). */
 function stats(t, job) {
   const rated = t.rating?.count > 0;
-  const miles = t.shop?.enabled ? ZIP_INFO[job.zip]?.miles : null;
+  const miles = t.shop?.enabled ? milesToShop(t, job.zip) : null;   // S-42: from her shop
   const cols = [];
   cols.push(rated
     ? `<a class="c-tailor__stat c-tailor__stat--link" href="#reviews" data-anchor="reviews" data-hit="inline" aria-label="Rated ${Number(t.rating.avg).toFixed(1)} out of 5 from ${t.rating.count} review${t.rating.count === 1 ? '' : 's'}"><span class="c-tailor__fig"><span class="c-tailor__star" aria-hidden="true">★</span>${Number(t.rating.avg).toFixed(1)}</span><span class="t-small c-600">${t.rating.count} review${t.rating.count === 1 ? '' : 's'}</span></a>`
@@ -123,7 +124,7 @@ const hoodList = (t) => hoodSentence(t.home?.hoods ?? []);
 function where(t, job) {
   const blocks = [];
   if (t.shop?.enabled) {
-    const miles = ZIP_INFO[job.zip]?.miles;
+    const miles = milesToShop(t, job.zip);   // S-42
     blocks.push(`<div class="c-tailor__place">${metaRow('', esc(shopPlace(t, { full: true })), { icon: 'shop' })}${miles != null ? `<p class="t-small c-600">${miles.toFixed(1)} mi from you</p>` : ''}</div>`);
   }
   if (t.home?.enabled) {

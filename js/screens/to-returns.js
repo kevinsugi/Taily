@@ -5,7 +5,7 @@
    Drafts live in state.ui['to-returns'].draft (D-34).
    ============================================================ */
 import { register, render as go, back, currentScreen } from '../app.js';
-import { state, T, SECTIONS } from '../state.js';
+import { state, T, SECTIONS, onboarded, collectAddress } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, checkRow, customerPreview,
@@ -24,7 +24,7 @@ const NEXT = ONBOARDING_STEPS[STEP + 1]?.screen ?? 'to-done';
 const TITLE = '<h1 class="t-title">How do customers get their orders back?</h1>';
 const KEYS = ['pickup', 'courier'];
 const ui = () => (state.ui[ID] ??= {});
-const editing = () => !!myTailor().live;
+const editing = () => onboarded(myTailor());
 const hasShop = () => !!myTailor().shop?.enabled;
 
 const ROWS = {
@@ -32,7 +32,8 @@ const ROWS = {
   courier: { label: RETURN_LABEL.courier, caption: 'We send a courier. The customer pays for it — nothing comes out of your payout.' },
 };
 const NEEDS_SHOP = 'Needs a shop. Turn it on in Where you work.';
-const COURIER_HOME = 'We send a courier to collect it from your home. The customer pays for it — nothing comes out of your payout.';
+/** B-15 (D-356): without a shop the courier collects from the private address she gave in Where you work. */
+const courierHome = () => `We send a courier to collect it from ${collectAddress(myTailor()) || 'the address you gave us'}. The customer pays for it — nothing comes out of your payout.`;
 const MSG = {
   'return-required': 'Pick at least one return option.',
   'pickup-needs-shop': NEEDS_SHOP,
@@ -95,7 +96,7 @@ function view() {
   const rows = KEYS.map((k) => {
     const off = k === 'pickup' && !hasShop();
     return checkRow({
-      id: `ret-${k}`, label: ROWS[k].label, caption: off ? NEEDS_SHOP : k === 'courier' && !hasShop() ? COURIER_HOME : ROWS[k].caption, checked: eff[k], disabled: off,
+      id: `ret-${k}`, label: ROWS[k].label, caption: off ? NEEDS_SHOP : k === 'courier' && !hasShop() ? courierHome() : ROWS[k].caption, checked: eff[k], disabled: off,
       error: '', attrs: `data-act="ret" data-id="${k}"`,
     });
   }).join('');
@@ -222,4 +223,5 @@ function wire(root) {
   });
 }
 
-register(ID, view, wire);
+/* S-22 (D-360): the top nav asks before dropping unsaved edits */
+register(ID, view, wire, { canLeave: () => !editing() || !dirty() || !!ui().busy, discard: () => { state.ui[ID] = {}; } });

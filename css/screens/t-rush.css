@@ -8,3 +8,5 @@
 .t-rush__ladder p { margin: 0; }
 .t-rush__ladder .sec-head { margin-bottom: 0; }
 .t-rush__ladder p[data-ladder], .t-rush__ladder-note { text-wrap: pretty; }
+/* S-39 (D-359): the one rush line a customer sees */
+.t-rush__caption { margin: 0; text-wrap: pretty; }

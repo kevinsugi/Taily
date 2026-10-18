@@ -1029,6 +1029,11 @@ a.cta-small { text-decoration: none; }
 .garment-head__who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); flex: 1 1 auto; min-width: 0; }
 .garment-head__name { margin: 0; min-width: 0; color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-skip-ink: auto; }   /* decoration only: not a link, no hover, no pointer */
 .garment-head--gone .garment-head__name { color: var(--neutral-600); text-decoration: none; }
+/* D-24 (K-48): the underlined name opens that item's services popover (K-25) — a bare button that keeps the name's look; ::before = the 44 px target */
+.garment-head__peek { position: relative; display: inline; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-skip-ink: auto; }
+.garment-head__peek::before { content: ''; position: absolute; inset: -12px calc(-1 * var(--space-4)); }
+.garment-head__peek:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; border-radius: var(--radius-sm); }
 .garment-head--gone .garment-head__name s { text-decoration-thickness: 1px; }
 .garment-head .garment-icon--card { background: none; box-shadow: none; border-radius: 0; overflow: visible; }   /* K-05: the bare illustration, no well / ring / radius box */
 .garment-head--gone .garment-icon { opacity: .5; filter: grayscale(1); }
@@ -1257,12 +1262,12 @@ a.cta-small { text-decoration: none; }
   .service-row__price { width: 100%; align-items: stretch; padding-left: calc(var(--size-24) + var(--space-12)); padding-top: 0; }
   .service-row__box { width: 100%; }
   .service-row__pay { margin-left: 0; }
-  /* a saved-item tag (c-cards, c-addresses) or a row amount (t-earnings) goes on its own line under the title / sub */
-  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 0; row-gap: var(--space-4); }
-  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) > .list-row__lead { grid-column: 1; grid-row: 1 / span 2; margin-right: var(--space-12); }
-  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) > .list-row__text { grid-column: 2; grid-row: 1; }
-  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) > .list-row__right { grid-column: 2; grid-row: 2; justify-self: start; }
-  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) > .list-row__chevron { grid-column: 3; grid-row: 1 / span 2; margin-left: var(--space-12); }
+  /* a saved-item tag (c-cards, c-addresses), a row amount (t-earnings) or a check's status dot (DG-4) goes on its own line under the title / sub */
+  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money], .status)) { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 0; row-gap: var(--space-4); }
+  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money], .status)) > .list-row__lead { grid-column: 1; grid-row: 1 / span 2; margin-right: var(--space-12); }
+  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money], .status)) > .list-row__text { grid-column: 2; grid-row: 1; }
+  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money], .status)) > .list-row__right { grid-column: 2; grid-row: 2; justify-self: start; }
+  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money], .status)) > .list-row__chevron { grid-column: 3; grid-row: 1 / span 2; margin-left: var(--space-12); }
   /* c-job: two tiles a row, labels wrap whole words, the tile grows to hold them; − / + share the tile (each still 64+ px of touch at 200%) */
   .tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .garment-tile { height: auto; min-height: 110px; padding-inline: var(--space-2); }   /* 65 px of label: "Accessories" fits whole */
@@ -1442,3 +1447,21 @@ a.cta-small { text-decoration: none; }
 
 /* SF-43: the edit-scope line under a live-shop editor's intro */
 .edit-scope { margin: var(--space-8) 0 0; text-wrap: pretty; }
+
+/* ---------- DG-4, option B (K-48, D-350…D-355): the four checks, the background-check disclosure, the hosted payout step ---------- */
+.verify-list .list-row { min-height: 56px; }
+.verify-list .list-row__right { flex: 0 0 auto; }
+.disclosure { display: flex; flex-direction: column; gap: var(--rhythm-tight); }
+.disclosure p { margin: 0; text-wrap: pretty; }
+.disclosure__draft { padding: var(--space-8) var(--space-12); border-radius: var(--radius-sm); background: var(--neutral-100); }   /* the copy is a placeholder for counsel — say so on the page */
+.disclosure__agree { margin-top: var(--rhythm-group); }
+.disclosure__go { margin-top: var(--rhythm-group); padding-bottom: var(--space-8); }
+.disclosure__go .cta { width: 100%; }
+.id-sheet__lead { margin: 0 0 var(--rhythm-group); text-wrap: pretty; }
+.secure-setup { display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-16); }
+.secure-setup p { margin: 0; }
+.secure-setup__list { display: flex; flex-direction: column; gap: var(--space-4); margin: 0; padding-left: var(--space-20); }
+.payout-rows .list-row { min-height: 56px; }
+
+/* P-27 (D-362): a text area whose label is a section title (c-review: peers with "Your rating" and "Photos", R4-1-C-10) */
+.field__label.field__label--section { font-size: var(--size-16); line-height: var(--lh-16); font-weight: 600; color: var(--ink); }

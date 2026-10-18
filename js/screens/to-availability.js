@@ -5,7 +5,7 @@
    Drafts live in state.ui['to-availability'].draft (D-34): { shop: { tue: ['10:00', '18:00'] }, home: {…} } — one window per day (D-62).
    ============================================================ */
 import { register, render as go, back, currentScreen } from '../app.js';
-import { state, T, SECTIONS } from '../state.js';
+import { state, T, SECTIONS, onboarded } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
   onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, chipGroup, dayHours, actionBar,
@@ -26,7 +26,7 @@ const NEXT = ONBOARDING_STEPS[STEP + 1]?.screen ?? 'to-done';
 const TITLE = '<h1 class="t-title">When can customers book you?</h1>';
 const SCHEDS = ['shop', 'home'];
 const ui = () => (state.ui[ID] ??= {});
-const editing = () => !!myTailor().live;
+const editing = () => onboarded(myTailor());
 const enabledScheds = () => SCHEDS.filter((s) => myTailor()[s]?.enabled);
 
 /* ---------- copy ---------- */
@@ -290,4 +290,5 @@ function wire(root) {
   });
 }
 
-register(ID, view, wire);
+/* S-22 (D-360): the top nav asks before dropping unsaved edits */
+register(ID, view, wire, { canLeave: () => !editing() || !dirty() || !!ui().busy, discard: () => { state.ui[ID] = {}; } });

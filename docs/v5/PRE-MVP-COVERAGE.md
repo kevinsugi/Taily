@@ -199,7 +199,7 @@ The director's walk of every happy journey in the real app (https://claude.ai/ar
 | F1 | fixed | D-454 | Home: no disabled draft bar while a booking leads; `apptNext` — the booking's one full-width primary |
 | F2 | fixed | D-455 | "How did Amara do?" on Home from the moment it came back (`reviewPrompt`), the 7-day reminder after |
 | F3 | fixed | D-453 | Book again: need-by = today + `NEED_BY_DEFAULT_D` (10), no stale rush |
-| F4 | **left for Kevin** | — | one primary on c-tailor (sticky "Book Thu, Oct 15 · 5:00 PM" + Other times) would reverse K-18 (Book now in the stat strip) — not changed |
+| F4 | **kept by Kevin (K-54)** | — | Kevin kept "Book now" + "Pick a time" (K-18 stands). Proposal was one primary on c-tailor (sticky "Book Thu, Oct 15 · 5:00 PM" + Other times) would reverse K-18 (Book now in the stat strip) — not changed |
 | F5 | fixed | D-452 | the Friday run fires at `POLICY.PAYOUT_RUN_H` as the clock crosses it (T35 then); Earnings lists every later Friday ("After that"); journey J43 |
 | F6 | fixed | D-459 | 200% zoom: the tailor card's head stacks, the filters take a row each |
 | F7 | fixed | D-459 | 200% zoom: the date wheel stacks above the time wheels, each with its band |

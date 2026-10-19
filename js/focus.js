@@ -61,6 +61,12 @@ export function statusWord(appt, persona = state.persona, { short = false } = {}
     case 'expired': return { pill: 'expired', label: 'No reply' };
     case 'cancelled': return { pill: 'cancelled', label: appt.cancel?.reason === 'no-show' ? 'No-show' : 'Cancelled' };
     case 'confirmed': {
+      /* K-54 P8 (D-461): visit day — once the tailor pinged, the customer's row says where she is (On her way · Amara is here) */
+      const vt = appt.visitDay?.tailor ?? {};
+      if (customer && (vt.hereAt || vt.onWayAt)) {
+        const tf = (state.tailors.find((t) => t.id === appt.tailorId)?.name || 'Your tailor').split(' ')[0];
+        return vt.hereAt ? { pill: 'action', label: `${tf} is here` } : { pill: 'confirmed', label: pick(`${tf} is on her way`, 'On her way') };
+      }
       /* K-41 (R3, D-296): the 24-hour reminder's answer has its own words ("Confirmed" already means Amara accepted) */
       const r = reminderState(appt);
       if (r === 'asked') return customer ? { pill: 'action', label: 'Your move' } : { pill: 'waiting', label: 'Not confirmed yet' };

@@ -11,7 +11,7 @@ import {
 } from '../state.js';
 import {
   chrome, headingRow, sectionHead, requestStrip, visitBlock, moneyRows, listRow, cta, chipGroup, wireChipGroups, composer, wireComposer,
-  caseThread, confirmAction, banner, infoCard, infoRow, emptyState, esc, toast, wirePhotoViewer, openAttachSheet,
+  caseThread, confirmAction, banner, infoCard, infoRow, emptyState, esc, toast, wirePhotoViewer, openAttachSheet, sheetOverlay, field,
 } from '../components.js';
 import { fmtWhen, fmtDay, fmtTime, isoDay } from '../dates.js';
 import { fmtExact } from '../money.js';
@@ -96,7 +96,7 @@ function view() {
   const actions = v.open ? `<section class="sec">${sectionHead('Actions')}
   ${acts.length ? `<div class="card card--list ${ID}__acts">${acts.map((x) => listRow({
     title: x.tone === 'danger' ? `<span class="more-item--danger">${esc(x.label)}</span>` : esc(x.label), sub: esc(x.sub), act: 'admin-act', attrs: `data-kind="${esc(x.kind)}"`,
-    right: x.cents ? `<span data-money>${fmtExact(x.cents)}</span>` : '',
+    right: x.cents ? `<span data-money>${fmtExact(x.cents)}</span>` : x.amount ? '<span class="t-small c-600">Amount</span>' : '',
   })).join('')}</div>` : `<p class="t-small c-600">${a ? 'No money to move on this order right now.' : 'No order attached, so there’s no money to move.'}</p>`}
   <div class="${ID}__close">${cta('Close with outcome', { attrs: 'data-act="close-case"' })}</div></section>` : '';
   const decided = !v.open ? `<section class="sec">${sectionHead('Outcome')}${infoCard(c.sides.map((s) => infoRow(nameOf(s, a), `<span data-money>${esc(c.outcome?.lines?.[s] ?? '')}</span>`)).join(''))}</section>` : '';
@@ -118,6 +118,51 @@ function view() {
   <section class="sec ${ID}__conv">${sectionHead('Conversation')}${switcher}<div class="${ID}__thread">${thread}</div></section>
 </main>
 <div class="${ID}__foot">${foot}</div>`;
+}
+
+/* ---------- K-54 P11 (D-463): refund part of what she paid — the admin types the amount (dollars), said next to the field ---------- */
+const AMOUNT_ERR = { 'amount-invalid': 'Enter an amount, like 5.00.' };
+function openPartial(c, x) {
+  const tf = firstOf(tailorById(getAppt(c.apptId)?.tailorId)?.name);
+  const html = (value = '', error = '', busy = false) => `<form class="${ID}-sheet" data-view="partial" novalidate${busy ? ' aria-busy="true"' : ''}>
+  ${field({ id: 'refund-amount', label: 'Amount to refund', value, inputmode: 'decimal', prefix: '$', placeholder: '0.00', maxlength: 8, disabled: busy,
+    helper: `Up to ${fmtExact(x.max)}. Taily pays it; ${tf}’s payout doesn’t change.`, error })}
+  <div class="${ID}-sheet__actions">
+    ${cta('Refund', { busy, busyLabel: 'Refunding…', attrs: 'data-act="partial-ok"' })}
+    ${cta('Cancel', { variant: 'secondary', disabled: busy, attrs: 'data-act="partial-cancel"' })}
+  </div>
+</form>`;
+  sheetOverlay(html(), { header: 'Refund part of it', dataS: `${ID}--partial`, confirm: false }, (holder, close) => {
+    let busy = false;
+    const paint = (value, error) => { holder.querySelector(`.${ID}-sheet`).outerHTML = html(value, error, busy); };
+    const submit = () => {
+      if (busy) return;
+      const value = holder.querySelector('#refund-amount')?.value ?? '';
+      const n = Number(String(value).replace(/[$,\s]/g, ''));
+      const cents = Number.isFinite(n) && String(value).trim() ? Math.round(n * 100) : NaN;
+      busy = true; paint(value, '');
+      withLatency(() => {
+        if (!holder.isConnected) return;
+        const r = T.adminAct(c.id, 'refund-partial', { cents });
+        busy = false;
+        if (!r.ok) {
+          paint(value, r.error === 'amount-over' ? `That’s more than she paid. Up to ${fmtExact(r.max)}.` : AMOUNT_ERR[r.error] ?? ERRORS[r.error] ?? 'Couldn’t refund that. Try again.');
+          holder.querySelector('#refund-amount')?.focus();
+          return;
+        }
+        close({ instant: true });
+        go(ID, { replace: true });
+        toast(`Refunded ${fmtExact(r.cents)}. Close the case to tell them both.`, { tone: 'success' });
+      });
+    };
+    holder.addEventListener('submit', (e) => { e.preventDefault(); submit(); });
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (act === 'partial-ok') submit();
+      else if (act === 'partial-cancel' && !busy) close();
+    });
+    holder.querySelector('#refund-amount')?.focus();
+  });
 }
 
 function wire(root) {
@@ -156,6 +201,7 @@ function wire(root) {
     else if (act === 'admin-act') {
       const x = adminActions(c).find((k) => k.kind === el.dataset.kind);
       if (!x) return;
+      if (x.amount) { openPartial(c, x); return; }   // K-54 P11
       confirmAction({ header: x.label, body: esc(x.confirm), ok: x.label, danger: x.tone === 'danger', dataS: `${ID}--act`, busyLabel: 'Saving…' }, () => {
         const r = T.adminAct(c.id, x.kind);
         if (!r.ok) return ERRORS[r.error] ?? 'Couldn’t do that. Try again.';

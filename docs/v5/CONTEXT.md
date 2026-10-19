@@ -511,3 +511,29 @@ Run it end to end: `npm run study` (`scripts/v5/study-run.mjs`, 390 px, through 
   `docs/v5/DESIGN-SYSTEM.md`; DESIGN.md is current through K-53.
 - **Copy deck** (K-53 a7, D-447): `node scripts/v5/copy-deck.mjs` → `docs/v5/COPY-DECK.md` (every state's visible copy by persona →
   screen → state, deduped; the 94 texts; policy headings + In short; COUNSEL / made-up placeholders). Rerun after any copy edit.
+
+## K-54 happy-path review fixes (D-450…D-464; flows `js/fixtures/s3r.js`, inventory milestone `RV`; coverage `docs/v5/PRE-MVP-COVERAGE.md` "Happy-path review")
+
+- **state.js.** `tick()` runs the Friday payout run (`payoutTimers`: every payout date whose `payoutRunAt(day)` = `POLICY.PAYOUT_RUN_H` 9:00 AM the clock
+  crossed → `settlePayouts({ at, upTo })`, stamped at the run; held / paused wait). `reviewCheck(id, 'verified' | 'needs-info')` (one check, the
+  admin's; unknown-check · unknown-result · not-submitted · not-started · background-last · same; texts via verifyTexts) · `verificationQueue()` →
+  `{ review, verified }` · `CHECK_WORDS` exported · years check: `tailor.verify.years` (needs-info → pending on a profile re-save; else derived).
+  `bookAgain` need-by = today + `NEED_BY_DEFAULT_D` (data.js, 10). `reviewPromptDue(a)` / `reviewPrompt()` (Home's review card before the 7-day
+  reminder; `reviewPromptDismissedAt`). P11: `refundableOf(a)`, `courierRefundable(a)`, `adminRefundCourier(caseId)`, `adminRefundPartial(caseId, cents)`
+  (`amount-invalid` · `amount-over` `{ max }` · `nothing-paid`), `adminAct(caseId, kind, { cents })`; `a.payments.tailyRefunds` → receipt refunds
+  `courier` / `partial`, Ledger `courier-refund` / `partial-refund` ('out'; revenue pays it).
+- **account.js / account-ui.js.** `saveName` for a new number clears the sample draft, addresses, card, Apple Pay (P1). `signOutTo(who)` (DOM-free;
+  a tailor → t-phone Log in mode); `openSignOut` uses it.
+- **focus.js.** `statusWord(confirmed, 'customer')` after the tailor's pings: "Amara is here" / "Amara is on her way" (short "On her way").
+- **tailor-data.js.** `payoutsView().later` (every pending Friday after the next); `previewJob` has `needBy: null`.
+- **components.js.** `apptNext({ row, label, act })` (a booking row + its one full-width primary, Home); `avatar({ mark })` / `threadHead({ mark })`
+  (`tailyHead` = the Help mark); `NAV.admin` Inbox · Verifications (`checks`, `NAV_ICONS.checks`) · Ledger, `navBadges('admin').checks`;
+  `checkWords(t, 'years')` needs-info / pending.
+- **Screens.** New `a-verifications` (admin). c-pay `sent(res)` names the new request; no card → "Add a card" (Reserve → the card form → reserve).
+  c-job: no draft bar while a booking / the review card leads and the draft is empty (back with the first garment or a Book-again draft); ready row
+  "Ready since …". c-ready: Pay confirms on the held card (`payDirect`; "Pay with … · Change" = `pay-change` → the sheet). t-job courier out,
+  "packaged", the last-day time. c-booking: reminder strip with the auto-cancel cut-off; no footer once she is here; "Taily courier fee".
+  a-case: refund the courier / part of it (amount sheet `a-case--partial`). t-earnings "After that". Demo action **Checks come back** (`checks`).
+- **CSS (18.75em tier only).** the tailor card's head stacks; c-tailors' filters one per row; a 4-column date wheel stacks (the day wheel above
+  the time wheels, a second band via `::after`); money-row status wraps.
+- **Journeys** J41 (B1), J42 (B2), J43 (F5), J44 (F8), J45 (F9); J7 / J15 / J34 / J36 pay in one tap; J19 / J20 the reminder cut-off.

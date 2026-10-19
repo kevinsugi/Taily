@@ -392,22 +392,24 @@ function timeRows(a) {
   const first = firstOf();
   const moved = h.moved?.from ? `${first} moved it from ${slotText(h.moved.from)}` : '';
   if (a.returnOption === 'courier') {
+    /* K-54 F10 (D-458): once she handed it over, the block says so — no "have it packaged", no change or last-day lines */
+    if (h.trip?.state === 'out') return [{ icon: 'check', strong: true, value: esc(`Handed to the courier ${fmtTime(h.trip.outAt)}`), detail: [esc(`Arrives at ${first}’s ${courierWhen(a)}`)] }];
     const from = !myTailor().shop?.enabled && collectAddress(myTailor()) ? `From ${collectAddress(myTailor())}` : '';   // B-15 (D-356)
     return [{ icon: 'clock', strong: true, value: esc(`Collects ${fmtDay(h.slot.collectAt)} · ${fmtTime(h.slot.collectAt)}`),
-      detail: [moved, from, `Have it bagged by then · arrives at ${first}’s ${courierWhen(a)}`].filter(Boolean).map(esc) }];
+      detail: [moved, from, `Have it packaged by then · arrives at ${first}’s ${courierWhen(a)}`].filter(Boolean).map(esc) }];   // K-54 F10: T24's word
   }
   return [{ icon: 'calendar', strong: true, value: esc(slotText(h.slot)),
     detail: esc(handoffMissed(a) ? `${first} missed this time. She picks a new one.` : moved || `${first} picked this time from your open hours`) }];
 }
 /** K-40: the tailor can't set or move the handoff time — one line and Message. */
 function onlySarah(a) {
-  if (!a.handoff?.slot || a.handoff.markedAt || a.handoff.problemAt) return '';
+  if (!a.handoff?.slot || a.handoff.markedAt || a.handoff.problemAt || a.handoff.trip?.state === 'out') return '';   // K-54 F10: nothing to change once it's out
   const first = esc(firstOf());
   const text = a.returnOption === 'courier' ? `${first} picked the window. Only she can change it.` : `Only ${first} can change the time. Need a different one? Message her.`;
   /* SF-14: the 7-day charge date, while her balance is still on hold */
   const b = a.payments.balance;
   const capture = b.state === 'held' && b.cents > 0 && unclaimedAt(a)
-    ? `<p class="t-small c-600 ${ID}__only">If ${first} hasn’t ${a.returnOption === 'courier' ? 'got it' : 'collected'} by ${esc(fmtDay(unclaimedAt(a)))}, we charge her.</p>` : '';
+    ? `<p class="t-small c-600 ${ID}__only">If ${first} hasn’t ${a.returnOption === 'courier' ? 'got it' : 'collected'} by ${esc(fmtWhen(unclaimedAt(a)))}, we charge her.</p>` : '';   // K-54 P5: the time Sarah reads too
   return `<p class="t-small c-600 ${ID}__only">${text}</p>${capture}`;   // P-33: Message is the header's button, once
 }
 
@@ -758,7 +760,7 @@ function sheetReadyBody(a, keys, picked, { busy = false, error = false } = {}) {
   const first = esc(firstOf());
   const line = (k) => (k === 'pickup' ? `At ${shopPlace(t)}` : `${firstOf()} pays the courier. It’s not taken from your payout.`);
   return `<div class="${ID}-sheet"${busy ? ' aria-busy="true"' : ''}>
-  <p class="t-body c-700 ${ID}-sheet__intro">${first} is told right away, and we hold her ${fmtExact(a.money.balance)} balance on her card. She picks how to get it back from the options you tick within ${HOLD_DAYS} days.</p>
+  <p class="t-body c-700 ${ID}-sheet__intro">${first} is told right away, and we hold her ${fmtExact(a.money.balance)} balance on her card. She has ${HOLD_DAYS} days to choose pickup or delivery from the options you tick.</p>
   <fieldset class="${ID}-sheet__ways" data-ways>
     <legend class="t-small w-600 c-600">Return options for this order</legend>
     ${keys.map((k) => checkRow({ id: `ret-${k}`, label: RETURN_LABEL[k], caption: line(k), checked: picked[k] !== false, disabled: busy })).join('')}

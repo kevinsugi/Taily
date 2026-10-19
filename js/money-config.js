@@ -71,6 +71,7 @@ export const POLICY = Object.freeze({
      background check, years tailoring, payout and tax info). false = listed while the review runs (the Verified check still waits). */
   LIVE_REQUIRES_VERIFIED: true,
   PAYOUT_FIX_D: 9,          // DG-4 prototype: the payments partner's deadline to confirm paused tax info (production: the partner's own date)
+  PAYOUT_RUN_H: 9,          // K-54 F5 (D-452): the weekly payout run goes out at this hour on each payout Friday; the demo clock crossing it runs it (tick)
   /* ---- MVP readiness, track L (K-52 / K-53) ---- */
   SOCIAL_SIGN_IN: false,    // K-53 Q9: phone-only sign-in for the pilot — Continue with Apple / Google stay in the code, hidden while false (D-423)
   NOTICE_OPTIONS_H: Object.freeze([12, 24, 48]), // K-53 a4 (S-34): a tailor's minimum-notice choices after Taily's own MIN_LEAD_H, the shortest (D-425)

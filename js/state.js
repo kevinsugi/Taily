@@ -34,7 +34,7 @@ import {
   CUSTOMER, TAILORS, SEED_JOB, BLANK_TAILOR, DEMO_NOW, MAX_ITEMS, VISIT_MINUTES, DAY_START_MIN, DAY_END_MIN,
   SLOT_STEP_MIN, SLOT_HORIZON_DAYS, ZIP_INFO, SHOP_RADIUS_MI, SERVICES, GARMENT_TYPES, RETURN_LABEL,
   TAILOR_LIMITS, CHARGE_WHEN, RUSH_TIERS, ROUTING_BANKS, REVIEW_LIMITS, CHAT_LIMITS, FITTING_LIMITS, DOC_KINDS, servicesForType, HANDOFF_CODE_LEN,
-  HOOD_BY_ID, zipsForHoods, NOTES_LIMITS, VERIFY_ITEMS, placeForZip, geocode, milesBetween, ZIP_XY, BOOKING_LIMITS, SHOP_CITY,
+  HOOD_BY_ID, zipsForHoods, NOTES_LIMITS, VERIFY_ITEMS, placeForZip, geocode, milesBetween, ZIP_XY, BOOKING_LIMITS, SHOP_CITY, NEED_BY_DEFAULT_D,
 } from './data.js';
 import { TEXTS, textCtx } from './texts.js';
 
@@ -121,6 +121,7 @@ export function setClock(iso) { state.clock.now = toDate(iso).getTime(); return 
 export function tick() {
   const moved = [];
   for (const a of state.appts) if (timersFor(a)) moved.push(a.id);
+  payoutTimers();   // K-54 F5 (D-452): the Friday payout run, once the clock crosses it (payouts are not appointment states: not in `moved`)
   return moved;
 }
 const msOf = (iso) => toDate(iso).getTime();
@@ -636,7 +637,9 @@ export function checkState(tailor, id) {
   const t = tailor ?? {};
   if (id === 'id') return t.verify?.id?.state ?? 'not-started';
   if (id === 'background') return t.verify?.background?.state ?? 'not-started';
-  if (id === 'years') return t.years == null || t.years === '' ? 'not-started' : waitlisted(t) ? 'waitlist' : 'verified';
+  /* K-54 B2 (D-451): her years are taken from her profile (verified on entry), unless Taily's review asked for more (needs-info) — then
+     pending again once she re-saves them, until the admin passes them */
+  if (id === 'years') return t.years == null || t.years === '' ? 'not-started' : waitlisted(t) ? 'waitlist' : (t.verify?.years?.state ?? 'verified');
   if (id === 'payout') {
     const st = t.payouts?.status ?? 'not-started';
     return { verifying: 'pending', 'action-needed': 'needs-info', verified: 'verified', paused: 'verified' }[st] ?? 'not-started';
@@ -675,7 +678,7 @@ function syncLive(t) {
 /* Merge A1 + B1 (js/texts.js rows owned by B1): the verification texts go through A1's notify() — 'check-action-needed' when a check turns
    "needs info", 'verified' the moment the last of the four checks passes. Every transition that can move a check calls this with the view
    it read before. */
-const CHECK_WORDS = { id: 'your ID and profile photo', background: 'your background check', years: 'your years tailoring', payout: 'your payout and tax info' };
+export const CHECK_WORDS = { id: 'your ID and profile photo', background: 'your background check', years: 'your years tailoring', payout: 'your payout and tax info' };
 function verifyTexts(t, before) {
   const after = verifyView(t);
   const was = Object.fromEntries(before.items.map((i) => [i.id, i.state]));
@@ -877,6 +880,8 @@ export function setTailorSection(section, patch) {
   if (section === 'profile' && t.idDoc && (!idBefore || t.verify?.id?.state === 'needs-info') && ['not-started', 'needs-info'].includes(t.verify?.id?.state ?? 'not-started')) {
     t.verify = { ...(t.verify ?? {}), id: { state: 'pending', at: nowIso() } };
   }
+  /* K-54 B2 (D-451): years Taily asked about ("needs info") go back to Taily's review when she saves them again */
+  if (section === 'profile' && 'years' in (patch ?? {}) && t.verify?.years?.state === 'needs-info') t.verify.years = { state: 'pending', at: nowIso() };
   let soft = {};
   if (section === 'profile') {
     soft = validateSection(section, t).soft;                    // D-162: what she typed, before the mask
@@ -1020,6 +1025,8 @@ export function reviewChecks(outcome = {}) {
   const res = (id) => outcome[id] ?? (checkState(t, id) === 'pending' ? 'verified' : null);
   const idR = res('id');
   if (idR && checkState(t, 'id') !== 'not-started') t.verify.id = { state: idR, at };
+  const yR = res('years');
+  if (yR && t.verify?.years) t.verify.years = { state: yR, at };   // K-54 B2: only once Taily asked about them (else derived)
   const pR = res('payout');
   if (pR && (t.payouts?.status ?? 'not-started') !== 'not-started') {
     if (pR === 'verified') Object.assign(t.payouts, { status: t.payouts.status === 'paused' ? 'paused' : 'verified', identity: 'verified', tax: t.payouts.tax === 'needs-info' ? 'needs-info' : 'verified', issue: t.payouts.status === 'paused' ? t.payouts.issue : null });
@@ -1032,6 +1039,38 @@ export function reviewChecks(outcome = {}) {
   t.onboarding.profile = validateSection('profile', t).ok;
   const wentLive = syncLive(t);
   return { ok: true, tailor: t, live: !!t.live, wentLive, view: verifyTexts(t, checksBefore) };
+}
+
+/** K-54 B2 (D-451): the admin's Verifications — ONE check at a time (a-verifications), in VERIFY_ITEMS order. `result` 'verified' (pass) |
+    'needs-info' (ask her for more: the check-action-needed text); the 4th pass takes a submitted tailor live and texts 'verified' (verifyTexts).
+    The background check runs last (K-53 Q8, D-427). Errors: unknown-check · unknown-result · not-submitted · not-started (nothing to review) ·
+    background-last · same (already in that state). */
+export function reviewCheck(checkId, result) {
+  const t = state.tailors[0];
+  if (!VERIFY_ITEMS.some((v) => v.id === checkId)) return fail('unknown-check');
+  if (!['verified', 'needs-info'].includes(result)) return fail('unknown-result');
+  if (!t?.submitted) return fail('not-submitted');
+  const st = checkState(t, checkId);
+  if (st === 'not-started' || st === 'waitlist') return fail('not-started');
+  if (st === result) return fail('same');
+  if (checkId === 'background' && !firstChecksPassed(t)) return fail('background-last');
+  const before = verifyView(t);
+  const at = nowIso();
+  if (checkId === 'id') t.verify = { ...(t.verify ?? {}), id: { state: result, at } };
+  else if (checkId === 'years') t.verify = { ...(t.verify ?? {}), years: { state: result, at } };
+  else if (checkId === 'background') t.verify = { ...(t.verify ?? {}), background: { ...(t.verify?.background ?? {}), state: result, at } };
+  else if (result === 'verified') Object.assign(t.payouts, { status: t.payouts.status === 'paused' ? 'paused' : 'verified', identity: 'verified', tax: t.payouts.tax === 'needs-info' ? 'needs-info' : 'verified', issue: t.payouts.status === 'paused' ? t.payouts.issue : null });
+  else Object.assign(t.payouts, { status: 'action-needed', identity: 'needs-info', issue: 'dob-mismatch' });
+  t.onboarding.profile = validateSection('profile', t).ok;
+  const wentLive = syncLive(t);
+  return { ok: true, tailor: t, check: checkId, result, live: !!t.live, wentLive, view: verifyTexts(t, before) };
+}
+/** K-54 B2: the Verifications list — every tailor who submitted, `review` (a check still open: pending or needs info) oldest submission first,
+    `verified` (all four passed). PROTOTYPE: one tailor record (state.tailors). */
+export function verificationQueue() {
+  const sub = state.tailors.filter((t) => t.submitted || t.live);
+  const byAt = (a, b) => String(a.submittedAt ?? '').localeCompare(String(b.submittedAt ?? ''));
+  return { review: sub.filter((t) => !checksPassed(t)).sort(byAt), verified: sub.filter((t) => checksPassed(t)) };
 }
 
 /** The first onboarding section not yet valid, or null. */
@@ -1156,9 +1195,11 @@ function addPayout(appt, centsAmount, kind, at = nowIso()) {
   state.payouts.push({ apptId: appt.id, cents: centsAmount, state: 'pending', date: payoutDay(at), kind, createdAt: at });   // the following Friday (D-24)
 }
 /** The weekly Friday run (D-136): every pending payout due by today is paid — or, with `sim.payout = 'failed'`, sent back — with the bank
-    snapshotted. Never called by tick() / advanceClock(); fixtures call it. */
-export function settlePayouts() {
-  const today = isoDay(nowIso());
+    snapshotted. K-54 F5 (D-452): tick() runs it as the clock crosses POLICY.PAYOUT_RUN_H on a payout date (`payoutTimers`), stamped at that
+    run (`at`) and only for the payouts of that Friday or before (`upTo`); fixtures may still call it by hand. */
+export function settlePayouts({ at = null, upTo = null } = {}) {
+  const today = upTo ?? isoDay(nowIso());
+  const stamp = at ?? nowIso();
   const bank = state.tailors[0].payouts ?? {};
   const paid = [];
   const failed = [];
@@ -1168,11 +1209,19 @@ export function settlePayouts() {
     if (p.state !== 'pending' || p.date > today || p.held) continue;   // D-14: a disputed no-show pay waits for Taily
     p.bank = bank.bank ?? '';
     p.last4 = bank.last4 ?? '';
-    if (state.sim.payout === 'failed') { p.state = 'failed'; p.failedAt = nowIso(); failed.push(p); }
-    else { p.state = 'paid'; p.paidAt = nowIso(); paid.push(p); }
-    notify(getAppt(p.apptId) ?? null, p.state === 'paid' ? 'payout-sent' : 'payout-failed', { x: { cents: p.cents, bank: p.bank, last4: p.last4 } });
+    if (state.sim.payout === 'failed') { p.state = 'failed'; p.failedAt = stamp; failed.push(p); }
+    else { p.state = 'paid'; p.paidAt = stamp; paid.push(p); }
+    notify(getAppt(p.apptId) ?? null, p.state === 'paid' ? 'payout-sent' : 'payout-failed', { at: stamp, x: { cents: p.cents, bank: p.bank, last4: p.last4 } });
   }
   return { ok: true, paid, failed };
+}
+/** When the Friday run for payout date `day` goes out (ms): POLICY.PAYOUT_RUN_H on that day. */
+export const payoutRunAt = (day) => toDate(`${day}T${String(POLICY.PAYOUT_RUN_H).padStart(2, '0')}:00`).getTime();
+/** K-54 F5 (D-452): every Friday run the clock has crossed, oldest first, each stamped at its own time (a clock that jumped two Fridays pays
+    each payout on its own Friday). A held payout (D-14) and a paused partner account (DG-4) wait, as in settlePayouts. */
+function payoutTimers() {
+  const days = [...new Set(state.payouts.filter((p) => p.state === 'pending' && !p.held && payoutRunAt(p.date) <= state.clock.now).map((p) => p.date))].sort();
+  for (const day of days) settlePayouts({ at: stampAt(payoutRunAt(day)), upTo: day });
 }
 const expiryIso = () => isoMinute(new Date(state.clock.now + POLICY.REQUEST_EXPIRY_H * HOUR_MS));
 
@@ -2636,6 +2685,7 @@ export function receiptView(a) {
   for (const x of a.payments.courierCharges ?? []) charges.push({ kind: 'courier-change', cents: x.cents, at: x.at, cardId: x.cardId });
   if (d.state === 'refunded' && accepted) refunds.push({ kind: 'deposit', cents: a.cancel?.refund ?? d.cents, at: a.cancel?.at ?? null, cardId: a.cardId });
   if (a.payments.refund?.state === 'refunded' && a.payments.refund.cents > 0) refunds.push({ kind: 'overage', cents: a.payments.refund.cents, at: b?.capturedAt ?? null, cardId: a.cardId });
+  for (const x of a.payments.tailyRefunds ?? []) refunds.push({ kind: x.kind === 'courier' ? 'courier' : 'partial', cents: x.cents, at: x.at, cardId: x.cardId });   // K-54 P11
   if (!charges.length) return null;
   const sum = (xs) => xs.reduce((n, x) => n + x.cents, 0);
   return { number: receiptNumber(a), issuedAt: [...a.history].reverse()[0]?.at ?? a.requestedAt, charges, refunds, paid: sum(charges) - sum(refunds), emailedAt: a.receipt?.emailedAt ?? null, emailedTo: a.receipt?.to ?? null };
@@ -2659,6 +2709,7 @@ const LEDGER_LABEL = {
   'balance-hold': 'Balance hold', 'balance-hold-moved': 'Balance hold released (moved to another card)', 'balance-hold-failed': 'Balance hold declined',
   'courier-hold': 'Courier hold', 'balance-capture': 'Balance captured', 'capture-failed': 'Balance charge failed', 'balance-release': 'Balance hold released',
   'balance-refund': 'Balance refunded', 'overage-refund': 'Overage refunded', 'courier-change': 'Courier window change, charged on its own',
+  'courier-refund': 'Courier charge refunded by Taily', 'partial-refund': 'Part refunded by Taily',
   fee: 'Taily fee', 'courier-uber': 'Courier, paid to Uber', 'courier-fee': 'Taily courier fee', 'courier-absorbed': 'Courier difference absorbed by Taily',
   payout: 'Payout queued', 'payout-paid': 'Payout sent', 'payout-failed': 'Payout sent back',
 };
@@ -2667,7 +2718,7 @@ const LEDGER_LABEL = {
 const LEDGER_FLOW = {
   'deposit-hold': 'hold', 'balance-hold': 'hold', 'courier-hold': 'hold', 'deposit-on-hold': 'hold', 'balance-hold-failed': 'note', 'capture-failed': 'note',
   'deposit-capture': 'in', 'balance-capture': 'in', 'courier-change': 'in',
-  'deposit-refund': 'out', 'balance-refund': 'out', 'overage-refund': 'out',
+  'deposit-refund': 'out', 'balance-refund': 'out', 'overage-refund': 'out', 'courier-refund': 'out', 'partial-refund': 'out',
   'deposit-release': 'release', 'balance-release': 'release', 'balance-hold-moved': 'release',
   fee: 'revenue', 'courier-fee': 'revenue', 'courier-absorbed': 'cost', 'courier-uber': 'cost',
   'deposit-kept': 'tailor', payout: 'tailor', 'payout-paid': 'tailor', 'payout-failed': 'note',
@@ -2712,6 +2763,7 @@ function ledgerRowsOf(a) {
   }
   for (const x of a.payments?.courierCharges ?? []) add('courier-change', x.cents, x.at, { note: x.to ? `to ${slotText({ start: x.to })}` : '' });
   if (a.payments?.refund?.state === 'refunded' && a.payments.refund.cents > 0) add('overage-refund', a.payments.refund.cents, b?.capturedAt ?? last);
+  for (const x of a.payments?.tailyRefunds ?? []) add(x.kind === 'courier' ? 'courier-refund' : 'partial-refund', x.cents, x.at, { note: 'Taily pays it' });   // K-54 P11
   for (const p of state.payouts.filter((x) => x.apptId === a.id)) {
     if (p.kind === 'job') add('fee', a.money.tailyFee, p.createdAt);
     add('payout', p.cents, p.createdAt, { note: PAYOUT_KIND[p.kind] ?? p.kind, state: p.state === 'pending' && p.held ? 'held' : p.state, date: p.date });
@@ -2743,7 +2795,7 @@ export function ledger(filter = {}) {
     charged: sum((r) => r.flow === 'in'),
     refunded: sum((r) => r.flow === 'out'),
     released: sum((r) => r.flow === 'release'),
-    revenue: sum((r) => r.flow === 'revenue') - sum((r) => r.kind === 'courier-absorbed'),
+    revenue: sum((r) => r.flow === 'revenue') - sum((r) => r.kind === 'courier-absorbed') - sum((r) => r.kind === 'courier-refund' || r.kind === 'partial-refund'),   // K-54 P11: Taily pays its refunds
     uber: sum((r) => r.kind === 'courier-uber'),
     kept: sum((r) => r.kind === 'deposit-kept'),
     paid: sum((r) => r.kind === 'payout-paid'),
@@ -3212,6 +3264,50 @@ export function adminReleasePayout(caseId) {
   return { ok: true, case: c, appt: a };
 }
 /** The outcome of a case for one person, in dollars, from what the admin did (in order). */
+/* ---------- K-54 P11 (D-463): Taily gives money back on an order — the courier charge, or part of what she paid ----------
+   Taily pays it (the tailor's payout doesn't change; pause it separately if she is at fault). `a.payments.tailyRefunds = [{ kind: 'courier' |
+   'partial', cents, at, cardId }]` — on the receipt as refunds and in the Ledger as 'out' lines (refunded, plus a Taily cost). */
+const tailyRefunded = (a, kind = null) => (a?.payments?.tailyRefunds ?? []).filter((x) => !kind || x.kind === kind).reduce((n, x) => n + x.cents, 0);
+/** What Taily can still give back on this order: everything charged to her card, less every refund so far (receiptView's paid). */
+export function refundableOf(a) {
+  const r = receiptView(a);
+  return r ? Math.max(0, r.paid) : 0;
+}
+/** The courier charge Taily can refund: a courier order whose balance was charged — the courier in it plus any window change charged on its
+    own — once, and never more than is still refundable. 0 = none. */
+export function courierRefundable(a) {
+  if (!a || a.returnOption !== 'courier' || a.payments?.balance?.state !== 'captured' || !(a.money?.courier > 0) || tailyRefunded(a, 'courier')) return 0;
+  return Math.min(a.money.courier + courierExtras(a), refundableOf(a));
+}
+function addTailyRefund(a, kind, cents) {
+  (a.payments.tailyRefunds ??= []).push({ kind, cents, at: nowIso(), cardId: a.balanceCardId ?? a.cardId ?? null });
+}
+/** Admin: refund the courier charge (P11). Errors: no-courier-charge + adminCase's. */
+export function adminRefundCourier(caseId) {
+  const g = adminCase(caseId); if (!g.ok) return g;
+  const { c, a } = g;
+  const cents = courierRefundable(a);
+  if (!cents) return fail('no-courier-charge');
+  addTailyRefund(a, 'courier', cents);
+  record(c, 'refund-courier', cents);
+  say(a, `Taily refunded your ${fmtExact(cents)} courier charge`, `Taily refunded ${state.customer.first}’s ${fmtExact(cents)} courier charge. Your payout doesn’t change`);
+  return { ok: true, case: c, appt: a, cents };
+}
+/** Admin: refund part of what she paid, in cents (P11). Errors: amount-invalid (not a positive whole-cent amount) · amount-over (more than is
+    still refundable, `{ max }`) · nothing-paid + adminCase's. */
+export function adminRefundPartial(caseId, cents) {
+  const g = adminCase(caseId); if (!g.ok) return g;
+  const { c, a } = g;
+  const max = refundableOf(a);
+  if (!max) return fail('nothing-paid');
+  const n = Number(cents);
+  if (!Number.isInteger(n) || n <= 0) return fail('amount-invalid', { max });
+  if (n > max) return fail('amount-over', { max });
+  addTailyRefund(a, 'partial', n);
+  record(c, 'refund-partial', n);
+  say(a, `Taily refunded ${fmtExact(n)} to your card`, `Taily refunded ${fmtExact(n)} to ${state.customer.first}’s card. Your payout doesn’t change`);
+  return { ok: true, case: c, appt: a, cents: n };
+}
 function decisionLine(c, a, side) {
   const tf = a ? firstName(tailorById(a.tailorId)) : '';
   const cf = state.customer.first;
@@ -3226,6 +3322,8 @@ function decisionLine(c, a, side) {
     else if (x.kind === 'cancel') out.push(side === 'customer' ? `We cancelled the order${x.cents ? ` and refunded ${amt}` : ''}${x.released ? `. You won’t be charged the ${fmtExact(x.released)} balance` : ''}.` : 'We cancelled this job. Nothing is paid out.');
     else if (x.kind === 'pause-payout' && side === 'tailor') out.push(`Your ${amt} payout is on hold.`);
     else if (x.kind === 'release-payout' && side === 'tailor') out.push(`Your ${amt} payout goes out ${fmtDay(pay?.date ?? payoutDay(nowIso()))}.`);
+    else if (x.kind === 'refund-courier') out.push(side === 'customer' ? `We refunded your ${amt} courier charge. It shows on your card in 5 to 10 business days.` : `We refunded ${cf}’s ${amt} courier charge. Your payout doesn’t change.`);   // K-54 P11
+    else if (x.kind === 'refund-partial') out.push(side === 'customer' ? `We refunded ${amt} to your card. It shows in 5 to 10 business days.` : `We refunded ${amt} to ${cf}’s card. Your payout doesn’t change.`);
   }
   if (!out.length) return a ? 'We looked into it. Nothing changes on your order.' : 'We’re closing this conversation. Message us anytime from Help.';
   return out.join(' ');
@@ -3263,10 +3361,11 @@ export function decisionPreview(caseId) {
 }
 const ADMIN_ACTS = {
   'refund-deposit': adminRefundDeposit, 'keep-deposit': adminKeepDeposit, 'release-hold': adminReleaseHold, 'capture-hold': adminCaptureHold,
-  cancel: adminCancelOrder, 'pause-payout': adminPausePayout, 'release-payout': adminReleasePayout,
+  cancel: adminCancelOrder, 'pause-payout': adminPausePayout, 'release-payout': adminReleasePayout, 'refund-courier': adminRefundCourier,
 };
 /** Run one admin money action by its kind (a-case's rows). Errors: unknown-action + the action's own. */
-export function adminAct(caseId, kind) {
+export function adminAct(caseId, kind, { cents } = {}) {
+  if (kind === 'refund-partial') return adminRefundPartial(caseId, cents);   // K-54 P11: the one action with an amount
   const f = ADMIN_ACTS[kind];
   return f ? f(caseId) : fail('unknown-action');
 }
@@ -3308,6 +3407,11 @@ export function adminActions(c) {
   }
   if (free.length) out.push({ kind: 'pause-payout', label: `Pause ${tf}’s payout`, sub: 'The Friday run skips it', cents: sum(free), tone: 'default', confirm: `Hold ${tf}’s ${$(sum(free))} payout until you release it.` });
   if (held.length) out.push({ kind: 'release-payout', label: `Release ${tf}’s payout`, sub: 'It goes out on its Friday', cents: sum(held), tone: 'default', confirm: `Let ${tf}’s ${$(sum(held))} go out on its Friday.` });
+  /* K-54 P11 (D-463): Taily gives money back — the courier charge, or part of what she paid (an amount the admin types); Taily pays it */
+  const courier = courierRefundable(a);
+  if (courier) out.push({ kind: 'refund-courier', label: `Refund the courier ${$(courier)}`, sub: `Taily pays it · ${tf}’s payout doesn’t change`, cents: courier, tone: 'default', confirm: `Refund ${cf}’s ${$(courier)} courier charge to her card. Taily pays it; ${tf}’s payout doesn’t change.` });
+  const left = refundableOf(a);
+  if (left && b.state === 'captured') out.push({ kind: 'refund-partial', label: 'Refund part of it', sub: `Up to ${$(left)} · Taily pays it`, cents: 0, max: left, amount: true, tone: 'default', confirm: `Refund part of what ${cf} paid to her card. Taily pays it; ${tf}’s payout doesn’t change.` });
   return out;
 }
 /** Admin: a notification is read. */
@@ -3430,20 +3534,32 @@ export function reviewReminderDue(appt) {
 }
 /** The customer's newest order whose review reminder is due, or null. */
 export const reviewReminder = () => apptsFor('customer').find(reviewReminderDue) ?? null;
-/** P-04: "Not now" (the card's ✕) — the review reminder stops showing on Home (the order still asks on c-complete). */
+/** K-54 F2 (D-455): right after an order comes back, Home asks for the review at once ("How did Amara do?") — a completed order with no
+    review, not dismissed, inside its first REVIEW_REMINDER_D days; after that the review reminder (reviewReminderDue) takes over. */
+export function reviewPromptDue(appt) {
+  if (!appt || appt.status !== 'completed' || appt.review || appt.reviewPromptDismissedAt || appt.reviewReminderDismissedAt || appt.handoff?.completedBy === 'abandoned') return false;
+  const at = appt.handoff?.completedAt ?? [...appt.history].reverse().find((h) => h.status === 'completed')?.at;
+  return !!at && state.clock.now < toDate(at).getTime() + POLICY.REVIEW_REMINDER_D * DAY_MS;
+}
+/** The customer's newest order whose review prompt is due, or null. */
+export const reviewPrompt = () => apptsFor('customer').find(reviewPromptDue) ?? null;
+/** P-04: "Not now" (the card's ✕) — the review reminder stops showing on Home (the order still asks on c-complete). K-54 F2: on the early prompt
+    it only puts it away — the reminder still comes at REVIEW_REMINDER_D. */
 export function dismissReviewReminder(id) {
   const a = must(id);
-  if (!reviewReminderDue(a)) return fail('not-due');
-  a.reviewReminderDismissedAt = nowIso();
-  return succeed(a);
+  if (reviewReminderDue(a)) { a.reviewReminderDismissedAt = nowIso(); return succeed(a); }
+  if (reviewPromptDue(a)) { a.reviewPromptDismissedAt = nowIso(); return succeed(a); }
+  return fail('not-due');
 }
 
-/** Study-1 A4 "Book [tailor] again": a fresh draft for the same place — visit type, ZIP and address — with no garments. */
+/** Study-1 A4 "Book [tailor] again": a fresh draft for the same place — visit type, ZIP and address — with no garments. K-54 F3 (D-453): the
+    need-by starts again at a new job's default (NEED_BY_DEFAULT_D days from today), never the old order's date — which by now is days away
+    and would price a rush fee nobody asked for. */
 export function bookAgain(id) {
   const a = must(id);
   const { visitType, zip, address } = a.job;
   newJob();
-  Object.assign(state.job, { visitType, zip, address: address ? clone(address) : state.job.address });
+  Object.assign(state.job, { visitType, zip, address: address ? clone(address) : state.job.address, needBy: isoDay(addDays(new Date(state.clock.now), NEED_BY_DEFAULT_D)) });
   return { ok: true, appt: a, job: state.job };
 }
 
@@ -3604,9 +3720,9 @@ export const T = {
   visitPing, answerVisitCheck, disputeNoShow, disputeUnconfirmed, proposeNewTime, answerProposal,
   /* pre-MVP A2: Taily Help, the admin, report / block */
   openCase, sendCaseMessage, markCaseRead, adminReply, adminRefundDeposit, adminKeepDeposit, adminReleaseHold, adminCaptureHold, adminCancelOrder,
-  adminPausePayout, adminReleasePayout, adminCloseCase, adminMarkRead, adminAct, reportPerson, blockPerson, unblockPerson,
+  adminPausePayout, adminReleasePayout, adminCloseCase, adminMarkRead, adminAct, adminRefundCourier, adminRefundPartial, reportPerson, blockPerson, unblockPerson,
   setTailorSection, setTakingRequests, validateSection, blankTailor, setPayouts, setRush, validateRush, nextSection,
-  uploadId, consentBackground, setupPayouts, pausePayouts, confirmTaxInfo, submitOnboarding, reviewChecks, joinAreaWaitlist,
+  uploadId, consentBackground, setupPayouts, pausePayouts, confirmTaxInfo, submitOnboarding, reviewChecks, reviewCheck, joinAreaWaitlist,
   /* pre-MVP B2 */
   setJobAddress, useSavedAddress, emailReceipt,
   now, setClock, advanceClock, tick, suggestLapseAt,

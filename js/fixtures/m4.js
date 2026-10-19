@@ -222,9 +222,9 @@ export const FLOWS_c_ready = [
       S.T.markReady(a.id);
     },
     expect: { has: ['Your final total is less than your deposit', 'the difference comes back to your card', CR_fmtExact(CR_SC.priceBelowDeposit.refund), 'Nothing to pay', 'Refund to your card', 'After you choose', 'Choose how to get it back first', 'Message Amara'], not: ['Due now', 'Charged at handoff', `Pay ${CR_fmtExact(CR_SC.priceBelowDeposit.balance)}`, 'Charged at pickup', 'You’ll be charged'] } },
-  { key: 'c-ready--pay', screen: 'c-ready', group: CR_GROUP, title: 'Pay the balance', note: 'Sheet (K-27, K-44 wording): balance, deposit already off, saved card + Apple Pay; K-46: Pay $144.00 over its own second line, Charged at pickup',
+  { key: 'c-ready--pay', screen: 'c-ready', group: CR_GROUP, title: 'Pay the balance', note: 'Sheet (K-27, K-44 wording): balance, deposit already off, saved card + Apple Pay; K-46: Pay $144.00 over its own second line, Charged at pickup. K-54 F9: opened by Change (Pay itself confirms on the held card)',
     setup: (S) => { const a = S.driveTo('ready'); S.T.chooseReturn(a.id, 'pickup'); CR_pick(a.id); },
-    click: ['[data-act="pay"]'],
+    click: ['[data-act="pay-change"]'],
     expect: { has: ['Pay the balance', 'Visa •••• 4242', 'Apple Pay', 'deposit is already taken off', 'Charged at pickup', `Pay ${CR_fmtExact(CR_SC.seed.balance)}`], not: ['Hold the balance', 'Hold $'], sel: '[data-act="pay-ok"].cta--two[aria-describedby="pay-sheet-sub"]', also: '#pay-sheet-sub' } },
   { key: 'c-ready--pay-failed', screen: 'c-ready', group: CR_GROUP, title: 'Card declined', note: 'Banner stays after the sheet closes: nothing charged, try another card (K-53: the hold at ready failed, and Pay on the same card declined again)',
     setup: (S) => { const a = S.driveTo('in-progress'); S.state.sim.card = 'declined'; S.T.markReady(a.id); S.T.chooseReturn(a.id, 'pickup'); CR_pick(a.id); S.T.holdBalance(a.id, S.state.customer.cards[0].id); },
@@ -235,11 +235,11 @@ export const FLOWS_c_ready = [
     expect: { has: ['Pay the balance', 'Declined just now', 'Apple Pay'], sel: '[data-act="card"][data-value="apple-pay"][aria-checked="true"]' }, visual: false },
   { key: 'c-ready--processing', screen: 'c-ready', group: CR_GROUP, title: 'Paying…', note: 'Pay tapped, the wait held: busy button, method rows locked, the sheet cannot be closed',
     setup: (S) => { const a = S.driveTo('ready'); S.T.chooseReturn(a.id, 'pickup'); CR_pick(a.id); S.state.sim.latency = 'hold'; },
-    click: ['[data-act="pay"]', '[data-act="pay-ok"]'],
+    click: ['[data-act="pay-change"]', '[data-act="pay-ok"]'],
     expect: { has: 'Paying', sel: '[aria-busy="true"]' } },
   { key: 'c-ready--processing-locked', screen: 'c-ready', group: CR_GROUP, title: 'Paying… — scrim tapped', note: 'Tapping the scrim mid-payment does not drop it (R4-2-C-03)',
     setup: (S) => { const a = S.driveTo('ready'); S.T.chooseReturn(a.id, 'pickup'); CR_pick(a.id); S.state.sim.latency = 'hold'; },
-    click: ['[data-act="pay"]', '[data-act="pay-ok"]', '.sheet-scrim'],
+    click: ['[data-act="pay-change"]', '[data-act="pay-ok"]', '.sheet-scrim'],
     expect: { has: 'Paying', sel: '.sheet__cancel[disabled]' }, visual: false },
 ];
 export const FLOWS_c_complete = [
@@ -331,10 +331,10 @@ export const FLOWS_t_job = [
     expect: { has: ['Ready · Sarah is choosing how to get it back', 'RETURN OPTIONS YOU OFFERED', `We’re holding Sarah’s ${TJ4_exact(TJ4_SC.seed.balance)} balance on her card (plus the courier if she picks it).`, 'She chooses by Mon, Oct 19 · 5:00 PM. If she hasn’t, we charge it and set it to in-store pickup, and your payout goes out.'], sel: '[data-ready-hold]' } },
   { ...TJ4, key: 't-job--handoff-pickup', title: 'Job — Sarah picks it up', note: 'In-store pickup at the shop; her balance is on hold (K-27); Picked up asks for her code (Study-1 A3); K-40: the time Sarah picked, only she can change it',
     setup: (S) => { S.driveTo('awaiting-handoff'); },
-    expect: { has: [`Sarah picks up Fri, Oct 16 · 5:30 PM · ${TJ4_exact(TJ4_SC.seed.balance)} charged at pickup`, 'IN-STORE PICKUP', 'Fri, Oct 16 · 5:30 PM', 'Sarah picked this time from your open hours', 'Reyes Tailoring', 'Only Sarah can change the time.', 'Picked up', 'Your payout arrives the Friday after the job is complete.', 'If Sarah hasn’t collected by Mon, Oct 19, we charge her.'], not: ['Message Sarah', 'will pick it up', 'Mark completed', 'paid the balance', 'Change time'], sel: '[data-act="picked-up"]' } },
+    expect: { has: [`Sarah picks up Fri, Oct 16 · 5:30 PM · ${TJ4_exact(TJ4_SC.seed.balance)} charged at pickup`, 'IN-STORE PICKUP', 'Fri, Oct 16 · 5:30 PM', 'Sarah picked this time from your open hours', 'Reyes Tailoring', 'Only Sarah can change the time.', 'Picked up', 'Your payout arrives the Friday after the job is complete.', 'If Sarah hasn’t collected by Mon, Oct 19 · 5:00 PM, we charge her.'], not: ['Message Sarah', 'will pick it up', 'Mark completed', 'paid the balance', 'Change time'], sel: '[data-act="picked-up"]' } },
   { ...TJ4, key: 't-job--handoff-courier', title: 'Job — courier booked', note: 'Paid by Sarah, payout unchanged; no tap of hers: the courier’s delivery completes it (Study-1 A3, default 6); K-40: when it is collected, the window Sarah picked',
     setup: (S) => { S.driveTo('awaiting-handoff', { returnOption: 'courier' }); },
-    expect: { has: ['If Sarah isn’t home, the courier leaves it in her building’s lobby. It still counts as delivered.', 'Courier collects 4:45 PM · arrives 5:00–5:30 PM', 'Collects Fri, Oct 16 · 4:45 PM', 'Have it bagged by then · arrives at Sarah’s 5:00–5:30 PM', 'Sarah picked the window. Only she can change it.', 'TAILY COURIER', '145 N 7th St', 'Paid by Sarah · nothing comes out of your payout', TJ4_exact(TJ4_SC.seed.payout), 'Handed to courier'], not: [TJ4_exact(TJ4_SC.courierQuote.quote), TJ4_exact(TJ4_SC.courierQuote.markup), TJ4_exact(TJ4_SC.courierQuote.cents), 'Mark completed', 'HAND-OFF'], sel: '[data-strip="done"]', also: '.action-bar [data-act="courier-out"]' } },   // S-35: she taps Handed to courier
+    expect: { has: ['If Sarah isn’t home, the courier leaves it in her building’s lobby. It still counts as delivered.', 'Courier collects 4:45 PM · arrives 5:00–5:30 PM', 'Collects Fri, Oct 16 · 4:45 PM', 'Have it packaged by then · arrives at Sarah’s 5:00–5:30 PM', 'Sarah picked the window. Only she can change it.', 'TAILY COURIER', '145 N 7th St', 'Paid by Sarah · nothing comes out of your payout', TJ4_exact(TJ4_SC.seed.payout), 'Handed to courier'], not: [TJ4_exact(TJ4_SC.courierQuote.quote), TJ4_exact(TJ4_SC.courierQuote.markup), TJ4_exact(TJ4_SC.courierQuote.cents), 'Mark completed', 'HAND-OFF'], sel: '[data-strip="done"]', also: '.action-bar [data-act="courier-out"]' } },   // S-35: she taps Handed to courier
   { ...TJ4, key: 't-job--completed', title: 'Job — completed, payout', note: 'K-20 A2b: the linen stage with the garment tags, Your payout Pending with the Friday it arrives and the bank; nothing about a review until Sarah rates',
     setup: (S) => { S.driveTo('completed'); },
     expect: { has: ['JOB COMPLETED · SARAH’S ORDER', 'Nice work, Amara.', 'Picked up at your shop · ', 'YOUR PAYOUT', 'THE WORK', TJ4_exact(TJ4_SC.seed.payout), TJ4_neg(TJ4_SC.seed.tailyFee), 'Pending', 'Arrives Fri, Oct 16 · to Chase •••• 6789', 'Suit Jacket'], not: ['Mark completed', 'Scheduled', 'can leave a review', 'TAILORED BY', 'Update bank details'], sel: '.linen-stage .tag-rail__tag' } },

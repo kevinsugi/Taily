@@ -6,11 +6,11 @@
 import { register, render as go } from '../app.js';
 import {
   state, T, activeAppt, statusScreen, tailorById, priceChangeView, reviewReminder, apptsFor, freeUntil, now, visitReminder, reminderState, autoCancelAt,
-  jobEditView, handoffMissed, slotText, noticesFor, autoCancelArmed, proposalOf, visitCheckOpen, overdue,
+  jobEditView, handoffMissed, slotText, noticesFor, autoCancelArmed, proposalOf, visitCheckOpen, overdue, reviewPrompt, readyAtOf,
 } from '../state.js';
 import {
   chrome, bookingSteps, garmentTile, photoTile, actionBar, checkRow, cta, listRow, apptRow,
-  sheetOverlay, toast, esc, garmentHead, sectionHead, textLink, reminderCard, visitPrompt, chargedWhen,
+  sheetOverlay, toast, esc, garmentHead, sectionHead, textLink, reminderCard, visitPrompt, chargedWhen, apptNext,
 } from '../components.js';
 import { GARMENT_TYPES, SERVICES, MAX_ITEMS, itemsLabel, servicesForType } from '../data.js';
 import { CHEVRON_RIGHT } from '../icons.js';
@@ -80,19 +80,29 @@ function activeRow() {
     when: fmtWhen(a.status === 'suggested' && a.suggested ? a.suggested.start : a.slot.start), place: VISIT_LABEL.customer[a.job.visitType],
   };
   let cents = a.money.total;
-  if (a.status === 'price-change') { cents = priceChangeView(a).after.total; row.amountCaption = 'Approve order'; row.captionTone = 'action'; }
-  else if (a.status === 'in-progress' && a.edit?.state === 'pending') { cents = jobEditView(a).after.total; row.amountCaption = 'Approve changes'; row.captionTone = 'action'; }   // SF-12
-  else if (a.status === 'ready') { cents = a.money.balance; row.amountCaption = 'Choose a way back'; row.captionTone = 'action'; }   // K-27: the balance is held, not paid, at this step
-  else if (a.status === 'suggested') { row.amountCaption = 'New time'; row.captionTone = 'action'; }
-  else if (proposalOf(a)) { row.when = fmtWhen(proposalOf(a).start); row.amountCaption = 'New time asked'; row.captionTone = 'action'; }   // D-12
-  else if (visitCheckOpen(a, 'customer')) { row.amountCaption = 'Did it happen?'; row.captionTone = 'action'; }                   // D-11
+  let next = '';   // K-54 F1 (D-454): the full-width primary for the step that needs her
+  if (a.status === 'price-change') { cents = priceChangeView(a).after.total; row.amountCaption = 'Approve order'; row.captionTone = 'action'; next = 'Review and approve'; }
+  else if (a.status === 'in-progress' && a.edit?.state === 'pending') { cents = jobEditView(a).after.total; row.amountCaption = 'Approve changes'; row.captionTone = 'action'; next = 'Review the changes'; }   // SF-12
+  else if (a.status === 'ready') {
+    cents = a.money.balance; next = 'Choose a way back';   // K-27: the balance is held, not paid, at this step
+    /* K-54 F1: the button says the step, so the row's caption says the money's state (no repeated words) */
+    row.amountCaption = a.payments.balance?.state === 'held' ? 'On hold' : 'Choose a way back'; row.captionTone = a.payments.balance?.state === 'held' ? 'default' : 'action';
+    /* K-54 P4 (D-464): a ready order is at the shop now — when it became ready and where, not the visit's facts */
+    const at = readyAtOf(a);
+    if (at) row.when = `Ready since ${fmtDay(at)}`;
+    row.place = t.shop?.enabled ? `At ${t.shopName || t.shop.street}` : `With ${(t.name || 'your tailor').split(' ')[0]}`;
+  }
+  else if (a.status === 'suggested') { row.amountCaption = 'New time'; row.captionTone = 'action'; next = 'See the new time'; }
+  else if (proposalOf(a)) { row.when = fmtWhen(proposalOf(a).start); row.amountCaption = 'New time asked'; row.captionTone = 'action'; next = 'See the new time'; }   // D-12
+  else if (visitCheckOpen(a, 'customer')) { row.amountCaption = 'Did it happen?'; row.captionTone = 'action'; next = 'Tell us if it happened'; }                   // D-11
   else if (overdue(a)) { row.when = `Overdue · due ${fmtDay(a.job.needBy)}`; }                                                       // B-07
   else if (a.status === 'awaiting-handoff') {
     /* SF-12: the c-bookings rule — the held balance and when it is charged; the picked time and where she gets it */
     const b = a.payments.balance;
     cents = b.cents > 0 ? b.cents : a.money.total;
     row.amountCaption = b.state === 'capture-failed' ? 'Update card' : b.state === 'captured' ? 'Charged' : b.cents > 0 ? chargedWhen(a.returnOption) : 'Paid';
-    if (b.state === 'capture-failed') row.captionTone = 'action';   // D-04
+    if (b.state === 'capture-failed') { row.captionTone = 'action'; next = 'Update card'; }   // D-04
+    else if (a.handoff?.markedAt && !a.handoff?.problemAt) next = 'Confirm you got it';      // K-54 F1: her move (statusWord)
     if (a.handoff?.slot) row.when = handoffMissed(a) ? `Missed ${fmtTime(a.handoff.slot.start)} pickup` : slotText(a.handoff.slot);
     row.place = a.returnOption === 'courier' ? 'Delivered to my place' : `At ${t.shopName || t.shop?.street || 'the shop'}`;
   }
@@ -104,7 +114,7 @@ function activeRow() {
   const first = (t.name || 'The tailor').split(' ')[0];
   const dep = `<span data-money>${fmtAmt(a.payments.deposit.cents)}</span>`;
   const away = a.job.visitType === 'home' ? 'aren’t home' : 'don’t come to the shop';   // SF-10
-  let inner = apptRow(row);
+  let inner = next ? apptNext({ row, label: next }) : apptRow(row);
   if (r === 'asked') {
     inner = visitPrompt({
       id: a.id, row,
@@ -150,17 +160,22 @@ function view() {
     <div class="sec__body job__items-list">${garments.map(itemCard).join('')}</div>
   </section>`
     : '';
-  /* Study-1 A4 (K-28): 7 days after an order came back with no review, the reminder card leads Home */
-  const due = reviewReminder();
+  /* Study-1 A4 (K-28): 7 days after an order came back with no review, the reminder card leads Home; K-54 F2 (D-455): before that, the same
+     card asks at once, from the moment it came back */
+  const due = reviewReminder() ?? reviewPrompt();
   const dueFirst = due ? (tailorById(due.tailorId)?.name || 'your tailor').split(' ')[0] : '';
   const reminder = due ? `<div class="${ID}__reminder">${reminderCard({ title: `How did ${dueFirst} do?`, text: `Your order came back on ${fmtDay(cameBack(due))}. Your review helps other customers.`, act: 'review-reminder', id: due.id, dismissAct: 'dismiss-review' })}</div>` : '';   // P-04: ✕ = Not now
   const notices = noticesFor('customer').map(noticeCard).join('');
   /* Study-1 A4 (default 9): "Book Amara again" starts here with her named; Next then goes straight to her profile */
   const again = againTailor();
-  return `${chrome('home')}<main class="body body--with-bar ${ID}">
+  const active = activeRow();
+  /* K-54 F1 (D-454): while the draft is empty and Home leads with a booking (or the review card), no disabled "Next" bar under it — the
+     booking's own button is the one primary; the bar comes back with the first garment */
+  const bar = garments.length || again || !(active || reminder);   // Book again: she is starting the new order, the bar guides it
+  return `${chrome('home')}<main class="body${bar ? ' body--with-bar' : ''} ${ID}">
   ${notices ? `<div class="${ID}__notices">${notices}</div>` : ''}
   ${reminder}
-  ${activeRow()}
+  ${active}
   ${bookingSteps(0)}
   ${again ? `<p class="t-small c-600 job__again" data-again>Booking again with ${esc((again.name || '').split(' ')[0])}</p>` : ''}
   <h1 class="t-title job__title">What needs work?</h1>
@@ -169,10 +184,10 @@ function view() {
   <p class="sr-only" aria-live="polite" data-tile-live></p>
   ${helper ? `<p class="t-small c-600 job__helper" data-helper>${helper}</p>` : ''}
   ${items}
-</main>${actionBar({
+</main>${bar ? actionBar({
     ctaLabel: 'Next: where and when', ctaAct: 'next', disabled: !garments.length,
     note: garments.length ? '' : 'Add at least one garment to continue.',
-  })}`;
+  }) : ''}`;
 }
 
 /* ---------- DG-2 A (pre-MVP A1): a cancelled visit never just vanishes — a one-time notice card, ✕ or its button clears it ---------- */
@@ -311,7 +326,7 @@ function wire(root) {
     if (photo) openPhoto(root, photo.dataset.id);
   });
 
-  bar.addEventListener('click', (e) => {
+  bar?.addEventListener('click', (e) => {
     const next = e.target.closest('[data-act="next"]');
     if (!next || next.disabled) return;
     const { ok, errors } = T.validateJob(state.job, 'what');

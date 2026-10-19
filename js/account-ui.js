@@ -17,6 +17,13 @@ const firstOf = (name, fallback) => String(name || '').trim().split(' ')[0] || f
 const HOME_AFTER = { customer: 'c-welcome', tailor: 't-phone' };
 
 /* ---------- sign out (P-28 / P-32: the confirm sheet, focus on the safe choice) ---------- */
+/** Sign out and say where to land. K-54 F8 (D-457): a tailor lands on t-phone in its Log in mode ("Welcome back"), never the Join pitch —
+    she has a shop; the customer on c-welcome (Log in is one line there). DOM-free, so a Test-flows setup runs the same step. */
+export function signOutTo(who) {
+  A.signOut(who);
+  if (who === 'tailor') state.ui['t-phone'] = { mode: 'login' };
+  return HOME_AFTER[who];
+}
 export function openSignOut(who, { go }) {
   const keepsWhat = who === 'tailor' ? 'Your jobs and requests stay as they are.' : 'Your bookings stay as they are.';
   confirmSheet({
@@ -28,9 +35,9 @@ export function openSignOut(who, { go }) {
     keep.addEventListener('click', () => close());
     keep.focus();   // R5-1-C-03: a stray Enter never signs her out
     holder.querySelector('[data-act="sign-out-ok"]').addEventListener('click', () => {
-      A.signOut(who);
+      const to = signOutTo(who);
       close({ instant: true });
-      go(HOME_AFTER[who], { fresh: true });
+      go(to, { fresh: true });
     });
   });
 }

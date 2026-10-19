@@ -12,3 +12,6 @@
   padding: var(--space-12) var(--space-20) calc(var(--space-20) + var(--safe-bottom)); background: var(--neutral-50);
 }
 .a-case__foot .read-only { display: flex; flex-direction: column; gap: var(--space-12); }
+/* K-54 P11 (D-463): the partial-refund sheet — the amount field, then Refund / Cancel */
+.a-case-sheet { display: flex; flex-direction: column; gap: var(--space-16); }
+.a-case-sheet__actions { display: flex; flex-direction: column; gap: var(--space-8); }

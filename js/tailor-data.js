@@ -112,17 +112,24 @@ function payoutItem(p) {
 }
 const sumOf = (list) => list.reduce((n, p) => n + p.cents, 0);
 
-/** `{ next, failed, history, paidTotal }` — state.payouts grouped by date + state. `next` = the earliest pending date (re-queued payouts
-    included); `failed` = every payout the bank sent back, with the Friday it will be sent again; `history` = paid Fridays, newest first. */
+/** `{ next, later, failed, history, paidTotal }` — state.payouts grouped by date + state. `next` = the earliest pending date (re-queued payouts
+    included); `later` (K-54 F5, D-452) = every pending Friday after it, oldest first `[{ date, cents, items }]`; `failed` = every payout the
+    bank sent back, with the Friday it will be sent again; `history` = paid Fridays, newest first. */
 export function payoutsView() {
   const pending = state.payouts.filter((p) => p.state === 'pending');
-  const nextDate = pending.map((p) => p.date).sort()[0] ?? null;
+  const pendingDates = [...new Set(pending.map((p) => p.date))].sort();
+  const nextDate = pendingDates[0] ?? null;
   const nextList = pending.filter((p) => p.date === nextDate);
+  const later = pendingDates.slice(1).map((date) => {
+    const list = pending.filter((p) => p.date === date);
+    return { date, cents: sumOf(list), items: list.map(payoutItem) };
+  });
   const failedList = state.payouts.filter((p) => p.state === 'failed');
   const paid = state.payouts.filter((p) => p.state === 'paid');
   const dates = [...new Set(paid.map((p) => p.date))].sort().reverse();
   return {
     next: nextDate ? { date: nextDate, cents: sumOf(nextList), items: nextList.map(payoutItem) } : null,
+    later,
     failed: failedList.length ? { cents: sumOf(failedList), items: failedList.map(payoutItem), retryDate: payoutDay(isoDay(state.clock.now)) } : null,
     history: dates.map((date) => {
       const list = paid.filter((p) => p.date === date);
@@ -198,7 +205,9 @@ export function tailorRowProps(r, job = state.job, extra = {}) {
     else the seed sample's items on the same ZIP and visit type — after a request is sent the draft is empty, and the preview read
     "Example: , home visit" with only the home fee. */
 export function previewJob(job = state.job) {
-  return job?.garments?.length ? job : { ...job, garments: structuredClone(SEED_JOB.garments), visitType: job?.visitType ?? SEED_JOB.visitType, zip: job?.zip ?? SEED_JOB.zip };
+  /* K-54 P7 (D-464): no need-by in a preview — a customer's draft date (or a stale one) must never price a rush fee into "What customers see" */
+  const base = job?.garments?.length ? job : { ...job, garments: structuredClone(SEED_JOB.garments), visitType: job?.visitType ?? SEED_JOB.visitType, zip: job?.zip || SEED_JOB.zip };
+  return { ...base, needBy: null };
 }
 export function ownRow(job = state.job) {
   const t = myTailor();

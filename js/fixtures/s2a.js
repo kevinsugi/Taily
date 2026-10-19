@@ -200,7 +200,7 @@ export const FLOWS_c_complete = [
 export const FLOWS_c_ready = [
   { ...at('c-ready'), key: 'c-ready--offline', title: 'Pay while offline', note: 'S-12: nothing is held; the error sits above the bar',
     setup: (S) => { const a = S.driveTo('ready'); S.T.chooseReturn(a.id, 'pickup'); A2_pick(a.id); S.sim.network = 'offline'; },
-    click: ['[data-act="pay"]', '[data-act="pay-ok"]'],
+    click: ['.action-bar [data-act="pay"]'],
     expect: { has: ['You’re offline', 'Nothing was charged. Pay again when you’re back.'], sel: '.c-ready__alert .banner--error' } },
 ];
 export const FLOWS_c_pay = [

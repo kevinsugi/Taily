@@ -20,7 +20,7 @@ const ID = 'c-receipt';
 const ui = () => (state.ui[ID] ??= {});
 const firstOf = (t) => (t?.name || 'The tailor').split(' ')[0];
 const LABEL = { deposit: 'Deposit', balance: 'Balance', 'courier-change': 'Courier window change' };   // K-53: a pricier window after Pay, its own charge
-const REFUND_LABEL = { deposit: 'Deposit refunded', overage: 'Courier difference refunded' };
+const REFUND_LABEL = { deposit: 'Deposit refunded', overage: 'Courier difference refunded', courier: 'Courier refunded by Taily', partial: 'Refunded by Taily' };   // K-54 P11
 
 function view(s) {
   const a = getAppt(s.ui.apptId);

@@ -51,7 +51,7 @@ const LOGO = `<svg class="top-nav__logo" viewBox="0 0 131.5 60.74" width="74" he
 export const NAV = {
   customer: [['home', 'Home'], ['bookings', 'Bookings'], ['messages', 'Messages'], ['account', 'Account']],
   tailor: [['home', 'Home'], ['shop', 'Shop'], ['messages', 'Messages'], ['earnings', 'Earnings']],   // K-04 / CR-6b: Messages before Earnings
-  admin: [['inbox', 'Inbox'], ['ledger', 'Ledger']],   // pre-MVP A2 (K-48.1): Kevin's admin view; K-53 (c7): + the Ledger
+  admin: [['inbox', 'Inbox'], ['checks', 'Verifications'], ['ledger', 'Ledger']],   // pre-MVP A2 (K-48.1): Kevin's admin view; K-53 (c7): + the Ledger; K-54 B2: + Verifications
 };
 /**
  * Top nav (M7 A5.2, D-187): the logo and four 44 x 44 ICON links. The label is the link's aria-label + title. `badges` (D-164):
@@ -109,7 +109,7 @@ export function chrome(active = 'home', { persona = 'customer', time = '9:41' } 
  * need her ("action" status word).
  */
 export function navBadges(persona = 'customer') {
-  if (persona === 'admin') return { inbox: adminInbox().unread };
+  if (persona === 'admin') return { inbox: adminInbox().unread, checks: verificationQueue().review.filter((t) => verifyView(t).pending.length).length };   // K-54 B2: a tailor waiting on a check
   if (persona === 'tailor') {
     const replies = apptsFor('tailor').filter((a) => a.status === 'price-change' && statusWord(a, 'tailor').pill === 'action').length;
     return {
@@ -138,7 +138,7 @@ import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb, dayWord }
 import { POLICY } from './money-config.js';
 import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor, verifyView, checkState,
   caseById, caseView, caseMessages, casesFor, caseOfAppt, openCaseOfAppt, helpTopics, topicLabel, REPORT_REASONS, isBlocked, blockedBy, getAppt, tailorById,
-  maskContact, deliveryReportOpen, adminInbox, unclaimedAt, firstChecksPassed, approvedPendingBackground } from './state.js';
+  maskContact, deliveryReportOpen, adminInbox, unclaimedAt, firstChecksPassed, approvedPendingBackground, verificationQueue } from './state.js';
 import { protectionLine, policyList, HELP_CONTACT } from './policies.js';
 import { scheduler, slotColumns, readSlot, windowColumns, readWindow, whenNote, SCHED_ROW } from './scheduler.js';   // K-40: the handoff time sheet (scheduler.js imports this file back; both only call across at run time)
 import { withLatency } from './sim.js';
@@ -1335,7 +1335,9 @@ export function photoStub({ type = '', tone = 0, size = 'thumb', kind = 'photo',
 /* ---------- avatar ---------- */
 /** Avatar (M7 A5.4, D-199) — a circle: initials on the warm tint. size 'sm' 40 | 'md' 56 | 'lg' 80. A real photo wins over initials;
     `photo: true` = the prototype's "added photo": the same tinted circle with the initials (a camera glyph when there are none yet). Decorative. */
-export function avatar({ initials = '', photo = null, size = 'sm', glyph = false } = {}) {
+export function avatar({ initials = '', photo = null, size = 'sm', glyph = false, mark = '' } = {}) {
+  /* K-54 P6 (D-464): `mark` = an icon in the well instead of initials (Taily Help's own avatar, never "Ta") */
+  if (mark) return `<span class="avatar avatar--${size} avatar--mark" aria-hidden="true">${mark}</span>`;
   /* `glyph` (CR-m4): an empty well shows the hanger until initials exist (the customer preview of a profile being written) */
   if (glyph && !photo) return `<span class="avatar avatar--${size} avatar--glyph" aria-hidden="true">${initials ? esc(initials) : ICON_HANGER}</span>`;
   if (photo === true) {
@@ -1969,8 +1971,10 @@ export function checkWords(t, id) {
     if (waits) out.pillLabel = 'Waiting';
     if (st === 'not-started') out.act = 'check-background';
   } else if (id === 'years') {
-    out.sub = st === 'not-started' ? 'Add it to your profile' : st === 'waitlist' ? `${yearsWord(t.years)} · Taily tailors have at least ${DATA.TAILOR_LIMITS.YEARS_MIN}` : yearsWord(t.years);
-    if (st !== 'verified') out.act = 'check-years';
+    /* K-54 B2 (D-451): Taily's review can ask about her years (needs info), then checks them again once she saves them (pending) */
+    out.sub = st === 'not-started' ? 'Add it to your profile' : st === 'waitlist' ? `${yearsWord(t.years)} · Taily tailors have at least ${DATA.TAILOR_LIMITS.YEARS_MIN}`
+      : st === 'needs-info' ? 'We need a few more details. Check your texts' : st === 'pending' ? `${yearsWord(t.years)} · we’re checking them` : yearsWord(t.years);
+    if (st !== 'verified' && st !== 'pending') out.act = 'check-years';
   } else if (id === 'payout') {
     if (p.status === 'paused') { out.pill = 'paused'; out.pillLabel = 'Paused'; out.sub = 'Confirm your tax info to get paid'; out.act = 'check-payout'; return out; }
     out.sub = { verified: `${p.bank} •••• ${p.last4} · paid Fridays`, pending: 'Our payments partner is checking your details', 'needs-info': 'Your date of birth doesn’t match your SSN. Fix it', 'not-started': 'Set it up with our payments partner' }[st];
@@ -2445,6 +2449,15 @@ export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', 
 </button>`;
 }
 
+/** K-54 F1 (D-454): a booking that needs her, as Home leads with it — the apptRow, then ONE full-width primary for its next step (Approve,
+    Choose a way back, See the new time …). Both open the booking (`act`, default open-appt, with the row's id). */
+export function apptNext({ row = {}, label = '', act = 'open-appt' } = {}) {
+  return `<section class="appt-next" data-appt-next aria-label="${esc(label)}">
+  ${apptRow(row)}
+  <div class="appt-next__cta">${cta(label, { attrs: `data-act="${esc(act)}" data-id="${esc(row.id ?? '')}"` })}</div>
+</section>`;
+}
+
 /* ============================================================
    M4 — the ticket after the fitting (D-99 … D-108)
    ============================================================ */
@@ -2625,9 +2638,9 @@ export function threadMessages(messages = [], { reader = 'customer', now = null,
 }
 
 /** Thread header — the inner HTML for `headingRow` (root `.thread-head`): a 40 px avatar, the name, one `sub` line (HTML; may hold a `countdown`). */
-export function threadHead({ initials = '', photo = null, name = '', sub = '' } = {}) {
+export function threadHead({ initials = '', photo = null, name = '', sub = '', mark = '' } = {}) {
   return `<div class="thread-head">
-  ${avatar({ initials, photo, size: 'sm' })}
+  ${avatar({ initials, photo, size: 'sm', mark })}
   <div class="thread-head__text"><h1 class="thread-head__name t-body w-600">${esc(name)}</h1>${sub ? `<p class="thread-head__sub t-small c-600">${sub}</p>` : ''}</div>
 </div>`;
 }
@@ -3520,7 +3533,7 @@ export function caseStrip(v, { act = 'open-case', nowMs = state.clock.now } = {}
 }
 
 /** The Taily Help thread header (both personas and the admin's preview). */
-export const tailyHead = (sub = '') => threadHead({ initials: 'Ta', name: 'Taily Help', sub });
+export const tailyHead = (sub = '') => threadHead({ mark: ICON_HELP, name: 'Taily Help', sub });   // K-54 P6: the Help mark, not "Ta"
 
 /** One side of a case as a thread: Taily's words are "them" for a person, "me" for the admin (reader 'taily'). Acks and decisions are bubbles. */
 export function caseThread(c, side, { reader = side, now = null, failed = [], sending = null } = {}) {

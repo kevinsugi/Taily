@@ -629,6 +629,8 @@ under the body ("You're offline. Nothing was sent."). The centred modal stays fo
   cancellation someone else made within 48 hours of the visit, on Home for both personas.
 - **Visit prompt** (`visitPrompt`): the reminder on Home — the accent strip ("Please confirm your visit · Free until 5:00 PM today"),
   the booking row, one rule line in dollars, Confirm (filled small) + Change or cancel.
+- **Booking next step** (`apptNext`, K-54 F1): when a booking needs her, Home shows its row and then ONE full-width primary for the step
+  (Review and approve · Choose a way back · See the new time …); while the draft is empty there is no disabled "Next" bar under it.
 - **Text banner** (`system.js textBannerHtml`): every notification is an SMS; the prototype draws the newest one over the status bar —
   "Taily: " + the body + the unique link — and tapping it lands on the statusScreen for that person. The catalogue is `js/texts.js`.
 - **Texts are off** banner (warning) on t-home / c-bookings with "Turn on texts".
@@ -637,7 +639,7 @@ under the body ("You're offline. Nothing was sent."). The centred modal stays fo
 - **Get help**: a person button (`helpActions()`, the life-ring glyph) on every customer order screen, and "Get help" in the tailor's ⋯.
 - **Help home** (`helpHome(who)`, c-help / t-help): Message Taily (filled), your cases (list rows with a reply-by line and an unread dot),
   "Get help with" topics, policies, Contact Taily (text / email / help hours).
-- **Case thread** (`helpThreadView`, `caseThread`, `tailyHead`): a chat with "Taily Help" (initials "Ta"), the order attached as the
+- **Case thread** (`helpThreadView`, `caseThread`, `tailyHead`): a chat with "Taily Help" (the Help mark in its avatar, `avatar({ mark })`, K-54 P6), the order attached as the
   thread context card, topic chips to start, masked contact details, decisions as bubbles in dollars.
 - **Case strip** (`caseStrip(v)`) on the order: warn "Taily is reviewing · Reply by Fri 5:00 PM", action "Taily replied · Read it",
   done "Taily decided" + the outcome line in dollars; then "Open Taily Help".

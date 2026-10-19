@@ -16,7 +16,7 @@
    presses screen buttons, so the screens must be registered first).
    ============================================================ */
 
-import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, nudgeAt, promptAt, reminderEligible } from './state.js';
+import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, nudgeAt, promptAt, reminderEligible, checksPassed, firstChecksPassed } from './state.js';
 import { ALL_FLOWS, findFlow, prepareFlow, personaForScreen } from './flows.js';
 import { setFocus } from './focus.js';
 import { toast } from './components.js';
@@ -172,7 +172,9 @@ const isOpen = () => !$('#flow-menu')?.hidden;
 
 /* ---------- Demo actions (Study-1 §3): act on the live state, no reset ---------- */
 /* K-41 / K-51: the clock to the visit reminder (48 h), then its nudge (26 h); pre-MVP A1 (S-35, D-02): the courier can fail, and a STOP reply turns texts off */
-const DEMO = [['courier', 'Courier delivers'], ['courier-fail', 'Courier can’t deliver'], ['reminder', 'To the reminder'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days'], ['stop', 'Reply STOP']];
+/* K-54 B2 (D-451): "Checks come back" — Taily's review and the partners answer a submitted tailor's pending checks (the admin's Verifications
+   does it one check at a time): the first tap passes ID, years and payout ("approved, background check pending"), the next clears the background check */
+const DEMO = [['courier', 'Courier delivers'], ['courier-fail', 'Courier can’t deliver'], ['reminder', 'To the reminder'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days'], ['stop', 'Reply STOP'], ['checks', 'Checks come back']];
 const DEMO_MIN = { h1: 60, h48: 48 * 60, d7: 7 * 24 * 60 };
 /** The appointment the demo acts on: the one on screen (focused), else the customer's active one, else the newest. */
 const demoAppt = () => (state.ui.apptId ? getAppt(state.ui.apptId) : null) ?? activeAppt() ?? state.appts[state.appts.length - 1] ?? null;
@@ -187,6 +189,16 @@ function runDemo(kind) {
   } else if (kind === 'courier-fail') {
     const r = a ? T.courierFailed(a.id) : { ok: false };
     msg = r.ok ? 'The courier couldn’t deliver it. It goes back to the tailor.' : 'No courier delivery to fail.';
+  } else if (kind === 'checks') {
+    const t = state.tailors[0];
+    if (!t?.submitted || checksPassed(t)) msg = 'No checks waiting.';
+    else if (!firstChecksPassed(t)) {
+      T.reviewChecks({ background: 'pending' });
+      msg = firstChecksPassed(t) ? 'Checks came back: approved, background check pending.' : 'Checks came back. One still needs something from the tailor.';
+    } else {
+      T.reviewChecks();
+      msg = checksPassed(t) ? 'Background check cleared. The tailor is verified and listed.' : 'Checks came back.';
+    }
   } else if (kind === 'stop') {
     T.textReply(state.persona, 'STOP');
     msg = `${state.persona === 'tailor' ? 'The tailor' : 'The customer'} replied STOP. Texts are off.`;

@@ -130,7 +130,7 @@ function editView(a, chromeHtml) {
     payoutCents: after.total, label: priced || moved ? 'New total' : 'Total', lines: priced || moved ? deltaLines(after.total, ev.before.total) : [],
   }));
   const rows = [
-    { label: 'Services', cents: after.services, caption: `${first}’s new prices` },
+    { label: 'Services', cents: after.services, caption: priced ? `${first}’s new prices` : `${first}’s prices · unchanged` },   // K-54 P3: a due-date-only edit
     after.homeFee > 0 && { label: 'Home visit fee', cents: after.homeFee, caption: HOME_FEE_CAPTION },
     after.rush > 0 && { label: 'Rush fee', cents: after.rush },
     ev.before.rush > after.rush && !after.rush && { label: 'Rush fee', caption: 'Removed · later due date', cents: 0 },   // SF-03

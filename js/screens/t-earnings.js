@@ -102,7 +102,7 @@ function view() {
 </main>`;
   }
 
-  const { next, failed, history } = payoutsView();
+  const { next, later = [], failed, history } = payoutsView();
   const bank = bankOf(myTailor().payouts);
 
   const t = myTailor();
@@ -169,6 +169,18 @@ function view() {
   </section>`;
   }
 
+  /* K-54 F5 (D-452): every later Friday that already has money waiting — never only the earliest */
+  const afterThat = later.length ? `<section class="sec ${ID}__later" aria-labelledby="${ID}-later" data-later>
+  ${sectionHead('After that', { id: `${ID}-later` })}
+  ${later.map((g) => `<div class="${ID}__group" aria-label="${esc(`Arrives ${fmtDay(g.date)}`)}">
+    <div class="${ID}__ghead">
+      <div class="${ID}__gtext"><p class="t-body w-600">${esc(fmtDay(g.date))}</p><p class="t-small c-600">${paused ? 'Waits until payouts are back on' : `Arrives · to ${esc(bank)}`}</p></div>
+      <div class="${ID}__gright"><span class="t-body w-600" data-money>${fmtExact(g.cents)}</span></div>
+    </div>
+    ${rowsOf(g.items)}
+  </div>`).join('')}
+</section>` : '';
+
   const paid = history.length ? `<section class="sec" aria-labelledby="${ID}-paid">
   ${sectionHead('Paid', { id: `${ID}-paid` })}
   ${history.map((g) => `<div class="${ID}__group" aria-label="Paid ${esc(fmtDay(g.date))}">
@@ -186,6 +198,7 @@ function view() {
   ${failBanner}
   ${nextCard}
   ${sent}
+  ${afterThat}
   ${onTheWay()}
   ${paid}
   ${taxDocs(t)}

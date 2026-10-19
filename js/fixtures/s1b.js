@@ -82,5 +82,5 @@ export const FLOWS_c_price_change = [
     expect: { has: ['Amara edited your order', 'Amara’s reason', B_REASON, 'Taken by Amara', `New due date ${B_day(NEW_DUE)}`, 'WHAT CHANGED', 'New price', 'New total', B_exact(B_SC.edit.total), B_exact(B_SC.edit.balance), 'Stays the same', 'Something not right? Message Amara to change it before the work is finished.', 'Approve changes', 'Message Amara'], not: ['Approve and start', 'note on the order', 'Decline', 'decline', 'Work done so far'], sel: '[data-edit="pending"] [data-edit-hint]' } },
   { ...CP, key: 'c-price-change--edit-due', title: 'Amara edited your order — the due date only', note: 'Study-1 B1: a later due date, same items and price: no "What changed", the total as before',
     setup: (S) => { S.driveTo('edit-pending', { edit: 'due' }); },
-    expect: { has: ['Amara edited your order', `New due date ${B_day(NEW_DUE)}`, `was ${B_day(SEED_DUE)}`, 'Total', B_exact(B_SC.seed.total), 'Approve changes', 'Message Amara'], not: ['WHAT CHANGED', 'New total', 'Taken by Amara', 'Decline'] } },
+    expect: { has: ['Amara edited your order', `New due date ${B_day(NEW_DUE)}`, `was ${B_day(SEED_DUE)}`, 'Total', B_exact(B_SC.seed.total), 'Amara’s prices · unchanged', 'Approve changes', 'Message Amara'], not: ['WHAT CHANGED', 'New total', 'Taken by Amara', 'Decline', 'Amara’s new prices'] } },   // K-54 P3
 ];

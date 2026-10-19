@@ -67,7 +67,7 @@ FLOWS_c_job.push(
 export const FLOWS_c_booking = [
   { ...CB, key: 'c-booking--reminder', title: 'Booking — confirm by 5:00 PM', note: 'K-41 (R3): the prompt on the booking — strip with the time left, the rule under the title, Confirm in the bar, Reschedule and Cancel still free',
     setup: (S) => { toReminder(S); },
-    expect: { has: ['Confirm by 5:00 PM today', '2h left', 'Your visit with Amara', `Free to change or cancel until Wed, Oct 14 · 5:00 PM. After that, Amara keeps your ${DEP} deposit if you cancel or aren’t home.`, 'Confirm for tomorrow', 'Reschedule', 'Cancel booking', 'Free cancellation until Wed, Oct 14 · 5:00 PM'], sel: '[data-strip="action"]', also: '.action-bar [data-act="confirm-visit"]' } },
+    expect: { has: ['Confirm by 2:00 PM tomorrow', 'Free until 5:00 PM today', 'Your visit with Amara', `If it isn’t confirmed by Thu, Oct 15 · 2:00 PM, we cancel it. Free to change or cancel until Wed, Oct 14 · 5:00 PM. After that, Amara keeps your ${DEP} deposit if you cancel or aren’t home.`, 'Confirm for tomorrow', 'Reschedule', 'Cancel booking', 'Free cancellation until Wed, Oct 14 · 5:00 PM'], sel: '[data-strip="action"]', also: '.action-bar [data-act="confirm-visit"]' } },
   { ...CB, key: 'c-booking--reminder-confirmed', title: 'Booking — confirmed for tomorrow', note: 'K-41 (R3) → K-53: after Confirm (3:12 PM) the free window stays open until 24 hours before (5:00 PM) — Reschedule and a free cancel are still there',
     setup: (S) => { confirmedAtReminder(S); },
     expect: { has: ['Confirmed for tomorrow · 5:00 PM', `Still free to change or cancel until Wed, Oct 14 · 5:00 PM. After that, Amara keeps your ${DEP} deposit if you cancel or aren’t home.`, `You confirmed on Wed, Oct 14 at 3:12 PM. Free cancellation until Wed, Oct 14 · 5:00 PM. After that, Amara keeps the ${DEP} deposit.`, 'Reschedule', 'Cancel booking'], not: ['Confirm for tomorrow', 'To change the time now'], sel: '[data-strip="done"]' } },
@@ -110,5 +110,5 @@ export const FLOWS_t_home = [
 FLOWS_c_booking.push(
   { ...CB, key: 'c-booking--reminder-48h', title: 'Booking — please confirm (48 h before)', note: 'K-51: the reminder (C7) lands here too — free to change until Wed, Oct 14 · 5:00 PM, Confirm in the bar',
     setup: (S) => { toReminder48(S); },
-    expect: { has: ['Confirm by 5:00 PM tomorrow', 'Free to change or cancel until Wed, Oct 14 · 5:00 PM.', 'Reschedule', 'Cancel booking'], sel: '.action-bar [data-act="confirm-visit"]' } },
+    expect: { has: ['Confirm by Thu 2:00 PM', 'Free until 5:00 PM tomorrow', 'Free to change or cancel until Wed, Oct 14 · 5:00 PM.', 'Reschedule', 'Cancel booking'], sel: '.action-bar [data-act="confirm-visit"]' } },
 );

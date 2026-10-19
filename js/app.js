@@ -41,6 +41,8 @@ const SCREEN_MODULES = [
   'c-profile', 'c-change-phone', 'c-receipt', 'c-reviews', 't-change-phone',   // the legal pages are c-policy / t-policy (D-380)
   /* pre-MVP K-53 (track M) · the Taily fee explainer (onboarding), the admin Ledger */
   'to-fee', 'a-ledger',
+  /* K-54 happy-path review (B2) · the admin's Verifications */
+  'a-verifications',
   /* MVP readiness, track L (K-52 / K-53) · Log in, the admin's own sign-in */
   'c-login', 'a-login',
 ];
@@ -88,7 +90,7 @@ export function personaHome(persona = state.persona) {
 const NAV_ROUTES = {
   customer: { home: 'c-job', bookings: 'c-bookings', messages: 'c-messages', account: 'c-account' },
   tailor: { home: 't-home', shop: 't-shop', earnings: 't-earnings', messages: 't-messages' },
-  admin: { inbox: 'a-inbox', ledger: 'a-ledger' },
+  admin: { inbox: 'a-inbox', checks: 'a-verifications', ledger: 'a-ledger' },
 };
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */

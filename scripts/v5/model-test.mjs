@@ -1019,7 +1019,7 @@ section('account + sim');
   eq([A.verifyCode('123456'), state.session.customer.signedIn], [{ ok: true, isNew: true }, false], 'verifyCode: a new account waits for the name');
   eq(A.saveName({ first: ' ', last: '' }).errors, { first: 'first-required', last: 'last-required' }, 'saveName: both names required');
   A.saveName({ first: 'Jo', last: 'Park' });
-  eq([state.customer.first, state.customer.last, state.customer.initials, state.customer.phone, state.session.customer.signedIn, state.customer.cards.length], ['Jo', 'Park', 'JP', '(917) 555-0186', true, 1], 'saveName: names the customer, keeps the seed card');
+  eq([state.customer.first, state.customer.last, state.customer.initials, state.customer.phone, state.session.customer.signedIn, state.customer.cards.length], ['Jo', 'Park', 'JP', '(917) 555-0186', true, 0], 'saveName: names the customer; K-54 P1: a new account starts with no card');
   S.reset(); A.signOut();
   eq([A.signInWith('apple').ok, state.session.customer.signedIn, A.signInWith('x').ok], [true, false, false], 'signInWith: apple / google only — D-07 / B-09 (pre-MVP B2): not signed in until the phone code');
   eq(A.addCard({ number: '4242', exp: '13/28', cvc: '1', zip: '1121' }).errors, { number: 'card-number', exp: 'card-exp', cvc: 'card-cvc', zip: 'card-zip' }, 'addCard: per-field errors');
@@ -2960,7 +2960,7 @@ section('L · D-431 the tailor’s preview after a request; K-53 b the legal dra
   eq([state.job.garments.length, TD.previewJob().garments.map((g) => g.type)], [0, ['Suit Pant', 'Suit Jacket']], 'D-431: an empty draft previews the sample items');
   ok(TD.ownRow(TD.previewJob()).row?.quote.total === SCENARIOS.seed.total, 'D-431: … priced like the seed job (not the home fee alone)');
   S.reset();
-  ok(TD.previewJob() === state.job, 'D-431: a draft with items previews itself');
+  ok(TD.previewJob().garments === state.job.garments && TD.previewJob().needBy === null, 'D-431: a draft with items previews itself; K-54 P7: with no need-by (never a rush fee)');
   const keys = Object.keys(POL.POLICIES).filter((k) => POL.POLICIES[k].legal);
   ok(keys.every((k) => ['customer', 'tailor'].every((w) => { const p = POL.policyPage(k, w); return p.draft && p.draftLine === 'Draft — counsel review required' && p.sections.length >= 5; })), 'K-53 b: every legal page is a full draft (5+ sections) marked Draft — counsel review required');
   const words = keys.flatMap((k) => ['customer', 'tailor'].flatMap((w) => POL.policyPage(k, w).sections.flatMap((x) => x.lines))).join(' ');
@@ -3117,6 +3117,105 @@ section('Pre-MVP sweep · B-02 versioned approvals');
   const r4 = T.answerProposal(a.id, true, { start: m1 });
   eq([r4.ok, r4.error, r4.start, S.proposalOf(a)?.start], [false, 'revised', m2, m2], 'B-02: accepting the time she saw fails once Amara asked for another');
   eq([T.answerProposal(a.id, true, { start: m2 }).ok, a.slot.start], [true, m2], 'B-02: accepting the current ask moves the visit');
+}
+
+section('K-54 · happy-path review fixes (B1, B2, F2, F3, F5, F8, P1, P8, P11)');
+{
+  /* B1 (D-450): the new request is the one c-request shows once c-pay names it — the old, opened order would otherwise be forwarded */
+  S.reset(); const old = driveTo('completed');
+  setFocus(old.id);
+  state.clock.now = D.toDate('2026-10-20T10:00').getTime();
+  T.bookAgain(old.id);
+  /* F3 (D-453): Book again's need-by is a new job's default, not the old order's */
+  eq(state.job.needBy, D.isoDay(D.addDays(D.toDate('2026-10-20T10:00'), DATA.NEED_BY_DEFAULT_D)), 'F3: Book again starts the need-by NEED_BY_DEFAULT_D days out (Fri, Oct 30), not Fri, Oct 23');
+  const g = T.addGarment('Suit Pant').garment; T.setServices(g.id, ['hem-pants']);
+  const slot = S.nextOpening('amara', state.job.visitType, { until: state.job.needBy });
+  const r = T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' });
+  eq([r.ok, M.estimate(state.tailors[0], r.appt.job, slot).rush], [true, 0], 'F3: … so the only slot carries no rush fee');
+  let went = null;
+  eq(redirectIfMoved('c-request', (id) => { went = id; }), true, 'B1: with the OLD order still focused, c-request would forward away (the bug)');
+  setFocus(r.appt.id);
+  eq([focusAppt('c-request')?.id, redirectIfMoved('c-request', () => {})], [r.appt.id, false], 'B1: named, c-request shows the new request and stays');
+  void went;
+
+  /* B2 (D-451): the admin's per-check review, in order, with the texts */
+  EARN.onboardTo('submitted');
+  const t = state.tailors[0];
+  guard(T.reviewCheck('insurance', 'verified'), 'unknown-check', 'B2: only the four checks');
+  guard(T.reviewCheck('background', 'verified'), 'background-last', 'B2: the background check waits for the other three (K-53 Q8)');
+  guard(T.reviewCheck('years', 'verified'), 'same', 'B2: years from her profile are already passed');
+  eq(S.verificationQueue().review.map((x) => x.id), [t.id], 'B2: a submitted tailor with open checks is in the queue');
+  const mark = state.outbox.length;
+  ok(T.reviewCheck('years', 'needs-info').ok && S.checkState(t, 'years') === 'needs-info', 'B2: the admin asks about her years');
+  ok(state.outbox.slice(mark).some((m) => m.event === 'check-action-needed' && m.body.includes('your years tailoring')), 'B2: … she gets the check-action-needed text');
+  T.setTailorSection('profile', { years: 9 });
+  eq(S.checkState(t, 'years'), 'pending', 'B2: re-saving her years sends them back to review');
+  ok(T.reviewCheck('id', 'verified').ok && T.reviewCheck('years', 'verified').ok && T.reviewCheck('payout', 'verified').ok, 'B2: ID, years and payout pass one at a time');
+  eq([S.approvedPendingBackground(t), t.live], [true, false], 'B2: approved, pending the background check — not listed yet');
+  const mark2 = state.outbox.length;
+  const last = T.reviewCheck('background', 'verified');
+  eq([last.wentLive, S.isVerified(t), S.listed(t), state.outbox.slice(mark2).filter((m) => m.event === 'verified').length], [true, true, true, 1], 'B2: the 4th pass takes her live and texts “verified” once');
+  eq([S.verificationQueue().review.length, S.verificationQueue().verified.length], [0, 1], 'B2: … and she moves to Verified');
+  EARN.onboardTo('submitted');
+  T.reviewChecks({ background: 'pending' });
+  eq([S.firstChecksPassed(state.tailors[0]), S.checksPassed(state.tailors[0])], [true, false], 'B2 Demo “Checks come back”, 1st tap: approved, background pending');
+  T.reviewChecks();
+  ok(S.checksPassed(state.tailors[0]) && state.tailors[0].live, 'B2 Demo, 2nd tap: the background check clears, she is live');
+
+  /* F5 (D-452): the Friday payout run fires as the clock crosses it, stamped at the run */
+  S.reset(); driveTo('completed');
+  const run = S.payoutRunAt(PAYOUT_DAYS.first);
+  S.advanceClock(Math.round((run - S.now()) / 60000) - 1);
+  eq(state.payouts[0].state, 'pending', 'F5: a minute before Fri 9:00 AM it is still pending');
+  S.advanceClock(2);
+  eq([state.payouts[0].state, state.payouts[0].paidAt, state.outbox.filter((m) => m.event === 'payout-sent').map((m) => m.at)], ['paid', `${PAYOUT_DAYS.first}T09:00`, [`${PAYOUT_DAYS.first}T09:00`]], 'F5: the run pays it at 9:00 AM and texts T35 then');
+  S.reset(); driveTo('completed'); T.pausePayouts();
+  S.advanceClock(8 * 24 * 60);
+  eq(state.payouts[0].state, 'pending', 'F5: a paused partner account waits (DG-4)');
+  S.reset(); driveTo('completed'); state.payouts[0].held = true;
+  S.advanceClock(8 * 24 * 60);
+  eq(state.payouts[0].state, 'pending', 'F5: a held payout waits for Taily (D-14)');
+  S.reset(); driveTo('completed'); T.pausePayouts();
+  EARN.draftAgain(); T.setJob({ visitType: 'shop' });
+  EARN.completeJob(addRequest({ accept: true, after: SECOND_SLOT_AFTER }).id);
+  const pv = TD.payoutsView();
+  eq([pv.next?.date, pv.later.map((x) => x.date)], [PAYOUT_DAYS.first, [PAYOUT_DAYS.second]], 'F5: Earnings lists every pending Friday — the next and the later ones');
+
+  /* F2 (D-455): the review prompt right after the handoff, then the 7-day reminder */
+  S.reset(); let a = driveTo('completed');
+  eq([S.reviewPromptDue(a), S.reviewReminderDue(a)], [true, false], 'F2: Home asks for the review as soon as it came back');
+  ok(T.dismissReviewReminder(a.id).ok && !S.reviewPromptDue(a), 'F2: ✕ puts the prompt away …');
+  S.advanceClock(POLICY.REVIEW_REMINDER_D * 24 * 60);
+  eq([S.reviewPromptDue(a), S.reviewReminderDue(a)], [false, true], 'F2: … and the 7-day reminder still comes');
+
+  /* F8 (D-457): a tailor's sign-out lands on Log in */
+  S.reset();
+  const { signOutTo } = await import('../../js/account-ui.js');
+  eq([signOutTo('tailor'), state.ui['t-phone']?.mode, state.session.tailor.signedIn, signOutTo('customer')], ['t-phone', 'login', false, 'c-welcome'], 'F8: Sign out → t-phone in its Log in mode (the customer: c-welcome)');
+
+  /* P8 (D-461): visit day words */
+  S.reset(); a = driveTo('confirmed');
+  state.clock.now = D.toDate('2026-10-15T16:55').getTime();
+  T.visitPing(a.id, 'tailor', 'here');
+  eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label], ['Amara is here', 'Confirmed'], 'P8: the customer’s row says Amara is here; the tailor’s words are unchanged');
+
+  /* P11 (D-463): Taily refunds the courier, or part of what she paid; the payout never changes */
+  S.reset(); a = driveTo('completed', { returnOption: 'courier' });
+  const c = T.openCase({ who: 'customer', apptId: a.id, text: 'The courier was late.' }).case;
+  const kinds = S.adminActions(c).map((x) => x.kind);
+  ok(kinds.includes('refund-courier') && kinds.includes('refund-partial'), 'P11: a charged courier order offers the courier refund and a partial one');
+  const before = S.ledger({ apptId: a.id }).totals;
+  const pay = state.payouts[0].cents;
+  const rc = T.adminAct(c.id, 'refund-courier');
+  eq([rc.ok, rc.cents, state.payouts[0].cents, S.courierRefundable(a)], [true, SCENARIOS.courier.courier, pay, 0], 'P11: the courier refund — once; the tailor’s payout is the same');
+  guard(T.adminAct(c.id, 'refund-partial', { cents: 0 }), 'amount-invalid', 'P11: a partial refund needs an amount');
+  const over = T.adminAct(c.id, 'refund-partial', { cents: SCENARIOS.courier.total });
+  eq([over.error, over.max], ['amount-over', SCENARIOS.courier.total - SCENARIOS.courier.courier], 'P11: never more than is left to refund');
+  ok(T.adminAct(c.id, 'refund-partial', { cents: 500 }).ok, 'P11: a $5.00 partial refund');
+  const rv = S.receiptView(a);
+  eq([rv.refunds.map((x) => [x.kind, x.cents]), rv.paid], [[['courier', SCENARIOS.courier.courier], ['partial', 500]], SCENARIOS.courier.total - SCENARIOS.courier.courier - 500], 'P11: both on her receipt; Paid drops by them');
+  const after = S.ledger({ apptId: a.id }).totals;
+  eq([after.refunded - before.refunded, before.revenue - after.revenue], [SCENARIOS.courier.courier + 500, SCENARIOS.courier.courier + 500], 'P11: the Ledger — refunded, and Taily’s revenue pays it');
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

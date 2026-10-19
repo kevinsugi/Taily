@@ -11,7 +11,8 @@
    ============================================================ */
 import { state, now, nowIso, blankTailor, nextSection, TERMINAL, deleteBlocker, newJob } from './state.js';
 import { POLICY } from './money-config.js';
-import { SHOP_CITY, placeForZip, BLANK_CUSTOMER, BOOKING_LIMITS, ADMIN_ACCOUNT } from './data.js';
+import { SHOP_CITY, placeForZip, BLANK_CUSTOMER, BOOKING_LIMITS, ADMIN_ACCOUNT, NEED_BY_DEFAULT_D } from './data.js';
+import { isoDay, addDays } from './dates.js';
 import { LEGAL_VERSION } from './policies.js';
 
 const WRONG_CODE = '000000';
@@ -106,8 +107,10 @@ export function verifyCode(code, who = 'customer') {
   return { ok: true, isNew: true };
 }
 
-/** New account: names the one seed customer record (D-33), keeps its address and card. D-02 (pre-MVP A1): booking texts are their own
-    opt-in (`texts`, an unticked box on c-name) — off unless she ticks it; sign-in codes always go. */
+/** New account: names the one seed customer record (D-33). K-54 P1 (D-460): a NEW number starts empty — no sample draft, saved address
+    or card (the record kept the seed's until K-54); Home opens on an empty order, Where and when asks for her address, Review and send for a
+    card. D-02 (pre-MVP A1): booking texts are their own opt-in (`texts`, an unticked box on c-name) — off unless she ticks it; sign-in codes
+    always go. */
 export function saveName({ first = '', last = '', texts = false } = {}) {
   const f = String(first).trim();
   const l = String(last).trim();
@@ -115,6 +118,11 @@ export function saveName({ first = '', last = '', texts = false } = {}) {
   if (!f) errors.first = 'first-required';
   if (!l) errors.last = 'last-required';
   if (Object.keys(errors).length) return { ok: false, errors };
+  if (session().pending?.isNew) {
+    Object.assign(state.customer, { addresses: [], address: null, cards: [], applePay: false });
+    newJob();
+    Object.assign(state.job, { zip: '', needBy: isoDay(addDays(new Date(now()), NEED_BY_DEFAULT_D)) });
+  }
   Object.assign(state.customer, {
     first: f, last: l, initials: `${f[0]}${l[0]}`.toUpperCase(),
     phone: session().pending?.phone ?? state.customer.phone,

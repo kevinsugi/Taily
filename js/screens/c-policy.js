@@ -4,7 +4,8 @@
    Accessibility) — one screen since the A2 + B2 merge (D-380; B2's c-legal folded in).
    Opened from Help → Policies, Account → Help and policies, c-pay (garment protection, Cancellation and refunds), the courier card,
    and — signed out — the Terms / Privacy links on c-welcome and c-phone (system.js exempt; no tabs, no Get help until she's in).
-   D-21: garment protection's copy is a COUNSEL draft and says so; a legal page shows its version and "Full text coming soon".
+   D-21 / K-53 b (D-429): every legal page is a full plain-language draft under IN SHORT, marked "Draft — counsel review required"
+   with its version; garment protection's copy is a COUNSEL draft and says so.
    Content: js/policies.js (every number from POLICY / MONEY, dollars only); body markup: components.js policySections (t-policy shares it).
    ============================================================ */
 import { register, render as go } from '../app.js';

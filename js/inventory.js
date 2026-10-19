@@ -25,13 +25,14 @@ export const MILESTONES = [
   { id: 'K53', name: 'Pre-MVP K-53 M: hold at Ready, fee 15 + the fee page, no-show = deposit, the admin Ledger, the free window’s end' },
   { id: 'RL', name: 'MVP readiness L: log in, admin sign-in, availability, legal drafts (K-52 / K-53)' },
   { id: 'SW', name: 'Pre-MVP findings sweep: versioned approvals, On the way, tailor-row a11y, rem type, web-app shell' },
+  { id: 'RV', name: 'K-54 happy-path review fixes: a second booking, the admin’s Verifications, the payout run, Home’s next step, Pay in one tap' },
 ];
 
 /** Milestones whose screens are built (their state keys must all have FLOWS entries). */
-export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM', 'A2', 'K53', 'RL', 'SW'];
+export const BUILT = ['M0', 'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'S1', 'A1', 'PM', 'A2', 'K53', 'RL', 'SW', 'RV'];
 
 export const SCREENS = [
-  { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: continue with phone; Apple / Google secondary', states: [
+  { id: 'c-welcome', m: 'M1', persona: 'customer', title: 'Entry: Continue with phone (phone only for the pilot, K-53 Q9), Already have an account? Log in, the tailor line', states: [
     { key: 'c-welcome', m: 'M1', kind: 'frame' },
     { key: 'c-welcome--deleted', m: 'PM', kind: 'state' },
     { key: 'c-welcome--social', m: 'RL', kind: 'state' },
@@ -75,6 +76,11 @@ export const SCREENS = [
     { key: 'c-job--notice-cant-make-it', m: 'A1', kind: 'state' },
     { key: 'c-job--notice-auto-cancel', m: 'A1', kind: 'state' },
     { key: 'c-job--reminder-unarmed', m: 'A1', kind: 'state' },
+    { key: 'c-job--next-ready', m: 'RV', kind: 'frame' },
+    { key: 'c-job--next-approve', m: 'RV', kind: 'state' },
+    { key: 'c-job--review-prompt', m: 'RV', kind: 'frame' },
+    { key: 'c-job--visit-here', m: 'RV', kind: 'state' },
+    { key: 'c-job--new-account', m: 'RV', kind: 'state' },
   ] },
   { id: 'c-where', m: 'M1', persona: 'customer', title: 'C2 Where and when: visit type, address / zip, need-by', states: [
     { key: 'c-where', m: 'M1', kind: 'frame' },
@@ -85,6 +91,8 @@ export const SCREENS = [
     { key: 'c-where--rush', m: 'M1', kind: 'state' },
     { key: 'c-where--address-sheet', m: 'M1', kind: 'overlay' },
     { key: 'c-where--needby-sheet', m: 'M1', kind: 'overlay' },
+    { key: 'c-where--new-account', m: 'RV', kind: 'state' },
+    { key: 'c-where--book-again', m: 'RV', kind: 'state' },
   ] },
   { id: 'c-tailors', m: 'M1', persona: 'customer', title: 'C3 Tailors near you (filtered list, 1 seed row)', states: [
     { key: 'c-tailors--loading', m: 'M1', kind: 'frame' },
@@ -135,6 +143,8 @@ export const SCREENS = [
     { key: 'c-pay--offline', m: 'A1', kind: 'state' },
     { key: 'c-pay--services', m: 'PM', kind: 'state' },
     { key: 'c-pay--note', m: 'PM', kind: 'state' },
+    { key: 'c-pay--no-card', m: 'RV', kind: 'frame' },
+    { key: 'c-pay--no-card-sheet', m: 'RV', kind: 'overlay' },
   ] },
   { id: 'c-request', m: 'M1', persona: 'customer', title: 'C6/C7 request status (also the Bookings target for an open request)', states: [
     { key: 'c-request', m: 'M1', kind: 'frame' },
@@ -148,6 +158,7 @@ export const SCREENS = [
     { key: 'c-request--suggested-passed', m: 'M3', kind: 'state' },
     { key: 'c-request--withdraw', m: 'M3', kind: 'overlay' },
     { key: 'c-request--item-peek', m: 'M7', kind: 'overlay' },
+    { key: 'c-request--second', m: 'RV', kind: 'state' },
   ] },
   { id: 'c-thread', m: 'M1', persona: 'customer', title: 'Chat with one tailor. M1 = "Ask a question" stub; M5 = full rules', states: [
     { key: 'c-thread--new', m: 'M1', kind: 'frame' },
@@ -236,6 +247,8 @@ export const SCREENS = [
     { key: 'c-booking--note', m: 'PM', kind: 'state' },
     { key: 'c-booking--courier-pricier', m: 'K53', kind: 'state' },
     { key: 'c-booking--free-window-closed', m: 'K53', kind: 'state' },
+    { key: 'c-booking--visit-here', m: 'RV', kind: 'state' },
+    { key: 'c-booking--reminder-cutoff', m: 'RV', kind: 'state' },
   ] },
   { id: 'c-price-change', m: 'M4', persona: 'customer', title: 'C9 Review your final order: items and services added / removed / re-priced, or no changes → Approve and start or Message (K-01) · with the tailor’s Before / Pinned photos and comments (K-02)', states: [
     { key: 'c-price-change', m: 'M4', kind: 'frame' },
@@ -272,6 +285,8 @@ export const SCREENS = [
     { key: 'c-ready--hold-failed', m: 'K53', kind: 'state' },
     { key: 'c-ready--courier-repriced', m: 'K53', kind: 'state' },
     { key: 'c-ready--text', m: 'K53', kind: 'state' },
+    { key: 'c-ready--pay-direct', m: 'RV', kind: 'frame' },
+    { key: 'c-ready--paying', m: 'RV', kind: 'state' },
   ] },
   { id: 'c-complete', m: 'M4', persona: 'customer', title: 'C11 order completed: stitch stage + garment tags, Amara’s label with stars, receipt row (K-17)', states: [
     { key: 'c-complete', m: 'M4', kind: 'frame' },
@@ -346,6 +361,7 @@ export const SCREENS = [
     { key: 'c-receipt--email', m: 'PM', kind: 'state' },
     { key: 'c-receipt--sent', m: 'PM', kind: 'state' },
     { key: 'c-receipt--courier-change', m: 'K53', kind: 'state' },
+    { key: 'c-receipt--taily-refund', m: 'RV', kind: 'state' },
   ] },
   { id: 'c-reviews', m: 'PM', persona: 'customer', title: 'All of a tailor’s reviews, newest first, booked through Taily (S-26)', states: [
     { key: 'c-reviews', m: 'PM', kind: 'frame' },
@@ -376,6 +392,7 @@ export const SCREENS = [
     { key: 't-phone--deleted', m: 'PM', kind: 'state' },
     { key: 't-phone--login', m: 'RL', kind: 'frame' },
     { key: 't-phone--login-unknown', m: 'RL', kind: 'state' },
+    { key: 't-phone--signed-out', m: 'RV', kind: 'state' },
   ] },
   { id: 't-code', m: 'M2', persona: 'tailor', title: 'SMS code (same errors as `c-code`)', states: [
     { key: 't-code', m: 'M2', kind: 'frame' },
@@ -475,6 +492,8 @@ export const SCREENS = [
     { key: 't-shop--after-request', m: 'RL', kind: 'state' },
     { key: 't-shop--availability', m: 'RL', kind: 'state' },
     { key: 't-shop--approved', m: 'RL', kind: 'state' },
+    { key: 't-shop--preview-no-rush', m: 'RV', kind: 'state' },
+    { key: 't-shop--years-asked', m: 'RV', kind: 'state' },
   ] },
   { id: 't-texts', m: 'A1', persona: 'tailor', title: 'Shop → Texts: requests and job texts on / off, the STOP state (D-02)', states: [
     { key: 't-texts', m: 'A1', kind: 'frame' },
@@ -637,6 +656,7 @@ export const SCREENS = [
     { key: 't-job--access-notes', m: 'PM', kind: 'state' },
     { key: 't-job--ready-hold-failed', m: 'K53', kind: 'state' },
     { key: 't-job--defaulted', m: 'K53', kind: 'state' },
+    { key: 't-job--handed-courier', m: 'RV', kind: 'state' },
   ] },
   { id: 't-adjust', m: 'M4', persona: 'tailor', title: 'T5 Final order at the fitting (K-42; after the fitting: Edit order): add / remove items and services, re-price → send the final order for approval (K-01) · Before / Pinned photos (required) and a comment per item (K-02)', states: [
     { key: 't-adjust', m: 'M4', kind: 'frame' },
@@ -674,6 +694,8 @@ export const SCREENS = [
     { key: 't-earnings--loading', m: 'M5', kind: 'state' },
     { key: 't-earnings--paused', m: 'PM', kind: 'state' },
     { key: 't-earnings--on-the-way', m: 'SW', kind: 'state' },
+    { key: 't-earnings--friday-run', m: 'RV', kind: 'state' },
+    { key: 't-earnings--later', m: 'RV', kind: 'state' },
   ] },
   { id: 't-payout', m: 'M5', persona: 'tailor', title: 'T8 per-job breakdown (services, home fee, rush, Taily fee −$, payout)', states: [
     { key: 't-payout', m: 'M5', kind: 'frame' },
@@ -721,6 +743,9 @@ export const SCREENS = [
     { key: 'a-case--general', m: 'A2', kind: 'state' },
     { key: 'a-case--safety', m: 'A2', kind: 'state' },
     { key: 'a-case--visit-unanswered', m: 'A2', kind: 'state' },
+    { key: 'a-case--courier-refund', m: 'RV', kind: 'state' },
+    { key: 'a-case--partial', m: 'RV', kind: 'overlay' },
+    { key: 'a-case--courier-refunded', m: 'RV', kind: 'state' },
   ] },
   { id: 'a-ledger', m: 'K53', persona: 'admin', title: 'Admin Ledger (K-53, c7): every money event across appointments with day / order / person filters and totals, all dollars (read-only)', states: [
     { key: 'a-ledger', m: 'K53', kind: 'frame' },
@@ -730,6 +755,13 @@ export const SCREENS = [
     { key: 'a-ledger--person', m: 'K53', kind: 'state' },
     { key: 'a-ledger--courier', m: 'K53', kind: 'state' },
     { key: 'a-ledger--no-show', m: 'K53', kind: 'state' },
+  ] },
+  { id: 'a-verifications', m: 'RV', persona: 'admin', title: 'The admin\'s Verifications (K-54 B2): each submitted tailor\'s four checks in the order they run, what is on file, Pass / Needs info per check (texts), the background check last; the verified list', states: [
+    { key: 'a-verifications', m: 'RV', kind: 'frame' },
+    { key: 'a-verifications--ask', m: 'RV', kind: 'overlay' },
+    { key: 'a-verifications--asked', m: 'RV', kind: 'state' },
+    { key: 'a-verifications--background', m: 'RV', kind: 'state' },
+    { key: 'a-verifications--empty', m: 'RV', kind: 'state' },
   ] },
   { id: 'sys-index', m: 'M0', persona: 'system', title: 'Boot screen: milestones M0–M7 and every built screen / state as a deep link', states: [
     { key: 'sys-index', m: 'M0', kind: 'frame' },

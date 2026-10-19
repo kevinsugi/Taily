@@ -326,8 +326,7 @@ await journey('J7', 'courier return: the three courier amounts match on both sid
   await at('J7 customer: the window sheet prices the courier per window, and says a missed delivery is left in the lobby', 'c-ready', { has: ['Pick a delivery window', `Courier ${fmtExact(cq.cents)} · collects from Amara at`, 'Each window has its own Uber price, checked again when you pay.', 'If you’re not home, the courier leaves it in your building’s lobby.', 'Use this window'] });
   await click('[data-act="ht-ok"]');
   await at('J7 customer: courier quote', 'c-ready', { has: ['Fri, Oct 16 · 10:30–11:00 AM', fmtExact(cq.quote), fmtExact(cq.markup), fmtExact(cq.cents), `Pay ${fmtExact(held)}`, 'Charged on delivery'] });
-  await click('[data-act="pay"]');
-  await click('[data-act="pay-ok"]');
+  await click('.action-bar [data-act="pay"]');   // K-54 F9: one tap — Pay confirms on the held card
   await at('J7 customer: courier booked', 'c-booking', { has: ['Courier booked · arrives Fri, Oct 16 · 10:30–11:00 AM', 'The courier collects from Amara at 10:15 AM', fmtExact(cq.cents), 'If you’re not home, the courier leaves it in your building’s lobby.'] });
   await flip();
   await click('.appt-row');
@@ -506,9 +505,8 @@ await journey('J15', 'pickup with the code: hold at the choice, the code, a wron
   await at('J15 customer: the Scheduler sheet', 'c-ready', { has: ['Pick a pickup time', 'Fri, Oct 16 · 10:00 AM', 'Use this time'] });
   await click('[data-act="ht-ok"]');
   await at('J15 customer: the time picked, Pay is on', 'c-ready', { has: ['Fri, Oct 16 · 10:00 AM', 'Charged at pickup', `Pay ${bal}`], not: 'Pick a pickup time first.' });
-  await click('[data-act="pay"]');
-  await at('J15 customer: the pay sheet', 'c-ready', { has: ['Pay the balance', 'Charged at pickup', `Pay ${bal}`] });
-  await click('[data-act="pay-ok"]');
+  await at('J15 customer: K-54 F9 — the card Pay confirms on, said above the bar', 'c-ready', { has: ['Pay with', 'Visa •••• 4242', 'Change'] });
+  await click('.action-bar [data-act="pay"]');   // one tap, no second Pay in a sheet
   await at('J15 customer: pending, the pickup code', 'c-booking', { has: ['Pickup Fri, Oct 16 · 10:00 AM · show your code at the shop', `Payment ${bal} · Charged at pickup`, 'Charged at pickup', 'YOUR PICKUP CODE', PICKUP_CODE, 'Change time'], not: ['Paid in full', 'Confirm received', 'I got it'] });   // D-09: not before the pickup time
   await click('[data-act="change-time"]');
   await at('J15 customer: change the time', 'c-booking', { has: ['Change pickup time', 'Booked for Fri, Oct 16 · 10:00 AM', 'NEW TIME', 'Move my pickup'] });
@@ -660,7 +658,7 @@ await journey('J19', 'the visit reminder: the 48 h text and the Home card, the 2
   const dep = fmtExact(S.seed.deposit);
   await flow('c-booking--confirmed');
   await demo('reminder');                                                // Tue 5:00 PM: 48 h before (K-51)
-  await at('J19 customer: the reminder text (C7) and the prompt on the booking', 'c-booking', { has: ['TEXT MESSAGE', 'Taily', 'Taily: Please confirm your appointment: Amara · Thu, Oct 15 · 5:00 PM at your place. Free to change until Wed, Oct 14 · 5:00 PM. Confirm or change:', 'taily.app/r/', 'Confirm by 5:00 PM tomorrow', 'Free to change or cancel until Wed, Oct 14 · 5:00 PM.'] });
+  await at('J19 customer: the reminder text (C7) and the prompt on the booking', 'c-booking', { has: ['TEXT MESSAGE', 'Taily', 'Taily: Please confirm your appointment: Amara · Thu, Oct 15 · 5:00 PM at your place. Free to change until Wed, Oct 14 · 5:00 PM. Confirm or change:', 'taily.app/r/', 'Confirm by Thu 2:00 PM', 'Free until 5:00 PM tomorrow', 'Free to change or cancel until Wed, Oct 14 · 5:00 PM.'] });   // K-54 P10: the real cut-off leads
   await click('.text-banner');
   await at('J19 customer: the text’s link opens Home — the prompt card', 'c-job', { has: ['Please confirm your visit', 'Free until 5:00 PM tomorrow', 'Your move', `After that, Amara keeps your ${fmt(S.seed.deposit)} deposit if you cancel or aren’t home.`, 'Change or cancel'] });
   await flip();
@@ -696,7 +694,7 @@ await journey('J20', 'no reply: the reminder at 48 h, the nudge at 26 h, then th
   await demo('h1');                                                    // Wed 3:00 PM: 26 h before → the nudge (K-51)
   await at('J20 customer: the nudge arrives as a text', 'c-booking', { has: ['TEXT MESSAGE', 'Taily: You haven’t confirmed your 5:00 PM visit with Amara tomorrow.', 'Confirm by 5:00 PM today or cancel it without penalty:', 'taily.app/r/'] });
   await click('.text-banner');
-  await at('J20 customer: the booking says the same deadline', 'c-booking', { has: ['Confirm by 5:00 PM today', 'Free to change or cancel until Wed, Oct 14 · 5:00 PM.'], not: 'TEXT MESSAGE' });
+  await at('J20 customer: the booking says the free window and the real cut-off (K-54 P10)', 'c-booking', { has: ['Free until 5:00 PM today', 'Confirm by 2:00 PM tomorrow', 'Free to change or cancel until Wed, Oct 14 · 5:00 PM.'], not: 'TEXT MESSAGE' });
   await advance(20 * 60);                                              // Thu 11:00 AM: the free window closed unanswered
   await paint('c-booking');
   await at('J20 customer: the booking warns before it happens', 'c-booking', { has: ['Confirm by 2:00 PM or we’ll cancel the visit', 'Visit 5:00 PM', 'Confirm, I’ll be home'] });
@@ -1142,7 +1140,7 @@ await journey('J34', 'the balance held at Ready: Amara marks it ready → Sarah�
   const bal = fmtExact(S.seed.balance);
   await flow('t-job--in-progress');                                      // Thu 5:00 PM, after the fitting
   await click('[data-act="mark-ready"]');
-  await at('J34 tailor: the mark-ready sheet says the hold', 't-job', { has: [`we hold her ${bal} balance on her card`, `within ${HOLD_DAYS} days`] });
+  await at('J34 tailor: the mark-ready sheet says the hold', 't-job', { has: [`we hold her ${bal} balance on her card`, `She has ${HOLD_DAYS} days to choose pickup or delivery from the options you tick.`] });   // K-54 P2
   await click('[data-act="ready-ok"]');
   await at('J34 tailor: ready — her balance is held', 't-job', { has: ['Ready · Sarah is choosing how to get it back', `We’re holding Sarah’s ${bal} balance on her card`, 'She chooses by Mon, Oct 19 · 5:00 PM.'] });
   const held = await model((S) => { const b = S.state.appts[0].payments.balance; return [b.state, b.by, b.cents, b.cardId]; });
@@ -1159,8 +1157,8 @@ await journey('J34', 'the balance held at Ready: Amara marks it ready → Sarah�
   const inside = await model((S) => { const a = S.state.appts[0]; return S.handoffSlots(a, 'pickup').every((x) => new Date(x.start).getTime() + 30 * 60000 <= S.unclaimedAt(a)); });
   check('J34 every pickup time ends by the hold’s last day', inside === true, String(inside));
   await click('[data-act="ht-ok"]');
-  await click('[data-act="pay"]');
-  await at('J34 customer: the pay sheet — the balance is on hold already', 'c-ready', { has: ['Pay the balance', 'The balance is on hold on your Visa •••• 4242', `Pay ${bal}`, 'Charged at pickup'] });
+  await click('[data-act="pay-change"]');   // K-54 F9: Change opens the sheet — the balance is on hold already
+  await at('J34 customer: Change — the sheet says the balance is on hold already', 'c-ready', { has: ['Pay the balance', 'The balance is on hold on your Visa •••• 4242', `Pay ${bal}`, 'Charged at pickup'] });
   await click('[data-act="pay-ok"]');
   await at('J34 customer: confirmed, charged at pickup', 'c-booking', { has: [`Payment ${bal} · Charged at pickup`, 'YOUR PICKUP CODE'] });
   const after = await model((S) => { const b = S.state.appts[0].payments.balance; return [b.state, b.by, (b.holds ?? []).length]; });
@@ -1208,8 +1206,7 @@ await journey('J36', 'the courier at Pay: re-quoted, a small rise absorbed by Ta
   await model((S) => { S.state.sim.courierDrift = 200; return true; });  // Uber's live price at Pay moved by $2.00
   await paint('c-ready');
   await at('J36 customer: the window picked at its price', 'c-ready', { has: [`${fmtExact(seen)} · Uber to your door`, `Pay ${fmtExact(S.seed.balance + seen)}`] });
-  await click('[data-act="pay"]');
-  await click('[data-act="pay-ok"]');
+  await click('.action-bar [data-act="pay"]');   // K-54 F9: one tap
   await at('J36 customer: paid what she saw — booked', 'c-booking', { has: ['Courier booked · arrives Fri, Oct 16 · 4:30–5:00 PM', `Payment ${fmtExact(S.seed.balance + seen)} · Charged on delivery`] });
   const pay = await model((S) => S.state.appts[0].courier.pay?.absorbed ?? null);
   check('J36 Taily absorbed the rise at Pay (up to $3.00)', pay === absorbed && absorbed > 0, `${pay} vs ${absorbed}`);
@@ -1338,6 +1335,95 @@ await journey('J40', 'Time off hides openings: Amara adds Thu–Sat off in her s
   await flip();                                                          // tailor → customer
   await paint('c-tailors');
   await at('J40 the customer sees Monday as the next opening', 'c-tailors', { has: [`Next opening ${fmtWhen('2026-10-19T17:00')}`], not: [`Next opening ${fmtWhen('2026-10-15T17:00')}`] });
+});
+
+/* ---------- K-54 happy-path review fixes (D-450…D-464) ---------- */
+await journey('J41', 'a second booking lands on the NEW request: open a booking → Home → book → Reserve (K-54 B1)', async () => {
+  await flow('c-booking');
+  await press('[data-nav="bookings"]');
+  await press('.appt-row');                                                  // her first booking, opened from Bookings (state.ui.apptId = it)
+  await at('J41 her booking, opened', 'c-booking', { has: ['Your visit with Amara'] });
+  const first = await model((S) => S.state.ui.apptId);
+  await press('[data-nav="home"]');
+  await at('J41 Home leads with the booking; the draft is empty (no disabled Next bar, K-54 F1)', 'c-job', { has: ['What needs work?'], not: 'Add at least one garment to continue.' });
+  await press('[data-act="add-garment"][data-type="Suit Pant"]');
+  await press('[data-act="pick-services"]');
+  await click('#svc-hem-pants');
+  await click('[data-act="services-done"]');
+  await press('.action-bar [data-act="next"]');
+  await at('J41 where and when', 'c-where', { has: ['See tailors'] });
+  await press('.action-bar [data-act="next"]');
+  await at('J41 tailors near you', 'c-tailors', { has: ['Amara Reyes'] });
+  await press('.tailor-row__link');
+  await press('[data-act="book-now"]');
+  await press('[data-act="slot-next"]');
+  await at('J41 review and send', 'c-pay', { has: ['Review and send request', '1 item · 1 service'] });
+  await press('.action-bar [data-act="pay"]');
+  const ids = await model((S) => ({ newest: S.state.appts[S.state.appts.length - 1].id, focus: S.state.ui.apptId, n: S.state.appts.length }));
+  check('J41 a new request was made and is the one in focus', ids.n === 2 && ids.newest !== first && ids.focus === ids.newest, JSON.stringify({ ...ids, first }));
+  await at('J41 Reserve lands on the NEW request (one item), not the booking she had open', 'c-request', { has: ['Waiting for Amara', '1 item · 1 service'], not: '2 items' });
+});
+
+await journey('J42', 'the admin verifies a new tailor check by check → she is live and listed; the Demo action does it too (K-54 B2)', async () => {
+  await flow('a-verifications');
+  await at('J42 Verifications: four checks in order, the background check waits', 'a-verifications', { has: ['UNDER REVIEW', '1 of 4 passed', 'Runs last, once the other three pass'] });
+  await press('[data-check-row="years"] [data-act="check-ask"]');
+  await at('J42 Needs info quotes her text', 'a-verifications', { has: ['Ask Amara for more?', 'We need one more thing to verify you: your years tailoring.'] });
+  await click('[data-act="cs-ok"]');
+  const asked = await model((S) => ({ st: S.checkState(S.state.tailors[0], 'years'), text: S.state.outbox.filter((m) => m.event === 'check-action-needed').length }));
+  check('J42 years → Needs info, and she was texted', asked.st === 'needs-info' && asked.text === 1, JSON.stringify(asked));
+  await press('[data-check-row="years"] [data-act="check-pass"]');
+  await press('[data-check-row="id"] [data-act="check-pass"]');
+  await press('[data-check-row="payout"] [data-act="check-pass"]');
+  await at('J42 approved: the background check is the one left', 'a-verifications', { has: ['3 of 4 passed'], not: 'Runs last' });
+  await press('[data-check-row="background"] [data-act="check-pass"]');
+  await at('J42 all four passed: she moves to Verified, listed', 'a-verifications', { has: ['No one waiting', 'VERIFIED', 'Listed'] });
+  const live = await model((S) => ({ live: S.state.tailors[0].live, listed: S.listed(S.state.tailors[0]), verified: S.state.outbox.filter((m) => m.event === 'verified').length, rows: S.tailorsFor(S.state.job).rows.length }));
+  check('J42 live, listed, the “verified” text once, and customers can find her', live.live && live.listed && live.verified === 1 && live.rows === 1, JSON.stringify(live));
+  /* the Demo action on a fresh submission */
+  await page.evaluate(async () => { const C = await import('/js/fixtures/common.js'); C.onboardTo('submitted'); window.Taily.render('t-shop', { fresh: true }); });
+  await settle(page);
+  await demo('checks');
+  const one = await model((S) => [S.firstChecksPassed(S.state.tailors[0]), S.checksPassed(S.state.tailors[0])]);
+  check('J42 Demo “Checks come back”, 1st tap: approved, background pending', JSON.stringify(one) === '[true,false]', JSON.stringify(one));
+  await demo('checks');
+  const two = await model((S) => [S.checksPassed(S.state.tailors[0]), S.listed(S.state.tailors[0])]);
+  check('J42 … 2nd tap: the background check clears — verified and listed', JSON.stringify(two) === '[true,true]', JSON.stringify(two));
+});
+
+await journey('J43', 'the Friday payout run fires as the demo clock crosses it; Earnings and the text say so (K-54 F5)', async () => {
+  await page.evaluate(async () => { const C = await import('/js/fixtures/common.js'); C.driveTo('completed'); window.Taily.render('t-earnings', { fresh: true }); });
+  await settle(page);
+  await at('J43 Earnings: the payout scheduled for Friday', 't-earnings', { has: ['NEXT PAYOUT', `Arrives ${fmtDay(PAYOUT_DAYS.first)}`, fmtExact(S.seed.payout)] });
+  await demo('h48');                                                         // Thu 5:00 PM → Sat 5:00 PM: the Fri 9:00 AM run went out
+  await at('J43 Earnings: paid on its Friday', 't-earnings', { has: ['PAID', fmtDay(PAYOUT_DAYS.first), 'Paid to Chase •••• 6789', fmtExact(S.seed.payout)], not: `Arrives ${fmtDay(PAYOUT_DAYS.first)}` });
+  const t = await model((S) => S.state.outbox.filter((m) => m.event === 'payout-sent').map((m) => m.at));
+  check('J43 T35 went out at the run (Fri 9:00 AM)', JSON.stringify(t) === JSON.stringify([`${PAYOUT_DAYS.first}T09:00`]), JSON.stringify(t));
+});
+
+await journey('J44', 'a tailor signs out → t-phone in Log in mode → her number → the code → Home (K-54 F8)', async () => {
+  await flow('t-shop');
+  await press('[data-act="sign-out"]');
+  await click('[data-act="sign-out-ok"]');
+  await at('J44 signed out: Log in, not the Join pitch', 't-phone', { has: ['Welcome back', 'Log in to your shop with your mobile number.'], not: 'Get booked by customers nearby' });
+  const phone = await model((S) => S.state.tailors[0].phone);
+  await page.fill('#screen #phone', phone);
+  await press('.action-bar [data-act="send-code"]');
+  await page.fill('#screen #code', '123456');
+  await settle(page);
+  await at('J44 back in', 't-home', {});
+});
+
+await journey('J45', 'Pay on the ready order: one tap on the card holding it; Change opens the sheet (K-54 F9)', async () => {
+  await flow('c-ready--pay-direct');
+  await at('J45 the card Pay confirms on, above the bar', 'c-ready', { has: ['Pay with', 'Visa •••• 4242', 'Change', `Pay ${fmtExact(S.seed.balance)}`] });
+  await press('[data-act="pay-change"]');
+  await at('J45 Change: the sheet with every way to pay', 'c-ready', { has: ['Pay the balance', 'Apple Pay'] });
+  await click('.sheet__cancel');
+  await click('.action-bar [data-act="pay"]');
+  await at('J45 one tap: confirmed, the pickup code', 'c-booking', { has: [`Payment ${fmtExact(S.seed.balance)} · Charged at pickup`, 'YOUR PICKUP CODE'] });
+  const b = await model((S) => { const x = S.state.appts[0].payments.balance; return [x.state, x.by, (x.holds ?? []).length]; });
+  check('J45 confirmed against the ready hold — no second authorization', JSON.stringify(b) === JSON.stringify(['held', 'ready', 1]), JSON.stringify(b));
 });
 
 console.log(`\n${R.passes} journey checks passed, ${R.failures} failed.`);

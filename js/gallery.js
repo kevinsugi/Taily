@@ -582,6 +582,8 @@ export function galleryHtml({ part = 'all' } = {}) {
     C.reminderCard({ title: 'Amara can’t make it today', text: `Your ${fmtExact(seed.deposit)} deposit is refunded. Your 2 items and 3 services are saved.`, actionLabel: 'Find another tailor', act: 'g-find', dismissAct: 'g-dismiss', notice: true, id: 'g-n1' }));
   v('the visit reminder on Home: strip, the booking row, one rule in dollars, Confirm + Change or cancel');
   col(C.visitPrompt({ text: 'Please confirm your visit', right: 'Free until 5:00 PM today', row: { ...ar, status: 'confirmed' }, rule: `Free to change until 5:00 PM today. After that, Amara keeps your <span data-money>${fmtExact(seed.deposit)}</span> deposit if you cancel.`, id: 'g-v1' }));
+  v('K-54 F1 (D-454): a booking that needs her leads Home — apptNext: the row, then its one full-width primary');
+  col(C.apptNext({ row: { ...ar, id: 'g-n2', status: 'action', pillLabel: 'Ready', when: 'Ready since Thu, Oct 15', place: 'At Reyes Tailoring', amountText: fmtExact(seed.balance), amountCaption: 'On hold' }, label: 'Choose a way back' }));
 
   h2('Handoff (Study-1 A, K-40, K-44…K-47) — garmentStrip · pickupCode · when row · autoCompleteLine · stages');
   v('the order as a strip (each thumb opens its services) · the pickup code · the When row, before and after a pick');

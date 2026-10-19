@@ -16,6 +16,7 @@ import {
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
+import { setFocus } from '../focus.js';
 import { fmtExact, estimate, cancelTerms } from '../money.js';
 import { fmtWhen, addMinutes, toDate } from '../dates.js';
 import { VISIT_LABEL, VISIT_MINUTES, BOOKING_LIMITS } from '../data.js';
@@ -140,8 +141,11 @@ function view() {
   }
   const u = ui();
   const alert = alertHtml(r);
-  const methodBtn = methodRow(`<span class="c-pay__method-name">${esc(method.label)}</span>${method.sub ? `<span class="c-pay__method-sub">${esc(method.sub)}</span>` : ''}`, method.kind)
-    .replace('<button type="button" class="method-row"', `<button type="button" class="method-row c-pay__method" data-act="change-method"${busy ? ' disabled aria-disabled="true"' : ''}`);
+  /* K-54 P1 (D-460): a new account has no card yet — the row adds one (Reserve opens the same sheet, then reserves) */
+  const methodBtn = method
+    ? methodRow(`<span class="c-pay__method-name">${esc(method.label)}</span>${method.sub ? `<span class="c-pay__method-sub">${esc(method.sub)}</span>` : ''}`, method.kind)
+      .replace('<button type="button" class="method-row"', `<button type="button" class="method-row c-pay__method" data-act="change-method"${busy ? ' disabled aria-disabled="true"' : ''}`)
+    : `<div class="card card--list c-pay__nocard" data-no-card>${listRow({ title: 'Add a card', sub: 'We hold the deposit on it when you reserve', act: 'add-card', lead: ADD_CARD_GLYPH })}</div>`;
 
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
   ${headingRow('<h1 class="t-title">Review and send request</h1>', { back: false })}
@@ -192,7 +196,7 @@ const ADD_CARD_GLYPH = '<svg width="28" height="20" viewBox="0 0 28 20" fill="no
 function methodSheetHtml({ methods, method }) {
   return `<div class="c-pay-sheet" data-view="method">
   <div class="c-pay-sheet__group" role="radiogroup" aria-label="Pay with">${methods.map((m) => optionRow({
-    name: 'method', value: m.id, title: esc(m.label), sub: esc(m.sub), checked: m.id === method.id, act: 'method',
+    name: 'method', value: m.id, title: esc(m.label), sub: esc(m.sub), checked: m.id === method?.id, act: 'method',
     lead: m.kind === 'apple' ? '<span class="pay-badge">Pay</span>' : CARD_GLYPH,
   })).join('')}</div>
   ${listRow({ title: 'Add a card', act: 'add-card', lead: ADD_CARD_GLYPH })}
@@ -234,8 +238,10 @@ function formatCardInput(el) {
   else if (el.id === 'cc-zip') el.value = d.slice(0, 5);
 }
 
-function openMethodSheet() {
-  sheetOverlay(methodSheetHtml(read()), { header: 'Pay with', dataS: 'c-pay--method', confirm: false }, (holder, close) => {
+/** The Pay with sheet. `addCard` opens it on the card form (no card yet, K-54 P1); `then` runs after a card is saved (Reserve → reserve). */
+function openMethodSheet({ addCard = false, then = null } = {}) {
+  const onCard = addCard || !read().methods.length;
+  sheetOverlay(onCard ? addCardHtml() : methodSheetHtml(read()), { header: onCard ? 'Add a card' : 'Pay with', dataS: onCard ? 'c-pay--add-card' : 'c-pay--method', confirm: false }, (holder, close) => {
     const title = holder.querySelector('.sheet__title');
     const swap = (html, header, view) => {
       holder.querySelector('.c-pay-sheet').outerHTML = html;
@@ -255,9 +261,10 @@ function openMethodSheet() {
       if (ui().error === 'declined') ui().error = null;
       close();
       go(ID);
+      if (then) { then(); return; }
       toast('Card added');
     };
-    holder.dataset.view = 'method';
+    holder.dataset.view = onCard ? 'add-card' : 'method';
     holder.addEventListener('input', (e) => { if (e.target.matches('#cc-number, #cc-exp, #cc-csc, #cc-zip')) formatCardInput(e.target); });
     holder.addEventListener('click', (e) => {
       const a = e.target.closest('[data-act]');
@@ -285,10 +292,12 @@ function openMethodSheet() {
 let cancelWait = null;
 const onScreen = () => document.getElementById('screen')?.dataset.screen === ID;
 
-/** The request went through: clear the draft and leave the booking behind (Back can't return to a paid form). */
-function sent() {
+/** The request went through: clear the draft and leave the booking behind (Back can't return to a paid form). K-54 B1 (D-450): name the
+    NEW request before going — c-request otherwise forwards the booking she last opened (redirectIfMoved on a stale state.ui.apptId). */
+function sent(res) {
   state.ui.booking = {};
   delete state.ui[ID];
+  if (res?.appt) setFocus(res.appt.id);
   go('c-request', { fresh: true });
 }
 
@@ -325,7 +334,7 @@ function openThreeDs() {
       cancelWait = withLatency(() => {
         attempt({ threeDS: true }, (res) => {
           close();
-          if (res.ok) sent(); else fail(res);
+          if (res.ok) sent(res); else fail(res);
         });
       });
     };
@@ -341,13 +350,14 @@ function openThreeDs() {
 function pay() {
   const u = ui();
   if (u.busy) return;
+  if (!read().method) { openMethodSheet({ addCard: true, then: pay }); return; }   // K-54 P1: no card yet — add one, then reserve
   u.busy = true; u.error = null; u.info = null;
   go(ID);
   cancelWait?.();
   cancelWait = withLatency(() => {
     if (!onScreen()) { u.busy = false; return; }
     attempt({}, (res) => {
-      if (res.ok) { sent(); return; }
+      if (res.ok) { sent(res); return; }
       if (res.error === 'needs-3ds') { u.busy = false; go(ID); openThreeDs(); return; }
       fail(res);
     });
@@ -380,6 +390,7 @@ function wire(root) {
     switch (a.dataset.act) {
       case 'back': if (!back()) go('c-book'); break;
       case 'change-method': if (!ui().busy) openMethodSheet(); break;
+      case 'add-card': if (!ui().busy) openMethodSheet({ addCard: true }); break;   // K-54 P1
       case 'pay': pay(); break;
       case 'pick-time': go('c-book', { replace: true }); break;
       case 'other-tailors': ui().error = null; go('c-tailors'); break;

@@ -252,7 +252,7 @@ function liveView(a, t, first) {
   ${caseBlock(a)}
   ${visitSection(a, t)}
   ${sec(`${sectionHead('What happens next')}${steps}`)}
-  ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}${confirmed && !a.visitCheck ? `<p class="t-small c-600 ${ID}__policy">${policy}</p>` : ''}`)}
+  ${sec(`${sectionHead('Price', { aside: infoButton('deposit') })}${customerBreakdown(a.money, { stage: 'booked', tailorFirst: first, depositState: a.payments.deposit.state })}${confirmed && !a.visitCheck && !a.visitDay?.tailor?.hereAt ? `<p class="t-small c-600 ${ID}__policy">${policy}</p>` : ''}`)}
   ${actions}
 </main>${rem?.bar ? actionBar(rem.bar) : ''}`;
 }
@@ -264,9 +264,13 @@ function reminderCopy(a, r, first, deposit) {
   const day = dayWord(a.slot.start, now());
   const until = freeUntil(a);
   if (r === 'asked') {
+    /* K-54 P10 (D-462): lead with the real cut-off — unconfirmed at REMINDER_AUTOCANCEL_H before the visit, it's cancelled (only once the
+       reminder reached her, D-02); the free window is the second fact, as C7 says it (K-51 wording kept) */
+    const cut = autoCancelArmed(a) ? autoCancelAt(a) : null;
+    const by = (ms) => { const dw = dayWord(ms, now()); return dw === 'today' || dw === 'tomorrow' ? `${fmtTime(ms)} ${dw}` : `${fmtDay(ms).slice(0, 3)} ${fmtTime(ms)}`; };   // the strip stays one line: "Thu 2:00 PM"
     return {
-      strip: { tone: 'action', icon: 'clock', text: `Confirm by ${fmtTime(until)} ${dayWord(until, now())}`, right: `${fmtCountdown(until - now())} left` },
-      rule: `Free to change or cancel until ${esc(fmtWhen(until))}. After that, ${esc(first)} keeps your ${money(deposit)} deposit if you cancel or ${away}.`,   // K-51: as C7 says it; K-53: confirming doesn't end the free window
+      strip: { tone: 'action', icon: 'clock', text: cut ? `Confirm by ${by(cut)}` : 'Please confirm your visit', right: `Free until ${by(until)}` },
+      rule: `${cut ? `If it isn’t confirmed by ${esc(fmtWhen(cut))}, we cancel it. ` : ''}Free to change or cancel until ${esc(fmtWhen(until))}. After that, ${esc(first)} keeps your ${money(deposit)} deposit if you cancel or ${away}.`,   // K-51: as C7 says it; K-53: confirming doesn't end the free window
       bar: { ctaLabel: `Confirm for ${day}`, ctaAct: 'confirm-visit', secondaryLabel: 'Reschedule', secondaryAct: 'reschedule', tertiaryLabel: 'Cancel booking', tertiaryAct: 'cancel', tertiaryTone: 'danger' },
     };
   }
@@ -494,7 +498,7 @@ function handoffView(a, t, first) {
   /* SF-14: after paying, the 7-day charge date (not once she marked it picked up — that countdown speaks — or while a problem is open) */
   const captureLine = bal.state === 'held' && held > 0 && !problem && !marked && unclaimedAt(a)
     ? `<p class="t-small c-600 ${ID}__capture">If you haven’t got it by ${esc(fmtWhen(unclaimedAt(a)))}, we’ll charge the ${money(held)} then.</p>` : '';
-  const courierCaption = how === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily fee ${fmtExact(a.courier.markup)}` } : {};
+  const courierCaption = how === 'courier' && a.courier?.state === 'ready' ? { courierCaption: `Uber quote ${fmtExact(a.courier.quote)} + Taily courier fee ${fmtExact(a.courier.markup)}` } : {};
   const breakdown = customerBreakdown(a.money, { stage: charged ? 'charged' : 'held', tailorFirst: first, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '', wayBack: how, ...courierCaption });
   const order = a.lines?.length ? orderSection(a, first) : '';
   /* A3 + D-09 (K-48.3): "Confirm received" shows only once Amara marked it handed over, or the pickup time has started — the sticky bar

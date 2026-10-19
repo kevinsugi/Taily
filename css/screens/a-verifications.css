@@ -1,0 +1,17 @@
+/* a-verifications — K-54 B2 (D-451): the admin's Verifications. Layout only; pills, small buttons, the list card and the confirm sheet are shared. */
+.a-verifications__who { margin: var(--space-4) 0 0; text-wrap: pretty; }
+.a-verifications__tailor { display: flex; flex-direction: column; gap: var(--rhythm-tight); }
+.a-verifications__tailor + .a-verifications__tailor { margin-top: var(--rhythm-section); }
+.a-verifications__tailor-head { display: flex; flex-direction: column; gap: var(--space-2); }
+.a-verifications__tailor-head h2, .a-verifications__tailor-head p { margin: 0; text-wrap: pretty; }
+.a-verifications__checks, .a-verifications__list { margin: 0; list-style: none; }
+.a-verifications__check, .a-verifications__row { display: flex; flex-direction: column; gap: var(--rhythm-tight); padding: var(--space-12) 0; }
+.a-verifications__row { flex-direction: row; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-4) var(--space-12); }
+.a-verifications__check + .a-verifications__check, .a-verifications__row + .a-verifications__row { box-shadow: inset 0 1px 0 var(--hairline); }
+.a-verifications__check-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-4) var(--space-12); }
+.a-verifications__check-text { display: flex; flex: 1 1 8rem; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.a-verifications__check-text .t-small { text-wrap: pretty; }
+.a-verifications__check .status, .a-verifications__row .status { flex: 0 0 auto; }
+.a-verifications__acts { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+.a-verifications__empty { margin-top: var(--rhythm-block); }
+.a-verifications__acts > * { flex: 1 1 calc(50% - var(--space-4)); max-width: calc(50% - var(--space-4)); }

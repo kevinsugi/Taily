@@ -115,6 +115,8 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .avatar--photo { overflow: hidden; }
 .avatar--glyph .icon-hanger { width: var(--size-24); height: var(--size-24); }   /* CR-m4 */
 .avatar--placeholder .icon-camera { width: var(--size-24); height: var(--size-24); }
+.avatar--mark { color: var(--accent-ink); }   /* K-54 P6 (D-464): Taily Help's own mark in the well, never initials */
+.avatar--mark svg { width: var(--size-24); height: var(--size-24); }
 .avatar__img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ---------- tailor row (K-19, option Q "Cognac rule") ---------- */
@@ -1226,6 +1228,30 @@ a.cta-small { text-decoration: none; }
    S-17 (pre-MVP sweep, D-443): the tiers are em queries (18.75em = 300 px at the browser's 16 px default), so a reader who doubles the
    text size (390 px = 12.2em at 32 px) gets the same reflow as 200% zoom; identical at the default. ---------- */
 @media (max-width: 18.75em) {
+  /* K-54 F6 (D-459): the tailor card's head stacks — avatar + name share the first line, the estimate drops under them (the name never
+     squeezes to a letter per line) */
+  .tailor-row__head { grid-template-columns: var(--space-40) minmax(0, 1fr); row-gap: var(--space-8); }
+  .tailor-row__name { overflow-wrap: break-word; }
+  .tailor-row__quote { grid-column: 1 / -1; flex-direction: row; align-items: baseline; justify-content: flex-start; gap: var(--space-4); text-align: left; }
+  /* K-54 F7 (D-459): a date + time wheel (4 columns) stacks — the day wheel on its own row, the time wheels under it, each with its band */
+  .scheduler:has(.wheel--sched > .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) { padding-inline: var(--space-12); }
+  .scheduler .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) {
+    --sched-h: 220px; --sched-band: 88px;
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--space-8); height: auto;
+  }
+  .scheduler--compact .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) { --sched-h: 132px; --sched-band: 44px; }
+  .scheduler--top .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) { --sched-band: 0px; }
+  .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) > .wheel__col { z-index: 1; min-width: 0; }
+  .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) > .wheel__band + .wheel__col { grid-column: 1 / -1; }
+  .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) > .wheel__band { top: var(--sched-band); }
+  .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col)::after {
+    content: ''; position: absolute; left: 0; right: 0; top: calc(var(--sched-h) + var(--space-8) + var(--sched-band)); height: 44px;
+    border-radius: var(--radius-md); background: var(--neutral-50);
+  }
+  .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) .wheel__row { white-space: nowrap; }
+  /* K-54 (the a-case zoom check): a long status under an amount ("Pending · Fri, Oct 16") wraps instead of running over the label */
+  .money-row__right { flex-shrink: 1; min-width: 0; }
+  .money-row__status { text-align: right; }
   /* SF-35: a deadline on another day ("23h left · by tomorrow 10:00 AM") may wrap under the lead instead of crossing the edge */
   .request-card__strip--split { flex-wrap: wrap; row-gap: var(--space-4); }
   .request-card__strip[data-strip] .request-card__strip-clock { white-space: normal; flex-shrink: 1; min-width: 0; }
@@ -1465,6 +1491,8 @@ a.cta-small { text-decoration: none; }
 .visit-prompt .appt-row { margin: 0; padding: 0; background: none; box-shadow: none; }
 .visit-prompt__rule { margin: 0; text-wrap: pretty; }
 .visit-prompt__actions { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+/* K-54 F1 (D-454): a booking that needs her — the row, then its one full-width primary */
+.appt-next { display: flex; flex-direction: column; gap: var(--space-12); }
 .visit-prompt__actions .cta-small { flex: 1 1 0; min-width: fit-content; justify-content: center; }   /* equal halves; at 200% zoom they stack */
 
 /* SF-43: the edit-scope line under a live-shop editor's intro */

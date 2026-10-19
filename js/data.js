@@ -42,6 +42,7 @@ export const DAY_START_MIN = 9 * 60;                    // earliest visit start
 export const DAY_END_MIN = 21 * 60;                     // latest visit end
 export const SLOT_STEP_MIN = 30;
 export const SLOT_HORIZON_DAYS = 28;                    // how far ahead slots are generated when there is no need-by
+export const NEED_BY_DEFAULT_D = 10;                 // K-54 F3 (D-453): a fresh draft's need-by, days from today — the seed's own (Tue, Oct 13 → Fri, Oct 23); Book again starts here
 /** Optional single-choice reasons (D-76). The first entry of each is what driveTo('declined' | 'cant-make-it') passes. */
 export const DECLINE_REASONS = ['Fully booked that week', 'Not work I take on', 'Too far for a home visit', 'Can’t finish by the need-by date'];
 export const CANT_MAKE_IT_REASONS = ['Family emergency', 'I’m unwell', 'Shop closed unexpectedly', 'Something came up'];

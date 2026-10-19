@@ -146,6 +146,7 @@ function view() {
   const zero = m.balance === 0;                                           // D-156: the final order is worth less than the deposit
   const refund = m.refund;
   const confirming = !!r.u.confirming;
+  const paying = !!r.u.paying;   // K-54 F9: Pay confirms in place (no sheet) — the bar's busy state
   /* one way back offered → nothing to choose (R4-1-C-05, D-113) */
   const only = offered.length === 1 ? offered[0] : null;
   const LINE_FOR = { pickup: `pick it up at ${esc(t.shopName)}`, courier: 'a courier brings it to your door' };
@@ -208,6 +209,7 @@ function view() {
   const hold = zero ? '' : `<div class="${ID}__hold" data-hold>
   <p class="t-body c-700">${lead}</p>
   ${end ? `<p class="t-small c-600" data-hold-end>Choose by ${esc(datesNb(fmtWhen(end)))}. If you haven’t by then, we charge the ${money(ready)}${pickupDefault ? ' and set it to in-store pickup' : ''}. ${esc(first)} still keeps it for you.</p>` : ''}
+  ${payWith(r, { zero })}
 </div>`;
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${navBackMark()}${hero}
@@ -225,11 +227,20 @@ function view() {
 </main>
 ${actionBar({
     ctaLabel: zero ? (refund > 0 ? `Confirm${sel ? ` ${CHOICE_WORD[sel]}` : ''} and get ${fmtExact(refund)} back` : 'Confirm') : sameCard ? 'Use another card' : payLabel(dueNow(a, m)),
-    ctaAct: zero ? 'confirm' : 'pay', disabled: off, busy: confirming, busyLabel: 'Confirming…',
+    ctaAct: zero ? 'confirm' : 'pay', disabled: off, busy: confirming || paying, busyLabel: paying ? 'Paying…' : 'Confirming…',
     /* K-46 (D-303): Pay carries its caption — or, disabled, the reason it waits — as its own second line; a $0 balance keeps the lead */
     ...(zero ? { lead: barLead(r, { zero }) } : sameCard ? {} : { ctaSub: barLead(r) }),   // "Use another card" (the card just failed) carries no charge line
     secondaryLabel: `Message ${first}`, secondaryAct: 'message',
   })}`;
+}
+
+/** K-54 F9 (D-456): Pay confirms against the card the balance is held on — one tap, no second "Pay" in a sheet. The card is said above the
+    bar; Change (two or more ways to pay) opens the sheet to pick another. After a decline the sheet is the way on ("Use another card"). */
+const direct = (r) => !r.failed && !!r.method;
+function payWith(r, { zero }) {
+  if (zero || !direct(r)) return '';
+  const change = r.methods.length > 1 ? textLink('Change', { act: 'pay-change', disabled: !!r.u.paying, attrs: `aria-label="Change how you pay, now ${esc(r.method.label)}"` }) : '';
+  return `<div class="${ID}__paywith" data-pay-with><p class="t-small c-600">Pay with <span class="w-600 c-700">${esc(r.method.label)}</span></p>${change}</div>`;
 }
 
 /* ---------- pay sheet ---------- */
@@ -333,6 +344,45 @@ function confirmZero(r) {
   });
 }
 
+/** After Pay (the sheet's or the direct one): on to the booking with the charge rule, or the screen's own error. */
+function afterPay(r, res) {
+  const { a, u } = r;
+  /* the router took the screen away mid-payment (browser Back): the charge still lands, say so */
+  if (!onScreen()) {
+    if (res.ok) toast(`You’ll be charged ${fmtExact(res.appt.payments.balance.cents)} ${chargedPhrase(res.appt.returnOption)}.`, { tone: 'success' });
+    else if (res.error === 'card-declined') toast('Your card was declined. Nothing was charged.', { tone: 'error' });
+    return;
+  }
+  if (res.ok) {
+    const tail = handoffTail(res.appt, r);
+    setFocus(a.id);
+    go('c-booking', { fresh: true });
+    toast(`You’ll be charged ${fmtExact(res.appt.payments.balance.cents)} ${chargedPhrase(res.appt.returnOption)}.${tail}`, { tone: 'success' });
+  } else if (res.error === 'card-declined' || res.error === 'courier-repriced') {   // K-53 (Q6): the new courier price shows in the banner
+    go(ID);
+  } else if (res.error === 'offline') {   // S-12
+    u.offline = true;
+    go(ID);
+  } else {
+    go(ID);
+    toast('Choose how to get it back first.');
+  }
+}
+/** K-54 F9 (D-456): Pay on the card already holding the balance — confirms at once, the bar busy meanwhile. */
+function payDirect(r) {
+  const { a, u } = r;
+  if (u.paying || u.quoting) return;
+  u.paying = true;
+  u.offline = false;
+  go(ID);
+  cancelWait?.();
+  cancelWait = withLatency(() => {
+    u.paying = false;
+    if (!a.returnOption && r.offered.length === 1 && r.offered[0] !== 'courier') T.chooseReturn(a.id, r.offered[0]);
+    afterPay(r, T.holdBalance(a.id, r.method.id, { threeDS: true }));
+  });
+}
+
 function openPay(r) {
   const { a } = r;
   const u = ui(a);
@@ -373,26 +423,7 @@ function openPay(r) {
           busy = false;
           holder.dataset.locked = 'false';
           close();
-          /* the router took the screen away mid-payment (browser Back): the charge still lands, say so */
-          if (!onScreen()) {
-            if (res.ok) toast(`You’ll be charged ${fmtExact(res.appt.payments.balance.cents)} ${chargedPhrase(res.appt.returnOption)}.`, { tone: 'success' });
-            else if (res.error === 'card-declined') toast('Your card was declined. Nothing was charged.', { tone: 'error' });
-            return;
-          }
-          if (res.ok) {
-            const tail = handoffTail(res.appt, r);
-            setFocus(a.id);
-            go('c-booking', { fresh: true });
-            toast(`You’ll be charged ${fmtExact(res.appt.payments.balance.cents)} ${chargedPhrase(res.appt.returnOption)}.${tail}`, { tone: 'success' });
-          } else if (res.error === 'card-declined' || res.error === 'courier-repriced') {   // K-53 (Q6): the new courier price shows in the banner
-            go(ID);
-          } else if (res.error === 'offline') {   // S-12
-            u.offline = true;
-            go(ID);
-          } else {
-            go(ID);
-            toast('Choose how to get it back first.');
-          }
+          afterPay(r, res);
         });
       }
     });
@@ -439,7 +470,8 @@ function wire(root) {
     switch (act) {
       case 'return': if (el.dataset.value !== r.sel) choose(a, el.dataset.value); break;
       case 'courier-retry': state.sim.courier = 'ok'; choose(a, 'courier'); break;   // D-105
-      case 'pay': openPay(read()); break;
+      case 'pay': { const x = read(); if (direct(x)) payDirect(x); else openPay(x); break; }   // K-54 F9: one tap on the held card
+      case 'pay-change': openPay(read()); break;
       case 'pick-time': openWhen(read()); break;
       case 'confirm': confirmZero(read()); break;
       case 'message': setFocus(a.id); go('c-thread'); break;

@@ -2,29 +2,37 @@
    c-name — first + last name, new accounts only. Focal: the
    First name field. Errors appear after Continue, under the
    field they belong to (M1-spec §C1).
+   D-07 / B-09 (pre-MVP B2, D-372): after Apple / Google + the phone code, the names come prefilled from the provider (she can
+   change them) and the booking-texts opt-in is asked like any new account.
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
 import { state } from '../state.js';
-import { statusBar, headingRow, field, actionBar } from '../components.js';
+import { statusBar, headingRow, field, actionBar, checkRow } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 
 const ID = 'c-name';
 const ERRORS = { 'first-required': 'Enter your first name.', 'last-required': 'Enter your last name.' };
+/* D-02 (pre-MVP A1): booking texts are their own opt-in — an unticked box, never a condition of booking (Twilio 30923) */
+const TEXTS_CONSENT = 'Replies to your request, reminders, ready to pick up, receipts. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help. You can change this in Account.';
 
 const ui = () => (state.ui[ID] ??= {});
 
 function view(s) {
   const d = s.ui[ID] ?? {};
   const errs = d.errors ?? {};
+  const social = A.socialPending();   // D-07: the provider's name, until she edits it
+  const firstV = d.first ?? social?.first ?? '';
+  const lastV = d.last ?? social?.last ?? '';
   return `${statusBar()}
 <main class="body body--with-bar ${ID}">
   ${headingRow('<h1 class="t-title">What should we call you?</h1>')}
   <p class="t-body c-600 ${ID}__lead">Tailors see your first name and last initial until they accept your request, then your full name and address.</p>
   <div class="${ID}__fields">
-    ${field({ id: 'first', label: 'First name', autocomplete: 'given-name', value: d.first ?? '', error: ERRORS[errs.first] ?? '', disabled: !!d.busy })}
-    ${field({ id: 'last', label: 'Last name', autocomplete: 'family-name', value: d.last ?? '', error: ERRORS[errs.last] ?? '', disabled: !!d.busy })}
+    ${field({ id: 'first', label: 'First name', autocomplete: 'given-name', value: firstV, error: ERRORS[errs.first] ?? '', disabled: !!d.busy })}
+    ${field({ id: 'last', label: 'Last name', autocomplete: 'family-name', value: lastV, helper: social && !errs.last ? `From your ${social.provider === 'apple' ? 'Apple' : 'Google'} account. Change it if you like.` : '', error: ERRORS[errs.last] ?? '', disabled: !!d.busy })}
   </div>
+  <div class="${ID}__texts">${checkRow({ id: 'texts-opt', label: 'Text me booking updates', checked: !!d.texts, disabled: !!d.busy, caption: TEXTS_CONSENT })}</div>
 </main>
 ${actionBar({ ctaLabel: 'Continue', ctaAct: 'save-name', busy: !!d.busy, busyLabel: 'Saving…' })}`;
 }
@@ -57,6 +65,7 @@ function wire(root) {
   });
 
   /* the action bar is a sibling of main: bind to this render's own nodes, never to root */
+  root.querySelector('#texts-opt')?.addEventListener('change', (e) => { ui().texts = e.target.checked; });
   root.querySelector('.action-bar').addEventListener('click', (e) => {
     if (e.target.closest('[data-act="save-name"]')) save();
   });
@@ -65,7 +74,7 @@ function wire(root) {
     if (ui().busy) return;
     ui().first = first.value;
     ui().last = last.value;
-    const r = A.saveName({ first: ui().first, last: ui().last });
+    const r = A.saveName({ first: ui().first, last: ui().last, texts: !!ui().texts });
     if (!r.ok) { ui().errors = r.errors; ui().focus = true; go(ID); return; }
     ui().errors = {};
     ui().busy = true;

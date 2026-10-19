@@ -70,29 +70,32 @@
   --radius-xl: 24px;
   --radius-full: 999px;
 
-  /* ---------- Type sizes · Taily / Type ---------- */
-  --size-10: 10px;
+  /* ---------- Type sizes · Taily / Type ----------
+     S-17 (pre-MVP sweep, D-443): rem on the browser's 16 px root, so the reader's text-size setting scales every size (and the icons drawn
+     at a size token) — identical pixels at the default; the line heights are already unitless ratios (--lh-*). The 44 px targets, spacing
+     and radii stay px. Layout tiers that must follow the text size are em media queries (components-v5.css, 18.75em = 300 px at 16). */
+  --size-10: 0.625rem;   /* 10 px at the 16 px root */
   /* size/11 arrived with the Selector's ADD A SERVICE menu header and
      the 02B field labels (541:1959, 538:1516) — a Figma variable. */
-  --size-11: 11px;
-  --size-12: 12px;
+  --size-11: 0.6875rem;   /* 11 px at the 16 px root */
+  --size-12: 0.75rem;   /* 12 px at the 16 px root */
   /* size/14 became a real Figma variable with the Selector component
      (535:1582 menu options bind to it) — the 14px chat bubble now
      binds here too instead of a literal. */
-  --size-14: 14px;
-  --size-16: 16px;
+  --size-14: 0.875rem;   /* 14 px at the 16 px root */
+  --size-16: 1rem;   /* 16 px at the 16 px root */
   /* NOT a Figma variable — the Aug 2026 serif headers (Upcoming Header
      532:958, Date & Time title 277:2921) carry literal 20px, off the
      type scale. Raised as an inconsistency; tokenised here so no
      literal size leaks outside tokens.css. */
-  --size-20: 20px;
+  --size-20: 1.25rem;   /* 20 px at the 16 px root */
   /* NOT a Figma variable — 08C's rating stars (584:9422) carry literal
      30px. Tokenised for the same reason. */
-  --size-30: 30px;
-  --size-24: 24px;
-  --size-28: 28px;
-  --size-32: 32px;
-  --size-36: 36px;
+  --size-30: 1.875rem;   /* 30 px at the 16 px root */
+  --size-24: 1.5rem;   /* 24 px at the 16 px root */
+  --size-28: 1.75rem;   /* 28 px at the 16 px root */
+  --size-32: 2rem;   /* 32 px at the 16 px root */
+  --size-36: 2.25rem;   /* 36 px at the 16 px root */
 
   /* ---------- Families · Taily / Type ----------
      family/sans  = "Hanken Grotesk"
@@ -144,6 +147,7 @@
   /* surfaces: ONE depth strategy — interactive containers are tissue white with a chalk ring, nothing else lifts */
   --card-bg: var(--white);
   --card-ring: var(--neutral-200);
+  --card-ring-tap: var(--neutral-500);   /* P-31 (pre-MVP B2, D-374): a card that is ONE tap target — 3.75:1 on --neutral-50, 4.1:1 on white (WCAG 1.4.11) */
   --hairline: var(--neutral-100);
 
   /* avatar: initials on a warm tint (K-03 — no black squares) */
@@ -170,6 +174,7 @@
 
   /* shared measures (LAYOUT-PLAN P3-10) */
   --touch: 44px;                                   /* the minimum touch target */
+  --tile-h: 6.875rem;                              /* the garment tile: 110 px at the 16 px root, taller with the reader's text size (S-17, D-443) */
   --glyph-box: 20px;                               /* the one glyph column of a .meta-row */
   --icon-hang: calc(var(--space-8) + var(--glyph-box));   /* a line that hangs under a meta-row's text: glyph box + the row's gap */
   --chat-measure: 85%;                             /* the widest a chat bubble and its meta / note run, of the message row */

@@ -13,7 +13,7 @@ Resume: say "resume v5". The orchestrator reads this file and continues from **N
 | M7 World-class polish | **done** (f81baad) | | V5 masters + all frames re-synced | before/after: https://claude.ai/artifact/DaSb9aAmGFEF2RSJAJ4SDa |
 | M6 Final pass | in progress: audit triaged into `docs/v5/M6-fixlist.md`, fix batches running (decisions D-154…D-174 logged) | | | |
 
-**Next action:** (Oct 17 2026) main = V5 = abfc18b: K-23..K-26 plus the tailor usability Study-1 build (feat/tailor-study-1, merged --no-ff; spec docs/v5/STUDY-1-spec.md, verdicts K-27..K-43, defaults D-254..D-301; review https://claude.ai/artifact/FyW4Po18fdrqCJALDEraqV). Figma is synced only through K-22 (D-252) — the K-23..K-43 screens (handoff stage, time picker, reminder, texts, onboarding C1–C5, notes, Final order / Change the order) need a Figma sync. Open: hybrid F parked.
+**Next action:** (Oct 18 2026) main = V5 = the pre-MVP merge (feat/pre-mvp, K-48..K-54, D-254..D-464): every pre-MVP review finding + the happy-path review fixed (docs/v5/PRE-MVP-COVERAGE.md). Spec for the MVP build: TEXTS.md, COPY-DECK.md, DESIGN-SYSTEM.md, COUNSEL.md, the readiness plan https://claude.ai/artifact/C1vWEFwvcsuKVn1xWi5AkA. Test flows: sign in at ?admin. Figma deferred (K-53 a5). Next: design freeze + tag mvp-spec-1.0 when Kevin says; counsel review of the legal drafts.
 
 ## Queued after M7 — impeccable (Kevin, Oct 14) — REVIEW GATE
 Run `/impeccable:impeccable` (Operate mode; launcher binary download approved by Kevin's "yes"):

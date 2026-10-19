@@ -25,9 +25,13 @@
 .c-ready-sheet__group { display: flex; flex-direction: column; }
 .c-ready-sheet__go { display: flex; flex-direction: column; gap: var(--rhythm-tight); }   /* K-46 (D-303): the charge caption now lives inside the Pay button (two-line cta) */
 .c-ready-sheet__group[aria-disabled="true"] { opacity: 0.6; pointer-events: none; }
-@media (max-width: 300px) { .c-ready__group .option-row__lead { display: none; } .c-ready__opt { flex-wrap: wrap; column-gap: var(--space-12); } }   /* K9-2-03 zoom tier (D-233): the decorative way-back glyph yields its 44 px so the shop + street wrap between words, not inside "Metropolitan"; "Free" drops under a way back that needs the whole line */
+@media (max-width: 18.75em) { .c-ready__group .option-row__lead { display: none; } .c-ready__opt { flex-wrap: wrap; column-gap: var(--space-12); } }   /* K9-2-03 zoom tier (D-233): the decorative way-back glyph yields its 44 px so the shop + street wrap between words, not inside "Metropolitan"; "Free" drops under a way back that needs the whole line */
 /* K-27 (Study-1 A2): the hold line and the unclaimed rule under the ways back */
 .c-ready__hold { display: flex; flex-direction: column; gap: var(--space-4); margin-top: var(--space-4); }
 .c-ready__hold p { margin: 0; }
 /* K-40 (T1): the When row directly under the chosen way back */
 .c-ready__when { margin-top: var(--rhythm-group); }
+/* K-54 F9 (D-456): the card Pay confirms on, under the hold it already sits on; Change opens the sheet (two or more ways to pay) */
+.c-ready__paywith { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); margin-top: var(--space-4); padding-top: var(--space-4); box-shadow: inset 0 1px 0 var(--hairline); }
+.c-ready__paywith p { margin: 0; min-width: 0; }
+.c-ready__paywith .text-link { margin-right: calc(-1 * var(--space-8)); flex: 0 0 auto; }

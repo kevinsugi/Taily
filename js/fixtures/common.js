@@ -4,7 +4,7 @@
    Every milestone's Test-flows setup reuses it. DOM-free.
    ============================================================ */
 import {
-  state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt, handoffCode, handoffSlots,
+  state, T, reset, setClock, advanceClock, openSlots, nextOpening, getAppt, handoffCode, handoffSlots, unclaimedAt, now,
 } from '../state.js';
 import { addMinutes, addDays, isoMinute, isoDay } from '../dates.js';
 import { TAILORS, CUSTOMER, DEMO_NOW, DECLINE_REASONS, CANT_MAKE_IT_REASONS } from '../data.js';
@@ -26,7 +26,7 @@ export const CHAT = {
   late: 'Running ten minutes late, sorry!',
   phoneCustomer: `Text me at ${CUSTOMER.phone} if you’re running late.`,
   phoneTailor: `Easier to call me: ${AMARA.phone}`,
-  email: `Or email me at ${CUSTOMER.email}`,
+  email: 'Or email me at sarah.chen@example.com',   // DG-3 A (pre-MVP B2): the seed has no email on file any more; the chat still tests the mask
 };
 
 /** Sarah asks Amara a question before booking, and (by default) Amara answers. Does NOT reset; real sendMessage only. */
@@ -173,6 +173,9 @@ export function driveTo(target, opts = {}) {
   if (ask) askAmara();                                          // M5: a question and an answer before the booking
   if (items) setGarments(items);                                // K-21: a bigger order through the real job transitions
   T.setJob({ visitType, ...(rush ? { needBy: '2026-10-16' } : {}) });
+  /* S-27 (pre-MVP B2): her note for the tailor and the access notes on the booking's address, through the real draft transitions */
+  if (opts.note) T.setJob({ note: opts.note });
+  if (opts.accessNotes) T.setJobAddress({ ...state.job.address, notes: opts.accessNotes });
   const tailorId = state.tailors[0].id;
   const slotStart = nextOpening(tailorId, visitType, { until: state.job.needBy });
   const appt = must(T.requestBooking({ tailorId, slotStart, cardId: 'visa-4242' }), 'requestBooking');
@@ -209,6 +212,9 @@ export function driveTo(target, opts = {}) {
   }
   if (target === 'no-show') {
     setClock(isoMinute(addMinutes(getAppt(id).slot.start, 20)));
+    setClock(isoMinute(addMinutes(getAppt(id).slot.start, 2)));
+    must(T.visitPing(id, 'tailor', 'here'), 'visitPing here');                  // D-14 (K-48): "I'm here" before a no-show
+    setClock(isoMinute(addMinutes(getAppt(id).slot.start, 20)));
     return must(T.markNoShow(id), 'markNoShow');
   }
 
@@ -236,7 +242,7 @@ export function driveTo(target, opts = {}) {
   pickHandoff(id);                                                          // K-40: the time comes before the hold
   must(T.holdBalance(id, 'visa-4242'), 'holdBalance');
   if (target === 'awaiting-handoff') return getAppt(id);
-  if (target === 'unclaimed') { advanceClock(POLICY.UNCLAIMED_CAPTURE_D * 24 * 60); return getAppt(id); }   // the hold is captured, the job stays open
+  if (target === 'unclaimed') { toHoldEnd(id); return getAppt(id); }   // K-53: the hold's last day — captured, the job stays open
   if (['handed-over', 'problem', 'auto-completed'].includes(target)) {
     must(T.markHandedOver(id), 'markHandedOver');                            // pickup: marked without the code
     if (target === 'handed-over') return getAppt(id);
@@ -248,6 +254,11 @@ export function driveTo(target, opts = {}) {
   if (target === 'completed') return getAppt(id);
   if (target === 'review-reminder') { advanceClock(POLICY.REVIEW_REMINDER_D * 24 * 60); return getAppt(id); }
   return must(T.leaveReview(id, { stars: 5, text: 'Perfect fit, and she was on time.', photos: 0 }), 'leaveReview');
+}
+
+/** K-53: run the clock to the balance hold's last day (ready + HOLD_DAYS, state.js unclaimedAt) — the capture / the default to pickup fire. */
+export function toHoldEnd(id) {
+  return advanceClock(Math.round((unclaimedAt(getAppt(id)) - now()) / 60000));
 }
 
 /** D-158: sending a request spent the draft (an empty job). A fixture that wants another request for the same job puts it back from the
@@ -271,10 +282,13 @@ export function addRequest({ accept = false, after = null } = {}) {
 }
 
 export const NEW_TAILOR_PHONE = '(646) 555-0127';
-const STEPS = ['profile', 'services', 'where', 'returns', 'availability', 'payouts', 'done'];
+const STEPS = ['profile', 'services', 'where', 'returns', 'availability', 'payouts', 'submitted', 'done'];
 
 /** reset → blank tailor (D-20) signed in with `phone` → every section BEFORE `step` saved with the seed's values (D-66).
-    step: 'profile' | 'services' | 'where' | 'returns' | 'availability' | 'payouts' | 'done'. Returns the tailor. */
+    step: 'profile' | 'services' | 'where' | 'returns' | 'availability' | 'payouts' | 'submitted' | 'done'. Returns the tailor.
+    DG-4 (D-350…D-352): the payouts save = the background consent + the payments partner's hosted step (sim.payoutSetup, 'verifying');
+    'submitted' = onboarding finished, the four checks under review (ID pending, background pending, years passed, payout verifying);
+    'done' = the review passed every check — live, as before. */
 export function onboardTo(step, { phone = NEW_TAILOR_PHONE } = {}) {
   const upTo = STEPS.indexOf(step);
   if (upTo < 0) throw new Error(`onboardTo: unknown step "${step}"`);
@@ -286,17 +300,19 @@ export function onboardTo(step, { phone = NEW_TAILOR_PHONE } = {}) {
   const seed = TAILORS[0];
   const pick = (o, keys) => Object.fromEntries(keys.map((k) => [k, structuredClone(o[k])]));
   const saves = {
-    profile: () => T.setTailorSection('profile', pick(seed, ['name', 'shopName', 'initials', 'cardLine', 'bio', 'years', 'photo', 'workPhotos'])),
+    profile: () => T.setTailorSection('profile', pick(seed, ['name', 'shopName', 'initials', 'cardLine', 'bio', 'years', 'photo', 'idDoc', 'workPhotos'])),
     services: () => T.setTailorSection('services', { prices: structuredClone(seed.prices) }),
     where: () => T.setTailorSection('where', pick(seed, ['shop', 'home'])),
     returns: () => T.setTailorSection('returns', { returns: structuredClone(seed.returns) }),
     availability: () => T.setTailorSection('availability', { availability: structuredClone(seed.availability) }),
-    payouts: () => T.setPayouts({ holder: seed.payouts.holder, routing: seed.payouts.routing, account: '000123456789' }),
+    payouts: () => { must(T.consentBackground(true), 'consentBackground'); return T.setupPayouts(); },
+    submitted: () => T.submitOnboarding(),
   };
-  STEPS.slice(0, upTo).forEach((id) => {
+  STEPS.slice(0, step === 'submitted' || step === 'done' ? STEPS.indexOf('submitted') + 1 : upTo).forEach((id) => {
     const r = saves[id]();
-    if (!r.ok || r.valid === false) throw new Error(`onboardTo: ${id} did not validate (${JSON.stringify(r.errors)})`);
+    if (!r.ok || r.valid === false) throw new Error(`onboardTo: ${id} did not validate (${JSON.stringify(r.errors ?? r.error)})`);
   });
+  if (step === 'done') must(T.reviewChecks(), 'reviewChecks');
   return state.tailors[0];
 }
 

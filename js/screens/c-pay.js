@@ -1,21 +1,25 @@
 /* ============================================================
    c-pay — C5b Review and send request (booking step 5 of 5; holds the deposit and sends the request; title per D-52).
-   Focal: the CTA "Hold $16.00 and send request". The deposit is only HELD
-   here (authorized) and charged when the tailor accepts (D-38).
+   Focal: the CTA — K-49 deposit button V3 (pre-MVP B2, D-378): the K-46 two-line button "Reserve · $16.00 deposit" over
+   "Charged only if Amara accepts" (busy "Reserving…" keeps the second line; declined stays "Use another card"). The deposit is
+   only HELD here (authorized) and charged when the tailor accepts (D-38). S-27: an optional "Note for Amara" rides with the
+   request (masked like chat). S-24: the Cancellation and refunds page sits with the hold terms.
    Booking draft: state.ui.booking { tailorId, slot, cardId } (D-36).
    Screen-local flags: state.ui['c-pay'] { busy, error, info, focus }.
    ============================================================ */
 import { register, render as go, back } from '../app.js';
-import { state, T, tailorById, openSlots, now, priceChangeView } from '../state.js';
+import { state, T, tailorById, openSlots, now, priceChangeView, textsOn, coversJob } from '../state.js';
 import {
   flowBar, headingRow, visitBlock, customerBreakdown, infoCard, metaRow, methodRow, actionBar, banner,
-  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, sectionHead, textLink, infoButton,
+  emptyState, sheetOverlay, optionRow, listRow, field, cta, toast, esc, changeList, withPhotos, wirePhotoViewer, sectionHead, textLink, infoButton, protectionRow,
+  textArea, wireTextLimit,
 } from '../components.js';
 import * as A from '../account.js';
 import { withLatency } from '../sim.js';
+import { setFocus } from '../focus.js';
 import { fmtExact, estimate, cancelTerms } from '../money.js';
-import { fmtWhen, addMinutes } from '../dates.js';
-import { VISIT_LABEL, VISIT_MINUTES } from '../data.js';
+import { fmtWhen, addMinutes, toDate } from '../dates.js';
+import { VISIT_LABEL, VISIT_MINUTES, BOOKING_LIMITS } from '../data.js';
 import { POLICY } from '../money-config.js';
 
 const ID = 'c-pay';
@@ -41,6 +45,17 @@ function cancelRow(slot, depositCents, first) {
   }
   const cutoff = addMinutes(slot, -POLICY.CANCEL_WINDOW_H * 60);
   return metaRow(GLYPH.check, `Free cancellation until ${fmtWhen(cutoff)}. After that, ${esc(first)} keeps the ${money(depositCents)} deposit.`);
+}
+
+/** SF-04: the reminder and its auto-cancel, said before she pays — only when she will be asked (K-51: the visit is at least REMINDER_NUDGE_H
+    away; from REMINDER_H away the first ask is the reminder, closer it is the nudge). */
+function reminderRow(slot, depositCents, first) {
+  const away = toDate(slot).getTime() - now();
+  if (away < POLICY.REMINDER_NUDGE_H * 3600000) return '';
+  const when = `${away >= POLICY.REMINDER_H * 3600000 ? POLICY.REMINDER_H : POLICY.REMINDER_NUDGE_H} hours before the visit`;
+  /* D-02 (pre-MVP A1): only a delivered text can lead to the auto-cancel — with texts off the ask is in the app only */
+  if (!textsOn('customer')) return metaRow(GLYPH.clock, `${when.charAt(0).toUpperCase()}${when.slice(1)}, we ask you to confirm it in the app. Your texts are off, so we won’t text you.`);
+  return metaRow(GLYPH.clock, `We’ll text you ${when} to confirm. If you don’t confirm ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and ${esc(first)} keeps the ${money(depositCents)} deposit.`);
 }
 
 /* ---------- data ---------- */
@@ -89,11 +104,19 @@ function orderBlock({ job }, q) {
 /* ---------- view ---------- */
 function alertHtml(r) {
   const u = ui();
+  if (!coversJob(r.t, state.job)) u.error = 'services';   // K-48.2: she stopped pricing an item since Sarah picked her — said before she pays
   if (u.error === 'declined') {
     return banner({ tone: 'error', title: 'Your card was declined', text: `${esc(r.method.label)} didn’t go through, and nothing was held.` });
   }
   if (u.error === 'taken') {
     return banner({ tone: 'error', text: 'That time was just taken. Pick another time.', actionLabel: 'Pick a time', actionAct: 'pick-time' });
+  }
+  if (u.error === 'offline') {   // S-12 (pre-MVP A1)
+    return banner({ tone: 'error', title: 'You’re offline', text: 'Nothing was sent and nothing was held. Try again when you’re back.' });
+  }
+  if (u.error === 'services') {
+    /* B-13 / K-48.2 (D-354): she changed her prices since — its own message and a way on, not "something went wrong" */
+    return banner({ tone: 'error', title: `${esc(r.t.name.split(' ')[0])} doesn’t offer every service you picked`, text: 'Nothing was held. Pick another tailor or change your items.', actionLabel: 'See other tailors', actionAct: 'other-tailors' });
   }
   if (u.error === 'generic') {
     return banner({ tone: 'error', text: 'Something went wrong on our side. Nothing was held. Try again.' });
@@ -118,8 +141,11 @@ function view() {
   }
   const u = ui();
   const alert = alertHtml(r);
-  const methodBtn = methodRow(`<span class="c-pay__method-name">${esc(method.label)}</span>${method.sub ? `<span class="c-pay__method-sub">${esc(method.sub)}</span>` : ''}`, method.kind)
-    .replace('<button type="button" class="method-row"', `<button type="button" class="method-row c-pay__method" data-act="change-method"${busy ? ' disabled aria-disabled="true"' : ''}`);
+  /* K-54 P1 (D-460): a new account has no card yet — the row adds one (Reserve opens the same sheet, then reserves) */
+  const methodBtn = method
+    ? methodRow(`<span class="c-pay__method-name">${esc(method.label)}</span>${method.sub ? `<span class="c-pay__method-sub">${esc(method.sub)}</span>` : ''}`, method.kind)
+      .replace('<button type="button" class="method-row"', `<button type="button" class="method-row c-pay__method" data-act="change-method"${busy ? ' disabled aria-disabled="true"' : ''}`)
+    : `<div class="card card--list c-pay__nocard" data-no-card>${listRow({ title: 'Add a card', sub: 'We hold the deposit on it when you reserve', act: 'add-card', lead: ADD_CARD_GLYPH })}</div>`;
 
   return `${head}<main class="body body--with-bar ${ID}" data-s="${ID}"${busy ? ' aria-busy="true"' : ''}>
   ${headingRow('<h1 class="t-title">Review and send request</h1>', { back: false })}
@@ -127,6 +153,10 @@ function view() {
     ${visitBlock(visitRows(r), { title: 'Your visit', flush: true, action: textLink('Change time', { act: 'back', disabled: busy }) })}
   </section>
   ${orderBlock(r, q)}
+  <section class="sec c-pay__note">${textArea({
+    id: 'job-note', label: `Note for ${first} (optional)`, value: state.job.note ?? '', rows: 3, maxlength: BOOKING_LIMITS.NOTE_MAX, section: true,
+    placeholder: 'Like the heel height for a hem', helper: `${first} sees it with your request. Phone numbers and emails are hidden.`,
+  })}</section>
   <section class="sec" aria-labelledby="pay-h-price">
     ${sectionHead('Price', { id: 'pay-h-price', aside: infoButton('deposit', { label: 'About the deposit' }) })}
     ${customerBreakdown(q, { stage: 'estimate', tailorFirst: first, depositState: 'to-hold' })}
@@ -134,7 +164,9 @@ function view() {
   <section class="sec c-pay__hold" aria-label="The deposit hold">${infoCard([
     metaRow(GLYPH.lock, `We hold ${money(q.deposit)} now. You’re only charged if ${esc(first)} accepts. If ${esc(first)} declines or doesn’t reply, it’s released in full.`),
     cancelRow(r.slot, q.deposit, first),
-  ].join(''))}</section>
+    reminderRow(r.slot, q.deposit, first),
+    protectionRow(),   // D-21 (pre-MVP A2): garment protection, before she pays
+  ].join(''))}<div class="c-pay__policy">${textLink('Cancellation and refunds', { act: 'refunds', disabled: busy })}</div></section>
   <section class="sec" aria-labelledby="pay-h-method">
     ${sectionHead('Pay with', { id: 'pay-h-method' })}
     ${methodBtn}
@@ -143,7 +175,10 @@ function view() {
 </main>
 ${actionBar({
     /* C-11: after a decline the failed card is still the one selected — the bar offers another card, never a silent retry */
-    ctaLabel: u.error === 'declined' ? 'Use another card' : `Hold ${fmtExact(q.deposit)} and send request`, ctaAct: u.error === 'declined' ? 'change-method' : 'pay', busy, busyLabel: 'Sending request…',
+    /* K-49 V3 (D-378): the K-46 two-line button — the amount in the bold line, the charge rule under it; disabled, the second line is the reason (K-48.2) */
+    ctaLabel: u.error === 'declined' ? 'Use another card' : `Reserve · ${fmtExact(q.deposit)} deposit`, ctaAct: u.error === 'declined' ? 'change-method' : 'pay', busy, busyLabel: 'Reserving…',
+    ctaSub: u.error === 'declined' ? '' : u.error === 'services' ? `${esc(first)} doesn’t offer every service you picked` : `Charged only if ${esc(first)} accepts`,
+    disabled: u.error === 'services',
   })}`;
 }
 
@@ -161,7 +196,7 @@ const ADD_CARD_GLYPH = '<svg width="28" height="20" viewBox="0 0 28 20" fill="no
 function methodSheetHtml({ methods, method }) {
   return `<div class="c-pay-sheet" data-view="method">
   <div class="c-pay-sheet__group" role="radiogroup" aria-label="Pay with">${methods.map((m) => optionRow({
-    name: 'method', value: m.id, title: esc(m.label), sub: esc(m.sub), checked: m.id === method.id, act: 'method',
+    name: 'method', value: m.id, title: esc(m.label), sub: esc(m.sub), checked: m.id === method?.id, act: 'method',
     lead: m.kind === 'apple' ? '<span class="pay-badge">Pay</span>' : CARD_GLYPH,
   })).join('')}</div>
   ${listRow({ title: 'Add a card', act: 'add-card', lead: ADD_CARD_GLYPH })}
@@ -203,8 +238,10 @@ function formatCardInput(el) {
   else if (el.id === 'cc-zip') el.value = d.slice(0, 5);
 }
 
-function openMethodSheet() {
-  sheetOverlay(methodSheetHtml(read()), { header: 'Pay with', dataS: 'c-pay--method', confirm: false }, (holder, close) => {
+/** The Pay with sheet. `addCard` opens it on the card form (no card yet, K-54 P1); `then` runs after a card is saved (Reserve → reserve). */
+function openMethodSheet({ addCard = false, then = null } = {}) {
+  const onCard = addCard || !read().methods.length;
+  sheetOverlay(onCard ? addCardHtml() : methodSheetHtml(read()), { header: onCard ? 'Add a card' : 'Pay with', dataS: onCard ? 'c-pay--add-card' : 'c-pay--method', confirm: false }, (holder, close) => {
     const title = holder.querySelector('.sheet__title');
     const swap = (html, header, view) => {
       holder.querySelector('.c-pay-sheet').outerHTML = html;
@@ -224,9 +261,10 @@ function openMethodSheet() {
       if (ui().error === 'declined') ui().error = null;
       close();
       go(ID);
+      if (then) { then(); return; }
       toast('Card added');
     };
-    holder.dataset.view = 'method';
+    holder.dataset.view = onCard ? 'add-card' : 'method';
     holder.addEventListener('input', (e) => { if (e.target.matches('#cc-number, #cc-exp, #cc-csc, #cc-zip')) formatCardInput(e.target); });
     holder.addEventListener('click', (e) => {
       const a = e.target.closest('[data-act]');
@@ -254,10 +292,12 @@ function openMethodSheet() {
 let cancelWait = null;
 const onScreen = () => document.getElementById('screen')?.dataset.screen === ID;
 
-/** The request went through: clear the draft and leave the booking behind (Back can't return to a paid form). */
-function sent() {
+/** The request went through: clear the draft and leave the booking behind (Back can't return to a paid form). K-54 B1 (D-450): name the
+    NEW request before going — c-request otherwise forwards the booking she last opened (redirectIfMoved on a stale state.ui.apptId). */
+function sent(res) {
   state.ui.booking = {};
   delete state.ui[ID];
+  if (res?.appt) setFocus(res.appt.id);
   go('c-request', { fresh: true });
 }
 
@@ -274,6 +314,8 @@ function fail(res) {
   u.focus = true;
   if (res.error === 'card-declined') u.error = 'declined';
   else if (res.error === 'slot-unavailable') u.error = 'taken';
+  else if (res.error === 'offline') u.error = 'offline';   // S-12 (pre-MVP A1)
+  else if (res.error === 'service-not-offered' || res.error === 'services') u.error = 'services';
   else u.error = 'generic';
   /* D-140: the banner above the Pay button carries the error; the toast only echoes it (never the only carrier) */
   if (res.error === 'server-error') toast('Couldn’t send your request', { tone: 'error' });
@@ -292,7 +334,7 @@ function openThreeDs() {
       cancelWait = withLatency(() => {
         attempt({ threeDS: true }, (res) => {
           close();
-          if (res.ok) sent(); else fail(res);
+          if (res.ok) sent(res); else fail(res);
         });
       });
     };
@@ -308,13 +350,14 @@ function openThreeDs() {
 function pay() {
   const u = ui();
   if (u.busy) return;
+  if (!read().method) { openMethodSheet({ addCard: true, then: pay }); return; }   // K-54 P1: no card yet — add one, then reserve
   u.busy = true; u.error = null; u.info = null;
   go(ID);
   cancelWait?.();
   cancelWait = withLatency(() => {
     if (!onScreen()) { u.busy = false; return; }
     attempt({}, (res) => {
-      if (res.ok) { sent(); return; }
+      if (res.ok) { sent(res); return; }
       if (res.error === 'needs-3ds') { u.busy = false; go(ID); openThreeDs(); return; }
       fail(res);
     });
@@ -347,13 +390,24 @@ function wire(root) {
     switch (a.dataset.act) {
       case 'back': if (!back()) go('c-book'); break;
       case 'change-method': if (!ui().busy) openMethodSheet(); break;
+      case 'add-card': if (!ui().busy) openMethodSheet({ addCard: true }); break;   // K-54 P1
       case 'pay': pay(); break;
       case 'pick-time': go('c-book', { replace: true }); break;
+      case 'other-tailors': ui().error = null; go('c-tailors'); break;
+      case 'garment-protection': if (!ui().busy) { state.ui.policy = 'garment'; go('c-policy'); } break;   // D-21
+      case 'refunds': if (!ui().busy) { state.ui.policy = 'cancellation'; go('c-policy'); } break;   // S-24 (pre-MVP B2) → the one policy page (D-380)
       default:
     }
   };
   root.addEventListener('click', onClick);
   offClick = () => root.removeEventListener('click', onClick);
+  /* S-27 (pre-MVP B2): the note is part of the draft job — kept while she goes back and forth, sent with the request */
+  const note = root.querySelector('#job-note');
+  if (note) {
+    if (u.busy) note.disabled = true;
+    wireTextLimit(root, 'job-note');
+    note.addEventListener('input', () => T.setJob({ note: note.value }));
+  }
 }
 
 register(ID, view, wire);

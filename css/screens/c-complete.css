@@ -21,10 +21,10 @@
 .c-complete__label .stars--input { margin-left: calc(-1 * var(--space-8)); }
 .c-complete__hint { margin: var(--space-4) 0 0; color: var(--neutral-700); text-wrap: pretty; }
 .c-complete__label + .sec { margin-top: var(--rhythm-block); }
-@media (max-width: 300px) { .c-complete__label { padding: var(--space-12); } .c-complete__label .stars--input { margin-left: 0; } }   /* P1-2 zoom tier */
+@media (max-width: 18.75em) { .c-complete__label { padding: var(--space-12); } .c-complete__label .stars--input { margin-left: 0; } }   /* P1-2 zoom tier */
 
 /* ---------- the receipt row ---------- */
-.c-complete__row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); width: 100%; min-height: 56px; padding: var(--space-12) var(--space-16); border: 0; border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); font-family: var(--font-sans); color: var(--ink); text-align: left; cursor: pointer; font-variant-numeric: tabular-nums lining-nums; }
+.c-complete__row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); width: 100%; min-height: 56px; padding: var(--space-12) var(--space-16); border: 0; border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--card-ring-tap); font-family: var(--font-sans); color: var(--ink); text-align: left; cursor: pointer; font-variant-numeric: tabular-nums lining-nums; }
 .c-complete__row:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 .c-complete__rowicon { display: inline-flex; flex-shrink: 0; color: var(--neutral-600); }
 .c-complete__rowtext { display: flex; flex-direction: column; gap: var(--space-2); flex: 1 1 auto; min-width: 0; }
@@ -41,3 +41,7 @@
 /* Study-1 A4: the 7-day review reminder, a notification card above the linen stage (the stage then starts under it, not bled up) */
 .c-complete__reminder { margin-bottom: var(--rhythm-group); }
 .c-complete__reminder + .linen-stage { margin-top: 0; }
+
+/* S-35 (pre-MVP A1): where the courier left it, and "Didn't get it?" */
+.c-complete__delivered { margin-top: var(--rhythm-block); }
+.c-complete__missing { margin-top: var(--space-8); }

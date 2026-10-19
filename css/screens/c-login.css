@@ -1,0 +1,8 @@
+/* c-login — K-52 (D-420): layout only; the field, heading row and action bar are shared components (as c-phone). */
+.c-login__lead { margin: var(--rhythm-tight) 0 var(--rhythm-block); }
+.c-login__create { margin: var(--space-12) 0 0; }
+.c-login__new { margin: var(--rhythm-block) 0 0; }
+.c-login__link {
+  display: inline; padding: var(--space-12) var(--space-4); margin: calc(var(--space-12) * -1) calc(var(--space-4) * -1);
+  font: inherit; font-weight: 600; color: var(--ink); text-decoration: underline; text-underline-offset: 2px;
+}

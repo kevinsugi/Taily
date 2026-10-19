@@ -6,7 +6,7 @@
    (c-ready, c-ready--pay, c-booking--handoff-*, c-complete, t-job--handoff-*, t-job--cancel).
    ============================================================ */
 import { SCENARIOS as A1_SC } from './money-scenarios.js';
-import { fmtExact as A1_exact, fmt as A1_fmt } from '../money.js';
+import { fmtExact as A1_exact, fmt as A1_fmt, HOLD_DAYS as A1_HOLD_DAYS } from '../money.js';
 import { POLICY as A1_POLICY } from '../money-config.js';
 import { isoMinute as A1_iso, addMinutes as A1_add } from '../dates.js';
 import { earningsTo as A1_earningsTo } from './common.js';
@@ -23,23 +23,23 @@ const bookAgain = (S, a) => { S.T.bookAgain(a.id); S.state.ui.booking = { tailor
 
 /* ---------- customer: the handoff on c-booking (A2–A3) and the tailor no-show (A5) ---------- */
 export const FLOWS_c_booking = [
-  { ...CB, key: 'c-booking--handoff-problem', title: 'You reported a problem', note: 'Study-1 A3 (default 5): picked up without the code, then reported — the countdown stopped, Amara told; I got it still closes it',
+  { ...CB, key: 'c-booking--handoff-problem', title: 'You reported a problem', note: 'Study-1 A3 (default 5): picked up without the code, then reported — the countdown stopped, Amara told; Confirm received (K-48.3) still closes it',
     setup: (S) => { S.driveTo('problem'); },
-    expect: { has: ['Problem reported · sort it out in chat', 'You reported a problem. We’ve stopped the automatic completion and told Amara.', 'I got it', 'Charged at pickup'], not: ['Charged at handoff', 'Completes automatically', 'I didn’t get it', 'On hold'], sel: '.banner--warning' } },
-  { ...CB, key: 'c-booking--handoff-unclaimed', title: 'Charged after 7 days', note: 'Study-1 A2: still not picked up 7 days after the hold — the hold is charged, the order stays open with its code',
+    expect: { has: ['Problem reported · sort it out in chat', 'You reported a problem. We’ve stopped the automatic completion and told Amara.', 'Confirm received', 'Charged at pickup'], not: ['Charged at handoff', 'Completes automatically', 'I didn’t get it', 'On hold'], sel: '.banner--warning' } },
+  { ...CB, key: 'c-booking--handoff-unclaimed', title: `Charged on the hold’s last day`, note: `Study-1 A2 + D-04 → K-53: still not picked up ${A1_HOLD_DAYS} days after it was ready — the hold is charged, the order stays open with its code; the pickup time passed, so Confirm received shows (D-09)`,
     setup: (S) => { S.driveTo('unclaimed'); },
-    expect: { has: [`We charged your ${BAL} balance after 7 days. Amara still keeps it for you until you pick it up.`, 'Charged', 'YOUR PICKUP CODE', `Ready · ${BAL} charged`, 'I got it'], not: 'On hold', sel: '[data-pickup-code]' } },
-  { ...CB, key: 'c-booking--got-it', title: 'Got everything?', note: 'Study-1 A3: I got it asks once, then charges the hold and closes the order (Amara marked it picked up without the code)',
+    expect: { has: [`We charged your ${BAL} balance ${A1_HOLD_DAYS} days after your order was ready. Amara still keeps it for you until you pick it up.`, 'Charged', 'YOUR PICKUP CODE', `Ready · ${BAL} charged`, 'Confirm received'], not: ['On hold', 'I got it'], sel: '[data-pickup-code]' } },
+  { ...CB, key: 'c-booking--got-it', title: 'Confirm you received it?', note: 'Study-1 A3 + K-48.3: Confirm received (was “I got it”) asks once, then charges the hold and closes the order (Amara marked it picked up without the code)',
     setup: (S) => { S.driveTo('handed-over'); },
     click: ['[data-act="got-it"]'],
-    expect: { has: ['Got everything?', `We’ll charge your ${BAL} balance and close the order.`, 'Yes, I got it', 'Not yet'], sel: '[data-s="c-booking--got-it"] [data-act="got-ok"]' } },
+    expect: { has: ['Confirm you received it?', `We’ll charge your ${BAL} balance and close the order.`, 'Yes, I have it', 'Not yet'], not: 'I got it', sel: '[data-s="c-booking--got-it"] [data-act="got-ok"]' } },
   { ...CB, key: 'c-booking--not-received', title: 'Didn’t get it?', note: 'Study-1 A3: reporting it stops the automatic completion; nothing is charged meanwhile (kept for a pickup marked without the code, K-37)',
     setup: (S) => { S.driveTo('handed-over'); },
     click: ['[data-act="not-got-it"]'],
     expect: { has: ['Didn’t get it?', 'We’ll stop the automatic completion and tell Amara. Nothing is charged while you sort it out in chat.', 'Report a problem', 'Keep waiting'], sel: '[data-s="c-booking--not-received"] [data-act="nr-ok"]' } },
-  { ...CB, key: 'c-booking--no-show-link', title: 'Visit time passed — Tailor didn’t show up?', note: `Study-1 A5 (default 8): ${A1_POLICY.NO_SHOW_WAIT_MIN} min after the start of a still-confirmed visit, the report link joins Cancel booking`,
+  { ...CB, key: 'c-booking--no-show-link', title: 'Visit time passed — Tailor didn’t show up?', note: `Study-1 A5 (default 8): ${A1_POLICY.NO_SHOW_WAIT_MIN} min after the start of a still-confirmed visit, the report link is the one action (SF-11: no Cancel, Reschedule, late line or Add to calendar once the visit has started)`,
     setup: (S) => { const a = S.driveTo('confirmed'); S.setClock(A1_iso(A1_add(a.slot.start, A1_POLICY.NO_SHOW_WAIT_MIN))); },
-    expect: { has: ['Your visit with Amara', 'Tailor didn’t show up?', 'Cancel booking'], not: 'Reschedule', sel: '[data-act="tailor-no-show"]' } },
+    expect: { has: ['Your visit with Amara', 'Tailor didn’t show up?', `Your visit was at 5:00 PM. If Amara didn’t come, tap Tailor didn’t show up? to get your ${A1_exact(A1_SC.seed.deposit)} back.`], not: ['Reschedule', 'Cancel booking', 'To change the time now', 'Add to calendar'], sel: '[data-act="tailor-no-show"]' } },
   { ...CB, key: 'c-booking--no-show-report', title: 'Amara didn’t show up?', note: 'Study-1 A5: cancel the visit and refund the deposit in full; the order stays saved',
     setup: (S) => { const a = S.driveTo('confirmed'); S.setClock(A1_iso(A1_add(a.slot.start, A1_POLICY.NO_SHOW_WAIT_MIN + 5))); },
     click: ['[data-act="tailor-no-show"]'],
@@ -56,21 +56,21 @@ export const FLOWS_c_booking = [
 export const FLOWS_c_complete = [
   { ...CC, key: 'c-complete--auto', title: 'Order complete — completed automatically', note: 'Study-1 A3: 48h after Amara marked it picked up without the code, no problem reported',
     setup: (S) => { S.driveTo('auto-completed'); },
-    expect: { has: ['COMPLETED AUTOMATICALLY · SAT, OCT 17', `Charged ${BAL}`, 'Leave a review', 'Book Amara again'], not: 'ORDER COMPLETE' } },
+    expect: { has: ['COMPLETED AUTOMATICALLY · SAT, OCT 17', `Paid ${A1_exact(A1_SC.seed.total)}`, 'Leave a review', 'Book Amara again'], not: 'ORDER COMPLETE' } },
   { ...CC, key: 'c-complete--courier', title: 'Order complete — the courier delivered it', note: 'Study-1 A3 (default 6): the courier’s delivery completes it; the receipt names the courier',
     setup: (S) => { S.driveTo('completed', { returnOption: 'courier' }); },
     click: ['[data-act="receipt"]'],
-    expect: { has: ['ORDER COMPLETE', `Charged ${A1_exact(A1_SC.courier.balance)}`, 'Taily courier · Thu, Oct 15', 'Leave a review'], sel: '[data-act="receipt"][aria-expanded="true"]' } },
+    expect: { has: ['ORDER COMPLETE', `Paid ${A1_exact(A1_SC.courier.total)}`, 'Taily courier · Thu, Oct 15', 'Leave a review'], sel: '[data-act="receipt"][aria-expanded="true"]' } },
   { ...CC, key: 'c-complete--review-reminder', title: 'Order complete — a week later, no review', note: 'Study-1 A4 (K-28): the reminder card 7 days after completion',
     setup: (S) => { S.driveTo('review-reminder'); },
-    expect: { has: ['How did Amara do?', 'It’s been a week since your order came back. Your review helps other customers.', 'Leave a review', 'ORDER COMPLETE'], sel: '[data-reminder] [data-act="leave-review"]' } },
+    expect: { has: ['How did Amara do?', 'Tap a star to rate.', 'Leave a review', 'ORDER COMPLETE'], not: ['Your order came back on', 'It’s been a week'], sel: '#rate-label' } },   // SF-39: the stars ask; no second card
 ];
 
 /* ---------- customer: Home, Bookings, Book again (A4) ---------- */
 export const FLOWS_c_job = [
   { key: 'c-job--review-reminder', screen: 'c-job', group: 'M1 · Booking', title: 'Home — review reminder', note: 'Study-1 A4 (K-28): a week after the order came back with no review, the card leads Home',
     setup: (S) => { S.driveTo('review-reminder'); },
-    expect: { has: ['How did Amara do?', 'It’s been a week since your order came back. Your review helps other customers.', 'Leave a review', 'What needs work?'], sel: '[data-reminder] [data-act="review-reminder"]' } },
+    expect: { has: ['How did Amara do?', 'Your order came back on Thu, Oct 15. Your review helps other customers.', 'Leave a review', 'What needs work?'], sel: '[data-reminder] [data-act="review-reminder"]' } },
   { key: 'c-job--book-again', screen: 'c-job', group: 'M1 · Booking', title: 'Home — booking Amara again', note: 'Study-1 A4 (default 9): Book Amara again — same visit type, ZIP and address, no garments; Amara named',
     setup: (S) => { bookAgain(S, S.driveTo('completed')); },
     expect: { has: ['Booking again with Amara', 'What needs work?', 'Add at least one garment'], not: 'Your items', sel: '[data-again]' } },
@@ -95,7 +95,7 @@ export const FLOWS_t_job = [
   { ...TJ, key: 't-job--picked-up', title: 'Job — enter Sarah’s pickup code', note: 'Study-1 A3: Picked up opens the 4-digit code; no code → mark it picked up (48h)',
     setup: (S) => { S.driveTo('awaiting-handoff'); },
     click: ['[data-act="picked-up"]'],
-    expect: { has: ['Enter Sarah’s pickup code', '4-digit code', 'Confirm pickup', 'Customer doesn’t have the code?'], sel: '[data-s="t-job--picked-up"] #handoff-code' } },
+    expect: { has: ['Enter Sarah’s pickup code', '4-digit code', 'Confirm pickup', 'Sarah doesn’t have the code?'], sel: '[data-s="t-job--picked-up"] #handoff-code' } },
   { ...TJ, key: 't-job--picked-up-wrong', title: 'Job — the code doesn’t match', note: 'Study-1 A3: a wrong code, the error next to the field',
     setup: (S) => { S.driveTo('awaiting-handoff'); S.state.ui['t-job'] = { code: '1234' }; },
     click: ['[data-act="picked-up"]', '[data-act="pickup-ok"]'],
@@ -106,12 +106,12 @@ export const FLOWS_t_job = [
   { ...TJ, key: 't-job--handoff-problem', title: 'Job — Sarah didn’t get it', note: 'Study-1 A3 (default 5): marked picked up without the code, Sarah says she didn’t get it — countdown stopped; Message Sarah',
     setup: (S) => { S.driveTo('problem'); },
     expect: { has: ['Sarah says she didn’t get it. Sort it out in chat.', 'Message Sarah'], not: ['Completes automatically', 'Mark delivered again', 'Only Sarah can change the time'], sel: '[data-strip="action"]' } },
-  { ...TJ, key: 't-job--handoff-unclaimed', title: 'Job — charged after 7 days', note: 'Study-1 A2: Sarah’s hold was charged; you are paid when she picks it up',
+  { ...TJ, key: 't-job--handoff-unclaimed', title: `Job — charged on the hold’s last day`, note: 'Study-1 A2 + D-03 → K-53: Sarah’s hold was charged 4 days after ready — the payout goes out now (D-03); keep the order 30 days',
     setup: (S) => { S.driveTo('unclaimed'); },
-    expect: { has: [`Sarah’s ${BAL} was charged after 7 days. You’re paid when she picks it up.`, 'Picked up', 'Sarah missed her 5:30 PM pickup · she picks a new time', 'Sarah missed this time. She picks a new one.'], sel: '[data-unclaimed]' } },
+    expect: { has: [`Sarah’s ${BAL} was charged ${A1_HOLD_DAYS} days after it was ready, so your payout is on its way`, 'Keep her order until', 'Picked up', 'Sarah missed her Fri, Oct 16 · 5:30 PM pickup · she picks a new time', 'Sarah missed this time. She picks a new one.'], sel: '[data-unclaimed]' } },
   { ...TJ, key: 't-job--completed-auto', title: 'Job — completed automatically', note: 'Study-1 A3: 48h after she marked it picked up without the code, no problem; the payout the Friday after',
     setup: (S) => { S.driveTo('auto-completed'); },
-    expect: { has: ['COMPLETED AUTOMATICALLY · SARAH’S ORDER', 'Nice work, Amara.', 'Picked up at your shop · Sat, Oct 17', PAYOUT, 'Pending', 'Arrives Fri, Oct 23'], sel: '.linen-stage .tag-rail__tag' } },
+    expect: { has: ['COMPLETED AUTOMATICALLY · SARAH’S ORDER', 'Nice work, Amara.', 'Picked up at your shop · Thu, Oct 15', PAYOUT, 'Pending', 'Arrives Fri, Oct 23'], sel: '.linen-stage .tag-rail__tag' } },
   { ...TJ, key: 't-job--cancel-late', title: 'Job — cancel inside 24 hours', note: 'Study-1 A5 (K-29): the warning — Sarah is refunded in full and may not find another tailor',
     setup: (S) => { const a = S.driveTo('confirmed'); S.setClock(A1_iso(A1_add(a.slot.start, -8 * 60))); },
     click: ['[data-act="more"]', '[data-act="cant-make-it"]'],

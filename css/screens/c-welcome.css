@@ -21,6 +21,7 @@
 .c-welcome__or { display: flex; align-items: center; gap: var(--space-12); margin-block: var(--space-12); }
 .c-welcome__or::before, .c-welcome__or::after { content: ""; flex: 1 1 0; height: 1px; background: var(--neutral-200); }
 .c-welcome__gap { height: var(--space-8); }
+.c-welcome__login { margin: var(--space-20) 0 0; text-align: center; }   /* K-52 (D-420): the returning person's way in */
 .c-welcome__legal { margin: var(--rhythm-group) 0 0; text-align: center; }
 .c-welcome__tailor { display: block; margin: var(--space-20) 0 0; text-align: center; }
 .c-welcome__link {
@@ -35,3 +36,4 @@
   .c-welcome__hero { margin-block: var(--rhythm-group); }
   .c-welcome__spacer { min-height: var(--space-16); }
 }
+.c-welcome__deleted { margin: 0 0 var(--rhythm-group); }   /* DG-3 A (pre-MVP B2): after Delete account */

@@ -14,7 +14,9 @@ import { SUGGESTED_SLOT, SECOND_SLOT_AFTER, PAYOUT_DAYS } from '../../js/fixture
 import * as EARN from '../../js/fixtures/common.js';
 import { setFocus, focusAppt, redirectIfMoved, statusWord, returnStep } from '../../js/focus.js';
 import * as C from '../../js/components.js';
+import * as TX from '../../js/texts.js';
 import * as A from '../../js/account.js';
+import * as POL from '../../js/policies.js';
 import { withLatency, LATENCY_MS } from '../../js/sim.js';
 
 const { state, T } = S;
@@ -34,12 +36,16 @@ const throws = (fn, desc) => { let t = false; try { fn(); } catch { t = true; } 
 const section = (name) => { if (process.argv.includes('--verbose')) console.log(`\n# ${name}`); };
 const amara = () => state.tailors[0];
 const $ = (dollars) => M.cents(dollars);
+/* K-53: the Taily fee rate moved (0.10 → 0.15), so the golden rows derive the fee and the payout from MONEY instead of typing them */
+const FEE = (services) => Math.round(services * MONEY.TAILY_FEE_RATE + 1e-9);
+const PAYOUT = (services, home = 0, rush = 0) => services - FEE(services) + home + rush;
 
 /* ================= config + formatting ================= */
 section('config + formatting');
 ok(Object.isFrozen(MONEY) && Object.isFrozen(POLICY), 'MONEY and POLICY are frozen');
-eq([MONEY.TAILY_FEE_RATE, MONEY.DEPOSIT_RATE, MONEY.COURIER_MARKUP, MONEY.COURIER_BASE, MONEY.COURIER_PER_MILE, MONEY.COURIER_PEAK, MONEY.COURIER_PEAK_FROM_H, MONEY.COURIER_PEAK_TO_H, MONEY.NO_SHOW_COMP],
-  [0.10, 0.10, 0.10, 8, 2.5, 3.5, 17, 19, 25], 'MONEY table matches the fee settings (K-43: the simulated Uber quote has an evening peak)');
+eq([MONEY.TAILY_FEE_RATE, MONEY.DEPOSIT_RATE, MONEY.COURIER_MARKUP, MONEY.COURIER_BASE, MONEY.COURIER_PER_MILE, MONEY.COURIER_PEAK, MONEY.COURIER_PEAK_FROM_H, MONEY.COURIER_PEAK_TO_H, MONEY.COURIER_ABSORB, 'NO_SHOW_COMP' in MONEY],
+  [0.15, 0.10, 0.10, 8, 2.5, 3.5, 17, 19, 3, false], 'MONEY table matches the fee settings (K-43: the simulated Uber quote has an evening peak; K-53: fee 15, courier absorb $3.00, no no-show floor)');
+eq([POLICY.BALANCE_HOLD_H, M.HOLD_DAYS, 'READY_DEFAULT_D' in POLICY, 'UNCLAIMED_CAPTURE_D' in POLICY, 'HANDOFF_PICK_DAYS' in POLICY], [114, 4, false, false, false], 'K-53: the ready hold lives 4 days 18 hours → 4 whole days; the 14-day default, the day-6 capture and the 5-day pick are retired');
 eq([POLICY.CANCEL_WINDOW_H, POLICY.REQUEST_EXPIRY_H, POLICY.MAX_RETRIES, POLICY.EXPIRING_SOON_MIN, POLICY.NO_SHOW_WAIT_MIN, POLICY.MIN_LEAD_H],
   [24, 2, 2, 15, 15, 3], 'POLICY table matches');
 eq([M.fmt(2500), M.fmt(450), M.fmt(0), M.fmt(12345600)], ['$25', '$4.50', '$0', '$123,456'], 'fmt: whole dollars bare, else cents');
@@ -201,10 +207,10 @@ const goldenRow = (q, [services, home, rush, courier, total, deposit, balance, f
   const { 'dress-take-in': _unpriced, ...fewer } = amara().prices;
   const miss = M.linesFor({ ...amara(), prices: fewer }, [{ id: 'g1', type: 'Formal Dress', services: ['dress-take-in', 'dress-hem'] }]);
   eq([miss.length, miss.missing], [1, [{ garmentId: 'g1', serviceId: 'dress-take-in' }]], 'linesFor skips an unpriced service and reports it in .missing');
-  goldenRow(M.estimate(amara(), state.job, '2026-10-15T17:00'), [12500, 3500, 0, 0, 16000, 1600, 14400, 1250, 14750], 'seed, home, need-by Fri Oct 23');
-  goldenRow(M.estimate(amara(), { ...state.job, needBy: '2026-10-16' }, '2026-10-15T17:00'), [12500, 3500, 4000, 0, 20000, 1600, 18400, 1250, 18750], 'rush: need-by Fri Oct 16, visit Thu Oct 15 (1 day)');
-  goldenRow(M.estimate(amara(), { ...state.job, visitType: 'shop' }, '2026-10-13T13:00'), [12500, 0, 0, 0, 12500, 1250, 11250, 1250, 11250], 'shop visit');
-  goldenRow(M.quote({ lines, homeFee: 3500, courier: M.courierQuote(0.6).cents }), [12500, 3500, 0, 1045, 17045, 1600, 15445, 1250, 14750], 'seed + courier 0.6 mi');
+  goldenRow(M.estimate(amara(), state.job, '2026-10-15T17:00'), [12500, 3500, 0, 0, 16000, 1600, 14400, FEE(12500), PAYOUT(12500, 3500, 0)], 'seed, home, need-by Fri Oct 23');
+  goldenRow(M.estimate(amara(), { ...state.job, needBy: '2026-10-16' }, '2026-10-15T17:00'), [12500, 3500, 4000, 0, 20000, 1600, 18400, FEE(12500), PAYOUT(12500, 3500, 4000)], 'rush: need-by Fri Oct 16, visit Thu Oct 15 (1 day)');
+  goldenRow(M.estimate(amara(), { ...state.job, visitType: 'shop' }, '2026-10-13T13:00'), [12500, 0, 0, 0, 12500, 1250, 11250, FEE(12500), PAYOUT(12500, 0, 0)], 'shop visit');
+  goldenRow(M.quote({ lines, homeFee: 3500, courier: M.courierQuote(0.6).cents }), [12500, 3500, 0, 1045, 17045, 1600, 15445, FEE(12500), PAYOUT(12500, 3500, 0)], 'seed + courier 0.6 mi');
   eq(M.courierQuote(0.6), { miles: 0.6, start: null, peak: false, quote: 950, markup: 95, cents: 1045 }, 'courierQuote(0.6) = ($8.00 + $2.50 x 0.6) plus markup = $10.45 (no window: off-peak)');
   eq(M.courierQuote(0).cents, 880, 'courierQuote(0) = $8.00 plus markup = $8.80');
   // K-43 (D-299): a simulated Uber quote PER WINDOW — the evening peak (windows starting 5:00–6:59 PM) adds $3.50 before the Taily fee
@@ -213,14 +219,15 @@ const goldenRow = (q, [services, home, rush, courier, total, deposit, balance, f
   eq(M.courierQuote(0.6, '2026-10-16T17:00'), { miles: 0.6, start: '2026-10-16T17:00', peak: true, quote: 1300, markup: 130, cents: 1430 }, 'K-43: the peak quote = ($8.00 + $1.50 + $3.50) + the Taily fee');
   const dep = 1600;
   const add = [...lines.map((l) => ({ ...l, cents: l.serviceId === 'sleeves' ? $(50) : l.cents })), { garmentId: 'g1', garmentType: 'Suit Pant', serviceId: 'taper', label: 'Taper legs', cents: $(40) }];
-  goldenRow(M.quote({ lines: add, homeFee: 3500, deposit: dep }), [17000, 3500, 0, 0, 20500, 1600, 18900, 1700, 18800], 'price change: + Taper $40, Sleeves $45 -> $50 (deposit unchanged)');
-  goldenRow(M.quote({ lines: lines.filter((l) => l.serviceId !== 'jacket-sides'), homeFee: 3500, deposit: dep }), [7000, 3500, 0, 0, 10500, 1600, 8900, 700, 9800], 'price change: - Take in jacket sides');
-  eq([M.depositFor(12500, 3500), M.depositFor(12500, 0), M.tailyFeeFor(12500), M.tailyFeeFor(17000), M.payoutFor({ services: 12500, homeFee: 3500, rush: 0 })], [1600, 1250, 1250, 1700, 14750], 'depositFor / tailyFeeFor / payoutFor');
-  eq([M.tailyFeeFor(4500), M.depositFor(4550, 0), M.depositFor(4450, 0)], [450, 455, 445], 'half-up rounding to the cent, once per order');
-  eq([M.tailyFeeFor(12505), M.tailyFeeFor(12495)], [1251, 1250], 'tailyFeeFor rounds half-up (1250.5 -> 1251)');
+  goldenRow(M.quote({ lines: add, homeFee: 3500, deposit: dep }), [17000, 3500, 0, 0, 20500, 1600, 18900, FEE(17000), PAYOUT(17000, 3500, 0)], 'price change: + Taper $40, Sleeves $45 -> $50 (deposit unchanged)');
+  goldenRow(M.quote({ lines: lines.filter((l) => l.serviceId !== 'jacket-sides'), homeFee: 3500, deposit: dep }), [7000, 3500, 0, 0, 10500, 1600, 8900, FEE(7000), PAYOUT(7000, 3500, 0)], 'price change: - Take in jacket sides');
+  eq([M.depositFor(12500, 3500), M.depositFor(12500, 0), M.tailyFeeFor(12500), M.tailyFeeFor(17000), M.payoutFor({ services: 12500, homeFee: 3500, rush: 0 })], [1600, 1250, FEE(12500), FEE(17000), PAYOUT(12500, 3500)], 'depositFor / tailyFeeFor / payoutFor');
+  eq([M.tailyFeeFor(4500), M.depositFor(4550, 0), M.depositFor(4450, 0)], [FEE(4500), 455, 445], 'half-up rounding to the cent, once per order');
+  ok(Array.from({ length: 400 }, (_, i) => 12300 + i).every((c) => M.tailyFeeFor(c) === Math.floor(c * MONEY.TAILY_FEE_RATE + 0.5 + 1e-9)), 'tailyFeeFor rounds half-up at any rate (K-53: 15 → 12510 × 0.15 = 1876.5 → 1877)');
+  eq([M.tailyFeeFor(12510), M.feePercent()], [Math.round(12510 * MONEY.TAILY_FEE_RATE + 1e-9), Math.round(MONEY.TAILY_FEE_RATE * 100)], 'K-53: feePercent is the rate as a whole number (to-fee only)');
   eq([M.quote({ lines }).refund, M.quote({ lines, homeFee: 0, deposit: 99999 }).refund, M.quote({ lines, deposit: 99999 }).balance], [0, 87499, 0], 'quote: refund = deposit above total, balance never negative (D-23)');
-  eq(M.noShowPayout(1600), 2500, 'no-show -> tailor paid max(deposit $16.00, $25.00) = $25.00');
-  eq(M.noShowPayout(3100), 3100, 'no-show -> a deposit above $25.00 is paid in full');
+  eq(M.noShowPayout(1600), 1600, 'K-53 (Q7): no-show -> the tailor is paid the deposit only ($16.00) — no floor, Taily never tops up');
+  eq(M.noShowPayout(3100), 3100, 'no-show -> a bigger deposit is paid in full');
   ok(M.payoutFor({ services: 12500, homeFee: 3500, rush: 0 }) === M.quote({ lines, homeFee: 3500, courier: 5000 }).payout, 'the courier charge never reaches the tailor payout (D-04)');
   ok(!('missing' in M.quote({ lines })), 'quote has no stray fields');
 }
@@ -229,13 +236,13 @@ const goldenRow = (q, [services, home, rush, courier, total, deposit, balance, f
 {
   const row = (q) => [q.services, q.homeFee, q.rush, q.courier, q.total, q.deposit, q.balance, q.tailyFee, q.payout];
   eq(SEED_SLOT, '2026-10-15T17:00', 'money.mjs: seed slot is Thu Oct 15 5 PM');
-  eq(row(SCENARIOS.seed), [12500, 3500, 0, 0, 16000, 1600, 14400, 1250, 14750], 'money.mjs: seed scenario matches the golden row');
-  eq(row(SCENARIOS.rush), [12500, 3500, 4000, 0, 20000, 1600, 18400, 1250, 18750], 'money.mjs: rush scenario matches the golden row');
-  eq(row(SCENARIOS.shop), [12500, 0, 0, 0, 12500, 1250, 11250, 1250, 11250], 'money.mjs: shop scenario matches the golden row');
-  eq(row(SCENARIOS.courier), [12500, 3500, 0, 1430, 17430, 1600, 15830, 1250, 14750], 'money.mjs: courier scenario matches the golden row (K-43: the fixtures’ 5:00 PM peak window)');
-  eq(row(SCENARIOS.priceAdded), [17000, 3500, 0, 0, 20500, 1600, 18900, 1700, 18800], 'money.mjs: price-added scenario matches the golden row');
-  eq(row(SCENARIOS.priceRemoved), [7000, 3500, 0, 0, 10500, 1600, 8900, 700, 9800], 'money.mjs: price-removed scenario matches the golden row');
-  eq([SCENARIOS.lateCancel.kept, SCENARIOS.lateCancel.tailorPaid, SCENARIOS.earlyCancel.refund, SCENARIOS.noShow.paid], [1600, 1600, 1600, 2500], 'money.mjs: late cancel keeps $16.00, early refunds it, no-show pays $25.00');
+  eq(row(SCENARIOS.seed), [12500, 3500, 0, 0, 16000, 1600, 14400, FEE(12500), PAYOUT(12500, 3500, 0)], 'money.mjs: seed scenario matches the golden row');
+  eq(row(SCENARIOS.rush), [12500, 3500, 4000, 0, 20000, 1600, 18400, FEE(12500), PAYOUT(12500, 3500, 4000)], 'money.mjs: rush scenario matches the golden row');
+  eq(row(SCENARIOS.shop), [12500, 0, 0, 0, 12500, 1250, 11250, FEE(12500), PAYOUT(12500, 0, 0)], 'money.mjs: shop scenario matches the golden row');
+  eq(row(SCENARIOS.courier), [12500, 3500, 0, 1430, 17430, 1600, 15830, FEE(12500), PAYOUT(12500, 3500, 0)], 'money.mjs: courier scenario matches the golden row (K-43: the fixtures’ 5:00 PM peak window)');
+  eq(row(SCENARIOS.priceAdded), [17000, 3500, 0, 0, 20500, 1600, 18900, FEE(17000), PAYOUT(17000, 3500, 0)], 'money.mjs: price-added scenario matches the golden row');
+  eq(row(SCENARIOS.priceRemoved), [7000, 3500, 0, 0, 10500, 1600, 8900, FEE(7000), PAYOUT(7000, 3500, 0)], 'money.mjs: price-removed scenario matches the golden row');
+  eq([SCENARIOS.lateCancel.kept, SCENARIOS.lateCancel.tailorPaid, SCENARIOS.earlyCancel.refund, SCENARIOS.noShow.paid], [1600, 1600, 1600, SCENARIOS.seed.deposit], 'money.mjs: late cancel keeps $16.00, early refunds it, no-show pays the deposit (K-53)');
 }
 
 /* ================= rush ladder ================= */
@@ -259,9 +266,9 @@ S.reset();
 }
 {
   S.reset(); const a = driveTo('requested', { rush: true });
-  goldenRow(a.money, [12500, 3500, 4000, 0, 20000, 1600, 18400, 1250, 18750], 'driveTo rush: booked quote matches the rush golden row');
+  goldenRow(a.money, [12500, 3500, 4000, 0, 20000, 1600, 18400, FEE(12500), PAYOUT(12500, 3500, 4000)], 'driveTo rush: booked quote matches the rush golden row');
   eq(a.payments.deposit.cents, 1600, 'rush does not change the deposit (services + home visit only)');
-  eq(M.tailyFeeFor(a.money.services), 1250, 'rush is outside the Taily fee base');
+  eq(M.tailyFeeFor(a.money.services), FEE(12500), 'rush is outside the Taily fee base');
 }
 
 /* ================= request / accept / suggest / decline / expire ================= */
@@ -449,11 +456,13 @@ section('cancellation');
   S.setClock('2026-10-15T17:14');
   guard(T.markNoShow(a.id), 'too-early', 'markNoShow at 14 minutes after the start fails');
   S.setClock('2026-10-15T17:15');
+  guard(T.markNoShow(a.id), 'not-here', 'D-14 (K-48): Mark as no-show needs the tailor’s “I’m here” first');
+  T.visitPing(a.id, 'tailor', 'here');
   const n = T.markNoShow(a.id);
-  eq([n.appt.status, n.appt.cancel.reason, n.appt.cancel.tailorPaid, n.appt.payments.deposit.state], ['cancelled', 'no-show', 2500, 'kept'], 'markNoShow at 15 min: deposit kept, tailor paid $25.00 (D-06)');
-  eq((({ createdAt, ...p }) => p)(state.payouts[0]), { apptId: a.id, cents: 2500, state: 'pending', date: '2026-10-16', kind: 'no-show' }, 'no-show pay is a pending payout');
+  eq([n.appt.status, n.appt.cancel.reason, n.appt.cancel.tailorPaid, n.appt.payments.deposit.state], ['cancelled', 'no-show', 1600, 'kept'], 'markNoShow at 15 min: deposit kept, the tailor paid the deposit (K-53: no floor)');
+  eq((({ createdAt, ...p }) => p)(state.payouts[0]), { apptId: a.id, cents: 1600, state: 'pending', date: '2026-10-16', kind: 'no-show' }, 'no-show pay is a pending payout');
   const b = driveTo('no-show');
-  eq(b.cancel.tailorPaid, 2500, 'driveTo no-show');
+  eq(b.cancel.tailorPaid, b.payments.deposit.cents, 'driveTo no-show');
 }
 // reschedule
 {
@@ -541,7 +550,7 @@ section('fitting -> completed');
   eq([m.appt.priceChange.state, m.appt.status], ['messaged', 'price-change'], 'messageAboutPriceChange keeps the status, marks messaged');
   guard(T.messageAboutPriceChange(a.id), 'not-pending', 'messaging twice is a guard failure');
   const ap = T.approvePriceChange(a.id);
-  goldenRow(ap.appt.money, [17000, 3500, 0, 0, 20500, 1600, 18900, 1700, 18800], 'approvePriceChange (after messaging): deposit $16.00 kept, balance $189.00, Taily fee $17.00, payout $188.00');
+  goldenRow(ap.appt.money, [17000, 3500, 0, 0, 20500, 1600, 18900, FEE(17000), PAYOUT(17000, 3500, 0)], 'approvePriceChange (after messaging): deposit $16.00 kept, balance $189.00, Taily fee $17.00, payout $188.00');
   eq([ap.appt.status, ap.appt.payments.deposit.cents, ap.appt.payments.balance.cents, ap.appt.lines.length, ap.appt.priceChange.state], ['in-progress', 1600, 18900, 4, 'approved'], 'approve: lines replaced, balance updated, status in-progress');
   guard(T.approvePriceChange(a.id), 'not-pending', 'approve twice fails');
 }
@@ -556,13 +565,16 @@ section('fitting -> completed');
 }
 // R4-2-C-04 / D-118: a declined balance remembers the card that was declined
 {
-  S.reset(); const a = driveTo('ready'); T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id);
+  S.reset(); const a = driveTo('in-progress');
   state.sim.card = 'declined';
+  T.markReady(a.id);
+  eq([a.status, a.payments.balance.state, a.payments.balance.failedCardId, a.payments.balance.failedBy], ['ready', 'failed', 'visa-4242', 'ready'], 'K-53: the card declines the hold at ready → failed, ready (Update card)');
+  T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id);
   guard(T.holdBalance(a.id, 'visa-4242'), 'card-declined', 'declined balance');
   eq([a.payments.balance.state, a.payments.balance.failedCardId], ['failed', 'visa-4242'], 'the declined card is recorded');
   state.sim.card = 'ok';
   const paid = T.holdBalance(a.id, 'apple-pay');
-  eq([paid.ok, a.payments.balance.state, a.payments.balance.failedCardId], [true, 'held', undefined], 'holding with another way clears it');
+  eq([paid.ok, a.payments.balance.state, a.payments.balance.failedCardId, a.payments.balance.by, a.payments.balance.cardId], [true, 'held', undefined, 'pay', 'apple-pay'], 'paying with another way places the hold on it (K-53: customer-initiated) and clears the decline');
   // refund line: payments untouched until Ready
 }
 // price change: removed
@@ -570,13 +582,13 @@ section('fitting -> completed');
   S.reset(); const a = driveTo('price-change', { priceChange: 'removed' });
   eq(a.priceChange.marks, [{ garmentId: 'g2', serviceId: 'jacket-sides', kind: 'removed', from: 5500, to: null }], 'price change marks: removed');
   const ap = T.approvePriceChange(a.id);
-  goldenRow(ap.appt.money, [7000, 3500, 0, 0, 10500, 1600, 8900, 700, 9800], 'removing a service: deposit kept, balance $89.00, payout $98.00');
+  goldenRow(ap.appt.money, [7000, 3500, 0, 0, 10500, 1600, 8900, FEE(7000), PAYOUT(7000, 3500, 0)], 'removing a service: deposit kept, balance $89.00, payout $98.00');
   eq(ap.appt.money.refund, 0, 'no refund while the total is above the deposit');
 }
 {
   S.reset(); const a = driveTo('price-change', { priceChange: 'repriced' });
   eq(a.priceChange.marks.map((m) => m.kind), ['repriced'], 'repriced mark');
-  goldenRow(T.approvePriceChange(a.id).appt.money, [12500 + 500, 3500, 0, 0, 16500, 1600, 14900, 1300, 15200], 'repriced: Sleeves $45 -> $50');
+  goldenRow(T.approvePriceChange(a.id).appt.money, [12500 + 500, 3500, 0, 0, 16500, 1600, 14900, FEE(13000), PAYOUT(13000, 3500)], 'repriced: Sleeves $45 -> $50');
 }
 // a suggested time lapses or is withdrawn (D-154)
 {
@@ -673,7 +685,7 @@ section('fitting -> completed');
 // profile bio and shop name hide contact info (D-162)
 {
   S.reset();
-  const v = S.validateSection('profile', { name: 'Amara', bio: 'Call me on 718-555-0199', shopName: 'Reyes — a@b.com', cardLine: 'Suits.', photo: true });
+  const v = S.validateSection('profile', { name: 'Amara', bio: 'Call me on 718-555-0199', shopName: 'Reyes — a@b.com', cardLine: 'Suits.', photo: true, idDoc: true, years: 12 });
   eq([v.ok, v.soft], [true, { bio: 'contact-hidden', shopName: 'contact-hidden' }], 'D-162: validateSection returns the soft code per field and stays ok');
   const sv = T.setTailorSection('profile', { bio: 'Call me on 718-555-0199 or a@b.com', shopName: 'Reyes 718-555-0199' });
   eq([sv.soft, amara().bio, amara().shopName], [{ bio: 'contact-hidden', shopName: 'contact-hidden' }, 'Call me on [phone hidden] or [email hidden]', 'Reyes [phone hidden]'], 'D-162: setTailorSection stores the masked text');
@@ -684,7 +696,7 @@ section('fitting -> completed');
   S.reset();
   const MAX = DATA.TAILOR_LIMITS.CARD_LINE_MAX;
   eq(MAX, 110, 'K-19: CARD_LINE_MAX is 110');
-  const base = { name: 'Amara', bio: 'Suits.', cardLine: 'Suits and dresses.', photo: true };
+  const base = { name: 'Amara', bio: 'Suits.', cardLine: 'Suits and dresses.', photo: true, idDoc: true, years: 12 };   // DG-4 / D-18: the ID and years are part of the profile
   const errs = (patch) => S.validateSection('profile', { ...base, ...patch }).errors;
   eq(errs({}), {}, 'K-19: a complete profile is valid');
   eq(errs({ cardLine: '' }), { cardLine: 'cardline-required' }, 'K-19: card line required');
@@ -765,7 +777,8 @@ section('fitting -> completed');
   guard(T.chooseReturn(a.id, 'pickup'), 'not-ready', 'chooseReturn needs ready');
   guard(T.holdBalance(a.id, 'visa-4242'), 'not-ready', 'holdBalance needs ready');
   const r = T.markReady(a.id);
-  eq([r.appt.status, r.appt.payments.balance], ['ready', { cents: 14400, state: 'due' }], 'markReady: balance $144.00 due');
+  const rb = r.appt.payments.balance;
+  eq([r.appt.status, rb.state, rb.cents, rb.by, rb.cardId, rb.heldAt, S.unclaimedAt(r.appt) - D.toDate(rb.heldAt).getTime()], ['ready', 'held', 14400, 'ready', 'visa-4242', S.nowIso(), M.HOLD_DAYS * 86400000], 'K-53: markReady holds the $144.00 balance on the saved card at once; captured by ready + 4 days');
   guard(T.markReady(a.id), 'not-in-progress', 'markReady twice fails');
   guard(T.holdBalance(a.id, 'visa-4242'), 'return-required', 'holdBalance needs a return choice');
   guard(T.chooseReturn(a.id, 'carrier-pigeon'), 'not-offered', 'chooseReturn: unknown option');
@@ -787,33 +800,33 @@ section('fitting -> completed');
   eq([c.appt.courier.cents, c.appt.money.total], [1045, 17045], 'K-43: an off-peak window (noon) — its quote $10.45');
   T.setHandoffSlot(a.id, '2026-10-16T17:00');
   eq([c.appt.courier.miles, c.appt.courier.cents, c.appt.courier.state], [0.6, 1430, 'ready'], 'K-43: the 5:00 PM window (peak) — 0.6 mi quote $14.30');
-  goldenRow(c.appt.money, [12500, 3500, 0, 1430, 17430, 1600, 15830, 1250, 14750], 'courier window picked: total $174.30, balance $158.30, payout unchanged $147.50');
+  goldenRow(c.appt.money, [12500, 3500, 0, 1430, 17430, 1600, 15830, FEE(12500), PAYOUT(12500, 3500, 0)], 'courier window picked: total $174.30, balance $158.30, payout unchanged $147.50');
   eq(c.appt.payments.balance.cents, 15830, 'balance payment follows the picked window’s courier charge');
   const p0 = T.chooseReturn(a.id, 'pickup');
   eq([p0.appt.courier, p0.appt.money.total, p0.appt.payments.balance.cents], [null, 16000, 14400], 'switching back to pickup drops the courier charge');
   guard(T.holdBalance(a.id, 'visa-4242'), 'slot-required', 'K-40: holdBalance needs the pickup time');
   EARN.pickHandoff(a.id);
   state.sim.card = 'declined';
-  guard(T.holdBalance(a.id, 'visa-4242'), 'card-declined', 'holdBalance with a declined card fails');
-  eq([S.getAppt(a.id).status, S.getAppt(a.id).payments.balance.state], ['ready', 'failed'], 'a declined card leaves it ready, balance failed');
+  guard(T.holdBalance(a.id, 'apple-pay'), 'card-declined', 'K-53: paying with another card needs a new hold — declined');
+  eq([S.getAppt(a.id).status, S.getAppt(a.id).payments.balance.state, S.getAppt(a.id).payments.balance.cardId, S.getAppt(a.id).payments.balance.payFailed?.cardId], ['ready', 'held', 'visa-4242', 'apple-pay'], 'a declined new card leaves it ready, the ready hold where it was');
   state.sim.card = '3ds';
-  guard(T.holdBalance(a.id, 'visa-4242'), 'needs-3ds', 'holdBalance with 3-D Secure needs the challenge');
+  guard(T.holdBalance(a.id, 'apple-pay'), 'needs-3ds', 'holdBalance on a new card with 3-D Secure needs the challenge');
   state.sim.card = 'ok';
   const pay = T.holdBalance(a.id, 'visa-4242');
-  eq([pay.appt.status, pay.appt.payments.balance.cents, pay.appt.payments.balance.state], ['awaiting-handoff', 14400, 'held'], 'holdBalance: awaiting-handoff, balance held (K-27)');
+  eq([pay.appt.status, pay.appt.payments.balance.cents, pay.appt.payments.balance.state, pay.appt.payments.balance.by, pay.appt.payments.balance.payFailed], ['awaiting-handoff', 14400, 'held', 'ready', undefined], 'K-53: Pay confirms pickup + time against the ready hold (no new authorization)');
   guard(T.holdBalance(a.id, 'visa-4242'), 'not-ready', 'hold twice fails');
   guard(T.leaveReview(a.id, { stars: 5 }), 'not-completed', 'leaveReview needs completed');
   eq(state.payouts.length, 0, 'nothing is paid out while the order waits for the handoff');
   const done = T.confirmPickup(a.id, S.handoffCode(a));
   eq(done.appt.status, 'completed', 'the pickup code completes it');
-  eq(state.payouts.map(({ createdAt, ...p }) => p), [{ apptId: a.id, cents: 14750, state: 'pending', date: '2026-10-16', kind: 'job' }], 'completion creates a pending payout of $147.50 (not the courier)');
+  eq(state.payouts.map(({ createdAt, ...p }) => p), [{ apptId: a.id, cents: PAYOUT(12500, 3500), state: 'pending', date: '2026-10-16', kind: 'job' }], 'completion creates a pending payout (services − fee + home visit, not the courier)');
   guard(T.confirmPickup(a.id, S.handoffCode(a)), 'not-awaiting-handoff', 'confirming twice fails');
   guard(T.leaveReview(a.id, { stars: 0 }), 'stars-required', 'leaveReview: 0 stars');
   guard(T.leaveReview(a.id, { stars: 6 }), 'stars-required', 'leaveReview: 6 stars');
   guard(T.leaveReview(a.id, { stars: 4.5 }), 'stars-required', 'leaveReview: fractional stars');
   guard(T.leaveReview(a.id, { stars: 5, photos: 4 }), 'too-many-photos', 'leaveReview: more than 3 photos');
   const rv = T.leaveReview(a.id, { stars: 5, text: 'Great.', photos: 3 });
-  eq([rv.appt.review.stars, rv.appt.review.photos, amara().rating, amara().reviews.length, amara().reviews[0].name], [5, 3, { avg: 4.9, count: 38 }, 5, 'Sarah C.'], 'leaveReview: saved, rating recomputed (avg to 1 decimal, count + 1), shown first on the profile');
+  eq([rv.appt.review.stars, rv.appt.review.photos, amara().rating, amara().reviews.length, amara().reviews[0].name], [5, 3, { avg: 4.9, count: 38 }, DATA.TAILORS[0].reviews.length + 1, 'Sarah C.'], 'leaveReview: saved, rating recomputed (avg to 1 decimal, count + 1), shown first on the profile');
   guard(T.leaveReview(a.id, { stars: 1 }), 'already-reviewed', 'one review per job');
 }
 {
@@ -825,14 +838,14 @@ section('fitting -> completed');
 // shop job money end to end
 {
   S.reset(); const a = driveTo('completed', { visitType: 'shop' });
-  goldenRow(a.money, [12500, 0, 0, 0, 12500, 1250, 11250, 1250, 11250], 'shop job through completion keeps the shop golden row');
-  eq(state.payouts[0].cents, 11250, 'shop job payout $112.50');
+  goldenRow(a.money, [12500, 0, 0, 0, 12500, 1250, 11250, FEE(12500), PAYOUT(12500, 0, 0)], 'shop job through completion keeps the shop golden row');
+  eq(state.payouts[0].cents, PAYOUT(12500), 'shop job payout = services − the Taily fee');
   eq(a.slot.end, D.isoMinute(D.addMinutes(a.slot.start, 30)), 'shop visits are 30 minutes');
 }
 {
   S.reset(); const a = driveTo('completed');
-  goldenRow(a.money, [12500, 3500, 0, 0, 16000, 1600, 14400, 1250, 14750], 'home job through completion keeps the home golden row');
-  eq(state.payouts[0].cents, 14750, 'home job payout $147.50');
+  goldenRow(a.money, [12500, 3500, 0, 0, 16000, 1600, 14400, FEE(12500), PAYOUT(12500, 3500, 0)], 'home job through completion keeps the home golden row');
+  eq(state.payouts[0].cents, PAYOUT(12500, 3500), 'home job payout = services − fee + home visit');
   ok(a.money.payout === a.money.services - a.money.tailyFee + a.money.homeFee + a.money.rush, 'payout = services - Taily fee + home-visit fee + rush');
   ok(a.money.tailyFee === M.tailyFeeFor(a.money.services), 'Taily fee is computed on services only');
 }
@@ -904,13 +917,15 @@ section('tailor sections');
   T.setJob({ visitType: 'shop' });
   eq(S.tailorsFor(state.job).empty, 'shop', 'blank tailor -> the list is empty (shop)');
   T.setJob({ visitType: 'home' });
-  eq(S.validateSection('profile', amara()).errors, { name: 'name-required', bio: 'bio-required', cardLine: 'cardline-required', photo: 'photo-required' }, 'profile rules (K-19: card line and photo are required)');
-  eq(T.setTailorSection('profile', { name: 'Amara Reyes', initials: 'AR', bio: 'Hi.', cardLine: 'Hi.', photo: true }).valid, true, 'setTailorSection profile -> valid');
+  eq(S.validateSection('profile', amara()).errors, { name: 'name-required', bio: 'bio-required', cardLine: 'cardline-required', photo: 'photo-required', idDoc: 'id-required', years: 'years-required' }, 'profile rules (K-19: card line and photo; DG-4: the photo ID; D-18: years)');
+  eq(T.setTailorSection('profile', { name: 'Amara Reyes', initials: 'AR', bio: 'Hi.', cardLine: 'Hi.', photo: true, idDoc: true, years: 12 }).valid, true, 'setTailorSection profile -> valid');
+  eq(S.checkState(amara(), 'id'), 'pending', 'DG-4: handing in the photo ID starts the ID and profile photo check');
   eq(T.setTailorSection('services', { prices: { 'hem-pants': 25 } }).valid, true, 'services valid with one priced service');
   eq(T.setTailorSection('services', { prices: { 'hem-pants': undefined } }).valid, false, 'undefined deletes a key; no services -> invalid');
   T.setTailorSection('services', { prices: { 'hem-pants': 25, taper: 40, waist: 35, sleeves: 45, 'jacket-sides': 55 } });
   eq(T.setTailorSection('where', { shop: { enabled: false } }).valid, false, 'where: neither shop nor home -> invalid');
-  eq(T.setTailorSection('where', { home: { enabled: true, hoods: ['williamsburg'], fee: 35 } }).valid, true, 'where: home visits with a neighborhood + fee -> valid (Study-1 C5)');
+  eq(T.setTailorSection('where', { home: { enabled: true, hoods: ['williamsburg'], fee: 35 } }).errors, { collectStreet: 'street-required', collectZip: 'zip-invalid' }, 'B-15: home visits with no shop need the courier pickup address');
+  eq(T.setTailorSection('where', { collect: { street: '40 Mercer St', unit: '2F', zip: '10013', notes: 'Buzzer 2F' } }).valid, true, 'where: home visits with a neighborhood + fee + a courier address -> valid (Study-1 C5, B-15)');
   eq(T.setTailorSection('where', { home: { hoods: [] } }).errors, { hoods: 'hoods-required' }, 'where: home visits need a neighborhood');
   T.setTailorSection('where', { home: { hoods: ['williamsburg'] } });
   eq(T.setTailorSection('returns', { returns: { courier: true } }).valid, true, 'returns: one option is enough');
@@ -918,15 +933,20 @@ section('tailor sections');
   T.setTailorSection('returns', { returns: { pickup: false } });
   eq(T.setTailorSection('availability', {}).errors, { home: 'hours-required' }, 'availability: home visits need hours');
   eq(T.setTailorSection('availability', { availability: { home: { mon: [['17:00', '20:00']] } } }).valid, true, 'availability valid');
-  eq(T.setTailorSection('payouts', { payouts: { bank: 'Chase', last4: '12', holder: 'A', routing: '021000021' } }).errors, { last4: 'account-invalid' }, 'payouts: last4 must be 4 digits');
+  eq(T.setTailorSection('payouts', { payouts: { bank: 'Chase', last4: '12', holder: 'A', routing: '021000021' } }).errors, { setup: 'setup-required', last4: 'account-invalid' }, 'payouts: the partner step not done yet; last4 must be 4 digits');
   eq(T.setPayouts({ holder: 'A', routing: '12', account: '123' }).errors, { routing: 'routing-invalid', account: 'account-invalid' }, 'setPayouts: routing + account rules');
   const last = T.setPayouts({ holder: 'Amara Reyes', routing: '021000021', account: '000123456789' });
-  eq([last.ok, last.tailor.payouts.bank, last.tailor.payouts.last4, last.live], [true, 'Chase', '6789', true], 'setPayouts: bank from the routing table, only last4 stored, live');
+  eq([last.ok, last.tailor.payouts.bank, last.tailor.payouts.last4, last.tailor.payouts.status, last.live], [true, 'Chase', '6789', 'verifying', false], 'setPayouts (the partner returned the bank): bank from the routing table, only last4 stored, verifying — not live (not submitted, D-352)');
   eq(T.setPayouts({ holder: 'Amara Reyes', routing: '021000021', account: '' }).tailor.payouts.last4, '6789', 'setPayouts: blank account keeps the stored last4');
   eq(T.setPayouts({ holder: 'Amara Reyes', routing: '026009593', account: '' }).errors, { account: 'account-invalid' }, 'setPayouts: a new routing number with a blank account asks for the new account (R2-2-T-01)');
   eq(S.state.tailors[0].payouts.routing, '021000021', 'setPayouts: a refused change keeps the saved bank');
-  eq([last.ok, last.bookable, S.bookable(amara())], [true, true, true], 'six valid sections -> bookable');
+  eq([last.ok, last.bookable, S.sectionsDone(amara()), S.bookable(amara())], [true, false, true, false], 'six valid sections, checks pending -> set up but not bookable (D-352)');
   guard(T.setTailorSection('nonsense', {}), 'unknown-section', 'unknown section');
+  T.setTailorSection('where', { home: { hoods: ['williamsburg', 'greenpoint'] } });
+  ok(T.consentBackground(true).ok && T.submitOnboarding().ok, 'DG-4: consent + submit');
+  eq([!!amara().submitted, !!amara().live, S.tailorsFor(state.job).rows.length], [true, false, 0], 'DG-4: submitted, under review — not listed');
+  T.reviewChecks();
+  eq([!!amara().live, S.isVerified(amara())], [true, true], 'DG-4: the review passes every check -> live and Verified');
   const row = S.tailorsFor(state.job);
   eq([row.rows.length, row.empty], [1, null], 'the onboarded tailor shows up in the list');
   eq(row.rows[0].quote.total, 16000, 'the list estimate uses the prices the tailor entered');
@@ -945,7 +965,7 @@ section('tailor-data');
   eq([TD.inbox().requests.map((x) => x.id), TD.inbox().upcoming.length], [[a.id], 0], 'inbox: a pending request is in requests');
   eq(TD.jobAddress(a), 'Williamsburg · 11211', 'jobAddress before accepting: neighborhood + zip');
   const v = TD.requestView(a);
-  eq([v.visitLabel, v.place, v.when, v.needBy, v.estimate, v.tailyFee, v.payout, v.expiresAt], ['Home visit', 'Williamsburg · 11211', 'Thu, Oct 15 · 5:00\u00a0PM', 'Fri, Oct 23', 12500, 1250, 14750, '2026-10-13T12:00'], 'requestView: visit label, place, when, need-by, estimate, Taily fee, payout, expiry');
+  eq([v.visitLabel, v.place, v.when, v.needBy, v.estimate, v.tailyFee, v.payout, v.expiresAt], ['Home visit', 'Williamsburg · 11211', 'Thu, Oct 15 · 5:00\u00a0PM', 'Fri, Oct 23', 12500, FEE(12500), PAYOUT(12500, 3500), '2026-10-13T12:00'], 'requestView: visit label, place, when, need-by, estimate, Taily fee, payout, expiry');
   eq(v.garments.map((g) => [g.type, g.services.map((s) => s.label)]), [['Suit Pant', ['Hem pants']], ['Suit Jacket', ['Shorten sleeves', 'Take in jacket sides']]], 'requestView: garments with their service labels');
   T.tailorAccept(a.id);
   eq(TD.jobAddress(S.getAppt(a.id)), '145 N 7th St, 2R, Brooklyn, NY 11211', 'jobAddress after accepting: full street + unit');
@@ -999,9 +1019,9 @@ section('account + sim');
   eq([A.verifyCode('123456'), state.session.customer.signedIn], [{ ok: true, isNew: true }, false], 'verifyCode: a new account waits for the name');
   eq(A.saveName({ first: ' ', last: '' }).errors, { first: 'first-required', last: 'last-required' }, 'saveName: both names required');
   A.saveName({ first: 'Jo', last: 'Park' });
-  eq([state.customer.first, state.customer.last, state.customer.initials, state.customer.phone, state.session.customer.signedIn, state.customer.cards.length], ['Jo', 'Park', 'JP', '(917) 555-0186', true, 1], 'saveName: names the customer, keeps the seed card');
+  eq([state.customer.first, state.customer.last, state.customer.initials, state.customer.phone, state.session.customer.signedIn, state.customer.cards.length], ['Jo', 'Park', 'JP', '(917) 555-0186', true, 0], 'saveName: names the customer; K-54 P1: a new account starts with no card');
   S.reset(); A.signOut();
-  eq([A.signInWith('apple').ok, state.session.customer.signedIn, A.signInWith('x').ok], [true, true, false], 'signInWith: apple / google only');
+  eq([A.signInWith('apple').ok, state.session.customer.signedIn, A.signInWith('x').ok], [true, false, false], 'signInWith: apple / google only — D-07 / B-09 (pre-MVP B2): not signed in until the phone code');
   eq(A.addCard({ number: '4242', exp: '13/28', cvc: '1', zip: '1121' }).errors, { number: 'card-number', exp: 'card-exp', cvc: 'card-cvc', zip: 'card-zip' }, 'addCard: per-field errors');
   eq(A.addCard({ number: '4000 0000 0000 0002', exp: '09/26', cvc: '123', zip: '11211' }).errors, { exp: 'card-exp' }, 'addCard: expiry before Oct 2026 is invalid');
   state.sim.card = 'declined';
@@ -1070,7 +1090,7 @@ section('M2 tailor onboarding');
   const v = A.verifyCode('123456', 'tailor');
   eq([v.isNew, v.next, state.tailors[0].phone, state.tailors[0].name], [true, 'profile', '(718) 555-0100', ''], 'a new tailor number starts a blank tailor');
   eq(T.setTailorSection('services', { prices: { a: '', b: 5.5, c: 1000, d: 20 } }).errors, { 'price-a': 'price-missing', 'price-b': 'price-invalid', 'price-c': 'price-invalid' }, 'services rules');
-  eq(T.setTailorSection('profile', { name: 'A', bio: 'x'.repeat(301), cardLine: 'Hi.', photo: true }).errors, { bio: 'bio-long' }, 'profile: bio too long');
+  eq(T.setTailorSection('profile', { name: 'A', bio: 'x'.repeat(301), cardLine: 'Hi.', photo: true, idDoc: true, years: 12 }).errors, { bio: 'bio-long' }, 'profile: bio too long');
   eq(T.setTailorSection('availability', { shop: { enabled: true }, home: { enabled: true }, availability: { shop: { tue: [['10:00', '18:00']] }, home: { tue: [['17:00', '20:00']], mon: [['18:00', '17:00']] } } }).errors, { 'home-mon': 'hours-range', 'overlap-tue': 'hours-overlap' }, 'availability: range + overlap');
 }
 
@@ -1453,7 +1473,7 @@ section('M6 batch 4');
 {
   S.reset();
   ok(S.STATUSES.includes('awaiting-handoff') && !S.STATUSES.includes('returning'), 'S1-0: awaiting-handoff replaces returning');
-  eq([POLICY.HANDOFF_AUTO_H, POLICY.UNCLAIMED_CAPTURE_D, POLICY.REVIEW_REMINDER_D, MONEY.PRICE_RANGE_SPREAD, MONEY.PRICE_ROUND], [48, 7, 7, 0.20, 5], 'S1-0: Study-1 timers and price-range settings');
+  eq([POLICY.HANDOFF_AUTO_H, M.HOLD_DAYS, POLICY.REVIEW_REMINDER_D, MONEY.PRICE_RANGE_SPREAD, MONEY.PRICE_ROUND], [48, 4, 7, 0.20, 5], 'S1-0: Study-1 timers and price-range settings (K-53: the capture on the ready hold’s last day, ready + 4 days)');
   eq([DATA.HANDOFF_CODE_LEN, DATA.NOTES_LIMITS], [4, { TEXT_MAX: 500, PHOTOS_MAX: 4 }], 'S1-0: handoff code length and private-note limits');
   ok(Object.values(DATA.SERVICES).every((s) => Number.isInteger(s.base) && s.base > 0), 'S1-0: every service has a whole-dollar base price');
   ok(Object.entries(amara().prices).every(([id, p]) => DATA.SERVICES[id].base === p) , 'S1-0: base = Amara’s seed price');
@@ -1509,13 +1529,13 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   guard(T.reportNotReceived(a.id), 'already-reported', 'S1-A3: one report at a time');
   eq(S.autoCompleteLeft(a), null, 'S1-A3: a reported problem stops the countdown');
   T.advanceClock(8 * DAY);
-  eq([a.status, a.payments.balance.state], ['awaiting-handoff', 'held'], 'S1-A3 (default 2): a problem pauses BOTH the 48 h and the 7-day timers');
+  eq([a.status, a.payments.balance.state, a.payments.balance.captureReason, S.tailyReviewOf(a)?.reason, state.payouts.length], ['awaiting-handoff', 'captured', 'before-expiry', 'problem-open', 0], 'D-04 (K-48) → K-53: a problem pauses the 48 h, but the hold is still captured on its last day (inside the card hold) and goes to Taily review; no payout while it is open');
   const re = T.markHandedOver(a.id);
   eq([re.ok, a.handoff.problemAt, a.handoff.marks, hours(S.autoCompleteLeft(a))], [true, null, 2, POLICY.HANDOFF_AUTO_H], 'S1-A3 (default 5): marked picked up again clears the problem and restarts 48 h');
-  ok(S.unclaimedAt(a) > S.unclaimedAt({ handoff: { ...a.handoff, pausedMs: 0 } }), 'S1-A3: the 7-day capture moves out by the paused time');
+  eq(S.unclaimedAt(a), D.toDate(S.readyAtOf(a)).getTime() + M.HOLD_DAYS * 24 * 3600000, 'K-53: the capture on the hold’s last day (ready + 4 days) never moves out (a problem no longer pauses it)');
   T.reportNotReceived(a.id);
   const got = T.confirmReceived(a.id);
-  eq([got.ok, a.status, a.handoff.completedBy, a.payments.balance.captureReason], [true, 'completed', 'customer', 'handoff'], 'S1-A3: "I got it" completes it even after a reported problem');
+  eq([got.ok, a.status, a.handoff.completedBy, a.payments.balance.captureReason, state.payouts.length], [true, 'completed', 'customer', 'before-expiry', 1], 'S1-A3 + K-48.3: "Confirm received" completes it even after a reported problem; the payout is queued then');
   // A3 48 h auto-complete, stamped at autoAt
   S.reset(); a = driveTo('handed-over');
   const autoAt = a.handoff.autoAt;
@@ -1531,16 +1551,16 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   guard(T.confirmPickup(a.id, '8153'), 'not-pickup', 'S1-A3: no pickup code on a courier return');
   T.courierDelivered(a.id);
   eq([a.status, a.handoff.completedBy, a.payments.balance.state, state.payouts[0].cents], ['completed', 'courier', 'captured', SCENARIOS.seed.payout], 'S1-A3: courier delivery completes it; the payout never includes the courier');
-  // A2 unclaimed: 7 days after the hold → captured, the job stays open, the payout waits for the handoff
+  // A2 unclaimed → K-53: on the ready hold's last day (ready + HOLD_DAYS) → captured, the job stays open, the tailor is paid then
   S.reset(); a = driveTo('awaiting-handoff');
-  const heldAt = a.handoff.heldAt;
-  T.advanceClock(POLICY.UNCLAIMED_CAPTURE_D * DAY - 1);
-  eq(a.payments.balance.state, 'held', 'S1-A2: still held a minute before 7 days');
+  const capAt = S.unclaimedAt(a);
+  T.advanceClock(Math.round((capAt - S.now()) / 60000) - 1);
+  eq(a.payments.balance.state, 'held', 'K-53: still held a minute before the hold’s last day');
   T.advanceClock(1);
-  eq([a.status, a.payments.balance.state, a.payments.balance.captureReason, a.payments.balance.capturedAt, state.payouts.length], ['awaiting-handoff', 'captured', 'unclaimed', D.isoMinute(D.addMinutes(heldAt, POLICY.UNCLAIMED_CAPTURE_D * DAY)), 0], 'S1-A2: 7 days after the hold it is captured (unclaimed); the job stays open; no payout yet');
-  ok(S.threadFor('amara').messages.some((m) => m.text === `We charged your ${M.fmtExact(SCENARIOS.seed.balance)} balance after 7 days`), 'S1-A2: the thread says it was charged');
+  eq([a.status, a.payments.balance.state, a.payments.balance.captureReason, a.payments.balance.capturedAt, state.payouts.length], ['awaiting-handoff', 'captured', 'unclaimed', D.isoMinute(new Date(capAt)), 1], 'S1-A2 + D-03 → K-53: on the hold’s last day it is captured (unclaimed); the job stays open; the tailor is paid now');
+  ok(S.threadFor('amara').messages.some((m) => m.text === `We charged your ${M.fmtExact(SCENARIOS.seed.balance)} balance ${M.HOLD_DAYS} days after it was ready`), 'S1-A2: the thread says it was charged');
   T.confirmPickup(a.id, a.handoff.code);
-  eq([a.status, a.payments.balance.captureReason, state.payouts.length], ['completed', 'unclaimed', 1], 'S1-A2: the handoff later completes it without a second charge; the payout is queued then');
+  eq([a.status, a.payments.balance.captureReason, state.payouts.length], ['completed', 'unclaimed', 1], 'S1-A2: the handoff later completes it without a second charge or a second payout');
   // A4 review reminder (K-28: a selector, no status)
   S.reset(); a = driveTo('completed');
   ok(!S.reviewReminderDue(a) && !S.reviewReminder(), 'S1-A4: no reminder at completion');
@@ -1637,7 +1657,8 @@ section('Study-1 WS-A: hold, handoff, Job Done, no-shows');
   ok(T.restoreNote(a.id, rm.note, rm.index).ok && a.notes[0].id === n1.note.id, 'S1-B2: undo puts it back where it was');
   guard(T.restoreNote(a.id, rm.note, 0), 'duplicate', 'S1-B2: restore twice fails');
   ok(S.threadFor('amara').messages.every((m) => !m.text.includes('Sleeve 24')), 'S1-B2: notes never reach the thread');
-  guard(T.addNote(driveTo('confirmed').id, { text: 'x' }), 'notes-closed', 'S1-B2: notes open at the fitting');
+  ok(T.addNote(driveTo('confirmed').id, { text: 'x' }).ok, 'D-19 (K-48): notes open from the accept (was: the fitting, Study-1 default 14)');
+  guard(T.addNote(driveTo('requested').id, { text: 'x' }), 'notes-closed', 'D-19: never on a request she has not accepted');
   a = driveTo('completed');
   ok(!S.notesEditable(a), 'S1-B2 (default 14): read-only once completed');
   guard(T.addNote(a.id, { text: 'x' }), 'notes-closed', 'S1-B2: no new note on a completed job');
@@ -1702,10 +1723,11 @@ section('K-40 (T1): the handoff time');
   S.reset(); let a = driveTo('ready');                                    // Thu, Oct 15 · 5:00 PM — the shop closed at 4:00 PM
   const picks = S.handoffSlots(a, 'pickup');
   eq(picks[0], { start: '2026-10-16T10:00' }, 'K-40: pickup times start at the next opening (nothing left today)');
-  eq([...new Set(picks.map((x) => x.start.slice(0, 10)))], ['2026-10-16', '2026-10-17', '2026-10-20', '2026-10-21', '2026-10-22'], 'K-40: the shop’s open days in the next 7 days (D-295)');
+  eq([...new Set(picks.map((x) => x.start.slice(0, 10)))], ['2026-10-16', '2026-10-17'], 'K-40 → K-53: the shop’s open days before the hold’s last day (ready Thu 5:00 PM + 4 days = Mon 5:00 PM; closed Sun, Mon)');
   const fri = picks.filter((x) => x.start.startsWith('2026-10-16'));
   eq([fri.length, fri.at(-1).start], [16, '2026-10-16T17:30'], 'K-40: Fri pickups every 30 min; the last one ends at closing');
-  ok(picks.every((x) => D.toDate(x.start).getTime() <= S.now() + POLICY.HANDOFF_PICK_DAYS * DAY_MS), 'K-40: never more than HANDOFF_PICK_DAYS ahead');
+  ok(picks.every((x) => D.toDate(x.start).getTime() + POLICY.HANDOFF_SLOT_MIN * 60000 <= S.unclaimedAt(a)), 'K-53: every pickup ends inside the ready hold (by ready + 4 days)');
+  ok(S.handoffSlots(a, 'courier').every((x) => D.toDate(x.end).getTime() <= S.unclaimedAt(a)), 'K-53: every courier window ends inside the ready hold');
   const wins = S.handoffSlots(a, 'courier').filter((x) => x.start.startsWith('2026-10-16'));
   eq([wins[0], wins.at(-1).start, wins.length], [{ start: '2026-10-16T10:30', end: '2026-10-16T11:00', collectAt: '2026-10-16T10:15' }, '2026-10-16T18:00', 16], 'K-40: courier windows — collected 15 min before, inside her open hours; the last starts at closing');
   eq(S.handoffSlots(a, 'dropoff'), [], 'K-37: no times for a way back that does not exist');
@@ -1727,7 +1749,7 @@ section('K-40 (T1): the handoff time');
   eq(S.courierWindow(a), { from: '2026-10-16T17:00', to: '2026-10-16T17:30', collectAt: '2026-10-16T16:45' }, 'K-40: the window and its collection time');
   eq(S.slotText(a.handoff.slot), 'Fri, Oct 16 · 5:00–5:30 PM', 'K-40: slotText for a window');
   const h = T.holdBalance(a.id, 'visa-4242');
-  eq([h.ok, a.handoff.slot.start, a.handoff.heldAt, a.payments.balance.cents], [true, '2026-10-16T17:00', '2026-10-15T17:00', SCENARIOS.courier.balance], 'K-40: the hold keeps the window; the 7-day clock starts at the hold (D-295)');
+  eq([h.ok, a.handoff.slot.start, a.handoff.heldAt, a.payments.balance.cents, a.payments.balance.courierCents, a.payments.balance.readyCents], [true, '2026-10-16T17:00', '2026-10-15T17:00', SCENARIOS.courier.balance, SCENARIOS.courierQuote.cents, SCENARIOS.seed.balance], 'K-40 → K-53: Pay keeps the window; the courier is held on top of the ready hold');
   guard(T.setHandoffSlot(a.id, '2026-10-16T17:00'), 'no-change', 'K-40: moving to the same window is no change');
   const mv = T.setHandoffSlot(a.id, '2026-10-16T18:00');
   eq([mv.ok, a.handoff.moved.from.start, a.handoff.slot.collectAt, a.payments.balance.cents], [true, '2026-10-16T17:00', '2026-10-16T17:45', SCENARIOS.courier.balance], 'K-40: Sarah moves the window — the old one is kept; 6:00 PM is also peak, so the same quote');
@@ -1736,7 +1758,7 @@ section('K-40 (T1): the handoff time');
   T.setHandoffSlot(a.id, '2026-10-16T12:00');
   eq([a.courier.cents, a.payments.balance.cents, a.payments.balance.state, a.money.payout], [SCENARIOS.courierOffPeak.cents, SCENARIOS.courier.balance - off, 'held', SCENARIOS.seed.payout], 'K-43 (D-299): moving to an off-peak window re-quotes it — the hold drops by the difference; the payout never moves');
   T.setHandoffSlot(a.id, '2026-10-16T18:00');
-  eq([a.courier.cents, a.payments.balance.cents], [SCENARIOS.courierQuote.cents, SCENARIOS.courier.balance], 'K-43: back to a peak window — the peak quote again');
+  eq([a.courier.cents, a.payments.balance.cents, a.payments.courierCharges.map((x) => x.cents)], [SCENARIOS.courierQuote.cents, SCENARIOS.courier.balance - off, [off]], 'K-43 → K-53: back to a peak window after Pay — the difference is charged on its own (the hold can’t be raised)');
   S.setClock('2026-10-16T16:44');
   ok(S.handoffChangeable(a), 'K-40: movable until 60 min before the collection');
   S.setClock('2026-10-16T16:45');
@@ -1767,60 +1789,73 @@ section('K-40 (T1): the handoff time');
   amara().shop.enabled = true;
 }
 
-section('K-41 (R3): the 24-hour reminder');
+section('K-41 → K-51: the visit reminder (48 h) and its nudge (26 h)');
 {
   const H = 3600000;
-  eq([POLICY.REMINDER_LEAD_H, POLICY.REMINDER_NUDGE_H, POLICY.REMINDER_AUTOCANCEL_H], [2, 6, 3], 'K-41 + K-43: the reminder goes out 2 h before the free window closes; one nudge 6 h before the visit; unconfirmed 3 h before → cancelled');
+  const iso = (ms) => D.isoMinute(new Date(ms));
+  const words = (ev, id) => state.outbox.filter((m) => m.event === ev && (!id || m.apptId === id)).map((m) => m.body.replace(/\s/g, ' '));
+  eq([POLICY.REMINDER_H, POLICY.REMINDER_NUDGE_H, POLICY.REMINDER_AUTOCANCEL_H, POLICY.REMINDER_LEAD_H], [48, 26, 3, undefined], 'K-51: the reminder 48 h before the visit, the nudge 26 h before; K-43: unconfirmed 3 h before → cancelled');
   S.reset();
   let a = driveTo('confirmed');
-  eq([a.reminder, S.reminderState(a), S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null }, null, true], 'K-41: a fresh booking — nothing sent, eligible (booked 55 h ahead)');
-  eq(D.isoMinute(new Date(S.reminderAt(a))), '2026-10-14T15:00', 'K-41: the reminder time = 26 h before Thu 5:00 PM');
+  eq([a.reminder, S.reminderState(a), S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null, closedTextAt: null }, null, true], 'K-41: a fresh booking — nothing sent, eligible (booked 55 h ahead)');
+  eq([iso(S.reminderAt(a)), iso(S.nudgeAt(a)), iso(S.promptAt(a))], ['2026-10-13T17:00', '2026-10-14T15:00', '2026-10-13T17:00'], 'K-51: the reminder Tue 5:00 PM (48 h), the nudge Wed 3:00 PM (26 h) before Thu 5:00 PM');
   guard(T.confirmVisit(a.id), 'not-asked', 'K-41: nothing to confirm before the reminder');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) - 1);
-  eq(a.reminder.sentAt, null, 'K-41: not sent a minute early');
+  eq(a.reminder.sentAt, null, 'K-51: not sent a minute early');
   const moved = S.advanceClock(1).expired;
-  eq([a.reminder.sentAt, moved, S.reminderState(a), S.reminderDue(a), S.visitReminder()?.id], ['2026-10-14T15:00', [a.id], 'asked', true, a.id], 'K-41: tick() sends it at 26 h — her move');
+  eq([a.reminder.sentAt, moved, S.reminderState(a), S.reminderDue(a), S.visitReminder()?.id], ['2026-10-13T17:00', [a.id], 'asked', true, a.id], 'K-51: tick() sends C7 at 48 h — her move');
+  eq(words('reminder'), ['Please confirm your appointment: Amara · Thu, Oct 15 · 5:00 PM at your place. Free to change until Wed, Oct 14 · 5:00 PM. Confirm or change:'], 'K-51: C7 word for word');
   eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label], ['Your move', 'Not confirmed yet'], 'K-41: the words while asked');
-  eq(M.cancelTerms(a, S.now()), { window: 'early', refund: 1600, kept: 0 }, 'K-41: still free at the reminder (26 h ahead)');
+  eq(M.cancelTerms(a, S.now()), { window: 'early', refund: 1600, kept: 0 }, 'K-51: still free at the reminder (48 h ahead)');
+  S.advanceClock(Math.round((S.nudgeAt(a) - S.now()) / 60000) - 1);
+  eq(a.reminder.nudgedAt, null, 'K-51: no nudge before 26 h');
+  S.advanceClock(1);
+  eq([a.reminder.nudgedAt, S.reminderState(a), words('nudge')], ['2026-10-14T15:00', 'asked', ['You haven’t confirmed your 5:00 PM visit with Amara tomorrow. Confirm by 5:00 PM today or cancel it without penalty:']], 'K-51: C8 at 26 h, unconfirmed — the deadline is the free window’s end');
   S.advanceClock(12);
   const c = T.confirmVisit(a.id);
   eq([c.ok, a.reminder.confirmedAt, S.reminderState(a), S.reminderDue(a), a.status], [true, '2026-10-14T15:12', 'confirmed', false, 'confirmed'], 'K-41: confirmVisit stamps confirmedAt, no new status');
   guard(T.confirmVisit(a.id), 'already-confirmed', 'K-41: confirm once');
-  eq(M.cancelTerms(a, S.now()), { window: 'late', refund: 0, kept: 1600, confirmed: true }, 'K-41: confirming closes the free window early (25 h ahead → the deposit is kept)');
-  eq(M.cancelTerms({ ...a, reminder: { ...a.reminder } }, D.toDate('2026-10-14T15:11').getTime()).window, 'early', 'K-41: before the confirm it was still early');
-  guard(T.rescheduleBooking(a.id, S.openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id })[0]), 'too-late', 'K-41: no free reschedule once confirmed');
+  eq(M.cancelTerms(a, S.now()), { window: 'early', refund: 1600, kept: 0 }, 'K-53: confirming no longer closes the free window early (25 h ahead → still free)');
   eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label, statusWord(a, 'tailor').pill], ['All set', 'Sarah confirmed', 'completed'], 'K-41: the words once confirmed');
   S.advanceClock(23 * 60);
-  eq(a.reminder.nudgedAt, null, 'K-41: no nudge for a confirmed visit');
-  // a cancel after confirming keeps the deposit (paid to the tailor, D-05)
+  eq([words('nudge').length, a.status], [1, 'confirmed'], 'K-51: nothing more after the confirm');
+  // confirming at the 48 h reminder: no nudge at all
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 12);
+  T.confirmVisit(a.id);
+  S.advanceClock(24 * 60);
+  eq([a.reminder.nudgedAt, words('nudge').length], [null, 0], 'K-51: confirmed at the reminder — no nudge');
+  // K-53 (D-383 follow-up): a cancel after confirming is still free until 24 h before (it was "late" under K-41)
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 12);
   T.confirmVisit(a.id);
   const cx = T.cancelBooking(a.id);
-  eq([cx.ok, a.cancel.reason, a.cancel.kept, a.cancel.tailorPaid, a.payments.deposit.state], [true, 'customer-late', 1600, 1600, 'kept'], 'K-41: cancelled after confirming, 25 h ahead — Amara keeps the $16.00 deposit');
-  // the tailor cancelling a confirmed visit 25 h ahead is not "late" (that is the 24 h, not Sarah's confirm)
+  eq([cx.ok, a.cancel.reason, a.cancel.refund, a.cancel.kept, a.payments.deposit.state, 'afterConfirm' in a.cancel], [true, 'customer-early', 1600, 0, 'refunded', false], 'K-53: cancelled after confirming, 48 h ahead — refunded in full');
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 12);
   T.confirmVisit(a.id);
+  const rs = T.rescheduleBooking(a.id, S.openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id })[0]);
+  eq([rs.ok, a.reminder.confirmedAt], [true, null], 'K-53: a free reschedule after confirming (the new time asks again)');
+  // the tailor cancelling a confirmed visit 25 h ahead is not "late" (that is the 24 h, not Sarah's confirm)
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.nudgeAt(a) - S.now()) / 60000) + 12);
+  T.confirmVisit(a.id);
   T.tailorCantMakeIt(a.id, 'x');
   eq([a.cancel.late, a.cancel.refund], [false, 1600], 'K-41: a tailor cancel after Sarah confirmed, 25 h ahead, is not late; refunded in full');
-  // no answer: the visit stays booked, one nudge 6 h before (K-43), the 24 h rule
+  // no answer: the visit stays booked, the 24 h rule
   S.reset(); a = driveTo('confirmed');
-  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
-  S.advanceClock(2 * 60);
+  S.advanceClock(Math.round((S.freeUntil(a) - S.now()) / 60000));
   eq([S.reminderState(a), M.cancelTerms(a, S.now()).window], ['asked', 'early'], 'K-41: exactly 24 h ahead is still free (inclusive, M6-M-11)');
   S.advanceClock(1);
   eq([S.reminderState(a), a.status, M.cancelTerms(a, S.now()).window, 'confirmed' in M.cancelTerms(a, S.now())], ['missed', 'confirmed', 'late', false], 'K-41: unanswered at 24 h — still booked, the plain 24 h rule');
+  eq([a.reminder.closedTextAt, words('free-window-closed')], [D.isoMinute(new Date(S.freeUntil(a) + 60000)), ['Your free change window for your 5:00 PM visit with Amara has closed. Confirm now so it isn’t cancelled:']], 'K-53: the free window closed unconfirmed — one text, no silent gap before the 3 h auto-cancel');
   eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label], ['Your move', 'Not confirmed'], 'K-41: the words when missed');
-  S.advanceClock(18 * 60 - 2);
-  eq(a.reminder.nudgedAt, null, 'K-43: no nudge before 6 h');
-  S.advanceClock(1);
-  eq(a.reminder.nudgedAt, '2026-10-15T11:00', 'K-43: one nudge 6 h before the visit (was 3 h)');
   ok(T.confirmVisit(a.id).ok && S.reminderState(a) === 'confirmed', 'K-41: Confirm still works after 24 h (it keeps the visit)');
-  S.advanceClock(4 * 60);
-  eq([a.status, a.cancel], ['confirmed', null], 'K-43: a visit confirmed after the nudge is not cancelled at 3 h');
+  S.advanceClock(Math.round((S.autoCancelAt(a) - S.now()) / 60000) + 60);
+  eq([a.status, a.cancel], ['confirmed', null], 'K-43: a visit confirmed after the free window is not cancelled at 3 h');
   S.setClock('2026-10-15T17:15');
-  eq([S.reminderState(a), T.markNoShow(a.id).ok, a.cancel.tailorPaid], [null, true, 2500], 'K-41: at the visit the reminder is over; the no-show rule is unchanged ($25.00)');
+  T.visitPing(a.id, 'tailor', 'here');
+  eq([S.reminderState(a), T.markNoShow(a.id).ok, a.cancel.tailorPaid], [null, true, a.payments.deposit.cents], 'K-41: at the visit the reminder is over; the no-show rule (K-53: the deposit only)');
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 30);
   S.setClock('2026-10-15T17:00');
@@ -1831,7 +1866,7 @@ section('K-41 (R3): the 24-hour reminder');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
   const garments = state.job.garments.length;
   S.advanceClock(Math.round((S.autoCancelAt(a) - S.now()) / 60000) - 1);
-  eq([a.status, S.reminderState(a), a.reminder.nudgedAt], ['confirmed', 'missed', '2026-10-15T11:00'], 'K-43: a minute before 3 h — still booked, nudged at 6 h');
+  eq([a.status, S.reminderState(a), a.reminder.nudgedAt], ['confirmed', 'missed', '2026-10-14T15:00'], 'K-43: a minute before 3 h — still booked, nudged at 26 h');
   const ac = S.advanceClock(1).expired;
   eq([ac, a.status, a.cancel], [[a.id], 'cancelled', { by: 'system', reason: 'unconfirmed', at: '2026-10-15T14:00', refund: 0, kept: 1600, tailorPaid: 1600 }], 'K-43: at 3 h tick() cancels it — reason unconfirmed, stamped 2:00 PM, Amara keeps the $16.00 deposit');
   eq([a.payments.deposit.state, state.payouts.map(({ createdAt, ...p }) => p)], ['kept', [{ apptId: a.id, cents: 1600, state: 'pending', date: '2026-10-16', kind: 'kept-deposit' }]], 'K-43: the kept deposit is a pending payout (D-05: no Taily fee), the Friday after');
@@ -1846,44 +1881,1341 @@ section('K-41 (R3): the 24-hour reminder');
   T.confirmVisit(a.id);
   S.advanceClock(Math.round((S.autoCancelAt(a) - S.now()) / 60000) + 30);
   eq([a.status, a.reminder.nudgedAt, a.cancel], ['confirmed', null, null], 'K-43: a confirmed visit is untouched at 3 h (no nudge either)');
-  // a jump from the reminder past the visit still cancels it at its own time (and stamps the nudge at its time)
+  // a jump from the reminder past 3 h still cancels it at its own time; the stale nudge is stamped, not sent (past the free window)
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
-  S.advanceClock(48 * 60);
-  eq([a.status, a.cancel.reason, a.cancel.at, a.reminder.nudgedAt], ['cancelled', 'unconfirmed', '2026-10-15T14:00', '2026-10-15T11:00'], 'K-43: +48 h from the reminder — cancelled at 2:00 PM, nudged at 11:00 AM');
+  S.advanceClock(46 * 60);
+  eq([a.status, a.cancel.reason, a.cancel.at, a.reminder.nudgedAt, words('nudge').length], ['cancelled', 'unconfirmed', '2026-10-15T14:00', '2026-10-14T15:00', 0], 'K-43: a jump from the reminder past 3 h — cancelled at 2:00 PM; no stale "without penalty" nudge');
   // a clock jump past the visit sends nothing
   S.reset(); a = driveTo('confirmed');
   S.advanceClock(56 * 60);
   eq([a.reminder.sentAt, a.reminder.nudgedAt], [null, null], 'K-41: a jump past the start sends nothing');
+  // K-51: booked 26–48 h ahead — no C7; the nudge is her first ask (and arms the auto-cancel)
+  S.reset(); S.setClock('2026-10-14T10:00');
+  const mid = S.openSlots('amara', 'home', { until: state.job.needBy }).find((x) => { const d = D.toDate(x).getTime() - S.now(); return d >= 26 * H && d < 48 * H; });
+  const b = T.requestBooking({ tailorId: 'amara', slotStart: mid, cardId: 'visa-4242' }).appt;
+  T.tailorAccept(b.id);
+  ok(!!mid && S.reminderEligible(b) && S.promptAt(b) === S.nudgeAt(b), 'K-51: booked 26–48 h ahead — eligible, the nudge is the first ask');
+  S.advanceClock(Math.round((S.nudgeAt(b) - S.now()) / 60000));
+  eq([b.reminder.sentAt, b.reminder.nudgedAt, S.reminderState(b), words('reminder', b.id).length, words('nudge', b.id).length, S.autoCancelArmed(b)], [iso(S.nudgeAt(b)), iso(S.nudgeAt(b)), 'asked', 0, 1, true], 'K-51: no C7; C8 at 26 h opens the prompt');
   // booked less than 26 h ahead: no prompt, the plain 24 h rule
   S.reset(); S.setClock('2026-10-14T16:00');
   const slot = S.nextOpening('amara', 'home', { until: state.job.needBy });
   const late = T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' }).appt;
   T.tailorAccept(late.id);
-  ok((D.toDate(slot).getTime() - S.now()) < 26 * H && !S.reminderEligible(late), 'K-41: booked < 26 h ahead — no reminder');
+  ok((D.toDate(slot).getTime() - S.now()) < 26 * H && !S.reminderEligible(late), 'K-51: booked < 26 h ahead — no prompt');
   S.advanceClock(Math.round((D.toDate(slot).getTime() - S.now()) / 60000) - 60);
-  eq([late.reminder.sentAt, late.reminder.nudgedAt, S.reminderState(late), late.status], [null, null, null, 'confirmed'], 'K-41: … and no nudge either; K-43: never asked, so never auto-cancelled');
+  eq([late.reminder.sentAt, late.reminder.nudgedAt, S.reminderState(late), late.status], [null, null, null, 'confirmed'], 'K-51: … no reminder, no nudge; K-43: never asked, so never auto-cancelled');
   // rescheduling from the prompt: the new time gets its own reminder, or none when < 26 h out
   S.reset(); a = driveTo('confirmed');
-  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
+  S.advanceClock(Math.round((S.nudgeAt(a) - S.now()) / 60000));
   const open = S.openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id });
   const far = open.find((x) => D.toDate(x).getTime() - S.now() > 48 * H);
   ok(T.rescheduleBooking(a.id, far).ok, 'K-41: Reschedule from the prompt (inside the free window)');
-  eq([a.reminder, S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null }, true], 'K-41: the new time starts a fresh reminder');
+  eq([a.reminder, S.reminderEligible(a)], [{ sentAt: null, confirmedAt: null, nudgedAt: null, closedTextAt: null }, true], 'K-41: the new time starts a fresh reminder');
   S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
-  eq(a.reminder.sentAt, D.isoMinute(new Date(S.reminderAt(a))), 'K-41: its reminder goes out 26 h before the new time');
+  eq(a.reminder.sentAt, iso(S.reminderAt(a)), 'K-51: its reminder goes out 48 h before the new time');
   S.reset(); a = driveTo('confirmed');
-  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000) + 60);   // Wed 4:00 PM, still free
+  S.advanceClock(Math.round((S.nudgeAt(a) - S.now()) / 60000) + 60);   // Wed 4:00 PM, still free
   const near = S.openSlots(a.tailorId, a.job.visitType, { until: a.job.needBy, exclude: a.id }).find((x) => x !== a.slot.start && D.toDate(x).getTime() - S.now() < 26 * H);
   ok(near && T.rescheduleBooking(a.id, near).ok, 'K-41: moved to a time < 26 h out');
   S.advanceClock(Math.round((D.toDate(near).getTime() - S.now()) / 60000) - 30);
-  eq([a.reminder.sentAt, S.reminderState(a), M.cancelTerms(a, S.now()).window], [null, null, 'late'], 'K-41: no second prompt; the plain 24 h rule');
+  eq([a.reminder.sentAt, S.reminderState(a), M.cancelTerms(a, S.now()).window], [null, null, 'late'], 'K-51: no second prompt; the plain 24 h rule');
   // a shop visit gets the same prompt and rule
   S.reset(); T.setJob({ visitType: 'shop' });
   const shopSlot = S.openSlots('amara', 'shop', { until: state.job.needBy }).find((x) => D.toDate(x).getTime() - S.now() > 30 * H);
   a = T.requestBooking({ tailorId: 'amara', slotStart: shopSlot, cardId: 'visa-4242' }).appt; T.tailorAccept(a.id);
-  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
+  S.advanceClock(Math.round((S.promptAt(a) - S.now()) / 60000));
   eq([S.reminderState(a), a.job.visitType], ['asked', 'shop'], 'K-41: a shop visit gets the prompt too');
+}
+
+/* ---------- design-director review (D-304) ---------- */
+section('SF-22: saving Where rechecks Returns and Availability');
+{
+  S.reset();
+  T.setTailorSection('availability', { availability: { shop: structuredClone(amara().availability.shop), home: {} } });   // t-shop--incomplete
+  ok(!S.bookable(amara()), 'SF-22: home visits on with no home hours — not bookable');
+  T.setTailorSection('where', { home: { ...structuredClone(amara().home), enabled: false } });
+  eq([amara().onboarding.availability, S.bookable(amara())], [true, true], 'SF-22: turning home visits off makes her bookable again');
+  T.setTailorSection('returns', { returns: { pickup: true, courier: false } });
+  T.setTailorSection('where', { shop: { ...structuredClone(amara().shop), enabled: false }, home: { ...structuredClone(amara().home), enabled: true } });
+  eq(amara().onboarding.returns, false, 'SF-22: shop off with pickup as the only way back — Returns needs attention');
+}
+section('SF-01: a decline on a second request never closes a live thread');
+{
+  driveTo('in-progress');
+  const b = EARN.addRequest();
+  T.tailorDecline(b.id);
+  eq(S.threadReadOnly('amara'), false, 'SF-01: the first job is still live, so the thread stays writable');
+  S.reset();
+  driveTo('declined');
+  eq(S.threadReadOnly('amara'), true, 'SF-01: a decline with nothing live still closes it');
+}
+section('SF-13 → K-53: handoff times stop at the ready hold’s last day while the balance is held');
+{
+  const a = driveTo('awaiting-handoff');
+  S.advanceClock(1 * 24 * 60);
+  const last = S.handoffSlots(S.getAppt(a.id)).at(-1);
+  ok(last && D.toDate(last.start).getTime() + POLICY.HANDOFF_SLOT_MIN * 60000 <= S.unclaimedAt(a), 'SF-13: no pickup time after the capture');
+  S.advanceClock(3 * 24 * 60);   // captured: the job stays open and any time is fine again
+  ok(S.getAppt(a.id).payments.balance.state === 'captured' && S.handoffSlots(S.getAppt(a.id)).length > 0, 'SF-13: after the capture she can still pick a time');
+}
+
+/* ---------- pre-MVP A1 (K-48): texts, waiting states, card window, visit day, courier (D-310 … D-318) ---------- */
+section('A1: the text catalogue + notify (D-02, DG-2 A)');
+{
+  const MIN = 60000, HR = 3600000, DY = 24 * HR;
+  const ev = (who, e) => state.outbox.filter((m) => m.to === who && m.event === e);
+  const last = (who) => S.textsFor(who).at(-1);
+  ok(TX.TEXT_EVENTS.length >= 80 && TX.TEXT_EVENTS.every(([id, r]) => ['customer', 'tailor', 'admin'].includes(r.to) && r.trigger && typeof r.body === 'function'), 'A1 + A2: every catalogue row has a recipient (customer, tailor, or the admin — K-48.1), a trigger and a body');
+  S.reset(); let a = driveTo('awaiting-handoff');
+  const ctx = TX.textCtx({ a, t: amara(), cust: state.customer, now: S.now(), x: { total: 20500, was: 16000, charged: 14400, cents: 14750, bank: 'Chase', last4: '6789', stars: 5, start: '2026-10-16T10:00' } });
+  const bodies = TX.TEXT_EVENTS.map(([id, r]) => [id, r.body(ctx)]);
+  ok(bodies.every(([, b]) => typeof b === 'string' && b.length > 10 && !/%|undefined|NaN|null/.test(b)), 'A1: every body renders in dollars with no gaps (no %, undefined, NaN)');
+  ok(bodies.every(([, b]) => !/^Taily:/.test(b)), 'A1: the "Taily: " prefix is added once, by the text banner');
+  eq(TX.TEXTS['fitting-started'].body(ctx), 'Your fitting has started. Please take all notes here:', 'A1 (Kevin): the fitting-started text, word for word');
+  ok(!TX.TEXT_EVENTS.some(([, r]) => /quiet|8:00 AM|9 PM/i.test(r.trigger)), 'K-48.4: no quiet hours anywhere in the catalogue');
+
+  S.reset(); a = driveTo('requested');
+  eq([ev('customer', 'request-sent').length, ev('tailor', 'request').length, ev('tailor', 'request')[0].link, ev('tailor', 'request')[0].status], [1, 1, S.textLink(a.id, 'request'), 'delivered'], 'A1: a request texts both: the customer’s receipt and the tailor’s new request (the K-43 link kept)');
+  eq(ev('tailor', 'request')[0].body.replace(/\s/g, ' '), `New request from Sarah C.: a home visit on Thu, Oct 15 at 5:00 PM. Your payout: ${M.fmtExact(SCENARIOS.seed.payout)}. Reply within 2 hours:`, 'K-51 (T1): the new-request text, word for word');
+  S.advanceClock(POLICY.REQUEST_EXPIRY_H * 60 - POLICY.EXPIRING_SOON_MIN);
+  eq([ev('tailor', 'request-soon').length, a.status], [1, 'requested'], 'A1: 15 minutes before it expires the tailor gets one more text (a text alone moves nothing)');
+  T.tailorAccept(a.id);
+  eq(last('customer').event, 'accepted', 'A1: accepted → the customer is texted');
+  ok(last('customer').body.startsWith('Amara accepted. You’re booked Thu, Oct 15 · 5:00') && last('customer').body.includes('Free to cancel until Wed, Oct 14'), 'A1: the accepted text says when and the free-cancel time');
+
+  /* the opt-in, STOP / START, and the in-app fallback */
+  S.reset();
+  ok(S.textsOn('customer') && S.textsOn('tailor'), 'D-02: the seed people opted in');
+  guard(T.setTexts('customer', true), 'no-change', 'D-02: no change, no text');
+  T.textReply('customer', 'STOP');
+  ok(!S.textsOn('customer') && state.texts.customer.stoppedAt, 'D-02: a STOP reply turns booking texts off and stamps it');
+  a = driveTo('confirmed');
+  T.textReply('customer', 'STOP');
+  T.cancelBooking(a.id);
+  eq([ev('tailor', 'cancelled-early').at(-1)?.status], ['delivered'], 'A1: the tailor still hears about the cancel');
+  T.textReply('customer', 'START');
+  eq([S.textsOn('customer'), last('customer').event, last('customer').status], [true, 'texts-on', 'delivered'], 'D-02: START (or the Texts switch) turns them back on with a confirmation text');
+  T.textReply('tailor', 'STOP');
+  S.reset(); T.textReply('tailor', 'STOP'); driveTo('requested');
+  ok(true, 'reset');
+  S.reset(); state.texts.tailor.on = false; a = (() => { const r = T.requestBooking({ tailorId: 'amara', slotStart: S.nextOpening('amara', 'home', { until: state.job.needBy }), cardId: 'visa-4242' }); return r.appt; })();
+  eq(ev('tailor', 'request')[0].status, 'off', 'D-02: texts off — the text is held back (status off), the request still shows on Home');
+  S.reset(); state.sim.sms = 'undelivered'; T.requestBooking({ tailorId: 'amara', slotStart: S.nextOpening('amara', 'home', { until: state.job.needBy }), cardId: 'visa-4242' });
+  eq(ev('customer', 'request-sent')[0].status, 'undelivered', 'D-02: a text that never arrives is recorded as undelivered');
+
+  /* K-48.4: no quiet hours */
+  S.reset(); S.setClock('2026-10-13T22:30');
+  const late = S.openSlots('amara', 'home', { until: state.job.needBy })[0];
+  a = T.requestBooking({ tailorId: 'amara', slotStart: late, cardId: 'visa-4242' }).appt;
+  eq([ev('tailor', 'request')[0].at, ev('tailor', 'request')[0].status, a.expiresAt], ['2026-10-13T22:30', 'delivered', '2026-10-14T00:30'], 'K-48.4: a 10:30 PM request texts at once and still has 2 hours');
+}
+section('A1: the reminder auto-cancel needs a delivered text (D-02; K-51: the reminder or the nudge)');
+{
+  const toRem = (prep) => { const a = driveTo('confirmed'); prep?.(); S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000)); return a; };
+  const toCancel = (a) => S.advanceClock(Math.round((S.autoCancelAt(a) - S.now()) / 60000));
+  S.reset(); let a = toRem();
+  eq([a.reminder.texted, S.autoCancelArmed(a), state.outbox.filter((m) => m.event === 'reminder').length], [true, true, 1], 'D-02: the reminder went out as a delivered text — the auto-cancel is armed');
+  toCancel(a);
+  eq([a.status, a.cancel.reason], ['cancelled', 'unconfirmed'], 'K-43: unchanged when the text was delivered');
+  eq(state.outbox.filter((m) => ['auto-cancel', 'auto-cancel-t'].includes(m.event)).map((m) => m.to), ['customer', 'tailor'], 'B-06: the auto-cancel texts BOTH people');
+  S.reset(); a = toRem(() => T.textReply('customer', 'STOP'));
+  eq([a.reminder.sentAt != null, a.reminder.texted, S.autoCancelArmed(a), S.reminderState(a)], [true, false, false, 'asked'], 'D-02: texts off — the in-app reminder still asks, but nothing is armed');
+  S.advanceClock(Math.round((S.nudgeAt(a) - S.now()) / 60000));
+  eq([state.outbox.filter((m) => m.event === 'nudge').map((m) => m.status), S.autoCancelArmed(a)], [['off'], false], 'D-02: the nudge is held back too — still nothing armed');
+  toCancel(a); S.advanceClock(1);
+  eq([a.status, S.reminderState(a), M.cancelTerms(a, S.now()).window], ['confirmed', 'missed', 'late'], 'D-02: no auto-cancel — the plain 24 h rule (still booked)');
+  S.reset(); a = toRem(() => { state.sim.sms = 'undelivered'; }); toCancel(a);
+  eq(a.status, 'confirmed', 'D-02: an undelivered reminder (and nudge) never cancels the visit');
+  S.reset(); a = toRem(() => T.textReply('customer', 'STOP'));
+  T.textReply('customer', 'START');
+  S.advanceClock(Math.round((S.nudgeAt(a) - S.now()) / 60000));
+  eq([a.reminder.texted, S.autoCancelArmed(a)], [true, true], 'K-51: texts back on before the nudge — a delivered nudge arms the auto-cancel');
+  toCancel(a);
+  eq([a.status, a.cancel?.reason], ['cancelled', 'unconfirmed'], 'K-51: … and it cancels at 3 h like a delivered reminder');
+}
+section('A1: waiting states end (D-03)');
+{
+  const HR = 60, DY = 24 * 60;
+  const evs = (e) => state.outbox.filter((m) => m.event === e);
+  S.reset(); let a = driveTo('price-change');
+  eq([evs('final-order').length, evs('final-order')[0].body.includes('(was $160.00)')], [1, true], 'D-03: the final order texts Sarah, with the old total');
+  S.advanceClock(24 * HR);
+  eq(evs('final-order-24h').length, 1, 'D-03: 24 h unanswered → a reminder text');
+  S.advanceClock(48 * HR);
+  eq(evs('final-order-72h').length, 1, 'D-03: 72 h → the second reminder');
+  eq([S.openReviews().length, a.priceChange.reviewAt], [0, undefined], 'D-03: no review before 7 days');
+  const moved = S.advanceClock(4 * DY).expired;
+  eq([moved.includes(a.id), S.openReviews().map((r) => [r.apptId, r.reason]), state.admin.notifications.length, evs('final-order-review').length, evs('final-order-review-t').length],
+    [true, [[a.id, 'final-order-unanswered']], 1, 1, 1], 'D-03: 7 days → Taily review: openReviews(), the admin is notified, both are texted');
+  eq(a.review, null, 'A1: the star review (a.review) is untouched — the case lives on a.tailyReview');
+  T.approvePriceChange(a.id);
+  eq([S.openReviews().length, a.tailyReview.outcome], [0, 'approved'], 'D-03: approving closes the case');
+  S.reset(); a = driveTo('price-change'); S.advanceClock(8 * DY);
+  eq([evs('final-order-24h').length, evs('final-order-72h').length, evs('final-order-review').length, a.priceChange.nudges.h24 != null], [0, 0, 1, true], 'D-03: a clock that jumped past everything sends only the review text');
+
+  S.reset(); a = driveTo('edit-pending');
+  S.advanceClock(24 * HR); S.advanceClock(48 * HR);
+  eq([evs('edit-sent').length, evs('edit-24h').length, evs('edit-72h').length], [1, 1, 1], 'D-03: an edit texts at send, 24 h and 72 h');
+  guard(T.markReady(a.id), 'edit-pending', 'K-30: Mark ready waits on the edit');
+  const w = T.withdrawJobEdit(a.id);
+  eq([w.ok, a.edit.state, S.statusScreen(a, 'customer'), evs('edit-withdrawn').length, T.markReady(a.id).ok], [true, 'withdrawn', 'c-booking', 1, true], 'D-03: the tailor withdraws her edit (Sarah is told) and Mark ready opens');
+  guard(T.withdrawJobEdit(a.id), 'not-pending', 'D-03: nothing to withdraw');
+
+  S.reset(); a = driveTo('ready');
+  S.advanceClock(24 * HR); S.advanceClock(48 * HR);
+  eq([evs('ready').length, evs('ready-24h').length, evs('ready-72h').length], [1, 1, 1], 'D-03: ready texts at ready, 24 h and 72 h');
+  const readyAt = a.history.find((h) => h.status === 'ready').at;
+  const end = D.isoMinute(D.addMinutes(readyAt, M.HOLD_DAYS * DY));
+  S.advanceClock(14 * DY);
+  eq([a.status, a.returnOption, a.payments.balance.state, a.payments.balance.captureReason, a.payments.balance.capturedAt, a.handoff.slot, a.handoff.defaultedAt, state.payouts.map((p) => [p.kind, p.cents])],
+    ['awaiting-handoff', 'pickup', 'captured', 'unclaimed', end, null, end, [['job', SCENARIOS.seed.payout]]], 'K-53 (was D-03’s 14 days): on the hold’s last day (ready + 4 days) — charged anyway, set to in-store pickup (no time yet), the tailor paid');
+  eq([evs('ready-default').length, evs('ready-default-t').length, S.handoffChangeable(a), S.confirmReceivedOpen(a)], [1, 1, true, false], 'D-03: both are told; she can pick a time; no Confirm received yet');
+  ok(evs('ready-default')[0].body.includes(`we charged your ${M.fmtExact(SCENARIOS.seed.balance)} balance and set it to in-store pickup`) && evs('ready-72h')[0].body.includes(`or we’ll charge the ${M.fmtExact(SCENARIOS.seed.balance)}`), 'K-53: the texts say so (72 h ahead of it, and when it happens)');
+  const pick = S.handoffSlots(a)[0];
+  ok(T.setHandoffSlot(a.id, pick).ok && a.handoff.slot.start === pick.start && evs('pickup-set').length === 1, 'D-03: she picks the pickup time later; the tailor is texted');
+
+  /* the unclaimed charge pays the tailor; 30 days after it the order closes */
+  S.reset(); a = driveTo('awaiting-handoff');
+  S.advanceClock(6 * DY);
+  eq([a.payments.balance.state, state.payouts.length, evs('unclaimed-charged').length, evs('unclaimed-t').length], ['captured', 1, 1, 1], 'D-03 + D-04: the day-6 charge pays the tailor; both are texted');
+  S.advanceClock(30 * DY);
+  eq([a.status, a.handoff.completedBy, state.payouts.length, S.statusScreen(a, 'customer'), S.reviewReminderDue(a), evs('abandoned').length], ['completed', 'abandoned', 1, 'c-booking', false, 1], 'D-03: 30 days after the charge the order is closed — one payout, no review ask');
+
+  /* a problem open 72 h → review */
+  S.reset(); a = driveTo('problem');
+  S.advanceClock(72 * HR);
+  eq(S.tailyReviewOf(a)?.reason, 'problem-open', 'D-01 (K-48.1): a problem open 72 hours goes to Taily review');
+}
+section('A1: the card window (D-04)');
+{
+  const DY = 24 * 60;
+  S.reset(); let a = driveTo('awaiting-handoff');
+  ok(S.handoffSlots(a).every((x) => D.toDate(x.start).getTime() <= S.unclaimedAt(a)) && M.HOLD_DAYS === 4, 'D-04 → K-53: pick days capped by the ready hold (4 days from ready)');
+  state.sim.capture = 'declined';
+  const r = T.confirmPickup(a.id, a.handoff.code);
+  eq([r.ok, a.status, a.payments.balance.state, state.payouts.length, S.statusScreen(a, 'customer'), state.sim.capture], [true, 'completed', 'capture-failed', 0, 'c-booking', 'ok'], 'D-04: the charge fails at the handoff — completed, card needs attention, no payout yet');
+  eq(state.outbox.filter((m) => ['card-failed', 'card-failed-t'].includes(m.event)).map((m) => m.to), ['customer', 'tailor'], 'D-04: both are told');
+  state.sim.network = 'offline';
+  guard(T.retryCapture(a.id, 'visa-4242'), 'offline', 'S-12: no charge while offline');
+  state.sim.network = 'online';
+  const fix = T.retryCapture(a.id, 'visa-4242');
+  eq([fix.ok, a.payments.balance.state, state.payouts.length, S.statusScreen(a, 'customer')], [true, 'captured', 1, 'c-complete'], 'D-04: Update card charges it and queues the payout');
+  S.reset(); a = driveTo('awaiting-handoff'); state.sim.capture = 'declined'; S.advanceClock(6 * DY);
+  eq([a.status, a.payments.balance.state, state.payouts.length], ['awaiting-handoff', 'capture-failed', 0], 'D-04: the day-6 capture can fail too; the order stays open');
+  /* a higher courier quote needs a new authorization */
+  S.reset(); a = driveTo('awaiting-handoff', { returnOption: 'courier' });
+  const before = [a.handoff.slot.start, a.payments.balance.cents];
+  const cheap = S.handoffSlots(a).find((x) => S.courierQuoteFor(a, x).cents < a.courier.cents);
+  const dear = S.handoffSlots(a).find((x) => S.courierQuoteFor(a, x).cents > S.courierQuoteFor(a, cheap).cents && x.start !== before[0]);
+  T.setHandoffSlot(a.id, cheap);
+  state.sim.card = 'declined';
+  const up = T.setHandoffSlot(a.id, dear);
+  eq([up.ok, up.error, a.handoff.slot.start], [false, 'card-declined', cheap.start], 'B-14 / D-04: a higher courier price is a new authorization — declined keeps the old window');
+}
+section('A1: Confirm received (D-09, K-48.3)');
+{
+  S.reset(); const a = driveTo('awaiting-handoff');
+  guard(T.confirmReceived(a.id), 'too-early', 'D-09: not before the pickup time starts');
+  S.setClock(a.handoff.slot.start);
+  ok(S.confirmReceivedOpen(a) && T.confirmReceived(a.id).ok, 'D-09: from the pickup time on she can confirm');
+  S.reset(); const b = driveTo('handed-over');
+  ok(S.confirmReceivedOpen(b), 'D-09: once Amara marked it, at any time');
+  S.reset(); const c = driveTo('awaiting-handoff', { returnOption: 'courier' });
+  S.setClock(c.handoff.slot.start);
+  ok(!S.confirmReceivedOpen(c), 'D-09: a courier order completes on delivery, never by Confirm received');
+}
+section('A1: the visit day (D-11, D-12, D-13, D-14, S-32)');
+{
+  const HR = 60;
+  const evs = (e) => state.outbox.filter((m) => m.event === e);
+  /* the seed visit, confirmed at its 24-hour reminder (so the K-43 auto-cancel stays out of the way) */
+  const sure = () => { const x = driveTo('confirmed'); S.advanceClock(Math.round((S.reminderAt(x) - S.now()) / 60000)); T.confirmVisit(x.id); return x; };
+  S.reset(); let a = sure();
+  guard(T.visitPing(a.id, 'tailor', 'on-my-way'), 'too-early', 'S-32: On my way opens 3 hours before');
+  S.setClock('2026-10-15T14:00');
+  ok(T.visitPing(a.id, 'tailor', 'on-my-way').ok && evs('tailor-on-way').length === 1, 'S-32: On my way texts Sarah');
+  guard(T.visitPing(a.id, 'tailor', 'on-my-way'), 'already', 'S-32: once');
+  S.advanceClock(2 * HR);
+  eq([evs('start-soon').length, evs('start-soon')[0]?.at, evs('start-soon')[0]?.to], [1, '2026-10-15T16:00', 'tailor'], 'Kevin: the start reminder 1 hour before');
+  ok(evs('start-soon')[0].body.startsWith('Your visit with Sarah starts at 5:00') && evs('start-soon')[0].body.includes('145 N 7th St, 2R'), 'Kevin: "Your visit with Sarah starts at 5:00 PM …"');
+  S.advanceClock(HR);
+  eq([evs('fitting-started').length, evs('fitting-started')[0]?.at, evs('start-soon').length], [1, '2026-10-15T17:00', 1], 'Kevin: at the start ONE text, “Your fitting has started…” (no second reminder)');
+  S.advanceClock(20);
+  guard(T.markNoShow(a.id), 'not-here', 'D-14: no no-show without “I’m here”');
+  ok(T.visitPing(a.id, 'tailor', 'here').ok && evs('tailor-here').length === 1 && T.markNoShow(a.id).ok, 'D-14: I’m here, then Mark as no-show');
+  ok(T.disputeNoShow(a.id, 'customer').ok && S.tailyReviewOf(a)?.reason === 'no-show-disputed' && evs('no-show-disputed').length === 1, 'D-14: “That’s not right” → Taily review, the tailor told');
+  guard(T.disputeNoShow(a.id, 'customer'), 'already-disputed', 'D-14: once');
+  S.reset(); a = driveTo('tailor-no-show');
+  guard(T.disputeNoShow(a.id, 'customer'), 'not-a-no-show', 'D-14: Sarah can’t dispute her own report');
+  ok(T.disputeNoShow(a.id, 'tailor').ok && S.tailyReviewOf(a)?.reason === 'tailor-no-show-disputed', 'D-14: the tailor disputes Sarah’s report');
+  S.reset(); a = sure(); S.setClock('2026-10-15T15:00');
+  S.advanceClock(3 * HR);
+  eq([evs('start-soon').length, evs('fitting-started').length], [0, 1], 'Kevin: a clock that jumped past the start skips the first text');
+
+  /* D-11: "Did the visit happen?" */
+  S.reset(); a = sure(); S.setClock('2026-10-15T18:59');
+  S.advanceClock(1);
+  eq([a.visitCheck?.askedAt, evs('visit-check').length, evs('visit-check-t').length], ['2026-10-15T19:00', 1, 1], 'D-11: start + 2 h with nothing recorded → both are asked by text');
+  ok(S.visitCheckOpen(a, 'customer') && S.visitCheckOpen(a, 'tailor'), 'D-11: both screens ask');
+  S.advanceClock(2 * HR - 1);
+  eq(state.admin.notifications.length, 0, 'K-48.5 (Kevin, K-50): not before 4 hours after the START (8:59 PM)');
+  S.advanceClock(1);
+  eq([state.admin.notifications.length, state.admin.notifications[0]?.at, S.openReviews()[0]?.reason], [1, '2026-10-15T21:00', 'visit-unanswered'], 'K-48.5 (Kevin, K-50): unanswered 4 hours after the START (9:00 PM, 2 h after asking) → the admin is notified');
+  S.advanceClock(22 * HR);
+  eq([a.status, a.cancel.reason, a.payments.deposit.state, a.cancel.held, a.cancel.holdUntil, state.payouts.length, evs('visit-closed').length, evs('visit-closed-t').length, S.openReviews().map((r) => r.reason)],
+    ['cancelled', 'no-record', 'captured', true, '2026-10-19T19:00', 0, 1, 1, ['visit-unanswered']], 'K-51: unanswered 24 hours, nothing recorded → closed “Not confirmed”: the deposit on hold (not refunded, not paid), both told, the admin’s case open');
+  eq([evs('visit-closed')[0].body, evs('visit-closed-t')[0].body].map((x) => x.replace(/\s/g, ' ')),
+    ['Nobody confirmed your Thu, Oct 15 · 5:00 PM visit with Amara, so we closed it as not confirmed. Your $16.00 deposit is on hold. If neither of you disputes it by Mon, Oct 19 · 7:00 PM, Amara keeps it. Didn’t happen? Tell us:',
+      'Nobody confirmed your Thu, Oct 15 · 5:00 PM visit with Sarah, so we closed it as not confirmed. Her $16.00 deposit is on hold. If neither of you disputes it by Mon, Oct 19 · 7:00 PM, you keep it:'], 'K-51: C17 / T19 say exactly that');
+  ok(!/refund/i.test(evs('visit-closed')[0].body + evs('visit-closed-t')[0].body), 'K-51: … never “refunded”');
+  S.advanceClock(72 * HR - 1);
+  eq([a.payments.deposit.state, state.payouts.length], ['captured', 0], 'K-51: a minute before 72 h — still on hold');
+  const keptNow = S.advanceClock(1).expired;
+  eq([keptNow, a.payments.deposit.state, a.cancel.held, a.cancel.tailorPaid, state.payouts.map((p) => [p.kind, p.cents, p.date]), S.openReviews().length],
+    [[a.id], 'kept', false, 1600, [['kept-deposit', 1600, '2026-10-23']], 0], 'K-51: no dispute in 72 h → Amara keeps the $16.00 (paid Fri, Oct 23), the case closes');
+  /* K-51: a dispute stops the 72-hour keep; the admin decides */
+  const toClosed = () => { const x = sure(); S.setClock('2026-10-15T19:00'); S.tick(); S.advanceClock(24 * HR); return x; };
+  S.reset(); a = toClosed();
+  guard(T.disputeUnconfirmed(a.id, 'admin'), 'unknown-person', 'K-51: a customer or a tailor disputes');
+  state.sim.network = 'offline';
+  guard(T.disputeUnconfirmed(a.id, 'customer'), 'offline', 'K-51: offline sends nothing');
+  state.sim.network = 'online';
+  ok(T.disputeUnconfirmed(a.id, 'customer').ok && a.cancel.disputedBy === 'customer' && S.tailyReviewOf(a)?.reason === 'unconfirmed-disputed', 'K-51: “That’s not right” — disputed; the open review becomes the dispute');
+  guard(T.disputeUnconfirmed(a.id, 'tailor'), 'already-disputed', 'K-51: once');
+  S.advanceClock(80 * HR);
+  eq([a.payments.deposit.state, a.cancel.held, state.payouts.length], ['captured', true, 0], 'K-51: disputed — still on hold after 72 h (Taily decides)');
+  const dc = S.openCaseOfAppt(a.id);
+  eq(S.adminActions(dc).map((x) => x.kind).filter((k) => ['refund-deposit', 'keep-deposit'].includes(k)), ['refund-deposit', 'keep-deposit'], 'K-51: the admin can refund or keep the held deposit');
+  guard(T.adminCloseCase(dc.id), 'decide-first', 'K-51: no closing while the disputed deposit is on hold');
+  ok(T.adminAct(dc.id, 'refund-deposit').ok && a.payments.deposit.state === 'refunded' && !a.cancel.held, 'K-51: Taily refunds it — the hold ends');
+  S.reset(); a = toClosed();
+  ok(T.openCase({ who: 'tailor', apptId: a.id, text: 'I came at 5 and rang twice.' }).ok && a.cancel.disputedBy === 'tailor', 'K-51: writing to Taily about it disputes it too');
+  const dc2 = S.openCaseOfAppt(a.id);
+  ok(T.adminAct(dc2.id, 'keep-deposit').ok && a.payments.deposit.state === 'kept' && state.payouts.some((p) => p.kind === 'kept-deposit' && p.cents === 1600), 'K-51: Taily decides Amara keeps it — paid on her Friday');
+  /* K-51: she tapped I'm here and nobody answered → the customer's no-show */
+  S.reset(); a = sure(); S.setClock('2026-10-15T16:55'); T.visitPing(a.id, 'tailor', 'here'); S.setClock('2026-10-15T19:00'); S.tick(); S.advanceClock(24 * HR);
+  eq([a.status, a.cancel.reason, a.cancel.by, a.cancel.evidence, a.payments.deposit.state, a.cancel.tailorPaid, state.payouts.map((p) => [p.kind, p.cents]), S.openReviews().length],
+    ['cancelled', 'no-show', 'system', 'here', 'kept', SCENARIOS.seed.deposit, [['no-show', SCENARIOS.seed.deposit]], 0], 'K-51: her I’m here + no answer → the customer’s no-show (the no-show rule, K-53: the deposit only), the review closed');
+  ok(evs('visit-closed').at(-1).body.includes('tapped I’m here') && evs('visit-closed-t').at(-1).body.includes(`${M.fmtExact(SCENARIOS.seed.deposit)} no-show pay`), 'K-51: C17 / T19 say so');
+  ok(T.disputeNoShow(a.id, 'customer').ok, 'K-51: she can still say “That’s not right”');
+  S.reset(); a = sure(); S.setClock('2026-10-15T19:00'); S.tick();
+  ok(T.answerVisitCheck(a.id, 'happened').ok, 'D-11: Sarah says it happened');
+  S.advanceClock(30 * HR);
+  eq([a.status, state.admin.notifications.length], ['confirmed', 0], 'D-11: an answer stops the admin note and the cancel');
+  S.reset(); a = sure(); S.setClock('2026-10-15T19:00'); S.tick();
+  eq([T.answerVisitCheck(a.id, 'not-happened').ok, a.cancel?.reason, a.payments.deposit.state], [true, 'tailor-no-show', 'refunded'], 'D-11: “No, she didn’t come” refunds her');
+  S.reset(); a = sure(); S.setClock('2026-10-15T16:30'); T.visitPing(a.id, 'tailor', 'here'); S.setClock('2026-10-15T19:00'); S.tick();
+  eq([T.answerVisitCheck(a.id, 'not-happened').ok, a.status, S.tailyReviewOf(a)?.reason], [true, 'confirmed', 'visit-disputed'], 'D-11: but if the tailor said I’m here, both go to review');
+
+  /* D-12: the tailor asks to move a confirmed visit */
+  S.reset(); a = driveTo('confirmed');
+  const to = S.moveSlots(a).find((x) => x.startsWith('2026-10-17'));
+  ok(T.proposeNewTime(a.id, to).ok && S.proposalOf(a)?.start === to && evs('tailor-move').length === 1, 'D-12: she asks for a new time; Sarah is texted');
+  ok(!S.openSlots('amara', 'home', { until: state.job.needBy }).includes(to), 'D-12: the asked-for time is held while Sarah decides');
+  const ans = T.answerProposal(a.id, true);
+  eq([ans.ok, a.slot.start, a.history.at(-1).status, a.history.at(-1).by, a.payments.deposit.state, evs('move-accepted').length], [true, to, 'rescheduled', 'tailor', 'captured', 1], 'D-12: accepted — the visit moves, the deposit with it');
+  ok(M.cancelTerms(a, S.now()).window === 'early' && S.reminderEligible(a), 'D-12: the free-cancel window and the reminder move with the visit');
+  S.reset(); a = driveTo('confirmed');
+  T.proposeNewTime(a.id, S.moveSlots(a)[0]);
+  ok(T.answerProposal(a.id, false).ok && a.slot.start === '2026-10-15T17:00' && a.proposal.state === 'kept' && evs('move-kept').length === 1, 'D-12: keep the current time');
+  S.reset(); a = sure();
+  T.proposeNewTime(a.id, S.moveSlots(a).find((x) => x.startsWith('2026-10-17'))); S.setClock('2026-10-15T14:00'); S.tick();
+  eq(a.proposal.state, 'lapsed', 'D-12: a proposal lapses 3 hours before either time');
+
+  /* D-13: travel buffer */
+  S.reset(); a = driveTo('confirmed');
+  const thu = S.openSlots('amara', 'home', { until: state.job.needBy }).filter((x) => x.startsWith('2026-10-15'));
+  ok(!thu.includes('2026-10-15T18:00') && thu.includes('2026-10-15T18:30') && !thu.includes('2026-10-15T15:30'), 'D-13: 30 minutes of travel kept around a home visit (5–6 PM → next 6:30 PM, last before 3:30 PM)');
+}
+section('A1: the courier trip (S-35)');
+{
+  const evs = (e) => state.outbox.filter((m) => m.event === e);
+  S.reset(); let a = driveTo('awaiting-handoff', { returnOption: 'courier' });
+  eq(a.handoff.trip.state, 'booked', 'S-35: booked at the hold');
+  const r = T.courierCollected(a.id);
+  eq([r.ok, a.handoff.trip.state, S.handoffChangeable(a), evs('courier-on-way').length], [true, 'out', false, 1], 'S-35: Handed to courier → out for delivery, Sarah texted, the window locked');
+  T.courierFailed(a.id, 'no-access');
+  eq([a.status, a.handoff.trip.state, S.handoffChangeable(a), evs('delivery-failed').length, evs('delivery-failed-t').length], ['awaiting-handoff', 'returned', true, 1, 1], 'S-35: a failed delivery goes back to the tailor; Sarah picks a new window');
+  guard(T.courierDelivered(a.id), 'courier-returned', 'S-35: nothing to deliver until a new window');
+  const price = a.payments.balance.cents;
+  const next = S.handoffSlots(a).find((x) => x.start !== a.handoff.slot.start && S.courierQuoteFor(a, x).cents !== a.courier.cents) ?? S.handoffSlots(a)[1];
+  T.setHandoffSlot(a.id, next);
+  eq([a.handoff.trip.state, a.payments.balance.cents], ['booked', price], 'S-35: the new window costs nothing more');
+  T.courierDelivered(a.id, { to: 'lobby' });
+  eq([a.status, a.handoff.delivery.to, a.handoff.delivery.proof, S.deliveryReportOpen(a)], ['completed', 'lobby', 'photo', true], 'S-35 + K-43: a lobby drop completes it, with the courier’s photo; “Didn’t get it?” is open 24 h');
+  ok(evs('delivered')[0].body.includes('to your building’s lobby'), 'S-35: the delivered text says where');
+  ok(T.reportMissingDelivery(a.id).ok && S.tailyReviewOf(a)?.reason === 'delivery-missing', 'S-35: reported missing → Taily review');
+  S.reset(); a = driveTo('completed', { returnOption: 'courier' });
+  S.advanceClock(24 * 60);
+  guard(T.reportMissingDelivery(a.id), 'not-open', 'S-35: after 24 hours it is closed');
+}
+section('A1: offline blocks money (S-12)');
+{
+  S.reset(); state.sim.network = 'offline';
+  guard(T.requestBooking({ tailorId: 'amara', slotStart: S.nextOpening('amara', 'home', { until: state.job.needBy }), cardId: 'visa-4242' }), 'offline', 'S-12: no request (and no deposit hold) offline');
+  eq(state.appts.length, 0, 'S-12: nothing was created');
+  state.sim.network = 'online'; let a = driveTo('requested'); state.sim.network = 'offline';
+  guard(T.tailorAccept(a.id), 'offline', 'S-12: no accept offline');
+  eq([a.status, a.payments.deposit.state], ['requested', 'authorized'], 'S-12: nothing captured');
+  S.reset(); a = driveTo('ready'); T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id); state.sim.network = 'offline';
+  guard(T.holdBalance(a.id, 'visa-4242'), 'offline', 'S-12: Pay fails offline');
+  eq([a.status, a.payments.balance.state, a.payments.balance.by], ['ready', 'held', 'ready'], 'S-12: nothing changes (K-53: the ready hold stays as it was)');
+}
+section('A1: notices, chat texts, handoff texts, payouts, review reminder (DG-2, B-06)');
+{
+  const evs = (e) => state.outbox.filter((m) => m.event === e);
+  S.reset(); let a = driveTo('cancelled-late');
+  eq([S.noticesFor('tailor').map((x) => x.id), S.noticesFor('customer').length], [[a.id], 0], 'DG-2: Sarah’s late cancel is a notice on the tailor’s Home (never just gone)');
+  T.dismissNotice(a.id, 'tailor');
+  eq(S.noticesFor('tailor').length, 0, 'DG-2: ✕ dismisses it for good');
+  S.reset(); a = driveTo('cant-make-it-late');
+  eq(S.noticesFor('customer').map((x) => x.id), [a.id], 'DG-2: the tailor can’t make it → a notice on Sarah’s Home');
+  S.setClock(a.slot.start);
+  eq(S.noticesFor('customer').length, 0, 'DG-2: it goes away when the visit time passes');
+  S.reset(); a = driveTo('cancelled-early');
+  eq(S.noticesFor('tailor').length, 0, 'DG-2: a cancel 2 days ahead is beyond 48 hours — the text and the list are enough');
+
+  /* chat: the first unread, then at most one per 15 minutes */
+  S.reset(); driveTo('confirmed');
+  T.sendMessage('amara', 'customer', { text: 'One' });
+  T.sendMessage('amara', 'customer', { text: 'Two' });
+  eq(evs('message-t').length, 1, 'Kevin: the first unread message texts; the next one within 15 minutes doesn’t');
+  S.advanceClock(15);
+  T.sendMessage('amara', 'customer', { text: 'Three' });
+  eq(evs('message-t').length, 2, 'Kevin: still unread 15 minutes later → one more');
+  T.markThreadRead('amara', 'tailor');
+  T.sendMessage('amara', 'customer', { text: 'Four' });
+  eq(evs('message-t').length, 3, 'Kevin: once she read them, the next message is the first unread again — texted');
+  S.advanceClock(15);
+  T.sendMessage('amara', 'tailor', { text: 'Reply' });
+  eq([evs('message').length, evs('message')[0].body], [1, 'Amara sent you a message. Reply here:'], 'Kevin: the other way too — “Amara sent you a message”');
+
+  /* pickup-today / missed pickup */
+  S.reset(); a = driveTo('awaiting-handoff');
+  S.setClock('2026-10-16T15:29'); S.tick();
+  eq(evs('pickup-today').length, 0, 'A1: not before 2 hours ahead');
+  S.advanceClock(1);
+  eq([evs('pickup-today').length, evs('pickup-today')[0].body.startsWith('Pickup today at 5:30')], [1, true], 'A1: 2 hours before the pickup: “Pickup today”');
+  S.advanceClock(150);
+  eq(evs('missed-pickup').length, 1, 'A1: 30 minutes after the time with no pickup: “You missed your pickup”');
+
+  /* payouts */
+  S.reset(); EARN.earningsTo('paid');
+  ok(evs('payout-sent').length === 1 && evs('payout-sent')[0].to === 'tailor', 'B-06: the Friday payout run texts the tailor');
+  S.reset(); EARN.earningsTo('failed');
+  eq(evs('payout-failed').length, 1, 'B-06: a returned payout texts her too');
+
+  /* the review reminder: a text once, and P-04's ✕ */
+  S.reset(); a = driveTo('review-reminder');
+  eq([evs('review-reminder').length, S.reviewReminderDue(a)], [1, true], 'K-28: 7 days after completion the reminder is texted once');
+  ok(T.dismissReviewReminder(a.id).ok && !S.reviewReminderDue(a) && !S.reviewReminder(), 'P-04: the ✕ dismisses the Home card');
+
+  /* B-07: overdue */
+  S.reset(); a = driveTo('in-progress'); S.setClock('2026-10-24T10:00');
+  ok(S.overdue(a), 'B-07: past the due date → overdue');
+
+  /* new account: booking texts are opt-in */
+  S.reset(); A.sendCode('(646) 555-0100'); A.verifyCode('123456'); A.saveName({ first: 'Ana', last: 'Ruiz' });
+  eq(S.textsOn('customer'), false, 'D-02: a new account’s booking texts start off (an unticked box)');
+  S.reset(); A.sendCode('(646) 555-0100'); A.verifyCode('123456'); A.saveName({ first: 'Ana', last: 'Ruiz', texts: true });
+  eq(S.textsOn('customer'), true, 'D-02: ticked, they are on');
+}
+
+/* ================= pre-MVP B1 (K-48): get verified, hosted payouts, listing, addresses (D-350…D-361) ================= */
+section('B1 · DG-4 the four checks (option B)');
+{
+  S.reset();
+  eq(S.verifyView(amara()).items.map((i) => [i.id, i.state]), [['id', 'verified'], ['years', 'verified'], ['payout', 'verified'], ['background', 'verified']], 'DG-4: the seed tailor passed all four checks, in Kevin\'s order (K-53 Q8: the background check last)');
+  ok(S.isVerified(amara()) && S.listed(amara()), 'DG-4: the Verified check is derived from the checks; the seed is listed');
+  ok(POLICY.LIVE_REQUIRES_VERIFIED === true, 'D-352: the policy switch defaults to gated (listed only once every check passed)');
+  T.blankTailor();
+  eq(S.verifyView(amara()).needsYou, ['id', 'years', 'payout', 'background'], 'DG-4: a blank tailor owes every check');
+  EARN.onboardTo('submitted');
+  const v = S.verifyView(amara());
+  eq([v.passed, v.pending, !!amara().submitted, !!amara().live, S.tailorsFor(state.job).rows.length], [1, ['id', 'payout', 'background'], true, false, 0], 'DG-4: submitted — years passed, three pending, not listed');
+  ok(!TD.tailorRowProps({ tailor: amara(), quote: {}, distanceMi: 0.6 }).verified, 'DG-4: no Verified check while the review runs');
+  const r = T.reviewChecks({ id: 'needs-info' });
+  eq([S.checkState(amara(), 'id'), S.checkState(amara(), 'background'), r.live], ['needs-info', 'pending', false], 'DG-4: a check that needs info keeps her unlisted (K-53 Q8: the background check waits for it)');
+}
+{
+  EARN.onboardTo('submitted');
+  T.reviewChecks({ id: 'needs-info' });
+  eq([T.uploadId().ok, S.checkState(amara(), 'id')], [true, 'pending'], 'DG-4: the ID handed in again runs the check again');
+  const r = T.reviewChecks();
+  eq([r.wentLive, !!amara().live, S.isVerified(amara()), S.tailorsFor(state.job).rows.length], [true, true, true, 1], 'DG-4: the last check passing takes a submitted tailor live, Verified and listed');
+  guard(T.consentBackground(false), 'consent-required', 'DG-4: the background check needs her consent');
+  guard(T.uploadId(), 'already-verified', 'DG-4: re-uploading after the ID passed is refused');
+}
+section('B1 × A1 · the verification texts go through notify() (texts.js rows verified / check-action-needed)');
+{
+  const tx = (e) => state.outbox.filter((m) => m.to === 'tailor' && m.event === e);
+  EARN.onboardTo('submitted');
+  const n0 = state.outbox.length;
+  T.reviewChecks({ id: 'needs-info' });
+  eq([tx('check-action-needed').length, tx('check-action-needed')[0]?.body, tx('check-action-needed')[0]?.land, tx('verified').length],
+    [1, 'We need one more thing to verify you: your ID and profile photo. Finish it here:', 't-shop', 0], 'merge: a check turning "needs info" texts her once, landing on Shop');
+  T.reviewChecks({ id: 'needs-info' });
+  eq(tx('check-action-needed').length, 1, 'merge: a check still needing info is not texted again');
+  T.uploadId();
+  eq(state.outbox.length - n0, 1, 'merge: handing the ID in again (pending) sends nothing');
+  T.reviewChecks();
+  eq([tx('verified').length, tx('verified')[0]?.body, !!amara().live], [1, 'You’re verified. Customers near you can book you now.', true], 'merge: the 4th check passing texts "verified" once');
+  T.reviewChecks();
+  eq(tx('verified').length, 1, 'merge: no second "verified" text once she is verified');
+  EARN.onboardTo('payouts');
+  state.sim.payoutSetup = 'action-needed';
+  T.consentBackground(true);
+  T.setupPayouts();
+  ok(tx('check-action-needed').some((m) => m.body.includes('your payout and tax info')), 'merge: the partner needing info texts the payout check');
+  state.sim.payoutSetup = 'verifying';
+}
+section('B1 · D-06 the hosted payout step');
+{
+  EARN.onboardTo('payouts');
+  state.sim.payoutSetup = 'action-needed';
+  T.consentBackground(true);
+  const r = T.setupPayouts();
+  eq([r.ok, r.status, amara().payouts.identity, amara().payouts.last4, S.checkState(amara(), 'payout')], [true, 'action-needed', 'needs-info', '6789', 'needs-info'], 'D-06: the partner could not verify — action needed, the bank still on file');
+  ok(T.submitOnboarding().ok, 'D-06: she can still finish onboarding; the checklist shows what she owes');
+  state.sim.payoutSetup = 'verifying';
+  eq(T.setupPayouts().status, 'verifying', 'D-06: fixing it with the partner goes back to verifying');
+  T.reviewChecks();
+  eq([amara().payouts.status, !!amara().live], ['verified', true], 'D-06: the partner verifies her — live');
+}
+{
+  EARN.earningsTo('pending');
+  ok(T.pausePayouts().ok, 'DG-4 B: the partner pauses payouts (W-9)');
+  eq([amara().payouts.status, S.checkState(amara(), 'payout'), S.listed(amara())], ['paused', 'verified', true], 'DG-4 B: a pause is about paying her — she stays listed');
+  S.setClock(`${PAYOUT_DAYS.first}T18:00`);
+  const run = T.settlePayouts();
+  eq([run.paused, run.paid.length, state.payouts[0].state], [true, 0, 'pending'], 'D-355: the Friday run waits while payouts are paused');
+  ok(T.confirmTaxInfo().ok && T.settlePayouts().paid.length === 1, 'D-355: confirming the tax info lets the next run pay');
+  guard(T.confirmTaxInfo(), 'not-paused', 'D-355: nothing to confirm once it is lifted');
+}
+{
+  EARN.earningsTo('failed');
+  state.sim.payoutSetup = 'verified';
+  const r = T.setupPayouts({ newBank: true });
+  eq([r.ok, amara().payouts.bank, amara().payouts.last4, r.requeued], [true, 'Bank of America', '4321', 1], 'D-136 kept: new bank details from the partner queue the returned payout again');
+}
+section('B1 · D-18 years tailoring + the waitlist');
+{
+  EARN.onboardTo('profile');
+  T.setTailorSection('profile', { name: 'Ana Ruiz', initials: 'AR', bio: 'Hems.', cardLine: 'Hems.', photo: true, idDoc: true, years: 3 });
+  eq([amara().onboarding.profile, S.waitlisted(amara()), S.checkState(amara(), 'years')], [true, true, 'waitlist'], 'D-18: 3 years saves the profile and puts her on the waitlist');
+  eq(S.validateSection('profile', { ...amara(), years: 2.5 }).errors, { years: 'years-invalid' }, 'D-18: years are a whole number');
+  T.setTailorSection('profile', { years: 7 });
+  eq([S.waitlisted(amara()), S.checkState(amara(), 'years')], [false, 'verified'], 'D-18: 5 or more passes the years check');
+}
+{
+  EARN.onboardTo('done');
+  T.setTailorSection('profile', { years: 4 });
+  eq([S.bookable(amara()), S.listed(amara())], [false, false], 'D-18: under the minimum she is never listed');
+  T.setTailorSection('profile', { years: 12 });
+  ok(S.listed(amara()), 'D-18: back to 12 years, listed again');
+}
+section('B1 · K-48.2 only tailors who can do every item');
+{
+  S.reset();
+  const prices = { ...amara().prices };
+  delete prices['jacket-sides'];
+  T.setTailorSection('services', { prices });
+  eq([S.coversJob(amara(), state.job), S.eligible(amara(), state.job).reason, S.tailorsFor(state.job).empty], [false, 'services', 'services'], 'K-48.2: no tailor who skips an item is listed (empty "services")');
+  const slot = S.openSlots('amara', 'home', { until: state.job.needBy })[0];
+  guard(T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' }), 'services', 'B-13: booking her fails with its own reason, nothing held');
+  T.setJob({ garments: [{ id: 'g1', type: 'Suit Pant', services: ['hem-pants'], photos: 0 }] });
+  eq(S.tailorsFor(state.job).rows.length, 1, 'K-48.2: a job she prices every item of lists her');
+}
+section('B1 · S-42 addresses + distances from her own address, B-15 the courier pickup address');
+{
+  S.reset();
+  for (const [zip, info] of Object.entries(DATA.ZIP_INFO)) eq(S.milesToShop(amara(), zip), info.miles, `S-42: the mock geocoder keeps the seed distance for ${zip}`);
+  eq(DATA.placeForZip('10013'), { hood: 'SoHo', borough: 'manhattan', city: 'New York', state: 'NY' }, 'S-42: 10013 is SoHo, New York, NY');
+  eq(DATA.placeForZip('07302'), null, 'S-42: a ZIP outside Taily');
+  eq(S.validateSection('where', { shop: { enabled: true, street: '1 Main St', zip: '07302' }, home: { enabled: false } }).errors, { shopZip: 'zip-unserved' }, 'S-42: an unserved shop ZIP is refused');
+  T.setTailorSection('where', { shop: { enabled: true, street: '40 Mercer St', unit: 'Suite 3', zip: '10013' } });
+  eq([amara().shop.city, amara().shop.hood, S.milesToShop(amara(), '11211')], ['New York', 'SoHo', 4.1], 'S-42: the shop is saved in New York and distances come from it');
+  T.setJob({ visitType: 'shop' });
+  eq(S.tailorsFor(state.job).rows[0]?.distanceMi, 4.1, 'S-42: the list reads her own shop');
+}
+{
+  S.reset();
+  T.setTailorSection('where', { shop: { enabled: false }, home: { enabled: true }, collect: { street: '40 Mercer St', unit: '2F', zip: '10013', notes: '' } });
+  eq([S.collectAddress(amara()), S.collectPoint(amara()) !== null], ['40 Mercer St, 2F', true], 'B-15: without a shop the courier collects from her private address');
+  T.setTailorSection('returns', { returns: { pickup: false, courier: true } });
+  const a = driveTo('ready');
+  T.setTailorSection('where', { shop: { enabled: false }, home: { enabled: true }, collect: { street: '40 Mercer St', unit: '2F', zip: '10013', notes: '' } });
+  eq(S.courierMiles(S.getAppt(a.id)), 4.1, 'B-15 / S-42: the courier distance runs from where it collects');
+}
+section('B1 · P-34 the area waitlist, D-17 tailor words');
+{
+  S.reset();
+  T.setJob({ zip: '11201', address: null });
+  eq([T.joinAreaWaitlist('11201').ok, S.onAreaWaitlist('11201'), T.joinAreaWaitlist('11201').already], [true, true, true], 'P-34: one text when a tailor covers the ZIP');
+  guard(T.joinAreaWaitlist('112'), 'zip-invalid', 'P-34: a ZIP is 5 digits');
+  const a = driveTo('awaiting-handoff');
+  const line = S.threadFor('amara').messages.find((m) => /chose in-store pickup/.test(m.tailorText ?? ''));
+  ok(line && line.tailorText.includes(`She’s charged ${M.fmtExact(S.getAppt(a.id).money.balance)} at pickup.`), 'D-17: the tailor reads "charged at pickup", Sarah\'s words');
+}
+
+
+/* ---------- pre-MVP A2 (K-48.1, K-49 DG-1 option B, D-14, S-32, D-21): Taily Help, the admin, report / block ---------- */
+section('A2 · Taily Help cases (DG-1 B)');
+{
+  const adminTexts = () => state.outbox.filter((m) => m.to === 'admin');
+  S.reset();
+  let a = driveTo('awaiting-handoff');
+  guard(T.openCase({ who: 'admin', apptId: a.id, topic: 'charge' }), 'unknown-person', 'A2: only a customer or a tailor opens Help');
+  guard(T.openCase({ who: 'customer', apptId: a.id }), 'empty', 'A2: a topic or a message');
+  guard(T.openCase({ who: 'customer', apptId: a.id, topic: 'refund-me' }), 'topic', 'A2: topics come from HELP_TOPICS');
+  state.sim.network = 'offline';
+  guard(T.openCase({ who: 'customer', apptId: a.id, topic: 'charge' }), 'offline', 'A2: offline sends nothing');
+  eq(state.cases.length, 0, 'A2: … and opens no case');
+  state.sim.network = 'online';
+  let r = T.openCase({ who: 'customer', apptId: a.id, topic: 'charge', text: 'Call me at 718-555-0142' });
+  let c = r.case;
+  eq([r.ok, r.fresh, c.ref, c.kind, c.sides, c.apptId, c.messages.map((m) => [m.side, m.from, m.kind ?? ''])],
+    [true, true, 'TY-4821', 'help', ['customer'], a.id, [['customer', 'customer', ''], ['customer', 'customer', ''], ['customer', 'taily', 'ack']]], 'A2: a topic chip + a message open a case on her side, with Taily’s automatic answer');
+  eq([c.messages[0].text, c.messages[1].text, c.messages[1].masked], ['A charge or refund', 'Call me at [phone hidden]', true], 'A2: the chip is her first words; contact details are masked like every chat');
+  eq([state.admin.notifications.at(-1).kind, state.admin.notifications.at(-1).caseId, adminTexts().length, adminTexts()[0].event, adminTexts()[0].status, adminTexts()[0].caseId],
+    ['case', c.id, 1, 'admin-case', 'delivered', c.id], 'K-48.1: every new case notifies the admin (Kevin) and texts him');
+  ok(adminTexts()[0].body.startsWith(`New case TY-4821: Charge or payout question · from Sarah Chen · order ${a.id}`), 'K-48.1: the admin’s text names the case');
+  eq([S.caseReplyBy(c), S.caseView(c, 'customer').waiting, S.caseUnread(c, 'admin')], ['2026-10-16T17:00', 'taily', 2], `D-01: Taily owes a reply within ${POLICY.HELP_REPLY_H} hours`);
+  r = T.openCase({ who: 'tailor', apptId: a.id, topic: 'charge' });
+  eq([r.case.id, r.fresh, c.sides, S.caseMessages(c, 'tailor').map((m) => m.from), state.admin.notifications.at(-1).kind], [c.id, false, ['customer', 'tailor'], ['tailor', 'taily'], 'case'], 'A2: one open case per order — the tailor joins it on her own side (the admin, unread, isn’t texted twice inside the gap)');
+  ok(!S.caseMessages(c, 'customer').some((m) => m.side === 'tailor'), 'A2: a person never reads the other side');
+  guard(T.sendCaseMessage(c.id, 'customer', { text: ' ' }), 'empty', 'A2: empty');
+  state.sim.send = 'fail';
+  guard(T.sendCaseMessage(c.id, 'customer', { text: 'Hello?' }), 'send-failed', 'A2: a dropped send (one-shot)');
+  ok(T.sendCaseMessage(c.id, 'customer', { text: 'Hello?' }).ok, 'A2: … then it goes');
+  eq(adminTexts().length, 1, `A2: messages while unread text the admin at most once per ${POLICY.CHAT_TEXT_GAP_MIN} minutes`);
+  S.advanceClock(POLICY.CHAT_TEXT_GAP_MIN);
+  T.sendCaseMessage(c.id, 'customer', { text: 'Still here.' });
+  eq(adminTexts().map((m) => m.event), ['admin-case', 'admin-message'], 'A2: … and again after the gap');
+  r = T.adminReply(c.id, 'customer', { text: 'It’s held, not charged.' });
+  eq([r.ok, state.outbox.at(-1).event, state.outbox.at(-1).to, state.outbox.at(-1).caseId, S.caseView(c, 'customer').waiting, S.caseUnread(c, 'customer')],
+    [true, 'taily-replied', 'customer', c.id, 'you', 1], 'A2: the admin replies; she is texted (taily-replied) and it is her move');
+  T.markCaseRead(c.id, 'customer');
+  eq(S.caseUnread(c, 'customer'), 0, 'A2: opening the thread reads it');
+  guard(T.adminReply(c.id, 'admin', { text: 'x' }), 'side', 'A2: a reply goes to the customer or the tailor');
+  guard(T.adminReply(c.id, 'tailor', { text: '' }), 'empty', 'A2: an empty reply');
+  T.markCaseRead(c.id, 'admin');
+  eq([S.caseUnread(c, 'admin'), state.admin.notifications.filter((n) => n.caseId === c.id && !n.read).length], [0, 0], 'A2: the admin reading a case clears its notifications');
+  ok(T.adminCloseCase(c.id).ok && c.state === 'closed', 'A2: a question closes with no money moved');
+  eq([c.outcome.key, c.outcome.lines.customer], ['resolved', 'We looked into it. Nothing changes on your order.'], 'A2: … the outcome says so');
+  guard(T.sendCaseMessage(c.id, 'customer', { text: 'One more thing' }), 'closed', 'A2: a closed case takes no messages');
+  ok(T.openCase({ who: 'customer', apptId: a.id, topic: 'other' }).case.id !== c.id, 'A2: after a close, Get help starts a new case');
+
+  /* topics follow the order's state */
+  S.reset(); a = driveTo('confirmed');
+  ok(!S.helpTopics(a, 'customer').includes('no-show'), 'A2: no "didn’t come" before the visit');
+  S.setClock('2026-10-15T17:20');
+  eq(S.helpTopics(a, 'customer'), ['no-show', 'charge', 'safety', 'other'], 'A2: on the visit day the no-show topic leads');
+  eq(S.topicLabel('no-show', 'customer', a), 'Amara didn’t come', 'A2: in her words');
+  eq(S.topicLabel('no-show', 'tailor', a), 'Sarah wasn’t home', 'A2: … and in the tailor’s');
+  S.reset(); a = driveTo('price-change');
+  ok(S.helpTopics(a, 'customer')[0] === 'final-order' && S.helpTopics(a, 'customer').includes('damage'), 'A2: a final order stuck; garments can be damaged from the fitting on');
+  S.reset(); a = driveTo('completed');
+  ok(S.helpTopics(a, 'customer').includes('after-completion'), 'B-05: a problem after completion has a way in');
+  eq([S.helpTopics(null, 'customer'), S.helpTopics(null, 'tailor')], [['charge', 'damage', 'safety', 'other'], ['charge', 'safety', 'other']], 'A2: Help home (no order)');
+  S.reset();
+  const g = T.openCase({ who: 'tailor', text: 'How do I change my bank?' }).case;
+  eq([g.apptId, S.caseTitle(g)], [null, 'Message to Taily'], 'A2: a general case has no order');
+  guard(T.adminRefundDeposit(g.id), 'no-order', 'A2: no money to move on a general case');
+  T.adminReply(g.id, 'tailor', { text: 'Shop → Payouts → Update bank details.' });
+  eq(state.outbox.at(-1).event, 'help-replied-t', 'A2: a reply with no order texts help-replied-t');
+}
+
+section('A2 · disputes run as cases; the admin decides (D-14, K-48.1)');
+{
+  const evs = (e) => state.outbox.filter((m) => m.event === e);
+  S.reset();
+  let a = driveTo('no-show');
+  T.disputeNoShow(a.id, 'customer');
+  let c = S.openCaseOfAppt(a.id);
+  eq([c.kind, c.reason, c.sides, S.caseMessages(c, 'customer')[0].kind, S.openReviews()[0].reason, evs('admin-case').length],
+    ['review', 'no-show-disputed', ['customer', 'tailor'], 'opening', 'no-show-disputed', 1], 'D-14: “That’s not right” → a review case both see, Taily’s first words to each, the admin texted');
+  ok(S.caseMessages(c, 'tailor')[0].text.includes(`Your ${M.fmtExact(SCENARIOS.noShow.paid)} no-show pay is on hold while we look.`), 'D-14: the tailor reads her held pay in dollars');
+  eq(S.caseReplyBy(c), '2026-10-16T17:20', 'D-01: the decision is due 24 hours after the dispute');
+  eq(S.adminActions(c).map((x) => x.kind), ['refund-deposit', 'keep-deposit', 'release-payout'], 'A2: the admin’s options on a disputed no-show');
+  guard(T.adminCloseCase(c.id), 'decide-first', 'A2: a case can’t close while the no-show pay is on hold');
+  guard(T.adminCancelOrder(c.id), 'not-cancellable', 'A2: a cancelled visit can’t be cancelled again');
+  ok(T.adminRefundDeposit(c.id).ok, 'A2: refund the deposit');
+  eq([a.payments.deposit.state, a.cancel.refund, a.cancel.tailorPaid, a.cancel.decided, state.payouts.filter((p) => p.apptId === a.id).length], ['refunded', a.payments.deposit.cents, 0, 'refunded', 0], 'A2: … the deposit goes back and the no-show pay is dropped');
+  guard(T.adminRefundDeposit(c.id), 'deposit-refunded', 'A2: once');
+  ok(T.adminCloseCase(c.id).ok, 'A2: close with outcome');
+  eq([c.state, c.outcome.key, a.tailyReview.closedAt != null, a.tailyReview.outcome, S.openReviews().length], ['closed', 'refund-deposit', true, 'refund-deposit', 0], 'A2: the case and the order’s review close together');
+  eq([c.outcome.lines.customer, c.outcome.lines.tailor], [`We refunded your ${M.fmtExact(a.payments.deposit.cents)} deposit. It shows on your card in 5 to 10 business days.`, `We refunded Sarah’s ${M.fmtExact(a.payments.deposit.cents)} deposit, so you aren’t paid the ${M.fmtExact(SCENARIOS.noShow.paid)}.`], 'A2: the decision in dollars, per side');
+  eq([evs('case-decided').length, evs('taily-replied-t').length], [1, 1], 'A2: both are texted the outcome');
+
+  S.reset(); a = driveTo('no-show'); T.disputeNoShow(a.id, 'customer'); c = S.openCaseOfAppt(a.id);
+  ok(T.adminKeepDeposit(c.id).ok && !state.payouts.find((p) => p.apptId === a.id).held, 'A2: keep the deposit → the held no-show pay is released');
+  ok(T.adminCloseCase(c.id).ok && c.outcome.lines.tailor.startsWith(`You keep Sarah’s ${M.fmtExact(a.payments.deposit.cents)} deposit. Your ${M.fmtExact(SCENARIOS.noShow.paid)} goes out`), 'A2: … her line says when it goes out');
+  S.setClock(state.payouts[0].date + 'T10:00');
+  eq(T.settlePayouts().paid.length, 1, 'A2: … and the Friday run pays it');
+
+  S.reset(); a = driveTo('tailor-no-show'); T.disputeNoShow(a.id, 'tailor'); c = S.openCaseOfAppt(a.id);
+  guard(T.adminKeepDeposit(c.id), 'deposit-refunded', 'A2: Sarah’s report already refunded her — nothing to keep');
+  ok(T.adminCloseCase(c.id, { outcome: 'no-change' }).ok && c.outcome.key === 'no-change', 'A2: closed with no money moved');
+
+  /* the held balance: capture or release */
+  S.reset(); a = driveTo('problem');
+  c = T.openCase({ who: 'customer', apptId: a.id, topic: 'not-received' }).case;
+  eq(S.adminActions(c).map((x) => x.kind), ['capture-hold', 'release-hold', 'cancel'], 'A2: a held balance — capture, release, or cancel');
+  guard(T.adminRefundDeposit(c.id), 'order-open', 'A2: refund a live order’s deposit by cancelling it');
+  ok(T.adminReleaseHold(c.id).ok, 'A2: release the hold');
+  eq([a.status, a.cancel.reason, a.cancel.by, a.payments.balance.state, a.cancel.released, state.payouts.length], ['cancelled', 'taily', 'taily', 'released', SCENARIOS.seed.balance, 0], 'A2: … she isn’t charged, the order closes, nothing is paid out');
+  guard(T.adminReleaseHold(c.id), 'no-hold', 'A2: once');
+  S.reset(); a = driveTo('problem');
+  c = T.openCase({ who: 'customer', apptId: a.id, topic: 'not-received' }).case;
+  ok(T.adminCaptureHold(c.id).ok, 'A2: capture the hold');
+  eq([a.status, a.payments.balance.state, a.handoff.completedBy, state.payouts.map((p) => p.kind)], ['completed', 'captured', 'taily', ['job']], 'A2: … the order completes and the tailor’s payout queues');
+  T.adminCloseCase(c.id);
+  eq(c.sides, ['customer', 'tailor'], 'A2: money moved on an order → both people hear the outcome');
+
+  /* cancel; pause / release a payout */
+  S.reset(); a = driveTo('in-progress');
+  c = T.openCase({ who: 'customer', apptId: a.id, topic: 'other' }).case;
+  ok(T.adminCancelOrder(c.id).ok, 'A2: cancel a live order');
+  eq([a.status, a.cancel.reason, a.payments.deposit.state, a.cancel.refund, state.job.garments.length > 0], ['cancelled', 'taily', 'refunded', a.payments.deposit.cents, true], 'A2: … the deposit refunded, the items back as her draft');
+  S.reset(); a = driveTo('completed');
+  c = T.openCase({ who: 'tailor', apptId: a.id, topic: 'charge' }).case;
+  ok(T.adminPausePayout(c.id).ok && state.payouts[0].held, 'A2: pause the payout');
+  S.setClock(state.payouts[0].date + 'T10:00');
+  eq(T.settlePayouts().paid.length, 0, 'A2: … the Friday run skips it');
+  guard(T.adminPausePayout(c.id), 'no-payout', 'A2: nothing left to pause');
+  ok(T.adminReleasePayout(c.id).ok && T.settlePayouts().paid.length === 1, 'A2: release it, and it goes out');
+  guard(T.adminReleasePayout(c.id), 'nothing-held', 'A2: nothing held');
+  eq(T.adminAct(c.id, 'teleport').error, 'unknown-action', 'A2: adminAct runs only the listed actions');
+
+  /* A1's own ends close the case */
+  S.reset(); a = driveTo('price-change');
+  S.advanceClock(POLICY.FINAL_ORDER_REVIEW_D * 24 * 60);
+  c = S.openCaseOfAppt(a.id);
+  eq([c?.reason, c?.state], ['final-order-unanswered', 'open'], 'D-03: the 7-day review runs as a case');
+  T.approvePriceChange(a.id);
+  eq([c.state, S.caseMessages(c, 'customer').at(-1).text], ['closed', 'You approved the final order, so we closed this.'], 'A2: approving closes it, with a line that says why');
+
+  /* the inbox */
+  S.reset(); a = driveTo('no-show'); T.disputeNoShow(a.id, 'customer');
+  S.advanceClock(10); T.openCase({ who: 'tailor', text: 'Payout question' });
+  const box = S.adminInbox();
+  eq([box.open.length, box.notifications.length, box.unread, box.notifications[0].kind], [2, 2, 2, 'case'], 'K-48.1: the inbox — open cases, notifications newest first, unread');
+  T.adminMarkRead(box.notifications[0].id);
+  eq(S.adminInbox().unread, 1, 'A2: a notification is read');
+}
+
+section('A2 · K-48.5 the admin at start + 4 h (Kevin, K-50)');
+{
+  S.reset(); const a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000)); T.confirmVisit(a.id);
+  S.setClock('2026-10-15T20:59'); T.tick();
+  eq([a.visitCheck?.askedAt, state.admin.notifications.length], ['2026-10-15T19:00', 0], 'K-48.5: asked at start + 2 h; not yet at 8:59 PM');
+  S.setClock('2026-10-15T21:00'); T.tick();
+  const c = S.openCaseOfAppt(a.id);
+  eq([a.visitCheck.adminAt, c?.reason, c?.sides, state.outbox.filter((m) => m.event === 'admin-case').length], ['2026-10-15T21:00', 'visit-unanswered', ['customer', 'tailor'], 1], 'K-48.5: start + 4 h → the admin (a case, a text)');
+  S.setClock('2026-10-16T19:00'); T.tick();
+  eq([a.status, a.cancel.reason, a.cancel.held, c.state], ['cancelled', 'no-record', true, 'open'], 'K-51: closed “Not confirmed” 24 h after asking — the deposit on hold, the admin’s case stays open');
+  S.setClock('2026-10-19T19:00'); T.tick();
+  eq([a.payments.deposit.state, c.state, c.outcome?.key], ['kept', 'closed', 'kept-undisputed'], 'K-51: nobody disputed it in 72 h — Amara keeps it and the case closes');
+}
+
+section('A2 · S-32 report and block');
+{
+  S.reset(); let a = driveTo('confirmed');
+  guard(T.reportPerson('customer', { apptId: a.id, reason: 'spite' }), 'reason', 'S-32: a report names what happened');
+  let r = T.reportPerson('customer', { apptId: a.id, reason: 'unsafe', text: 'Text me at 718-555-0142' });
+  eq([r.ok, r.case.kind, r.case.safety.about, state.admin.notifications.at(-1).kind, S.caseMessages(r.case, 'customer')[1].masked], [true, 'safety', 'tailor', 'safety', true], 'S-32: a report opens a safety case the admin hears about at once');
+  ok(S.openCaseOfAppt(a.id) === null, 'S-32: a safety case never blocks the order’s own Help case');
+  S.reset(); a = driveTo('confirmed');
+  ok(T.blockPerson('customer', { apptId: a.id }).ok && S.isBlocked('amara') && S.blockedBy('amara') === 'customer', 'S-32: Sarah blocks Amara');
+  guard(T.blockPerson('customer', { apptId: a.id }), 'already', 'S-32: once');
+  eq([S.eligible(amara()).reason, S.tailorsFor().empty, S.threadReadOnly('amara')], ['blocked', 'none-left', true], 'S-32: she is no longer listed, and their chat closes');
+  guard(T.sendMessage('amara', 'customer', { text: 'hi' }), 'read-only', 'S-32: no messages either way');
+  eq(a.status, 'confirmed', 'S-32: the booking already made stays (Taily sorts it out)');
+  state.sim.network = 'offline';
+  guard(T.unblockPerson('customer', { tailorId: 'amara' }), 'offline', 'S-32: offline unblocks nothing');
+  ok(S.isBlocked('amara'), 'S-32: … still blocked');
+  state.sim.network = 'online';
+  const ub = T.unblockPerson('customer', { tailorId: 'amara' });
+  ok(ub.ok && !S.isBlocked('amara') && !S.threadReadOnly('amara'), 'S-32: undo your own block (the Unblock button): the chat opens again');
+  eq([ub.case.state, ub.case.safety.block, S.caseMessages(ub.case, 'customer').at(-1).text], ['open', false, 'I unblocked Amara Reyes.'], 'merge: the safety case stays open for Taily and says so (the admin reads it there)');
+  guard(T.unblockPerson('customer', { tailorId: 'amara' }), 'not-blocked', 'S-32: nothing to undo');
+  S.reset();
+  const slot = S.nextOpening('amara', 'home', { until: state.job.needBy });
+  T.blockPerson('customer', { tailorId: 'amara' });
+  guard(T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' }), 'blocked', 'S-32: a blocked tailor can’t be booked');
+  S.reset(); a = driveTo('expired');
+  T.blockPerson('tailor', { apptId: a.id });
+  guard(T.tryAgain(a.id), 'blocked', 'S-32: a tailor’s block stops Send again too');
+}
+
+section('A2 · B-05 the HELP reply; D-21 garment protection');
+{
+  S.reset();
+  const r = T.textReply('customer', 'HELP');
+  eq([r.ok, r.help, r.text.event, r.text.land, r.text.status], [true, true, 'help-reply', 'c-help', 'delivered'], 'B-05: a HELP reply is answered with a text that points at Help');
+  eq(T.textReply('tailor', 'HELP').text.land, 't-help', 'B-05: … the tailor’s at hers');
+  const cap = M.fmt(M.cents(MONEY.GARMENT_PROTECTION_CAP));
+  eq(POL.protectionLine(), `Garment protection: Taily covers loss or damage up to ${cap} per order.`, 'D-21: the one-line promise, the cap from MONEY');
+  const page = POL.policyPage('garment', 'customer');
+  ok(page.draft && page.draftLine === POL.DRAFT_LINE && page.sections.flatMap((x) => x.lines).some((l) => l.includes(`within ${POLICY.GARMENT_REPORT_H} hours`)), 'D-21: COUNSEL draft (K-53 b: Draft — counsel review required), the 48-hour window from POLICY');
+  const all = ['customer', 'tailor'].flatMap((w) => Object.keys(POL.POLICIES).flatMap((k) => POL.policyPage(k, w).sections.flatMap((x) => x.lines)));
+  ok(all.length > 20 && !all.some((l) => /%|undefined|NaN/.test(l)), 'A2: every policy line prints dollars, never a percentage');
+  eq(POL.policyList('tailor').map((x) => x.key)[0], 'payments', 'A2: the tailor’s Help leads with getting paid');
+}
+/* ================= pre-MVP B2 (K-48 / K-49): Account v2, social sign-in + phone, notes, receipts (D-370…D-379) ================= */
+section('B2 · DG-3 A delete account — blocked while open, then what goes and what stays');
+{
+  S.reset();
+  eq([S.deleteBlocker('customer'), S.deleteBlocker('tailor')], [null, null], 'DG-3 A: the seed has nothing open on either side');
+  const a = driveTo('confirmed');
+  const b = S.deleteBlocker('customer');
+  eq([b?.reason, b?.appt?.id], ['order', a.id], 'DG-3 A: an open visit blocks the customer');
+  const bt = S.deleteBlocker('tailor');
+  eq([bt?.reason, bt?.appt?.id], ['job', a.id], 'DG-3 A: the same visit blocks the tailor');
+  const r = A.deleteAccount('customer');
+  eq([r.ok, r.error, r.block?.reason, state.customer.first], [false, 'open', 'order', 'Sarah'], 'DG-3 A: deleteAccount refuses with the reason, nothing changes');
+  T.cancelBooking(a.id);
+  eq(S.deleteBlocker('customer'), null, 'DG-3 A: once cancelled she can delete');
+  const before = state.appts.length;
+  const ok = A.deleteAccount('customer');
+  eq([ok.ok, state.customer.first, state.customer.phone, state.customer.cards.length, state.customer.addresses.length, state.session.customer.signedIn, !!state.session.customer.deletedAt, S.textsOn('customer')],
+    [true, '', '', 0, 0, false, true, false], 'DG-3 A: name, number, cards and addresses go; signed out; texts off');
+  eq([state.appts.length, S.apptsFor('customer').length, state.customer.closed?.id], [before, 0, 'sarah'], 'DG-3 A: past orders stay (receipts, COUNSEL #9) with the old id, out of the new account');
+  eq(A.sendCode(DATA.CUSTOMER.phone).isNew, true, 'DG-3 A: her old number signs up as a new account');
+}
+{
+  S.reset();
+  const a = driveTo('ready');
+  T.chooseReturn(a.id, 'pickup');
+  eq(S.deleteBlocker('customer')?.reason, 'order', 'DG-3 A: an order being made blocks');
+  S.reset();
+  driveTo('completed');
+  const bt = S.deleteBlocker('tailor');
+  eq([bt?.reason, bt?.payout?.state], ['payout', 'pending'], 'DG-3 A: an unpaid payout blocks the tailor');
+  S.setClock(`${PAYOUT_DAYS.first}T18:00`);
+  T.settlePayouts();
+  eq(S.deleteBlocker('tailor'), null, 'DG-3 A: paid out and no open jobs: she can delete');
+  const r = A.deleteAccount('tailor');
+  eq([r.ok, amara().name, amara().live, S.listed(amara()), !!amara().closedAt, state.session.tailor.signedIn, state.payouts.length], [true, '', false, false, true, false, 1], 'DG-3 A: the shop is off Taily, payout records stay');
+  eq(S.tailorsFor(state.job).rows.length, 0, 'DG-3 A: a deleted tailor is never listed');
+}
+section('B2 · DG-3 A Personal info + change phone (texts go to the new number)');
+{
+  S.reset();
+  eq(DATA.CUSTOMER.email, '', 'DG-3 A: the seed has no email (sign-up never asked)');
+  eq(A.saveProfile({ first: '', last: 'Chen', email: 'sarah@' }).errors, { first: 'first-required', email: 'email-invalid' }, 'saveProfile: errors per field');
+  const sp = A.saveProfile({ first: 'Sarah', last: 'Chen', email: ' sarah.chen@example.com ' });
+  eq([sp.ok, sp.changed, state.customer.email], [true, true, 'sarah.chen@example.com'], 'saveProfile: an optional email for receipts');
+  guard(A.startPhoneChange('718555'), 'phone-invalid', 'change phone: a 10-digit number');
+  guard(A.startPhoneChange('(718) 555-0142'), 'phone-same', 'change phone: not the number she has');
+  eq(A.startPhoneChange('917 555 0186').phone, '(917) 555-0186', 'change phone: a code to the NEW number');
+  guard(A.verifyPhoneChange('000000'), 'code-wrong', 'change phone: the wrong code changes nothing');
+  eq(state.customer.phone, '(718) 555-0142', 'change phone: still the old number until the code checks out');
+  S.advanceClock(POLICY.CODE_TTL_MIN + 1);
+  guard(A.verifyPhoneChange('123456'), 'code-expired', 'change phone: the code expires');
+  A.resendPhoneChange();
+  const v = A.verifyPhoneChange('123456');
+  eq([v.ok, v.was, state.customer.phone, A.phoneChangeStatus()], [true, '(718) 555-0142', '(917) 555-0186', null], 'change phone: verified, the number is hers');
+  T.setTexts('customer', false); T.setTexts('customer', true);   // the "texts are on" confirmation text
+  const x = state.outbox.filter((m) => m.to === 'customer').pop();
+  eq([x?.event, x?.phone], ['texts-on', '(917) 555-0186'], 'J29 (model): the next text goes to the new number');
+}
+{
+  S.reset();
+  driveTo('confirmed');
+  ok(state.outbox.length && state.outbox.every((m) => m.phone === (m.to === 'tailor' ? amara().phone : state.customer.phone)), 'outbox: every text carries the number it went to');
+}
+{
+  S.reset();
+  T.textReply('customer', 'STOP');
+  A.startPhoneChange('(917) 555-0186'); A.verifyPhoneChange('123456');
+  eq([state.texts.customer.on, state.texts.customer.stoppedAt], [false, null], 'change phone: a STOP was the old number\'s (cleared); texts stay off until she turns them on');
+  S.reset();
+  A.startPhoneChange('(646) 555-0101', 'tailor'); A.verifyPhoneChange('123456', 'tailor');
+  eq(amara().phone, '(646) 555-0101', 'change phone (tailor): her new number');
+}
+section('B2 · D-07 / B-09 Apple or Google, then a required phone + code; S-24 the agreement is logged');
+{
+  S.reset(); A.signOut();
+  const r = A.signInWith('google');
+  eq([r.needsPhone, state.session.customer.signedIn, A.socialPending()?.provider], [true, false, 'google'], 'D-07: not signed in after the provider');
+  A.sendCode('(718) 555-0142');
+  eq([A.verifyCode('123456').isNew, state.session.customer.signedIn, A.socialPending()], [false, true, null], 'D-07: a known number signs her in after the code');
+  S.reset(); A.signOut();
+  A.signInWith('apple');
+  A.sendCode('(917) 555-0186');
+  eq([A.verifyCode('123456').isNew, state.session.customer.signedIn], [true, false], 'D-07: a new number goes on to the names');
+  A.saveName({ first: 'Sarah', last: 'Chen', texts: true });
+  eq([state.customer.phone, state.session.customer.signedIn, state.customer.agreed?.version], ['(917) 555-0186', true, POL.LEGAL_VERSION], 'S-24: the Terms version she agreed to is logged with the time');
+  ok(!!state.customer.agreed?.at, 'S-24: … and when');
+}
+section('B2 · S-27 notes for the tailor, access notes, saved addresses');
+{
+  S.reset();
+  eq(T.setJobAddress({ street: '', zip: '1', notes: 'x'.repeat(DATA.BOOKING_LIMITS.ACCESS_MAX + 1) }).errors, { street: 'street-required', zip: 'zip-invalid', notes: 'notes-long' }, 'S-27: the booking address rules');
+  eq(T.setJobAddress({ street: '40 Mercer St', unit: '2F', zip: '10013', notes: 'Buzz 2F' }).address, { street: '40 Mercer St', unit: '2F', city: 'New York', state: 'NY', zip: '10013', notes: 'Buzz 2F' }, 'S-27: city + state from the ZIP, access notes kept');
+  const w = A.addAddress({ label: 'Work', street: '1 Main St', unit: '', zip: '11201', notes: 'Front desk' });
+  eq([w.ok, w.address.notes], [true, 'Front desk'], 'S-27: a saved address keeps its access notes');
+  eq(T.useSavedAddress(w.address.id).address, { street: '1 Main St', unit: '', city: 'Brooklyn', state: 'NY', zip: '11201', notes: 'Front desk' }, 'S-27: book from a saved address');
+  eq(S.savedAddressOf()?.id, w.address.id, 'S-27: the sheet knows which saved address the booking uses');
+  guard(T.useSavedAddress('nope'), 'unknown-address', 'S-27: unknown address');
+  const u = A.updateAddress('home', { notes: 'Buzz 2R' });
+  eq([u.ok, state.customer.address.notes], [true, 'Buzz 2R'], 'S-27: edit a saved address; the default mirror carries the notes');
+  eq(A.updateAddress('home', { street: '' }).errors, { street: 'street-required' }, 'S-27: edit keeps the rules');
+}
+{
+  S.reset();
+  T.setJob({ note: 'Hem for 2-inch heels. Call me at 718 555 0142' });
+  const slot = S.openSlots('amara', 'home', { until: state.job.needBy })[0];
+  const r = T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' });
+  eq([r.ok, r.appt.job.note, r.appt.job.noteMasked, state.job.note], [true, 'Hem for 2-inch heels. Call me at [phone hidden]', true, undefined], 'S-27: the note rides with the request, masked like chat; the next draft starts empty');
+  S.reset();
+  T.setJob({ note: 'x'.repeat(DATA.BOOKING_LIMITS.NOTE_MAX + 1) });
+  guard(T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' }), 'note-long', 'S-27: the note has a limit; nothing is held');
+  eq(state.appts.length, 0, 'S-27: … and no request was made');
+}
+section('B2 · S-25 a receipt she can keep');
+{
+  S.reset();
+  const a = driveTo('completed');
+  const rv = S.receiptView(S.getAppt(a.id));
+  eq([rv.number, rv.charges.map((c) => c.kind), rv.charges.map((c) => c.cents), rv.paid, rv.refunds.length], [`TLY-261013-${a.id.replace(/\D/g, '')}`, ['deposit', 'balance'], [SCENARIOS.seed.deposit, SCENARIOS.seed.balance], SCENARIOS.seed.total, 0], 'S-25: number, the deposit + balance charges, paid in all = the total');
+  ok(rv.charges.every((c) => c.at && c.cardId), 'S-25: every charge has a date and a card');
+  guard(T.emailReceipt(a.id), 'no-email', 'S-25: Email receipt needs an email on file');
+  A.saveProfile({ email: 'sarah.chen@example.com' });
+  state.sim.network = 'offline';
+  guard(T.emailReceipt(a.id), 'offline', 'S-25: offline sends nothing');
+  state.sim.network = 'online';
+  const e = T.emailReceipt(a.id);
+  eq([e.ok, e.to, S.receiptView(S.getAppt(a.id)).emailedTo], [true, 'sarah.chen@example.com', 'sarah.chen@example.com'], 'S-25: emailed (PROTOTYPE: recorded, no mail service)');
+  S.reset();
+  const c = driveTo('cancelled-early');
+  const rc = S.receiptView(S.getAppt(c.id));
+  eq([rc.charges.length, rc.refunds.length, rc.paid], [1, 1, 0], 'S-25: an early cancel: charged at the accept, refunded in full');
+  S.reset();
+  eq(S.receiptView(driveTo('requested')), null, 'S-25: nothing charged, no receipt');
+}
+section('B2 · S-23 / S-24 legal pages (COUNSEL placeholders) — one policy module since the merge (D-380)');
+{
+  const LEGAL_KEYS = ['accessibility', 'cancellation', 'garment', 'privacy', 'safety', 'sms', 'tailor-agreement', 'tailor-terms', 'terms'];
+  eq(Object.keys(POL.POLICIES).filter((k) => POL.POLICIES[k].legal).sort(), LEGAL_KEYS, 'S-23 → K-53 b: the nine legal drafts (B2’s refunds = A2’s cancellation; + garment protection, safety, text messages)');
+  ok(LEGAL_KEYS.every((k) => ['customer', 'tailor'].every((w) => { const p = POL.policyPage(k, w); return p.legal && p.version === POL.LEGAL_VERSION && p.sections.length && !p.sections.flatMap((x) => x.lines).some((l) => /%|undefined|NaN/.test(l)); })),
+    'S-23: every legal page has its COUNSEL row, the version line, a summary, and no percentages');
+  eq([POL.LEGAL_FOR.customer, POL.LEGAL_FOR.tailor], [['terms', 'privacy', 'cancellation', 'sms', 'accessibility'], ['tailor-terms', 'tailor-agreement', 'privacy', 'sms']], 'DG-3 A: each persona’s Account lists its pages (K-53 b: + Text message terms)');
+  ok(POL.policyPage('cancellation', 'customer').sections.flatMap((x) => x.lines).join(' ').includes(`${POLICY.CANCEL_WINDOW_H} hours`), 'S-24: the cancellation and refunds page reads POLICY');
+  eq(POL.policyList('customer').map((x) => x.key).slice(-4), ['terms', 'privacy', 'sms', 'accessibility'], 'D-380: Help lists the legal pages after the Help policies');
+  eq([POL.policyPage('payments').legal, POL.policyPage('payments').version, POL.policyPage('nope').key], [0, '', 'garment'], 'D-380: a Help policy has no version line; unknown keys fall back');
+}
+
+/* ================= MVP readiness, track L (K-52 / K-53; D-420…D-431) ================= */
+section('L · K-52 Log in: a code only to a number with an account (D-420)');
+{
+  S.reset();
+  A.signOut();
+  guard(A.sendLoginCode('718555'), 'phone-invalid', 'K-52: Log in checks the number first');
+  guard(A.sendLoginCode('(917) 555-0186'), 'no-account', 'K-52: an unknown number has no account — no silent sign-up');
+  eq(state.session.customer.pending, null, 'K-52: … and no code went out');
+  const r = A.sendLoginCode(DATA.CUSTOMER.phone);
+  eq([r.ok, r.phone, state.session.customer.pending?.login, A.codeStatus()?.isNew], [true, DATA.CUSTOMER.phone, true, false], 'K-52: her own number gets the code (the same code step)');
+  const v = A.verifyCode('123456');
+  eq([v.ok, v.isNew, state.session.customer.signedIn], [true, false, true], 'K-52: the code signs her in');
+  ok(A.hasAccount(DATA.CUSTOMER.phone) && !A.hasAccount('(917) 555-0186'), 'K-52: hasAccount');
+  A.signOut('tailor');
+  guard(A.sendLoginCode('(646) 555-0101', 'tailor'), 'no-account', 'K-52: the tailor’s Log in too');
+  ok(A.sendLoginCode(amara().phone, 'tailor').ok, 'K-52: … her shop’s number gets the code');
+  S.reset();
+  A.deleteAccount('customer');
+  guard(A.sendLoginCode(DATA.CUSTOMER.phone), 'no-account', 'K-52: a deleted account can’t log in (the number signs up fresh)');
+}
+section('L · K-52 the admin’s sign-in: email, a code by email, a second factor (D-421)');
+{
+  S.reset();
+  A.adminSignOut();
+  ok(!A.adminSignedIn(), 'K-52: the admin starts signed out');
+  guard(A.adminSendCode('kevin@'), 'email-invalid', 'K-52: an email that isn’t one');
+  guard(A.adminSendCode('sarah.chen@example.com'), 'not-admin', 'K-52: only the Taily admin account signs in here');
+  guard(A.adminVerifyCode('123456'), 'no-code', 'K-52: no code before the email');
+  ok(A.adminSendCode(` ${DATA.ADMIN_ACCOUNT.email.toUpperCase()} `).ok, 'K-52: his email (any case, trimmed) gets a code');
+  eq([A.adminStatus().step, A.adminStatus().msToResend > 0], ['code', true], 'K-52: step 1 waits for the emailed code');
+  guard(A.adminResendCode(), 'too-soon', 'K-52: resend waits CODE_RESEND_S');
+  guard(A.adminVerifySecond('123456'), 'no-code', 'K-52: the second factor only after the emailed code');
+  guard(A.adminVerifyCode('12'), 'code-format', 'K-52: six digits');
+  guard(A.adminVerifyCode('000000'), 'code-wrong', 'K-52: the demo’s wrong code');
+  ok(A.adminVerifyCode('123456').ok && A.adminStatus().step === 'second' && !A.adminSignedIn(), 'K-52: the emailed code is not enough on its own');
+  guard(A.adminVerifySecond('000000'), 'code-wrong', 'K-52: a wrong authenticator code');
+  ok(A.adminVerifySecond('123456').ok && A.adminSignedIn() && state.session.admin.email === DATA.ADMIN_ACCOUNT.email, 'K-52: both codes → signed in');
+  S.reset();
+  ok(A.adminSignedIn(), 'D-422: reset() (driveTo / onboardTo inside a Test flow) keeps the admin’s session');
+  A.adminSignOut();
+  ok(!A.adminSignedIn(), 'K-52: Sign out');
+  A.adminSendCode(DATA.ADMIN_ACCOUNT.email);
+  S.advanceClock(POLICY.CODE_TTL_MIN + 1);
+  guard(A.adminVerifyCode('123456'), 'code-expired', 'K-52: the emailed code expires after CODE_TTL_MIN');
+  A.adminTestSession();
+  ok(A.adminSignedIn() && state.session.admin.test, 'D-422: the Test-flows tools sign him in (a test session)');
+  A.adminSignOut();
+}
+section('L · K-53 Q9 phone-only sign-in for the pilot (D-423)');
+{
+  S.reset();
+  eq([POLICY.SOCIAL_SIGN_IN, A.socialSignIn()], [false, false], 'K-53 Q9: Apple / Google are off (the policy flag)');
+  state.sim.social = 'on';
+  ok(A.socialSignIn(), 'D-423: the kept code shows again with the sim knob (a Test flow)');
+  ok(A.signInWith('apple').ok, 'D-423: the social code path still works');
+  S.reset();
+}
+section('L · K-53 a4 / S-34 availability: two windows a day, minimum notice, time off (D-424…D-426)');
+{
+  S.reset();
+  const base = structuredClone(amara().availability);
+  const v = (patch) => S.validateSection('availability', { ...amara(), availability: base, ...patch }).errors;
+  eq(v({ availability: { ...base, shop: { ...base.shop, tue: [['10:00', '14:00'], ['17:00', '20:00']] } } }), {}, 'D-424: a split day (two windows) is valid');
+  eq(v({ availability: { ...base, shop: { ...base.shop, tue: [['10:00', '14:00'], ['14:00', '18:00']] } } }), {}, 'D-424: touching windows are fine');
+  eq(v({ availability: { ...base, shop: { ...base.shop, tue: [['10:00', '14:00'], ['13:00', '16:00']] } } })['shop-tue'], 'windows-overlap', 'D-424: two windows of a day can’t overlap');
+  eq(v({ availability: { ...base, shop: { ...base.shop, tue: [['09:00', '10:00'], ['11:00', '12:00'], ['13:00', '14:00']] } } })['shop-tue'], 'windows-max', `D-424: up to ${S.DAY_WINDOWS_MAX} windows a day`);
+  eq([S.noticeChoices(), v({ notice: 24 }).notice, v({ notice: 5 }).notice], [[POLICY.MIN_LEAD_H, 12, 24, 48], undefined, 'notice-invalid'], 'D-425: notice = Taily’s minimum, then 12 / 24 / 48 hours');
+  eq([
+    v({ timeOff: [{ id: 'a', from: '2026-10-20', to: '2026-10-19' }] })['off-a'], v({ timeOff: [{ id: 'a', from: '2026-10-01', to: '2026-10-05' }] })['off-a'],
+    v({ timeOff: [{ id: 'a', from: '2027-06-01', to: '2027-06-02' }] })['off-a'], v({ timeOff: [{ id: 'a', from: '2026-10-19', to: '2026-10-21' }, { id: 'b', from: '2026-10-21', to: '2026-10-23' }] })['off-b'],
+    v({ timeOff: [{ id: 'a', from: '', to: '2026-10-21' }] })['off-a'], v({ timeOff: [{ id: 'a', from: '2026-10-13', to: '2026-10-13' }] })['off-a'],
+  ], ['off-range', 'off-past', 'off-far', 'off-overlap', 'off-required', undefined], 'D-426: time off — last day after the first, not over, within TIME_OFF_AHEAD_D, no overlap; today is fine');
+  eq([S.nextOpening('amara', 'home'), S.nextOpening('amara', 'shop')], ['2026-10-15T17:00', '2026-10-13T13:00'], 'S-34: the seed openings (Taily’s 3 hours of notice)');
+  const r = T.setTailorSection('availability', { availability: base, timeOff: [{ id: 't1', from: '2026-10-15', to: '2026-10-17' }], notice: 24 });
+  eq([r.ok, r.valid, amara().notice, amara().timeOff.length], [true, true, 24, 1], 'S-34: Save stores the time off and the notice with the hours');
+  eq(S.nextOpening('amara', 'home'), '2026-10-19T17:00', 'D-426: time off Thu–Sat hides those days (next: Mon)');
+  ok(!S.openSlots('amara', 'shop').some((x) => x.startsWith('2026-10-15') || x.startsWith('2026-10-16') || x.startsWith('2026-10-17')), 'D-426: no shop opening on a day off either');
+  eq(S.nextOpening('amara', 'shop'), '2026-10-14T10:00', 'D-425: 24 hours of notice — Tuesday afternoon is gone, Wednesday opens first');
+  T.setTailorSection('availability', { availability: base, timeOff: [], notice: 48 });
+  eq(S.nextOpening('amara', 'shop'), '2026-10-15T10:00', 'D-425: 48 hours of notice');
+  eq(S.noticeHours({ notice: 1 }), POLICY.MIN_LEAD_H, 'D-425: never under Taily’s minimum');
+  T.setTailorSection('availability', { availability: { ...base, shop: { ...base.shop, tue: [['10:00', '12:00'], ['15:00', '17:00']] } }, timeOff: [], notice: POLICY.MIN_LEAD_H });
+  const tue = S.openSlots('amara', 'shop').filter((x) => x.startsWith('2026-10-20'));
+  eq([tue[0], tue.includes('2026-10-20T12:00'), tue.includes('2026-10-20T15:00'), tue.at(-1)], ['2026-10-20T10:00', false, true, '2026-10-20T16:30'], 'D-424: a split Tuesday opens in both windows, never in the break');
+  S.reset();
+  const a = driveTo('confirmed');
+  T.setTailorSection('availability', { availability: structuredClone(amara().availability), timeOff: [{ id: 't1', from: '2026-10-15', to: '2026-10-15' }] });
+  eq([S.bookedDuring(amara(), '2026-10-15', '2026-10-15').map((x) => x.id), S.getAppt(a.id).status], [[a.id], 'confirmed'], 'D-426: a visit already booked inside time off stays booked (and is named)');
+  S.setClock('2026-10-16T10:00');
+  eq(S.timeOffList(amara()), [], 'D-426: past time off drops off the list');
+  /* the L + M merge: track M's handoff times read track L's availability — a day off offers nothing, both windows of a split day count */
+  S.reset();
+  const rd = driveTo('ready');                                            // Thu, Oct 15 · 5:00 PM — the hold's last day Mon 5:00 PM
+  const av = structuredClone(amara().availability);
+  const sv = T.setTailorSection('availability', { availability: { ...av, shop: { ...av.shop, sat: [['10:00', '12:00'], ['14:00', '16:00']] } }, timeOff: [{ id: 'f', from: '2026-10-16', to: '2026-10-16' }], notice: POLICY.MIN_LEAD_H });
+  const pk = S.handoffSlots(S.getAppt(rd.id), 'pickup');
+  eq([sv.ok, [...new Set(pk.map((x) => x.start.slice(0, 10)))]], [true, ['2026-10-17']], 'L + M merge (D-426): pickup times skip her day off (Fri) — only Sat is left before the hold’s last day');
+  const satT = pk.map((x) => x.start.slice(11));
+  eq([satT[0], satT.includes('11:30'), satT.includes('12:00'), satT.includes('13:30'), satT.includes('14:00'), satT.at(-1)], ['10:00', true, false, false, true, '15:30'], 'L + M merge (D-424): a split Saturday offers pickups in both windows, never in the break');
+  ok(S.handoffSlots(S.getAppt(rd.id), 'courier').every((x) => !x.start.startsWith('2026-10-16')), 'L + M merge (D-426): no courier window on her day off');
+  S.reset();
+}
+section('L · K-53 Q8 the background check runs last (D-427)');
+{
+  S.reset();
+  EARN.onboardTo('submitted');
+  eq(S.verifyView(amara()).items.map((i) => i.id), ['id', 'years', 'payout', 'background'], 'K-53 Q8: ID and profile photo → Years → Payout and tax info → Background check');
+  T.reviewChecks({ id: 'needs-info' });
+  eq([S.checkState(amara(), 'payout'), S.checkState(amara(), 'background'), S.firstChecksPassed(amara()), S.approvedPendingBackground(amara())], ['verified', 'pending', false, false], 'D-427: the background check waits while another check needs her');
+  T.uploadId();
+  const r = T.reviewChecks({ background: 'pending' });
+  eq([S.firstChecksPassed(amara()), S.approvedPendingBackground(amara()), r.live, S.listed(amara())], [true, true, false, false], 'D-427: “You’re approved, pending your background check” — still not listed (K-49)');
+  const r2 = T.reviewChecks();
+  eq([S.checkState(amara(), 'background'), r2.wentLive, S.listed(amara())], ['verified', true, true], 'D-427: the background check clears last — live and listed');
+  EARN.onboardTo('submitted');
+  T.reviewChecks();
+  eq([S.checksPassed(amara()), !!amara().live], [true, true], 'D-427: one review with every check pending still runs them in order and passes all four');
+  EARN.onboardTo('submitted');
+  T.reviewChecks({ background: 'needs-info' });
+  eq(S.checkState(amara(), 'background'), 'needs-info', 'D-427: the background result lands once the first three passed in the same review');
+  S.reset();
+}
+section('L · K-53 Q10 slow reminders only 8:00 AM–9:00 PM (D-428)');
+{
+  const at = (iso) => D.toDate(iso).getTime();
+  const iso = (ms) => D.isoMinute(new Date(ms));
+  eq([iso(S.slowTextAt(at('2026-10-15T12:00'))), iso(S.slowTextAt(at('2026-10-15T20:59'))), iso(S.slowTextAt(at('2026-10-15T21:00'))), iso(S.slowTextAt(at('2026-10-15T23:30'))), iso(S.slowTextAt(at('2026-10-16T06:15'))), iso(S.slowTextAt(at('2026-10-16T08:00')))],
+    ['2026-10-15T12:00', '2026-10-15T20:59', '2026-10-16T08:00', '2026-10-16T08:00', '2026-10-16T08:00', '2026-10-16T08:00'], 'D-428: a due time at night moves to the next 8:00 AM');
+  S.reset();
+  const a = driveTo('fitting');
+  S.setClock('2026-10-15T22:00');
+  documentFitting(a.id);
+  ok(T.sendPriceChange(a.id, S.getAppt(a.id).lines).ok, 'D-428 probe: the final order goes out at 10:00 PM');
+  const tx = (e) => state.outbox.filter((m) => m.apptId === a.id && m.event === e);
+  S.setClock('2026-10-16T22:00'); S.tick();
+  eq(tx('final-order-24h').map((m) => m.at), ['2026-10-16T22:00'], 'D-428: the 24 h text is not a slow one — it goes at 10:00 PM');
+  S.setClock('2026-10-18T22:00'); S.tick();
+  eq(tx('final-order-72h').length, 0, 'D-428: the 72 h nudge waits through the night');
+  S.setClock('2026-10-19T08:00'); S.tick();
+  eq(tx('final-order-72h').map((m) => m.at), ['2026-10-19T08:00'], 'D-428: … and goes at 8:00 AM');
+  S.reset();
+}
+section('L · D-431 the tailor’s preview after a request; K-53 b the legal drafts (D-429)');
+{
+  S.reset();
+  driveTo('requested');
+  eq([state.job.garments.length, TD.previewJob().garments.map((g) => g.type)], [0, ['Suit Pant', 'Suit Jacket']], 'D-431: an empty draft previews the sample items');
+  ok(TD.ownRow(TD.previewJob()).row?.quote.total === SCENARIOS.seed.total, 'D-431: … priced like the seed job (not the home fee alone)');
+  S.reset();
+  ok(TD.previewJob().garments === state.job.garments && TD.previewJob().needBy === null, 'D-431: a draft with items previews itself; K-54 P7: with no need-by (never a rush fee)');
+  const keys = Object.keys(POL.POLICIES).filter((k) => POL.POLICIES[k].legal);
+  ok(keys.every((k) => ['customer', 'tailor'].every((w) => { const p = POL.policyPage(k, w); return p.draft && p.draftLine === 'Draft — counsel review required' && p.sections.length >= 5; })), 'K-53 b: every legal page is a full draft (5+ sections) marked Draft — counsel review required');
+  const words = keys.flatMap((k) => ['customer', 'tailor'].flatMap((w) => POL.policyPage(k, w).sections.flatMap((x) => x.lines))).join(' ');
+  ok(!/%|undefined|NaN|percent/.test(words), 'K-53 b: no percentages anywhere in the drafts (money in dollars)');
+  ok(POL.COMPANY.name === 'Taily Group LLC' && words.includes('Taily Group LLC') && words.includes('Brooklyn, NY'), 'K-53 c1: the entity is Taily Group LLC, Brooklyn');
+  ok(words.includes(`${M.fmtExact(M.tailyFeeFor(M.cents(MONEY.FEE_EXAMPLE_SERVICES)))} of every ${M.fmtExact(M.cents(MONEY.FEE_EXAMPLE_SERVICES))}`), 'K-53 b: the Taily fee in the agreement is dollars from money.js');
+  ok(['Reply STOP', 'Msg & data rates may apply', '8:00 AM to 9:00 PM'].every((x) => words.includes(x)), 'K-53 b: the SMS terms — STOP / HELP, rates, the slow-reminder hours from POLICY');
+  ok(POL.HELP_CONTACT.backup && POL.HELP_CONTACT.hours, 'K-53 Q10: Help hours and the backup admin line');
+}
+
+/* ================= pre-MVP K-53, track M: the balance held at Ready, the courier at Pay, fee 15, no-show = deposit, the Ledger, the free window ================= */
+section('K-53 M · the balance held at Ready (d2, Q5)');
+{
+  const DAY = 24 * 3600000;
+  const evs = (e) => state.outbox.filter((m) => m.event === e);
+  S.reset(); let a = driveTo('ready');
+  const b = a.payments.balance;
+  eq([a.status, b.state, b.by, b.cardId, b.cents, b.holds.length, S.readyAtOf(a)], ['ready', 'held', 'ready', a.cardId, SCENARIOS.seed.balance, 1, b.heldAt], 'K-53: marking it ready holds the balance on the saved card at once (merchant-initiated)');
+  eq(S.unclaimedAt(a) - D.toDate(S.readyAtOf(a)).getTime(), M.HOLD_DAYS * DAY, 'K-53: the hold’s last day = ready + 4 whole days of the 4 d 18 h hold');
+  ok(M.HOLD_DAYS * 24 < POLICY.BALANCE_HOLD_H, 'K-53: the capture day falls inside the hold’s life');
+  ok(['pickup', 'courier'].every((m) => S.handoffSlots(a, m).every((x) => D.toDate(x.end ?? D.addMinutes(x.start, POLICY.HANDOFF_SLOT_MIN)).getTime() <= S.unclaimedAt(a))), 'K-53: every pickup time and courier window offered ends inside the hold, from the READY date');
+  ok(evs('ready')[0].body.includes(`We’re holding ${M.fmtExact(SCENARIOS.seed.balance)} on your Visa`) && evs('ready')[0].body.includes('by Mon, Oct 19'), 'K-53: the ready text says the hold and the day to choose by');
+  /* Pay confirms the way back + time against the ready hold — no second authorization, nothing moves on the card */
+  T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id);
+  const p = T.holdBalance(a.id, 'visa-4242');
+  eq([p.ok, a.status, a.payments.balance.by, a.payments.balance.holds.length, a.payments.balance.heldAt, a.payments.balance.courierCents], [true, 'awaiting-handoff', 'ready', 1, b.heldAt, 0], 'K-53: Pay confirms pickup + time against the ready hold');
+  T.confirmPickup(a.id, a.handoff.code);
+  eq([a.payments.balance.state, a.payments.balance.captureReason, state.payouts.map((x) => x.cents)], ['captured', 'handoff', [SCENARIOS.seed.payout]], 'K-53: captured at the handoff');
+  /* another card at Pay moves the hold: the ready one released, a customer-initiated one placed */
+  S.reset(); a = driveTo('ready'); T.chooseReturn(a.id, 'pickup'); EARN.pickHandoff(a.id);
+  T.holdBalance(a.id, 'apple-pay');
+  eq([a.payments.balance.cardId, a.payments.balance.by, a.payments.balance.holds.map((h) => [h.cardId, h.by, !!h.releasedAt])], ['apple-pay', 'pay', [['visa-4242', 'ready', true], ['apple-pay', 'pay', false]]], 'K-53: paying with another card moves the hold (the ready one released)');
+  /* never chosen: the hold's last day — captured anyway, in-store pickup, the tailor paid, both texted */
+  S.reset(); a = driveTo('ready');
+  const end = S.unclaimedAt(a);
+  S.advanceClock(Math.round((end - S.now()) / 60000) - 1);
+  eq([a.status, a.payments.balance.state], ['ready', 'held'], 'K-53: a minute before the hold’s last day, still ready and held');
+  S.advanceClock(1);
+  eq([a.status, a.returnOption, a.handoff.slot, a.payments.balance.state, a.payments.balance.capturedAt, state.payouts.length, evs('ready-default').length, evs('ready-default-t').length],
+    ['awaiting-handoff', 'pickup', null, 'captured', D.isoMinute(new Date(end)), 1, 1, 1], 'K-53 (Q5): on the hold’s last day — charged, set to in-store pickup, the tailor paid, both texted');
+  ok(evs('ready-default-t')[0].body.includes(`Your ${M.fmtExact(SCENARIOS.seed.payout)} payout comes`), 'K-53: the tailor’s text says her payout');
+  ok(S.handoffSlots(a).length > 0 && S.handoffChangeable(a), 'K-53: after the charge she can still pick a time (HOLD_DAYS from now)');
+  S.advanceClock(POLICY.ABANDONED_CLOSE_D * 24 * 60);
+  eq([a.status, a.handoff.completedBy], ['completed', 'abandoned'], 'K-53: the 30-day abandoned close counts from that charge');
+  /* a hold that failed at ready and was never fixed: the last day defaults to pickup, the charge failed → Update card */
+  S.reset(); a = driveTo('in-progress'); state.sim.card = 'declined'; T.markReady(a.id); state.sim.card = 'ok';
+  ok(evs('ready').at(-1).body.includes('didn’t go through') && a.payments.balance.failedBy === 'ready', 'K-53: the card declined the hold at ready — her text says Update your card');
+  S.advanceClock(5 * 24 * 60);
+  eq([a.status, a.returnOption, a.payments.balance.state, state.payouts.length, evs('card-failed').length], ['awaiting-handoff', 'pickup', 'capture-failed', 0, 1], 'K-53: never fixed — set to pickup, the charge failed (Update card), no payout yet');
+  ok(T.retryCapture(a.id, 'apple-pay').ok && state.payouts.length === 1, 'K-53: Update card charges it and pays the tailor');
+  /* a tailor with no shop: charged anyway on the last day, the order stays ready, Taily reviews */
+  S.reset(); a = driveTo('in-progress'); amara().shop.enabled = false; T.markReady(a.id, { returns: ['courier'] });
+  S.advanceClock(5 * 24 * 60);
+  eq([a.status, a.payments.balance.state, S.tailyReviewOf(a)?.reason, state.payouts.length], ['ready', 'captured', 'ready-no-way-back', 1], 'K-53: no shop to default to — charged anyway, Taily review, the tailor paid');
+  T.chooseReturn(a.id, 'courier'); const w = S.handoffSlots(a, 'courier')[0]; T.setHandoffSlot(a.id, w);
+  const pc = T.holdBalance(a.id, 'visa-4242');
+  eq([pc.ok, a.payments.courierCharges.map((x) => x.cents), a.payments.balance.cents], [true, [a.courier.cents], SCENARIOS.seed.balance], 'K-53: the courier picked after that charge is its own charge (the balance isn’t charged twice)');
+}
+section('K-53 M · the courier at Pay (Q6)');
+{
+  const OFF = '2026-10-16T16:30';
+  const seen = M.courierQuote(0.6, OFF).cents;
+  S.reset(); let a = driveTo('ready'); T.chooseReturn(a.id, 'courier'); T.setHandoffSlot(a.id, OFF);
+  state.sim.courierDrift = 200;
+  const p = T.holdBalance(a.id, 'visa-4242');
+  const fresh = M.courierQuote(0.6, OFF, { drift: 200 });
+  eq([p.ok, a.courier.cents, a.courier.pay.absorbed, a.courier.pay.uber, a.payments.balance.courierCents, a.payments.balance.readyCents], [true, seen, fresh.cents - seen, fresh.quote, seen, SCENARIOS.seed.balance],
+    'K-53: re-quoted at Pay — a rise up to $3.00 is absorbed by Taily; she pays what she saw; the courier is held on top of the ready hold');
+  eq(M.courierAtPay(1000, { cents: 900 }), { cents: 900, absorbed: 0, repriced: false }, 'courierAtPay: a lower price is what she pays');
+  eq(M.courierAtPay(1000, { cents: 1000 + M.cents(MONEY.COURIER_ABSORB) }), { cents: 1000, absorbed: M.cents(MONEY.COURIER_ABSORB), repriced: false }, 'courierAtPay: exactly the cap is absorbed');
+  eq(M.courierAtPay(1000, { cents: 1001 + M.cents(MONEY.COURIER_ABSORB) }).repriced, true, 'courierAtPay: above the cap she sees it first');
+  S.reset(); a = driveTo('ready'); T.chooseReturn(a.id, 'courier'); EARN.pickHandoff(a.id);
+  state.sim.courierDrift = 500;
+  const up = M.courierQuote(0.6, a.handoff.slot.start, { drift: 500 }).cents;
+  const r = T.holdBalance(a.id, 'visa-4242');
+  eq([r.ok, r.error, r.cents, r.was, a.status, a.courier.cents, a.courier.repricedFrom, a.money.courier], [false, 'courier-repriced', up, SCENARIOS.courierQuote.cents, 'ready', up, SCENARIOS.courierQuote.cents, up], 'K-53: above $3.00 → courier-repriced, the new price set, nothing booked');
+  const r2 = T.holdBalance(a.id, 'visa-4242');
+  eq([r2.ok, a.courier.cents, a.courier.pay.absorbed], [true, up, 0], 'K-53: Pay again at the new price books it');
+  /* a pricier window after Pay → its own charge (a decline keeps the old window); the receipt and the ledger show it */
+  S.reset(); a = driveTo('ready'); T.chooseReturn(a.id, 'courier'); T.setHandoffSlot(a.id, OFF); T.holdBalance(a.id, 'visa-4242');
+  state.sim.card = 'declined';
+  guard(T.setHandoffSlot(a.id, '2026-10-16T17:00'), 'card-declined', 'K-53: a declined card keeps the old window');
+  state.sim.card = 'ok';
+  const mv = T.setHandoffSlot(a.id, '2026-10-16T17:00');
+  const extra = SCENARIOS.courierQuote.cents - seen;
+  eq([mv.ok, a.payments.courierCharges.map((x) => x.cents), a.payments.balance.cents, a.money.total], [true, [extra], SCENARIOS.seed.balance + seen, SCENARIOS.courier.total], 'K-53: the pricier window is charged now on its own; the capture stays what was authorized');
+  T.courierDelivered(a.id);
+  const rv = S.receiptView(a);
+  eq([rv.charges.map((x) => x.kind), rv.paid], [['deposit', 'balance', 'courier-change'], SCENARIOS.courier.total], 'K-53: the receipt lists the window change; she paid the total once');
+  const L = S.ledger({ apptId: a.id });
+  eq([L.rows.filter((x) => x.kind === 'courier-change').map((x) => x.cents), L.rows.find((x) => x.kind === 'courier-uber').cents, L.rows.find((x) => x.kind === 'courier-fee').cents], [[extra], SCENARIOS.courierQuote.quote, SCENARIOS.courierQuote.markup], 'K-53: the ledger has the change, Uber’s pass-through and Taily’s courier fee');
+}
+section('K-53 M · fee 15, no-show = deposit, the Ledger, the free window');
+{
+  eq([MONEY.TAILY_FEE_RATE, M.feePercent(), SCENARIOS.seed.tailyFee, SCENARIOS.seed.payout], [0.15, 15, FEE(12500), PAYOUT(12500, 3500)], 'K-53: the Taily fee is 15 — the seed fee and payout derive from it');
+  eq(M.payoutFor({ services: M.cents(MONEY.FEE_EXAMPLE_SERVICES) }), M.cents(MONEY.FEE_EXAMPLE_SERVICES) - FEE(M.cents(MONEY.FEE_EXAMPLE_SERVICES)), 'K-53: to-fee’s example — on a $100.00 job she keeps the services less the fee');
+  S.reset(); let a = driveTo('no-show');
+  eq([a.cancel.kept, a.cancel.tailorPaid, state.payouts.map((p) => [p.kind, p.cents])], [a.payments.deposit.cents, a.payments.deposit.cents, [['no-show', a.payments.deposit.cents]]], 'K-53 (Q7): a no-show pays the tailor the deposit only');
+  const L = S.ledger();
+  eq([L.rows.filter((r) => r.kind === 'deposit-kept').map((r) => r.cents), L.rows.filter((r) => r.kind === 'payout').map((r) => [r.cents, r.note])], [[SCENARIOS.seed.deposit], [[SCENARIOS.seed.deposit, 'no-show pay']]], 'K-53: the ledger shows the kept deposit and the no-show pay');
+  /* the Ledger: a completed job + a declined request, filters and totals */
+  S.reset(); driveTo('completed');
+  const b = EARN.addRequest(); T.tailorDecline(b.id, DATA.DECLINE_REASONS[0]);
+  S.setClock('2026-10-16T18:00'); T.settlePayouts();
+  const all = S.ledger();
+  const kinds = all.rows.map((r) => r.kind);
+  ok(['deposit-hold', 'deposit-capture', 'balance-hold', 'balance-capture', 'fee', 'payout', 'payout-paid', 'deposit-release'].every((k) => kinds.includes(k)), 'K-53 (c7): every money event is a row');
+  ok(all.rows.every((r, i, xs) => i === 0 || xs[i - 1].at >= r.at), 'K-53: newest first');
+  eq([all.totals.charged, all.totals.released, all.totals.revenue, all.totals.paid, all.totals.pending, all.totals.held], [SCENARIOS.seed.deposit + SCENARIOS.seed.balance, SCENARIOS.seed.deposit, SCENARIOS.seed.tailyFee, SCENARIOS.seed.payout, 0, 0], 'K-53: the totals (charged, released, Taily revenue, paid out)');
+  eq([S.ledger({ apptId: b.id }).rows.map((r) => r.kind).sort(), S.ledger({ day: '2026-10-16' }).rows.map((r) => r.kind), S.ledger({ person: 'tailor:amara' }).rows.length], [['deposit-hold', 'deposit-release'], ['payout-paid'], all.rows.length], 'K-53: the order, day and person filters');
+  eq([all.options.orders.length, all.options.people.map((p) => p.key)], [2, ['customer:sarah', 'tailor:amara']], 'K-53: the filter options come from the events');
+  ok(all.rows.every((r) => Number.isInteger(r.cents) && r.label && !/%/.test(`${r.label} ${r.note ?? ''}`)), 'K-53: integer cents, labelled, never a percent');
+  /* the free window: confirming no longer closes it; its end texts an unconfirmed (armed) visit once */
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.reminderAt(a) - S.now()) / 60000));
+  T.confirmVisit(a.id);
+  eq(M.cancelTerms(a, S.now()).window, 'early', 'K-53: confirmed 48 h ahead — still free');
+  S.advanceClock(Math.round((S.freeUntil(a) - S.now()) / 60000) + 5);
+  eq([M.cancelTerms(a, S.now()).window, state.outbox.filter((m) => m.event === 'free-window-closed').length], ['late', 0], 'K-53: the window ends 24 h before; a confirmed visit gets no free-window text');
+  S.reset(); a = driveTo('confirmed'); state.texts.customer.on = false;
+  S.advanceClock(Math.round((S.freeUntil(a) - S.now()) / 60000) + 5);
+  eq([S.autoCancelArmed(a), state.outbox.filter((m) => m.event === 'free-window-closed').length], [false, 0], 'K-53: no delivered reminder (texts off) — no auto-cancel, so no free-window text');
+  S.reset(); a = driveTo('confirmed');
+  S.advanceClock(Math.round((S.autoCancelAt(a) - S.now()) / 60000) + 5);
+  eq([a.status, state.outbox.filter((m) => m.event === 'free-window-closed').length, state.outbox.filter((m) => m.event === 'auto-cancel').length, TX.textNo('free-window-closed')], ['cancelled', 0, 1, `C${TX.TEXT_EVENTS.filter(([, r]) => r.to === 'customer').length}`], 'K-53: a clock that jumps past the auto-cancel sends only the cancel text (no stale “confirm now”); the new text is the last customer row');
+}
+
+section('Pre-MVP sweep · B-02 versioned approvals');
+{
+  /* the final order: Approve names the revision on her screen */
+  S.reset(); let a = driveTo('price-change');
+  const shown = S.priceChangeView(a).after.total;
+  ok(T.sendPriceChange(a.id, a.priceChange.lines.map((l) => ({ ...l, cents: l.cents + 1000 }))).ok, 'B-02: Amara revises the pending final order');
+  const r = T.approvePriceChange(a.id, { revision: 0 });
+  eq([r.ok, r.error, r.revision, r.total > shown, a.status, a.priceChange.state], [false, 'revised', 1, true, 'price-change', 'pending'], 'B-02: Approve on revision 0 bounces — nothing applied, the new total returned');
+  eq([T.approvePriceChange(a.id, { revision: 1 }).ok, a.status], [true, 'in-progress'], 'B-02: Approve on the revision she now sees goes through');
+  /* sim.race: the other phone revises a moment before the approval (one-shot) */
+  S.reset(); a = driveTo('price-change');
+  state.sim.race = 'revised';
+  const r2 = T.approvePriceChange(a.id, { revision: 0 });
+  eq([r2.error, a.priceChange.revisions, state.sim.race, a.status], ['revised', 1, 'none', 'price-change'], 'B-02: sim.race re-sends the order first, once');
+  eq(T.approvePriceChange(a.id).ok, true, 'B-02: an approval without a revision (old callers) still applies the current order');
+  /* the edit after the fitting */
+  S.reset(); a = driveTo('edit-pending');
+  state.sim.race = 'revised';
+  const before = S.jobEditView(a).after.total;
+  const r3 = T.approveJobEdit(a.id, { revision: 0 });
+  eq([r3.ok, r3.error, r3.revision, r3.total - before > 0, a.edit.state], [false, 'revised', 1, true, 'pending'], 'B-02: a revised edit bounces Approve changes');
+  eq([T.approveJobEdit(a.id, { revision: 1 }).ok, a.edit.state], [true, 'approved'], 'B-02: Approve changes on the current revision');
+  /* a move Amara asked for twice */
+  S.reset(); a = driveTo('confirmed');
+  const [m1, m2] = S.moveSlots(a);
+  T.proposeNewTime(a.id, m1); T.proposeNewTime(a.id, m2);
+  const r4 = T.answerProposal(a.id, true, { start: m1 });
+  eq([r4.ok, r4.error, r4.start, S.proposalOf(a)?.start], [false, 'revised', m2, m2], 'B-02: accepting the time she saw fails once Amara asked for another');
+  eq([T.answerProposal(a.id, true, { start: m2 }).ok, a.slot.start], [true, m2], 'B-02: accepting the current ask moves the visit');
+}
+
+section('K-54 · happy-path review fixes (B1, B2, F2, F3, F5, F8, P1, P8, P11)');
+{
+  /* B1 (D-450): the new request is the one c-request shows once c-pay names it — the old, opened order would otherwise be forwarded */
+  S.reset(); const old = driveTo('completed');
+  setFocus(old.id);
+  state.clock.now = D.toDate('2026-10-20T10:00').getTime();
+  T.bookAgain(old.id);
+  /* F3 (D-453): Book again's need-by is a new job's default, not the old order's */
+  eq(state.job.needBy, D.isoDay(D.addDays(D.toDate('2026-10-20T10:00'), DATA.NEED_BY_DEFAULT_D)), 'F3: Book again starts the need-by NEED_BY_DEFAULT_D days out (Fri, Oct 30), not Fri, Oct 23');
+  const g = T.addGarment('Suit Pant').garment; T.setServices(g.id, ['hem-pants']);
+  const slot = S.nextOpening('amara', state.job.visitType, { until: state.job.needBy });
+  const r = T.requestBooking({ tailorId: 'amara', slotStart: slot, cardId: 'visa-4242' });
+  eq([r.ok, M.estimate(state.tailors[0], r.appt.job, slot).rush], [true, 0], 'F3: … so the only slot carries no rush fee');
+  let went = null;
+  eq(redirectIfMoved('c-request', (id) => { went = id; }), true, 'B1: with the OLD order still focused, c-request would forward away (the bug)');
+  setFocus(r.appt.id);
+  eq([focusAppt('c-request')?.id, redirectIfMoved('c-request', () => {})], [r.appt.id, false], 'B1: named, c-request shows the new request and stays');
+  void went;
+
+  /* B2 (D-451): the admin's per-check review, in order, with the texts */
+  EARN.onboardTo('submitted');
+  const t = state.tailors[0];
+  guard(T.reviewCheck('insurance', 'verified'), 'unknown-check', 'B2: only the four checks');
+  guard(T.reviewCheck('background', 'verified'), 'background-last', 'B2: the background check waits for the other three (K-53 Q8)');
+  guard(T.reviewCheck('years', 'verified'), 'same', 'B2: years from her profile are already passed');
+  eq(S.verificationQueue().review.map((x) => x.id), [t.id], 'B2: a submitted tailor with open checks is in the queue');
+  const mark = state.outbox.length;
+  ok(T.reviewCheck('years', 'needs-info').ok && S.checkState(t, 'years') === 'needs-info', 'B2: the admin asks about her years');
+  ok(state.outbox.slice(mark).some((m) => m.event === 'check-action-needed' && m.body.includes('your years tailoring')), 'B2: … she gets the check-action-needed text');
+  T.setTailorSection('profile', { years: 9 });
+  eq(S.checkState(t, 'years'), 'pending', 'B2: re-saving her years sends them back to review');
+  ok(T.reviewCheck('id', 'verified').ok && T.reviewCheck('years', 'verified').ok && T.reviewCheck('payout', 'verified').ok, 'B2: ID, years and payout pass one at a time');
+  eq([S.approvedPendingBackground(t), t.live], [true, false], 'B2: approved, pending the background check — not listed yet');
+  const mark2 = state.outbox.length;
+  const last = T.reviewCheck('background', 'verified');
+  eq([last.wentLive, S.isVerified(t), S.listed(t), state.outbox.slice(mark2).filter((m) => m.event === 'verified').length], [true, true, true, 1], 'B2: the 4th pass takes her live and texts “verified” once');
+  eq([S.verificationQueue().review.length, S.verificationQueue().verified.length], [0, 1], 'B2: … and she moves to Verified');
+  EARN.onboardTo('submitted');
+  T.reviewChecks({ background: 'pending' });
+  eq([S.firstChecksPassed(state.tailors[0]), S.checksPassed(state.tailors[0])], [true, false], 'B2 Demo “Checks come back”, 1st tap: approved, background pending');
+  T.reviewChecks();
+  ok(S.checksPassed(state.tailors[0]) && state.tailors[0].live, 'B2 Demo, 2nd tap: the background check clears, she is live');
+
+  /* F5 (D-452): the Friday payout run fires as the clock crosses it, stamped at the run */
+  S.reset(); driveTo('completed');
+  const run = S.payoutRunAt(PAYOUT_DAYS.first);
+  S.advanceClock(Math.round((run - S.now()) / 60000) - 1);
+  eq(state.payouts[0].state, 'pending', 'F5: a minute before Fri 9:00 AM it is still pending');
+  S.advanceClock(2);
+  eq([state.payouts[0].state, state.payouts[0].paidAt, state.outbox.filter((m) => m.event === 'payout-sent').map((m) => m.at)], ['paid', `${PAYOUT_DAYS.first}T09:00`, [`${PAYOUT_DAYS.first}T09:00`]], 'F5: the run pays it at 9:00 AM and texts T35 then');
+  S.reset(); driveTo('completed'); T.pausePayouts();
+  S.advanceClock(8 * 24 * 60);
+  eq(state.payouts[0].state, 'pending', 'F5: a paused partner account waits (DG-4)');
+  S.reset(); driveTo('completed'); state.payouts[0].held = true;
+  S.advanceClock(8 * 24 * 60);
+  eq(state.payouts[0].state, 'pending', 'F5: a held payout waits for Taily (D-14)');
+  S.reset(); driveTo('completed'); T.pausePayouts();
+  EARN.draftAgain(); T.setJob({ visitType: 'shop' });
+  EARN.completeJob(addRequest({ accept: true, after: SECOND_SLOT_AFTER }).id);
+  const pv = TD.payoutsView();
+  eq([pv.next?.date, pv.later.map((x) => x.date)], [PAYOUT_DAYS.first, [PAYOUT_DAYS.second]], 'F5: Earnings lists every pending Friday — the next and the later ones');
+
+  /* F2 (D-455): the review prompt right after the handoff, then the 7-day reminder */
+  S.reset(); let a = driveTo('completed');
+  eq([S.reviewPromptDue(a), S.reviewReminderDue(a)], [true, false], 'F2: Home asks for the review as soon as it came back');
+  ok(T.dismissReviewReminder(a.id).ok && !S.reviewPromptDue(a), 'F2: ✕ puts the prompt away …');
+  S.advanceClock(POLICY.REVIEW_REMINDER_D * 24 * 60);
+  eq([S.reviewPromptDue(a), S.reviewReminderDue(a)], [false, true], 'F2: … and the 7-day reminder still comes');
+
+  /* F8 (D-457): a tailor's sign-out lands on Log in */
+  S.reset();
+  const { signOutTo } = await import('../../js/account-ui.js');
+  eq([signOutTo('tailor'), state.ui['t-phone']?.mode, state.session.tailor.signedIn, signOutTo('customer')], ['t-phone', 'login', false, 'c-welcome'], 'F8: Sign out → t-phone in its Log in mode (the customer: c-welcome)');
+
+  /* P8 (D-461): visit day words */
+  S.reset(); a = driveTo('confirmed');
+  state.clock.now = D.toDate('2026-10-15T16:55').getTime();
+  T.visitPing(a.id, 'tailor', 'here');
+  eq([statusWord(a, 'customer').label, statusWord(a, 'tailor').label], ['Amara is here', 'Confirmed'], 'P8: the customer’s row says Amara is here; the tailor’s words are unchanged');
+
+  /* P11 (D-463): Taily refunds the courier, or part of what she paid; the payout never changes */
+  S.reset(); a = driveTo('completed', { returnOption: 'courier' });
+  const c = T.openCase({ who: 'customer', apptId: a.id, text: 'The courier was late.' }).case;
+  const kinds = S.adminActions(c).map((x) => x.kind);
+  ok(kinds.includes('refund-courier') && kinds.includes('refund-partial'), 'P11: a charged courier order offers the courier refund and a partial one');
+  const before = S.ledger({ apptId: a.id }).totals;
+  const pay = state.payouts[0].cents;
+  const rc = T.adminAct(c.id, 'refund-courier');
+  eq([rc.ok, rc.cents, state.payouts[0].cents, S.courierRefundable(a)], [true, SCENARIOS.courier.courier, pay, 0], 'P11: the courier refund — once; the tailor’s payout is the same');
+  guard(T.adminAct(c.id, 'refund-partial', { cents: 0 }), 'amount-invalid', 'P11: a partial refund needs an amount');
+  const over = T.adminAct(c.id, 'refund-partial', { cents: SCENARIOS.courier.total });
+  eq([over.error, over.max], ['amount-over', SCENARIOS.courier.total - SCENARIOS.courier.courier], 'P11: never more than is left to refund');
+  ok(T.adminAct(c.id, 'refund-partial', { cents: 500 }).ok, 'P11: a $5.00 partial refund');
+  const rv = S.receiptView(a);
+  eq([rv.refunds.map((x) => [x.kind, x.cents]), rv.paid], [[['courier', SCENARIOS.courier.courier], ['partial', 500]], SCENARIOS.courier.total - SCENARIOS.courier.courier - 500], 'P11: both on her receipt; Paid drops by them');
+  const after = S.ledger({ apptId: a.id }).totals;
+  eq([after.refunded - before.refunded, before.revenue - after.revenue], [SCENARIOS.courier.courier + 500, SCENARIOS.courier.courier + 500], 'P11: the Ledger — refunded, and Taily’s revenue pays it');
 }
 
 console.log(`\n${failed ? 'FAIL' : 'PASS'}  model test: ${pass} passed, ${failed} failed`);

@@ -7,10 +7,10 @@
    Screen-local flags: state.ui['c-request'] { busy, error }.
    ============================================================ */
 import { register, render as go, currentScreen, previousScreen } from '../app.js';
-import { state, T, tailorById, now, msLeft, suggestLapseAt } from '../state.js';
+import { state, T, tailorById, now, msLeft, suggestLapseAt, getAppt, statusScreen } from '../state.js';
 import {
   chrome, headingRow, statusHero, statusPill, waitBand, countdown, visitBlock, timeline, customerBreakdown, moneyRows, banner, cta,
-  emptyState, sheetOverlay, toast, esc, noteQuote, sectionHead, infoButton, textLink, garmentStrip, returnedItems, requestStrip, navBackMark,
+  emptyState, sheetOverlay, toast, esc, noteQuote, sectionHead, infoButton, textLink, garmentStrip, returnedItems, requestStrip, navBackMark, helpActions,
 } from '../components.js';
 import { focusAppt, setFocus, redirectIfMoved } from '../focus.js';
 import { withLatency } from '../sim.js';
@@ -28,9 +28,9 @@ const ui = () => (state.ui[ID] ??= {});
 /** The screen Back returns to: the one under c-request in the history (while this view is first built, the top
     of the history is still the screen that navigated here). */
 const backTarget = () => (currentScreen() === ID ? previousScreen() : currentScreen());
-/** The shared detail header (D-93): pill, title and notes flush at the padding. A Back row only when Sarah opened
-    the request from Bookings (R3-2-C-02); right after sending it the booking flow is finished, so no Back. */
-const heroRow = (html) => headingRow(html, { back: backTarget() === 'c-bookings' });
+/** The shared detail header (D-93): pill, title and notes flush at the padding. A Back row whenever she came from anywhere but the booking
+    flow (SF-18: Home, Messages, Bookings, a text link); right after sending it (c-pay) the booking flow is finished, so no Back. */
+const heroRow = (html) => headingRow(html, { back: backTarget() !== 'c-pay' });
 
 function visitRows(a, t) {
   const home = a.job.visitType === 'home';
@@ -82,7 +82,7 @@ function requestedBody(a, t, first) {
     variant: 'requested', pill: false, title: `Waiting for ${esc(first)}`,
     body: `We’ll text you the moment ${esc(first)} replies.`,
   });
-  return `${headingRow(hero, { back: backTarget() === 'c-bookings', status: band })}
+  return `${headingRow(hero, { back: backTarget() !== 'c-pay', status: band })}
   ${yourRequest(visitRows(a, t))}
   <section class="sec">${sectionHead('What happens next')}
   ${timeline([
@@ -103,7 +103,7 @@ function suggestedBody(a, t, first, busy) {
   /* K-17 (D-243, #6 / R1): the strip says the state and carries the hold deadline as its countdown; the new time is the one figure (the h1) with
      the old time as its one "was" line, then one sentence on what accepting does. No pill, no caps label, no "holding until" sentence. */
   const strip = requestStrip({ tone: 'action', icon: 'clock', text: `${esc(first)} suggested a new time`, lapseAt: suggestLapseAt(a), now: now(), page: true });
-  return `${backTarget() === 'c-bookings' ? navBackMark() : ''}${strip}
+  return `${backTarget() !== 'c-pay' ? navBackMark() : ''}${strip}
   <section class="sec sec--first c-request__time" data-new-time aria-label="Suggested time">
     <h1 class="t-title c-request__when">${fmtWhen(a.suggested.start)}</h1>
     <span class="t-small c-600">You asked for ${fmtWhen(a.slot.start)}</span>
@@ -133,20 +133,21 @@ function declinedBody(a, t, first, busy) {
   </div>`;
 }
 
-/** D-154: a suggested time that lapsed or that she withdrew — the D-94 lapsed pattern: hold released, find someone else. */
+/** D-154: a suggested time that lapsed or that she withdrew — hold released. K-51 (C6, like C5): send the same tailor a new request (a new time
+    on c-book) or find someone else. */
 function suggestionEndedBody(a, t, first, busy) {
   const withdrawn = a.suggested.ended === 'withdrawn';
   const hero = statusHero({
     variant: 'requested', pill: false,
     title: withdrawn ? `${esc(first)} withdrew her suggested time` : `${esc(first)}’s suggested time has passed`,
-    body: `Your hold is released. We won’t show ${esc(first)} for this request again, so you can choose another tailor.`,
+    body: `Your hold is released. Send ${esc(first)} a new request for another time, or choose another tailor.`,
   });
   return `${heroRow(hero)}
   ${yourRequest(visitRows(a, t))}
   ${releasedRow(a)}
   <div class="page-actions" data-suggestion-ended="${withdrawn ? 'withdrawn' : 'lapsed'}">
-    ${cta('Find another tailor', { busy: busy === 'find-another', busyLabel: 'One moment…', disabled: !!busy && busy !== 'find-another', attrs: 'data-act="find-another"' })}
-    <div class="page-actions__links">${link(`Message ${esc(first)}`, 'message', busy)}</div>
+    ${cta(`Send ${esc(first)} a new request`, { disabled: !!busy, attrs: 'data-act="pick-time"' })}
+    <div class="page-actions__links">${link('Find another tailor', 'find-another', busy)}${link(`Message ${esc(first)}`, 'message', busy)}</div>
   </div>`;
 }
 
@@ -221,6 +222,7 @@ function view() {
         : expiredBody(a, t, first, busy, u);
   return `${head}<main class="body ${ID}" data-s="${ID}" data-status="${a.status}"${busy ? ' aria-busy="true"' : ''}>
   ${inner}
+  ${helpActions()}
 </main>`;
 }
 
@@ -239,6 +241,14 @@ function openWithdraw(a) {
       else if (act === 'withdraw-ok') {
         const res = T.withdrawRequest(a.id);
         close();
+        if (res.error === 'not-pending') {
+          /* SF-17: she answered first — show where the request is now instead of "still open" */
+          const n = getAppt(a.id);
+          setFocus(a.id);
+          go(statusScreen(n, 'customer'), { replace: true });
+          toast(n?.status === 'confirmed' ? `${firstOf(tailorById(a.tailorId))} just accepted. You’re booked.` : 'This request has already changed.');
+          return;
+        }
         if (!res.ok) { toast('Couldn’t withdraw the request. It’s still open.', { tone: 'error' }); return; }
         go('c-tailors', { fresh: true });
         toast(`Request withdrawn. ${fmtExact(deposit)} hold released.`);
@@ -319,6 +329,7 @@ function wire(root) {
     switch (el.dataset.act) {
       case 'home': go('c-job', { fresh: true }); break;
       case 'message': if (a) message(a); else go('c-thread'); break;
+      case 'get-help': if (a) { setFocus(a.id); state.ui.help = { apptId: a.id, caseId: null }; go('c-case'); } break;   // DG-1 option B (pre-MVP A2)
       case 'withdraw': if (a) openWithdraw(a); break;
       case 'accept-time': if (a) acceptTime(a); break;
       case 'find-another': if (a) findAnother(a); break;

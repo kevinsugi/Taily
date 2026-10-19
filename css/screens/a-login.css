@@ -1,0 +1,14 @@
+/* a-login — K-52 (D-421): the admin's sign-in. Layout only; the field, code input, heading row and action bar are shared components. */
+.a-login__eyebrow { margin: 0 0 var(--space-4); }
+.a-login__lead { margin: var(--rhythm-tight) 0 var(--rhythm-block); text-wrap: pretty; }
+.a-login__link {
+  display: inline; padding: var(--space-12) var(--space-4); margin: calc(var(--space-12) * -1) calc(var(--space-4) * -1);
+  font: inherit; font-weight: 600; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px;
+}
+.a-login__restart { align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px; margin: var(--rhythm-group) 0 0; padding: 0; font-size: var(--size-16); line-height: var(--lh-16); }
+.a-login__wait { margin: var(--rhythm-group) 0 0; font-variant-numeric: tabular-nums; }
+.a-login__resend {
+  align-self: flex-start; min-height: 44px; margin-top: var(--space-8); padding-inline: 0;
+  font-size: var(--size-16); line-height: var(--lh-16); font-weight: 600; color: var(--accent-ink);
+}
+.a-login__resend:disabled { opacity: 0.4; cursor: not-allowed; }

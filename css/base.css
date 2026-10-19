@@ -134,6 +134,10 @@ a {
   :root { --status-h: var(--safe-top); }
   .status-bar { display: none; }
 }
+/* a8 (pre-MVP sweep, D-444): the same for a real visitor in a browser tab — the drawn 9:41 bar is prototype chrome, kept only where
+   html.device-frame is set (the admin's test session = every harness / study boot, and the components gallery) */
+html:not(.device-frame) { --status-h: var(--safe-top); }
+html:not(.device-frame) .status-bar { display: none; }
 
 /* Top nav — space-between, padding-inline 20. K-07 (D-222): the page ground, no permanent border; the hairline (::after, components-v5.css) fades in on scroll. */
 .top-nav {

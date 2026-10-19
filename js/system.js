@@ -5,21 +5,20 @@
      wireSystem(root, id, …)    Retry on that banner; the re-auth sheet when the session expired
      openReauth(who, …)         locked "Sign in again" sheet: code, Verify, Resend, Sign out
      textBanner(…)              a text message from Taily (K-43, D-301: every notification is an SMS with a unique link;
-                                no push, so no permission ask) — a new request reaches the tailor (D-167)
+                                no push, so no permission ask). Pre-MVP A1 (D-02): the texts come from state.outbox (state.js notify,
+                                js/texts.js the catalogue) — drawn live while sim.texts is 'on', and after every Demo action (showNewText)
    Every wait goes through withLatency; every failure says what happened and what did not.
    ============================================================ */
-import { state, now, textLink } from './state.js';
+import { state, getAppt, statusScreen } from './state.js';
 import * as A from './account.js';
 import { withLatency } from './sim.js';
 import { POLICY } from './money-config.js';
-import { myTailor, inbox, requestView } from './tailor-data.js';
+import { myTailor } from './tailor-data.js';
 import { setFocus } from './focus.js';
-import { fmtExact } from './money.js';
-import { fmtDay, fmtCountdown, toDate } from './dates.js';
 import { sheetOverlay, codeInput, cta, toast, esc, ICON_WIFI_OFF, ICON_CHAT } from './components.js';
 
 /** Screens that run before / outside a signed-in session: no re-auth sheet on them (the offline banner still shows). */
-export const SYSTEM_EXEMPT = ['c-welcome', 'c-phone', 'c-code', 'c-name', 't-phone', 't-code', 'sys-index', 'sys-components'];
+export const SYSTEM_EXEMPT = ['c-welcome', 'c-phone', 'c-code', 'c-name', 't-phone', 't-code', 'sys-index', 'sys-components', 'c-policy', 't-policy', 'c-login', 'a-login'];   // pre-MVP B2: the policy / legal pages read signed out (S-24, D-380); K-52: the two sign-ins
 
 /* ---------- offline banner ---------- */
 /** The offline banner — pinned under the top bar. Empty while online. */
@@ -63,7 +62,7 @@ export function wireSystem(root, screenId, { go } = {}) {
   });
 
   if (state.sim.session === 'expired' && !SYSTEM_EXEMPT.includes(screenId)) openReauth(state.persona, { go, screenId });
-  else if (state.persona === 'tailor' && !SYSTEM_EXEMPT.includes(screenId)) textNewRequests(root, { go });
+  else if (!SYSTEM_EXEMPT.includes(screenId)) liveTexts(root, { go });
 }
 
 /* ---------- re-auth ---------- */
@@ -174,11 +173,15 @@ export function openReauth(who = 'customer', { go, screenId } = {}) {
 /* ---------- text messages (K-43, D-301; was the in-app push, D-167) ---------- */
 /** A text message's markup (also the gallery's): the Messages banner — "Taily", the text in a bubble, its unique link. A button, so the
     whole message is one tap target (the link routes into the app, as the push did). */
-export function textBannerHtml({ body = '', link = '', act = 'text-open' } = {}) {
+/** SF-05: every text body starts with the brand, as carriers require ("Taily: New request from …"). */
+const TEXT_PREFIX = 'Taily: ';
+/** pre-MVP A2 (K-48.1): the admin's texts carry their own prefix, so Kevin never mistakes one for a customer text. */
+const ADMIN_PREFIX = 'Taily admin: ';
+export function textBannerHtml({ body = '', link = '', act = 'text-open', to = '' } = {}) {
   return `<button type="button" class="text-banner" data-act="${esc(act)}" data-text-link="${esc(link)}">
   <span class="text-banner__head"><span class="text-banner__glyph" aria-hidden="true">${ICON_CHAT}</span><span class="t-caps c-600">Text message</span><span class="text-banner__when t-small c-600">now</span></span>
   <span class="text-banner__from t-small w-700">Taily</span>
-  <span class="text-banner__bubble t-small" data-money>${esc(body)} <span class="text-banner__link">${esc(link)}</span></span>
+  <span class="text-banner__bubble t-small" data-money>${esc(`${to === 'admin' ? ADMIN_PREFIX : TEXT_PREFIX}${body}`)} <span class="text-banner__link">${esc(link)}</span></span>
 </button>`;
 }
 
@@ -186,10 +189,10 @@ export function textBannerHtml({ body = '', link = '', act = 'text-open' } = {})
  * A text from Taily over the status bar of `root` (the screen). One at a time; it dismisses itself after 6 s (not under
  * `html.is-test`, so a baseline is stable) and slides in only when motion is allowed. Tapping it dismisses it and runs `onOpen`.
  */
-export function textBanner({ body = '', link = '', act = 'text-open', onOpen } = {}, root = document.getElementById('screen')) {
+export function textBanner({ body = '', link = '', act = 'text-open', onOpen, to = '' } = {}, root = document.getElementById('screen')) {
   if (!root) return null;
   root.querySelector('.text-banner')?.remove();
-  root.insertAdjacentHTML('beforeend', textBannerHtml({ body, link, act }));
+  root.insertAdjacentHTML('beforeend', textBannerHtml({ body, link, act, to }));
   const el = root.querySelector('.text-banner');
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('is-test');
   if (calm) el.classList.add('text-banner--in'); else requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('text-banner--in')));
@@ -205,22 +208,43 @@ export function textBanner({ body = '', link = '', act = 'text-open', onOpen } =
   return dismiss;
 }
 
-/**
- * Tailor persona, texts on: a request she has not been told about arrives as a text ("New request from Sarah C. …" + its link), and
- * tapping it opens that request. While texts are off (or it is the customer's side) new requests are only remembered — they were seen on
- * Home, so turning texts on later never replays them.
- */
-function textNewRequests(root, { go } = {}) {
-  const seen = (state.ui.pushSeen ??= []);
-  const fresh = inbox().requests.filter((a) => a.status === 'requested' && !seen.includes(a.id));
-  fresh.forEach((a) => seen.push(a.id));
-  if (state.sim.texts !== 'on' || !fresh.length) return;
-  const a = fresh.reduce((x, y) => (x.requestedAt >= y.requestedAt ? x : y));
-  const v = requestView(a);
-  const left = fmtCountdown(toDate(a.expiresAt).getTime() - now());
-  textBanner({
-    body: `New request from ${v.customer.name} · ${v.visitLabel} ${fmtDay(a.slot.start)} · Your payout ${fmtExact(v.payout)} · ${left} to reply.`,
-    link: textLink(a.id, 'request'),
-    onOpen: () => { setFocus(a.id); go?.('t-request'); },
+/* ---------- pre-MVP A1 (D-02): every text comes from the outbox ---------- */
+/** Where a text's link lands: its catalogue screen, else the recipient's statusScreen for the appointment, else her Home. */
+function landing(m) {
+  if (m.land) return m.land;
+  const a = m.apptId ? getAppt(m.apptId) : null;
+  return (a && statusScreen(a, m.to)) || (m.to === 'tailor' ? 't-home' : m.to === 'admin' ? 'a-inbox' : 'c-job');
+}
+/** Draw one outbox text over `root`; tapping it focuses its appointment and opens its landing screen. */
+export function drawText(m, { go, root = document.getElementById('screen') } = {}) {
+  if (!m) return null;
+  return textBanner({
+    body: m.body, link: m.link, to: m.to,
+    onOpen: () => {
+      if (m.apptId) setFocus(m.apptId);
+      /* pre-MVP A2: a Help text opens its case (c-case / t-case read state.ui.help, a-case state.ui['a-case']) */
+      if (m.caseId) { state.ui.help = { caseId: m.caseId, apptId: m.apptId }; state.ui['a-case'] = { ...(state.ui['a-case'] ?? {}), caseId: m.caseId }; }
+      go?.(landing(m));
+    },
   }, root);
+}
+/** The newest DELIVERED text to `who` sent after outbox seq `since` (a text held back — texts off, undelivered — never shows). */
+export const newestText = (who, since = 0) => state.outbox.filter((m) => m.to === who && m.seq > since && m.status === 'delivered').at(-1) ?? null;
+/** The outbox's last seq (a Demo action reads it before it moves the clock). */
+export const outboxMark = () => state.outbox.at(-1)?.seq ?? 0;
+/** After a Demo action: the newest text it sent to the person on screen (whatever sim.texts says — the copy is there to review). */
+export function showNewText(since, { go } = {}) {
+  return drawText(newestText(state.persona, since), { go });
+}
+/**
+ * Every render: texts sent since the last render are drawn (the newest one for the person on screen) while `sim.texts` is 'on' — on after
+ * onboarding (to-done), off by default so a flow's baseline stays still; with texts off they are only remembered, so turning them on later
+ * never replays them (D-301).
+ */
+function liveTexts(root, { go } = {}) {
+  const seen = state.ui.textsSeen ?? 0;
+  const mark = outboxMark();
+  state.ui.textsSeen = mark;
+  if (state.sim.texts !== 'on' || mark <= seen) return;
+  drawText(newestText(state.persona, seen), { go, root });
 }

@@ -4,7 +4,7 @@
    Taily fee sits under Services with what it was taken from; the
    courier is never Amara's money (D-04). Failed → the pill and the one
    meta line under the figure carry it (K-17 #7: no banner repeating them)
-   and a sticky "Fix bank details".
+   and a sticky "Update bank details".
    ============================================================ */
 import { register, render as go, back, personaHome } from '../app.js';
 import { state } from '../state.js';
@@ -45,7 +45,7 @@ function words(p) {
 /** M6-P-18: why this payout is a kept deposit / no-show pay, said once under the job, with the calm pill the job itself wears. */
 function keptLine(a, p) {
   const w = statusWord(a, 'tailor');
-  const why = p.kind === 'no-show' ? `${esc(state.customer.first)} didn’t show up` : a.cancel?.reason === 'unconfirmed' ? `Cancelled because ${esc(state.customer.first)} didn’t confirm` : a.cancel?.afterConfirm ? `Cancelled by ${esc(state.customer.first)} after she confirmed` : `Cancelled by ${esc(state.customer.first)} within ${POLICY.CANCEL_WINDOW_H} hours`;
+  const why = p.kind === 'no-show' ? `${esc(state.customer.first)} didn’t show up` : a.cancel?.reason === 'unconfirmed' ? `Cancelled because ${esc(state.customer.first)} didn’t confirm` : `Cancelled by ${esc(state.customer.first)} within ${POLICY.CANCEL_WINDOW_H} hours`;
   return `<div class="${ID}__why">${statusPill(w.pill, w.label)}<p class="t-small c-600">${why}</p></div>`;
 }
 
@@ -100,7 +100,7 @@ function view() {
     ${sectionHead('How it adds up', { id: `${ID}-sum` })}
     <div class="${ID}__sum">${sum}</div>
   </section>
-</main>${failed ? actionBar({ ctaLabel: 'Fix bank details', ctaAct: 'fix-bank' }) : ''}`;
+</main>${failed ? actionBar({ ctaLabel: 'Update bank details', ctaAct: 'fix-bank' }) : ''}`;
 }
 
 function wire(root) {

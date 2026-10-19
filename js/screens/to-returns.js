@@ -5,11 +5,11 @@
    Drafts live in state.ui['to-returns'].draft (D-34).
    ============================================================ */
 import { register, render as go, back, currentScreen } from '../app.js';
-import { state, T, SECTIONS } from '../state.js';
+import { state, T, SECTIONS, onboarded, collectAddress } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, headingRow, banner, checkRow, customerPreview,
-  actionBar, toast, modalOverlay, leaveModal, returnsRows, sectionHead, esc,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, checkRow, customerPreview,
+  actionBar, toast, modalOverlay, leaveModal, leaveSheet, returnsRows, sectionHead, esc,
 } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
@@ -24,7 +24,7 @@ const NEXT = ONBOARDING_STEPS[STEP + 1]?.screen ?? 'to-done';
 const TITLE = '<h1 class="t-title">How do customers get their orders back?</h1>';
 const KEYS = ['pickup', 'courier'];
 const ui = () => (state.ui[ID] ??= {});
-const editing = () => !!myTailor().live;
+const editing = () => onboarded(myTailor());
 const hasShop = () => !!myTailor().shop?.enabled;
 
 const ROWS = {
@@ -32,7 +32,8 @@ const ROWS = {
   courier: { label: RETURN_LABEL.courier, caption: 'We send a courier. The customer pays for it — nothing comes out of your payout.' },
 };
 const NEEDS_SHOP = 'Needs a shop. Turn it on in Where you work.';
-const COURIER_HOME = 'We send a courier to collect it from your home. The customer pays for it — nothing comes out of your payout.';
+/** B-15 (D-356): without a shop the courier collects from the private address she gave in Where you work. */
+const courierHome = () => `We send a courier to collect it from ${collectAddress(myTailor()) || 'the address you gave us'}. The customer pays for it — nothing comes out of your payout.`;
 const MSG = {
   'return-required': 'Pick at least one return option.',
   'pickup-needs-shop': NEEDS_SHOP,
@@ -73,14 +74,7 @@ function previewHtml(d) {
 function resumeBanner() {
   if (editing() || !state.ui.onboarding?.resumed) return '';
   const t = myTailor();
-  const done = ONBOARDING_STEPS.filter((s) => t.onboarding[s.id]).map((s) => s.label);
-  const left = ONBOARDING_STEPS.length - done.length;
-  const names = done.map((l, i) => (i ? l[0].toLowerCase() + l.slice(1) : l));
-  const list = names.length < 2 ? names[0] ?? 'Nothing' : names.length === 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`;
-  return banner({
-    tone: 'info', title: 'Pick up where you left off', dismissible: true,
-    text: `${list} ${names.length < 2 ? 'is' : 'are'} done. ${left} ${left === 1 ? 'step' : 'steps'} to go before customers can book you.`,
-  });
+  return banner({ tone: 'info', title: 'Pick up where you left off', dismissible: true, text: resumeText(t) });   // SF-43
 }
 
 function barHtml() {
@@ -102,7 +96,7 @@ function view() {
   const rows = KEYS.map((k) => {
     const off = k === 'pickup' && !hasShop();
     return checkRow({
-      id: `ret-${k}`, label: ROWS[k].label, caption: off ? NEEDS_SHOP : k === 'courier' && !hasShop() ? COURIER_HOME : ROWS[k].caption, checked: eff[k], disabled: off,
+      id: `ret-${k}`, label: ROWS[k].label, caption: off ? NEEDS_SHOP : k === 'courier' && !hasShop() ? courierHome() : ROWS[k].caption, checked: eff[k], disabled: off,
       error: '', attrs: `data-act="ret" data-id="${k}"`,
     });
   }).join('');
@@ -110,7 +104,7 @@ function view() {
   ${mode ? '' : onboardingSteps(SECTION, done)}
   ${resumeBanner()}
   ${mode ? headingRow(TITLE) : `<div class="heading-block ${ID}__title">${TITLE}</div>`}
-  <p class="to-returns__lead t-body c-600">Pick every option you offer.</p>
+  <p class="to-returns__lead t-body c-600">Pick every option you offer.</p>${mode ? editScopeNote() : ''}
   <div class="card to-returns__card${err ? ' to-returns__card--error' : ''}" role="group" aria-label="Return options"${err ? ' aria-describedby="returns-msg"' : ''}>${rows}</div>
   <p class="field__msg field__msg--error to-returns__error" id="returns-msg" role="alert"${err ? '' : ' hidden'}>${esc(err)}</p>
   ${customerPreview({ html: previewHtml(d) })}
@@ -144,7 +138,7 @@ function clearError(root) {
 
 /* ---------- leave / finish later ---------- */
 function openLeave() {
-  modalOverlay(leaveModal(), { dataS: `${ID}-leave` }, (holder, close) => {
+  leaveSheet({}, { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => {
       close();
@@ -183,7 +177,7 @@ function submit() {
     if (state.ui.onboarding) state.ui.onboarding.resumed = false;
     if (wasEditing) {
       back() || go('t-shop');
-      toast('Saved. Customers see the change now.', { tone: 'success' });
+      toast('Saved. New requests use this now.', { tone: 'success' });
     } else {
       go(NEXT);
     }
@@ -229,4 +223,5 @@ function wire(root) {
   });
 }
 
-register(ID, view, wire);
+/* S-22 (D-360): the top nav asks before dropping unsaved edits */
+register(ID, view, wire, { canLeave: () => !editing() || !dirty() || !!ui().busy, discard: () => { state.ui[ID] = {}; } });

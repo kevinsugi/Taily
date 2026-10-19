@@ -1,0 +1,10 @@
+/* c-receipt — a receipt she can keep (S-25, pre-MVP B2). Flat reference content: parties, the order + breakdown, the dated payments. */
+.c-receipt { padding-bottom: var(--space-40); }
+.c-receipt__number { margin: var(--space-4) 0 0; }
+.c-receipt__parties { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-16); }
+.c-receipt__party { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.c-receipt__party p { margin: 0; overflow-wrap: anywhere; }
+.c-receipt__email { gap: var(--space-4); }
+.c-receipt__email p { margin: 0; text-wrap: pretty; }
+.c-receipt__alert { margin-top: var(--rhythm-block); }
+@media (max-width: 22.4375em) { .c-receipt__parties { grid-template-columns: minmax(0, 1fr); } }

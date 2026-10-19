@@ -24,7 +24,16 @@
 /* the loading skeleton mirrors the circle avatar (M7 A5.4) */
 .c-tailors .skeleton__dot { border-radius: var(--radius-full); }
 /* AU-P2-3: under 375 px the three filter pills sit two across, the first on its own row */
-@media (max-width: 374px) {
+@media (max-width: 23.375em) {
   .c-tailors__filters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .c-tailors__filters > :first-child { grid-column: 1 / -1; }
 }
+/* K-54 F6 (D-459): at the zoom tier (300 px and under) each filter gets its own row, so ZIP and need-by never truncate to "112…" */
+@media (max-width: 18.75em) {
+  .c-tailors__filters { grid-template-columns: minmax(0, 1fr); }
+  .c-tailors__filters > :first-child { grid-column: auto; }
+}
+/* P-34 (D-358): the area waitlist under an empty state */
+.c-tailors__waitlist { display: flex; justify-content: center; margin-top: var(--space-8); text-align: center; }
+.c-tailors__waitlist .text-link { min-height: 44px; }
+p.c-tailors__waitlist { margin: var(--space-8) var(--space-20) 0; }

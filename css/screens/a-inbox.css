@@ -1,0 +1,6 @@
+/* a-inbox — the admin's inbox (pre-MVP A2). Rows are components-v5.css .admin-row / .admin-note. */
+.a-inbox { gap: 0; padding-bottom: var(--space-40); }
+.a-inbox__who, .a-inbox__summary { margin: 0; }
+.a-inbox__summary { margin-top: var(--rhythm-tight); }
+.a-inbox__list { display: flex; flex-direction: column; }
+.a-inbox__notes { padding-block: 0; }

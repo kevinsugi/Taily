@@ -51,6 +51,7 @@ const LOGO = `<svg class="top-nav__logo" viewBox="0 0 131.5 60.74" width="74" he
 export const NAV = {
   customer: [['home', 'Home'], ['bookings', 'Bookings'], ['messages', 'Messages'], ['account', 'Account']],
   tailor: [['home', 'Home'], ['shop', 'Shop'], ['messages', 'Messages'], ['earnings', 'Earnings']],   // K-04 / CR-6b: Messages before Earnings
+  admin: [['inbox', 'Inbox'], ['checks', 'Verifications'], ['ledger', 'Ledger']],   // pre-MVP A2 (K-48.1): Kevin's admin view; K-53 (c7): + the Ledger; K-54 B2: + Verifications
 };
 /**
  * Top nav (M7 A5.2, D-187): the logo and four 44 x 44 ICON links. The label is the link's aria-label + title. `badges` (D-164):
@@ -108,6 +109,7 @@ export function chrome(active = 'home', { persona = 'customer', time = '9:41' } 
  * need her ("action" status word).
  */
 export function navBadges(persona = 'customer') {
+  if (persona === 'admin') return { inbox: adminInbox().unread, checks: verificationQueue().review.filter((t) => verifyView(t).pending.length).length };   // K-54 B2: a tailor waiting on a check
   if (persona === 'tailor') {
     const replies = apptsFor('tailor').filter((a) => a.status === 'price-change' && statusWord(a, 'tailor').pill === 'action').length;
     return {
@@ -131,14 +133,17 @@ import { PILL_ICONS, CHEVRON_DOWN, ICON_EDIT, ICON_CAMERA, ICON_CANCEL, CHEVRON_
 export { NAV_ICONS, ICON_INFO, ICON_VERIFIED, ICON_MORE, ICON_CHAT, ICON_DIRECTIONS, ICON_CALENDAR };
 import { GARMENT_ICONS, GARMENT_TYPES, TRUST_BADGES, PRIVACY_NOTE, ZIP_INFO } from './data.js';
 import * as DATA from './data.js';
-import { fmt, fmtExact, fmtNeg, cents } from './money.js';
-import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb } from './dates.js';
+import { fmt, fmtExact, fmtNeg, cents, HOLD_DAYS } from './money.js';
+import { fmtShort, fmtWhen, fmtCountdown, fmtDay, fmtTime, isoDay, nb, dayWord } from './dates.js';
 import { POLICY } from './money-config.js';
-import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor } from './state.js';
+import { state, T, apptsFor, threadsFor, priceChangeView, handoffSlots, slotText, courierQuoteFor, verifyView, checkState,
+  caseById, caseView, caseMessages, casesFor, caseOfAppt, openCaseOfAppt, helpTopics, topicLabel, REPORT_REASONS, isBlocked, blockedBy, getAppt, tailorById,
+  maskContact, deliveryReportOpen, adminInbox, unclaimedAt, firstChecksPassed, approvedPendingBackground, verificationQueue } from './state.js';
+import { protectionLine, policyList, HELP_CONTACT } from './policies.js';
 import { scheduler, slotColumns, readSlot, windowColumns, readWindow, whenNote, SCHED_ROW } from './scheduler.js';   // K-40: the handoff time sheet (scheduler.js imports this file back; both only call across at run time)
 import { withLatency } from './sim.js';
 import { inbox } from './tailor-data.js';
-import { statusWord } from './focus.js';
+import { statusWord, setFocus } from './focus.js';
 
 /**
  * CTA — variant: 'default' | 'secondary' | 'danger' (error fill + white text: the ONE filled button of a destructive confirm sheet, D-79).
@@ -193,6 +198,18 @@ const PILL_VARIANTS = {
   /* M7: t-shop's "Bookable" / "Paused" */
   'bookable':              { tone: 'done',     label: 'Bookable' },
   'paused':                { tone: 'pending',  label: 'Paused' },
+  /* DG-4 (option B, D-350): one dot + word per verification check, and the Shop's review state */
+  'check-verified':        { tone: 'done',     label: 'Verified' },
+  'check-pending':         { tone: 'pending',  label: 'Pending' },
+  'check-needs':           { tone: 'action',   label: 'Needs info' },
+  'check-todo':            { tone: 'calm',     label: 'Not started' },
+  'check-waitlist':        { tone: 'stop',     label: 'Waitlist' },
+  'under-review':          { tone: 'pending',  label: 'Under review' },
+  /* pre-MVP A2: a Taily Help case in the admin's inbox */
+  'case-reply':            { tone: 'action',   label: 'Waiting on you' },
+  'case-overdue':          { tone: 'stop',     label: 'Overdue' },
+  'case-waiting':          { tone: 'pending',  label: 'Waiting on them' },
+  'case-closed':           { tone: 'calm',     label: 'Closed' },
 };
 
 export function statusPill(status, label) {
@@ -758,12 +775,15 @@ export function modalOverlay(modalHtml, { dataS = '', instant = false } = {}, wi
  * prototype's scope (calendar, profile, reviews). Ink pill, bottom of
  * the viewport, auto-dismisses.
  */
-export function toast(msg, { tone = 'neutral', action = '', onAction = null, ms = action ? 5000 : tone === 'error' ? 6000 : 4000 } = {}) {
+export function toast(msg, { tone = 'neutral', action = '', onAction = null, ms = action ? 10000 : tone === 'error' ? 6000 : 4000 } = {}) {
   document.querySelector('.toast')?.remove();
   const el = document.createElement('div');
   el.className = tone === 'neutral' ? 'toast' : `toast toast--${tone}`;   // v5: neutral | success | warning | error | info
-  el.setAttribute('role', tone === 'error' ? 'alert' : 'status');
   el.textContent = msg;
+  /* SF-20: screen readers hear the toast through a live region that is always in the page (a region added with its text is often missed);
+     the visible toast carries no role of its own */
+  const live = document.getElementById(tone === 'error' ? 'toast-alert' : 'toast-live');
+  if (live) { live.textContent = ''; requestAnimationFrame(() => { live.textContent = msg; }); }
   if (action) {   // an inline action (Undo): the toast takes pointer events for its button
     el.classList.add('toast--action');
     const btn = document.createElement('button');
@@ -776,10 +796,20 @@ export function toast(msg, { tone = 'neutral', action = '', onAction = null, ms 
   if (bar) el.style.bottom = `${bar.offsetHeight + 12}px`;
   document.documentElement.classList.add('has-toast');   // the persona toggle steps aside
   requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('toast--in')));
-  setTimeout(() => {
+  const hide = () => {
     el.classList.remove('toast--in');
     setTimeout(() => { el.remove(); if (!document.querySelector('.toast')) document.documentElement.classList.remove('has-toast'); }, 300);
-  }, ms);
+  };
+  let timer = setTimeout(hide, ms);
+  if (action) {
+    /* SF-20: an action toast (10 s) waits while the pointer or focus is on it, then gets its full time again */
+    const pause = () => clearTimeout(timer);
+    const resume = () => { clearTimeout(timer); timer = setTimeout(hide, ms); };
+    el.addEventListener('pointerenter', pause);
+    el.addEventListener('focusin', pause);
+    el.addEventListener('pointerleave', resume);
+    el.addEventListener('focusout', (e) => { if (!el.contains(e.relatedTarget)) resume(); });
+  }
 }
 
 /** Remove every toast now (a screen change does this — D-71: a toast never outlives its screen). */
@@ -997,6 +1027,8 @@ export const ICON_IMAGE = GLYPH('<rect x="2" y="3" width="12" height="10" rx="2"
 export const ICON_BELL = GLYPH('<path d="M3.6 11.2h8.8l-1.1-1.6V6.8a3.3 3.3 0 0 0-6.6 0v2.8z"/><path d="M6.6 13.4a1.5 1.5 0 0 0 2.8 0"/>');
 /** Wi-Fi with a slash (the offline banner). */
 export const ICON_WIFI_OFF = GLYPH('<path d="M1.6 6.2a9.6 9.6 0 0 1 3-1.9M14.4 6.2a9.6 9.6 0 0 0-4.4-2.4M4 8.8a5.6 5.6 0 0 1 2-1.2M12 8.8a5.6 5.6 0 0 0-1.4-1M8 12.2h.01"/><path d="M2 2l12 12"/>');
+/** Phone (S-32: the visit-day "Call" tile — calls go through Taily, after the MVP). */
+export const ICON_PHONE = GLYPH('<path d="M5.2 2.4H3.6a1.2 1.2 0 0 0-1.2 1.3 10.4 10.4 0 0 0 9.7 9.7 1.2 1.2 0 0 0 1.3-1.2v-1.6l-2.6-1-1.3 1.3a7.6 7.6 0 0 1-3.5-3.5l1.3-1.3z"/>');
 /** Alert triangle (a failed courier price, M6-P-09). */
 export const ICON_ALERT = GLYPH('<path d="M8 2.4l6 10.4H2z"/><path d="M8 6.6v3M8 11.4h.01"/>');
 
@@ -1014,6 +1046,11 @@ export function sectionHead(title, { id = '', count = null, aside = '' } = {}) {
  * Text link (A5.9, D-195) — the secondary action everywhere an outline button used to be. tone: default (accent) | danger | muted.
  * `icon` is HTML before the label. `disabled` greys it out and sets the attribute. `href` renders an anchor instead (a map / .ics download), same markup.
  */
+/** K-52 / K-53 a8 (D-421, D-422) + the L + M merge: the admin's own tools at the foot of BOTH admin tabs (Inbox · Ledger) — Test flows
+    (only while the tools are on: his sign-in or a test boot) and Sign out. Wired by app.js `wireAdminTools(root)`. */
+export function adminTools({ testFlows = false } = {}) {
+  return `<div class="page-actions admin-tools" data-admin-tools><div class="page-actions__links">${testFlows ? textLink('Test flows', { act: 'test-flows' }) : ''}${textLink('Sign out', { act: 'admin-sign-out', tone: 'muted' })}</div></div>`;
+}
 export function textLink(label, { act = '', tone = 'default', icon = '', attrs = '', disabled = false, href = '' } = {}) {
   if (href) return `<a class="text-link text-link--${tone}" href="${esc(href)}"${act ? ` data-act="${esc(act)}"` : ''}${attrs ? ` ${attrs}` : ''}>${icon}<span>${label}</span></a>`;
   return `<button type="button" class="text-link text-link--${tone}"${act ? ` data-act="${esc(act)}"` : ''}${disabled ? ' disabled aria-disabled="true"' : ''}${attrs ? ` ${attrs}` : ''}>${icon}<span>${label}</span></button>`;
@@ -1045,19 +1082,19 @@ export function flowBar({ step = 1, total = BOOKING_STEPS.length, back = true, e
 /**
  * The tailor's Verified check — the ONLY verified mark in the app (customers carry none, K-15). A 16 px seal icon (`word: true` adds the word
  * "Verified", the profile and list rows) that is a <button> with a 44 px hit area; tapping it opens ONE non-modal tooltip popover
- * (`openVerifiedPopover`) listing the four checks. `years` = the tailor's years of experience (data-years). `inline` renders a
- * role="button" span for a host that is itself a <button> (tailorRow) — the tap is intercepted before the row's own action.
+ * (`openVerifiedPopover`) listing the four checks. `years` = the tailor's years of experience (data-years). S-18 (D-442): always a real
+ * <button>; a card host (tailorRow) is a stretched-link article, so the check sits beside the card's link, never inside a button.
  */
-export function verifiedCheck({ years = 0, word = false, inline = false } = {}) {
+export function verifiedCheck({ years = 0, word = false } = {}) {
   const attrs = `class="verified verified--check${word ? '' : ' verified--icon'}" data-verified data-years="${Number(years) || 0}" data-hit="inline" aria-label="Verified tailor — show checks" aria-haspopup="dialog" aria-expanded="false" aria-controls="verified-pop"`;
-  const inner = `${ICON_VERIFIED}${word ? '<span>Verified</span>' : ''}`;
-  return inline ? `<span role="button" tabindex="0" ${attrs}>${inner}</span>` : `<button type="button" ${attrs}>${inner}</button>`;
+  return `<button type="button" ${attrs}>${ICON_VERIFIED}${word ? '<span>Verified</span>' : ''}</button>`;
 }
 const ICON_TICK = GLYPH('<path d="m3.5 8.4 3 3 6-6.8"/>');
-/** The four checks, one tick each: ID verified · Background check · "<N> years of experience" · Insured. */
+/** The checks, one tick each: ID verified · Background check · "<N> years of experience" · Insured through Taily. DG-4 (D-350, Kevin):
+    insurance is Taily's, not something a tailor hands in — the line says whose it is. The mark itself shows only when every check passed. */
 export function verifiedChecks(years = 0) {
   const n = Number(years) || 0;
-  return ['ID verified', 'Background check', ...(n > 0 ? [`${n} ${n === 1 ? 'year' : 'years'} of experience`] : []), 'Insured'];
+  return ['ID verified', 'Background check', ...(n > 0 ? [`${n} ${n === 1 ? 'year' : 'years'} of experience`] : []), 'Insured through Taily'];
 }
 /** The popover's own markup (also the gallery's static specimen, inside `.anchor-pop.verified-pop` with an `anchorArrow`). */
 export function verifiedPopoverHtml(years = 0) {
@@ -1215,6 +1252,8 @@ const INFO = {
     'The deposit is held on your card, and charged only when the tailor accepts.',
     'It comes off your final total.',
     `Free cancellation until ${POLICY.CANCEL_WINDOW_H} hours before the visit. After that, the tailor keeps the deposit.`,
+    `${POLICY.REMINDER_H} hours before the visit, we text you to confirm. Confirming doesn’t end the free cancellation.`,   // SF-04 (K-41 / K-43) → K-51 → K-53: the free window always ends 24 h before
+    `If you don’t confirm ${POLICY.REMINDER_AUTOCANCEL_H} hours before the visit, we cancel it and the tailor keeps the deposit.`,
     'If the tailor cancels or doesn’t show up, you get it back in full.'] }),   // K-29 (Study-1 A5)
   fitting: (c) => ({ title: 'At the fitting', lines: [
     'You can add or remove items and services, and change prices.',
@@ -1225,7 +1264,7 @@ const INFO = {
     'Customers pay for the courier. It never comes out of your payout.',
     `If a customer cancels within ${POLICY.CANCEL_WINDOW_H} hours, you keep their deposit, with no fee.`] }),
   payouts: () => ({ title: 'When you get paid', lines: [
-    'Taily pays out every Friday for jobs you completed before that day.',
+    'Taily pays out every Friday for jobs completed before that day.',   // SF-31: complete = the customer has her order
     'Job payouts are after the Taily fee. Kept deposits and no-show pay have no fee.'] }),
   privacy: () => ({ title: 'Your privacy', lines: [
     'Phone numbers and emails stay private on Taily.',
@@ -1296,7 +1335,9 @@ export function photoStub({ type = '', tone = 0, size = 'thumb', kind = 'photo',
 /* ---------- avatar ---------- */
 /** Avatar (M7 A5.4, D-199) — a circle: initials on the warm tint. size 'sm' 40 | 'md' 56 | 'lg' 80. A real photo wins over initials;
     `photo: true` = the prototype's "added photo": the same tinted circle with the initials (a camera glyph when there are none yet). Decorative. */
-export function avatar({ initials = '', photo = null, size = 'sm', glyph = false } = {}) {
+export function avatar({ initials = '', photo = null, size = 'sm', glyph = false, mark = '' } = {}) {
+  /* K-54 P6 (D-464): `mark` = an icon in the well instead of initials (Taily Help's own avatar, never "Ta") */
+  if (mark) return `<span class="avatar avatar--${size} avatar--mark" aria-hidden="true">${mark}</span>`;
   /* `glyph` (CR-m4): an empty well shows the hanger until initials exist (the customer preview of a profile being written) */
   if (glyph && !photo) return `<span class="avatar avatar--${size} avatar--glyph" aria-hidden="true">${initials ? esc(initials) : ICON_HANGER}</span>`;
   if (photo === true) {
@@ -1332,26 +1373,36 @@ export function tailorRow({ id, name, initials, photo = null, verified = false, 
   const place = visitType === 'shop'
     ? [street, hood, distanceMi != null ? `${Number(distanceMi).toFixed(1)} mi` : ''].filter(Boolean).map((x) => esc(x)).join(' · ')
     : `Comes to you${hood ? ` · from ${esc(hood)}` : ''}`;
-  const attrs = declined ? ' aria-disabled="true"' : ` data-act="open-tailor" data-id="${esc(id)}"`;
+  /* S-18 (pre-MVP sweep, D-442): a stretched-link card like the K-25 request card — the card's one action is `.tailor-row__link`, a button laid
+     over the whole card whose name says what the card says; the Verified check is a real <button> above it (never a control nested in a
+     button). The face is aria-hidden (the link carries it) except the check. Declined: no link, the face is read as text. */
+  const hide = declined ? '' : ' aria-hidden="true"';
+  const placeWords = visitType === 'shop'
+    ? [street, hood, distanceMi != null ? `${Number(distanceMi).toFixed(1)} miles away` : ''].filter(Boolean).join(', ')
+    : `comes to you${hood ? ` from ${hood}` : ''}`;
+  const label = [name, rating ? `${rating.avg} stars, ${rating.count} reviews` : (yrs > 0 ? `${yrs} ${yrs === 1 ? 'year' : 'years'} tailoring` : ''),
+    `estimate ${format(q.total ?? 0)}`, placeWords, nextOpening ? `next opening ${fmtWhen(nextOpening)}` : ''].filter(Boolean).join(', ');
+  const link = declined ? '' : `<button type="button" class="tailor-row__link" data-act="open-tailor" data-id="${esc(id)}" aria-label="${esc(label)}"></button>`;
   /* the estimate is the focal element (R1-1-C-17): 24 / 600 tabular, "Est." under it */
-  const est = declined ? '' : `<span class="tailor-row__quote" data-money><span class="tailor-row__amt">${format(q.total ?? 0)}</span><span class="tailor-row__est">Est.</span></span>`;
+  const est = declined ? '' : `<span class="tailor-row__quote" data-money${hide}><span class="tailor-row__amt">${format(q.total ?? 0)}</span><span class="tailor-row__est">Est.</span></span>`;
   const line = String(cardLine ?? '').trim();
   const next = nextOpening ? `<span class="tailor-row__fact tailor-row__fact--next"><span class="tailor-row__glyph">${ROW_ICONS.next}</span><span class="tailor-row__fact-t">Next opening ${nb(fmtWhen(nextOpening))}</span></span>` : '';
   const facts = declined ? '' : `<span class="tailor-row__facts"><span class="tailor-row__fact"><span class="tailor-row__glyph">${visitType === 'shop' ? ROW_ICONS.shop : ROW_ICONS.home}</span><span class="tailor-row__fact-t">${place}</span></span>${next}</span>`;
-  return `<button type="button" class="tailor-row card${declined ? ' tailor-row--declined' : ''}${q.rush > 0 ? ' tailor-row--rush' : ''}"${attrs}>
+  const facePart = (html) => (hide && html ? html.replace(/^(\s*<\w+)/, `$1${hide}`) : html);
+  return `<article class="tailor-row card${declined ? ' tailor-row--declined' : ''}${q.rush > 0 ? ' tailor-row--rush' : ''}"${declined ? ' aria-disabled="true"' : ''} data-id="${esc(id)}">${link}
   <span class="tailor-row__head">
-    ${avatar({ initials, photo, size: 'sm' })}
+    ${facePart(avatar({ initials, photo, size: 'sm' }))}
     <span class="tailor-row__who">
-      <span class="tailor-row__name-row"><span class="tailor-row__name">${esc(name)}</span>${verified ? verifiedCheck({ years, inline: true }) : ''}</span>
-      ${slot}
+      <span class="tailor-row__name-row"><span class="tailor-row__name"${hide}>${esc(name)}</span>${verified ? verifiedCheck({ years }) : ''}</span>
+      ${facePart(slot)}
     </span>
     ${est}
   </span>
-  ${!declined && line ? `<span class="tailor-row__line" data-cardline>${esc(line)}</span>` : ''}
-  ${facts}
+  ${!declined && line ? `<span class="tailor-row__line" data-cardline${hide}>${esc(line)}</span>` : ''}
+  ${facePart(facts)}
   ${declined ? '<span class="tailor-row__note">Declined this request</span>' : ''}
-  ${!declined && booked ? `<span class="tailor-row__booked">${booked}</span>` : ''}
-</button>`;
+  ${!declined && booked ? `<span class="tailor-row__booked"${hide}>${booked}</span>` : ''}
+</article>`;
 }
 
 /* ---------- price row ---------- */
@@ -1490,6 +1541,16 @@ export function field({ id, label, value = '', type = 'text', inputmode, autocom
   ${msg ? `<p class="field__msg${error ? ' field__msg--error' : ''}" id="${msgId}"${error ? ' role="alert"' : ''}>${esc(msg)}</p>` : ''}
 </div>`;
 }
+/** S-27 (pre-MVP B2, D-379): THE address fields — Saved addresses (add, edit) and the booking's address sheet (c-where) use the same four:
+    street · apt, suite or unit · ZIP (city and state come from it, S-42) · access notes (optional, ≤ BOOKING_LIMITS.ACCESS_MAX; the tailor
+    sees them once she accepts). Markup only; `errors` = the model's codes (account.js addressErrors / state.js setJobAddress). */
+export const ADDRESS_ERRORS = { street: 'Enter your street address.', zip: 'Enter a 5-digit ZIP code.', notes: `Keep access notes to ${DATA.BOOKING_LIMITS.ACCESS_MAX} characters.` };
+export function addressFields({ values = {}, errors = {}, zipHelper = '', disabled = false } = {}) {
+  return `${field({ id: 'street', label: 'Street address', value: values.street ?? '', autocomplete: 'address-line1', error: errors.street ? ADDRESS_ERRORS.street : '', disabled })}
+  ${field({ id: 'unit', label: 'Apt, suite or unit (optional)', value: values.unit ?? '', autocomplete: 'address-line2', disabled })}
+  ${field({ id: 'zip', label: 'ZIP code', value: values.zip ?? '', inputmode: 'numeric', maxlength: 5, autocomplete: 'postal-code', helper: zipHelper, error: errors.zip ? ADDRESS_ERRORS.zip : '', disabled })}
+  ${field({ id: 'notes', label: 'Access notes (optional)', value: values.notes ?? '', maxlength: DATA.BOOKING_LIMITS.ACCESS_MAX, placeholder: 'Buzzer, gate code, where to wait', helper: 'Your tailor sees these once she accepts.', error: errors.notes ? ADDRESS_ERRORS.notes : '', disabled })}`;
+}
 /** Code input — one numeric one-time-code field, `length` digits, spaced for reading. `helper` replaces the default line under it (an error wins). */
 export function codeInput({ id, length = 6, value = '', error = '', label = 'Verification code', helper = '' } = {}) {
   const msgId = `${id}-msg`;
@@ -1556,10 +1617,11 @@ export function stepper({ steps = [], current = 0, done = [], variant = 'default
   <ol class="stepper__bar">${steps.map((_, i) => `<li class="stepper__seg stepper__seg--${state(i)}"${i === ci ? ' aria-current="step"' : ''}><span class="sr-only">${esc(labels[i])}</span></li>`).join('')}</ol>
 </nav>`;
   }
-  return `<div class="stepper">
+  /* SF-42: a list a screen reader can walk — each step says its name and whether it is done; the current one is aria-current (same visuals) */
+  return `<nav class="stepper" aria-label="Setup progress">
   <p class="stepper__text">Step ${ci + 1} of ${steps.length} · ${esc(labels[ci] ?? '')}</p>
-  <div class="stepper__bar" role="img" aria-label="Step ${ci + 1} of ${steps.length}">${steps.map((_, i) => `<span class="stepper__seg stepper__seg--${state(i)}"></span>`).join('')}</div>
-</div>`;
+  <ol class="stepper__bar">${steps.map((_, i) => `<li class="stepper__seg stepper__seg--${state(i)}"${i === ci ? ' aria-current="step"' : ''}><span class="sr-only">${esc(labels[i])}${state(i) === 'done' ? ', done' : ''}</span></li>`).join('')}</ol>
+</nav>`;
 }
 
 /** The five booking steps, shown as the first thing in .body on c-job → c-where → c-tailors → c-tailor → c-book / c-pay. */
@@ -1674,10 +1736,12 @@ const DEPOSIT_STATUS = { 'to-hold': 'Held today', authorized: 'On hold', capture
 /** K-44 (D-302) · D-303: "when is the balance charged", by the way back — ONE map for every customer surface: the c-ready Pay caption
  * and pay sheet, the Balance row (ready + held stages), and after paying the c-booking head label + timeline line and the c-bookings
  * row caption, so none can drift. `chargedWhen` falls back to "Charged at handoff" while no way back is chosen. */
+/** SF-33: the shop as one place line, skipping an empty business name — "Reyes Tailoring, 145 Bedford Ave" (+ city, state ZIP when `full`). */
+export const shopPlace = (t, { full = false } = {}) => [t?.shopName, t?.shop?.street, full ? t?.shop?.unit : '', full && t?.shop ? `${t.shop.city}, ${t.shop.state} ${t.shop.zip}` : ''].filter(Boolean).join(', ');   // S-42: + suite / floor
 export const CHARGE_CAPTION = { pickup: `Charged ${DATA.CHARGE_WHEN.pickup}`, courier: `Charged ${DATA.CHARGE_WHEN.courier}` };
-export const chargedWhen = (wayBack) => CHARGE_CAPTION[wayBack] ?? 'Charged at handoff';
+export const chargedWhen = (wayBack) => CHARGE_CAPTION[wayBack] ?? 'Charged when you get it';   // SF-39: no way back chosen yet
 /** The same timing inside a sentence: "You’ll be charged $144.00 at pickup." */
-export const chargedPhrase = (wayBack) => DATA.CHARGE_WHEN[wayBack] ?? 'at handoff';
+export const chargedPhrase = (wayBack) => DATA.CHARGE_WHEN[wayBack] ?? 'when you get it';
 /**
  * The customer's breakdown by stage — estimate | booked | ready | paid. Zero rows are omitted.
  * `q` is the quote() object in cents. `tailorFirst` names whose prices the services are.
@@ -1691,9 +1755,9 @@ export function customerBreakdown(q, { stage = 'estimate', tailorFirst = '', dep
   const est = (stage === 'estimate' || stage === 'booked') && !confirmed;   // D-49: still an estimate until the fitting (or a price change) confirms it
   const deposit = depositState ? (DEPOSIT_STATUS[depositState] ?? 'Paid') : stage === 'estimate' ? 'Due today' : 'Paid';
   /* K-27 (Study-1 A2): `held` = picked a way back, the balance is on hold; `charged` = captured before the handoff (unclaimed after 7 days) */
-  const settled = stage === 'paid' || stage === 'held' || stage === 'charged';
+  const settled = stage === 'paid' || stage === 'held' || stage === 'charged' || stage === 'unpaid';
   const balance = (stage === 'ready' || stage === 'held') && q.balance === 0 ? 'Nothing to pay'
-    : { paid: 'Paid', held: chargedWhen(wayBack), charged: 'Charged', ready: chargedWhen(wayBack) }[stage] ?? 'Due when ready';   // D-156; K-44 (D-302): the balance is never "On hold" / "Hold now" to her
+    : { paid: 'Paid', held: chargedWhen(wayBack), charged: 'Charged', ready: chargedWhen(wayBack), unpaid: 'Not charged yet' }[stage] ?? 'Due when ready';   // D-156; K-44 (D-302): the balance is never "On hold" / "Hold now" to her; D-04 (pre-MVP A1): `unpaid` = the charge failed
   const rows = [
     { label: 'Services', cents: q.services, caption: servicesCaption || (tailorFirst ? `${tailorFirst}’s prices` : '') },
     q.homeFee > 0 && { label: 'Home visit fee', cents: q.homeFee, caption: HOME_FEE_CAPTION },
@@ -1721,15 +1785,17 @@ export function receiptBlock(a, tailorFirst = '') {
   const done = [...a.history].reverse().find((h) => h.status === 'completed')?.at ?? a.requestedAt;
   const paid = a.payments.balance?.cents ?? 0;
   const refund = a.payments.refund?.cents ?? 0;
-  const cardLine = paid > 0 ? `Balance paid with ${balanceCardLabel(a)}.`
+  const failed = a.payments.balance?.state === 'capture-failed';   // D-04 (pre-MVP A1): the charge failed — nothing is "paid" yet
+  const cardLine = failed ? `We couldn’t charge ${balanceCardLabel(a)}.` : paid > 0 ? `Balance paid with ${balanceCardLabel(a)}.`
     : refund > 0 ? `${fmtExact(refund)} refunded to ${balanceCardLabel(a, a.cardId)}.` : '';
   /* M7-1-C-05: what was paid for — the approved lines with their garments — between the return line and the totals */
   const order = a.lines?.length ? `<div class="receipt__order">${changeList({ garments: withPhotos(priceChangeView(a, a.lines).garments, a.job), docs: a.priceChange?.docs ?? null, commentLabel: `${tailorFirst || 'Tailor'}’s comment` })}</div>` : '';
   return `<div class="receipt__how">${metaRow('', esc(`${DATA.RETURN_LABEL[how]} · ${fmtDay(done)}`), { icon: { pickup: 'bag', courier: 'truck' }[how] })}</div>
   ${stitchDivider()}
   ${order}
-  ${customerBreakdown(a.money, { stage: 'paid', tailorFirst, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '' })}
-  ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}`;
+  ${customerBreakdown(a.money, { stage: failed ? 'unpaid' : 'paid', tailorFirst, depositState: a.payments.deposit.state, confirmed: true, refundState: a.payments.refund?.state ?? '' })}
+  ${cardLine ? `<p class="t-small c-600 receipt__card"${paid > 0 ? '' : ' data-money'}>${esc(cardLine)}</p>` : ''}
+  ${failed ? '' : `<div class="receipt__full">${textLink('See full receipt', { act: 'full-receipt' })}</div>`}`;   // S-25 (pre-MVP B2): the receipt she can keep (c-receipt)
 }
 /** The tailor's breakdown — no courier row (D-04). One order everywhere (D-165, amends D-137): Services, the Taily fee (a negative
     row, "On the $125.00 of services only" — its base), Home visit fee, Rush fee, then the total. */
@@ -1851,8 +1917,17 @@ export const ONBOARDING_STEPS = [
   { id: 'where', label: 'Where you work', screen: 'to-where' },
   { id: 'returns', label: 'Return options', screen: 'to-returns' },
   { id: 'availability', label: 'Availability', screen: 'to-availability' },
-  { id: 'payouts', label: 'Payouts', screen: 'to-payouts' },
+  { id: 'payouts', label: 'Background check and payouts', screen: 'to-payouts' },   // DG-4 (D-350): consent + the hosted payout step
 ];
+
+/** SF-43: the line under the intro of every live-shop editor (services, where, returns, availability, rush): what a save changes. */
+export const editScopeNote = () => '<p class="t-small c-600 edit-scope" data-edit-scope>Changes apply to new requests. Jobs you’ve already booked keep their price, place and times.</p>';
+
+/** SF-43: the resume banner's one sentence on every onboarding step — "3 of 6 steps done. 3 to go before customers can book you." */
+export function resumeText(tailor) {
+  const done = ONBOARDING_STEPS.filter((s) => tailor?.onboarding?.[s.id]).length;
+  return `${done} of ${ONBOARDING_STEPS.length} steps done. ${ONBOARDING_STEPS.length - done} to go before customers can book you.`;
+}
 
 /** "Step 2 of 6 · Services and prices" over six segments. `current` = id or index; `done` = ids (non-contiguous allowed). */
 export function onboardingSteps(current = 'profile', done = []) {
@@ -1872,6 +1947,134 @@ export function onboardingHeader({ editing = false, back = true, active = 'shop'
 </div>`;
 }
 
+/* ============================================================
+   DG-4, option B (K-48: D-05 / D-06, Kevin Oct 18; D-350…D-355) — the four checks behind the Verified check.
+   Onboarding collects them (ID with the profile photo and years on Profile; background consent + the payments partner's hosted
+   payout step on step 6); the checklist lives on Shop (and to-done) with one status dot per check and the one action she can take.
+   ============================================================ */
+/** How long we say the review takes (copy, not a timer). */
+export const REVIEW_TIME = '1 to 2 days';
+const CHECK_PILL = { verified: 'check-verified', pending: 'check-pending', 'needs-info': 'check-needs', 'not-started': 'check-todo', waitlist: 'check-waitlist' };
+const yearsWord = (n) => `${n} ${Number(n) === 1 ? 'year' : 'years'}`;
+/** One check in the tailor's words: `{ sub, pill, pillLabel, act }` — `act` = the one thing she can do about it ('' when nothing). */
+export function checkWords(t, id) {
+  const st = checkState(t, id);
+  const p = t?.payouts ?? {};
+  const out = { sub: '', pill: CHECK_PILL[st] ?? 'check-todo', pillLabel: undefined, act: '' };
+  if (id === 'id') {
+    out.sub = st === 'verified' ? `Matched ${fmtDay(t.verify.id.at)}` : { pending: 'We’re matching your ID to your profile photo', 'needs-info': 'Your ID didn’t match your photo. Add it again', 'not-started': 'Add a photo ID to your profile' }[st];
+    if (st === 'needs-info' || st === 'not-started') out.act = 'check-id';
+  } else if (id === 'background') {
+    /* K-53 Q8 (D-427): it runs last — while the other three are still open it waits for them */
+    const waits = st === 'pending' && !firstChecksPassed(t);
+    out.sub = st === 'verified' ? `Cleared ${fmtDay(t.verify.background.at)}` : waits ? 'Runs last, once your other checks pass' : { pending: `Usually ${REVIEW_TIME}. We’ll text you`, 'needs-info': 'We need a few more details. Check your texts', 'not-started': 'Agree to start it. It runs last' }[st];
+    if (waits) out.pillLabel = 'Waiting';
+    if (st === 'not-started') out.act = 'check-background';
+  } else if (id === 'years') {
+    /* K-54 B2 (D-451): Taily's review can ask about her years (needs info), then checks them again once she saves them (pending) */
+    out.sub = st === 'not-started' ? 'Add it to your profile' : st === 'waitlist' ? `${yearsWord(t.years)} · Taily tailors have at least ${DATA.TAILOR_LIMITS.YEARS_MIN}`
+      : st === 'needs-info' ? 'We need a few more details. Check your texts' : st === 'pending' ? `${yearsWord(t.years)} · we’re checking them` : yearsWord(t.years);
+    if (st !== 'verified' && st !== 'pending') out.act = 'check-years';
+  } else if (id === 'payout') {
+    if (p.status === 'paused') { out.pill = 'paused'; out.pillLabel = 'Paused'; out.sub = 'Confirm your tax info to get paid'; out.act = 'check-payout'; return out; }
+    out.sub = { verified: `${p.bank} •••• ${p.last4} · paid Fridays`, pending: 'Our payments partner is checking your details', 'needs-info': 'Your date of birth doesn’t match your SSN. Fix it', 'not-started': 'Set it up with our payments partner' }[st];
+    if (st === 'needs-info' || st === 'not-started') out.act = 'check-payout';
+  }
+  return out;
+}
+/** "2 of 4 checks passed" / "All 4 checks passed". */
+export function checksLine(t) {
+  const v = verifyView(t);
+  return v.allPassed ? `All ${v.total} checks passed` : `${v.passed} of ${v.total} checks passed`;
+}
+/** The checklist (one .card--list): each check's label, what it waits on, its status dot. A check she can act on is a button
+    (`data-act` = check-id | check-background | check-years | check-payout); `interactive: false` = read-only rows. */
+export function verifyChecklist(t, { interactive = true } = {}) {
+  const v = verifyView(t);
+  return `<div class="card card--list verify-list" data-checks="${v.passed}">${v.items.map((it) => {
+    const w = checkWords(t, it.id);
+    return listRow({ title: esc(it.label), sub: esc(w.sub), right: statusPill(w.pill, w.pillLabel), act: interactive ? w.act : '' });
+  }).join('')}</div>`;
+}
+/** The Shop's / Home's one-line state while she isn't listed yet: a pill word over the checks count. */
+export function reviewPill(t) {
+  const v = verifyView(t);
+  if (v.items.some((i) => i.state === 'waitlist')) return statusPill('check-waitlist', 'On the waitlist');
+  if (v.needsYou.length) return statusPill('check-needs', `Needs you · ${v.passed} of ${v.total} checks`);
+  if (approvedPendingBackground(t)) return statusPill('under-review', 'Approved · background check pending');   // K-53 Q8 (D-427)
+  return statusPill('under-review', `Under review · ${v.passed} of ${v.total} checks`);
+}
+/** K-53 Q8 (D-427): the line once ID, years and payout passed and only the background check (run last) is left. */
+export const APPROVED_PENDING_LINE = 'You’re approved, pending your background check.';
+
+/** DG-4 (D-354 counsel): the background-check disclosure — PLACEHOLDER copy, final FCRA disclosure + authorization, summary of rights and
+    the NYC Fair Chance Act notice come from counsel (docs/v5/COUNSEL.md). Shown as its own sheet (a stand-alone disclosure). */
+export const BACKGROUND_DISCLOSURE = [
+  'Before customers can book you, Taily orders a background check (a consumer report) from a background check company. It confirms who you are and looks at criminal records. We run it last, once your other checks pass.',   // K-53 Q8 (D-427)
+  'You can ask for a copy of the report and dispute anything in it that’s wrong. In New York City, Taily follows the Fair Chance Act: if something in the report might matter, we tell you and give you time to respond before we decide.',
+];
+export const COUNSEL_DRAFT = 'Draft for counsel: the final disclosure, authorization and summary of your rights go here.';
+export function disclosureHtml() {
+  return `<div class="disclosure">${BACKGROUND_DISCLOSURE.map((p) => `<p class="t-body c-700">${esc(p)}</p>`).join('')}<p class="t-small c-600 disclosure__draft" data-counsel>${esc(COUNSEL_DRAFT)}</p></div>`;
+}
+/** The disclosure sheet (dataS `background-disclosure`). `agree` (Shop: the check isn't started) adds the consent box + "Agree and start the
+    check"; without it the sheet only reads (to-payouts keeps its own box on the page). `onDone(result)` after a consent. */
+export function openBackgroundSheet({ agree = false, onDone } = {}) {
+  const body = (err = '') => `${disclosureHtml()}${agree ? `<div class="disclosure__agree">${checkRow({ id: 'bg-sheet-consent', label: 'I agree to a background check', caption: 'I’ve read the disclosure above.', error: err })}</div>
+    <div class="disclosure__go">${cta('Agree and start the check', { attrs: 'data-act="bg-agree"' })}</div>` : ''}`;
+  sheetOverlay(`<div class="disclosure-sheet" data-disclosure>${body()}</div>`, { header: 'Background check', dataS: 'background-disclosure', confirm: false }, (holder, close) => {
+    holder.addEventListener('click', (e) => {
+      if (!e.target.closest('[data-act="bg-agree"]')) return;
+      const box = holder.querySelector('#bg-sheet-consent');
+      if (!box?.checked) {
+        holder.querySelector('[data-disclosure]').innerHTML = body('Tick the box to agree.');
+        holder.querySelector('#bg-sheet-consent')?.focus();
+        return;
+      }
+      const r = T.consentBackground(true);
+      close({ instant: true });
+      onDone?.(r);
+    });
+  });
+}
+/** "Add your photo ID" (dataS `id-upload`): take or choose a photo of the ID; `onPick()` stores it (the profile draft, or T.uploadId on Shop). */
+export function openIdSheet(onPick) {
+  const html = `<p class="t-body c-700 id-sheet__lead">We match your ID to your profile photo. Only Taily sees it, never customers.</p>
+<div class="card card--list">${listRow({ title: 'Take a photo of your ID', act: 'id-take' })}${listRow({ title: 'Choose from library', act: 'id-library' })}</div>`;
+  sheetOverlay(html, { header: 'Your photo ID', dataS: 'id-upload', confirm: false }, (holder, close) => {
+    const pick = () => { close({ instant: true }); onPick?.(); };
+    holder.querySelector('[data-act="id-take"]').addEventListener('click', pick);
+    holder.querySelector('[data-act="id-library"]').addEventListener('click', pick);
+  });
+}
+/** What the payments partner asks for (to-payouts before the hand-off). */
+export function secureSetupCard() {
+  return `<div class="card secure-setup">
+  <p class="t-body w-600 secure-setup__title">Our payments partner sets up your payouts</p>
+  <p class="t-small c-600">It takes about 5 minutes. You’ll need:</p>
+  <ul class="secure-setup__list">
+    <li class="t-body c-700">Your legal name and date of birth</li>
+    <li class="t-body c-700">Your SSN or EIN, for your W-9 and 1099-K</li>
+    <li class="t-body c-700">The bank account for Friday payouts</li>
+  </ul>
+  <p class="t-small c-600">Taily never sees your full SSN or account number.</p>
+</div>`;
+}
+/** The partner's three rows after the hand-off: Identity · Tax info (W-9) · Bank account, each with its status dot. */
+export function payoutRows(t, { interactive = false } = {}) {
+  const p = t?.payouts ?? {};
+  const IDW = { verified: ['check-verified', 'Done'], verifying: ['check-pending', 'Verifying'], 'needs-info': ['check-needs', 'Needs info'], 'not-started': ['check-todo', 'Not started'] };
+  const TAXW = { verified: ['check-verified', 'Done'], received: ['check-verified', 'Done'], 'needs-info': ['check-needs', 'Needs info'], 'not-started': ['check-todo', 'Not started'] };
+  const idw = IDW[p.identity] ?? IDW['not-started'];
+  const taxw = TAXW[p.tax] ?? TAXW['not-started'];
+  const fix = interactive && (p.identity === 'needs-info' || p.tax === 'needs-info') ? 'fix-payout' : '';
+  return `<div class="card card--list payout-rows">
+  ${listRow({ title: 'Identity', sub: p.identity === 'needs-info' ? 'Date of birth doesn’t match' : 'Name, date of birth, SSN', right: statusPill(idw[0], idw[1]), act: p.identity === 'needs-info' ? fix : '' })}
+  ${listRow({ title: 'Tax info (W-9)', sub: p.tax === 'needs-info' ? `Confirm by ${fmtDay(p.issueDue ?? '')}` : p.taxAt ? `Received ${fmtDay(p.taxAt)}` : 'Your W-9', right: statusPill(taxw[0], taxw[1]), act: p.tax === 'needs-info' ? fix : '' })}
+  ${listRow({ title: 'Bank account', sub: p.last4 ? `${esc(p.bank)} •••• ${esc(p.last4)} · paid Fridays` : 'For Friday payouts', right: statusPill(p.last4 ? 'check-verified' : 'check-todo', p.last4 ? 'Done' : 'Not started') })}
+</div>`;
+}
+
 /**
  * Text area — the field chassis (label, inset box, helper / error) plus a live "n / max" counter. No `maxlength` by default
  * (a paste must be able to show the over-max error). The counter is `data-count` (screens update it in place on
@@ -1880,7 +2083,8 @@ export function onboardingHeader({ editing = false, back = true, active = 'shop'
  * `wireTextLimit`): typing stops at it, a paste is cut to fit with `notice` ("Trimmed to 110 characters.", live) under the box,
  * and AT the limit the counter and the box ring take the error tone while the field stays valid (`.text-area--full`).
  */
-export function textArea({ id, label, value = '', rows = 4, max, maxlength = null, placeholder = '', notice = '', helper = '', error = '' } = {}) {
+/* P-27 (D-362): `section: true` = the label reads as a section title (16 / 600 ink), a variant instead of a screen override (c-review). */
+export function textArea({ id, label, value = '', rows = 4, max, maxlength = null, placeholder = '', notice = '', helper = '', error = '', section = false } = {}) {
   const msg = error || helper;
   const msgId = `${id}-msg`;
   const countId = `${id}-count`;
@@ -1890,7 +2094,7 @@ export function textArea({ id, label, value = '', rows = 4, max, maxlength = nul
   const full = maxlength != null && n >= maxlength;
   const describedBy = [msg ? msgId : '', cap != null ? countId : '', maxlength != null ? `${id}-notice` : ''].filter(Boolean).join(' ');
   return `<div class="field text-area${error ? ' field--error' : ''}${full ? ' text-area--full' : ''}">
-  <label class="field__label" for="${id}">${esc(label)}</label>
+  <label class="field__label${section ? ' field__label--section' : ''}" for="${id}">${esc(label)}</label>
   <div class="field__box text-area__box">
     <textarea class="text-area__input" id="${id}" name="${id}" rows="${rows}"${maxlength != null ? ` maxlength="${maxlength}" data-maxlength="${maxlength}"` : ''}${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}${error ? ' aria-invalid="true"' : ''}${describedBy ? ` aria-describedby="${describedBy}"` : ''}>${esc(value)}</textarea>
   </div>
@@ -1943,13 +2147,21 @@ export function serviceRow({ id, label, caption = '', checked = false, price = '
  * Day hours — one weekday row: label + on/off switch (`#day-<sched>-<day>`); when open, two 44 px time buttons
  * (data-act="time", data-edge="open|close"), else "Closed". `open` / `close` are labels ("10:00 AM"). states: closed · open · error.
  */
-export function dayHours({ sched, day, label, open = null, close = null, error = '' } = {}) {
-  const on = open != null;
+/* K-53 a4 (S-34, D-424): `windows` = [[openLabel, closeLabel], …] (up to two: a split day) replaces open / close; the second row carries a
+   44 px ✕ (`data-act="remove-window"`), and `addable` adds "Add more hours" (`data-act="add-window"`) under a day with one window.
+   Time buttons carry `data-win` (0 | 1). */
+export function dayHours({ sched, day, label, open = null, close = null, error = '', windows = null, addable = false } = {}) {
+  const wins = windows ?? (open != null ? [[open, close ?? '']] : []);
+  const on = wins.length > 0;
   const id = `day-${sched}-${day}`;
-  const btn = (edge, text, what) => `<button type="button" class="day-hours__time t-body" data-act="time" data-sched="${esc(sched)}" data-day="${esc(day)}" data-edge="${edge}" aria-label="${esc(label)} ${what}: ${esc(text)}">${esc(text)}</button>`;
-  return `<div class="day-hours${on ? ' day-hours--open' : ''}${error ? ' day-hours--error' : ''}" data-day-row="${esc(day)}">
+  const nth = (i) => (wins.length > 1 ? (i ? ' (second hours)' : ' (first hours)') : '');
+  const btn = (i, edge, text, what) => `<button type="button" class="day-hours__time t-body" data-act="time" data-sched="${esc(sched)}" data-day="${esc(day)}" data-edge="${edge}" data-win="${i}" aria-label="${esc(label)}${nth(i)} ${what}: ${esc(text)}">${esc(text)}</button>`;
+  const row = ([o, c], i) => `<div class="day-hours__times"${i ? ' data-second' : ''}>${btn(i, 'open', o, 'opens')}<span class="day-hours__dash c-500" aria-hidden="true">–</span>${btn(i, 'close', c, 'closes')}${i
+    ? `<button type="button" class="day-hours__remove" data-act="remove-window" data-sched="${esc(sched)}" data-day="${esc(day)}" data-win="${i}" aria-label="Remove the second hours on ${esc(label)}">${ICON_CLOSE}</button>` : ''}</div>`;
+  return `<div class="day-hours${on ? ' day-hours--open' : ''}${wins.length > 1 ? ' day-hours--split' : ''}${error ? ' day-hours--error' : ''}" data-day-row="${esc(day)}">
   ${toggle({ id, label, checked: on, helper: on ? '' : 'Closed' })}
-  ${on ? `<div class="day-hours__times">${btn('open', open, 'opens')}<span class="day-hours__dash c-500" aria-hidden="true">–</span>${btn('close', close ?? '', 'closes')}</div>` : ''}
+  ${wins.map(row).join('')}
+  ${on && addable && wins.length === 1 ? `<button type="button" class="day-hours__add t-small w-600" data-act="add-window" data-sched="${esc(sched)}" data-day="${esc(day)}">+ Add more hours</button>` : ''}
   ${error ? `<p class="field__msg field__msg--error day-hours__error" role="alert">${esc(error)}</p>` : ''}
 </div>`;
 }
@@ -2012,7 +2224,37 @@ export function rushLadder(rush = []) {
 }
 
 /**
- * Leave modal — the "unsaved changes" alertdialog content for modalOverlay(leaveModal(…), { dataS }, wireFn).
+ * P-32 (pre-MVP B2, D-375) — THE container for a confirm that ends or loses something: a bottom sheet, the majority pattern (cancel a
+ * booking, decline, remove a card, withdraw changes…). Sign out, Leave without saving and Delete account moved here from the centred modal.
+ * `title` = the sheet header (the question), `body` = HTML lines under it, then the actions stacked full width: `primary`
+ * `{ label, act, variant: 'danger' | 'default', busyLabel }` and an optional `secondary` `{ label, act }` (outline). `wireFn(holder, close)`
+ * as sheetOverlay; returns close(). Focus the safe choice in wireFn (R5-1-C-03).
+ */
+export function confirmSheet({ title, body = '', primary, secondary = null, dataS = '' } = {}, wireFn) {
+  const bodyId = `confirm-body-${++sheetSeq}`;
+  const html = `<div class="confirm-sheet"${body ? ` aria-describedby="${bodyId}"` : ''}>
+  ${body ? `<div class="confirm-sheet__body" id="${bodyId}">${body}</div>` : ''}
+  <div class="confirm-sheet__actions">
+    ${cta(primary.label, { variant: primary.variant ?? 'danger', busyLabel: primary.busyLabel ?? '', attrs: `data-act="${esc(primary.act)}"` })}
+    ${secondary ? cta(secondary.label, { variant: 'secondary', attrs: `data-act="${esc(secondary.act)}"` }) : ''}
+  </div>
+</div>`;
+  return sheetOverlay(html, { header: esc(title), dataS, confirm: false }, (holder, close) => {
+    holder.querySelector('.sheet')?.setAttribute('role', 'alertdialog');
+    if (body) holder.querySelector('.sheet')?.setAttribute('aria-describedby', bodyId);
+    wireFn?.(holder, close);
+  });
+}
+/** P-32: "Leave without saving?" as the confirm sheet — Keep editing (primary) · Discard changes (secondary); the acts are unchanged. */
+export function leaveSheet({ title = 'Leave without saving?', body = 'Your changes will be lost.' } = {}, { dataS = '' } = {}, wireFn) {
+  return confirmSheet({
+    title, body: `<p class="t-body c-700">${esc(body)}</p>`, dataS,
+    primary: { label: 'Keep editing', act: 'keep-editing', variant: 'default' }, secondary: { label: 'Discard changes', act: 'discard' },
+  }, wireFn);
+}
+
+/**
+ * Leave modal — the "unsaved changes" alertdialog markup (gallery only since P-32: screens open leaveSheet()).
  * Keep editing (primary) · Discard changes (secondary).
  */
 export function leaveModal({ title = 'Leave without saving?', body = 'Your changes will be lost.' } = {}) {
@@ -2038,7 +2280,12 @@ const STRIP_TONES = ['warn', 'action', 'done', 'calm'];
  * clock). `lead` prefixes the requested text ("New request · "); `text` + `tone` force a fixed line for an ended request (declined, expired);
  * `page` bleeds it across the screen under the nav (K-15) instead of across a card. Empty string when there is nothing to show.
  */
-export function requestStrip({ status = 'requested', expiresAt = null, now = null, lapseAt = null, when = '', lead = '', text = '', tone: forced = '', page = false, icon = 'clock', right = '' } = {}) {
+export function requestStrip(opts = {}) {
+  const html = stripHtml(opts);
+  /* SF-19: the page's one state strip is named for the router (announce + the h1's description) */
+  return opts.page && html ? html.replace(/^<(div|span) /, '<$1 id="page-strip" ') : html;
+}
+function stripHtml({ status = 'requested', expiresAt = null, now = null, lapseAt = null, when = '', lead = '', text = '', tone: forced = '', page = false, icon = 'clock', right = '' } = {}) {
   const suggested = status === 'suggested';
   const ms = suggested || expiresAt == null ? null : toMs(expiresAt) - toMs(now);
   const lapseMs = suggested && lapseAt ? toMs(lapseAt) - toMs(now) : null;
@@ -2056,7 +2303,7 @@ export function requestStrip({ status = 'requested', expiresAt = null, now = nul
     let shown = forced; let end = right;
     if (lapseAt != null && !right) {
       const left = toMs(lapseAt) - toMs(now);
-      end = left <= 0 ? 'Expired' : `${fmtCountdown(left)} left · by ${fmtTime(lapseAt)}`;
+      end = left <= 0 ? 'Expired' : `${fmtCountdown(left)} left · by ${isoDay(lapseAt) === isoDay(toMs(now)) ? fmtTime(lapseAt) : `${dayWord(lapseAt, toMs(now))} ${fmtTime(lapseAt)}`}`;   // SF-35: a deadline on another day names it
       if (forced === 'warn' && left > 0 && left <= POLICY.EXPIRING_SOON_MIN * 60000) shown = 'urgent';
     }
     return `<div class="request-card__strip request-card__strip--${shown}${pageCls}${end ? ' request-card__strip--split' : ''}" data-strip="${forced}">${STRIP_ICONS[icon] ?? ''}<span class="request-card__strip-lead">${esc(text)}</span>${end ? `<span class="request-card__strip-clock">${esc(end)}</span>` : ''}</div>`;
@@ -2071,7 +2318,7 @@ export function requestStrip({ status = 'requested', expiresAt = null, now = nul
  * t-home card (inside its <button>, spans) and the t-request screen (`page`: the name is the h1, a 28 serif title; `info` makes the payout column
  * a button that opens the Taily-fee sheet, label + ⓘ). The customer carries no Verified check (K-15) — only tailors do.
  */
-export function requestHead({ name = '', initials = '', where = '', again = false, payoutCents = 0, label = 'Your payout', page = false, info = false, infoLabel = 'The Taily fee', check = '', lines = [], trail = '' } = {}) {
+export function requestHead({ name = '', initials = '', where = '', again = false, payoutCents = 0, label = 'Your payout', page = false, info = false, infoLabel = 'The Taily fee', check = '', lines = [], trail = '', more = '' } = {}) {
   const nameHtml = `${esc(name)}${again ? '<span class="request-card__again t-small c-600">Sent again</span>' : ''}`;
   const h1 = `<h1 class="request-card__name t-title">${nameHtml}</h1>`;
   const who = page
@@ -2083,7 +2330,8 @@ export function requestHead({ name = '', initials = '', where = '', again = fals
   const pay = trail ? `<span class="page-head__trail">${trail}</span>` : info
     ? `<button type="button" class="request-card__payside request-head__pay" data-info="fee" aria-haspopup="dialog" aria-label="${esc(`${label} ${fmtExact(payoutCents)}. ${infoLabel}`)}" data-money><span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span><span class="request-head__label t-small c-600">${cap}</span></button>`
     : `<span class="request-card__payside" data-money><span class="request-card__amount t-money t-money--md">${fmtExact(payoutCents)}</span><span class="t-small c-600">${cap}</span>${sub}</span>`;
-  return `<span class="request-card__top">${avatar({ initials, size: 'sm' })}${who}${pay}</span>`;
+  /* pre-MVP A2 (DG-1 B): `more` = the ⋯ button (moreMenu()) at the row's far right — t-job's strip-led states carry Get help in it */
+  return `<span class="request-card__top">${avatar({ initials, size: 'sm' })}${who}${pay}${more ? `<span class="request-head__more">${more}</span>` : ''}</span>`;
 }
 
 /**
@@ -2146,7 +2394,7 @@ export function workList(v, { final = false, estimateLabel = 'Estimate from your
   const showEstimate = !final && estimateLabel !== null;
   const owner = photoOwner || `${String(v.customer?.name || 'The customer').split(' ')[0]}’s`;
   const groups = v.garments.map((g) => `<div class="work-list__garment" data-garment="${esc(g.id)}">
-    ${garmentHead({ type: g.type, photos: stackFor(g, { docs: docs ? g.docs : null, owner }) })}
+    ${garmentHead({ type: g.type, photos: stackFor(g, { docs: docs ? g.docs : null, owner }), services: g.services.map((sv) => sv.label) })}
     ${g.services.map((sv) => priceRow({ label: sv.label, cents: sv.cents, format: fmtExact })).join('')}
     ${docs && g.docs ? garmentDocs({ garmentId: g.id, type: g.type, docs: g.docs, commentLabel, idPrefix: 'work' }) : ''}
   </div>`).join('');
@@ -2201,6 +2449,15 @@ export function apptRow({ id = '', act = 'open-appt', name = '', initials = '', 
 </button>`;
 }
 
+/** K-54 F1 (D-454): a booking that needs her, as Home leads with it — the apptRow, then ONE full-width primary for its next step (Approve,
+    Choose a way back, See the new time …). Both open the booking (`act`, default open-appt, with the row's id). */
+export function apptNext({ row = {}, label = '', act = 'open-appt' } = {}) {
+  return `<section class="appt-next" data-appt-next aria-label="${esc(label)}">
+  ${apptRow(row)}
+  <div class="appt-next__cta">${cta(label, { attrs: `data-act="${esc(act)}" data-id="${esc(row.id ?? '')}"` })}</div>
+</section>`;
+}
+
 /* ============================================================
    M4 — the ticket after the fitting (D-99 … D-108)
    ============================================================ */
@@ -2246,7 +2503,7 @@ export function changeList({ garments = [], format = fmtExact, docs = null, comm
       amt = `<span class="change-list__amts"><s class="change-list__was t-small"><span class="sr-only">was </span>${format(r.from)}</s><span class="change-list__amt t-body w-600">${format(r.to)}</span></span>`;
     } else if (r.kind === 'removed') {
       text = `<span class="change-list__label change-list__label--struck t-body"><s>${label}</s></span>${tag('Removed', 'removed')}`;
-      amt = `<s class="change-list__amt change-list__amt--struck t-body"><span class="sr-only">removed, was </span>${format(r.from)}</s>`;
+      amt = `<s class="change-list__amt change-list__amt--struck t-body"><span class="sr-only">was </span>${format(r.from)}</s>`;   // SF-42: the visible Removed tag already says it
     }
     return `<div class="change-list__row change-list__row--${kind}" role="listitem" data-kind="${wholeNew ? 'added' : kind}"><span class="change-list__text">${text}</span>${amt}</div>`;
   };
@@ -2255,7 +2512,7 @@ export function changeList({ garments = [], format = fmtExact, docs = null, comm
     const newItem = g.kind === 'added' || (g.newItem && g.kind !== 'removed');
     const headTag = g.kind === 'removed' ? tag('Removed', 'removed') : newItem ? tag('New item', 'new-item') : '';
     const photos = g.kind === 'removed' ? '' : stackFor(g, { docs: docs?.[g.id] ?? null, owner: photoOwner });
-    const head = garmentHead({ type: g.type, kind: g.kind === 'removed' ? 'removed' : '', tag: headTag, photos });
+    const head = garmentHead({ type: g.type, kind: g.kind === 'removed' ? 'removed' : '', tag: headTag, photos, services: g.kind === 'removed' ? null : g.rows.filter((r) => r.kind !== 'removed').map((r) => r.label) });
     const docsHtml = docs && g.kind !== 'removed' && docs[g.id]
       ? garmentDocs({ garmentId: g.id, type: g.type, docs: docs[g.id], commentLabel }) : '';
     return `<div class="change-list__garment${g.kind === 'added' ? ' change-list__garment--new' : ''}${g.kind === 'removed' ? ' change-list__garment--gone' : ''}" data-garment="${esc(g.id)}"${g.kind ? ` data-garment-kind="${g.kind}"` : ''}>
@@ -2320,7 +2577,7 @@ export function deltaFigure({ label = '', cents: amount = 0, was = null, caption
  * ready = Uber quote + Taily courier fee = Courier total + `note` ("Added to your balance." / "Paid by Sarah. Not taken from
  * your payout."); loading = skeleton + aria-live status; failed = role=alert + a secondary Try again (`retryAct`).
  */
-export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: total = 0, miles = 0, from = '', to = '', note = '', retryAct = 'courier-retry', variant = 'customer', window: pickup = '' } = {}) {
+export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: total = 0, miles = 0, from = '', to = '', note = '', retryAct = 'courier-retry', variant = 'customer', window: pickup = '', protection = false } = {}) {
   noPercent(note, 'courierCard');
   /* D-160 (amends D-106): the tailor's variant is the pickup window, from → to and who pays. No quote, fee or total rows: none of it is her money. */
   if (variant === 'tailor') {
@@ -2337,7 +2594,7 @@ export function courierCard({ state = 'ready', quote = 0, markup = 0, cents: tot
   } else if (state === 'failed') {
     body = `<div class="courier-card__error" role="alert"><p class="t-body w-600 courier-card__error-title"><span class="courier-card__error-glyph" aria-hidden="true">${ICON_ALERT}</span>Couldn’t get a courier price</p><p class="t-small c-600">Uber didn’t answer. Try again, or pick another way back.</p></div>${cta('Try again', { variant: 'secondary', attrs: `data-act="${esc(retryAct)}"` })}`;
   } else {
-    body = `${moneyRows([{ label: 'Uber quote', cents: quote }, { label: 'Taily courier fee', cents: markup }, { label: 'Courier total', cents: total, kind: 'total' }])}${note ? `<p class="t-small c-600 courier-card__note">${esc(note)}</p>` : ''}`;
+    body = `${moneyRows([{ label: 'Uber quote', cents: quote }, { label: 'Taily courier fee', cents: markup }, { label: 'Courier total', cents: total, kind: 'total' }])}${note ? `<p class="t-small c-600 courier-card__note">${esc(note)}</p>` : ''}${protection ? protectionRow() : ''}`;   // D-21 (pre-MVP A2): garment protection
   }
   return `<div class="courier-card courier-card--${state}"${state === 'loading' ? ' aria-busy="true"' : ''} data-state="${state}">${head}${body}</div>`;
 }
@@ -2381,9 +2638,9 @@ export function threadMessages(messages = [], { reader = 'customer', now = null,
 }
 
 /** Thread header — the inner HTML for `headingRow` (root `.thread-head`): a 40 px avatar, the name, one `sub` line (HTML; may hold a `countdown`). */
-export function threadHead({ initials = '', photo = null, name = '', sub = '' } = {}) {
+export function threadHead({ initials = '', photo = null, name = '', sub = '', mark = '' } = {}) {
   return `<div class="thread-head">
-  ${avatar({ initials, photo, size: 'sm' })}
+  ${avatar({ initials, photo, size: 'sm', mark })}
   <div class="thread-head__text"><h1 class="thread-head__name t-body w-600">${esc(name)}</h1>${sub ? `<p class="thread-head__sub t-small c-600">${sub}</p>` : ''}</div>
 </div>`;
 }
@@ -2612,9 +2869,12 @@ export function garmentIcon(type, { size = 'card', alt = '' } = {}) {
  * then any `tag` (HTML), then, pushed right, `photos` (a `photoStack`) and / or `trailing` (the card's own control, e.g. c-job's ✕).
  * `kind: 'removed'` strikes the name (no underline) and dims the icon. `as` = the name's element ('p', or 'h2' where the card is a heading).
  */
-export function garmentHead({ type = '', kind = '', tag = '', photos = '', trailing = '', as = 'p' } = {}) {
+export function garmentHead({ type = '', kind = '', tag = '', photos = '', trailing = '', as = 'p', services = null } = {}) {
   const gone = kind === 'removed';
-  const name = gone ? `<s>${esc(type)}</s>` : esc(type);
+  /* D-24 (K-48): the underlined name (K-05) does what it promises — it opens that item's services popover (K-25). `services` = its labels. */
+  const name = gone ? `<s>${esc(type)}</s>` : services
+    ? `<button type="button" class="garment-head__peek" ${peekAttrs([{ type, services }], `${type} services`)}>${esc(type)}</button>`
+    : esc(type);
   const end = photos || trailing ? `<span class="garment-head__end">${photos}${trailing}</span>` : '';
   /* K-05 (D-220): the bare 40 px icon comes FIRST (aria-hidden, the visible name beside it names the item), then name + tag in one group that wraps inside itself; the end group (photo stack / ✕) never leaves the first line */
   return `<div class="garment-head${gone ? ' garment-head--gone' : ''}${end ? ' garment-head--end' : ''}">${garmentIcon(type)}<span class="garment-head__who"><${as} class="garment-head__name t-body w-600">${name}</${as}>${tag}</span>${end}</div>`;
@@ -2842,30 +3102,36 @@ export function photoFigure({ photo, type = '', by = '', label = 'Photo' } = {})
   if (!photo) return '';
   return `<figure class="photo-figure" data-photo-figure>
   <span class="photo-figure__frame">${photoStub({ type, tone: photo.tone ?? 0, size: 'stage', alt: label, seed: photo.id })}</span>
-  <figcaption class="t-small c-600">${esc([by ? `Taken by ${by}` : '', photo.at ? `${fmtDay(photo.at)}, ${fmtTime(photo.at)}` : ''].filter(Boolean).join(' · '))}</figcaption>
+  <figcaption class="t-small c-600">${esc([by ? `Taken by ${by}` : '', photo.at ? fmtWhen(photo.at) : ''].filter(Boolean).join(' · '))}</figcaption>
 </figure>`;
 }
 
-/** The review reminder (Study-1 A4, K-28): a notification card — bell, title, one line, the "Leave a review" button (`act`, `data-id`). */
-export function reminderCard({ title = '', text = '', actionLabel = 'Leave a review', act = 'review-reminder', id = '' } = {}) {
-  return `<section class="card reminder-card" role="status" aria-label="${esc(title)}" data-reminder>
+/** The review reminder (Study-1 A4, K-28): a notification card — bell, title, one line, the "Leave a review" button (`act`, `data-id`).
+    DG-2 A (pre-MVP A1): `dismissAct` adds the one-time notice's 44 px ✕ (top right, "Dismiss: <title>"); the same card then carries a
+    cancellation notice on Home (`notice: true` → data-notice, for flows). */
+export function reminderCard({ title = '', text = '', actionLabel = 'Leave a review', act = 'review-reminder', id = '', dismissAct = '', notice = false } = {}) {
+  noPercent(text, 'reminderCard');
+  const idAttr = id ? ` data-id="${esc(id)}"` : '';
+  const card = `<section class="card reminder-card${dismissAct ? ' reminder-card--dismissible' : ''}" role="status" aria-label="${esc(title)}" data-reminder${notice ? ' data-notice' : ''}${idAttr}>
   <span class="reminder-card__icon" aria-hidden="true">${ICON_BELL}</span>
   <div class="reminder-card__body">
     <p class="t-body w-600">${esc(title)}</p>
-    <p class="t-small c-600">${esc(text)}</p>
-    ${ctaSmall(actionLabel, { attrs: `data-act="${esc(act)}"${id ? ` data-id="${esc(id)}"` : ''}` })}
+    <p class="t-small c-600" data-money>${esc(text)}</p>
+    ${ctaSmall(actionLabel, { attrs: `data-act="${esc(act)}"${idAttr}` })}
   </div>
 </section>`;
+  if (!dismissAct) return card;
+  return `<div class="notice-card">${card}<button type="button" class="notice-card__close" data-act="${esc(dismissAct)}"${idAttr} aria-label="${esc(`Dismiss: ${title}`)}">${ICON_CLOSE}</button></div>`;
 }
 
 /** K-41 (R3, D-296): the 24-hour reminder on Home — the booking row turns into a card: the accent state strip across its top (`text` ·
-    `right`, e.g. "Still on for tomorrow?" · "Free until 5:00 PM"), the appt row (`row` = apptRow's options), ONE rule line in dollars
+    `right`, e.g. "Please confirm your visit" · "Free until 5:00 PM today", K-51), the appt row (`row` = apptRow's options), ONE rule line in dollars
     (`rule`, HTML: money in <span data-money>), then Confirm (filled) and "Change or cancel" (opens the booking) inline. */
-export function visitPrompt({ text = '', right = '', row = {}, rule = '', id = '', confirmAct = 'confirm-visit', changeAct = 'open-appt' } = {}) {
+export function visitPrompt({ text = '', right = '', row = {}, rule = '', id = '', confirmAct = 'confirm-visit', changeAct = 'open-appt', tone = 'action' } = {}) {
   noPercent(rule, 'visitPrompt');
   const idAttr = id ? ` data-id="${esc(id)}"` : '';
   return `<section class="visit-prompt" aria-label="${esc(text)}" data-visit-prompt>
-  ${requestStrip({ tone: 'action', icon: 'clock', text, right })}
+  ${requestStrip({ tone, icon: 'clock', text, right })}
   ${apptRow(row)}
   <p class="t-small c-600 visit-prompt__rule">${rule}</p>
   <div class="visit-prompt__actions">${ctaSmall('Confirm', { filled: true, attrs: `data-act="${esc(confirmAct)}"${idAttr}` })}${ctaSmall('Change or cancel', { attrs: `data-act="${esc(changeAct)}"${idAttr}` })}</div>
@@ -2876,14 +3142,14 @@ export function visitPrompt({ text = '', right = '', row = {}, rule = '', id = '
 /* Study-1 WS-B (K-30, K-31): the tailor's private General notes (B2) and the edit's due-date line (B1). */
 
 /** B2 copy: the empty line and the field errors of the note editor. */
-export const NOTE_EMPTY = 'Measurements, fabric notes, reminders. Only you see them.';
+export const NOTE_EMPTY = 'Measurements, fabric notes, reminders.';   // SF-40: the lock line above already says only she sees them
 const NOTE_ERRORS = {
   'note-empty': 'Write something or add a photo.',
   'note-long': `Keep the note under ${DATA.NOTES_LIMITS.TEXT_MAX} characters.`,
   'too-many-photos': `Up to ${DATA.NOTES_LIMITS.PHOTOS_MAX} photos per note.`,
 };
-/** "Fri, Oct 16, 10:00 AM" (+ " · Edited"). */
-const noteStamp = (n) => `${fmtDay(n.updatedAt ?? n.at)}, ${fmtTime(n.updatedAt ?? n.at)}${n.updatedAt ? ' · Edited' : ''}`;
+/** "Fri, Oct 16 · 10:00 AM" (+ " · Edited"). */
+const noteStamp = (n) => `${fmtWhen(n.updatedAt ?? n.at)}${n.updatedAt ? ' · Edited' : ''}`;   // SF-40: one date format ("Fri, Oct 16 · 10:00 AM")
 
 /**
  * Private notes (Study-1 B2, K-31) — "General notes": the lock line "Only you can see these notes.", every note (text, its photos as one
@@ -3111,6 +3377,27 @@ export function handoffWhenRow({ method = 'pickup', text = '', sub = '', act = '
 /** The courier line under a window: "Courier $13.75 · collects from Amara at 4:45 PM" — K-43 (D-299): that window's own Uber quote + the
     Taily fee, so it changes as she scrolls the wheel. */
 const courierNote = (cents, first, w) => `<span class="t-small c-600">Courier <span data-money>${fmtExact(cents)}</span> · collects from ${esc(first)} at ${esc(fmtTime(w.collectAt))}</span>`;
+/** S-32 (pre-MVP A1): the visit-day Call tile's sheet — calls go through a Taily number (masked both ways), after the MVP; until then the
+    chat is the way. `first` = the other person's first name; `onMessage` opens the thread. */
+export function openCallSheet({ first = '', onMessage } = {}) {
+  sheetOverlay(`<div class="call-sheet">
+  <p class="t-body c-700">Calls will go through a Taily number, so neither of you sees the other’s phone number. Calling comes after the first launch.</p>
+  <p class="t-small c-600">For now, message ${esc(first)}. She gets a text with a link to your message.</p>
+  ${cta(`Message ${esc(first)}`, { attrs: 'data-act="call-message"' })}
+  ${cta('Close', { variant: 'secondary', attrs: 'data-act="call-close"' })}
+</div>`, { header: 'Call through Taily', dataS: 'call-sheet', confirm: false }, (holder, close) => {
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (act === 'call-close') close();
+      else if (act === 'call-message') { close({ instant: true }); onMessage?.(); }
+    });
+  });
+}
+/** K-53: how far ahead she can pick — "until Mon, Oct 19 · 5:00 PM" while the ready hold is open (unclaimedAt), else "in the next 4 days". */
+export function untilWords(appt) {
+  const end = ['ready', 'awaiting-handoff'].includes(appt?.status) && appt.payments?.balance?.state !== 'captured' ? unclaimedAt(appt) : null;
+  return end ? `until ${fmtWhen(end)}` : `in the next ${HOLD_DAYS} days`;
+}
 /** K-43 (D-298): a courier delivery never comes back — the line wherever the courier is chosen or booked. */
 export const COURIER_LOBBY = 'If you’re not home, the courier leaves it in your building’s lobby.';
 
@@ -3125,14 +3412,15 @@ export const COURIER_LOBBY = 'If you’re not home, the courier leaves it in you
 export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', place = '', dataS = '', onDone, onMessage } = {}) {
   const courier = appt.returnOption === 'courier';
   const change = mode === 'change';
-  const cur = appt.handoff?.slot ?? null;
+  const redeliver = courier && appt.handoff?.trip?.state === 'returned';   // S-35: after a failed delivery
+  const cur = redeliver ? null : appt.handoff?.slot ?? null;
   const all = handoffSlots(appt);
   const slots = change ? all.filter((x) => x.start !== cur?.start) : all;
-  const header = change ? (courier ? 'Change delivery window' : 'Change pickup time') : (courier ? 'Pick a delivery window' : 'Pick a pickup time');
+  const header = redeliver ? 'Pick a new delivery window' : change && cur ? (courier ? 'Change delivery window' : 'Change pickup time') : (courier ? 'Pick a delivery window' : 'Pick a pickup time');
   const keepLabel = change ? (courier ? 'Keep current window' : 'Keep current time') : 'Cancel';
   if (!slots.length) {
     sheetOverlay(`<div class="handoff-sheet">
-  <p class="t-body c-700">${esc(first)} has no ${change ? 'other ' : ''}open ${courier ? 'delivery windows' : 'pickup times'} in the next ${POLICY.HANDOFF_PICK_DAYS} days. Message ${esc(first)} to find a time that works.</p>
+  <p class="t-body c-700">${esc(first)} has no ${change ? 'other ' : ''}open ${courier ? 'delivery windows' : 'pickup times'} ${esc(untilWords(appt))}. Message ${esc(first)} to find a time that works.</p>
   ${cta(`Message ${esc(first)}`, { attrs: 'data-act="ht-message"' })}
   ${cta(keepLabel, { variant: 'secondary', attrs: 'data-act="ht-keep"' })}
 </div>`, { header, dataS: `${dataS}-none`, confirm: false }, (holder, close) => {
@@ -3154,11 +3442,12 @@ export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', pla
   const columns = () => (courier ? windowColumns(slots, picked.start) : slotColumns(slots.map((x) => x.start), picked.start));
   const now = change && cur ? `<p class="t-small c-600 handoff-sheet__now" data-now>${courier ? 'Arrives' : 'Booked for'} <span class="nb">${esc(slotText(cur))}</span></p>`
     : place ? `<p class="t-small c-600 handoff-sheet__now">${esc(place)}</p>` : '';
-  const fine = change
-    ? (courier ? `You can change the window until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. The price is the new window’s quote, and ${esc(first)} is told right away. ${COURIER_LOBBY}` : `${esc(first)} is told right away. Your pickup code stays the same.`)
-    : (courier ? `Each window has its own Uber price. Taily books the courier to collect from ${esc(first)} before your window. You can change it until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. ${COURIER_LOBBY}`
-      : `Only times ${esc(first)}’s shop is open, in the next ${POLICY.HANDOFF_PICK_DAYS} days. You can change it later from your booking.`);
-  const okLabel = change ? (courier ? 'Move my delivery' : 'Move my pickup') : (courier ? 'Use this window' : 'Use this time');
+  const fine = redeliver ? `No extra charge. Taily books the courier to collect from ${esc(first)} again before your window. ${COURIER_LOBBY}`
+    : change
+    ? (courier ? `You can change the window until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. A window that costs more is charged now, on its own; ${esc(first)} is told right away. ${COURIER_LOBBY}` : `${esc(first)} is told right away. Your pickup code stays the same.`)   // K-53: the hold can't be raised
+    : (courier ? `Each window has its own Uber price, checked again when you pay. Taily books the courier to collect from ${esc(first)} before your window. You can change it until ${POLICY.COURIER_CHANGE_CUTOFF_MIN} minutes before the courier collects. ${COURIER_LOBBY}`
+      : `Only times ${esc(first)}’s shop is open, ${esc(untilWords(appt))}. You can change it later from your booking.`);
+  const okLabel = change && cur ? (courier ? 'Move my delivery' : 'Move my pickup') : (courier ? 'Use this window' : 'Use this time');
   const html = (busy = false, error = '') => `<div class="handoff-sheet"${busy ? ' aria-busy="true"' : ''}>
   ${error ? banner({ tone: 'error', text: error }) : ''}
   ${now}
@@ -3186,7 +3475,10 @@ export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', pla
       const res = T.setHandoffSlot(appt.id, picked);
       busy = false;
       if (!res.ok) {
-        paint(res.error === 'too-late' ? `It’s too late to move it now. Message ${first} to change it.` : 'That time isn’t open any more. Pick another one.');
+        paint(res.error === 'too-late' ? `It’s too late to move it now. Message ${first} to change it.`
+          : res.error === 'card-declined' ? `Your card was declined for the new price, so your delivery stays at ${slotText(appt.handoff?.slot)}. Pick another window or message ${first}.`   // B-14 / D-04
+            : res.error === 'offline' ? 'You’re offline. Nothing was changed. Try again when you’re back.'   // S-12
+              : 'That time isn’t open any more. Pick another one.');
         return;
       }
       holder.dataset.locked = 'false';
@@ -3205,4 +3497,356 @@ export function openHandoffTime(appt, { mode = 'pick', first = 'The tailor', pla
       }
     });
   });
+}
+
+/* ============================================================
+   pre-MVP A2 (K-48.1, K-49 DG-1 option B, D-14, S-32, D-21): Taily Help — the shared pieces c-help / t-help, c-case / t-case,
+   c-policy / t-policy, a-inbox / a-case and the status screens use. Same rules as everything above: HTML strings, dollars only.
+   ============================================================ */
+/** A life ring (Get help). */
+export const ICON_HELP = GLYPH('<circle cx="8" cy="8" r="5.9"/><circle cx="8" cy="8" r="2.4"/><path d="M3.9 3.9l2.4 2.4M12.1 3.9 9.7 6.3M3.9 12.1l2.4-2.4M12.1 12.1 9.7 9.7"/>');
+/** A shield with a tick (garment protection). */
+export const ICON_SHIELD = GLYPH('<path d="M8 1.9 13 3.8v3.8c0 3-2.1 5.3-5 6.5-2.9-1.2-5-3.5-5-6.5V3.8z"/><path d="m5.8 8 1.5 1.5 3-3"/>');
+/** A flag (report). */
+export const ICON_FLAG = GLYPH('<path d="M3.5 14V2.5"/><path d="M3.5 3h8l-1.5 3 1.5 3h-8"/>');
+/** A circle with a slash (block). */
+export const ICON_BLOCK = GLYPH('<circle cx="8" cy="8" r="5.9"/><path d="M3.9 12.1l8.2-8.2"/>');
+
+/** DG-1 B: the "Get help" person button (customer status screens join it to Message / Add to calendar). */
+export const helpAction = (act = 'get-help') => ({ label: 'Get help', icon: ICON_HELP, act });
+/** The Get help button on its own row (a status screen with no person block: c-request, c-ready, c-complete, c-price-change). */
+export const helpActions = (act = 'get-help') => `<div class="help-entry"><div class="person-block__actions help-row">${personButtons([helpAction(act)])}</div></div>`;
+
+/** "Fri 5:00 PM" / "5:00 PM" (today) — a reply-by time on a strip. */
+const replyWhen = (iso, nowMs) => (isoDay(iso) === isoDay(nowMs) ? fmtTime(iso) : `${fmtShortDay(iso)} ${fmtTime(iso)}`);
+const fmtShortDay = (iso) => fmtDay(iso).split(',')[0];
+/** K-16: a case on a status screen — "Taily is reviewing · Reply by Fri 5:00 PM" (Taily owes the answer), "Taily replied · Read it", or
+    "Taily decided" with the outcome in dollars; then "Open Taily Help" (`act`, `data-case`). `v` = caseView(c, who). */
+export function caseStrip(v, { act = 'open-case', nowMs = state.clock.now } = {}) {
+  if (!v) return '';
+  let strip;
+  if (v.open && v.waiting === 'taily') strip = requestStrip({ tone: 'warn', icon: 'chat', text: 'Taily is reviewing', right: `Reply by ${replyWhen(v.replyBy, nowMs)}` });
+  else if (v.open) strip = requestStrip({ tone: 'action', icon: 'chat', text: 'Taily replied', right: 'Read it' });
+  else strip = requestStrip({ tone: 'done', icon: 'check', text: 'Taily decided', right: fmtDay(v.closedAt) });
+  const line = !v.open && v.decision ? `<p class="case-strip__line t-small c-700" data-money>${esc(v.decision)}</p>` : '';
+  return `<div class="case-strip" data-case-strip="${v.open ? (v.waiting === 'taily' ? 'reviewing' : 'replied') : 'decided'}">${strip}${line}${textLink('Open Taily Help', { act, icon: ICON_HELP, attrs: `data-case="${esc(v.c.id)}"` })}</div>`;
+}
+
+/** The Taily Help thread header (both personas and the admin's preview). */
+export const tailyHead = (sub = '') => threadHead({ mark: ICON_HELP, name: 'Taily Help', sub });   // K-54 P6: the Help mark, not "Ta"
+
+/** One side of a case as a thread: Taily's words are "them" for a person, "me" for the admin (reader 'taily'). Acks and decisions are bubbles. */
+export function caseThread(c, side, { reader = side, now = null, failed = [], sending = null } = {}) {
+  const msgs = caseMessages(c, side).map((m) => ({ ...m, from: m.from === 'system' ? 'system' : m.from }));
+  return threadMessages(msgs, { reader, now, failed, sending, peer: reader === 'taily' ? (side === 'tailor' ? firstOfName(state.tailors[0]?.name) : state.customer.first) : '' });   // a person's masked note reads the standing rule
+}
+const firstOfName = (n) => String(n || 'The tailor').split(' ')[0];
+
+/** D-21: the garment protection line (c-pay, the courier card, Help) — a shield, the promise, and "How it works" (`act`). */
+export const protectionRow = (act = 'garment-protection') => `<div class="protection-row">${ICON_SHIELD}<span class="t-small c-700">${esc(protectionLine())}</span>${textLink('How it works', { act })}</div>`;
+
+/** A policy page's body: the sections, then the counsel line on a draft. */
+export function policySections(page) {
+  const line = (l) => `<p class="t-body c-700 policy__line" data-money>${esc(l)}</p>`;
+  const sec = (x) => `<section class="sec policy__sec"><h2 class="t-caps c-600 policy__title">${esc(x.title)}</h2>${x.list
+    ? `<ul class="policy__list">${x.lines.map((l) => `<li class="t-body c-700" data-money>${esc(l)}</li>`).join('')}</ul>`
+    : x.lines.map(line).join('')}</section>`;
+  /* K-53 b (D-429): a legal draft opens with "Draft — counsel review required" (data-counsel: COUNSEL.md names the page), then the version
+     line, IN SHORT and the full draft's sections; the old "Full text coming soon" block is gone */
+  return `${page.draft ? `<p class="t-small w-600 policy__draft" data-counsel data-draft role="note">${ICON_INFO}<span>${esc(page.draftLine)}</span></p>` : ''}
+  ${page.version ? `<p class="t-small c-600 policy__version">${esc(page.version)}</p>` : ''}
+  ${page.sections.map(sec).join('')}`;
+}
+
+/** Help home (c-help / t-help): Message Taily, your cases, topics, contact, policies. */
+export function helpHome(who) {
+  const cases = casesFor(who);
+  const caseRows = cases.map((c) => {
+    const v = caseView(c, who);
+    const a = v.appt;
+    const t = a ? tailorById(a.tailorId) : null;
+    const what = a ? (who === 'tailor' ? `Job with ${state.customer.first} · ${fmtDay(a.slot.start)}` : `Order with ${firstOfName(t?.name)} · ${fmtDay(a.slot.start)}`) : 'No order attached';
+    const status = v.open ? (v.waiting === 'taily' ? `Taily replies by ${replyWhen(v.replyBy, state.clock.now)}` : 'Taily replied') : `Closed ${fmtDay(v.closedAt)}`;
+    return listRow({
+      title: `${esc(helpCaseName(c, who))}${v.unread ? ` <span class="help-home__dot" aria-hidden="true"></span><span class="sr-only">, new reply</span>` : ''}`,
+      sub: `${esc(what)} · ${esc(status)}`, act: 'open-case', attrs: `data-case="${esc(c.id)}"`, lead: ICON_HELP,
+    });
+  }).join('');
+  const topics = helpTopics(null, who).map((k) => listRow({ title: esc(topicLabel(k, who)), act: k === 'safety' ? 'safety' : 'new-case', attrs: `data-topic="${esc(k)}"` })).join('');
+  const policies = policyList(who).map((p) => listRow({ title: esc(p.title), sub: esc(p.sub), act: 'policy', attrs: `data-policy="${esc(p.key)}"` })).join('');
+  return `<section class="sec help-home__ask">
+    <p class="t-body c-700">${who === 'tailor' ? 'About a job? Open it and tap More, then Get help, so we see it right away.' : 'About a booking? Open it and tap Get help, so we see it right away.'}</p>
+    ${cta('Message Taily', { attrs: 'data-act="new-case"' })}
+    <p class="t-small c-600">We reply here and by text within ${POLICY.HELP_REPLY_H} hours.</p>
+  </section>
+  ${cases.length ? `<section class="sec">${sectionHead('Your conversations', { count: cases.filter((c) => c.state === 'open').length ? `${cases.filter((c) => c.state === 'open').length} open` : '' })}<div class="card card--list help-home__list">${caseRows}</div></section>` : ''}
+  <section class="sec">${sectionHead('Get help with')}<div class="card card--list help-home__list">${topics}</div></section>
+  <section class="sec">${sectionHead('Policies')}<div class="card card--list help-home__list">${policies}</div></section>
+  <section class="sec help-home__contact">${sectionHead('Contact Taily')}
+    ${infoCard([infoRow('Text', `<span class="help-home__select">${esc(HELP_CONTACT.text)}</span>`), infoRow('Email', `<span class="help-home__select">${esc(HELP_CONTACT.email)}</span>`), infoRow('Help hours', esc(HELP_CONTACT.hours))].join(''))}
+    <p class="t-small c-600 help-home__note" data-help-backup>${esc(HELP_CONTACT.backup)} ${esc(HELP_CONTACT.after)}</p>
+  </section>`;
+}
+/** A case's name in a person's list: the topic they picked, a review's subject, or "Safety report". */
+export function helpCaseName(c, who) {
+  if (c.kind === 'safety') return c.safety?.block ? 'You blocked someone' : 'Safety report';
+  if (c.kind === 'review') return { 'no-show-disputed': 'No-show', 'tailor-no-show-disputed': 'No-show', 'visit-disputed': 'Did the visit happen?', 'visit-unanswered': 'Did the visit happen?', 'final-order-unanswered': 'Final order', 'problem-open': 'Didn’t get the order', 'delivery-missing': 'Delivery', 'ready-no-way-back': 'Getting it back' }[c.reason] ?? 'Taily review';
+  return c.topic ? topicLabel(c.topic, who, c.apptId ? getAppt(c.apptId) : null) : 'Message to Taily';
+}
+
+/** A confirm that runs a model action (the admin's money actions, a person's self-serve action from a Help thread) — the P-32 confirm
+    sheet's markup (D-375: one container) with one filled button + Cancel, its own busy state and the error under the body. `onOk()`
+    returns an error line or null (A2, merged with B2's confirmSheet). */
+export function confirmAction({ header = '', body = '', ok = 'Confirm', danger = false, dataS = 'confirm', busyLabel = 'Saving…' } = {}, onOk) {
+  const html = (busy = false, error = '') => `<div class="confirm-sheet"${busy ? ' aria-busy="true"' : ''}>
+  <div class="confirm-sheet__body"><p class="t-body c-700" data-money>${body}</p>
+  ${error ? `<p class="field__msg field__msg--error confirm-sheet__err" role="alert">${esc(error)}</p>` : ''}</div>
+  <div class="confirm-sheet__actions">
+    ${cta(ok, { variant: danger ? 'danger' : 'default', busy, busyLabel, attrs: 'data-act="cs-ok"' })}
+    ${cta('Cancel', { variant: 'secondary', disabled: busy, attrs: 'data-act="cs-cancel"' })}
+  </div>
+</div>`;
+  return sheetOverlay(html(), { header, dataS, confirm: false }, (holder, close) => {
+    holder.querySelector('.sheet')?.setAttribute('role', 'alertdialog');
+    let busy = false;
+    holder.addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (busy || !act) return;
+      if (act === 'cs-cancel') close();
+      else if (act === 'cs-ok') {
+        busy = true; holder.querySelector('.confirm-sheet').outerHTML = html(true);
+        withLatency(() => {
+          if (!holder.isConnected) return;
+          const err = onOk?.();
+          if (err) { busy = false; holder.querySelector('.confirm-sheet').outerHTML = html(false, err); return; }
+          close({ instant: true });
+        });
+      }
+    });
+  });
+}
+
+/** Undo your own block (merge A2 + B2: c-tailor's "You blocked this tailor" and the blocked thread's foot) — a confirm through
+    `T.unblockPerson`; the safety case stays open for Taily. `other` = the other person's first name; `onDone(result)` after it went in. */
+export function openUnblockSheet({ who = 'customer', other = '', tailorId = null, onDone } = {}) {
+  return confirmAction({
+    header: `Unblock ${other}?`, dataS: 'safety-unblock', ok: `Unblock ${other}`, busyLabel: 'Unblocking…',
+    body: `You’ll be able to ${who === 'tailor' ? 'take requests from' : 'book'} and message each other again. Taily still has your report.`,
+  }, () => {
+    const r = T.unblockPerson(who, { tailorId });
+    if (!r.ok) return r.error === 'offline' ? 'You’re offline. Nothing was changed.' : 'Couldn’t unblock. Try again.';
+    onDone?.(r);
+    return null;
+  });
+}
+
+/** S-32: the safety sheets. `mode` 'menu' (Report · Block · Get help) | 'report' | 'block'. `other` = the other person's first name.
+    `onDone(case)` after a report or a block went in; `onHelp()` = the menu's Get help row. */
+export function openSafetySheet({ who = 'customer', other = '', apptId = null, tailorId = null, mode = 'menu', onDone, onHelp } = {}) {
+  if (mode === 'menu') {
+    const blocked = isBlocked(tailorId ?? state.tailors[0].id) && blockedBy(tailorId ?? state.tailors[0].id) === who;
+    const rows = [
+      listRow({ title: `Report ${esc(other)}`, sub: 'Tell Taily what happened. Only Taily sees it.', act: 'sf-report', lead: ICON_FLAG }),
+      blocked ? '' : listRow({ title: `<span class="more-item--danger">Block ${esc(other)}</span>`, sub: 'You can’t book each other, and this chat closes', act: 'sf-block', lead: ICON_BLOCK, chevron: false }),
+      onHelp ? listRow({ title: 'Get help', sub: 'Message Taily', act: 'sf-help', lead: ICON_HELP }) : '',
+    ].join('');
+    return sheetOverlay(`<div class="more-menu" role="group" aria-label="More">${rows}</div>`, { header: 'More', dataS: 'safety-menu', confirm: false }, (holder, close) => {
+      holder.addEventListener('click', (e) => {
+        const act = e.target.closest('[data-act]')?.dataset.act;
+        if (!act?.startsWith('sf-')) return;
+        close({ instant: true });
+        if (act === 'sf-help') onHelp?.();
+        else openSafetySheet({ who, other, apptId, tailorId, mode: act === 'sf-report' ? 'report' : 'block', onDone, onHelp });
+      });
+    });
+  }
+  if (mode === 'block') {
+    return confirmAction({
+      header: `Block ${other}?`, dataS: 'safety-block', ok: `Block ${other}`, danger: true, busyLabel: 'Blocking…',
+      body: `You won’t be able to book each other, and your chat closes. ${who === 'tailor' ? 'A job already booked' : 'A booking you already have'} stays until Taily contacts you both. Taily is told, and only Taily.`,
+    }, () => {
+      const r = T.blockPerson(who, { apptId, tailorId });
+      if (!r.ok) return r.error === 'offline' ? 'You’re offline. Nothing was changed.' : 'Couldn’t block. Try again.';
+      onDone?.(r.case, 'block');
+      return null;
+    });
+  }
+  /* report: what happened (required) + optional details */
+  const draft = { reason: null, text: '' };
+  const html = (busy = false, error = '') => `<div class="safety-report"${busy ? ' aria-busy="true"' : ''}>
+  <p class="t-small c-600">If you’re in danger, call 911 first. Only Taily sees this report.</p>
+  <div class="safety-report__reasons" role="radiogroup" aria-label="What happened"${error === 'reason' ? ' aria-describedby="sr-reason-err"' : ''}>${REPORT_REASONS.map(([k, label]) => optionRow({ name: 'report', value: k, title: esc(label), checked: draft.reason === k, act: 'sr-reason' })).join('')}</div>
+  ${error === 'reason' ? '<p class="field__msg field__msg--error" id="sr-reason-err" role="alert">Pick what happened.</p>' : ''}
+  ${textArea({ id: 'sr-text', label: 'Anything else? (optional)', value: draft.text, rows: 3 })}
+  ${error && error !== 'reason' ? `<p class="field__msg field__msg--error" role="alert">${esc(error)}</p>` : ''}
+  ${cta('Send report', { busy, busyLabel: 'Sending…', attrs: 'data-act="sr-send"' })}
+</div>`;
+  return sheetOverlay(html(), { header: `Report ${other}`, dataS: 'safety-report', confirm: false }, (holder, close) => {
+    let busy = false;
+    const paint = (b, err) => { holder.querySelector('.safety-report').outerHTML = html(b, err); };
+    holder.addEventListener('input', (e) => { if (e.target.id === 'sr-text') draft.text = e.target.value; });
+    holder.addEventListener('click', (e) => {
+      const el = e.target.closest('[data-act]');
+      if (busy || !el) return;
+      if (el.dataset.act === 'sr-reason') { draft.reason = el.dataset.value; paint(false, ''); holder.querySelector(`[data-value="${draft.reason}"]`)?.focus(); }
+      else if (el.dataset.act === 'sr-send') {
+        if (!draft.reason) { paint(false, 'reason'); return; }
+        busy = true; paint(true, '');
+        withLatency(() => {
+          if (!holder.isConnected) return;
+          const r = T.reportPerson(who, { apptId, tailorId, reason: draft.reason, text: draft.text });
+          if (!r.ok) { busy = false; paint(false, r.error === 'offline' ? 'You’re offline. Nothing was sent.' : 'Couldn’t send this. Try again.'); return; }
+          close({ instant: true });
+          onDone?.(r.case, 'report');
+        });
+      }
+    });
+  });
+}
+
+/* ---------- the Taily Help thread (c-case / t-case): one view + one wiring, two persona screens ---------- */
+const helpUi = () => (state.ui.help ??= {});
+/** The case the Help thread shows for `who`: the one asked for (state.ui.help.caseId), else the order's open case they're in, else null (a new
+    conversation: Taily's greeting and the topic chips). */
+export function helpCase(who) {
+  const u = helpUi();
+  const c = u.caseId ? caseById(u.caseId) : null;
+  if (c && c.sides.includes(who)) return c;
+  if (u.apptId) { const o = caseOfAppt(u.apptId, who); if (o?.state === 'open') return o; }
+  return null;
+}
+const helpAppt = (who) => { const c = helpCase(who); const id = c?.apptId ?? helpUi().apptId ?? null; return id ? getAppt(id) : null; };
+/** The self-serve step a topic can take right in the thread (an existing transition), or null. */
+function topicStep(c, a, who) {
+  if (!c || c.state !== 'open' || !a) return null;
+  const tf = firstOfName(tailorById(a.tailorId)?.name);
+  const dep = fmtExact(a.payments.deposit.cents);
+  if (c.topic === 'no-show' || c.kind === 'review') {
+    if (who === 'customer' && a.status === 'cancelled' && a.cancel?.reason === 'no-show' && !a.cancel.disputedAt) return { act: 'hs-dispute', label: 'That’s not right', body: `You were there? Tell Taily. ${tf}’s no-show pay waits until we decide.` };
+    if (who === 'tailor' && a.status === 'cancelled' && a.cancel?.reason === 'tailor-no-show' && !a.cancel.disputedAt) return { act: 'hs-dispute', label: 'That’s not right', body: `You came? Tell Taily. We look into it with ${state.customer.first}.` };
+    if (who === 'customer' && a.status === 'confirmed' && !a.visitDay?.tailor?.hereAt && state.clock.now >= toMsIso(a.slot.start) + POLICY.NO_SHOW_WAIT_MIN * 60000) return { act: 'hs-no-show', label: `Cancel and get my ${dep} back`, body: `${tf} isn’t there ${POLICY.NO_SHOW_WAIT_MIN} minutes after the start? Cancel the visit and your ${dep} deposit is refunded in full.` };
+  }
+  if (c.topic === 'not-received' && who === 'customer') {
+    if (a.status === 'awaiting-handoff' && a.handoff?.markedAt && !a.handoff.problemAt) return { act: 'hs-not-received', label: 'I didn’t get it', body: `${tf} marked it picked up. If you didn’t get it, tell us here and the order stays open.` };
+    if (deliveryReportOpen(a)) return { act: 'hs-missing', label: 'The delivery didn’t reach me', body: 'We check the courier’s drop-off photo with you.' };
+  }
+  if (c.topic === 'damage') return { act: 'hs-policy', label: 'How garment protection works', body: protectionLine(), link: true };
+  if (c.topic === 'safety' || c.kind === 'safety') return { act: 'hs-safety', label: who === 'tailor' ? `Report or block ${state.customer.first}` : `Report or block ${tf}`, body: 'Only Taily sees a report. Blocking stops new bookings and closes your chat.', link: true };
+  return null;
+}
+const toMsIso = (iso) => new Date(iso).getTime();
+
+export function helpThreadView(who) {
+  const u = helpUi();
+  const c = helpCase(who);
+  const a = helpAppt(who);
+  const v = c ? caseView(c, who) : null;
+  const nowMs = state.clock.now;
+  const tf = a ? firstOfName(tailorById(a.tailorId)?.name) : '';
+  const name = who === 'tailor' ? firstOfName(state.tailors[0]?.name) : state.customer.first;
+  const sub = c ? `${esc(c.ref)} · ${v.open ? (v.waiting === 'taily' ? `we reply by ${esc(replyWhen(v.replyBy, nowMs))}` : 'Taily replied') : 'closed'}` : `We reply within ${POLICY.HELP_REPLY_H} hours`;
+  /* the order it is pinned to (D-128's context row) */
+  let context;
+  if (a) {
+    const w = statusWord(a, who, { short: true });
+    const visit = DATA.VISIT_LABEL?.[who === 'tailor' ? 'tailor' : 'customer']?.[a.job?.visitType] ?? '';
+    context = threadContext({ pill: w.pill, pillLabel: w.label, title: fmtWhen(a.slot.start), sub: [who === 'tailor' ? `Job with ${state.customer.first}` : `Order with ${tf}`, visit, who === 'tailor' ? 'Open job' : 'View booking'].filter(Boolean).join(' · '), act: 'open-appt', id: a.id });
+  } else context = threadContext({ title: 'No order attached', sub: 'A general question for Taily' });
+  const strip = v ? (v.open ? (v.waiting === 'taily'
+    ? requestStrip({ tone: 'warn', icon: 'chat', text: 'Taily is reviewing', right: `Reply by ${replyWhen(v.replyBy, nowMs)}` })
+    : requestStrip({ tone: 'action', icon: 'chat', text: 'Taily replied', right: fmtTime(caseMessages(c, who).filter((m) => m.from === 'taily').at(-1)?.at ?? c.openedAt) }))
+    : requestStrip({ tone: 'done', icon: 'check', text: 'Taily decided', right: fmtDay(v.closedAt) })) : '';
+  let body;
+  if (c) {
+    body = caseThread(c, who, { reader: who, now: nowMs, failed: u.failed ?? [], sending: u.sending ?? null });
+  } else {
+    const hello = a
+      ? `Hi ${name}. This is about your ${who === 'tailor' ? `job with ${state.customer.first}` : `visit with ${tf}`} on ${fmtWhen(a.slot.start)}. What do you need help with?`
+      : `Hi ${name}. What can we help with?`;
+    const topics = helpTopics(a, who);
+    body = `${threadMessages([{ id: 'k0', from: 'taily', text: hello, at: isoMinuteMs(nowMs) }], { reader: who, now: nowMs })}
+  <div class="help-topics" role="group" aria-label="What do you need help with?">${topics.map((k) => `<button type="button" class="chip help-topics__chip" data-act="topic" data-topic="${esc(k)}"${u.sending ? ' disabled' : ''}>${esc(topicLabel(k, who, a))}</button>`).join('')}</div>`;
+  }
+  const step = topicStep(c, a, who);
+  const stepHtml = step ? `<div class="help-thread__step card">${step.body ? `<p class="t-small c-700" data-money>${esc(step.body)}</p>` : ''}${step.link ? textLink(step.label, { act: step.act }) : cta(step.label, { variant: 'secondary', attrs: `data-act="${step.act}"` })}</div>` : '';
+  const decided = v && !v.open && v.decision ? `<div class="help-thread__decision card" data-decision><p class="t-caps c-600">Taily decided · ${esc(fmtDay(v.closedAt))}</p><p class="t-body c-700" data-money>${esc(v.decision)}</p></div>` : '';
+  const foot = c && !v.open
+    ? `<div class="read-only">${banner({ tone: 'info', text: 'This conversation is closed. Need more help? Start a new one.' })}${cta('Start a new conversation', { attrs: 'data-act="new-conversation"' })}</div>`
+    : composer({ value: u.draft ?? '', placeholder: 'Message Taily', hint: maskContact(u.draft ?? '').masked ? 'Phone numbers and emails are hidden when you send.' : '', photos: u.photos ?? 0, disabled: !!u.sending });
+  return { context, strip, body: `${body}${stepHtml}${decided}`, foot, head: tailyHead(sub), caseId: c?.id ?? '' };
+}
+const isoMinuteMs = (ms) => { const d = new Date(ms); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
+
+/** Wire the Help thread: chips open the case, the composer sends (opens it first), retry, photos, the order row, the self-serve step, the
+    safety sheets, a new conversation. `go(id)` re-renders / navigates; `statusScreenOf(a)` = where the order row goes. */
+export function wireHelpThread(root, who, { go, id, statusScreenOf }) {
+  const u = helpUi();
+  const foot = root.querySelector('.help-thread__foot') ?? root;
+  const input = foot.querySelector('.composer__input');
+  const c0 = helpCase(who);
+  if (c0) T.markCaseRead(c0.id, who);
+  const scrollEnd = () => { const f = () => window.scrollTo?.(0, document.documentElement.scrollHeight); if (typeof requestAnimationFrame === 'function') requestAnimationFrame(f); else f(); };
+  const deliver = (msg) => {
+    u.sending = { text: msg.text, photos: msg.photos, topic: msg.topic };
+    go(id); scrollEnd();
+    withLatency(() => {
+      const c = helpCase(who);
+      const a = helpAppt(who);
+      const r = c ? T.sendCaseMessage(c.id, who, { text: msg.text, photos: msg.photos }) : T.openCase({ who, apptId: a?.id ?? null, topic: msg.topic ?? null, text: msg.text, photos: msg.photos });
+      u.sending = null;
+      if (!r.ok) {
+        if (!msg.topic) u.failed = [...(u.failed ?? []), { id: `f${(u.seq = (u.seq ?? 0) + 1)}`, text: msg.text, photos: msg.photos }];
+        go(id); toast(r.error === 'offline' ? 'You’re offline. Nothing was sent.' : 'Message not sent', { tone: 'error' });
+        return;
+      }
+      u.caseId = r.case.id;
+      go(id); scrollEnd();
+    });
+  };
+  if (input) {
+    wireComposer(foot, (text) => { const photos = u.photos ?? 0; u.draft = ''; u.photos = 0; deliver({ text, photos }); });
+    input.addEventListener('input', () => {
+      u.draft = input.value;
+      const hint = foot.querySelector('#composer-hint');
+      if (hint) hint.innerHTML = maskContact(input.value).masked ? `${ICON_INFO}<span>Phone numbers and emails are hidden when you send.</span>` : '';
+    });
+  }
+  wirePhotoViewer(root);
+  const a = helpAppt(who);
+  const done = (msg) => { go(id); if (msg) toast(msg, { tone: 'success' }); };
+  root.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-act]');
+    if (!el || e.target.closest('.screen-sheet--overlay')) return;
+    const act = el.dataset.act;
+    if (act === 'topic') {
+      if (el.dataset.topic === 'safety' && !a) { openSafetySheet({ who, other: who === 'tailor' ? state.customer.first : firstOfName(state.tailors[0]?.name), mode: 'menu', onDone: (c) => { u.caseId = c.id; done('Sent. Taily is looking into it.'); } }); return; }
+      deliver({ text: '', photos: 0, topic: el.dataset.topic });
+    } else if (act === 'retry') {
+      const f = (u.failed ?? []).find((x) => x.id === el.dataset.id);
+      if (!f) return;
+      u.failed = u.failed.filter((x) => x !== f);
+      deliver(f);
+    } else if (act === 'attach-photo') openAttachSheet({ count: u.photos ?? 0, peer: 'Taily' }, () => { u.photos = Math.min(CHAT_PHOTO_CAP(), (u.photos ?? 0) + 1); go(id); });
+    else if (act === 'remove-attachment') { u.photos = Math.max(0, (u.photos ?? 0) - 1); go(id); }
+    else if (act === 'open-appt' && a) { setFocus(a.id); go(statusScreenOf(a)); }
+    else if (act === 'new-conversation') { u.caseId = null; u.apptId = null; u.failed = []; go(id); }
+    else if (act === 'hs-policy') { state.ui.policy = 'garment'; go(who === 'tailor' ? 't-policy' : 'c-policy'); }
+    else if (act === 'hs-safety') {
+      const other = who === 'tailor' ? state.customer.first : firstOfName(tailorById(a?.tailorId)?.name ?? state.tailors[0]?.name);
+      openSafetySheet({ who, other, apptId: a?.id ?? null, mode: 'menu', onDone: (c) => { u.caseId = c.id; done('Sent. Taily is looking into it.'); } });
+    } else if (act === 'hs-dispute' && a) {
+      confirmAction({ header: 'Were you there?', dataS: 'help-dispute', ok: 'Tell Taily', busyLabel: 'Sending…', body: who === 'tailor' ? `Tell Taily you came. We look into it with ${state.customer.first} and message you both.` : `Tell Taily you were there. We look into it with ${firstOfName(tailorById(a.tailorId)?.name)} and message you both.` },
+        () => { const r = T.disputeNoShow(a.id, who); if (!r.ok) return 'Couldn’t send this. Try again.'; u.caseId = openCaseOfAppt(a.id)?.id ?? u.caseId; done('Sent. Taily is looking into it.'); return null; });
+    } else if (act === 'hs-no-show' && a) {
+      confirmAction({ header: `${firstOfName(tailorById(a.tailorId)?.name)} didn’t show up?`, dataS: 'help-no-show', ok: 'Cancel and refund', danger: true, busyLabel: 'Cancelling…', body: `We cancel the visit and refund your ${fmtExact(a.payments.deposit.cents)} deposit in full. Your items are saved.` },
+        () => { const r = T.reportTailorNoShow(a.id); if (!r.ok) return 'Couldn’t cancel. Try again.'; done('Cancelled. Your deposit is refunded.'); return null; });
+    } else if (act === 'hs-not-received' && a) {
+      confirmAction({ header: 'Didn’t get it?', dataS: 'help-not-received', ok: 'I didn’t get it', busyLabel: 'Sending…', body: 'The order stays open and nothing more is charged while we sort it out.' },
+        () => { const r = T.reportNotReceived(a.id); if (!r.ok) return 'Couldn’t send this. Try again.'; done('Sent. Taily is looking into it.'); return null; });
+    } else if (act === 'hs-missing' && a) {
+      confirmAction({ header: 'Delivery didn’t reach you?', dataS: 'help-missing', ok: 'Tell Taily', busyLabel: 'Sending…', body: 'We check the courier’s drop-off photo with you and reply here.' },
+        () => { const r = T.reportMissingDelivery(a.id); if (!r.ok) return 'Couldn’t send this. Try again.'; u.caseId = openCaseOfAppt(a.id)?.id ?? u.caseId; done('Sent. Taily is looking into it.'); return null; });
+    }
+  });
+  if (u.opening) { u.opening = false; scrollEnd(); }
 }

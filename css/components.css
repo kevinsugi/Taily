@@ -28,7 +28,10 @@
    CTA — Figma 229:5030. Default | Secondary. h54, r20, 16 SemiBold.
    ============================================================ */
 .cta {
-  height: 54px;
+  height: auto;                       /* SF-21: grows with a label that wraps (54 px whenever it fits one line) */
+  min-height: 54px;
+  padding-block: var(--space-12);
+  text-align: center;
   width: 100%;
   display: flex;
   align-items: center;
@@ -238,7 +241,7 @@
 
 .garment-tile {
   position: relative;
-  height: 110px;
+  height: var(--tile-h);   /* S-17 (D-443): 110 px at the default text size, and taller with a larger one (rem), so the label never clips */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1027,7 +1030,7 @@
   background: var(--neutral-100);
 }
 .wheel__col { position: relative; display: flex; flex-direction: column; min-width: 44px; }   /* AU-P3-6: a narrow column never drops under a touch target */
-@media (max-width: 300px) { .wheel__col { min-width: 32px; } }   /* P1-2: zoom tier; 32 CSS px is 64 at 100% */
+@media (max-width: 18.75em) { .wheel__col { min-width: 32px; } }   /* P1-2: zoom tier; 32 CSS px is 64 at 100% */
 .wheel__row {
   height: 44px;   /* M6-V-02: rows are tap targets — 44 px pitch everywhere */
   display: flex;
@@ -1633,7 +1636,7 @@ button.scheduler__sub { cursor: pointer; }
 .wheel--sched .wheel__col--scroll .wheel__row--selected { font-weight: 600; color: var(--ink); }
 .wheel--sched .wheel__pad { flex: 0 0 88px; }
 .scheduler--inline .wheel--sched .wheel__col:first-of-type { flex: 1 1 0; min-width: 0; }
-@media (max-width: 300px) { .scheduler--inline .wheel--sched .wheel__col:first-of-type { flex: 1 1 0; min-width: 0; } .scheduler--inline .wheel--sched .wheel__col:first-of-type .wheel__row { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 44px; padding-inline: var(--space-2); } }   /* P1-2: the date column takes what is left and ellipsises */
+@media (max-width: 18.75em) { .scheduler--inline .wheel--sched .wheel__col:first-of-type { flex: 1 1 0; min-width: 0; } .scheduler--inline .wheel--sched .wheel__col:first-of-type .wheel__row { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 44px; padding-inline: var(--space-2); } }   /* P1-2: the date column takes what is left and ellipsises */
 .scheduler__note .t-small { text-transform: none; letter-spacing: 0; }   /* M6-C-12: the value reads in sentence case beside its caps label */
 .scheduler__note {
   margin: 0;

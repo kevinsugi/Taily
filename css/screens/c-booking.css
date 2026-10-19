@@ -20,3 +20,6 @@
 .c-booking__handoff { display: flex; flex-direction: column; gap: var(--space-12); }
 .c-booking__alert { margin: 0 0 var(--rhythm-group); }
 .c-booking__got-hint { margin: 0; text-align: center; text-wrap: pretty; }
+.c-booking__capture { margin: var(--space-12) 0 0; text-wrap: pretty; }   /* SF-14: the 7-day charge date under the timeline */
+/* pre-MVP A2 (D-21): garment protection under the courier block */
+.c-booking__protection { margin-top: var(--space-12); }

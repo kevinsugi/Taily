@@ -13,7 +13,10 @@ Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.m
 | `js/money-config.js` | `MONEY` rates + `POLICY` timers (incl. `CODE_TTL_MIN` 10, `CODE_RESEND_S` 30) — the ONLY place rates / windows live | spec-approved edits only |
 | `js/sim.js` | `withLatency(done) → cancel()` — every simulated network wait: `state.sim.latency` instant → sync, normal → `LATENCY_MS` 700, hold → never (D-35). Set the busy flag first | component builder |
 | `js/account.js` | DOM-free sign-in model (D-33): `phoneDigits formatPhone validatePhone signOut sendCode codeStatus resendCode verifyCode saveName signInWith addCard useOtherMethod` | component builder |
+| `js/account-ui.js` | pre-MVP B2 (DG-3 A): the shared account UI both personas use — `openSignOut(who, { go })`, `openDeleteAccount(who, { go, onSee })` + `blockedWords` + `seeBlocker`, `phoneChangeView(who, id, { nav })` + `wirePhoneChange(root, who, id, { go, done })`, `legalView(docId, id)` | component builder |
 | `js/money.js` | money fns, integer cents in/out, `fmt / fmtExact / fmtNeg / fmtColumn` | model |
+| `js/policies.js` | THE policy + legal pages (A2's Help policies + B2's legal pages, unified at the merge, D-380): `POLICIES` (garment · cancellation · payments · disputes · safety · terms · privacy · accessibility · sms · tailor-terms · tailor-agreement; `legal: <COUNSEL row>` marks a legal page, `draft: true` = a full K-53 b draft under IN SHORT, D-429), `policyList(who)` (Help), `LEGAL_FOR { customer, tailor }` (Account rows), `policyTitle(key)`, `policyPage(key, who)` → `{ key, title, version, sections [{ title, lines, list? }], draft, draftLine, legal }`, `protectionLine()`, `HELP_CONTACT` (+ `backup`, `after`, D-430), `LEGAL_VERSION` (logged at sign-up), `COMPANY` (Taily Group LLC, Brooklyn, NY), `DRAFT_LINE`; every number from POLICY / MONEY, the fee via money.js; COUNSEL comments | model |
+| `js/texts.js` | pre-MVP A1: the TEXT CATALOGUE — `TEXTS[event] = { to, land, trigger, body(ctx), owner? }`, `TEXT_EVENTS`, `textCtx({ a, t, cust, now, x })`; DOM- and state-free; `docs/v5/TEXTS.md` is generated from it (`node scripts/v5/texts-doc.mjs`) | model |
 | `js/dates.js` | ISO date helpers + formatters | model |
 | `js/data.js` | catalog (`GARMENT_TYPES`, `GARMENT_ICONS`, `SERVICES`), seed (`TAILORS` = Amara, `CUSTOMER` = Sarah, `SEED_JOB`, `BLANK_TAILOR`), `DEMO_NOW`, `ZIP_INFO`, labels | model |
 | `js/state.js` | `state`, transitions, selectors, `statusScreen` (DOM-free) | model |
@@ -25,8 +28,8 @@ Plans: `docs/v5/MASTER-PLAN.md` (rules §2, §10) · screens: `docs/v5/SCREENS.m
 | `js/fixtures/m#.js` | that milestone's `FLOWS_<screen_id>` arrays (one per screen, pre-scaffolded) | each builder: own array only |
 | `js/fixtures/common.js` | `driveTo(target, opts)` | model |
 | `js/fixtures/money-scenarios.js` · `scripts/v5/money.mjs` | `SCENARIOS` (seed, rush, shop, courier, priceAdded, priceRemoved, lateCancel, earlyCancel, noShow) computed from `estimate()` / `quote()` on the seed; fixture `expect`s import the first, Node scripts the second. Never type a dollar amount | model |
-| `js/flows.js` · `js/flow-menu.js` | Test-flows registry + menu; `setBootLatency(v)` (app.js boot) — `resetDemo()` restores `sim.latency` to it, so a `'hold'` flow never leaks (D-35) | integrator |
-| `js/app.js` | router, `SCREEN_MODULES`, persona gate | integrator |
+| `js/flows.js` · `js/flow-menu.js` | Test-flows registry + menu; `setBootLatency(v)` (app.js boot) — `resetDemo()` restores `sim.latency` to it, so a `'hold'` flow never leaks (D-35); `setAdminTools(on)` — while the admin's tools are on, `resetDemo()` signs him in (D-422); menu `openMenu()` / `closeMenu()` | integrator |
+| `js/app.js` | router, `SCREEN_MODULES`, persona gate; the admin gate (a-* → a-login without `session.admin`, D-421) and the Test-flows tools gate (`html.tools-on`; `unlockTools` / `lockTools` / `openTestFlows` / `toolsAvailable`, D-422); `?admin` boots a-login | integrator |
 | `js/inventory.js` | `MILESTONES`, `BUILT`, `SCREENS` (mirror of SCREENS.md; generated: `node scripts/v5/lib/gen-inventory.mjs`) | integrator |
 | `index.html` | CSS links | integrator |
 | `scripts/v5/*.mjs` | `check` → model test → flows (+ journeys) → visual → hygiene | integrator |
@@ -66,7 +69,7 @@ meaningful default state (`?screen=c-request` shows the request, not "No open re
   Screen 390 wide, `--neutral-50`; status bar h44, top nav h56, `.body` padding-top `var(--body-top)` (116, K-04 / D-204; was 128), sides 20. Strokes inside →
   `box-shadow: inset 0 0 0 1px …`. Every tappable ≥ 44×44 (`data-hit="inline"` only for in-text links with a padded
   hit area). Visible labels, error next to the field, loading feedback, `prefers-reduced-motion`.
-- Persona comes from the id: `c-` customer, `t-` / `to-` tailor, `sys-` unchanged.
+- Persona comes from the id: `c-` customer, `t-` / `to-` tailor, `a-` admin (pre-MVP A2: Kevin, K-48.1), `sys-` unchanged.
 
 ## Tokens
 
@@ -82,7 +85,8 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   `courierQuote(miles) → { miles, cents }`, `quote({ lines, homeFee, rush, courier, deposit }) → { services, homeFee, rush,
   courier, total, deposit, balance, refund, tailyFee, payout }`, `estimate(tailor, job, slotIso?)` (= quote + `rushDays`, `lines`,
   `missing`; the rush tier is read from `slotIso`, null → no rush, D-28), `cancelTerms(appt, nowMs) → { window: 'early'|'late',
-  refund, kept }`, `noShowPayout(deposit)`, `fmt` (`$25` / `$4.50`), `fmtExact` (`$16.00`), `fmtNeg` (`−$12.50`), `fmtColumn(cents[]) → fmt | fmtExact` (D-70).
+  refund, kept }`, `noShowPayout(deposit)` (K-53: = the deposit), `fmt` (`$25` / `$4.50`), `fmtExact` (`$16.00`), `fmtNeg` (`−$18.75`), `fmtColumn(cents[]) → fmt | fmtExact` (D-70);
+  K-53: `HOLD_DAYS`, `feePercent()` (to-fee only), `courierQuote(miles, start, { drift })`, `courierAtPay(seen, fresh) → { cents, absorbed, repriced }`.
 - statuses (`STATUSES`; `TERMINAL` = declined cancelled completed): `requested suggested declined expired confirmed fitting
   price-change in-progress ready awaiting-handoff completed cancelled` (`cancel.reason`: `withdrawn switched customer-early
   customer-late tailor-cant-make-it no-show`). `awaiting-handoff` = after the customer picks a way back, until the handoff is confirmed (Study-1 A1; was `returning`). `appt.payments.deposit.state`: `authorized captured released refunded kept`.
@@ -103,7 +107,7 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   errors, bookable, live }`, `validateSection(section, data) → { ok, errors }`, `blankTailor()` (D-20), `bookable(tailor)`.
 - Study-1 WS-A selectors: `handoffCode(appt)` · `autoCompleteLeft(appt)` (ms or null) · `unclaimedAt(appt)` · `reviewReminderDue(appt)` · `reviewReminder()`.
   `payments.balance.state`: `pending due failed held none captured` (+ `captureReason: 'handoff' | 'unclaimed'`, `capturedAt`); `a.handoff` = D-270.
-  `tick()` also captures an unclaimed hold (heldAt + `UNCLAIMED_CAPTURE_D`) and auto-completes at `autoAt` (`HANDOFF_AUTO_H`); a problem pauses both.
+  `tick()` also captures an unclaimed hold (K-53: on the ready hold's last day, `unclaimedAt` = ready + HOLD_DAYS) and auto-completes at `autoAt` (`HANDOFF_AUTO_H`); a problem pauses the 48 h only.
   Components (S1-A block): `pickupCode({ code })` · `autoCompleteLine(msLeft, { who })` · `deliveryPhoto({ photo, type, by })` · `reminderCard({ title, text, actionLabel, act, id })`;
   `customerBreakdown` stages `held` ("On hold") / `charged` ("Charged"), `ready` balance reads "Hold now". `driveTo` targets + `handed-over problem auto-completed
   unclaimed review-reminder tailor-no-show cant-make-it-late`; `handOver(id, how)` (common.js). Test-flows panel: Demo actions row (D-277).
@@ -113,7 +117,7 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
   `openSlots(tailorId, visitType, { until, exclude }) → ISO start strings` (D-28; wall-clock, DST-safe), `nextOpening(...same)`,
   `estimateNext(tailor, job)`, `tailorsFor(job) → { rows: [{ tailor, quote, distanceMi, nextOpening, declined }], empty:
   null|'zip'|'shop'|'nothing-open'|'none-left' }`, `statusScreen(appt, persona)`. Other exports: `state`, `T`, `reset()`, `SECTIONS`.
-  Sim knobs: `state.sim.{ latency, card, courier, network, push, send, session }`.
+  Sim knobs: `state.sim.{ latency, card, courier, network, texts, send, session, payout, server, sms, capture }` (A1: `sms` 'ok'|'undelivered', `capture` 'ok'|'declined' one-shot).
 - tailor-data.js: `MY_TAILOR_ID`, `myTailor()`, `currentCustomer()`, `inbox() → { requests, upcoming }` (appts), `jobAddress(appt)`
   (neighborhood + zip before the accept and again once cancelled, D-88), `customerName(appt)` ("Sarah C." until accepted, then "Sarah Chen", D-74)
   `customerInitials()`, `suggestSlots(appt, { limit }) → ISO[]` (D-77: open slots before the need-by, none overlapping the requested visit; seed first = `SUGGESTED_SLOT`)
@@ -125,7 +129,87 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
 - Seed: Amara Reyes (Reyes Tailoring, 312 Metropolitan Ave, Williamsburg 11211; home zips 11211 11222 11206 11237,
   home fee $35, rush $40 / $25 / $15 for ≤1 / 2 / 3 days). Sarah Chen, 145 N 7th St 2R, 11211. Demo clock Tue Oct 13
   10:00 AM. Seed job: Suit Pant hem $25 + Suit Jacket sleeves $45 + sides $55 → services $125.00, home fee $35.00,
-  total $160.00, deposit $16.00, balance $144.00, Taily fee −$12.50, payout $147.50.
+  total $160.00, deposit $16.00, balance $144.00, Taily fee −$18.75 (K-53: 15), payout $141.25.
+
+## Pre-MVP A1 (K-48): texts, waiting states, card window, visit day, courier (D-310 … D-318)
+
+- **Texts (D-02, DG-2 A, K-48.4 no quiet hours).** EVERY notification is a text: `notify(appt, event, { at, x })` (state.js; also on `T`) renders
+  `TEXTS[event]` into `state.outbox` → `{ id, seq, event, to: 'customer'|'tailor', apptId, key, body, link, at, land, status: 'delivered'|'off'|'undelivered' }`.
+  Owners: A1 fires its rows from the transitions / tick(); **A2 fires `taily-replied`, `case-decided`, `taily-replied-t`; B1 fires `verified`,
+  `check-action-needed`** (add a row to js/texts.js for any new event, then `node scripts/v5/texts-doc.mjs`). Selectors `textsFor(who)`,
+  `textsOn(who)`; prefs `state.texts = { customer, tailor }` (`on`, `stoppedAt`, `changedAt`); transitions `setTexts(who, on)` (on → a
+  confirmation text), `textReply(who, 'STOP'|'START'|'HELP')`; `A.saveName({ first, last, texts })` (the unticked opt-in on c-name).
+  Display (system.js): `showNewText(sinceSeq, { go })` after a Demo action, live while `sim.texts === 'on'`; `drawText(entry)`, `newestText(who, since)`,
+  `outboxMark()`. The K-43 auto-cancel only after a delivered reminder: `reminder.texted`, `autoCancelArmed(a)`.
+- **Taily reviews + the admin (contract for A2).** `a.review` is the customer's STAR review, so a case lives on **`a.tailyReview = { reason, openedAt,
+  by, note, closedAt, outcome? }`**; read it through **`openReviews()`** → `[{ apptId, appt, reason, openedAt, by, note }]` (oldest first) and
+  `tailyReviewOf(a)`. Reasons: `final-order-unanswered` `problem-open` `visit-unanswered` `visit-disputed` `no-show-disputed` `tailor-no-show-disputed`
+  `delivery-missing` `ready-no-way-back`. Every case (and K-48.5's 4-hour visit check) pushes **`state.admin.notifications`** `{ id, kind: 'review', apptId,
+  text, at, read: false }`. A2 resolves: set `closedAt` / `outcome` (A1 closes final-order-unanswered on approve, visit-unanswered on Start fitting or the
+  24 h cancel). A disputed no-show pay is `payout.held` (skipped by settlePayouts) until A2 releases it.
+- **Notices (DG-2 A).** `noticesFor(persona)` (cancellations ≤ NOTICE_WINDOW_H before the visit, by the other side or Taily, unseen, until the visit
+  time), `dismissNotice(id, persona)` (`a.noticeSeen`); `reminderCard({ …, dismissAct, notice })` = the 44 px ✕ variant. `dismissReviewReminder(id)` (P-04).
+- **Waiting states (D-03).** tick(): price-change texts 24 / 72 h then review at FINAL_ORDER_REVIEW_D; edit texts 24 / 72 h + `withdrawJobEdit(id)`;
+  ready texts 24 / 72 h, K-53: on the hold's last day (ready + HOLD_DAYS) `defaultReturn` (pickup, CAPTURED, the tailor paid, `handoff.slot` null, `defaultedAt`); the last-day capture pays the tailor;
+  ABANDONED_CLOSE_D after it → `completedBy: 'abandoned'`; a problem open PROBLEM_REVIEW_H → review. `overdue(a)`.
+- **Card window (D-04 → K-53).** The hold placed at ready lives BALANCE_HOLD_H; times end by `unclaimedAt` (ready + HOLD_DAYS), which never moves; `balance.state 'capture-failed'` (`sim.capture =
+  'declined'`, one-shot) → `retryCapture(id, cardId)`; a dearer courier window fails `card-declined` with a declining card.
+- **Confirm received (D-09 / K-48.3).** `confirmReceivedOpen(a)`; `confirmReceived` fails `too-early` before it.
+- **Visit day.** `visitToolsOpen(a)`, `visitPing(id, who, 'on-my-way'|'here')`, `a.visitDay = { tailor: { onWayAt, hereAt }, customer: {…}, startTextAt,
+  fittingTextAt }`; `markNoShow` fails `not-here` without the tailor's here (D-14); `disputeNoShow(id, who)`; D-11 `a.visitCheck = { askedAt, answer,
+  answeredAt, adminAt }`, `visitCheckOpen(a, who)`, `answerVisitCheck(id, 'happened'|'not-happened')`, cancel reason `no-record`; D-12 `moveSlots(a)`,
+  `proposeNewTime(id, start)`, `proposalOf(a)`, `answerProposal(id, accept)` (`a.proposal = { start, at, state, from }`); D-13 TRAVEL_BUFFER_MIN in openSlots.
+- **Courier trip (S-35).** `handoff.trip = { state: 'booked'|'out'|'delivered'|'returned', outAt, failedAt, reason }`: `courierCollected(id)` (tailor),
+  `courierDelivered(id, { to: 'door'|'lobby' })` (→ `handoff.delivery = { at, to, proof }`), `courierFailed(id, 'no-access'|'no-courier')`,
+  `deliveryReportOpen(a)` / `reportMissingDelivery(id)`.
+- **Offline (S-12).** money / accept transitions fail `offline` (requestBooking, tryAgain, tailorAccept, acceptSuggestion, holdBalance, confirmPickup,
+  confirmReceived, retryCapture, courierCollected, a held setHandoffSlot).
+- **POLICY (A1).** WAIT_REMIND_1_H 24 · WAIT_REMIND_2_H 72 · FINAL_ORDER_REVIEW_D 7 · ABANDONED_CLOSE_D 30 · PROBLEM_REVIEW_H 72 ·
+  VISIT_CHECK_H 2 · VISIT_CHECK_ADMIN_H 4 (after the START since A2 / K-50) · VISIT_CHECK_CANCEL_H 24 (after asking; K-51: closed by evidence) · VISIT_HOLD_DISPUTE_H 72 (K-51) · TRAVEL_BUFFER_MIN 30 · START_REMIND_MIN 60 ·
+  CHAT_TEXT_GAP_MIN 15 · PICKUP_REMIND_H 2 · NOTICE_WINDOW_H 48 · VISIT_TOOLS_H 3 · COURIER_REPORT_H 24 (K-53: + BALANCE_HOLD_H 114; READY_DEFAULT_D, UNCLAIMED_CAPTURE_D, HANDOFF_PICK_DAYS retired).
+- **Screens.** `c-texts`, `t-texts` (A1's), `sys-texts` (the catalogue board; A2 adds its Admin tab); A2 built `c-help`, `t-help`, `c-case`, `t-case`, `a-inbox`, `a-case` (+ `c-policy`, `t-policy`).
+  Demo actions add "Courier can’t deliver" and "Reply STOP". Fixtures: `js/fixtures/s2a.js` (milestone `A1` in inventory.js); journeys J22–J24.
+
+## Pre-MVP A2 (K-48.1, K-49 DG-1 option B, D-14, S-32, D-21): Taily Help, the admin, report / block (D-330 … D-338)
+
+- **Cases (state.js).** `state.cases[]` = Taily Help threads: `{ id, ref 'TY-48nn', apptId|null, kind 'help'|'review'|'safety', opener, topic, reason,
+  sides, messages [{ id 'k#', side, from 'customer'|'tailor'|'taily'|'system', text, photos, masked, at, kind? 'ack'|'opening'|'decision' }], read
+  { customer, tailor, admin }, actions [{ kind, cents, at }], state 'open'|'closed', closedAt, outcome { key, at, lines { customer, tailor } }, safety }`.
+  A person reads only their SIDE (`caseMessages(c, side)`); one open case per order (`openCaseOfAppt` — safety cases never count). `HELP_TOPICS`,
+  `helpTopics(a, who)` (the chips for the order's state; `null` = general), `topicLabel(topic, who, a)`, `caseTitle(c)` (the admin's name for it),
+  `caseById`, `caseOfAppt(apptId, who)` (open, else latest), `casesFor(who)`, `caseUnread(c, reader)`, `caseReplyBy(c, side?)` (HELP_REPLY_H after the
+  first unanswered message), `caseView(c, reader) → { ref, open, title, replyBy, overdue, waiting 'taily'|'you'|null, decision, closedAt, unread, appt }`.
+  Transitions (on `T`): `openCase({ who, apptId, topic, text, photos })` (`unknown-person topic empty too-many-photos offline`; a topic is sent as her
+  words, Taily's ack follows), `sendCaseMessage(caseId, who, { text, photos })` (`unknown-case closed not-a-party empty too-many-photos offline
+  send-failed`; masked), `markCaseRead(caseId, reader)`.
+- **Reviews are cases.** `openTailyReview` (A1) → `reviewCase`: Taily's opening words to both sides in dollars; `closeReview(a, outcome)` closes the
+  review and its case (A1's approve / fitting-started / 24 h cancel use it). K-48.5 (K-50): the admin is told `VISIT_CHECK_ADMIN_H` 4 h after the
+  visit START.
+- **The admin (K-48.1).** Every new case / safety report / block / review → `state.admin.notifications` `{ id, kind 'review'|'case'|'safety'|'message',
+  apptId, caseId, text, at, read }` + a text `to: 'admin'` (`admin-case`, `admin-message`; "Taily admin: " prefix; `state.texts.admin`).
+  `adminInbox() → { open, closed, notifications, unread }`, `adminActions(c) → [{ kind, label, sub, cents, tone, confirm }]`, `decisionPreview(caseId)`,
+  `adminAct(caseId, kind)`; transitions `adminReply(caseId, side, { text })`, `adminRefundDeposit` (`deposit-<state>` `order-open`), `adminKeepDeposit`
+  (`deposit-refunded` `not-kept`), `adminReleaseHold` / `adminCaptureHold` (`no-hold`), `adminCancelOrder` (`not-cancellable`; cancel reason `'taily'`),
+  `adminPausePayout` (`no-payout`) / `adminReleasePayout` (`nothing-held`), `adminCloseCase(caseId, { outcome })` (`decide-first` while a payout is held;
+  texts `case-decided` / `taily-replied-t`, or `help-replied(-t)`), `adminMarkRead(id)`. All fail `unknown-case` / `closed` / `no-order` (money).
+- **Report / block (S-32).** `REPORT_REASONS`, `reportPerson(who, { apptId, tailorId, reason, text })` (`reason offline`), `blockPerson(who, { apptId,
+  tailorId })` (`already offline`), `unblockPerson`; `isBlocked(tailorId)`, `blockedBy(tailorId)` → eligible `'blocked'`, tailorsFor hides, requestBooking
+  / tryAgain / acceptSuggestion fail `blocked`, `threadReadOnly` true. A HELP reply texts `help-reply` / `help-reply-t` (→ c-help / t-help).
+- **Components.** `ICON_HELP ICON_SHIELD ICON_FLAG ICON_BLOCK`, `helpAction(act)` (the Get help person button), `helpActions()` (its own row),
+  `caseStrip(caseView)` (Taily is reviewing · Reply by … / Taily replied / Taily decided + the line in dollars + Open Taily Help `data-act="open-case"
+  data-case`), `tailyHead`, `caseThread(c, side, { reader })`, `protectionRow(act)` (D-21), `policySections(page)`, `helpHome(who)`,
+  `helpCaseName`, `confirmAction({ header, body, ok, danger, dataS, busyLabel }, onOk → error|null)` (was A2's `confirmSheet`; renamed at the merge, B2's markup), `openUnblockSheet({ who, other, tailorId, onDone })` (merge), `openSafetySheet({ who, other, apptId, tailorId, mode:
+  'menu'|'report'|'block', onDone, onHelp })` (dataS `safety-menu` / `safety-report` / `safety-block`), `helpCase(who)` / `helpThreadView(who)` /
+  `wireHelpThread(root, who, { go, id, statusScreenOf })` (state.ui.help = `{ apptId, caseId }`), `requestHead({ more })` (t-job's ⋯),
+  `courierCard({ protection })`, statusPill keys `case-reply case-overdue case-waiting case-closed`, `NAV.admin`, `navBadges('admin')`.
+- **Screens.** `c-help` / `t-help` (Help home), `c-case` / `t-case` (the Help thread), `c-policy` / `t-policy` (state.ui.policy), `a-inbox`, `a-case`
+  (state.ui['a-case'] = `{ caseId, side }`). Entry points: c-booking person block (every state) + c-request / c-ready / c-complete / c-price-change
+  rows (`get-help`), t-job ⋯ in every state (`get-help`, `report-block`), c-thread / t-thread ⋯ (Report · Block · Get help), the case strips
+  (`open-case`), c-pay / c-ready courier card / c-booking courier block (`garment-protection` → c-policy). Test flows: Admin tab + "View as Admin".
+- **POLICY / MONEY (A2).** `HELP_REPLY_H` 24 · `GARMENT_REPORT_H` 48 · `MONEY.GARMENT_PROTECTION_CAP` 500. Fixtures `js/fixtures/s2c.js` (inventory
+  milestone `A2`); journeys J27 (a no-show dispute through Help → the admin refunds and closes) and J28 (the tailor's ⋯ Get help → the admin replies).
+- **Done at the A2 + B2 merge (D-380).** Account → Help (c-account) → `c-help`, Shop → Help (t-shop) → `t-help`; the legal pages are `POLICIES`
+  entries rendered by c-policy / t-policy (B2's js/legal.js + c-legal / t-legal retired); Unblock on c-tailor and the blocked thread.
 
 ## Sign-in + sim (M1; `js/account.js`, `js/sim.js` — import as `import * as A from '../account.js'`)
 
@@ -315,5 +399,141 @@ Run it end to end: `npm run study` (`scripts/v5/study-run.mjs`, 390 px, through 
 - **Screens**: t-adjust `mode: 'edit'` (draft adds `needBy reason photo seedSig`; no docs editor; due-date sheet `t-adjust--edit-due`; Send to Sarah off until price / due / work changed) and General notes in place of the old note (new / revise, draft `noteDraft`); t-job state `edit-pending` (Mark ready disabled + note, Edit order), in-progress bar gains "Edit order" (`edit-job`; K-42, was Edit the job), General notes from the fitting on (`ui['t-job'].note` draft), c-price-change edit mode (Approve changes / Message, like the fitting; a Message hint under Price).
 - **Fixtures**: `driveTo` targets `edit-pending edit-approved` (`opts.edit = 'full'|'price'|'due'`); `jobEdit(appt, kind)`, `EDIT_REASON`, `NOTE_TEXT` (common.js); `PRICE_NOTES[recipe]` is written as a private note at the fitting; `JOB_EDIT` + `SCENARIOS.edit` (money-scenarios.js). Flows `js/fixtures/s1b.js`; journey J18.
 - **K-40 / K-37 (D-295, Study-1 T1)**: `state.js` `handoffSlots(appt, method)` (pickup `[{ start }]` / courier `[{ start, end, collectAt }]` from the tailor's shop hours — home hours without a shop — up to `POLICY.HANDOFF_PICK_DAYS`), `setHandoffSlot(id, slot)` (customer; `not-ready` `return-required` `already-marked` `too-late` `slot-invalid` `no-change`; on awaiting-handoff stores `handoff.moved = { from, at }` + a thread line), `slotText(slot)`, `handoffMissed(a)`, `handoffChangeable(a)`, `courierWindow(a)` = the picked window; `holdBalance` → `slot-required` / `slot-gone`; `chooseReturn` to another way clears the slot. `scheduler.js` `windowColumns(windows, start)` / `readWindow(root, windows)` (Day · Arrives). `components.js` `handoffWhenRow({ method, text, sub })`, `openHandoffTime(appt, { mode: 'pick'|'change', first, place, courierCents, dataS, onDone, onMessage })`, `photoFigure` (was `deliveryPhoto`). Fixtures: `common.js` `pickHandoff(id, at)`, `HANDOFF_PICK`, `HANDOFF_MOVE`; driveTo picks Fri 5:30 PM (pickup) / Fri 5:00–5:30 PM (courier) before the hold. Keys in `js/fixtures/s1d.js`.
-- **K-41 (D-296, Study-1 R3) the 24-hour reminder**: `money-config.js` `POLICY.REMINDER_LEAD_H` (2) / `REMINDER_NUDGE_H` (3). `state.js` `appt.reminder = { sentAt, confirmedAt, nudgedAt }` (no new status); `tick()` sends it at `reminderAt(a)` (CANCEL_WINDOW_H + REMINDER_LEAD_H before the visit) to a visit whose time was set by then (`reminderEligible`: the last accept / reschedule ≤ reminderAt) and stamps one nudge at `nudgeAt(a)` if unconfirmed; `freeUntil(a)`, `reminderState(a)` (`null | 'asked' | 'confirmed' | 'missed'`), `reminderDue(a)` (= asked), `visitReminder()`, `confirmVisit(id)` (`not-confirmed` `not-asked` `already-confirmed` `visit-started`); `rescheduleBooking` resets the reminder. `money.js cancelTerms` → `late` with `confirmed: true` once `reminder.confirmedAt` ≤ now (the tailor's own late flag ignores it); a cancel after confirming stores `cancel.afterConfirm`. `focus.js statusWord` confirmed: customer Your move / All set, tailor Not confirmed yet / Sarah confirmed / Not confirmed. `dates.js dayWord(d, from)`. `components.js visitPrompt({ text, right, row, rule, id })` (the Home card). Flow-menu Demo action "To the reminder" + the customer push (`remindPush`). Keys in `js/fixtures/s1e.js` (`toReminder`, `confirmedAtReminder`, `missedReminder`); journey J19.
+- **K-41 (D-296, Study-1 R3) the visit reminder — K-51 (D-383): `POLICY.REMINDER_H` 48 (C7) / `REMINDER_NUDGE_H` 26 (C8); `reminderAt` = 48 h before, `nudgeAt` = 26 h, `promptAt(a)` = her first ask, `reminderEligible` = booked by the nudge time; either text delivered arms the 3 h auto-cancel. (Below: the K-41 original, REMINDER_LEAD_H retired.)** `money-config.js` `POLICY.REMINDER_LEAD_H` (2) / `REMINDER_NUDGE_H` (3). `state.js` `appt.reminder = { sentAt, confirmedAt, nudgedAt }` (no new status); `tick()` sends it at `reminderAt(a)` (CANCEL_WINDOW_H + REMINDER_LEAD_H before the visit) to a visit whose time was set by then (`reminderEligible`: the last accept / reschedule ≤ reminderAt) and stamps one nudge at `nudgeAt(a)` if unconfirmed; `freeUntil(a)`, `reminderState(a)` (`null | 'asked' | 'confirmed' | 'missed'`), `reminderDue(a)` (= asked), `visitReminder()`, `confirmVisit(id)` (`not-confirmed` `not-asked` `already-confirmed` `visit-started`); `rescheduleBooking` resets the reminder. `money.js cancelTerms` → `late` with `confirmed: true` once `reminder.confirmedAt` ≤ now (the tailor's own late flag ignores it); a cancel after confirming stores `cancel.afterConfirm`. `focus.js statusWord` confirmed: customer Your move / All set, tailor Not confirmed yet / Sarah confirmed / Not confirmed. `dates.js dayWord(d, from)`. `components.js visitPrompt({ text, right, row, rule, id })` (the Home card). Flow-menu Demo action "To the reminder" + the customer push (`remindPush`). Keys in `js/fixtures/s1e.js` (`toReminder`, `confirmedAtReminder`, `missedReminder`); journey J19.
 - **K-42 (D-297) titles**: t-adjust at the fitting (new + revise) = "Final order"; `mode: 'edit'` = "Edit order"; t-job fitting CTA "Final order", in-progress / edit-pending secondary "Edit order" (acts unchanged: `edit-order`, `edit-job`).
+
+## Pre-MVP B1 — supply side (K-48; D-350…D-362; flows `js/fixtures/s2b.js`, inventory milestone `PM`)
+
+- **DG-4 option B (Kevin)**: the four checks `data.js VERIFY_ITEMS` (id · background · years · payout; no insurance — "Insured through Taily" in the K-15 popover). `state.js`: `checkState(t, id)` ('not-started' | 'pending' | 'needs-info' | 'verified' | 'waitlist') · `verifyView(t) → { items, passed, total, allPassed, needsYou, pending }` · `checksPassed` · **`isVerified(t)`** (the ONLY source of the Verified check; no stored `verified`) · `sectionsDone` · `waitlisted` (years < `TAILOR_LIMITS.YEARS_MIN` 5) · `bookable` = sectionsDone && !waitlisted && (!`POLICY.LIVE_REQUIRES_VERIFIED` || checksPassed) · `listed` = live && bookable (eligible / tailorsFor) · `onboarded` = submitted || live (the to-* edit mode, was `live`). Tailor fields: `idDoc`, `verify: { id: { state, at }, background: { state, consentAt, at } }`, `submitted`, `submittedAt`, `liveAt`, `payouts.{ status, identity, tax, taxAt, issue, issueDue }`, `shop.unit`, `collect: { street, unit, zip, notes }`.
+- Transitions (on `T`): `uploadId()` (`photo-required` `already-verified`) · `consentBackground(agree)` (`consent-required`) · `setupPayouts({ newBank })` (PROTOTYPE of the partner's hosted onboarding; outcome = `sim.payoutSetup` 'verifying' | 'verified' | 'action-needed'; goes through `setPayouts`) · `pausePayouts()` / `confirmTaxInfo()` (`not-verified` / `not-paused`; `settlePayouts` returns `paused: true` and pays nothing while status ≠ verified) · `submitOnboarding()` (`sections-incomplete` + missing · `waitlist`) · `reviewChecks({ id, background, payout })` (pending passes unless named 'needs-info'; the last pass takes a submitted tailor live) · `joinAreaWaitlist(zip)` (+ selector `onAreaWaitlist`). Profile rules add `idDoc: id-required`, `years: years-required | years-invalid`; where adds `shopZip: zip-unserved`, `collectStreet` `collectZip` `collectNotes` (no shop + home visits); payouts adds `setup: setup-required`.
+- Texts (merge A1 + B1, D-363): `setTailorSection` / `setupPayouts` / `reviewChecks` end with `verifyTexts(t, before)` → `notify(null, 'check-action-needed', { x: { check } })` when a check turns needs-info, `notify(null, 'verified')` when the 4th check passes (once each).
+- **Listing (K-48.2)**: `coversJob(t, job)`; `eligible` reason `'services'`; `tailorsFor` empty `'services'`; `requestBooking` → `'services'` / `service-not-offered` (c-pay's own banner).
+- **Geography (S-42, PROTOTYPE)**: data.js `ZIP_XY` · `geocode({ street, zip })` · `milesBetween(a, b)` · `placeForZip(zip) → { hood, borough, city, state } | null`; state.js `shopPoint` `collectPoint` `milesToShop(t, zip)` `courierMiles(appt)` `collectAddress(t)`. `ZIP_INFO` stays as the seed's measured distances (the grid reproduces them; model test).
+- Components: `verifyChecklist(t, { interactive })` · `checkWords(t, id) → { sub, pill, pillLabel, act }` · `checksLine` · `reviewPill` · `REVIEW_TIME` · `openIdSheet(onPick)` (dataS `id-upload`) · `openBackgroundSheet({ agree, onDone })` (dataS `background-disclosure`) + `disclosureHtml` / `BACKGROUND_DISCLOSURE` / `COUNSEL_DRAFT` (placeholder for counsel) · `secureSetupCard()` · `payoutRows(t, { interactive })` · `garmentHead({ services })` (D-24: the name opens its services popover) · statusPill keys `check-verified check-pending check-needs check-todo check-waitlist under-review`. `ONBOARDING_STEPS` payouts label "Background check and payouts". tailor-data.js `ownRow(job) → { row, reason }` (her K-19 row whether or not listed; previews).
+- Router: `register(id, view, wire, { canLeave, discard })` — the top nav asks "Leave without saving?" (S-22); `personaHome('tailor')` → next onboarding step / to-done (waitlist) / t-shop (under review) / t-home (S-21).
+- Fixtures: `onboardTo(step)` steps `… 'payouts' 'submitted' 'done'` (payouts = consent + `setupPayouts`; 'submitted' = under review; 'done' = `reviewChecks()` → live). Journeys J25 (consent → partner → Submitted → Shop under review → review passes → listed + Verified), J26 (waitlist, nav guard, K-48.2); J21 updated (no bank form).
+
+## Pre-MVP B2 — Account v2, deposit button V3, social sign-in + phone, receipts, reviews, notes (K-48 / K-49; D-370…D-379; flows `js/fixtures/s2d.js`, inventory milestone `PM`)
+
+- **Account v2 (DG-3 A, D-370).** c-account: profile line → You (Personal info `c-profile`, Texts) · Bookings and payment · Help and policies (Help → `c-help`, the four legal pages → `c-policy`, D-380) → Sign out (muted) + Delete account (danger). t-shop: after Your setup, Account (Phone number → `t-change-phone`, Texts → `t-texts`, See your full profile → c-tailor preview) + Help and policies (Help → `t-help` guarded, `t-legal` × 3) → Sign out + Delete account. The seed customer has **no email** (`CUSTOMER.email: ''`); `data.js BLANK_CUSTOMER`.
+- **account.js (B2).** `saveProfile({ first, last, email })` (first-required · last-required · email-invalid; → `changed`) · `startPhoneChange(raw, who)` (phone-invalid · phone-same) · `phoneChangeStatus(who)` · `resendPhoneChange` · `cancelPhoneChange` · `verifyPhoneChange(code, who)` (no-code · code-format · code-expired · code-wrong; clears a STOP's `stoppedAt`) · `deleteAccount(who)` (→ `{ ok: false, error: 'open', block }` while `deleteBlocker(who)`; customer → `BLANK_CUSTOMER` + `closed: { id, at }`, texts off, signed out with `session.customer.deletedAt`; tailor → `blankTailor()` + `closedAt`, unlisted, `session.tailor.deletedAt`; appts, threads (filtered by `customerId`), payouts stay) · `signInWith(provider)` no longer signs in (D-372: `session.customer.social = { provider, first, last }`, `socialPending()`) · `sendCode` keeps `pending.agreed = { version: LEGAL_VERSION, at }` → `customer.agreed` / a new tailor's `agreed` (S-24) · `addressErrors({ street, zip, notes })`, `addAddress({ …, notes })`, **`updateAddress(id, patch)`** (S-27; `customer.address` mirrors the default incl. `notes` when set).
+- **state.js (B2).** `deleteBlocker(who)` → `{ reason: 'order'|'unpaid'|'review' | 'job'|'payout'|'job-payout', appt, payout }` | null · `receiptNumber(a)` · `receiptView(a)` → `{ number, issuedAt, charges: [{ kind: 'deposit'|'balance', cents, at, cardId }], refunds: [{ kind: 'deposit'|'overage', … }], paid, emailedAt, emailedTo }` | null · transitions (on `T`) `emailReceipt(id)` (no-email · no-receipt · offline; PROTOTYPE `a.receipt`), `setJobAddress({ street, unit, zip, notes })`, `useSavedAddress(id)`, selector `savedAddressOf(addr)` · `requestBooking` stores `job.note` masked (`a.job.note`, `a.job.noteMasked`; `note-long`) · every outbox entry carries `phone` (the number it went to). `data.js BOOKING_LIMITS { NOTE_MAX 200, ACCESS_MAX 140 }`; 12 written seed reviews of the 37.
+- **Components (B2).** `confirmSheet({ title, body, primary: { label, act, variant, busyLabel }, secondary, dataS }, wireFn)` + `leaveSheet(opts, { dataS }, wireFn)` — P-32 (D-375): THE confirm container (a bottom sheet); `modalOverlay(leaveModal())` is no longer used by screens. `addressFields({ values, errors, zipHelper, disabled })` + `ADDRESS_ERRORS` (S-27: street · unit · ZIP · access notes, shared by c-addresses and the c-where sheet). `receiptBlock` ends with "See full receipt" (`data-act="full-receipt"`, wired by c-complete / c-booking → `c-receipt`). Token `--card-ring-tap` (P-31, D-374: neutral-500 on single-target cards).
+- **Screens (B2).** New: `c-profile`, `c-change-phone`, `c-receipt` (focused appt), `c-reviews` (`state.ui['c-reviews'].tailorId`), `t-change-phone`; B2's `c-legal` / `t-legal` became `c-policy` / `t-policy` at the merge (`state.ui.policy`; SYSTEM_EXEMPT, read signed out: no tabs, no Get help). c-pay = K-49 V3 (`ctaSub`), the note, the refunds link; c-phone social mode (`data-social`); c-name prefill; c-welcome / t-phone `deletedAt` banners. `driveTo(target, { note, accessNotes })` (common.js). Journeys J29 (change phone → texts to the new number), J30 (delete blocked → allowed → signed out), J31 (Apple → phone + code → names → Home; V3).
+
+## Pre-MVP K-51 — the text catalogue revision (D-382…D-385)
+
+- **texts.js.** `textNo(id)` → 'C7' / 'T19' / 'A1' (by recipient, catalogue order; add rows at the END of a block). A row may carry `alt: { label, x }` (TEXTS.md prints both wordings). `textCtx` reads `x.payday` (the payout's own date) first. C17 / T19 (`visit-closed(-t)`) take `x.outcome` ('held' | 'no-show') and `x.until`.
+- **state.js.** Reminder: `promptAt(a)`, the nudge only inside the free window (D-383). Visit check close (D-384): `closeUnrecorded` → `closeAsNoShow` (her I'm here: cancel `{ by: 'system', reason: 'no-show', evidence: 'here' }`) or "Not confirmed" (`reason: 'no-record', held, holdUntil, disputedAt, disputedBy`, the deposit stays captured); `depositOnHold(a)`; `T.disputeUnconfirmed(id, who)`; a Help message on the order while on hold disputes too; tick()'s `cancelled` timer keeps it for the tailor after `VISIT_HOLD_DISPUTE_H`; the admin's keep / refund work on a held deposit, `adminCloseCase` → `decide-first` while a disputed one is held. `endSuggestion` no longer hides the tailor (D-385).
+- **Fixtures / journeys.** s1e `toReminder` = the nudge moment (Wed 3:00 PM), `toReminder48` = the reminder (Tue 5:00 PM); s1f / s2a / s2c helpers use `nudgeAt`. J19 / J20 / J23 rewritten, J33 added; the journeys' text() ignores the open Test-flows panel.
+
+## Pre-MVP K-53, track M — the balance held at Ready, fee 15, no-show = deposit, the Ledger, the free window (D-400…D-411)
+
+- **money-config / money.js.** `MONEY.TAILY_FEE_RATE` 0.15 · `MONEY.COURIER_ABSORB` 3.00 · `NO_SHOW_COMP` gone (`noShowPayout(d) = d`) · `POLICY.BALANCE_HOLD_H` 114
+  (READY_DEFAULT_D / UNCLAIMED_CAPTURE_D / HANDOFF_PICK_DAYS retired) · money.js `HOLD_DAYS` (= 4, re-exported by state.js), `feePercent()` (ONLY to-fee),
+  `courierQuote(miles, start, { drift })`, `courierAtPay(seen, fresh)`; `cancelTerms` has no `confirmed` any more (the free window always ends 24 h before).
+- **state.js — the hold at Ready (D-400…D-402).** `markReady` → `placeReadyHold`: `payments.balance = { cents, state: 'held', heldAt, by: 'ready', cardId, readyCents,
+  holds: [{ cents, cardId, at, by, releasedAt? }] }` (declined: `state 'failed', failedBy 'ready'`). `readyAtOf(a)`, `unclaimedAt(a)` = ready + HOLD_DAYS (the hold's
+  last day); `handoffSlots` ends every time by it (after a capture: HOLD_DAYS from now). `holdBalance` = Pay CONFIRMS against it (same card: nothing new;
+  another card / a failed ready hold: a fresh hold `by: 'pay'`; a declined new card: `payFailed`, the ready hold stays); courier: re-quoted
+  (`sim.courierDrift`), absorbed ≤ $3.00 (`courier.pay = { uber, markup, absorbed }`) or `courier-repriced` (`cents`, `was`; `courier.repricedFrom`), held on top
+  (`balance.courierCents`). readyTimers: on the last day `defaultReturn` captures ('unclaimed') and sets in-store pickup (awaiting-handoff, the payout queued,
+  C30 / T29); no shop → captured, stays ready, `ready-no-way-back` review; a failed hold → `capture-failed`. `setHandoffSlot` after Pay: a pricier window =
+  `payments.courierCharges[]` (charged now; `courierExtras(a)`), the capture stays what was authorized. `receiptView` adds `'courier-change'` charges.
+- **state.js — `ledger({ day, apptId, person })` (D-408)** → `{ rows, totals, options }`, derived (no stored log): rows `{ id, at, apptId, ref, customer, tailor, who,
+  kind, label, flow: hold|in|out|release|revenue|cost|tailor|note, cents, note?, state?, date? }` newest first; totals `{ held, charged, refunded, released, revenue,
+  uber, kept, paid, pending, heldPayouts }`; options `{ days, orders, people }` (person keys `customer:<id>` / `tailor:<id>`).
+- **Free window (D-409).** `reminder.closedTextAt`; remindTick sends C48 `free-window-closed` one minute after `freeUntil` while unconfirmed + armed; `afterConfirm` gone.
+- **Screens.** New `to-fee` (step 2's first page: to-profile → to-fee → to-services; `to-fee--shop` from Services and prices → "What the fee covers") and `a-ledger`
+  (admin nav: Inbox · Ledger, `NAV_ICONS.ledger`; filters = chip groups in `state.ui['a-ledger']`). c-ready: the hold copy, "Update your card" (`[data-hold-failed]`),
+  "The courier price changed" (`[data-repriced]`), `dueNow`; c-booking: the courier "Window change $X · charged …" line + the move toast; t-job: `readyFine`
+  (`[data-ready-hold]`), the defaulted / last-day notes; components.js `untilWords(appt)`. c-receipt label `courier-change`.
+- **Lint.** scripts/v5/lint.mjs: `feePercent` / `TAILY_FEE_RATE` only in money.js, money-config.js, to-fee.js. clickthrough-flows: any visible "\d%" fails except
+  to-fee's `[data-fee-rate]` (`PERCENT_OK`).
+- **Fixtures / journeys.** `js/fixtures/s3m.js` (inventory milestone `K53`); common.js `toHoldEnd(id)` (driveTo 'unclaimed' uses it). Journeys J34 (held at Ready →
+  Pay confirms → the code captures → the Ledger), J35 (never chosen → charged, in-store pickup), J36 (courier: absorbed at Pay, a pricier window charged on its own);
+  J15 / J17 / J19 updated. TEXTS.md: 94 texts (C48 new).
+
+## MVP readiness, track L (K-52 / K-53; D-420…D-431; flows `js/fixtures/s3l.js`, inventory milestone `RL`)
+
+- **Log in (K-52, D-420).** account.js `hasAccount(raw, who)`, `sendLoginCode(raw, who)` → `{ ok, phone }` | `phone-invalid` | `no-account` (no code, no
+  pending, never a silent sign-up; then the usual `verifyCode`). Screens: **`c-login`** (Welcome back; unknown → "No account with this number." + Create one →
+  c-phone with the number); c-welcome "Already have an account? Log in" + "Are you a tailor? Log in or Join Taily"; **t-phone modes** `state.ui['t-phone'].mode`
+  'join' (default) | 'login' (also after Finish later; `data-mode`).
+- **The admin's sign-in (K-52, D-421).** `state.session.admin = { signedIn, email, at, test?, pending: { email, sentAt, step: 'code'|'second' } }` (seed signed
+  out; `reset()` KEEPS it). account.js `adminSendCode(email)` (`email-invalid` `not-admin`; `ADMIN_ACCOUNT` in data.js) · `adminStatus()` · `adminResendCode()` ·
+  `adminVerifyCode(code)` (`no-code` `code-format` `code-expired` `code-wrong` → step 'second') · `adminVerifySecond(code)` (→ signed in) · `adminSignOut()` ·
+  `adminSignedIn()` · `adminTestSession({ test })`. Screen **`a-login`** (`?admin`; three steps; then `unlockTools()` and `state.ui['a-login'].next` or a-inbox).
+  app.js render(): any a-* id but a-login without the session → a-login. a-inbox ends with `[data-admin-tools]`: Test flows · Sign out.
+- **Test flows are the admin's (K-53 a8, D-422).** `html.tools-on` gates `.stage-caption` (css/flow-menu.css). On: a test boot (`?test=1` / `?flow=` / `?study=`:
+  tools on + `adminTestSession()` at boot) or his sign-in (sessionStorage `taily-admin` remembers the tab). Off: a plain visit, a cold `?screen=` link, his Sign out
+  (not in a test boot). The first input loads the tools only while on. Harness paths unchanged; study-run 39/39.
+- **Phone only (K-53 Q9, D-423).** `POLICY.SOCIAL_SIGN_IN` false; `A.socialSignIn()` (= the flag || `state.sim.social === 'on'`).
+- **Availability (K-53 a4 / S-34, D-424…D-426).** state.js `DAY_WINDOWS_MAX` 2 (rules `<type>-<day>`: `windows-overlap`, `windows-max`), `noticeChoices()` (MIN_LEAD_H
+  + `POLICY.NOTICE_OPTIONS_H`), `noticeHours(t)` (openSlots' lead), `tailor.notice`, `tailor.timeOff [{ id, from, to }]` (rules `off-<id>`: `off-required` `off-range`
+  `off-past` `off-far` (`POLICY.TIME_OFF_AHEAD_D`) `off-overlap`), `timeOffOn(t, day)` (openSlots skips the day), `timeOffList(t)`, `bookedDuring(t, from, to)`;
+  saved with the hours: `setTailorSection('availability', { availability, timeOff, notice })`. Component `dayHours({ windows, addable })` (`data-win`,
+  `remove-window`, `add-window`, `.day-hours--split`). to-availability: TIME OFF card + "Add time off" sheet (dataS `to-availability-off`, two day wheels) and
+  MINIMUM NOTICE chips; t-shop's Availability row adds the notice / next time off. `handoffSlots` (track M's) skips a day off too (`timeOffOn`, D-426; the L + M merge).
+- **Background check last (K-53 Q8, D-427).** `VERIFY_ITEMS` id · years · payout · background; `reviewChecks` runs the background check only after the other
+  three; `firstChecksPassed(t)`, `approvedPendingBackground(t)`; components `APPROVED_PENDING_LINE`, reviewPill "Approved · background check pending".
+- **Slow texts (K-53 Q10, D-428).** state.js `slowTextAt(ms)` (POLICY `SLOW_TEXT_FROM_H` 8 / `SLOW_TEXT_TO_H` 21): the 72 h waiting nudges and the review reminder
+  only. **Legal drafts (D-429)**, Help hours + backup (D-430), `tailor-data.js previewJob(job)` (D-431). SYSTEM_EXEMPT adds c-login, a-login.
+- **Journeys** J37 (log in), J38 (unknown number, customer + tailor), J39 (the admin gate on a plain visit → email → code → second factor → Test flows → Sign out),
+  J40 (time off + notice → the customer's next opening moves); J31 turns `sim.social` on; J32 reads the drafts. (Track L wrote them as J34–J37; renumbered at
+  the merge with track M, whose J34–J36 came first.)
+
+## MVP readiness — the L + M merge (D-432…D-435)
+
+- **state.js** `handoffSlots` skips `timeOffOn` days (D-432; model test "L + M merge"). **policies.js** the full drafts state the hold at Ready (D-433):
+  Cancellation and refunds → The balance, the customer's Payments and holds, Terms §4, the tailor's Payments and the Tailor agreement §4 (payout timing).
+- **components.js** `adminTools({ testFlows })` + app.js `wireAdminTools(root)`: Test flows · Sign out at the foot of a-inbox AND a-ledger (D-434);
+  the nav stays Inbox · Ledger; every a-* screen (a-ledger included) sits behind the a-login gate. Fixtures: s3m + s3l both in ALL_FLOWS;
+  inventory BUILT adds `K53` and `RL`. Journeys: M J34–J36, L J37–J40 (D-435).
+
+## Pre-MVP findings sweep (D-440…D-445; flows `js/fixtures/s4w.js`, inventory milestone `SW`; coverage table `docs/v5/PRE-MVP-COVERAGE.md`)
+
+- **state.js** versioned approvals (B-02, D-440): `approvePriceChange(id, { revision })`, `approveJobEdit(id, { revision })` → `'revised'`
+  `{ revision, total }`; `answerProposal(id, accept, { start })` → `'revised'` `{ start }`. No version = apply the current one (old callers).
+  `sim.race` 'none' | 'revised' (one-shot): the tailor's phone re-sends the pending order (every line + $10.00) just before the approval.
+  c-price-change reads what it painted at wire time (`seenOf`) and shows the `[data-revised]` warning banner; c-booking passes the move's start.
+- **tailor-data.js** `inFlightView()` → `{ cents, items: [{ apptId, title, types, cents }] }` — booked jobs with no payout yet (B-07, D-441);
+  t-earnings "On the way" (rows open t-job).
+- **components.js** `tailorRow` = `<article class="tailor-row card">` + `.tailor-row__link` (the stretched-link button, `data-act="open-tailor"`,
+  labelled with the card's facts) + a real Verified `<button>` above it; `verifiedCheck({ years, word })` (the `inline` span is gone) (S-18, D-442).
+- **tokens.css** `--size-*` in rem (16 px root), `--tile-h` 6.875rem (garment tile); the text-reflow tiers are em media queries
+  (18.75 / 21.25 / 22.4375 / 23.375em = 300 / 340 / 359 / 374 px at 16) (S-17, D-443). Pixels at the default are unchanged.
+- **Web-app shell** (a8, D-444): `manifest.json`, `assets/app-icon.svg`, theme-colour + Apple metas in index.html. `html.device-frame`
+  (app.js `setTools`, components.html static) draws the 9:41 status bar; without it `--status-h` = the device's top inset and the bar is hidden.
+  Deep link per appointment: the build's (D-445).
+- **Gallery** (K-53 a6, D-446): `galleryHtml({ part })` — 'core' (`sys-components`), 'since-k22' (`sys-components--since-k22`: everything
+  built since K-22 + live overlay openers `[data-gal-open]`), 'all' (components.html, whose `.screen` is `#screen`). Engineers' handoff:
+  `docs/v5/DESIGN-SYSTEM.md`; DESIGN.md is current through K-53.
+- **Copy deck** (K-53 a7, D-447): `node scripts/v5/copy-deck.mjs` → `docs/v5/COPY-DECK.md` (every state's visible copy by persona →
+  screen → state, deduped; the 94 texts; policy headings + In short; COUNSEL / made-up placeholders). Rerun after any copy edit.
+
+## K-54 happy-path review fixes (D-450…D-464; flows `js/fixtures/s3r.js`, inventory milestone `RV`; coverage `docs/v5/PRE-MVP-COVERAGE.md` "Happy-path review")
+
+- **state.js.** `tick()` runs the Friday payout run (`payoutTimers`: every payout date whose `payoutRunAt(day)` = `POLICY.PAYOUT_RUN_H` 9:00 AM the clock
+  crossed → `settlePayouts({ at, upTo })`, stamped at the run; held / paused wait). `reviewCheck(id, 'verified' | 'needs-info')` (one check, the
+  admin's; unknown-check · unknown-result · not-submitted · not-started · background-last · same; texts via verifyTexts) · `verificationQueue()` →
+  `{ review, verified }` · `CHECK_WORDS` exported · years check: `tailor.verify.years` (needs-info → pending on a profile re-save; else derived).
+  `bookAgain` need-by = today + `NEED_BY_DEFAULT_D` (data.js, 10). `reviewPromptDue(a)` / `reviewPrompt()` (Home's review card before the 7-day
+  reminder; `reviewPromptDismissedAt`). P11: `refundableOf(a)`, `courierRefundable(a)`, `adminRefundCourier(caseId)`, `adminRefundPartial(caseId, cents)`
+  (`amount-invalid` · `amount-over` `{ max }` · `nothing-paid`), `adminAct(caseId, kind, { cents })`; `a.payments.tailyRefunds` → receipt refunds
+  `courier` / `partial`, Ledger `courier-refund` / `partial-refund` ('out'; revenue pays it).
+- **account.js / account-ui.js.** `saveName` for a new number clears the sample draft, addresses, card, Apple Pay (P1). `signOutTo(who)` (DOM-free;
+  a tailor → t-phone Log in mode); `openSignOut` uses it.
+- **focus.js.** `statusWord(confirmed, 'customer')` after the tailor's pings: "Amara is here" / "Amara is on her way" (short "On her way").
+- **tailor-data.js.** `payoutsView().later` (every pending Friday after the next); `previewJob` has `needBy: null`.
+- **components.js.** `apptNext({ row, label, act })` (a booking row + its one full-width primary, Home); `avatar({ mark })` / `threadHead({ mark })`
+  (`tailyHead` = the Help mark); `NAV.admin` Inbox · Verifications (`checks`, `NAV_ICONS.checks`) · Ledger, `navBadges('admin').checks`;
+  `checkWords(t, 'years')` needs-info / pending.
+- **Screens.** New `a-verifications` (admin). c-pay `sent(res)` names the new request; no card → "Add a card" (Reserve → the card form → reserve).
+  c-job: no draft bar while a booking / the review card leads and the draft is empty (back with the first garment or a Book-again draft); ready row
+  "Ready since …". c-ready: Pay confirms on the held card (`payDirect`; "Pay with … · Change" = `pay-change` → the sheet). t-job courier out,
+  "packaged", the last-day time. c-booking: reminder strip with the auto-cancel cut-off; no footer once she is here; "Taily courier fee".
+  a-case: refund the courier / part of it (amount sheet `a-case--partial`). t-earnings "After that". Demo action **Checks come back** (`checks`).
+- **CSS (18.75em tier only).** the tailor card's head stacks; c-tailors' filters one per row; a 4-column date wheel stacks (the day wheel above
+  the time wheels, a second band via `::after`); money-row status wraps.
+- **Journeys** J41 (B1), J42 (B2), J43 (F5), J44 (F8), J45 (F9); J7 / J15 / J34 / J36 pay in one tap; J19 / J20 the reminder cut-off.

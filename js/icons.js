@@ -116,6 +116,12 @@ export const NAV_ICONS = {
   shop: NAV24('<path d="M4.5 10.5v9.75h15V10.5"/><path d="M3 8.25 4.5 3.75h15L21 8.25a2.25 2.25 0 0 1-4.5 0 2.25 2.25 0 0 1-4.5 0 2.25 2.25 0 0 1-4.5 0 2.25 2.25 0 0 1-4.5 0z"/><path d="M10 20.25V15h4v5.25"/>'),
   /* banknote */
   earnings: NAV24('<rect x="3" y="6" width="18" height="12" rx="2.25"/><circle cx="12" cy="12" r="2.75"/><path d="M6.75 9.75h.01M17.25 14.25h.01"/>'),
+  /* pre-MVP A2: the admin's inbox tray */
+  inbox: NAV24('<path d="M3.75 13.5 6 5.25h12l2.25 8.25v5.25H3.75z"/><path d="M3.75 13.5h4.5l1.5 2.25h4.5l1.5-2.25h4.5"/>'),
+  /* K-54 B2: the admin's Verifications — an ID card with a check */
+  checks: NAV24('<rect x="3" y="5.25" width="18" height="13.5" rx="2.25"/><circle cx="8.25" cy="10.5" r="1.75"/><path d="M5.75 15.25c.5-1.25 1.4-1.9 2.5-1.9s2 .65 2.5 1.9"/><path d="m13.5 11.75 1.75 1.75 3.25-3.5"/>'),
+  /* K-53 (c7): the admin's ledger — an open book with ruled lines */
+  ledger: NAV24('<path d="M12 6.75c-1.75-1.5-4.5-2.25-8.25-2.25v13.5c3.75 0 6.5.75 8.25 2.25 1.75-1.5 4.5-2.25 8.25-2.25V4.5c-3.75 0-6.5.75-8.25 2.25z"/><path d="M12 6.75v13.5"/><path d="M6.25 9h3M6.25 12h3M14.75 9h3M14.75 12h3"/>'),
 };
 /* 16 px line glyphs (same family, 1.5 stroke) */
 export const ICON_INFO = `<svg class="icon-16" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.25"/><path d="M8 7.25v4M8 4.9h.01"/></svg>`;

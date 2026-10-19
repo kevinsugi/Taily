@@ -5,15 +5,15 @@
    About, photos, Your estimate, reviews. Focal: Book now / the action bar's Pick a time (Ask a question is a link under it).
    ============================================================ */
 import { register, render as go, back, currentScreen, previousScreen } from '../app.js';
-import { state, T, tailorById, estimateNext, eligible, nextOpening, apptsFor } from '../state.js';
+import { state, T, tailorById, estimateNext, eligible, nextOpening, apptsFor, isVerified, milesToShop, blockedBy } from '../state.js';
 import {
   chrome, flowBar, avatar, verifiedCheck, reviewRow, priceRow, metaRow, cta, navBackMark,
   sectionHead, textLink, infoButton, stitchDivider, ICON_CHAT,
-  actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, esc, hoodSentence, HOME_FEE_CAPTION, HOME_FEE_HELP,
+  actionBar, banner, toast, returnsRows, readOnlyBanner, openPhotoViewer, openUnblockSheet, esc, hoodSentence, HOME_FEE_CAPTION, HOME_FEE_HELP, shopPlace,
 } from '../components.js';
 import { ICON_CAMERA, VISIT_ICONS } from '../icons.js';
 import { cents, fmtColumn } from '../money.js';
-import { ZIP_INFO, TAILOR_LIMITS } from '../data.js';
+import { TAILOR_LIMITS, placeForZip } from '../data.js';
 import { fmtWhen, fmtDay, nb } from '../dates.js';
 
 const ID = 'c-tailor';
@@ -34,6 +34,8 @@ function reasonNote(el, job) {
     'nothing-open': `Nothing open before ${nb(fmtDay(job.needBy))}`,
     zip: job.visitType === 'home' ? `Doesn’t visit ${job.zip}` : `No shop within 5 miles of ${job.zip}`,
     'shop-off': 'Doesn’t take shop visits',
+    services: 'Doesn’t offer every service you picked',   // K-48.2 (D-354)
+    blocked: blockedBy(chosen().id) === 'customer' ? 'You blocked this tailor' : 'Not available for this request',   // S-32 (pre-MVP A2)
   }[el.reason] ?? 'Not available for this request';
 }
 
@@ -54,10 +56,10 @@ function portrait(t) {
 
 /** Name (serif, with the Verified check), then "Shop · Neighbourhood". */
 function identity(t) {
-  const area = t.shop?.hood || ZIP_INFO[t.shop?.zip]?.hood || '';
+  const area = t.shop?.hood || placeForZip(t.shop?.zip)?.hood || '';
   const sub = [t.shopName ? `<span class="w-600 c-700">${esc(t.shopName)}</span>` : '', area ? `<span class="c-600">${esc(area)}</span>` : ''].filter(Boolean).join('<span class="c-600"> · </span>');
   return `<div class="c-tailor__centre">
-    <div class="c-tailor__namerow"><h1 class="t-title c-tailor__name">${esc(t.name)}</h1>${t.verified ? verifiedCheck({ years: t.years }) : ''}</div>
+    <div class="c-tailor__namerow"><h1 class="t-title c-tailor__name">${esc(t.name)}</h1>${isVerified(t) ? verifiedCheck({ years: t.years }) : ''}</div>
     ${sub ? `<p class="t-body c-tailor__shop">${sub}</p>` : ''}
   </div>`;
 }
@@ -65,7 +67,7 @@ function identity(t) {
 /** The ruled three-column stat strip: rating + reviews · years · distance (a column with nothing to say is left out). */
 function stats(t, job) {
   const rated = t.rating?.count > 0;
-  const miles = t.shop?.enabled ? ZIP_INFO[job.zip]?.miles : null;
+  const miles = t.shop?.enabled ? milesToShop(t, job.zip) : null;   // S-42: from her shop
   const cols = [];
   cols.push(rated
     ? `<a class="c-tailor__stat c-tailor__stat--link" href="#reviews" data-anchor="reviews" data-hit="inline" aria-label="Rated ${Number(t.rating.avg).toFixed(1)} out of 5 from ${t.rating.count} review${t.rating.count === 1 ? '' : 's'}"><span class="c-tailor__fig"><span class="c-tailor__star" aria-hidden="true">★</span>${Number(t.rating.avg).toFixed(1)}</span><span class="t-small c-600">${t.rating.count} review${t.rating.count === 1 ? '' : 's'}</span></a>`
@@ -123,8 +125,8 @@ const hoodList = (t) => hoodSentence(t.home?.hoods ?? []);
 function where(t, job) {
   const blocks = [];
   if (t.shop?.enabled) {
-    const miles = ZIP_INFO[job.zip]?.miles;
-    blocks.push(`<div class="c-tailor__place">${metaRow('', esc(`${t.shopName}, ${t.shop.street}, ${t.shop.city}, ${t.shop.state} ${t.shop.zip}`), { icon: 'shop' })}${miles != null ? `<p class="t-small c-600">${miles.toFixed(1)} mi from you</p>` : ''}</div>`);
+    const miles = milesToShop(t, job.zip);   // S-42
+    blocks.push(`<div class="c-tailor__place">${metaRow('', esc(shopPlace(t, { full: true })), { icon: 'shop' })}${miles != null ? `<p class="t-small c-600">${miles.toFixed(1)} mi from you</p>` : ''}</div>`);
   }
   if (t.home?.enabled) {
     const fee = t.home.fee > 0 ? `${F(cents(t.home.fee))} home visit fee · ${HOME_FEE_HELP}` : 'No home visit fee';   // C4: flat, per visit
@@ -143,14 +145,15 @@ function reviews(t) {
   if (!count && !(t.reviews ?? []).length) return section('Reviews', '<p class="t-body c-600">No reviews yet.</p>', { key: 'reviews', domId: 'reviews' });
   const list = (t.reviews ?? []).slice(0, REVIEWS_SHOWN)
     .map((r) => reviewRow({ name: r.name, initials: r.initials, stars: r.stars, date: r.date, text: r.text, photos: r.photos, photoType: r.photoType })).join('');
-  return section('Reviews', `<div class="c-tailor__reviews">${list}</div>
+  return section('Reviews', `<p class="t-small c-600 c-tailor__reviews-note">From customers who booked through Taily.</p>
+    <div class="c-tailor__reviews">${list}</div>
     <div class="c-tailor__more">${textLink(`See all ${count} reviews`, { act: 'all-reviews' })}</div>`, { key: 'reviews', domId: 'reviews' });
 }
 
 /** The tailor looking at her own profile from to-done (D-71): no booking stepper, no action bar, nothing to start. */
 /* view() runs before the router pushes this screen: then the screen we came from is currentScreen(); on a re-render it is previousScreen() */
 const cameFrom = () => (currentScreen() === ID ? previousScreen() : currentScreen());
-const isPreview = () => !!ui().preview && cameFrom() === 'to-done';
+const isPreview = () => !!ui().preview && ['to-done', 't-shop', 'c-reviews'].includes(cameFrom());   // DG-3 A (pre-MVP B2): also Shop → See your full profile
 
 /** Profile mode (R4-1-C-03): reached from a finished review, so there is no booking in progress — no stepper, no draft
     estimate, one "Book again" action. Fixtures land here with no history; a real visit comes from c-review. */
@@ -166,6 +169,7 @@ function view(s) {
   const el = eligible(t, job);
   const next = nextOpening(t.id, job.visitType, { until: job.needBy });
   const declined = el.reason === 'declined';
+  const iBlocked = el.reason === 'blocked' && blockedBy(t.id) === 'customer';   // S-32 (A2) + the merge's Unblock
   const first = q.tailorFirst;
   const booking = !preview && !profile;   // opened from c-tailors: the flow bar owns Back and the exit (D-186)
   /* Study-1 A4: a "Book again" draft names the tailor it is for (only once an order with her came back) */
@@ -176,7 +180,8 @@ function view(s) {
   ${identity(t)}
   ${stats(t, job)}
   ${preview ? `<div class="c-tailor__preview">${readOnlyBanner({ text: 'You’re viewing your own profile', ctaLabel: 'Back to Taily for tailors', ctaAct: 'exit-preview' })}</div>` : ''}
-  ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} declined this request`, text: `Your items and services are saved. You can still book ${esc(first)} for other work.` })}</div>` : ''}
+  ${declined ? `<div class="c-tailor__banner">${banner({ tone: 'warning', title: `${esc(first)} declined this request`, text: `Your items are saved for other tailors. To book ${esc(first)}, start over with different work.` })}</div>` : ''}
+  ${iBlocked && !preview ? `<div class="c-tailor__banner" data-blocked>${banner({ tone: 'info', title: `You blocked ${esc(first)}`, text: 'You can’t book or message each other.', actionLabel: `Unblock ${esc(first)}`, actionAct: 'unblock' })}</div>` : ''}
   ${booking ? split(next, job, { ok: el.ok, reason: reasonNote(el, job) }) : ''}
   ${about(t)}
   ${profile ? '' : estimateCard(q, job)}
@@ -188,7 +193,7 @@ ${preview ? ''
   : profile
     ? actionBar({ ctaLabel: `Book ${esc(first)} again`, ctaAct: 'book-again', secondaryLabel: 'Ask a question', secondaryAct: 'ask', secondaryIcon: ICON_CHAT })
     : declined
-    ? actionBar({ ctaLabel: 'Start a new request', ctaAct: 'new-job', note: `${esc(first)} declined this request` })
+    ? actionBar({ ctaLabel: 'Start over with new items', ctaAct: 'new-job', note: `${esc(first)} declined this request` })
     : actionBar({ ctaLabel: 'Pick a time', ctaAct: 'pick-time', disabled: !el.ok, note: el.ok ? '' : reasonNote(el, job), secondaryLabel: 'Ask a question', secondaryAct: 'ask', secondaryIcon: ICON_CHAT })}`;
 }
 
@@ -201,7 +206,8 @@ function wire(root) {
     if (!el || el.disabled) return;
     switch (el.dataset.act) {
       case 'ask': go('c-thread'); break;
-      case 'exit-preview': ui().preview = false; back() || go('to-done'); break;
+      case 'unblock': { const first = (chosen().name || 'The tailor').split(' ')[0]; openUnblockSheet({ who: 'customer', other: first, tailorId: chosen().id, onDone: () => { go(ID); toast(`${first} is unblocked.`, { tone: 'success' }); } }); break; }   // merge A2 + B2
+      case 'exit-preview': ui().preview = false; back() || go('t-shop'); break;
       case 'pick-time': go('c-book'); break;
       case 'book-now': {   // K-18: the next opening goes into the booking draft, so the picker opens on it (one tap to confirm)
         const job = state.job; const t = chosen();
@@ -219,7 +225,7 @@ function wire(root) {
         break;
       }
       case 'more-work': openPhotoViewer({ title: `${(chosen().name || 'The tailor').split(' ')[0]}’s work`, count: Number(el.dataset.count) }); break;
-      case 'all-reviews': toast('Not built yet'); break;
+      case 'all-reviews': state.ui['c-reviews'] = { tailorId: chosen().id }; go('c-reviews'); break;   // S-26 (pre-MVP B2)
       case 'new-job': T.newJob(); go('c-job', { fresh: true }); break;
       default: break;
     }

@@ -19,6 +19,8 @@
   visibility: hidden;
 }
 html.has-input .stage-caption { visibility: visible; }
+/* K-53 a8 (D-422): the Test-flows tools are the admin's — gone unless he signed in (or a ?test=1 / ?flow= / ?study= boot), html.tools-on */
+html:not(.tools-on) .stage-caption { display: none; }
 /* step above a toast (toast sits at bottom 24 + ~36 tall) */
 html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) + var(--space-8)); transition: bottom 200ms var(--ease-out); }
 /* K-04 / AU-P1-2: on a phone the pill docks at the TOP so it never covers a sticky CTA or a toast; the panel opens below it */
@@ -106,17 +108,19 @@ html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) +
 
 /* ---------- Customer / Tailor / System / Study tabs ---------- */
 .flow-menu__tabs {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-4);
+  display: flex;                                       /* pre-MVP A2: five tabs (Customer · Tailor · Admin · System · Study) share the row by their width */
+  gap: var(--space-2);
   margin: 0 var(--space-16) var(--space-8);
   padding: var(--space-4);
   border-radius: var(--radius-md);
   background: var(--neutral-100);
 }
 .flow-menu__tab {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 44px;
   padding: var(--space-8) var(--space-4);
+  white-space: nowrap;
   border-radius: var(--radius-sm);
   font-size: var(--size-12);
   line-height: 16px;
@@ -189,6 +193,8 @@ html.has-toast .stage-caption { bottom: calc(var(--space-16) + var(--space-40) +
   font-weight: 600;
 }
 .flow-menu__switch:active { transform: scale(0.97); }
+.flow-menu__switches { display: flex; flex-wrap: wrap; gap: var(--space-8); }   /* pre-MVP A2: Customer ↔ Tailor, and the admin */
+.flow-menu__switch[aria-pressed="true"] { background: var(--accent-ink); }
 .flow-menu__hint { font-size: var(--size-12); line-height: 16px; font-weight: 500; color: var(--neutral-500); }
 
 /* ---------- Study tab: the tailor usability script (js/study.js) ---------- */

@@ -9,7 +9,8 @@
      · `expect` holds — { has, not, sel, also, inView } against the visible text of
        #screen + any open overlay (`has` / `not` = string | string[])
      · no console error, no "nothing to click" warning
-     · money lint: no `%` inside [data-money]; no "fee … 10%" prose
+     · money lint: no `%` inside [data-money]; no "fee … 10%" prose; K-53: no visible "15%" anywhere except
+       to-fee's [data-fee-rate] (PERCENT_OK — the one screen that explains the Taily fee rate)
      · target lint: every visible control is >= 44 x 44
        (opt out with data-hit="inline")
      · edge lint (B5 P2-5 / D-230): .screen is `overflow: clip`, so a clipped
@@ -58,6 +59,9 @@ const EDGE_195 = [/^(c-tailors|c-messages|c-account|t-messages)$/, /^c-bookings/
 
 const KEY_RE = /^[a-z0-9.-]+$/;
 const MONEY_PROSE = /(fee|deposit|refund|payout|balance|courier|total)[^.\n]{0,40}\d\s?%/i;
+/* K-53: the ONE screen allowed to print a percent — the Taily fee rate on to-fee, inside [data-fee-rate] only. Every other rendered text
+   (every screen, every overlay) fails on a number followed by % (money copy is dollars, always). */
+const PERCENT_OK = new Set(['to-fee']);
 const OVERLAY_SEL = '[role="dialog"], [aria-modal="true"], .modal-overlay, .overlay, .screen-sheet--overlay';
 const arr = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
 const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
@@ -91,12 +95,22 @@ const OVERLAY_KEYS = new Set(await page.evaluate(async () => {
   try { const m = await import('/js/inventory.js'); return m.SCREENS.flatMap((s) => s.states.filter((st) => st.kind === 'overlay').map((st) => st.key)); } catch { return []; }
 }));
 
-const lints = () => page.evaluate(({ OVERLAY_SEL, MIN }) => {
+const lints = (rateOk = false) => page.evaluate(({ OVERLAY_SEL, MIN, rateOk }) => {
   const screen = document.getElementById('screen');
   const roots = [screen, ...[...document.querySelectorAll(OVERLAY_SEL)]
     .filter((o) => !screen.contains(o) && !o.closest('.stage-caption, #flow-menu') && !o.hidden && o.getClientRects().length)];
   const money = [];
   for (const r of roots) for (const m of r.querySelectorAll('[data-money]')) if (/%/.test(m.textContent)) money.push(m.textContent.replace(/\s+/g, ' ').trim().slice(0, 60));
+  /* K-53: any visible "15%" — only to-fee's [data-fee-rate] may hold one */
+  const pct = [];
+  for (const r of roots) {
+    const walk = document.createTreeWalker(r, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      const el = n.parentElement;
+      if (!el || el.closest('script, style, #flow-menu, .stage-caption, [hidden]') || (rateOk && el.closest('[data-fee-rate]'))) continue;
+      if (/\d\s?%/.test(n.textContent)) pct.push(n.textContent.replace(/\s+/g, ' ').trim().slice(0, 60));
+    }
+  }
   const small = [];
   const CONTROLS = 'button, a, input, select, textarea, [role="button"], [role="switch"], [data-act]';
   for (const r of roots) for (const el of r.querySelectorAll(CONTROLS)) {
@@ -112,8 +126,8 @@ const lints = () => page.evaluate(({ OVERLAY_SEL, MIN }) => {
       small.push(`${el.tagName.toLowerCase()}${el.dataset.act ? `[data-act=${el.dataset.act}]` : ''} "${(el.innerText || el.getAttribute('aria-label') || '').trim().slice(0, 24)}" ${Math.round(box.width)}x${Math.round(box.height)}`);
     }
   }
-  return { money, small };
-}, { OVERLAY_SEL, MIN: MIN_TARGET });
+  return { money, small, pct };
+}, { OVERLAY_SEL, MIN: MIN_TARGET, rateOk });
 
 /* P2-5: elements outside a horizontal scroller whose box crosses #screen's left / right edge (the clip hides them from scrollWidth) */
 const edgeCrossers = () => page.evaluate(() => {
@@ -240,9 +254,10 @@ for (const f of all.filter((e) => matches(e.key))) {
   if (r.url !== f.key) problems.push(`?flow=${r.url}`);
   if (h.errors.length) problems.push(`console: ${h.errors.slice(0, 2).join(' | ')}`);
   if (h.warnings.length) problems.push(h.warnings.join(' | '));
-  const lint = await lints();
+  const lint = await lints(PERCENT_OK.has(f.screen));
   if (lint.money.length) problems.push(`% in money rows: ${lint.money.join(' / ')}`);
-  const prose = norm(r.text).match(MONEY_PROSE);
+  if (lint.pct.length) problems.push(`a percent on screen (only to-fee's [data-fee-rate] may show one, K-53): ${lint.pct.slice(0, 2).join(' / ')}`);
+  const prose = norm(PERCENT_OK.has(f.screen) ? r.text.replace(/\d+\s?%/g, '') : r.text).match(MONEY_PROSE);
   if (prose) problems.push(`% in money copy: "${prose[0]}"`);
   if (lint.small.length) problems.push(`targets < ${MIN_TARGET}px: ${lint.small.slice(0, 4).join('; ')}${lint.small.length > 4 ? ` (+${lint.small.length - 4})` : ''}`);
   /* P2-5 edge lint: 390 (as run), 320, and 195 x 422 for the short list */
@@ -271,8 +286,8 @@ if (!DUMP && !ONLY.length) {
   check('menu: trigger opens the panel', await page.evaluate(() => !document.querySelector('#flow-menu')?.hidden && document.querySelector('#flow-trigger').getAttribute('aria-expanded') === 'true'));
 
   const tabs = await page.$$eval('.flow-menu__tab', (t) => t.map((b) => b.dataset.tab));
-  check('menu: tabs are customer / tailor / system', ['customer', 'tailor', 'system'].every((t) => tabs.includes(t)), `tabs=${tabs.join(',')}`);
-  for (const t of ['customer', 'tailor', 'system']) {
+  check('menu: tabs are customer / tailor / admin / system', ['customer', 'tailor', 'admin', 'system'].every((t) => tabs.includes(t)), `tabs=${tabs.join(',')}`);
+  for (const t of ['customer', 'tailor', 'admin', 'system']) {
     if (!tabs.includes(t)) continue;
     await page.click(`.flow-menu__tab[data-tab="${t}"]`);
     const shown = await page.$$eval('[data-flow]', (els) => els.map((e) => e.dataset.flow));
@@ -311,6 +326,29 @@ if (!DUMP && !ONLY.length) {
   const flipped = before.persona === 'customer' ? 'tailor' : 'customer';
   check('menu: persona flip switches html[data-persona]', after.persona === flipped && after.statePersona === flipped, `before=${before.persona} after=${after.persona} state=${after.statePersona}`);
   check('menu: persona flip keeps state (need-by and appointments unchanged)', after.needBy === before.needBy && after.appts === before.appts, `needBy ${before.needBy} -> ${after.needBy}, appts ${before.appts} -> ${after.appts}`);
+  /* pre-MVP A2 (K-48.1): the admin persona — View as Admin lands on a-inbox with the same live state */
+  await page.click('#flow-trigger');
+  await page.click('#persona-admin');
+  await settle(page);
+  const adm = await page.evaluate(async () => {
+    const S = await import('/js/state.js');
+    return { persona: document.documentElement.dataset.persona, screen: document.getElementById('screen')?.dataset.screen, appts: S.state.appts.length };
+  });
+  check('menu: View as Admin opens the admin inbox, state kept', adm.persona === 'admin' && adm.screen === 'a-inbox' && adm.appts === before.appts, JSON.stringify(adm));
+  /* K-53 a8 (D-422): the admin opens Test flows from his inbox too */
+  await page.evaluate(() => document.querySelector('#screen [data-admin-tools] [data-act="test-flows"]')?.click());
+  await settle(page);
+  check('menu: the admin inbox’s Test flows opens the panel', await page.evaluate(() => document.querySelector('#flow-menu')?.hidden === false));
+  await page.keyboard.press('Escape');
+  /* K-53 a8 (D-422): a plain visit (a customer or a tailor) never gets the Test-flows tools — not even after input; ?test=1 / ?flow= / ?study= are admin test sessions */
+  await h.goto('/');
+  await page.mouse.move(100, 300); await page.mouse.move(120, 320);
+  await settle(page);
+  const plain = await page.evaluate(() => ({ tools: document.documentElement.classList.contains('tools-on'), trigger: !!document.querySelector('#flow-trigger')?.getClientRects().length }));
+  check('menu: hidden on a plain visit (only the signed-in admin gets Test flows)', !plain.tools && !plain.trigger, JSON.stringify(plain));
+  await h.goto('/?screen=a-inbox');
+  await page.waitForSelector('#screen[data-screen="a-login"]', { timeout: 3000 }).catch(() => {});
+  check('menu: a cold a-* link without the admin’s session lands on a-login (K-52)', (await landing()).screen === 'a-login');
 
   for (const f of [first, all[all.length - 1]].filter((e, i, a) => a.indexOf(e) === i)) {
     await h.goto(`/?test=1&flow=${encodeURIComponent(f.key)}`);

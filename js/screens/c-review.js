@@ -60,7 +60,7 @@ function formView(a, t, first) {
     ${noStars ? `<p class="t-small ${ID}__error" id="stars-error" role="alert">Choose a star rating.</p>` : ''}
   </section>
   <div class="${ID}__text">${textArea({
-    id: 'review-text', label: 'Tell others about it (optional)', value: d.text ?? '', rows: 5, max: REVIEW_LIMITS.TEXT_MAX,
+    id: 'review-text', label: 'Tell others about it (optional)', value: d.text ?? '', rows: 5, max: REVIEW_LIMITS.TEXT_MAX, section: true,   // P-27
     helper: 'Phone numbers and emails are hidden.',
     error: d.error === 'text-long' ? `Keep it under ${REVIEW_LIMITS.TEXT_MAX} characters.` : '',
   })}</div>

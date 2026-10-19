@@ -9,17 +9,19 @@
 
    Lives in .stage-caption, OUTSIDE .screen, and stays hidden until the
    first input (html.has-input) — the diff harness never sees it.
+   K-53 a8 (D-422): and only while the admin's tools are on (html.tools-on:
+   he signed in at a-login, or a ?test=1 / ?flow= / ?study= boot) —
+   never for a customer or a tailor.
    Initialised by app.js after the screen modules (an entry's `click`
    presses screen buttons, so the screens must be registered first).
    ============================================================ */
 
-import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, reminderAt, reminderEligible, freeUntil, autoCancelAt, textLink } from './state.js';
+import { state, T, getAppt, activeAppt, advanceClock, nowIso, now, nudgeAt, promptAt, reminderEligible, checksPassed, firstChecksPassed } from './state.js';
 import { ALL_FLOWS, findFlow, prepareFlow, personaForScreen } from './flows.js';
 import { setFocus } from './focus.js';
 import { toast } from './components.js';
-import { fmtWhen, fmtTime, dayWord } from './dates.js';
-import { fmtExact } from './money.js';
-import { textBanner } from './system.js';
+import { fmtWhen } from './dates.js';
+import { showNewText, outboxMark } from './system.js';
 import { STUDY_TITLE, STUDY_SCRIPT } from './study.js';
 
 let render = null;
@@ -32,7 +34,7 @@ let studyKey = null;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const TABS = [['customer', 'Customer'], ['tailor', 'Tailor'], ['system', 'System'], ['study', 'Study']];
+const TABS = [['customer', 'Customer'], ['tailor', 'Tailor'], ['admin', 'Admin'], ['system', 'System'], ['study', 'Study']];   // pre-MVP A2: the admin persona (K-48.1)
 /** Which tab an entry belongs to: its persona, or System for sys-* screens. */
 const personaTab = (f) => (f.screen.startsWith('sys-') ? 'system' : (f.persona ?? personaForScreen(f.screen) ?? 'customer'));
 /** An entry lists under its own tab; a sys-* key (hosted on a customer or tailor screen) ALSO lists under System (M6-X-09). */
@@ -40,7 +42,7 @@ const inTab = (f, which) => personaTab(f) === which || (which === 'system' && f.
 /** The tab to open on: System while a sys-* screen shows, else the persona's. */
 const currentTab = () => {
   const id = document.getElementById('screen')?.dataset.screen ?? '';
-  return id.startsWith('sys-') ? 'system' : state.persona === 'tailor' ? 'tailor' : 'customer';
+  return id.startsWith('sys-') ? 'system' : ['tailor', 'admin'].includes(state.persona) ? state.persona : 'customer';
 };
 
 /** Group order per tab (M6-X-09): a group's title is its registry `group` without the milestone prefix ("M3 · Tailor" → "Tailor").
@@ -48,6 +50,7 @@ const currentTab = () => {
 const GROUP_ORDER = {
   customer: ['Sign in', 'Booking', 'Request outcomes', 'Bookings', 'Final order', 'Ready', 'Completed', 'Messages', 'Account', 'System'],
   tailor: ['Sign-up', 'Tailor sign-up', 'Onboarding', 'Shop', 'Tailor', 'Tailor job', 'Job', 'Edit job', 'Earnings', 'Tailor messages', 'System'],
+  admin: ['Admin inbox', 'Admin case'],
   system: ['System'],
 };
 const groupName = (g) => String(g ?? '').replace(/^M\d+\s·\s/, '');
@@ -156,7 +159,10 @@ function panelHtml() {
     </div>
   </div>
   <div class="flow-menu__foot">
-    <button type="button" class="flow-menu__switch" id="persona-toggle">View as Tailor</button>
+    <div class="flow-menu__switches" role="group" aria-label="View as">
+      <button type="button" class="flow-menu__switch" id="persona-toggle">View as Tailor</button>
+      <button type="button" class="flow-menu__switch" id="persona-admin" aria-pressed="false">View as Admin</button>
+    </div>
     <span class="flow-menu__hint">Keeps the current state</span>
   </div>
 </div>`;
@@ -165,7 +171,10 @@ function panelHtml() {
 const isOpen = () => !$('#flow-menu')?.hidden;
 
 /* ---------- Demo actions (Study-1 §3): act on the live state, no reset ---------- */
-const DEMO = [['courier', 'Courier delivers'], ['reminder', 'To the reminder'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days']];   // K-41: the clock to the 24-hour reminder
+/* K-41 / K-51: the clock to the visit reminder (48 h), then its nudge (26 h); pre-MVP A1 (S-35, D-02): the courier can fail, and a STOP reply turns texts off */
+/* K-54 B2 (D-451): "Checks come back" — Taily's review and the partners answer a submitted tailor's pending checks (the admin's Verifications
+   does it one check at a time): the first tap passes ID, years and payout ("approved, background check pending"), the next clears the background check */
+const DEMO = [['courier', 'Courier delivers'], ['courier-fail', 'Courier can’t deliver'], ['reminder', 'To the reminder'], ['h1', '+1 hour'], ['h48', '+48 hours'], ['d7', '+7 days'], ['stop', 'Reply STOP'], ['checks', 'Checks come back']];
 const DEMO_MIN = { h1: 60, h48: 48 * 60, d7: 7 * 24 * 60 };
 /** The appointment the demo acts on: the one on screen (focused), else the customer's active one, else the newest. */
 const demoAppt = () => (state.ui.apptId ? getAppt(state.ui.apptId) : null) ?? activeAppt() ?? state.appts[state.appts.length - 1] ?? null;
@@ -173,15 +182,35 @@ const demoAppt = () => (state.ui.apptId ? getAppt(state.ui.apptId) : null) ?? ac
 function runDemo(kind) {
   const a = demoAppt();
   let msg;
-  const before = a?.reminder ? { ...a.reminder, status: a.status } : null;
+  const mark = outboxMark();
   if (kind === 'courier') {
     const r = a ? T.courierDelivered(a.id) : { ok: false };
     msg = r.ok ? 'The courier delivered it.' : 'No courier delivery to complete.';
+  } else if (kind === 'courier-fail') {
+    const r = a ? T.courierFailed(a.id) : { ok: false };
+    msg = r.ok ? 'The courier couldn’t deliver it. It goes back to the tailor.' : 'No courier delivery to fail.';
+  } else if (kind === 'checks') {
+    const t = state.tailors[0];
+    if (!t?.submitted || checksPassed(t)) msg = 'No checks waiting.';
+    else if (!firstChecksPassed(t)) {
+      T.reviewChecks({ background: 'pending' });
+      msg = firstChecksPassed(t) ? 'Checks came back: approved, background check pending.' : 'Checks came back. One still needs something from the tailor.';
+    } else {
+      T.reviewChecks();
+      msg = checksPassed(t) ? 'Background check cleared. The tailor is verified and listed.' : 'Checks came back.';
+    }
+  } else if (kind === 'stop') {
+    T.textReply(state.persona, 'STOP');
+    msg = `${state.persona === 'tailor' ? 'The tailor' : 'The customer'} replied STOP. Texts are off.`;
   } else if (kind === 'reminder') {
-    /* K-41: straight to the moment the 24-hour reminder goes out (26 h before the visit) */
-    if (a && reminderEligible(a) && !a.reminder?.sentAt && now() < reminderAt(a)) {
-      advanceClock(Math.ceil((reminderAt(a) - now()) / 60000));
-      msg = `Clock moved to ${fmtWhen(nowIso())}. The visit reminder went out.`;
+    /* K-51: straight to her next ask — the reminder (48 h before the visit; the nudge when booked < 48 h ahead), then the nudge (26 h) */
+    if (a && reminderEligible(a) && !a.reminder?.sentAt && now() < promptAt(a)) {
+      const nudge = promptAt(a) === nudgeAt(a);
+      advanceClock(Math.ceil((promptAt(a) - now()) / 60000));
+      msg = `Clock moved to ${fmtWhen(nowIso())}. ${nudge ? 'The confirm nudge' : 'The visit reminder'} went out.`;
+    } else if (a && reminderEligible(a) && a.reminder?.sentAt && !a.reminder.confirmedAt && !a.reminder.nudgedAt && now() < nudgeAt(a)) {
+      advanceClock(Math.ceil((nudgeAt(a) - now()) / 60000));
+      msg = `Clock moved to ${fmtWhen(nowIso())}. The confirm nudge went out.`;
     } else msg = 'No visit reminder to send.';
   } else {
     advanceClock(DEMO_MIN[kind]);
@@ -192,30 +221,7 @@ function runDemo(kind) {
   const id = document.getElementById('screen')?.dataset.screen;
   if (id) render(id, { replace: true });
   toast(msg);
-  if (a && state.persona === 'customer') remindText(a, before);
-}
-
-/** K-41 (R3) + K-43 (D-301): the reminder, its one nudge, or the auto-cancel happened during a Demo action → the customer's text message
-    (an SMS with its unique link; tapping it routes in, as the push did). The reminder opens Home (Confirm is one tap there); the nudge and
-    the cancel open the booking. */
-function remindText(a, before) {
-  const r = a.reminder;
-  if (!r) return;
-  const t = state.tailors.find((x) => x.id === a.tailorId);
-  const first = (t?.name || 'Your tailor').split(' ')[0];
-  const day = dayWord(a.slot.start, now());
-  const at = fmtTime(a.slot.start);
-  const dep = fmtExact(a.payments.deposit.cents);
-  const place = a.job.visitType === 'home' ? 'at your place' : `at ${t?.shopName ?? 'the shop'}`;
-  const text = (event, body, screen) => textBanner({ body, link: textLink(a.id, event), onOpen: () => { setFocus(a.id); render(screen); } });
-  if (a.status === 'cancelled' && a.cancel?.reason === 'unconfirmed' && before?.status === 'confirmed') {
-    text('auto-cancel', `We cancelled your ${at} visit with ${first} because you didn’t confirm by ${fmtTime(a.cancel.at)}. ${first} keeps your ${dep} deposit.`, 'c-booking');
-  } else if (r.sentAt && !before?.sentAt && !r.confirmedAt && now() < freeUntil(a)) {
-    text('reminder', `Still on for ${day}? ${first} · ${fmtWhen(a.slot.start)} ${place}. Free to change until ${fmtTime(freeUntil(a))} ${dayWord(freeUntil(a), now())}. Confirm or change:`, 'c-job');
-  } else if (r.nudgedAt && !before?.nudgedAt && !r.confirmedAt && a.status === 'confirmed') {
-    const by = autoCancelAt(a);
-    text('nudge', `You haven’t confirmed your ${at} visit with ${first} ${day}. Confirm by ${fmtTime(by)} or we’ll cancel it, and ${first} keeps your ${dep} deposit.`, 'c-booking');
-  }
+  showNewText(mark, { go: render });   // pre-MVP A1: whatever the action texted the person on screen (the newest one)
 }
 
 function paintTab(which) {
@@ -226,11 +232,13 @@ function paintTab(which) {
 }
 
 function paintLabels() {
-  const who = state.persona === 'tailor' ? 'Tailor' : 'Customer';
+  const who = state.persona === 'tailor' ? 'Tailor' : state.persona === 'admin' ? 'Admin' : 'Customer';
   const trigger = $('#flow-trigger');
   if (trigger) trigger.querySelector('[data-trigger-who]').textContent = who;
   const flip = $('#persona-toggle');
-  if (flip) flip.textContent = state.persona === 'tailor' ? 'View as Customer' : 'View as Tailor';
+  if (flip) flip.textContent = state.persona === 'tailor' ? 'View as Customer' : 'View as Tailor';   // from the admin: back to the tailor's side
+  const admin = $('#persona-admin');
+  if (admin) { admin.setAttribute('aria-pressed', String(state.persona === 'admin')); admin.textContent = state.persona === 'admin' ? 'Viewing as Admin' : 'View as Admin'; }
 }
 
 /** Open the panel. The Study tab sticks once chosen (a session on a phone returns to it); the others follow the screen. */
@@ -256,6 +264,11 @@ export function openStudy(n = 1) {
   if (isOpen()) close();
   open();
 }
+
+/** K-53 a8 (D-422): a-inbox's "Test flows" button opens the panel (app.js openTestFlows, only while the admin's tools are on). */
+export function openMenu() { if (!isOpen()) open(); }
+/** The admin signed out: the panel closes before the tools hide (app.js lockTools). */
+export function closeMenu() { close(); }
 
 function close({ focusTrigger = false } = {}) {
   const menu = $('#flow-menu');
@@ -327,6 +340,12 @@ export function initFlowMenu(renderFn, { home } = {}) {
     const next = state.persona === 'tailor' ? 'customer' : 'tailor';
     state.persona = next;                      // sys-index (the fallback home) keeps the persona it is given
     render(homeFor(next), { fresh: true });
+  });
+  /* pre-MVP A2 (K-48.1): the admin (Kevin) — his inbox, same live state */
+  $('#persona-admin').addEventListener('click', () => {
+    close();
+    state.persona = 'admin';
+    render(homeFor('admin'), { fresh: true });
   });
   /* arrow keys walk the list; Escape closes; a click outside closes */
   $('#flow-menu').addEventListener('keydown', (e) => {

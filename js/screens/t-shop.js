@@ -2,15 +2,25 @@
    t-shop — T7 Shop (M2-spec §C3). Every onboarding section at a
    glance, each editable, plus rush fees. Focal: the "What
    customers see" row. Summaries are dollars only.
+   DG-4 option B (K-48, Kevin Oct 18; D-350…D-355): the four checks live here. Until all pass she isn't listed: the top card says
+   "Under review · n of 4 checks" with Taking requests off ("Turns on when your checks clear."), the checklist follows with the one
+   action each check needs; the setup list gains Verification and the Payouts row says the partner's status.
+   DG-3 option A (K-49, pre-MVP B2; D-370): the Account area under Your setup — Account (Phone number → t-change-phone, Texts →
+   t-texts, See your full profile), Help and policies (Help → t-help, Tailor terms, Tailor agreement, Privacy), then Sign out and
+   Delete account (blocked while a job or a payout is open) in the shared confirm sheet (P-32).
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorsFor, bookable } from '../state.js';
-import { myTailor, MY_TAILOR_ID, tailorRowProps } from '../tailor-data.js';
+import { state, T, sectionsDone, listed, verifyView, collectAddress, textsOn, approvedPendingBackground, noticeHours, timeOffList } from '../state.js';
+import { myTailor, tailorRowProps, ownRow, previewJob } from '../tailor-data.js';
+import { POLICY } from '../money-config.js';
+import { fmtShort } from '../dates.js';
 import { VISIT_LABEL, RETURN_LABEL } from '../data.js';
 import { cents, fmt } from '../money.js';
-import * as A from '../account.js';
+import { openSignOut, openDeleteAccount, seeBlocker } from '../account-ui.js';
+import { LEGAL_FOR, policyTitle } from '../policies.js';
 import {
   chrome, headingRow, banner, customerPreview, tailorRow, miniProfile, listRow, textLink, sectionHead, statusPill, toggle, wireToggles, toast, ONBOARDING_STEPS, esc,
+  verifyChecklist, reviewPill, checksLine, openIdSheet, openBackgroundSheet, REVIEW_TIME, APPROVED_PENDING_LINE,
 } from '../components.js';
 
 const ID = 't-shop';
@@ -24,12 +34,12 @@ const nameList = (types) => {
 const lowerFirst = (x) => x.charAt(0).toLowerCase() + x.slice(1);
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-/** Her row as `tailorsFor(state.job)` gives it to a customer (D-65); null when she is not bookable or the demo job doesn't fit. */
+/** Her row as a customer with the demo job gets it (D-65) — P-29 (D-359): built the K-19 way even while she is paused or under review;
+    null when the demo job doesn't fit her area, services or hours. */
 function previewRow() {
-  const job = state.job;
-  const r = tailorsFor(job).rows.find((x) => x.tailor.id === MY_TAILOR_ID);
-  if (!r) return null;
-  return tailorRow(tailorRowProps(r, job));
+  const job = previewJob();   // K-53 L (D-431): after a request the draft is empty — the sample items, not "Example: , home visit"
+  const { row } = ownRow(job);
+  return row ? tailorRow(tailorRowProps(row, job)) : null;
 }
 /* ---------- row summaries (what is saved, in words and dollars) ---------- */
 const SUMMARY = {
@@ -50,16 +60,36 @@ const SUMMARY = {
     if (t.home?.enabled) parts.push(`Home visits in ${plural((t.home.hoods ?? []).length, 'neighborhood', 'neighborhoods')}, ${t.home.fee > 0 ? `${fmt(cents(t.home.fee))} fee` : 'no fee'}`);   // C5: neighborhoods, not ZIP codes
     return parts.join(' · ') || 'Not set up yet';
   },
-  returns: (t) => Object.keys(RETURN_LABEL).filter((k) => t.returns?.[k])
-    .map((k, i) => (i === 0 || /^Taily/.test(RETURN_LABEL[k]) ? RETURN_LABEL[k] : RETURN_LABEL[k].replace(/^./, (c) => c.toLowerCase()))).join(', ') || 'Not set up yet',
+  returns: (t) => {
+    const ways = Object.keys(RETURN_LABEL).filter((k) => t.returns?.[k])
+      .map((k, i) => (i === 0 || /^Taily/.test(RETURN_LABEL[k]) ? RETURN_LABEL[k] : RETURN_LABEL[k].replace(/^./, (c) => c.toLowerCase()))).join(', ');
+    /* B-15 (D-356): without a shop the courier collects from her private address — say where */
+    const from = t.returns?.courier && !t.shop?.enabled && collectAddress(t) ? ` · courier collects from ${collectAddress(t)}` : '';
+    return ways ? `${ways}${from}` : 'Not set up yet';
+  },
   availability: (t) => {
     const parts = [];
     const days = (kind) => Object.keys(t.availability?.[kind] ?? {}).length;
     if (t.shop?.enabled) parts.push(days('shop') ? `Shop ${plural(days('shop'), 'day', 'days')}` : 'Shop: none set');
     if (t.home?.enabled) parts.push(days('home') ? `Home visits ${plural(days('home'), 'day', 'days')}` : 'Home visits: none set');
+    /* K-53 a4 (S-34): her notice when longer than Taily's, and the next time off */
+    if (parts.length && noticeHours(t) > POLICY.MIN_LEAD_H) parts.push(`${noticeHours(t)} hours notice`);
+    const off = timeOffList(t)[0];
+    if (parts.length && off) parts.push(`Off ${fmtShort(off.from)}${off.to !== off.from ? ` to ${fmtShort(off.to)}` : ''}`);
     return parts.join(' · ') || 'Not set up yet';
   },
-  payouts: (t) => (t.payouts?.bank && t.payouts?.last4 ? `${t.payouts.bank} •••• ${t.payouts.last4} · paid Fridays` : 'Not set up yet'),
+  /* DG-4 (B mirror): the payments partner's status rides on the bank line */
+  payouts: (t) => {
+    const p = t.payouts ?? {};
+    if (!p.bank || !p.last4) return 'Not set up yet';
+    const word = { verifying: 'verifying your details', 'action-needed': 'action needed', paused: 'payouts paused' }[p.status] ?? 'paid Fridays';
+    return `${p.bank} •••• ${p.last4} · ${word}`;
+  },
+  verify: (t) => {
+    const v = verifyView(t);
+    const owed = v.items.filter((i) => ['needs-info', 'not-started', 'waitlist'].includes(i.state)).length;
+    return owed ? `${checksLine(t)} · ${owed} ${owed === 1 ? 'needs' : 'need'} you` : checksLine(t);
+  },
 };
 const ROWS = [
   { id: 'profile', label: 'Profile' },
@@ -69,15 +99,23 @@ const ROWS = [
   { id: 'returns', label: 'Return options' },
   { id: 'availability', label: 'Availability' },
   { id: 'payouts', label: 'Payouts' },
+  { id: 'verify', label: 'Verification' },
 ];
+/** A setup row that needs her: a section that fails its rules, the Payouts row while the partner needs something, a check she owes. */
+const needsAttention = (t, id) => (id === 'verify' ? verifyView(t).needsYou.length > 0
+  : id === 'payouts' ? t.onboarding?.payouts === false || ['action-needed', 'paused'].includes(t.payouts?.status)
+    : id !== 'rush' && t.onboarding?.[id] === false);
 /* CP-T33: what the banner asks her to finish — "Finish your availability …" / the action "Finish availability" */
 const FINISH = { profile: ['your profile', 'profile'], services: ['your services', 'services'], where: ['where you work', 'where you work'],
   returns: ['your return options', 'return options'], availability: ['your availability', 'availability'], payouts: ['your payouts', 'payouts'] };
 
 function view(s) {
   const t = myTailor();
-  const job = s.job;
-  const ok = bookable(t);
+  const job = previewJob(s.job);
+  const ok = listed(t);
+  const setUp = sectionsDone(t);
+  const v = verifyView(t);
+  const reviewing = setUp && !ok;   // DG-4: everything set up, the checks not all passed yet (or a waitlist)
   const missing = ONBOARDING_STEPS.find((st) => !t.onboarding?.[st.id]);
   const finish = FINISH[missing?.id] ?? ['your setup', 'setup'];
   /* D-161: "Taking requests" sits with the Bookable chip; off, the chip says customers can't send requests */
@@ -87,29 +125,57 @@ function view(s) {
     <p class="${ID}__status">${taking ? statusPill('bookable') : statusPill('paused', 'Paused · customers can’t send requests')}</p>
     ${toggle({ id: 'taking-requests', label: 'Taking requests', checked: taking, helper: taking ? '' : 'Jobs you already booked are not affected.' })}
   </div>`
-    : banner({ tone: 'warning', title: 'Customers can’t book you right now', text: `Finish ${finish[0]} so customers can book you again.`, actionLabel: `Finish ${finish[1]}`, actionAct: 'fix' });
+    : reviewing
+      ? `<div class="card ${ID}__live ${ID}__review" data-review>
+    <p class="${ID}__status">${reviewPill(t)}</p>
+    ${toggle({ id: 'taking-requests', label: 'Taking requests', checked: false, disabled: true, helper: 'Turns on when your checks clear.' })}
+  </div>`
+      /* S-21: "again" only for a tailor customers could book before */
+      : banner({ tone: 'warning', title: 'Customers can’t book you right now', text: `Finish ${finish[0]} so customers can book you${t.live ? ' again' : ''}.`, actionLabel: `Finish ${finish[1]}`, actionAct: 'fix' });
+  const checks = !ok && !v.allPassed ? `<section class="sec ${ID}__checks" id="${ID}-checks" aria-labelledby="${ID}-checks-h">
+    ${sectionHead('Your checks', { id: `${ID}-checks-h` })}
+    <p class="t-small c-600 ${ID}__checks-lead"${approvedPendingBackground(t) ? ' data-approved' : ''}>${approvedPendingBackground(t) ? `${APPROVED_PENDING_LINE} Customers can book you once it clears.` : `Customers can book you once all ${v.total} pass. Most reviews take ${REVIEW_TIME}.`}</p>
+    ${verifyChecklist(t)}
+  </section>` : '';
   const row = previewRow();
-  const caption = !ok ? ''   /* CP-T33: the banner above says it */
-    : !taking ? ''   /* M7-2-T-04: the Paused pill already says it */
+  const caption = !ok && !reviewing ? ''   /* CP-T33: the banner above says it */
+    : ok && !taking ? ''   /* M7-2-T-04: the Paused pill already says it */
     : row
       ? `Example: ${nameList(job.garments.map((g) => g.type))}, ${lowerFirst(VISIT_LABEL.tailor[job.visitType])}`
-      : 'Your estimate shows when a customer picks something you price.';
+      : 'Your estimate shows when a customer picks only services you price.';
   const rows = ROWS.map((r) => listRow({
     title: r.label,
     /* "Needs attention" sits as a second line under the summary, so the right column holds only the chevron (R2-2-T-06) */
-    sub: `<span class="${ID}__sum">${esc(SUMMARY[r.id](t))}</span>${r.id !== 'rush' && t.onboarding?.[r.id] === false ? `<span class="${ID}__flag t-small w-600 c-error">Needs attention</span>` : ''}`,
-    act: `edit-${r.id}`,
+    sub: `<span class="${ID}__sum">${esc(SUMMARY[r.id](t))}</span>${needsAttention(t, r.id) ? `<span class="${ID}__flag t-small w-600 c-error">Needs attention</span>` : ''}`,
+    act: r.id === 'verify' ? (checks ? 'to-checks' : '') : `edit-${r.id}`,
+    right: r.id === 'verify' && !checks ? statusPill('check-verified') : '',
   })).join('');
   return `${chrome('shop', { persona: 'tailor' })}
 <main class="body ${ID}">
   ${headingRow('<h1 class="t-title">Your shop</h1>', { back: false })}
   <div class="sec ${ID}__state">${status}</div>
+  ${checks}
   <div class="sec ${ID}__preview">${customerPreview({ title: ok && taking ? 'What customers see' : 'What customers will see', html: row ?? miniProfile({ name: t.name, initials: t.initials, photo: t.photo, shopName: t.shopName, bio: t.bio ?? '' }), caption })}</div>
   <section class="sec" aria-labelledby="${ID}-setup-h">
     ${sectionHead('Your setup', { id: `${ID}-setup-h` })}
     <div class="card card--list ${ID}__setup">${rows}</div>
   </section>
-  <div class="${ID}__out">${textLink('Sign out', { act: 'sign-out', tone: 'muted' })}</div>
+  <section class="sec" aria-labelledby="${ID}-account-h">
+    ${sectionHead('Account', { id: `${ID}-account-h` })}
+    <div class="card card--list ${ID}__account">
+      ${listRow({ title: 'Phone number', sub: `${esc(t.phone ?? '')} · texts and sign-in codes`, act: 'phone' })}
+      ${listRow({ title: 'Texts', sub: textsOn('tailor') ? 'New requests and job updates on' : 'Off', act: 'texts' })}
+      ${listRow({ title: 'See your full profile', sub: 'As customers see it, with reviews', act: 'full-profile' })}
+    </div>
+  </section>
+  <section class="sec" aria-labelledby="${ID}-help-h">
+    ${sectionHead('Help and policies', { id: `${ID}-help-h` })}
+    <div class="card card--list ${ID}__account">
+      ${listRow({ title: 'Help', sub: 'Message Taily about a job, payouts or safety', act: 'help' })}
+      ${LEGAL_FOR.tailor.map((key) => listRow({ title: esc(policyTitle(key)), act: 'policy', attrs: `data-policy="${key}"` })).join('')}
+    </div>
+  </section>
+  <div class="page-actions ${ID}__out"><div class="page-actions__links">${textLink('Sign out', { act: 'sign-out', tone: 'muted' })}${textLink('Delete account', { act: 'delete', tone: 'danger' })}</div></div>
 </main>`;
 }
 
@@ -127,15 +193,28 @@ function wire(root) {
     if (!a) return;
     const act = a.dataset.act;
     if (act.startsWith('edit-')) goTo(act.slice(5));
+    else if (act === 'to-checks') document.getElementById(`${ID}-checks`)?.scrollIntoView({ block: 'start' });
+    else if (act === 'check-id') openIdSheet(() => { const r = T.uploadId(); go(ID); if (r.ok) toast('ID added. We’ll check it again.', { tone: 'success' }); });
+    else if (act === 'check-background') openBackgroundSheet({ agree: true, onDone: () => { go(ID); toast('Background check started', { tone: 'success' }); } });
+    else if (act === 'check-years') { delete state.ui['to-profile']; state.ui['to-profile'] = { focus: '#years' }; go('to-profile'); }
+    else if (act === 'check-payout') goTo('payouts');
     else if (act === 'fix') {
       const missing = ONBOARDING_STEPS.find((st) => !myTailor().onboarding?.[st.id]);
       if (missing) goTo(missing.id);
-    } else if (act === 'sign-out') {
-      A.signOut('tailor');
-      go('t-phone', { fresh: true });
-    }
+    } else if (act === 'sign-out') openSignOut('tailor', { go });
+    else if (act === 'texts') go('t-texts');   // pre-MVP A1 (D-02)
+    /* DG-3 A (pre-MVP B2) */
+    else if (act === 'phone') { delete state.ui['t-change-phone']; go('t-change-phone'); }
+    else if (act === 'full-profile') {   // her public profile as a customer sees it (was reachable once, from to-done)
+      state.ui.booking = { ...state.ui.booking, from: undefined, tailorId: myTailor().id };
+      state.ui['c-tailor'] = { ...state.ui['c-tailor'], preview: true };
+      go('c-tailor');
+    } else if (act === 'help') go('t-help');   // track A2's Help home (DG-1 B)
+    else if (act === 'policy') { state.ui.policy = a.dataset.policy; go('t-policy'); }   // the legal pages (D-380)
+    else if (act === 'delete') openDeleteAccount('tailor', { go, onSee: (b) => seeBlocker('tailor', b, go) });
   });
 }
+
 function goTo(section) {
   const screen = SCREEN_OF[section];
   if (!screen) return;

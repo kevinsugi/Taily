@@ -8,7 +8,7 @@
 .where__card {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-12);
   width: 100%; min-height: 56px; padding: var(--space-8) var(--space-16); border-radius: var(--radius-md);
-  background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200); text-align: left;
+  background: var(--white); box-shadow: inset 0 0 0 1px var(--card-ring-tap); text-align: left;
 }
 .where__card--error { box-shadow: inset 0 0 0 1px var(--error); }
 .where__card-text { display: flex; flex-direction: column; gap: var(--space-2); flex: 1 1 0; min-width: 0; }
@@ -25,3 +25,8 @@
 .where-sheet__fields { display: flex; flex-direction: column; gap: var(--space-16); }
 .screen-sheet[data-s^="c-where"] .sheet__cancel,
 .screen-sheet[data-s^="c-where"] .sheet__confirm { min-width: 44px; min-height: 44px; }
+/* S-27 (pre-MVP B2): saved addresses first (one tap), then another address with the shared four fields */
+.where-sheet { display: flex; flex-direction: column; gap: var(--rhythm-block); }
+.where-sheet__saved, .where-sheet__other { display: flex; flex-direction: column; gap: var(--space-8); }
+.where-sheet__group { display: flex; flex-direction: column; }
+.where-sheet__other .cta { margin-top: var(--space-8); }

@@ -1,0 +1,6 @@
+/* t-texts — Texts (pre-MVP A1, D-02) */
+.t-texts__lead { margin-top: var(--space-8); }
+.t-texts__stop { margin-top: var(--rhythm-block); }
+.t-texts__card { margin-top: var(--rhythm-block); padding: var(--space-4) var(--space-16); }
+.t-texts__off { margin-top: var(--space-12); }
+.t-texts__fine { margin-top: var(--rhythm-group); }

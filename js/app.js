@@ -6,10 +6,11 @@
    js/screens/v4/ and are never loaded.
    ============================================================ */
 
-import { state } from './state.js';
-import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wirePopovers, withNavBack } from './components.js';
+import { state, nextSection, onboarded, waitlisted } from './state.js';
+import { toast, closeOverlay, clearToasts, overlayOpen, wireRadioRows, wireInfo, wirePopovers, withNavBack, modalOverlay, leaveModal, leaveSheet, ONBOARDING_STEPS } from './components.js';
 import { SCREENS } from './inventory.js';
 import { systemBanner, wireSystem } from './system.js';
+import { adminSignedIn, adminTestSession, adminSignOut } from './account.js';
 
 /* Screens are loaded dynamically — a static import here would run the screen module before this module body (imports hoist),
    hitting the `screens` map in its TDZ. Add a screen = add its id on its milestone's line.
@@ -32,17 +33,30 @@ const SCREEN_MODULES = [
   't-adjust', 'c-price-change', 'c-ready', 'c-complete', 'c-review',
   /* M5 · Messaging, accounts, earnings, system */
   'c-messages', 'c-account', 'c-addresses', 'c-cards', 'c-orders', 't-earnings', 't-payout', 't-messages',
+  /* pre-MVP A1 · texts (D-02, DG-2) */
+  'c-texts', 't-texts', 'sys-texts',
+  /* pre-MVP A2 · Taily Help, the admin (K-48.1, DG-1 B) */
+  'c-help', 't-help', 'c-case', 't-case', 'c-policy', 't-policy', 'a-inbox', 'a-case',
+  /* pre-MVP B2 · Account v2 (DG-3 A), receipts (S-25), all reviews (S-26) */
+  'c-profile', 'c-change-phone', 'c-receipt', 'c-reviews', 't-change-phone',   // the legal pages are c-policy / t-policy (D-380)
+  /* pre-MVP K-53 (track M) · the Taily fee explainer (onboarding), the admin Ledger */
+  'to-fee', 'a-ledger',
+  /* K-54 happy-path review (B2) · the admin's Verifications */
+  'a-verifications',
+  /* MVP readiness, track L (K-52 / K-53) · Log in, the admin's own sign-in */
+  'c-login', 'a-login',
 ];
 
 /** Every screen id the router can load. A screen not yet imported is "known": render() loads it first. */
 const KNOWN = new Set(SCREEN_MODULES);
 
 /* Where Back at the root and the persona flip land; sys-index until those screens are registered. */
-const PERSONA_HOME = { customer: 'c-job', tailor: 't-home' };
+const PERSONA_HOME = { customer: 'c-job', tailor: 't-home', admin: 'a-inbox' };
 
-/* Persona comes from the id: c- customer, t- / to- tailor, sys- keeps the current one. */
+/* Persona comes from the id: c- customer, t- / to- tailor, a- admin (pre-MVP A2), sys- keeps the current one. */
 export function personaOfScreen(id) {
   if (id.startsWith('c-')) return 'customer';
+  if (id.startsWith('a-')) return 'admin';
   if (/^(t|to)-/.test(id)) return 'tailor';
   return null;
 }
@@ -55,6 +69,16 @@ function syncPersona(id) {
 
 /** The landing screen for a persona (falls back to sys-index while that screen is unregistered). */
 export function personaHome(persona = state.persona) {
+  /* S-21 (D-361): a tailor who hasn't finished onboarding lands on her next step (waitlisted: to-done's waitlist), never an empty Home */
+  if (persona === 'tailor') {
+    const t = state.tailors[0];
+    if (t && waitlisted(t) && !t.live) return 'to-done';
+    if (t && !onboarded(t)) {
+      const next = nextSection(t);
+      return next ? ONBOARDING_STEPS.find((s) => s.id === next)?.screen ?? 'to-profile' : 'to-payouts';
+    }
+    if (t && !t.live && KNOWN.has('t-shop')) return 't-shop';   // DG-4 option B (Kevin): under review → her Shop, where the checklist lives
+  }
   const id = PERSONA_HOME[persona];
   if (id && KNOWN.has(id)) return id;
   /* D-67: until t-home exists a tailor's home is her shop; never the developer index */
@@ -66,6 +90,7 @@ export function personaHome(persona = state.persona) {
 const NAV_ROUTES = {
   customer: { home: 'c-job', bookings: 'c-bookings', messages: 'c-messages', account: 'c-account' },
   tailor: { home: 't-home', shop: 't-shop', earnings: 't-earnings', messages: 't-messages' },
+  admin: { inbox: 'a-inbox', checks: 'a-verifications', ledger: 'a-ledger' },
 };
 
 /** screenId -> { view: render(state) => HTML, wire?: (rootEl) => void } */
@@ -87,12 +112,13 @@ function freshMount() {
   return el;
 }
 
-/** Register a screen module. Called by js/screens/<id>.js. */
-export function register(id, render, wire) {
+/** Register a screen module. Called by js/screens/<id>.js. `opts.canLeave()` → false while the screen holds unsaved edits: the top nav
+    asks "Leave without saving?" first (S-22, D-360) and `opts.discard()` drops the draft when she leaves anyway. */
+export function register(id, render, wire, opts = {}) {
   if (typeof render !== 'function') {
     throw new TypeError(`register("${id}"): render must be a function`);
   }
-  screens.set(id, { view: render, wire });
+  screens.set(id, { view: render, wire, canLeave: opts.canLeave, discard: opts.discard });
 }
 
 /** Every screen the router can show: the ones registered so far plus the ones still to load (D-212). */
@@ -119,10 +145,59 @@ const whenIdle = (fn) => ('requestIdleCallback' in window ? window.requestIdleCa
 let tools = null;
 let toolsLoading = null;
 let bootLatency = 'normal';
+/* ---------- K-53 a8 (D-422): the Test-flows tools are the admin's ----------
+   The menu, its persona switch and Demo actions show only after the admin signs in (a-login), never for a customer or a tailor:
+   html.tools-on gates .stage-caption (css/flow-menu.css). The harness's boots — ?test=1, ?flow=, ?study= — are an admin TEST session
+   (tools on from the start, a flow runs signed in as the admin: flows.js setAdminTools → resetDemo). The admin's sign-in is remembered
+   for the tab (sessionStorage 'taily-admin'; a plain reload keeps it). A cold ?screen= link still boots its primary state, tools hidden. */
+let toolsOn = false;
+let testBoot = false;
+const TOOLS_KEY = 'taily-admin';
+const remember = (on) => { try { if (on) sessionStorage.setItem(TOOLS_KEY, '1'); else sessionStorage.removeItem(TOOLS_KEY); } catch { /* private window: the tab forgets */ } };
+const remembered = () => { try { return sessionStorage.getItem(TOOLS_KEY) === '1'; } catch { return false; } };
+function setTools(on) {
+  toolsOn = !!on;
+  document.documentElement.classList.toggle('tools-on', toolsOn);
+  /* a8 (pre-MVP sweep, D-444): the drawn 9:41 status bar is prototype chrome — drawn only in the admin's test session (every harness and
+     study boot, so the baselines keep it) and the gallery; a real visitor's own device draws its status bar (base.css html:not(.device-frame)) */
+  document.documentElement.classList.toggle('device-frame', toolsOn);
+  tools?.flows.setAdminTools(toolsOn);
+}
+/** Are the Test-flows tools available (the admin is signed in, or a test boot)? */
+export const toolsAvailable = () => toolsOn;
+/** The admin signed in (a-login): the tools come on for this tab. */
+export function unlockTools() {
+  setTools(true);
+  remember(true);
+  return loadTools();
+}
+/** The admin signed out (a-inbox): the tools go away again — except in a test boot, where the harness keeps them. */
+export function lockTools() {
+  remember(false);
+  if (testBoot) return;
+  tools?.menu.closeMenu();
+  setTools(false);
+}
+/** a-inbox's "Test flows" button: open the panel (only while the tools are on). */
+export function openTestFlows() {
+  if (!toolsOn) return;
+  document.documentElement.classList.add('has-input');
+  loadTools().then(() => tools.menu.openMenu());
+}
+/** The admin tools row (components.js `adminTools`) on a-inbox and a-ledger: Test flows opens the panel; Sign out ends his session,
+    locks the tools and lands on a-login (K-52 / K-53 a8, D-421 / D-422). */
+export function wireAdminTools(root) {
+  root.querySelector('[data-admin-tools]')?.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-act]');
+    if (el?.dataset.act === 'test-flows') openTestFlows();
+    else if (el?.dataset.act === 'admin-sign-out') { adminSignOut(); lockTools(); render('a-login', { fresh: true }); }
+  });
+}
 export function loadTools() {
   return (toolsLoading ??= Promise.all([import('./flows.js'), import('./flow-menu.js')]).then(([flows, menu]) => {
     tools = { flows, menu };
     flows.setBootLatency(bootLatency);
+    flows.setAdminTools(toolsOn);
     window.Taily.flows = flows.ALL_FLOWS;
     menu.initFlowMenu(render, { home: personaHome });
     return tools;
@@ -167,6 +242,11 @@ function syncHistory(id, replace) {
  *                                  (the Test flows menu's jumps)
  */
 export function render(id, opts = {}) {
+  /* K-52 (D-421): every a-* screen needs the admin's session — otherwise his sign-in, which then opens the screen asked for */
+  if (personaOfScreen(id) === 'admin' && id !== 'a-login' && !adminSignedIn()) {
+    state.ui['a-login'] = { ...(state.ui['a-login'] ?? {}), next: id };
+    id = 'a-login';
+  }
   const entry = screens.get(id);
   let el = mount();
   if (!el) throw new Error('render(): #screen is missing from index.html');
@@ -192,7 +272,9 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
      instead of running a stale close. */
   const prevScreen = el.dataset.screen;
   /* AU-P1-2a: a same-screen render replaces the node, so remember which control had focus (before an overlay closes and moves it) */
-  if (prevScreen === id) rememberFocus(el); else pendingFocus = null;
+  /* B1's harness note (merge A1 + B1): a fresh start (a new history — the flows harness, sign-in, a persona switch) is not an in-place change,
+     so it never inherits a focus ring from the previous render of the same screen */
+  if (prevScreen === id && !opts.fresh) rememberFocus(el); else pendingFocus = null;
   closeOverlay({ instant: true });
   el = freshMount();
   syncPersona(id);
@@ -236,7 +318,10 @@ Registered: ${registered().join(', ') || '(none yet)'}</pre>`;
   /* M6-A-04: a new screen moves focus to its h1 so a screen reader starts at the title; an open overlay keeps the focus it set */
   if (prevScreen !== id && el.isConnected && !overlayOpen() && !el.contains(document.activeElement)) {   // a wire() that focused a field keeps it
     const h1 = el.querySelector('h1');
-    if (h1) { h1.tabIndex = -1; h1.focus({ preventScroll: true }); }
+    if (h1) {
+      if (el.querySelector('#page-strip')) h1.setAttribute('aria-describedby', 'page-strip');   // SF-19: the state strip above the title is read with it
+      h1.tabIndex = -1; h1.focus({ preventScroll: true });
+    }
   }
   return true;
 }
@@ -391,7 +476,8 @@ function onPopState(e) {
 function announce(id) {
   const status = document.getElementById('route-status');
   const h1 = document.querySelector('#screen h1')?.textContent.trim();
-  const name = h1 || SCREENS.find((s) => s.id === id)?.title || id;
+  const strip = document.querySelector('#screen .request-card__strip--page')?.textContent.replace(/\s+/g, ' ').trim();   // SF-19: the state, then the title
+  const name = [strip, h1 || SCREENS.find((s) => s.id === id)?.title || id].filter(Boolean).join(' — ');
   if (status) status.textContent = name;
   document.title = `${name} · Taily`;
 }
@@ -447,16 +533,27 @@ function wireTopNav() {
     if (!link) return;
     e.preventDefault();
     const target = NAV_ROUTES[state.persona]?.[link.dataset.nav];
-    if (target && KNOWN.has(target)) { if (currentScreen() !== target) render(target); }
-    else toast('Not built yet');
+    if (!(target && KNOWN.has(target))) { toast('Not built yet'); return; }
+    if (currentScreen() === target) return;
+    /* S-22 (D-360): a Shop editor with unsaved changes asks first — the same Leave without saving? modal its Back uses */
+    const here = screens.get(currentScreen());
+    if (here?.canLeave && !here.canLeave()) {
+      leaveSheet({}, { dataS: 'nav-unsaved' }, (holder, close) => {
+        holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
+        holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => { close({ instant: true }); here.discard?.(); render(target); });
+      });
+      return;
+    }
+    render(target);
   });
 }
 
 /* The pinned Test-flows control (outside .screen) stays hidden until the first input,
    so a screenshot of #screen never sees it. */
 function revealOnFirstInput() {
-  /* D-212: the first input also loads the Test-flows menu, so a plain visit pays for it only when someone is about to use it */
-  const reveal = () => { document.documentElement.classList.add('has-input'); loadTools(); };
+  /* D-212: the first input also loads the Test-flows menu, so a plain visit pays for it only when someone is about to use it.
+     K-53 a8 (D-422): only while the tools are on (the admin, or a test boot) — a customer's or a tailor's input never loads them */
+  const reveal = () => { document.documentElement.classList.add('has-input'); if (toolsOn) loadTools(); };
   ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((ev) =>
     document.addEventListener(ev, reveal, { once: true, passive: true }));
 }
@@ -488,9 +585,13 @@ async function boot() {
   state.sim.latency = bootLatency;
   const flow = params.get('flow');
   const screen = params.get('screen');
-  const first = screen || 'sys-index';
+  /* K-52 (D-421): `?admin` is the admin's own entry — his sign-in (a-login), linked from nowhere in the customer or tailor app */
+  const first = screen || (params.has('admin') ? 'a-login' : 'sys-index');
   /* ?study=1[&s=n]: boot with the Test-flows panel open on the Study tab (section n, default 1); nothing is run unless ?flow= / ?screen= says so */
   const study = params.has('study');
+  /* K-53 a8 (D-422): ?test=1 / ?flow= / ?study= are an admin test session; a tab where the admin signed in remembers it */
+  testBoot = test || !!flow || study;
+  if (testBoot || remembered()) { setTools(true); adminTestSession({ test: testBoot }); }
   const wantsTools = test || !!flow || !!screen || study;
   if (study) document.documentElement.classList.add('has-input');   // the pinned control is hidden until the first input
   if (wantsTools) await Promise.all([loadTools(), loadAllScreens()]);

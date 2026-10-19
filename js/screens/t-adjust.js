@@ -27,7 +27,7 @@ import { ICON_CAMERA } from '../icons.js';
 import { withLatency } from '../sim.js';
 import {
   chrome, headingRow, banner, emptyState, listRow, optionRow, textArea, deltaFigure, tailorBreakdown, actionBar, changeSummary,
-  sheetOverlay, modalOverlay, leaveModal, toast, esc, garmentIcon, garmentHead, docsEditor, wireGarmentDocs, sectionHead, textLink,
+  sheetOverlay, modalOverlay, leaveModal, leaveSheet, toast, esc, garmentIcon, garmentHead, docsEditor, wireGarmentDocs, sectionHead, textLink,
   privateNotes, wirePrivateNotes, openAttachSheet, photoStub, dueChange, wirePhotoViewer, visitBlock,
 } from '../components.js';
 
@@ -257,7 +257,7 @@ function garmentHtml(g, errors, busy, ctx) {
   const more = addable(g).length > 0;
   return `<section class="${ID}__garment" aria-label="${esc(g.type)}" data-garment="${esc(g.id)}" data-kind="${g.isNew ? 'added' : 'kept'}">
     <div class="card ${ID}__card${g.isNew ? ` ${ID}__card--new` : ''}">
-      <div class="${ID}__head">${garmentHead({ type: g.type, tag: g.isNew ? tag('New item', 'new-item') : '', as: 'h2' })}</div>
+      <div class="${ID}__head">${garmentHead({ type: g.type, tag: g.isNew ? tag('New item', 'new-item') : '', as: 'h2', services: g.rows.filter((r) => !r.removed).length ? g.rows.filter((r) => !r.removed).map((r) => r.label) : null })}</div>
       ${g.rows.map((r) => rowHtml(r, errors, busy, g.isNew)).join('')}${more ? `<div class="${ID}__add">${listRow({ title: '+ Add a service', act: 'add-service' }).replace('data-act="add-service"', `data-act="add-service" data-garment="${esc(g.id)}"${dis}`)}</div>` : ''}
       ${ctx.edit ? '' : docsEditor({
     garmentId: g.id, type: g.type, docs: docsOf(ctx.a, g.id), missing: ctx.missing.get(g.id) ?? { before: false, pinned: false },
@@ -276,7 +276,7 @@ function view() {
   const chromeHtml = chrome('home', { persona: 'tailor' });
   if (!a) {
     return `${chromeHtml}<main class="body ${ID}" data-s="${ID}--none">
-  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'Nothing to edit', body: 'You can edit the job during a fitting.', art: 'Suit Jacket', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
+  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'Nothing to edit', body: 'You can edit the job during a fitting.', art: 'Suit Jacket', ctaLabel: 'Back to Home', ctaAct: 'home' })}</div>
 </main>`;
   }
   const d = ensureDraft(a);
@@ -300,7 +300,7 @@ function view() {
   const edited = isEdited(a, d, garments);
   const atMax = garments.length >= MAX_ITEMS;
   const hero = `<p class="t-caps c-600 ${ID}__eyebrow">At the fitting</p><h1 class="t-title">Final order</h1>`   /* K-42 (D-297): one title at the fitting, first send or revise */
-    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Photograph each item before and after pinning, then send ${esc(first)} the final order.</p></div><!--/notes-->`;
+    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Photograph each item before and after pinning, then send ${esc(first)} the final order.</p><p class="t-small c-600 ${ID}__consent">Ask before you take photos of ${esc(first)}. Keep faces out of the shot.</p></div><!--/notes-->`;   // SF-34
   /* K-02 (D-178): the card says what is missing, the bar says how many items still need photos */
   const gaps = docsMissing(a, liveIds(garments));
   const missing = new Map(gaps.map((m) => [m.garmentId, m]));
@@ -377,7 +377,7 @@ function editView(a, d, chromeHtml) {
   const atMax = garments.length >= MAX_ITEMS;
   const ctx = { a, d, missing: new Map(), first, edit: true };
   const hero = `<p class="t-caps c-600 ${ID}__eyebrow">After the fitting</p><h1 class="t-title">Edit order</h1>`   /* K-42 */
-    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Notes and photos are yours to change. A new price, due date or work needs ${esc(first)}’s approval.</p></div><!--/notes-->`;
+    + `<!--notes--><div class="status-hero__notes"><p class="t-body c-700">Your private notes are yours to change any time. A new price, due date or work needs ${esc(first)}’s approval.</p></div><!--/notes-->`;
   const due = d.needBy !== a.job.needBy
     ? dueChange({ needBy: d.needBy, was: a.job.needBy })
     : `<span>${esc(fmtDay(d.needBy))}</span>`;
@@ -539,7 +539,7 @@ function openLeave(a) {
   const body = isEdit(ui())
     ? `Your changes aren’t sent. ${firstOf()} keeps the order she approved until you send them.`   // Study-1 B1
     : `${firstOf()} can’t approve the order until you send it. Your photos and comments are saved. Item and price changes aren’t.`;
-  modalOverlay(leaveModal({ title: 'Leave without sending?', body }), { dataS: `${ID}-leave` }, (holder, close) => {
+  leaveSheet({ title: 'Leave without sending?', body }, { dataS: `${ID}-leave` }, (holder, close) => {
     holder.querySelector('[data-act="keep-editing"]')?.addEventListener('click', () => close());
     holder.querySelector('[data-act="discard"]')?.addEventListener('click', () => {
       close({ instant: true });

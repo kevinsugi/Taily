@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Taily</title>
+<!-- a8 (pre-MVP sweep, D-444): the web-app shell — install manifest, the page-ground theme colour, the home-screen icon -->
+<meta name="theme-color" content="#F7F4EF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Taily">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/app-icon.svg">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,145 +21,202 @@
 <!-- stamp:importmap -->
 <script type="importmap">{
 "imports": {
-"./js/account.js": "./js/account.js?v=eeda92b465",
-"./js/app.js": "./js/app.js?v=691a3c3a11",
-"./js/components.js": "./js/components.js?v=9f7baae69f",
-"./js/data.js": "./js/data.js?v=f9085d113c",
+"./js/account-ui.js": "./js/account-ui.js?v=c478638769",
+"./js/account.js": "./js/account.js?v=01d4ccb5bd",
+"./js/app.js": "./js/app.js?v=bb176b6b2c",
+"./js/components.js": "./js/components.js?v=791e8d2b33",
+"./js/data.js": "./js/data.js?v=9f5b106c22",
 "./js/dates.js": "./js/dates.js?v=a67842e5ba",
-"./js/fixtures/common.js": "./js/fixtures/common.js?v=98508fa118",
+"./js/fixtures/common.js": "./js/fixtures/common.js?v=ddb210f011",
 "./js/fixtures/m0.js": "./js/fixtures/m0.js?v=965518bad8",
-"./js/fixtures/m1.js": "./js/fixtures/m1.js?v=c40e9ba5c1",
-"./js/fixtures/m2.js": "./js/fixtures/m2.js?v=0b88c4d350",
-"./js/fixtures/m3.js": "./js/fixtures/m3.js?v=c3cd6b3659",
-"./js/fixtures/m4.js": "./js/fixtures/m4.js?v=4440f48cce",
-"./js/fixtures/m5.js": "./js/fixtures/m5.js?v=9b7ec4721c",
+"./js/fixtures/m1.js": "./js/fixtures/m1.js?v=666282d174",
+"./js/fixtures/m2.js": "./js/fixtures/m2.js?v=9efb61694e",
+"./js/fixtures/m3.js": "./js/fixtures/m3.js?v=81900ad2e8",
+"./js/fixtures/m4.js": "./js/fixtures/m4.js?v=c5a5696ba9",
+"./js/fixtures/m5.js": "./js/fixtures/m5.js?v=f8713b9069",
 "./js/fixtures/m6.js": "./js/fixtures/m6.js?v=ff9454dd45",
 "./js/fixtures/money-scenarios.js": "./js/fixtures/money-scenarios.js?v=a1b3c6fa81",
-"./js/fixtures/s1a.js": "./js/fixtures/s1a.js?v=e1ec61ade4",
-"./js/fixtures/s1b.js": "./js/fixtures/s1b.js?v=6e88640cea",
+"./js/fixtures/s1a.js": "./js/fixtures/s1a.js?v=4c769c4350",
+"./js/fixtures/s1b.js": "./js/fixtures/s1b.js?v=7e76134a88",
 "./js/fixtures/s1c.js": "./js/fixtures/s1c.js?v=8c1ba32330",
-"./js/fixtures/s1d.js": "./js/fixtures/s1d.js?v=f8e35ac441",
-"./js/fixtures/s1e.js": "./js/fixtures/s1e.js?v=ecded127f3",
-"./js/flow-menu.js": "./js/flow-menu.js?v=ba22179d88",
-"./js/flows.js": "./js/flows.js?v=3edd02a328",
-"./js/focus.js": "./js/focus.js?v=4d6c3edf9c",
-"./js/gallery.js": "./js/gallery.js?v=e23767c310",
+"./js/fixtures/s1d.js": "./js/fixtures/s1d.js?v=767b16b6d9",
+"./js/fixtures/s1e.js": "./js/fixtures/s1e.js?v=0688246ae3",
+"./js/fixtures/s1f.js": "./js/fixtures/s1f.js?v=7404d7b3e0",
+"./js/fixtures/s2a.js": "./js/fixtures/s2a.js?v=54bd28994d",
+"./js/fixtures/s2b.js": "./js/fixtures/s2b.js?v=9b7636f2c1",
+"./js/fixtures/s2c.js": "./js/fixtures/s2c.js?v=059cd91478",
+"./js/fixtures/s2d.js": "./js/fixtures/s2d.js?v=9bc17a43f5",
+"./js/fixtures/s3l.js": "./js/fixtures/s3l.js?v=04527953d6",
+"./js/fixtures/s3m.js": "./js/fixtures/s3m.js?v=f45a934041",
+"./js/fixtures/s3r.js": "./js/fixtures/s3r.js?v=2cb4a1a3da",
+"./js/fixtures/s4w.js": "./js/fixtures/s4w.js?v=a224ac0211",
+"./js/flow-menu.js": "./js/flow-menu.js?v=a51de602de",
+"./js/flows.js": "./js/flows.js?v=8f1fff67a7",
+"./js/focus.js": "./js/focus.js?v=88d6164375",
+"./js/gallery.js": "./js/gallery.js?v=c937e5cd76",
 "./js/garment-icons.js": "./js/garment-icons.js?v=d4f7429f80",
-"./js/icons.js": "./js/icons.js?v=508988450f",
-"./js/inventory.js": "./js/inventory.js?v=754ba1defc",
-"./js/money-config.js": "./js/money-config.js?v=1e34986e7f",
-"./js/money.js": "./js/money.js?v=ccf70a15dd",
+"./js/icons.js": "./js/icons.js?v=d4d25485bd",
+"./js/inventory.js": "./js/inventory.js?v=9b997734e5",
+"./js/money-config.js": "./js/money-config.js?v=0d56e0129f",
+"./js/money.js": "./js/money.js?v=1a16fc71e3",
+"./js/policies.js": "./js/policies.js?v=1d78666255",
 "./js/scheduler.js": "./js/scheduler.js?v=14afcfda00",
-"./js/screens/c-account.js": "./js/screens/c-account.js?v=98da7adfef",
-"./js/screens/c-addresses.js": "./js/screens/c-addresses.js?v=f39e04c82a",
+"./js/screens/a-case.js": "./js/screens/a-case.js?v=abd8bd545b",
+"./js/screens/a-inbox.js": "./js/screens/a-inbox.js?v=83e7238f0f",
+"./js/screens/a-ledger.js": "./js/screens/a-ledger.js?v=51c27d43bb",
+"./js/screens/a-login.js": "./js/screens/a-login.js?v=73b45f0bcd",
+"./js/screens/a-verifications.js": "./js/screens/a-verifications.js?v=91084ed8cb",
+"./js/screens/c-account.js": "./js/screens/c-account.js?v=31e8117b7a",
+"./js/screens/c-addresses.js": "./js/screens/c-addresses.js?v=53b7134e3d",
 "./js/screens/c-book.js": "./js/screens/c-book.js?v=60a9c6b686",
-"./js/screens/c-booking.js": "./js/screens/c-booking.js?v=df33f3a22a",
-"./js/screens/c-bookings.js": "./js/screens/c-bookings.js?v=fbbbb3e03a",
-"./js/screens/c-cards.js": "./js/screens/c-cards.js?v=f3af863142",
+"./js/screens/c-booking.js": "./js/screens/c-booking.js?v=8133838d47",
+"./js/screens/c-bookings.js": "./js/screens/c-bookings.js?v=89f5abf6f7",
+"./js/screens/c-cards.js": "./js/screens/c-cards.js?v=31c19a8233",
+"./js/screens/c-case.js": "./js/screens/c-case.js?v=7ab247021d",
+"./js/screens/c-change-phone.js": "./js/screens/c-change-phone.js?v=da25ebff4a",
 "./js/screens/c-code.js": "./js/screens/c-code.js?v=732180794c",
-"./js/screens/c-complete.js": "./js/screens/c-complete.js?v=ee4575a12c",
-"./js/screens/c-job.js": "./js/screens/c-job.js?v=a6ff85e618",
+"./js/screens/c-complete.js": "./js/screens/c-complete.js?v=e5415795b9",
+"./js/screens/c-help.js": "./js/screens/c-help.js?v=ac566ea6fb",
+"./js/screens/c-job.js": "./js/screens/c-job.js?v=24e89edfa5",
+"./js/screens/c-login.js": "./js/screens/c-login.js?v=216d980ace",
 "./js/screens/c-messages.js": "./js/screens/c-messages.js?v=4019e157ca",
-"./js/screens/c-name.js": "./js/screens/c-name.js?v=5266bf68d9",
+"./js/screens/c-name.js": "./js/screens/c-name.js?v=cc54633d35",
 "./js/screens/c-orders.js": "./js/screens/c-orders.js?v=8b123554ad",
-"./js/screens/c-pay.js": "./js/screens/c-pay.js?v=2b50f15ce9",
-"./js/screens/c-phone.js": "./js/screens/c-phone.js?v=6c29d7d808",
-"./js/screens/c-price-change.js": "./js/screens/c-price-change.js?v=5d27ed5473",
-"./js/screens/c-ready.js": "./js/screens/c-ready.js?v=995a417ad3",
-"./js/screens/c-request.js": "./js/screens/c-request.js?v=5c17b6a960",
-"./js/screens/c-review.js": "./js/screens/c-review.js?v=6b0d07dcb9",
-"./js/screens/c-tailor.js": "./js/screens/c-tailor.js?v=860e19346f",
-"./js/screens/c-tailors.js": "./js/screens/c-tailors.js?v=72d1dcf5ca",
-"./js/screens/c-thread.js": "./js/screens/c-thread.js?v=a4c51acf28",
-"./js/screens/c-welcome.js": "./js/screens/c-welcome.js?v=094d2d414c",
-"./js/screens/c-where.js": "./js/screens/c-where.js?v=141859c916",
-"./js/screens/sys-components.js": "./js/screens/sys-components.js?v=8baaaa3f96",
+"./js/screens/c-pay.js": "./js/screens/c-pay.js?v=83f811de3b",
+"./js/screens/c-phone.js": "./js/screens/c-phone.js?v=e6e43dd42c",
+"./js/screens/c-policy.js": "./js/screens/c-policy.js?v=3b05477c85",
+"./js/screens/c-price-change.js": "./js/screens/c-price-change.js?v=e984ddb0dd",
+"./js/screens/c-profile.js": "./js/screens/c-profile.js?v=75cea07c91",
+"./js/screens/c-ready.js": "./js/screens/c-ready.js?v=1f382741ef",
+"./js/screens/c-receipt.js": "./js/screens/c-receipt.js?v=5dd597f0dc",
+"./js/screens/c-request.js": "./js/screens/c-request.js?v=23a2e85734",
+"./js/screens/c-review.js": "./js/screens/c-review.js?v=34d946213e",
+"./js/screens/c-reviews.js": "./js/screens/c-reviews.js?v=16ca363ced",
+"./js/screens/c-tailor.js": "./js/screens/c-tailor.js?v=3f9a928c64",
+"./js/screens/c-tailors.js": "./js/screens/c-tailors.js?v=f00318fd9e",
+"./js/screens/c-texts.js": "./js/screens/c-texts.js?v=542e8c6556",
+"./js/screens/c-thread.js": "./js/screens/c-thread.js?v=1c1c2b911c",
+"./js/screens/c-welcome.js": "./js/screens/c-welcome.js?v=9005ff39b2",
+"./js/screens/c-where.js": "./js/screens/c-where.js?v=9cc76b72f8",
+"./js/screens/sys-components.js": "./js/screens/sys-components.js?v=41167eb9a8",
 "./js/screens/sys-index.js": "./js/screens/sys-index.js?v=ceba6f1edc",
-"./js/screens/t-adjust.js": "./js/screens/t-adjust.js?v=4d2b894812",
-"./js/screens/t-code.js": "./js/screens/t-code.js?v=cce1a9b86e",
-"./js/screens/t-earnings.js": "./js/screens/t-earnings.js?v=bd0a3ccc04",
-"./js/screens/t-home.js": "./js/screens/t-home.js?v=d7c3b11421",
-"./js/screens/t-job.js": "./js/screens/t-job.js?v=c66fe5780a",
-"./js/screens/t-messages.js": "./js/screens/t-messages.js?v=b2b967c6f2",
-"./js/screens/t-payout.js": "./js/screens/t-payout.js?v=9fcf0c2809",
-"./js/screens/t-phone.js": "./js/screens/t-phone.js?v=f3c849347e",
-"./js/screens/t-request.js": "./js/screens/t-request.js?v=28c732fa70",
-"./js/screens/t-rush.js": "./js/screens/t-rush.js?v=9be684fb76",
-"./js/screens/t-shop.js": "./js/screens/t-shop.js?v=5c1603064e",
-"./js/screens/t-suggest.js": "./js/screens/t-suggest.js?v=7117a916bd",
-"./js/screens/t-thread.js": "./js/screens/t-thread.js?v=1a31cdb9c3",
-"./js/screens/to-availability.js": "./js/screens/to-availability.js?v=4d89557512",
-"./js/screens/to-done.js": "./js/screens/to-done.js?v=c7baa753d9",
-"./js/screens/to-payouts.js": "./js/screens/to-payouts.js?v=8551edf255",
-"./js/screens/to-profile.js": "./js/screens/to-profile.js?v=f31c0a4674",
-"./js/screens/to-returns.js": "./js/screens/to-returns.js?v=6f5aeed297",
-"./js/screens/to-services.js": "./js/screens/to-services.js?v=15403a42ec",
-"./js/screens/to-where.js": "./js/screens/to-where.js?v=410e748481",
+"./js/screens/sys-texts.js": "./js/screens/sys-texts.js?v=6db9f2b412",
+"./js/screens/t-adjust.js": "./js/screens/t-adjust.js?v=d1a7fa39b7",
+"./js/screens/t-case.js": "./js/screens/t-case.js?v=c8151a0847",
+"./js/screens/t-change-phone.js": "./js/screens/t-change-phone.js?v=03a28caa92",
+"./js/screens/t-code.js": "./js/screens/t-code.js?v=230127dd8b",
+"./js/screens/t-earnings.js": "./js/screens/t-earnings.js?v=cb1d66e4dc",
+"./js/screens/t-help.js": "./js/screens/t-help.js?v=df0bce914f",
+"./js/screens/t-home.js": "./js/screens/t-home.js?v=a29998d5de",
+"./js/screens/t-job.js": "./js/screens/t-job.js?v=d6bd4a125b",
+"./js/screens/t-messages.js": "./js/screens/t-messages.js?v=b871448505",
+"./js/screens/t-payout.js": "./js/screens/t-payout.js?v=167222a9ed",
+"./js/screens/t-phone.js": "./js/screens/t-phone.js?v=46c2368146",
+"./js/screens/t-policy.js": "./js/screens/t-policy.js?v=6e4c0e99f0",
+"./js/screens/t-request.js": "./js/screens/t-request.js?v=3d9a82f3bf",
+"./js/screens/t-rush.js": "./js/screens/t-rush.js?v=142e005021",
+"./js/screens/t-shop.js": "./js/screens/t-shop.js?v=31477b224e",
+"./js/screens/t-suggest.js": "./js/screens/t-suggest.js?v=f7a71b0508",
+"./js/screens/t-texts.js": "./js/screens/t-texts.js?v=78dacb370f",
+"./js/screens/t-thread.js": "./js/screens/t-thread.js?v=9c64c1a726",
+"./js/screens/to-availability.js": "./js/screens/to-availability.js?v=80fe6fdbce",
+"./js/screens/to-done.js": "./js/screens/to-done.js?v=8b51a65218",
+"./js/screens/to-fee.js": "./js/screens/to-fee.js?v=8932a7b208",
+"./js/screens/to-payouts.js": "./js/screens/to-payouts.js?v=4fbd0f2d7d",
+"./js/screens/to-profile.js": "./js/screens/to-profile.js?v=e2dabe7262",
+"./js/screens/to-returns.js": "./js/screens/to-returns.js?v=10bd94eff7",
+"./js/screens/to-services.js": "./js/screens/to-services.js?v=611520d215",
+"./js/screens/to-where.js": "./js/screens/to-where.js?v=7ec7aab0c3",
 "./js/sim.js": "./js/sim.js?v=dc6c114a27",
-"./js/state.js": "./js/state.js?v=ff2683554e",
+"./js/state.js": "./js/state.js?v=ae127e4c5d",
 "./js/study.js": "./js/study.js?v=f21ea5bd94",
-"./js/system.js": "./js/system.js?v=30220ff5be",
-"./js/tailor-data.js": "./js/tailor-data.js?v=032ff8103a"
+"./js/system.js": "./js/system.js?v=fc4ca27d57",
+"./js/tailor-data.js": "./js/tailor-data.js?v=bcca96ec2a",
+"./js/texts.js": "./js/texts.js?v=c98a3df9d7"
 }
 }</script>
 <!-- /stamp:importmap -->
 
 <!-- D-212: start the module waterfall in parallel with the stylesheets -->
-<link rel="modulepreload" href="js/app.js?v=691a3c3a11">
-<link rel="modulepreload" href="js/state.js?v=ff2683554e">
-<link rel="modulepreload" href="js/components.js?v=9f7baae69f">
+<link rel="modulepreload" href="js/app.js?v=bb176b6b2c">
+<link rel="modulepreload" href="js/state.js?v=ae127e4c5d">
+<link rel="modulepreload" href="js/components.js?v=791e8d2b33">
 
-<link rel="stylesheet" href="css/tokens.css?v=4fe922a103">
-<link rel="stylesheet" href="css/base.css?v=b0205a5eac">
-<link rel="stylesheet" href="css/components.css?v=72c690d20a">
-<link rel="stylesheet" href="css/components-v5.css?v=ff2af3d1f0">
-<link rel="stylesheet" href="css/flow-menu.css?v=b25bea9083">
+<link rel="stylesheet" href="css/tokens.css?v=ef6dcec17d">
+<link rel="stylesheet" href="css/base.css?v=0c088ace71">
+<link rel="stylesheet" href="css/components.css?v=9f50772a89">
+<link rel="stylesheet" href="css/components-v5.css?v=4c264ac6ea">
+<link rel="stylesheet" href="css/flow-menu.css?v=4e1b96f511">
 <!-- one stylesheet per screen (css/screens/<id>.css); add a link when a screen lands -->
 <link rel="stylesheet" href="css/screens/sys-index.css?v=daf0ea9613">
-<link rel="stylesheet" href="css/screens/sys-components.css?v=bded49dc9d">
-<link rel="stylesheet" href="css/screens/c-welcome.css?v=55120aa4b3">
-<link rel="stylesheet" href="css/screens/c-phone.css?v=78ce6d7e1b">
+<link rel="stylesheet" href="css/screens/sys-components.css?v=8da477224d">
+<link rel="stylesheet" href="css/screens/c-welcome.css?v=555e047b2d">
+<link rel="stylesheet" href="css/screens/c-phone.css?v=2c6177b1c4">
 <link rel="stylesheet" href="css/screens/c-code.css?v=ed63b12347">
-<link rel="stylesheet" href="css/screens/c-name.css?v=8a3d99d9cb">
+<link rel="stylesheet" href="css/screens/c-name.css?v=de7567ef8c">
 <link rel="stylesheet" href="css/screens/c-thread.css?v=4cd38f7354">
-<link rel="stylesheet" href="css/screens/c-job.css?v=1c086ee289">
-<link rel="stylesheet" href="css/screens/c-where.css?v=be16430613">
-<link rel="stylesheet" href="css/screens/c-tailors.css?v=14630ca704">
-<link rel="stylesheet" href="css/screens/c-tailor.css?v=2594bc7a45">
+<link rel="stylesheet" href="css/screens/c-job.css?v=a5c7c382d1">
+<link rel="stylesheet" href="css/screens/c-where.css?v=195ca53c39">
+<link rel="stylesheet" href="css/screens/c-tailors.css?v=cdec045db5">
+<link rel="stylesheet" href="css/screens/c-tailor.css?v=3cecb0db46">
 <link rel="stylesheet" href="css/screens/c-book.css?v=92f32606c1">
-<link rel="stylesheet" href="css/screens/c-pay.css?v=0b9b91ad89">
+<link rel="stylesheet" href="css/screens/c-pay.css?v=d1d3ec77e6">
 <link rel="stylesheet" href="css/screens/c-request.css?v=2094a9e609">
-<link rel="stylesheet" href="css/screens/t-phone.css?v=ed935c3e27">
+<link rel="stylesheet" href="css/screens/t-phone.css?v=9a7b025373">
 <link rel="stylesheet" href="css/screens/t-code.css?v=d68fac2ed4">
-<link rel="stylesheet" href="css/screens/to-profile.css?v=7e4cf03ace">
-<link rel="stylesheet" href="css/screens/to-services.css?v=09ca0ae5a1">
-<link rel="stylesheet" href="css/screens/to-where.css?v=2e14389909">
+<link rel="stylesheet" href="css/screens/to-profile.css?v=dc4b7a65be">
+<link rel="stylesheet" href="css/screens/to-services.css?v=a228f1b293">
+<link rel="stylesheet" href="css/screens/to-where.css?v=f3d5259073">
 <link rel="stylesheet" href="css/screens/to-returns.css?v=eb51ae9f54">
-<link rel="stylesheet" href="css/screens/to-availability.css?v=a7e528b80b">
-<link rel="stylesheet" href="css/screens/to-payouts.css?v=32f822252b">
+<link rel="stylesheet" href="css/screens/to-availability.css?v=fa6729f787">
+<link rel="stylesheet" href="css/screens/to-payouts.css?v=340981f7cd">
 <link rel="stylesheet" href="css/screens/to-done.css?v=4c1c156e75">
-<link rel="stylesheet" href="css/screens/t-shop.css?v=811426d55b">
-<link rel="stylesheet" href="css/screens/t-rush.css?v=a908891458">
-<link rel="stylesheet" href="css/screens/t-home.css?v=65d244882a">
-<link rel="stylesheet" href="css/screens/t-request.css?v=a1e7ff4169">
+<link rel="stylesheet" href="css/screens/t-shop.css?v=97d37d4b44">
+<link rel="stylesheet" href="css/screens/t-rush.css?v=5b91f40e22">
+<link rel="stylesheet" href="css/screens/t-home.css?v=337c79d606">
+<link rel="stylesheet" href="css/screens/t-request.css?v=d08fcc94d2">
 <link rel="stylesheet" href="css/screens/t-suggest.css?v=f5e6dec82e">
 <link rel="stylesheet" href="css/screens/t-job.css?v=203da3f0ea">
 <link rel="stylesheet" href="css/screens/t-thread.css?v=cf6b436da4">
-<link rel="stylesheet" href="css/screens/c-bookings.css?v=02e898ad12">
-<link rel="stylesheet" href="css/screens/c-booking.css?v=4398609f40">
-<link rel="stylesheet" href="css/screens/t-adjust.css?v=a2fca4692f">
-<link rel="stylesheet" href="css/screens/c-price-change.css?v=21b4dd5f2b">
-<link rel="stylesheet" href="css/screens/c-ready.css?v=f325999e51">
-<link rel="stylesheet" href="css/screens/c-complete.css?v=099662a3b8">
-<link rel="stylesheet" href="css/screens/c-review.css?v=131e3145e4">
+<link rel="stylesheet" href="css/screens/c-bookings.css?v=9804099b36">
+<link rel="stylesheet" href="css/screens/c-booking.css?v=87b139d7d6">
+<link rel="stylesheet" href="css/screens/t-adjust.css?v=1a94f8519f">
+<link rel="stylesheet" href="css/screens/c-price-change.css?v=9bc79d6053">
+<link rel="stylesheet" href="css/screens/c-ready.css?v=bfab75d7f0">
+<link rel="stylesheet" href="css/screens/c-complete.css?v=ac1b7ca1f3">
+<link rel="stylesheet" href="css/screens/c-review.css?v=5da46da6c2">
 <link rel="stylesheet" href="css/screens/c-messages.css?v=0361831cd8">
-<link rel="stylesheet" href="css/screens/c-account.css?v=2a7254a61c">
-<link rel="stylesheet" href="css/screens/c-addresses.css?v=84fcf4be7f">
+<link rel="stylesheet" href="css/screens/c-account.css?v=67aca81172">
+<link rel="stylesheet" href="css/screens/c-addresses.css?v=e830a39dc1">
 <link rel="stylesheet" href="css/screens/c-cards.css?v=8c985d5bf1">
 <link rel="stylesheet" href="css/screens/c-orders.css?v=6936e0ae9a">
-<link rel="stylesheet" href="css/screens/t-earnings.css?v=deba1944e8">
+<link rel="stylesheet" href="css/screens/t-earnings.css?v=b3009bc8e0">
 <link rel="stylesheet" href="css/screens/t-payout.css?v=201a7a69a4">
 <link rel="stylesheet" href="css/screens/t-messages.css?v=3789c960d5">
+<link rel="stylesheet" href="css/screens/c-texts.css?v=f0d67b305f">
+<link rel="stylesheet" href="css/screens/t-texts.css?v=3a35930a9f">
+<link rel="stylesheet" href="css/screens/sys-texts.css?v=b2fa050984">
+<link rel="stylesheet" href="css/screens/c-help.css?v=32b67a0e6f">
+<link rel="stylesheet" href="css/screens/t-help.css?v=9ad223d02b">
+<link rel="stylesheet" href="css/screens/c-case.css?v=1867e8a932">
+<link rel="stylesheet" href="css/screens/t-case.css?v=fbd9781155">
+<link rel="stylesheet" href="css/screens/c-policy.css?v=825664d169">
+<link rel="stylesheet" href="css/screens/t-policy.css?v=566f3c0f16">
+<link rel="stylesheet" href="css/screens/a-inbox.css?v=dce047f2a1">
+<link rel="stylesheet" href="css/screens/a-case.css?v=fc1abe4176">
+<!-- pre-MVP B2 -->
+<link rel="stylesheet" href="css/screens/c-profile.css?v=3fd282ee8e">
+<link rel="stylesheet" href="css/screens/c-change-phone.css?v=ec4dae94d6">
+<link rel="stylesheet" href="css/screens/c-receipt.css?v=c5e5764263">
+<link rel="stylesheet" href="css/screens/c-reviews.css?v=8638e6abda">
+<link rel="stylesheet" href="css/screens/t-change-phone.css?v=8551f5a8e7">
+<!-- pre-MVP K-53 (track M) -->
+<link rel="stylesheet" href="css/screens/to-fee.css?v=54b69dd88f">
+<link rel="stylesheet" href="css/screens/a-ledger.css?v=2a33bb3475">
+<link rel="stylesheet" href="css/screens/a-verifications.css?v=0593e1a728">
+<!-- MVP readiness, track L (K-52 / K-53) -->
+<link rel="stylesheet" href="css/screens/c-login.css?v=644f0fd7d5">
+<link rel="stylesheet" href="css/screens/a-login.css?v=937a898db8">
 </head>
 <body>
 
@@ -164,7 +229,9 @@
 
 <!-- Announces screen changes to assistive tech; screens themselves stay silent. -->
 <div id="route-status" role="status" aria-live="polite" class="sr-only"></div>
+<div id="toast-live" class="sr-only" aria-live="polite"></div>
+<div id="toast-alert" class="sr-only" aria-live="assertive"></div>
 
-<script type="module" src="js/app.js?v=691a3c3a11"></script>
+<script type="module" src="js/app.js?v=bb176b6b2c"></script>
 </body>
 </html>

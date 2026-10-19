@@ -6,7 +6,7 @@
    ============================================================ */
 import { register, render as go, personaHome } from '../app.js';
 import {
-  state, T, now, threadFor, threadReadOnly, threadAppt, maskContact, statusScreen,
+  state, T, now, threadFor, threadReadOnly, threadAppt, maskContact, statusScreen, isBlocked, blockedBy,
 } from '../state.js';
 import { setFocus, statusWord } from '../focus.js';
 import { MY_TAILOR_ID, requestView, customerInitials, threadCustomerName, jobAddress } from '../tailor-data.js';
@@ -15,7 +15,7 @@ import { CHAT_LIMITS } from '../data.js';
 import {
   chrome, headingRow, privacyNote, composer, readOnlyBanner, emptyState, threadHead, threadContext,
   threadMessages, countdown, openAttachSheet, wireComposer, wirePhotoViewer, toast, esc, ICON_INFO,
-  heroGarment,
+  heroGarment, moreMenu, openSafetySheet, openUnblockSheet,
 } from '../components.js';
 import { fmtWhen } from '../dates.js';
 
@@ -59,7 +59,7 @@ function view(s) {
     return `${chrome('messages', { persona: 'tailor' })}
 <main class="body ${ID}">
   ${headingRow('<h1 class="t-title">Messages</h1>', { back: false })}
-  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No conversation yet', body: 'Messages with a customer show up here once they send a request.', art: 'Shirt / Blouse', ctaLabel: 'Go to Home', ctaAct: 'home' })}</div>
+  <div class="${ID}__empty" data-empty="no-job">${emptyState({ title: 'No conversation yet', body: 'Messages with a customer show up here once they send a request.', art: 'Shirt / Blouse', ctaLabel: 'Back to Home', ctaAct: 'home' })}</div>
 </main>`;
   }
   const u = ui();
@@ -73,12 +73,15 @@ function view(s) {
   const body = thread.messages.length || u.sending || (u.failed ?? []).length
     ? threadMessages(thread.messages, { reader: 'tailor', now: now(), failed: u.failed ?? [], sending: u.sending ?? null, peer: first, photoType: gType })
     : `<p class="t-body c-600 ${ID}__empty-text">No messages yet. Say hello or ask about the fit.</p>`;
-  const foot = closed
+  const blocked = isBlocked(MY_TAILOR_ID) ? blockedBy(MY_TAILOR_ID) : null;   // S-32 (pre-MVP A2): a block closes the chat both ways
+  const foot = blocked
+    ? readOnlyBanner({ text: blocked === 'tailor' ? `You blocked ${firstName()}. You can’t message or book each other. Taily is looking into it.` : `This conversation is closed. You can’t message ${firstName()} here any more.`, ctaLabel: 'Get help', ctaAct: 'get-help', ...(blocked === 'tailor' ? { secondaryLabel: `Unblock ${firstName()}`, secondaryAct: 'unblock' } : {}) })
+    : closed
     ? readOnlyBanner({ text: 'You declined this request, so the conversation is closed.', ctaLabel: 'Back to Home', ctaAct: 'home' })
     : composer({ value: draft, placeholder: `Message ${first}`, hint, photos: u.photos ?? 0, max: maxPhotos(), disabled: busy, photoType: gType });
   return `${chrome('messages', { persona: 'tailor' })}
 <main class="body ${ID}"${busy ? ' aria-busy="true"' : ''}>
-  ${headingRow(head, { sticky: true })}
+  ${headingRow(head, { sticky: true, trailing: moreMenu() })}
   <div class="${ID}__context">${contextRow(a)}</div>
   <div class="${ID}__note">${privacyNote()}</div>
   <div class="${ID}__messages">${body}</div>
@@ -148,6 +151,14 @@ function wire(root) {
     if (!el || e.target.closest('.screen-sheet--overlay')) return;
     const act = el.dataset.act;
     if (act === 'home') go(personaHome('tailor'));
+    else if (act === 'unblock') openUnblockSheet({ who: 'tailor', other: firstName(), tailorId: MY_TAILOR_ID, onDone: () => { go(ID); toast(`${firstName()} is unblocked.`, { tone: 'success' }); } });   // merge A2 + B2
+    else if (act === 'more' || act === 'get-help') {   // S-32 + DG-1 B (pre-MVP A2): Report · Block · Get help
+      const a = threadAppt(MY_TAILOR_ID);
+      const help = () => { state.ui.help = { apptId: a?.id ?? null, caseId: null }; go('t-case'); };
+      if (act === 'get-help') { help(); return; }
+      openSafetySheet({ who: 'tailor', other: firstName(), apptId: a?.id ?? null, tailorId: MY_TAILOR_ID, mode: 'menu', onHelp: help,
+        onDone: (c, kind) => { state.ui.help = { apptId: a?.id ?? null, caseId: c.id }; if (kind === 'block') go(ID); else go('t-case'); toast(kind === 'block' ? `${firstName()} is blocked. Taily has been told.` : 'Sent. Taily is looking into it.', { tone: 'success' }); } });
+    }
     else if (act === 'open-appt') {
       const a = threadAppt(MY_TAILOR_ID);
       if (!a) return;

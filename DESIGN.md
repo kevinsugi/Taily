@@ -288,14 +288,47 @@ components:
     backgroundColor: "{colors.accent-bg}"
     rounded: "{rounded.full}"
     size: "120px"
+  # since K-22 (pre-MVP + K-53; K-53 a6 update, Oct 18 2026)
+  button-primary-two-line:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.neutral-50}"
+    typography: "{typography.body-strong}"
+    rounded: "{rounded.20}"
+    height: "auto (54px min)"
+    width: "100%"
+  card-tap:
+    backgroundColor: "{colors.white}"
+    rounded: "{rounded.lg}"
+    padding: "16px"
+  request-strip:
+    backgroundColor: "{colors.accent-bg}"
+    textColor: "{colors.accent-ink}"
+    typography: "{typography.small}"
+    padding: "12px 20px"
+  notice-card:
+    backgroundColor: "{colors.white}"
+    rounded: "{rounded.lg}"
+    padding: "16px"
+  text-banner:
+    backgroundColor: "{colors.white}"
+    textColor: "{colors.ink}"
+    typography: "{typography.small}"
+    rounded: "{rounded.lg}"
+    padding: "12px 16px"
+  confirm-sheet:
+    backgroundColor: "{colors.neutral-50}"
+    rounded: "{rounded.xl}"
+    padding: "12px 20px 32px"
 ---
 
 # Design System: Taily
 
-> Derived from the shipped code on branch `V5` at M7 (commit `f81baad`): `css/tokens.css`, `css/base.css`, `css/components.css`,
-> `css/components-v5.css`, `js/components.js`, `js/icons.js`, and the visual baselines in `ref/v5/`. Authority order when they disagree:
-> Kevin's locked calls (K-01..K-03 in `docs/v5/DECISIONS.md`) > `css/tokens.css` > this file. Machine-readable extensions (shadows,
-> motion, status map, component snippets) live in `.impeccable/design.json`.
+> Derived from the shipped code: first at M7 (commit `f81baad`), brought up to date for the MVP handoff (K-53 a6, Oct 18 2026, on
+> `feat/pre-mvp` after the pre-MVP fix pass, K-51, K-53 and the findings sweep `9977768`): `css/tokens.css`, `css/base.css`,
+> `css/components.css`, `css/components-v5.css`, `js/components.js`, `js/icons.js`, and the visual baselines in `ref/v5/`. Authority
+> order when they disagree: Kevin's locked calls (K-## in `docs/v5/DECISIONS.md`) > `css/tokens.css` > this file. The living gallery
+> is `components.html` (and the `sys-components` screen); the engineers' short version is `docs/v5/DESIGN-SYSTEM.md`.
+> `.impeccable/design.json` (machine-readable extensions) is the M7 snapshot; where it disagrees, this file wins.
 
 ## Overview
 
@@ -325,7 +358,8 @@ icon-only top nav, a focused flow bar during booking, and a sticky action bar fo
 - One filled ink button per screen; every other action is an accent text link.
 - Two signatures only: garment illustrations and the stitched dash.
 - Space separates groups (8 inside, 32 between, 40 around the hero); lines separate only rows inside a list.
-- Money prints as dollar amounts only, never percentages, with one precision per group.
+- Money prints as dollar amounts only, never percentages, with one precision per group. The one exception is the tailor's fee
+  explainer (`to-fee`, K-53): "Taily’s 15% covers:" — the rate itself, never an amount.
 
 ## Colors
 
@@ -359,6 +393,8 @@ that appear as dots and small ink, never as fields of colour.
 - **Tissue** (`white`): cards, inputs, modals. The status bar, top nav, flow bar, onboarding bar and action bar are NOT Tissue: they share the Linen page ground (K-07 / K-08).
 - **Oat** (`neutral-100`): `--hairline` between rows, muted avatars, segmented-control track, the removed tag, note quotes.
 - **Chalk** (`neutral-200`): `--card-ring`, the inside 1 px ring on every card.
+- **Tap ring** (`--card-ring-tap` = `neutral-500`): the ring of a card that is ONE tap target (tailor row, request card, thread context,
+  appointment rows, Pay with, the When row) — 3.75:1 on linen, so the boundary of a control meets 3:1 (P-31, D-374).
 - **Bisque** (`neutral-300`): outline rings on small buttons, time chips and select pills; stepper grabbers.
 - **Dust** (`neutral-400`): the stitched dash ink and disabled link text only.
 - **Control Taupe** (`neutral-500`): glyphs, chevrons, input rings and control boundaries (3.75:1 on linen, meets 3:1 for UI). Never
@@ -410,6 +446,11 @@ does every working job (rows, money, buttons, fields) with tabular figures and q
 Line heights are unitless ratios (K-04: `calc(21 / 16)`, `calc(34 / 28)`, …) that equal the pixel values Figma renders for AUTO at 1x (Hanken about 1.31, Cormorant about 1.21), so text still scales with the user's font size. The scale is the
 Figma scale 10 / 12 / 16 / 24 / 28 / 32 / 36; hierarchy comes from weight and colour (`.w-400…700`, `.c-*`), never a new size.
 
+**Sizes are rem** (S-17, D-443): `--size-16: 1rem` on the browser's 16 px root, so the pixel values above hold at the default and the
+reader's text-size setting scales every size (and the icons drawn at a size token). The reflow tiers are **em** media queries
+(`max-width: 18.75em` = 300 px at 16 px: the 200 % zoom tier, which a doubled text size now reaches too). Spacing, radii and the
+44 px targets stay px. The garment tile's height is `--tile-h` (6.875rem = 110 px).
+
 ### Named Rules
 
 **The Serif-Is-A-Name Rule (K-03, K-12).** Cormorant appears only for a page or overlay title. Hero money is Hanken Grotesk 600 (`.t-money`),
@@ -423,7 +464,9 @@ figures do not jitter as they change. Never let Cormorant render numbers or doll
 ## Layout
 
 A single 390 px phone column, centred on a `neutral-100` desktop backdrop above 391 px. Chrome: status bar 0/0 h44 and top nav or flow bar
-0/44 h56, both on the Linen page ground with no rule (K-07 / K-08); the nav scrolls away with the page. Only the sticky action bar (and the thread composer, D-227) draws
+0/44 h56, both on the Linen page ground with no rule (K-07 / K-08); the nav scrolls away with the page. The drawn 9:41 status bar is
+prototype chrome (a8, D-444): it shows only under `html.device-frame` (the admin's test session — every harness render — and the
+gallery); for a real visitor and an installed web app `--status-h` is the device's top safe-area inset and the nav starts there. Only the sticky action bar (and the thread composer, D-227) draws
 a 1 px hairline, and only while content continues under it. The content body starts at **116 px** (`--body-top`: nav bottom 100 + 16, K-04 / D-204) with **20 px** side gutters and no
 bottom padding; when a sticky action bar is present the body pads by the bar height plus 24.
 
@@ -496,6 +539,12 @@ Decisive and rare: one black slab per screen, everything else a link.
 - **Small (`cta-small`):** white with a `neutral-300` ring, 12/600, 44 px min; `--filled` is ink. Used for Directions / Add to
   calendar style pairs and the docs editor's Save.
 
+### Two-line button (K-46)
+`cta(label, { sub })` / `actionBar({ ctaSub })`: the amount on line one, when it is charged on line two, inside the same 20-radius slab;
+the slab grows (`min-height: 54px`, never a fixed height). With `subId` the button is named by line one and described by line two, so
+a disabled button reads its reason. Uses: "Pay $144.00 / Charged at pickup" (c-ready), the deposit V3 "Reserve · $16.00 deposit /
+Charged only if Amara accepts" (c-pay, K-49), busy "Reserving…" keeps line two so the height never jumps.
+
 ### Text Links
 The secondary action everywhere an outline button used to be. Hanken 16/600 in Thread Ink, 44 px tall, 8 px side padding, optional
 16 px leading glyph. `--danger` (Brick Ink) only for leaving or cancelling; `--muted` (Graphite Deep); disabled in Dust. In the action
@@ -506,6 +555,13 @@ A fact, not a sticker. `statusPill(key, label)` renders an 8 px dot and a 12/600
 with 3 px halo, bold word), pending (ochre), progress (sage dot, graphite word), done (green), stop (brick), calm (hollow 1.5 px
 ring, so closed reads differently by shape as well as hue). Muted past rows drop to calm unless money was kept.
 
+### Strip-led pages (K-15, K-17)
+A status screen opens with ONE full-width state strip under the nav (`requestStrip({ page: true, tone, icon, text, right })`, tones
+action / warn / done / calm, a clock that turns warning then error near a deadline), then `pageHead(requestHead({ page: true, … }))`:
+the other person (avatar, serif name, the Verified check for a tailor) with the one amount at the right and what it was under it
+(`deltaLines`: "Was $160.00 · up $45.00"). The strip carries `id="page-strip"` and describes the `h1`, so the state is announced
+with the name (SF-19). A note from the other person is a `noteQuote`; an edit's date is `dueChange` ("New due date … · was …").
+
 ### Cards / Containers
 - **Corner Style:** 16 px.
 - **Background:** Tissue on the Linen page.
@@ -513,7 +569,9 @@ ring, so closed reads differently by shape as well as hue). Muted past rows drop
 - **Internal Padding:** 16 px; `.card--list` pads only the sides for row lists.
 - **Hosts:** tailor rows, request cards, appointment rows, thread lists, thread context, account lists, form groups with controls
   (t-adjust garment cards, c-job item cards, toggle groups), the rating card, the failed courier card. A request card expiring soon
-  swaps its ring for a 2 px ochre ring.
+  swaps its ring for a 2 px ochre ring. A card that is one tap target carries the tap ring (`--card-ring-tap`).
+- **Stretched-link cards** (K-25, S-18 / D-442): the request card and the tailor row are one `<button>` laid over the card (its label
+  says what the card says) with any second control — the Verified check, the item cluster — a real sibling button above it.
 
 ### Inputs / Fields
 - **Style:** Tissue box, 12 px radius, 48 px tall, inside 1 px `neutral-500` ring (3:1 control boundary), 16 px side padding, Hanken
@@ -559,6 +617,83 @@ Pinned and the customer's photos are no longer shown on that card (c-job and t-a
   an Undo action sits inside the pill.
 - **Banner:** 12 px radius, 12/16 padding, title 16/600 + text 16/500; tones info (accent), warning, error (each `-bg` with `-ink`).
 
+### Confirm sheets (P-32, D-375 / D-381)
+Every confirm is a **bottom sheet**: `confirmSheet({ title, body, primary, secondary })` for a question (one filled button — danger
+for a destructive one — plus an outline Cancel), `leaveSheet()` for "Leave without saving?" (Keep editing / Discard changes), and
+`confirmAction({ header, body, ok, busyLabel }, onOk)` when the confirm runs an action itself: its own busy label and the error line
+under the body ("You're offline. Nothing was sent."). The centred modal stays for system moments only.
+
+### Notices, reminders and texts (DG-2 A, K-28, K-41, K-43)
+- **Reminder card** (`reminderCard`): a white card with a 44 px bell well, a 16/600 title, one 12 px line in dollars and one small
+  button ("Leave a review"). With `dismissAct` it becomes a **one-time notice** (`.notice-card`): a 44 px ✕ top right, used for a
+  cancellation someone else made within 48 hours of the visit, on Home for both personas.
+- **Visit prompt** (`visitPrompt`): the reminder on Home — the accent strip ("Please confirm your visit · Free until 5:00 PM today"),
+  the booking row, one rule line in dollars, Confirm (filled small) + Change or cancel.
+- **Booking next step** (`apptNext`, K-54 F1): when a booking needs her, Home shows its row and then ONE full-width primary for the step
+  (Review and approve · Choose a way back · See the new time …); while the draft is empty there is no disabled "Next" bar under it.
+- **Text banner** (`system.js textBannerHtml`): every notification is an SMS; the prototype draws the newest one over the status bar —
+  "Taily: " + the body + the unique link — and tapping it lands on the statusScreen for that person. The catalogue is `js/texts.js`.
+- **Texts are off** banner (warning) on t-home / c-bookings with "Turn on texts".
+
+### Taily Help (DG-1 B, K-48.1)
+- **Get help**: a person button (`helpActions()`, the life-ring glyph) on every customer order screen, and "Get help" in the tailor's ⋯.
+- **Help home** (`helpHome(who)`, c-help / t-help): Message Taily (filled), your cases (list rows with a reply-by line and an unread dot),
+  "Get help with" topics, policies, Contact Taily (text / email / help hours).
+- **Case thread** (`helpThreadView`, `caseThread`, `tailyHead`): a chat with "Taily Help" (the Help mark in its avatar, `avatar({ mark })`, K-54 P6), the order attached as the
+  thread context card, topic chips to start, masked contact details, decisions as bubbles in dollars.
+- **Case strip** (`caseStrip(v)`) on the order: warn "Taily is reviewing · Reply by Fri 5:00 PM", action "Taily replied · Read it",
+  done "Taily decided" + the outcome line in dollars; then "Open Taily Help".
+- **Garment protection row** (`protectionRow`): shield glyph, "Garment protection: Taily covers loss or damage up to $500 per order.",
+  "How it works".
+
+### Admin (K-48.1, K-52, K-53 c7)
+The CEO's own screens, never linked from the customer or tailor app: `a-login` (email → emailed code → authenticator code),
+`a-inbox` (cases with `statusPill` keys `case-reply` / `case-overdue` / `case-waiting` / `case-closed`), `a-case` (the case thread +
+the order + money actions, each through `confirmAction`) and `a-ledger`. The nav is Inbox · Ledger; `adminTools()` (Test flows ·
+Sign out) closes both tabs.
+**Ledger table** (`a-ledger`): filters are chip groups (Day · Order · Person), Totals are `moneyRows` (On hold now, Charged, Refunded,
+Released, Courier to Uber, Kept deposits, Payouts paid / pending / held, Taily revenue as the total), then one section per day
+(`sectionHead(day, { count })`) of money rows — label, amount (refunds, releases and Taily's costs negative "−$16.00"), a status
+word at the right (Hold · Charged · Refunded · Released · Taily · To tailor · Due Fri, Oct 16 · Sent) and a caption
+"10:02 AM · A-1001 · Sarah Chen · Amara Reyes". All dollars; a footnote names QuickBooks Online / Xero as the books.
+
+### Verification and payouts (DG-4 B, D-350…D-355, K-53 Q8)
+`verifyChecklist(t)` is a `card--list` of the four checks in order — ID and profile photo · Years tailoring · Payout and tax info ·
+Background check (run last, "You're approved, pending your background check") — each a list row with its words (`checkWords`) and a
+status dot (`check-verified` Verified · `check-pending` Pending · `check-needs` Needs info (action) · `check-todo` Not started ·
+`check-waitlist` Waitlist); a row she can act on is a button. `reviewPill(t)` ("Under review · 1 of 4 checks") heads Shop and Home.
+The hosted payout step: `secureSetupCard()` (what the payments partner asks, "Taily never sees your full SSN or account number"),
+then `payoutRows(t)` (Identity · Tax info (W-9) · Bank account with the partner's status). The background-check disclosure
+(`disclosureHtml`) is a counsel draft shown in its own sheet. The Verified check customers see is derived (every check passed).
+
+### Availability controls (K-53 a4, S-34)
+`dayHours({ windows, addable })`: a weekday toggle row; open days show their time buttons (44 px, "10:00 AM – 6:00 PM"), a split day
+shows a second window with a 44 px ✕, and a one-window day offers "+ Add more hours" (two windows a day at most). Time off is a
+`card--list` of whole-day ranges ("Tue, Oct 20 – Sun, Oct 25 · 6 days", Remove) with "+ Add time off" (a sheet with the scheduler wheel).
+Minimum notice is a chip group ("Customers can book you at least" 3 hours · 12 hours · 1 day · 2 days). Two schedules (shop / home)
+switch through a segmented control.
+
+### Policy pages (D-380, K-53 b)
+`c-policy` / `t-policy` render `policySections(policyPage(key, who))`: a legal draft opens with the warning note "Draft — counsel review
+required" (`data-counsel`), the version line ("Draft of Oct 18, 2026"), then **In short** and the full sections — each a caps
+`h2` and 16 px Graphite Deep paragraphs or a list, money in dollars. The texts live in `js/policies.js` (Taily Group LLC, Brooklyn).
+
+### The Taily fee page (`to-fee`, K-53)
+Step 2 of tailor onboarding opens on what the fee pays for: the serif title, one lead line, "Taily’s 15% covers:" (16/700 — the ONLY
+percent in the product, printed by `money.js feePercent()` inside `[data-fee-rate]`), five items (an 8 px accent dot, the name 16/600,
+one 12 px line), "And more…", then "For example": "On a $100.00 job you keep $85.00." over a three-row money breakdown (Services ·
+Taily fee −$15.00 · You keep). Everywhere else the fee is an amount.
+
+### Handoff and completion (Study-1 A, K-21, K-24, K-40, K-44…K-47)
+`garmentStrip` (the order as 32 px wells, each a 44 px button opening its services popover), `pickupCode` (caps label, the digits as
+one sans figure, spelled out for screen readers), the When row (`handoffWhenRow`: "Pick a time ›" in accent until picked, then the
+time in ink with an ink ring), `autoCompleteLine`, the **linen stage** (`linenStage` + `tagRail`: "Your order is ready" over white
+tags hanging from the stitch) and the **hang stage** (`hangStage`: the garments and the customer's tag on a thread).
+
+### Private notes (Study-1 B2, K-31)
+`privateNotes`: "General notes" with the lock line "Only you can see these notes.", each note a white card (text, a photo row, the
+time, Edit), "Add a note"; the editor is a text area, a photo tray, Save note / Cancel / Delete note.
+
 ### Money Rows (with the stitched dash)
 Flat rows on the linen: label 16/500 ink with an optional 12 px caption, amount 16/600 tabular right-aligned, 8 px vertical padding,
 44 px min height. Subtotal 600, total 700. Exactly one stitched dash sits directly above the first total, so every breakdown,
@@ -602,6 +737,9 @@ rows. Nowhere else.
 - **Do** animate press with `scale(0.97)` over 120 ms `--ease-out`, sheets 280 / 200 ms, modals 220 ms, and turn transforms off under
   `prefers-reduced-motion` and `html.is-test`.
 - **Do** print money as dollar amounts only (`fmt / fmtExact / fmtNeg / fmtColumn`), one precision per group, tabular figures.
+- **Do** put every confirm in a bottom sheet (`confirmSheet`, `leaveSheet`, `confirmAction`).
+- **Do** use the two-line button when a payment needs its "when" ("Pay $144.00 / Charged at pickup").
+- **Do** size type through the rem tokens and reflow through the em tiers; keep spacing and touch targets in px.
 
 ### Don't:
 - **Don't** use blue: no `--info`, `--info-bg` or `--media-placeholder` anywhere, and never `--component` (Figma's default purple).
@@ -610,7 +748,8 @@ rows. Nowhere else.
 - **Don't** add a third signature: no extra ornaments, illustrations in non-garment contexts, textures or decorative dividers.
 - **Don't** give cards drop shadows or put reference content (prices, breakdowns, visit details, reviews) in a card.
 - **Don't** use coloured chip badges for status, or green for an added charge (it is accent, "your move").
-- **Don't** show percentages in any money copy ("Taily fee −$12.50", never "10 %").
+- **Don't** show percentages in any money copy ("Taily fee −$18.75", never "15 %") — the only percent is the rate on `to-fee`.
+- **Don't** nest a control inside a button; use the stretched-link card.
 - **Don't** use outline secondary buttons outside a confirm sheet / modal or a two-path empty state.
 - **Don't** use `transition: all`, or animate an overlay in from `scale(0)`.
 - **Don't** use a base semantic colour (`--error`, `--success`, `--warning`) or `--neutral-500` / `--accent-base` for text.
@@ -633,3 +772,17 @@ The five departures noted when this file was first written were all fixed in the
 5. **Docs lag code.** `docs/v5/CONTEXT.md` now describes the accent "New" tag and the K-04 anatomy.
 
 Open: nothing.
+
+## Since K-22 (K-53 a6 update)
+
+What the system gained between the K-22 Figma sync and the MVP handoff, all in the gallery (`components.html`):
+two-line button (K-46) · deposit button V3 (K-49) · strip-led pages + page head (K-15 / K-17) · reminder card, one-time notice card
+and visit prompt (K-28, K-41, DG-2 A) · text banner + the texts catalogue (K-43, K-51) · Taily Help: Get help, Help home, case thread,
+case strip, protection row (DG-1 B) · admin: sign-in, inbox, case, ledger, tools row (K-48.1, K-52, K-53 c7) · verification checklist,
+review pill, secure setup card, payout rows, disclosure (DG-4 B) · availability: two windows, time off, minimum notice (K-53 a4) ·
+policy pages with the counsel draft line (D-380, K-53 b) · the fee page, the only percent (K-53) · handoff pieces, linen and hang
+stages (Study-1, K-21 / K-24 / K-40) · private notes (K-31) · one confirm container (P-32) · tap ring (P-31) · stretched-link tailor
+row (S-18) · rem type + em tiers (S-17) · the status bar only in test sessions + the web-app manifest (a8).
+
+Legacy, unused by any v5 screen (candidates to delete with their CSS): `trustBadges`, `trustCard`.
+

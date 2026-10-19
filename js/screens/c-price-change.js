@@ -13,11 +13,11 @@
    overruled: no decline; if Sarah disagrees she messages and the tailor revises). K-31: the tailor's whole-order note is private now.
    ============================================================ */
 import { register, render as go, registered, currentScreen } from '../app.js';
-import { state, T, tailorById, priceChangeView, jobEditView } from '../state.js';
+import { state, T, tailorById, priceChangeView, jobEditView, isVerified, caseOfAppt, caseView } from '../state.js';
 import {
   chrome, banner, emptyState, deltaLines, noteQuote, changeList, withPhotos, wirePhotoViewer, changeSummary, moneyRows, actionBar, toast, esc, wireGarmentDocs, sectionHead,
   navBackMark, requestStrip, requestHead, pageHead, verifiedCheck, HOME_FEE_CAPTION,
-  photoFigure, dueChange, visitBlock, returnedItems,
+  photoFigure, dueChange, visitBlock, returnedItems, helpActions, caseStrip,
 } from '../components.js';
 import { fmtExact } from '../money.js';
 import { fmtTime } from '../dates.js';
@@ -58,7 +58,7 @@ function view() {
       : `Approve your final order · ${first} ${changed ? 'changed it at the fitting' : 'checked everything, nothing changed'}`,
   });
   const head = pageHead(requestHead({
-    page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
+    page: true, name: t.name, initials: t.initials, check: isVerified(t) ? verifiedCheck({ years: t.years }) : '',
     payoutCents: after.total, label: changed ? 'New total' : 'Total', lines: deltaLines(after.total, pv.before.total),
   }));
   const rows = [
@@ -72,11 +72,14 @@ function view() {
   ].filter(Boolean);
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}${messaged ? '--messaged' : ''}" data-changed="${changed}" data-appt="${esc(a.id)}">
   ${navBackMark()}${strip}${head}
+  ${revisedBanner(a, first, pv.revisions, after.total)}
   <section class="sec">${sectionHead(changed ? 'What changed' : 'Your order')}
   ${changed ? `<div class="${ID}__summary">${changeSummary(pv.counts)}</div>` : ''}
   ${changeList({ garments: withPhotos(pv.garments, a.job), docs: a.priceChange.docs ?? null, commentLabel: `${first}’s comment` })}</section>
   <section class="sec">${sectionHead('Price')}
   ${moneyRows(rows)}</section>
+  ${caseBlock(a)}
+  ${helpActions()}
   ${ui().error ? `<div class="${ID}__fail" role="alert">${banner({ tone: 'error', title: 'Couldn’t approve the order', text: 'Nothing changed, and nothing was charged. Try again.' })}</div>` : ''}
 </main>
 ${actionBar({
@@ -84,6 +87,32 @@ ${actionBar({
     lead: `<span>${changed ? 'New balance' : 'Balance'}, due when it’s ready</span><b data-money>${fmtExact(after.balance)}</b>`,
     secondaryLabel: messaged ? 'Open chat' : `Message ${first}`, secondaryAct: 'message',
   })}`;
+}
+
+/** DG-1 B (pre-MVP A2): the order's Taily Help case, when there is one (a final order stuck, a review at 7 days). */
+function caseBlock(a) {
+  const c = caseOfAppt(a.id, 'customer');
+  return c ? `<div class="case-strip-wrap">${caseStrip(caseView(c, 'customer'))}</div>` : '';
+}
+
+/** B-02 (pre-MVP sweep, D-440): Approve named the revision on her screen, and Amara had sent a newer one — the screen now shows it, with
+    what she had seen. Only for the revision the approval bounced on (a later one bounces again and says so). */
+function revisedBanner(a, first, revisions, total) {
+  const r = ui().revised;
+  if (!r || r.apptId !== a.id || r.revision !== revisions) return '';
+  const text = r.was !== total
+    ? `New total ${fmtExact(total)} (was ${fmtExact(r.was)}). Check it before you approve.`
+    : 'Check what changed before you approve.';
+  return `<div class="${ID}__revised" data-revised>${banner({ tone: 'warning', title: `${esc(first)} updated the order while you were looking`, text })}</div>`;
+}
+
+/** What her screen shows right now (B-02): the revision and the total Approve answers to. Read when the screen is wired, i.e. when it painted. */
+function seenOf(a) {
+  if (!a) return null;
+  if (a.status === 'in-progress' && a.edit?.state === 'pending') { const ev = jobEditView(a); return { revision: ev.revisions ?? 0, total: ev.after.total }; }
+  if (!a.priceChange) return null;
+  const pv = priceChangeView(a);
+  return { revision: pv.revisions ?? 0, total: pv.after.total };
 }
 
 /* ---------- Study-1 B1: "Amara edited your order" ---------- */
@@ -94,23 +123,26 @@ function editView(a, chromeHtml) {
   const after = ev.after;
   const busy = !!ui().busy;
   const priced = ev.changed;
+  const moved = ev.after.total !== ev.before.total;   // SF-03: a due-date-only edit can move the money (a rush fee drops)
   const strip = requestStrip({ page: true, tone: 'action', icon: 'check', text: `${first} edited your order`, right: ev.sentAt ? `Sent ${fmtTime(ev.sentAt)}` : '' });
   const head = pageHead(requestHead({
-    page: true, name: t.name, initials: t.initials, check: t.verified ? verifiedCheck({ years: t.years }) : '',
-    payoutCents: after.total, label: priced ? 'New total' : 'Total', lines: priced ? deltaLines(after.total, ev.before.total) : [],
+    page: true, name: t.name, initials: t.initials, check: isVerified(t) ? verifiedCheck({ years: t.years }) : '',
+    payoutCents: after.total, label: priced || moved ? 'New total' : 'Total', lines: priced || moved ? deltaLines(after.total, ev.before.total) : [],
   }));
   const rows = [
-    { label: 'Services', cents: after.services, caption: `${first}’s new prices` },
+    { label: 'Services', cents: after.services, caption: priced ? `${first}’s new prices` : `${first}’s prices · unchanged` },   // K-54 P3: a due-date-only edit
     after.homeFee > 0 && { label: 'Home visit fee', cents: after.homeFee, caption: HOME_FEE_CAPTION },
     after.rush > 0 && { label: 'Rush fee', cents: after.rush },
-    { label: priced ? 'New total' : 'Total', cents: after.total, kind: 'total' },
+    ev.before.rush > after.rush && !after.rush && { label: 'Rush fee', caption: 'Removed · later due date', cents: 0 },   // SF-03
+    { label: priced || moved ? 'New total' : 'Total', cents: after.total, kind: 'total' },
     { label: 'Deposit', cents: after.deposit, caption: 'Stays the same', status: 'Paid' },
-    { label: priced ? 'New balance' : 'Balance', cents: after.balance, status: 'Due when ready' },
+    { label: priced || moved ? 'New balance' : 'Balance', cents: after.balance, status: 'Due when ready' },
     after.refund > 0 && { label: 'Refund to your card', cents: after.refund, caption: 'When your order is ready' },
   ].filter(Boolean);
   const items = returnedItems(a);
   return `${chromeHtml}<main class="body body--with-bar ${ID}" data-s="${ID}--edit" data-edit="pending" data-appt="${esc(a.id)}">
   ${navBackMark()}${strip}${head}
+  ${revisedBanner(a, first, ev.revisions, after.total)}
   <div class="${ID}__quote">${noteQuote({ label: `${first}’s reason`, text: ev.reason })}${ev.reasonMasked ? `<p class="t-small c-600 ${ID}__masked">Phone numbers and emails in this reason are hidden.</p>` : ''}</div>
   ${ev.photo ? `<div class="${ID}__photo">${photoFigure({ photo: ev.photo, type: a.job.garments.find((g) => g.id === a.edit?.marks?.[0]?.garmentId)?.type ?? items[0]?.type ?? '', by: first, label: `Photo from ${first}` })}</div>` : ''}
   ${ev.dueChanged ? `<section class="sec">${visitBlock([{ icon: 'clock', value: dueChange({ needBy: ev.needBy, was: ev.needByWas }), strong: true }], { title: '' })}</section>` : ''}
@@ -120,16 +152,25 @@ function editView(a, chromeHtml) {
   <section class="sec">${sectionHead('Price')}
   ${moneyRows(rows)}
   <p class="t-small c-600 ${ID}__hint" data-edit-hint>Something not right? Message ${esc(first)} to change it before the work is finished.</p></section>
+  ${caseBlock(a)}
+  ${helpActions()}
   ${ui().error ? `<div class="${ID}__fail" role="alert">${banner({ tone: 'error', title: 'Couldn’t save your answer', text: 'Nothing changed, and nothing was charged. Try again.' })}</div>` : ''}
 </main>
 ${actionBar({
     ctaLabel: 'Approve changes', ctaAct: 'approve-edit', busy, busyLabel: 'Approving…',
-    lead: `<span>${priced ? 'New balance' : 'Balance'}, due when it’s ready</span><b data-money>${fmtExact(after.balance)}</b>`,
+    lead: `<span>${priced || moved ? 'New balance' : 'Balance'}, due when it’s ready</span><b data-money>${fmtExact(after.balance)}</b>`,
     secondaryLabel: `Message ${first}`, secondaryAct: 'message',
   })}`;
 }
 
-function approveEdit(a) {
+/** B-02: Approve bounced on a newer revision — re-render it with the banner (nothing changed, nothing was charged). */
+function bounced(a, r, seen) {
+  ui().revised = { apptId: a.id, revision: r.revision, was: seen?.total ?? r.total };
+  go(ID);
+  toast('The order changed. Check it before you approve.', { tone: 'warning' });
+}
+
+function approveEdit(a, seen) {
   if (ui().busy) return;
   ui().busy = true;
   ui().error = false;
@@ -137,12 +178,15 @@ function approveEdit(a) {
   withLatency(() => {
     ui().busy = false;
     if (currentScreen() !== ID) return;
-    const r = T.approveJobEdit(a.id);
+    const r = T.approveJobEdit(a.id, { revision: seen?.revision ?? null });
     const first = firstOf(tailorById(a.tailorId));
     if (r.ok) {
+      ui().revised = null;
       setFocus(a.id);
       go('c-booking', { fresh: true });
       toast(`Changes approved. ${first} carries on with the work.`, { tone: 'success' });
+    } else if (r.error === 'revised') {
+      bounced(a, r, seen);
     } else {
       ui().error = true;
       go(ID);
@@ -151,7 +195,7 @@ function approveEdit(a) {
   });
 }
 
-function approve(a) {
+function approve(a, seen) {
   if (ui().busy) return;
   ui().busy = true;
   ui().error = false;
@@ -159,12 +203,15 @@ function approve(a) {
   withLatency(() => {
     ui().busy = false;
     if (currentScreen() !== ID) return;
-    const r = T.approvePriceChange(a.id);
+    const r = T.approvePriceChange(a.id, { revision: seen?.revision ?? null });
     const first = firstOf(tailorById(a.tailorId));
     if (r.ok) {
+      ui().revised = null;
       setFocus(a.id);
       go('c-booking', { fresh: true });
       toast(`Order approved. ${first} can start the work.`, { tone: 'success' });
+    } else if (r.error === 'revised') {
+      bounced(a, r, seen);
     } else {
       ui().error = true;                                            // D-140 / A-14: the banner above the bar carries it, the toast only echoes
       go(ID);
@@ -176,6 +223,7 @@ function approve(a) {
 function wire(root) {
   if (redirectIfMoved(ID, go, { has: (id) => registered().includes(id) })) return;
   const a = focusAppt(ID);
+  const seen = seenOf(a);   // B-02: what this paint shows — the busy re-render before the call re-wires with the same revision
   wirePhotoViewer(root);   // the customer-photo stack of an item the tailor did not document (K-04)
 
   const backBtn = root.querySelector('.back[data-act="back"]');
@@ -201,9 +249,13 @@ function wire(root) {
     const act = el.dataset.act;
     if (act === 'bookings') go('c-bookings', { fresh: true });
     else if (!a) return;
-    else if (act === 'approve') approve(a);
-    else if (act === 'approve-edit') approveEdit(a);
-    else if (act === 'message') go('c-thread');   // opening the chat changes nothing; Sarah's first message marks it (R4-2-C-02)
+    else if (act === 'approve') approve(a, seen);
+    else if (act === 'approve-edit') approveEdit(a, seen);
+    else if (act === 'message') go('c-thread');
+    else if (act === 'get-help' || act === 'open-case') {   // DG-1 option B (pre-MVP A2): the final order stuck → Taily Help with the order attached
+      const a = focusAppt(ID);
+      if (a) { setFocus(a.id); state.ui.help = { apptId: a.id, caseId: act === 'open-case' ? e.target.closest('[data-case]')?.dataset.case ?? null : null }; go('c-case'); }
+    }   // opening the chat changes nothing; Sarah's first message marks it (R4-2-C-02)
   });
 }
 

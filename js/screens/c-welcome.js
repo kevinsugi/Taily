@@ -1,10 +1,14 @@
 /* ============================================================
    c-welcome — the entry. Phone first; Apple / Google are the
    quieter outline buttons (M1-spec §C1). One filled CTA.
+   D-07 / B-09 (pre-MVP B2, D-372): Apple / Google are kept, then a required phone + code (c-phone in its social mode) before
+   anything else. S-24: Terms and Privacy open the legal pages (c-policy, D-380). DG-3 A: after Delete account, a calm line says it's done.
+   K-52 (D-420): "Already have an account? Log in" → c-login (Welcome back, the same code step, no silent sign-up); the tailor line reads
+   "Log in" / "Join" (t-phone's two modes). K-53 Q9 (D-423): phone only for the pilot — Apple / Google only while A.socialSignIn().
    ============================================================ */
 import { register, render as go, currentScreen } from '../app.js';
 import { state } from '../state.js';
-import { statusBar, cta, toast, garmentIcon } from '../components.js';
+import { statusBar, cta, garmentIcon, banner } from '../components.js';
 import { withLatency } from '../sim.js';
 import * as A from '../account.js';
 
@@ -22,16 +26,18 @@ function view(s) {
 <main class="body ${ID}">
   <span class="${ID}__logo" role="img" aria-label="Taily"></span>
   <div class="${ID}__hero" aria-hidden="true">${garmentIcon('Suit Jacket', { size: 'hero' })}</div>
+  ${s.session.customer?.deletedAt ? `<div class="${ID}__deleted" data-deleted>${banner({ tone: 'success', title: 'Your account is deleted', text: 'We keep receipts for past orders, as the law requires.' })}</div>` : ''}
   <h1 class="t-display ${ID}__title">A tailor near you, booked in five steps.</h1>
   <p class="t-body c-600 ${ID}__lead">Real prices up front. Your deposit is held, not charged, until the tailor accepts.</p>
   <div class="${ID}__spacer"></div>
   ${cta('Continue with phone', { disabled: !!busy, attrs: 'data-act="phone"' })}
-  <div class="${ID}__or" role="separator"><span class="t-small c-600">or</span></div>
+  ${A.socialSignIn() ? `<div class="${ID}__or" role="separator"><span class="t-small c-600">or</span></div>
   ${btn('apple', 'secondary')}
   <div class="${ID}__gap"></div>
-  ${btn('google', 'secondary')}
+  ${btn('google', 'secondary')}` : ''}
+  <p class="t-body c-700 ${ID}__login" data-login>Already have an account? <button type="button" class="${ID}__link" data-act="log-in" data-hit="inline">Log in</button></p>
   <p class="t-small c-600 ${ID}__legal">By continuing you agree to Taily’s <button type="button" class="${ID}__link" data-act="terms" data-hit="inline">Terms</button> and <button type="button" class="${ID}__link" data-act="privacy" data-hit="inline">Privacy Policy</button>.</p>
-  <p class="t-small c-600 ${ID}__tailor">Are you a tailor? <button type="button" class="${ID}__link" data-act="tailor" data-hit="inline">Join Taily</button></p>
+  <p class="t-small c-600 ${ID}__tailor">Are you a tailor? <button type="button" class="${ID}__link" data-act="tailor-login" data-hit="inline">Log in</button> or <button type="button" class="${ID}__link" data-act="tailor-join" data-hit="inline">Join Taily</button></p>
 </main>`;
 }
 
@@ -40,9 +46,13 @@ function wire(root) {
   root.querySelector('main').addEventListener('click', (e) => {
     const a = e.target.closest('[data-act]');
     if (!a || a.disabled || ui().busy) return;
-    if (a.dataset.act === 'phone') return go('c-phone');
-    if (a.dataset.act === 'tailor') return go('t-phone', { fresh: true });
-    if (a.dataset.act === 'terms' || a.dataset.act === 'privacy') return toast('Terms and Privacy aren’t in this prototype yet.');
+    if (a.dataset.act === 'phone') { if (state.session.customer) delete state.session.customer.social; return go('c-phone'); }   // a plain phone sign-in, not the social one
+    if (a.dataset.act === 'log-in') { state.ui['c-login'] = {}; return go('c-login'); }   // K-52 (D-420)
+    if (a.dataset.act === 'tailor-login' || a.dataset.act === 'tailor-join') {
+      state.ui['t-phone'] = { mode: a.dataset.act === 'tailor-login' ? 'login' : 'join' };
+      return go('t-phone', { fresh: true });
+    }
+    if (a.dataset.act === 'terms' || a.dataset.act === 'privacy') { state.ui.policy = a.dataset.act; return go('c-policy'); }   // S-24 (pre-MVP B2) → the one policy / legal page (D-380)
     if (a.dataset.act === 'apple' || a.dataset.act === 'google') {
       const provider = a.dataset.act;
       state.ui[ID] = { busy: provider };
@@ -51,7 +61,8 @@ function wire(root) {
         state.ui[ID] = {};
         if (currentScreen() !== ID) return;
         A.signInWith(provider);
-        go('c-job', { fresh: true });
+        state.ui['c-phone'] = {};                 // D-07 / B-09: the phone + code come next, before anything else
+        go('c-phone');
       });
     }
   });

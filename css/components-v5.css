@@ -73,7 +73,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 @media (hover: hover) {
   .top-nav__link:not(.is-active):hover { color: var(--ink); background: var(--neutral-50); }
 }
-@media (max-width: 359px) {
+@media (max-width: 22.4375em) {
   .top-nav__logo { width: 60px; height: 28px; }
 }
 
@@ -100,7 +100,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .garment-tile--selected:active { transform: none; }
 .garment-tile--selected .garment-tile__icons { width: 100%; flex: 0 0 40px; align-content: center; }
 .garment-tile--selected.garment-tile--grid .garment-tile__icons { width: 53px; }
-.garment-tile--selected .garment-tile__label { flex: 0 0 16px; overflow: hidden; text-overflow: ellipsis; padding-inline: var(--space-4); }
+.garment-tile--selected .garment-tile__label { flex: 0 0 calc(var(--size-12) * var(--lh-12)); overflow: hidden; text-overflow: ellipsis; padding-inline: var(--space-4); }
 .garment-tile__ctl { display: flex; width: 100%; margin-top: auto; box-shadow: inset 0 1px 0 var(--neutral-200); }
 .garment-tile__step { display: inline-flex; align-items: center; justify-content: center; flex: 1 1 0; min-width: 44px; min-height: 44px; color: var(--neutral-700); }
 .garment-tile__step:active { background: var(--neutral-100); }
@@ -115,6 +115,8 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .avatar--photo { overflow: hidden; }
 .avatar--glyph .icon-hanger { width: var(--size-24); height: var(--size-24); }   /* CR-m4 */
 .avatar--placeholder .icon-camera { width: var(--size-24); height: var(--size-24); }
+.avatar--mark { color: var(--accent-ink); }   /* K-54 P6 (D-464): Taily Help's own mark in the well, never initials */
+.avatar--mark svg { width: var(--size-24); height: var(--size-24); }
 .avatar__img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ---------- tailor row (K-19, option Q "Cognac rule") ---------- */
@@ -151,6 +153,11 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .tailor-row__booked { display: block; padding-top: var(--space-8); font-size: var(--size-12); line-height: var(--lh-12); font-weight: 500; color: var(--neutral-600); text-wrap: pretty; }
 .tailor-row__note { font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--neutral-700); }
 .tailor-row--declined { opacity: 0.55; cursor: not-allowed; }
+/* S-18 (pre-MVP sweep, D-442): a stretched-link card (the K-25 request-card pattern) — the link covers the card; the Verified check sits above it */
+.tailor-row { position: relative; }
+.tailor-row__link { position: absolute; inset: 0; z-index: 1; width: 100%; padding: 0; border: 0; border-radius: inherit; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tailor-row__link:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.tailor-row .verified { z-index: 2; }
 
 /* ---------- price row ---------- */
 .price-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-12); min-height: 44px; padding-block: var(--space-8); }
@@ -290,7 +297,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 /* ---------- stepper ---------- */
 .stepper { display: flex; flex-direction: column; gap: var(--space-8); width: 100%; }
 .stepper__text { margin: 0; font-size: var(--size-12); line-height: var(--lh-12); font-weight: 600; color: var(--neutral-700); }
-.stepper__bar { display: flex; gap: var(--space-4); }
+.stepper__bar { display: flex; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }   /* SF-42: an <ol> in both variants */
 .stepper__seg { flex: 1 1 0; height: 5px; border-radius: var(--radius-4); background: var(--neutral-100); box-shadow: inset 0 0 0 1px var(--neutral-200); }
 .stepper__seg--done { background: var(--ink); box-shadow: none; }
 .stepper__seg--current { background: var(--accent-ink); box-shadow: none; }
@@ -542,6 +549,14 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .day-hours__time:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 .day-hours--error .day-hours__time { box-shadow: inset 0 0 0 1px var(--error); }
 .day-hours__error { padding-bottom: var(--space-8); }
+/* K-53 a4 (S-34, D-424): a split day — the second window's ✕ and "Add more hours" */
+.day-hours__times[data-second] { margin-top: calc(-1 * var(--space-4)); }
+.day-hours--split .day-hours__time { min-width: 0; flex: 1 1 0; }   /* both rows share the width with the ✕ (no overflow at 320) */
+.day-hours--split .day-hours__times:not([data-second])::after { content: ""; flex: 0 0 var(--touch); margin-left: calc(-1 * var(--space-4)); }   /* the first row keeps the ✕'s column, so the times line up */
+.day-hours__remove { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 var(--touch); width: var(--touch); height: var(--touch); margin-left: calc(-1 * var(--space-4)); border-radius: var(--radius-full); color: var(--neutral-600); }
+.day-hours__remove svg { width: var(--size-16); height: var(--size-16); }
+.day-hours__remove:focus-visible, .day-hours__add:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
+.day-hours__add { align-self: flex-start; min-height: var(--touch); margin-top: calc(-1 * var(--space-8)); padding-inline: 0; color: var(--accent-ink); background: none; border: 0; }
 
 /* ---------- customer preview ---------- */
 .customer-preview { display: flex; flex-direction: column; gap: var(--space-8); }
@@ -703,7 +718,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .appt-row {
   display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(0, max-content) var(--size-12); column-gap: var(--space-8); row-gap: var(--space-2); align-items: center;   /* P3-3: the status / amount column may shrink; the name column keeps the rest */
   width: 100%; min-height: 72px; padding: var(--space-12) var(--space-16); text-align: left;
-  border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--neutral-200);
+  border-radius: var(--radius-lg); background: var(--white); box-shadow: inset 0 0 0 1px var(--card-ring-tap);   /* P-31 (D-374): one tap target */
   font-variant-numeric: tabular-nums;
 }
 .appt-row__avatar { grid-column: 1; grid-row: 1 / span 3; align-self: start; display: inline-flex; margin-right: var(--space-4); }
@@ -721,7 +736,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 .appt-row__chevron { grid-column: 4; grid-row: 1 / span 3; width: var(--size-12); height: var(--size-16); justify-self: end; color: var(--neutral-500); }
 .appt-row--bare .appt-row__when, .appt-row--bare .appt-row__place { grid-column: 2 / span 2; }   /* no amount: the time and place may use the amount's column */
 /* P3-3: on a narrow phone the name column keeps a floor, and the right column (status word over amount over caption) gives way: the status word wraps beside its dot, the amount sits under it */
-@media (max-width: 340px) {
+@media (max-width: 21.25em) {
   .appt-row { --appt-name-min: 88px; grid-template-columns: 40px minmax(var(--appt-name-min), 1fr) minmax(0, max-content) var(--size-12); }
   .appt-row .status { white-space: normal; }
   .appt-row__name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: break-word; }   /* a long name takes a second line before it loses its end */
@@ -933,6 +948,7 @@ html:has(.action-bar) { scroll-padding-bottom: var(--bar-h); }
 /* M6-P-11: the shared receipt block (c-booking--completed, c-complete) */
 .receipt__how { margin-bottom: var(--space-8); }
 .receipt__card { margin: var(--space-12) 0 0; }
+.receipt__full { margin-top: var(--space-4); }   /* S-25 (pre-MVP B2) */
 
 /* D-173: Directions / Add to calendar are links that look like the small outline buttons */
 a.cta-small { text-decoration: none; }
@@ -1029,6 +1045,11 @@ a.cta-small { text-decoration: none; }
 .garment-head__who { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4) var(--space-8); flex: 1 1 auto; min-width: 0; }
 .garment-head__name { margin: 0; min-width: 0; color: var(--ink); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-skip-ink: auto; }   /* decoration only: not a link, no hover, no pointer */
 .garment-head--gone .garment-head__name { color: var(--neutral-600); text-decoration: none; }
+/* D-24 (K-48): the underlined name opens that item's services popover (K-25) — a bare button that keeps the name's look; ::before = the 44 px target */
+.garment-head__peek { position: relative; display: inline; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-skip-ink: auto; }
+.garment-head__peek::before { content: ''; position: absolute; inset: -12px calc(-1 * var(--space-4)); }
+.garment-head__peek:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; border-radius: var(--radius-sm); }
 .garment-head--gone .garment-head__name s { text-decoration-thickness: 1px; }
 .garment-head .garment-icon--card { background: none; box-shadow: none; border-radius: 0; overflow: visible; }   /* K-05: the bare illustration, no well / ring / radius box */
 .garment-head--gone .garment-icon { opacity: .5; filter: grayscale(1); }
@@ -1203,8 +1224,37 @@ a.cta-small { text-decoration: none; }
 
 /* ---------- zoom tier (LAYOUT-PLAN P1-2): at <= 300 CSS px (200% zoom on a 390 phone, split view) fixed rows compress or reflow.
    Not a container query: container-type would make #screen the containing block of the fixed overlay holder and toast.
-   Nothing here applies at 320 or wider, so the 390 / 320 baselines do not move. ---------- */
-@media (max-width: 300px) {
+   Nothing here applies at 320 or wider, so the 390 / 320 baselines do not move.
+   S-17 (pre-MVP sweep, D-443): the tiers are em queries (18.75em = 300 px at the browser's 16 px default), so a reader who doubles the
+   text size (390 px = 12.2em at 32 px) gets the same reflow as 200% zoom; identical at the default. ---------- */
+@media (max-width: 18.75em) {
+  /* K-54 F6 (D-459): the tailor card's head stacks — avatar + name share the first line, the estimate drops under them (the name never
+     squeezes to a letter per line) */
+  .tailor-row__head { grid-template-columns: var(--space-40) minmax(0, 1fr); row-gap: var(--space-8); }
+  .tailor-row__name { overflow-wrap: break-word; }
+  .tailor-row__quote { grid-column: 1 / -1; flex-direction: row; align-items: baseline; justify-content: flex-start; gap: var(--space-4); text-align: left; }
+  /* K-54 F7 (D-459): a date + time wheel (4 columns) stacks — the day wheel on its own row, the time wheels under it, each with its band */
+  .scheduler:has(.wheel--sched > .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) { padding-inline: var(--space-12); }
+  .scheduler .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) {
+    --sched-h: 220px; --sched-band: 88px;
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--space-8); height: auto;
+  }
+  .scheduler--compact .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) { --sched-h: 132px; --sched-band: 44px; }
+  .scheduler--top .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) { --sched-band: 0px; }
+  .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) > .wheel__col { z-index: 1; min-width: 0; }
+  .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) > .wheel__band + .wheel__col { grid-column: 1 / -1; }
+  .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) > .wheel__band { top: var(--sched-band); }
+  .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col)::after {
+    content: ''; position: absolute; left: 0; right: 0; top: calc(var(--sched-h) + var(--space-8) + var(--sched-band)); height: 44px;
+    border-radius: var(--radius-md); background: var(--neutral-50);
+  }
+  .wheel--sched:has(> .wheel__col ~ .wheel__col ~ .wheel__col ~ .wheel__col) .wheel__row { white-space: nowrap; }
+  /* K-54 (the a-case zoom check): a long status under an amount ("Pending · Fri, Oct 16") wraps instead of running over the label */
+  .money-row__right { flex-shrink: 1; min-width: 0; }
+  .money-row__status { text-align: right; }
+  /* SF-35: a deadline on another day ("23h left · by tomorrow 10:00 AM") may wrap under the lead instead of crossing the edge */
+  .request-card__strip--split { flex-wrap: wrap; row-gap: var(--space-4); }
+  .request-card__strip[data-strip] .request-card__strip-clock { white-space: normal; flex-shrink: 1; min-width: 0; }
   /* nav: Back + 4 icons share the row (5 x 32 = 160 <= 171); D-187 and K-06 kept, only the gaps compress */
   .top-nav { padding-inline: var(--space-12); }
   .top-nav__links { gap: 0; min-width: 0; margin-right: calc(-1 * var(--space-4)); }
@@ -1254,12 +1304,12 @@ a.cta-small { text-decoration: none; }
   .service-row__price { width: 100%; align-items: stretch; padding-left: calc(var(--size-24) + var(--space-12)); padding-top: 0; }
   .service-row__box { width: 100%; }
   .service-row__pay { margin-left: 0; }
-  /* a saved-item tag (c-cards, c-addresses) or a row amount (t-earnings) goes on its own line under the title / sub */
-  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 0; row-gap: var(--space-4); }
-  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) > .list-row__lead { grid-column: 1; grid-row: 1 / span 2; margin-right: var(--space-12); }
-  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) > .list-row__text { grid-column: 2; grid-row: 1; }
-  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) > .list-row__right { grid-column: 2; grid-row: 2; justify-self: start; }
-  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money])) > .list-row__chevron { grid-column: 3; grid-row: 1 / span 2; margin-left: var(--space-12); }
+  /* a saved-item tag (c-cards, c-addresses), a row amount (t-earnings) or a check's status dot (DG-4) goes on its own line under the title / sub */
+  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money], .status)) { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: 0; row-gap: var(--space-4); }
+  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money], .status)) > .list-row__lead { grid-column: 1; grid-row: 1 / span 2; margin-right: var(--space-12); }
+  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money], .status)) > .list-row__text { grid-column: 2; grid-row: 1; }
+  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money], .status)) > .list-row__right { grid-column: 2; grid-row: 2; justify-self: start; }
+  .list-row:has(> .list-row__right :is(.list-row__tag, [data-money], .status)) > .list-row__chevron { grid-column: 3; grid-row: 1 / span 2; margin-left: var(--space-12); }
   /* c-job: two tiles a row, labels wrap whole words, the tile grows to hold them; − / + share the tile (each still 64+ px of touch at 200%) */
   .tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .garment-tile { height: auto; min-height: 110px; padding-inline: var(--space-2); }   /* 65 px of label: "Accessories" fits whole */
@@ -1351,6 +1401,12 @@ a.cta-small { text-decoration: none; }
 .reminder-card__icon svg { width: var(--size-24); height: var(--size-24); }
 .reminder-card__body { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
 .reminder-card__body .cta-small { align-self: flex-start; max-width: 100%; margin-top: var(--space-8); padding-inline: var(--space-16); white-space: normal; text-align: center; }
+/* DG-2 A (pre-MVP A1): the one-time notice — the reminder card + a 44 px ✕ in its top-right corner */
+.notice-card { position: relative; }
+.reminder-card--dismissible { padding-right: var(--space-40); }
+.notice-card__close { position: absolute; top: var(--space-4); right: var(--space-4); display: inline-flex; align-items: center; justify-content: center; width: var(--touch); height: var(--touch); border-radius: var(--radius-full); color: var(--neutral-600); }
+.notice-card__close svg { width: var(--size-16); height: var(--size-16); }
+.notice-card__close:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -2px; }
 
 /* ===== S1-B ===== */
 /* Study-1 WS-B: private General notes (B2) — one white card of notes, hairlines between them; the editor in place; the edit's due line (B1) */
@@ -1435,4 +1491,111 @@ a.cta-small { text-decoration: none; }
 .visit-prompt .appt-row { margin: 0; padding: 0; background: none; box-shadow: none; }
 .visit-prompt__rule { margin: 0; text-wrap: pretty; }
 .visit-prompt__actions { display: flex; flex-wrap: wrap; gap: var(--space-8); }
+/* K-54 F1 (D-454): a booking that needs her — the row, then its one full-width primary */
+.appt-next { display: flex; flex-direction: column; gap: var(--space-12); }
 .visit-prompt__actions .cta-small { flex: 1 1 0; min-width: fit-content; justify-content: center; }   /* equal halves; at 200% zoom they stack */
+
+/* SF-43: the edit-scope line under a live-shop editor's intro */
+.edit-scope { margin: var(--space-8) 0 0; text-wrap: pretty; }
+
+/* S-32 (pre-MVP A1): the Call through Taily sheet */
+.call-sheet { display: flex; flex-direction: column; gap: var(--space-12); }
+/* ---------- DG-4, option B (K-48, D-350…D-355): the four checks, the background-check disclosure, the hosted payout step ---------- */
+.verify-list .list-row { min-height: 56px; }
+.verify-list .list-row__right { flex: 0 0 auto; }
+.disclosure { display: flex; flex-direction: column; gap: var(--rhythm-tight); }
+.disclosure p { margin: 0; text-wrap: pretty; }
+.disclosure__draft { padding: var(--space-8) var(--space-12); border-radius: var(--radius-sm); background: var(--neutral-100); }   /* the copy is a placeholder for counsel — say so on the page */
+.disclosure__agree { margin-top: var(--rhythm-group); }
+.disclosure__go { margin-top: var(--rhythm-group); padding-bottom: var(--space-8); }
+.disclosure__go .cta { width: 100%; }
+.id-sheet__lead { margin: 0 0 var(--rhythm-group); text-wrap: pretty; }
+.secure-setup { display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-16); }
+.secure-setup p { margin: 0; }
+.secure-setup__list { display: flex; flex-direction: column; gap: var(--space-4); margin: 0; padding-left: var(--space-20); }
+.payout-rows .list-row { min-height: 56px; }
+
+/* P-27 (D-362): a text area whose label is a section title (c-review: peers with "Your rating" and "Photos", R4-1-C-10) */
+.field__label.field__label--section { font-size: var(--size-16); line-height: var(--lh-16); font-weight: 600; color: var(--ink); }
+
+/* ============================================================
+   pre-MVP A2 (K-48.1, DG-1 option B, D-14, S-32, D-21): Taily Help — the Get help button, the case strip, the Help thread (c-case /
+   t-case), Help home (c-help / t-help), policies, the confirm and safety sheets, garment protection, the admin's rows (a-inbox / a-case)
+   ============================================================ */
+.help-entry { margin-top: var(--rhythm-group); }
+.help-entry .help-row { margin-top: 0; }
+/* the Get help person button on a row of its own (B's mock): one full-width tile, icon beside the word */
+.help-row { margin-top: var(--space-8); }
+.help-row .cta-small { flex-direction: row; gap: var(--space-8); min-height: 44px; padding-block: var(--space-8); }
+.case-strip { display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-16) var(--space-16) var(--space-4); border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: inset 0 0 0 1px var(--card-ring); overflow: hidden; }
+.case-strip > .request-card__strip { margin-bottom: var(--space-4); }
+.case-strip__line { margin: 0; }
+.case-strip > .text-link { align-self: flex-start; margin-left: calc(-1 * var(--space-8)); }
+.case-strip-wrap { margin-top: var(--rhythm-group); }
+.help-topics { display: flex; flex-wrap: wrap; gap: var(--space-8); margin-top: var(--space-12); }
+.help-topics__chip { min-height: 44px; }
+.help-thread { flex: 1 0 auto; display: flex; flex-direction: column; gap: 0; padding-bottom: var(--space-16); }
+.help-thread__strip { margin-top: var(--rhythm-tight); }
+.help-thread__strip .request-card__strip { margin: 0; border-radius: var(--radius-md); }
+.help-thread__context { margin-top: var(--rhythm-group); }
+.help-thread__note { margin-top: var(--rhythm-tight); padding-inline: var(--space-4); }
+.help-thread__messages { display: flex; flex: 1 0 auto; flex-direction: column; gap: var(--space-12); margin-top: var(--rhythm-block); }
+.help-thread__step, .help-thread__decision { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); }
+.help-thread__step p, .help-thread__decision p { margin: 0; }
+.help-thread__step .cta { width: 100%; }
+.help-thread__foot {
+  position: sticky; bottom: 0; z-index: var(--z-sticky); flex-shrink: 0; width: 100%; max-width: var(--column);
+  padding: var(--space-12) var(--space-20) calc(var(--space-20) + var(--safe-bottom)); background: var(--neutral-50);
+}
+.help-thread__foot .read-only { display: flex; flex-direction: column; gap: var(--space-12); }
+.help-home { gap: 0; padding-bottom: var(--space-40); }
+.help-home__ask { display: flex; flex-direction: column; gap: var(--space-12); }
+.help-home__ask p { margin: 0; }
+.help-home__list .list-row { min-height: 64px; }
+.help-home__note { margin: var(--space-8) 0 0; text-wrap: pretty; }   /* K-53 Q10 (D-430): the backup admin + after-hours line */
+.help-home__dot { display: inline-block; width: var(--space-8); height: var(--space-8); margin-left: var(--space-4); border-radius: var(--radius-full); background: var(--accent-base); vertical-align: middle; }
+.help-home__select { user-select: text; font-variant-numeric: tabular-nums; }
+.policy { gap: 0; padding-bottom: var(--space-40); }
+.policy__sec { display: flex; flex-direction: column; gap: var(--space-8); }
+.policy__title, .policy__line { margin: 0; }
+/* the legal pages (B2's c-legal / t-legal, unified into c-policy / t-policy at the merge, D-380): the version line, IN SHORT as a list, the counsel block */
+.policy__version { margin: var(--space-4) 0 0; }
+.policy__list { display: flex; flex-direction: column; gap: var(--space-12); margin: 0; padding-left: var(--space-20); }
+.policy__list li { text-wrap: pretty; }
+/* K-53 b (D-429): the draft line at the top of every legal draft (the "Full text coming soon" block is retired) */
+.policy__draft { display: flex; gap: var(--space-8); align-items: flex-start; margin: var(--space-4) 0 0; padding: var(--space-12); border-radius: var(--radius-md); background: var(--warning-bg); color: var(--warning-ink); }
+.policy__draft svg { flex-shrink: 0; margin-top: var(--space-4); }
+.protection-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--space-8); row-gap: 0; }
+.protection-row > svg { flex-shrink: 0; color: var(--success); }
+.protection-row > span { flex: 1 1 200px; min-width: 0; }
+.protection-row .text-link { margin-left: calc(-1 * var(--space-8)); }
+.safety-report { display: flex; flex-direction: column; gap: var(--space-12); }   /* the confirm sheets are B2's .confirm-sheet (D-375) */
+.safety-report__reasons { display: flex; flex-direction: column; }
+.page-head .request-card__top > .request-head__more { flex: 0 0 auto; margin-right: calc(-1 * var(--space-12)); }
+/* the admin (a-inbox / a-case) */
+.admin-row { display: flex; flex-direction: column; gap: var(--space-4); width: 100%; min-height: 72px; padding: var(--space-12) var(--space-16); border: 0; border-radius: var(--radius-lg); background: var(--card-bg); box-shadow: inset 0 0 0 1px var(--card-ring); text-align: left; color: var(--ink); }
+.admin-row + .admin-row { margin-top: var(--space-8); }
+.admin-row--unread { box-shadow: inset 0 0 0 1px var(--card-ring), inset 3px 0 0 var(--accent-base); }
+.admin-row__head, .admin-row__foot { display: flex; align-items: center; gap: var(--space-8); }
+.admin-row__head { justify-content: space-between; }
+.admin-row__ref { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.admin-row__badge { display: inline-flex; align-items: center; justify-content: center; min-width: var(--size-16); height: var(--size-16); margin-left: auto; padding: 0 var(--space-4); border-radius: var(--radius-full); background: var(--accent-base); color: var(--white); }
+.admin-note { display: flex; align-items: center; gap: var(--space-8); width: 100%; min-height: 56px; padding: var(--space-8) 0; border: 0; background: none; text-align: left; color: var(--ink); box-shadow: inset 0 -1px 0 var(--hairline); }
+.admin-note:last-child { box-shadow: none; }
+.admin-note__dot { flex: 0 0 auto; width: var(--space-8); height: var(--space-8); border-radius: var(--radius-full); background: var(--accent-base); }
+.admin-note__text { flex: 1 1 auto; min-width: 0; }
+.admin-note__time { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+/* ---------- pre-MVP B2 ---------- */
+/* P-32 (D-375): the one confirm container — a bottom sheet (sign out, leave without saving, delete account, as cancel / remove / decline) */
+.confirm-sheet { display: flex; flex-direction: column; gap: var(--space-16); }
+.confirm-sheet__body { display: flex; flex-direction: column; gap: var(--space-8); }
+.confirm-sheet__body p { margin: 0; text-wrap: pretty; }
+.confirm-sheet__actions { display: flex; flex-direction: column; gap: var(--space-8); margin-top: var(--space-4); }
+/* P-31 (D-374): a card that is one tap target carries a 3:1 outline against the page; list cards (rows with chevrons) keep the chalk ring */
+button.card, .card.request-card, .card.tailor-row, .method-row { box-shadow: inset 0 0 0 1px var(--card-ring-tap); }   /* tailor row, thread context, request card, Pay with; .appt-row, .where__card, .c-complete__row set it in their own rules */
+/* DG-3 A (D-370 / D-371): the change-phone page, shared by both personas (js/account-ui.js) */
+.phone-change__lead { margin: var(--rhythm-tight) 0 var(--rhythm-block); text-wrap: pretty; }
+.phone-change__link, .phone-change__resend { position: relative; padding: 0; border: 0; background: none; font: inherit; color: var(--accent-ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.phone-change__link::before { content: ''; position: absolute; inset: -12px -4px; }
+.phone-change__resend { display: inline-flex; align-items: center; min-height: 44px; margin-top: var(--space-8); font-size: var(--size-16); }
+.phone-change__wait { margin: var(--space-12) 0 0; }

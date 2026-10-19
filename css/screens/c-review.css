@@ -6,7 +6,7 @@
 .c-review p { margin: 0; }
 .c-review__rating { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-8); margin-top: var(--rhythm-section); }
 .c-review__rating .stars--input { margin-left: calc(var(--space-12) * -1 + var(--space-2)); }
-@media (max-width: 300px) { .c-review__rating .stars--input { margin-left: 0; } }   /* P1-2 zoom tier */
+@media (max-width: 18.75em) { .c-review__rating .stars--input { margin-left: 0; } }   /* P1-2 zoom tier */
 .c-review__word { font-weight: 500; }
 .c-review__word:empty { display: none; }
 .c-review__error { color: var(--error-ink); font-weight: 600; }
@@ -33,5 +33,3 @@
 .c-review__photonote { text-wrap: pretty; }
 .c-review__posted { gap: var(--space-12); }
 .c-review__posted .review-row { padding: 0; }
-/* R4-1-C-10: the three sections are peers; the text area's label matches "Your rating" and "Photos" (16 / 600 ink) */
-.c-review__text .field__label { font-size: var(--size-16); line-height: var(--lh-16); font-weight: 600; color: var(--ink); }

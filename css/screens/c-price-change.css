@@ -10,3 +10,5 @@
 /* Study-1 B1: the edit — her reason, the photo, the Message hint (K-30 overruled: no decline) */
 .c-price-change__photo { margin-top: var(--rhythm-group); }
 .c-price-change__hint { margin: var(--space-8) 0 0; text-wrap: pretty; }
+/* B-02 (pre-MVP sweep, D-440): the order changed under Approve — the banner sits under the header, before what changed */
+.c-price-change__revised { margin-top: var(--rhythm-group); }

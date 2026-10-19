@@ -7,14 +7,14 @@
    Leave a review · Book Amara again · Message; 7 days on with no review, the reminder card (reviewReminderDue).
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, T, tailorById, priceChangeView, reviewReminderDue } from '../state.js';
+import { state, T, tailorById, priceChangeView, deliveryReportOpen, isVerified, caseOfAppt, caseView } from '../state.js';
 import {
   chrome, navBackMark, receiptBlock, balanceCardLabel, wirePhotoViewer, wireGarmentDocs, actionBar, emptyState, stars, wireStars, esc, verifiedCheck, returnedItems, linenStage, tagRail,
-  reminderCard,
+  visitBlock, textLink, toast, helpActions, caseStrip,
 } from '../components.js';
 import { CHEVRON_RIGHT, VISIT_ICONS } from '../icons.js';
 import { fmtExact } from '../money.js';
-import { fmtDay } from '../dates.js';
+import { fmtDay, fmtTime } from '../dates.js';
 import { focusAppt, setFocus, bookingTab } from '../focus.js';
 
 const ID = 'c-complete';
@@ -30,9 +30,21 @@ function receiptLine(a) {
   const paid = a.payments.balance?.cents ?? 0;
   const refund = a.payments.refund?.cents ?? 0;
   if (paid <= 0 && refund > 0) return `${fmtExact(refund)} refunded · ${balanceCardLabel(a, a.cardId)}`;
-  return `Charged ${fmtExact(paid)} · ${card}`;   // K-27: the hold, captured at the handoff
+  return `Paid ${fmtExact(a.money.total)} · ${card}`;   // SF-25: what she paid in all (the breakdown below splits deposit and balance)
 }
 
+
+/** S-35 (pre-MVP A1): a courier delivery says where it was left (door / K-43's lobby) with the courier's photo as proof, and for
+    COURIER_REPORT_H "Didn't get it?" goes to Taily (track A2 resolves it). */
+function delivered(a) {
+  const d = a.handoff?.delivery;
+  if (a.handoff?.completedBy !== 'courier' || !d) return '';
+  const where = d.to === 'lobby' ? 'Left in your building’s lobby' : 'Left at your door';
+  const report = a.handoff.missingAt
+    ? `<p class="t-small c-600 ${ID}__missing" data-missing>You told us it didn’t reach you. Taily is looking into it and will message you.</p>`
+    : deliveryReportOpen(a) ? `<div class="${ID}__missing">${textLink('Didn’t get it? Tell us', { act: 'missing-delivery' })}</div>` : '';
+  return `<section class="sec ${ID}__delivered" aria-label="Delivery">${visitBlock([{ icon: 'truck', value: esc(`${where} · ${fmtTime(d.at)}`), detail: 'The courier took a photo when it was dropped off' }], { title: '', flush: true })}${report}</section>`;
+}
 
 function view() {
   const a = focusAppt(ID);
@@ -46,22 +58,24 @@ function view() {
   const t = tailorById(a.tailorId) ?? state.tailors[0];
   const first = firstOf(t);
   const items = returnedItems(a);
+  /* SF-39: no review-reminder card here — the inline stars below already ask (a week on, Home still carries the card) */
   /* M7-1-A-06: the heading is the group's visible label; a star tap carries the rating into c-review (D-107) */
   const rating = stars({ input: true, name: 'rate' }).replace('aria-label="Your rating"', 'aria-labelledby="rate-label"');
   const meta = [t.shopName, t.shop?.hood, `for ${customerShort()}`].filter(Boolean).join(' · ');
   return `${chrome(bookingTab())}<main class="body body--with-bar ${ID}" data-s="${ID}">
   ${navBackMark()}
-  ${reviewReminderDue(a) ? `<div class="${ID}__reminder">${reminderCard({ title: `How did ${first} do?`, text: 'It’s been a week since your order came back. Your review helps other customers.', act: 'leave-review', id: a.id })}</div>` : ''}
   ${linenStage({ eyebrow: `${a.handoff?.completedBy === 'auto' ? 'Completed automatically' : 'Order complete'} · ${fmtDay(doneAt(a))}`, title: 'Back with you, tailored to fit.', rail: tagRail(items), label: 'Order complete' })}
   <section class="${ID}__label" aria-label="Rate ${esc(first)}">
     <p class="t-caps ${ID}__by">Tailored by</p>
-    <span class="${ID}__namerow"><span class="${ID}__name">${esc(t.name)}</span>${t.verified ? verifiedCheck({ years: t.years }) : ''}</span>
+    <span class="${ID}__namerow"><span class="${ID}__name">${esc(t.name)}</span>${isVerified(t) ? verifiedCheck({ years: t.years }) : ''}</span>
     <p class="t-small ${ID}__meta">${esc(meta)}</p>
     <div class="${ID}__rule" aria-hidden="true"></div>
     <h2 class="t-body w-600" id="rate-label">How did ${esc(first)} do?</h2>
     ${rating}
     <p class="t-small c-600 ${ID}__hint">Tap a star to rate. Reviews show on ${esc(first)}’s profile as ${esc(customerShort())}${customerShort().endsWith('.') ? '' : '.'}</p>
   </section>
+  ${delivered(a)}
+  ${caseOfAppt(a.id, 'customer') ? `<div class="case-strip-wrap">${caseStrip(caseView(caseOfAppt(a.id, 'customer'), 'customer'))}</div>` : ''}
   <section class="sec ${ID}__receipt">
     <button type="button" class="${ID}__row" data-act="receipt" aria-expanded="false" aria-controls="receipt-body">
       <span class="${ID}__rowicon" aria-hidden="true">${VISIT_ICONS.bag}</span>
@@ -70,6 +84,7 @@ function view() {
     </button>
     <div class="${ID}__receipt-body" id="receipt-body" hidden>${receiptBlock(a, first)}</div>
   </section>
+  ${helpActions()}
 </main>
 ${actionBar({ ctaLabel: 'Leave a review', ctaAct: 'leave-review', secondaryLabel: `Book ${esc(first)} again`, secondaryAct: 'book-again', tertiaryLabel: `Message ${esc(first)}`, tertiaryAct: 'message' })}`;
 }
@@ -113,9 +128,21 @@ function wire(root) {
       row.setAttribute('aria-expanded', String(open));
       root.querySelector('#receipt-body').hidden = !open;
     } else if (act === 'message') { if (a) setFocus(a.id, { keepFrom: true }); go('c-thread'); }
+    else if ((act === 'get-help' || act === 'open-case') && a) {   // DG-1 option B (pre-MVP A2): a problem after completion goes to Taily Help
+      setFocus(a.id, { keepFrom: true });
+      state.ui.help = { apptId: a.id, caseId: act === 'open-case' ? e.target.closest('[data-case]')?.dataset.case ?? null : null };
+      go('c-case');
+    }
+    else if (act === 'full-receipt' && a) { setFocus(a.id, { keepFrom: true }); go('c-receipt'); }   // S-25 (pre-MVP B2)
     else if (act === 'leave-review' && a) { setFocus(a.id, { keepFrom: true }); state.ui['c-review'] = { apptId: a.id }; go('c-review'); }
     else if (act === 'book-again' && a) { T.bookAgain(a.id); state.ui.booking = { tailorId: a.tailorId, again: true }; go('c-job', { fresh: true }); }   // Study-1 A4 (default 9)
     else if (act === 'done') go(state.ui.from === 'account' ? 'c-orders' : 'c-bookings', { fresh: true });
+    else if (act === 'missing-delivery' && a) {   // S-35
+      const r = T.reportMissingDelivery(a.id);
+      go(ID);
+      if (r.ok) toast('Thanks. Taily is looking into it and will message you.', { tone: 'success' });
+      else toast('Couldn’t send this. Try again.', { tone: 'error' });
+    }
   });
 }
 

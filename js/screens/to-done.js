@@ -1,44 +1,54 @@
 /* ============================================================
-   to-done — "You’re bookable" (M2-spec §C3). The payoff: she is
-   live, sees herself the way a customer does (the customer's own
-   tailor row, inert), and knows what happens next.
-   Focal: the customer preview of her tailor row.
+   to-done — the end of onboarding (M2-spec §C3; DG-4 option B, K-48 / D-05: D-350…D-353). Three outcomes:
+   · Submitted — every step set up, the four checks under review ("We review in 1 to 2 days"); her row as a customer will see
+     it once she's verified, the checks, what happens next → Shop (where the checklist lives).
+   · You're bookable — every check already passed (she is live).
+   · You're on the waitlist — under TAILOR_LIMITS.YEARS_MIN years tailoring (D-18).
+   Focal: the title + the customer preview of her tailor row.
    ============================================================ */
 import { register, render as go } from '../app.js';
-import { state, tailorsFor, eligible } from '../state.js';
-import { myTailor, MY_TAILOR_ID, tailorRowProps } from '../tailor-data.js';
-import { ZIP_INFO, VISIT_LABEL, CUSTOMER } from '../data.js';
+import { state, waitlisted, verifyView, approvedPendingBackground } from '../state.js';
+import { myTailor, MY_TAILOR_ID, tailorRowProps, ownRow, previewJob } from '../tailor-data.js';
+import { ZIP_INFO, VISIT_LABEL, CUSTOMER, TAILOR_LIMITS, placeForZip } from '../data.js';
 import { POLICY } from '../money-config.js';
-import { statusBar, customerPreview, tailorRow, miniProfile, actionBar, garmentIcon, sectionHead } from '../components.js';
+import { statusBar, customerPreview, tailorRow, miniProfile, actionBar, garmentIcon, sectionHead, esc, verifyChecklist, REVIEW_TIME, checksLine, APPROVED_PENDING_LINE } from '../components.js';
+import * as A from '../account.js';
 
 const ID = 'to-done';
 
-/** Her row exactly as `tailorsFor(state.job)` gives it to a customer (D-65); null when the demo job doesn't fit her area / hours. */
+/** Her row as a customer with the demo job gets it (D-65) — built whether or not she is listed yet (D-359); null when it doesn't fit. */
 function previewRow() {
-  const job = state.job;
-  const r = tailorsFor(job).rows.find((x) => x.tailor.id === MY_TAILOR_ID);
-  if (!r) return null;
-  return tailorRow(tailorRowProps(r, job));
+  const job = previewJob();   // K-53 L (D-431): the sample items when the draft is empty
+  const { row } = ownRow(job);
+  return row ? tailorRow(tailorRowProps(row, job)) : null;
 }
 
 /** No row → why the demo customer's sample job doesn't reach her, in words (D-65 / R2-2-T-02). */
 function whyNotShown(t, job) {
   const who = `${CUSTOMER.first}’s sample job`;
-  const { reason } = eligible(t, job);
+  const { reason } = ownRow(job);
   const first = {
     zip: job.visitType === 'home'
       ? `${who} is a home visit in ${job.zip}, so you won’t show up for it.`
       : `${who} is a shop visit from ${job.zip}, too far from your shop, so you won’t show up for it.`,
     'shop-off': `${who} is a shop visit, and you don’t have a shop, so you won’t show up for it.`,
     'nothing-open': `${who} needs a visit before her need-by date, and you have no opening by then, so you won’t show up for it.`,
+    services: `${who} needs a service you don’t price, so you won’t show up for it.`,   // K-48.2 (D-354)
   }[reason] ?? `You won’t show up for ${who}.`;
-  return `${first} Customers in your area who pick services you price will see your estimate.`;
+  return `${first} Customers in your area see your estimate when you price every service their order needs.`;
 }
 
+/* DG-4: while the checks run */
+const REVIEW_STEPS = [
+  'We check your details. You can still edit your shop.',
+  'You get a text when customers can book you.',
+  `Customers near you send requests. You have ${POLICY.REQUEST_EXPIRY_H} hours to answer each one.`,
+];
 const STEPS = [
   'A customer sends a request with their garments and a time.',
   'Accept, suggest another time, or decline.',
-  'At the fitting, send the final order. You start once the customer approves.',
+  'At the fitting, photograph each item before and pinned, then send the final order. You start once the customer approves.',   // SF-30
+  'You’re paid the Friday after the customer has her order.',
 ];
 
 /** "suit pant and suit jacket" / "a, b and c" — names in running text, no "·" chain (M7). */
@@ -48,28 +58,61 @@ const nameList = (types) => {
 };
 const lowerFirst = (x) => x.charAt(0).toLowerCase() + x.slice(1);
 
+const stepsHtml = (list) => `<ol class="${ID}__steps">${list.map((txt, i) => `<li class="${ID}__step"><span class="${ID}__num t-small w-600" aria-hidden="true">${i + 1}</span><span class="t-body">${txt}</span></li>`).join('')}</ol>`;
+
+/** D-18 (D-353): under the minimum — her profile is kept, nothing goes live. */
+function waitlistView(t) {
+  const phone = esc(A.formatPhone(t.phone));
+  return `${statusBar()}
+<main class="body body--with-bar ${ID} ${ID}--waitlist" data-outcome="waitlist">
+  <span class="${ID}__art" aria-hidden="true">${garmentIcon('Accessories', { size: 'hero' })}</span>
+  <h1 class="t-display ${ID}__title">You’re on the waitlist</h1>
+  <p class="t-body c-600 ${ID}__lead">Taily tailors have at least ${TAILOR_LIMITS.YEARS_MIN} years of experience, and you told us ${t.years} ${Number(t.years) === 1 ? 'year' : 'years'}. We saved your profile and we’ll text ${phone} when we open to newer tailors.</p>
+</main>
+${actionBar({ ctaLabel: 'Done', ctaAct: 'sign-out', secondaryLabel: 'Change years tailoring', secondaryAct: 'years' })}`;
+}
+
 function view(s) {
   const t = myTailor();
-  const job = s.job;
+  if (waitlisted(t) && !t.live) return waitlistView(t);
+  const live = !!t.live;
+  const v = verifyView(t);
   const row = previewRow();
-  const hood = ZIP_INFO[job.zip]?.hood ?? 'Brooklyn';
+  const job = previewJob(s.job);
+  const hood = placeForZip(job.zip)?.hood || ZIP_INFO[job.zip]?.hood || 'Brooklyn';
   /* a row → "How a customer in <hood> sees you"; no row → that customer wouldn't see her at all, so the neutral title (as t-shop) */
-  const title = row ? `How a customer in ${hood} sees you` : 'What customers will see';
-  /* B5 P3-9: the caps head says "Preview"; the sentence title leads the caption (and stays the section's accessible name) */
+  const title = !row ? 'What customers will see' : live ? `How a customer in ${hood} sees you` : `How a customer in ${hood} will see you`;
+  /* B5 P3-9: the caps head says "Preview" ("Once you’re verified" while the checks run); the sentence title leads the caption */
   const caption = row
     ? `${title}. Example: ${nameList(job.garments.map((g) => g.type))}, ${lowerFirst(VISIT_LABEL.tailor[job.visitType])}`
     : whyNotShown(t, job);
   const mini = miniProfile({ name: t.name, initials: t.initials, photo: t.photo, shopName: t.shopName, bio: t.bio ?? '' });
   const hours = POLICY.REQUEST_EXPIRY_H;
+  const phone = esc(A.formatPhone(t.phone));
+  const needs = v.needsYou.length;
+  const head = live
+    ? `<h1 class="t-display ${ID}__title">You’re bookable</h1>
+  <p class="t-body c-600 ${ID}__lead">Customers near you can book you now. We’ll text each new request to ${phone}. You have ${hours} hour${hours === 1 ? '' : 's'} to reply.</p>`
+    : approvedPendingBackground(t)   /* K-53 Q8 (D-427): ID, years and payout passed — the background check (run last) is the one left */
+      ? `<h1 class="t-display ${ID}__title">You’re approved</h1>
+  <p class="t-body c-600 ${ID}__lead" data-approved>${APPROVED_PENDING_LINE} Most checks take ${REVIEW_TIME}. We’ll text ${phone} when customers can book you.</p>`
+      : `<h1 class="t-display ${ID}__title">Submitted</h1>
+  <p class="t-body c-600 ${ID}__lead">${needs
+    ? `${needs === 1 ? 'One check needs' : `${needs} checks need`} you before we can finish the review. You’ll find ${needs === 1 ? 'it' : 'them'} in your shop.`
+    : `We’re checking your ID and payout details first, then your background check. Most reviews take ${REVIEW_TIME}. We’ll text ${phone} when customers can book you.`}</p>`;
+  const checks = live ? '' : `<section class="sec ${ID}__checks" aria-labelledby="${ID}-checks-h">
+    ${sectionHead('Your checks', { id: `${ID}-checks-h`, aside: `<span class="t-small c-600 tabular">${esc(checksLine(t))}</span>` })}
+    ${verifyChecklist(t, { interactive: false })}
+  </section>`;
   return `${statusBar()}
-<main class="body body--with-bar ${ID}">
+<main class="body body--with-bar ${ID}" data-outcome="${live ? 'live' : 'submitted'}">
   <span class="${ID}__art" aria-hidden="true">${garmentIcon('Suit Jacket', { size: 'hero' })}</span>
-  <h1 class="t-display ${ID}__title">You’re bookable</h1>
-  <p class="t-body c-600 ${ID}__lead">Customers near you can book you now. You have ${hours} hour${hours === 1 ? '' : 's'} to reply to each request.</p>
-  <div class="${ID}__preview">${customerPreview({ title, head: 'Preview', html: row ?? mini, caption })}</div>
+  ${head}
+  ${checks}
+  <div class="${ID}__preview">${customerPreview({ title, head: live ? 'Preview' : 'Once you’re verified', html: row ?? mini, caption })}</div>
   <section class="sec" aria-labelledby="${ID}-next-h">
     ${sectionHead('What happens next', { id: `${ID}-next-h` })}
-    <ol class="${ID}__steps">${STEPS.map((txt, i) => `<li class="${ID}__step"><span class="${ID}__num t-small w-600" aria-hidden="true">${i + 1}</span><span class="t-body">${txt}</span></li>`).join('')}</ol>
+    ${stepsHtml(live ? STEPS : REVIEW_STEPS)}
   </section>
   <p class="t-small c-600 ${ID}__rush">Want extra for rush jobs? <button type="button" class="${ID}__link" data-act="rush" data-hit="inline">Add rush fees</button> in your shop.</p>
 </main>
@@ -81,6 +124,11 @@ function wire(root) {
     const a = e.target.closest('[data-act]');
     if (!a) return;
     if (a.dataset.act === 'rush') go('t-rush');
+    else if (a.dataset.act === 'sign-out') {
+      state.ui['t-phone'] = { saved: true, phone: myTailor().phone };
+      A.signOut('tailor');
+      go('t-phone', { fresh: true });
+    } else if (a.dataset.act === 'years') { state.ui['to-profile'] = { focus: '#years' }; go('to-profile'); }
     else if (a.dataset.act === 'shop') {
       /* K-43 (D-301): no notification ask — new requests are texted to her verified phone from now on */
       state.sim.texts = 'on';

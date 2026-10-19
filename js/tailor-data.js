@@ -4,9 +4,9 @@
    (state.appts), through these adapters. v4's tailor-data.js is
    archived in js/v4/tailor-data.js.
    ============================================================ */
-import { state, apptsFor, tailorById, openSlots, getAppt, docsFor } from './state.js';
-import { SERVICES, VISIT_LABEL, VISIT_MINUTES, ZIP_INFO, hoodNames } from './data.js';
-import { rushFor, payoutFor } from './money.js';
+import { state, apptsFor, tailorById, openSlots, getAppt, docsFor, isVerified, nextOpening, milesToShop, coversJob } from './state.js';
+import { SERVICES, VISIT_LABEL, VISIT_MINUTES, ZIP_INFO, hoodNames, SHOP_RADIUS_MI, placeForZip, SEED_JOB } from './data.js';
+import { rushFor, payoutFor, estimate } from './money.js';
 import { toDate, fmtWhen, fmtDay, fmtTime, dayDiff, payoutDay, isoDay, addMinutes, isoMinute } from './dates.js';
 
 export const MY_TAILOR_ID = 'amara';
@@ -39,9 +39,9 @@ export function jobAddress(appt) {
   const { visitType, zip, address } = appt.job;
   if (visitType === 'shop') {
     const s = tailorById(appt.tailorId).shop;
-    return `${s.street}, ${s.city}, ${s.state} ${s.zip}`;
+    return `${[s.street, s.unit].filter(Boolean).join(', ')}, ${s.city}, ${s.state} ${s.zip}`;   // S-42: the suite / floor when she gave one
   }
-  if (!wasAccepted(appt) || appt.status === 'cancelled') return `${ZIP_INFO[zip]?.hood ?? 'Brooklyn'} · ${zip}`;
+  if (!wasAccepted(appt) || appt.status === 'cancelled') return `${placeForZip(zip)?.hood || ZIP_INFO[zip]?.hood || 'Brooklyn'} · ${zip}`;
   const unit = address?.unit ? `, ${address.unit}` : '';
   return `${address.street}${unit}, ${address.city}, ${address.state} ${address.zip}`;
 }
@@ -112,17 +112,24 @@ function payoutItem(p) {
 }
 const sumOf = (list) => list.reduce((n, p) => n + p.cents, 0);
 
-/** `{ next, failed, history, paidTotal }` — state.payouts grouped by date + state. `next` = the earliest pending date (re-queued payouts
-    included); `failed` = every payout the bank sent back, with the Friday it will be sent again; `history` = paid Fridays, newest first. */
+/** `{ next, later, failed, history, paidTotal }` — state.payouts grouped by date + state. `next` = the earliest pending date (re-queued payouts
+    included); `later` (K-54 F5, D-452) = every pending Friday after it, oldest first `[{ date, cents, items }]`; `failed` = every payout the
+    bank sent back, with the Friday it will be sent again; `history` = paid Fridays, newest first. */
 export function payoutsView() {
   const pending = state.payouts.filter((p) => p.state === 'pending');
-  const nextDate = pending.map((p) => p.date).sort()[0] ?? null;
+  const pendingDates = [...new Set(pending.map((p) => p.date))].sort();
+  const nextDate = pendingDates[0] ?? null;
   const nextList = pending.filter((p) => p.date === nextDate);
+  const later = pendingDates.slice(1).map((date) => {
+    const list = pending.filter((p) => p.date === date);
+    return { date, cents: sumOf(list), items: list.map(payoutItem) };
+  });
   const failedList = state.payouts.filter((p) => p.state === 'failed');
   const paid = state.payouts.filter((p) => p.state === 'paid');
   const dates = [...new Set(paid.map((p) => p.date))].sort().reverse();
   return {
     next: nextDate ? { date: nextDate, cents: sumOf(nextList), items: nextList.map(payoutItem) } : null,
+    later,
     failed: failedList.length ? { cents: sumOf(failedList), items: failedList.map(payoutItem), retryDate: payoutDay(isoDay(state.clock.now)) } : null,
     history: dates.map((date) => {
       const list = paid.filter((p) => p.date === date);
@@ -130,6 +137,18 @@ export function payoutsView() {
     }),
     paidTotal: sumOf(paid),
   };
+}
+
+/** B-07 (pre-MVP sweep, D-441): "On the way" on Earnings — her booked jobs not paid out yet (a visit through the handoff, no payout row),
+    newest visit first, each with what she takes home on the order as it stands (`a.money.payout`, after the Taily fee; the final order
+    can still change it). `{ cents, items: [{ apptId, title, types, cents }] }` or null. */
+const IN_FLIGHT = ['confirmed', 'fitting', 'price-change', 'in-progress', 'ready', 'awaiting-handoff'];
+export function inFlightView() {
+  const paid = new Set(state.payouts.map((p) => p.apptId));
+  const list = apptsFor('tailor').filter((a) => IN_FLIGHT.includes(a.status) && !paid.has(a.id));
+  if (!list.length) return null;
+  const items = list.map((a) => ({ apptId: a.id, title: customerName(a), types: [...new Set(a.job.garments.map((g) => g.type))].join(', '), cents: a.money.payout }));
+  return { cents: sumOf(items), items };
 }
 
 /** One job's payout: `{ payout, appt, view: requestView(appt) }` or null. */
@@ -171,10 +190,32 @@ export function suggestPrice(appt, slotIso) {
 /** K-19: the props `tailorRow` takes for one `tailorsFor(...).rows` entry (rating only when there are reviews; the card line; street + area for the place line). */
 export function tailorRowProps(r, job = state.job, extra = {}) {
   const t = r.tailor;
-  const hood = t.shop?.hood || ZIP_INFO[t.shop?.zip]?.hood || hoodNames(t.home?.hoods)[0] || ZIP_INFO[(t.home?.zips ?? [])[0]]?.hood || '';
+  const hood = t.shop?.hood || placeForZip(t.shop?.zip)?.hood || hoodNames(t.home?.hoods)[0] || placeForZip((t.home?.zips ?? [])[0])?.hood || '';
   return {
-    id: t.id, name: t.name, initials: t.initials, photo: t.photo, verified: t.verified, years: t.years,
+    id: t.id, name: t.name, initials: t.initials, photo: t.photo, verified: isVerified(t), years: t.years,   // DG-4: derived from her checks
     rating: t.rating?.count > 0 ? t.rating : null, distanceMi: r.distanceMi, quote: r.quote, nextOpening: r.nextOpening,
     visitType: job.visitType, declined: r.declined, cardLine: t.cardLine ?? '', street: t.shop?.street ?? '', hood, ...extra,
   };
+}
+
+/** P-29 / S-39 (D-359): HER row as a customer with `job` would get it — built the way tailorsFor builds it, but whether or not she is
+    listed yet (under review, paused): `{ row, reason }`, `row` = a tailorsFor-shaped entry or null, `reason` = why that customer would not
+    see her ('zip' | 'shop-off' | 'services' | 'nothing-open' | null). Previews (to-done, t-shop) print it with tailorRowProps. */
+/** K-53 L (D-431): the job a tailor's own previews price (t-shop "What customers see", to-done): the customer's draft while it has items,
+    else the seed sample's items on the same ZIP and visit type — after a request is sent the draft is empty, and the preview read
+    "Example: , home visit" with only the home fee. */
+export function previewJob(job = state.job) {
+  /* K-54 P7 (D-464): no need-by in a preview — a customer's draft date (or a stale one) must never price a rush fee into "What customers see" */
+  const base = job?.garments?.length ? job : { ...job, garments: structuredClone(SEED_JOB.garments), visitType: job?.visitType ?? SEED_JOB.visitType, zip: job?.zip || SEED_JOB.zip };
+  return { ...base, needBy: null };
+}
+export function ownRow(job = state.job) {
+  const t = myTailor();
+  const none = (reason) => ({ row: null, reason });
+  if (job.visitType === 'home' ? !(t.home?.enabled && (t.home.zips ?? []).includes(job.zip)) : !t.shop?.enabled) return none(job.visitType === 'shop' && !t.shop?.enabled ? 'shop-off' : 'zip');
+  if (job.visitType === 'shop' && !((milesToShop(t, job.zip) ?? Infinity) <= SHOP_RADIUS_MI)) return none('zip');
+  if (!coversJob(t, job)) return none('services');
+  const next = nextOpening(t.id, job.visitType, { until: job.needBy });
+  if (!next) return none('nothing-open');
+  return { row: { tailor: t, quote: estimate(t, job, next), distanceMi: milesToShop(t, job.zip), nextOpening: next, declined: false }, reason: null };
 }

@@ -7,3 +7,6 @@
 .t-shop__flag { margin-top: var(--space-2); color: var(--error-ink); }
 .t-shop__out { display: flex; justify-content: center; margin: var(--rhythm-section) 0 var(--rhythm-major); }
 .t-shop .banner__action { min-width: 44px; min-height: 44px; }
+/* DG-4 option B (D-350): under review — the status card, then the checks */
+.t-shop__review .toggle-row--disabled .toggle-row__label { color: var(--neutral-600); }
+.t-shop__checks-lead { margin: 0 0 var(--space-8); text-wrap: pretty; }

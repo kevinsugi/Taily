@@ -95,3 +95,39 @@ _Nothing open._
   - Upload row locks on `consent === false`; `id-required` error only after Continue. Admin verifications: the ID check is
     a person's pass / needs-info (`T.reviewChecks`), no face match.
   - Shop → Profile edit uses the same tap-to-edit preview without the tour.
+
+### PL-03 · 2026-10-21 · Tipping on Job complete (both personas)
+- **Verdict:** Kevin: "I like option C for all" → C · Inline, no sheet. Answers that shaped it: the tip lives in the
+  Tailored-by label under the stars; amounts scaled to the order in dollars; the customer pays the card fee; charged to the
+  card on file as its own charge; 28-day window; final once sent; a thank-you note rides with it; never tied to the rating.
+- **Artifact:** https://claude.ai/artifact/W3iVATYwzZf15F7HCBeFS3 (boards C1 · C2 · C3 + the "Both sides" row)
+- **Changes:**
+  - *c-complete (customer):* under the stars, a rule, then "Tip Amara" + "Optional · until Nov 12" and one joined
+    4-segment picker ($10 · $20 · $30 · Other; nothing pre-selected; 48 px). Picking one opens, in place, the
+    thank-you note (optional, 140 chars) and two money rows: "Tip, all to Amara $20.00" · "Card fee $0.91". The action bar
+    swaps to "Send tip · $20.91" (lead: "Charged to Visa •••• 4242. Tips are final."), with "Leave a review" and "Not now" as
+    text links. After sending: a success strip "✓ Sent $20.00, all to Amara · Note sent" + "Charged $20.91 to Visa •••• 4242
+    with the $0.91 card fee."; the bar returns to "Leave a review"; the receipt row reads "Paid $160.00 · tip $20.91".
+    "Other" opens a dollar field in the same place (whole or cents, min $1, max = POLICY cap).
+  - *Order page / receipt (customer):* for 28 days after completion a "Tip Amara · N days left" card with the same picker;
+    after tipping, two receipt lines: "Tip for Amara $20.00" and "Card fee $0.91" with the charge date.
+  - *Review reminder:* the 7-day reminder (Study-1 A4) may mention "You can still tip Amara until <date>".
+  - *t-job completed (tailor):* a "Sarah tipped you · <date>" card above the payout: the tip in `.t-money`, the note, "All
+    yours, no Taily fee. Arrives Fri, <date> · to <bank>".
+  - *t-earnings:* a "Tip from Sarah Chen" row in the payout it lands in (note as subline) and a "Tips this year" line
+    ("Included in your <year> tax form (1099-K)").
+  - *Email (tailor):* "Sarah left you a $20.00 tip" with the note and the payout date (TEXTS catalogue: new event).
+- **Money (all dollars, rates only in money-config):** new `MONEY.TIP_PRESET_SHARES` (e.g. 0.06 / 0.12 / 0.18 of the order
+  total, rounded to the nearest $5, never rendered as a share), `POLICY.TIP_WINDOW_D: 28`, `MONEY.CARD_FEE_RATE` +
+  `MONEY.CARD_FEE_FIXED` (prototype used 2.9 % + $0.30). The card fee is grossed up so the tailor receives the whole tip:
+  fee = ceil((tip + fixed) / (1 − rate)) − tip → $10 → $0.61, $20 → $0.91, $30 → $1.21. No Taily fee on tips. The tip is a
+  separate charge on the saved card (not part of the order's balance); it pays out in the next Friday run.
+- **Evolves:** D-20 / K-48 ("tipping = after MVP": now designed); K-17 (c-complete's woven label gains the tip block);
+  K-28 (Study-1 A4 bar: "Send tip" leads only while an amount is picked); D-355 (Earnings rows + tax line).
+- **Build notes / counsel:**
+  - COUNSEL: charging the customer the card fee may count as a credit-card surcharge (state rules, card-network notice
+    and cap rules); confirm before launch, or fall back to Taily absorbing it.
+  - Tips are reported on the tailor's 1099-K; say so in the payouts help.
+  - A failed tip charge: inline error under the picker ("Your card was declined. Try another card."), nothing sent.
+  - Refunds only through Help (admin), never self-serve; a refunded tip leaves the tailor's next payout.
+  - Accessibility: the picker is a radiogroup; the swapped bar button is announced; reduced motion unaffected.

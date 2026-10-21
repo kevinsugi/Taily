@@ -131,3 +131,37 @@ _Nothing open._
   - A failed tip charge: inline error under the picker ("Your card was declined. Try another card."), nothing sent.
   - Refunds only through Help (admin), never self-serve; a refunded tip leaves the tailor's next payout.
   - Accessibility: the picker is a radiogroup; the swapped bar button is announced; reduced motion unaffected.
+
+### PL-04 · 2026-10-21 · Services by garment (to-services + Shop → Services and prices)
+- **Verdict:** Kevin: "V2 approved" → V2 · Sections + jump chips. Answers that shaped it: a price per service PER GARMENT;
+  a drafted ~60-service catalog; all garments collapsed on arrival; a per-garment on/off switch; search; "Use recommended
+  prices" per garment and for all; a missing price flags (and opens) its garment on Next; same design in onboarding and Shop.
+- **Artifact:** https://claude.ai/artifact/JZFfVJjAwDjVzDPbgF9kkw (row "V2 · Sections with jump chips": clickable V2 +
+  open / search / error states)
+- **Changes:**
+  - *Layout:* stepper, title, one-line lead; a sticky block with the search field ("Find a service: sleeves, hem, zipper…")
+    and a horizontally scrolling row of garment chips ("Suit Jacket · 3", "Formal Dress · off"; the open one ink-filled; a
+    garment with a missing price after Next turns error-tinted). Then "9 garments" + "Use recommended prices" (all), and
+    one section per garment, separated by hairlines, all collapsed: 40 px garment drawing, name, summary ("3 of 9 offered ·
+    $45–$65" · "Off · customers with one won’t see you" · "1 needs a price"), a +/− disc.
+  - *Open section:* a white toggle-row "I work on suit jackets" (helper "Customers with suit jackets can book you." / off:
+    "Off: customers with one won’t see you."), "Use recommended prices for suit jackets", then the existing `service-row`
+    rows in a list card (checkbox, name, "Most NYC tailors charge $35–$55.", price box, "Your payout: $38.25").
+  - *Search:* filters to matching services, opens every garment that has one, highlights the match in the label, header
+    reads 'Results for “sleeve”'; clearing restores the previous open state.
+  - *Next with gaps:* banner "2 services need a price · Add a price or untick them. We opened those garments for you.",
+    the garments open, the empty boxes ring in error with "Add a price" under them. Next stays tappable (today's rule).
+  - *Shop edit:* same screen, "Save" instead of Next, and the existing "Saved. Customers see the change now." toast.
+- **Data / money:** the catalog becomes garment → services, each `{ label, base }`, priced per (garment, service); the
+  recommended range stays base ± `MONEY.PRICE_RANGE_SPREAD` rounded to `MONEY.PRICE_ROUND`; payout still = price − Taily
+  fee (15 % of services, in dollars). A garment switched off removes the tailor from jobs containing it
+  (`coversJob`, D-354 logic now per garment). Catalog itself = production database (K-39); the prototype's 61-service
+  draft is a starting list for Kevin to edit.
+- **Evolves:** K-39 (catalog source), D-354 (coversJob per garment), K-45 / C3 (range line kept), the Study-1 C3 range rule;
+  the flat to-services list (M2 §C2).
+- **Build notes:**
+  - Migration: each existing flat service price copies to every garment it covered (Hem pants $25 → Suit Pant and
+    Pants / Jeans); the tailor reviews on first open (a one-time banner).
+  - Customer side: booking already picks garment → services; line items now read the per-garment price.
+  - Chips: 44 px targets (the drawn chips are 40 px tall + spacing; make the hit area 44), scroll-snap, reduced motion.
+  - Remember open sections per session; search is client-side over the catalog.

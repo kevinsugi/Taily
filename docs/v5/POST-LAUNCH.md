@@ -165,3 +165,39 @@ _Nothing open._
   - Customer side: booking already picks garment → services; line items now read the per-garment price.
   - Chips: 44 px targets (the drawn chips are 40 px tall + spacing; make the hit area 44), scroll-snap, reduced motion.
   - Remember open sections per session; search is client-side over the catalog.
+
+### PL-05 · 2026-10-21 · "Other" service + a note per garment (c-job, both personas downstream)
+- **Verdict:** Kevin: "V2 approved" → V2 · Quiet links. Answers that shaped it: the customer's own service is priced at
+  the fitting (estimate shows "+ 1 item priced at your fitting"); every tailor who works on that garment still shows, and
+  may decline; no deposit on the unpriced part; description ≤ 140 characters + optional photos; an optional note per
+  garment (≤ 280 characters) that the tailor sees, with the order-wide note kept; "Other" and the note stay separate.
+- **Artifact:** https://claude.ai/artifact/5ydT8dtaGLxRdGnchJuRe4 (row "V2 · Quiet links" + the shared row: estimate,
+  tailor request, pricing it at the fitting)
+- **Changes:**
+  - *Services sheet ("Suit Pant — what needs doing?"):* under the checklist, a text link "+ Something not on the list".
+    Tapping it adds a white row: ✓, a field "Your own service" (placeholder e.g. "Move the belt loops in"), helper
+    "Priced at your fitting · 22 / 140", ✕ to remove, and "+ Add another" below. Optional photos on that row.
+  - *Garment card (c-job):* the services line lists the own service as "Your own: … · priced at fitting" (accent ink).
+    Under it, "+ Add a note for your tailor"; once written, the note shows as a quoted line with "Edit".
+  - *Estimate (c-tailors row + c-tailor "Your estimate"):* the row keeps "$160 Est." plus a fact line "+ 1 item priced at
+    your fitting"; the estimate lists the own service with "At fitting" instead of a price and note "Amara prices it at
+    your fitting. You approve it first."; total "$160" with "+ 1 item priced at your fitting"; deposit line
+    "Deposit when you send the request $16.00 · On the priced work only".
+  - *Tailor request (t-request) + job (t-job):* the own service sits in its garment as 'Sarah’s own: “…”' with caption
+    "Not on your list. You price it at the fitting." and value "At fitting"; the garment note shows under that garment as
+    "Sarah’s note"; payout "Services + the one you price at the fitting", total "Your payout so far".
+  - *Fitting (Final order, t-adjust):* the own service is an accent block "Price Sarah’s own service" with the quote, a
+    "Your price" box ($) and "Can’t do it" (removes the row); "Send Sarah the final order" stays disabled until it has a
+    price (bar note "Price the belt loops first"). Sarah approves it with the final order as today.
+- **Data / money:** a job service gains `{ custom: true, text ≤ 140, photos[], price: null }` until the fitting; a garment
+  gains `note ≤ 280`. Estimate, deposit (`POLICY` deposit rate on services + visit fee) and the Taily fee cover priced
+  services only; once priced, the row is an ordinary service (fee in dollars, payout = price − fee). Money stays dollars only.
+- **Evolves:** K-01 (the fitting re-price + approval now also prices the own service; approval stays required), K-02
+  (the tailor's garment comment sits beside the customer's garment note, separate), K-19 (tailor card gains one fact line;
+  "$160 Est." unchanged); c-job services sheet (M1).
+- **Build notes:**
+  - Matching: a custom service never filters tailors out (coversJob ignores it); tailors may decline as today.
+  - Emails: the tailor's new-request email lists "Your own service: … (price at fitting)" and the garment note; the
+    customer's receipt lists the priced row once approved.
+  - Counters live next to the field; 44 px targets on the links, ✕ and Edit; errors next to the field (empty own service on Done).
+  - The order-wide note on Review and send is unchanged.

@@ -15,7 +15,10 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Nothing open._
+- **What changes (tailor's Final order + Edit order), payout first.** Canvas: https://claude.ai/artifact/T1czkd4onD4VRfTXTZsK7Z
+  (V1 One number · V2 Was → now + changes · V3 Payout ledger · V4 The payout tag), each in four states: payout down,
+  payout up with the breakdown open, nothing changed, a price missing. Answers so far: one section component for both
+  screens; Sarah's total = one secondary line; breakdown behind "See breakdown"; the bar shows the payout only; fee at 10%.
 
 ## Approved
 
@@ -201,3 +204,22 @@ _Nothing open._
     customer's receipt lists the priced row once approved.
   - Counters live next to the field; 44 px targets on the links, ✕ and Edit; errors next to the field (empty own service on Done).
   - The order-wide note on Review and send is unchanged.
+
+### PL-06 · 2026-10-21 · Taily fee back to 10% (system-wide)
+- **Verdict:** Kevin: "Revert the fee to be 10%, a system wide change" (asked while exploring the What changes section).
+- **Artifact:** none (a rate change); the What changes canvas https://claude.ai/artifact/T1czkd4onD4VRfTXTZsK7Z uses it.
+- **Changes:**
+  - *Rate:* `MONEY.TAILY_FEE_RATE` 0.15 → **0.10**, still on the services subtotal only (never the home-visit fee, rush or
+    courier), taken from the tailor's payout. Example: $125.00 of services → "Taily fee −$12.50", payout $147.50 with the
+    $35.00 visit fee (was −$18.75 / $141.25).
+  - *Fee explainer (to-fee, the one screen allowed a percent):* "Taily’s 10% covers: Insurance · Operations · Scheduling ·
+    Clientele · Hosting, and more."
+  - *Everywhere else:* dollar amounts recompute from the rate; no copy names a percent. Recommended-price payout lines
+    ("Your payout: $38.25" on a $45 price → "$40.50"), request / job / Final order / earnings / receipts, and the tailor
+    emails that quote a payout all follow.
+- **Data / money:** one constant in money config; money.js keeps integer cents and rounding; the admin Ledger shows the
+  fee at the rate in force when each job was accepted (jobs accepted at 15% keep it).
+- **Evolves:** K-53 (Taily fee = 15, was 0.10) — this returns it to 0.10; the K-53 fee-explainer screen stays, with 10%.
+- **Build notes:**
+  - Store the rate on each job at accept, so a rate change never re-prices live jobs.
+  - Prototype: tests and visual baselines that print fee or payout amounts change with it (re-accept those baselines).

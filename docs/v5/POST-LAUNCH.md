@@ -15,13 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Courier tracking_ (canvas https://claude.ai/artifact/KR2RYBurXQogKiiV2LE9RE). Today: a booked window, "Handed to
-the courier", out for delivery, delivered (lobby, photo not shown), returned. Kevin's calls: Ready shows the Uber
-quote only, no Taily courier fee; our status steps + Uber's own tracking page for the map; steps Courier booked →
-Heading to Amara → Picked up → On the way → Almost there (~5 min) → Delivered; call the courier directly (no masking);
-a compact live block on the booking page opening a full-screen tracker; the tailor sees the courier coming and
-"Your courier is here"; the drop-off photo is shown; texts at picked up, ~5 min away, delivered; a live card on Home.
-Four tracker versions (ETA + timeline, progress bar, courier first, hang line). Flag: no fee = COURIER_MARKUP to 0.
+_Nothing open._
 
 ## Before merging into taily-app
 
@@ -486,3 +480,51 @@ Four tracker versions (ETA + timeline, progress bar, courier first, hang line). 
   ladder = off → explicit toggle), M2 §C3.
 - **Build notes:** the rush tier is read from the tailor's next opening (state.js `estimateNext`), as today. "Incl."
   goes on whichever fee line comes first. Rate-free: every amount is the tailor's own dollar fee.
+
+### PL-16 · 2026-10-22 · Courier tracking: live status row, full-screen tracker, tailor side, Uber quote only (c-ready, c-booking, c-job, t-job, texts)
+- **Verdict:** Kevin: "B approved, revise V1" (round 3). Path: V1 ("ETA + timeline") liked; "the 'about' and 'picked
+  up' under is messy … instead of 'about', use 'ETA'"; then "make the 'on the way', 'eta', and 'picked up' on the same
+  row … the '14m away' should use bold or different color" → B · tinted status tile. Answers: Ready shows the Uber
+  quote only, no Taily courier fee; our steps + Uber's tracking page for the map; steps Courier booked → Heading to
+  Amara → Picked up → On the way → Almost there → Delivered; call the courier directly (no masking); a compact block
+  on the booking page that opens a full-screen tracker; the tailor sees the courier coming and "here"; the drop-off
+  photo is shown; texts at picked up / ~5 min / delivered; a live card on Home.
+- **Artifact:** https://claude.ai/artifact/KR2RYBurXQogKiiV2LE9RE (V1 board "approved (row B)", the V1 booking block
+  and Home card, V1 through the steps, and the shared row: Ready, tailor, delivered, texts)
+- **Changes:**
+  - *The status row (one component, three cells, 12 px apart, hairline dividers):* cell 1 is a tinted tile
+    (accent-bg, radius-md, 10 / 14 px padding) with a caps label (10 / 600, accent ink) over the value (16 / 700 ink):
+    "ON THE WAY / 14 min away"; then plain cells "ETA / 5:12 PM", "PICKED UP / 4:45 PM" (label 10 / 600 caps
+    neutral-600, value 16 / 600, tabular). By step: heading "TO AMARA / 8 min to pickup · PICKS UP 4:45 PM · ARRIVES
+    5:00–5:30"; almost there "ALMOST THERE / 4 min away · ETA 5:06 PM · PICKED UP"; delivered (success-bg tile, success
+    ink label) "DELIVERED / 5:10 PM · LEFT IN Your lobby · COURIER Marcus".
+  - *Full-screen tracker (new, opened from the booking block, the Home card and the picked-up text):* "Your order from
+    Amara · Suit Pant, Suit Jacket"; the status row; one quiet line by step ("Inside your 5:00–5:30 PM window." / "If
+    nobody's home, Marcus leaves it in your building's lobby." / "Marcus took a photo when he left it."); the courier
+    card (initial avatar or photo, "Marcus · your courier", "Gray Honda Civic" + outlined plate tag "KXT 4821", a 44 px
+    ink call button → tel:); "See the live map on Uber ↗" (secondary, opens Uber's tracking URL); the six steps with
+    their times (pending Delivered shows "ETA 5:12 PM" in grey); "Problem with the delivery? Get help". Delivered: the
+    drop-off photo (full width, tap to enlarge), "Leave a review for Amara" (black), "Didn't get it? Tell us"; no steps.
+  - *Booking page (c-booking, courier):* the status strip reads "On the way · ETA 5:12 PM"; the Taily courier section
+    becomes a card: the status row, a courier row (avatar, "Marcus, your courier", car + plate, outlined call button),
+    "Track delivery" (black). Delivered: "See the delivery photo".
+  - *Home (c-job):* a live card on top while the courier is booked → delivered: "Your order from Amara / Suit Pant,
+    Suit Jacket / Track ›" over the status row; the whole card opens the tracker.
+  - *Tailor (t-job, courier):* the courier section shows the row "ON THE WAY / 6 min away · ETA 4:45 PM · WINDOW
+    5:00–5:30" → "HERE / Outside now · ARRIVED 4:44 PM · WINDOW" (success tile), "Have Sarah's order packaged and ready
+    by then." / "Hand him Sarah's order, then tap Handed to courier…", the courier row with a Call button, the route.
+  - *Ready (c-ready):* the courier option reads "$13.00 · Uber to your door"; the courier block shows "Uber quote
+    $13.00" only (the Taily courier fee and Courier total lines go); Price "Taily courier $13.00", Total $173.00,
+    Pay $157.00.
+  - *Texts:* "Taily: Marcus picked up your order from Amara. ETA 5:12 PM. Track it: taily.app/t/…" · "Taily: Marcus is
+    about 5 min away with your order from Amara (gray Honda Civic)." · "Taily: Delivered at 5:10 PM, left in your
+    building's lobby. See the photo: taily.app/t/…".
+- **Data / money:** `MONEY.COURIER_MARKUP` 0.10 → 0 (Taily keeps nothing on the courier; the customer pays Uber's
+  quote); K-53's re-quote absorb rule stays. Trip gains `courier { name, photo, vehicle, plate, phone }`, `eta`,
+  `trackingUrl`, `proofPhoto`, and the states heading-to-pickup / picked-up / nearby (from the delivery partner's
+  webhooks: pickup, pickup_complete, dropoff, delivered). "Almost there" = the partner's ETA ≤ 5 min.
+- **Evolves:** S-35 (booked → out → delivered | returned), K-43 / D-298–D-299 (Uber quote + Taily fee → quote only),
+  K-53 courier ledger lines (no fee line), A1 c-complete--courier-lobby (the photo is now shown).
+- **Build notes:** the courier's phone is the delivery partner's number (Uber already relays it); call is a plain
+  tel: link. The map is never drawn in Taily: the tracking URL opens Uber's page. Texts use the existing texts
+  setting (C27).

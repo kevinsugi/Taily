@@ -71,13 +71,14 @@ export const NEIGHBORHOODS = [
   { id: 'east-village', name: 'East Village', borough: 'manhattan', zips: ['10009', '10003'], tile: { x: 1, y: 1 } },
   { id: 'west-village', name: 'West Village', borough: 'manhattan', zips: ['10014', '10011'], tile: { x: 2, y: 1 } },
   { id: 'greenwich-village', name: 'Greenwich Village', borough: 'manhattan', zips: ['10003', '10011', '10012'], tile: { x: 3, y: 1 } },
-  { id: 'gramercy', name: 'Gramercy', borough: 'manhattan', zips: ['10010'], tile: { x: 0, y: 2 } },
-  { id: 'murray-hill', name: 'Murray Hill', borough: 'manhattan', zips: ['10016'], tile: { x: 1, y: 2 } },
-  { id: 'midtown', name: 'Midtown', borough: 'manhattan', zips: ['10001', '10017', '10018', '10020', '10022'], tile: { x: 2, y: 2 } },
-  { id: 'hells-kitchen', name: 'Hell’s Kitchen', borough: 'manhattan', zips: ['10036', '10019'], tile: { x: 3, y: 2 } },
-  { id: 'upper-east-side', name: 'Upper East Side', borough: 'manhattan', zips: ['10065', '10021', '10075', '10028', '10128'], tile: { x: 0, y: 3 } },
-  { id: 'upper-west-side', name: 'Upper West Side', borough: 'manhattan', zips: ['10023', '10069', '10024', '10025'], tile: { x: 1, y: 3 } },
-  { id: 'harlem', name: 'Harlem', borough: 'manhattan', zips: ['10026', '10027', '10030', '10037', '10039', '10029', '10035'], tile: { x: 2, y: 3 } },
+  { id: 'chelsea', name: 'Chelsea', borough: 'manhattan', zips: ['10011', '10001'], tile: { x: 0, y: 2 } },
+  { id: 'gramercy', name: 'Gramercy', borough: 'manhattan', zips: ['10010'], tile: { x: 1, y: 2 } },
+  { id: 'murray-hill', name: 'Murray Hill', borough: 'manhattan', zips: ['10016'], tile: { x: 2, y: 2 } },
+  { id: 'midtown', name: 'Midtown', borough: 'manhattan', zips: ['10001', '10017', '10018', '10020', '10022'], tile: { x: 3, y: 2 } },
+  { id: 'hells-kitchen', name: 'Hell’s Kitchen', borough: 'manhattan', zips: ['10036', '10019'], tile: { x: 0, y: 3 } },
+  { id: 'upper-east-side', name: 'Upper East Side', borough: 'manhattan', zips: ['10065', '10021', '10075', '10028', '10128'], tile: { x: 1, y: 3 } },
+  { id: 'upper-west-side', name: 'Upper West Side', borough: 'manhattan', zips: ['10023', '10069', '10024', '10025'], tile: { x: 2, y: 3 } },
+  { id: 'harlem', name: 'Harlem', borough: 'manhattan', zips: ['10026', '10027', '10030', '10037', '10039', '10029', '10035'], tile: { x: 3, y: 3 } },
   { id: 'downtown-brooklyn', name: 'Downtown Brooklyn', borough: 'brooklyn', zips: ['11201'], tile: { x: 0, y: 0 } },
   { id: 'dumbo', name: 'DUMBO', borough: 'brooklyn', zips: ['11201'], tile: { x: 1, y: 0 } },
   { id: 'brooklyn-heights', name: 'Brooklyn Heights', borough: 'brooklyn', zips: ['11201'], tile: { x: 2, y: 0 } },
@@ -117,7 +118,7 @@ const STREET_XY = { '312 metropolitan ave|11211': [0, 0] };
 const BOROUGH_CITY = { manhattan: 'New York', brooklyn: 'Brooklyn', queens: 'Queens' };
 /** PL-10: a ZIP that more than one neighborhood shares → the one its address reads as (11201 → Brooklyn Heights). Picking any
     of the sharing neighborhoods covers the whole ZIP. */
-export const SHARED_ZIP_HOME = { '10002': 'lower-east-side', '10003': 'greenwich-village', '10011': 'west-village', '10012': 'soho', '10013': 'soho', '11201': 'brooklyn-heights', '11238': 'prospect-heights' };
+export const SHARED_ZIP_HOME = { '10002': 'lower-east-side', '10003': 'greenwich-village', '10001': 'chelsea', '10011': 'chelsea', '10012': 'soho', '10013': 'soho', '11201': 'brooklyn-heights', '11238': 'prospect-heights' };
 /** A served ZIP → `{ hood, borough, city, state }` (the city by borough: 10013 → SoHo, New York, NY); null outside Taily. */
 export function placeForZip(zip) {
   const z = String(zip ?? '').trim();

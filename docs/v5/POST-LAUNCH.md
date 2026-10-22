@@ -321,3 +321,17 @@ _Nothing open._
   real geocoder should map an address to a neighborhood by polygon where a ZIP is shared. Chelsea (10011 / 10001) is not
   on the list: 10011 is served through West Village / Greenwich Village and 10001 through Midtown.
   Prototype: model test + fixtures updated; visual baselines re-accepted: `to-where*`, `c-tailor`, `c-tailor--*`.
+
+### PL-11 · 2026-10-22 · Chelsea added; the service-area table saved for production
+- **Verdict:** Kevin: "Add chelsea to the list, and save the list and zip table somewhere we can push to production when ready."
+- **Artifact:** https://claude.ai/artifact/WtUKPGv4iPHtAiQALrSCct (updated)
+- **Changes:**
+  - *Chelsea* joins Manhattan between Greenwich Village and Gramercy, with 10011 and 10001. Both ZIPs are shared and now
+    read as Chelsea (10011 also West Village and Greenwich Village; 10001 also Midtown). 30 neighborhoods, 60 ZIPs, 8 shared.
+  - *Handoff:* `docs/v5/handoff/` holds `neighborhoods.json` (full table), `neighborhoods.csv` (neighborhood × ZIP rows) and
+    `neighborhoods.sql` (idempotent Postgres seed: `service_boroughs`, `service_neighborhoods`, `service_neighborhood_zips`,
+    `service_zips`; upserts only), plus a README with the rules and the steps to move it into taily-app.
+    `scripts/v5/export-neighborhoods.mjs` regenerates all three from `js/data.js`, so the prototype stays the one source.
+- **Data / money:** `NEIGHBORHOODS` +1, `SHARED_ZIP_HOME` 10001 / 10011 → chelsea.
+- **Evolves:** PL-10. **Build notes:** see `docs/v5/handoff/README.md`. Visual baselines re-accepted:
+  `to-where--hoods-borough`, `to-where--courier-address`.

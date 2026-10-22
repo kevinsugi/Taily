@@ -1,0 +1,71 @@
+borough,neighborhood_id,neighborhood,zip,shared_with,zip_reads_as
+Manhattan,fidi,FiDi,10004,,FiDi
+Manhattan,fidi,FiDi,10005,,FiDi
+Manhattan,fidi,FiDi,10006,,FiDi
+Manhattan,fidi,FiDi,10038,,FiDi
+Manhattan,fidi,FiDi,10280,,FiDi
+Manhattan,chinatown,Chinatown,10013,SoHo,SoHo
+Manhattan,chinatown,Chinatown,10002,Lower East Side,Lower East Side
+Manhattan,soho,SoHo,10012,Greenwich Village,SoHo
+Manhattan,soho,SoHo,10013,Chinatown,SoHo
+Manhattan,tribeca,TriBeCa,10007,,TriBeCa
+Manhattan,tribeca,TriBeCa,10282,,TriBeCa
+Manhattan,lower-east-side,Lower East Side,10002,Chinatown,Lower East Side
+Manhattan,east-village,East Village,10009,,East Village
+Manhattan,east-village,East Village,10003,Greenwich Village,Greenwich Village
+Manhattan,west-village,West Village,10014,,West Village
+Manhattan,west-village,West Village,10011,Greenwich Village; Chelsea,Chelsea
+Manhattan,greenwich-village,Greenwich Village,10003,East Village,Greenwich Village
+Manhattan,greenwich-village,Greenwich Village,10011,West Village; Chelsea,Chelsea
+Manhattan,greenwich-village,Greenwich Village,10012,SoHo,SoHo
+Manhattan,chelsea,Chelsea,10011,West Village; Greenwich Village,Chelsea
+Manhattan,chelsea,Chelsea,10001,Midtown,Chelsea
+Manhattan,gramercy,Gramercy,10010,,Gramercy
+Manhattan,murray-hill,Murray Hill,10016,,Murray Hill
+Manhattan,midtown,Midtown,10001,Chelsea,Chelsea
+Manhattan,midtown,Midtown,10017,,Midtown
+Manhattan,midtown,Midtown,10018,,Midtown
+Manhattan,midtown,Midtown,10020,,Midtown
+Manhattan,midtown,Midtown,10022,,Midtown
+Manhattan,hells-kitchen,Hell’s Kitchen,10036,,Hell’s Kitchen
+Manhattan,hells-kitchen,Hell’s Kitchen,10019,,Hell’s Kitchen
+Manhattan,upper-east-side,Upper East Side,10065,,Upper East Side
+Manhattan,upper-east-side,Upper East Side,10021,,Upper East Side
+Manhattan,upper-east-side,Upper East Side,10075,,Upper East Side
+Manhattan,upper-east-side,Upper East Side,10028,,Upper East Side
+Manhattan,upper-east-side,Upper East Side,10128,,Upper East Side
+Manhattan,upper-west-side,Upper West Side,10023,,Upper West Side
+Manhattan,upper-west-side,Upper West Side,10069,,Upper West Side
+Manhattan,upper-west-side,Upper West Side,10024,,Upper West Side
+Manhattan,upper-west-side,Upper West Side,10025,,Upper West Side
+Manhattan,harlem,Harlem,10026,,Harlem
+Manhattan,harlem,Harlem,10027,,Harlem
+Manhattan,harlem,Harlem,10030,,Harlem
+Manhattan,harlem,Harlem,10037,,Harlem
+Manhattan,harlem,Harlem,10039,,Harlem
+Manhattan,harlem,Harlem,10029,,Harlem
+Manhattan,harlem,Harlem,10035,,Harlem
+Brooklyn,downtown-brooklyn,Downtown Brooklyn,11201,DUMBO; Brooklyn Heights,Brooklyn Heights
+Brooklyn,dumbo,DUMBO,11201,Downtown Brooklyn; Brooklyn Heights,Brooklyn Heights
+Brooklyn,brooklyn-heights,Brooklyn Heights,11201,Downtown Brooklyn; DUMBO,Brooklyn Heights
+Brooklyn,williamsburg,Williamsburg,11211,,Williamsburg
+Brooklyn,williamsburg,Williamsburg,11249,,Williamsburg
+Brooklyn,williamsburg,Williamsburg,11206,,Williamsburg
+Brooklyn,greenpoint,Greenpoint,11222,,Greenpoint
+Brooklyn,bushwick,Bushwick,11237,,Bushwick
+Brooklyn,bed-stuy,Bed-Stuy,11216,,Bed-Stuy
+Brooklyn,bed-stuy,Bed-Stuy,11221,,Bed-Stuy
+Brooklyn,bed-stuy,Bed-Stuy,11233,,Bed-Stuy
+Brooklyn,clinton-hill,Clinton Hill,11205,,Clinton Hill
+Brooklyn,clinton-hill,Clinton Hill,11238,Prospect Heights,Prospect Heights
+Brooklyn,park-slope,Park Slope,11215,,Park Slope
+Brooklyn,park-slope,Park Slope,11217,,Park Slope
+Brooklyn,carroll-gardens,Carroll Gardens,11231,,Carroll Gardens
+Brooklyn,prospect-heights,Prospect Heights,11238,Clinton Hill,Prospect Heights
+Queens,long-island-city,Long Island City,11101,,Long Island City
+Queens,long-island-city,Long Island City,11109,,Long Island City
+Queens,astoria,Astoria,11102,,Astoria
+Queens,astoria,Astoria,11103,,Astoria
+Queens,astoria,Astoria,11105,,Astoria
+Queens,astoria,Astoria,11106,,Astoria
+Queens,sunnyside,Sunnyside,11104,,Sunnyside

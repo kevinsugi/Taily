@@ -1,0 +1,836 @@
+{
+  "about": "Taily service area: the neighborhoods a tailor picks for home visits and the ZIP codes each covers. A ZIP is in Taily’s area when any neighborhood lists it; a shared ZIP reads as its \"home\" neighborhood. Generated from js/data.js by scripts/v5/export-neighborhoods.mjs (PL-10).",
+  "counts": {
+    "boroughs": 3,
+    "neighborhoods": 30,
+    "zips": 60,
+    "sharedZips": 8
+  },
+  "boroughs": [
+    {
+      "id": "manhattan",
+      "name": "Manhattan",
+      "city": "New York",
+      "state": "NY",
+      "sort": 1
+    },
+    {
+      "id": "brooklyn",
+      "name": "Brooklyn",
+      "city": "Brooklyn",
+      "state": "NY",
+      "sort": 2
+    },
+    {
+      "id": "queens",
+      "name": "Queens",
+      "city": "Queens",
+      "state": "NY",
+      "sort": 3
+    }
+  ],
+  "neighborhoods": [
+    {
+      "id": "fidi",
+      "name": "FiDi",
+      "borough": "manhattan",
+      "sort": 1,
+      "zips": [
+        "10004",
+        "10005",
+        "10006",
+        "10038",
+        "10280"
+      ]
+    },
+    {
+      "id": "chinatown",
+      "name": "Chinatown",
+      "borough": "manhattan",
+      "sort": 2,
+      "zips": [
+        "10013",
+        "10002"
+      ]
+    },
+    {
+      "id": "soho",
+      "name": "SoHo",
+      "borough": "manhattan",
+      "sort": 3,
+      "zips": [
+        "10012",
+        "10013"
+      ]
+    },
+    {
+      "id": "tribeca",
+      "name": "TriBeCa",
+      "borough": "manhattan",
+      "sort": 4,
+      "zips": [
+        "10007",
+        "10282"
+      ]
+    },
+    {
+      "id": "lower-east-side",
+      "name": "Lower East Side",
+      "borough": "manhattan",
+      "sort": 5,
+      "zips": [
+        "10002"
+      ]
+    },
+    {
+      "id": "east-village",
+      "name": "East Village",
+      "borough": "manhattan",
+      "sort": 6,
+      "zips": [
+        "10009",
+        "10003"
+      ]
+    },
+    {
+      "id": "west-village",
+      "name": "West Village",
+      "borough": "manhattan",
+      "sort": 7,
+      "zips": [
+        "10014",
+        "10011"
+      ]
+    },
+    {
+      "id": "greenwich-village",
+      "name": "Greenwich Village",
+      "borough": "manhattan",
+      "sort": 8,
+      "zips": [
+        "10003",
+        "10011",
+        "10012"
+      ]
+    },
+    {
+      "id": "chelsea",
+      "name": "Chelsea",
+      "borough": "manhattan",
+      "sort": 9,
+      "zips": [
+        "10011",
+        "10001"
+      ]
+    },
+    {
+      "id": "gramercy",
+      "name": "Gramercy",
+      "borough": "manhattan",
+      "sort": 10,
+      "zips": [
+        "10010"
+      ]
+    },
+    {
+      "id": "murray-hill",
+      "name": "Murray Hill",
+      "borough": "manhattan",
+      "sort": 11,
+      "zips": [
+        "10016"
+      ]
+    },
+    {
+      "id": "midtown",
+      "name": "Midtown",
+      "borough": "manhattan",
+      "sort": 12,
+      "zips": [
+        "10001",
+        "10017",
+        "10018",
+        "10020",
+        "10022"
+      ]
+    },
+    {
+      "id": "hells-kitchen",
+      "name": "Hell’s Kitchen",
+      "borough": "manhattan",
+      "sort": 13,
+      "zips": [
+        "10036",
+        "10019"
+      ]
+    },
+    {
+      "id": "upper-east-side",
+      "name": "Upper East Side",
+      "borough": "manhattan",
+      "sort": 14,
+      "zips": [
+        "10065",
+        "10021",
+        "10075",
+        "10028",
+        "10128"
+      ]
+    },
+    {
+      "id": "upper-west-side",
+      "name": "Upper West Side",
+      "borough": "manhattan",
+      "sort": 15,
+      "zips": [
+        "10023",
+        "10069",
+        "10024",
+        "10025"
+      ]
+    },
+    {
+      "id": "harlem",
+      "name": "Harlem",
+      "borough": "manhattan",
+      "sort": 16,
+      "zips": [
+        "10026",
+        "10027",
+        "10030",
+        "10037",
+        "10039",
+        "10029",
+        "10035"
+      ]
+    },
+    {
+      "id": "downtown-brooklyn",
+      "name": "Downtown Brooklyn",
+      "borough": "brooklyn",
+      "sort": 1,
+      "zips": [
+        "11201"
+      ]
+    },
+    {
+      "id": "dumbo",
+      "name": "DUMBO",
+      "borough": "brooklyn",
+      "sort": 2,
+      "zips": [
+        "11201"
+      ]
+    },
+    {
+      "id": "brooklyn-heights",
+      "name": "Brooklyn Heights",
+      "borough": "brooklyn",
+      "sort": 3,
+      "zips": [
+        "11201"
+      ]
+    },
+    {
+      "id": "williamsburg",
+      "name": "Williamsburg",
+      "borough": "brooklyn",
+      "sort": 4,
+      "zips": [
+        "11211",
+        "11249",
+        "11206"
+      ]
+    },
+    {
+      "id": "greenpoint",
+      "name": "Greenpoint",
+      "borough": "brooklyn",
+      "sort": 5,
+      "zips": [
+        "11222"
+      ]
+    },
+    {
+      "id": "bushwick",
+      "name": "Bushwick",
+      "borough": "brooklyn",
+      "sort": 6,
+      "zips": [
+        "11237"
+      ]
+    },
+    {
+      "id": "bed-stuy",
+      "name": "Bed-Stuy",
+      "borough": "brooklyn",
+      "sort": 7,
+      "zips": [
+        "11216",
+        "11221",
+        "11233"
+      ]
+    },
+    {
+      "id": "clinton-hill",
+      "name": "Clinton Hill",
+      "borough": "brooklyn",
+      "sort": 8,
+      "zips": [
+        "11205",
+        "11238"
+      ]
+    },
+    {
+      "id": "park-slope",
+      "name": "Park Slope",
+      "borough": "brooklyn",
+      "sort": 9,
+      "zips": [
+        "11215",
+        "11217"
+      ]
+    },
+    {
+      "id": "carroll-gardens",
+      "name": "Carroll Gardens",
+      "borough": "brooklyn",
+      "sort": 10,
+      "zips": [
+        "11231"
+      ]
+    },
+    {
+      "id": "prospect-heights",
+      "name": "Prospect Heights",
+      "borough": "brooklyn",
+      "sort": 11,
+      "zips": [
+        "11238"
+      ]
+    },
+    {
+      "id": "long-island-city",
+      "name": "Long Island City",
+      "borough": "queens",
+      "sort": 1,
+      "zips": [
+        "11101",
+        "11109"
+      ]
+    },
+    {
+      "id": "astoria",
+      "name": "Astoria",
+      "borough": "queens",
+      "sort": 2,
+      "zips": [
+        "11102",
+        "11103",
+        "11105",
+        "11106"
+      ]
+    },
+    {
+      "id": "sunnyside",
+      "name": "Sunnyside",
+      "borough": "queens",
+      "sort": 3,
+      "zips": [
+        "11104"
+      ]
+    }
+  ],
+  "zips": [
+    {
+      "zip": "10001",
+      "home": "chelsea",
+      "neighborhoods": [
+        "chelsea",
+        "midtown"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10002",
+      "home": "lower-east-side",
+      "neighborhoods": [
+        "chinatown",
+        "lower-east-side"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10003",
+      "home": "greenwich-village",
+      "neighborhoods": [
+        "east-village",
+        "greenwich-village"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10004",
+      "home": "fidi",
+      "neighborhoods": [
+        "fidi"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10005",
+      "home": "fidi",
+      "neighborhoods": [
+        "fidi"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10006",
+      "home": "fidi",
+      "neighborhoods": [
+        "fidi"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10007",
+      "home": "tribeca",
+      "neighborhoods": [
+        "tribeca"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10009",
+      "home": "east-village",
+      "neighborhoods": [
+        "east-village"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10010",
+      "home": "gramercy",
+      "neighborhoods": [
+        "gramercy"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10011",
+      "home": "chelsea",
+      "neighborhoods": [
+        "west-village",
+        "greenwich-village",
+        "chelsea"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10012",
+      "home": "soho",
+      "neighborhoods": [
+        "soho",
+        "greenwich-village"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10013",
+      "home": "soho",
+      "neighborhoods": [
+        "chinatown",
+        "soho"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10014",
+      "home": "west-village",
+      "neighborhoods": [
+        "west-village"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10016",
+      "home": "murray-hill",
+      "neighborhoods": [
+        "murray-hill"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10017",
+      "home": "midtown",
+      "neighborhoods": [
+        "midtown"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10018",
+      "home": "midtown",
+      "neighborhoods": [
+        "midtown"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10019",
+      "home": "hells-kitchen",
+      "neighborhoods": [
+        "hells-kitchen"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10020",
+      "home": "midtown",
+      "neighborhoods": [
+        "midtown"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10021",
+      "home": "upper-east-side",
+      "neighborhoods": [
+        "upper-east-side"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10022",
+      "home": "midtown",
+      "neighborhoods": [
+        "midtown"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10023",
+      "home": "upper-west-side",
+      "neighborhoods": [
+        "upper-west-side"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10024",
+      "home": "upper-west-side",
+      "neighborhoods": [
+        "upper-west-side"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10025",
+      "home": "upper-west-side",
+      "neighborhoods": [
+        "upper-west-side"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10026",
+      "home": "harlem",
+      "neighborhoods": [
+        "harlem"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10027",
+      "home": "harlem",
+      "neighborhoods": [
+        "harlem"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10028",
+      "home": "upper-east-side",
+      "neighborhoods": [
+        "upper-east-side"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10029",
+      "home": "harlem",
+      "neighborhoods": [
+        "harlem"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10030",
+      "home": "harlem",
+      "neighborhoods": [
+        "harlem"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10035",
+      "home": "harlem",
+      "neighborhoods": [
+        "harlem"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10036",
+      "home": "hells-kitchen",
+      "neighborhoods": [
+        "hells-kitchen"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10037",
+      "home": "harlem",
+      "neighborhoods": [
+        "harlem"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10038",
+      "home": "fidi",
+      "neighborhoods": [
+        "fidi"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10039",
+      "home": "harlem",
+      "neighborhoods": [
+        "harlem"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10065",
+      "home": "upper-east-side",
+      "neighborhoods": [
+        "upper-east-side"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10069",
+      "home": "upper-west-side",
+      "neighborhoods": [
+        "upper-west-side"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10075",
+      "home": "upper-east-side",
+      "neighborhoods": [
+        "upper-east-side"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10128",
+      "home": "upper-east-side",
+      "neighborhoods": [
+        "upper-east-side"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10280",
+      "home": "fidi",
+      "neighborhoods": [
+        "fidi"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "10282",
+      "home": "tribeca",
+      "neighborhoods": [
+        "tribeca"
+      ],
+      "borough": "manhattan"
+    },
+    {
+      "zip": "11101",
+      "home": "long-island-city",
+      "neighborhoods": [
+        "long-island-city"
+      ],
+      "borough": "queens"
+    },
+    {
+      "zip": "11102",
+      "home": "astoria",
+      "neighborhoods": [
+        "astoria"
+      ],
+      "borough": "queens"
+    },
+    {
+      "zip": "11103",
+      "home": "astoria",
+      "neighborhoods": [
+        "astoria"
+      ],
+      "borough": "queens"
+    },
+    {
+      "zip": "11104",
+      "home": "sunnyside",
+      "neighborhoods": [
+        "sunnyside"
+      ],
+      "borough": "queens"
+    },
+    {
+      "zip": "11105",
+      "home": "astoria",
+      "neighborhoods": [
+        "astoria"
+      ],
+      "borough": "queens"
+    },
+    {
+      "zip": "11106",
+      "home": "astoria",
+      "neighborhoods": [
+        "astoria"
+      ],
+      "borough": "queens"
+    },
+    {
+      "zip": "11109",
+      "home": "long-island-city",
+      "neighborhoods": [
+        "long-island-city"
+      ],
+      "borough": "queens"
+    },
+    {
+      "zip": "11201",
+      "home": "brooklyn-heights",
+      "neighborhoods": [
+        "downtown-brooklyn",
+        "dumbo",
+        "brooklyn-heights"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11205",
+      "home": "clinton-hill",
+      "neighborhoods": [
+        "clinton-hill"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11206",
+      "home": "williamsburg",
+      "neighborhoods": [
+        "williamsburg"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11211",
+      "home": "williamsburg",
+      "neighborhoods": [
+        "williamsburg"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11215",
+      "home": "park-slope",
+      "neighborhoods": [
+        "park-slope"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11216",
+      "home": "bed-stuy",
+      "neighborhoods": [
+        "bed-stuy"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11217",
+      "home": "park-slope",
+      "neighborhoods": [
+        "park-slope"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11221",
+      "home": "bed-stuy",
+      "neighborhoods": [
+        "bed-stuy"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11222",
+      "home": "greenpoint",
+      "neighborhoods": [
+        "greenpoint"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11231",
+      "home": "carroll-gardens",
+      "neighborhoods": [
+        "carroll-gardens"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11233",
+      "home": "bed-stuy",
+      "neighborhoods": [
+        "bed-stuy"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11237",
+      "home": "bushwick",
+      "neighborhoods": [
+        "bushwick"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11238",
+      "home": "prospect-heights",
+      "neighborhoods": [
+        "clinton-hill",
+        "prospect-heights"
+      ],
+      "borough": "brooklyn"
+    },
+    {
+      "zip": "11249",
+      "home": "williamsburg",
+      "neighborhoods": [
+        "williamsburg"
+      ],
+      "borough": "brooklyn"
+    }
+  ]
+}

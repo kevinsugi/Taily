@@ -3324,11 +3324,9 @@ export function hoodPicker({ selected = [], open = [], error = '', map = '', lab
 }
 /* the tile map's layout (tile units): where each borough's own tile grid sits, and where its caps label goes — mock geography */
 const HOOD_MAP = {
-  bronx: { at: [4, 0], label: [5, 0] },
   manhattan: { at: [3, 3], label: [3, 3], end: true },
   queens: { at: [6, 3], label: [7, 3] },
   brooklyn: { at: [5, 6], label: [7, 6] },
-  'staten-island': { at: [1, 6], label: [2, 9] },
 };
 const HOOD_TILE = 20;
 const HOOD_STEP = 24;

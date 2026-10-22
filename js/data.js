@@ -56,10 +56,9 @@ export const ZIP_INFO = {                               // mock geography: neigh
   '11201': { hood: 'Brooklyn Heights', miles: 3.9 },   // the "zip outside" toggle
   '11249': { hood: 'Williamsburg', miles: 0.9 },       // Study-1 C5: Williamsburg's second zip (Amara's seed neighborhoods)
 };
-/** Study-1 C5: the five boroughs, picker order. */
+/** Study-1 C5: the boroughs, picker order (PL-09: Manhattan, Brooklyn and Queens). */
 export const BOROUGHS = [
-  { id: 'manhattan', name: 'Manhattan' }, { id: 'brooklyn', name: 'Brooklyn' }, { id: 'queens', name: 'Queens' },
-  { id: 'bronx', name: 'Bronx' }, { id: 'staten-island', name: 'Staten Island' },
+  { id: 'manhattan', name: 'Manhattan' }, { id: 'brooklyn', name: 'Brooklyn' }, { id: 'queens', name: 'Queens' },   // PL-09: no Bronx or Staten Island
 ];
 /** Study-1 C5: mock neighborhoods a tailor picks for home visits — `home.hoods` (ids) is the source of truth, `home.zips` is derived
     from their `zips`. `tile` = the cell in that borough's SVG tile map (x = column, y = row, from 0). Mock geography, not real bounds. */
@@ -86,14 +85,6 @@ export const NEIGHBORHOODS = [
   { id: 'jackson-heights', name: 'Jackson Heights', borough: 'queens', zips: ['11372'], tile: { x: 2, y: 1 } },
   { id: 'ridgewood', name: 'Ridgewood', borough: 'queens', zips: ['11385'], tile: { x: 1, y: 2 } },
   { id: 'forest-hills', name: 'Forest Hills', borough: 'queens', zips: ['11375'], tile: { x: 2, y: 2 } },
-  { id: 'riverdale', name: 'Riverdale', borough: 'bronx', zips: ['10471'], tile: { x: 0, y: 0 } },
-  { id: 'fordham', name: 'Fordham', borough: 'bronx', zips: ['10458'], tile: { x: 1, y: 1 } },
-  { id: 'parkchester', name: 'Parkchester', borough: 'bronx', zips: ['10462'], tile: { x: 2, y: 1 } },
-  { id: 'mott-haven', name: 'Mott Haven', borough: 'bronx', zips: ['10454'], tile: { x: 1, y: 2 } },
-  { id: 'st-george', name: 'St. George', borough: 'staten-island', zips: ['10301'], tile: { x: 1, y: 0 } },
-  { id: 'stapleton', name: 'Stapleton', borough: 'staten-island', zips: ['10304'], tile: { x: 1, y: 1 } },
-  { id: 'great-kills', name: 'Great Kills', borough: 'staten-island', zips: ['10308'], tile: { x: 0, y: 2 } },
-  { id: 'tottenville', name: 'Tottenville', borough: 'staten-island', zips: ['10307'], tile: { x: 0, y: 3 } },
 ];
 /** Study-1 C5: neighborhood lookups. `zipsForHoods` = the zips a list of neighborhood ids covers (picked order, each once) —
     the ONE derivation of `home.zips` from `home.hoods`; `hoodNames` = their names in the same order. */
@@ -115,14 +106,10 @@ export const ZIP_XY = {
   '10013': [-3.7, -0.4], '10007': [-4.0, -1.0],
   /* Queens */
   '11102': [0.6, 5.2], '11105': [1.0, 5.9], '11101': [-0.4, 3.0], '11104': [1.4, 3.1], '11372': [3.4, 3.9], '11385': [2.6, -0.6], '11375': [5.6, 1.9],
-  /* Bronx */
-  '10471': [-2.6, 13.6], '10458': [0.4, 10.6], '10462': [2.6, 9.4], '10454': [-0.9, 7.8],
-  /* Staten Island */
-  '10301': [-7.6, -7.4], '10304': [-7.4, -8.6], '10308': [-11.2, -13.0], '10307': [-14.2, -15.6],
 };
 /** Streets the mock geocoder knows (the seed shop); any other address falls back to its ZIP's point. */
 const STREET_XY = { '312 metropolitan ave|11211': [0, 0] };
-const BOROUGH_CITY = { manhattan: 'New York', brooklyn: 'Brooklyn', queens: 'Queens', bronx: 'Bronx', 'staten-island': 'Staten Island' };
+const BOROUGH_CITY = { manhattan: 'New York', brooklyn: 'Brooklyn', queens: 'Queens' };
 /** A served ZIP → `{ hood, borough, city, state }` (the city by borough: 10013 → SoHo, New York, NY); null outside Taily. */
 export function placeForZip(zip) {
   const z = String(zip ?? '').trim();

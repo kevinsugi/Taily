@@ -277,10 +277,17 @@ _Nothing open._
 - **Changes:**
   - *Where you work → home visits:* the tile map (`hoodMap`) and its "N neighborhoods highlighted" caption are gone. What
     stays: the label "Neighborhoods you visit", the helper "Where customers can book a home visit", and the borough groups
-    (Manhattan, Brooklyn, Queens, Bronx, Staten Island) with "n selected" / "None" and their 44 px neighborhood chips.
+    with "n selected" / "None" and their 44 px neighborhood chips.
+  - *Boroughs:* Manhattan, Brooklyn and Queens only (Kevin: "Yes drop bronx and staten island"). The Bronx (Riverdale,
+    Fordham, Parkchester, Mott Haven) and Staten Island (St. George, Stapleton, Great Kills, Tottenville) leave the picker,
+    and their ZIPs leave the served area, so a customer there sees today's "Taily isn't in that area yet." 
   - *Error:* unchanged — the groups ring in error with "Pick at least one neighborhood." under them.
   - The customer preview line ("Comes to you in Williamsburg, Greenpoint …") is unchanged.
-- **Data / money:** none. `hoodMap` stays in components.js (gallery + model test) but no screen uses it.
+- **Data / money:** `BOROUGHS` = 3; `NEIGHBORHOODS` = 22; `ZIP_XY` drops 10471 / 10458 / 10462 / 10454 / 10301 / 10304 /
+  10308 / 10307. `hoodMap` stays in components.js (gallery + model test) but no screen uses it.
 - **Evolves:** Study-1 C5 (the tile map beside the picker); D-254 picker unchanged.
 - **Build notes:** taily-app drops the map component from the tailor's Where you work step; nothing else moves.
-  Prototype: fixtures m2 / s1c no longer expect the map; visual baselines re-accepted: `to-where*` (14 keys).
+  taily-app: the served-area table loses the Bronx and Staten Island ZIPs.
+  Prototype: fixtures m2 / s1c no longer expect the map; model test expects 3 boroughs; visual baselines re-accepted:
+  `to-where*` (14 keys). `sys-components` (the gallery) also changes but was not re-accepted here: it already differs on
+  this machine's browser before the change, so re-accept it where the baselines were made.

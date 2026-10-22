@@ -15,7 +15,13 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Nothing open._
+_Reviews_ (canvas https://claude.ai/artifact/X3aZZGN8kbLF7z4ZzQCnch). Kevin's calls: up to 4 photos per review, shown
+after Taily's check; every review waits for an admin check; no tailor replies; no reporting (the check covers it);
+reviews page gets a rating breakdown, filters (With photos, by garment) and sort (Newest / Highest / Lowest); each
+review shows its job ("Suit Jacket · Take in sides") and "Booked on Taily". Four page versions (V1 summary + chips,
+V2 Filter & sort sheet, V3 compact + sticky bar, V4 tape-measure), plus the photo step, "With Taily" after sending,
+and the admin queue. Open flags: star sort vs COUNSEL #11 (neutral list); the admin check must use neutral content
+rules and post good and bad reviews alike (FTC); photos move from up to 3 hidden to up to 4 public.
 
 ## Before merging into taily-app
 

@@ -15,7 +15,11 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-- **Tailor onboarding · neighborhood map** (to-area): the map reads abstract, not New York. Clarifying questions asked 2026-10-22.
+- **Tailor onboarding · neighborhood map** (to-where, `hoodMap`): the tile map reads abstract, not New York. Canvas:
+  https://claude.ai/artifact/Dzu56KgwLrHsHjqQPCDQqx (V1 Borough tabs + shapes · V2 Whole city, tap to zoom · V3 Pins ·
+  V4 Patchwork), each with 3 picked / nothing picked / Next with nothing picked. Answers: Taily-drawn SVG from real
+  coordinates (no map service); tapping the map picks too; Manhattan, Brooklyn and Queens only; neighborhoods stay the
+  unit; no landmarks; tailor side only.
 
 ## Approved
 

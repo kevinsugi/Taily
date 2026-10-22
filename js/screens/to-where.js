@@ -9,7 +9,7 @@ import { register, render as go, back, currentScreen } from '../app.js';
 import { state, T, SECTIONS, onboarded } from '../state.js';
 import { myTailor } from '../tailor-data.js';
 import {
-  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, toggle, field, hoodPicker, hoodMap, customerPreview,
+  onboardingHeader, onboardingSteps, ONBOARDING_STEPS, resumeText, editScopeNote, headingRow, banner, toggle, field, hoodPicker, customerPreview,
   actionBar, wireToggles, toast, modalOverlay, leaveModal, leaveSheet, esc, infoButton, HOME_FEE_HELP, metaRow, hoodSentence, sectionHead,
 } from '../components.js';
 import { withLatency } from '../sim.js';
@@ -148,10 +148,11 @@ const openBoroughs = (d) => ui().open ?? [...new Set(d.home.hoods.map((id) => HO
 
 function homeCard(d) {
   const h = d.home;
+  /* PL-09: no map — the borough groups and their chips only */
   return `<section class="card to-where__card" aria-label="Home visits">
   ${toggle({ id: 'home-on', label: 'You visit customers at home', helper: `${VISIT_MINUTES.home}-minute visits at the customer’s place.`, checked: !!h.enabled })}
   ${h.enabled ? `<div class="to-where__fields">
-    ${hoodPicker({ selected: h.hoods, open: openBoroughs(d), error: errOf('hoods'), map: hoodMap({ selected: h.hoods }) })}
+    ${hoodPicker({ selected: h.hoods, open: openBoroughs(d), error: errOf('hoods') })}
     ${field({ id: 'fee', label: 'Home visit fee (flat, per visit)', prefix: '$', inputmode: 'numeric', maxlength: 4, autocomplete: 'off', value: h.fee == null ? '' : String(h.fee), helper: FEE_HELP, error: errOf('fee'), labelEnd: infoButton('fee', { label: 'The Taily fee' }) })}
   </div>` : ''}
 </section>`;

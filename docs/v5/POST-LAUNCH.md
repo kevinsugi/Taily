@@ -15,11 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-- **Tailor onboarding · neighborhood map** (to-where, `hoodMap`): the tile map reads abstract, not New York. Canvas:
-  https://claude.ai/artifact/Dzu56KgwLrHsHjqQPCDQqx (V1 Borough tabs + shapes · V2 Whole city, tap to zoom · V3 Pins ·
-  V4 Patchwork), each with 3 picked / nothing picked / Next with nothing picked. Answers: Taily-drawn SVG from real
-  coordinates (no map service); tapping the map picks too; Manhattan, Brooklyn and Queens only; neighborhoods stay the
-  unit; no landmarks; tailor side only.
+_Nothing open._
 
 ## Approved
 
@@ -273,3 +269,18 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
   - The ID photo (to-background, PL-02) should use the same picker with `capture="environment"`.
   - Verified here: Chromium file chooser opens (multi-select on library), two picked photos render in the tiles; flows,
     journeys, model and lint pass. Not verified on a physical iPhone / Android.
+
+### PL-09 · 2026-10-22 · Neighborhoods without a map (to-where)
+- **Verdict:** Kevin, after the map canvas: "Change it to be without a map; neighborhood selection only." The four map
+  versions are not taken.
+- **Artifact:** https://claude.ai/artifact/Dzu56KgwLrHsHjqQPCDQqx (explored, not chosen); code on `explore/post-launch`.
+- **Changes:**
+  - *Where you work → home visits:* the tile map (`hoodMap`) and its "N neighborhoods highlighted" caption are gone. What
+    stays: the label "Neighborhoods you visit", the helper "Where customers can book a home visit", and the borough groups
+    (Manhattan, Brooklyn, Queens, Bronx, Staten Island) with "n selected" / "None" and their 44 px neighborhood chips.
+  - *Error:* unchanged — the groups ring in error with "Pick at least one neighborhood." under them.
+  - The customer preview line ("Comes to you in Williamsburg, Greenpoint …") is unchanged.
+- **Data / money:** none. `hoodMap` stays in components.js (gallery + model test) but no screen uses it.
+- **Evolves:** Study-1 C5 (the tile map beside the picker); D-254 picker unchanged.
+- **Build notes:** taily-app drops the map component from the tailor's Where you work step; nothing else moves.
+  Prototype: fixtures m2 / s1c no longer expect the map; visual baselines re-accepted: `to-where*` (14 keys).

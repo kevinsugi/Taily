@@ -15,10 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-- **What changes (tailor's Final order + Edit order), payout first.** Canvas: https://claude.ai/artifact/T1czkd4onD4VRfTXTZsK7Z
-  (V1 One number · V2 Was → now + changes · V3 Payout ledger · V4 The payout tag), each in four states: payout down,
-  payout up with the breakdown open, nothing changed, a price missing. Answers so far: one section component for both
-  screens; Sarah's total = one secondary line; breakdown behind "See breakdown"; the bar shows the payout only; fee at 10%.
+- **Tailor onboarding · neighborhood map** (to-area): the map reads abstract, not New York. Clarifying questions asked 2026-10-22.
 
 ## Approved
 
@@ -223,3 +220,52 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 - **Build notes:**
   - Store the rate on each job at accept, so a rate change never re-prices live jobs.
   - Prototype: tests and visual baselines that print fee or payout amounts change with it (re-accept those baselines).
+
+### PL-07 · 2026-10-22 · What changes, payout first (t-adjust Final order + Edit order)
+- **Verdict:** Kevin: "V1 approved" → V1 · One number. Answers that shaped it: one section component for both screens;
+  the tailor's payout is the focus; Sarah's total = one secondary line; the fee lines behind "See breakdown"; the bar shows
+  the payout only; fee at 10% (PL-06).
+- **Artifact:** https://claude.ai/artifact/T1czkd4onD4VRfTXTZsK7Z (row "V1 · One number": down / up + breakdown / same / missing)
+- **Changes:**
+  - *Section "What changes":* the change count ("1 item added · 1 service removed"), then caps "Your payout", the figure
+    (`t-money`) with a pill beside it: "+$36.00" (success-bg / success-ink) when up, "−$27.00" (1 px neutral-300 ring,
+    neutral-700) when down, "No change" when equal; "Was $147.50" under it (`t-small c-600`). Then one line
+    "Sarah pays $130.00 · was $160.00" (`t-small c-700`; no "was" when unchanged).
+  - *Breakdown:* a text link "See breakdown" / "Hide breakdown" (`aria-expanded`, 44 px) toggles the existing
+    `tailorBreakdown` rows (Services, Taily fee "On the $95.00 of services only", Home visit fee, Your payout). Closed by default.
+  - *Missing price:* the figure is "—" (aria "not available") with "Add a price for Taper legs to see your new payout."
+    in error ink; no Sarah line, no breakdown link.
+  - *Deposit line* unchanged ("Sarah’s $16.00 deposit stays the same.").
+  - *Action bar lead:* "Your payout $120.50" only (replaces the D-126 two-figure pair); missing price → "Add a price to see
+    your payout".
+- **Data / money:** no new numbers: `pv.after.payout`, `pv.before.payout`, the delta = after − before (cents, `fmtExact`;
+  sign by `fmtNeg` / "+"). Dollars only.
+- **Evolves:** D-126 (bar carries both figures, the customer's first) → payout only; the two-column `deltaFigure` pair in
+  t-adjust's view and editView; K-01 / K-42 / K-47 screens unchanged otherwise.
+- **Build notes:** one `payoutChange({ after, before, customer })` section used by both views; the breakdown open state
+  lives in the screen's ui slice (survives the live patch on typing); the pill is announced with its figure
+  ("Your payout $120.50, down $27.00").
+
+### PL-08 · 2026-10-22 · Onboarding photos open the phone's camera and library (to-profile)
+- **Verdict:** Kevin: "Currently is a placeholder … We need to have it open the phone's actual functions upon deployment.
+  No need to create design variations, just fix it."
+- **Artifact:** none; code on `explore/post-launch` (js/screens/to-profile.js, css/screens/to-profile.css).
+- **Changes:**
+  - *Photos of your work:* "+" opens the same sheet; "Take a photo" opens the camera (`<input type="file" accept="image/*"
+    capture="environment">`), "Choose from library" opens the photo library with multi-select (`multiple`, capped at the
+    6-photo limit). Picked photos fill the tiles and the View sheet; Remove / Undo keep their order. Toast "Photo added" /
+    "2 photos added".
+  - *Profile photo:* the same sheet; "Take a photo" opens the front camera (`capture="user"`), the library picks one; the
+    avatar shows the real photo (also before a name is typed).
+  - The test harness (`?test=1`) keeps the simulated add, so every flow and baseline is unchanged.
+- **Data / money:** none. In the prototype a photo lives as an object URL for the session (not saved across reloads).
+- **Evolves:** M2 to-profile photo sheet (simulated add); PL-02's work-photos step uses the same picker.
+- **Build notes (taily-app):**
+  - Same inputs; on change, downscale on the device (longest side ~1600 px, JPEG ~0.8, strip EXIF incl. GPS) and upload
+    to Supabase Storage (`tailor-work/<tailorId>/<uuid>.jpg`, profile photo `tailor-avatar/…`), keeping a local preview
+    while it uploads (spinner on the tile, retry on failure, error next to the tiles).
+  - Accept HEIC from iPhones (convert server-side or let iOS hand over JPEG via `accept="image/*"`); reject non-images and
+    files over ~15 MB with a message next to the field.
+  - The ID photo (to-background, PL-02) should use the same picker with `capture="environment"`.
+  - Verified here: Chromium file chooser opens (multi-select on library), two picked photos render in the tiles; flows,
+    journeys, model and lint pass. Not verified on a physical iPhone / Android.

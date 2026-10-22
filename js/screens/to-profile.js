@@ -91,9 +91,14 @@ function previewHtml(d) {
   });
 }
 
+/* PL-08: the photos picked this session, in tile order (object URLs; a tile without one draws the prototype stub) */
+const workUrls = [];
+const workTile = (i) => (workUrls[i]
+  ? `<span class="photo-tile photo-tile--photo"><img class="${ID}__work-img" src="${esc(workUrls[i])}" alt=""></span>`
+  : photoTile('photo', { type: workType(i), tone: i % 4 }));
 function workPhotos(d) {
   /* a tile opens a small sheet (View / Remove) — a tap never deletes (D-71) */
-  const tiles = Array.from({ length: d.workPhotos }, (_, i) => `<button type="button" class="${ID}__work" data-act="work-open" data-i="${i}" aria-label="Photo ${i + 1} of ${d.workPhotos}: view or remove" aria-haspopup="dialog">${photoTile('photo', { type: workType(i), tone: i % 4 })}</button>`).join('');
+  const tiles = Array.from({ length: d.workPhotos }, (_, i) => `<button type="button" class="${ID}__work" data-act="work-open" data-i="${i}" aria-label="Photo ${i + 1} of ${d.workPhotos}: view or remove" aria-haspopup="dialog">${workTile(i)}</button>`).join('');
   const add = d.workPhotos < WORK_PHOTOS_MAX
     ? `<button type="button" class="${ID}__work" data-act="work-add" aria-label="Add a photo of your work">${photoTile('add')}</button>` : '';
   return `<div class="photo-tiles ${ID}__tiles">${tiles}${add}</div>`;
@@ -131,7 +136,7 @@ function view(s) {
   ${customerPreview({ title: 'What customers see', html: previewHtml(d), sticky: true })}
   <p class="t-small c-600 ${ID}__preview-caption">${PREVIEW_CAPTION}</p>
   <div class="${ID}__photo${errors.photo ? ` ${ID}__photo--error` : ''}">
-    ${initialsOf(d.name) ? avatar({ initials: initialsOf(d.name), photo: d.photo || null, size: 'lg' }) : avatar({ photo: true, size: 'lg' })}
+    ${initialsOf(d.name) ? avatar({ initials: initialsOf(d.name), photo: d.photo || null, size: 'lg' }) : avatar({ photo: typeof d.photo === 'string' ? d.photo : true, size: 'lg' })}
     <div class="${ID}__photo-side">
       ${textLink(d.photo ? 'Change photo' : 'Add a photo', { act: 'photo' })}
       ${errors.photo ? `<p class="t-small w-600 c-error" id="photo-msg" role="alert">${esc(errorCopy(errors.photo, d))}</p>` : `<p class="t-small c-600" id="photo-msg">${HELPERS.photo}</p>`}
@@ -157,13 +162,34 @@ ${editing
 /* ---------- wiring ---------- */
 const cameraGlyph = () => { const t = document.createElement('template'); t.innerHTML = avatar({ photo: true }); return t.content.firstChild.innerHTML; };
 const hangerGlyph = () => { const t = document.createElement('template'); t.innerHTML = avatar({ glyph: true }); return t.content.firstChild.innerHTML; };
-function openPhoto(header, onAdd) {
+/* PL-08: the sheet's two rows open the phone's own camera and photo library through a real file input. Each picked photo
+   reaches onAdd as an object URL (this session only); the harness (is-test) keeps the simulated add, one null per tap. */
+function pickPhotos({ camera = '', multiple = false } = {}, onFiles) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  if (camera) input.setAttribute('capture', camera);   // 'environment' = back camera, 'user' = selfie; ignored on desktop
+  input.multiple = multiple;
+  input.hidden = true;
+  const done = () => input.remove();
+  input.addEventListener('change', () => {
+    const files = [...(input.files ?? [])].filter((f) => f.type.startsWith('image/'));
+    done();
+    if (files.length) onFiles(files.map((f) => URL.createObjectURL(f)));
+  }, { once: true });
+  input.addEventListener('cancel', done, { once: true });
+  document.body.append(input);
+  input.click();   // still inside the row's tap, so iOS and Android allow it
+}
+function openPhoto(header, onAdd, { selfie = false, multiple = false } = {}) {
   const html = `<div class="${ID}__sheet-list">${listRow({ title: 'Take a photo', act: 'photo-take' })}${listRow({ title: 'Choose from library', act: 'photo-library' })}</div>
 <div class="${ID}__sheet-foot">${textLink('Cancel', { act: 'photo-cancel' })}</div>`;
+  const isTest = document.documentElement.classList.contains('is-test');
   sheetOverlay(html, { header, dataS: `${ID}-photo`, confirm: false }, (holder, close) => {
-    const add = () => { onAdd(); close(); go(ID); toast('Photo added'); };
-    holder.querySelector('[data-act="photo-take"]').addEventListener('click', add);
-    holder.querySelector('[data-act="photo-library"]').addEventListener('click', add);
+    const add = (urls) => { const n = onAdd(urls); close(); go(ID); toast(n > 1 ? `${n} photos added` : 'Photo added'); };
+    const pick = (opts) => (isTest ? add([null]) : pickPhotos(opts, add));
+    holder.querySelector('[data-act="photo-take"]').addEventListener('click', () => pick({ camera: selfie ? 'user' : 'environment' }));
+    holder.querySelector('[data-act="photo-library"]').addEventListener('click', () => pick({ multiple }));
     holder.querySelector('[data-act="photo-cancel"]').addEventListener('click', () => close());
   });
 }
@@ -171,7 +197,7 @@ function openPhoto(header, onAdd) {
 /** The View / Remove sheet for one work photo. View shows it larger in place; Remove lets go of it with an Undo toast. */
 function openWorkPhoto(i, onRemove) {
   const n = draftOf().workPhotos;
-  const html = `<div class="${ID}__viewer" role="img" aria-label="Photo ${i + 1} of ${n}" hidden>${photoStub({ type: workType(i), tone: i % 4, size: 'stage' })}</div>
+  const html = `<div class="${ID}__viewer" role="img" aria-label="Photo ${i + 1} of ${n}" hidden>${workUrls[i] ? `<img class="${ID}__viewer-img" src="${esc(workUrls[i])}" alt="">` : photoStub({ type: workType(i), tone: i % 4, size: 'stage' })}</div>
 <div class="${ID}__sheet-list">${listRow({ title: 'View photo', act: 'work-view' })}${listRow({ title: 'Remove photo', act: 'work-remove' })}</div>
 <div class="${ID}__sheet-foot">${textLink('Close', { act: 'photo-cancel' })}</div>`;
   sheetOverlay(html, { header: `Photo ${i + 1} of ${n}`, dataS: `${ID}-work`, confirm: false }, (holder, close) => {
@@ -329,18 +355,25 @@ function wire(root) {
     if (act === 'dismiss') {
       if (state.ui.onboarding) state.ui.onboarding.resumed = false;
       a.closest(`.${ID}__resume`)?.remove();
-    } else if (act === 'photo') openPhoto('Add a photo', () => { d.photo = true; if (ui().errors) delete ui().errors.photo; });
+    } else if (act === 'photo') openPhoto('Add a photo', (urls) => { d.photo = urls[0] || true; if (ui().errors) delete ui().errors.photo; return 1; }, { selfie: true });
     else if (act === 'id') openIdSheet(() => { d.idDoc = true; if (ui().errors) delete ui().errors.idDoc; go(ID); toast('ID added'); });
-    else if (act === 'work-add') openPhoto('Add a photo of your work', () => { d.workPhotos = Math.min(WORK_PHOTOS_MAX, d.workPhotos + 1); });
+    else if (act === 'work-add') openPhoto('Add a photo of your work', (urls) => {
+      const room = Math.max(0, WORK_PHOTOS_MAX - d.workPhotos);
+      const take = urls.slice(0, room);
+      take.forEach((u, k) => { workUrls[d.workPhotos + k] = u; });
+      d.workPhotos += take.length;
+      return take.length;
+    }, { multiple: true });
     else if (act === 'work-open') {
       const i = Number(a.dataset.i);
       openWorkPhoto(i, () => {
         const before = d.workPhotos;
+        const [url] = workUrls.splice(i, 1);
         d.workPhotos = Math.max(0, before - 1);
         go(ID);
         const tiles = [...document.querySelectorAll(`#screen .${ID}__work`)];
         (tiles[Math.min(i, tiles.length - 1)])?.focus({ preventScroll: true });   // focus stays on the next tile
-        toast('Photo removed', { action: 'Undo', onAction: () => { if (currentScreen() !== ID) return; d.workPhotos = Math.min(WORK_PHOTOS_MAX, d.workPhotos + 1); go(ID); } });
+        toast('Photo removed', { action: 'Undo', onAction: () => { if (currentScreen() !== ID) return; workUrls.splice(i, 0, url); d.workPhotos = Math.min(WORK_PHOTOS_MAX, d.workPhotos + 1); go(ID); } });
       });
     }
   });

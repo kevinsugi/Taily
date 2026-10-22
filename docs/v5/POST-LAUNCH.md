@@ -15,13 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-- **Tailor profile: one Book button + a floating Book in messages** (c-tailor, c-thread). Canvas:
-  https://claude.ai/artifact/SdV1TMwTKZAb5zHwt2VpAt (V1 price over the button · V2 price beside it · V3 summary bar ·
-  V4 stitched bar with a tag; each normal / no openings before the need-by / booked before; thread pill: items, no items,
-  typing, after a finished job). Answers: one Book in the bar opening the picker at the next opening; the next opening
-  stays as info; Ask a question stays; Est. + turnaround in the bar; no openings → "Change need-by date"; thread pill
-  for the customer only, above the composer, stays while typing, never dismissed, hidden after a request, back as
-  "Book again" after a finished job, not after a decline.
+_Nothing open._
 
 ## Before merging into taily-app
 
@@ -372,3 +366,32 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
   opening; K-18 unchanged (Book now on the profile still uses the next opening).
 - **Build notes:** the range is display copy only; due dates are still set per job at the fitting. The tailor profile
   page can show the same line in its stats later (not designed here).
+
+### PL-13 · 2026-10-22 · One Book button on the tailor profile + Book in the message card (c-tailor, c-thread)
+- **Verdict:** Kevin: "P1 and M1 approved" (round 2, after "V1 preferred but it's too disconnected from the next
+  appointment" and "floating on top of the text field … is too disconnected"). Answers that shaped it: one Book in the bar
+  that opens the picker at the next opening; the next opening moves into the button; Ask a question stays; Est. +
+  turnaround in the bar; no openings → "Change need-by date"; messages: customer only, inside the No booking yet card,
+  always shown, hidden after a request, "Book again" after a finished job, not after a decline.
+- **Artifact:** https://claude.ai/artifact/SdV1TMwTKZAb5zHwt2VpAt (rows "Round 2": P1 and M1)
+- **Changes:**
+  - *Profile (c-tailor):* the K-18 split (Next opening card + Book now) and its note "Book now takes this time. For another
+    day, use Pick a time." are removed; the page goes straight from the stats to About. The action bar: a lead line
+    "Est. $160" (left, Est. 12 / 600 neutral-600, amount 24 / 600) and clock + "7–10 days" (right, PL-12 style), then one
+    two-line black button (min 56 px): "Book" (16 / 600) over "Next opening Thu, Oct 15 · 5:00 PM" (12 / 500, neutral-300),
+    then "Ask a question" (chat icon, accent ink). Tapping Book writes the next opening into the booking draft and opens
+    the picker on it (today's book-now path), so that time is one more tap; any other time is picked there.
+  - *No openings before the need-by:* the lead line becomes "No openings before your need-by, Fri, Oct 23." (warning ink)
+    and the button reads "Change need-by date" over "Amara’s next opening is Mon, Oct 26"; it opens the need-by sheet.
+  - *Booked before:* the button reads "Book again" over the next opening.
+  - *Messages (c-thread, customer, before a request):* the "No booking yet" context card keeps its title and adds
+    "Est. $160 · 7–10 days" (Est. amount 600 ink) and a calendar line "Next opening Thu, Oct 15 · 5:00 PM", with a black
+    "Book" button (44 px) at the card's right. Before any items are added the price line is left out. After a request
+    the card returns to today's request card; after a finished job it reads "Job done · Sep 28 / Suit Jacket · picked up"
+    with "Book again"; after a decline (read-only thread) there is no Book.
+- **Data / money:** none new (next opening, estimate and turnaround already exist; PL-12 adds the turnaround).
+- **Evolves:** K-18 (split Book now + action-bar Pick a time) → one Book whose label carries the next opening;
+  D-248 (book-now writes the slot) kept as the Book path; M5 c-thread context card (No booking yet → links to the profile).
+- **Build notes:** the Book label is built from the same next-opening value as today's split; when there is no estimate
+  (no items yet) the profile lead line shows only the turnaround. Screen readers read the button as
+  "Book, next opening Thursday October 15 at 5:00 PM".

@@ -15,7 +15,10 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Nothing open._
+- **Tailor card: "Est. $160" on one line + usual turnaround** (c-tailors `tailorRow`, onboarding preview). Canvas:
+  https://claude.ai/artifact/BG1PJK2w3QmEL1fnG63hhM (V1 quiet line · V2 pill · V3 price block · V4 hang tag; onboarding
+  Availability "Your usual turnaround"; sort "Fastest turnaround"). Answers: both list and onboarding preview; Est. small
+  before the amount; tailor sets it in onboarding; fitting → ready; no need-by warning; next opening dropped; sort added.
 
 ## Before merging into taily-app
 

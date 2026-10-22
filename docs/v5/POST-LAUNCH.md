@@ -15,7 +15,13 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Nothing open._
+_Finished photos + profile photo crop_ (canvas https://claude.ai/artifact/Bz19fpFVbS26E7De7exe1o). Today: Mark ready
+asks only for return options; the customer's viewer has Before | Pinned; the profile shows a portrait placeholder.
+Kevin's calls: at least 1 finished photo per garment to mark ready, up to 4; the customer sees them in a Finished tab
+next to Before | Pinned; no before/after comparison; the tailor may add them to Photos of your work (no customer
+approval); problems go through Message; a one-time tip card; the profile-photo crop is part of this. Four versions:
+in the Mark ready sheet, two steps (photos then returns), on the job page, camera item by item. Defaulted: "Add to
+Photos of your work" starts unticked each job.
 
 ## Before merging into taily-app
 

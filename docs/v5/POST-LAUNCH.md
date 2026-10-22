@@ -15,10 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-- **Tailor card: "Est. $160" on one line + usual turnaround** (c-tailors `tailorRow`, onboarding preview). Canvas:
-  https://claude.ai/artifact/BG1PJK2w3QmEL1fnG63hhM (V1 quiet line · V2 pill · V3 price block · V4 hang tag; onboarding
-  Availability "Your usual turnaround"; sort "Fastest turnaround"). Answers: both list and onboarding preview; Est. small
-  before the amount; tailor sets it in onboarding; fitting → ready; no need-by warning; next opening dropped; sort added.
+_Nothing open._
 
 ## Before merging into taily-app
 
@@ -345,3 +342,27 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 - **Data / money:** `NEIGHBORHOODS` +1, `SHARED_ZIP_HOME` 10001 / 10011 → chelsea.
 - **Evolves:** PL-10. **Build notes:** see `docs/v5/handoff/README.md`. Visual baselines re-accepted:
   `to-where--hoods-borough`, `to-where--courier-address`.
+
+### PL-12 · 2026-10-22 · Tailor card: "Est. $160" on one line + usual turnaround (c-tailors, onboarding preview, to-availability)
+- **Verdict:** Kevin: "V1 approved" → V1 · Quiet line under the price. Answers that shaped it: list card and the onboarding
+  preview (one component); "Est." small before the amount; the tailor sets the turnaround in onboarding; it measures fitting
+  → ready for pickup; no warning when it runs past the need-by; the next-opening line is dropped; a sort is added.
+- **Artifact:** https://claude.ai/artifact/BG1PJK2w3QmEL1fnG63hhM (V1 + the onboarding and sort boards)
+- **Changes:**
+  - *Tailor card (`tailorRow`):* the right column is one line "Est. $160" (Est. 12 / 600 neutral-600, amount 24 / 600 ink,
+    baseline-aligned, tabular) and under it a quiet line: 14 px clock (neutral-500) + "7–10 days" (12 / 600 neutral-700),
+    right-aligned. The "Next opening …" fact is removed; the place line stays. Declined cards show neither.
+    Card name for screen readers adds "ready 7 to 10 days after your fitting" and drops the next opening.
+  - *Onboarding, Availability (to-availability):* a new first section "Your usual turnaround": "From the fitting until it’s
+    ready for pickup, how long does a typical job take you?" — four radio buttons in a 2 × 2 grid (3–5 / 5–7 / 7–10 /
+    10–14 days, 52 px, ink when picked; default 7–10), helper "Customers see it on your card. A rush order can still be
+    faster, and you set the due date for each job at the fitting.", then a "What customers see" preview card that
+    updates live. Shop → Availability (edit) shows the same section.
+  - *Sort (c-tailors sort sheet):* adds "Fastest turnaround" ("Ready soonest after your fitting"), ordered by the low end
+    of the range, then the high end. "Soonest opening" stays as a sort for now.
+- **Data / money:** tailor gains `turnaround: '3-5' | '5-7' | '7-10' | '10-14'` (days, fitting → ready); required in
+  onboarding with the 7–10 default; existing tailors get 7–10 until they change it. No money change.
+- **Evolves:** K-19 (card: "$160" with "Est." under it, next-opening fact) → Est. inline, turnaround under, no next
+  opening; K-18 unchanged (Book now on the profile still uses the next opening).
+- **Build notes:** the range is display copy only; due dates are still set per job at the fitting. The tailor profile
+  page can show the same line in its stats later (not designed here).

@@ -15,7 +15,13 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Nothing open._
+- **Tailor profile: one Book button + a floating Book in messages** (c-tailor, c-thread). Canvas:
+  https://claude.ai/artifact/SdV1TMwTKZAb5zHwt2VpAt (V1 price over the button · V2 price beside it · V3 summary bar ·
+  V4 stitched bar with a tag; each normal / no openings before the need-by / booked before; thread pill: items, no items,
+  typing, after a finished job). Answers: one Book in the bar opening the picker at the next opening; the next opening
+  stays as info; Ask a question stays; Est. + turnaround in the bar; no openings → "Change need-by date"; thread pill
+  for the customer only, above the composer, stays while typing, never dismissed, hidden after a request, back as
+  "Book again" after a finished job, not after a decline.
 
 ## Before merging into taily-app
 

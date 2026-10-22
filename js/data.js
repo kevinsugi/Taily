@@ -52,7 +52,7 @@ export const CHARGE_WHEN = { pickup: 'at pickup', courier: 'on delivery' };   //
 export const PRIVACY_NOTE = 'Phone numbers and emails stay private on Taily.';
 export const ZIP_INFO = {                               // mock geography: neighborhood + miles from the SEED shop (312 Metropolitan Ave) — kept as the seed's measured distances; every distance is computed by milesBetween (S-42)
   '11211': { hood: 'Williamsburg', miles: 0.6 }, '11222': { hood: 'Greenpoint', miles: 1.4 },
-  '11206': { hood: 'East Williamsburg', miles: 1.5 }, '11237': { hood: 'Bushwick', miles: 2.3 },
+  '11206': { hood: 'Williamsburg', miles: 1.5 }, '11237': { hood: 'Bushwick', miles: 2.3 },
   '11201': { hood: 'Brooklyn Heights', miles: 3.9 },   // the "zip outside" toggle
   '11249': { hood: 'Williamsburg', miles: 0.9 },       // Study-1 C5: Williamsburg's second zip (Amara's seed neighborhoods)
 };
@@ -60,31 +60,38 @@ export const ZIP_INFO = {                               // mock geography: neigh
 export const BOROUGHS = [
   { id: 'manhattan', name: 'Manhattan' }, { id: 'brooklyn', name: 'Brooklyn' }, { id: 'queens', name: 'Queens' },   // PL-09: no Bronx or Staten Island
 ];
-/** Study-1 C5: mock neighborhoods a tailor picks for home visits — `home.hoods` (ids) is the source of truth, `home.zips` is derived
+/** Study-1 C5 · PL-10 (Kevin's list, Oct 22): the neighborhoods a tailor picks for home visits — `home.hoods` (ids) is the source of truth, `home.zips` is derived
     from their `zips`. `tile` = the cell in that borough's SVG tile map (x = column, y = row, from 0). Mock geography, not real bounds. */
 export const NEIGHBORHOODS = [
-  { id: 'upper-west-side', name: 'Upper West Side', borough: 'manhattan', zips: ['10024', '10025'], tile: { x: 0, y: 0 } },
-  { id: 'upper-east-side', name: 'Upper East Side', borough: 'manhattan', zips: ['10021', '10028'], tile: { x: 1, y: 0 } },
-  { id: 'midtown', name: 'Midtown', borough: 'manhattan', zips: ['10018', '10019'], tile: { x: 0, y: 1 } },
-  { id: 'chelsea', name: 'Chelsea', borough: 'manhattan', zips: ['10001', '10011'], tile: { x: 0, y: 2 } },
-  { id: 'west-village', name: 'West Village', borough: 'manhattan', zips: ['10014'], tile: { x: 0, y: 3 } },
-  { id: 'east-village', name: 'East Village', borough: 'manhattan', zips: ['10003', '10009'], tile: { x: 1, y: 3 } },
-  { id: 'soho', name: 'SoHo', borough: 'manhattan', zips: ['10012', '10013'], tile: { x: 1, y: 4 } },
-  { id: 'tribeca', name: 'Tribeca', borough: 'manhattan', zips: ['10007'], tile: { x: 0, y: 4 } },
-  { id: 'greenpoint', name: 'Greenpoint', borough: 'brooklyn', zips: ['11222'], tile: { x: 1, y: 0 } },
-  { id: 'williamsburg', name: 'Williamsburg', borough: 'brooklyn', zips: ['11211', '11249'], tile: { x: 0, y: 1 } },
-  { id: 'east-williamsburg', name: 'East Williamsburg', borough: 'brooklyn', zips: ['11206'], tile: { x: 1, y: 1 } },
-  { id: 'bushwick', name: 'Bushwick', borough: 'brooklyn', zips: ['11237'], tile: { x: 2, y: 1 } },
-  { id: 'brooklyn-heights', name: 'Brooklyn Heights', borough: 'brooklyn', zips: ['11201'], tile: { x: 0, y: 2 } },
-  { id: 'fort-greene', name: 'Fort Greene', borough: 'brooklyn', zips: ['11205'], tile: { x: 1, y: 2 } },
-  { id: 'bed-stuy', name: 'Bed-Stuy', borough: 'brooklyn', zips: ['11216', '11221'], tile: { x: 2, y: 2 } },
-  { id: 'park-slope', name: 'Park Slope', borough: 'brooklyn', zips: ['11215'], tile: { x: 1, y: 3 } },
-  { id: 'astoria', name: 'Astoria', borough: 'queens', zips: ['11102', '11105'], tile: { x: 0, y: 0 } },
-  { id: 'long-island-city', name: 'Long Island City', borough: 'queens', zips: ['11101'], tile: { x: 0, y: 1 } },
-  { id: 'sunnyside', name: 'Sunnyside', borough: 'queens', zips: ['11104'], tile: { x: 1, y: 1 } },
-  { id: 'jackson-heights', name: 'Jackson Heights', borough: 'queens', zips: ['11372'], tile: { x: 2, y: 1 } },
-  { id: 'ridgewood', name: 'Ridgewood', borough: 'queens', zips: ['11385'], tile: { x: 1, y: 2 } },
-  { id: 'forest-hills', name: 'Forest Hills', borough: 'queens', zips: ['11375'], tile: { x: 2, y: 2 } },
+  { id: 'fidi', name: 'FiDi', borough: 'manhattan', zips: ['10004', '10005', '10006', '10038', '10280'], tile: { x: 0, y: 0 } },
+  { id: 'chinatown', name: 'Chinatown', borough: 'manhattan', zips: ['10013', '10002'], tile: { x: 1, y: 0 } },
+  { id: 'soho', name: 'SoHo', borough: 'manhattan', zips: ['10012', '10013'], tile: { x: 2, y: 0 } },
+  { id: 'tribeca', name: 'TriBeCa', borough: 'manhattan', zips: ['10007', '10282'], tile: { x: 3, y: 0 } },
+  { id: 'lower-east-side', name: 'Lower East Side', borough: 'manhattan', zips: ['10002'], tile: { x: 0, y: 1 } },
+  { id: 'east-village', name: 'East Village', borough: 'manhattan', zips: ['10009', '10003'], tile: { x: 1, y: 1 } },
+  { id: 'west-village', name: 'West Village', borough: 'manhattan', zips: ['10014', '10011'], tile: { x: 2, y: 1 } },
+  { id: 'greenwich-village', name: 'Greenwich Village', borough: 'manhattan', zips: ['10003', '10011', '10012'], tile: { x: 3, y: 1 } },
+  { id: 'gramercy', name: 'Gramercy', borough: 'manhattan', zips: ['10010'], tile: { x: 0, y: 2 } },
+  { id: 'murray-hill', name: 'Murray Hill', borough: 'manhattan', zips: ['10016'], tile: { x: 1, y: 2 } },
+  { id: 'midtown', name: 'Midtown', borough: 'manhattan', zips: ['10001', '10017', '10018', '10020', '10022'], tile: { x: 2, y: 2 } },
+  { id: 'hells-kitchen', name: 'Hell’s Kitchen', borough: 'manhattan', zips: ['10036', '10019'], tile: { x: 3, y: 2 } },
+  { id: 'upper-east-side', name: 'Upper East Side', borough: 'manhattan', zips: ['10065', '10021', '10075', '10028', '10128'], tile: { x: 0, y: 3 } },
+  { id: 'upper-west-side', name: 'Upper West Side', borough: 'manhattan', zips: ['10023', '10069', '10024', '10025'], tile: { x: 1, y: 3 } },
+  { id: 'harlem', name: 'Harlem', borough: 'manhattan', zips: ['10026', '10027', '10030', '10037', '10039', '10029', '10035'], tile: { x: 2, y: 3 } },
+  { id: 'downtown-brooklyn', name: 'Downtown Brooklyn', borough: 'brooklyn', zips: ['11201'], tile: { x: 0, y: 0 } },
+  { id: 'dumbo', name: 'DUMBO', borough: 'brooklyn', zips: ['11201'], tile: { x: 1, y: 0 } },
+  { id: 'brooklyn-heights', name: 'Brooklyn Heights', borough: 'brooklyn', zips: ['11201'], tile: { x: 2, y: 0 } },
+  { id: 'williamsburg', name: 'Williamsburg', borough: 'brooklyn', zips: ['11211', '11249', '11206'], tile: { x: 3, y: 0 } },
+  { id: 'greenpoint', name: 'Greenpoint', borough: 'brooklyn', zips: ['11222'], tile: { x: 0, y: 1 } },
+  { id: 'bushwick', name: 'Bushwick', borough: 'brooklyn', zips: ['11237'], tile: { x: 1, y: 1 } },
+  { id: 'bed-stuy', name: 'Bed-Stuy', borough: 'brooklyn', zips: ['11216', '11221', '11233'], tile: { x: 2, y: 1 } },
+  { id: 'clinton-hill', name: 'Clinton Hill', borough: 'brooklyn', zips: ['11205', '11238'], tile: { x: 3, y: 1 } },
+  { id: 'park-slope', name: 'Park Slope', borough: 'brooklyn', zips: ['11215', '11217'], tile: { x: 0, y: 2 } },
+  { id: 'carroll-gardens', name: 'Carroll Gardens', borough: 'brooklyn', zips: ['11231'], tile: { x: 1, y: 2 } },
+  { id: 'prospect-heights', name: 'Prospect Heights', borough: 'brooklyn', zips: ['11238'], tile: { x: 2, y: 2 } },
+  { id: 'long-island-city', name: 'Long Island City', borough: 'queens', zips: ['11101', '11109'], tile: { x: 0, y: 0 } },
+  { id: 'astoria', name: 'Astoria', borough: 'queens', zips: ['11102', '11103', '11105', '11106'], tile: { x: 1, y: 0 } },
+  { id: 'sunnyside', name: 'Sunnyside', borough: 'queens', zips: ['11104'], tile: { x: 2, y: 0 } },
 ];
 /** Study-1 C5: neighborhood lookups. `zipsForHoods` = the zips a list of neighborhood ids covers (picked order, each once) —
     the ONE derivation of `home.zips` from `home.hoods`; `hoodNames` = their names in the same order. */
@@ -97,24 +104,25 @@ export const hoodNames = (ids = []) => (ids ?? []).map((id) => HOOD_BY_ID[id]?.n
    the seed reads exactly as ZIP_INFO measured it (0.6 mi for Sarah in 11211). A ZIP not on the grid is outside Taily: "Taily isn't in that
    area yet." */
 export const ZIP_XY = {
-  /* Brooklyn — the ZIP_INFO six sit at their measured distance from the seed shop */
+  /* Brooklyn — the ZIP_INFO six sit at their measured distance from the seed shop; the rest from each ZIP's centre (PL-10) */
   '11211': [0.36, -0.48], '11249': [-0.72, -0.54], '11222': [0.29, 1.37], '11206': [0.9, -1.2], '11237': [1.84, -1.38], '11201': [-3.12, -2.34],
-  '11205': [-1.2, -2.0], '11216': [0.3, -3.1], '11221': [1.3, -2.6], '11215': [-2.6, -4.4],
-  /* Manhattan */
-  '10024': [-3.6, 6.6], '10025': [-3.3, 7.4], '10021': [-1.8, 4.6], '10028': [-1.6, 5.4], '10018': [-3.3, 3.0], '10019': [-3.6, 3.7],
-  '10001': [-3.7, 2.3], '10011': [-3.8, 1.6], '10014': [-4.1, 0.6], '10003': [-2.6, 0.9], '10009': [-1.9, 0.6], '10012': [-3.2, 0.2],
-  '10013': [-3.7, -0.4], '10007': [-4.0, -1.0],
+  '11205': [-0.5, -1.4], '11216': [0.4, -2.3], '11221': [1.5, -1.6], '11233': [2.0, -2.5], '11238': [-0.4, -2.4], '11217': [-1.1, -2.2], '11215': [-1.5, -3.2], '11231': [-2.3, -2.5],
+  /* Manhattan (PL-10: from each ZIP's centre) */
+  '10004': [-2.9, -0.8], '10005': [-2.7, -0.5], '10006': [-2.9, -0.3], '10038': [-2.3, -0.3], '10280': [-3.1, -0.3], '10007': [-2.7, 0.0], '10282': [-3.0, 0.2], '10013': [-3.7, -0.4], '10002': [-1.6, 0.12], '10012': [-2.1, 0.8], '10009': [-1.1, 0.8], '10003': [-1.7, 1.2], '10014': [-2.6, 1.4], '10011': [-2.2, 1.9], '10010': [-1.3, 1.7], '10016': [-1.1, 2.1], '10001': [-2.1, 2.5], '10017': [-0.8, 2.6], '10018': [-1.9, 2.8], '10020': [-1.2, 3.1], '10022': [-0.6, 3.0], '10036': [-1.7, 3.1], '10019': [-1.5, 3.6], '10065': [-0.3, 3.5], '10021': [-0.0, 3.8], '10075': [0.12, 4.1], '10028': [0.2, 4.3], '10128': [0.4, 4.6], '10023': [-1.3, 4.3], '10069': [-1.7, 4.3], '10024': [-1.0, 5.0], '10025': [-0.5, 5.9], '10026': [0.2, 6.1], '10027': [0.2, 6.8], '10029': [0.7, 5.4], '10030': [0.7, 7.2], '10035': [1.5, 5.6], '10037': [1.1, 6.8], '10039': [1.1, 7.7],
   /* Queens */
-  '11102': [0.6, 5.2], '11105': [1.0, 5.9], '11101': [-0.4, 3.0], '11104': [1.4, 3.1], '11372': [3.4, 3.9], '11385': [2.6, -0.6], '11375': [5.6, 1.9],
+  '11101': [1.0, 2.2], '11109': [0.0, 2.1], '11102': [1.6, 3.9], '11103': [2.3, 3.4], '11105': [2.7, 4.4], '11106': [1.4, 3.3], '11104': [2.0, 2.1],
 };
 /** Streets the mock geocoder knows (the seed shop); any other address falls back to its ZIP's point. */
 const STREET_XY = { '312 metropolitan ave|11211': [0, 0] };
 const BOROUGH_CITY = { manhattan: 'New York', brooklyn: 'Brooklyn', queens: 'Queens' };
+/** PL-10: a ZIP that more than one neighborhood shares → the one its address reads as (11201 → Brooklyn Heights). Picking any
+    of the sharing neighborhoods covers the whole ZIP. */
+export const SHARED_ZIP_HOME = { '10002': 'lower-east-side', '10003': 'greenwich-village', '10011': 'west-village', '10012': 'soho', '10013': 'soho', '11201': 'brooklyn-heights', '11238': 'prospect-heights' };
 /** A served ZIP → `{ hood, borough, city, state }` (the city by borough: 10013 → SoHo, New York, NY); null outside Taily. */
 export function placeForZip(zip) {
   const z = String(zip ?? '').trim();
   if (!ZIP_XY[z]) return null;
-  const n = NEIGHBORHOODS.find((x) => x.zips.includes(z));
+  const n = HOOD_BY_ID[SHARED_ZIP_HOME[z]] ?? NEIGHBORHOODS.find((x) => x.zips.includes(z));
   const borough = n?.borough ?? 'brooklyn';
   return { hood: n?.name ?? ZIP_INFO[z]?.hood ?? '', borough, city: BOROUGH_CITY[borough] ?? SHOP_CITY.city, state: 'NY' };
 }
@@ -178,7 +186,7 @@ export const TAILORS = [
     submitted: true, submittedAt: '2026-01-12T10:30',
     shop: { enabled: true, street: '312 Metropolitan Ave', unit: '', city: 'Brooklyn', state: 'NY', zip: '11211', hood: 'Williamsburg' },
     collect: { street: '', unit: '', zip: '', notes: '' },   // B-15: where the courier collects without a shop (private); she has a shop
-    home: { enabled: true, zips: ['11211', '11249', '11222', '11206', '11237'], fee: 35, hoods: ['williamsburg', 'greenpoint', 'east-williamsburg', 'bushwick'] },
+    home: { enabled: true, zips: ['11211', '11249', '11206', '11222', '11237'], fee: 35, hoods: ['williamsburg', 'greenpoint', 'bushwick'] },
     prices: {                                           // dollars; 10 services
       'hem-pants': 25, taper: 40, waist: 35, sleeves: 45, 'jacket-sides': 55, 'shirt-take-in': 30,
       'dress-hem': 50, 'dress-take-in': 65, zipper: 30, repair: 20,

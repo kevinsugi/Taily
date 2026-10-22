@@ -119,7 +119,7 @@ function estimateCard(q, job) {
   return section('Your estimate', `<div class="c-tailor__estimate">${rows.join('')}${total}</div>`, { key: 'estimate', cls: 'c-tailor__sec--estimate', aside: infoButton('pricing', { label: 'How pricing works' }) });
 }
 
-/** CP-C13 / Study-1 C5: "Williamsburg, Greenpoint, East Williamsburg and Bushwick" — her neighborhoods, in the order she picked them. */
+/** CP-C13 / Study-1 C5: "Williamsburg, Greenpoint and Bushwick" — her neighborhoods, in the order she picked them. */
 const hoodList = (t) => hoodSentence(t.home?.hoods ?? []);
 
 function where(t, job) {

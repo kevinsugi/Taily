@@ -54,15 +54,15 @@ export const FLOWS_to_services = [
 const WHERE = (hoods) => ({ shop: { enabled: true, street: AMARA.shop.street, zip: AMARA.shop.zip }, home: { enabled: true, hoods, fee: AMARA.home.fee } });
 export const FLOWS_to_where = [
   { key: 'to-where--hoods', screen: 'to-where', group: 'S1 · Onboarding', title: 'Where you work — picking neighborhoods',
-    note: 'C5: a new tailor with Williamsburg picked taps Greenpoint: two Brooklyn chips on, two tiles lit',
+    note: 'C5: a new tailor with Williamsburg picked taps Greenpoint: two Brooklyn chips on',
     setup: (S) => { onboardTo('where'); S.state.ui['to-where'] = { draft: WHERE(['williamsburg']) }; },
     click: ['[data-act="hood"][data-id="greenpoint"]'],
     expect: { has: ['Brooklyn', '2 selected'], not: 'neighborhoods highlighted', sel: '[data-act="hood"][data-id="greenpoint"][aria-pressed="true"]', also: ['[data-act="hood"][data-id="williamsburg"][aria-pressed="true"]'] } },
   { key: 'to-where--hoods-borough', screen: 'to-where', group: 'S1 · Onboarding', title: 'Where you work — another borough',
-    note: 'C5: Amara opens Manhattan and adds SoHo and Tribeca; Brooklyn keeps its four',
+    note: 'C5: Amara opens Manhattan and adds SoHo and TriBeCa; Brooklyn keeps its three',
     setup: (S) => { onboardTo('where'); S.state.ui['to-where'] = { draft: WHERE([...AMARA.home.hoods]) }; },
     click: ['[data-act="borough"][data-id="manhattan"]', '[data-act="hood"][data-id="soho"]', '[data-act="hood"][data-id="tribeca"]'],
-    expect: { has: ['Manhattan', '2 selected', '4 selected'], sel: '[data-act="borough"][data-id="manhattan"][aria-expanded="true"]', also: ['[data-act="hood"][data-id="soho"][aria-pressed="true"]', '[data-act="hood"][data-id="tribeca"][aria-pressed="true"]'] } },
+    expect: { has: ['Manhattan', '2 selected', '3 selected'], sel: '[data-act="borough"][data-id="manhattan"][aria-expanded="true"]', also: ['[data-act="hood"][data-id="soho"][aria-pressed="true"]', '[data-act="hood"][data-id="tribeca"][aria-pressed="true"]'] } },
   { key: 'to-where--hoods-none', screen: 'to-where', group: 'S1 · Onboarding', title: 'Where you work — no neighborhood',
     note: 'C5: home visits on, nothing picked, then Next',
     setup: (S) => { onboardTo('where'); S.state.ui['to-where'] = { draft: WHERE([]) }; },

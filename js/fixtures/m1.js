@@ -187,7 +187,7 @@ export const FLOWS_c_tailor = [
   { key: 'c-tailor--home-only', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — home visits only',
     note: 'No shop address block',
     setup: (S) => { S.T.setTailorSection('where', { shop: { enabled: false } }); },
-    expect: { has: ['Comes to you in Williamsburg, Greenpoint, East Williamsburg and Bushwick', `${fmt(cents(AMARA.home.fee))} home visit fee · Charged once per home visit, no matter how long it takes.`, '12 years tailoring', 'At home'], not: ['312 Metropolitan Ave', '0.6 mi', '11211, 11222'] } },
+    expect: { has: ['Comes to you in Williamsburg, Greenpoint and Bushwick', `${fmt(cents(AMARA.home.fee))} home visit fee · Charged once per home visit, no matter how long it takes.`, '12 years tailoring', 'At home'], not: ['312 Metropolitan Ave', '0.6 mi', '11211, 11222'] } },
   { key: 'c-tailor--shop-only', screen: 'c-tailor', group: 'M1 · Booking', title: 'Tailor profile — shop only',
     note: 'Job at the shop; no home block, no home visit fee',
     setup: (S) => { S.T.setTailorSection('where', { home: { enabled: false } }); S.T.setJob({ visitType: 'shop' }); },

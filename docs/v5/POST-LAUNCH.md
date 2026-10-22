@@ -291,3 +291,33 @@ _Nothing open._
   Prototype: fixtures m2 / s1c no longer expect the map; model test expects 3 boroughs; visual baselines re-accepted:
   `to-where*` (14 keys). `sys-components` (the gallery) also changes but was not re-accepted here: it already differs on
   this machine's browser before the change, so re-accept it where the baselines were made.
+
+### PL-10 · 2026-10-22 · Kevin's neighborhood list, with ZIP codes (to-where picker + customer ZIP lookup)
+- **Verdict:** Kevin supplied the list and asked that each neighborhood carry ZIP codes, so a customer's address or ZIP
+  finds it.
+- **Artifact:** https://claude.ai/artifact/WtUKPGv4iPHtAiQALrSCct (working picker, ZIP table, ZIP lookup)
+- **Changes (29 neighborhoods, list order = picker order):**
+  - *Manhattan (15):* FiDi 10004 10005 10006 10038 10280 · Chinatown 10013 10002 · SoHo 10012 10013 · TriBeCa 10007 10282 ·
+    Lower East Side 10002 · East Village 10009 10003 · West Village 10014 10011 · Greenwich Village 10003 10011 10012 ·
+    Gramercy 10010 · Murray Hill 10016 · Midtown 10001 10017 10018 10020 10022 · Hell’s Kitchen 10036 10019 ·
+    Upper East Side 10065 10021 10075 10028 10128 · Upper West Side 10023 10069 10024 10025 ·
+    Harlem 10026 10027 10030 10037 10039 10029 10035.
+  - *Brooklyn (11):* Downtown Brooklyn 11201 · DUMBO 11201 · Brooklyn Heights 11201 · Williamsburg 11211 11249 11206 ·
+    Greenpoint 11222 · Bushwick 11237 · Bed-Stuy 11216 11221 11233 · Clinton Hill 11205 11238 · Park Slope 11215 11217 ·
+    Carroll Gardens 11231 · Prospect Heights 11238.
+  - *Queens (3):* Long Island City 11101 11109 · Astoria 11102 11103 11105 11106 · Sunnyside 11104.
+  - *Shared ZIPs:* a ZIP that two or three neighborhoods share is covered when the tailor picks any of them; the address
+    reads as its home neighborhood: 10002 Lower East Side · 10003 Greenwich Village · 10011 West Village · 10012 / 10013
+    SoHo · 11201 Brooklyn Heights · 11238 Prospect Heights.
+  - *Gone:* Tribeca → TriBeCa (spelling), East Williamsburg (11206 now Williamsburg), Chelsea, Fort Greene (11205 now
+    Clinton Hill), Jackson Heights, Ridgewood, Forest Hills. Their other ZIPs (11372, 11385, 11375) are outside Taily.
+  - *Customer side:* any ZIP above is "in Taily's area" (placeForZip names its neighborhood: 10027 → Harlem, New York);
+    any other ZIP reads "Taily isn't in that area yet." Seed tailor Amara: Williamsburg, Greenpoint and Bushwick (same ZIPs).
+- **Data / money:** `NEIGHBORHOODS` (29), `SHARED_ZIP_HOME`, `ZIP_XY` (mock grid from each ZIP's centre; the seed's six
+  measured Brooklyn ZIPs and 10013 keep their points). Names: "Downtown" is "Downtown Brooklyn" so a sentence like
+  "Comes to you in Downtown Brooklyn and DUMBO" reads clearly; "Bedstuy" is "Bed-Stuy"; "Hells Kitchen" is "Hell’s Kitchen".
+- **Evolves:** PL-09, Study-1 C5, S-42 (D-357 mock geocoding).
+- **Build notes:** taily-app stores neighborhood → ZIPs and the shared-ZIP home in the database (admin-editable), and its
+  real geocoder should map an address to a neighborhood by polygon where a ZIP is shared. Chelsea (10011 / 10001) is not
+  on the list: 10011 is served through West Village / Greenwich Village and 10001 through Midtown.
+  Prototype: model test + fixtures updated; visual baselines re-accepted: `to-where*`, `c-tailor`, `c-tailor--*`.

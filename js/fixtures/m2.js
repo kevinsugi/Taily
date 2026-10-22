@@ -82,7 +82,7 @@ const WHERE_DRAFT = () => ({ shop: { enabled: true, street: AMARA.shop.street, z
 export const FLOWS_to_where = [
   { key: 'to-where', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work', note: 'Step 3 of 6: shop and home visits on, neighborhoods (Brooklyn open, tile map) and the flat home visit fee',
     setup: (S) => { onboardTo('where'); S.state.ui['to-where'] = { draft: WHERE_DRAFT() }; },
-    expect: { has: ['Step 3 of 6', 'Where do you work', 'Customers come to your shop', 'You visit customers at home', 'Neighborhoods you visit', 'Where customers can book a home visit', 'Brooklyn', '4 selected', 'Williamsburg', 'Home visit fee (flat, per visit)', 'Charged once per home visit, no matter how long it takes.', `${fmt(cents(AMARA.home.fee))} home visit fee · Charged once per home visit`, 'Comes to you in Williamsburg, Greenpoint, East Williamsburg and Bushwick', 'Williamsburg, Brooklyn, NY', 'Suite or floor (optional)'], not: ['ZIP codes you cover', 'Paid to you in full', 'Includes ', 'neighborhoods highlighted'], sel: '#home-on[aria-checked="true"]', also: ['[data-act="hood"][data-id="williamsburg"][aria-pressed="true"]'] } },
+    expect: { has: ['Step 3 of 6', 'Where do you work', 'Customers come to your shop', 'You visit customers at home', 'Neighborhoods you visit', 'Where customers can book a home visit', 'Brooklyn', '3 selected', 'Williamsburg', 'Home visit fee (flat, per visit)', 'Charged once per home visit, no matter how long it takes.', `${fmt(cents(AMARA.home.fee))} home visit fee · Charged once per home visit`, 'Comes to you in Williamsburg, Greenpoint and Bushwick', 'Williamsburg, Brooklyn, NY', 'Suite or floor (optional)'], not: ['ZIP codes you cover', 'Paid to you in full', 'Includes ', 'neighborhoods highlighted'], sel: '#home-on[aria-checked="true"]', also: ['[data-act="hood"][data-id="williamsburg"][aria-pressed="true"]'] } },
   { key: 'to-where--home-only', screen: 'to-where', group: 'M2 · Onboarding', title: 'Where you work — home visits only', note: 'Shop switched off: its fields disappear, neighborhoods and fee stay',
     setup: (S) => { onboardTo('where'); const W = WHERE_DRAFT(); S.state.ui['to-where'] = { draft: { ...W, shop: { enabled: false, street: '', zip: '' } } }; },
     expect: { has: 'Neighborhoods you visit', not: 'Shop street address', sel: '#shop-on[aria-checked="false"]' } },
@@ -99,7 +99,7 @@ export const FLOWS_to_where = [
     click: ['[data-act="next"]'],
     expect: { has: 'Enter your home visit fee, or 0 for none', sel: '#fee[aria-invalid="true"]' } },
   { key: 'to-where--edit', screen: 'to-where', group: 'M2 · Shop', title: 'Where you work — edit', note: 'Live tailor: current shop and neighborhoods, Save changes waits for a change',
-    expect: { has: ['Save changes', 'No changes yet', 'Bushwick', '4 selected'], not: 'Step 3 of 6', sel: `#street[value="${AMARA.shop.street}"]` } },
+    expect: { has: ['Save changes', 'No changes yet', 'Bushwick', '3 selected'], not: 'Step 3 of 6', sel: `#street[value="${AMARA.shop.street}"]` } },
 ];
 export const FLOWS_to_returns = [
   { key: 'to-returns', screen: 'to-returns', group: 'M2 · Onboarding', title: 'Return options', note: 'Step 4 of 6: pickup pre-ticked (she has a shop), courier off; K-37: no Home drop-off',

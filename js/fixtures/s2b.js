@@ -35,7 +35,7 @@ export const FLOWS_to_profile = [
 export const FLOWS_to_where = [
   { screen: 'to-where', group: G, key: 'to-where--courier-address', title: 'Where you work — no shop: where the courier collects', note: 'B-15 (D-356): home visits only, so the courier is her only way back — street, floor, ZIP and a note, private',
     setup: (S) => { B_onboardTo('where'); S.state.ui['to-where'] = { draft: { shop: { enabled: false, street: '', unit: '', zip: '' }, home: { enabled: true, hoods: ['soho', 'tribeca'], fee: 35 }, collect: { ...STUDIO } } }; },
-    expect: { has: ['Where should the courier collect finished orders?', 'Private. Customers never see it.', 'Street address', 'Apartment or floor (optional)', 'Notes for the courier (optional)', 'SoHo, New York, NY', 'Comes to you in SoHo and Tribeca'], not: 'Shop street address', sel: '#collectStreet[value="40 Mercer St"]' } },
+    expect: { has: ['Where should the courier collect finished orders?', 'Private. Customers never see it.', 'Street address', 'Apartment or floor (optional)', 'Notes for the courier (optional)', 'SoHo, New York, NY', 'Comes to you in SoHo and TriBeCa'], not: 'Shop street address', sel: '#collectStreet[value="40 Mercer St"]' } },
   { screen: 'to-where', group: G, key: 'to-where--courier-address-missing', title: 'Where you work — no courier address', note: 'B-15: Next with the pickup address blank — the errors sit under each field',
     setup: (S) => { B_onboardTo('where'); S.state.ui['to-where'] = { draft: { shop: { enabled: false, street: '', unit: '', zip: '' }, home: { enabled: true, hoods: ['williamsburg'], fee: 35 }, collect: { street: '', unit: '', zip: '', notes: '' } } }; },
     click: ['[data-act="next"]'],

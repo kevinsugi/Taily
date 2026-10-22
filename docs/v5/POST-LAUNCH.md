@@ -15,7 +15,13 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Nothing open._
+_Courier tracking_ (canvas https://claude.ai/artifact/KR2RYBurXQogKiiV2LE9RE). Today: a booked window, "Handed to
+the courier", out for delivery, delivered (lobby, photo not shown), returned. Kevin's calls: Ready shows the Uber
+quote only, no Taily courier fee; our status steps + Uber's own tracking page for the map; steps Courier booked →
+Heading to Amara → Picked up → On the way → Almost there (~5 min) → Delivered; call the courier directly (no masking);
+a compact live block on the booking page opening a full-screen tracker; the tailor sees the courier coming and
+"Your courier is here"; the drop-off photo is shown; texts at picked up, ~5 min away, delivered; a live card on Home.
+Four tracker versions (ETA + timeline, progress bar, courier first, hang line). Flag: no fee = COURIER_MARKUP to 0.
 
 ## Before merging into taily-app
 

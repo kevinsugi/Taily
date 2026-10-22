@@ -15,13 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Card fees_ (canvas https://claude.ai/artifact/BG1PJK2w3QmEL1fnG63hhM, row "Round 3"). Kevin's calls (round 2 → 3):
-V1 layout; the estimate INCLUDES the home visit and rush fees (reverses round 2's "tailoring only"); fee lines use a
-colon ("1-day rush fee: $40", "Home visit: $25", "Free home visit"); a rush job swaps the turnaround line for the rush
-fee (day count = fitting → need-by, "Same-day rush fee" when they match); $0 rush → "No rush fee"; rush fees are a
-required onboarding section with an "I take rush jobs" toggle (same day / 1 / 2 / 3 days, 4+ free); a tailor with rush
-off still shows, marked "No rush jobs" + turnaround; Done screen line "Rush fees: …" OK. Four V1 versions: colons,
-"Includes" label, itemized with Tailoring, fee pills. Defaulted: price sort follows the full estimate.
+_Nothing open._
 
 ## Before merging into taily-app
 
@@ -448,3 +442,41 @@ off still shows, marked "No rush jobs" + turnaround; Done screen line "Rush fees
 - **Build notes:** the pinned bar is `position: sticky` under the top nav; the breakdown opens in place under it. The
   sheet reuses the bottom-sheet component; the count badge reads "Filter and sort, 2 applied" to screen readers.
   Customers get a text / email when a review posts or is not posted.
+
+### PL-15 · 2026-10-22 · Tailor card fees: estimate includes home visit + rush, "Incl." lines; rush fees in onboarding (c-tailors, to-availability, to-done)
+- **Verdict:** Kevin: "V1E approved" (round 4). Path: round 2 "Swap the time for: 1-Day Rush Fee: +$100 … the
+  tailoring estimate should not include the rush fee … show the home visit fee in the tailor card"; round 3 "it's too
+  confusing to have the user mentally add the fees themselves. Include the fees in the estimate … use a colon instead
+  of a plus sign"; round 4 "includes in the same line as the first service … add a home icon"; then "'Incl.' instead
+  of 'includes' and omit the word 'fee' so it's just '1-Day Rush'". Answers: rush tiers same day / 1 / 2 / 3 days
+  (4+ free); rush is a required onboarding section with an off toggle; a tailor with rush off still shows; sentence
+  case per the design system; $0 home visit reads "Free home visit"; Done screen line "Rush fees: …" OK.
+- **Artifact:** https://claude.ai/artifact/BG1PJK2w3QmEL1fnG63hhM (row "Round 3": V1e; row "Every version" of round 2:
+  the onboarding rush section, its error and off states, the Done screen)
+- **Changes:**
+  - *Tailor card (`tailorRow`, right column, PL-12 layout):* "Est. $225" where the estimate = services + home visit fee
+    + rush fee. Under it, the time line: not a rush → clock + "7–10 days" (PL-12); a rush (need-by 0–3 days after the
+    tailor's next opening) → the fee lines take its place. Fee lines (12 / 600 neutral-700, amount ink, tabular), the
+    first one prefixed "Incl." (12 / 500 neutral-600): "Incl. ⚡ 1-day rush: $40" / "⌂ Home visit: $25". Labels:
+    "Same-day rush", "1-day rush", "2-day rush", "3-day rush" (day count = fitting → need-by). Home fee $0 → "⌂ Free
+    home visit" (success ink), never prefixed "Incl.". Tailor charges $0 for that tier → "⚡ No rush fee". Tailor has
+    rush jobs off → "No rush jobs · 5–7 days" (warning ink, clock) and the estimate has no rush fee. Shop visits show no
+    home line. Bolt in accent-base, home and clock in neutral-500, 14 px.
+  - *Screen readers:* "Amara Reyes, 4.9 stars, 37 reviews, estimate $225 including 1-day rush $40 and home visit $25,
+    from Williamsburg".
+  - *Onboarding, Availability (to-availability):* a required "Rush fees" section after "Your usual turnaround": "For jobs
+    due within 3 days of the fitting. The customer pays it on top, and it's yours in full." A toggle row "I take rush
+    jobs" (on by default); on → four $ fields in a 2 × 2 grid: Same day / 1 day after / 2 days after / 3 days after,
+    each required ("Enter a fee, or 0 for no fee."), helper "4 days or more after the fitting: no rush fee. Enter 0 to
+    take rush jobs for free."; off → "Customers who need it within 3 days of your fitting still see you, marked 'No rush
+    jobs'. Turn rush jobs on anytime in your shop." The "What customers see" preview card follows the fields.
+  - *Shop → Rush fees (t-rush):* gains the Same day tier; same toggle and fields.
+  - *Onboarding Done (to-done):* "Want extra for rush jobs? Add rush fees in your shop." → "Rush fees: same day $60 · 1
+    day $40 · 2 days $25 · 3 days $15. Change in your shop." / off: "Rush fees: off. Turn on in your shop."
+- **Data / money:** `RUSH_TIERS` 1 / 2 / 3 → 0 / 1 / 2 / 3 (`rushFor` already returns days ≤ tier, so 0 maps to the
+  same-day tier); tailor gains `rushOn: boolean` (off → no rush fee and the "No rush jobs" line, tailor still listed).
+  The estimate everywhere (card, profile bar PL-13, message card) = services + home visit + rush; price sort uses it.
+- **Evolves:** PL-12 (time line), K-19 (estimate "no fee lines"), CP-S02 / t-rush ladder (adds same day), D-64 (empty
+  ladder = off → explicit toggle), M2 §C3.
+- **Build notes:** the rush tier is read from the tailor's next opening (state.js `estimateNext`), as today. "Incl."
+  goes on whichever fee line comes first. Rate-free: every amount is the tailor's own dollar fee.

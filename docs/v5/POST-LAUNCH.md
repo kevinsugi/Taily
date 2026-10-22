@@ -15,13 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Reviews_ (canvas https://claude.ai/artifact/X3aZZGN8kbLF7z4ZzQCnch). Kevin's calls: up to 4 photos per review, shown
-after Taily's check; every review waits for an admin check; no tailor replies; no reporting (the check covers it);
-reviews page gets a rating breakdown, filters (With photos, by garment) and sort (Newest / Highest / Lowest); each
-review shows its job ("Suit Jacket · Take in sides") and "Booked on Taily". Four page versions (V1 summary + chips,
-V2 Filter & sort sheet, V3 compact + sticky bar, V4 tape-measure), plus the photo step, "With Taily" after sending,
-and the admin queue. Open flags: star sort vs COUNSEL #11 (neutral list); the admin check must use neutral content
-rules and post good and bad reviews alike (FTC); photos move from up to 3 hidden to up to 4 public.
+_Nothing open._
 
 ## Before merging into taily-app
 
@@ -29,6 +23,8 @@ rules and post good and bad reviews alike (FTC); photos move from up to 3 hidden
       current USPS / NYC source (shared ZIPs and their home neighborhood especially), and rename the four tables in
       `docs/v5/handoff/neighborhoods.sql` to match the production schema before running it. Re-run
       `node scripts/v5/export-neighborhoods.mjs` after any fix.
+- [ ] **Reviews (PL-14):** have counsel confirm the Highest / Lowest sort (it reverses COUNSEL #11's neutral list) and
+      the admin "Don't post" rules (FTC review-suppression rules); log every "Don't post" with its reason.
 
 ## Approved
 
@@ -401,3 +397,48 @@ rules and post good and bad reviews alike (FTC); photos move from up to 3 hidden
 - **Build notes:** the Book label is built from the same next-opening value as today's split; when there is no estimate
   (no items yet) the profile lead line shows only the turnaround. Screen readers read the button as
   "Book, next opening Thursday October 15 at 5:00 PM".
+
+### PL-14 · 2026-10-22 · Reviews: checked by Taily, up to 4 photos, compact page with one Filter & sort (c-reviews, c-review, admin)
+- **Verdict:** Kevin: "H2 is approved" (round 2, after "I like V2's one filter and sort button, but I like how compact V3
+  is"). Answers that shaped it: up to 4 photos, shown after a check; an admin reviews every review before it posts; no
+  tailor replies; no reporting (the check covers it); breakdown + filters (With photos, by garment) + sort (Newest /
+  Highest / Lowest); each review shows its job and "Booked on Taily". The photo step, the after-sending state and the
+  admin queue were shown with every version and drew no changes.
+- **Artifact:** https://claude.ai/artifact/X3aZZGN8kbLF7z4ZzQCnch (row "Round 2": H2, H2-on, the shared sheet; row
+  "Every version": S-write, S-thanks, S-admin)
+- **Changes:**
+  - *Reviews page (c-reviews):* under the title, one bar that stays pinned at the top while scrolling: a rating button
+    "4.9 ★★★★★ 37 ⌄" (24 / 600 average) that opens the breakdown (5★…1★ bars with counts), and a "Filter & sort"
+    button (pill, 44 px) at the right with a count badge when anything is applied. Under the bar one status line:
+    "7 reviews · Newest · all booked through Taily" (filters change it: "3 reviews · with photos · Highest rated · …").
+    The old note "From customers who booked through Taily. Newest first." goes.
+  - *Filter & sort sheet:* Show (All · 7 / With photos · 3), Garment (one chip per garment with a count, only garments
+    that have reviews), Sort by (Newest / Highest rated / Lowest rated, radio rows), Reset at the top right, and a black
+    "Show 3 reviews" button that closes it. One filter at a time (All, With photos or one garment). Newest is the default.
+  - *Each review:* a job line under the name ("Suit Jacket · Take in sides") with a small success-tint "✓ Booked on
+    Taily" tag; photos shown as 72 px tiles, up to 4. The "N more customers left a star rating…" line shows only with
+    All selected.
+  - *Writing (c-review):* up to 4 photos (was 3); the note reads "Up to 4 photos of the finished piece. Taily checks
+    every review and photo before it goes on Amara's profile, usually within a day."; the button reads "Send review".
+  - *After sending (c-review--submitted):* status "With Taily" (accent dot), "Thanks, Sarah", "Taily checks every review
+    before it goes on Amara's profile. That usually takes less than a day.", and the customer's review as a card with a
+    "Waiting for Taily's check" chip. It does not say "Posted" any more.
+  - *Admin (new Reviews tab, star icon, between Verifications and Ledger):* "Reviews · every review waits here before
+    it's posted. Oldest first." A rules box: post every review that follows the rules, good or bad; don't post only for
+    contact details, hate / threats / harassment, nothing about the job, or someone's private info in a photo (hide
+    that photo); "The star rating never decides." Each card: customer → tailor, job, sent time, stars, text, photos with
+    "Hide photo" each, then "Post review" / "Don't post". Don't post asks for one of the four reasons, which the customer
+    sees with a way to edit and resend. A phone number or email in the text is flagged ("Phone number found"). Undo
+    after either choice.
+- **Data / money:** review gets `status` (pending / posted / not-posted), `reason`, `checkedAt`, `hiddenPhotos`; the
+  tailor's average and counts only include posted reviews. `REVIEW_LIMITS.PHOTOS_MAX` 3 → 4. No money.
+- **Evolves:** S-26 / pre-MVP B2 (c-reviews, neutral newest-first list); c-review (3 private photos, posted at once);
+  the admin nav (K-48.1 / K-53 / K-54 B2) gains Reviews.
+- **Legal flags (before taily-app):** (1) the Highest / Lowest sort goes against COUNSEL #11 ("a neutral list, no
+  hiding or sorting by stars"); Kevin chose it, Newest stays the default, and counsel should confirm. (2) The admin
+  check must stick to the content rules above and post negative reviews like any other (FTC rules on suppressing
+  reviews); keep a log of every "Don't post" with its reason. (3) Photos become public, so the check covers private
+  details in photos.
+- **Build notes:** the pinned bar is `position: sticky` under the top nav; the breakdown opens in place under it. The
+  sheet reuses the bottom-sheet component; the count badge reads "Filter and sort, 2 applied" to screen readers.
+  Customers get a text / email when a review posts or is not posted.

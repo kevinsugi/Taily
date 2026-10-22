@@ -15,13 +15,13 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Card fees_ (canvas https://claude.ai/artifact/BG1PJK2w3QmEL1fnG63hhM, row "Round 2"). Kevin's calls: the estimate is
-tailoring only (no home visit or rush fee) on the card, the profile bar and the message card, and price sort uses it;
-a rush job swaps the turnaround line for "1-day rush fee +$40" (day count = fitting → need-by; "Same-day rush fee"
-when they match); 4+ days shows the turnaround; a tailor who charges $0 shows "No rush fee"; the home visit fee shows
-on the card ("Home visit +$25" / "Free home visit"); rush fees become a required onboarding section (Availability) with
-an "I take rush jobs" toggle and tiers same day / 1 / 2 / 3 days (4+ free); the Done-screen line becomes "Rush fees: …".
-Four card versions. Defaulted: with rush jobs off, the tailor isn't shown for jobs due within 3 days of the fitting.
+_Card fees_ (canvas https://claude.ai/artifact/BG1PJK2w3QmEL1fnG63hhM, row "Round 3"). Kevin's calls (round 2 → 3):
+V1 layout; the estimate INCLUDES the home visit and rush fees (reverses round 2's "tailoring only"); fee lines use a
+colon ("1-day rush fee: $40", "Home visit: $25", "Free home visit"); a rush job swaps the turnaround line for the rush
+fee (day count = fitting → need-by, "Same-day rush fee" when they match); $0 rush → "No rush fee"; rush fees are a
+required onboarding section with an "I take rush jobs" toggle (same day / 1 / 2 / 3 days, 4+ free); a tailor with rush
+off still shows, marked "No rush jobs" + turnaround; Done screen line "Rush fees: …" OK. Four V1 versions: colons,
+"Includes" label, itemized with Tailoring, fee pills. Defaulted: price sort follows the full estimate.
 
 ## Before merging into taily-app
 

@@ -2,6 +2,10 @@
 
 Ready to move into the production app (`taily-app`) when Kevin says so. Nothing here has been run against production.
 
+> **Before merging (Kevin, Oct 22):** double-check the ZIP codes (against a current USPS / NYC source, shared ZIPs
+> especially) and the table names (match `neighborhoods.sql` to the production schema). Tracked in
+> `docs/v5/POST-LAUNCH.md` → "Before merging into taily-app".
+
 | File | What it is |
 | --- | --- |
 | `neighborhoods.json` | The full table: 3 boroughs, 30 neighborhoods (picker order), 60 ZIPs, and each ZIP's neighborhoods + "home". |

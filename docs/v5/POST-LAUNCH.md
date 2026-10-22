@@ -17,6 +17,13 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 _Nothing open._
 
+## Before merging into taily-app
+
+- [ ] **Service area (PL-09 – PL-11):** double-check every ZIP code in `docs/v5/handoff/neighborhoods.csv` against a
+      current USPS / NYC source (shared ZIPs and their home neighborhood especially), and rename the four tables in
+      `docs/v5/handoff/neighborhoods.sql` to match the production schema before running it. Re-run
+      `node scripts/v5/export-neighborhoods.mjs` after any fix.
+
 ## Approved
 
 ### PL-01 · 2026-10-20 · Welcome screen (c-welcome)

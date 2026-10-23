@@ -22,9 +22,12 @@ is by email at launch, by text once texts are on (PL-19); it fires once, when th
 ZIP with nobody free by the need-by date lists each tailor's next opening anyway; "Use my current location" (permission
 prompt); saved addresses don't show the neighborhood; no waitlist demand shown to tailors. Four versions: a screener
 before Welcome, the ZIP inside Welcome, location first, the neighborhood wall (bold).
-Direction (Oct 23): V2 becomes the app's home screen, the first screen of all: the Welcome picture and title, the caption
-"Are we in your area? Enter your ZIP code below.", the ZIP field, then "Continue with phone" once covered; at the bottom
-"Are you a tailor? Log in or Join Taily" — tailors skip the ZIP check.
+Direction (Oct 23): V2 becomes the app's home screen, the first screen of all, built on the approved Welcome (PL-01
+B3): logo, the jacket + dress rail, "Doesn't fit? Taily it", "Book expert tailors near you", then "Are we in your area?
+Enter your ZIP code below." over the ZIP field and "Use my current location"; one result line under the field; "Continue
+with email", Log in, and "Are you a tailor? Log in or Join Taily" — tailors skip the ZIP check. Nothing moves while
+typing (the number pad slides over the bottom). Outside Taily with nothing near: browse only, no sign-up ("Email me when
+it is" · "Look around"); a shop within 5 miles still lets them sign up.
 
 _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Taily ships as a mobile app.
 

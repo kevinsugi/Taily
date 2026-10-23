@@ -631,8 +631,8 @@ _Nothing in exploration._
   - *Rules:* every update keeps at least one way; unticking the last one shows "Keep at least one way to hear about
     this." under the row and nothing changes. Tailor unticks the New requests text → "Requests expire in 2 hours. A
     text is the fastest way to catch them." (a hint, not a block).
-  - *Texts off:* the Text row reads "Off · (718) 555-0142" with the switch off and an opt-in panel under it: an
-    unticked box "Text me the updates I pick below" (tailor: "Text me so I don't miss a request") with the carrier
+  - *Texts off:* the Text row reads "Off · (718) 555-0142" with the switch off, nothing else. Flipping the switch on
+    opens an opt-in panel under the row (flipping it back closes it): an unticked box "Text me the updates I pick below" (tailor: "Text me so I don't miss a request") with the carrier
     wording "To (718) 555-0142. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for
     help." and "Turn on texts", disabled until ticked. The grid's Text column shows "–" (head "TEXTS OFF"); email
     ticks stay live. Turning texts back on restores the earlier Text choices. Switching texts off is one tap.

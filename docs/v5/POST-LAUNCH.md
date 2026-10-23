@@ -701,8 +701,15 @@ Kevin's calls after the cross-entry review; every entry above follows them.
 - **Courier:** the delivery option and its price line read "Courier" (not "Taily courier").
 - **Disabled buttons:** the reason sits inside the button as a second, smaller line (the prototype's two-line CTA,
   K-46 / D-303), e.g. "Send to Sarah for approval" over "Price Taper legs first" (PL-05, PL-07).
-- **Phone privacy at sign-up:** "For your visits. Calls go through a Taily number, so your tailor never sees it." /
-  tailor: "… so customers never see it." (PL-19; matches the call sheet).
+- **Phone privacy at sign-up:** "Your number stays private. Your tailor reaches you through Taily." / tailor: "Your
+  number stays private. Customers reach you through Taily." (PL-19). Kevin, Oct 23: messages only, no masked calling
+  for now; this replaces the earlier "Calls go through a Taily number" line.
 - **Sort lists:** one style everywhere (PL-12 Sort by, PL-14 Filter & sort): flat rows with hairline dividers, a
   radio at the right, the selected one a filled ink disc with a check.
 - **Full-profile preview in onboarding:** one layout, PL-02 B1-profile's, at every tour step.
+
+## Build into taily-app (started Oct 23)
+Kevin: "Just update the staging yourself". Branch + pull request into taily-app `staging` only (never `main`), built in
+phases, all phases first, review at the end. Kevin's build calls: texts (PL-19) fully on with Twilio; no counsel gating;
+calls stay messages only; courier tracking (PL-16) is fed from the admin courier desk (Uber bookings stay manual) and the
+customer is charged the Uber quote through Stripe; the fee rate is stored on each job at accept.

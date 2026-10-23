@@ -15,13 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Finished photos + profile photo crop_ (canvas https://claude.ai/artifact/Bz19fpFVbS26E7De7exe1o). Today: Mark ready
-asks only for return options; the customer's viewer has Before | Pinned; the profile shows a portrait placeholder.
-Kevin's calls: at least 1 finished photo per garment to mark ready, up to 4; the customer sees them in a Finished tab
-next to Before | Pinned; no before/after comparison; the tailor may add them to Photos of your work (no customer
-approval); problems go through Message; a one-time tip card; the profile-photo crop is part of this. Four versions:
-in the Mark ready sheet, two steps (photos then returns), on the job page, camera item by item. Defaulted: "Add to
-Photos of your work" starts unticked each job.
+_Nothing open._
 
 ## Before merging into taily-app
 
@@ -29,6 +23,8 @@ Photos of your work" starts unticked each job.
       current USPS / NYC source (shared ZIPs and their home neighborhood especially), and rename the four tables in
       `docs/v5/handoff/neighborhoods.sql` to match the production schema before running it. Re-run
       `node scripts/v5/export-neighborhoods.mjs` after any fix.
+- [ ] **Finished photos (PL-17):** add a line to the customer terms that tailors may show finished-garment photos
+      (never names) on their profile.
 - [ ] **Reviews (PL-14):** have counsel confirm the Highest / Lowest sort (it reverses COUNSEL #11's neutral list) and
       the admin "Don't post" rules (FTC review-suppression rules); log every "Don't post" with its reason.
 
@@ -534,3 +530,42 @@ Photos of your work" starts unticked each job.
 - **Build notes:** the courier's phone is the delivery partner's number (Uber already relays it); call is a plain
   tel: link. The map is never drawn in Taily: the tracking URL opens Uber's page. Texts use the existing texts
   setting (C27).
+
+### PL-17 · 2026-10-23 · Finished photos at Mark ready, a Finished tab for the customer, profile photo crop (t-job, c-booking / c-ready viewer, c-tailor, to-profile)
+- **Verdict:** Kevin: H2 approved, after "I like V1 but I like how condensed and minimal V2 is" and "don't like how you
+  have to click 'change' to choose the pickup options, and it has a small description under each option. It should
+  just be opened by default." Answers: at least 1 photo per garment to mark ready, up to 4; the customer sees them in
+  a Finished tab next to Before | Pinned; no before/after comparison; the tailor may add them to Photos of your work
+  with no customer approval; problems go through Message; a one-time tip card; the profile-photo crop is part of this.
+- **Artifact:** https://claude.ai/artifact/Bz19fpFVbS26E7De7exe1o (row "Round 2": H2 and "every item has a photo";
+  row "Every version": tip card, Finished tab, Amara's work, photo crop)
+- **Changes:**
+  - *Mark ready sheet (t-job, one sheet):* "Mark the order ready?" / "Add at least 1 photo of each finished item, up to
+    4." Then one white card per garment: garment icon + name + count ("2 of 4", success ink; "Needs a photo", warning
+    ink), a 4-slot grid (photos with a ✕ to remove, an "Add" tile with a camera that opens the camera or library, the
+    rest faint empty slots). The Add tile of an item with no photo has a warning dashed border. Under the cards:
+    "Add to Photos of your work" / "Shown on your profile. Sarah's name never is." (unticked each job). Then "Return
+    options" with the two checkboxes always shown, label only: In-store pickup, Taily courier (only the options the
+    tailor offers). "Mark ready" is disabled while an item has no photo or no return option is ticked; the line under
+    it says why ("Add a photo of the Suit Jacket to mark it ready." / "Pick at least one way for Sarah to get it
+    back."), red after a tap on the disabled button with the item's card outlined; when ready it reads "Sarah sees the
+    photos right away, and we hold her $144.00 balance."
+  - *Tip card (once per tailor, before the first photo):* "Before your first photo / Photos customers love": On a
+    hanger or a dress form · Daylight, no flash · Front, back, then a close-up · Keep people out of the frame (no
+    faces, names, tags or addresses). "Got it, take photos"; "You'll see this once. The tips stay under ⓘ next to
+    Photos."
+  - *Customer photo viewer:* a third tab, Finished (count, a cognac dot while new), opened first once the order is
+    ready: "Suit Jacket · Finished / Taken by Amara when she marked it ready · Thu, Oct 22 · 3:10 PM". The item
+    rows' photo stacks show the finished photos first. No comparison view.
+  - *Tailor profile:* ticked jobs add their photos to "Photos of your work", labelled "Suit Jacket · Oct 22"; the
+    tailor can remove any from Shop → Profile.
+  - *Profile photo crop (to-profile, Shop → Profile):* after the camera or library, "Move and zoom" (Cancel / Use
+    photo) on ink: the photo in the profile cover frame with a rule-of-thirds grid and a circle marking the list
+    photo ("Profile cover" / "On the list" tags), zoom − / slider / +, and live previews "On your profile" and "On the
+    list".
+- **Data:** a job gains `finishedPhotos[garmentId]` (1–4, with `takenAt`) and `addToWork`; the tailor gains
+  `photoTipsSeen`, and `photo` gains `crop { x, y, zoom }`. No money.
+- **Evolves:** K-02 / D-175…D-183 (Before | Pinned docs → + Finished), Study-1 B1 / K-42 Mark ready sheet, PL-08
+  (camera and library), the c-tailor portrait placeholder.
+- **Legal flag (before taily-app):** customers' finished garments can appear on the tailor's profile without asking
+  them; say so in the customer terms.

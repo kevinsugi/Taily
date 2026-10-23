@@ -15,7 +15,13 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Nothing open._
+_Customers + paid this year_ (canvas https://claude.ai/artifact/AoZY3YsiXh45gKyEViVoFz). Today: Earnings has the next
+payout, a paid list and tax documents, no yearly total; a tailor can't see a customer's earlier jobs. Kevin's calls:
+history on the job page and the thread AND a Customers list with a page per customer; each past job shows date,
+items and services, payout, finished photos, her rating, private notes; notes carry forward; a returning customer's
+request says so; only "Sarah C." and her neighborhood after a job; Earnings gets "Paid in <year>" (calendar year,
+total only) with a month list, a year switcher and "Email me the payouts (CSV)". Four versions: quiet list,
+timeline, photo-forward, order book. Defaulted: Customers lives as a second tab in Messages (Chats | Customers).
 
 ## Before merging into taily-app
 

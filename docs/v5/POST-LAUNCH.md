@@ -15,12 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Notifications: texts come back_ (canvas https://claude.ai/artifact/CeG7pfqkUA3ujj6EF7eaqf). At launch (K-55) every
-notification is an email and sign-in is an email code until Twilio registration clears. Kevin's calls: opt in at
-sign-up / onboarding (unticked box, carrier wording) and edit in Account (customer) or Shop (tailor); per-category
-Text / Email choices; sign-in stays email code; tailors get a nudge on every app open until texts are on; "Texts"
-becomes "Notifications"; no quiet hours anywhere (already K-48.4); the key texts' wording included. Four versions:
-Text / Email grid, row → sheet, two lists, presets.
+_Nothing in exploration._
 
 ## Before merging into taily-app
 
@@ -32,6 +27,8 @@ Text / Email grid, row → sheet, two lists, presets.
       (never names) on their profile.
 - [ ] **Reviews (PL-14):** have counsel confirm the Highest / Lowest sort (it reverses COUNSEL #11's neutral list) and
       the admin "Don't post" rules (FTC review-suppression rules); log every "Don't post" with its reason.
+- [ ] **Texts (PL-19):** have counsel confirm the opt-in wording and consent record (TCPA), and list every text type
+      from PL-19 in the Twilio 10DLC campaign registration before the first text is sent.
 
 ## Approved
 
@@ -610,3 +607,46 @@ Text / Email grid, row → sheet, two lists, presets.
   paid in the calendar year; the CSV job is server-side (email), dollars only.
 - **Evolves:** B2 / S1 private notes (per job → per customer), M5 t-earnings (adds the year), t-messages (adds the
   Customers tab), D-24 (name peek: history shows first name + last initial only).
+
+### PL-19 · 2026-10-23 · Notifications: texts come back, Text / Email per update (Account / Shop → Notifications, sign-up, t-home nudge, texts)
+- **Verdict:** Kevin: "V1 preferred, review it, suggest improvements, and implement them" (V1 = the Text / Email
+  grid). Answers: opt in at sign-up / onboarding and edit in Account (customer) or Shop (tailor); sign-in stays an
+  email code; tailors are nudged on every app open until texts are on; "Texts" becomes "Notifications"; no quiet
+  hours anywhere (tailors set their own hours, K-48.4 already); the key texts' wording included.
+- **Artifact:** https://claude.ai/artifact/CeG7pfqkUA3ujj6EF7eaqf (V1 revised: customer, tailor, texts off; row
+  "Every version": sign-up opt-ins, tailor nudge, Account row, the texts)
+- **Changes:**
+  - *Notifications page (customer Account → Notifications, tailor Shop → Notifications):* "Notifications" (serif),
+    lead "Pick how Taily reaches you about your bookings." (tailor: "…about requests, jobs and payouts.").
+    "REACH ME AT" card: Text row with the number and a switch; Email row with the address and "Always on" (sign-in
+    codes go there). "CHOOSE FOR EACH UPDATE" card: column heads TEXT / EMAIL, one row per update (title 16 / 600,
+    one-line caption 12), two 24 px checkboxes in 52 × 44 cells. Changes save as you tap; a "✓ Saved" toast
+    confirms (and "Texts on" / "Texts off"). Footer: "Changes save as you go. Sign-in codes always go to your email."
+  - *Updates and defaults:* customer — Bookings (Accepted, moved, declined) T+E; Visit reminders (Confirm, on the
+    way, arrived) T+E; Your order (Final order, ready to collect) T+E; Delivery (Picked up, nearby, delivered) T;
+    Messages (When your tailor writes) T; Receipts and refunds (Charges, refunds, receipts) E. Tailor — New requests
+    (Answer within 2 hours) T+E; Visit reminders (An hour before, and at start) T; Customer replies (Approved, moved,
+    cancelled) T+E; Pickup and courier (Courier on the way, collected) T; Messages (When a customer writes) T;
+    Payouts and tax (Payout sent, tax forms) E.
+  - *Rules:* every update keeps at least one way; unticking the last one shows "Keep at least one way to hear about
+    this." under the row and nothing changes. Tailor unticks the New requests text → "Requests expire in 2 hours. A
+    text is the fastest way to catch them." (a hint, not a block).
+  - *Texts off:* the Text row reads "Off · (718) 555-0142" with the switch off and an opt-in panel under it: an
+    unticked box "Text me the updates I pick below" (tailor: "Text me so I don't miss a request") with the carrier
+    wording "To (718) 555-0142. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for
+    help." and "Turn on texts", disabled until ticked. The grid's Text column shows "–" (head "TEXTS OFF"); email
+    ticks stay live. Turning texts back on restores the earlier Text choices. Switching texts off is one tap.
+  - *Sign-up:* customer step 3 "Your mobile number" and tailor step 1 carry an unticked box ("Text me about my
+    bookings" / "Text me new requests and job updates", with the carrier wording), "Not ticked? We'll email you
+    instead." and "You can change this any time in Account → Notifications" (tailor: Shop → Notifications).
+  - *Tailor Home nudge:* "Don't miss a request · Each request expires after 2 hours. Turn on texts and we'll text
+    (347) 555-0118 the moment one arrives." with "Turn on texts" / "Later", shown on every open until texts are on.
+  - *Account:* the "Texts" row becomes "Notifications · Text and email".
+  - *Texts:* every SMS starts "Taily:", carries a short link and maps to one update above (see the canvas for the
+    customer and tailor threads); STOP / HELP handled by the carrier keywords.
+- **Data:** per user `notify[update] = { text, email }` with the defaults above; `smsConsent { at, phone, wording }`
+  stored when "Turn on texts" is tapped (and at sign-up when ticked); texts off keeps the Text choices but sends none.
+- **Evolves:** K-55 (email-only at launch → texts return per update once Twilio registration clears; sign-in stays an
+  email code), K-48.4 (no quiet hours, unchanged), the Account "Texts" row.
+- **Build notes:** send nothing by text without a stored consent row; honour STOP from any text by switching texts off
+  (and showing the off state in the app); the 2-hour request timer is unchanged.

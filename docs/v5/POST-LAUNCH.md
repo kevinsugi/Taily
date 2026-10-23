@@ -15,7 +15,12 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Nothing open._
+_Notifications: texts come back_ (canvas https://claude.ai/artifact/CeG7pfqkUA3ujj6EF7eaqf). At launch (K-55) every
+notification is an email and sign-in is an email code until Twilio registration clears. Kevin's calls: opt in at
+sign-up / onboarding (unticked box, carrier wording) and edit in Account (customer) or Shop (tailor); per-category
+Text / Email choices; sign-in stays email code; tailors get a nudge on every app open until texts are on; "Texts"
+becomes "Notifications"; no quiet hours anywhere (already K-48.4); the key texts' wording included. Four versions:
+Text / Email grid, row → sheet, two lists, presets.
 
 ## Before merging into taily-app
 

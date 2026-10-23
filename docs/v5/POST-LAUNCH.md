@@ -15,13 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Customers + paid this year_ (canvas https://claude.ai/artifact/AoZY3YsiXh45gKyEViVoFz). Today: Earnings has the next
-payout, a paid list and tax documents, no yearly total; a tailor can't see a customer's earlier jobs. Kevin's calls:
-history on the job page and the thread AND a Customers list with a page per customer; each past job shows date,
-items and services, payout, finished photos, her rating, private notes; notes carry forward; a returning customer's
-request says so; only "Sarah C." and her neighborhood after a job; Earnings gets "Paid in <year>" (calendar year,
-total only) with a month list, a year switcher and "Email me the payouts (CSV)". Four versions: quiet list,
-timeline, photo-forward, order book. Defaulted: Customers lives as a second tab in Messages (Chats | Customers).
+_Nothing open._
 
 ## Before merging into taily-app
 
@@ -575,3 +569,39 @@ timeline, photo-forward, order book. Defaulted: Customers lives as a second tab 
   (camera and library), the c-tailor portrait placeholder.
 - **Legal flag (before taily-app):** customers' finished garments can appear on the tailor's profile without asking
   them; say so in the customer terms.
+
+### PL-18 · 2026-10-23 · Tailor customer history + "Total paid" by year (t-messages, new t-customer, t-job, t-thread, t-home, t-earnings)
+- **Verdict:** Kevin: "V1 for all; review it in the eyes of a senior designer, provide suggestions, and implement".
+  Answers: history on the job page and the thread AND a Customers list with a page per customer; each past job shows
+  date, items and services, payout, finished photos, her rating, private notes; notes carry forward to the next job;
+  a returning customer's request says so; only "Sarah C." and her neighborhood after a job; Earnings: calendar year,
+  total only, a month-by-month list with a year switcher, the year's payouts emailed as a CSV.
+- **Artifact:** https://claude.ai/artifact/AoZY3YsiXh45gKyEViVoFz (V1 column: Customers, Sarah's page, Total paid;
+  row "Every version": request card, job page, thread, the CSV email)
+- **Changes:**
+  - *Customers (t-messages, second tab "Chats | Customers · 24"):* search "Search your customers"; a header row with a
+    sort button (Most recent ▾ → Most jobs → Most paid) and the column label "PAID YOU"; one white list, a row per
+    customer: initials avatar, "Sarah C.", "3 jobs · Oct 15 · Williamsburg" (one line, ellipsis), the total paid to
+    the tailor (16 / 600) and a chevron.
+  - *Customer page (new t-customer):* avatar, "Sarah C." (serif 28), "Williamsburg · since Feb 2026", a Message button
+    in the header; stats "3 jobs · $206.25 paid you · ★ 4.7 her ratings"; the private notes card ("Your notes · only
+    you see these", Edit, "Updated Oct 15, at Sarah's fitting"); "PAST JOBS · 3": per job the date (year shown only
+    for past years), payout + chevron, items (600), services, her stars with the finished photos (40 px) on the same
+    line; each row opens that job.
+  - *Job page (t-job):* for a returning customer a "RETURNING · 3RD JOB WITH YOU" pill with "Sarah's history ›", the
+    notes from past jobs (editable), and "Past jobs with Sarah" (date · item, service, stars, payout).
+  - *Thread (t-thread):* under the job card one row: "3RD JOB · 2 past jobs with Sarah · $65.00 / Your notes: …" → the
+    customer page.
+  - *Home (t-home):* a returning customer's request card carries "RETURNING · 3RD JOB".
+  - *Earnings (t-earnings), new order:* Next payout → Paid (recent payouts) → "TOTAL PAID" with a 2026 | 2025 switch,
+    "$4,820.50" (36), "38 jobs · Jan 1 – Oct 23, 2026" → the last three months ("October · so far / 4 jobs /
+    $612.75 ›", September, August) and "Show all 10 months" → "Email me the 2026 payouts (CSV)" (then "Sent to
+    amara@reyestailoring.com · check your inbox") → Tax documents.
+  - *The email:* "Your 2026 Taily payouts": the total and job count, one CSV row per job (date paid, customer first
+    name + last initial, items, payout, bank), and "Your 2026 tax form (1099-K) will be ready in the Earnings tab by
+    Jan 31, 2027. This file is a record for you or your accountant; it isn't a tax form."
+- **Data / money:** customer history is derived from completed jobs (no new money); notes become per tailor ×
+  customer (`customerNotes`, carried to every job) instead of per job (B2 General notes); "Total paid" sums payouts
+  paid in the calendar year; the CSV job is server-side (email), dollars only.
+- **Evolves:** B2 / S1 private notes (per job → per customer), M5 t-earnings (adds the year), t-messages (adds the
+  Customers tab), D-24 (name peek: history shows first name + last initial only).

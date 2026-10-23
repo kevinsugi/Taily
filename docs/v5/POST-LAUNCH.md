@@ -26,8 +26,8 @@ Direction (Oct 23): V2 becomes the app's home screen, the first screen of all, b
 B3): logo, the jacket + dress rail, "Doesn't fit? Taily it", "Book expert tailors near you", then "Are we in your area?
 Enter your ZIP code below." over the ZIP field and "Use my current location"; one result line under the field; "Continue
 with email", Log in, and "Are you a tailor? Log in or Join Taily" — tailors skip the ZIP check. Nothing moves while
-typing (the number pad slides over the bottom). Outside Taily with nothing near: browse only, no sign-up ("Email me when
-it is" · "Look around"); a shop within 5 miles still lets them sign up.
+typing (the number pad slides over the bottom). Outside Taily with nothing near: no sign-up; the button becomes "Email me
+when available" (one email, then greyed out once asked); a shop within 5 miles still lets them sign up.
 
 _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Taily ships as a mobile app.
 

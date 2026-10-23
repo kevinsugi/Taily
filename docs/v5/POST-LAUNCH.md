@@ -15,7 +15,15 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Nothing in exploration._
+_Customer ZIP screener_ (canvas https://claude.ai/artifact/YHDYXBBgQRHPrKPKEEQRz8). Kevin's calls: the very first
+screen is a ZIP screener; a found ZIP shows "✓ Harlem, Manhattan" under the field; an uncovered ZIP is flagged at the
+field AND on the tailor list; when the other visit type has someone (a shop within 5 miles), suggest switching; "tell me"
+is by email at launch, by text once texts are on (PL-19); it fires once, when the first tailor covers the ZIP; a covered
+ZIP with nobody free by the need-by date lists each tailor's next opening anyway; "Use my current location" (permission
+prompt); saved addresses don't show the neighborhood; no waitlist demand shown to tailors. Four versions: a screener
+before Welcome, the ZIP inside Welcome, location first, the neighborhood wall (bold).
+
+_Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Taily ships as a mobile app.
 
 ## Before merging into taily-app
 

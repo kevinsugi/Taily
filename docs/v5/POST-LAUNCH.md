@@ -173,7 +173,7 @@ _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Ta
     $45–$65" · "Off · customers with one won’t see you" · "1 needs a price"), a +/− disc.
   - *Open section:* a white toggle-row "I work on suit jackets" (helper "Customers with suit jackets can book you." / off:
     "Off: customers with one won’t see you."), "Use recommended prices for suit jackets", then the existing `service-row`
-    rows in a list card (checkbox, name, "Most NYC tailors charge $35–$55.", price box, "Your payout: $38.25").
+    rows in a list card (checkbox, name, "Most NYC tailors charge $35–$55.", price box, "Your payout: $40.50" at the 10% fee, PL-06).
   - *Search:* filters to matching services, opens every garment that has one, highlights the match in the label, header
     reads 'Results for “sleeve”'; clearing restores the previous open state.
   - *Next with gaps:* banner "2 services need a price · Add a price or untick them. We opened those garments for you.",
@@ -472,15 +472,15 @@ _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Ta
 - **Artifact:** https://claude.ai/artifact/BG1PJK2w3QmEL1fnG63hhM (row "Round 3": V1e; row "Every version" of round 2:
   the onboarding rush section, its error and off states, the Done screen)
 - **Changes:**
-  - *Tailor card (`tailorRow`, right column, PL-12 layout):* "Est. $225" where the estimate = services + home visit fee
+  - *Tailor card (`tailorRow`, right column, PL-12 layout):* "Est. $200" where the estimate = services + home visit fee
     + rush fee. Under it, the time line: not a rush → clock + "7–10 days" (PL-12); a rush (need-by 0–3 days after the
     tailor's next opening) → the fee lines take its place. Fee lines (12 / 600 neutral-700, amount ink, tabular), the
-    first one prefixed "Incl." (12 / 500 neutral-600): "Incl. ⚡ 1-day rush: $40" / "⌂ Home visit: $25". Labels:
+    first one prefixed "Incl." (12 / 500 neutral-600): "Incl. ⚡ 1-day rush: $40" / "⌂ Home visit: $35". Labels:
     "Same-day rush", "1-day rush", "2-day rush", "3-day rush" (day count = fitting → need-by). Home fee $0 → "⌂ Free
     home visit" (success ink), never prefixed "Incl.". Tailor charges $0 for that tier → "⚡ No rush fee". Tailor has
     rush jobs off → "No rush jobs · 5–7 days" (warning ink, clock) and the estimate has no rush fee. Shop visits show no
     home line. Bolt in accent-base, home and clock in neutral-500, 14 px.
-  - *Screen readers:* "Amara Reyes, 4.9 stars, 37 reviews, estimate $225 including 1-day rush $40 and home visit $25,
+  - *Screen readers:* "Amara Reyes, 4.9 stars, 37 reviews, estimate $200 including 1-day rush $40 and home visit $35,
     from Williamsburg".
   - *Onboarding, Availability (to-availability):* a required "Rush fees" section after "Your usual turnaround": "For jobs
     due within 3 days of the fitting. The customer pays it on top, and it's yours in full." A toggle row "I take rush
@@ -600,7 +600,7 @@ _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Ta
     customer: initials avatar, "Sarah C.", "3 jobs · Oct 15 · Williamsburg" (one line, ellipsis), the total paid to
     the tailor (16 / 600) and a chevron.
   - *Customer page (new t-customer):* avatar, "Sarah C." (serif 28), "Williamsburg · since Feb 2026", a Message button
-    in the header; stats "3 jobs · $206.25 paid you · ★ 4.7 her ratings"; the private notes card ("Your notes · only
+    in the header; stats "3 jobs · $212.50 paid you · ★ 4.7 her ratings"; the private notes card ("Your notes · only
     you see these", Edit, "Updated Oct 15, at Sarah's fitting"); "PAST JOBS · 3": per job the date (year shown only
     for past years), payout + chevron, items (600), services, her stars with the finished photos (40 px) on the same
     line; each row opens that job.

@@ -129,7 +129,7 @@ Fonts: `--font-serif` Cormorant Garamond (headings), `--font-sans` Hanken Grotes
 - Seed: Amara Reyes (Reyes Tailoring, 312 Metropolitan Ave, Williamsburg 11211; home zips 11211 11222 11206 11237,
   home fee $35, rush $40 / $25 / $15 for ≤1 / 2 / 3 days). Sarah Chen, 145 N 7th St 2R, 11211. Demo clock Tue Oct 13
   10:00 AM. Seed job: Suit Pant hem $25 + Suit Jacket sleeves $45 + sides $55 → services $125.00, home fee $35.00,
-  total $160.00, deposit $16.00, balance $144.00, Taily fee −$18.75 (K-53: 15), payout $141.25.
+  total $160.00, deposit $16.00, balance $144.00, Taily fee −$12.50 (PL-06: 10, explore/post-launch; K-53 had 15), payout $147.50.
 
 ## Pre-MVP A1 (K-48): texts, waiting states, card window, visit day, courier (D-310 … D-318)
 

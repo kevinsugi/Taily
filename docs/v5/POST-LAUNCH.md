@@ -15,19 +15,7 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Customer ZIP screener_ (canvas https://claude.ai/artifact/YHDYXBBgQRHPrKPKEEQRz8). Kevin's calls: the very first
-screen is a ZIP screener; a found ZIP shows "✓ Harlem, Manhattan" under the field; an uncovered ZIP is flagged at the
-field AND on the tailor list; when the other visit type has someone (a shop within 5 miles), suggest switching; "tell me"
-is by email at launch, by text once texts are on (PL-19); it fires once, when the first tailor covers the ZIP; a covered
-ZIP with nobody free by the need-by date lists each tailor's next opening anyway; "Use my current location" (permission
-prompt); saved addresses don't show the neighborhood; no waitlist demand shown to tailors. Four versions: a screener
-before Welcome, the ZIP inside Welcome, location first, the neighborhood wall (bold).
-Direction (Oct 23): V2 becomes the app's home screen, the first screen of all, built on the approved Welcome (PL-01
-B3): logo, the jacket + dress rail, "Doesn't fit? Taily it", "Book expert tailors near you", then "Are we in your area?
-Enter your ZIP code below." over the ZIP field and "Use my current location"; one result line under the field; "Continue
-with email", Log in, and "Are you a tailor? Log in or Join Taily" — tailors skip the ZIP check. Nothing moves while
-typing (the number pad slides over the bottom). Outside Taily with nothing near: no sign-up; the button becomes "Email me
-when available" (one email, then greyed out once asked); a shop within 5 miles still lets them sign up.
+_Nothing open._
 
 _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Taily ships as a mobile app.
 
@@ -247,6 +235,9 @@ _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Ta
 - **Build notes:**
   - Store the rate on each job at accept, so a rate change never re-prices live jobs.
   - Prototype: tests and visual baselines that print fee or payout amounts change with it (re-accept those baselines).
+- **Built in the prototype (Oct 23, this branch only):** Kevin: "Fix it to 10%". `js/money-config.js` 0.15 → 0.10;
+  the model test's MONEY row and K-53 golden check now expect 10; to-fee reads "Taily’s 10% covers:". The canvases'
+  t-job, t-home and t-earnings screenshots were re-shot from it, so no money is patched over them any more.
 
 ### PL-07 · 2026-10-22 · What changes, payout first (t-adjust Final order + Edit order)
 - **Verdict:** Kevin: "V1 approved" → V1 · One number. Answers that shaped it: one section component for both screens;
@@ -523,7 +514,7 @@ _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Ta
     ink call button → tel:); "See the live map on Uber ↗" (secondary, opens Uber's tracking URL); the six steps with
     their times (pending Delivered shows "ETA 5:12 PM" in grey); "Problem with the delivery? Get help". Delivered: the
     drop-off photo (full width, tap to enlarge), "Leave a review for Amara" (black), "Didn't get it? Tell us"; no steps.
-  - *Booking page (c-booking, courier):* the status strip reads "On the way · ETA 5:12 PM"; the Taily courier section
+  - *Booking page (c-booking, courier):* the status strip reads "On the way · ETA 5:12 PM"; the Courier section
     becomes a card: the status row, a courier row (avatar, "Marcus, your courier", car + plate, outlined call button),
     "Track delivery" (black). Delivered: "See the delivery photo".
   - *Home (c-job):* a live card on top while the courier is booked → delivered: "Your order from Amara / Suit Pant,
@@ -532,7 +523,7 @@ _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Ta
     5:00–5:30" → "HERE / Outside now · ARRIVED 4:44 PM · WINDOW" (success tile), "Have Sarah's order packaged and ready
     by then." / "Hand him Sarah's order, then tap Handed to courier…", the courier row with a Call button, the route.
   - *Ready (c-ready):* the courier option reads "$13.00 · Uber to your door"; the courier block shows "Uber quote
-    $13.00" only (the Taily courier fee and Courier total lines go); Price "Taily courier $13.00", Total $173.00,
+    $13.00" only (the Taily courier fee and Courier total lines go); Price "Courier $13.00", Total $173.00,
     Pay $157.00.
   - *Texts:* "Taily: Marcus picked up your order from Amara. ETA 5:12 PM. Track it: taily.app/t/…" · "Taily: Marcus is
     about 5 min away with your order from Amara (gray Honda Civic)." · "Taily: Delivered at 5:10 PM, left in your
@@ -561,7 +552,7 @@ _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Ta
     ink), a 4-slot grid (photos with a ✕ to remove, an "Add" tile with a camera that opens the camera or library, the
     rest faint empty slots). The Add tile of an item with no photo has a warning dashed border. Under the cards:
     "Add to Photos of your work" / "Shown on your profile. Sarah's name never is." (unticked each job). Then "Return
-    options" with the two checkboxes always shown, label only: In-store pickup, Taily courier (only the options the
+    options" with the two checkboxes always shown, label only: In-store pickup, Courier (only the options the
     tailor offers). "Mark ready" is disabled while an item has no photo or no return option is ticked; the line under
     it says why ("Add a photo of the Suit Jacket to mark it ready." / "Pick at least one way for Sarah to get it
     back."), red after a tap on the disabled button with the item's card outlined; when ready it reads "Sarah sees the
@@ -600,18 +591,18 @@ _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Ta
     customer: initials avatar, "Sarah C.", "3 jobs · Oct 15 · Williamsburg" (one line, ellipsis), the total paid to
     the tailor (16 / 600) and a chevron.
   - *Customer page (new t-customer):* avatar, "Sarah C." (serif 28), "Williamsburg · since Feb 2026", a Message button
-    in the header; stats "3 jobs · $212.50 paid you · ★ 4.7 her ratings"; the private notes card ("Your notes · only
+    in the header; stats "3 jobs · $210.50 paid you · ★ 4.7 her ratings"; the private notes card ("Your notes · only
     you see these", Edit, "Updated Oct 15, at Sarah's fitting"); "PAST JOBS · 3": per job the date (year shown only
     for past years), payout + chevron, items (600), services, her stars with the finished photos (40 px) on the same
     line; each row opens that job.
   - *Job page (t-job):* for a returning customer a "RETURNING · 3RD JOB WITH YOU" pill with "Sarah's history ›", the
     notes from past jobs (editable), and "Past jobs with Sarah" (date · item, service, stars, payout).
-  - *Thread (t-thread):* under the job card one row: "3RD JOB · 2 past jobs with Sarah · $65.00 / Your notes: …" → the
+  - *Thread (t-thread):* under the job card one row: "3RD JOB · 2 past jobs with Sarah · $63.00 / Your notes: …" → the
     customer page.
   - *Home (t-home):* a returning customer's request card carries "RETURNING · 3RD JOB".
   - *Earnings (t-earnings), new order:* Next payout → Paid (recent payouts) → "TOTAL PAID" with a 2026 | 2025 switch,
-    "$4,820.50" (36), "38 jobs · Jan 1 – Oct 23, 2026" → the last three months ("October · so far / 4 jobs /
-    $612.75 ›", September, August) and "Show all 10 months" → "Email me the 2026 payouts (CSV)" (then "Sent to
+    "$4,826.50" (36), "38 jobs · Jan 1 – Oct 23, 2026" → the last three months ("October · so far / 4 jobs /
+    $619.00 ›", September, August) and "Show all 10 months" → "Email me the 2026 payouts (CSV)" (then "Sent to
     amara@reyestailoring.com · check your inbox") → Tax documents.
   - *The email:* "Your 2026 Taily payouts": the total and job count, one CSV row per job (date paid, customer first
     name + last initial, items, payout, bank), and "Your 2026 tax form (1099-K) will be ready in the Earnings tab by
@@ -621,6 +612,12 @@ _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Ta
   paid in the calendar year; the CSV job is server-side (email), dollars only.
 - **Evolves:** B2 / S1 private notes (per job → per customer), M5 t-earnings (adds the year), t-messages (adds the
   Customers tab), D-24 (name peek: history shows first name + last initial only).
+- **Example data (canvas, aligned Oct 23):** today Fri, Oct 23; payouts go out Fridays for jobs finished by Thursday.
+  Sarah: Feb 11 Pants · Replace zipper $27.00, Jun 2 Dress · Hem $36.00, Oct 15 the seed job $147.50 → $210.50 paid
+  you. Next payout $167.50 on Fri, Oct 23 (her job + her $20.00 tip, as PL-03); Paid Fri, Oct 16: Miles Turner, a
+  $112.50 shop job. October so far $619.00 from 4 jobs; 2026 total $4,826.50. The customer list runs Sarah C., Miles T.,
+  Priya S., Jenna L., Dev R., Nora P. (most recent first). On Home, her request is the seed request (Thu, Oct 15 ·
+  5:00 PM) with "RETURNING · 3RD JOB" and nothing else upcoming.
 
 ### PL-19 · 2026-10-23 · Notifications: texts come back, Text / Email per update (Account / Shop → Notifications, sign-up, t-home nudge, texts)
 - **Verdict:** Kevin: "V1 preferred, review it, suggest improvements, and implement them" (V1 = the Text / Email
@@ -666,3 +663,46 @@ _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Ta
   email code), K-48.4 (no quiet hours, unchanged), the Account "Texts" row.
 - **Build notes:** send nothing by text without a stored consent row; honour STOP from any text by switching texts off
   (and showing the off state in the app); the 2-hour request timer is unchanged.
+
+### PL-20 · 2026-10-23 · Home screen: "Are we in your area?" ZIP check first (new first screen, built on c-welcome)
+- **Verdict:** Kevin: "V2 is approved". Path: "the very first screen should be a screener" → "I like V2 but it should
+  just be the home screen, with the caption 'Are we in your area? Enter your zip code below' … add the option for
+  tailors to log in or sign up below, but they don't need to zip code verify" → "Use the other artifact … as the base.
+  The design also doesn't need to change when they start typing" → outside with nothing near: "just change the CTA to
+  'Email me when available'". Customers outside Taily can't sign up.
+- **Artifact:** https://claude.ai/artifact/YHDYXBBgQRHPrKPKEEQRz8 (V2 row: home, typing, covered, shops only, outside
+  with a shop near, outside with nothing near, the email sheet; plus Where and when, Tailors and The notice)
+- **Changes:**
+  - *Home (the app's first screen, on PL-01 B3's Welcome):* logo, the jacket + dress on the rail, "Doesn't fit? Taily
+    it", "Book expert tailors near you", then "Are we in your area? Enter your ZIP code below." over a ZIP field
+    (number pad) and "Use my current location" (the phone's location prompt). Nothing moves while typing: the number
+    pad slides up over the bottom. Under the field, one result line once 5 digits are in:
+    covered "✓ Harlem, Manhattan"; Taily ZIP with shops only "Shops only for now. No home visits here yet.";
+    outside with a shop within 5 miles "No tailors visit 11226 yet" + "A shop in Park Slope within 5 miles can fit you
+    in."; outside with nothing near "Taily isn't in 10301 yet".
+  - *Footer:* "Continue with email" (customers; needs a covered ZIP or a shop within 5 miles), "Already have an
+    account? Log in", "Are you a tailor? Log in or Join Taily" (tailors skip the ZIP check), Terms.
+  - *Outside, nothing near:* no sign-up. The button becomes "Email me when available" → an email sheet; once sent the
+    line reads "We'll email you when a tailor covers 10301." and the button greys out (one email per address and ZIP).
+  - *In booking (Where and when, Tailors):* the neighborhood shows under the ZIP; an address outside home visits offers
+    the shop; a covered ZIP with nobody free by the need-by date lists each tailor's next opening anyway; "Email me when
+    available" replaces "Text me".
+  - *The notice:* one email when the first tailor covers the ZIP ("A tailor now comes to Brooklyn Heights"); a text
+    only once texts are on (PL-19).
+- **Data:** `zipWaitlist { email, zip, at, notifiedAt }`; ZIP → neighborhood from the PL-10 / PL-11 table; "a shop
+  within 5 miles" = a tailor's shop address within 5 miles of the ZIP's centre. No waitlist demand is shown to tailors.
+- **Evolves:** PL-01 (Welcome becomes the home screen with the ZIP check), PL-10 (customer ZIP lookup), K-55 (email
+  first, text once on).
+- **Build notes:** the location prompt asks only when the button is tapped; a denied prompt falls back to the field.
+  Saved addresses don't show the neighborhood.
+
+## Consistency rules (review, Oct 23)
+Kevin's calls after the cross-entry review; every entry above follows them.
+- **Courier:** the delivery option and its price line read "Courier" (not "Taily courier").
+- **Disabled buttons:** the reason sits inside the button as a second, smaller line (the prototype's two-line CTA,
+  K-46 / D-303), e.g. "Send to Sarah for approval" over "Price Taper legs first" (PL-05, PL-07).
+- **Phone privacy at sign-up:** "For your visits. Calls go through a Taily number, so your tailor never sees it." /
+  tailor: "… so customers never see it." (PL-19; matches the call sheet).
+- **Sort lists:** one style everywhere (PL-12 Sort by, PL-14 Filter & sort): flat rows with hairline dividers, a
+  radio at the right, the selected one a filled ink disc with a check.
+- **Full-profile preview in onboarding:** one layout, PL-02 B1-profile's, at every tour step.

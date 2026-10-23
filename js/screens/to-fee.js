@@ -1,7 +1,7 @@
 /* ============================================================
    to-fee — K-53: the Taily fee, explained (tailor onboarding, before Services and prices). Part of step 2 ("Step 2 of 6 · Services
-   and prices"): to-profile's Next lands here, Next goes on to to-services. Focal: "Taily’s 15% covers:" — the five things the fee
-   pays for, each in one short line — then a worked example in dollars from money.js ("On a $100.00 job you keep $85.00").
+   and prices"): to-profile's Next lands here, Next goes on to to-services. Focal: "Taily’s 10% covers:" (PL-06) — the five things the fee
+   pays for, each in one short line — then a worked example in dollars from money.js ("On a $100.00 job you keep $90.00").
    THE ONLY SCREEN THAT SHOWS A PERCENT (money.js feePercent; the flows lint and scripts/v5/lint.mjs scope the exception to this id);
    every amount here is still dollars. A live tailor opens it from Services and prices ("What the fee covers"): Shop chrome, Back.
    ============================================================ */

@@ -44,7 +44,7 @@ const PAYOUT = (services, home = 0, rush = 0) => services - FEE(services) + home
 section('config + formatting');
 ok(Object.isFrozen(MONEY) && Object.isFrozen(POLICY), 'MONEY and POLICY are frozen');
 eq([MONEY.TAILY_FEE_RATE, MONEY.DEPOSIT_RATE, MONEY.COURIER_MARKUP, MONEY.COURIER_BASE, MONEY.COURIER_PER_MILE, MONEY.COURIER_PEAK, MONEY.COURIER_PEAK_FROM_H, MONEY.COURIER_PEAK_TO_H, MONEY.COURIER_ABSORB, 'NO_SHOW_COMP' in MONEY],
-  [0.15, 0.10, 0.10, 8, 2.5, 3.5, 17, 19, 3, false], 'MONEY table matches the fee settings (K-43: the simulated Uber quote has an evening peak; K-53: fee 15, courier absorb $3.00, no no-show floor)');
+  [0.10, 0.10, 0.10, 8, 2.5, 3.5, 17, 19, 3, false], 'MONEY table matches the fee settings (K-43: the simulated Uber quote has an evening peak; PL-06: fee 10 (K-53 had 15), courier absorb $3.00, no no-show floor)');
 eq([POLICY.BALANCE_HOLD_H, M.HOLD_DAYS, 'READY_DEFAULT_D' in POLICY, 'UNCLAIMED_CAPTURE_D' in POLICY, 'HANDOFF_PICK_DAYS' in POLICY], [114, 4, false, false, false], 'K-53: the ready hold lives 4 days 18 hours → 4 whole days; the 14-day default, the day-6 capture and the 5-day pick are retired');
 eq([POLICY.CANCEL_WINDOW_H, POLICY.REQUEST_EXPIRY_H, POLICY.MAX_RETRIES, POLICY.EXPIRING_SOON_MIN, POLICY.NO_SHOW_WAIT_MIN, POLICY.MIN_LEAD_H],
   [24, 2, 2, 15, 15, 3], 'POLICY table matches');
@@ -3055,7 +3055,7 @@ section('K-53 M · the courier at Pay (Q6)');
 }
 section('K-53 M · fee 15, no-show = deposit, the Ledger, the free window');
 {
-  eq([MONEY.TAILY_FEE_RATE, M.feePercent(), SCENARIOS.seed.tailyFee, SCENARIOS.seed.payout], [0.15, 15, FEE(12500), PAYOUT(12500, 3500)], 'K-53: the Taily fee is 15 — the seed fee and payout derive from it');
+  eq([MONEY.TAILY_FEE_RATE, M.feePercent(), SCENARIOS.seed.tailyFee, SCENARIOS.seed.payout], [0.10, 10, FEE(12500), PAYOUT(12500, 3500)], 'PL-06: the Taily fee is 10 (K-53 had 15) — the seed fee and payout derive from it');
   eq(M.payoutFor({ services: M.cents(MONEY.FEE_EXAMPLE_SERVICES) }), M.cents(MONEY.FEE_EXAMPLE_SERVICES) - FEE(M.cents(MONEY.FEE_EXAMPLE_SERVICES)), 'K-53: to-fee’s example — on a $100.00 job she keeps the services less the fee');
   S.reset(); let a = driveTo('no-show');
   eq([a.cancel.kept, a.cancel.tailorPaid, state.payouts.map((p) => [p.kind, p.cents])], [a.payments.deposit.cents, a.payments.deposit.cents, [['no-show', a.payments.deposit.cents]]], 'K-53 (Q7): a no-show pays the tailor the deposit only');

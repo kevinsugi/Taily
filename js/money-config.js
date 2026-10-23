@@ -5,7 +5,7 @@
    reads from here; the hygiene lint fails on a rate literal elsewhere.
    ============================================================ */
 export const MONEY = Object.freeze({
-  TAILY_FEE_RATE: 0.15,     // K-53 (was 0.10): of the services subtotal only (not home-visit fee, rush, courier) — from the tailor's payout.
+  TAILY_FEE_RATE: 0.10,     // PL-06 (explore/post-launch): back to 0.10 (K-53 had 0.15): of the services subtotal only (not home-visit fee, rush, courier) — from the tailor's payout.
                             //   Rendered as a percent ONLY on to-fee (money.js feePercent; the lint scopes it); everywhere else in dollars
   DEPOSIT_RATE: 0.10,       // of (services + home-visit fee), authorized at request, captured on accept
   COURIER_MARKUP: 0.10,     // on top of the courier quote, paid by the customer, kept by Taily

@@ -35,7 +35,7 @@ export const protectionLine = () => `Garment protection: Taily covers loss or da
 
 /* ---------- money in words, always dollars (never a rate, K-53) ---------- */
 const HUNDRED = cents(MONEY.FEE_EXAMPLE_SERVICES);
-/** "$15.00 of every $100.00" (reads MONEY.TAILY_FEE_RATE through money.js). */
+/** "$10.00 of every $100.00" (reads MONEY.TAILY_FEE_RATE through money.js). */
 const feeWords = () => `${fmtExact(tailyFeeFor(HUNDRED))} of every ${fmtExact(HUNDRED)}`;
 /** The deposit in the same dollars-per-$100.00 form (on the services plus the home visit fee). */
 const depositWords = () => `${fmtExact(depositFor(HUNDRED, 0))} of every ${fmtExact(HUNDRED)}`;

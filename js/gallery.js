@@ -1,7 +1,7 @@
 /* ============================================================
    Component gallery — every v5 component in each state, side by side,
    on the seed data (Amara's row, Sarah's $160.00 / $16.00 / $144.00
-   breakdown, the tailor's −$18.75 / $141.25 at the 15 fee). One builder, two homes:
+   breakdown, the tailor's −$12.50 / $147.50 at the 10 fee, PL-06). One builder, two homes:
    the `sys-components` screen (the visual baseline for the component
    layer) and the standalone /components.html page.
    ============================================================ */

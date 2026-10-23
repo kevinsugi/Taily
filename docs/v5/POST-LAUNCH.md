@@ -631,11 +631,13 @@ _Nothing in exploration._
   - *Rules:* every update keeps at least one way; unticking the last one shows "Keep at least one way to hear about
     this." under the row and nothing changes. Tailor unticks the New requests text → "Requests expire in 2 hours. A
     text is the fastest way to catch them." (a hint, not a block).
-  - *Texts off:* the Text row reads "Off · (718) 555-0142" with the switch off, nothing else. Flipping the switch on
-    opens an opt-in panel under the row (flipping it back closes it): an unticked box "Text me the updates I pick below" (tailor: "Text me so I don't miss a request") with the carrier
-    wording "To (718) 555-0142. Message frequency varies. Msg & data rates may apply. Reply STOP to opt out, HELP for
-    help." and "Turn on texts", disabled until ticked. The grid's Text column shows "–" (head "TEXTS OFF"); email
-    ticks stay live. Turning texts back on restores the earlier Text choices. Switching texts off is one tap.
+  - *Texts off:* the Text row reads "Off · (718) 555-0142" with the switch off, nothing else. Tapping the switch opens
+    an opt-in panel under the row but the switch stays off: an unticked box "Text me the updates I pick below"
+    (tailor: "Text me so I don't miss a request") with the carrier wording "To (718) 555-0142. Message frequency
+    varies. Msg & data rates may apply. Reply STOP to opt out, HELP for help." Ticking the box is the consent: texts
+    turn on, the switch moves to on, the Text column fills with the earlier choices, "Texts on" toast. Unticking (or
+    switching off) turns texts off again. No separate "Turn on texts" button. While off, the Text column shows "–"
+    (head "TEXTS OFF") and email ticks stay live.
   - *Sign-up:* customer step 3 "Your mobile number" and tailor step 1 carry an unticked box ("Text me about my
     bookings" / "Text me new requests and job updates", with the carrier wording), "Not ticked? We'll email you
     instead." and "You can change this any time in Account → Notifications" (tailor: Shop → Notifications).
@@ -645,7 +647,7 @@ _Nothing in exploration._
   - *Texts:* every SMS starts "Taily:", carries a short link and maps to one update above (see the canvas for the
     customer and tailor threads); STOP / HELP handled by the carrier keywords.
 - **Data:** per user `notify[update] = { text, email }` with the defaults above; `smsConsent { at, phone, wording }`
-  stored when "Turn on texts" is tapped (and at sign-up when ticked); texts off keeps the Text choices but sends none.
+  stored when the box is ticked (here or at sign-up); texts off keeps the Text choices but sends none.
 - **Evolves:** K-55 (email-only at launch → texts return per update once Twilio registration clears; sign-in stays an
   email code), K-48.4 (no quiet hours, unchanged), the Account "Texts" row.
 - **Build notes:** send nothing by text without a stored consent row; honour STOP from any text by switching texts off

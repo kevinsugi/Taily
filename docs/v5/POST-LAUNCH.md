@@ -15,7 +15,14 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Nothing open._
+_Services sheet ("what needs doing?"), Oct 24_ (canvas https://claude.ai/artifact/WbukA4D1RyUEj6ATpHKgoG). Kevin: the
+current sheet (one long list of "Category · Service" rows) is too much information; make it simpler; the customer still
+picks the exact service. Row 1 shows Today plus V1 grouped by area (recommended for most garments), V2 area first then
+service (recommended for long lists like Dresses), V3 area tabs and V4 tap the garment (bold), on the Suit Jacket.
+Next: Kevin asked for four more layouts, including a two-column layout, checked against industry patterns through the
+Mobbin connector (connect it at claude.ai/customize/connectors, then a new session). Planned: V5 two-column tiles,
+V6 split view (areas on the left, services on the right), V7 accordion with one area open, V8 most common first, then all.
+
 
 _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Taily ships as a mobile app.
 

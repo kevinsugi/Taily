@@ -15,14 +15,12 @@ Shipped calls stay in `DECISIONS.md`; an entry here may evolve a K-## but never 
 
 ## In exploration
 
-_Services sheet ("what needs doing?"), Oct 24_ (canvas https://claude.ai/artifact/WbukA4D1RyUEj6ATpHKgoG). Kevin: the
-current sheet (one long list of "Category · Service" rows) is too much information; make it simpler; the customer still
-picks the exact service. Row 1 shows Today plus V1 grouped by area (recommended for most garments), V2 area first then
-service (recommended for long lists like Dresses), V3 area tabs and V4 tap the garment (bold), on the Suit Jacket.
-Next: Kevin asked for four more layouts, including a two-column layout, checked against industry patterns through the
-Mobbin connector (connect it at claude.ai/customize/connectors, then a new session). Planned: V5 two-column tiles,
-V6 split view (areas on the left, services on the right), V7 accordion with one area open, V8 most common first, then all.
-
+_Services sheet ("what needs doing?"), Oct 24 — DONE: V6 approved, built into taily-app (PR #16, merged to staging)._
+Canvas https://claude.ai/artifact/WbukA4D1RyUEj6ATpHKgoG. Kevin: the old sheet (one long list of "Category · Service"
+rows) was too much information; the customer still picks the exact service. Explored V1 grouped by area, V2 area first,
+V3 area tabs, V4 tap the garment, then (checked against Mobbin) V5 two-column tiles, V6 split view, V7 accordion,
+V8 most common first. Built: V6 — the catalog's categories on a left rail (a count once one is picked), that area's
+services on the right without the "Area · " prefix, header = garment name; a garment with one area keeps the plain list.
 
 _Dropped:_ "make it feel like an app" (install prompt, icon, home screen) — Taily ships as a mobile app.
 
